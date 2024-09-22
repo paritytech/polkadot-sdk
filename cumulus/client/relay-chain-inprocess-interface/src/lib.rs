@@ -14,14 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{pin::Pin, sync::Arc, time::Duration};
+use std::{collections::btree_map::BTreeMap, pin::Pin, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use cumulus_primitives_core::{
 	relay_chain::{
-		runtime_api::ParachainHost, Block as PBlock, BlockId, CommittedCandidateReceipt,
-		Hash as PHash, Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
-		ValidationCodeHash, ValidatorId,
+		runtime_api::ParachainHost, Block as PBlock, BlockId, BlockNumber,
+		CommittedCandidateReceipt, CoreState, Hash as PHash, Header as PHeader, InboundHrmpMessage,
+		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -36,9 +36,9 @@ use sc_client_api::{
 	StorageProof,
 };
 use sc_telemetry::TelemetryWorkerHandle;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{CallApiAt, CallApiAtParams, CallContext, ProvideRuntimeApi};
 use sp_consensus::SyncOracle;
-use sp_core::{sp_std::collections::btree_map::BTreeMap, Pair};
+use sp_core::Pair;
 use sp_state_machine::{Backend as StateBackend, StorageValue};
 
 /// The timeout in seconds after that the waiting for a block should be aborted.
@@ -137,7 +137,11 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		hash: PHash,
 		para_id: ParaId,
 	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
-		Ok(self.full_client.runtime_api().candidate_pending_availability(hash, para_id)?)
+		Ok(self
+			.full_client
+			.runtime_api()
+			.candidate_pending_availability(hash, para_id)?
+			.map(|receipt| receipt.into()))
 	}
 
 	async fn session_index_for_child(&self, hash: PHash) -> RelayChainResult<SessionIndex> {
@@ -174,6 +178,23 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 
 	async fn finalized_block_hash(&self) -> RelayChainResult<PHash> {
 		Ok(self.backend.blockchain().info().finalized_hash)
+	}
+
+	async fn call_runtime_api(
+		&self,
+		method_name: &'static str,
+		hash: PHash,
+		payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		Ok(self.full_client.call_api_at(CallApiAtParams {
+			at: hash,
+			function: method_name,
+			arguments: payload.to_vec(),
+			overlayed_changes: &Default::default(),
+			call_context: CallContext::Offchain,
+			recorder: &None,
+			extensions: &Default::default(),
+		})?)
 	}
 
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
@@ -256,12 +277,31 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		Ok(Box::pin(notifications_stream))
 	}
 
+	async fn availability_cores(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
+		Ok(self
+			.full_client
+			.runtime_api()
+			.availability_cores(relay_parent)?
+			.into_iter()
+			.map(|core_state| core_state.into())
+			.collect::<Vec<_>>())
+	}
+
 	async fn candidates_pending_availability(
 		&self,
 		hash: PHash,
 		para_id: ParaId,
 	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
-		Ok(self.full_client.runtime_api().candidates_pending_availability(hash, para_id)?)
+		Ok(self
+			.full_client
+			.runtime_api()
+			.candidates_pending_availability(hash, para_id)?
+			.into_iter()
+			.map(|receipt| receipt.into())
+			.collect::<Vec<_>>())
 	}
 }
 
@@ -416,7 +456,7 @@ mod tests {
 
 	#[test]
 	fn returns_directly_for_available_block() {
-		let (mut client, block, relay_chain_interface) = build_client_backend_and_block();
+		let (client, block, relay_chain_interface) = build_client_backend_and_block();
 		let hash = block.hash();
 
 		block_on(client.import(BlockOrigin::Own, block)).expect("Imports the block");
@@ -432,7 +472,7 @@ mod tests {
 
 	#[test]
 	fn resolve_after_block_import_notification_was_received() {
-		let (mut client, block, relay_chain_interface) = build_client_backend_and_block();
+		let (client, block, relay_chain_interface) = build_client_backend_and_block();
 		let hash = block.hash();
 
 		block_on(async move {
@@ -461,7 +501,7 @@ mod tests {
 
 	#[test]
 	fn do_not_resolve_after_different_block_import_notification_was_received() {
-		let (mut client, block, relay_chain_interface) = build_client_backend_and_block();
+		let (client, block, relay_chain_interface) = build_client_backend_and_block();
 		let hash = block.hash();
 
 		let ext = construct_transfer_extrinsic(

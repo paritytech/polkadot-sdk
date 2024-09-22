@@ -28,6 +28,8 @@ use crate::{
 	dummy_builder,
 	environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
 	mock::{
+		availability_recovery::MockAvailabilityRecovery,
+		candidate_validation::MockCandidateValidation,
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
 		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
@@ -47,9 +49,13 @@ use itertools::Itertools;
 use orchestra::TimeoutExt;
 use overseer::{metrics::Metrics as OverseerMetrics, MetricsTrait};
 use polkadot_approval_distribution::ApprovalDistribution;
+use polkadot_node_primitives::approval::time::{
+	slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock,
+};
+
 use polkadot_node_core_approval_voting::{
-	time::{slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock},
 	ApprovalVotingSubsystem, Config as ApprovalVotingConfig, Metrics as ApprovalVotingMetrics,
+	RealAssignmentCriteria,
 };
 use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_node_primitives::approval::{self, v1::RelayVRFStory};
@@ -59,13 +65,14 @@ use polkadot_node_subsystem_types::messages::{ApprovalDistributionMessage, Appro
 use polkadot_node_subsystem_util::metrics::Metrics;
 use polkadot_overseer::Handle as OverseerHandleReal;
 use polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceipt, Hash, Header, Slot,
+	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceipt, Hash, Header, Slot, ValidatorId,
 	ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
 };
 use prometheus::Registry;
 use sc_keystore::LocalKeystore;
 use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
+use sp_application_crypto::AppCrypto;
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
 use sp_keystore::Keystore;
@@ -698,12 +705,12 @@ impl PeerMessageProducer {
 			.expect("We can't handle unknown peers")
 			.clone();
 
-		self.network
-			.send_message_from_peer(
-				&peer_authority_id,
-				protocol_v3::ValidationProtocol::ApprovalDistribution(message.msg).into(),
-			)
-			.unwrap_or_else(|_| panic!("Network should be up and running {:?}", sent_by));
+		if let Err(err) = self.network.send_message_from_peer(
+			&peer_authority_id,
+			protocol_v3::ValidationProtocol::ApprovalDistribution(message.msg).into(),
+		) {
+			gum::warn!(target: LOG_TARGET, ?sent_by, ?err, "Validator can not send message");
+		}
 	}
 
 	// Queues a message to be sent by the peer identified by the `sent_by` value.
@@ -792,6 +799,12 @@ fn build_overseer(
 			Some(state.test_authorities.key_seeds.get(NODE_UNDER_TEST as usize).unwrap().as_str()),
 		)
 		.unwrap();
+	keystore
+		.sr25519_generate_new(
+			ValidatorId::ID,
+			Some(state.test_authorities.key_seeds.get(NODE_UNDER_TEST as usize).unwrap().as_str()),
+		)
+		.unwrap();
 
 	let system_clock =
 		PastSystemClock::new(SystemClock {}, state.delta_tick_from_generated.clone());
@@ -801,11 +814,16 @@ fn build_overseer(
 		Arc::new(keystore),
 		Box::new(TestSyncOracle {}),
 		state.approval_voting_metrics.clone(),
-		Box::new(system_clock.clone()),
+		Arc::new(system_clock.clone()),
+		Arc::new(SpawnGlue(spawn_task_handle.clone())),
 	);
 
-	let approval_distribution =
-		ApprovalDistribution::new(Metrics::register(Some(&dependencies.registry)).unwrap());
+	let approval_distribution = ApprovalDistribution::new_with_clock(
+		Metrics::register(Some(&dependencies.registry)).unwrap(),
+		SLOT_DURATION_MILLIS,
+		Box::new(system_clock.clone()),
+		Arc::new(RealAssignmentCriteria {}),
+	);
 	let mock_chain_api = MockChainApi::new(state.build_chain_api_state());
 	let mock_chain_selection = MockChainSelection { state: state.clone(), clock: system_clock };
 	let mock_runtime_api = MockRuntimeApi::new(
@@ -831,7 +849,9 @@ fn build_overseer(
 		.replace_chain_selection(|_| mock_chain_selection)
 		.replace_runtime_api(|_| mock_runtime_api)
 		.replace_network_bridge_tx(|_| mock_tx_bridge)
-		.replace_network_bridge_rx(|_| mock_rx_bridge);
+		.replace_network_bridge_rx(|_| mock_rx_bridge)
+		.replace_availability_recovery(|_| MockAvailabilityRecovery::new())
+		.replace_candidate_validation(|_| MockCandidateValidation::new());
 
 	let (overseer, raw_handle) =
 		dummy.build_with_connector(overseer_connector).expect("Should not fail");
@@ -994,11 +1014,12 @@ pub async fn bench_approvals_run(
 		"polkadot_parachain_subsystem_bounded_received",
 		Some(("subsystem_name", "approval-distribution-subsystem")),
 		|value| {
-			gum::info!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
+			gum::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
 			value >= at_least_messages as f64
 		},
 	)
 	.await;
+
 	gum::info!("Requesting approval votes ms");
 
 	for info in &state.blocks {
@@ -1038,7 +1059,7 @@ pub async fn bench_approvals_run(
 		"polkadot_parachain_subsystem_bounded_received",
 		Some(("subsystem_name", "approval-distribution-subsystem")),
 		|value| {
-			gum::info!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
+			gum::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
 			value >= at_least_messages as f64
 		},
 	)

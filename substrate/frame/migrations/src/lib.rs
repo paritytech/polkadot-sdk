@@ -69,22 +69,22 @@
 //! either be [`MigrationCursor::Active`] or [`MigrationCursor::Stuck`]. In the active case it
 //! points to the currently active migration and stores its inner cursor. The inner cursor can then
 //! be used by the migration to store its inner state and advance. Each time when the migration
-//! returns `Some(cursor)`, it signals the pallet that it is not done yet.  
+//! returns `Some(cursor)`, it signals the pallet that it is not done yet.
 //! The cursor is reset on each runtime upgrade. This ensures that it starts to execute at the
 //! first migration in the vector. The pallets cursor is only ever incremented or set to `Stuck`
 //! once it encounters an error (Goal 4). Once in the stuck state, the pallet will stay stuck until
-//! it is fixed through manual governance intervention.  
+//! it is fixed through manual governance intervention.
 //! As soon as the cursor of the pallet becomes `Some(_)`; [`MultiStepMigrator::ongoing`] returns
 //! `true` (Goal 2). This can be used by upstream code to possibly pause transactions.
 //! In `on_initialize` the pallet will load the current migration and check whether it was already
 //! executed in the past by checking for membership of its ID in the [`Historic`] set. Historic
 //! migrations are skipped without causing an error. Each successfully executed migration is added
-//! to this set (Goal 5).  
+//! to this set (Goal 5).
 //! This proceeds until no more migrations remain. At that point, the event `UpgradeCompleted` is
-//! emitted (Goal 1).  
+//! emitted (Goal 1).
 //! The execution of each migration happens by calling [`SteppedMigration::transactional_step`].
 //! This function wraps the inner `step` function into a transactional layer to allow rollback in
-//! the error case (Goal 6).  
+//! the error case (Goal 6).
 //! Weight limits must be checked by the migration itself. The pallet provides a [`WeightMeter`] for
 //! that purpose. The pallet may return [`SteppedMigrationError::InsufficientWeight`] at any point.
 //! In that scenario, one of two things will happen: if that migration was exclusively executed
@@ -145,9 +145,12 @@ pub mod mock_helpers;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::ControlFlow;
 use frame_support::{
@@ -159,7 +162,6 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System};
 use sp_runtime::Saturating;
-use sp_std::vec::Vec;
 
 /// Points to the next migration to execute.
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
@@ -676,7 +678,7 @@ impl<T: Config> Pallet<T> {
 			return Some(ControlFlow::Break(cursor))
 		}
 
-		let Some(id) = T::Migrations::nth_id(cursor.index) else {
+		if cursor.index >= T::Migrations::len() {
 			// No more migrations in the tuple - we are done.
 			defensive_assert!(cursor.index == T::Migrations::len(), "Inconsistent MBMs tuple");
 			Self::deposit_event(Event::UpgradeCompleted);
@@ -685,8 +687,9 @@ impl<T: Config> Pallet<T> {
 			return None;
 		};
 
-		let Ok(bounded_id): Result<IdentifierOf<T>, _> = id.try_into() else {
-			defensive!("integrity_test ensures that all identifiers' MEL bounds fit into CursorMaxLen; qed.");
+		let id = T::Migrations::nth_id(cursor.index).map(TryInto::try_into);
+		let Some(Ok(bounded_id)): Option<Result<IdentifierOf<T>, _>> = id else {
+			defensive!("integrity_test ensures that all identifiers are present and bounde; qed.");
 			Self::upgrade_failed(Some(cursor.index));
 			return None
 		};

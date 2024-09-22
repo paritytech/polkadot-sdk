@@ -13,12 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::imports::*;
-use bridge_hub_rococo_runtime::{EthereumBeaconClient, EthereumInboundQueue, RuntimeOrigin};
 use codec::{Decode, Encode};
 use emulated_integration_tests_common::xcm_emulator::ConvertLocation;
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
-use rococo_system_emulated_network::penpal_emulated_chain::CustomizableAssetFromSystemAssetHub;
 use rococo_westend_system_emulated_network::BridgeHubRococoParaSender as BridgeHubRococoSender;
 use snowbridge_core::{inbound::InboundQueueFixture, outbound::OperatingMode};
 use snowbridge_pallet_inbound_queue_fixtures::{
@@ -64,7 +62,7 @@ pub fn send_inbound_message(fixture: InboundQueueFixture) -> DispatchResult {
 	)
 	.unwrap();
 	EthereumInboundQueue::submit(
-		RuntimeOrigin::signed(BridgeHubRococoSender::get()),
+		BridgeHubRococoRuntimeOrigin::signed(BridgeHubRococoSender::get()),
 		fixture.message,
 	)
 }
@@ -298,7 +296,7 @@ fn send_token_from_ethereum_to_penpal() {
 		assert_ok!(<PenpalA as Chain>::System::set_storage(
 			<PenpalA as Chain>::RuntimeOrigin::root(),
 			vec![(
-				CustomizableAssetFromSystemAssetHub::key().to_vec(),
+				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
 				Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]).encode(),
 			)],
 		));
@@ -379,7 +377,7 @@ fn send_token_from_ethereum_to_penpal() {
 /// - returning the token to Ethereum
 #[test]
 fn send_weth_asset_from_asset_hub_to_ethereum() {
-	use asset_hub_rococo_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
+	use ahr_xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
 	let assethub_location = BridgeHubRococo::sibling_location_of(AssetHubRococo::para_id());
 	let assethub_sovereign = BridgeHubRococo::sovereign_account_id_of(assethub_location);
 
@@ -562,7 +560,6 @@ fn send_token_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u12
 		2,
 		[EthereumNetwork::get().into(), AccountKey20 { network: None, key: WETH }],
 	);
-	// (Parent, Parent, EthereumNetwork::get(), AccountKey20 { network: None, key: WETH })
 	// Fund asset hub sovereign on bridge hub
 	let asset_hub_sovereign = BridgeHubRococo::sovereign_account_id_of(Location::new(
 		1,
@@ -671,8 +668,8 @@ fn send_token_from_ethereum_to_non_existent_account_on_asset_hub_with_insufficie
 #[test]
 fn send_token_from_ethereum_to_non_existent_account_on_asset_hub_with_sufficient_fee_but_do_not_satisfy_ed(
 ) {
-	// On AH the xcm fee is 33_873_024 and the ED is 3_300_000
-	send_token_from_ethereum_to_asset_hub_with_fee([1; 32], 36_000_000);
+	// On AH the xcm fee is 26_789_690 and the ED is 3_300_000
+	send_token_from_ethereum_to_asset_hub_with_fee([1; 32], 30_000_000);
 
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;

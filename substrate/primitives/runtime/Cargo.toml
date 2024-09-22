@@ -4,7 +4,7 @@ version = "31.0.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Runtime Modules shared primitive types."
 documentation = "https://docs.rs/sp-runtime"
@@ -32,8 +32,10 @@ sp-arithmetic = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-std = { workspace = true }
+sp-trie = { workspace = true }
 sp-weights = { workspace = true }
 docify = { workspace = true }
+tracing = { workspace = true, features = ["log"], default-features = false }
 
 simple-mermaid = { version = "0.1.1", optional = true }
 
@@ -68,7 +70,9 @@ std = [
 	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-tracing/std",
+	"sp-trie/std",
 	"sp-weights/std",
+	"tracing/std",
 ]
 
 # Serde support without relying on std features.

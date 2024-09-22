@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Cumulus.
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use collator_overseer::NewMinimalNode;
 
@@ -96,19 +96,20 @@ async fn build_interface(
 	client: RelayChainRpcClient,
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
 	let collator_pair = CollatorPair::generate().0;
+	let blockchain_rpc_client = Arc::new(BlockChainRpcClient::new(client.clone()));
 	let collator_node = match polkadot_config.network.network_backend {
 		sc_network::config::NetworkBackendType::Libp2p =>
 			new_minimal_relay_chain::<RelayBlock, sc_network::NetworkWorker<RelayBlock, RelayHash>>(
 				polkadot_config,
 				collator_pair.clone(),
-				Arc::new(BlockChainRpcClient::new(client.clone())),
+				blockchain_rpc_client,
 			)
 			.await?,
 		sc_network::config::NetworkBackendType::Litep2p =>
 			new_minimal_relay_chain::<RelayBlock, sc_network::Litep2pNetworkBackend>(
 				polkadot_config,
 				collator_pair.clone(),
-				Arc::new(BlockChainRpcClient::new(client.clone())),
+				blockchain_rpc_client,
 			)
 			.await?,
 	};
@@ -120,17 +121,19 @@ async fn build_interface(
 }
 
 pub async fn build_minimal_relay_chain_node_with_rpc(
-	polkadot_config: Configuration,
+	relay_chain_config: Configuration,
+	parachain_prometheus_registry: Option<&Registry>,
 	task_manager: &mut TaskManager,
 	relay_chain_url: Vec<Url>,
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
 	let client = cumulus_relay_chain_rpc_interface::create_client_and_start_worker(
 		relay_chain_url,
 		task_manager,
+		parachain_prometheus_registry,
 	)
 	.await?;
 
-	build_interface(polkadot_config, task_manager, client).await
+	build_interface(relay_chain_config, task_manager, client).await
 }
 
 pub async fn build_minimal_relay_chain_node_light_client(
@@ -175,9 +178,11 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 	collator_pair: CollatorPair,
 	relay_chain_rpc_client: Arc<BlockChainRpcClient>,
 ) -> Result<NewMinimalNode, RelayChainError> {
-	let role = config.role.clone();
-	let mut net_config =
-		sc_network::config::FullNetworkConfiguration::<_, _, Network>::new(&config.network);
+	let role = config.role;
+	let mut net_config = sc_network::config::FullNetworkConfiguration::<_, _, Network>::new(
+		&config.network,
+		config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
+	);
 	let metrics = Network::register_notification_metrics(
 		config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
 	);

@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Cumulus.
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
 use async_trait::async_trait;
@@ -26,9 +26,10 @@ use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt
 use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::{
-	CandidateCommitments, CandidateDescriptor, CollatorPair, CommittedCandidateReceipt,
-	Hash as PHash, HeadData, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
-	PersistedValidationData, SessionIndex, SigningContext, ValidationCodeHash, ValidatorId,
+	BlockNumber, CandidateCommitments, CandidateDescriptor, CollatorPair,
+	CommittedCandidateReceipt, CoreState, Hash as PHash, HeadData, InboundDownwardMessage,
+	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
+	SigningContext, ValidationCodeHash, ValidatorId,
 };
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
@@ -297,6 +298,13 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		Ok(header)
 	}
 
+	async fn availability_cores(
+		&self,
+		_relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
+		unimplemented!("Not needed for test");
+	}
+
 	async fn version(&self, _: PHash) -> RelayChainResult<RuntimeVersion> {
 		let version = self.data.lock().runtime_version;
 
@@ -315,8 +323,17 @@ impl RelayChainInterface for DummyRelayChainInterface {
 			impl_version: 0,
 			apis: Cow::Owned(apis),
 			transaction_version: 5,
-			state_version: 1,
+			system_version: 1,
 		})
+	}
+
+	async fn call_runtime_api(
+		&self,
+		_method_name: &'static str,
+		_hash: PHash,
+		_payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		unimplemented!("Not needed for test")
 	}
 }
 
@@ -604,7 +621,7 @@ fn relay_parent_not_imported_when_block_announce_is_processed() {
 	block_on(async move {
 		let (mut validator, api) = make_validator_and_api();
 
-		let mut client = api.relay_client.clone();
+		let client = api.relay_client.clone();
 		let block = client.init_polkadot_block_builder().build().expect("Build new block").block;
 
 		let (signal, header) = make_gossip_message_and_header(api, block.hash(), 0).await;

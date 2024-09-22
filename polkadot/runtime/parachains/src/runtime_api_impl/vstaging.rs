@@ -17,12 +17,14 @@
 //! Put implementations of functions from staging APIs here.
 
 use crate::{configuration, inclusion, initializer, scheduler};
-use polkadot_primitives::{CommittedCandidateReceipt, CoreIndex, Id as ParaId};
-use sp_runtime::traits::One;
-use sp_std::{
+use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	vec::Vec,
 };
+use polkadot_primitives::{
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, Id as ParaId,
+};
+use sp_runtime::traits::One;
 
 /// Returns the claimqueue from the scheduler
 pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {

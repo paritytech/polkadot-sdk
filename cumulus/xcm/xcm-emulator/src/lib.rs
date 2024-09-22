@@ -1,19 +1,22 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Cumulus.
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+extern crate alloc;
+
+pub use array_bytes;
 pub use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 pub use lazy_static::lazy_static;
 pub use log;
@@ -24,6 +27,8 @@ pub use std::{
 };
 
 // Substrate
+pub use alloc::collections::vec_deque::VecDeque;
+pub use core::{cell::RefCell, fmt::Debug};
 pub use cumulus_primitives_core::AggregateMessageOrigin as CumulusAggregateMessageOrigin;
 pub use frame_support::{
 	assert_ok,
@@ -44,7 +49,6 @@ pub use sp_core::{parameter_types, sr25519, storage::Storage, Pair};
 pub use sp_crypto_hashing::blake2_256;
 pub use sp_io::TestExternalities;
 pub use sp_runtime::BoundedSlice;
-pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, fmt::Debug};
 pub use sp_tracing;
 
 // Cumulus
@@ -293,9 +297,11 @@ impl Bridge for () {
 	fn init() {}
 }
 
+pub type BridgeLaneId = Vec<u8>;
+
 #[derive(Clone, Default, Debug)]
 pub struct BridgeMessage {
-	pub id: u32,
+	pub lane_id: BridgeLaneId,
 	pub nonce: u64,
 	pub payload: Vec<u8>,
 }
@@ -307,7 +313,7 @@ pub trait BridgeMessageHandler {
 		message: BridgeMessage,
 	) -> Result<(), BridgeMessageDispatchError>;
 
-	fn notify_source_message_delivery(lane_id: u32);
+	fn notify_source_message_delivery(lane_id: BridgeLaneId);
 }
 
 impl BridgeMessageHandler for () {
@@ -321,7 +327,7 @@ impl BridgeMessageHandler for () {
 		Err(BridgeMessageDispatchError(Box::new("Not a bridge")))
 	}
 
-	fn notify_source_message_delivery(_lane_id: u32) {}
+	fn notify_source_message_delivery(_lane_id: BridgeLaneId) {}
 }
 
 #[derive(Debug)]
@@ -521,7 +527,10 @@ macro_rules! __impl_test_ext_for_relay_chain {
 				<$network>::init();
 
 				// Execute
-				let r = $local_ext.with(|v| v.borrow_mut().execute_with(execute));
+				let r = $local_ext.with(|v| {
+					$crate::log::info!(target: "xcm::emulator::execute_with", "Executing as {}", stringify!($name));
+					v.borrow_mut().execute_with(execute)
+				});
 
 				// Send messages if needed
 				$local_ext.with(|v| {
@@ -545,7 +554,7 @@ macro_rules! __impl_test_ext_for_relay_chain {
 
 						// log events
 						Self::events().iter().for_each(|event| {
-							$crate::log::debug!(target: concat!("events::", stringify!($name)), "{:?}", event);
+							$crate::log::info!(target: concat!("events::", stringify!($name)), "{:?}", event);
 						});
 
 						// clean events
@@ -821,7 +830,10 @@ macro_rules! __impl_test_ext_for_parachain {
 				Self::new_block();
 
 				// Execute
-				let r = $local_ext.with(|v| v.borrow_mut().execute_with(execute));
+				let r = $local_ext.with(|v| {
+					$crate::log::info!(target: "xcm::emulator::execute_with", "Executing as {}", stringify!($name));
+					v.borrow_mut().execute_with(execute)
+				});
 
 				// Finalize the block
 				Self::finalize_block();
@@ -867,7 +879,7 @@ macro_rules! __impl_test_ext_for_parachain {
 
 						// log events
 						<Self as $crate::Chain>::events().iter().for_each(|event| {
-							$crate::log::debug!(target: concat!("events::", stringify!($name)), "{:?}", event);
+							$crate::log::info!(target: concat!("events::", stringify!($name)), "{:?}", event);
 						});
 
 						// clean events
@@ -1019,7 +1031,10 @@ macro_rules! decl_test_networks {
 											&mut msg.using_encoded($crate::blake2_256),
 										);
 									});
-									$crate::log::debug!(target: concat!("dmp::", stringify!($name)) , "DMP messages processed {:?} to para_id {:?}", msgs.clone(), &to_para_id);
+									let messages = msgs.clone().iter().map(|(block, message)| {
+										(*block, $crate::array_bytes::bytes2hex("0x", message))
+									}).collect::<Vec<_>>();
+									$crate::log::info!(target: concat!("xcm::dmp::", stringify!($name)) , "Downward messages processed by para_id {:?}: {:?}", &to_para_id, messages);
 									$crate::DMP_DONE.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().push_back((to_para_id, block, msg)));
 								}
 							}
@@ -1032,7 +1047,7 @@ macro_rules! decl_test_networks {
 
 					while let Some((to_para_id, messages))
 						= $crate::HORIZONTAL_MESSAGES.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().pop_front()) {
-						let iter = messages.iter().map(|(p, b, m)| (*p, *b, &m[..])).collect::<Vec<_>>().into_iter();
+						let iter = messages.iter().map(|(para_id, relay_block_number, message)| (*para_id, *relay_block_number, &message[..])).collect::<Vec<_>>().into_iter();
 						$(
 							let para_id: u32 = <$parachain<Self>>::para_id().into();
 
@@ -1042,7 +1057,10 @@ macro_rules! decl_test_networks {
 									// Nudge the MQ pallet to process immediately instead of in the next block.
 									let _ =  <$parachain<Self> as Parachain>::MessageProcessor::service_queues($crate::Weight::MAX);
 								});
-								$crate::log::debug!(target: concat!("hrmp::", stringify!($name)) , "HRMP messages processed {:?} to para_id {:?}", &messages, &to_para_id);
+								let messages = messages.clone().iter().map(|(para_id, relay_block_number, message)| {
+									(*para_id, *relay_block_number, $crate::array_bytes::bytes2hex("0x", message))
+								}).collect::<Vec<_>>();
+								$crate::log::info!(target: concat!("xcm::hrmp::", stringify!($name)), "Horizontal messages processed by para_id {:?}: {:?}", &to_para_id, &messages);
 							}
 						)*
 					}
@@ -1061,7 +1079,8 @@ macro_rules! decl_test_networks {
 								&mut msg.using_encoded($crate::blake2_256),
 							);
 						});
-						$crate::log::debug!(target: concat!("ump::", stringify!($name)) , "Upward message processed {:?} from para_id {:?}", &msg, &from_para_id);
+						let message = $crate::array_bytes::bytes2hex("0x", msg.clone());
+						$crate::log::info!(target: concat!("xcm::ump::", stringify!($name)) , "Upward message processed from para_id {:?}: {:?}", &from_para_id, &message);
 					}
 				}
 
@@ -1076,12 +1095,12 @@ macro_rules! decl_test_networks {
 						});
 
 						match dispatch_result {
-							Err(e) => panic!("Error {:?} processing bridged message: {:?}", e, msg.clone()),
+							Err(e) => panic!("Error {:?} processing bridged message: {:?}", e, msg),
 							Ok(()) => {
 								<<Self::Bridge as Bridge>::Source as TestExt>::ext_wrapper(|| {
-									<<Self::Bridge as Bridge>::Handler as BridgeMessageHandler>::notify_source_message_delivery(msg.id);
+									<<Self::Bridge as Bridge>::Handler as BridgeMessageHandler>::notify_source_message_delivery(msg.lane_id.clone());
 								});
-								$crate::log::debug!(target: concat!("bridge::", stringify!($name)) , "Bridged message processed {:?}", msg.clone());
+								$crate::log::info!(target: concat!("bridge::", stringify!($name)) , "Bridged message processed {:?}", msg);
 							}
 						}
 					}
@@ -1292,7 +1311,7 @@ macro_rules! assert_expected_events {
 		if !message.is_empty() {
 			// Log events as they will not be logged after the panic
 			<$chain as $crate::Chain>::events().iter().for_each(|event| {
-				$crate::log::debug!(target: concat!("events::", stringify!($chain)), "{:?}", event);
+				$crate::log::info!(target: concat!("events::", stringify!($chain)), "{:?}", event);
 			});
 			panic!("{}", message.concat())
 		}

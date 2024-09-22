@@ -33,11 +33,15 @@ mod benchmarking;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	ensure,
 	traits::{Currency, Get, InstanceFilter, IsSubType, IsType, OriginTrait, ReservableCurrency},
+	BoundedVec,
 };
 use frame_system::{self as system, ensure_signed, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
@@ -47,7 +51,6 @@ use sp_runtime::{
 	traits::{Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
 	DispatchError, DispatchResult, RuntimeDebug,
 };
-use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 type CallHashOf<T> = <<T as Config>::CallHasher as Hash>::Output;
@@ -568,7 +571,6 @@ pub mod pallet {
 	/// The set of account proxies. Maps the account which has delegated to the accounts
 	/// which are being delegated to, together with the amount held on deposit.
 	#[pallet::storage]
-	#[pallet::getter(fn proxies)]
 	pub type Proxies<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -585,7 +587,6 @@ pub mod pallet {
 
 	/// The announcements made by the proxy (key).
 	#[pallet::storage]
-	#[pallet::getter(fn announcements)]
 	pub type Announcements<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -599,6 +600,26 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Public function to proxies storage.
+	pub fn proxies(
+		account: T::AccountId,
+	) -> (
+		BoundedVec<ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>, T::MaxProxies>,
+		BalanceOf<T>,
+	) {
+		Proxies::<T>::get(account)
+	}
+
+	/// Public function to announcements storage.
+	pub fn announcements(
+		account: T::AccountId,
+	) -> (
+		BoundedVec<Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>, T::MaxPending>,
+		BalanceOf<T>,
+	) {
+		Announcements::<T>::get(account)
+	}
+
 	/// Calculate the address of an pure account.
 	///
 	/// - `who`: The spawner account.

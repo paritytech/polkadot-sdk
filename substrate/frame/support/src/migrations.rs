@@ -24,13 +24,14 @@ use crate::{
 	},
 	weights::{RuntimeDbWeight, Weight, WeightMeter},
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_arithmetic::traits::Bounded;
 use sp_core::Get;
 use sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
 use sp_runtime::traits::Zero;
-use sp_std::{marker::PhantomData, vec::Vec};
 
 /// Handles storage migration pallet versioning.
 ///
@@ -71,7 +72,7 @@ use sp_std::{marker::PhantomData, vec::Vec};
 /// /// - https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40
 /// mod version_unchecked {
 /// 	use super::*;
-/// 	pub struct VersionUncheckedMigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
+/// 	pub struct VersionUncheckedMigrateV5ToV6<T>(core::marker::PhantomData<T>);
 /// 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV5ToV6<T> {
 /// 		// `UncheckedOnRuntimeUpgrade` implementation...
 /// 	}
@@ -102,7 +103,7 @@ pub struct VersionedMigration<const FROM: u16, const TO: u16, Inner, Pallet, Wei
 #[derive(Encode, Decode)]
 pub enum VersionedPostUpgradeData {
 	/// The migration ran, inner vec contains pre_upgrade data.
-	MigrationExecuted(sp_std::vec::Vec<u8>),
+	MigrationExecuted(alloc::vec::Vec<u8>),
 	/// This migration is a noop, do not run post_upgrade checks.
 	Noop,
 }
@@ -125,7 +126,7 @@ impl<
 	/// [`VersionedPostUpgradeData`] before passing them to post_upgrade, so it knows whether the
 	/// migration ran or not.
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		let on_chain_version = Pallet::on_chain_storage_version();
 		if on_chain_version == FROM {
 			Ok(VersionedPostUpgradeData::MigrationExecuted(Inner::pre_upgrade()?).encode())
@@ -175,7 +176,7 @@ impl<
 	/// the migration ran, and [`VersionedPostUpgradeData::Noop`] otherwise.
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(
-		versioned_post_upgrade_data_bytes: sp_std::vec::Vec<u8>,
+		versioned_post_upgrade_data_bytes: alloc::vec::Vec<u8>,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		use codec::DecodeAll;
 		match <VersionedPostUpgradeData>::decode_all(&mut &versioned_post_upgrade_data_bytes[..])
@@ -339,7 +340,7 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		use crate::storage::unhashed::contains_prefixed_key;
 
 		let hashed_prefix = twox_128(P::get().as_bytes());
@@ -350,11 +351,11 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 				P::get()
 			),
 		};
-		Ok(sp_std::vec::Vec::new())
+		Ok(alloc::vec::Vec::new())
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+	fn post_upgrade(_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		use crate::storage::unhashed::contains_prefixed_key;
 
 		let hashed_prefix = twox_128(P::get().as_bytes());
@@ -450,7 +451,7 @@ impl<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		use crate::storage::unhashed::contains_prefixed_key;
 
 		let hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
@@ -466,7 +467,7 @@ impl<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+	fn post_upgrade(_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		use crate::storage::unhashed::contains_prefixed_key;
 
 		let hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
@@ -672,7 +673,8 @@ pub trait SteppedMigrations {
 
 	/// The `n`th [`SteppedMigration::id`].
 	///
-	/// Is guaranteed to return `Some` if `n < Self::len()`.
+	/// Is guaranteed to return `Some` if `n < Self::len()`. Calling this with any index larger or
+	/// equal to `Self::len()` MUST return `None`.
 	fn nth_id(n: u32) -> Option<Vec<u8>>;
 
 	/// The [`SteppedMigration::max_steps`] of the `n`th migration.
@@ -776,8 +778,10 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 		1
 	}
 
-	fn nth_id(_n: u32) -> Option<Vec<u8>> {
-		Some(T::id().encode())
+	fn nth_id(n: u32) -> Option<Vec<u8>> {
+		n.is_zero()
+			.then_some(T::id().encode())
+			.defensive_proof("nth_id should only be called with n==0")
 	}
 
 	fn nth_max_steps(n: u32) -> Option<Option<u32>> {

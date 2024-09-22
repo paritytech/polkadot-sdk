@@ -28,9 +28,10 @@ Single message lane may be seen as a transport channel for single application (o
 time the module itself never dictates any lane or message rules. In the end, it is the runtime developer who defines
 what message lane and message mean for this runtime.
 
-In our [Kusama<>Polkadot bridge](../../docs/polkadot-kusama-bridge-overview.md) we are using lane as a channel of
-communication between two parachains of different relay chains. For example, lane `[0, 0, 0, 0]` is used for Polkadot <>
-Kusama Asset Hub communications. Other lanes may be used to bridge other parachains.
+In our [Kusama<>Polkadot bridge](../../docs/polkadot-kusama-bridge-overview.md) we are using lane
+as a channel of communication between two parachains of different relay chains. For example, lane
+`[0, 0, 0, 0]` is used for Polkadot <> Kusama Asset Hub communications. Other lanes may be used to
+bridge other parachains.
 
 ## Message Workflow
 
@@ -104,17 +105,22 @@ the message. When a message is delivered to the target chain, the `MessagesDeliv
 `receive_messages_delivery_proof()` transaction. The `MessagesDelivered` contains the message lane identifier and
 inclusive range of delivered message nonces.
 
-The pallet provides no means to get the result of message dispatch at the target chain. If that is required, it must be
-done outside of the pallet. For example, XCM messages, when dispatched, have special instructions to send some data back
-to the sender. Other dispatchers may use similar mechanism for that.
-### How to plug-in Messages Module to Send Messages to the Bridged Chain?
+The pallet provides no means to get the result of message dispatch at the target chain. If that is
+required, it must be done outside of the pallet. For example, XCM messages, when dispatched, have
+special instructions to send some data back to the sender. Other dispatchers may use similar
+mechanism for that.
 
-The `pallet_bridge_messages::Config` trait has 3 main associated types that are used to work with outbound messages. The
-`pallet_bridge_messages::Config::TargetHeaderChain` defines how we see the bridged chain as the target for our outbound
-messages. It must be able to check that the bridged chain may accept our message - like that the message has size below
-maximal possible transaction size of the chain and so on. And when the relayer sends us a confirmation transaction, this
-implementation must be able to parse and verify the proof of messages delivery. Normally, you would reuse the same
-(configurable) type on all chains that are sending messages to the same bridged chain.
+### How to plug-in Messages Module to Send and Receive Messages from the Bridged Chain?
+
+The `pallet_bridge_messages::Config` trait has 2 main associated types that are used to work with
+inbound messages. The `pallet_bridge_messages::BridgedChain` defines basic primitives of the bridged
+chain. The `pallet_bridge_messages::BridgedHeaderChain` defines the way we access the bridged chain
+headers in our runtime. You may use `pallet_bridge_grandpa` if you're bridging with chain that uses
+GRANDPA finality or `pallet_bridge_parachains::ParachainHeaders` if you're bridging with parachain.
+
+The `pallet_bridge_messages::Config::MessageDispatch` defines a way on how to dispatch delivered
+messages. Apart from actually dispatching the message, the implementation must return the correct
+dispatch weight of the message before dispatch is called.
 
 The last type is the `pallet_bridge_messages::Config::DeliveryConfirmationPayments`. When confirmation
 transaction is received, we call the `pay_reward()` method, passing the range of delivered messages.
@@ -129,18 +135,6 @@ You should be looking at the `bp_messages::source_chain::ForbidOutboundMessages`
 [`bp_messages::source_chain`](../../primitives/messages/src/source_chain.rs). It implements all required traits and will
 simply reject all transactions, related to outbound messages.
 
-### How to plug-in Messages Module to Receive Messages from the Bridged Chain?
-
-The `pallet_bridge_messages::Config` trait has 2 main associated types that are used to work with inbound messages. The
-`pallet_bridge_messages::Config::SourceHeaderChain` defines how we see the bridged chain as the source of our inbound
-messages. When relayer sends us a delivery transaction, this implementation must be able to parse and verify the proof
-of messages wrapped in this transaction. Normally, you would reuse the same (configurable) type on all chains that are
-sending messages to the same bridged chain.
-
-The `pallet_bridge_messages::Config::MessageDispatch` defines a way on how to dispatch delivered messages. Apart from
-actually dispatching the message, the implementation must return the correct dispatch weight of the message before
-dispatch is called.
-
 ### I have a Messages Module in my Runtime, but I Want to Reject all Inbound Messages. What shall I do?
 
 You should be looking at the `bp_messages::target_chain::ForbidInboundMessages` structure from the
@@ -149,37 +143,42 @@ and will simply reject all transactions, related to inbound messages.
 
 ### What about other Constants in the Messages Module Configuration Trait?
 
-Two settings that are used to check messages in the `send_message()` function. The
-`pallet_bridge_messages::Config::ActiveOutboundLanes` is an array of all message lanes, that may be used to send
-messages. All messages sent using other lanes are rejected. All messages that have size above
-`pallet_bridge_messages::Config::MaximalOutboundPayloadSize` will also be rejected.
+`pallet_bridge_messages::Config::MaximalOutboundPayloadSize` constant defines the maximal size
+of outbound message that may be sent. If the message size is above this limit, the message is
+rejected.
 
-To be able to reward the relayer for delivering messages, we store a map of message nonces range => identifier of the
-relayer that has delivered this range at the target chain runtime storage. If a relayer delivers multiple consequent
-ranges, they're merged into single entry. So there may be more than one entry for the same relayer. Eventually, this
-whole map must be delivered back to the source chain to confirm delivery and pay rewards. So to make sure we are able to
-craft this confirmation transaction, we need to: (1) keep the size of this map below a certain limit and (2) make sure
-that the weight of processing this map is below a certain limit. Both size and processing weight mostly depend on the
-number of entries. The number of entries is limited with the
-`pallet_bridge_messages::ConfigMaxUnrewardedRelayerEntriesAtInboundLane` parameter. Processing weight also depends on
-the total number of messages that are being confirmed, because every confirmed message needs to be read. So there's
-another `pallet_bridge_messages::Config::MaxUnconfirmedMessagesAtInboundLane` parameter for that.
+To be able to reward the relayer for delivering messages, we store a map of message nonces range =>
+identifier of the relayer that has delivered this range at the target chain runtime storage. If a
+relayer delivers multiple consequent ranges, they're merged into single entry. So there may be more
+than one entry for the same relayer. Eventually, this whole map must be delivered back to the source
+chain to confirm delivery and pay rewards. So to make sure we are able to craft this confirmation
+transaction, we need to: (1) keep the size of this map below a certain limit and (2) make sure that
+the weight of processing this map is below a certain limit. Both size and processing weight mostly
+depend on the number of entries. The number of entries is limited with the
+`pallet_bridge_messages::Config::BridgedChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX` parameter.
+Processing weight also depends on the total number of messages that are being confirmed, because every
+confirmed message needs to be read. So there's another
+`pallet_bridge_messages::Config::BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX` parameter
+for that.
 
-When choosing values for these parameters, you must also keep in mind that if proof in your scheme is based on finality
-of headers (and it is the most obvious option for Substrate-based chains with finality notion), then choosing too small
-values for these parameters may cause significant delays in message delivery. That's because there are too many actors
-involved in this scheme: 1) authorities that are finalizing headers of the target chain need to finalize header with
-non-empty map; 2) the headers relayer then needs to submit this header and its finality proof to the source chain; 3)
-the messages relayer must then send confirmation transaction (storage proof of this map) to the source chain; 4) when
-the confirmation transaction will be mined at some header, source chain authorities must finalize this header; 5) the
-headers relay then needs to submit this header and its finality proof to the target chain; 6) only now the messages
-relayer may submit new messages from the source to target chain and prune the entry from the map.
+When choosing values for these parameters, you must also keep in mind that if proof in your scheme
+is based on finality of headers (and it is the most obvious option for Substrate-based chains with
+finality notion), then choosing too small values for these parameters may cause significant delays
+in message delivery. That's because there are too many actors involved in this scheme: 1) authorities
+that are finalizing headers of the target chain need to finalize header with non-empty map; 2) the
+headers relayer then needs to submit this header and its finality proof to the source chain; 3) the
+messages relayer must then send confirmation transaction (storage proof of this map) to the source
+chain; 4) when the confirmation transaction will be mined at some header, source chain authorities
+must finalize this header; 5) the headers relay then needs to submit this header and its finality
+proof to the target chain; 6) only now the messages relayer may submit new messages from the source
+to target chain and prune the entry from the map.
 
-Delivery transaction requires the relayer to provide both number of entries and total number of messages in the map.
-This means that the module never charges an extra cost for delivering a map - the relayer would need to pay exactly for
-the number of entries+messages it has delivered. So the best guess for values of these parameters would be the pair that
-would occupy `N` percent of the maximal transaction size and weight of the source chain. The `N` should be large enough
-to process large maps, at the same time keeping reserve for future source chain upgrades.
+Delivery transaction requires the relayer to provide both number of entries and total number of
+messages in the map. This means that the module never charges an extra cost for delivering a map -
+the relayer would need to pay exactly for the number of entries+messages it has delivered. So the
+best guess for values of these parameters would be the pair that would occupy `N` percent of the
+maximal transaction size and weight of the source chain. The `N` should be large enough to process
+large maps, at the same time keeping reserve for future source chain upgrades.
 
 ## Non-Essential Functionality
 

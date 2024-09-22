@@ -151,7 +151,10 @@ pub mod block_flowchart {}
 #[cfg(test)]
 mod tests;
 
+extern crate alloc;
+
 use codec::{Codec, Encode};
+use core::marker::PhantomData;
 use frame_support::{
 	defensive_assert,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
@@ -174,7 +177,6 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode,
 };
-use sp_std::{marker::PhantomData, prelude::*};
 
 #[cfg(feature = "try-runtime")]
 use ::{
@@ -467,7 +469,7 @@ where
 
 	/// Logs the result of trying to decode the entire state.
 	fn log_decode_result(
-		res: Result<usize, Vec<TryDecodeEntireStorageError>>,
+		res: Result<usize, alloc::vec::Vec<TryDecodeEntireStorageError>>,
 	) -> Result<(), TryRuntimeError> {
 		match res {
 			Ok(bytes) => {

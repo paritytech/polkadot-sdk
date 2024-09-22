@@ -32,6 +32,7 @@ use crate::{
 };
 
 use futures::{channel::oneshot, Stream};
+use libp2p::kad::Record;
 use prometheus_endpoint::Registry;
 
 use sc_client_api::BlockBackend;
@@ -134,7 +135,7 @@ pub trait NetworkBackend<B: BlockT + 'static, H: ExHashT>: Send + 'static {
 	fn network_service(&self) -> Arc<dyn NetworkService>;
 
 	/// Create [`PeerStore`].
-	fn peer_store(bootnodes: Vec<PeerId>) -> Self::PeerStore;
+	fn peer_store(bootnodes: Vec<PeerId>, metrics_registry: Option<Registry>) -> Self::PeerStore;
 
 	/// Register metrics that are used by the notification protocols.
 	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics;
@@ -217,6 +218,11 @@ pub trait NetworkDHTProvider {
 	/// Start putting a value in the DHT.
 	fn put_value(&self, key: KademliaKey, value: Vec<u8>);
 
+	/// Start putting the record to `peers`.
+	///
+	/// If `update_local_storage` is true the local storage is udpated as well.
+	fn put_record_to(&self, record: Record, peers: HashSet<PeerId>, update_local_storage: bool);
+
 	/// Store a record in the DHT memory store.
 	fn store_record(
 		&self,
@@ -238,6 +244,10 @@ where
 
 	fn put_value(&self, key: KademliaKey, value: Vec<u8>) {
 		T::put_value(self, key, value)
+	}
+
+	fn put_record_to(&self, record: Record, peers: HashSet<PeerId>, update_local_storage: bool) {
+		T::put_record_to(self, record, peers, update_local_storage)
 	}
 
 	fn store_record(

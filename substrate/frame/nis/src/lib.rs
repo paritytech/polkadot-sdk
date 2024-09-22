@@ -76,6 +76,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use frame_support::traits::{
 	fungible::{self, Inspect as FunInspect, Mutate as FunMutate},
 	tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
@@ -95,7 +97,7 @@ mod mock;
 mod tests;
 pub mod weights;
 
-pub struct WithMaximumOf<A: TypedGet>(sp_std::marker::PhantomData<A>);
+pub struct WithMaximumOf<A: TypedGet>(core::marker::PhantomData<A>);
 impl<A: TypedGet> Convert<Perquintill, A::Type> for WithMaximumOf<A>
 where
 	A::Type: Clone + Unsigned + From<u64>,
@@ -116,7 +118,7 @@ where
 	}
 }
 
-pub struct NoCounterpart<T>(sp_std::marker::PhantomData<T>);
+pub struct NoCounterpart<T>(core::marker::PhantomData<T>);
 impl<T> FunInspect<T> for NoCounterpart<T> {
 	type Balance = u32;
 	fn total_issuance() -> u32 {
@@ -171,6 +173,7 @@ impl BenchmarkSetup for () {
 pub mod pallet {
 	use super::{FunInspect, FunMutate};
 	pub use crate::weights::WeightInfo;
+	use alloc::{vec, vec::Vec};
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{
@@ -193,7 +196,6 @@ pub mod pallet {
 		traits::{AccountIdConversion, Bounded, Convert, ConvertBack, Saturating, Zero},
 		Rounding, TokenError,
 	};
-	use sp_std::prelude::*;
 
 	type BalanceOf<T> =
 		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -372,7 +374,7 @@ pub mod pallet {
 		pub receipts_on_hold: Balance,
 	}
 
-	pub struct OnEmptyQueueTotals<T>(sp_std::marker::PhantomData<T>);
+	pub struct OnEmptyQueueTotals<T>(core::marker::PhantomData<T>);
 	impl<T: Config> Get<QueueTotalsTypeOf<T>> for OnEmptyQueueTotals<T> {
 		fn get() -> QueueTotalsTypeOf<T> {
 			BoundedVec::truncate_from(vec![
@@ -573,7 +575,7 @@ pub mod pallet {
 					// queue is <Ordered: Lowest ... Highest><Fifo: Last ... First>
 					let mut bid = Bid { amount, who: who.clone() };
 					let net = if queue_full {
-						sp_std::mem::swap(&mut q[0], &mut bid);
+						core::mem::swap(&mut q[0], &mut bid);
 						let _ = T::Currency::release(
 							&HoldReason::NftReceipt.into(),
 							&bid.who,
@@ -755,7 +757,13 @@ pub mod pallet {
 					// We ignore this error as it just means the amount we're trying to deposit is
 					// dust and the beneficiary account doesn't exist.
 					.or_else(
-						|e| if e == TokenError::CannotCreate.into() { Ok(()) } else { Err(e) },
+						|e| {
+							if e == TokenError::CannotCreate.into() {
+								Ok(())
+							} else {
+								Err(e)
+							}
+						},
 					)?;
 					summary.receipts_on_hold.saturating_reduce(on_hold);
 				}

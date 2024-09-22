@@ -21,7 +21,7 @@ if [ ! -z "$1" ]; then
     echo "rustup needs to be installed"
     exit
   fi
-  
+
   rustup install $RUST_VERSION
   rustup component add rust-src --toolchain $RUST_VERSION
 fi
@@ -38,3 +38,4 @@ $RUSTUP_RUN cargo test --manifest-path substrate/primitives/runtime-interface/Ca
 $RUSTUP_RUN cargo test -p sp-api-test ui
 $RUSTUP_RUN cargo test -p frame-election-provider-solution-type ui
 $RUSTUP_RUN cargo test -p frame-support-test --features=no-metadata-docs,try-runtime,experimental ui
+$RUSTUP_RUN cargo test -p xcm-procedural ui

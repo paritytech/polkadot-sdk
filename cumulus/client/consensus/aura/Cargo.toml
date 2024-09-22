@@ -16,6 +16,7 @@ futures = { workspace = true }
 parking_lot = { workspace = true }
 tracing = { workspace = true, default-features = true }
 schnellru = { workspace = true }
+tokio = { workspace = true, features = ["macros"] }
 
 # Substrate
 sc-client-api = { workspace = true, default-features = true }
@@ -23,6 +24,7 @@ sc-consensus = { workspace = true, default-features = true }
 sc-consensus-aura = { workspace = true, default-features = true }
 sc-consensus-babe = { workspace = true, default-features = true }
 sc-consensus-slots = { workspace = true, default-features = true }
+sc-utils = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
@@ -52,3 +54,7 @@ polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
+
+[features]
+# Allows collator to use full PoV size for block building
+full-pov-size = []

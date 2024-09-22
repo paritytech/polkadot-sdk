@@ -25,7 +25,7 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 
 #[cfg(feature = "westend-native")]
-use polkadot_primitives::vstaging::SchedulerParams;
+use polkadot_primitives::SchedulerParams;
 #[cfg(feature = "rococo-native")]
 use rococo_runtime as rococo;
 use sc_chain_spec::ChainSpecExtension;
@@ -658,7 +658,8 @@ fn westend_local_testnet_genesis() -> serde_json::Value {
 #[cfg(feature = "westend-native")]
 pub fn westend_local_testnet_config() -> Result<WestendChainSpec, String> {
 	Ok(WestendChainSpec::builder(
-		westend::WASM_BINARY.ok_or("Westend development wasm not available")?,
+		westend::fast_runtime_binary::WASM_BINARY
+			.ok_or("Westend development wasm not available")?,
 		Default::default(),
 	)
 	.with_name("Westend Local Testnet")

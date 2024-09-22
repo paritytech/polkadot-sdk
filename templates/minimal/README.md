@@ -14,7 +14,7 @@
 * 🤏 This template is a minimal (in terms of complexity and the number of components)
 template for building a blockchain node.
 
-* 🔧 Its runtime is configured of a single custom pallet as a starting point, and a handful of ready-made pallets
+* 🔧 Its runtime is configured with a single custom pallet as a starting point, and a handful of ready-made pallets
 such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
 
 * 👤 The template has no consensus configured - it is best for experimenting with a single node network.
@@ -37,21 +37,14 @@ A Polkadot SDK based project such as this one consists of:
 * 🛠️ Depending on your operating system and Rust version, there might be additional
 packages required to compile this template - please take note of the Rust compiler output.
 
-## Customization
+Fetch minimal template code:
 
-In case you would like to change the pallet's name from  `pallet-minimal-template` to `pallet-test`, 
-you would need to implement the following changes:
-* Change the pallet folder name from `template` to `test` for consistency
-* Also for consistency, in `/runtime/src/lib.rs`, change from `pub type Template` to `pub type Test`, 
-and don't forget to also customize the corresponding comments.
-* Change  `pallet-minimal-template` to `pallet-test` in the following files:
-    * `/runtime/Cargo.toml`
-    * `/runtime/src/lib.rs`
-    * `/pallets/test/Cargo.toml`
-    * `/src/lib.rs`
-* Change `pallet_minimal_template` to `pallet_test` in the following files:
-    * `/runtime/src/lib.rs`
-  
+```sh
+git clone https://github.com/paritytech/polkadot-sdk-minimal-template.git minimal-template
+
+cd minimal-template
+```
+
 ### Build
 
 🔨 Use the following command to build the node without launching it:
@@ -80,8 +73,8 @@ docker run --rm polkadot-sdk-minimal-template --dev
 Development chains:
 
 * 🧹 Do not persist the state.
-* 💰 Are preconfigured with a genesis state that includes several prefunded development accounts.
-* 🧑‍⚖️ Development accounts are used as `sudo` accounts.
+* 💰 Are pre-configured with a genesis state that includes several pre-funded development accounts.
+* 🧑‍⚖️ One development account (`ALICE`) is used as `sudo` accounts.
 
 ### Connect with the Polkadot-JS Apps Front-End
 

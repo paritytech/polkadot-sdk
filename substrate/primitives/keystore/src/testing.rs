@@ -22,7 +22,7 @@ use crate::{Error, Keystore, KeystorePtr};
 #[cfg(feature = "bandersnatch-experimental")]
 use sp_core::bandersnatch;
 #[cfg(feature = "bls-experimental")]
-use sp_core::{bls377, bls381, ecdsa_bls377, KeccakHasher};
+use sp_core::{bls381, ecdsa_bls381, KeccakHasher};
 use sp_core::{
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
 	ecdsa, ed25519, sr25519,
@@ -299,62 +299,38 @@ impl Keystore for MemoryKeystore {
 	}
 
 	#[cfg(feature = "bls-experimental")]
-	fn bls377_public_keys(&self, key_type: KeyTypeId) -> Vec<bls377::Public> {
-		self.public_keys::<bls377::Pair>(key_type)
+	fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
+		self.public_keys::<ecdsa_bls381::Pair>(key_type)
 	}
 
 	#[cfg(feature = "bls-experimental")]
-	fn bls377_generate_new(
+	fn ecdsa_bls381_generate_new(
 		&self,
 		key_type: KeyTypeId,
 		seed: Option<&str>,
-	) -> Result<bls377::Public, Error> {
-		self.generate_new::<bls377::Pair>(key_type, seed)
+	) -> Result<ecdsa_bls381::Public, Error> {
+		self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)
 	}
 
 	#[cfg(feature = "bls-experimental")]
-	fn bls377_sign(
+	fn ecdsa_bls381_sign(
 		&self,
 		key_type: KeyTypeId,
-		public: &bls377::Public,
+		public: &ecdsa_bls381::Public,
 		msg: &[u8],
-	) -> Result<Option<bls377::Signature>, Error> {
-		self.sign::<bls377::Pair>(key_type, public, msg)
+	) -> Result<Option<ecdsa_bls381::Signature>, Error> {
+		self.sign::<ecdsa_bls381::Pair>(key_type, public, msg)
 	}
 
 	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls377_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls377::Public> {
-		self.public_keys::<ecdsa_bls377::Pair>(key_type)
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls377_generate_new(
+	fn ecdsa_bls381_sign_with_keccak256(
 		&self,
 		key_type: KeyTypeId,
-		seed: Option<&str>,
-	) -> Result<ecdsa_bls377::Public, Error> {
-		self.generate_new::<ecdsa_bls377::Pair>(key_type, seed)
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls377_sign(
-		&self,
-		key_type: KeyTypeId,
-		public: &ecdsa_bls377::Public,
+		public: &ecdsa_bls381::Public,
 		msg: &[u8],
-	) -> Result<Option<ecdsa_bls377::Signature>, Error> {
-		self.sign::<ecdsa_bls377::Pair>(key_type, public, msg)
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls377_sign_with_keccak256(
-		&self,
-		key_type: KeyTypeId,
-		public: &ecdsa_bls377::Public,
-		msg: &[u8],
-	) -> Result<Option<ecdsa_bls377::Signature>, Error> {
+	) -> Result<Option<ecdsa_bls381::Signature>, Error> {
 		let sig = self
-			.pair::<ecdsa_bls377::Pair>(key_type, public)
+			.pair::<ecdsa_bls381::Pair>(key_type, public)
 			.map(|pair| pair.sign_with_hasher::<KeccakHasher>(msg));
 		Ok(sig)
 	}
@@ -508,13 +484,13 @@ mod tests {
 
 	#[test]
 	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls377_sign_with_keccak_works() {
+	fn ecdsa_bls381_sign_with_keccak_works() {
 		use sp_core::testing::ECDSA_BLS377;
 
 		let store = MemoryKeystore::new();
 
 		let suri = "//Alice";
-		let pair = ecdsa_bls377::Pair::from_string(suri, None).unwrap();
+		let pair = ecdsa_bls381::Pair::from_string(suri, None).unwrap();
 
 		let msg = b"this should be a normal unhashed message not a hash of a message because bls scheme comes with its own hashing";
 
@@ -522,16 +498,16 @@ mod tests {
 		store.insert(ECDSA_BLS377, suri, pair.public().as_ref()).unwrap();
 
 		let res = store
-			.ecdsa_bls377_sign_with_keccak256(ECDSA_BLS377, &pair.public(), &msg[..])
+			.ecdsa_bls381_sign_with_keccak256(ECDSA_BLS377, &pair.public(), &msg[..])
 			.unwrap();
 
 		assert!(res.is_some());
 
 		// does not verify with default out-of-the-box verification
-		assert!(!ecdsa_bls377::Pair::verify(&res.unwrap(), &msg[..], &pair.public()));
+		assert!(!ecdsa_bls381::Pair::verify(&res.unwrap(), &msg[..], &pair.public()));
 
 		// should verify using keccak256 as hasher
-		assert!(ecdsa_bls377::Pair::verify_with_hasher::<KeccakHasher>(
+		assert!(ecdsa_bls381::Pair::verify_with_hasher::<KeccakHasher>(
 			&res.unwrap(),
 			msg,
 			&pair.public()

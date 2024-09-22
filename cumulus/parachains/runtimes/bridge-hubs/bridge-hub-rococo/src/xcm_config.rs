@@ -17,11 +17,10 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	TransactionByteFee, WeightToFee, XcmpQueue,
+	TransactionByteFee, WeightToFee, XcmOverBridgeHubWestend, XcmOverRococoBulletin, XcmpQueue,
 };
-use bp_messages::LaneId;
-use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
-use bp_runtime::ChainId;
+
+use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
 	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
@@ -39,23 +38,20 @@ use parachains_common::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_runtime_common::XcmExportFeeToSibling;
-use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
-use sp_std::marker::PhantomData;
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
-	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
-	AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin,
-	FrameTransactionalProcessor, FungibleAdapter, HandleFee, IsConcrete, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
+	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
+	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FrameTransactionalProcessor,
+	FungibleAdapter, HandleFee, IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeToAccount,
 };
 use xcm_executor::{
-	traits::{FeeManager, FeeReason, FeeReason::Export, TransactAsset},
+	traits::{FeeManager, FeeReason, FeeReason::Export},
 	XcmExecutor,
 };
 
@@ -208,13 +204,6 @@ impl xcm_executor::Config for XcmConfig {
 	type FeeManager = XcmFeeManagerFromComponentsBridgeHub<
 		WaivedLocations,
 		(
-			XcmExportFeeToRelayerRewardAccounts<
-				Self::AssetTransactor,
-				crate::bridge_to_westend_config::WestendGlobalConsensusNetwork,
-				crate::bridge_to_westend_config::AssetHubWestendParaId,
-				crate::bridge_to_westend_config::BridgeHubWestendChainId,
-				crate::bridge_to_westend_config::AssetHubRococoToAssetHubWestendMessagesLane,
-			>,
 			XcmExportFeeToSibling<
 				bp_rococo::Balance,
 				AccountId,
@@ -223,12 +212,12 @@ impl xcm_executor::Config for XcmConfig {
 				Self::AssetTransactor,
 				crate::EthereumOutboundQueue,
 			>,
-			XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 		),
 	>;
 	type MessageExporter = (
-		crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,
-		crate::bridge_to_bulletin_config::ToRococoBulletinHaulBlobExporter,
+		XcmOverBridgeHubWestend,
+		XcmOverRococoBulletin,
 		crate::bridge_to_ethereum_config::SnowbridgeExporter,
 	);
 	type UniversalAliases = Nothing;
@@ -295,95 +284,6 @@ impl cumulus_pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
-/// A `HandleFee` implementation that simply deposits the fees for `ExportMessage` XCM instructions
-/// into the accounts that are used for paying the relayer rewards.
-/// Burns the fees in case of a failure.
-pub struct XcmExportFeeToRelayerRewardAccounts<
-	AssetTransactor,
-	DestNetwork,
-	DestParaId,
-	DestBridgedChainId,
-	BridgeLaneId,
->(PhantomData<(AssetTransactor, DestNetwork, DestParaId, DestBridgedChainId, BridgeLaneId)>);
-
-impl<
-		AssetTransactor: TransactAsset,
-		DestNetwork: Get<NetworkId>,
-		DestParaId: Get<cumulus_primitives_core::ParaId>,
-		DestBridgedChainId: Get<ChainId>,
-		BridgeLaneId: Get<LaneId>,
-	> HandleFee
-	for XcmExportFeeToRelayerRewardAccounts<
-		AssetTransactor,
-		DestNetwork,
-		DestParaId,
-		DestBridgedChainId,
-		BridgeLaneId,
-	>
-{
-	fn handle_fee(fee: Assets, maybe_context: Option<&XcmContext>, reason: FeeReason) -> Assets {
-		if matches!(reason, FeeReason::Export { network: bridged_network, destination }
-				if bridged_network == DestNetwork::get() &&
-					destination == [Parachain(DestParaId::get().into())])
-		{
-			// We have 2 relayer rewards accounts:
-			// - the SA of the source parachain on this BH: this pays the relayers for delivering
-			//   Source para -> Target Para message delivery confirmations
-			// - the SA of the destination parachain on this BH: this pays the relayers for
-			//   delivering Target para -> Source Para messages
-			// We split the `ExportMessage` fee between these 2 accounts.
-			let source_para_account = PayRewardFromAccount::<
-				pallet_balances::Pallet<Runtime>,
-				AccountId,
-			>::rewards_account(RewardsAccountParams::new(
-				BridgeLaneId::get(),
-				DestBridgedChainId::get(),
-				RewardsAccountOwner::ThisChain,
-			));
-
-			let dest_para_account = PayRewardFromAccount::<
-				pallet_balances::Pallet<Runtime>,
-				AccountId,
-			>::rewards_account(RewardsAccountParams::new(
-				BridgeLaneId::get(),
-				DestBridgedChainId::get(),
-				RewardsAccountOwner::BridgedChain,
-			));
-
-			for asset in fee.into_inner() {
-				match asset.fun {
-					Fungible(total_fee) => {
-						let source_fee = total_fee / 2;
-						deposit_or_burn_fee::<AssetTransactor, _>(
-							Asset { id: asset.id.clone(), fun: Fungible(source_fee) }.into(),
-							maybe_context,
-							source_para_account.clone(),
-						);
-
-						let dest_fee = total_fee - source_fee;
-						deposit_or_burn_fee::<AssetTransactor, _>(
-							Asset { id: asset.id, fun: Fungible(dest_fee) }.into(),
-							maybe_context,
-							dest_para_account.clone(),
-						);
-					},
-					NonFungible(_) => {
-						deposit_or_burn_fee::<AssetTransactor, _>(
-							asset.into(),
-							maybe_context,
-							source_para_account.clone(),
-						);
-					},
-				}
-			}
-
-			return Assets::new()
-		}
-
-		fee
-	}
-}
-
 pub struct XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, HandleFee>(
 	PhantomData<(WaivedLocations, HandleFee)>,
 );
@@ -393,7 +293,9 @@ impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
 	fn is_waived(origin: Option<&Location>, fee_reason: FeeReason) -> bool {
 		let Some(loc) = origin else { return false };
 		if let Export { network, destination: Here } = fee_reason {
-			return !(network == EthereumNetwork::get())
+			if network == EthereumNetwork::get() {
+				return false
+			}
 		}
 		WaivedLocations::contains(loc)
 	}

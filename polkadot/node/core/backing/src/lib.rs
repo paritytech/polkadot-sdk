@@ -100,9 +100,9 @@ use polkadot_node_subsystem_util::{
 	executor_params_at_relay_parent, request_from_runtime, request_session_index_for_child,
 	request_validator_groups, request_validators,
 	runtime::{
-		self, prospective_parachains_mode, request_min_backing_votes, ProspectiveParachainsMode,
+		self, fetch_claim_queue, prospective_parachains_mode, request_min_backing_votes,
+		ClaimQueueSnapshot, ProspectiveParachainsMode,
 	},
-	vstaging::{fetch_claim_queue, ClaimQueueSnapshot},
 	Validator,
 };
 use polkadot_primitives::{
@@ -121,7 +121,7 @@ use polkadot_statement_table::{
 	Config as TableConfig, Context as TableContextTrait, Table,
 };
 use sp_keystore::KeystorePtr;
-use util::{runtime::request_node_features, vstaging::get_disabled_validators_with_fallback};
+use util::runtime::{get_disabled_validators_with_fallback, request_node_features};
 
 mod error;
 
@@ -827,8 +827,8 @@ async fn handle_communication<Context>(
 		CandidateBackingMessage::Statement(relay_parent, statement) => {
 			handle_statement_message(ctx, state, relay_parent, statement, metrics).await?;
 		},
-		CandidateBackingMessage::GetBackedCandidates(requested_candidates, tx) =>
-			handle_get_backed_candidates_message(state, requested_candidates, tx, metrics)?,
+		CandidateBackingMessage::GetBackableCandidates(requested_candidates, tx) =>
+			handle_get_backable_candidates_message(state, requested_candidates, tx, metrics)?,
 		CandidateBackingMessage::CanSecond(request, tx) =>
 			handle_can_second_request(ctx, state, request, tx).await,
 	}
@@ -2158,7 +2158,7 @@ async fn handle_statement_message<Context>(
 	}
 }
 
-fn handle_get_backed_candidates_message(
+fn handle_get_backable_candidates_message(
 	state: &State,
 	requested_candidates: HashMap<ParaId, Vec<(CandidateHash, Hash)>>,
 	tx: oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,

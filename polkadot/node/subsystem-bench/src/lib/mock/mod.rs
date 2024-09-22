@@ -19,7 +19,9 @@ use polkadot_node_subsystem_types::Hash;
 use sp_consensus::SyncOracle;
 
 pub mod av_store;
+pub mod availability_recovery;
 pub mod candidate_backing;
+pub mod candidate_validation;
 pub mod chain_api;
 pub mod dummy;
 pub mod network_bridge;

@@ -29,14 +29,14 @@ use crate::{
 	metric_inc, metric_set,
 	metrics::VoterMetrics,
 	round::{Rounds, VoteImportResult},
-	BeefyComms, BeefyVoterLinks, LOG_TARGET,
+	BeefyComms, BeefyVoterLinks, UnpinnedFinalityNotification, LOG_TARGET,
 };
 use sp_application_crypto::RuntimeAppPublic;
 
 use codec::{Codec, Decode, DecodeAll, Encode};
 use futures::{stream::Fuse, FutureExt, StreamExt};
 use log::{debug, error, info, trace, warn};
-use sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
+use sc_client_api::{Backend, HeaderBackend};
 use sc_utils::notification::NotificationReceiver;
 use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
@@ -447,24 +447,29 @@ where
 
 	fn handle_finality_notification(
 		&mut self,
-		notification: &FinalityNotification<B>,
+		notification: &UnpinnedFinalityNotification<B>,
 	) -> Result<(), Error> {
 		let header = &notification.header;
 		debug!(
 			target: LOG_TARGET,
 			"🥩 Finality notification: header(number {:?}, hash {:?}) tree_route {:?}",
 			header.number(),
-			header.hash(),
+			notification.hash,
 			notification.tree_route,
 		);
 
-		self.runtime
-			.runtime_api()
-			.beefy_genesis(header.hash())
-			.ok()
-			.flatten()
-			.filter(|genesis| *genesis == self.persisted_state.pallet_genesis)
-			.ok_or(Error::ConsensusReset)?;
+		match self.runtime.runtime_api().beefy_genesis(notification.hash) {
+			Ok(Some(genesis)) if genesis != self.persisted_state.pallet_genesis => {
+				debug!(target: LOG_TARGET, "🥩 ConsensusReset detected. Expected genesis: {}, found genesis: {}", self.persisted_state.pallet_genesis, genesis);
+				return Err(Error::ConsensusReset)
+			},
+			Ok(_) => {},
+			Err(api_error) => {
+				// This can happen in case the block was already pruned.
+				// Mostly after warp sync when finality notifications are piled up.
+				debug!(target: LOG_TARGET, "🥩 Unable to check beefy genesis: {}", api_error);
+			},
+		}
 
 		let mut new_session_added = false;
 		if *header.number() > self.best_grandpa_block() {
@@ -845,7 +850,7 @@ where
 		block_import_justif: &mut Fuse<
 			NotificationReceiver<BeefyVersionedFinalityProof<B, AuthorityId>>,
 		>,
-		finality_notifications: &mut Fuse<FinalityNotifications<B>>,
+		finality_notifications: &mut Fuse<crate::FinalityNotifications<B>>,
 	) -> (Error, BeefyComms<B, N, AuthorityId>) {
 		info!(
 			target: LOG_TARGET,
@@ -1039,7 +1044,7 @@ pub(crate) mod tests {
 		ecdsa_crypto, known_payloads,
 		known_payloads::MMR_ROOT_ID,
 		mmr::MmrRootProvider,
-		test_utils::{generate_equivocation_proof, Keyring},
+		test_utils::{generate_double_voting_proof, Keyring},
 		ConsensusLog, Payload, SignedCommitment,
 	};
 	use sp_runtime::traits::{Header as HeaderT, One};
@@ -1586,7 +1591,7 @@ pub(crate) mod tests {
 		let payload2 = Payload::from_single_entry(MMR_ROOT_ID, vec![128]);
 
 		// generate an equivocation proof, with Bob as perpetrator
-		let good_proof = generate_equivocation_proof(
+		let good_proof = generate_double_voting_proof(
 			(block_num, payload1.clone(), set_id, &Keyring::Bob),
 			(block_num, payload2.clone(), set_id, &Keyring::Bob),
 		);
@@ -1618,7 +1623,7 @@ pub(crate) mod tests {
 		assert!(api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty());
 
 		// now let's try reporting a self-equivocation
-		let self_proof = generate_equivocation_proof(
+		let self_proof = generate_double_voting_proof(
 			(block_num, payload1.clone(), set_id, &Keyring::Alice),
 			(block_num, payload2.clone(), set_id, &Keyring::Alice),
 		);

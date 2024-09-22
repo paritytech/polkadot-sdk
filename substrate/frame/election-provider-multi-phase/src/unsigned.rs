@@ -18,9 +18,11 @@
 //! The unsigned phase, and its miner.
 
 use crate::{
-	helpers, Call, Config, ElectionCompute, Error, FeasibilityError, Pallet, RawSolution,
-	ReadySolution, RoundSnapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
+	helpers, Call, Config, CurrentPhase, DesiredTargets, ElectionCompute, Error, FeasibilityError,
+	Pallet, QueuedSolution, RawSolution, ReadySolution, Round, RoundSnapshot, Snapshot,
+	SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
 };
+use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
 use frame_election_provider_support::{NposSolution, NposSolver, PerThing128, VoteWeight};
 use frame_support::{
@@ -39,7 +41,6 @@ use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageValueRef},
 	DispatchError, SaturatedConversion,
 };
-use sp_std::prelude::*;
 
 /// Storage key used to store the last block number at which offchain worker ran.
 pub(crate) const OFFCHAIN_LAST_BLOCK: &[u8] = b"parity/multi-phase-unsigned-election";
@@ -188,15 +189,15 @@ impl<T: Config> Pallet<T> {
 		MinerError,
 	> {
 		let RoundSnapshot { voters, targets } =
-			Self::snapshot().ok_or(MinerError::SnapshotUnAvailable)?;
-		let desired_targets = Self::desired_targets().ok_or(MinerError::SnapshotUnAvailable)?;
+			Snapshot::<T>::get().ok_or(MinerError::SnapshotUnAvailable)?;
+		let desired_targets = DesiredTargets::<T>::get().ok_or(MinerError::SnapshotUnAvailable)?;
 		let (solution, score, size, is_trimmed) =
 			Miner::<T::MinerConfig>::mine_solution_with_snapshot::<T::Solver>(
 				voters,
 				targets,
 				desired_targets,
 			)?;
-		let round = Self::round();
+		let round = Round::<T>::get();
 		Ok((RawSolution { solution, score, round }, size, is_trimmed))
 	}
 
@@ -370,21 +371,24 @@ impl<T: Config> Pallet<T> {
 		raw_solution: &RawSolution<SolutionOf<T::MinerConfig>>,
 	) -> DispatchResult {
 		// ensure solution is timely. Don't panic yet. This is a cheap check.
-		ensure!(Self::current_phase().is_unsigned_open(), Error::<T>::PreDispatchEarlySubmission);
+		ensure!(
+			CurrentPhase::<T>::get().is_unsigned_open(),
+			Error::<T>::PreDispatchEarlySubmission
+		);
 
 		// ensure round is current
-		ensure!(Self::round() == raw_solution.round, Error::<T>::OcwCallWrongEra);
+		ensure!(Round::<T>::get() == raw_solution.round, Error::<T>::OcwCallWrongEra);
 
 		// ensure correct number of winners.
 		ensure!(
-			Self::desired_targets().unwrap_or_default() ==
+			DesiredTargets::<T>::get().unwrap_or_default() ==
 				raw_solution.solution.unique_targets().len() as u32,
 			Error::<T>::PreDispatchWrongWinnerCount,
 		);
 
 		// ensure score is being improved. Panic henceforth.
 		ensure!(
-			Self::queued_solution()
+			QueuedSolution::<T>::get()
 				.map_or(true, |q: ReadySolution<_, _>| raw_solution.score > q.score),
 			Error::<T>::PreDispatchWeakSubmission,
 		);
@@ -396,14 +400,14 @@ impl<T: Config> Pallet<T> {
 /// Configurations for a miner that comes with this pallet.
 pub trait MinerConfig {
 	/// The account id type.
-	type AccountId: Ord + Clone + codec::Codec + sp_std::fmt::Debug;
+	type AccountId: Ord + Clone + codec::Codec + core::fmt::Debug;
 	/// The solution that the miner is mining.
 	type Solution: codec::Codec
 		+ Default
 		+ PartialEq
 		+ Eq
 		+ Clone
-		+ sp_std::fmt::Debug
+		+ core::fmt::Debug
 		+ Ord
 		+ NposSolution
 		+ TypeInfo;
@@ -428,7 +432,7 @@ pub trait MinerConfig {
 }
 
 /// A base miner, suitable to be used for both signed and unsigned submissions.
-pub struct Miner<T: MinerConfig>(sp_std::marker::PhantomData<T>);
+pub struct Miner<T: MinerConfig>(core::marker::PhantomData<T>);
 impl<T: MinerConfig> Miner<T> {
 	/// Same as [`Pallet::mine_solution`], but the input snapshot data must be given.
 	pub fn mine_solution_with_snapshot<S>(
@@ -505,7 +509,7 @@ impl<T: MinerConfig> Miner<T> {
 							stake
 						})
 						.unwrap_or_default();
-					sp_std::cmp::Reverse(stake)
+					core::cmp::Reverse(stake)
 				},
 			);
 
@@ -1016,6 +1020,7 @@ mod tests {
 		Event, InvalidTransaction, Phase, QueuedSolution, TransactionSource,
 		TransactionValidityError,
 	};
+	use alloc::vec;
 	use codec::Decode;
 	use frame_election_provider_support::IndexAssignment;
 	use frame_support::{assert_noop, assert_ok, traits::OffchainWorker};
@@ -1042,7 +1047,7 @@ mod tests {
 			};
 
 			// initial
-			assert_eq!(MultiPhase::current_phase(), Phase::Off);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 			assert!(matches!(
 				<MultiPhase as ValidateUnsigned>::validate_unsigned(
 					TransactionSource::Local,
@@ -1058,7 +1063,7 @@ mod tests {
 
 			// signed
 			roll_to_signed();
-			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Signed);
 			assert!(matches!(
 				<MultiPhase as ValidateUnsigned>::validate_unsigned(
 					TransactionSource::Local,
@@ -1074,7 +1079,7 @@ mod tests {
 
 			// unsigned
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			assert!(<MultiPhase as ValidateUnsigned>::validate_unsigned(
 				TransactionSource::Local,
@@ -1085,7 +1090,7 @@ mod tests {
 
 			// unsigned -- but not enabled.
 			MultiPhase::phase_transition(Phase::Unsigned((false, 25)));
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 			assert!(matches!(
 				<MultiPhase as ValidateUnsigned>::validate_unsigned(
 					TransactionSource::Local,
@@ -1105,7 +1110,7 @@ mod tests {
 	fn validate_unsigned_retracts_low_score() {
 		ExtBuilder::default().desired_targets(0).build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			let solution = RawSolution::<TestNposSolution> {
 				score: ElectionScore { minimal_stake: 5, ..Default::default() },
@@ -1129,7 +1134,7 @@ mod tests {
 				score: ElectionScore { minimal_stake: 10, ..Default::default() },
 				..Default::default()
 			};
-			<QueuedSolution<Runtime>>::put(ready);
+			QueuedSolution::<Runtime>::put(ready);
 
 			// won't work anymore.
 			assert!(matches!(
@@ -1151,7 +1156,7 @@ mod tests {
 	fn validate_unsigned_retracts_incorrect_winner_count() {
 		ExtBuilder::default().desired_targets(1).build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			let raw = RawSolution::<TestNposSolution> {
 				score: ElectionScore { minimal_stake: 5, ..Default::default() },
@@ -1180,7 +1185,7 @@ mod tests {
 			.desired_targets(0)
 			.build_and_execute(|| {
 				roll_to_unsigned();
-				assert!(MultiPhase::current_phase().is_unsigned());
+				assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 				let solution = RawSolution::<TestNposSolution> {
 					score: ElectionScore { minimal_stake: 5, ..Default::default() },
@@ -1211,7 +1216,7 @@ mod tests {
 	fn unfeasible_solution_panics() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// This is in itself an invalid BS solution.
 			let solution = RawSolution::<TestNposSolution> {
@@ -1233,7 +1238,7 @@ mod tests {
 	fn wrong_witness_panics() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// This solution is unfeasible as well, but we won't even get there.
 			let solution = RawSolution::<TestNposSolution> {
@@ -1257,23 +1262,23 @@ mod tests {
 	fn miner_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// ensure we have snapshots in place.
-			assert!(MultiPhase::snapshot().is_some());
-			assert_eq!(MultiPhase::desired_targets().unwrap(), 2);
+			assert!(Snapshot::<Runtime>::get().is_some());
+			assert_eq!(DesiredTargets::<Runtime>::get().unwrap(), 2);
 
 			// mine seq_phragmen solution with 2 iters.
 			let (solution, witness, _) = MultiPhase::mine_solution().unwrap();
 
 			// ensure this solution is valid.
-			assert!(MultiPhase::queued_solution().is_none());
+			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert_ok!(MultiPhase::submit_unsigned(
 				RuntimeOrigin::none(),
 				Box::new(solution),
 				witness
 			));
-			assert!(MultiPhase::queued_solution().is_some());
+			assert!(QueuedSolution::<Runtime>::get().is_some());
 			assert_eq!(
 				multi_phase_events(),
 				vec![
@@ -1300,7 +1305,7 @@ mod tests {
 			.mock_weight_info(crate::mock::MockedWeightInfo::Basic)
 			.build_and_execute(|| {
 				roll_to_unsigned();
-				assert!(MultiPhase::current_phase().is_unsigned());
+				assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 				let (raw, witness, t) = MultiPhase::mine_solution().unwrap();
 				let solution_weight = <Runtime as MinerConfig>::solution_weight(
@@ -1336,7 +1341,7 @@ mod tests {
 		let (mut ext, _) = ExtBuilder::default().desired_targets(8).build_offchainify(0);
 		ext.execute_with(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// Force the number of winners to be bigger to fail
 			let (mut solution, _, _) = MultiPhase::mine_solution().unwrap();
@@ -1362,8 +1367,8 @@ mod tests {
 			.add_voter(9, 1, bounded_vec![10])
 			.build_and_execute(|| {
 				roll_to_unsigned();
-				assert!(MultiPhase::current_phase().is_unsigned());
-				assert_eq!(MultiPhase::desired_targets().unwrap(), 1);
+				assert!(CurrentPhase::<Runtime>::get().is_unsigned());
+				assert_eq!(DesiredTargets::<Runtime>::get().unwrap(), 1);
 
 				// an initial solution
 				let result = ElectionResult {
@@ -1378,8 +1383,8 @@ mod tests {
 					],
 				};
 
-				let RoundSnapshot { voters, targets } = MultiPhase::snapshot().unwrap();
-				let desired_targets = MultiPhase::desired_targets().unwrap();
+				let RoundSnapshot { voters, targets } = Snapshot::<Runtime>::get().unwrap();
+				let desired_targets = DesiredTargets::<Runtime>::get().unwrap();
 
 				let (raw, score, witness, _) =
 					Miner::<Runtime>::prepare_election_result_with_snapshot(
@@ -1389,14 +1394,14 @@ mod tests {
 						desired_targets,
 					)
 					.unwrap();
-				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
 				assert_ok!(MultiPhase::unsigned_pre_dispatch_checks(&solution));
 				assert_ok!(MultiPhase::submit_unsigned(
 					RuntimeOrigin::none(),
 					Box::new(solution),
 					witness
 				));
-				assert_eq!(MultiPhase::queued_solution().unwrap().score.minimal_stake, 12);
+				assert_eq!(QueuedSolution::<Runtime>::get().unwrap().score.minimal_stake, 12);
 
 				// trial 1: a solution who's minimal stake is 10, i.e. worse than the first solution
 				// of 12.
@@ -1414,7 +1419,7 @@ mod tests {
 					desired_targets,
 				)
 				.unwrap();
-				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
 				// 10 is not better than 12
 				assert_eq!(solution.score.minimal_stake, 10);
 				// submitting this will actually panic.
@@ -1444,7 +1449,7 @@ mod tests {
 					desired_targets,
 				)
 				.unwrap();
-				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
 				// 12 is not better than 12. We need score of at least 13 to be accepted.
 				assert_eq!(solution.score.minimal_stake, 12);
 				// submitting this will panic.
@@ -1471,7 +1476,7 @@ mod tests {
 						desired_targets,
 					)
 					.unwrap();
-				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
 				assert_eq!(solution.score.minimal_stake, 13);
 
 				// this should work
@@ -1504,7 +1509,7 @@ mod tests {
 						desired_targets,
 					)
 					.unwrap();
-				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
 				assert_eq!(solution.score.minimal_stake, 17);
 
 				// and it is fine
@@ -1524,7 +1529,7 @@ mod tests {
 			let offchain_repeat = <Runtime as Config>::OffchainRepeat::get();
 
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// first execution -- okay.
 			assert!(MultiPhase::ensure_offchain_repeat_frequency(25).is_ok());
@@ -1565,7 +1570,7 @@ mod tests {
 			let last_block = StorageValueRef::persistent(OFFCHAIN_LAST_BLOCK);
 
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// initially, the lock is not set.
 			assert!(guard.get::<bool>().unwrap().is_none());
@@ -1586,7 +1591,7 @@ mod tests {
 		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
 		ext.execute_with(|| {
 			roll_to_unsigned();
-			assert!(MultiPhase::current_phase().is_unsigned());
+			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
 			// artificially set the value, as if another thread is mid-way.
 			let mut lock = StorageLock::<BlockAndTime<System>>::with_block_deadline(
@@ -1614,7 +1619,7 @@ mod tests {
 		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
 		ext.execute_with(|| {
 			roll_to_unsigned();
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 
 			// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
@@ -1646,7 +1651,7 @@ mod tests {
 
 			roll_to(BLOCK);
 			// we are on the first block of the unsigned phase
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, BLOCK)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, BLOCK)));
 
 			assert!(
 				!ocw_solution_exists::<Runtime>(),
@@ -1729,7 +1734,7 @@ mod tests {
 			let offchain_repeat = <Runtime as Config>::OffchainRepeat::get();
 
 			roll_to(BLOCK);
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, BLOCK)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, BLOCK)));
 
 			// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
@@ -1767,7 +1772,7 @@ mod tests {
 			let offchain_repeat = <Runtime as Config>::OffchainRepeat::get();
 
 			roll_to(BLOCK);
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, BLOCK)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, BLOCK)));
 
 			// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
@@ -1808,7 +1813,7 @@ mod tests {
 		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
 		ext.execute_with(|| {
 			roll_to_with_ocw(25);
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 			// OCW must have submitted now
 
 			let encoded = pool.read().transactions[0].clone();
@@ -1823,10 +1828,10 @@ mod tests {
 		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
 		ext.execute_with(|| {
 			roll_to_with_ocw(25);
-			assert_eq!(MultiPhase::current_phase(), Phase::Unsigned((true, 25)));
+			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 			// OCW must have submitted now
 			// now, before we check the call, update the round
-			<crate::Round<Runtime>>::mutate(|round| *round += 1);
+			crate::Round::<Runtime>::mutate(|round| *round += 1);
 
 			let encoded = pool.read().transactions[0].clone();
 			let extrinsic = Extrinsic::decode(&mut &*encoded).unwrap();

@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::GenericChainSpec;
 use cumulus_primitives_core::ParaId;
 use parachains_common::Balance as PeopleBalance;
+use polkadot_parachain_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::ChainSpec;
 use std::str::FromStr;
 
@@ -63,8 +63,9 @@ impl PeopleRuntimeType {
 			PeopleRuntimeType::Kusama => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/people-kusama.json")[..],
 			)?)),
-			PeopleRuntimeType::Polkadot =>
-				todo!("Generate chain-spec: ../../chain-specs/people-polkadot.json"),
+			PeopleRuntimeType::Polkadot => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../chain-specs/people-polkadot.json")[..],
+			)?)),
 			PeopleRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/people-rococo.json")[..],
 			)?)),
@@ -120,10 +121,10 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 pub mod rococo {
 	use super::{ParaId, PeopleBalance};
 	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
-		SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId};
+	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
@@ -230,10 +231,10 @@ pub mod rococo {
 pub mod westend {
 	use super::{ParaId, PeopleBalance};
 	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
-		SAFE_XCM_VERSION,
+		get_account_id_from_seed, get_collator_keys_from_seed, SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId};
+	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
