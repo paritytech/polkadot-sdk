@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Asset Hub Rococo Runtime genesis config presets
+//! # Asset Hub Westend Runtime genesis config presets
 
 use crate::*;
 use alloc::{vec, vec::Vec};
@@ -22,11 +22,13 @@ use hex_literal::hex;
 use parachains_common::{genesis_config_helpers::*, AccountId, AuraId};
 use sp_core::{crypto::UncheckedInto, sr25519};
 use sp_genesis_builder::PresetId;
-use testnet_parachains_constants::rococo::{currency::UNITS as ROC, xcm_version::SAFE_XCM_VERSION};
+use testnet_parachains_constants::westend::{
+	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
+};
 
-const ASSET_HUB_ROCOCO_ED: Balance = ExistentialDeposit::get();
+const ASSET_HUB_WESTEND_ED: Balance = ExistentialDeposit::get();
 
-fn asset_hub_rococo_genesis(
+fn asset_hub_westend_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	endowment: Balance,
@@ -39,7 +41,7 @@ fn asset_hub_rococo_genesis(
 		parachain_info: ParachainInfoConfig { parachain_id: id, ..Default::default() },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
-			candidacy_bond: ASSET_HUB_ROCOCO_ED * 16,
+			candidacy_bond: ASSET_HUB_WESTEND_ED * 16,
 			..Default::default()
 		},
 		session: SessionConfig {
@@ -74,39 +76,35 @@ mod preset_names {
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	use preset_names::*;
 	let patch = match id.try_into() {
-		Ok(PRESET_GENESIS) => asset_hub_rococo_genesis(
+		Ok(PRESET_GENESIS) => asset_hub_westend_genesis(
 			// initial collators.
 			vec![
-				// E8XC6rTJRsioKCp6KMy6zd24ykj4gWsusZ3AkSeyavpVBAG
 				(
-					hex!("44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608").into(),
-					hex!("44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608")
+					hex!("9cfd429fa002114f33c1d3e211501d62830c9868228eb3b4b8ae15a83de04325").into(),
+					hex!("9cfd429fa002114f33c1d3e211501d62830c9868228eb3b4b8ae15a83de04325")
 						.unchecked_into(),
 				),
-				// G28iWEybndgGRbhfx83t7Q42YhMPByHpyqWDUgeyoGF94ri
 				(
-					hex!("9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944").into(),
-					hex!("9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944")
+					hex!("12a03fb4e7bda6c9a07ec0a11d03c24746943e054ff0bb04938970104c783876").into(),
+					hex!("12a03fb4e7bda6c9a07ec0a11d03c24746943e054ff0bb04938970104c783876")
 						.unchecked_into(),
 				),
-				// G839e2eMiq7UXbConsY6DS1XDAYG2XnQxAmLuRLGGQ3Px9c
 				(
-					hex!("9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948").into(),
-					hex!("9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948")
+					hex!("1256436307dfde969324e95b8c62cb9101f520a39435e6af0f7ac07b34e1931f").into(),
+					hex!("1256436307dfde969324e95b8c62cb9101f520a39435e6af0f7ac07b34e1931f")
 						.unchecked_into(),
 				),
-				// GLao4ukFUW6qhexuZowdFrKa2NLCfnEjZMftSXXfvGv1vvt
 				(
-					hex!("a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f").into(),
-					hex!("a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f")
+					hex!("98102b7bca3f070f9aa19f58feed2c0a4e107d203396028ec17a47e1ed80e322").into(),
+					hex!("98102b7bca3f070f9aa19f58feed2c0a4e107d203396028ec17a47e1ed80e322")
 						.unchecked_into(),
 				),
 			],
 			Vec::new(),
-			ASSET_HUB_ROCOCO_ED * 524_288,
+			ASSET_HUB_WESTEND_ED * 4096,
 			1000.into(),
 		),
-		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => asset_hub_rococo_genesis(
+		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => asset_hub_westend_genesis(
 			// initial collators.
 			vec![
 				(
@@ -132,10 +130,10 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 			],
-			ROC * 1_000_000,
+			WND * 1_000_000,
 			1000.into(),
 		),
-		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => asset_hub_rococo_genesis(
+		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => asset_hub_westend_genesis(
 			// initial collators.
 			vec![(
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -147,7 +145,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 			],
-			ROC * 1_000_000,
+			WND * 1_000_000,
 			1000.into(),
 		),
 		_ => return None,
