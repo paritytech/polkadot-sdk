@@ -18,7 +18,6 @@ use cumulus_primitives_core::ParaId;
 use polkadot_parachain_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::{ChainSpec, ChainType};
 use std::str::FromStr;
-use xcm::latest::prelude::*;
 
 /// Collects all supported BridgeHub configurations
 #[derive(Debug, PartialEq)]
