@@ -80,6 +80,7 @@ pub fn development_config() -> ChainSpec {
 	.with_name("Development")
 	.with_id("dev")
 	.with_chain_type(ChainType::Development)
+<<<<<<< HEAD
 	.with_genesis_config_patch(testnet_genesis(
 		// initial collators.
 		vec![
@@ -109,6 +110,9 @@ pub fn development_config() -> ChainSpec {
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		1000.into(),
 	))
+=======
+	.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
 	.build()
 }
 
@@ -131,6 +135,7 @@ pub fn local_testnet_config() -> ChainSpec {
 	.with_name("Local Testnet")
 	.with_id("local_testnet")
 	.with_chain_type(ChainType::Local)
+<<<<<<< HEAD
 	.with_genesis_config_patch(testnet_genesis(
 		// initial collators.
 		vec![
@@ -160,6 +165,9 @@ pub fn local_testnet_config() -> ChainSpec {
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		1000.into(),
 	))
+=======
+	.with_genesis_config_preset_name(sc_chain_spec::LOCAL_TESTNET_RUNTIME_PRESET)
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
 	.with_protocol_id("template-local")
 	.with_properties(properties)
 	.build()

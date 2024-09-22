@@ -24,6 +24,7 @@ hex-literal = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+<<<<<<< HEAD
 docify = { workspace = true }
 rococo-parachain-runtime.workspace = true
 shell-runtime.workspace = true
@@ -159,6 +160,44 @@ cumulus-primitives-core.workspace = true
 cumulus-primitives-core.default-features = true
 cumulus-relay-chain-interface.workspace = true
 cumulus-relay-chain-interface.default-features = true
+=======
+
+# Local
+polkadot-parachain-lib = { features = ["rococo-native", "westend-native"], workspace = true }
+rococo-parachain-runtime = { workspace = true }
+shell-runtime = { workspace = true }
+glutton-westend-runtime = { workspace = true }
+seedling-runtime = { workspace = true }
+asset-hub-rococo-runtime = { workspace = true, default-features = true }
+asset-hub-westend-runtime = { workspace = true }
+collectives-westend-runtime = { workspace = true }
+contracts-rococo-runtime = { workspace = true }
+bridge-hub-rococo-runtime = { workspace = true, default-features = true }
+coretime-rococo-runtime = { workspace = true }
+coretime-westend-runtime = { workspace = true }
+bridge-hub-westend-runtime = { workspace = true, default-features = true }
+penpal-runtime = { workspace = true }
+people-rococo-runtime = { workspace = true }
+people-westend-runtime = { workspace = true }
+parachains-common = { workspace = true, default-features = true }
+testnet-parachains-constants = { features = [
+	"rococo",
+	"westend",
+], workspace = true }
+
+# Substrate
+sp-core = { workspace = true, default-features = true }
+sc-cli = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
+sc-chain-spec = { workspace = true, default-features = true }
+sp-genesis-builder = { workspace = true, default-features = true }
+
+# Polkadot
+xcm = { workspace = true, default-features = true }
+
+# Cumulus
+cumulus-primitives-core = { workspace = true, default-features = true }
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
 
 [build-dependencies]
 substrate-build-script-utils.workspace = true
@@ -174,6 +213,14 @@ wait-timeout = { workspace = true }
 [features]
 default = []
 runtime-benchmarks = [
+<<<<<<< HEAD
+=======
+	"cumulus-primitives-core/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-parachain-lib/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
 	"asset-hub-rococo-runtime/runtime-benchmarks",
 	"asset-hub-westend-runtime/runtime-benchmarks",
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
@@ -199,6 +246,11 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
+<<<<<<< HEAD
+=======
+	"polkadot-parachain-lib/try-runtime",
+
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
 	"asset-hub-rococo-runtime/try-runtime",
 	"asset-hub-westend-runtime/try-runtime",
 	"bridge-hub-rococo-runtime/try-runtime",

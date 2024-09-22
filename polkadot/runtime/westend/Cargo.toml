@@ -17,7 +17,9 @@ scale-info = { features = ["derive"], workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
+serde_json = { features = ["alloc"], workspace = true }
 smallvec = { workspace = true, default-features = true }
+<<<<<<< HEAD
 sp-authority-discovery.workspace = true
 sp-consensus-babe.workspace = true
 sp-consensus-beefy.workspace = true
@@ -42,6 +44,35 @@ sp-npos-elections.workspace = true
 frame-election-provider-support.workspace = true
 frame-executive.workspace = true
 frame-metadata-hash-extension.workspace = true
+=======
+
+sp-authority-discovery = { workspace = true }
+sp-consensus-babe = { workspace = true }
+sp-consensus-beefy = { workspace = true }
+sp-consensus-grandpa = { workspace = true }
+binary-merkle-tree = { workspace = true }
+sp-inherents = { workspace = true }
+sp-offchain = { workspace = true }
+sp-api = { workspace = true }
+sp-application-crypto = { workspace = true }
+sp-arithmetic = { workspace = true }
+sp-genesis-builder = { workspace = true }
+sp-io = { workspace = true }
+sp-mmr-primitives = { workspace = true }
+sp-runtime = { workspace = true }
+sp-staking = { workspace = true }
+sp-core = { workspace = true }
+sp-session = { workspace = true }
+sp-storage = { workspace = true }
+sp-version = { workspace = true }
+sp-transaction-pool = { workspace = true }
+sp-block-builder = { workspace = true }
+sp-npos-elections = { workspace = true }
+
+frame-election-provider-support = { workspace = true }
+frame-executive = { workspace = true }
+frame-metadata-hash-extension = { workspace = true }
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
 frame-support = { features = ["experimental", "tuples-96"], workspace = true }
 frame-system.workspace = true
 frame-system-rpc-runtime-api.workspace = true
@@ -101,6 +132,7 @@ pallet-election-provider-support-benchmarking = { optional = true, workspace = t
 pallet-nomination-pools-benchmarking = { optional = true, workspace = true }
 pallet-offences-benchmarking = { optional = true, workspace = true }
 pallet-session-benchmarking = { optional = true, workspace = true }
+<<<<<<< HEAD
 hex-literal = { optional = true, workspace = true, default-features = true }
 polkadot-runtime-common.workspace = true
 polkadot-primitives.workspace = true
@@ -110,9 +142,21 @@ xcm.workspace = true
 xcm-executor.workspace = true
 xcm-builder.workspace = true
 xcm-runtime-apis.workspace = true
+=======
+hex-literal = { workspace = true, default-features = true }
+
+polkadot-runtime-common = { workspace = true }
+polkadot-primitives = { workspace = true }
+polkadot-parachain-primitives = { workspace = true }
+polkadot-runtime-parachains = { workspace = true }
+
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-runtime-apis = { workspace = true }
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
 
 [dev-dependencies]
-hex-literal = { workspace = true, default-features = true }
 tiny-keccak = { features = ["keccak"], workspace = true }
 sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
 serde_json = { workspace = true, default-features = true }
@@ -199,6 +243,7 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"serde_derive",
+	"serde_json/std",
 	"sp-api/std",
 	"sp-application-crypto/std",
 	"sp-arithmetic/std",
@@ -206,6 +251,7 @@ std = [
 	"sp-block-builder/std",
 	"sp-consensus-babe/std",
 	"sp-consensus-beefy/std",
+	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
@@ -231,7 +277,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"hex-literal",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",

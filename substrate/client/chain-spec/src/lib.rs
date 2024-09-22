@@ -341,7 +341,9 @@ pub use self::{
 		construct_genesis_block, resolve_state_version_from_wasm, BuildGenesisBlock,
 		GenesisBlockBuilder,
 	},
-	genesis_config_builder::GenesisConfigBuilderRuntimeCaller,
+	genesis_config_builder::{
+		GenesisConfigBuilderRuntimeCaller, DEV_RUNTIME_PRESET, LOCAL_TESTNET_RUNTIME_PRESET,
+	},
 	json_patch::merge as json_merge,
 };
 pub use sc_chain_spec_derive::{ChainSpecExtension, ChainSpecGroup};
@@ -351,9 +353,9 @@ use sc_telemetry::TelemetryEndpoints;
 use sp_core::storage::Storage;
 use sp_runtime::BuildStorage;
 
-/// The type of a chain.
+/// The type of chain.
 ///
-/// This can be used by tools to determine the type of a chain for displaying
+/// This can be used by tools to determine the type of chain for displaying
 /// additional information or enabling additional features.
 #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Clone)]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]

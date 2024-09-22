@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true, default-features = true }
+<<<<<<< HEAD
 frame-support.workspace = true
 frame-system.workspace = true
 frame-system.default-features = true
@@ -39,6 +40,23 @@ sp-tracing.workspace = true
 sp-tracing.default-features = true
 sp-core.workspace = true
 sp-core.default-features = true
+=======
+frame-support = { workspace = true }
+futures = { workspace = true }
+pallet-transaction-payment = { workspace = true, default-features = true }
+pallet-xcm = { workspace = true, default-features = true }
+polkadot-test-client = { workspace = true }
+polkadot-test-runtime = { workspace = true }
+polkadot-test-service = { workspace = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-runtime = { workspace = true }
+sp-state-machine = { workspace = true, default-features = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
 
 [features]
 default = ["std"]

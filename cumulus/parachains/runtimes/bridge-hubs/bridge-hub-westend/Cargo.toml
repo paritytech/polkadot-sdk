@@ -18,6 +18,12 @@ hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
+<<<<<<< HEAD
+=======
+serde_json = { features = ["alloc"], workspace = true }
+
+# Substrate
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
 frame-benchmarking = { optional = true, workspace = true }
 frame-executive.workspace = true
 frame-support.workspace = true
@@ -156,6 +162,20 @@ std = [
 	"polkadot-runtime-common/std",
 	"scale-info/std",
 	"serde",
+<<<<<<< HEAD
+=======
+	"serde_json/std",
+	"snowbridge-beacon-primitives/std",
+	"snowbridge-core/std",
+	"snowbridge-outbound-queue-runtime-api/std",
+	"snowbridge-pallet-ethereum-client/std",
+	"snowbridge-pallet-inbound-queue/std",
+	"snowbridge-pallet-outbound-queue/std",
+	"snowbridge-pallet-system/std",
+	"snowbridge-router-primitives/std",
+	"snowbridge-runtime-common/std",
+	"snowbridge-system-runtime-api/std",
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",

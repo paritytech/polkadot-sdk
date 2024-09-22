@@ -22,6 +22,7 @@ jsonrpsee = { features = ["server"], workspace = true }
 futures = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 docify = { workspace = true }
+<<<<<<< HEAD
 parachain-template-runtime.workspace = true
 frame-benchmarking.workspace = true
 frame-benchmarking.default-features = true
@@ -83,6 +84,46 @@ substrate-frame-rpc-system.workspace = true
 substrate-frame-rpc-system.default-features = true
 prometheus-endpoint.workspace = true
 prometheus-endpoint.default-features = true
+=======
+
+# Local
+parachain-template-runtime = { workspace = true }
+
+# Substrate
+frame-benchmarking = { workspace = true, default-features = true }
+frame-benchmarking-cli = { workspace = true, default-features = true }
+pallet-transaction-payment-rpc = { workspace = true, default-features = true }
+sc-basic-authorship = { workspace = true, default-features = true }
+sc-chain-spec = { workspace = true, default-features = true }
+sc-cli = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-offchain = { workspace = true, default-features = true }
+sc-consensus = { workspace = true, default-features = true }
+sc-executor = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-sync = { workspace = true, default-features = true }
+sc-rpc = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
+sc-sysinfo = { workspace = true, default-features = true }
+sc-telemetry = { workspace = true, default-features = true }
+sc-tracing = { workspace = true, default-features = true }
+sc-transaction-pool = { workspace = true, default-features = true }
+sc-transaction-pool-api = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-block-builder = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-consensus-aura = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-genesis-builder = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true, default-features = true }
+substrate-frame-rpc-system = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
+
+# Polkadot
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
 polkadot-cli = { features = ["rococo-native"], workspace = true, default-features = true }
 polkadot-primitives.workspace = true
 polkadot-primitives.default-features = true

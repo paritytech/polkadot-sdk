@@ -14,6 +14,12 @@ codec = { features = ["derive", "max-encoded-len"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+<<<<<<< HEAD
+=======
+serde_json = { features = ["alloc"], workspace = true }
+
+# Substrate
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
 frame-benchmarking = { optional = true, workspace = true }
 frame-executive.workspace = true
 frame-metadata-hash-extension.workspace = true
@@ -222,6 +228,11 @@ std = [
 	"polkadot-runtime-common/std",
 	"primitive-types/std",
 	"scale-info/std",
+<<<<<<< HEAD
+=======
+	"serde_json/std",
+	"snowbridge-router-primitives/std",
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",

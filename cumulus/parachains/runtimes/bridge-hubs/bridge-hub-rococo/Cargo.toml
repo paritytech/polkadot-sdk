@@ -22,6 +22,12 @@ scale-info = { features = [
 	"derive",
 ], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
+<<<<<<< HEAD
+=======
+serde_json = { features = ["alloc"], workspace = true }
+
+# Substrate
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
 frame-benchmarking = { optional = true, workspace = true }
 frame-executive.workspace = true
 frame-support.workspace = true
@@ -176,6 +182,7 @@ std = [
 	"rococo-runtime-constants/std",
 	"scale-info/std",
 	"serde",
+	"serde_json/std",
 	"snowbridge-beacon-primitives/std",
 	"snowbridge-core/std",
 	"snowbridge-outbound-queue-runtime-api/std",

@@ -974,7 +974,13 @@ dependencies = [
  "polkadot-runtime-common",
  "primitive-types",
  "scale-info",
+<<<<<<< HEAD
  "sp-api",
+=======
+ "serde_json",
+ "snowbridge-router-primitives",
+ "sp-api 26.0.0",
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
@@ -2078,6 +2084,7 @@ dependencies = [
  "rococo-runtime-constants",
  "scale-info",
  "serde",
+ "serde_json",
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-outbound-queue-runtime-api",
@@ -2247,7 +2254,23 @@ dependencies = [
  "polkadot-runtime-common",
  "scale-info",
  "serde",
+<<<<<<< HEAD
  "sp-api",
+=======
+ "serde_json",
+ "snowbridge-beacon-primitives",
+ "snowbridge-core",
+ "snowbridge-outbound-queue-runtime-api",
+ "snowbridge-pallet-ethereum-client",
+ "snowbridge-pallet-inbound-queue",
+ "snowbridge-pallet-outbound-queue",
+ "snowbridge-pallet-system",
+ "snowbridge-router-primitives",
+ "snowbridge-runtime-common",
+ "snowbridge-runtime-test-common",
+ "snowbridge-system-runtime-api",
+ "sp-api 26.0.0",
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
@@ -2883,8 +2906,14 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "scale-info",
+<<<<<<< HEAD
  "sp-api",
  "sp-arithmetic",
+=======
+ "serde_json",
+ "sp-api 26.0.0",
+ "sp-arithmetic 23.0.0",
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
@@ -2894,7 +2923,12 @@ dependencies = [
  "sp-offchain",
  "sp-runtime",
  "sp-session",
+<<<<<<< HEAD
  "sp-storage",
+=======
+ "sp-std 14.0.0",
+ "sp-storage 19.0.0",
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
  "sp-transaction-pool",
  "sp-version",
  "staging-parachain-info",
@@ -11851,10 +11885,18 @@ dependencies = [
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus-aura",
+<<<<<<< HEAD
  "sp-core",
  "sp-io",
  "sp-keystore",
  "sp-runtime",
+=======
+ "sp-core 28.0.0",
+ "sp-genesis-builder",
+ "sp-io 30.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
  "sp-timestamp",
  "staging-xcm",
  "substrate-build-script-utils",
@@ -13627,6 +13669,41 @@ dependencies = [
  "contracts-rococo-runtime",
  "coretime-rococo-runtime",
  "coretime-westend-runtime",
+<<<<<<< HEAD
+=======
+ "cumulus-primitives-core",
+ "glutton-westend-runtime",
+ "hex-literal",
+ "log",
+ "parachains-common",
+ "penpal-runtime",
+ "people-rococo-runtime",
+ "people-westend-runtime",
+ "polkadot-parachain-lib",
+ "rococo-parachain-runtime",
+ "sc-chain-spec",
+ "sc-cli",
+ "sc-service",
+ "seedling-runtime",
+ "serde",
+ "serde_json",
+ "shell-runtime",
+ "sp-core 28.0.0",
+ "sp-genesis-builder",
+ "staging-xcm",
+ "substrate-build-script-utils",
+ "testnet-parachains-constants",
+]
+
+[[package]]
+name = "polkadot-parachain-lib"
+version = "0.1.0"
+dependencies = [
+ "assert_cmd",
+ "async-trait",
+ "clap 4.5.13",
+ "color-print",
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",
@@ -14428,23 +14505,22 @@ version = "17.0.1"
 dependencies = [
  "assert_matches",
  "async-trait",
+<<<<<<< HEAD
  "bitvec",
  "env_logger 0.11.3",
+=======
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-metadata-hash-extension",
- "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
  "futures",
- "hex-literal",
  "is_executable",
  "kvdb",
  "kvdb-rocksdb",
  "log",
  "mmr-gadget",
- "pallet-babe",
- "pallet-staking",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-db",
@@ -14481,7 +14557,6 @@ dependencies = [
  "polkadot-node-subsystem-types",
  "polkadot-node-subsystem-util",
  "polkadot-overseer",
- "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "polkadot-rpc",
@@ -14492,10 +14567,8 @@ dependencies = [
  "rococo-runtime-constants",
  "sc-authority-discovery",
  "sc-basic-authorship",
- "sc-block-builder",
  "sc-chain-spec",
  "sc-client-api",
- "sc-client-db",
  "sc-consensus",
  "sc-consensus-babe",
  "sc-consensus-beefy",
@@ -14504,7 +14577,6 @@ dependencies = [
  "sc-executor",
  "sc-keystore",
  "sc-network",
- "sc-network-common",
  "sc-network-sync",
  "sc-offchain",
  "sc-service",
@@ -14513,7 +14585,6 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
- "schnellru",
  "serde",
  "serde_json",
  "serial_test",
@@ -14525,17 +14596,28 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-beefy",
  "sp-consensus-grandpa",
+<<<<<<< HEAD
  "sp-core",
+=======
+ "sp-core 28.0.0",
+ "sp-genesis-builder",
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
  "sp-inherents",
  "sp-io",
  "sp-keyring",
+<<<<<<< HEAD
  "sp-keystore",
+=======
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
  "sp-mmr-primitives",
  "sp-offchain",
  "sp-runtime",
  "sp-session",
+<<<<<<< HEAD
  "sp-state-machine",
  "sp-storage",
+=======
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
  "sp-timestamp",
  "sp-transaction-pool",
  "sp-version",
@@ -23149,7 +23231,12 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-babe",
  "sp-consensus-beefy",
+<<<<<<< HEAD
  "sp-core",
+=======
+ "sp-consensus-grandpa",
+ "sp-core 28.0.0",
+>>>>>>> 8735c66 (Moved presets to the testnet runtimes (#5327))
  "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
@@ -23666,12 +23753,10 @@ name = "xcm-executor-integration-tests"
 version = "1.0.0"
 dependencies = [
  "frame-support",
- "frame-system",
  "futures",
  "pallet-transaction-payment",
  "pallet-xcm",
  "parity-scale-codec",
- "polkadot-service",
  "polkadot-test-client",
  "polkadot-test-runtime",
  "polkadot-test-service",
