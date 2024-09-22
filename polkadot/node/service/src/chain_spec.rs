@@ -223,7 +223,7 @@ pub fn westend_local_testnet_config() -> Result<WestendChainSpec, String> {
 	.with_name("Westend Local Testnet")
 	.with_id("westend_local_testnet")
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_preset_name(sc_chain_spec::LOCAL_TESTNET_RUNTIME_PRESET)
+	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 	.with_protocol_id(DEFAULT_PROTOCOL_ID)
 	.build())
 }
@@ -238,7 +238,7 @@ pub fn rococo_local_testnet_config() -> Result<RococoChainSpec, String> {
 	.with_name("Rococo Local Testnet")
 	.with_id("rococo_local_testnet")
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_preset_name(sc_chain_spec::LOCAL_TESTNET_RUNTIME_PRESET)
+	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 	.with_protocol_id(DEFAULT_PROTOCOL_ID)
 	.build())
 }

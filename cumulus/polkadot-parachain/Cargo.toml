@@ -49,6 +49,7 @@ sp-core = { workspace = true, default-features = true }
 sc-cli = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }
+sp-genesis-builder = { workspace = true, default-features = true }
 
 # Polkadot
 xcm = { workspace = true, default-features = true }
