@@ -23,7 +23,7 @@ use jsonrpsee::{
 	rpc_params,
 };
 use prometheus::Registry;
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value as JsonValue;
 use std::collections::{btree_map::BTreeMap, VecDeque};
 use tokio::sync::mpsc::Sender as TokioSender;
@@ -122,6 +122,12 @@ pub async fn create_client_and_start_light_client_worker(
 	Ok(client)
 }
 
+#[derive(Serialize)]
+struct PayloadToHex<'a> {
+	#[serde(with = "sp_core::bytes")]
+	payload: &'a [u8],
+}
+
 /// Client that maps RPC methods and deserializes results
 #[derive(Clone)]
 pub struct RelayChainRpcClient {
@@ -153,27 +159,26 @@ impl RelayChainRpcClient {
 		&self,
 		method_name: &str,
 		hash: RelayHash,
-		payload_bytes: &[u8],
+		payload: &[u8],
 	) -> RelayChainResult<sp_core::Bytes> {
+		let payload = PayloadToHex { payload };
+
 		let params = rpc_params! {
 			method_name,
-			payload_bytes,
+			payload,
 			hash
 		};
 
-		let res = self
-			.request_tracing::<sp_core::Bytes, _>("state_call", params, |err| {
-				tracing::trace!(
-					target: LOG_TARGET,
-					%method_name,
-					%hash,
-					error = %err,
-					"Error during call to 'state_call'.",
-				);
-			})
-			.await?;
-
-		Ok(res)
+		self.request_tracing::<sp_core::Bytes, _>("state_call", params, |err| {
+			tracing::trace!(
+				target: LOG_TARGET,
+				%method_name,
+				%hash,
+				error = %err,
+				"Error during call to 'state_call'.",
+			);
+		})
+		.await
 	}
 
 	/// Call a call to `state_call` rpc method.
