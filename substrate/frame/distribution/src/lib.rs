@@ -41,8 +41,7 @@
 //! ### Permissionless Functions
 //!
 //! * `pot_account`: Output the pot account_id.
-//! * `pot_check`: Series of checks on the Pot, to ensure that we have enough funds before executing
-//!   a Spend.
+//!
 //! * `spend`: Funds transfer from the Pot to a project account.
 //!
 //! ### Privileged Functions
