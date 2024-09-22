@@ -14,7 +14,7 @@ subxt = { version = "0.37", features = ["substrate-compat"] }
 subxt-signer = { version = "0.37" }
 tokio = { version = "1.36.0", features = ["rt-multi-thread"] }
 anyhow = "1.0.81"
-zombienet-sdk = "0.2.11"
+zombienet-sdk = "0.2.12"
 serde = "1.0.197"
 serde_json = "1.0.114"
 parity-scale-codec = { version = "3.6.9", features = ["derive"] }
