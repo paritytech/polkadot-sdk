@@ -123,10 +123,7 @@ pub async fn create_client_and_start_light_client_worker(
 }
 
 #[derive(Serialize)]
-struct PayloadToHex<'a> {
-	#[serde(with = "sp_core::bytes")]
-	payload: &'a [u8],
-}
+struct PayloadToHex<'a>(#[serde(with = "sp_core::bytes")] &'a [u8]);
 
 /// Client that maps RPC methods and deserializes results
 #[derive(Clone)]
@@ -161,7 +158,7 @@ impl RelayChainRpcClient {
 		hash: RelayHash,
 		payload: &[u8],
 	) -> RelayChainResult<sp_core::Bytes> {
-		let payload = PayloadToHex { payload };
+		let payload = PayloadToHex(payload);
 
 		let params = rpc_params! {
 			method_name,
