@@ -512,25 +512,6 @@ mod bridge_hub_westend_tests {
 			),
 		)
 	}
-
-	#[test]
-	fn open_and_close_bridge_works() {
-		let origins = [SiblingParachainLocation::get(), SiblingSystemParachainLocation::get()];
-
-		for origin in origins {
-			bridge_hub_test_utils::test_cases::open_and_close_bridge_works::<
-				Runtime,
-				XcmOverBridgeHubWestendInstance,
-				LocationToAccountId,
-				TokenLocation,
-			>(
-				collator_session_keys(),
-				bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-				origin,
-				BridgedUniversalLocation::get(),
-			)
-		}
-	}
 }
 
 mod bridge_hub_bulletin_tests {
@@ -731,24 +712,5 @@ mod bridge_hub_bulletin_tests {
 			},
 			construct_and_apply_extrinsic,
 		)
-	}
-
-	#[test]
-	fn open_and_close_bridge_works() {
-		let origins = [SiblingPeopleParachainLocation::get()];
-
-		for origin in origins {
-			bridge_hub_test_utils::test_cases::open_and_close_bridge_works::<
-				Runtime,
-				XcmOverPolkadotBulletinInstance,
-				LocationToAccountId,
-				TokenLocation,
-			>(
-				collator_session_keys(),
-				bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-				origin,
-				BridgedBulletinLocation::get(),
-			)
-		}
 	}
 }

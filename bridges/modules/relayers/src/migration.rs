@@ -178,7 +178,7 @@ pub mod v1 {
 				rewards = rewards
 					.try_mutate(|inner| {
 						inner
-							.entry((key1.clone(), key2.lane_id.clone()))
+							.entry((key1.clone(), key2.lane_id))
 							.and_modify(|value| *value += reward)
 							.or_insert(reward);
 					})
@@ -212,7 +212,7 @@ pub mod v1 {
 				rewards_after = rewards_after
 					.try_mutate(|inner| {
 						inner
-							.entry((key1.clone(), key2.lane_id().clone()))
+							.entry((key1.clone(), *key2.lane_id()))
 							.and_modify(|value| *value += reward)
 							.or_insert(reward);
 					})

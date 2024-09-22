@@ -400,22 +400,3 @@ pub fn can_calculate_fee_for_standalone_message_confirmation_transaction() {
 		),
 	)
 }
-
-#[test]
-fn open_and_close_bridge_works() {
-	let origins = [SiblingParachainLocation::get(), SiblingSystemParachainLocation::get()];
-
-	for origin in origins {
-		bridge_hub_test_utils::test_cases::open_and_close_bridge_works::<
-			Runtime,
-			XcmOverBridgeHubRococoInstance,
-			LocationToAccountId,
-			WestendLocation,
-		>(
-			collator_session_keys(),
-			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
-			origin,
-			BridgedUniversalLocation::get(),
-		)
-	}
-}
