@@ -36,7 +36,7 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
+use cumulus_primitives_core::{ClaimQueueOffset, CollectCollationInfo, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::{PoV, SubmitCollationParams};
@@ -260,6 +260,8 @@ where
 				relay_parent,
 				params.para_id,
 				&mut params.relay_client,
+				// Use depth 0, to preserve behaviour.
+				ClaimQueueOffset(0),
 			)
 			.await
 			.get(0)
