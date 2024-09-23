@@ -196,7 +196,7 @@ jobs:
         run: |
           rustup show
           cargo --version
-          yarn --version
+          echo "yarn version: $(yarn --version)"
           echo $( substrate-contracts-node --version | awk 'NF' )
           estuary --version
           cargo-contract --version
