@@ -2734,9 +2734,11 @@ fn fatp_ready_light_long_fork_works() {
 	let xt3 = uxt(Dave, 200);
 	let xt4 = uxt(Eve, 200);
 
-	let submissions = vec![
-		pool.submit_at(genesis, SOURCE, vec![xt0.clone(), xt1.clone(), xt2.clone(), xt3.clone(), xt4.clone()])
-	];
+	let submissions = vec![pool.submit_at(
+		genesis,
+		SOURCE,
+		vec![xt0.clone(), xt1.clone(), xt2.clone(), xt3.clone(), xt4.clone()],
+	)];
 	let results = block_on(futures::future::join_all(submissions));
 	assert!(results.iter().all(|r| { r.is_ok() }));
 
@@ -2773,9 +2775,11 @@ fn fatp_ready_light_long_fork_retracted_works() {
 	let xt3 = uxt(Dave, 200);
 	let xt4 = uxt(Eve, 200);
 
-	let submissions = vec![
-		pool.submit_at(genesis, SOURCE, vec![xt0.clone(), xt1.clone(), xt2.clone(), xt3.clone()])
-	];
+	let submissions = vec![pool.submit_at(
+		genesis,
+		SOURCE,
+		vec![xt0.clone(), xt1.clone(), xt2.clone(), xt3.clone()],
+	)];
 	let results = block_on(futures::future::join_all(submissions));
 	assert!(results.iter().all(|r| { r.is_ok() }));
 
