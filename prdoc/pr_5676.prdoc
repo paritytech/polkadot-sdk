@@ -2,7 +2,9 @@ title: '[ci] Update CI image with rust 1.81.0 and 2024-09-11'
 doc:
 - audience: Runtime Dev
   description: |-
-    Update to Rust 1.81
+    cc https://github.com/paritytech/ci_cd/issues/1035
+
+    close https://github.com/paritytech/ci_cd/issues/1023
 crates:
 - name: pallet-xcm-bridge-hub
   bump: patch
@@ -163,4 +165,6 @@ crates:
 - name: bp-header-chain
   bump: patch
 - name: polkadot-overseer
+  bump: patch
+- name: polkadot
   bump: patch
