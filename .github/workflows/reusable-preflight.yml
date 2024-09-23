@@ -71,6 +71,10 @@ on:
         description: "Sha of the current revision, 8-symbols long"
 
 jobs:
+
+  #
+  #
+  #
   preflight:
     runs-on: ubuntu-latest
     outputs:
@@ -177,11 +181,38 @@ jobs:
         run: |
           echo "workflow file: ${{ steps.current_file.outputs.currentWorkflowFile }}"
           echo "Modified: ${{ steps.set_changes.outputs.modified_keys }}"
+
+  #
+  #
+  #
+  ci-versions:
+    needs: [preflight]
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+
+      - name: Info rust
+        run: |
+          rustup show
+          cargo --version
+          yarn --version
+          echo $( substrate-contracts-node --version | awk 'NF' )
+          estuary --version
+          cargo-contract --version
+
+      - name: Info forklift
+        run: forklift version
+
+      - name: Info vars
+        run: |
+          echo "COMMIT_SHAgithub.sha: ${{ needs.preflight.outputs.COMMIT_SHA }}"
+          echo "COMMIT_SHA_SHORT: ${{ needs.preflight.outputs.COMMIT_SHA_SHORT }}"
+          echo "SOURCE_REF_SLUG: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}"
+          echo "REF_SLUG: ${{ needs.preflight.outputs.REF_SLUG }}"
+          echo "RUNNER: ${{ needs.preflight.outputs.RUNNER }}"
+          echo "IMAGE: ${{ needs.preflight.outputs.IMAGE }}"
+          #
           echo "github.ref: ${{ github.ref }}"
           echo "github.ref_name: ${{ github.ref_name }}"
           echo "github.sha: ${{ github.sha }}"
-          #
-          echo "COMMIT_SHAgithub.sha: ${{ steps.set_vars.outputs.COMMIT_SHA }}"
-          echo "COMMIT_SHA_SHORT: ${{ steps.set_vars.outputs.COMMIT_SHA_SHORT }}"
-          echo "SOURCE_REF_SLUG: ${{ steps.set_vars.outputs.SOURCE_REF_SLUG }}"
-          echo "REF_SLUG: ${{ steps.set_vars.outputs.REF_SLUG }}"
