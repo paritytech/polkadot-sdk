@@ -185,7 +185,7 @@ template and note the following:
   configuration is defined by a code block that begins with `impl
   $PALLET_NAME::Config for Runtime`.
 - The pallets are composed into a single runtime by way of the
-  [`construct_runtime!`](https://paritytech.github.io/substrate/master/frame_support/macro.construct_runtime.html)
+  [#[runtime]](https://paritytech.github.io/polkadot-sdk/master/frame_support/attr.runtime.html)
   macro, which is part of the [core FRAME pallet
   library](https://docs.substrate.io/reference/frame-pallets/#system-pallets).
 
