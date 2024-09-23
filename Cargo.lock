@@ -15426,6 +15426,7 @@ dependencies = [
  "polkadot-network-bridge",
  "polkadot-node-collation-generation",
  "polkadot-node-core-approval-voting",
+ "polkadot-node-core-approval-voting-parallel",
  "polkadot-node-core-av-store",
  "polkadot-node-core-backing",
  "polkadot-node-core-bitfield-signing",
