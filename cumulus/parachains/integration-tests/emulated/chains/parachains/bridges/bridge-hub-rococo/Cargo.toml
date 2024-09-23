@@ -14,6 +14,7 @@ workspace = true
 
 # Substrate
 sp-core = { workspace = true }
+sp-keyring = { workspace = true }
 frame-support = { workspace = true }
 
 # Cumulus
@@ -21,4 +22,6 @@ parachains-common = { workspace = true, default-features = true }
 emulated-integration-tests-common = { workspace = true }
 bridge-hub-rococo-runtime = { workspace = true, default-features = true }
 bridge-hub-common = { workspace = true }
-testnet-parachains-constants = { features = ["rococo"], workspace = true, default-features = true }
+testnet-parachains-constants = { features = [
+    "rococo",
+], workspace = true, default-features = true }

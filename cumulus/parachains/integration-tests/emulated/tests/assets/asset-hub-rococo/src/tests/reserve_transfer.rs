@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use sp_core::Pair;
+
 use crate::imports::*;
 
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
@@ -1042,7 +1044,11 @@ fn reserve_transfer_multiple_assets_from_para_to_asset_hub() {
 	);
 
 	// Beneficiary is a new (empty) account
-	let receiver = get_account_id_from_seed::<sp_runtime::testing::sr25519::Public>(DUMMY_EMPTY);
+	let receiver: sp_runtime::AccountId32 =
+		sp_core::sr25519::Pair::from_string(&format!("//{}", DUMMY_EMPTY), None)
+			.expect("static values are valid")
+			.public()
+			.into();
 	// Init values for Asset Hub
 	let penpal_location_as_seen_by_ahr = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(penpal_location_as_seen_by_ahr);

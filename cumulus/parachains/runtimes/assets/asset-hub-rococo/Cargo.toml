@@ -49,6 +49,7 @@ sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
+sp-keyring = { workspace = true }
 sp-inherents = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-offchain = { workspace = true }
@@ -59,7 +60,11 @@ sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
 sp-weights = { workspace = true }
 # num-traits feature needed for dex integer sq root:
-primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
+primitive-types = { features = [
+	"codec",
+	"num-traits",
+	"scale-info",
+], workspace = true }
 
 # Polkadot
 rococo-runtime-constants = { workspace = true }
