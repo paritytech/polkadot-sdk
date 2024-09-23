@@ -73,41 +73,44 @@ impl<T: Config> Pallet<T> {
 				let balance = T::NativeBalance::balance(&pot);
 				let minimum_balance = T::NativeBalance::minimum_balance();
 
-				projects = projects.iter().filter(|project|{
-					// check if the pot has enough fund for the Spend
-					// Check that the Pot as enough funds for the transfer					
-					let remaining_balance = balance.saturating_sub(project.amount);
-					
-					// we check that holding the necessary amount cannot fail
-					if remaining_balance > minimum_balance && balance > project.amount {
-						// Create a new Spend
-						let new_spend = SpendInfo::<T>::new(&project);
-						let _ = T::NativeBalance::hold(
-							&HoldReason::FundsReserved.into(),
-							&pot,
-							project.amount,
-						)
-						.expect("Funds Reserve Failed");
+				projects = projects
+					.iter()
+					.filter(|project| {
+						// check if the pot has enough fund for the Spend
+						// Check that the Pot as enough funds for the transfer
+						let remaining_balance = balance.saturating_sub(project.amount);
 
-						// Emmit an event
-						let now = T::BlockNumberProvider::current_block_number();
-						Self::deposit_event(Event::SpendCreated {
-							when: now,
-							amount: new_spend.amount,
-							project_id: project.project_id.clone(),
-						});
-					}
-					return false;
-				}).map(|x| x.clone()).collect();
+						// we check that holding the necessary amount cannot fail
+						if remaining_balance > minimum_balance && balance > project.amount {
+							// Create a new Spend
+							let new_spend = SpendInfo::<T>::new(&project);
+							let _ = T::NativeBalance::hold(
+								&HoldReason::FundsReserved.into(),
+								&pot,
+								project.amount,
+							)
+							.expect("Funds Reserve Failed");
 
+							// Emmit an event
+							let now = T::BlockNumberProvider::current_block_number();
+							Self::deposit_event(Event::SpendCreated {
+								when: now,
+								amount: new_spend.amount,
+								project_id: project.project_id.clone(),
+							});
+						}
+						return false;
+					})
+					.map(|x| x.clone())
+					.collect();
 			}
 
 			// Update project storage
 			let mut bounded = BoundedVec::<ProjectInfo<T>, T::MaxProjects>::new();
 			Projects::<T>::mutate(|val| {
-				for p in projects{
+				for p in projects {
 					// The number of elements in projects is ALWAYS
-					// egual or below T::MaxProjects at this point. 
+					// egual or below T::MaxProjects at this point.
 					let _ = bounded.try_push(p);
 				}
 				*val = bounded;

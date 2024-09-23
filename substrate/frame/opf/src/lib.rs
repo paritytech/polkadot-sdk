@@ -265,10 +265,10 @@ pub mod pallet {
 			// Check the total amount locked in other projects
 			let voter_holds = BalanceOf::<T>::zero();
 			let projects = WhiteListedProjectAccounts::<T>::get();
-			for project in projects {				
-					let infos = Votes::<T>::get(&project, &voter);
-					let this_amount = infos.unwrap_or_default().amount;
-					voter_holds.saturating_add(this_amount);
+			for project in projects {
+				let infos = Votes::<T>::get(&project, &voter);
+				let this_amount = infos.unwrap_or_default().amount;
+				voter_holds.saturating_add(this_amount);
 			}
 
 			let available_funds = voter_balance.saturating_sub(voter_holds);
