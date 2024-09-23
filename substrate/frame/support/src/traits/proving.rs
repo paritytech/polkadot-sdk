@@ -24,9 +24,9 @@ use sp_core::Hasher;
 /// Something that can verify the existence of some data in a given proof.
 pub trait VerifyExistenceProof {
 	/// The proof type.
-	type Proof: Encode + Decode;
+	type Proof;
 	/// The hash type.
-	type Hash: Encode + Decode;
+	type Hash;
 
 	/// Verify the given `proof`.
 	///
@@ -77,10 +77,7 @@ pub struct SixteenPatriciaMerkleTreeExistenceProof {
 /// Implements [`VerifyExistenceProof`] using a 16-patricia merkle tree.
 pub struct SixteenPatriciaMerkleTreeProver<H>(core::marker::PhantomData<H>);
 
-impl<H: Hasher> VerifyExistenceProof for SixteenPatriciaMerkleTreeProver<H>
-where
-	H::Out: Encode + Decode,
-{
+impl<H: Hasher> VerifyExistenceProof for SixteenPatriciaMerkleTreeProver<H> {
 	type Proof = SixteenPatriciaMerkleTreeExistenceProof;
 	type Hash = H::Out;
 
@@ -95,19 +92,10 @@ where
 	}
 }
 
-/// An implementation which always returns an error when this feature is unavailable.
-impl VerifyExistenceProof for () {
-	type Proof = ();
-	type Hash = ();
-	fn verify_proof(_proof: Self::Proof, _root: &Self::Hash) -> Result<Vec<u8>, ()> {
-		Err(())
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_runtime::{proving_trie::base16::BasicProvingTrie, traits::BlakeTwo256};
+	use sp_runtime::{proving_trie::BasicProvingTrie, traits::BlakeTwo256};
 
 	#[test]
 	fn verify_binary_merkle_tree_prover_works() {
