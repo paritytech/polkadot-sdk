@@ -21,7 +21,6 @@ use crate::{
 	shared::{MALICIOUS_POV, MALUS},
 };
 
-use polkadot_node_core_candidate_validation::find_validation_data;
 use polkadot_node_primitives::{InvalidCandidate, ValidationResult};
 
 use polkadot_primitives::{
@@ -149,59 +148,21 @@ impl Into<InvalidCandidate> for FakeCandidateValidationError {
 #[derive(Clone, Debug)]
 /// An interceptor which fakes validation result with a preconfigured result.
 /// Replaces `CandidateValidationSubsystem`.
-pub struct ReplaceValidationResult<Spawner> {
+pub struct ReplaceValidationResult {
 	fake_validation: FakeCandidateValidation,
 	fake_validation_error: FakeCandidateValidationError,
 	distribution: Bernoulli,
-	spawner: Spawner,
 }
 
-impl<Spawner> ReplaceValidationResult<Spawner>
-where
-	Spawner: overseer::gen::Spawner,
-{
+impl ReplaceValidationResult {
 	pub fn new(
 		fake_validation: FakeCandidateValidation,
 		fake_validation_error: FakeCandidateValidationError,
 		percentage: f64,
-		spawner: Spawner,
 	) -> Self {
 		let distribution = Bernoulli::new(percentage / 100.0)
 			.expect("Invalid probability! Percentage must be in range [0..=100].");
-		Self { fake_validation, fake_validation_error, distribution, spawner }
-	}
-
-	/// Creates and sends the validation response for a given candidate. Queries the runtime to
-	/// obtain the validation data for the given candidate.
-	pub fn send_validation_response<Sender>(
-		&self,
-		candidate_descriptor: CandidateDescriptor,
-		subsystem_sender: Sender,
-		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
-	) where
-		Sender: overseer::CandidateValidationSenderTrait + Clone + Send + 'static,
-	{
-		let _candidate_descriptor = candidate_descriptor.clone();
-		let mut subsystem_sender = subsystem_sender.clone();
-		let (sender, receiver) = std::sync::mpsc::channel();
-		self.spawner.spawn_blocking(
-			"malus-get-validation-data",
-			Some("malus"),
-			Box::pin(async move {
-				match find_validation_data(&mut subsystem_sender, &_candidate_descriptor).await {
-					Ok(Some((validation_data, validation_code))) => {
-						sender
-							.send((validation_data, validation_code))
-							.expect("channel is still open");
-					},
-					_ => {
-						panic!("Unable to fetch validation data");
-					},
-				}
-			}),
-		);
-		let (validation_data, _) = receiver.recv().unwrap();
-		create_validation_response(validation_data, candidate_descriptor, response_sender);
+		Self { fake_validation, fake_validation_error, distribution }
 	}
 }
 
@@ -251,10 +212,9 @@ fn create_validation_response(
 	response_sender.send(result).unwrap();
 }
 
-impl<Sender, Spawner> MessageInterceptor<Sender> for ReplaceValidationResult<Spawner>
+impl<Sender> MessageInterceptor<Sender> for ReplaceValidationResult
 where
 	Sender: overseer::CandidateValidationSenderTrait + Clone + Send + 'static,
-	Spawner: overseer::gen::Spawner + Clone + 'static,
 {
 	type Message = CandidateValidationMessage;
 
@@ -262,7 +222,7 @@ where
 	// configuration fail them.
 	fn intercept_incoming(
 		&self,
-		subsystem_sender: &mut Sender,
+		_subsystem_sender: &mut Sender,
 		msg: FromOrchestra<Self::Message>,
 	) -> Option<FromOrchestra<Self::Message>> {
 		match msg {
@@ -343,7 +303,7 @@ where
 						match behave_maliciously {
 							true => {
 								let validation_result =
-									ValidationResult::Invalid(InvalidCandidate::InvalidOutputs);
+									ValidationResult::Invalid(self.fake_validation_error.into());
 
 								gum::info!(
 									target: MALUS,
