@@ -1551,7 +1551,7 @@ pub mod env {
 			out_ptr,
 			&as_bytes(U256::from(<E::T as Config>::ChainId::get())),
 			false,
-			already_charged,
+			|_| Some(RuntimeCosts::CopyToContract(32)),
 		)?)
 	}
 
