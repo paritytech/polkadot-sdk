@@ -489,7 +489,6 @@ where
 					keystore,
 					collator_key,
 					para_id,
-					relay_chain_slot_duration,
 					proposer,
 					collator_service,
 					authoring_duration: Duration::from_millis(2000),
