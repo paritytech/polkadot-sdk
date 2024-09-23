@@ -21,7 +21,6 @@ use super::*;
 #[allow(unused_imports)]
 use crate::Pallet as RankedCollective;
 use alloc::vec::Vec;
-use log::info;
 
 use frame_benchmarking::{
 	v1::{account, BenchmarkError},
