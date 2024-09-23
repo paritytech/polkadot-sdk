@@ -96,6 +96,7 @@ std = [
 	"sp-std/std",
 	"xcm-builder/std",
 	"xcm/std",
+	"sp-arithmetic/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -17,8 +17,4 @@ pretty_assertions.workspace = true
 
 [features]
 default = ["std"]
-std = [
-	"serde/std",
-	"serde_json/std",
-	"anyhow/std"
-]
+std = ["serde/std", "serde_json/std", "anyhow/std"]

@@ -9,22 +9,22 @@ description = "traits and types to enable integration with EVM"
 
 [dependencies]
 serde = { workspace = true, features = ["alloc", "derive"] }
-sp-core = { workspace = true, default-features = false }
-ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"], default-features = false }
-rlp = { workspace = true, default-features = false }
-hex = { workspace = true, default-features = false }
+sp-core = { workspace = true }
+ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
+rlp = { workspace = true }
+hex = { workspace = true }
 log = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"], optional = true }
 derive_more.workspace = true
-codec = { workspace = true, features = ["derive"], default-features = false }
-sp-io = { workspace = true, default-features = false }
-sp-runtime = { workspace = true, default-features = false }
-pallet-revive = { workspace = true, default-features = false }
-pallet-transaction-payment = { workspace = true, default-features = false }
-frame-support = { workspace = true, default-features = false }
-frame-system = { workspace = true, default-features = false }
-sp-weights = { workspace = true, default-features = false }
-scale-info = { workspace = true, features = ["derive"], default-features = false }
+codec = { workspace = true, features = ["derive"] }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+pallet-revive = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-weights = { workspace = true }
+scale-info = { workspace = true, features = ["derive"] }
 jsonrpsee = { workspace = true, features = ["full"], optional = true }
 
 [dev-dependencies]
@@ -35,23 +35,30 @@ pretty_assertions.workspace = true
 [features]
 default = ["std"]
 std = [
-	"jsonrpsee",
-	"codec/std",
-	"ethereum-types/std",
-	"frame-support/std",
-	"frame-system/std",
-	"hex/std",
-	"log/std",
-	"pallet-revive/std",
-	"pallet-transaction-payment/std",
-	"rlp/std",
-	"scale-info/std",
-	"secp256k1",
-	"secp256k1?/std",
-	"serde/std",
-	"serde_json/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
-	"sp-weights/std",
+  "jsonrpsee",
+  "codec/std",
+  "ethereum-types/std",
+  "frame-support/std",
+  "frame-system/std",
+  "hex/std",
+  "log/std",
+  "pallet-revive/std",
+  "pallet-transaction-payment/std",
+  "rlp/std",
+  "scale-info/std",
+  "secp256k1",
+  "secp256k1?/std",
+  "serde/std",
+  "serde_json/std",
+  "sp-core/std",
+  "sp-io/std",
+  "sp-runtime/std",
+  "sp-weights/std",
+]
+try-runtime = [
+  "pallet-revive/try-runtime",
+  "frame-support/try-runtime",
+  "frame-system/try-runtime",
+  "pallet-transaction-payment/try-runtime",
+  "sp-runtime/try-runtime",
 ]
