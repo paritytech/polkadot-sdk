@@ -8487,4 +8487,40 @@ use sp_staking::EraIndex;
 			assert_eq!(disabling_decision.disable.unwrap(), OFFENDER_VALIDATOR_IDX);
 		});
 	}
+
+	#[test]
+	fn update_cannot_lower_severity() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(OFFENDER_VALIDATOR_IDX, OFFENDER_SLASH_MAJOR), (0, OFFENDER_SLASH_MAJOR)];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					OFFENDER_SLASH_MINOR,
+					SLASH_ERA,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
+		});
+	}
+
+	#[test]
+	fn no_accidental_reenablement_on_repeated_offence() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(OFFENDER_VALIDATOR_IDX, OFFENDER_SLASH_MAJOR), (0, OFFENDER_SLASH_MINOR)];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					OFFENDER_SLASH_MAJOR,
+					SLASH_ERA,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
+		});
+	}
 }
