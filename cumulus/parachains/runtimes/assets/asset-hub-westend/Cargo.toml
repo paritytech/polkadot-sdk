@@ -14,6 +14,7 @@ codec = { features = ["derive", "max-encoded-len"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+serde_json = { features = ["alloc"], workspace = true }
 
 # Substrate
 frame-benchmarking = { optional = true, workspace = true }
@@ -233,6 +234,7 @@ std = [
 	"polkadot-runtime-common/std",
 	"primitive-types/std",
 	"scale-info/std",
+	"serde_json/std",
 	"snowbridge-router-primitives/std",
 	"sp-api/std",
 	"sp-block-builder/std",
