@@ -60,7 +60,7 @@ use frame_support::{
 	ensure,
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
-		ConstU32, Contains, EnsureOrigin, Get, Time,
+		ConstU32, ConstU64, Contains, EnsureOrigin, Get, Time,
 	},
 	weights::{Weight, WeightMeter},
 	BoundedVec, RuntimeDebugNoBound,
@@ -310,7 +310,7 @@ pub mod pallet {
 			traits::{ConstBool, ConstU32},
 		};
 		use frame_system::EnsureSigned;
-		use sp_core::{parameter_types, ConstU64};
+		use sp_core::parameter_types;
 
 		type AccountId = sp_runtime::AccountId32;
 		type Balance = u64;
@@ -667,8 +667,8 @@ pub mod pallet {
 
 			// We can use storage to store items using the available block ref_time with the
 			// `set_storage` host function.
-			let max_storage_size: u32 = ((max_block_ref_time /
-				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
+			let max_storage_size: u32 = ((max_block_ref_time
+				/ (<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
 					new_bytes: max_payload_size,
 					old_bytes: 0,
 				})
@@ -690,8 +690,8 @@ pub mod pallet {
 			// We can use storage to store events using the available block ref_time with the
 			// `deposit_event` host function. The overhead of stored events, which is around 100B,
 			// is not taken into account to simplify calculations, as it does not change much.
-			let max_events_size: u32 = ((max_block_ref_time /
-				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
+			let max_events_size: u32 = ((max_block_ref_time
+				/ (<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
 					num_topic: 0,
 					len: max_payload_size,
 				})
@@ -1049,8 +1049,9 @@ where
 					storage_deposit_limit.saturating_reduce(upload_deposit);
 					(executable, upload_deposit)
 				},
-				Code::Existing(code_hash) =>
-					(WasmBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
+				Code::Existing(code_hash) => {
+					(WasmBlob::from_storage(code_hash, &mut gas_meter)?, Default::default())
+				},
 			};
 			let instantiate_origin = Origin::from_account_id(instantiate_account.clone());
 			let mut storage_meter =
