@@ -164,7 +164,7 @@ mod check_upward_messages {
 			let max_per_candidate =
 				configuration::ActiveConfig::<Test>::get().max_upward_message_num_per_candidate;
 
-			for msg_size in 0..=max_size {
+			for msg_size in 1..=max_size {
 				check(P_0, vec![vec![0; msg_size as usize]], None);
 			}
 			for msg_size in max_size + 1..max_size + 10 {

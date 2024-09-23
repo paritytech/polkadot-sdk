@@ -443,6 +443,8 @@ pub(crate) enum UmpAcceptanceCheckErr {
 	/// The allowed number of `UMPSignal` messages in the queue was exceeded.
 	/// Currenly only one such message is allowed.
 	TooManyUMPSignals { count: u32 },
+	/// The UMP queue contains an invalid `UMPSignal`
+	InvalidUMPSignal,
 }
 
 impl fmt::Debug for UmpAcceptanceCheckErr {
@@ -472,7 +474,10 @@ impl fmt::Debug for UmpAcceptanceCheckErr {
 				write!(fmt, "upward message rejected because the para is off-boarding")
 			},
 			UmpAcceptanceCheckErr::TooManyUMPSignals { count } => {
-				write!(fmt, "the umpq queue has too many `UMPSignal` mesages ({} > 1 )", count)
+				write!(fmt, "the ump queue has too many `UMPSignal` mesages ({} > 1 )", count)
+			},
+			UmpAcceptanceCheckErr::InvalidUMPSignal => {
+				write!(fmt, "the ump queue contains an invalid UMP signal")
 			},
 		}
 	}
@@ -951,6 +956,10 @@ impl<T: Config> Pallet<T> {
 				return Err(UmpAcceptanceCheckErr::TooManyUMPSignals {
 					count: ump_signals.len() as u32,
 				})
+			}
+
+			if ump_signals.len() == 1 {
+				return Err(UmpAcceptanceCheckErr::InvalidUMPSignal)
 			}
 
 			upward_messages
