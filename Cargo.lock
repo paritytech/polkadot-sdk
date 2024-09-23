@@ -1161,18 +1161,6 @@ dependencies = [
 
 [[package]]
 name = "async-fs"
-version = "1.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "279cf904654eeebfa37ac9bb1598880884924aab82e290aa65c9e77a0e142e06"
-dependencies = [
- "async-lock 2.8.0",
- "autocfg",
- "blocking",
- "futures-lite 1.13.0",
-]
-
-[[package]]
-name = "async-fs"
 version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebcd09b382f40fcd159c2d695175b2ae620ffa5f3bd6f664131efff4e8b9e04a"
@@ -1258,18 +1246,6 @@ dependencies = [
 
 [[package]]
 name = "async-net"
-version = "1.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4051e67316bc7eff608fe723df5d32ed639946adcd69e07df41fd42a7b411f1f"
-dependencies = [
- "async-io 1.13.0",
- "autocfg",
- "blocking",
- "futures-lite 1.13.0",
-]
-
-[[package]]
-name = "async-net"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b948000fad4873c1c9339d60f2623323a0cfd3816e5181033c6a5cb68b2accf7"
@@ -1277,24 +1253,6 @@ dependencies = [
  "async-io 2.3.3",
  "blocking",
  "futures-lite 2.0.0",
-]
-
-[[package]]
-name = "async-process"
-version = "1.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a9d28b1d97e08915212e2e45310d47854eafa69600756fc735fb788f75199c9"
-dependencies = [
- "async-io 1.13.0",
- "async-lock 2.8.0",
- "autocfg",
- "blocking",
- "cfg-if",
- "event-listener 2.5.3",
- "futures-lite 1.13.0",
- "rustix 0.37.23",
- "signal-hook",
- "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -4679,7 +4637,7 @@ dependencies = [
  "serde",
  "serde_json",
  "smoldot 0.11.0",
- "smoldot-light 0.9.0",
+ "smoldot-light",
  "sp-api 26.0.0",
  "sp-authority-discovery",
  "sp-consensus-babe",
@@ -9291,12 +9249,6 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eedb2bdbad7e0634f83989bf596f497b070130daaa398ab22d84c39e266deec5"
-
-[[package]]
-name = "lru"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3262e75e648fce39813cb56ac41f3c3e3f65217ebf3844d818d1f9398cfb0dc"
@@ -13241,7 +13193,7 @@ checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
  "rand",
- "rand_core 0.6.4",
+ "rand_core 0.5.1",
  "serde",
  "unicode-normalization",
 ]
@@ -20548,16 +20500,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
-name = "signal-hook"
-version = "0.3.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8621587d4798caf8eb44879d42e56b9a93ea5dcd315a6487c357130095b62801"
-dependencies = [
- "libc",
- "signal-hook-registry",
-]
-
-[[package]]
 name = "signal-hook-registry"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -20674,34 +20616,17 @@ checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
 name = "smol"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13f2b548cd8447f8de0fdf1c592929f70f4fc7039a05e47404b0d096ec6987a1"
-dependencies = [
- "async-channel 1.9.0",
- "async-executor",
- "async-fs 1.6.0",
- "async-io 1.13.0",
- "async-lock 2.8.0",
- "async-net 1.7.0",
- "async-process 1.7.0",
- "blocking",
- "futures-lite 1.13.0",
-]
-
-[[package]]
-name = "smol"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a33bd3e260892199c3ccfc487c88b2da2265080acb316cd920da72fdfd7c599f"
 dependencies = [
  "async-channel 2.3.0",
  "async-executor",
- "async-fs 2.1.2",
+ "async-fs",
  "async-io 2.3.3",
  "async-lock 3.4.0",
- "async-net 2.0.0",
- "async-process 2.3.0",
+ "async-net",
+ "async-process",
  "blocking",
  "futures-lite 2.0.0",
 ]
@@ -20826,42 +20751,6 @@ dependencies = [
 
 [[package]]
 name = "smoldot-light"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "256b5bad1d6b49045e95fe87492ce73d5af81545d8b4d8318a872d2007024c33"
-dependencies = [
- "async-channel 1.9.0",
- "async-lock 2.8.0",
- "base64 0.21.7",
- "blake2-rfc",
- "derive_more",
- "either",
- "event-listener 2.5.3",
- "fnv",
- "futures-channel",
- "futures-lite 1.13.0",
- "futures-util",
- "hashbrown 0.14.5",
- "hex",
- "itertools 0.11.0",
- "log",
- "lru 0.11.0",
- "no-std-net",
- "parking_lot 0.12.3",
- "pin-project",
- "rand",
- "rand_chacha",
- "serde",
- "serde_json",
- "siphasher 0.3.11",
- "slab",
- "smol 1.3.0",
- "smoldot 0.11.0",
- "zeroize",
-]
-
-[[package]]
-name = "smoldot-light"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5496f2d116b7019a526b1039ec2247dd172b8670633b1a64a614c9ea12c9d8c7"
@@ -20891,7 +20780,7 @@ dependencies = [
  "serde_json",
  "siphasher 1.0.1",
  "slab",
- "smol 2.0.2",
+ "smol",
  "smoldot 0.16.0",
  "zeroize",
 ]
@@ -24189,7 +24078,7 @@ dependencies = [
  "futures-util",
  "serde",
  "serde_json",
- "smoldot-light 0.14.0",
+ "smoldot-light",
  "thiserror",
  "tokio",
  "tokio-stream",
