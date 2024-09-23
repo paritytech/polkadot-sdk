@@ -2565,6 +2565,7 @@ fn fatp_dangling_ready_gets_revalidated() {
 
 #[test]
 fn fatp_ready_txs_are_provided_in_valid_order() {
+	// this test checks if recently_pruned tags are cleared for views cloned from retracted path
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());

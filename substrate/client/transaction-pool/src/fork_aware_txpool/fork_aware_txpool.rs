@@ -934,6 +934,18 @@ where
 		all_extrinsics
 	}
 
+	/// Updates the given view with the transaction from the internal mempol.
+	///
+	/// All transactions from the mempool (excluding those which are either already imported or
+	/// already included in blocks since recently finalized block) are submitted to the
+	/// view. For all watched transactions the watcher is registered in the new view, and it is
+	/// connected to the multi-view-listener.
+	///
+	/// If the mempool transaction submitted to the provided view is reported as stale, the listner
+	/// is also register for this transaction. This is needed to properly send the `InBlock` event.
+	///
+	/// If there are no views, and mempool transaction is reported as invalid for the given view,
+	/// the transaction is reported as invalid and removed from the mempool.
 	async fn update_view(&self, view: &View<ChainApi>) {
 		log::trace!(
 			target: LOG_TARGET,
@@ -1066,6 +1078,10 @@ where
 		}
 	}
 
+	/// Updates the view with the transactions from the given tree route.
+	///
+	/// Transactions from the retracted blocks are resubmitted to the given view. Tags for
+	/// transactions included in blocks on enacted fork are pruned from the provided view.
 	async fn update_view_with_fork(
 		&self,
 		view: &View<ChainApi>,
@@ -1155,6 +1171,11 @@ where
 		}
 	}
 
+	/// Executes the maintainance for the finalized event.
+	///
+	/// Performs a house-keeping required for finalized event. This includes:
+	/// - executing the on finalized procedure for the view store,
+	/// - purging finalized transactions from the mempool and triggering mempool revalidation,
 	async fn handle_finalized(&self, finalized_hash: Block::Hash, tree_route: &[Block::Hash]) {
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
 		log::debug!(target: LOG_TARGET, "handle_finalized {finalized_number:?} tree_route: {tree_route:?} views_count:{}", self.active_views_count());
@@ -1182,6 +1203,7 @@ where
 		log::trace!(target: LOG_TARGET, "handle_finalized after views_count:{:?}", self.active_views_count());
 	}
 
+	/// Computes a hash of the provided transaction
 	fn tx_hash(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
 		self.api.hash_and_length(xt).0
 	}
@@ -1194,6 +1216,7 @@ where
 	ChainApi: 'static + graph::ChainApi<Block = Block>,
 	<Block as BlockT>::Hash: Unpin,
 {
+	/// Executes the maintainance for the given chain event.
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
 		let start = Instant::now();
 		log::debug!(target: LOG_TARGET, "processing event: {event:?}");
