@@ -96,19 +96,20 @@ async fn build_interface(
 	client: RelayChainRpcClient,
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
 	let collator_pair = CollatorPair::generate().0;
+	let blockchain_rpc_client = Arc::new(BlockChainRpcClient::new(client.clone()));
 	let collator_node = match polkadot_config.network.network_backend {
 		sc_network::config::NetworkBackendType::Libp2p =>
 			new_minimal_relay_chain::<RelayBlock, sc_network::NetworkWorker<RelayBlock, RelayHash>>(
 				polkadot_config,
 				collator_pair.clone(),
-				Arc::new(BlockChainRpcClient::new(client.clone())),
+				blockchain_rpc_client,
 			)
 			.await?,
 		sc_network::config::NetworkBackendType::Litep2p =>
 			new_minimal_relay_chain::<RelayBlock, sc_network::Litep2pNetworkBackend>(
 				polkadot_config,
 				collator_pair.clone(),
-				Arc::new(BlockChainRpcClient::new(client.clone())),
+				blockchain_rpc_client,
 			)
 			.await?,
 	};
@@ -120,17 +121,19 @@ async fn build_interface(
 }
 
 pub async fn build_minimal_relay_chain_node_with_rpc(
-	polkadot_config: Configuration,
+	relay_chain_config: Configuration,
+	parachain_prometheus_registry: Option<&Registry>,
 	task_manager: &mut TaskManager,
 	relay_chain_url: Vec<Url>,
 ) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
 	let client = cumulus_relay_chain_rpc_interface::create_client_and_start_worker(
 		relay_chain_url,
 		task_manager,
+		parachain_prometheus_registry,
 	)
 	.await?;
 
-	build_interface(polkadot_config, task_manager, client).await
+	build_interface(relay_chain_config, task_manager, client).await
 }
 
 pub async fn build_minimal_relay_chain_node_light_client(

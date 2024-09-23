@@ -30,10 +30,10 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytec
   * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
 	to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
   * [Guides](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/index.html),
-	namely how to build your first FRAME pallet.
+	namely how to build your first FRAME pallet
   * [Templates](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/templates/index.html)
-    for starting a new project.
-* Other Resources:
+    for starting a new project
+* Other resources:
   * [Polkadot Wiki -> Build](https://wiki.polkadot.network/docs/build-guide)
 
 ## 🚀 Releases
@@ -41,7 +41,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytec
 <!-- markdownlint-disable-next-line MD013 -->
 ![Current Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-latest.svg)&nbsp;&nbsp;![Next Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-next.svg)
 
-The Polkadot-SDK is released every three months as a `stableYYMMDD` release. They are supported for
+The Polkadot SDK is released every three months as a `stableYYMMDD` release. They are supported for
 one year with patches. See the next upcoming versions in the [Release
 Registry](https://github.com/paritytech/release-registry/).
 
