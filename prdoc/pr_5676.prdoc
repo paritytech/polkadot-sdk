@@ -1,6 +1,6 @@
 title: '[ci] Update CI image with rust 1.81.0 and 2024-09-11'
 doc:
-- audience: Runtime Dev
+- audience: [Runtime Dev, Node Dev, Node Operator]
   description: |-
     cc https://github.com/paritytech/ci_cd/issues/1035
 
