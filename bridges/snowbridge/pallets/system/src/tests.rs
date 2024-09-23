@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use crate::{mock::*, *};
-use frame_support::{assert_noop, assert_ok};
+use crate::{
+	migration::{agent_key, channel_key},
+	mock::*,
+	*,
+};
+use frame_support::{assert_noop, assert_ok, storage::generator::StorageMap};
 use hex_literal::hex;
 use snowbridge_core::eth;
-use sp_core::H256;
+use sp_core::{bytes::to_hex, H256};
 use sp_runtime::{AccountId32, DispatchError::BadOrigin, TokenError};
 
 #[test]
@@ -742,5 +746,54 @@ fn register_ethereum_native_token_fails() {
 			EthereumSystem::register_token(origin, versioned_location, Default::default()),
 			Error::<Test>::LocationConversionFailed
 		);
+	});
+}
+
+#[test]
+fn initialize_bridge() {
+	new_test_ext(false).execute_with(|| {
+		let asset_hub_location: Location =
+			ParentThen(Parachain(AssetHubParaId::get().into()).into()).into();
+		let asset_hub_agent_id = agent_id_of::<Test>(&asset_hub_location).unwrap();
+		let asset_hub_channel_id: ChannelId = AssetHubParaId::get().into();
+		let bridge_hub_agent_id = agent_id_of::<Test>(&Location::here()).unwrap();
+
+		assert_eq!(
+			Agents::<Test>::storage_map_final_key(bridge_hub_agent_id),
+			agent_key(bridge_hub_agent_id).0
+		);
+
+		let key_value_items = vec![
+			(agent_key(bridge_hub_agent_id).0, ().encode()),
+			(agent_key(asset_hub_agent_id).0, ().encode()),
+			(
+				channel_key(PRIMARY_GOVERNANCE_CHANNEL).0,
+				Channel { agent_id: bridge_hub_agent_id, para_id: BridgeHubParaId::get() }.encode(),
+			),
+			(
+				channel_key(SECONDARY_GOVERNANCE_CHANNEL).0,
+				Channel { agent_id: bridge_hub_agent_id, para_id: BridgeHubParaId::get() }.encode(),
+			),
+			(
+				channel_key(asset_hub_channel_id).0,
+				Channel { agent_id: asset_hub_agent_id, para_id: AssetHubParaId::get().into() }
+					.encode(),
+			),
+		];
+		assert_ok!(System::set_storage(RuntimeOrigin::root(), key_value_items.clone()));
+
+		assert_eq!(Channels::<Test>::contains_key(asset_hub_channel_id), true);
+
+		let channel = Channels::<Test>::get(asset_hub_channel_id).unwrap();
+
+		assert_eq!(channel.agent_id, asset_hub_agent_id);
+
+		assert_eq!(EthereumSystem::is_initialized(), true);
+
+		let set_storage_call: <Test as frame_system::Config>::RuntimeCall =
+			frame_system::Call::<Test>::set_storage { items: key_value_items.clone() }.into();
+
+		assert_eq!(to_hex(&set_storage_call.encode(), false), "0x0004142101ccee781f0b9380204db9882d1b1c771d0ec3e268c3abf5d87f15dde43fc56ec13a4d74bbd00efc4503170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314002101ccee781f0b9380204db9882d1b1c771d0ec3e268c3abf5d87f15dde43fc56ec14f4be588bc0653e381c5ab2571199e3188135178f3c2c8e2d268be1313d029b30f534fa579b69b79002101ccee781f0b9380204db9882d1b1c771d7759ccc18de172078306ca5973251a7b874cb762a9d6a66800000000000000000000000000000000000000000000000000000000000000019003170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314ea0300002101ccee781f0b9380204db9882d1b1c771d7759ccc18de172078306ca5973251a7bbf8a4d00acb08a4700000000000000000000000000000000000000000000000000000000000000029003170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314ea0300002101ccee781f0b9380204db9882d1b1c771d7759ccc18de172078306ca5973251a7b594aa8a9c557dabac173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a05399081c5ab2571199e3188135178f3c2c8e2d268be1313d029b30f534fa579b69b79e8030000");
+
 	});
 }

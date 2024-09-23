@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Governance API for controlling the Ethereum side of the bridge
 use super::*;
-use frame_support::traits::OnRuntimeUpgrade;
+use frame_support::{traits::OnRuntimeUpgrade, StorageHasher};
 use log;
-
+use sp_core::storage::StorageKey;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
@@ -71,4 +71,34 @@ pub mod v0 {
 			Ok(())
 		}
 	}
+}
+
+pub const PALLET_NAME: &str = "EthereumSystem";
+
+pub fn storage_map_final_key<H: StorageHasher>(
+	pallet_prefix: &str,
+	map_name: &str,
+	key: &[u8],
+) -> StorageKey {
+	let key_hashed = H::hash(key);
+	let pallet_prefix_hashed = frame_support::Twox128::hash(pallet_prefix.as_bytes());
+	let storage_prefix_hashed = frame_support::Twox128::hash(map_name.as_bytes());
+
+	let mut final_key = Vec::with_capacity(
+		pallet_prefix_hashed.len() + storage_prefix_hashed.len() + key_hashed.as_ref().len(),
+	);
+
+	final_key.extend_from_slice(&pallet_prefix_hashed[..]);
+	final_key.extend_from_slice(&storage_prefix_hashed[..]);
+	final_key.extend_from_slice(key_hashed.as_ref());
+
+	StorageKey(final_key)
+}
+
+pub fn agent_key(agent_id: AgentId) -> StorageKey {
+	storage_map_final_key::<Twox64Concat>(PALLET_NAME, "Agents", &agent_id.encode())
+}
+
+pub fn channel_key(channel_id: ChannelId) -> StorageKey {
+	storage_map_final_key::<Twox64Concat>(PALLET_NAME, "Channels", &channel_id.encode())
 }
