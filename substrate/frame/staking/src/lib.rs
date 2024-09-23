@@ -1422,6 +1422,17 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 			return DisablingDecision { disable: None, reenable: None }
 		};
 
+		// Check if offender is already disabled
+		if let Some((_, old_severity)) = currently_disabled.iter().find(|(idx, _)| *idx == offender_idx) {
+			if offender_slash_severity > *old_severity {
+				log!(debug, "Offender already disabled but with lower severity, will disable again to refresh severity of {:?}", offender_idx);
+				return DisablingDecision { disable: Some(offender_idx), reenable: None };
+			} else {
+				log!(debug, "Offender already disabled with higher or equal severity");
+				return DisablingDecision { disable: None, reenable: None };
+			}
+		}
+
 		// We don't disable more than the limit (but we can re-enable a smaller offender to make space)
 		if currently_disabled.len() >= Self::disable_limit(active_set.len()) {
 			log!(
@@ -1442,10 +1453,10 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 				log!(debug, "No smaller offender found to re-enable");
 				return DisablingDecision { disable: None, reenable: None }
 			}
+		} else {
+			// If we are not at the limit, just disable the new offender and dont re-enable anyone
+			log!(debug, "Will disable {:?}", offender_idx);
+			return DisablingDecision { disable: Some(offender_idx), reenable: None }
 		}
-
-		// If we are not at the limit, just disable the new offender and dont re-enable anyone
-		log!(debug, "Will disable {:?}", offender_idx);
-		DisablingDecision { disable: Some(offender_idx), reenable: None }
 	}
 }

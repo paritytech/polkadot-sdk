@@ -330,17 +330,25 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
             (None, None) => {
                 // Do nothing
             }
-            (Some(offender_idx), None) => {
-                // Add the validator to `DisabledValidators` and disable it.
-                if let Err(index) = disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
-					let severity = params.slash;
-                    disabled.insert(index, (offender_idx, severity));
-                    // Propagate disablement to session level
-                    T::SessionInterface::disable_validator(offender_idx);
-                }
-				// If already disabled potentially update severity if it is higher
-				todo!("Add severity updating")
-            }
+			(Some(offender_idx), None) => {
+				// Check if the offender is already disabled
+				match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
+					// Offender is already disabled, update severity if the new one is higher
+					Ok(index) => {
+						let (_, old_severity) = &mut disabled[index];
+						if params.slash > *old_severity {
+							*old_severity = params.slash;
+						}
+					}
+					Err(index) => {
+						// Offender is not disabled, add to `DisabledValidators` and disable it
+						let severity = params.slash;
+						disabled.insert(index, (offender_idx, severity));
+						// Propagate disablement to session level
+						T::SessionInterface::disable_validator(offender_idx);
+					}
+				}
+			}
             (Some(offender_idx), Some(reenable_idx)) => {
                 // Remove the validator from `DisabledValidators` and re-enable it.
                 if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index) {
@@ -349,8 +357,7 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 					T::SessionInterface::enable_validator(reenable_idx);
                 }
 
-                // Add the validator to `DisabledValidators` and disable it. Do nothing if it is
-                // already disabled.
+                // Add the validator to `DisabledValidators` and disable it.
                 if let Err(index) = disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
 					let severity = params.slash;
                     disabled.insert(index, (offender_idx, severity));
