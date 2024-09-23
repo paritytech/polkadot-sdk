@@ -4067,6 +4067,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
+ "polkadot-node-subsystem-util",
  "polkadot-overseer",
  "polkadot-primitives",
  "sc-client-api",
