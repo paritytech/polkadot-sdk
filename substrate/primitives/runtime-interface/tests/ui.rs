@@ -15,13 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::env;
-
 #[rustversion::attr(not(stable), ignore)]
 #[test]
 fn ui() {
 	// Only run the ui tests when `RUN_UI_TESTS` is set.
-	if env::var("RUN_UI_TESTS").is_err() {
+	if std::env::var("RUN_UI_TESTS").is_err() {
 		return
 	}
 
