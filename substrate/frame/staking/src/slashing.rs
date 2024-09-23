@@ -326,50 +326,34 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
     DisabledValidators::<T>::mutate(|disabled| {
         let decision = T::DisablingStrategy::decision(params.stash, params.slash, params.slash_era, &disabled);
 
-        match (decision.disable, decision.reenable) {
-            (None, None) => {
-                // Do nothing
-            }
-			(Some(offender_idx), None) => {
-				// Check if the offender is already disabled
-				match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
-					// Offender is already disabled, update severity if the new one is higher
-					Ok(index) => {
-						let (_, old_severity) = &mut disabled[index];
-						if params.slash > *old_severity {
-							*old_severity = params.slash;
-						}
-					}
-					Err(index) => {
-						// Offender is not disabled, add to `DisabledValidators` and disable it
-						let severity = params.slash;
-						disabled.insert(index, (offender_idx, severity));
-						// Propagate disablement to session level
-						T::SessionInterface::disable_validator(offender_idx);
+		if let Some(offender_idx) = decision.disable {
+			// Check if the offender is already disabled
+			match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
+				// Offender is already disabled, update severity if the new one is higher
+				Ok(index) => {
+					let (_, old_severity) = &mut disabled[index];
+					if params.slash > *old_severity {
+						*old_severity = params.slash;
 					}
 				}
-			}
-            (Some(offender_idx), Some(reenable_idx)) => {
-                // Remove the validator from `DisabledValidators` and re-enable it.
-                if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index) {
-                    disabled.remove(index);
-                    // Propagate re-enablement to session level
-					T::SessionInterface::enable_validator(reenable_idx);
-                }
-
-                // Add the validator to `DisabledValidators` and disable it.
-                if let Err(index) = disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
+				Err(index) => {
+					// Offender is not disabled, add to `DisabledValidators` and disable it
 					let severity = params.slash;
-                    disabled.insert(index, (offender_idx, severity));
-                    // Propagate disablement to session level
-                    T::SessionInterface::disable_validator(offender_idx);
-                }
-            }
-            _ => {
-                // This case should not happen, but we handle it defensively
-                log!(error, "Unexpected decision result: {:?}", decision);
-            }
-        }
+					disabled.insert(index, (offender_idx, severity));
+					// Propagate disablement to session level
+					T::SessionInterface::disable_validator(offender_idx);
+				}
+			}
+		}
+		
+		if let Some(reenable_idx) = decision.reenable {
+			// Remove the validator from `DisabledValidators` and re-enable it.
+			if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index) {
+				disabled.remove(index);
+				// Propagate re-enablement to session level
+				T::SessionInterface::enable_validator(reenable_idx);
+			}
+		}
     });
 
     // `DisabledValidators` should be kept sorted
