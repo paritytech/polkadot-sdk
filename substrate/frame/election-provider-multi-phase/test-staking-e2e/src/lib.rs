@@ -157,7 +157,7 @@ fn mass_slash_doesnt_enter_emergency_phase() {
 
 		// Slashed validators are disabled up to a limit
 		slashed.truncate(
-			pallet_staking::UpToLimitDisablingStrategy::<SLASHING_DISABLING_FACTOR>::disable_limit(
+			pallet_staking::UpToLimitWithReEnablingDisablingStrategy::<SLASHING_DISABLING_FACTOR>::disable_limit(
 				active_set_size_after_slash,
 			),
 		);
