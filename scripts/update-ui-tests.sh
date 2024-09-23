@@ -41,4 +41,3 @@ $RUSTUP_RUN cargo test -q --locked -p sp-api-test ui
 $RUSTUP_RUN cargo test -q --locked -p frame-election-provider-solution-type ui
 $RUSTUP_RUN cargo test -q --locked -p frame-support-test --features=no-metadata-docs,try-runtime,experimental ui
 $RUSTUP_RUN cargo test -q --locked -p xcm-procedural ui
-$RUSTUP_RUN cargo test -q --locked --manifest-path substrate/primitives/runtime-interface/Cargo.toml
