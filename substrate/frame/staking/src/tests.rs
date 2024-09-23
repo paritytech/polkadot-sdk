@@ -3495,6 +3495,7 @@ fn slashing_independent_of_disabling_validator() {
 
 			let now = Staking::active_era().unwrap().index;
 
+			// --- Disable without a slash ---
 			// offence with no slash associated
 			on_offence_in_era(
 				&[OffenceDetails { offender: (11, exposure_11.clone()), reporters: vec![] }],
@@ -3505,7 +3506,18 @@ fn slashing_independent_of_disabling_validator() {
 			// nomination remains untouched.
 			assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21]);
 
-			// offence that slashes 25% of the bond
+			// first validator is disabled but not slashed
+			assert!(is_disabled(11));
+
+			// --- Slash without disabling ---
+			// offence that slashes 50% of the bond (setup for next slash)
+			on_offence_in_era(
+				&[OffenceDetails { offender: (11, exposure_11.clone()), reporters: vec![] }],
+				&[Perbill::from_percent(50)],
+				now,
+			);
+
+			// offence that slashes 25% of the bond but does not disable
 			on_offence_in_era(
 				&[OffenceDetails { offender: (21, exposure_21.clone()), reporters: vec![] }],
 				&[Perbill::from_percent(25)],
@@ -3514,6 +3526,10 @@ fn slashing_independent_of_disabling_validator() {
 
 			// nomination remains untouched.
 			assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21]);
+
+			// second validator is slashed but not disabled
+			assert!(!is_disabled(21));
+			assert!(is_disabled(11));
 
 			assert_eq!(
 				staking_events_since_last_call(),
@@ -3526,6 +3542,13 @@ fn slashing_independent_of_disabling_validator() {
 						slash_era: 1
 					},
 					Event::SlashReported {
+						validator: 11,
+						fraction: Perbill::from_percent(50),
+						slash_era: 1
+					},
+					Event::Slashed { staker: 11, amount: 500 },
+					Event::Slashed { staker: 101, amount: 62 },
+					Event::SlashReported {
 						validator: 21,
 						fraction: Perbill::from_percent(25),
 						slash_era: 1
@@ -3534,11 +3557,6 @@ fn slashing_independent_of_disabling_validator() {
 					Event::Slashed { staker: 101, amount: 94 }
 				]
 			);
-
-			// first validator is disabled but not slashed
-			assert!(is_disabled(11));
-			// second validator is slashed but not disabled
-			assert!(!is_disabled(21));
 		});
 }
 
@@ -3552,7 +3570,7 @@ fn offence_threshold_doesnt_trigger_new_era() {
 			assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41]);
 
 			assert_eq!(
-				UpToLimitDisablingStrategy::<DISABLING_LIMIT_FACTOR>::disable_limit(
+				UpToLimitWithReEnablingDisablingStrategy::<DISABLING_LIMIT_FACTOR>::disable_limit(
 					Session::validators().len()
 				),
 				1
@@ -3567,7 +3585,7 @@ fn offence_threshold_doesnt_trigger_new_era() {
 
 			on_offence_now(
 				&[OffenceDetails { offender: (11, exposure_11.clone()), reporters: vec![] }],
-				&[Perbill::zero()],
+				&[Perbill::from_percent(50)],
 			);
 
 			// 11 should be disabled because the byzantine threshold is 1
@@ -8337,7 +8355,7 @@ mod disabling_strategy_with_reenabling {
 		tests::Test, ActiveEra, ActiveEraInfo, DisablingStrategy, UpToLimitWithReEnablingDisablingStrategy,
 	};
 	use sp_runtime::Perbill;
-use sp_staking::EraIndex;
+	use sp_staking::EraIndex;
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
 	// active set
