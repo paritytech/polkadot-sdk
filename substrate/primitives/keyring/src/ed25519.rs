@@ -27,7 +27,7 @@ use sp_core::{
 use sp_runtime::AccountId32;
 
 extern crate alloc;
-use alloc::{format, string::String, vec::Vec};
+use alloc::{fmt, format, str::FromStr, string::String, vec::Vec};
 
 /// Set of test accounts.
 #[derive(
@@ -131,6 +131,33 @@ impl From<Keyring> for &'static str {
 impl From<Keyring> for sp_runtime::MultiSigner {
 	fn from(x: Keyring) -> Self {
 		sp_runtime::MultiSigner::Ed25519(x.into())
+	}
+}
+
+#[derive(Debug)]
+pub struct ParseKeyringError;
+
+impl fmt::Display for ParseKeyringError {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "ParseKeyringError")
+	}
+}
+
+impl FromStr for Keyring {
+	type Err = ParseKeyringError;
+
+	fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
+		match s {
+			"Alice" => Ok(Keyring::Alice),
+			"Bob" => Ok(Keyring::Bob),
+			"Charlie" => Ok(Keyring::Charlie),
+			"Dave" => Ok(Keyring::Dave),
+			"Eve" => Ok(Keyring::Eve),
+			"Ferdie" => Ok(Keyring::Ferdie),
+			"One" => Ok(Keyring::One),
+			"Two" => Ok(Keyring::Two),
+			_ => Err(ParseKeyringError),
+		}
 	}
 }
 

@@ -14,14 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::get_account_id_from_seed;
 use cumulus_primitives_core::ParaId;
 use parachains_common::{AccountId, AuraId};
 use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
-use sp_core::sr25519;
-
-use super::get_collator_keys_from_seed;
+use sp_keyring::Sr25519Keyring;
 
 pub fn get_seedling_chain_spec() -> GenericChainSpec {
 	GenericChainSpec::builder(
@@ -32,9 +29,9 @@ pub fn get_seedling_chain_spec() -> GenericChainSpec {
 	.with_id("seedling_local_testnet")
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_patch(seedling_testnet_genesis(
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		Sr25519Keyring::Alice.to_account_id(),
 		2000.into(),
-		vec![get_collator_keys_from_seed::<AuraId>("Alice")],
+		vec![Sr25519Keyring::Alice.public().into()],
 	))
 	.with_boot_nodes(Vec::new())
 	.build()

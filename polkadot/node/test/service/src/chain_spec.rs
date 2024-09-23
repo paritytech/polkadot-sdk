@@ -16,18 +16,19 @@
 
 //! Chain specifications for the test runtime.
 
+use std::str::FromStr;
+
 use pallet_staking::Forcing;
 use polkadot_primitives::{
 	AccountId, AssignmentId, SchedulerParams, ValidatorId, MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 use polkadot_service::chain_spec::Extensions;
-pub use polkadot_service::chain_spec::{get_account_id_from_seed, get_from_seed};
 use polkadot_test_runtime::BABE_GENESIS_EPOCH_CONFIG;
 use sc_chain_spec::{ChainSpec, ChainType};
 use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_core::sr25519;
+use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
 use sp_runtime::Perbill;
 use test_runtime_constants::currency::DOTS;
 
@@ -65,7 +66,7 @@ pub fn polkadot_local_testnet_config() -> PolkadotChainSpec {
 pub fn polkadot_local_testnet_genesis() -> serde_json::Value {
 	polkadot_testnet_genesis(
 		vec![get_authority_keys_from_seed("Alice"), get_authority_keys_from_seed("Bob")],
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		Sr25519Keyring::Alice.to_account_id(),
 		None,
 	)
 }
@@ -74,32 +75,21 @@ pub fn polkadot_local_testnet_genesis() -> serde_json::Value {
 fn get_authority_keys_from_seed(
 	seed: &str,
 ) -> (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
+	let sr25519_keyring = Sr25519Keyring::from_str(seed).expect("Parse keyring error");
+	let ed25519_keyring = Ed25519Keyring::from_str(seed).expect("Parse keyring error");
 	(
-		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
-		get_account_id_from_seed::<sr25519::Public>(seed),
-		get_from_seed::<BabeId>(seed),
-		get_from_seed::<GrandpaId>(seed),
-		get_from_seed::<ValidatorId>(seed),
-		get_from_seed::<AssignmentId>(seed),
-		get_from_seed::<AuthorityDiscoveryId>(seed),
+		sr25519_keyring.to_account_id(),
+		sr25519_keyring.to_account_id(),
+		BabeId::from(sr25519_keyring.public()),
+		GrandpaId::from(ed25519_keyring.public()),
+		ValidatorId::from(sr25519_keyring.public()),
+		AssignmentId::from(sr25519_keyring.public()),
+		AuthorityDiscoveryId::from(sr25519_keyring.public()),
 	)
 }
 
 fn testnet_accounts() -> Vec<AccountId> {
-	vec![
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		get_account_id_from_seed::<sr25519::Public>("Bob"),
-		get_account_id_from_seed::<sr25519::Public>("Charlie"),
-		get_account_id_from_seed::<sr25519::Public>("Dave"),
-		get_account_id_from_seed::<sr25519::Public>("Eve"),
-		get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-		get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-	]
+	Sr25519Keyring::iter().map(|k| k.to_account_id()).collect()
 }
 
 /// Helper function to create polkadot `RuntimeGenesisConfig` for testing

@@ -15,9 +15,6 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use cumulus_primitives_core::ParaId;
-pub(crate) use parachains_common::genesis_config_helpers::{
-	get_account_id_from_seed, get_collator_keys_from_seed, get_from_seed,
-};
 use polkadot_parachain_lib::{
 	chain_spec::{GenericChainSpec, LoadSpec},
 	runtime::{
@@ -287,7 +284,7 @@ mod tests {
 	use super::*;
 	use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup, ChainType, Extension};
 	use serde::{Deserialize, Serialize};
-	use sp_core::sr25519;
+	use sp_keyring::Sr25519Keyring;
 
 	#[derive(
 		Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension, Default,
@@ -323,12 +320,12 @@ mod tests {
 		.with_id(id)
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config_patch(crate::chain_spec::rococo_parachain::testnet_genesis(
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			Sr25519Keyring::Alice.to_account_id(),
 			vec![
-				get_from_seed::<rococo_parachain_runtime::AuraId>("Alice"),
-				get_from_seed::<rococo_parachain_runtime::AuraId>("Bob"),
+				rococo_parachain_runtime::AuraId::from(Sr25519Keyring::Alice.public()),
+				rococo_parachain_runtime::AuraId::from(Sr25519Keyring::Bob.public()),
 			],
-			vec![get_account_id_from_seed::<sr25519::Public>("Alice")],
+			vec![Sr25519Keyring::Bob.to_account_id()],
 			1000.into(),
 		))
 		.build()

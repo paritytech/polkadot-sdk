@@ -18,8 +18,7 @@ use cumulus_primitives_core::ParaId;
 use parachains_common::AuraId;
 use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
-
-use super::get_collator_keys_from_seed;
+use sp_keyring::Sr25519Keyring;
 
 pub fn get_shell_chain_spec() -> GenericChainSpec {
 	GenericChainSpec::builder(
@@ -31,7 +30,7 @@ pub fn get_shell_chain_spec() -> GenericChainSpec {
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_patch(shell_testnet_genesis(
 		1000.into(),
-		vec![get_collator_keys_from_seed::<AuraId>("Alice")],
+		vec![Sr25519Keyring::Alice.public().into()],
 	))
 	.with_boot_nodes(Vec::new())
 	.build()
