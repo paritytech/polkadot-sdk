@@ -25,7 +25,7 @@ fn ui() {
 	}
 
 	// As trybuild is using `cargo check`, we don't need the real WASM binaries.
-	env::set_var("SKIP_WASM_BUILD", "1");
+	std::env::set_var("SKIP_WASM_BUILD", "1");
 
 	// Warnings are part of our UI.
 	std::env::set_var("RUSTFLAGS", "--deny warnings");
