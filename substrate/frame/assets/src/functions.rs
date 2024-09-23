@@ -96,12 +96,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	pub(super) fn dead_account(
+		id: T::AssetId,
 		who: &T::AccountId,
 		d: &mut AssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T, I>>,
 		reason: &ExistenceReasonOf<T, I>,
 		force: bool,
-	) -> DeadConsequence {
+	) -> Result<DeadConsequence, DispatchError> {
 		use ExistenceReason::*;
+
+		ensure!(
+			T::Holder::balance_on_hold(id.clone(), &who).is_none(),
+			Error::<T, I>::ContainsHolds
+		);
+		ensure!(T::Freezer::frozen_balance(id, &who).is_none(), Error::<T, I>::ContainsFreezes);
+
 		match *reason {
 			Consumer => frame_system::Pallet::<T>::dec_consumers(who),
 			Sufficient => {
@@ -109,11 +117,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				frame_system::Pallet::<T>::dec_sufficients(who);
 			},
 			DepositRefunded => {},
-			DepositHeld(_) | DepositFrom(..) if !force => return Keep,
+			DepositHeld(_) | DepositFrom(..) if !force => return Ok(Keep),
 			DepositHeld(_) | DepositFrom(..) => {},
 		}
 		d.accounts = d.accounts.saturating_sub(1);
-		Remove
+		Ok(Remove)
 	}
 
 	/// Returns `true` when the balance of `account` can be increased by `amount`.
@@ -364,15 +372,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		use AssetStatus::*;
 		use ExistenceReason::*;
 
-		ensure!(
-			T::Holder::balance_on_hold(id.clone(), &who).is_none(),
-			Error::<T, I>::ContainsHolds
-		);
-		ensure!(
-			T::Freezer::frozen_balance(id.clone(), &who).is_none(),
-			Error::<T, I>::ContainsFreezes
-		);
-
 		let mut account = Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoDeposit)?;
 		ensure!(matches!(account.reason, Consumer | DepositHeld(..)), Error::<T, I>::NoDeposit);
 		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
@@ -383,7 +382,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			T::Currency::unreserve(&who, deposit);
 		}
 
-		if let Remove = Self::dead_account(&who, &mut details, &account.reason, false) {
+		if let Remove = Self::dead_account(id.clone(), &who, &mut details, &account.reason, false)?
+		{
 			Account::<T, I>::remove(&id, &who);
 		} else {
 			debug_assert!(false, "refund did not result in dead account?!");
@@ -407,15 +407,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		who: &T::AccountId,
 		maybe_check_caller: Option<T::AccountId>,
 	) -> DispatchResult {
-		ensure!(
-			T::Holder::balance_on_hold(id.clone(), who).is_none(),
-			Error::<T, I>::ContainsHolds
-		);
-		ensure!(
-			T::Freezer::frozen_balance(id.clone(), who).is_none(),
-			Error::<T, I>::ContainsFreezes
-		);
-
 		let mut account = Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoDeposit)?;
 		let (depositor, deposit) =
 			account.reason.take_deposit_from().ok_or(Error::<T, I>::NoDeposit)?;
@@ -429,7 +420,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		T::Currency::unreserve(&depositor, deposit);
 
-		if let Remove = Self::dead_account(&who, &mut details, &account.reason, false) {
+		if let Remove = Self::dead_account(id.clone(), &who, &mut details, &account.reason, false)?
+		{
 			Account::<T, I>::remove(&id, &who);
 		} else {
 			debug_assert!(false, "refund did not result in dead account?!");
@@ -594,7 +586,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				account.balance = account.balance.saturating_sub(actual);
 				if account.balance < details.min_balance {
 					debug_assert!(account.balance.is_zero(), "checked in prep; qed");
-					target_died = Some(Self::dead_account(target, details, &account.reason, false));
+					target_died =
+						Some(Self::dead_account(id, target, details, &account.reason, false)?);
 					if let Some(Remove) = target_died {
 						return Ok(())
 					}
@@ -716,7 +709,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			if source_account.balance < details.min_balance {
 				debug_assert!(source_account.balance.is_zero(), "checked in prep; qed");
 				source_died =
-					Some(Self::dead_account(source, details, &source_account.reason, false));
+					Some(Self::dead_account(id, source, details, &source_account.reason, false)?);
 				if let Some(Remove) = source_died {
 					Account::<T, I>::remove(&id, &source);
 					return Ok(())
@@ -821,7 +814,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					} else if let Some(deposit) = v.reason.take_deposit() {
 						T::Currency::unreserve(&who, deposit);
 					}
-					if let Remove = Self::dead_account(&who, &mut details, &v.reason, false) {
+					if let Remove = Self::dead_account(id, &who, &mut details, &v.reason, false)? {
 						Account::<T, I>::remove(&id, &who);
 						dead_accounts.push(who);
 					} else {
