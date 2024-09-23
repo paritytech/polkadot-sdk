@@ -1698,7 +1698,10 @@ pub trait TryAppendNMap<K: KeyGenerator, T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage N map at the given `key`.
 	///
 	/// This might fail if bounds are not respected.
-	fn try_append<LikeK: EncodeLikeTuple<K::KArg> + TupleToEncodedIter + Clone, LikeI: EncodeLike<I>>(
+	fn try_append<
+		LikeK: EncodeLikeTuple<K::KArg> + TupleToEncodedIter + Clone,
+		LikeI: EncodeLike<I>,
+	>(
 		key: LikeK,
 		item: LikeI,
 	) -> Result<(), ()>;
@@ -1711,7 +1714,10 @@ where
 	I: Encode,
 	StorageNMapT: generator::StorageNMap<K, T>,
 {
-	fn try_append<LikeK: EncodeLikeTuple<K::KArg> + TupleToEncodedIter + Clone, LikeI: EncodeLike<I>>(
+	fn try_append<
+		LikeK: EncodeLikeTuple<K::KArg> + TupleToEncodedIter + Clone,
+		LikeI: EncodeLike<I>,
+	>(
 		key: LikeK,
 		item: LikeI,
 	) -> Result<(), ()> {
@@ -2056,7 +2062,12 @@ mod test {
 	#[crate::storage_alias]
 	type FooQuadMap = StorageNMap<
 		Prefix,
-		(NMapKey<Twox128, u32>, NMapKey<Twox128, u32>, NMapKey<Twox128, u32>, NMapKey<Twox128, u32>),
+		(
+			NMapKey<Twox128, u32>,
+			NMapKey<Twox128, u32>,
+			NMapKey<Twox128, u32>,
+			NMapKey<Twox128, u32>,
+		),
 		BoundedVec<u32, ConstU32<7>>,
 	>;
 
