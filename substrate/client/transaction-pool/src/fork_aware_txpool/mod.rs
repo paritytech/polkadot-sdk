@@ -352,3 +352,24 @@ mod view;
 mod view_store;
 
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
+
+mod stream_map_util {
+	use futures::Stream;
+	use std::marker::Unpin;
+	use tokio_stream::StreamMap;
+
+	pub async fn next_event<K, V>(
+		stream_map: &mut StreamMap<K, V>,
+	) -> Option<(K, <V as Stream>::Item)>
+	where
+		K: Clone + Unpin,
+		V: Stream + Unpin,
+	{
+		if stream_map.is_empty() {
+			// yield pending to prevent busy-loop on an empty map
+			futures::pending!()
+		}
+
+		futures::StreamExt::next(stream_map).await
+	}
+}

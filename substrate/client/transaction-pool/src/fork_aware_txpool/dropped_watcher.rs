@@ -22,6 +22,7 @@
 //! by any view are detected and properly notified.
 
 use crate::{
+	fork_aware_txpool::stream_map_util::next_event,
 	graph::{BlockHash, ChainApi, ExtrinsicHash},
 	LOG_TARGET,
 };
@@ -175,7 +176,6 @@ where
 
 		let stream_map = futures::stream::unfold(ctx, |mut ctx| async move {
 			loop {
-				trace!("xxx");
 				tokio::select! {
 					biased;
 					cmd = ctx.command_receiver.next() => {
@@ -191,7 +191,7 @@ where
 						}
 					},
 
-					Some(event) = futures::StreamExt::next(&mut ctx.stream_map) => {
+					Some(event) = next_event(&mut ctx.stream_map) => {
 						debug!(target: LOG_TARGET, "dropped_watcher: select_next_some -> {:#?} {:#?}", event, ctx.stream_map.keys().collect::<Vec<_>>());
 						if let Some(dropped) = ctx.handle_event(event.0, event.1) {
 							debug!("dropped_watcher: sending out: {dropped:?}");

@@ -21,6 +21,7 @@
 //! aggregated streams of transaction events.
 
 use crate::{
+	fork_aware_txpool::stream_map_util::next_event,
 	graph::{self, BlockHash, ExtrinsicHash},
 	LOG_TARGET,
 };
@@ -312,7 +313,7 @@ where
 				loop {
 					tokio::select! {
 					biased;
-					Some((view_hash, status)) =  futures::StreamExt::next(&mut ctx.status_stream_map) => {
+					Some((view_hash, status)) =  next_event(&mut ctx.status_stream_map) => {
 						log::trace!(target: LOG_TARGET, "[{:?}] select::map views:{:?}", ctx.tx_hash, ctx.status_stream_map.keys().collect::<Vec<_>>());
 
 						if ctx.handle(&status, view_hash) {

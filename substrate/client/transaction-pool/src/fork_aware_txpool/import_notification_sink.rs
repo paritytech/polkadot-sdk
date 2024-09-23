@@ -21,7 +21,7 @@
 //! combines streams (`import_notification_stream`) from multiple views into a single stream. Events
 //! coming from this stream are dynamically dispatched to many external watchers.
 
-use crate::LOG_TARGET;
+use crate::{fork_aware_txpool::stream_map_util::next_event, LOG_TARGET};
 use futures::{
 	channel::mpsc::{channel, Receiver as EventStream, Sender as ExternalSink},
 	stream::StreamExt,
@@ -115,7 +115,7 @@ where
 						}
 					},
 
-					Some(event) = futures::StreamExt::next(&mut ctx.stream_map) => {
+					Some(event) = next_event(&mut ctx.stream_map) => {
 						trace!(target: LOG_TARGET, "select_next_some -> {:#?}", event);
 						return Some((event.1, ctx));
 					}
