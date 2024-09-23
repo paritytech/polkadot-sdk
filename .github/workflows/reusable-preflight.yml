@@ -170,7 +170,7 @@ jobs:
           #
           export COMMIT_SHA=${{ github.sha }}
           echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_OUTPUT
-          echo "COMMIT_SHA_SHORT=${COMMIT_SHACOMMIT_SHA:0:8}" >> $GITHUB_OUTPUT
+          echo "COMMIT_SHA_SHORT=${COMMIT_SHA:0:8}" >> $GITHUB_OUTPUT
           #
           export REF_NAME=${{ github.ref_name }}
           echo "REF_SLUG=${REF_NAME//\//_}" >> $GITHUB_OUTPUT
@@ -206,7 +206,7 @@ jobs:
 
       - name: Info vars
         run: |
-          echo "COMMIT_SHAgithub.sha: ${{ needs.preflight.outputs.COMMIT_SHA }}"
+          echo "COMMIT_SHA: ${{ needs.preflight.outputs.COMMIT_SHA }}"
           echo "COMMIT_SHA_SHORT: ${{ needs.preflight.outputs.COMMIT_SHA_SHORT }}"
           echo "SOURCE_REF_SLUG: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}"
           echo "REF_SLUG: ${{ needs.preflight.outputs.REF_SLUG }}"
