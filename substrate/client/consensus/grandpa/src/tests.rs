@@ -906,7 +906,7 @@ async fn allows_reimporting_change_blocks() {
 	let mut net = GrandpaTestNet::new(api.clone(), 3, 0);
 
 	let client = net.peer(0).client().clone();
-	let (mut block_import, ..) = net.make_block_import(client.clone());
+	let (block_import, ..) = net.make_block_import(client.clone());
 
 	let full_client = client.as_client();
 	let mut builder = BlockBuilderBuilder::new(&*full_client)
@@ -954,7 +954,7 @@ async fn test_bad_justification() {
 	let mut net = GrandpaTestNet::new(api.clone(), 3, 0);
 
 	let client = net.peer(0).client().clone();
-	let (mut block_import, ..) = net.make_block_import(client.clone());
+	let (block_import, ..) = net.make_block_import(client.clone());
 
 	let full_client = client.as_client();
 	let mut builder = BlockBuilderBuilder::new(&*full_client)
@@ -2083,7 +2083,7 @@ async fn imports_justification_for_regular_blocks_on_import() {
 	let mut net = GrandpaTestNet::new(api.clone(), 1, 0);
 
 	let client = net.peer(0).client().clone();
-	let (mut block_import, ..) = net.make_block_import(client.clone());
+	let (block_import, ..) = net.make_block_import(client.clone());
 	let full_client = client.as_client();
 
 	// create a new block (without importing it)
@@ -2122,7 +2122,7 @@ async fn imports_justification_for_regular_blocks_on_import() {
 		GrandpaJustification::from_commit(&full_client, round, commit).unwrap()
 	};
 
-	let mut generate_and_import_block_with_justification = |parent| {
+	let generate_and_import_block_with_justification = |parent| {
 		// we import the block with justification attached
 		let block = generate_block(parent);
 		let block_hash = block.hash();

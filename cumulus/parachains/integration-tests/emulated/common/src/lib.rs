@@ -63,11 +63,11 @@ pub const PENPAL_ID: u32 = 2000;
 pub const ASSETS_PALLET_ID: u8 = 50;
 
 parameter_types! {
-	pub PenpalTeleportableAssetLocation: xcm::v3::Location
-		= xcm::v3::Location::new(1, [
-				xcm::v3::Junction::Parachain(PENPAL_ID),
-				xcm::v3::Junction::PalletInstance(ASSETS_PALLET_ID),
-				xcm::v3::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
+	pub PenpalTeleportableAssetLocation: xcm::v4::Location
+		= xcm::v4::Location::new(1, [
+				xcm::v4::Junction::Parachain(PENPAL_ID),
+				xcm::v4::Junction::PalletInstance(ASSETS_PALLET_ID),
+				xcm::v4::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
 			]
 		);
 	pub PenpalSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_ID).into_account_truncating();
@@ -132,6 +132,7 @@ pub mod accounts {
 	pub const EVE_STASH: &str = "Eve//stash";
 	pub const FERDIE_STASH: &str = "Ferdie//stash";
 	pub const FERDIE_BEEFY: &str = "Ferdie//stash";
+	pub const DUMMY_EMPTY: &str = "JohnDoe";
 
 	pub fn init_balances() -> Vec<AccountId> {
 		vec![

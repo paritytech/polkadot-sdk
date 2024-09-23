@@ -86,11 +86,11 @@ pub fn transfer_token_to_ethereum_fee_not_enough() {
 		collator_session_keys(),
 		BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		ASSET_HUB_WESTEND_PARACHAIN_ID,
-		DefaultBridgeHubEthereumBaseFee::get() + 10_000_000_000,
+		DefaultBridgeHubEthereumBaseFee::get() + 20_000_000_000,
 		H160::random(),
 		H160::random(),
 		// fee not enough
-		10_000_000_000,
+		20_000_000_000,
 		NotHoldingFees,
 	)
 }

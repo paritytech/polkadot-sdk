@@ -612,7 +612,7 @@ fn relay_parent_not_imported_when_block_announce_is_processed() {
 	block_on(async move {
 		let (mut validator, api) = make_validator_and_api();
 
-		let mut client = api.relay_client.clone();
+		let client = api.relay_client.clone();
 		let block = client.init_polkadot_block_builder().build().expect("Build new block").block;
 
 		let (signal, header) = make_gossip_message_and_header(api, block.hash(), 0).await;

@@ -25,7 +25,7 @@ use polkadot_node_subsystem::{
 	jaeger, messages::AvailabilityDistributionMessage, overseer, FromOrchestra, OverseerSignal,
 	SpawnedSubsystem, SubsystemError,
 };
-use polkadot_primitives::Hash;
+use polkadot_primitives::{BlockNumber, Hash};
 use std::collections::HashMap;
 
 /// Error and [`Result`] type for this subsystem.
@@ -104,7 +104,7 @@ impl AvailabilityDistributionSubsystem {
 	/// Start processing work as passed on from the Overseer.
 	async fn run<Context>(self, mut ctx: Context) -> std::result::Result<(), FatalError> {
 		let Self { mut runtime, recvs, metrics, req_protocol_names } = self;
-		let mut spans: HashMap<Hash, jaeger::PerLeafSpan> = HashMap::new();
+		let mut spans: HashMap<Hash, (BlockNumber, jaeger::PerLeafSpan)> = HashMap::new();
 
 		let IncomingRequestReceivers {
 			pov_req_receiver,
@@ -162,7 +162,7 @@ impl AvailabilityDistributionSubsystem {
 					};
 					let span =
 						jaeger::PerLeafSpan::new(cloned_leaf.span, "availability-distribution");
-					spans.insert(cloned_leaf.hash, span);
+					spans.insert(cloned_leaf.hash, (cloned_leaf.number, span));
 					log_error(
 						requester
 							.get_mut()
@@ -172,8 +172,8 @@ impl AvailabilityDistributionSubsystem {
 						&mut warn_freq,
 					)?;
 				},
-				FromOrchestra::Signal(OverseerSignal::BlockFinalized(hash, _)) => {
-					spans.remove(&hash);
+				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, finalized_number)) => {
+					spans.retain(|_hash, (block_number, _span)| *block_number > finalized_number);
 				},
 				FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 				FromOrchestra::Communication {
@@ -189,7 +189,7 @@ impl AvailabilityDistributionSubsystem {
 				} => {
 					let span = spans
 						.get(&relay_parent)
-						.map(|span| span.child("fetch-pov"))
+						.map(|(_, span)| span.child("fetch-pov"))
 						.unwrap_or_else(|| jaeger::Span::new(&relay_parent, "fetch-pov"))
 						.with_trace_id(candidate_hash)
 						.with_candidate(candidate_hash)

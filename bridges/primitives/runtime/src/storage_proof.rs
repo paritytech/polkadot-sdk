@@ -18,7 +18,7 @@
 
 use frame_support::PalletError;
 use sp_core::RuntimeDebug;
-use sp_std::{default::Default, vec::Vec};
+use sp_std::vec::Vec;
 use sp_trie::{
 	accessed_nodes_tracker::AccessedNodesTracker, read_trie_value, LayoutV1, MemoryDB, StorageProof,
 };
@@ -277,7 +277,7 @@ pub fn record_all_keys<L: TrieConfiguration>(
 
 /// Return valid storage proof and state root.
 ///
-/// NOTE: This should only be used for **testing**.
+/// Note: This should only be used for **testing**.
 #[cfg(feature = "std")]
 pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
 	use sp_state_machine::{backend::Backend, prove_read, InMemoryBackend};
