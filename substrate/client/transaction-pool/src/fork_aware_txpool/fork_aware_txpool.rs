@@ -1012,17 +1012,11 @@ where
 							match error {
 								// We need to install listener for stale xt: in case of
 								// transaction being already included in the block we want to
-								// send InBlock + Finalized event.
-								// The same applies for TemporarilyBanned / AlreadyImported. We
-								// need to create listener.
+								// send InBlock event using view's pool's watcher.
 								Ok(
-									Error::InvalidTransaction(InvalidTransaction::Stale) |
-									Error::TemporarilyBanned |
-									Error::AlreadyImported(_),
+									Error::InvalidTransaction(InvalidTransaction::Stale)
 								) => Ok(view.create_watcher(tx_hash)),
-								Ok(
-									Error::InvalidTransaction(_),
-								) => Err((error.expect("already in Ok arm. qed."), tx_hash, tx.tx())),
+								Ok(_) => Err((error.expect("already in Ok arm. qed."), tx_hash, tx.tx())),
 								_ => {
 									log::debug!(target: LOG_TARGET, "[{:?}] txpool: update_view: something went wrong: {error:?}", tx_hash);
 									Err((
@@ -1068,7 +1062,7 @@ where
 		if self.view_store.is_empty() {
 			for result in results {
 				match result {
-					Err((Error::InvalidTransaction(_), tx_hash, _)) => {
+					Err((_, tx_hash, _)) => {
 						self.view_store.listener.invalidate_transactions(vec![tx_hash]);
 						self.mempool.remove_watched(tx_hash);
 					},
