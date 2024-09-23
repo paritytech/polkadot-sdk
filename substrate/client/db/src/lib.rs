@@ -60,6 +60,7 @@ use crate::{
 use codec::{Decode, Encode};
 use sc_client_api::{
 	backend::NewBlockState,
+	blockchain::{BlockGap, BlockGapType},
 	leaves::{FinalizationOutcome, LeafSet},
 	utils::is_descendent_of,
 	IoInfo, MemoryInfo, MemorySize, UsageInfo,
@@ -90,6 +91,7 @@ use sp_state_machine::{
 };
 use sp_trie::{cache::SharedTrieCache, prefixed_key, ChildChangeset, MemoryDB, MerkleValue};
 use trie_db::node_db::Prefix;
+use utils::BLOCK_GAP_CURRENT_VERSION;
 
 // Re-export the Database trait so that one can pass an implementation of it.
 pub use sc_state_db::PruningMode;
@@ -530,7 +532,7 @@ impl<Block: BlockT> BlockchainDb<Block> {
 		}
 	}
 
-	fn update_block_gap(&self, gap: Option<(NumberFor<Block>, NumberFor<Block>)>) {
+	fn update_block_gap(&self, gap: Option<BlockGap<NumberFor<Block>>>) {
 		let mut meta = self.meta.write();
 		meta.block_gap = gap;
 	}
@@ -1916,35 +1918,56 @@ impl<Block: BlockT> Backend<Block> {
 					);
 				}
 
-				if let Some((mut start, end)) = block_gap {
-					if number == start {
-						start += One::one();
-						utils::insert_number_to_key_mapping(
-							&mut transaction,
-							columns::KEY_LOOKUP,
-							number,
-							hash,
-						)?;
-						if start > end {
-							transaction.remove(columns::META, meta_keys::BLOCK_GAP);
-							block_gap = None;
-							debug!(target: "db", "Removed block gap.");
-						} else {
-							block_gap = Some((start, end));
-							debug!(target: "db", "Update block gap. {block_gap:?}");
-							transaction.set(
-								columns::META,
-								meta_keys::BLOCK_GAP,
-								&(start, end).encode(),
-							);
-						}
-						block_gap_updated = true;
+				if let Some(mut gap) = block_gap {
+					match gap.gap_type {
+						BlockGapType::MissingHeaderAndBody =>
+							if number == gap.start {
+								gap.start += One::one();
+								utils::insert_number_to_key_mapping(
+									&mut transaction,
+									columns::KEY_LOOKUP,
+									number,
+									hash,
+								)?;
+								if gap.start > gap.end {
+									transaction.remove(columns::META, meta_keys::BLOCK_GAP);
+									transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
+									block_gap = None;
+									debug!(target: "db", "Removed block gap.");
+								} else {
+									block_gap = Some(gap);
+									debug!(target: "db", "Update block gap. {block_gap:?}");
+									transaction.set(
+										columns::META,
+										meta_keys::BLOCK_GAP,
+										&gap.encode(),
+									);
+									transaction.set(
+										columns::META,
+										meta_keys::BLOCK_GAP_VERSION,
+										&BLOCK_GAP_CURRENT_VERSION.encode(),
+									);
+								}
+								block_gap_updated = true;
+							},
+						BlockGapType::MissingBody => {
+							unreachable!("Unsupported block gap. TODO: https://github.com/paritytech/polkadot-sdk/issues/5406")
+						},
 					}
 				} else if number > best_num + One::one() &&
 					number > One::one() && self.blockchain.header(parent_hash)?.is_none()
 				{
-					let gap = (best_num + One::one(), number - One::one());
+					let gap = BlockGap {
+						start: best_num + One::one(),
+						end: number - One::one(),
+						gap_type: BlockGapType::MissingHeaderAndBody,
+					};
 					transaction.set(columns::META, meta_keys::BLOCK_GAP, &gap.encode());
+					transaction.set(
+						columns::META,
+						meta_keys::BLOCK_GAP_VERSION,
+						&BLOCK_GAP_CURRENT_VERSION.encode(),
+					);
 					block_gap = Some(gap);
 					block_gap_updated = true;
 					debug!(target: "db", "Detected block gap {block_gap:?}");

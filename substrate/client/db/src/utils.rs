@@ -25,10 +25,14 @@ use log::debug;
 
 use crate::{Database, DatabaseSource, DbHash};
 use codec::Decode;
+use sc_client_api::blockchain::{BlockGap, BlockGapType};
 use sp_database::Transaction;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedFrom, UniqueSaturatedInto, Zero},
+	traits::{
+		Block as BlockT, Header as HeaderT, NumberFor, UniqueSaturatedFrom, UniqueSaturatedInto,
+		Zero,
+	},
 };
 use sp_trie::DBValue;
 
@@ -37,6 +41,9 @@ use sp_trie::DBValue;
 pub const NUM_COLUMNS: u32 = 13;
 /// Meta column. The set of keys in the column is shared by full && light storages.
 pub const COLUMN_META: u32 = 0;
+
+/// Current block gap version.
+pub const BLOCK_GAP_CURRENT_VERSION: u32 = 1;
 
 /// Keys of entries in COLUMN_META.
 pub mod meta_keys {
@@ -48,6 +55,8 @@ pub mod meta_keys {
 	pub const FINALIZED_STATE: &[u8; 6] = b"fstate";
 	/// Block gap.
 	pub const BLOCK_GAP: &[u8; 3] = b"gap";
+	/// Block gap version.
+	pub const BLOCK_GAP_VERSION: &[u8; 7] = b"gap_ver";
 	/// Genesis block hash.
 	pub const GENESIS_HASH: &[u8; 3] = b"gen";
 	/// Leaves prefix list key.
@@ -71,8 +80,8 @@ pub struct Meta<N, H> {
 	pub genesis_hash: H,
 	/// Finalized state, if any
 	pub finalized_state: Option<(H, N)>,
-	/// Block gap, start and end inclusive, if any.
-	pub block_gap: Option<(N, N)>,
+	/// Block gap, if any.
+	pub block_gap: Option<BlockGap<N>>,
 }
 
 /// A block lookup key: used for canonical lookup from block number to hash
@@ -184,7 +193,7 @@ fn open_database_at<Block: BlockT>(
 			open_kvdb_rocksdb::<Block>(path, create, *cache_size)?,
 		DatabaseSource::Custom { db, require_create_flag } => {
 			if *require_create_flag && !create {
-				return Err(OpenDbError::DoesNotExist)
+				return Err(OpenDbError::DoesNotExist);
 			}
 			db.clone()
 		},
@@ -423,9 +432,31 @@ where
 	} else {
 		None
 	};
-	let block_gap = db
-		.get(COLUMN_META, meta_keys::BLOCK_GAP)
-		.and_then(|d| Decode::decode(&mut d.as_slice()).ok());
+	let block_gap = match db
+		.get(COLUMN_META, meta_keys::BLOCK_GAP_VERSION)
+		.and_then(|d| u32::decode(&mut d.as_slice()).ok())
+	{
+		None => {
+			let old_block_gap: Option<(NumberFor<Block>, NumberFor<Block>)> = db
+				.get(COLUMN_META, meta_keys::BLOCK_GAP)
+				.and_then(|d| Decode::decode(&mut d.as_slice()).ok());
+
+			old_block_gap.map(|(start, end)| BlockGap {
+				start,
+				end,
+				gap_type: BlockGapType::MissingHeaderAndBody,
+			})
+		},
+		Some(version) => match version {
+			BLOCK_GAP_CURRENT_VERSION => db
+				.get(COLUMN_META, meta_keys::BLOCK_GAP)
+				.and_then(|d| Decode::decode(&mut d.as_slice()).ok()),
+			v =>
+				return Err(sp_blockchain::Error::Backend(format!(
+					"Unsupported block gap DB version: {v}"
+				))),
+		},
+	};
 	debug!(target: "db", "block_gap={:?}", block_gap);
 
 	Ok(Meta {
