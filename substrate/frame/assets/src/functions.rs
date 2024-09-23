@@ -814,7 +814,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					} else if let Some(deposit) = v.reason.take_deposit() {
 						T::Currency::unreserve(&who, deposit);
 					}
-					if let Remove = Self::dead_account(id, &who, &mut details, &v.reason, false)? {
+					if let Remove =
+						Self::dead_account(id.clone(), &who, &mut details, &v.reason, false)?
+					{
 						Account::<T, I>::remove(&id, &who);
 						dead_accounts.push(who);
 					} else {
