@@ -344,6 +344,7 @@ where
 	/// so this process shall be fast.
 	pub fn ready_at_light(&self, at: Block::Hash) -> PolledIterator<ChainApi> {
 		let start = Instant::now();
+		let api = self.api.clone();
 		log::trace!(target: LOG_TARGET, "fatp::ready_at_light {:?}", at);
 
 		let Ok(block_number) = self.api.resolve_block_number(at) else {
@@ -351,37 +352,25 @@ where
 			return Box::pin(async { empty })
 		};
 
-		let (best_view, best_tree_route) = {
-			let views = self.view_store.active_views.read();
-			let inactive_views = self.view_store.inactive_views.read();
-			let mut best_tree_route = None;
-			let mut best_view = None;
-			let mut best_enacted_len = usize::MAX;
-			for v in views.values().chain(inactive_views.values()) {
-				let tree_route = self.api.tree_route(v.at.hash, at);
-				if let Ok(tree_route) = tree_route {
-					log::trace!(target: LOG_TARGET, "fatp::ready_at_light {} tree_route from: {} e:{} r:{}", at,v.at.hash,tree_route.enacted().len(), tree_route.retracted().len());
-					if tree_route.retracted().is_empty() &&
-						tree_route.enacted().len() < best_enacted_len
-					{
-						best_enacted_len = tree_route.enacted().len();
-						best_view = Some(v.clone());
-						best_tree_route = Some(tree_route);
-
-						if best_enacted_len == 0 {
-							break
-						}
+		let best_result = {
+			api.tree_route(self.enactment_state.lock().recent_finalized_block(), at).map(
+				|tree_route| {
+					if let Some((index, view)) =
+						tree_route.enacted().iter().enumerate().rev().skip(1).find_map(|(i, b)| {
+							self.view_store.get_view_at(b.hash, true).map(|(view, _)| (i, view))
+						}) {
+						let e = tree_route.enacted()[index..].to_vec();
+						(TreeRoute::new(e, 0).ok(), Some(view))
+					} else {
+						(None, None)
 					}
-				}
-			}
-			(best_view, best_tree_route)
+				},
+			)
 		};
 
-		let api = self.api.clone();
-
 		Box::pin(async move {
-			if let (Some(best_tree_route), Some(best_view)) = (best_tree_route, best_view) {
-				let tmp_view = View::new_from_other(
+			if let Ok((Some(best_tree_route), Some(best_view))) = best_result {
+				let tmp_view: View<ChainApi> = View::new_from_other(
 					&best_view,
 					&HashAndNumber { hash: at, number: block_number },
 				);
