@@ -9613,6 +9613,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",
+ "serde_json",
 ]
 
 [[package]]
