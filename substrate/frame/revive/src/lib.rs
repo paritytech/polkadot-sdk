@@ -293,6 +293,13 @@ pub mod pallet {
 		/// This value is usually higher than [`Self::RuntimeMemory`] to account for the fact
 		/// that validators have to hold all storage items in PvF memory.
 		type PVFMemory: Get<u32>;
+
+		/// The [EIP-155](https://eips.ethereum.org/EIPS/eip-155) chain ID.
+		///
+		/// This is a unique identifier assigned to each blockchain network,
+		/// preventing replay attacks.
+		#[pallet::constant]
+		type ChainId: Get<u64>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -303,7 +310,7 @@ pub mod pallet {
 			traits::{ConstBool, ConstU32},
 		};
 		use frame_system::EnsureSigned;
-		use sp_core::parameter_types;
+		use sp_core::{parameter_types, ConstU64};
 
 		type AccountId = sp_runtime::AccountId32;
 		type Balance = u64;
@@ -365,6 +372,7 @@ pub mod pallet {
 			type Xcm = ();
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
+			type ChainId = ConstU64<{ 0 }>;
 		}
 	}
 
@@ -659,8 +667,8 @@ pub mod pallet {
 
 			// We can use storage to store items using the available block ref_time with the
 			// `set_storage` host function.
-			let max_storage_size: u32 = ((max_block_ref_time /
-				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
+			let max_storage_size: u32 = ((max_block_ref_time
+				/ (<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
 					new_bytes: max_payload_size,
 					old_bytes: 0,
 				})
@@ -682,8 +690,8 @@ pub mod pallet {
 			// We can use storage to store events using the available block ref_time with the
 			// `deposit_event` host function. The overhead of stored events, which is around 100B,
 			// is not taken into account to simplify calculations, as it does not change much.
-			let max_events_size: u32 = ((max_block_ref_time /
-				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
+			let max_events_size: u32 = ((max_block_ref_time
+				/ (<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
 					num_topic: 0,
 					len: max_payload_size,
 				})
@@ -919,7 +927,7 @@ pub mod pallet {
 				let contract = if let Some(contract) = contract {
 					contract
 				} else {
-					return Err(<Error<T>>::ContractNotFound.into())
+					return Err(<Error<T>>::ContractNotFound.into());
 				};
 				<ExecStack<T, WasmBlob<T>>>::increment_refcount(code_hash)?;
 				<ExecStack<T, WasmBlob<T>>>::decrement_refcount(contract.code_hash);
@@ -1041,8 +1049,9 @@ where
 					storage_deposit_limit.saturating_reduce(upload_deposit);
 					(executable, upload_deposit)
 				},
-				Code::Existing(code_hash) =>
-					(WasmBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
+				Code::Existing(code_hash) => {
+					(WasmBlob::from_storage(code_hash, &mut gas_meter)?, Default::default())
+				},
 			};
 			let instantiate_origin = Origin::from_account_id(instantiate_account.clone());
 			let mut storage_meter =
