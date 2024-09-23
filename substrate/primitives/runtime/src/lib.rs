@@ -90,6 +90,7 @@ pub mod generic;
 pub mod legacy;
 mod multiaddress;
 pub mod offchain;
+pub mod proving_trie;
 pub mod runtime_logger;
 mod runtime_string;
 #[cfg(feature = "std")]
@@ -102,6 +103,8 @@ pub use crate::runtime_string::*;
 
 // Re-export Multiaddress
 pub use multiaddress::MultiAddress;
+
+use proving_trie::TrieError;
 
 /// Re-export these since they're only "kind of" generic.
 pub use generic::{Digest, DigestItem};
@@ -592,6 +595,8 @@ pub enum DispatchError {
 	Unavailable,
 	/// Root origin is not allowed.
 	RootNotAllowed,
+	/// An error with tries.
+	Trie(TrieError),
 }
 
 /// Result of a `Dispatchable` which contains the `DispatchResult` and additional information about
@@ -697,6 +702,12 @@ impl From<ArithmeticError> for DispatchError {
 	}
 }
 
+impl From<TrieError> for DispatchError {
+	fn from(e: TrieError) -> DispatchError {
+		Self::Trie(e)
+	}
+}
+
 impl From<&'static str> for DispatchError {
 	fn from(err: &'static str) -> DispatchError {
 		Self::Other(err)
@@ -721,6 +732,7 @@ impl From<DispatchError> for &'static str {
 			Corruption => "State corrupt",
 			Unavailable => "Resource unavailable",
 			RootNotAllowed => "Root not allowed",
+			Trie(e) => e.into(),
 		}
 	}
 }
@@ -768,6 +780,10 @@ impl traits::Printable for DispatchError {
 			Corruption => "State corrupt".print(),
 			Unavailable => "Resource unavailable".print(),
 			RootNotAllowed => "Root not allowed".print(),
+			Trie(e) => {
+				"Trie error: ".print();
+				<&'static str>::from(*e).print();
+			},
 		}
 	}
 }
