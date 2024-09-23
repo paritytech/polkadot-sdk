@@ -266,10 +266,10 @@ impl<
 			// This `SetAppendix` ensures that `xcm_fee` not spent by `Transact` will be
 			// deposited to snowbridge sovereign, instead of being trapped, regardless of
 			// `Transact` success or not.
-			SetAppendix(Xcm(vec![DepositAsset {
-				assets: AllCounted(1).into(),
-				beneficiary: bridge_location,
-			}])),
+			SetAppendix(Xcm(vec![
+				RefundSurplus,
+				DepositAsset { assets: AllCounted(1).into(), beneficiary: bridge_location },
+			])),
 			// Only our inbound-queue pallet is allowed to invoke `UniversalOrigin`.
 			DescendOrigin(PalletInstance(inbound_queue_pallet_index).into()),
 			// Change origin to the bridge.
@@ -287,7 +287,6 @@ impl<
 					.encode()
 					.into(),
 			},
-			RefundSurplus,
 			// Forward message id to Asset Hub
 			SetTopic(message_id.into()),
 			// Once the program ends here, appendix program will run, which will deposit any
