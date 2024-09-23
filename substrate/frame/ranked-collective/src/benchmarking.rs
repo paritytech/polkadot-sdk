@@ -234,9 +234,18 @@ mod benchmarks {
 			if class_exists {
 				assert_ok!(vote_result);
 			} else {
-				info!("Expected error: {:?}", vote_result);
 				assert_err!(vote_result, crate::Error::<T, I>::NotPolling);
 			}
+		}
+
+		// Vote again with a different decision (false).
+		let vote_false =
+			Pallet::<T, I>::vote(SystemOrigin::Signed(caller.clone()).into(), poll, false);
+
+		if class_exists {
+			assert_ok!(vote_false);
+		} else {
+			assert_err!(vote_false, crate::Error::<T, I>::NotPolling);
 		}
 
 		// Vote again with a different decision (false).
