@@ -26,7 +26,7 @@ note: the item is gated here
    | ^^^^^^^^^^^^^^^^^^^^
    = note: this error originates in the attribute macro `runtime_interface` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-warning: unexpected `cfg` condition value: `bar-feature`
+error: unexpected `cfg` condition value: `bar-feature`
   --> tests/ui/no_feature_gated_method.rs:24:8
    |
 24 |     #[cfg(feature = "bar-feature")]
@@ -35,9 +35,10 @@ warning: unexpected `cfg` condition value: `bar-feature`
    = note: expected values for `feature` are: `default`, `disable_target_static_assertions`, and `std`
    = help: consider adding `bar-feature` as a feature in `Cargo.toml`
    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
-   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: `-D unexpected-cfgs` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unexpected_cfgs)]`
 
-warning: unexpected `cfg` condition value: `bar-feature`
+error: unexpected `cfg` condition value: `bar-feature`
   --> tests/ui/no_feature_gated_method.rs:27:12
    |
 27 |     #[cfg(not(feature = "bar-feature"))]

@@ -32,10 +32,13 @@ export RUN_UI_TESTS=1
 export SKIP_WASM_BUILD=1
 # Let trybuild overwrite the .stderr files
 export TRYBUILD=overwrite
+# Warnings are part of our UI and the CI also sets this.
+export RUSTFLAGS="-C debug-assertions -D warnings"
 
 # ./substrate
-$RUSTUP_RUN cargo test --manifest-path substrate/primitives/runtime-interface/Cargo.toml ui
-$RUSTUP_RUN cargo test -p sp-api-test ui
-$RUSTUP_RUN cargo test -p frame-election-provider-solution-type ui
-$RUSTUP_RUN cargo test -p frame-support-test --features=no-metadata-docs,try-runtime,experimental ui
-$RUSTUP_RUN cargo test -p xcm-procedural ui
+$RUSTUP_RUN cargo test -q --locked --manifest-path substrate/primitives/runtime-interface/Cargo.toml ui
+$RUSTUP_RUN cargo test -q --locked -p sp-api-test ui
+$RUSTUP_RUN cargo test -q --locked -p frame-election-provider-solution-type ui
+$RUSTUP_RUN cargo test -q --locked -p frame-support-test --features=no-metadata-docs,try-runtime,experimental ui
+$RUSTUP_RUN cargo test -q --locked -p xcm-procedural ui
+$RUSTUP_RUN cargo test -q --locked --manifest-path substrate/primitives/runtime-interface/Cargo.toml
