@@ -94,7 +94,7 @@ where
 						"Destination: {dest:?} is already universal, checking dest_network: {dest_network:?} and network: {network:?} if matches: {:?}",
 						dest_network == network
 					);
-					ensure!(dest_network == network, SendError::Unroutable);
+					ensure!(dest_network == network, SendError::NotApplicable);
 					// ok, `dest` looks like a universal location, so let's use it
 					dest
 				},
@@ -108,22 +108,11 @@ where
 							error_data.0,
 							error_data.1,
 						);
-						SendError::Unroutable
+						SendError::NotApplicable
 					})?
 				},
 			}
 		};
-
-		// check if we are able to route the message. We use existing `HaulBlobExporter` for that.
-		// It will make all required changes and will encode message properly, so that the
-		// `DispatchBlob` at the bridged bridge hub will be able to decode it
-		let ((blob, id), price) = PalletAsHaulBlobExporter::<T, I>::validate(
-			network,
-			channel,
-			universal_source,
-			destination,
-			message,
-		)?;
 
 		// prepare the origin relative location
 		let bridge_origin_relative_location =
@@ -139,7 +128,7 @@ where
 				target: LOG_TARGET,
 				"Validate `bridge_locations` with error: {e:?}",
 			);
-			SendError::Unroutable
+			SendError::NotApplicable
 		})?;
 		let Some(bridge) = Self::bridge(locations.bridge_id()) else {
 			log::error!(
@@ -148,8 +137,19 @@ where
 				locations.bridge_origin_relative_location(),
 				locations.bridge_destination_universal_location(),
 			);
-			return Err(SendError::Unroutable)
+			return Err(SendError::NotApplicable)
 		};
+
+		// check if we are able to route the message. We use existing `HaulBlobExporter` for that.
+		// It will make all required changes and will encode message properly, so that the
+		// `DispatchBlob` at the bridged bridge hub will be able to decode it
+		let ((blob, id), price) = PalletAsHaulBlobExporter::<T, I>::validate(
+			network,
+			channel,
+			universal_source,
+			destination,
+			message,
+		)?;
 
 		let bridge_message = MessagesPallet::<T, I>::validate_message(bridge.lane_id, &blob)
 			.map_err(|e| {
@@ -686,5 +686,98 @@ mod tests {
 				2
 			);
 		})
+	}
+
+	#[test]
+	fn not_applicable_if_destination_is_within_other_network() {
+		run_test(|| {
+			let xcm: Xcm<()> = vec![ClearOrigin].into();
+
+			// check that router does not consume when `NotApplicable`
+			let mut xcm_wrapper = Some(xcm.clone());
+			let mut universal_source_wrapper = Some(universal_source());
+
+			// wrong `NetworkId`
+			let mut dest_wrapper = Some(bridged_relative_destination());
+			assert_eq!(
+				XcmOverBridge::validate(
+					NetworkId::ByGenesis([0; 32]),
+					0,
+					&mut universal_source_wrapper,
+					&mut dest_wrapper,
+					&mut xcm_wrapper,
+				),
+				Err(SendError::NotApplicable),
+			);
+			// dest and xcm is NOT consumed and untouched
+			assert_eq!(&Some(xcm.clone()), &xcm_wrapper);
+			assert_eq!(&Some(universal_source()), &universal_source_wrapper);
+			assert_eq!(&Some(bridged_relative_destination()), &dest_wrapper);
+
+			// dest starts with wrong `NetworkId`
+			let mut invalid_dest_wrapper = Some(
+				[GlobalConsensus(NetworkId::ByGenesis([0; 32])), Parachain(BRIDGED_ASSET_HUB_ID)]
+					.into(),
+			);
+			assert_eq!(
+				XcmOverBridge::validate(
+					BridgedRelayNetwork::get(),
+					0,
+					&mut Some(universal_source()),
+					&mut invalid_dest_wrapper,
+					&mut xcm_wrapper,
+				),
+				Err(SendError::NotApplicable),
+			);
+			// dest and xcm is NOT consumed and untouched
+			assert_eq!(&Some(xcm.clone()), &xcm_wrapper);
+			assert_eq!(&Some(universal_source()), &universal_source_wrapper);
+			assert_eq!(
+				&Some(
+					[
+						GlobalConsensus(NetworkId::ByGenesis([0; 32]),),
+						Parachain(BRIDGED_ASSET_HUB_ID)
+					]
+					.into()
+				),
+				&invalid_dest_wrapper
+			);
+
+			// no opened lane for dest
+			let mut dest_without_lane_wrapper =
+				Some([GlobalConsensus(BridgedRelayNetwork::get()), Parachain(5679)].into());
+			assert_eq!(
+				XcmOverBridge::validate(
+					BridgedRelayNetwork::get(),
+					0,
+					&mut Some(universal_source()),
+					&mut dest_without_lane_wrapper,
+					&mut xcm_wrapper,
+				),
+				Err(SendError::NotApplicable),
+			);
+			// dest and xcm is NOT consumed and untouched
+			assert_eq!(&Some(xcm.clone()), &xcm_wrapper);
+			assert_eq!(&Some(universal_source()), &universal_source_wrapper);
+			assert_eq!(
+				&Some([GlobalConsensus(BridgedRelayNetwork::get(),), Parachain(5679)].into()),
+				&dest_without_lane_wrapper
+			);
+
+			// ok
+			let _ = open_lane();
+			let mut dest_wrapper = Some(bridged_relative_destination());
+			assert_ok!(XcmOverBridge::validate(
+				BridgedRelayNetwork::get(),
+				0,
+				&mut Some(universal_source()),
+				&mut dest_wrapper,
+				&mut xcm_wrapper,
+			));
+			// dest and xcm IS consumed
+			assert_eq!(None, xcm_wrapper);
+			assert_eq!(&Some(universal_source()), &universal_source_wrapper);
+			assert_eq!(None, dest_wrapper);
+		});
 	}
 }
