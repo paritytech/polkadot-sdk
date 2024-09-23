@@ -265,19 +265,20 @@ jobs:
         --timeout 10
         --run_time 60
 
-      # use git version of honggfuzz-rs until v0.5.56 is out, we need a few recent changes:
-      # https://github.com/rust-fuzz/honggfuzz-rs/pull/75 to avoid breakage on debian
-      # https://github.com/rust-fuzz/honggfuzz-rs/pull/81 fix to the above pr
-      # https://github.com/rust-fuzz/honggfuzz-rs/pull/82 fix for handling absolute CARGO_TARGET_DIR
-      HFUZZ_BUILD_ARGS: |
-        --config=patch.crates-io.honggfuzz.git="https://github.com/altaua/honggfuzz-rs"
-        --config=patch.crates-io.honggfuzz.rev="205f7c8c059a0d98fe1cb912cdac84f324cb6981"
+      # # use git version of honggfuzz-rs until v0.5.56 is out, we need a few recent changes:
+      # # https://github.com/rust-fuzz/honggfuzz-rs/pull/75 to avoid breakage on debian
+      # # https://github.com/rust-fuzz/honggfuzz-rs/pull/81 fix to the above pr
+      # # https://github.com/rust-fuzz/honggfuzz-rs/pull/82 fix for handling absolute CARGO_TARGET_DIR
+      # HFUZZ_BUILD_ARGS: |
+      #   --config=patch.crates-io.honggfuzz.git="https://github.com/altaua/honggfuzz-rs"
+      #   --config=patch.crates-io.honggfuzz.rev="205f7c8c059a0d98fe1cb912cdac84f324cb6981"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Run honggfuzz
         run: |
+          cargo install honggfuzz@0.5.56
           cd substrate/primitives/arithmetic/fuzzer
           forklift cargo hfuzz build
           for target in $(cargo read-manifest | jq -r '.targets | .[] | .name');
