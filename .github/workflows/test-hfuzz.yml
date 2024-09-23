@@ -44,6 +44,7 @@ jobs:
 
       - name: Run honggfuzz
         run: |
+          cargo uninstall honggfuzz
           cargo install honggfuzz --version 0.5.56
           cd substrate/primitives/arithmetic/fuzzer
           forklift cargo hfuzz build
