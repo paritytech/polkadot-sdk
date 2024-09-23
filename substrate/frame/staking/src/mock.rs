@@ -258,7 +258,7 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	}
 }
 
-// Disabling threshold for `UpToLimitDisablingStrategy`
+// Disabling threshold for `UpToLimitDisablingStrategy` and `UpToLimitWithReEnablingDisablingStrategy``
 pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
@@ -284,7 +284,7 @@ impl crate::pallet::pallet::Config for Test {
 	type HistoryDepth = HistoryDepth;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>;
+	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;

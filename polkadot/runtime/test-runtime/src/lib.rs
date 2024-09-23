@@ -369,7 +369,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = ();
 	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 }
 
 parameter_types! {

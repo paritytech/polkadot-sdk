@@ -747,7 +747,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
