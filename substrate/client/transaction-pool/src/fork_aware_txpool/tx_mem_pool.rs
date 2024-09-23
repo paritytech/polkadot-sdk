@@ -207,13 +207,13 @@ where
 	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
 		//todo: obey size limits [#5476]
 		match (current_len < self.max_transactions_count, entry) {
-			(false, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped.into()),
 			(true, Entry::Vacant(v)) => {
 				v.insert(Arc::from(tx));
 				Ok(hash)
 			},
-			(true, Entry::Occupied(_)) =>
+			(_, Entry::Occupied(_)) =>
 				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash)).into()),
+			(false, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped.into()),
 		}
 	}
 
