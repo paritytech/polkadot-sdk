@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Benchmark Friendly Tries for the Runtime
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces a trait `ProvingTrie` which has all the function you need to use tries in the runtime.
+      This trait includes the ability to create a trie, and for developers to express the complexity of a trie
+      proof by converting the length of the proof to how many hashes we should expect to perform.
+
+crates:
+  - name: sp-runtime
+    bump: minor
