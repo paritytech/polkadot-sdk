@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+pub use crate::mock::*;
 use crate::{
+<<<<<<< HEAD
 	functions::compute_period, sync_committee_sum, verify_merkle_branch, BeaconHeader,
 	CompactBeaconState, Error, FinalizedBeaconState, LatestFinalizedBlockRoot, NextSyncCommittee,
 	SyncCommitteePrepared,
@@ -16,6 +18,20 @@ pub use crate::mock::*;
 
 use crate::config::{EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_EPOCH, SLOTS_PER_HISTORICAL_ROOT};
 use frame_support::{assert_err, assert_noop, assert_ok};
+=======
+	config::{EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_EPOCH, SLOTS_PER_HISTORICAL_ROOT},
+	functions::compute_period,
+	mock::{
+		get_message_verification_payload, load_checkpoint_update_fixture,
+		load_finalized_header_update_fixture, load_next_finalized_header_update_fixture,
+		load_next_sync_committee_update_fixture, load_sync_committee_update_fixture,
+	},
+	sync_committee_sum, verify_merkle_branch, BeaconHeader, CompactBeaconState, Error,
+	FinalizedBeaconState, LatestFinalizedBlockRoot, LatestSyncCommitteeUpdatePeriod,
+	NextSyncCommittee, SyncCommitteePrepared,
+};
+use frame_support::{assert_err, assert_noop, assert_ok, pallet_prelude::Pays};
+>>>>>>> 1790e42 (Fix border condition in Snowbridge free consensus Updates (#5671))
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, Fork, ForkVersions, NextSyncCommitteeUpdate, VersionedExecutionPayloadHeader,
@@ -340,7 +356,13 @@ fn submit_update_in_current_period() {
 
 	new_tester().execute_with(|| {
 		assert_ok!(EthereumBeaconClient::process_checkpoint_update(&checkpoint));
+<<<<<<< HEAD
 		assert_ok!(EthereumBeaconClient::submit(RuntimeOrigin::signed(1), update.clone()));
+=======
+		let result = EthereumBeaconClient::submit(RuntimeOrigin::signed(1), update.clone());
+		assert_ok!(result);
+		assert_eq!(result.unwrap().pays_fee, Pays::No);
+>>>>>>> 1790e42 (Fix border condition in Snowbridge free consensus Updates (#5671))
 		let block_root: H256 = update.finalized_header.hash_tree_root().unwrap();
 		assert!(<FinalizedBeaconState<Test>>::contains_key(block_root));
 	});
@@ -645,6 +667,78 @@ fn submit_finalized_header_update_with_gap_at_limit() {
 			// next check, the merkle proof, because we changed the next_update slots.
 			Error::<Test>::InvalidHeaderMerkleProof
 		);
+<<<<<<< HEAD
+=======
+		assert_eq!(second_result.unwrap_err().post_info.pays_fee, Pays::Yes);
+	});
+}
+
+#[test]
+fn duplicate_sync_committee_updates_are_not_free() {
+	let checkpoint = Box::new(load_checkpoint_update_fixture());
+	let sync_committee_update = Box::new(load_sync_committee_update_fixture());
+
+	new_tester().execute_with(|| {
+		assert_ok!(EthereumBeaconClient::process_checkpoint_update(&checkpoint));
+		let result =
+			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), sync_committee_update.clone());
+		assert_ok!(result);
+		assert_eq!(result.unwrap().pays_fee, Pays::No);
+
+		// Check that if the same update is submitted, the update is not free.
+		let second_result =
+			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), sync_committee_update);
+		assert_ok!(second_result);
+		assert_eq!(second_result.unwrap().pays_fee, Pays::Yes);
+	});
+}
+
+#[test]
+fn sync_committee_update_for_sync_committee_already_imported_are_not_free() {
+	let checkpoint = Box::new(load_checkpoint_update_fixture());
+	let sync_committee_update = Box::new(load_sync_committee_update_fixture()); // slot 129
+	let second_sync_committee_update = load_sync_committee_update_period_0(); // slot 128
+	let third_sync_committee_update = load_sync_committee_update_period_0_newer_fixture(); // slot 224
+	let fourth_sync_committee_update = load_sync_committee_update_period_0_older_fixture(); // slot 96
+	let fith_sync_committee_update = Box::new(load_next_sync_committee_update_fixture()); // slot 8259
+
+	new_tester().execute_with(|| {
+		assert_ok!(EthereumBeaconClient::process_checkpoint_update(&checkpoint));
+		assert_eq!(<LatestSyncCommitteeUpdatePeriod<Test>>::get(), 0);
+
+		// Check that setting the next sync committee for period 0 is free (it is not set yet).
+		let result =
+			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), sync_committee_update.clone());
+		assert_ok!(result);
+		assert_eq!(result.unwrap().pays_fee, Pays::No);
+		assert_eq!(<LatestSyncCommitteeUpdatePeriod<Test>>::get(), 0);
+
+		// Check that setting the next sync committee for period 0 again is not free.
+		let second_result =
+			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), second_sync_committee_update);
+		assert_eq!(second_result.unwrap().pays_fee, Pays::Yes);
+		assert_eq!(<LatestSyncCommitteeUpdatePeriod<Test>>::get(), 0);
+
+		// Check that setting an update with a sync committee that has already been set, but with a
+		// newer finalized header, is free.
+		let third_result =
+			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), third_sync_committee_update);
+		assert_eq!(third_result.unwrap().pays_fee, Pays::No);
+		assert_eq!(<LatestSyncCommitteeUpdatePeriod<Test>>::get(), 0);
+
+		// Check that setting the next sync committee for period 0 again with an earlier slot is not
+		// free.
+		let fourth_result =
+			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), fourth_sync_committee_update);
+		assert_err!(fourth_result, Error::<Test>::IrrelevantUpdate);
+		assert_eq!(fourth_result.unwrap_err().post_info.pays_fee, Pays::Yes);
+
+		// Check that setting the next sync committee for period 1 is free.
+		let fith_result =
+			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), fith_sync_committee_update);
+		assert_eq!(fith_result.unwrap().pays_fee, Pays::No);
+		assert_eq!(<LatestSyncCommitteeUpdatePeriod<Test>>::get(), 1);
+>>>>>>> 1790e42 (Fix border condition in Snowbridge free consensus Updates (#5671))
 	});
 }
 
