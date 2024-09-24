@@ -2297,7 +2297,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	// Sorted by index 
+	// Sorted by index
 	fn ensure_disabled_validators_sorted() -> Result<(), TryRuntimeError> {
 		ensure!(
 			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0].0 <= pair[1].0),

@@ -60,7 +60,8 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
-/// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, PerBill)>` to track offense severity for re-enabling purposes.
+/// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, PerBill)>` to track offense
+/// severity for re-enabling purposes.
 pub mod v16 {
 	use super::*;
 
@@ -68,10 +69,14 @@ pub mod v16 {
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
 		fn on_runtime_upgrade() -> Weight {
 			// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, PerBill)>`.
-			// Using max severity (PerBill) for the migration which effectively makes it so offenders before the migration will never be re-enabled.
+			// Using max severity (PerBill) for the migration which effectively makes it so
+			// offenders before the migration will never be re-enabled.
 			let max_perbill = Perbill::from_percent(100);
 			// Inject severity
-			let migrated = v15::DisabledValidators::<T>::take().into_iter().map(|v| (v, max_perbill)).collect::<Vec<_>>();
+			let migrated = v15::DisabledValidators::<T>::take()
+				.into_iter()
+				.map(|v| (v, max_perbill))
+				.collect::<Vec<_>>();
 
 			DisabledValidators::<T>::set(migrated);
 

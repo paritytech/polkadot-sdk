@@ -1282,7 +1282,7 @@ impl BenchmarkingConfig for TestBenchmarkingConfig {
 pub trait DisablingStrategy<T: Config> {
 	/// Make a disabling decision. Potentially returns 2 validators indices.
 	/// First index is to be disabled, second is to be re-enabled.
-	/// 
+	///
 	/// Options:
 	/// (None, None) no changes needed
 	/// (Some(x), None) just disable x
@@ -1296,8 +1296,9 @@ pub trait DisablingStrategy<T: Config> {
 	) -> DisablingDecision;
 }
 
-/// Helper struct representing a decision coming from a given [`DisablingStrategy`] implementing `decision`
-/// 
+/// Helper struct representing a decision coming from a given [`DisablingStrategy`] implementing
+/// `decision`
+///
 /// Currently supports at most 1 disable + 1 re-enable per decision
 #[derive(Debug)]
 pub struct DisablingDecision {
@@ -1374,11 +1375,13 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 /// Implementation of [`DisablingStrategy`] which disables validators from the active set up to a
 /// limit and if the limit is reached and the new offender is higher (bigger punishment/severity)
 /// then it re-enables to lowest offender to free up space for the new offender.
-/// 
+///
 /// An extension of [`UpToLimitDisablingStrategy`].
 pub struct UpToLimitWithReEnablingDisablingStrategy<const DISABLING_LIMIT_FACTOR: usize = 3>;
 
-impl<const DISABLING_LIMIT_FACTOR: usize> UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR> {
+impl<const DISABLING_LIMIT_FACTOR: usize>
+	UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>
+{
 	/// Disabling limit calculated from the total number of validators in the active set. When
 	/// reached re-enabling logic might kick in.
 	pub fn disable_limit(validators_len: usize) -> usize {
@@ -1423,7 +1426,9 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 		};
 
 		// Check if offender is already disabled
-		if let Some((_, old_severity)) = currently_disabled.iter().find(|(idx, _)| *idx == offender_idx) {
+		if let Some((_, old_severity)) =
+			currently_disabled.iter().find(|(idx, _)| *idx == offender_idx)
+		{
 			if offender_slash_severity > *old_severity {
 				log!(debug, "Offender already disabled but with lower severity, will disable again to refresh severity of {:?}", offender_idx);
 				return DisablingDecision { disable: Some(offender_idx), reenable: None };
@@ -1433,7 +1438,8 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 			}
 		}
 
-		// We don't disable more than the limit (but we can re-enable a smaller offender to make space)
+		// We don't disable more than the limit (but we can re-enable a smaller offender to make
+		// space)
 		if currently_disabled.len() >= Self::disable_limit(active_set.len()) {
 			log!(
 				debug,
@@ -1441,14 +1447,18 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 				Self::disable_limit(active_set.len())
 			);
 
-			// Find the smallest offender to re-enable that is not higher than offender_slash_severity
+			// Find the smallest offender to re-enable that is not higher than
+			// offender_slash_severity
 			if let Some((smallest_idx, _)) = currently_disabled
 				.iter()
 				.filter(|(_, perbill)| *perbill <= offender_slash_severity)
-				.min_by_key(|(_, perbill)| *perbill) 
+				.min_by_key(|(_, perbill)| *perbill)
 			{
 				log!(debug, "Will disable {:?} and re-enable {:?}", offender_idx, smallest_idx);
-				return DisablingDecision { disable: Some(offender_idx), reenable: Some(*smallest_idx) }
+				return DisablingDecision {
+					disable: Some(offender_idx),
+					reenable: Some(*smallest_idx),
+				}
 			} else {
 				log!(debug, "No smaller offender found to re-enable");
 				return DisablingDecision { disable: None, reenable: None }
