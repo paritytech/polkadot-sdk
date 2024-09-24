@@ -871,7 +871,7 @@ where
 					{
 						contract
 					} else {
-						return Ok(None)
+						return Ok(None);
 					}
 				};
 
@@ -978,7 +978,18 @@ where
 		let delegated_code_hash =
 			if frame.delegate_caller.is_some() { Some(*executable.code_hash()) } else { None };
 
-		self.take_caller_output();
+		// The output of the caller frame will be replaced by the output of this run.
+		// It is also not accessible from nested frames.
+		// Hence we drop it early to save the memory.
+		let frames_len = self.frames.len();
+		if let Some(caller_frame) = match frames_len {
+			0 => None,
+			1 => Some(&mut self.first_frame.last_frame_output),
+			_ => self.frames.get_mut(frames_len - 2).map(|frame| &mut frame.last_frame_output),
+		} {
+			*caller_frame = Default::default();
+		}
+
 		self.transient_storage.start_transaction();
 
 		let do_transaction = || {
@@ -1096,8 +1107,9 @@ where
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let output = do_transaction();
 				match &output {
-					Ok(result) if !result.did_revert() =>
-						TransactionOutcome::Commit(Ok((true, output))),
+					Ok(result) if !result.did_revert() => {
+						TransactionOutcome::Commit(Ok((true, output)))
+					},
 					_ => TransactionOutcome::Rollback(Ok((false, output))),
 				}
 			});
@@ -1272,16 +1284,6 @@ where
 	/// Returns the *free* balance of the supplied AccountId.
 	fn account_balance(&self, who: &T::AccountId) -> U256 {
 		T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite).into()
-	}
-
-	/// Replaces the `last_frame_output` of the **caller** frame with the default value.
-	fn take_caller_output(&mut self) {
-		let len = self.frames.len();
-		mem::take(match len {
-			0 => return,
-			1 => &mut self.first_frame.last_frame_output,
-			_ => &mut self.frames.get_mut(len - 2).expect("len >= 2; qed").last_frame_output,
-		});
 	}
 }
 
