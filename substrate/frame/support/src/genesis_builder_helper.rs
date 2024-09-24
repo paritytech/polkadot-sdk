@@ -65,7 +65,7 @@ where
 /// as typos or discrepancies caused by future changes to the `RuntimeGenesisConfig` structure. By
 /// using the actual struct, it ensures that the JSON generated is valid and up-to-date.
 ///
-/// This macro assumes that `serde(renameAll="camelCase")` attribute is used for
+/// This macro assumes that `serde(rename_all = "camelCase")` attribute is used for
 /// RuntimeGenesisConfig, what should be the case for frame-based runtimes.
 ///
 /// # Example
@@ -95,36 +95,39 @@ macro_rules! runtime_genesis_config_json {
             $( $key : $value, )*
             ..Default::default()
         };
-        fn compare_snake_to_camel(
+
+		#[inline]
+        fn compare_keys(
             mut snake_chars: core::str::Chars,
             mut camel_chars: core::str::Chars,
-        ) -> bool {
-            while let (Some(snake_char), Some(camel_char)) =
-                (snake_chars.next(), camel_chars.next())
-            {
-                if snake_char == '_' {
-                    if let Some(next_snake_char) = snake_chars.next() {
-                        if next_snake_char.to_ascii_uppercase() != camel_char {
-                            return false;
-                        }
-                    }
-                } else {
-                    if snake_char != camel_char {
-                        return false;
-                    }
-                }
-            }
-
-            snake_chars.next().is_none() && camel_chars.next().is_none()
-        }
+		) -> bool {
+			loop {
+				match (snake_chars.next(), camel_chars.next()) {
+					(None, None) => return true,
+					(None, Some(_)) | (Some(_), None) => return false,
+					(Some('_'), Some(c)) => {
+						if let Some(s) = snake_chars.next() {
+							if s.to_ascii_uppercase() != c {
+								return false;
+							};
+						};
+					}
+					(Some(s), Some(c)) => {
+						if c != s {
+							return false;
+						}
+					}
+				}
+			}
+		}
 
 		let mut json_value =
 			serde_json::to_value(config).expect("serialization to json should work. qed");
 		if let serde_json::Value::Object(ref mut map) = json_value {
             let keys_to_keep : Vec<&'static str> = vec![ $( stringify!($key) ),* ];
-			map.retain(|camel_case_key, _| {
-				keys_to_keep.iter().any(|&snake_case_key| {
-					compare_snake_to_camel(snake_case_key.chars(), camel_case_key.chars())
+			map.retain(|json_key, _| {
+				keys_to_keep.iter().any(|&struct_key| {
+					compare_keys(struct_key.chars(), json_key.chars())
 				})
 			});
 		}
