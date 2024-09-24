@@ -27,7 +27,6 @@ use crate::{
 
 use async_std::sync::Arc;
 use bp_messages::{
-	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::FromBridgedChainMessagesProof, ChainWithMessages as _, MessageNonce,
 };
 use bp_runtime::{AccountIdOf, EncodedOrDecodedCall, HeaderIdOf, TransactionEra, WeightExtraOps};
@@ -401,22 +400,11 @@ pub struct DirectReceiveMessagesProofCallBuilder<P, R, I> {
 impl<P, R, I> ReceiveMessagesProofCallBuilder<P> for DirectReceiveMessagesProofCallBuilder<P, R, I>
 where
 	P: SubstrateMessageLane,
-	R: BridgeMessagesConfig<I>,
+	R: BridgeMessagesConfig<I, LaneId = P::LaneId>,
 	I: 'static,
 	R::BridgedChain:
 		bp_runtime::Chain<AccountId = AccountIdOf<P::SourceChain>, Hash = HashOf<P::SourceChain>>,
 	CallOf<P::TargetChain>: From<BridgeMessagesCall<R, I>> + GetDispatchInfo,
-	Box<
-		bp_messages::target_chain::FromBridgedChainMessagesProof<
-			<<P as SubstrateMessageLane>::SourceChain as ChainBase>::Hash,
-			<R as pallet_bridge_messages::Config<I>>::LaneId,
-		>,
-	>: From<
-		bp_messages::target_chain::FromBridgedChainMessagesProof<
-			<<P as SubstrateMessageLane>::SourceChain as ChainBase>::Hash,
-			<P as SubstrateMessageLane>::LaneId,
-		>,
-	>,
 {
 	fn build_receive_messages_proof_call(
 		relayer_id_at_source: AccountIdOf<P::SourceChain>,
@@ -510,19 +498,10 @@ impl<P, R, I> ReceiveMessagesDeliveryProofCallBuilder<P>
 	for DirectReceiveMessagesDeliveryProofCallBuilder<P, R, I>
 where
 	P: SubstrateMessageLane,
-	R: BridgeMessagesConfig<I>,
+	R: BridgeMessagesConfig<I, LaneId = P::LaneId>,
 	I: 'static,
 	R::BridgedChain: bp_runtime::Chain<Hash = HashOf<P::TargetChain>>,
 	CallOf<P::SourceChain>: From<BridgeMessagesCall<R, I>> + GetDispatchInfo,
-	FromBridgedChainMessagesDeliveryProof<
-		<<P as SubstrateMessageLane>::TargetChain as ChainBase>::Hash,
-		<R as pallet_bridge_messages::Config<I>>::LaneId,
-	>: From<
-		FromBridgedChainMessagesDeliveryProof<
-			<<P as SubstrateMessageLane>::TargetChain as ChainBase>::Hash,
-			<P as SubstrateMessageLane>::LaneId,
-		>,
-	>,
 {
 	fn build_receive_messages_delivery_proof_call(
 		proof: SubstrateMessagesDeliveryProof<P::TargetChain, P::LaneId>,

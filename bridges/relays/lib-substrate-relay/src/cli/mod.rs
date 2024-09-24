@@ -44,8 +44,8 @@ pub type DefaultClient<C> = relay_substrate_client::RpcWithCachingClient<C>;
 pub struct HexLaneId(Vec<u8>);
 
 impl<T: TryFrom<Vec<u8>>> TryConvert<HexLaneId, T> for HexLaneId {
-	fn try_convert(a: HexLaneId) -> Result<T, HexLaneId> {
-		T::try_from(a.0.clone()).map_err(|_| a)
+	fn try_convert(lane_id: HexLaneId) -> Result<T, HexLaneId> {
+		T::try_from(lane_id.0.clone()).map_err(|_| lane_id)
 	}
 }
 

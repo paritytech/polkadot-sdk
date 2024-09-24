@@ -130,15 +130,15 @@ where
 			);
 			SendError::NotApplicable
 		})?;
-		let Some(bridge) = Self::bridge(locations.bridge_id()) else {
+		let bridge = Self::bridge(locations.bridge_id()).ok_or_else(|| {
 			log::error!(
 				target: LOG_TARGET,
 				"No opened bridge for requested bridge_origin_relative_location: {:?} and bridge_destination_universal_location: {:?}",
 				locations.bridge_origin_relative_location(),
 				locations.bridge_destination_universal_location(),
 			);
-			return Err(SendError::NotApplicable)
-		};
+			SendError::NotApplicable
+		})?;
 
 		// check if we are able to route the message. We use existing `HaulBlobExporter` for that.
 		// It will make all required changes and will encode message properly, so that the
@@ -689,7 +689,7 @@ mod tests {
 	}
 
 	#[test]
-	fn not_applicable_if_destination_is_within_other_network() {
+	fn validate_works() {
 		run_test(|| {
 			let xcm: Xcm<()> = vec![ClearOrigin].into();
 
