@@ -159,6 +159,29 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn register_token() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+
+		let amount: BalanceOf<T> =
+			(10_000_000_000_000_u128).saturated_into::<u128>().saturated_into();
+
+		T::Token::mint_into(&caller, amount)?;
+
+		let relay_token_asset_id: Location = Location::parent();
+		let asset = Box::new(VersionedLocation::V4(relay_token_asset_id));
+		let asset_metadata = AssetMetadata {
+			name: "wnd".as_bytes().to_vec().try_into().unwrap(),
+			symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
+			decimals: 12,
+		};
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, asset, asset_metadata);
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(
 		SnowbridgeControl,
 		crate::mock::new_test_ext(true),

@@ -14,7 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{collections::btree_map::BTreeMap, pin::Pin, sync::Arc, time::Duration};
+use std::{
+	collections::{BTreeMap, VecDeque},
+	pin::Pin,
+	sync::Arc,
+	time::Duration,
+};
 
 use async_trait::async_trait;
 use cumulus_primitives_core::{
@@ -37,7 +42,7 @@ use sc_client_api::{
 	StorageProof,
 };
 use sc_telemetry::TelemetryWorkerHandle;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{CallApiAt, CallApiAtParams, CallContext, ProvideRuntimeApi};
 use sp_consensus::SyncOracle;
 use sp_core::Pair;
 use sp_state_machine::{Backend as StateBackend, StorageValue};
@@ -181,6 +186,23 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		Ok(self.backend.blockchain().info().finalized_hash)
 	}
 
+	async fn call_runtime_api(
+		&self,
+		method_name: &'static str,
+		hash: PHash,
+		payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		Ok(self.full_client.call_api_at(CallApiAtParams {
+			at: hash,
+			function: method_name,
+			arguments: payload.to_vec(),
+			overlayed_changes: &Default::default(),
+			call_context: CallContext::Offchain,
+			recorder: &None,
+			extensions: &Default::default(),
+		})?)
+	}
+
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
 		Ok(self.sync_oracle.is_major_syncing())
 	}
@@ -286,6 +308,13 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 			.into_iter()
 			.map(|receipt| receipt.into())
 			.collect::<Vec<_>>())
+	}
+
+	async fn claim_queue(
+		&self,
+		hash: PHash,
+	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+		Ok(self.full_client.runtime_api().claim_queue(hash)?)
 	}
 }
 

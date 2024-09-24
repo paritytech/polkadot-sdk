@@ -27,11 +27,10 @@ use frame_support::{
 	traits::{
 		fungible::{Mutate, MutateHold},
 		tokens::{Fortitude, Fortitude::Polite, Precision, Preservation, Restriction},
-		Get, IsType,
+		Get,
 	},
 	DefaultNoBound, RuntimeDebugNoBound,
 };
-use sp_core::H256;
 use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
@@ -397,12 +396,7 @@ where
 }
 
 /// Functions that only apply to the nested state.
-impl<T, E> RawMeter<T, E, Nested>
-where
-	T: Config,
-	T::Hash: IsType<H256>,
-	E: Ext<T>,
-{
+impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// Charges `diff` from the meter.
 	pub fn charge(&mut self, diff: &Diff) {
 		match &mut self.own_contribution {
@@ -504,10 +498,7 @@ where
 	}
 }
 
-impl<T: Config> Ext<T> for ReservingExt
-where
-	T::Hash: IsType<H256>,
-{
+impl<T: Config> Ext<T> for ReservingExt {
 	fn check_limit(
 		origin: &T::AccountId,
 		limit: BalanceOf<T>,
