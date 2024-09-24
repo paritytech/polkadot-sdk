@@ -1368,8 +1368,9 @@ fn location_conversion_works() {
 	}
 
 	let test_cases = vec![
+		// DescribeTerminus
 		TestCase {
-			description: "Child Chain",
+			description: "DescribeTerminus Child",
 			location: Location::new(
 				0,
 				[
@@ -1379,7 +1380,51 @@ fn location_conversion_works() {
 			expected_account_id_str: "5FiBkHTJvHyWmbJJJSCc8X8Y1xS3niAfabkgi3L27usapmSX",
 		},
 		TestCase {
-			description: "Sibling Chain with Account",
+			description: "DescribeTerminus Sibling",
+			location: Location::new(
+				1,
+				[
+					Parachain(1111),
+				],
+			),
+			expected_account_id_str: "5Eg2fnssmmJnF3z1iZ1NouAuzciDaaDQH7qURAy3w15jULDk",
+		},
+		// DescribePalletTerminal
+		TestCase {
+			description: "DescribePalletTerminal Child",
+			location: Location::new(
+				0,
+				[
+					Parachain(1111),
+					PalletInstance(50),
+				],
+			),
+			expected_account_id_str: "5FjEBrKn3STAFsZpQF4jzwxUYHNGnNgzdZqSQfTzeJ82XKp6",
+		},
+		TestCase {
+			description: "DescribePalletTerminal Sibling",
+			location: Location::new(
+				1,
+				[
+					Parachain(1111),
+					PalletInstance(50),
+				],
+			),
+			expected_account_id_str: "5GFBgPjpEQPdaxEnFirUoa51u5erVx84twYxJVuBRAT2UP2g",
+		},
+		// DescribeAccountId32Terminal
+		TestCase {
+			description: "DescribeAccountId32Terminal Child",
+			location: Location::new(
+				0,
+				[
+					Parachain(1111),
+				],
+			),
+			expected_account_id_str: "5FiBkHTJvHyWmbJJJSCc8X8Y1xS3niAfabkgi3L27usapmSX",
+		},
+		TestCase {
+			description: "DescribeAccountId32Terminal Sibling",
 			location: Location::new(
 				1,
 				[
@@ -1389,34 +1434,99 @@ fn location_conversion_works() {
 			),
 			expected_account_id_str: "5DGRXLYwWGce7wvm14vX1Ms4Vf118FSWQbJkyQigY2pfm6bg",
 		},
+		// DescribeAccountKey20Terminal
 		TestCase {
-			description: "Raw Sibling Chain",
+			description: "DescribeAccountKey20Terminal Child",
+			location: Location::new(
+				0,
+				[
+					Parachain(1111),
+					AccountKey20 {
+						network: None,
+						key: [0u8; 20],
+					},
+				],
+			),
+			expected_account_id_str: "5HohjXdjs6afcYcgHHSstkrtGfxgfGKsnZ1jtewBpFiGu4DL",
+		},
+		TestCase {
+			description: "DescribeAccountKey20Terminal Sibling",
 			location: Location::new(
 				1,
 				[
 					Parachain(1111),
+					AccountKey20 {
+						network: None,
+						key: [0u8; 20],
+					},
 				],
 			),
-			expected_account_id_str: "5Eg2fnssmmJnF3z1iZ1NouAuzciDaaDQH7qURAy3w15jULDk",
+			expected_account_id_str: "5CB2FbUds2qvcJNhDiTbRZwiS3trAy6ydFGMSVutmYijpPAg",
+		},
+		// DescribeTreasuryVoiceTerminal
+		TestCase {
+			description: "DescribeTreasuryVoiceTerminal Child",
+			location: Location::new(
+				0,
+				[
+					Plurality {
+						id: BodyId::Treasury,
+						part: BodyPart::Voice,
+					},
+				],
+			),
+			expected_account_id_str: "5HohjXdjs6afcYcgHHSstkrtGfxgfGKsnZ1jtewBpFiGu4DL",
 		},
 		TestCase {
-			description: "Parent Chain",
+			description: "DescribeTreasuryVoiceTerminal Sibling",
 			location: Location::new(
 				1,
-				[],
+				[
+					Plurality {
+						id: BodyId::Treasury,
+						part: BodyPart::Voice,
+					},
+				],
 			),
-			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+			expected_account_id_str: "5CUjnE2vgcUCuhxPwFoQ5r7p1DkhujgvMNDHaF2bLqRp4D5F",
+		},
+		// DescribeBodyTerminal
+		TestCase {
+			description: "DescribeBodyTerminal Child",
+			location: Location::new(
+				0,
+				[
+					Plurality {
+						id: BodyId::Unit,
+						part: BodyPart::Voice,
+					},
+				],
+			),
+			expected_account_id_str: "5HohjXdjs6afcYcgHHSstkrtGfxgfGKsnZ1jtewBpFiGu4DL",
+		},
+		TestCase {
+			description: "DescribeBodyTerminal Sibling",
+			location: Location::new(
+				1,
+				[
+					Plurality {
+						id: BodyId::Unit,
+						part: BodyPart::Voice,
+					},
+				],
+			),
+			expected_account_id_str: "5CUjnE2vgcUCuhxPwFoQ5r7p1DkhujgvMNDHaF2bLqRp4D5F",
 		},
 	];
 
-	for test_case in test_cases {
-		let expected = AccountId::from_string(test_case.expected_account_id_str)
+	for tc in test_cases {
+		let expected = AccountId::from_string(tc.expected_account_id_str)
 			.expect("Invalid AccountId string");
 
 		let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
-			test_case.location.into(),
+			tc.location.into(),
 		).unwrap();
 
-		assert_eq!(got, expected, "{}", test_case.description);
+		assert_eq!(got, expected, "{}", tc.description);
 	}
 }
