@@ -181,7 +181,7 @@ pub mod pallet {
 
 	/// The last period where the next sync committee was updated for free.
 	#[pallet::storage]
-	pub type LatestFreeSyncCommitteeUpdatePeriod<T: Config> = StorageValue<_, u64, ValueQuery>;
+	pub type LatestSyncCommitteeUpdatePeriod<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
