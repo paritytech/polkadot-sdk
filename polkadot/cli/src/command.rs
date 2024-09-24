@@ -109,17 +109,6 @@ impl SubstrateCli for Cli {
 			"westend-local" => Box::new(polkadot_service::chain_spec::westend_local_testnet_config()?),
 			#[cfg(feature = "westend-native")]
 			"westend-staging" => Box::new(polkadot_service::chain_spec::westend_staging_testnet_config()?),
-			#[cfg(not(feature = "westend-native"))]
-			name if name.starts_with("westend-") && !name.ends_with(".json") =>
-				Err(format!("`{}` only supported with `westend-native` feature enabled.", name))?,
-			"wococo" => Box::new(polkadot_service::chain_spec::wococo_config()?),
-			#[cfg(feature = "rococo-native")]
-			"wococo-dev" => Box::new(polkadot_service::chain_spec::wococo_development_config()?),
-			#[cfg(feature = "rococo-native")]
-			"wococo-local" => Box::new(polkadot_service::chain_spec::wococo_local_testnet_config()?),
-			#[cfg(not(feature = "rococo-native"))]
-			name if name.starts_with("wococo-") =>
-				Err(format!("`{}` only supported with `rococo-native` feature enabled.", name))?,
 			#[cfg(feature = "rococo-native")]
 			"versi-dev" => Box::new(polkadot_service::chain_spec::versi_development_config()?),
 			#[cfg(feature = "rococo-native")]
@@ -139,7 +128,6 @@ impl SubstrateCli for Cli {
 				// chains, we use the chain spec for the specific chain.
 				if self.run.force_rococo ||
 					chain_spec.is_rococo() ||
-					chain_spec.is_wococo() ||
 					chain_spec.is_versi()
 				{
 					Box::new(polkadot_service::RococoChainSpec::from_json_file(path)?)
