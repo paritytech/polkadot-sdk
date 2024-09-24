@@ -49,7 +49,6 @@ impl<Hashing, Key, Value> BasicProvingTrie<Hashing, Key, Value>
 where
 	Hashing: sp_core::Hasher,
 	Key: Encode,
-	Value: Encode,
 {
 	/// Create a compact merkle proof needed to prove all `keys` and their values are in the trie.
 	///
@@ -59,7 +58,7 @@ where
 	/// When verifying the proof created by this function, you must include all of the keys and
 	/// values of the proof, else the verifier will complain that extra nodes are provided in the
 	/// proof that are not needed.
-	pub fn create_multi_value_proof(&self, keys: &[Key]) -> Result<Vec<u8>, DispatchError> {
+	pub fn create_multi_proof(&self, keys: &[Key]) -> Result<Vec<u8>, DispatchError> {
 		sp_trie::generate_trie_proof::<LayoutV1<Hashing>, _, _, _>(
 			&self.db,
 			self.root,
@@ -136,9 +135,9 @@ where
 		verify_proof::<Hashing, Key, Value>(root, proof, key, value)
 	}
 
-	/// A base 16 trie is expected to include the data for 15 hashes per layer.
 	fn proof_size_to_hashes(proof_size: &u32) -> u32 {
 		let hash_len = Hashing::Out::max_encoded_len() as u32;
+		// A base 16 trie is expected to include the data for 15 hashes per layer.
 		let layer_len = 15 * hash_len;
 		(proof_size + layer_len - 1) / layer_len
 	}
@@ -275,7 +274,7 @@ mod tests {
 		let root = *balance_trie.root();
 
 		// Create a proof for a valid and invalid key.
-		let proof = balance_trie.create_multi_value_proof(&[6u32, 9u32, 69u32]).unwrap();
+		let proof = balance_trie.create_multi_proof(&[6u32, 9u32, 69u32]).unwrap();
 		let items = [(6u32, 6u128), (9u32, 9u128), (69u32, 69u128)];
 
 		assert_eq!(verify_multi_value_proof::<BlakeTwo256, _, _>(&root, &proof, &items), Ok(()));

@@ -182,7 +182,6 @@ mod tests {
 	#[test]
 	fn proof_size_to_hashes() {
 		use crate::{testing::H256, traits::BlakeTwo256};
-		use codec::MaxEncodedLen;
 
 		// We can be off by up to 2 hashes... should be trivial.
 		let tolerance = 2;
