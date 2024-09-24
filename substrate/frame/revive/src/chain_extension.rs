@@ -348,12 +348,7 @@ impl<'a, 'b, E: Ext, M: ?Sized + Memory<E::T>> Environment<'a, 'b, E, M> {
 			let weight = weight_per_byte.saturating_mul(buffer.len() as u64);
 			self.runtime.charge_gas(RuntimeCosts::ChainExtension(weight))?;
 		}
-		super::wasm::write_sandbox_output::<E, M>(
-			self.memory,
-			self.output_ptr,
-			self.output_len_ptr,
-			buffer,
-			allow_skip,
-		)
+		self.memory
+			.write_sandbox_output(self.output_ptr, self.output_len_ptr, buffer, allow_skip)
 	}
 }

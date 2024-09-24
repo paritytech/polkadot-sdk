@@ -29,7 +29,7 @@ pub use runtime::HIGHEST_API_VERSION;
 #[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
 pub use crate::wasm::runtime::{ReturnData, TrapReason};
 
-pub use crate::wasm::runtime::{write_sandbox_output, ApiVersion, Memory, Runtime, RuntimeCosts};
+pub use crate::wasm::runtime::{ApiVersion, Memory, Runtime, RuntimeCosts};
 
 use crate::{
 	address::AddressMapper,
