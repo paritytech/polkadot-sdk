@@ -321,7 +321,7 @@ jobs:
   cargo-check-all-crate-macos:
     timeout-minutes: 30
     needs: [preflight]
-    runs-on: parity-macos
+    runs-on: ${{ needs.preflight.outputs.RUNNER_MACOS }}
     env:
       SKIP_WASM_BUILD: 1
     steps:
