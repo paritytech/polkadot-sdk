@@ -131,15 +131,6 @@ pub mod test_constants {
 	pub(crate) const TEST_CONFIG: DatabaseConfig = DatabaseConfig { col_approval_data: DATA_COL };
 }
 
-struct MockSupportsParachains;
-
-#[async_trait]
-impl HeadSupportsParachains for MockSupportsParachains {
-	async fn head_supports_parachains(&self, _head: &Hash) -> bool {
-		true
-	}
-}
-
 fn slot_to_tick(t: impl Into<Slot>) -> Tick {
 	slot_number_to_tick(SLOT_DURATION_MILLIS, t.into())
 }
