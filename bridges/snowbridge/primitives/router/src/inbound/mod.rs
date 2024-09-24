@@ -167,7 +167,7 @@ where
 		let total_amount = fee + CreateAssetDeposit::get();
 		let total: Asset = (Location::parent(), total_amount).into();
 
-		let bridge_location: Location = (Parent, Parent, GlobalConsensus(network)).into();
+		let bridge_location = Location::new(2, GlobalConsensus(network));
 
 		let owner = GlobalConsensusEthereumConvertsFor::<[u8; 32]>::from_chain_id(&chain_id);
 		let asset_id = Self::convert_token_address(network, token);
@@ -180,8 +180,15 @@ where
 			// Pay for execution.
 			BuyExecution { fees: xcm_fee, weight_limit: Unlimited },
 			// Fund the snowbridge sovereign with the required deposit for creation.
-			DepositAsset { assets: Definite(deposit.into()), beneficiary: bridge_location },
-			// Only our inbound-queue pallet is allowed to invoke `UniversalOrigin`
+			DepositAsset { assets: Definite(deposit.into()), beneficiary: bridge_location.clone() },
+			// This `SetAppendix` ensures that `xcm_fee` not spent by `Transact` will be
+			// deposited to snowbridge sovereign, instead of being trapped, regardless of
+			// `Transact` success or not.
+			SetAppendix(Xcm(vec![
+				RefundSurplus,
+				DepositAsset { assets: AllCounted(1).into(), beneficiary: bridge_location },
+			])),
+			// Only our inbound-queue pallet is allowed to invoke `UniversalOrigin`.
 			DescendOrigin(PalletInstance(inbound_queue_pallet_index).into()),
 			// Change origin to the bridge.
 			UniversalOrigin(GlobalConsensus(network)),
@@ -198,10 +205,17 @@ where
 					.encode()
 					.into(),
 			},
+<<<<<<< HEAD
 			RefundSurplus,
 			// Clear the origin so that remaining assets in holding
 			// are claimable by the physical origin (BridgeHub)
 			ClearOrigin,
+=======
+			// Forward message id to Asset Hub
+			SetTopic(message_id.into()),
+			// Once the program ends here, appendix program will run, which will deposit any
+			// leftover fee to snowbridge sovereign.
+>>>>>>> 62534e5 (snowbridge: improve destination fee handling to avoid trapping fees dust (#5563))
 		]
 		.into();
 
@@ -255,17 +269,31 @@ where
 		match dest_para_id {
 			Some(dest_para_id) => {
 				let dest_para_fee_asset: Asset = (Location::parent(), dest_para_fee).into();
+				let bridge_location = Location::new(2, GlobalConsensus(network));
 
 				instructions.extend(vec![
+					// After program finishes deposit any leftover assets to the snowbridge
+					// sovereign.
+					SetAppendix(Xcm(vec![DepositAsset {
+						assets: Wild(AllCounted(2)),
+						beneficiary: bridge_location,
+					}])),
 					// Perform a deposit reserve to send to destination chain.
 					DepositReserveAsset {
-						assets: Definite(vec![dest_para_fee_asset.clone(), asset.clone()].into()),
+						assets: Definite(vec![dest_para_fee_asset.clone(), asset].into()),
 						dest: Location::new(1, [Parachain(dest_para_id)]),
 						xcm: vec![
 							// Buy execution on target.
 							BuyExecution { fees: dest_para_fee_asset, weight_limit: Unlimited },
+<<<<<<< HEAD
 							// Deposit asset to beneficiary.
 							DepositAsset { assets: Definite(asset.into()), beneficiary },
+=======
+							// Deposit assets to beneficiary.
+							DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
+							// Forward message id to destination parachain.
+							SetTopic(message_id.into()),
+>>>>>>> 62534e5 (snowbridge: improve destination fee handling to avoid trapping fees dust (#5563))
 						]
 						.into(),
 					},
@@ -281,6 +309,14 @@ where
 			},
 		}
 
+<<<<<<< HEAD
+=======
+		// Forward message id to Asset Hub.
+		instructions.push(SetTopic(message_id.into()));
+
+		// The `instructions` to forward to AssetHub, and the `total_fees` to locally burn (since
+		// they are teleported within `instructions`).
+>>>>>>> 62534e5 (snowbridge: improve destination fee handling to avoid trapping fees dust (#5563))
 		(instructions.into(), total_fees.into())
 	}
 
