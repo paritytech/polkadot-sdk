@@ -1,0 +1,15 @@
+title: '[benchmarking] Reset to genesis storage after each run'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The genesis state is currently partially provided via `OverlayedChanges`, but these changes are reset by the runtime after the first repetition, causing the second repitition to use an invalid genesis state.
+
+    Changes:
+    - Provide the genesis state as a `Storage` without any `OverlayedChanges` to make it work correctly with repetitions.
+    - Add `--genesis-builder-preset` option to use different genesis preset names.
+    - Improve error messages.
+crates:
+- name: frame-benchmarking-cli
+  bump: major
+- name: frame-benchmarking-pallet-pov
+  bump: patch
