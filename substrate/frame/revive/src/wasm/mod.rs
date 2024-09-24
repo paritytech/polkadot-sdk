@@ -29,7 +29,7 @@ pub use runtime::HIGHEST_API_VERSION;
 #[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
 pub use crate::wasm::runtime::{ReturnData, TrapReason};
 
-pub use crate::wasm::runtime::{ApiVersion, Memory, Runtime, RuntimeCosts};
+pub use crate::wasm::runtime::{write_sandbox_output, ApiVersion, Memory, Runtime, RuntimeCosts};
 
 use crate::{
 	address::AddressMapper,
@@ -268,7 +268,7 @@ where
 				&mut self.instance,
 				self.api_version,
 			) {
-				break exec_result
+				break exec_result;
 			}
 		};
 		let _ = self.runtime.ext().gas_meter_mut().sync_from_executor(self.instance.gas())?;

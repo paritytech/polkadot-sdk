@@ -538,13 +538,6 @@ impl CallType {
 	}
 }
 
-/// This is only appropriate when writing out data of constant size that does not depend on user
-/// input. In this case the costs for this copy was already charged as part of the token at
-/// the beginning of the API entry point.
-fn already_charged(_: u32) -> Option<RuntimeCosts> {
-	None
-}
-
 /// Can only be used for one call.
 pub struct Runtime<'a, E: Ext, M: ?Sized> {
 	ext: &'a mut E,
@@ -598,6 +591,58 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 			},
 		}
 	}
+}
+
+/// Write the given buffer and its length to the designated locations in sandbox memory and
+/// charge gas according to the token returned by `create_token`.
+///
+/// `out_ptr` is the location in sandbox memory where `buf` should be written to.
+/// `out_len_ptr` is an in-out location in sandbox memory. It is read to determine the
+/// length of the buffer located at `out_ptr`. If that buffer is smaller than the actual
+/// `buf.len()`, only what fits into that buffer is written to `out_ptr`.
+/// The actual amount of bytes copied to `out_ptr` is written to `out_len_ptr`.
+///
+/// If `out_ptr` is set to the sentinel value of `SENTINEL` and `allow_skip` is true the
+/// operation is skipped and `Ok` is returned. This is supposed to help callers to make copying
+/// output optional. For example to skip copying back the output buffer of an `seal_call`
+/// when the caller is not interested in the result.
+///
+/// `create_token` can optionally instruct this function to charge the gas meter with the token
+/// it returns. `create_token` receives the variable amount of bytes that are about to be copied
+/// by this function.
+///
+/// In addition to the error conditions of `Memory::write` this functions returns
+/// `Err` if the size of the buffer located at `out_ptr` is too small to fit `buf`.
+pub fn write_sandbox_output<E: Ext, M: ?Sized + Memory<E::T>>(
+	memory: &mut M,
+	out_ptr: u32,
+	out_len_ptr: u32,
+	buf: &[u8],
+	allow_skip: bool,
+) -> Result<(), DispatchError> {
+	if allow_skip && out_ptr == SENTINEL {
+		return Ok(());
+	}
+
+	let len = memory.read_u32(out_len_ptr)?;
+	let buf_len = len.min(buf.len() as u32);
+
+	memory.write(out_ptr, &buf[..buf_len as usize])?;
+	memory.write(out_len_ptr, &buf_len.encode())
+}
+
+/// Same as `write_sandbox_output` but for static size output.
+pub fn write_fixed_sandbox_output<E: Ext, M: ?Sized + Memory<E::T>>(
+	memory: &mut M,
+	out_ptr: u32,
+	buf: &[u8],
+	allow_skip: bool,
+) -> Result<(), DispatchError> {
+	if allow_skip && out_ptr == SENTINEL {
+		return Ok(());
+	}
+
+	memory.write(out_ptr, buf)
 }
 
 impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
@@ -655,71 +700,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				Ok(ErrorReturnCode::get())
 			},
 		}
-	}
-
-	/// Write the given buffer and its length to the designated locations in sandbox memory and
-	/// charge gas according to the token returned by `create_token`.
-	///
-	/// `out_ptr` is the location in sandbox memory where `buf` should be written to.
-	/// `out_len_ptr` is an in-out location in sandbox memory. It is read to determine the
-	/// length of the buffer located at `out_ptr`. If that buffer is smaller than the actual
-	/// `buf.len()`, only what fits into that buffer is written to `out_ptr`.
-	/// The actual amount of bytes copied to `out_ptr` is written to `out_len_ptr`.
-	///
-	/// If `out_ptr` is set to the sentinel value of `SENTINEL` and `allow_skip` is true the
-	/// operation is skipped and `Ok` is returned. This is supposed to help callers to make copying
-	/// output optional. For example to skip copying back the output buffer of an `seal_call`
-	/// when the caller is not interested in the result.
-	///
-	/// `create_token` can optionally instruct this function to charge the gas meter with the token
-	/// it returns. `create_token` receives the variable amount of bytes that are about to be copied
-	/// by this function.
-	///
-	/// In addition to the error conditions of `Memory::write` this functions returns
-	/// `Err` if the size of the buffer located at `out_ptr` is too small to fit `buf`.
-	pub fn write_sandbox_output(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-		buf: &[u8],
-		allow_skip: bool,
-		create_token: impl FnOnce(u32) -> Option<RuntimeCosts>,
-	) -> Result<(), DispatchError> {
-		if allow_skip && out_ptr == SENTINEL {
-			return Ok(());
-		}
-
-		let len = memory.read_u32(out_len_ptr)?;
-		let buf_len = len.min(buf.len() as u32);
-
-		if let Some(costs) = create_token(buf_len) {
-			self.charge_gas(costs)?;
-		}
-
-		memory.write(out_ptr, &buf[..buf_len as usize])?;
-		memory.write(out_len_ptr, &buf_len.encode())
-	}
-
-	/// Same as `write_sandbox_output` but for static size output.
-	pub fn write_fixed_sandbox_output(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		buf: &[u8],
-		allow_skip: bool,
-		create_token: impl FnOnce(u32) -> Option<RuntimeCosts>,
-	) -> Result<(), DispatchError> {
-		if allow_skip && out_ptr == SENTINEL {
-			return Ok(());
-		}
-
-		let buf_len = buf.len() as u32;
-		if let Some(costs) = create_token(buf_len) {
-			self.charge_gas(costs)?;
-		}
-
-		memory.write(out_ptr, buf)
 	}
 
 	/// Computes the given hash function on the supplied input.
@@ -889,14 +869,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		};
 		if let Some(value) = outcome {
 			self.adjust_gas(charged, costs(value.len() as u32));
-			self.write_sandbox_output(
-				memory,
-				out_ptr,
-				out_len_ptr,
-				&value,
-				false,
-				already_charged,
-			)?;
+			write_sandbox_output::<E, M>(memory, out_ptr, out_len_ptr, &value, false)?;
 			Ok(ReturnErrorCode::Success)
 		} else {
 			self.adjust_gas(charged, costs(0));
@@ -957,14 +930,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		if let crate::storage::WriteOutcome::Taken(value) = outcome {
 			self.adjust_gas(charged, costs(value.len() as u32));
-			self.write_sandbox_output(
-				memory,
-				out_ptr,
-				out_len_ptr,
-				&value,
-				false,
-				already_charged,
-			)?;
+			write_sandbox_output::<E, M>(memory, out_ptr, out_len_ptr, &value, false)?;
 			Ok(ReturnErrorCode::Success)
 		} else {
 			self.adjust_gas(charged, costs(0));
@@ -1045,17 +1011,16 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				}));
 			},
 			Ok(_) => {
-				let output = mem::take(self.ext.last_frame_output_mut());
-				let write_result = self.write_sandbox_output(
+				self.charge_gas(RuntimeCosts::CopyToContract(
+					self.ext.last_frame_output().data.len() as u32,
+				))?;
+				write_sandbox_output::<E, M>(
 					memory,
 					output_ptr,
 					output_len_ptr,
-					&output.data,
+					&self.ext.last_frame_output().data,
 					true,
-					|len| Some(RuntimeCosts::CopyToContract(len)),
-				);
-				*self.ext.last_frame_output_mut() = output;
-				write_result?;
+				)?;
 				Ok(self.ext.last_frame_output().into())
 			},
 			Err(err) => Ok(Self::exec_error_into_return_code(err)?),
@@ -1099,25 +1064,23 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		) {
 			Ok(address) => {
 				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {
-					self.write_fixed_sandbox_output(
+					write_fixed_sandbox_output::<E, M>(
 						memory,
 						address_ptr,
 						&address.as_bytes(),
 						true,
-						already_charged,
 					)?;
 				}
-				let output = mem::take(self.ext.last_frame_output_mut());
-				let write_result = self.write_sandbox_output(
+				self.charge_gas(RuntimeCosts::CopyToContract(
+					self.ext.last_frame_output().data.len() as u32,
+				))?;
+				write_sandbox_output::<E, M>(
 					memory,
 					output_ptr,
 					output_len_ptr,
-					&output.data,
+					&self.ext.last_frame_output().data,
 					true,
-					|len| Some(RuntimeCosts::CopyToContract(len)),
-				);
-				*self.ext.last_frame_output_mut() = output;
-				write_result?;
+				)?;
 				Ok(self.ext.last_frame_output().into())
 			},
 			Err(err) => Ok(Self::exec_error_into_return_code(err)?),
@@ -1352,9 +1315,8 @@ pub mod env {
 	#[api_version(0)]
 	fn input(&mut self, memory: &mut M, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
 		if let Some(input) = self.input_data.take() {
-			self.write_sandbox_output(memory, out_ptr, out_len_ptr, &input, false, |len| {
-				Some(RuntimeCosts::CopyToContract(len))
-			})?;
+			self.charge_gas(RuntimeCosts::CopyToContract(input.len() as u32))?;
+			write_sandbox_output::<E, M>(memory, out_ptr, out_len_ptr, &input, false)?;
 			self.input_data = Some(input);
 			Ok(())
 		} else {
@@ -1382,13 +1344,7 @@ pub mod env {
 	fn caller(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Caller)?;
 		let caller = <E::T as Config>::AddressMapper::to_address(self.ext.caller().account_id()?);
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			caller.as_bytes(),
-			false,
-			already_charged,
-		)?)
+		Ok(write_fixed_sandbox_output::<E, M>(memory, out_ptr, caller.as_bytes(), false)?)
 	}
 
 	/// Checks whether a specified address belongs to a contract.
@@ -1414,13 +1370,7 @@ pub mod env {
 		let mut address = H160::zero();
 		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
 		if let Some(value) = self.ext.code_hash(&address) {
-			self.write_fixed_sandbox_output(
-				memory,
-				out_ptr,
-				&value.as_bytes(),
-				false,
-				already_charged,
-			)?;
+			write_fixed_sandbox_output::<E, M>(memory, out_ptr, &value.as_bytes(), false)?;
 			Ok(ReturnErrorCode::Success)
 		} else {
 			Ok(ReturnErrorCode::KeyNotFound)
@@ -1433,13 +1383,7 @@ pub mod env {
 	fn own_code_hash(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::OwnCodeHash)?;
 		let code_hash = *self.ext.own_code_hash();
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			code_hash.as_bytes(),
-			false,
-			already_charged,
-		)?)
+		Ok(write_fixed_sandbox_output::<E, M>(memory, out_ptr, code_hash.as_bytes(), false)?)
 	}
 
 	/// Checks whether the caller of the current contract is the origin of the whole call stack.
@@ -1464,13 +1408,7 @@ pub mod env {
 	fn address(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Address)?;
 		let address = self.ext.address();
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			address.as_bytes(),
-			false,
-			already_charged,
-		)?)
+		Ok(write_fixed_sandbox_output::<E, M>(memory, out_ptr, address.as_bytes(), false)?)
 	}
 
 	/// Stores the price for the specified amount of weight into the supplied buffer.
@@ -1485,12 +1423,11 @@ pub mod env {
 	) -> Result<(), TrapReason> {
 		let weight = Weight::from_parts(ref_time_limit, proof_size_limit);
 		self.charge_gas(RuntimeCosts::WeightToFee)?;
-		Ok(self.write_fixed_sandbox_output(
+		Ok(write_fixed_sandbox_output::<E, M>(
 			memory,
 			out_ptr,
 			&self.ext.get_weight_price(weight).encode(),
 			false,
-			already_charged,
 		)?)
 	}
 
@@ -1505,14 +1442,7 @@ pub mod env {
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::GasLeft)?;
 		let gas_left = &self.ext.gas_meter().gas_left().encode();
-		Ok(self.write_sandbox_output(
-			memory,
-			out_ptr,
-			out_len_ptr,
-			gas_left,
-			false,
-			already_charged,
-		)?)
+		Ok(write_sandbox_output::<E, M>(memory, out_ptr, out_len_ptr, gas_left, false)?)
 	}
 
 	/// Stores the *free* balance of the current account into the supplied buffer.
@@ -1520,12 +1450,11 @@ pub mod env {
 	#[api_version(0)]
 	fn balance(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Balance)?;
-		Ok(self.write_fixed_sandbox_output(
+		Ok(write_fixed_sandbox_output::<E, M>(
 			memory,
 			out_ptr,
 			&as_bytes(self.ext.balance()),
 			false,
-			already_charged,
 		)?)
 	}
 
@@ -1541,12 +1470,11 @@ pub mod env {
 		self.charge_gas(RuntimeCosts::BalanceOf)?;
 		let mut address = H160::zero();
 		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
-		Ok(self.write_fixed_sandbox_output(
+		Ok(write_fixed_sandbox_output::<E, M>(
 			memory,
 			out_ptr,
 			&as_bytes(self.ext.balance_of(&address)),
 			false,
-			already_charged,
 		)?)
 	}
 
@@ -1554,12 +1482,12 @@ pub mod env {
 	/// See [`pallet_revive_uapi::HostFn::chain_id`].
 	#[api_version(0)]
 	fn chain_id(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
-		Ok(self.write_fixed_sandbox_output(
+		self.charge_gas(RuntimeCosts::CopyToContract(32))?;
+		Ok(write_fixed_sandbox_output::<E, M>(
 			memory,
 			out_ptr,
 			&as_bytes(U256::from(<E::T as Config>::ChainId::get())),
 			false,
-			|_| Some(RuntimeCosts::CopyToContract(32)),
 		)?)
 	}
 
@@ -1568,12 +1496,11 @@ pub mod env {
 	#[api_version(0)]
 	fn value_transferred(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::ValueTransferred)?;
-		Ok(self.write_fixed_sandbox_output(
+		Ok(write_fixed_sandbox_output::<E, M>(
 			memory,
 			out_ptr,
 			&as_bytes(self.ext.value_transferred()),
 			false,
-			already_charged,
 		)?)
 	}
 
@@ -1582,13 +1509,7 @@ pub mod env {
 	#[api_version(0)]
 	fn now(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Now)?;
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			&as_bytes(self.ext.now()),
-			false,
-			already_charged,
-		)?)
+		Ok(write_fixed_sandbox_output::<E, M>(memory, out_ptr, &as_bytes(self.ext.now()), false)?)
 	}
 
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
@@ -1596,12 +1517,11 @@ pub mod env {
 	#[api_version(0)]
 	fn minimum_balance(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::MinimumBalance)?;
-		Ok(self.write_fixed_sandbox_output(
+		Ok(write_fixed_sandbox_output::<E, M>(
 			memory,
 			out_ptr,
 			&as_bytes(self.ext.minimum_balance()),
 			false,
-			already_charged,
 		)?)
 	}
 
@@ -1650,12 +1570,11 @@ pub mod env {
 	#[api_version(0)]
 	fn block_number(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::BlockNumber)?;
-		Ok(self.write_fixed_sandbox_output(
+		Ok(write_fixed_sandbox_output::<E, M>(
 			memory,
 			out_ptr,
 			&as_bytes(self.ext.block_number()),
 			false,
-			already_charged,
 		)?)
 	}
 
@@ -2007,12 +1926,12 @@ pub mod env {
 	/// See [`pallet_revive_uapi::HostFn::return_data_size`].
 	#[api_version(0)]
 	fn return_data_size(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
-		Ok(self.write_fixed_sandbox_output(
+		self.charge_gas(RuntimeCosts::CopyToContract(32))?;
+		Ok(write_fixed_sandbox_output::<E, M>(
 			memory,
 			out_ptr,
 			&as_bytes(U256::from(self.ext.last_frame_output().data.len())),
 			false,
-			|len| Some(RuntimeCosts::CopyToContract(len)),
 		)?)
 	}
 
@@ -2026,20 +1945,17 @@ pub mod env {
 		out_len_ptr: u32,
 		offset: u32,
 	) -> Result<(), TrapReason> {
-		let output = mem::take(self.ext.last_frame_output_mut());
-		let result = if offset as usize > output.data.len() {
-			Err(Error::<E::T>::OutOfBounds.into())
-		} else {
-			self.write_sandbox_output(
-				memory,
-				out_ptr,
-				out_len_ptr,
-				&output.data[offset as usize..],
-				false,
-				|len| Some(RuntimeCosts::CopyToContract(len)),
-			)
-		};
-		*self.ext.last_frame_output_mut() = output;
-		Ok(result?)
+		let len = self.ext.last_frame_output().data.len();
+		if offset as usize > len {
+			return Err(Error::<E::T>::OutOfBounds.into());
+		}
+		self.charge_gas(RuntimeCosts::CopyToContract(len as u32))?;
+		Ok(write_sandbox_output::<E, M>(
+			memory,
+			out_ptr,
+			out_len_ptr,
+			&self.ext.last_frame_output().data[offset as usize..],
+			false,
+		)?)
 	}
 }
