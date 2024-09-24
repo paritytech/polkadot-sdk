@@ -348,10 +348,17 @@ impl<T: Config> Pallet<T> {
 	/// Return the next thing that will be scheduled on this core assuming it is currently
 	/// occupied and the candidate occupying it became available.
 	pub(crate) fn next_up_on_available(core: CoreIndex) -> Option<ScheduledCore> {
-		ClaimQueue::<T>::get().get(&core).and_then(|a| {
-			a.front()
-				.map(|assignment| ScheduledCore { para_id: assignment.para_id(), collator: None })
-		})
+		// Since this is being called from a runtime API, we need to workaround for #64.
+		if Self::on_chain_storage_version() == StorageVersion::new(2) {
+			migration::v2::ClaimQueue::<T>::get()
+				.get(&core)
+				.and_then(|a| a.front().map(|entry| entry.assignment.para_id()))
+		} else {
+			ClaimQueue::<T>::get()
+				.get(&core)
+				.and_then(|a| a.front().map(|assignment| assignment.para_id()))
+		}
+		.map(|para_id| ScheduledCore { para_id, collator: None })
 	}
 
 	// on new session
@@ -463,7 +470,15 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn peek_claim_queue(core_idx: &CoreIndex) -> Option<Assignment> {
-		ClaimQueue::<T>::get().get(core_idx)?.front().cloned()
+		// Since this is being called from a runtime API, we need to workaround for #64.
+		if Self::on_chain_storage_version() == StorageVersion::new(2) {
+			migration::v2::ClaimQueue::<T>::get()
+				.get(core_idx)?
+				.front()
+				.map(|entry| entry.assignment.clone())
+		} else {
+			ClaimQueue::<T>::get().get(core_idx)?.front().cloned()
+		}
 	}
 
 	/// Paras that may get backed on cores.
