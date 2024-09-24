@@ -10,7 +10,7 @@ use crate::{
 		load_next_sync_committee_update_fixture, load_sync_committee_update_fixture,
 	},
 	sync_committee_sum, verify_merkle_branch, BeaconHeader, CompactBeaconState, Error,
-	FinalizedBeaconState, LatestFinalizedBlockRoot, LatestFreeSyncCommitteeUpdatePeriod,
+	FinalizedBeaconState, LatestFinalizedBlockRoot, LatestSyncCommitteeUpdatePeriod,
 	NextSyncCommittee, SyncCommitteePrepared,
 };
 use frame_support::{assert_err, assert_noop, assert_ok, pallet_prelude::Pays};
@@ -726,27 +726,27 @@ fn sync_committee_update_for_sync_committee_already_imported_are_not_free() {
 
 	new_tester().execute_with(|| {
 		assert_ok!(EthereumBeaconClient::process_checkpoint_update(&checkpoint));
-		assert_eq!(<LatestFreeSyncCommitteeUpdatePeriod<Test>>::get(), 0);
+		assert_eq!(<LatestSyncCommitteeUpdatePeriod<Test>>::get(), 0);
 
 		// Check that setting the next sync committee for period 0 is free (it is not set yet).
 		let result =
 			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), sync_committee_update.clone());
 		assert_ok!(result);
 		assert_eq!(result.unwrap().pays_fee, Pays::No);
-		assert_eq!(<LatestFreeSyncCommitteeUpdatePeriod<Test>>::get(), 0);
+		assert_eq!(<LatestSyncCommitteeUpdatePeriod<Test>>::get(), 0);
 
 		// Check that setting the next sync committee for period 0 again is not free.
 		let second_result =
 			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), second_sync_committee_update);
 		assert_eq!(second_result.unwrap().pays_fee, Pays::Yes);
-		assert_eq!(<LatestFreeSyncCommitteeUpdatePeriod<Test>>::get(), 0);
+		assert_eq!(<LatestSyncCommitteeUpdatePeriod<Test>>::get(), 0);
 
 		// Check that setting an update with a sync committee that has already been set, but with a
 		// newer finalized header, is free.
 		let third_result =
 			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), third_sync_committee_update);
 		assert_eq!(third_result.unwrap().pays_fee, Pays::No);
-		assert_eq!(<LatestFreeSyncCommitteeUpdatePeriod<Test>>::get(), 0);
+		assert_eq!(<LatestSyncCommitteeUpdatePeriod<Test>>::get(), 0);
 
 		// Check that setting the next sync committee for period 0 again with an earlier slot is not
 		// free.
@@ -759,7 +759,7 @@ fn sync_committee_update_for_sync_committee_already_imported_are_not_free() {
 		let fith_result =
 			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), fith_sync_committee_update);
 		assert_eq!(fith_result.unwrap().pays_fee, Pays::No);
-		assert_eq!(<LatestFreeSyncCommitteeUpdatePeriod<Test>>::get(), 1);
+		assert_eq!(<LatestSyncCommitteeUpdatePeriod<Test>>::get(), 1);
 	});
 }
 
