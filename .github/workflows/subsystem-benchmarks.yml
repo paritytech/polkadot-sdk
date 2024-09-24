@@ -22,7 +22,7 @@ jobs:
   build:
     timeout-minutes: 80
     needs: [preflight]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER_BENCHMARK }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     strategy:
