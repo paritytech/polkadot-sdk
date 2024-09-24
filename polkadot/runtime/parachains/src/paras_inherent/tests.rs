@@ -1037,6 +1037,21 @@ mod enter {
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
 			assert!(limit_inherent_data == expected_para_inherent_data);
 
+			// Cores were scheduled. We should put the assignments back, before calling enter().
+			let cores = (0..num_candidates)
+				.into_iter()
+				.map(|i| {
+					// Load an assignment into provider so that one is present to pop
+					let assignment =
+						<Test as scheduler::Config>::AssignmentProvider::get_mock_assignment(
+							CoreIndex(i),
+							ParaId::from(i),
+						);
+					(CoreIndex(i), [assignment].into())
+				})
+				.collect();
+			scheduler::ClaimQueue::<Test>::set(cores);
+
 			assert_ok!(Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
 				limit_inherent_data,
