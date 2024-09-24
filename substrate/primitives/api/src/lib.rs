@@ -260,6 +260,11 @@ pub const MAX_EXTRINSIC_DEPTH: u32 = 256;
 /// ```
 /// Note that the latest version (4 in our example above) always contains all methods from all
 /// the versions before.
+///
+/// ## Note on deprecation.
+///
+/// - Usage of `deprecated` attribute will propagate deprecation information to the metadata.
+/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 pub use sp_api_proc_macro::decl_runtime_apis;
 
 /// Tags given trait implementations as runtime apis.
@@ -343,7 +348,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 ///     // Here we are exposing the runtime api versions.
 ///     apis: RUNTIME_API_VERSIONS,
 ///     transaction_version: 1,
-///     state_version: 1,
+///     system_version: 1,
 /// };
 ///
 /// # fn main() {}

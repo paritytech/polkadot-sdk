@@ -37,6 +37,7 @@ use alloc::vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+use codec::{Decode, Encode};
 use trie_db::node_db::Hasher;
 
 /// Construct a root hash of a Binary Merkle Tree created from given leaves.
@@ -87,7 +88,7 @@ where
 /// A generated merkle proof.
 ///
 /// The structure contains all necessary data to later on verify the proof and the leaf itself.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Encode, Decode)]
 pub struct MerkleProof<H, L> {
 	/// Root hash of generated merkle tree.
 	pub root: H,
@@ -100,9 +101,9 @@ pub struct MerkleProof<H, L> {
 	///
 	/// This is needed to detect a case where we have an odd number of leaves that "get promoted"
 	/// to upper layers.
-	pub number_of_leaves: usize,
+	pub number_of_leaves: u32,
 	/// Index of the leaf the proof is for (0-based).
-	pub leaf_index: usize,
+	pub leaf_index: u32,
 	/// Leaf content.
 	pub leaf: L,
 }
@@ -121,13 +122,13 @@ trait Visitor<T> {
 	/// The method will also visit the `root` hash (level 0).
 	///
 	/// The `index` is an index of `left` item.
-	fn visit(&mut self, index: usize, left: &Option<T>, right: &Option<T>);
+	fn visit(&mut self, index: u32, left: &Option<T>, right: &Option<T>);
 }
 
 /// No-op implementation of the visitor.
 impl<T> Visitor<T> for () {
 	fn move_up(&mut self) {}
-	fn visit(&mut self, _index: usize, _left: &Option<T>, _right: &Option<T>) {}
+	fn visit(&mut self, _index: u32, _left: &Option<T>, _right: &Option<T>) {}
 }
 
 /// Construct a Merkle Proof for leaves given by indices.
@@ -140,7 +141,7 @@ impl<T> Visitor<T> for () {
 /// # Panic
 ///
 /// The function will panic if given `leaf_index` is greater than the number of leaves.
-pub fn merkle_proof<H, I, T>(leaves: I, leaf_index: usize) -> MerkleProof<H::Out, T>
+pub fn merkle_proof<H, I, T>(leaves: I, leaf_index: u32) -> MerkleProof<H::Out, T>
 where
 	H: Hasher,
 	H::Out: Default + Copy + AsRef<[u8]>,
@@ -151,7 +152,7 @@ where
 	let mut leaf = None;
 	let iter = leaves.into_iter().enumerate().map(|(idx, l)| {
 		let hash = <H as Hasher>::hash(l.as_ref());
-		if idx == leaf_index {
+		if idx as u32 == leaf_index {
 			leaf = Some(l);
 		}
 		hash
@@ -160,11 +161,11 @@ where
 	/// The struct collects a proof for single leaf.
 	struct ProofCollection<T> {
 		proof: Vec<T>,
-		position: usize,
+		position: u32,
 	}
 
 	impl<T> ProofCollection<T> {
-		fn new(position: usize) -> Self {
+		fn new(position: u32) -> Self {
 			ProofCollection { proof: Default::default(), position }
 		}
 	}
@@ -174,7 +175,7 @@ where
 			self.position /= 2;
 		}
 
-		fn visit(&mut self, index: usize, left: &Option<T>, right: &Option<T>) {
+		fn visit(&mut self, index: u32, left: &Option<T>, right: &Option<T>) {
 			// we are at left branch - right goes to the proof.
 			if self.position == index {
 				if let Some(right) = right {
@@ -190,7 +191,7 @@ where
 		}
 	}
 
-	let number_of_leaves = iter.len();
+	let number_of_leaves = iter.len() as u32;
 	let mut collect_proof = ProofCollection::new(leaf_index);
 
 	let root = merkelize::<H, _, _>(iter, &mut collect_proof);
@@ -237,8 +238,8 @@ impl<'a, H, T: AsRef<[u8]>> From<&'a T> for Leaf<'a, H> {
 pub fn verify_proof<'a, H, P, L>(
 	root: &'a H::Out,
 	proof: P,
-	number_of_leaves: usize,
-	leaf_index: usize,
+	number_of_leaves: u32,
+	leaf_index: u32,
 	leaf: L,
 ) -> bool
 where
@@ -440,7 +441,7 @@ mod tests {
 		assert!(verify_proof::<Keccak256, _, _>(
 			&proof0.root,
 			proof0.proof.clone(),
-			data.len(),
+			data.len() as _,
 			proof0.leaf_index,
 			&proof0.leaf,
 		));
@@ -449,7 +450,7 @@ mod tests {
 		assert!(verify_proof::<Keccak256, _, _>(
 			&proof1.root,
 			proof1.proof,
-			data.len(),
+			data.len() as _,
 			proof1.leaf_index,
 			&proof1.leaf,
 		));
@@ -458,7 +459,7 @@ mod tests {
 		assert!(verify_proof::<Keccak256, _, _>(
 			&proof2.root,
 			proof2.proof,
-			data.len(),
+			data.len() as _,
 			proof2.leaf_index,
 			&proof2.leaf
 		));
@@ -479,7 +480,7 @@ mod tests {
 			)
 			.into(),
 			proof0.proof,
-			data.len(),
+			data.len() as _,
 			proof0.leaf_index,
 			&proof0.leaf
 		));
@@ -487,7 +488,7 @@ mod tests {
 		assert!(!verify_proof::<Keccak256, _, _>(
 			&proof0.root.into(),
 			vec![],
-			data.len(),
+			data.len() as _,
 			proof0.leaf_index,
 			&proof0.leaf
 		));
@@ -498,14 +499,14 @@ mod tests {
 		// given
 		let data = vec!["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
 
-		for l in 0..data.len() {
+		for l in 0..data.len() as u32 {
 			// when
 			let proof = merkle_proof::<Keccak256, _, _>(data.clone(), l);
 			// then
 			assert!(verify_proof::<Keccak256, _, _>(
 				&proof.root,
 				proof.proof,
-				data.len(),
+				data.len() as _,
 				proof.leaf_index,
 				&proof.leaf
 			));
@@ -523,14 +524,14 @@ mod tests {
 				}
 			}
 
-			for l in 0..data.len() {
+			for l in 0..data.len() as u32 {
 				// when
 				let proof = merkle_proof::<Keccak256, _, _>(data.clone(), l);
 				// then
 				assert!(verify_proof::<Keccak256, _, _>(
 					&proof.root,
 					proof.proof,
-					data.len(),
+					data.len() as _,
 					proof.leaf_index,
 					&proof.leaf
 				));
@@ -546,14 +547,14 @@ mod tests {
 			data.push(format!("{}", i));
 		}
 
-		for l in (0..data.len()).step_by(13) {
+		for l in (0..data.len() as u32).step_by(13) {
 			// when
 			let proof = merkle_proof::<Keccak256, _, _>(data.clone(), l);
 			// then
 			assert!(verify_proof::<Keccak256, _, _>(
 				&proof.root,
 				proof.proof,
-				data.len(),
+				data.len() as _,
 				proof.leaf_index,
 				&proof.leaf
 			));
@@ -747,24 +748,24 @@ mod tests {
 			.map(|address| array_bytes::hex2bytes_unchecked(&address))
 			.collect::<Vec<_>>();
 
-		for l in 0..data.len() {
+		for l in 0..data.len() as u32 {
 			// when
 			let proof = merkle_proof::<Keccak256, _, _>(data.clone(), l);
 			assert_eq!(array_bytes::bytes2hex("", &proof.root), array_bytes::bytes2hex("", &root));
 			assert_eq!(proof.leaf_index, l);
-			assert_eq!(&proof.leaf, &data[l]);
+			assert_eq!(&proof.leaf, &data[l as usize]);
 
 			// then
 			assert!(verify_proof::<Keccak256, _, _>(
 				&proof.root,
 				proof.proof,
-				data.len(),
+				data.len() as _,
 				proof.leaf_index,
 				&proof.leaf
 			));
 		}
 
-		let proof = merkle_proof::<Keccak256, _, _>(data.clone(), data.len() - 1);
+		let proof = merkle_proof::<Keccak256, _, _>(data.clone(), data.len() as u32 - 1);
 
 		assert_eq!(
 			proof,
@@ -788,8 +789,8 @@ mod tests {
 					)
 					.into(),
 				],
-				number_of_leaves: data.len(),
-				leaf_index: data.len() - 1,
+				number_of_leaves: data.len() as _,
+				leaf_index: data.len() as u32 - 1,
 				leaf: array_bytes::hex2array_unchecked::<_, 20>(
 					"c26B34D375533fFc4c5276282Fa5D660F3d8cbcB"
 				)

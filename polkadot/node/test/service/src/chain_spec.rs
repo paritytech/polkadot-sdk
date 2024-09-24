@@ -20,7 +20,8 @@ use pallet_staking::Forcing;
 use polkadot_primitives::{
 	AccountId, AssignmentId, SchedulerParams, ValidatorId, MAX_CODE_SIZE, MAX_POV_SIZE,
 };
-use polkadot_service::chain_spec::{get_account_id_from_seed, get_from_seed, Extensions};
+use polkadot_service::chain_spec::Extensions;
+pub use polkadot_service::chain_spec::{get_account_id_from_seed, get_from_seed};
 use polkadot_test_runtime::BABE_GENESIS_EPOCH_CONFIG;
 use sc_chain_spec::{ChainSpec, ChainType};
 use sc_consensus_grandpa::AuthorityId as GrandpaId;

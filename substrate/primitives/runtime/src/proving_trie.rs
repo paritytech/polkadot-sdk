@@ -139,7 +139,7 @@ impl<Hashing, Key, Value> BasicProvingTrie<Hashing, Key, Value>
 where
 	Hashing: sp_core::Hasher,
 	Key: Encode,
-	Value: Encode + Decode,
+	Value: Encode,
 {
 	/// Create a new instance of a `ProvingTrie` using an iterator of key/value pairs.
 	pub fn generate_for<I>(items: I) -> Result<Self, DispatchError>
@@ -164,7 +164,10 @@ where
 
 	/// Query a value contained within the current trie. Returns `None` if the
 	/// nodes within the current `MemoryDB` are insufficient to query the item.
-	pub fn query(&self, key: Key) -> Option<Value> {
+	pub fn query(&self, key: Key) -> Option<Value>
+	where
+		Value: Decode,
+	{
 		let trie = TrieDBBuilder::new(&self.db, &self.root).build();
 		key.using_encoded(|s| trie.get(s))
 			.ok()?
