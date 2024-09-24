@@ -7,9 +7,8 @@ doc:
   - audience: Runtime Dev
     description: |
       This PR introduces a trait `ProvingTrie` which has all the function you need to use tries in the runtime.
-      This trait includes the ability to create a trie, and for developers to express the complexity of a trie
-      proof by converting the length of the proof to how many hashes we should expect to perform.
-
+      This trait includes the ability to create, query, and prove data in a trie. Another trait `ProofToHashes`
+      allows developers to express the computational complexity of proof verification using the proof data.
 crates:
   - name: sp-runtime
     bump: minor
