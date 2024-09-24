@@ -87,7 +87,7 @@ where
 	type BridgeMessagesPalletInstance = MI;
 	type PriorityBoostPerMessage = P;
 	type RemoteGrandpaChainBlockNumber = pallet_bridge_grandpa::BridgedBlockNumber<R, GI>;
-	type LaneId = LaneIdOf<R, MI>;
+	type LaneId = LaneIdOf<R, Self::BridgeMessagesPalletInstance>;
 
 	fn parse_and_check_for_obsolete_call(
 		call: &R::RuntimeCall,
@@ -125,7 +125,7 @@ where
 		relayer: &R::AccountId,
 	) -> bool {
 		verify_submit_finality_proof_succeeded::<Self, GI>(call_info, call_data, relayer) &&
-			verify_messages_call_succeeded::<Self, MI>(call_info, call_data, relayer)
+			verify_messages_call_succeeded::<Self>(call_info, call_data, relayer)
 	}
 }
 

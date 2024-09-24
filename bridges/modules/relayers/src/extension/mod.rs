@@ -406,21 +406,23 @@ where
 }
 
 /// Verify that the messages pallet call, supported by extension has succeeded.
-pub(crate) fn verify_messages_call_succeeded<C, MI>(
-	call_info: &ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber, LaneIdOf<C::Runtime, MI>>,
+pub(crate) fn verify_messages_call_succeeded<C>(
+	call_info: &ExtensionCallInfo<
+		C::RemoteGrandpaChainBlockNumber,
+		LaneIdOf<C::Runtime, C::BridgeMessagesPalletInstance>,
+	>,
 	_call_data: &mut ExtensionCallData,
 	relayer: &<C::Runtime as SystemConfig>::AccountId,
 ) -> bool
 where
 	C: ExtensionConfig,
-	// TODO: pouit z C::BridgeInstance
-	MI: 'static,
-	C::Runtime: BridgeMessagesConfig<MI>,
+	C::Runtime: BridgeMessagesConfig<C::BridgeMessagesPalletInstance>,
 {
 	let messages_call = call_info.messages_call_info();
 
-	// TODO:
-	if !MessagesCallHelper::<C::Runtime, MI>::was_successful(messages_call) {
+	if !MessagesCallHelper::<C::Runtime, C::BridgeMessagesPalletInstance>::was_successful(
+		messages_call,
+	) {
 		log::trace!(
 			target: LOG_TARGET,
 			"{}.{:?}: relayer {:?} has submitted invalid messages call",

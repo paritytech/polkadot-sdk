@@ -94,7 +94,7 @@ where
 	type PriorityBoostPerMessage = P;
 	type RemoteGrandpaChainBlockNumber =
 		pallet_bridge_grandpa::BridgedBlockNumber<R, R::BridgesGrandpaPalletInstance>;
-	type LaneId = LaneIdOf<R, MI>;
+	type LaneId = LaneIdOf<R, Self::BridgeMessagesPalletInstance>;
 
 	fn parse_and_check_for_obsolete_call(
 		call: &R::RuntimeCall,
@@ -109,7 +109,7 @@ where
 		let msgs_call = calls.next().transpose()?.and_then(|c| c.call_info());
 		let para_finality_call = calls.next().transpose()?.and_then(|c| {
 			let r = c.submit_parachain_heads_info_for(
-				<R as BridgeMessagesConfig<MI>>::BridgedChain::PARACHAIN_ID,
+				<R as BridgeMessagesConfig<Self::BridgeMessagesPalletInstance>>::BridgedChain::PARACHAIN_ID,
 			);
 			r
 		});
@@ -146,7 +146,7 @@ where
 		verify_submit_finality_proof_succeeded::<Self, R::BridgesGrandpaPalletInstance>(
 			call_info, call_data, relayer,
 		) && verify_submit_parachain_head_succeeded::<Self, PI>(call_info, call_data, relayer) &&
-			verify_messages_call_succeeded::<Self, MI>(call_info, call_data, relayer)
+			verify_messages_call_succeeded::<Self>(call_info, call_data, relayer)
 	}
 }
 
