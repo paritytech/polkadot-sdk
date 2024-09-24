@@ -8,10 +8,10 @@ license.workspace = true
 publish = false
 
 [dependencies]
-env_logger = "0.11.2"
+env_logger = { workspace = true }
 log = { workspace = true }
-subxt = { version = "0.37", features = ["substrate-compat"] }
-subxt-signer = { version = "0.37" }
+subxt = { workspace = true, features = ["substrate-compat"] }
+subxt-signer = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 anyhow = { workspace = true }
 zombienet-sdk = { workspace = true }
