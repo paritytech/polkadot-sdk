@@ -268,7 +268,7 @@ pub type MigrateV0ToV1<T> = VersionedMigration<
 	<T as frame_system::Config>::DbWeight,
 >;
 
-mod v2 {
+pub(crate) mod v2 {
 	use super::*;
 	use crate::scheduler;
 

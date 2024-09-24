@@ -21,6 +21,7 @@ use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	vec::Vec,
 };
+use frame_support::traits::{GetStorageVersion, StorageVersion};
 use polkadot_primitives::{
 	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, Id as ParaId,
 };
@@ -30,19 +31,32 @@ pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaI
 	let config = configuration::ActiveConfig::<T>::get();
 	// Extra sanity, config should already never be smaller than 1:
 	let n_lookahead = config.scheduler_params.lookahead.max(1);
-
-	scheduler::ClaimQueue::<T>::get()
-		.into_iter()
-		.map(|(core_index, entries)| {
-			// on cores timing out internal claim queue size may be temporarily longer than it
-			// should be as the timed out assignment might got pushed back to an already full claim
-			// queue:
-			(
-				core_index,
-				entries.into_iter().map(|e| e.para_id()).take(n_lookahead as usize).collect(),
-			)
-		})
-		.collect()
+	// Workaround for issue #64.
+	if scheduler::Pallet::<T>::on_chain_storage_version() == StorageVersion::new(2) {
+		scheduler::migration::v2::ClaimQueue::<T>::get()
+			.into_iter()
+			.map(|(core_index, entries)| {
+				(
+					core_index,
+					entries
+						.into_iter()
+						.map(|e| e.assignment.para_id())
+						.take(n_lookahead as usize)
+						.collect(),
+				)
+			})
+			.collect()
+	} else {
+		scheduler::ClaimQueue::<T>::get()
+			.into_iter()
+			.map(|(core_index, entries)| {
+				(
+					core_index,
+					entries.into_iter().map(|e| e.para_id()).take(n_lookahead as usize).collect(),
+				)
+			})
+			.collect()
+	}
 }
 
 /// Returns all the candidates that are pending availability for a given `ParaId`.
