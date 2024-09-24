@@ -68,7 +68,7 @@ pub trait BlockchainEvents<Block: BlockT> {
 	/// Not guaranteed to be fired for every imported block. Use `every_import_notification_stream()`
 	/// if you want a notification of every imported block regardless.
 	///
-	/// This notification stream is fired...
+	/// The events for this notification stream are emitted:
 	/// - During initial sync process: if there is a re-org while importing blocks. See
 	/// [here](https://github.com/paritytech/substrate/pull/7118#issuecomment-694091901) for the
 	/// rationale behind this.
