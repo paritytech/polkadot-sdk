@@ -30,7 +30,7 @@ use cumulus_primitives_core::{relay_chain::Hash as ParaHash, BlockT, ClaimQueueO
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
-	vstaging::CoreState, AsyncBackingParams, CoreIndex, Hash as RelayHash, Id as ParaId,
+	AsyncBackingParams, CoreIndex, Hash as RelayHash, Id as ParaId,
 	OccupiedCoreAssumption, ValidationCodeHash,
 };
 use sc_consensus_aura::{standalone as aura_internal, AuraApi};

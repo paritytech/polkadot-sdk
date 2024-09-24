@@ -3511,14 +3511,15 @@ async fn launch_approval<
 		.with_string_tag("block-hash", format!("{:?}", block_hash))
 		.with_stage(jaeger::Stage::ApprovalChecking);
 
-	ctx.send_message(RuntimeApiMessage::Request(
-		block_hash,
-		RuntimeApiRequest::ValidationCodeByHash(
-			candidate.descriptor.validation_code_hash(),
-			code_tx,
-		),
-	))
-	.await;
+	sender
+		.send_message(RuntimeApiMessage::Request(
+			block_hash,
+			RuntimeApiRequest::ValidationCodeByHash(
+				candidate.descriptor.validation_code_hash(),
+				code_tx,
+			),
+		))
+		.await;
 
 	let candidate = candidate.clone();
 	let metrics_guard = StaleGuard(Some(metrics));

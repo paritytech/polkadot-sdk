@@ -35,7 +35,7 @@ pub use cumulus_primitives_core::{
 	relay_chain::{
 		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
 		BlockNumber, Hash as PHash, Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption,
-		SessionIndex, ValidationCodeHash, ValidatorId,
+		SessionIndex, ValidationCodeHash, ValidatorId, CoreIndex,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
