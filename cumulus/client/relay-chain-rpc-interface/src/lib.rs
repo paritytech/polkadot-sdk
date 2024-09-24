@@ -272,4 +272,13 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	) -> RelayChainResult<Vec<CoreState<RelayHash, BlockNumber>>> {
 		self.rpc_client.parachain_host_availability_cores(relay_parent).await
 	}
+
+	async fn claim_queue(
+		&self,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<
+		BTreeMap<cumulus_relay_chain_interface::CoreIndex, std::collections::VecDeque<ParaId>>,
+	> {
+		self.rpc_client.parachain_host_claim_queue(relay_parent).await
+	}
 }
