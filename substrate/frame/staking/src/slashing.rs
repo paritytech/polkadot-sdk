@@ -342,6 +342,8 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 					disabled.insert(index, (offender_idx, severity));
 					// Propagate disablement to session level
 					T::SessionInterface::disable_validator(offender_idx);
+					// Emit event that a validator got disabled
+					<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorDisabled { stash: params.stash.clone() });
 				}
 			}
 		}
@@ -352,6 +354,9 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 				disabled.remove(index);
 				// Propagate re-enablement to session level
 				T::SessionInterface::enable_validator(reenable_idx);
+				// Emit event that a validator got re-enabled
+				let reenabled_stash = T::SessionInterface::validators()[reenable_idx as usize].clone();
+				<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorReenabled { stash: reenabled_stash });
 			}
 		}
     });

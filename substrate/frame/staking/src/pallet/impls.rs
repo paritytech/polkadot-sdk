@@ -1495,6 +1495,12 @@ where
 				continue
 			}
 
+			Self::deposit_event(Event::<T>::SlashReported {
+				validator: stash.clone(),
+				fraction: *slash_fraction,
+				slash_era,
+			});
+
 			let unapplied = slashing::compute_slash::<T>(slashing::SlashParams {
 				stash,
 				slash: *slash_fraction,
@@ -1503,12 +1509,6 @@ where
 				window_start,
 				now: active_era,
 				reward_proportion,
-			});
-
-			Self::deposit_event(Event::<T>::SlashReported {
-				validator: stash.clone(),
-				fraction: *slash_fraction,
-				slash_era,
 			});
 
 			if let Some(mut unapplied) = unapplied {
