@@ -31,25 +31,30 @@ pub mod relay_to_relay;
 pub mod relay_to_parachain;
 
 use async_trait::async_trait;
-use std::{marker::PhantomData, sync::Arc};
+use codec::{Codec, EncodeLike};
+use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 use structopt::StructOpt;
 
 use futures::{FutureExt, TryFutureExt};
 
 use crate::{
-	cli::{bridge::MessagesCliBridge, DefaultClient, HexLaneId, PrometheusParams},
+	cli::{
+		bridge::{MessagesCliBridge, MessagesLaneIdOf},
+		DefaultClient, HexLaneId, PrometheusParams,
+	},
 	messages::{MessagesRelayLimits, MessagesRelayParams},
 	on_demand::OnDemandRelay,
 	HeadersToRelay, TaggedAccount, TransactionParams,
 };
-use bp_messages::LaneId;
 use bp_runtime::BalanceOf;
+use messages_relay::Labeled;
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, Chain, ChainWithBalances, ChainWithMessages,
 	ChainWithRuntimeVersion, ChainWithTransactions,
 };
 use relay_utils::metrics::MetricsParams;
 use sp_core::Pair;
+use sp_runtime::traits::TryConvert;
 
 /// Parameters that have the same names across all bridges.
 #[derive(Debug, PartialEq, StructOpt)]
@@ -163,7 +168,7 @@ where
 		&self,
 		source_to_target_headers_relay: Arc<dyn OnDemandRelay<Source, Target>>,
 		target_to_source_headers_relay: Arc<dyn OnDemandRelay<Target, Source>>,
-		lane_id: LaneId,
+		lane_id: MessagesLaneIdOf<Bridge>,
 		maybe_limits: Option<MessagesRelayLimits>,
 	) -> MessagesRelayParams<Bridge::MessagesLane, DefaultClient<Source>, DefaultClient<Target>> {
 		MessagesRelayParams {
@@ -234,9 +239,20 @@ where
 		+ ChainWithRuntimeVersion;
 
 	/// Left to Right bridge.
-	type L2R: MessagesCliBridge<Source = Self::Left, Target = Self::Right>;
+	type L2R: MessagesCliBridge<Source = Self::Left, Target = Self::Right, LaneId = Self::LaneId>;
 	/// Right to Left bridge
-	type R2L: MessagesCliBridge<Source = Self::Right, Target = Self::Left>;
+	type R2L: MessagesCliBridge<Source = Self::Right, Target = Self::Left, LaneId = Self::LaneId>;
+	/// Lane identifier type.
+	type LaneId: Clone
+		+ Copy
+		+ Debug
+		+ Codec
+		+ EncodeLike
+		+ Send
+		+ Sync
+		+ Labeled
+		+ TryFrom<Vec<u8>>
+		+ Default;
 
 	/// Construct new bridge.
 	fn new(params: <Self::Base as Full2WayBridgeBase>::Params) -> anyhow::Result<Self>;
@@ -287,30 +303,29 @@ where
 			self.mut_base().start_on_demand_headers_relayers().await?;
 
 		// add balance-related metrics
-		let lanes = self
+		let lanes: Vec<Self::LaneId> = self
 			.base()
 			.common()
 			.shared
 			.lane
 			.iter()
 			.cloned()
-			.map(Into::into)
-			.collect::<Vec<_>>();
+			.map(HexLaneId::try_convert)
+			.collect::<Result<Vec<_>, HexLaneId>>()
+			.expect("");
 		{
 			let common = self.mut_base().mut_common();
-			crate::messages::metrics::add_relay_balances_metrics::<_, Self::Right>(
-				common.left.client.clone(),
-				&common.metrics_params,
-				&common.left.accounts,
-				&lanes,
-			)
+			crate::messages::metrics::add_relay_balances_metrics::<
+				_,
+				Self::Right,
+				MessagesLaneIdOf<Self::L2R>,
+			>(common.left.client.clone(), &common.metrics_params, &common.left.accounts, &lanes)
 			.await?;
-			crate::messages::metrics::add_relay_balances_metrics::<_, Self::Left>(
-				common.right.client.clone(),
-				&common.metrics_params,
-				&common.right.accounts,
-				&lanes,
-			)
+			crate::messages::metrics::add_relay_balances_metrics::<
+				_,
+				Self::Left,
+				MessagesLaneIdOf<Self::R2L>,
+			>(common.right.client.clone(), &common.metrics_params, &common.right.accounts, &lanes)
 			.await?;
 		}
 
@@ -432,7 +447,11 @@ mod tests {
 			res,
 			BridgeHubKusamaBridgeHubPolkadotHeadersAndMessages {
 				shared: HeadersAndMessagesSharedParams {
+<<<<<<< HEAD
 					lane: vec![HexLaneId([0x00, 0x00, 0x00, 0x00])],
+=======
+					lane: vec![HexLaneId(vec![0x00u8; 32])],
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 					only_mandatory_headers: false,
 					only_free_headers: false,
 					prometheus_params: PrometheusParams {

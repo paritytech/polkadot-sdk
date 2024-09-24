@@ -32,8 +32,17 @@ use frame_support::{
 	weights::Weight,
 	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 use pallet_bridge_grandpa::{
 	CallSubType as GrandpaCallSubType, SubmitFinalityProofHelper, SubmitFinalityProofInfo,
+=======
+use frame_system::Config as SystemConfig;
+use pallet_bridge_messages::{
+	CallHelper as MessagesCallHelper, Config as BridgeMessagesConfig, LaneIdOf,
+};
+use pallet_transaction_payment::{
+	Config as TransactionPaymentConfig, OnChargeTransaction, Pallet as TransactionPaymentPallet,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 };
 use pallet_bridge_messages::Config as MessagesConfig;
 use pallet_bridge_parachains::{
@@ -140,6 +149,7 @@ where
 
 /// Data that is crafted in `pre_dispatch` method and used at `post_dispatch`.
 #[cfg_attr(test, derive(Debug, PartialEq))]
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 pub struct PreDispatchData<AccountId> {
 	/// Transaction submitter (relayer) account.
 	relayer: AccountId,
@@ -184,6 +194,22 @@ impl CallInfo {
 		}
 	}
 
+=======
+pub struct PreDispatchData<
+	AccountId,
+	RemoteGrandpaChainBlockNumber: Debug,
+	LaneId: Clone + Copy + Debug,
+> {
+	/// Transaction submitter (relayer) account.
+	relayer: AccountId,
+	/// Type of the call.
+	call_info: ExtensionCallInfo<RemoteGrandpaChainBlockNumber, LaneId>,
+}
+
+impl<AccountId, RemoteGrandpaChainBlockNumber: Debug, LaneId: Clone + Copy + Debug>
+	PreDispatchData<AccountId, RemoteGrandpaChainBlockNumber, LaneId>
+{
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 	/// Returns mutable reference to pre-dispatch `finality_target` sent to the
 	/// `SubmitFinalityProof` call.
 	#[cfg(test)]
@@ -219,15 +245,16 @@ impl CallInfo {
 
 /// The actions on relayer account that need to be performed because of his actions.
 #[derive(RuntimeDebug, PartialEq)]
-pub enum RelayerAccountAction<AccountId, Reward> {
+pub enum RelayerAccountAction<AccountId, Reward, LaneId> {
 	/// Do nothing with relayer account.
 	None,
 	/// Reward the relayer.
-	Reward(AccountId, RewardsAccountParams, Reward),
+	Reward(AccountId, RewardsAccountParams<LaneId>, Reward),
 	/// Slash the relayer.
-	Slash(AccountId, RewardsAccountParams),
+	Slash(AccountId, RewardsAccountParams<LaneId>),
 }
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 /// Everything common among our refund signed extensions.
 pub trait RefundSignedExtension:
 	'static + Clone + Codec + sp_std::fmt::Debug + Default + Eq + PartialEq + Send + Sync + TypeInfo
@@ -243,6 +270,57 @@ pub trait RefundSignedExtension:
 	type Priority: Get<TransactionPriority>;
 	/// Signed extension unique identifier.
 	type Id: StaticStrProvider;
+=======
+/// A signed extension, built around `pallet-bridge-relayers`.
+///
+/// It may be incorporated into runtime to refund relayers for submitting correct
+/// message delivery and confirmation transactions, optionally batched with required
+/// finality proofs.
+#[derive(
+	DefaultNoBound,
+	CloneNoBound,
+	Decode,
+	Encode,
+	EqNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+)]
+#[scale_info(skip_type_params(Runtime, Config, LaneId))]
+pub struct BridgeRelayersSignedExtension<Runtime, Config, LaneId>(
+	PhantomData<(Runtime, Config, LaneId)>,
+);
+
+impl<R, C, LaneId> BridgeRelayersSignedExtension<R, C, LaneId>
+where
+	Self: 'static + Send + Sync,
+	R: RelayersConfig<LaneId = LaneId>
+		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance, LaneId = LaneId>
+		+ TransactionPaymentConfig,
+	C: ExtensionConfig<Runtime = R, LaneId = LaneId>,
+	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	<R as TransactionPaymentConfig>::OnChargeTransaction:
+		OnChargeTransaction<R, Balance = R::Reward>,
+	LaneId: Clone + Copy + Decode + Encode + Debug + TypeInfo,
+{
+	/// Returns number of bundled messages `Some(_)`, if the given call info is a:
+	///
+	/// - message delivery transaction;
+	///
+	/// - with reasonable bundled messages that may be accepted by the messages pallet.
+	///
+	/// This function is used to check whether the transaction priority should be
+	/// virtually boosted. The relayer registration (we only boost priority for registered
+	/// relayer transactions) must be checked outside.
+	fn bundled_messages_for_priority_boost(
+		call_info: Option<&ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber, LaneId>>,
+	) -> Option<MessageNonce> {
+		// we only boost priority of message delivery transactions
+		let parsed_call = match call_info {
+			Some(parsed_call) if parsed_call.is_receive_messages_proof_call() => parsed_call,
+			_ => return None,
+		};
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 
 	/// Unpack batch runtime call.
 	fn expand_call(call: &CallOf<Self::Runtime>) -> Vec<&CallOf<Self::Runtime>>;
@@ -270,16 +348,26 @@ pub trait RefundSignedExtension:
 	/// Given post-dispatch information, analyze the outcome of relayer call and return
 	/// actions that need to be performed on relayer account.
 	fn analyze_call_result(
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 		pre: Option<Option<PreDispatchData<AccountIdOf<Self::Runtime>>>>,
+=======
+		pre: Option<
+			Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber, LaneId>>,
+		>,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		info: &DispatchInfo,
 		post_info: &PostDispatchInfo,
 		len: usize,
 		result: &DispatchResult,
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	) -> RelayerAccountAction<AccountIdOf<Self::Runtime>, <Self::Runtime as RelayersConfig>::Reward>
 	{
 		let mut extra_weight = Weight::zero();
 		let mut extra_size = 0;
 
+=======
+	) -> RelayerAccountAction<R::AccountId, R::Reward, LaneId> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		// We don't refund anything for transactions that we don't support.
 		let (relayer, call_info) = match pre {
 			Some(Some(pre)) => (pre.relayer, pre.call_info),
@@ -415,6 +503,7 @@ pub trait RefundSignedExtension:
 	}
 }
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 /// Adapter that allow implementing `sp_runtime::traits::SignedExtension` for any
 /// `RefundSignedExtension`.
 #[derive(
@@ -433,12 +522,29 @@ impl<T: RefundSignedExtension> SignedExtension for RefundSignedExtensionAdapter<
 where
 	CallOf<T::Runtime>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
 		+ MessagesCallSubType<T::Runtime, <T::Msgs as RefundableMessagesLaneId>::Instance>,
+=======
+impl<R, C, LaneId> SignedExtension for BridgeRelayersSignedExtension<R, C, LaneId>
+where
+	Self: 'static + Send + Sync,
+	R: RelayersConfig<LaneId = LaneId>
+		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance, LaneId = LaneId>
+		+ TransactionPaymentConfig,
+	C: ExtensionConfig<Runtime = R, LaneId = LaneId>,
+	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	<R as TransactionPaymentConfig>::OnChargeTransaction:
+		OnChargeTransaction<R, Balance = R::Reward>,
+	LaneId: Clone + Copy + Decode + Encode + Debug + TypeInfo,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 {
 	const IDENTIFIER: &'static str = T::Id::STR;
 	type AccountId = AccountIdOf<T::Runtime>;
 	type Call = CallOf<T::Runtime>;
 	type AdditionalSigned = ();
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	type Pre = Option<PreDispatchData<AccountIdOf<T::Runtime>>>;
+=======
+	type Pre = Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber, LaneId>>;
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 
 	fn additional_signed(&self) -> Result<(), TransactionValidityError> {
 		Ok(())
@@ -551,6 +657,7 @@ where
 	}
 }
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 /// Signed extension that refunds a relayer for new messages coming from a parachain.
 ///
 /// Also refunds relayer for successful finality delivery if it comes in batch (`utility.batchAll`)
@@ -633,6 +740,34 @@ where
 			Some(_) => vec![],
 			None => vec![call],
 		}
+=======
+/// Verify that the messages pallet call, supported by extension has succeeded.
+pub(crate) fn verify_messages_call_succeeded<C>(
+	call_info: &ExtensionCallInfo<
+		C::RemoteGrandpaChainBlockNumber,
+		LaneIdOf<C::Runtime, C::BridgeMessagesPalletInstance>,
+	>,
+	_call_data: &mut ExtensionCallData,
+	relayer: &<C::Runtime as SystemConfig>::AccountId,
+) -> bool
+where
+	C: ExtensionConfig,
+	C::Runtime: BridgeMessagesConfig<C::BridgeMessagesPalletInstance>,
+{
+	let messages_call = call_info.messages_call_info();
+
+	if !MessagesCallHelper::<C::Runtime, C::BridgeMessagesPalletInstance>::was_successful(
+		messages_call,
+	) {
+		log::trace!(
+			target: LOG_TARGET,
+			"{}.{:?}: relayer {:?} has submitted invalid messages call",
+			C::IdProvider::STR,
+			call_info.messages_call_info().lane_id(),
+			relayer,
+		);
+		return false
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 	}
 
 	fn parse_and_check_for_obsolete_call(
@@ -943,9 +1078,16 @@ pub(crate) mod tests {
 	use bp_header_chain::StoredHeaderDataBuilder;
 	use bp_messages::{
 		source_chain::FromBridgedChainMessagesDeliveryProof,
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 		target_chain::FromBridgedChainMessagesProof, DeliveredMessages, InboundLaneData,
 		MessageNonce, MessagesOperatingMode, OutboundLaneData, UnrewardedRelayer,
 		UnrewardedRelayersState,
+=======
+		target_chain::FromBridgedChainMessagesProof, BaseMessagesProofInfo, DeliveredMessages,
+		InboundLaneData, MessageNonce, MessagesCallInfo, MessagesOperatingMode, OutboundLaneData,
+		ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo, UnrewardedRelayer,
+		UnrewardedRelayerOccupation, UnrewardedRelayersState,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 	};
 	use bp_parachains::{BestParaHeadHash, ParaInfo};
 	use bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};
@@ -968,6 +1110,7 @@ pub(crate) mod tests {
 	};
 
 	parameter_types! {
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 		pub TestLaneId: LaneId = TEST_LANE_ID;
 		pub MsgProofsRewardsAccount: RewardsAccountParams = RewardsAccountParams::new(
 			TEST_LANE_ID,
@@ -976,6 +1119,16 @@ pub(crate) mod tests {
 		);
 		pub MsgDeliveryProofsRewardsAccount: RewardsAccountParams = RewardsAccountParams::new(
 			TEST_LANE_ID,
+=======
+		TestParachain: u32 = BridgedUnderlyingParachain::PARACHAIN_ID;
+		pub MsgProofsRewardsAccount: RewardsAccountParams<TestLaneIdType> = RewardsAccountParams::new(
+			test_lane_id(),
+			TEST_BRIDGED_CHAIN_ID,
+			RewardsAccountOwner::ThisChain,
+		);
+		pub MsgDeliveryProofsRewardsAccount: RewardsAccountParams<TestLaneIdType> = RewardsAccountParams::new(
+			test_lane_id(),
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 			TEST_BRIDGED_CHAIN_ID,
 			RewardsAccountOwner::BridgedChain,
 		);
@@ -985,6 +1138,7 @@ pub(crate) mod tests {
 
 	type TestMessagesExtensionProvider = RefundBridgedMessages<
 		TestRuntime,
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 		RefundableMessagesLane<(), TestLaneId>,
 		ActualFeeRefund<TestRuntime>,
 		ConstU64<1>,
@@ -996,9 +1150,36 @@ pub(crate) mod tests {
 		(),
 		RefundableMessagesLane<(), TestLaneId>,
 		ActualFeeRefund<TestRuntime>,
+=======
+		RuntimeWithUtilityPallet<TestRuntime>,
+		(),
+		(),
+		(),
+		ConstU64<1>,
+	>;
+	type TestGrandpaExtension =
+		BridgeRelayersSignedExtension<TestRuntime, TestGrandpaExtensionConfig, TestLaneIdType>;
+	type TestExtensionConfig = parachain_adapter::WithParachainExtensionConfig<
+		StrTestExtension,
+		TestRuntime,
+		RuntimeWithUtilityPallet<TestRuntime>,
+		(),
+		(),
+		(),
+		ConstU64<1>,
+	>;
+	type TestExtension =
+		BridgeRelayersSignedExtension<TestRuntime, TestExtensionConfig, TestLaneIdType>;
+	type TestMessagesExtensionConfig = messages_adapter::WithMessagesExtensionConfig<
+		StrTestMessagesExtension,
+		TestRuntime,
+		(),
+		(),
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		ConstU64<1>,
 		StrTestExtension,
 	>;
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	type TestGrandpaExtension = RefundSignedExtensionAdapter<TestGrandpaExtensionProvider>;
 	type TestExtensionProvider = RefundBridgedParachainMessages<
 		TestRuntime,
@@ -1009,6 +1190,10 @@ pub(crate) mod tests {
 		StrTestExtension,
 	>;
 	type TestExtension = RefundSignedExtensionAdapter<TestExtensionProvider>;
+=======
+	type TestMessagesExtension =
+		BridgeRelayersSignedExtension<TestRuntime, TestMessagesExtensionConfig, TestLaneIdType>;
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 
 	fn initial_balance_of_relayer_account_at_this_chain() -> ThisChainBalance {
 		let test_stake: ThisChainBalance = TestStake::get();
@@ -1300,7 +1485,12 @@ pub(crate) mod tests {
 		})
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	fn all_finality_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
+=======
+	fn all_finality_pre_dispatch_data(
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::AllFinalityAndMsgs(
@@ -1335,14 +1525,25 @@ pub(crate) mod tests {
 		}
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	fn all_finality_pre_dispatch_data_ex() -> PreDispatchData<ThisChainAccountId> {
+=======
+	#[cfg(test)]
+	fn all_finality_pre_dispatch_data_ex(
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		let mut data = all_finality_pre_dispatch_data();
 		data.call_info.submit_finality_proof_info_mut().unwrap().current_set_id =
 			Some(TEST_GRANDPA_SET_ID);
 		data
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	fn all_finality_confirmation_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
+=======
+	fn all_finality_confirmation_pre_dispatch_data(
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::AllFinalityAndMsgs(
@@ -1371,14 +1572,24 @@ pub(crate) mod tests {
 		}
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	fn all_finality_confirmation_pre_dispatch_data_ex() -> PreDispatchData<ThisChainAccountId> {
+=======
+	fn all_finality_confirmation_pre_dispatch_data_ex(
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		let mut data = all_finality_confirmation_pre_dispatch_data();
 		data.call_info.submit_finality_proof_info_mut().unwrap().current_set_id =
 			Some(TEST_GRANDPA_SET_ID);
 		data
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	fn relay_finality_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
+=======
+	fn relay_finality_pre_dispatch_data(
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::RelayFinalityAndMsgs(
@@ -1407,14 +1618,24 @@ pub(crate) mod tests {
 		}
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	fn relay_finality_pre_dispatch_data_ex() -> PreDispatchData<ThisChainAccountId> {
+=======
+	fn relay_finality_pre_dispatch_data_ex(
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		let mut data = relay_finality_pre_dispatch_data();
 		data.call_info.submit_finality_proof_info_mut().unwrap().current_set_id =
 			Some(TEST_GRANDPA_SET_ID);
 		data
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	fn relay_finality_confirmation_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
+=======
+	fn relay_finality_confirmation_pre_dispatch_data(
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::RelayFinalityAndMsgs(
@@ -1437,14 +1658,24 @@ pub(crate) mod tests {
 		}
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	fn relay_finality_confirmation_pre_dispatch_data_ex() -> PreDispatchData<ThisChainAccountId> {
+=======
+	fn relay_finality_confirmation_pre_dispatch_data_ex(
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		let mut data = relay_finality_confirmation_pre_dispatch_data();
 		data.call_info.submit_finality_proof_info_mut().unwrap().current_set_id =
 			Some(TEST_GRANDPA_SET_ID);
 		data
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	fn parachain_finality_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
+=======
+	fn parachain_finality_pre_dispatch_data(
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::ParachainFinalityAndMsgs(
@@ -1471,7 +1702,12 @@ pub(crate) mod tests {
 		}
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	fn parachain_finality_confirmation_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
+=======
+	fn parachain_finality_confirmation_pre_dispatch_data(
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::ParachainFinalityAndMsgs(
@@ -1492,7 +1728,12 @@ pub(crate) mod tests {
 		}
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	fn delivery_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
+=======
+	fn delivery_pre_dispatch_data<RemoteGrandpaChainBlockNumber: Debug>(
+	) -> PreDispatchData<ThisChainAccountId, RemoteGrandpaChainBlockNumber, TestLaneIdType> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::Msgs(MessagesCallInfo::ReceiveMessagesProof(
@@ -1513,7 +1754,12 @@ pub(crate) mod tests {
 		}
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	fn confirmation_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
+=======
+	fn confirmation_pre_dispatch_data<RemoteGrandpaChainBlockNumber: Debug>(
+	) -> PreDispatchData<ThisChainAccountId, RemoteGrandpaChainBlockNumber, TestLaneIdType> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::Msgs(MessagesCallInfo::ReceiveMessagesDeliveryProof(
@@ -1527,9 +1773,19 @@ pub(crate) mod tests {
 	}
 
 	fn set_bundled_range_end(
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 		mut pre_dispatch_data: PreDispatchData<ThisChainAccountId>,
 		end: MessageNonce,
 	) -> PreDispatchData<ThisChainAccountId> {
+=======
+		mut pre_dispatch_data: PreDispatchData<
+			ThisChainAccountId,
+			BridgedChainBlockNumber,
+			TestLaneIdType,
+		>,
+		end: MessageNonce,
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		let msg_info = match pre_dispatch_data.call_info {
 			CallInfo::AllFinalityAndMsgs(_, _, ref mut info) => info,
 			CallInfo::RelayFinalityAndMsgs(_, ref mut info) => info,
@@ -1571,25 +1827,50 @@ pub(crate) mod tests {
 
 	fn run_pre_dispatch(
 		call: RuntimeCall,
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	) -> Result<Option<PreDispatchData<ThisChainAccountId>>, TransactionValidityError> {
 		let extension: TestExtension =
 			RefundSignedExtensionAdapter(RefundBridgedParachainMessages(PhantomData));
+=======
+	) -> Result<
+		Option<PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType>>,
+		TransactionValidityError,
+	> {
+		sp_tracing::try_init_simple();
+		let extension: TestExtension = BridgeRelayersSignedExtension(PhantomData);
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		extension.pre_dispatch(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
 	}
 
 	fn run_grandpa_pre_dispatch(
 		call: RuntimeCall,
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	) -> Result<Option<PreDispatchData<ThisChainAccountId>>, TransactionValidityError> {
 		let extension: TestGrandpaExtension =
 			RefundSignedExtensionAdapter(RefundBridgedGrandpaMessages(PhantomData));
+=======
+	) -> Result<
+		Option<PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType>>,
+		TransactionValidityError,
+	> {
+		let extension: TestGrandpaExtension = BridgeRelayersSignedExtension(PhantomData);
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		extension.pre_dispatch(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
 	}
 
 	fn run_messages_pre_dispatch(
 		call: RuntimeCall,
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	) -> Result<Option<PreDispatchData<ThisChainAccountId>>, TransactionValidityError> {
 		let extension: TestMessagesExtension =
 			RefundSignedExtensionAdapter(RefundBridgedMessages(PhantomData));
+=======
+	) -> Result<
+		Option<PreDispatchData<ThisChainAccountId, (), TestLaneIdType>>,
+		TransactionValidityError,
+	> {
+		let extension: TestMessagesExtension = BridgeRelayersSignedExtension(PhantomData);
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		extension.pre_dispatch(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
 	}
 
@@ -1609,7 +1890,13 @@ pub(crate) mod tests {
 	}
 
 	fn run_post_dispatch(
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 		pre_dispatch_data: Option<PreDispatchData<ThisChainAccountId>>,
+=======
+		pre_dispatch_data: Option<
+			PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType>,
+		>,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 		dispatch_result: DispatchResult,
 	) {
 		let post_dispatch_result = TestExtension::post_dispatch(
@@ -2426,10 +2713,21 @@ pub(crate) mod tests {
 	}
 
 	fn run_analyze_call_result(
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 		pre_dispatch_data: PreDispatchData<ThisChainAccountId>,
 		dispatch_result: DispatchResult,
 	) -> RelayerAccountAction<ThisChainAccountId, ThisChainBalance> {
 		TestExtensionProvider::analyze_call_result(
+=======
+		pre_dispatch_data: PreDispatchData<
+			ThisChainAccountId,
+			BridgedChainBlockNumber,
+			TestLaneIdType,
+		>,
+		dispatch_result: DispatchResult,
+	) -> RelayerAccountAction<ThisChainAccountId, ThisChainBalance, TestLaneIdType> {
+		TestExtension::analyze_call_result(
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/relayers/src/extension/mod.rs
 			Some(Some(pre_dispatch_data)),
 			&dispatch_info(),
 			&post_dispatch_info(),
@@ -2882,7 +3180,7 @@ pub(crate) mod tests {
 				.unwrap();
 
 			// allow empty message delivery transactions
-			let lane_id = TestLaneId::get();
+			let lane_id = test_lane_id();
 			let in_lane_data = InboundLaneData {
 				last_confirmed_nonce: 0,
 				relayers: vec![UnrewardedRelayer {

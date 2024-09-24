@@ -363,6 +363,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 #[cfg(test)]
 mod tests {
 	use super::*;
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/check_obsolete_extension.rs
 	use crate::{
 		extensions::refund_relayer_extension::{
 			tests::{
@@ -374,6 +375,14 @@ mod tests {
 		mock::*,
 	};
 	use bp_polkadot_core::parachains::ParaId;
+=======
+	use crate::mock::*;
+	use bp_header_chain::StoredHeaderDataBuilder;
+	use bp_messages::{InboundLaneData, MessageNonce, OutboundLaneData};
+	use bp_parachains::{BestParaHeadHash, ParaInfo};
+	use bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};
+	use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/bin/runtime-common/src/extensions.rs
 	use bp_runtime::HeaderId;
 	use frame_support::{assert_err, assert_ok};
 	use sp_runtime::{
@@ -382,6 +391,22 @@ mod tests {
 		DispatchError,
 	};
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/check_obsolete_extension.rs
+=======
+	parameter_types! {
+		pub MsgProofsRewardsAccount: RewardsAccountParams<TestLaneIdType> = RewardsAccountParams::new(
+			test_lane_id(),
+			TEST_BRIDGED_CHAIN_ID,
+			RewardsAccountOwner::ThisChain,
+		);
+		pub MsgDeliveryProofsRewardsAccount: RewardsAccountParams<TestLaneIdType> = RewardsAccountParams::new(
+			test_lane_id(),
+			TEST_BRIDGED_CHAIN_ID,
+			RewardsAccountOwner::BridgedChain,
+		);
+	}
+
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/bin/runtime-common/src/extensions.rs
 	pub struct MockCall {
 		data: u32,
 	}
@@ -455,6 +480,102 @@ mod tests {
 		}
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/check_obsolete_extension.rs
+=======
+	fn initial_balance_of_relayer_account_at_this_chain() -> ThisChainBalance {
+		let test_stake: ThisChainBalance = TestStake::get();
+		ExistentialDeposit::get().saturating_add(test_stake * 100)
+	}
+
+	// in tests, the following accounts are equal (because of how `into_sub_account_truncating`
+	// works)
+
+	fn delivery_rewards_account() -> ThisChainAccountId {
+		TestPaymentProcedure::rewards_account(MsgProofsRewardsAccount::get())
+	}
+
+	fn confirmation_rewards_account() -> ThisChainAccountId {
+		TestPaymentProcedure::rewards_account(MsgDeliveryProofsRewardsAccount::get())
+	}
+
+	fn relayer_account_at_this_chain() -> ThisChainAccountId {
+		0
+	}
+
+	fn initialize_environment(
+		best_relay_header_number: BridgedChainBlockNumber,
+		parachain_head_at_relay_header_number: BridgedChainBlockNumber,
+		best_message: MessageNonce,
+	) {
+		let authorities = test_keyring().into_iter().map(|(a, w)| (a.into(), w)).collect();
+		let best_relay_header = HeaderId(best_relay_header_number, BridgedChainHash::default());
+		pallet_bridge_grandpa::CurrentAuthoritySet::<TestRuntime>::put(
+			StoredAuthoritySet::try_new(authorities, TEST_GRANDPA_SET_ID).unwrap(),
+		);
+		pallet_bridge_grandpa::BestFinalized::<TestRuntime>::put(best_relay_header);
+		pallet_bridge_grandpa::ImportedHeaders::<TestRuntime>::insert(
+			best_relay_header.hash(),
+			bp_test_utils::test_header::<BridgedChainHeader>(0).build(),
+		);
+
+		let para_id = ParaId(BridgedUnderlyingParachain::PARACHAIN_ID);
+		let para_info = ParaInfo {
+			best_head_hash: BestParaHeadHash {
+				at_relay_block_number: parachain_head_at_relay_header_number,
+				head_hash: [parachain_head_at_relay_header_number as u8; 32].into(),
+			},
+			next_imported_hash_position: 0,
+		};
+		pallet_bridge_parachains::ParasInfo::<TestRuntime>::insert(para_id, para_info);
+
+		let lane_id = test_lane_id();
+		let in_lane_data =
+			InboundLaneData { last_confirmed_nonce: best_message, ..Default::default() };
+		pallet_bridge_messages::InboundLanes::<TestRuntime>::insert(lane_id, in_lane_data);
+
+		let out_lane_data =
+			OutboundLaneData { latest_received_nonce: best_message, ..Default::default() };
+		pallet_bridge_messages::OutboundLanes::<TestRuntime>::insert(lane_id, out_lane_data);
+
+		Balances::mint_into(&delivery_rewards_account(), ExistentialDeposit::get()).unwrap();
+		Balances::mint_into(&confirmation_rewards_account(), ExistentialDeposit::get()).unwrap();
+		Balances::mint_into(
+			&relayer_account_at_this_chain(),
+			initial_balance_of_relayer_account_at_this_chain(),
+		)
+		.unwrap();
+	}
+
+	fn submit_relay_header_call(relay_header_number: BridgedChainBlockNumber) -> RuntimeCall {
+		let relay_header = BridgedChainHeader::new(
+			relay_header_number,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
+		let relay_justification = make_default_justification(&relay_header);
+
+		RuntimeCall::BridgeGrandpa(GrandpaCall::submit_finality_proof {
+			finality_target: Box::new(relay_header),
+			justification: relay_justification,
+		})
+	}
+
+	fn submit_parachain_head_call(
+		parachain_head_at_relay_header_number: BridgedChainBlockNumber,
+	) -> RuntimeCall {
+		RuntimeCall::BridgeParachains(ParachainsCall::submit_parachain_heads {
+			at_relay_block: (parachain_head_at_relay_header_number, BridgedChainHash::default()),
+			parachains: vec![(
+				ParaId(BridgedUnderlyingParachain::PARACHAIN_ID),
+				[parachain_head_at_relay_header_number as u8; 32].into(),
+			)],
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
+		})
+	}
+
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/bin/runtime-common/src/extensions.rs
 	#[test]
 	fn test_generated_obsolete_extension() {
 		generate_bridge_reject_obsolete_headers_and_messages!(

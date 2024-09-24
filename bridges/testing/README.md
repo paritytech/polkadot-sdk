@@ -23,8 +23,13 @@ To start those tests, you need to:
 
 - copy fresh `substrate-relay` binary, built in previous point, to the `~/local_bridge_testing/bin/substrate-relay`;
 
+<<<<<<< HEAD
 - change the `POLKADOT_SDK_PATH` and `ZOMBIENET_BINARY_PATH` (and ensure that the nearby variables
 have correct values) in the `./run-tests.sh`.
+=======
+After that, any test can be run using the `run-test.sh` command.
+Example: `./run-test.sh 0001-asset-transfer`
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 
 After that, you could run tests with the `./run-tests.sh` command. Hopefully, it'll show the
 "All tests have completed successfully" message in the end. Otherwise, it'll print paths to zombienet

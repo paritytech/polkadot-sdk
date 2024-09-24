@@ -17,13 +17,17 @@
 //! Bridge definitions used on BridgeHubRococo for bridging to BridgeHubWestend.
 
 use crate::{
-	bridge_common_config::{BridgeParachainWestendInstance, DeliveryRewardInBalance},
+	bridge_common_config::{
+		BridgeParachainWestendInstance, DeliveryRewardInBalance,
+		RelayersForLegacyLaneIdsMessagesInstance,
+	},
 	weights,
 	xcm_config::UniversalLocation,
 	BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent, XcmOverBridgeHubWestend, XcmRouter,
 };
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
+<<<<<<< HEAD
 	target_chain::FromBridgedChainMessagesProof, LaneId,
 };
 use bp_runtime::Chain;
@@ -36,10 +40,24 @@ use bridge_runtime_common::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
 		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
+=======
+	target_chain::FromBridgedChainMessagesProof, LegacyLaneId,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 };
 
 use codec::Encode;
 use frame_support::{parameter_types, traits::PalletInfoAccess};
+<<<<<<< HEAD
+=======
+use frame_system::{EnsureNever, EnsureRoot};
+use pallet_bridge_messages::LaneIdOf;
+use pallet_bridge_relayers::extension::{
+	BridgeRelayersSignedExtension, WithMessagesExtensionConfig,
+};
+use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSystemParachains};
+use polkadot_parachain_primitives::primitives::Sibling;
+use testnet_parachains_constants::rococo::currency::UNITS as ROC;
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 use xcm::{
 	latest::prelude::*,
 	prelude::{InteriorLocation, NetworkId},
@@ -111,11 +129,11 @@ fn build_congestion_message<Call>(is_congested: bool) -> alloc::vec::Vec<Instruc
 }
 
 /// Proof of messages, coming from Westend.
-pub type FromWestendBridgeHubMessagesProof =
-	FromBridgedChainMessagesProof<bp_bridge_hub_westend::Hash>;
+pub type FromWestendBridgeHubMessagesProof<MI> =
+	FromBridgedChainMessagesProof<bp_bridge_hub_westend::Hash, LaneIdOf<Runtime, MI>>;
 /// Messages delivery proof for Rococo Bridge Hub -> Westend Bridge Hub messages.
-pub type ToWestendBridgeHubMessagesDeliveryProof =
-	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_westend::Hash>;
+pub type ToWestendBridgeHubMessagesDeliveryProof<MI> =
+	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_westend::Hash, LaneIdOf<Runtime, MI>>;
 
 /// Dispatches received XCM messages from other bridge
 type FromWestendMessageBlobDispatcher =
@@ -141,14 +159,20 @@ type OnMessagesDeliveredFromWestend =
 pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundSignedExtensionAdapter<
 	RefundBridgedMessages<
 		Runtime,
+<<<<<<< HEAD
 		RefundableMessagesLane<
 			WithBridgeHubWestendMessagesInstance,
 			AssetHubRococoToAssetHubWestendMessagesLane,
 		>,
 		ActualFeeRefund<Runtime>,
+=======
+		WithBridgeHubWestendMessagesInstance,
+		RelayersForLegacyLaneIdsMessagesInstance,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 		PriorityBoostPerMessage,
 		StrOnBridgeHubRococoRefundBridgeHubWestendMessages,
 	>,
+	LaneIdOf<Runtime, WithBridgeHubWestendMessagesInstance>,
 >;
 bp_runtime::generate_static_str_provider!(OnBridgeHubRococoRefundBridgeHubWestendMessages);
 
@@ -169,10 +193,10 @@ impl pallet_bridge_messages::Config<WithBridgeHubWestendMessagesInstance> for Ru
 	type ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubWestend;
 
 	type OutboundPayload = XcmAsPlainPayload;
-
 	type InboundPayload = XcmAsPlainPayload;
-	type DeliveryPayments = ();
+	type LaneId = LegacyLaneId;
 
+	type DeliveryPayments = ();
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
 		WithBridgeHubWestendMessagesInstance,
@@ -190,7 +214,8 @@ impl pallet_bridge_messages::Config<WithBridgeHubWestendMessagesInstance> for Ru
 	type OnMessagesDelivered = OnMessagesDeliveredFromWestend;
 }
 
-/// Add support for the export and dispatch of XCM programs.
+/// Add support for the export and dispatch of XCM programs withing
+/// `WithBridgeHubWestendMessagesInstance`.
 pub type XcmOverBridgeHubWestendInstance = pallet_xcm_bridge_hub::Instance1;
 impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubWestendInstance> for Runtime {
 	type UniversalLocation = UniversalLocation;
@@ -199,8 +224,76 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubWestendInstance> for Runtime 
 	type MessageExportPrice = ();
 	type DestinationVersion =
 		XcmVersionOfDestAndRemoteBridge<PolkadotXcm, BridgeHubWestendLocation>;
+<<<<<<< HEAD
 	type Lanes = ActiveLanes;
 	type LanesSupport = ToBridgeHubWestendXcmBlobHauler;
+=======
+
+	type ForceOrigin = EnsureRoot<AccountId>;
+	// We don't want to allow creating bridges for this instance with `LegacyLaneId`.
+	type OpenBridgeOrigin = EnsureNever<Location>;
+	// Converter aligned with `OpenBridgeOrigin`.
+	type BridgeOriginAccountIdConverter =
+		(ParentIsPreset<AccountId>, SiblingParachainConvertsVia<Sibling, AccountId>);
+
+	type BridgeDeposit = BridgeDeposit;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	// Do not require deposit from system parachains or relay chain
+	type AllowWithoutBridgeDeposit =
+		RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>;
+
+	// TODO:(bridges-v2) - add `LocalXcmChannelManager` impl - https://github.com/paritytech/parity-bridges-common/issues/3047
+	type LocalXcmChannelManager = ();
+	type BlobDispatcher = FromWestendMessageBlobDispatcher;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub(crate) fn open_bridge_for_benchmarks<R, XBHI, C>(
+	with: pallet_xcm_bridge_hub::LaneIdOf<R, XBHI>,
+	sibling_para_id: u32,
+) -> InteriorLocation
+where
+	R: pallet_xcm_bridge_hub::Config<XBHI>,
+	XBHI: 'static,
+	C: xcm_executor::traits::ConvertLocation<
+		bp_runtime::AccountIdOf<pallet_xcm_bridge_hub::ThisChainOf<R, XBHI>>,
+	>,
+{
+	use pallet_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
+	use sp_runtime::traits::Zero;
+	use xcm::VersionedInteriorLocation;
+
+	// insert bridge metadata
+	let lane_id = with;
+	let sibling_parachain = Location::new(1, [Parachain(sibling_para_id)]);
+	let universal_source = [GlobalConsensus(Rococo), Parachain(sibling_para_id)].into();
+	let universal_destination = [GlobalConsensus(Westend), Parachain(2075)].into();
+	let bridge_id = BridgeId::new(&universal_source, &universal_destination);
+
+	// insert only bridge metadata, because the benchmarks create lanes
+	pallet_xcm_bridge_hub::Bridges::<R, XBHI>::insert(
+		bridge_id,
+		Bridge {
+			bridge_origin_relative_location: alloc::boxed::Box::new(
+				sibling_parachain.clone().into(),
+			),
+			bridge_origin_universal_location: alloc::boxed::Box::new(
+				VersionedInteriorLocation::from(universal_source.clone()),
+			),
+			bridge_destination_universal_location: alloc::boxed::Box::new(
+				VersionedInteriorLocation::from(universal_destination),
+			),
+			state: BridgeState::Opened,
+			bridge_owner_account: C::convert_location(&sibling_parachain).expect("valid AccountId"),
+			deposit: Zero::zero(),
+			lane_id,
+		},
+	);
+	pallet_xcm_bridge_hub::LaneToBridge::<R, XBHI>::insert(lane_id, bridge_id);
+
+	universal_source
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 }
 
 #[cfg(test)]
@@ -296,3 +389,101 @@ mod tests {
 		assert_eq!(BridgeRococoToWestendMessagesPalletInstance::get(), expected,);
 	}
 }
+<<<<<<< HEAD
+=======
+
+/// Contains the migration for the AssetHubRococo<>AssetHubWestend bridge.
+pub mod migration {
+	use super::*;
+	use frame_support::traits::ConstBool;
+
+	parameter_types! {
+		pub AssetHubRococoToAssetHubWestendMessagesLane: LegacyLaneId = LegacyLaneId([0, 0, 0, 2]);
+		pub AssetHubRococoLocation: Location = Location::new(1, [Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)]);
+		pub AssetHubWestendUniversalLocation: InteriorLocation = [GlobalConsensus(WestendGlobalConsensusNetwork::get()), Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)].into();
+	}
+
+	/// Ensure that the existing lanes for the AHR<>AHW bridge are correctly configured.
+	pub type StaticToDynamicLanes = pallet_xcm_bridge_hub::migration::OpenBridgeForLane<
+		Runtime,
+		XcmOverBridgeHubWestendInstance,
+		AssetHubRococoToAssetHubWestendMessagesLane,
+		// the lanes are already created for AHR<>AHW, but we need to link them to the bridge
+		// structs
+		ConstBool<false>,
+		AssetHubRococoLocation,
+		AssetHubWestendUniversalLocation,
+	>;
+
+	mod v1_wrong {
+		use bp_messages::{LaneState, MessageNonce, UnrewardedRelayer};
+		use bp_runtime::AccountIdOf;
+		use codec::{Decode, Encode};
+		use pallet_bridge_messages::BridgedChainOf;
+		use sp_std::collections::vec_deque::VecDeque;
+
+		#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+		pub(crate) struct StoredInboundLaneData<T: pallet_bridge_messages::Config<I>, I: 'static>(
+			pub(crate) InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>,
+		);
+		#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+		pub(crate) struct InboundLaneData<RelayerId> {
+			pub state: LaneState,
+			pub(crate) relayers: VecDeque<UnrewardedRelayer<RelayerId>>,
+			pub(crate) last_confirmed_nonce: MessageNonce,
+		}
+		#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+		pub(crate) struct OutboundLaneData {
+			pub state: LaneState,
+			pub(crate) oldest_unpruned_nonce: MessageNonce,
+			pub(crate) latest_received_nonce: MessageNonce,
+			pub(crate) latest_generated_nonce: MessageNonce,
+		}
+	}
+
+	mod v1 {
+		pub use bp_messages::{InboundLaneData, LaneState, OutboundLaneData};
+		pub use pallet_bridge_messages::{InboundLanes, OutboundLanes, StoredInboundLaneData};
+	}
+
+	/// Fix for v1 migration - corrects data for OutboundLaneData/InboundLaneData (it is needed only
+	/// for Rococo/Westend).
+	pub struct FixMessagesV1Migration<T, I>(sp_std::marker::PhantomData<(T, I)>);
+
+	impl<T: pallet_bridge_messages::Config<I>, I: 'static> frame_support::traits::OnRuntimeUpgrade
+		for FixMessagesV1Migration<T, I>
+	{
+		fn on_runtime_upgrade() -> Weight {
+			use sp_core::Get;
+			let mut weight = T::DbWeight::get().reads(1);
+
+			// `InboundLanes` - add state to the old structs
+			let translate_inbound =
+				|pre: v1_wrong::StoredInboundLaneData<T, I>| -> Option<v1::StoredInboundLaneData<T, I>> {
+					weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+					Some(v1::StoredInboundLaneData(v1::InboundLaneData {
+						state: v1::LaneState::Opened,
+						relayers: pre.0.relayers,
+						last_confirmed_nonce: pre.0.last_confirmed_nonce,
+					}))
+				};
+			v1::InboundLanes::<T, I>::translate_values(translate_inbound);
+
+			// `OutboundLanes` - add state to the old structs
+			let translate_outbound =
+				|pre: v1_wrong::OutboundLaneData| -> Option<v1::OutboundLaneData> {
+					weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+					Some(v1::OutboundLaneData {
+						state: v1::LaneState::Opened,
+						oldest_unpruned_nonce: pre.oldest_unpruned_nonce,
+						latest_received_nonce: pre.latest_received_nonce,
+						latest_generated_nonce: pre.latest_generated_nonce,
+					})
+				};
+			v1::OutboundLanes::<T, I>::translate_values(translate_outbound);
+
+			weight
+		}
+	}
+}
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))

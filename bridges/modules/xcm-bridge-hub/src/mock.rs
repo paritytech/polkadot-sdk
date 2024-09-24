@@ -20,7 +20,7 @@ use crate as pallet_xcm_bridge_hub;
 
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
-	ChainWithMessages, LaneId, MessageNonce,
+	ChainWithMessages, HashedLaneId, MessageNonce,
 };
 use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, HashOf};
 use bridge_runtime_common::messages_xcm_extension::{SenderAndLane, XcmBlobHauler};
@@ -38,6 +38,9 @@ pub type AccountId = AccountId32;
 pub type Balance = u64;
 
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
+
+/// Lane identifier type used for tests.
+pub type TestLaneIdType = HashedLaneId;
 
 pub const SIBLING_ASSET_HUB_ID: u32 = 2001;
 pub const THIS_BRIDGE_HUB_ID: u32 = 2002;
@@ -82,6 +85,11 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type ActiveOutboundLanes = ActiveOutboundLanes;
 	type OutboundPayload = Vec<u8>;
 	type InboundPayload = Vec<u8>;
+<<<<<<< HEAD
+=======
+	type LaneId = TestLaneIdType;
+
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	type DeliveryPayments = ();
 	type DeliveryConfirmationPayments = ();
 	type OnMessagesDelivered = ();
@@ -145,7 +153,39 @@ parameter_types! {
 		GlobalConsensus(RelayNetwork::get()),
 		Parachain(THIS_BRIDGE_HUB_ID),
 	].into();
+<<<<<<< HEAD
 	pub const Penalty: Balance = 1_000;
+=======
+	pub SiblingLocation: Location = Location::new(1, [Parachain(SIBLING_ASSET_HUB_ID)]);
+	pub SiblingUniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(SIBLING_ASSET_HUB_ID)].into();
+
+	pub const BridgedRelayNetwork: NetworkId = NetworkId::ByGenesis([1; 32]);
+	pub BridgedRelayNetworkLocation: Location = (Parent, GlobalConsensus(BridgedRelayNetwork::get())).into();
+	pub BridgedRelativeDestination: InteriorLocation = [Parachain(BRIDGED_ASSET_HUB_ID)].into();
+	pub BridgedUniversalDestination: InteriorLocation = [GlobalConsensus(BridgedRelayNetwork::get()), Parachain(BRIDGED_ASSET_HUB_ID)].into();
+	pub const NonBridgedRelayNetwork: NetworkId = NetworkId::Rococo;
+
+	pub const BridgeDeposit: Balance = 100_000;
+
+	// configuration for pallet_xcm_bridge_hub_router
+	pub BridgeHubLocation: Location = Here.into();
+	pub BridgeFeeAsset: AssetId = Location::here().into();
+	pub BridgeTable: Vec<NetworkExportTableItem>
+		= vec![
+			NetworkExportTableItem::new(
+				BridgedRelayNetwork::get(),
+				None,
+				BridgeHubLocation::get(),
+				None
+			)
+		];
+	pub UnitWeightCost: Weight = Weight::from_parts(10, 10);
+}
+
+/// **Universal** `InteriorLocation` of bridged asset hub.
+pub fn bridged_asset_hub_universal_location() -> InteriorLocation {
+	BridgedUniversalDestination::get()
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 }
 
 impl pallet_xcm_bridge_hub::Config for TestRuntime {
@@ -156,8 +196,23 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type MessageExportPrice = ();
 	type DestinationVersion = AlwaysLatest;
 
+<<<<<<< HEAD
 	type Lanes = TestLanes;
 	type LanesSupport = TestXcmBlobHauler;
+=======
+	type ForceOrigin = frame_system::EnsureNever<()>;
+	type OpenBridgeOrigin = OpenBridgeOrigin;
+	type BridgeOriginAccountIdConverter = LocationToAccountId;
+
+	type BridgeDeposit = BridgeDeposit;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type AllowWithoutBridgeDeposit = Equals<ParentRelayChainLocation>;
+
+	type LocalXcmChannelManager = TestLocalXcmChannelManager;
+
+	type BlobDispatcher = TestBlobDispatcher;
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 }
 
 parameter_types! {
@@ -249,7 +304,7 @@ impl ChainWithMessages for BridgedUnderlyingChain {
 pub struct TestMessageDispatch;
 
 impl TestMessageDispatch {
-	pub fn deactivate(lane: LaneId) {
+	pub fn deactivate(lane: TestLaneIdType) {
 		frame_support::storage::unhashed::put(&(b"inactive", lane).encode()[..], &false);
 	}
 }
@@ -257,17 +312,26 @@ impl TestMessageDispatch {
 impl MessageDispatch for TestMessageDispatch {
 	type DispatchPayload = Vec<u8>;
 	type DispatchLevelResult = ();
+	type LaneId = TestLaneIdType;
 
+<<<<<<< HEAD
 	fn is_active() -> bool {
 		frame_support::storage::unhashed::take::<bool>(&(b"inactive").encode()[..]) != Some(false)
+=======
+	fn is_active(lane: Self::LaneId) -> bool {
+		frame_support::storage::unhashed::take::<bool>(&(b"inactive", lane).encode()[..]) !=
+			Some(false)
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	}
 
-	fn dispatch_weight(_message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
+	fn dispatch_weight(
+		_message: &mut DispatchMessage<Self::DispatchPayload, Self::LaneId>,
+	) -> Weight {
 		Weight::zero()
 	}
 
 	fn dispatch(
-		_: DispatchMessage<Self::DispatchPayload>,
+		_: DispatchMessage<Self::DispatchPayload, Self::LaneId>,
 	) -> MessageDispatchResult<Self::DispatchLevelResult> {
 		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result: () }
 	}

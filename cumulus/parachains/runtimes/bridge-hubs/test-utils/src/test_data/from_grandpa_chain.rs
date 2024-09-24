@@ -20,7 +20,11 @@ use crate::test_data::prepare_inbound_xcm;
 
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
+<<<<<<< HEAD
 	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, LaneId, MessageNonce,
+=======
+	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, LaneState, MessageNonce,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	UnrewardedRelayersState,
 };
 use bp_runtime::{AccountIdOf, BlockNumberOf, Chain, HeaderOf, UnverifiedStorageProofParams};
@@ -40,7 +44,7 @@ use pallet_bridge_messages::{
 		encode_all_messages, encode_lane_data, prepare_message_delivery_storage_proof,
 		prepare_messages_storage_proof,
 	},
-	BridgedChainOf,
+	BridgedChainOf, LaneIdOf,
 };
 use sp_runtime::DigestItem;
 
@@ -48,7 +52,10 @@ use sp_runtime::DigestItem;
 pub fn make_complex_relayer_delivery_batch<Runtime, GPI, MPI>(
 	bridged_header: BridgedHeader<Runtime, GPI>,
 	bridged_justification: GrandpaJustification<BridgedHeader<Runtime, GPI>>,
-	message_proof: FromBridgedChainMessagesProof<HashOf<BridgedChain<Runtime, GPI>>>,
+	message_proof: FromBridgedChainMessagesProof<
+		HashOf<BridgedChain<Runtime, GPI>>,
+		LaneIdOf<Runtime, MPI>,
+	>,
 	relayer_id_at_bridged_chain: InboundRelayerId<Runtime, MPI>,
 ) -> pallet_utility::Call<Runtime>
 where
@@ -82,6 +89,7 @@ pub fn make_complex_relayer_confirmation_batch<Runtime, GPI, MPI>(
 	bridged_justification: GrandpaJustification<BridgedHeader<Runtime, GPI>>,
 	message_delivery_proof: FromBridgedChainMessagesDeliveryProof<
 		HashOf<BridgedChain<Runtime, GPI>>,
+		LaneIdOf<Runtime, MPI>,
 	>,
 	relayers_state: UnrewardedRelayersState,
 ) -> pallet_utility::Call<Runtime>
@@ -111,7 +119,10 @@ where
 
 /// Prepare a call with message proof.
 pub fn make_standalone_relayer_delivery_call<Runtime, GPI, MPI>(
-	message_proof: FromBridgedChainMessagesProof<HashOf<BridgedChain<Runtime, GPI>>>,
+	message_proof: FromBridgedChainMessagesProof<
+		HashOf<BridgedChain<Runtime, GPI>>,
+		LaneIdOf<Runtime, MPI>,
+	>,
 	relayer_id_at_bridged_chain: InboundRelayerId<Runtime, MPI>,
 ) -> Runtime::RuntimeCall
 where
@@ -134,6 +145,7 @@ where
 pub fn make_standalone_relayer_confirmation_call<Runtime, GPI, MPI>(
 	message_delivery_proof: FromBridgedChainMessagesDeliveryProof<
 		HashOf<BridgedChain<Runtime, GPI>>,
+		LaneIdOf<Runtime, MPI>,
 	>,
 	relayers_state: UnrewardedRelayersState,
 ) -> Runtime::RuntimeCall
@@ -152,11 +164,15 @@ where
 }
 
 /// Prepare storage proofs of messages, stored at the (bridged) source GRANDPA chain.
+<<<<<<< HEAD
 pub fn make_complex_relayer_delivery_proofs<
 	BridgedChain,
 	ThisChainWithMessages,
 	InnerXcmRuntimeCall,
 >(
+=======
+pub fn make_complex_relayer_delivery_proofs<BridgedChain, ThisChainWithMessages, LaneId>(
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	lane_id: LaneId,
 	xcm_message: Xcm<InnerXcmRuntimeCall>,
 	message_nonce: MessageNonce,
@@ -166,17 +182,18 @@ pub fn make_complex_relayer_delivery_proofs<
 ) -> (
 	HeaderOf<BridgedChain>,
 	GrandpaJustification<HeaderOf<BridgedChain>>,
-	FromBridgedChainMessagesProof<HashOf<BridgedChain>>,
+	FromBridgedChainMessagesProof<HashOf<BridgedChain>, LaneId>,
 )
 where
 	BridgedChain: ChainWithGrandpa,
 	ThisChainWithMessages: ChainWithMessages,
+	LaneId: Copy + Encode,
 {
 	// prepare message
 	let message_payload = prepare_inbound_xcm(xcm_message, message_destination);
 	// prepare storage proof containing message
 	let (state_root, storage_proof) =
-		prepare_messages_storage_proof::<BridgedChain, ThisChainWithMessages>(
+		prepare_messages_storage_proof::<BridgedChain, ThisChainWithMessages, LaneId>(
 			lane_id,
 			message_nonce..=message_nonce,
 			None,
@@ -210,6 +227,7 @@ pub fn make_complex_relayer_confirmation_proofs<
 	BridgedChain,
 	ThisChainWithMessages,
 	InnerXcmRuntimeCall,
+	LaneId,
 >(
 	lane_id: LaneId,
 	header_number: BlockNumberOf<BridgedChain>,
@@ -218,15 +236,16 @@ pub fn make_complex_relayer_confirmation_proofs<
 ) -> (
 	HeaderOf<BridgedChain>,
 	GrandpaJustification<HeaderOf<BridgedChain>>,
-	FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChain>>,
+	FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChain>, LaneId>,
 )
 where
 	BridgedChain: ChainWithGrandpa,
 	ThisChainWithMessages: ChainWithMessages,
+	LaneId: Copy + Encode,
 {
 	// prepare storage proof containing message delivery proof
 	let (state_root, storage_proof) =
-		prepare_message_delivery_storage_proof::<BridgedChain, ThisChainWithMessages>(
+		prepare_message_delivery_storage_proof::<BridgedChain, ThisChainWithMessages, LaneId>(
 			lane_id,
 			InboundLaneData {
 				relayers: vec![

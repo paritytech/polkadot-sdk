@@ -20,6 +20,7 @@
 //! are reusing Polkadot Bulletin chain primitives everywhere here.
 
 use crate::{
+<<<<<<< HEAD
 	weights, xcm_config::UniversalLocation, BridgeRococoBulletinGrandpa,
 	BridgeRococoBulletinMessages, PolkadotXcm, Runtime, RuntimeEvent, XcmOverRococoBulletin,
 	XcmRouter,
@@ -38,9 +39,34 @@ use bridge_runtime_common::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
 		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
+=======
+	bridge_common_config::RelayersForPermissionlessLanesInstance, weights,
+	xcm_config::UniversalLocation, AccountId, Balance, Balances, BridgeRococoBulletinGrandpa,
+	BridgeRococoBulletinMessages, PolkadotXcm, Runtime, RuntimeEvent, RuntimeHoldReason,
+	XcmOverRococoBulletin, XcmRouter,
+};
+use bp_messages::{
+	source_chain::FromBridgedChainMessagesDeliveryProof,
+	target_chain::FromBridgedChainMessagesProof, HashedLaneId,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 };
 
+<<<<<<< HEAD
 use frame_support::{parameter_types, traits::PalletInfoAccess};
+=======
+use frame_support::{
+	parameter_types,
+	traits::{Equals, PalletInfoAccess},
+};
+use frame_system::{EnsureNever, EnsureRoot};
+use pallet_bridge_messages::LaneIdOf;
+use pallet_bridge_relayers::extension::{
+	BridgeRelayersSignedExtension, WithMessagesExtensionConfig,
+};
+use pallet_xcm_bridge_hub::XcmAsPlainPayload;
+use polkadot_parachain_primitives::primitives::Sibling;
+use testnet_parachains_constants::rococo::currency::UNITS as ROC;
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 use xcm::{
 	latest::prelude::*,
 	prelude::{InteriorLocation, NetworkId},
@@ -100,11 +126,11 @@ parameter_types! {
 pub const XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN: LaneId = LaneId([0, 0, 0, 0]);
 
 /// Proof of messages, coming from Rococo Bulletin chain.
-pub type FromRococoBulletinMessagesProof =
-	FromBridgedChainMessagesProof<bp_polkadot_bulletin::Hash>;
+pub type FromRococoBulletinMessagesProof<MI> =
+	FromBridgedChainMessagesProof<bp_polkadot_bulletin::Hash, LaneIdOf<Runtime, MI>>;
 /// Messages delivery proof for Rococo Bridge Hub -> Rococo Bulletin messages.
-pub type ToRococoBulletinMessagesDeliveryProof =
-	FromBridgedChainMessagesDeliveryProof<bp_polkadot_bulletin::Hash>;
+pub type ToRococoBulletinMessagesDeliveryProof<MI> =
+	FromBridgedChainMessagesDeliveryProof<bp_polkadot_bulletin::Hash, LaneIdOf<Runtime, MI>>;
 
 /// Dispatches received XCM messages from other bridge.
 type FromRococoBulletinMessageBlobDispatcher = BridgeBlobDispatcher<
@@ -134,14 +160,20 @@ type OnMessagesDeliveredFromRococoBulletin =
 pub type OnBridgeHubRococoRefundRococoBulletinMessages = RefundSignedExtensionAdapter<
 	RefundBridgedMessages<
 		Runtime,
+<<<<<<< HEAD
 		RefundableMessagesLane<
 			WithRococoBulletinMessagesInstance,
 			RococoPeopleToRococoBulletinMessagesLane,
 		>,
 		ActualFeeRefund<Runtime>,
+=======
+		WithRococoBulletinMessagesInstance,
+		RelayersForPermissionlessLanesInstance,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 		PriorityBoostPerMessage,
 		StrOnBridgeHubRococoRefundRococoBulletinMessages,
 	>,
+	LaneIdOf<Runtime, WithRococoBulletinMessagesInstance>,
 >;
 bp_runtime::generate_static_str_provider!(OnBridgeHubRococoRefundRococoBulletinMessages);
 
@@ -159,10 +191,10 @@ impl pallet_bridge_messages::Config<WithRococoBulletinMessagesInstance> for Runt
 	type ActiveOutboundLanes = ActiveOutboundLanesToRococoBulletin;
 
 	type OutboundPayload = XcmAsPlainPayload;
-
 	type InboundPayload = XcmAsPlainPayload;
-	type DeliveryPayments = ();
+	type LaneId = HashedLaneId;
 
+	type DeliveryPayments = ();
 	type DeliveryConfirmationPayments = ();
 
 	type MessageDispatch =
@@ -179,8 +211,27 @@ impl pallet_xcm_bridge_hub::Config<XcmOverPolkadotBulletinInstance> for Runtime 
 	type MessageExportPrice = ();
 	type DestinationVersion =
 		XcmVersionOfDestAndRemoteBridge<PolkadotXcm, RococoBulletinGlobalConsensusNetworkLocation>;
+<<<<<<< HEAD
 	type Lanes = ActiveLanes;
 	type LanesSupport = ToRococoBulletinXcmBlobHauler;
+=======
+
+	type ForceOrigin = EnsureRoot<AccountId>;
+	// We don't want to allow creating bridges for this instance.
+	type OpenBridgeOrigin = EnsureNever<Location>;
+	// Converter aligned with `OpenBridgeOrigin`.
+	type BridgeOriginAccountIdConverter =
+		(ParentIsPreset<AccountId>, SiblingParachainConvertsVia<Sibling, AccountId>);
+
+	type BridgeDeposit = BridgeDeposit;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	// Do not require deposit from People parachains.
+	type AllowWithoutBridgeDeposit = Equals<PeopleRococoLocation>;
+
+	type LocalXcmChannelManager = ();
+	type BlobDispatcher = FromRococoBulletinMessageBlobDispatcher;
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 }
 
 #[cfg(test)]
@@ -255,3 +306,80 @@ mod tests {
 		assert_eq!(BridgeRococoToRococoBulletinMessagesPalletInstance::get(), expected,);
 	}
 }
+<<<<<<< HEAD
+=======
+
+#[cfg(feature = "runtime-benchmarks")]
+pub(crate) fn open_bridge_for_benchmarks<R, XBHI, C>(
+	with: pallet_xcm_bridge_hub::LaneIdOf<R, XBHI>,
+	sibling_para_id: u32,
+) -> InteriorLocation
+where
+	R: pallet_xcm_bridge_hub::Config<XBHI>,
+	XBHI: 'static,
+	C: xcm_executor::traits::ConvertLocation<
+		bp_runtime::AccountIdOf<pallet_xcm_bridge_hub::ThisChainOf<R, XBHI>>,
+	>,
+{
+	use pallet_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
+	use sp_runtime::traits::Zero;
+	use xcm::VersionedInteriorLocation;
+
+	// insert bridge metadata
+	let lane_id = with;
+	let sibling_parachain = Location::new(1, [Parachain(sibling_para_id)]);
+	let universal_source = [GlobalConsensus(Rococo), Parachain(sibling_para_id)].into();
+	let universal_destination =
+		[GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get()), Parachain(2075)].into();
+	let bridge_id = BridgeId::new(&universal_source, &universal_destination);
+
+	// insert only bridge metadata, because the benchmarks create lanes
+	pallet_xcm_bridge_hub::Bridges::<R, XBHI>::insert(
+		bridge_id,
+		Bridge {
+			bridge_origin_relative_location: alloc::boxed::Box::new(
+				sibling_parachain.clone().into(),
+			),
+			bridge_origin_universal_location: alloc::boxed::Box::new(
+				VersionedInteriorLocation::from(universal_source.clone()),
+			),
+			bridge_destination_universal_location: alloc::boxed::Box::new(
+				VersionedInteriorLocation::from(universal_destination),
+			),
+			state: BridgeState::Opened,
+			bridge_owner_account: C::convert_location(&sibling_parachain).expect("valid AccountId"),
+			deposit: Zero::zero(),
+			lane_id,
+		},
+	);
+	pallet_xcm_bridge_hub::LaneToBridge::<R, XBHI>::insert(lane_id, bridge_id);
+
+	universal_source
+}
+
+/// Contains the migration for the PeopleRococo<>RococoBulletin bridge.
+pub mod migration {
+	use super::*;
+	use frame_support::traits::ConstBool;
+
+	parameter_types! {
+		pub BulletinRococoLocation: InteriorLocation = [GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())].into();
+		pub RococoPeopleToRococoBulletinMessagesLane: HashedLaneId = pallet_xcm_bridge_hub::Pallet::< Runtime, XcmOverPolkadotBulletinInstance >::bridge_locations(
+				PeopleRococoLocation::get(),
+				BulletinRococoLocation::get()
+			)
+			.unwrap()
+			.calculate_lane_id(xcm::latest::VERSION).expect("Valid locations");
+	}
+
+	/// Ensure that the existing lanes for the People<>Bulletin bridge are correctly configured.
+	pub type StaticToDynamicLanes = pallet_xcm_bridge_hub::migration::OpenBridgeForLane<
+		Runtime,
+		XcmOverPolkadotBulletinInstance,
+		RococoPeopleToRococoBulletinMessagesLane,
+		ConstBool<true>,
+		PeopleRococoLocation,
+		BulletinRococoLocation,
+	>;
+}
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))

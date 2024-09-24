@@ -21,6 +21,7 @@ use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, get_account_id_from_seed, SAFE_XCM_VERSION,
 };
 use parachains_common::Balance;
+use xcm::latest::prelude::*;
 
 pub const PARA_ID: u32 = 1002;
 pub const ED: Balance = testnet_parachains_constants::westend::currency::EXISTENTIAL_DEPOSIT;
@@ -64,6 +65,25 @@ pub fn genesis() -> Storage {
 			owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
 			..Default::default()
 		},
+<<<<<<< HEAD
+=======
+		xcm_over_bridge_hub_rococo: bridge_hub_westend_runtime::XcmOverBridgeHubRococoConfig {
+			opened_bridges: vec![
+				// open AHW -> AHR bridge
+				(
+					Location::new(1, [Parachain(1000)]),
+					Junctions::from([Rococo.into(), Parachain(1000)]),
+					Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
+				),
+			],
+			..Default::default()
+		},
+		ethereum_system: bridge_hub_westend_runtime::EthereumSystemConfig {
+			para_id: PARA_ID.into(),
+			asset_hub_para_id: ASSETHUB_PARA_ID.into(),
+			..Default::default()
+		},
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 		..Default::default()
 	};
 

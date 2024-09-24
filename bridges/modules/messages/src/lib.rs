@@ -60,9 +60,9 @@ use bp_messages::{
 		DeliveryPayments, DispatchMessage, FromBridgedChainMessagesProof, MessageDispatch,
 		ProvedLaneMessages, ProvedMessages,
 	},
-	ChainWithMessages, DeliveredMessages, InboundLaneData, InboundMessageDetails, LaneId,
-	MessageKey, MessageNonce, MessagePayload, MessagesOperatingMode, OutboundLaneData,
-	OutboundMessageDetails, UnrewardedRelayersState, VerificationError,
+	ChainWithMessages, DeliveredMessages, InboundLaneData, InboundMessageDetails, MessageKey,
+	MessageNonce, MessagePayload, MessagesOperatingMode, OutboundLaneData, OutboundMessageDetails,
+	UnrewardedRelayersState, VerificationError,
 };
 use bp_runtime::{
 	AccountIdOf, BasicOperatingMode, HashOf, OwnedBridgeModule, PreComputedSize, RangeInclusiveExt,
@@ -94,7 +94,7 @@ pub const LOG_TARGET: &str = "runtime::bridge-messages";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use bp_messages::{ReceivedMessages, ReceptionResult};
+	use bp_messages::{LaneIdType, ReceivedMessages, ReceptionResult};
 	use bp_runtime::RangeInclusiveExt;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
@@ -123,17 +123,25 @@ pub mod pallet {
 		type OutboundPayload: Parameter + Size;
 		/// Payload type of inbound messages. This payload is dispatched on this chain.
 		type InboundPayload: Decode;
+		/// Lane identifier type.
+		type LaneId: LaneIdType;
 
 		/// Handler for relayer payments that happen during message delivery transaction.
 		type DeliveryPayments: DeliveryPayments<Self::AccountId>;
 		/// Handler for relayer payments that happen during message delivery confirmation
 		/// transaction.
-		type DeliveryConfirmationPayments: DeliveryConfirmationPayments<Self::AccountId>;
+		type DeliveryConfirmationPayments: DeliveryConfirmationPayments<
+			Self::AccountId,
+			Self::LaneId,
+		>;
 		/// Delivery confirmation callback.
-		type OnMessagesDelivered: OnMessagesDelivered;
+		type OnMessagesDelivered: OnMessagesDelivered<Self::LaneId>;
 
 		/// Message dispatch handler.
-		type MessageDispatch: MessageDispatch<DispatchPayload = Self::InboundPayload>;
+		type MessageDispatch: MessageDispatch<
+			DispatchPayload = Self::InboundPayload,
+			LaneId = Self::LaneId,
+		>;
 	}
 
 	/// Shortcut to this chain type for Config.
@@ -142,6 +150,8 @@ pub mod pallet {
 	pub type BridgedChainOf<T, I> = <T as Config<I>>::BridgedChain;
 	/// Shortcut to bridged header chain type for Config.
 	pub type BridgedHeaderChainOf<T, I> = <T as Config<I>>::BridgedHeaderChain;
+	/// Shortcut to lane identifier type for Config.
+	pub type LaneIdOf<T, I> = <T as Config<I>>::LaneId;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
@@ -236,7 +246,7 @@ pub mod pallet {
 		pub fn receive_messages_proof(
 			origin: OriginFor<T>,
 			relayer_id_at_bridged_chain: AccountIdOf<BridgedChainOf<T, I>>,
-			proof: Box<FromBridgedChainMessagesProof<HashOf<BridgedChainOf<T, I>>>>,
+			proof: Box<FromBridgedChainMessagesProof<HashOf<BridgedChainOf<T, I>>, T::LaneId>>,
 			messages_count: u32,
 			dispatch_weight: Weight,
 		) -> DispatchResultWithPostInfo {
@@ -389,7 +399,7 @@ pub mod pallet {
 		))]
 		pub fn receive_messages_delivery_proof(
 			origin: OriginFor<T>,
-			proof: FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<T, I>>>,
+			proof: FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<T, I>>, T::LaneId>,
 			mut relayers_state: UnrewardedRelayersState,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_not_halted().map_err(Error::<T, I>::BridgeModule)?;
@@ -426,7 +436,7 @@ pub mod pallet {
 				// emit 'delivered' event
 				let received_range = confirmed_messages.begin..=confirmed_messages.end;
 				Self::deposit_event(Event::MessagesDelivered {
-					lane_id,
+					lane_id: lane_id.into(),
 					messages: confirmed_messages,
 				});
 
@@ -480,19 +490,26 @@ pub mod pallet {
 		/// Message has been accepted and is waiting to be delivered.
 		MessageAccepted {
 			/// Lane, which has accepted the message.
-			lane_id: LaneId,
+			lane_id: T::LaneId,
 			/// Nonce of accepted message.
 			nonce: MessageNonce,
 		},
 		/// Messages have been received from the bridged chain.
 		MessagesReceived(
 			/// Result of received messages dispatch.
+<<<<<<< HEAD
 			Vec<ReceivedMessages<<T::MessageDispatch as MessageDispatch>::DispatchLevelResult>>,
+=======
+			ReceivedMessages<
+				<T::MessageDispatch as MessageDispatch>::DispatchLevelResult,
+				T::LaneId,
+			>,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 		),
 		/// Messages in the inclusive range have been delivered to the bridged chain.
 		MessagesDelivered {
 			/// Lane for which the delivery has been confirmed.
-			lane_id: LaneId,
+			lane_id: T::LaneId,
 			/// Delivered messages.
 			messages: DeliveredMessages,
 		},
@@ -552,13 +569,17 @@ pub mod pallet {
 	/// Map of lane id => inbound lane data.
 	#[pallet::storage]
 	pub type InboundLanes<T: Config<I>, I: 'static = ()> =
+<<<<<<< HEAD
 		StorageMap<_, Blake2_128Concat, LaneId, StoredInboundLaneData<T, I>, ValueQuery>;
+=======
+		StorageMap<_, Blake2_128Concat, T::LaneId, StoredInboundLaneData<T, I>, OptionQuery>;
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 
 	/// Map of lane id => outbound lane data.
 	#[pallet::storage]
 	pub type OutboundLanes<T: Config<I>, I: 'static = ()> = StorageMap<
 		Hasher = Blake2_128Concat,
-		Key = LaneId,
+		Key = T::LaneId,
 		Value = OutboundLaneData,
 		QueryKind = ValueQuery,
 		OnEmpty = GetDefault,
@@ -587,7 +608,7 @@ pub mod pallet {
 	/// All queued outbound messages.
 	#[pallet::storage]
 	pub type OutboundMessages<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, MessageKey, StoredMessagePayload<T, I>>;
+		StorageMap<_, Blake2_128Concat, MessageKey<T::LaneId>, StoredMessagePayload<T, I>>;
 
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
@@ -596,6 +617,11 @@ pub mod pallet {
 		pub operating_mode: MessagesOperatingMode,
 		/// Initial pallet owner.
 		pub owner: Option<T::AccountId>,
+<<<<<<< HEAD
+=======
+		/// Opened lanes.
+		pub opened_lanes: Vec<T::LaneId>,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 		/// Dummy marker.
 		pub phantom: sp_std::marker::PhantomData<I>,
 	}
@@ -612,13 +638,16 @@ pub mod pallet {
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Get stored data of the outbound message with given nonce.
-		pub fn outbound_message_data(lane: LaneId, nonce: MessageNonce) -> Option<MessagePayload> {
+		pub fn outbound_message_data(
+			lane: T::LaneId,
+			nonce: MessageNonce,
+		) -> Option<MessagePayload> {
 			OutboundMessages::<T, I>::get(MessageKey { lane_id: lane, nonce }).map(Into::into)
 		}
 
 		/// Prepare data, related to given inbound message.
 		pub fn inbound_message_data(
-			lane: LaneId,
+			lane: T::LaneId,
 			payload: MessagePayload,
 			outbound_details: OutboundMessageDetails,
 		) -> InboundMessageDetails {
@@ -632,15 +661,25 @@ pub mod pallet {
 		}
 
 		/// Return outbound lane data.
+<<<<<<< HEAD
 		pub fn outbound_lane_data(lane: LaneId) -> OutboundLaneData {
+=======
+		pub fn outbound_lane_data(lane: T::LaneId) -> Option<OutboundLaneData> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 			OutboundLanes::<T, I>::get(lane)
 		}
 
 		/// Return inbound lane data.
 		pub fn inbound_lane_data(
+<<<<<<< HEAD
 			lane: LaneId,
 		) -> InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>> {
 			InboundLanes::<T, I>::get(lane).0
+=======
+			lane: T::LaneId,
+		) -> Option<InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>> {
+			InboundLanes::<T, I>::get(lane).map(|lane| lane.0)
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 		}
 	}
 
@@ -658,11 +697,16 @@ pub mod pallet {
 /// to send it on the bridge.
 #[derive(Debug, PartialEq, Eq)]
 pub struct SendMessageArgs<T: Config<I>, I: 'static> {
+<<<<<<< HEAD
 	lane_id: LaneId,
+=======
+	lane_id: T::LaneId,
+	lane: OutboundLane<RuntimeOutboundLaneStorage<T, I>>,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	payload: StoredMessagePayload<T, I>,
 }
 
-impl<T, I> bp_messages::source_chain::MessagesBridge<T::OutboundPayload> for Pallet<T, I>
+impl<T, I> bp_messages::source_chain::MessagesBridge<T::OutboundPayload, T::LaneId> for Pallet<T, I>
 where
 	T: Config<I>,
 	I: 'static,
@@ -671,7 +715,11 @@ where
 	type SendMessageArgs = SendMessageArgs<T, I>;
 
 	fn validate_message(
+<<<<<<< HEAD
 		lane: LaneId,
+=======
+		lane_id: T::LaneId,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 		message: &T::OutboundPayload,
 	) -> Result<SendMessageArgs<T, I>, Self::Error> {
 		ensure_normal_operating_mode::<T, I>()?;
@@ -704,7 +752,10 @@ where
 			message_len,
 		);
 
-		Pallet::<T, I>::deposit_event(Event::MessageAccepted { lane_id: args.lane_id, nonce });
+		Pallet::<T, I>::deposit_event(Event::MessageAccepted {
+			lane_id: args.lane_id.into(),
+			nonce,
+		});
 
 		SendMessageArtifacts { nonce, enqueued_messages }
 	}
@@ -721,6 +772,7 @@ fn ensure_normal_operating_mode<T: Config<I>, I: 'static>() -> Result<(), Error<
 	Err(Error::<T, I>::NotOperatingNormally)
 }
 
+<<<<<<< HEAD
 /// Creates new inbound lane object, backed by runtime storage.
 fn inbound_lane<T: Config<I>, I: 'static>(
 	lane_id: LaneId,
@@ -837,13 +889,43 @@ impl<T: Config<I>, I: 'static> OutboundLaneStorage for RuntimeOutboundLaneStorag
 	fn remove_message(&mut self, nonce: &MessageNonce) {
 		OutboundMessages::<T, I>::remove(MessageKey { lane_id: self.lane_id, nonce: *nonce });
 	}
+=======
+/// Creates new inbound lane object, backed by runtime storage. Lane must be active.
+fn active_inbound_lane<T: Config<I>, I: 'static>(
+	lane_id: T::LaneId,
+) -> Result<InboundLane<RuntimeInboundLaneStorage<T, I>>, Error<T, I>> {
+	LanesManager::<T, I>::new()
+		.active_inbound_lane(lane_id)
+		.map_err(Error::LanesManager)
+}
+
+/// Creates new outbound lane object, backed by runtime storage. Lane must be active.
+fn active_outbound_lane<T: Config<I>, I: 'static>(
+	lane_id: T::LaneId,
+) -> Result<OutboundLane<RuntimeOutboundLaneStorage<T, I>>, Error<T, I>> {
+	LanesManager::<T, I>::new()
+		.active_outbound_lane(lane_id)
+		.map_err(Error::LanesManager)
+}
+
+/// Creates new outbound lane object, backed by runtime storage.
+fn any_state_outbound_lane<T: Config<I>, I: 'static>(
+	lane_id: T::LaneId,
+) -> Result<OutboundLane<RuntimeOutboundLaneStorage<T, I>>, Error<T, I>> {
+	LanesManager::<T, I>::new()
+		.any_state_outbound_lane(lane_id)
+		.map_err(Error::LanesManager)
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 }
 
 /// Verify messages proof and return proved messages with decoded payload.
 fn verify_and_decode_messages_proof<T: Config<I>, I: 'static>(
-	proof: FromBridgedChainMessagesProof<HashOf<BridgedChainOf<T, I>>>,
+	proof: FromBridgedChainMessagesProof<HashOf<BridgedChainOf<T, I>>, T::LaneId>,
 	messages_count: u32,
-) -> Result<ProvedMessages<DispatchMessage<T::InboundPayload>>, VerificationError> {
+) -> Result<
+	ProvedMessages<T::LaneId, DispatchMessage<T::InboundPayload, T::LaneId>>,
+	VerificationError,
+> {
 	// `receive_messages_proof` weight formula and `MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX`
 	// check guarantees that the `message_count` is sane and Vec<Message> may be allocated.
 	// (tx with too many messages will either be rejected from the pool, or will fail earlier)

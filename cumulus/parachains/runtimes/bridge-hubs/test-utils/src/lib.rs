@@ -24,6 +24,12 @@ extern crate alloc;
 pub use bp_test_utils::test_header;
 pub use parachains_runtimes_test_utils::*;
 use sp_runtime::Perbill;
+<<<<<<< HEAD
+=======
+pub use test_cases::helpers::{
+	ensure_opened_bridge, open_bridge_with_extrinsic, open_bridge_with_storage,
+};
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 
 /// A helper function for comparing the actual value of a fee constant with its estimated value. The
 /// estimated value can be overestimated (`overestimate_in_percent`), and if the difference to the

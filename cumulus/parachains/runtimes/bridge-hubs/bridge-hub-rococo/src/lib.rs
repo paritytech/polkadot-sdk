@@ -45,6 +45,7 @@ use bridge_runtime_common::extensions::{
 	refund_relayer_extension::RefundableParachain,
 };
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+<<<<<<< HEAD
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{
 	gwei, meth,
@@ -52,6 +53,9 @@ use snowbridge_core::{
 	AgentId, AllowSiblingsOnly, PricingParameters, Rewards,
 };
 use snowbridge_router_primitives::inbound::MessageToXcm;
+=======
+use pallet_bridge_messages::LaneIdOf;
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
 use sp_runtime::{
@@ -140,10 +144,7 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteHeadersAndMessages,
-	(
-		bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
-		bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages,
-	),
+	(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,),
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
 );
 
@@ -164,6 +165,34 @@ pub type Migrations = (
 		ConstU32<BRIDGE_HUB_ID>,
 		ConstU32<ASSET_HUB_ID>,
 	>,
+<<<<<<< HEAD
+=======
+	pallet_bridge_messages::migration::v1::MigrationToV1<
+		Runtime,
+		bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
+	>,
+	pallet_bridge_messages::migration::v1::MigrationToV1<
+		Runtime,
+		bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
+	>,
+	bridge_to_westend_config::migration::FixMessagesV1Migration<
+		Runtime,
+		bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
+	>,
+	bridge_to_westend_config::migration::StaticToDynamicLanes,
+	bridge_to_bulletin_config::migration::StaticToDynamicLanes,
+	frame_support::migrations::RemoveStorage<
+		BridgeWestendMessagesPalletName,
+		OutboundLanesCongestedSignalsKey,
+		RocksDbWeight,
+	>,
+	frame_support::migrations::RemoveStorage<
+		BridgePolkadotBulletinMessagesPalletName,
+		OutboundLanesCongestedSignalsKey,
+		RocksDbWeight,
+	>,
+	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
@@ -743,6 +772,9 @@ construct_runtime!(
 		// With-Rococo Bulletin bridge hub pallet.
 		XcmOverPolkadotBulletin: pallet_xcm_bridge_hub::<Instance2> = 62,
 
+		// Bridge relayers pallet, used by several bridges here (another instance).
+		BridgeRelayersForPermissionlessLanes: pallet_bridge_relayers::<Instance2> = 63,
+
 		EthereumInboundQueue: snowbridge_pallet_inbound_queue = 80,
 		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 81,
 		EthereumBeaconClient: snowbridge_pallet_ethereum_client = 82,
@@ -814,13 +846,19 @@ mod benches {
 		[pallet_bridge_parachains, WithinWestend]
 		[pallet_bridge_messages, RococoToWestend]
 		[pallet_bridge_messages, RococoToRococoBulletin]
-		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime>]
+		[pallet_bridge_relayers, Legacy]
+		[pallet_bridge_relayers, PermissionlessLanes]
 		// Ethereum Bridge
 		[snowbridge_pallet_inbound_queue, EthereumInboundQueue]
 		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
 		[snowbridge_pallet_system, EthereumSystem]
 		[snowbridge_pallet_ethereum_client, EthereumBeaconClient]
 	);
+}
+
+cumulus_pallet_parachain_system::register_validate_block! {
+	Runtime = Runtime,
+	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 }
 
 impl_runtime_apis! {
@@ -1060,7 +1098,7 @@ impl_runtime_apis! {
 	// This is exposed by BridgeHubRococo
 	impl bp_bridge_hub_westend::FromBridgeHubWestendInboundLaneApi<Block> for Runtime {
 		fn message_details(
-			lane: bp_messages::LaneId,
+			lane: LaneIdOf<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>,
 			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
 		) -> Vec<bp_messages::InboundMessageDetails> {
 			bridge_runtime_common::messages_api::inbound_message_details::<
@@ -1073,7 +1111,7 @@ impl_runtime_apis! {
 	// This is exposed by BridgeHubRococo
 	impl bp_bridge_hub_westend::ToBridgeHubWestendOutboundLaneApi<Block> for Runtime {
 		fn message_details(
-			lane: bp_messages::LaneId,
+			lane: LaneIdOf<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>,
 			begin: bp_messages::MessageNonce,
 			end: bp_messages::MessageNonce,
 		) -> Vec<bp_messages::OutboundMessageDetails> {
@@ -1103,7 +1141,7 @@ impl_runtime_apis! {
 
 	impl bp_polkadot_bulletin::FromPolkadotBulletinInboundLaneApi<Block> for Runtime {
 		fn message_details(
-			lane: bp_messages::LaneId,
+			lane: LaneIdOf<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>,
 			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
 		) -> Vec<bp_messages::InboundMessageDetails> {
 			bridge_runtime_common::messages_api::inbound_message_details::<
@@ -1115,7 +1153,7 @@ impl_runtime_apis! {
 
 	impl bp_polkadot_bulletin::ToPolkadotBulletinOutboundLaneApi<Block> for Runtime {
 		fn message_details(
-			lane: bp_messages::LaneId,
+			lane: LaneIdOf<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>,
 			begin: bp_messages::MessageNonce,
 			end: bp_messages::MessageNonce,
 		) -> Vec<bp_messages::OutboundMessageDetails> {
@@ -1185,6 +1223,8 @@ impl_runtime_apis! {
 			type WithinWestend = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWestendInstance>;
 			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>;
 			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
+			type Legacy = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>;
+			type PermissionlessLanes = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForPermissionlessLanesInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -1378,6 +1418,44 @@ impl_runtime_apis! {
 						);
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;
+<<<<<<< HEAD
+=======
+
+					let sibling_parachain_location = Location::new(1, [Parachain(5678)]);
+
+					// fund SA
+					use frame_support::traits::fungible::Mutate;
+					use xcm_executor::traits::ConvertLocation;
+					frame_support::assert_ok!(
+						Balances::mint_into(
+							&xcm_config::LocationToAccountId::convert_location(&sibling_parachain_location).expect("valid AccountId"),
+							bridge_to_westend_config::BridgeDeposit::get()
+								.saturating_add(ExistentialDeposit::get())
+								.saturating_add(UNITS * 5)
+						)
+					);
+
+					// open bridge
+					let bridge_destination_universal_location: InteriorLocation = [GlobalConsensus(NetworkId::Westend), Parachain(8765)].into();
+					let locations = XcmOverBridgeHubWestend::bridge_locations(
+						sibling_parachain_location.clone(),
+						bridge_destination_universal_location.clone(),
+					)?;
+					XcmOverBridgeHubWestend::do_open_bridge(
+						locations,
+						bp_messages::LegacyLaneId([1, 2, 3, 4]),
+						true,
+					).map_err(|e| {
+						log::error!(
+							"Failed to `XcmOverBridgeHubWestend::open_bridge`({:?}, {:?})`, error: {:?}",
+							sibling_parachain_location,
+							bridge_destination_universal_location,
+							e
+						);
+						BenchmarkError::Stop("Bridge was not opened!")
+					})?;
+
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 					Ok(
 						(
 							bridge_to_westend_config::FromAssetHubRococoToAssetHubWestendRoute::get().location,
@@ -1399,6 +1477,8 @@ impl_runtime_apis! {
 			type WithinWestend = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWestendInstance>;
 			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>;
 			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
+			type Legacy = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>;
+			type PermissionlessLanes = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForPermissionlessLanesInstance>;
 
 			use bridge_runtime_common::messages_benchmarking::{
 				prepare_message_delivery_proof_from_grandpa_chain,
@@ -1428,11 +1508,19 @@ impl_runtime_apis! {
 				}
 
 				fn prepare_message_proof(
-					params: MessageProofParams,
-				) -> (bridge_to_westend_config::FromWestendBridgeHubMessagesProof, Weight) {
+					params: MessageProofParams<LaneIdOf<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>>,
+				) -> (bridge_to_westend_config::FromWestendBridgeHubMessagesProof<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
+<<<<<<< HEAD
+=======
+					let universal_source = bridge_to_westend_config::open_bridge_for_benchmarks::<
+						Runtime,
+						bridge_to_westend_config::XcmOverBridgeHubWestendInstance,
+						xcm_config::LocationToAccountId,
+					>(params.lane, 42);
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaWestendInstance,
@@ -1441,8 +1529,18 @@ impl_runtime_apis! {
 				}
 
 				fn prepare_message_delivery_proof(
+<<<<<<< HEAD
 					params: MessageDeliveryProofParams<AccountId>,
 				) -> bridge_to_westend_config::ToWestendBridgeHubMessagesDeliveryProof {
+=======
+					params: MessageDeliveryProofParams<AccountId, LaneIdOf<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>>,
+				) -> bridge_to_westend_config::ToWestendBridgeHubMessagesDeliveryProof<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance> {
+					let _ = bridge_to_westend_config::open_bridge_for_benchmarks::<
+						Runtime,
+						bridge_to_westend_config::XcmOverBridgeHubWestendInstance,
+						xcm_config::LocationToAccountId,
+					>(params.lane, 42);
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaWestendInstance,
@@ -1463,11 +1561,19 @@ impl_runtime_apis! {
 				}
 
 				fn prepare_message_proof(
-					params: MessageProofParams,
-				) -> (bridge_to_bulletin_config::FromRococoBulletinMessagesProof, Weight) {
+					params: MessageProofParams<LaneIdOf<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>>,
+				) -> (bridge_to_bulletin_config::FromRococoBulletinMessagesProof<bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
+<<<<<<< HEAD
+=======
+					let universal_source = bridge_to_bulletin_config::open_bridge_for_benchmarks::<
+						Runtime,
+						bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance,
+						xcm_config::LocationToAccountId,
+					>(params.lane, 42);
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 					prepare_message_proof_from_grandpa_chain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
@@ -1476,8 +1582,18 @@ impl_runtime_apis! {
 				}
 
 				fn prepare_message_delivery_proof(
+<<<<<<< HEAD
 					params: MessageDeliveryProofParams<AccountId>,
 				) -> bridge_to_bulletin_config::ToRococoBulletinMessagesDeliveryProof {
+=======
+					params: MessageDeliveryProofParams<AccountId, LaneIdOf<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>>,
+				) -> bridge_to_bulletin_config::ToRococoBulletinMessagesDeliveryProof<bridge_to_bulletin_config::WithRococoBulletinMessagesInstance> {
+					let _ = bridge_to_bulletin_config::open_bridge_for_benchmarks::<
+						Runtime,
+						bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance,
+						xcm_config::LocationToAccountId,
+					>(params.lane, 42);
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 					prepare_message_delivery_proof_from_grandpa_chain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
@@ -1522,16 +1638,36 @@ impl_runtime_apis! {
 				}
 			}
 
-			impl BridgeRelayersConfig for Runtime {
+			impl BridgeRelayersConfig<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance> for Runtime {
 				fn prepare_rewards_account(
-					account_params: bp_relayers::RewardsAccountParams,
+					account_params: bp_relayers::RewardsAccountParams<<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::LaneId>,
 					reward: Balance,
 				) {
 					let rewards_account = bp_relayers::PayRewardFromAccount::<
 						Balances,
-						AccountId
+						AccountId,
+						<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::LaneId,
 					>::rewards_account(account_params);
-					Self::deposit_account(rewards_account, reward);
+					<Runtime as BridgeRelayersConfig<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::deposit_account(rewards_account, reward);
+				}
+
+				fn deposit_account(account: AccountId, balance: Balance) {
+					use frame_support::traits::fungible::Mutate;
+					Balances::mint_into(&account, balance.saturating_add(ExistentialDeposit::get())).unwrap();
+				}
+			}
+
+			impl BridgeRelayersConfig<bridge_common_config::RelayersForPermissionlessLanesInstance> for Runtime {
+				fn prepare_rewards_account(
+					account_params: bp_relayers::RewardsAccountParams<<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForPermissionlessLanesInstance>>::LaneId>,
+					reward: Balance,
+				) {
+					let rewards_account = bp_relayers::PayRewardFromAccount::<
+						Balances,
+						AccountId,
+						<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForPermissionlessLanesInstance>>::LaneId,
+					>::rewards_account(account_params);
+					<Runtime as BridgeRelayersConfig<bridge_common_config::RelayersForPermissionlessLanesInstance>>::deposit_account(rewards_account, reward);
 				}
 
 				fn deposit_account(account: AccountId, balance: Balance) {
@@ -1576,11 +1712,6 @@ impl_runtime_apis! {
 	}
 }
 
-cumulus_pallet_parachain_system::register_validate_block! {
-	Runtime = Runtime,
-	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -1595,6 +1726,7 @@ mod tests {
 		use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 
 		sp_io::TestExternalities::default().execute_with(|| {
+<<<<<<< HEAD
 			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
 			let payload: SignedExtra = (
 				frame_system::CheckNonZeroSender::new(),
@@ -1612,6 +1744,25 @@ mod tests {
 				),
 				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 			);
+=======
+            frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
+            let payload: SignedExtra = (
+                frame_system::CheckNonZeroSender::new(),
+                frame_system::CheckSpecVersion::new(),
+                frame_system::CheckTxVersion::new(),
+                frame_system::CheckGenesis::new(),
+                frame_system::CheckEra::from(Era::Immortal),
+                frame_system::CheckNonce::from(10),
+                frame_system::CheckWeight::new(),
+                pallet_transaction_payment::ChargeTransactionPayment::from(10),
+                BridgeRejectObsoleteHeadersAndMessages,
+                (
+                    bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
+                ),
+                cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
+                frame_metadata_hash_extension::CheckMetadataHash::new(false),
+            );
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 
 			// for BridgeHubRococo
 			{

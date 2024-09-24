@@ -16,8 +16,14 @@
 
 //! Deal with CLI args of substrate-to-substrate relay.
 
+<<<<<<< HEAD
 use codec::{Decode, Encode};
 use rbtag::BuildInfo;
+=======
+use rbtag::BuildInfo;
+use sp_runtime::traits::TryConvert;
+use std::str::FromStr;
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 use structopt::StructOpt;
 use strum::{EnumString, VariantNames};
 
@@ -42,6 +48,7 @@ pub type DefaultClient<C> = relay_substrate_client::RpcWithCachingClient<C>;
 
 /// Lane id.
 #[derive(Debug, Clone, PartialEq, Eq)]
+<<<<<<< HEAD
 pub struct HexLaneId(pub [u8; 4]);
 
 impl From<HexLaneId> for LaneId {
@@ -81,6 +88,21 @@ impl std::fmt::Debug for HexBytes {
 impl std::fmt::Display for HexBytes {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(fmt, "{}", hex::encode(&self.0))
+=======
+pub struct HexLaneId(Vec<u8>);
+
+impl<T: TryFrom<Vec<u8>>> TryConvert<HexLaneId, T> for HexLaneId {
+	fn try_convert(lane_id: HexLaneId) -> Result<T, HexLaneId> {
+		T::try_from(lane_id.0.clone()).map_err(|_| lane_id)
+	}
+}
+
+impl FromStr for HexLaneId {
+	type Err = hex::FromHexError;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		hex::decode(s).map(Self)
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	}
 }
 
@@ -180,8 +202,11 @@ pub enum RuntimeVersionType {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use bp_messages::{HashedLaneId, LegacyLaneId};
+	use sp_core::H256;
 
 	#[test]
+<<<<<<< HEAD
 	fn hex_bytes_display_matches_from_str_for_clap() {
 		// given
 		let hex = HexBytes(vec![1, 2, 3, 4]);
@@ -192,5 +217,34 @@ mod tests {
 
 		// then
 		assert_eq!(hex.0, hex2.0);
+=======
+	fn hex_lane_id_from_str_works() {
+		// hash variant
+		assert!(HexLaneId::from_str(
+			"101010101010101010101010101010101010101010101010101010101010101"
+		)
+		.is_err());
+		assert!(HexLaneId::from_str(
+			"00101010101010101010101010101010101010101010101010101010101010101"
+		)
+		.is_err());
+		assert_eq!(
+			HexLaneId::try_convert(
+				HexLaneId::from_str(
+					"0101010101010101010101010101010101010101010101010101010101010101"
+				)
+				.unwrap()
+			),
+			Ok(HashedLaneId::from_inner(H256::from([1u8; 32])))
+		);
+
+		// array variant
+		assert!(HexLaneId::from_str("0000001").is_err());
+		assert!(HexLaneId::from_str("000000001").is_err());
+		assert_eq!(
+			HexLaneId::try_convert(HexLaneId::from_str("00000001").unwrap()),
+			Ok(LegacyLaneId([0, 0, 0, 1]))
+		);
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	}
 }

@@ -34,7 +34,7 @@ use async_trait::async_trait;
 use bp_messages::{
 	storage_keys::{operating_mode_key, outbound_lane_data_key},
 	target_chain::FromBridgedChainMessagesProof,
-	ChainWithMessages as _, InboundMessageDetails, LaneId, MessageNonce, MessagePayload,
+	ChainWithMessages as _, InboundMessageDetails, MessageNonce, MessagePayload,
 	MessagesOperatingMode, OutboundLaneData, OutboundMessageDetails,
 };
 use bp_runtime::{BasicOperatingMode, HeaderIdProvider, RangeInclusiveExt};
@@ -60,14 +60,14 @@ use std::ops::RangeInclusive;
 /// Intermediate message proof returned by the source Substrate node. Includes everything
 /// required to submit to the target node: cumulative dispatch weight of bundled messages and
 /// the proof itself.
-pub type SubstrateMessagesProof<C> = (Weight, FromBridgedChainMessagesProof<HashOf<C>>);
+pub type SubstrateMessagesProof<C, L> = (Weight, FromBridgedChainMessagesProof<HashOf<C>, L>);
 type MessagesToRefine<'a> = Vec<(MessagePayload, &'a mut OutboundMessageDetails)>;
 
 /// Substrate client as Substrate messages source.
 pub struct SubstrateMessagesSource<P: SubstrateMessageLane, SourceClnt, TargetClnt> {
 	source_client: SourceClnt,
 	target_client: TargetClnt,
-	lane_id: LaneId,
+	lane_id: P::LaneId,
 	transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 	target_to_source_headers_relay: Option<Arc<dyn OnDemandRelay<P::TargetChain, P::SourceChain>>>,
 }
@@ -79,7 +79,7 @@ impl<P: SubstrateMessageLane, SourceClnt: Client<P::SourceChain>, TargetClnt>
 	pub fn new(
 		source_client: SourceClnt,
 		target_client: TargetClnt,
-		lane_id: LaneId,
+		lane_id: P::LaneId,
 		transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 		target_to_source_headers_relay: Option<
 			Arc<dyn OnDemandRelay<P::TargetChain, P::SourceChain>>,
@@ -256,8 +256,11 @@ where
 		}
 
 		let best_target_header_hash = self.target_client.best_header_hash().await?;
-		for mut msgs_to_refine_batch in
-			split_msgs_to_refine::<P::SourceChain, P::TargetChain>(self.lane_id, msgs_to_refine)?
+		for mut msgs_to_refine_batch in split_msgs_to_refine::<
+			P::SourceChain,
+			P::TargetChain,
+			P::LaneId,
+		>(self.lane_id, msgs_to_refine)?
 		{
 			let in_msgs_details = self
 				.target_client
@@ -542,7 +545,7 @@ fn validate_out_msgs_details<C: Chain>(
 	Ok(())
 }
 
-fn split_msgs_to_refine<Source: Chain + ChainWithMessages, Target: Chain>(
+fn split_msgs_to_refine<Source: Chain + ChainWithMessages, Target: Chain, LaneId: Encode + Copy>(
 	lane_id: LaneId,
 	msgs_to_refine: MessagesToRefine,
 ) -> Result<Vec<MessagesToRefine>, SubstrateError> {
@@ -578,7 +581,11 @@ fn split_msgs_to_refine<Source: Chain + ChainWithMessages, Target: Chain>(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use bp_messages::{HashedLaneId, LaneIdType};
 	use relay_substrate_client::test_chain::TestChain;
+
+	/// Lane identifier type used for tests.
+	type TestLaneIdType = HashedLaneId;
 
 	fn message_details_from_rpc(
 		nonces: RangeInclusive<MessageNonce>,
@@ -660,8 +667,15 @@ mod tests {
 			msgs_to_refine.push((payload, out_msg_details));
 		}
 
+<<<<<<< HEAD
 		let maybe_batches =
 			split_msgs_to_refine::<TestChain, TestChain>(Default::default(), msgs_to_refine);
+=======
+		let maybe_batches = split_msgs_to_refine::<TestChain, TestChain, TestLaneIdType>(
+			TestLaneIdType::try_new(1, 2).unwrap(),
+			msgs_to_refine,
+		);
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 		match expected_batches {
 			Ok(expected_batches) => {
 				let batches = maybe_batches.unwrap();

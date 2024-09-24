@@ -20,7 +20,11 @@ use super::{from_grandpa_chain::make_complex_bridged_grandpa_header_proof, prepa
 
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
+<<<<<<< HEAD
 	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, LaneId,
+=======
+	target_chain::FromBridgedChainMessagesProof, ChainWithMessages, LaneState,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	UnrewardedRelayersState, Weight,
 };
 use bp_runtime::{
@@ -43,7 +47,7 @@ use pallet_bridge_messages::{
 		encode_all_messages, encode_lane_data, prepare_message_delivery_storage_proof,
 		prepare_messages_storage_proof,
 	},
-	BridgedChainOf,
+	BridgedChainOf, LaneIdOf,
 };
 use sp_runtime::SaturatedConversion;
 
@@ -53,7 +57,7 @@ pub fn make_complex_relayer_delivery_batch<Runtime, GPI, PPI, MPI>(
 	grandpa_justification: GrandpaJustification<BridgedHeader<Runtime, GPI>>,
 	parachain_heads: Vec<(ParaId, ParaHash)>,
 	para_heads_proof: ParaHeadsProof,
-	message_proof: FromBridgedChainMessagesProof<ParaHash>,
+	message_proof: FromBridgedChainMessagesProof<ParaHash, LaneIdOf<Runtime, MPI>>,
 	relayer_id_at_bridged_chain: InboundRelayerId<Runtime, MPI>,
 ) -> pallet_utility::Call<Runtime>
 where
@@ -106,7 +110,7 @@ pub fn make_complex_relayer_confirmation_batch<Runtime, GPI, PPI, MPI>(
 	grandpa_justification: GrandpaJustification<BridgedHeader<Runtime, GPI>>,
 	parachain_heads: Vec<(ParaId, ParaHash)>,
 	para_heads_proof: ParaHeadsProof,
-	message_delivery_proof: FromBridgedChainMessagesDeliveryProof<ParaHash>,
+	message_delivery_proof: FromBridgedChainMessagesDeliveryProof<ParaHash, LaneIdOf<Runtime, MPI>>,
 	relayers_state: UnrewardedRelayersState,
 ) -> pallet_utility::Call<Runtime>
 where
@@ -154,7 +158,7 @@ where
 
 /// Prepare a call with message proof.
 pub fn make_standalone_relayer_delivery_call<Runtime, MPI>(
-	message_proof: FromBridgedChainMessagesProof<ParaHash>,
+	message_proof: FromBridgedChainMessagesProof<ParaHash, LaneIdOf<Runtime, MPI>>,
 	relayer_id_at_bridged_chain: InboundRelayerId<Runtime, MPI>,
 ) -> Runtime::RuntimeCall
 where
@@ -174,7 +178,7 @@ where
 
 /// Prepare a call with message delivery proof.
 pub fn make_standalone_relayer_confirmation_call<Runtime, MPI>(
-	message_delivery_proof: FromBridgedChainMessagesDeliveryProof<ParaHash>,
+	message_delivery_proof: FromBridgedChainMessagesDeliveryProof<ParaHash, LaneIdOf<Runtime, MPI>>,
 	relayers_state: UnrewardedRelayersState,
 ) -> Runtime::RuntimeCall
 where
@@ -195,7 +199,11 @@ pub fn make_complex_relayer_delivery_proofs<
 	BridgedRelayChain,
 	BridgedParachain,
 	ThisChainWithMessages,
+<<<<<<< HEAD
 	InnerXcmRuntimeCall,
+=======
+	LaneId,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 >(
 	lane_id: LaneId,
 	xcm_message: Xcm<InnerXcmRuntimeCall>,
@@ -211,19 +219,20 @@ pub fn make_complex_relayer_delivery_proofs<
 	ParaHead,
 	Vec<(ParaId, ParaHash)>,
 	ParaHeadsProof,
-	FromBridgedChainMessagesProof<ParaHash>,
+	FromBridgedChainMessagesProof<ParaHash, LaneId>,
 )
 where
 	BridgedRelayChain:
 		bp_runtime::Chain<Hash = RelayBlockHash, BlockNumber = RelayBlockNumber> + ChainWithGrandpa,
 	BridgedParachain: bp_runtime::Chain<Hash = ParaHash> + Parachain,
 	ThisChainWithMessages: ChainWithMessages,
+	LaneId: Copy + Encode,
 {
 	// prepare message
 	let message_payload = prepare_inbound_xcm(xcm_message, message_destination);
 	// prepare para storage proof containing message
 	let (para_state_root, para_storage_proof) =
-		prepare_messages_storage_proof::<BridgedParachain, ThisChainWithMessages>(
+		prepare_messages_storage_proof::<BridgedParachain, ThisChainWithMessages, LaneId>(
 			lane_id,
 			message_nonce..=message_nonce,
 			None,
@@ -267,7 +276,11 @@ pub fn make_complex_relayer_confirmation_proofs<
 	BridgedRelayChain,
 	BridgedParachain,
 	ThisChainWithMessages,
+<<<<<<< HEAD
 	InnerXcmRuntimeCall,
+=======
+	LaneId,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 >(
 	lane_id: LaneId,
 	para_header_number: u32,
@@ -281,17 +294,18 @@ pub fn make_complex_relayer_confirmation_proofs<
 	ParaHead,
 	Vec<(ParaId, ParaHash)>,
 	ParaHeadsProof,
-	FromBridgedChainMessagesDeliveryProof<ParaHash>,
+	FromBridgedChainMessagesDeliveryProof<ParaHash, LaneId>,
 )
 where
 	BridgedRelayChain:
 		bp_runtime::Chain<Hash = RelayBlockHash, BlockNumber = RelayBlockNumber> + ChainWithGrandpa,
 	BridgedParachain: bp_runtime::Chain<Hash = ParaHash> + Parachain,
 	ThisChainWithMessages: ChainWithMessages,
+	LaneId: Copy + Encode,
 {
 	// prepare para storage proof containing message delivery proof
 	let (para_state_root, para_storage_proof) =
-		prepare_message_delivery_storage_proof::<BridgedParachain, ThisChainWithMessages>(
+		prepare_message_delivery_storage_proof::<BridgedParachain, ThisChainWithMessages, LaneId>(
 			lane_id,
 			InboundLaneData {
 				relayers: vec![

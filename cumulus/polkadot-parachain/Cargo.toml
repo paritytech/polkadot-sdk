@@ -160,6 +160,9 @@ cumulus-primitives-core.default-features = true
 cumulus-relay-chain-interface.workspace = true
 cumulus-relay-chain-interface.default-features = true
 
+# Bridges
+bp-messages = { workspace = true, default-features = true }
+
 [build-dependencies]
 substrate-build-script-utils.workspace = true
 substrate-build-script-utils.default-features = true

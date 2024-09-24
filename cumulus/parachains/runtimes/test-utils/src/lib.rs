@@ -462,6 +462,41 @@ impl<
 			Weight::zero(),
 		)
 	}
+<<<<<<< HEAD
+=======
+
+	pub fn execute_as_origin_xcm<Call: GetDispatchInfo + Encode>(
+		origin: Location,
+		call: Call,
+		buy_execution_fee: Asset,
+	) -> Outcome {
+		// prepare `Transact` xcm
+		let xcm = Xcm(vec![
+			WithdrawAsset(buy_execution_fee.clone().into()),
+			BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited },
+			Transact {
+				origin_kind: OriginKind::Xcm,
+				require_weight_at_most: call.get_dispatch_info().weight,
+				call: call.encode().into(),
+			},
+			ExpectTransactStatus(MaybeErrorCode::Success),
+		]);
+
+		// execute xcm as parent origin
+		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		<<Runtime as pallet_xcm::Config>::XcmExecutor>::prepare_and_execute(
+			origin.clone(),
+			xcm,
+			&mut hash,
+			Self::xcm_max_weight(if origin == Location::parent() {
+				XcmReceivedFrom::Parent
+			} else {
+				XcmReceivedFrom::Sibling
+			}),
+			Weight::zero(),
+		)
+	}
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 }
 
 pub enum XcmReceivedFrom {

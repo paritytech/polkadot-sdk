@@ -20,7 +20,11 @@ use crate::{BridgedChainOf, Config};
 
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
+<<<<<<< HEAD
 	ChainWithMessages, DeliveredMessages, InboundLaneData, LaneId, MessageKey, MessageNonce,
+=======
+	ChainWithMessages, DeliveredMessages, InboundLaneData, LaneState, MessageKey, MessageNonce,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	OutboundLaneData, ReceptionResult, UnrewardedRelayer,
 };
 use bp_runtime::AccountIdOf;
@@ -33,9 +37,11 @@ use sp_std::prelude::PartialEq;
 pub trait InboundLaneStorage {
 	/// Id of relayer on source chain.
 	type Relayer: Clone + PartialEq;
+	/// Lane identifier type.
+	type LaneId: Encode;
 
 	/// Lane id.
-	fn id(&self) -> LaneId;
+	fn id(&self) -> Self::LaneId;
 	/// Return maximal number of unrewarded relayer entries in inbound lane.
 	fn max_unrewarded_relayer_entries(&self) -> MessageNonce;
 	/// Return maximal number of unconfirmed messages in inbound lane.
@@ -167,7 +173,7 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 	}
 
 	/// Receive new message.
-	pub fn receive_message<Dispatch: MessageDispatch>(
+	pub fn receive_message<Dispatch: MessageDispatch<LaneId = S::LaneId>>(
 		&mut self,
 		relayer_at_bridged_chain: &S::Relayer,
 		nonce: MessageNonce,

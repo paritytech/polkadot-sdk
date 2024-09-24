@@ -13,6 +13,7 @@ workspace = true
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
+<<<<<<< HEAD
 frame-support.workspace = true
 frame-system.workspace = true
 sp-core.workspace = true
@@ -42,6 +43,45 @@ bp-runtime.workspace = true
 bp-test-utils.workspace = true
 pallet-bridge-grandpa.workspace = true
 pallet-bridge-parachains.workspace = true
+=======
+
+# Substrate
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-runtime = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
+pallet-balances = { workspace = true }
+pallet-utility = { workspace = true }
+pallet-timestamp = { workspace = true }
+
+# Cumulus
+asset-test-utils = { workspace = true, default-features = true }
+cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-xcmp-queue = { workspace = true }
+parachains-common = { workspace = true }
+parachains-runtimes-test-utils = { workspace = true }
+
+# Polkadot
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
+pallet-xcm = { workspace = true }
+
+# Bridges
+bp-header-chain = { workspace = true }
+bp-messages = { workspace = true }
+bp-parachains = { workspace = true }
+bp-polkadot-core = { workspace = true }
+bp-relayers = { workspace = true }
+bp-runtime = { workspace = true }
+bp-test-utils = { workspace = true }
+bp-xcm-bridge-hub = { workspace = true }
+pallet-bridge-grandpa = { workspace = true }
+pallet-bridge-parachains = { workspace = true }
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 pallet-bridge-messages = { features = ["test-helpers"], workspace = true }
 pallet-bridge-relayers.workspace = true
 bridge-runtime-common.workspace = true
@@ -70,6 +110,11 @@ std = [
 	"pallet-bridge-relayers/std",
 	"pallet-timestamp/std",
 	"pallet-utility/std",
+<<<<<<< HEAD
+=======
+	"pallet-xcm-bridge-hub/std",
+	"pallet-xcm/std",
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	"parachains-common/std",
 	"parachains-runtimes-test-utils/std",
 	"sp-core/std",

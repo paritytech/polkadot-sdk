@@ -21,7 +21,7 @@ pub mod from_parachain;
 
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData},
-	LaneId, MessageKey,
+	MessageKey,
 };
 use codec::Encode;
 use frame_support::traits::Get;
@@ -69,11 +69,11 @@ pub(crate) fn dummy_xcm() -> Xcm<()> {
 	vec![Trap(42)].into()
 }
 
-pub(crate) fn dispatch_message(
+pub(crate) fn dispatch_message<LaneId: Encode>(
 	lane_id: LaneId,
 	nonce: MessageNonce,
 	payload: Vec<u8>,
-) -> DispatchMessage<Vec<u8>> {
+) -> DispatchMessage<Vec<u8>, LaneId> {
 	DispatchMessage {
 		key: MessageKey { lane_id, nonce },
 		data: DispatchMessageData { payload: Ok(payload) },

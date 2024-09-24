@@ -30,7 +30,11 @@ use bp_messages::{
 	source_chain::{FromBridgedChainMessagesDeliveryProof, MessagesBridge},
 	target_chain::FromBridgedChainMessagesProof,
 	BridgeMessagesCall, ChainWithMessages, DeliveredMessages, InboundLaneData,
+<<<<<<< HEAD
 	InboundMessageDetails, LaneId, MessageKey, MessageNonce, MessagesOperatingMode,
+=======
+	InboundMessageDetails, LaneIdType, LaneState, MessageKey, MessageNonce, MessagesOperatingMode,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	OutboundLaneData, OutboundMessageDetails, UnrewardedRelayer, UnrewardedRelayersState,
 	VerificationError,
 };
@@ -53,7 +57,7 @@ fn get_ready_for_events() {
 	System::<TestRuntime>::reset_events();
 }
 
-fn send_regular_message(lane_id: LaneId) {
+fn send_regular_message(lane_id: TestLaneIdType) {
 	get_ready_for_events();
 
 	let outbound_lane = outbound_lane::<TestRuntime, ()>(lane_id);
@@ -69,7 +73,10 @@ fn send_regular_message(lane_id: LaneId) {
 		System::<TestRuntime>::events(),
 		vec![EventRecord {
 			phase: Phase::Initialization,
-			event: TestEvent::Messages(Event::MessageAccepted { lane_id, nonce: message_nonce }),
+			event: TestEvent::Messages(Event::MessageAccepted {
+				lane_id: lane_id.into(),
+				nonce: message_nonce
+			}),
 			topics: vec![],
 		}],
 	);
@@ -105,7 +112,11 @@ fn receive_messages_delivery_proof() {
 		vec![EventRecord {
 			phase: Phase::Initialization,
 			event: TestEvent::Messages(Event::MessagesDelivered {
+<<<<<<< HEAD
 				lane_id: TEST_LANE_ID,
+=======
+				lane_id: test_lane_id().into(),
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 				messages: DeliveredMessages::new(1),
 			}),
 			topics: vec![],
@@ -489,8 +500,13 @@ fn receive_messages_delivery_proof_rewards_relayers() {
 #[test]
 fn receive_messages_delivery_proof_rejects_invalid_proof() {
 	run_test(|| {
+<<<<<<< HEAD
 		let mut proof = prepare_messages_delivery_proof(TEST_LANE_ID, Default::default());
 		proof.lane = bp_messages::LaneId([42, 42, 42, 42]);
+=======
+		let mut proof = prepare_messages_delivery_proof(test_lane_id(), Default::default());
+		proof.lane = TestLaneIdType::try_new(42, 84).unwrap();
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_delivery_proof(
@@ -1016,8 +1032,8 @@ fn test_bridge_messages_call_is_correctly_defined() {
 		};
 		let indirect_receive_messages_proof_call = BridgeMessagesCall::<
 			AccountId,
-			FromBridgedChainMessagesProof<BridgedHeaderHash>,
-			FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash>,
+			FromBridgedChainMessagesProof<BridgedHeaderHash, TestLaneIdType>,
+			FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash, TestLaneIdType>,
 		>::receive_messages_proof {
 			relayer_id_at_bridged_chain: account_id,
 			proof: *message_proof,
@@ -1036,8 +1052,8 @@ fn test_bridge_messages_call_is_correctly_defined() {
 			};
 		let indirect_receive_messages_delivery_proof_call = BridgeMessagesCall::<
 			AccountId,
-			FromBridgedChainMessagesProof<BridgedHeaderHash>,
-			FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash>,
+			FromBridgedChainMessagesProof<BridgedHeaderHash, TestLaneIdType>,
+			FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash, TestLaneIdType>,
 		>::receive_messages_delivery_proof {
 			proof: message_delivery_proof,
 			relayers_state: unrewarded_relayer_state,
@@ -1062,8 +1078,14 @@ fn inbound_storage_extra_proof_size_bytes_works() {
 
 	fn storage(relayer_entries: usize) -> RuntimeInboundLaneStorage<TestRuntime, ()> {
 		RuntimeInboundLaneStorage {
+<<<<<<< HEAD
 			lane_id: Default::default(),
 			cached_data: Some(InboundLaneData {
+=======
+			lane_id: TestLaneIdType::try_new(1, 2).unwrap(),
+			cached_data: InboundLaneData {
+				state: LaneState::Opened,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 				relayers: vec![relayer_entry(); relayer_entries].into(),
 				last_confirmed_nonce: 0,
 			}),
@@ -1092,9 +1114,124 @@ fn inbound_storage_extra_proof_size_bytes_works() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn maybe_outbound_lanes_count_returns_correct_value() {
 	assert_eq!(
 		MaybeOutboundLanesCount::<TestRuntime, ()>::get(),
 		Some(mock::ActiveOutboundLanes::get().len() as u32)
 	);
+=======
+fn send_messages_fails_if_outbound_lane_is_not_opened() {
+	run_test(|| {
+		assert_noop!(
+			Pallet::<TestRuntime, ()>::validate_message(unknown_lane_id(), &REGULAR_PAYLOAD),
+			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::UnknownOutboundLane),
+		);
+
+		assert_noop!(
+			Pallet::<TestRuntime, ()>::validate_message(closed_lane_id(), &REGULAR_PAYLOAD),
+			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::ClosedOutboundLane),
+		);
+	});
+}
+
+#[test]
+fn receive_messages_proof_fails_if_inbound_lane_is_not_opened() {
+	run_test(|| {
+		let mut message = message(1, REGULAR_PAYLOAD);
+		message.key.lane_id = unknown_lane_id();
+		let proof = prepare_messages_proof(vec![message.clone()], None);
+
+		assert_noop!(
+			Pallet::<TestRuntime>::receive_messages_proof(
+				RuntimeOrigin::signed(1),
+				TEST_RELAYER_A,
+				proof,
+				1,
+				REGULAR_PAYLOAD.declared_weight,
+			),
+			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::UnknownInboundLane),
+		);
+
+		message.key.lane_id = closed_lane_id();
+		let proof = prepare_messages_proof(vec![message], None);
+
+		assert_noop!(
+			Pallet::<TestRuntime>::receive_messages_proof(
+				RuntimeOrigin::signed(1),
+				TEST_RELAYER_A,
+				proof,
+				1,
+				REGULAR_PAYLOAD.declared_weight,
+			),
+			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::ClosedInboundLane),
+		);
+	});
+}
+
+#[test]
+fn receive_messages_delivery_proof_fails_if_outbound_lane_is_unknown() {
+	run_test(|| {
+		let make_proof = |lane: TestLaneIdType| {
+			prepare_messages_delivery_proof(
+				lane,
+				InboundLaneData {
+					state: LaneState::Opened,
+					last_confirmed_nonce: 1,
+					relayers: vec![UnrewardedRelayer {
+						relayer: 0,
+						messages: DeliveredMessages::new(1),
+					}]
+					.into(),
+				},
+			)
+		};
+
+		let proof = make_proof(unknown_lane_id());
+		assert_noop!(
+			Pallet::<TestRuntime>::receive_messages_delivery_proof(
+				RuntimeOrigin::signed(1),
+				proof,
+				UnrewardedRelayersState {
+					unrewarded_relayer_entries: 1,
+					messages_in_oldest_entry: 1,
+					total_messages: 1,
+					last_delivered_nonce: 1,
+				},
+			),
+			Error::<TestRuntime, ()>::LanesManager(LanesManagerError::UnknownOutboundLane),
+		);
+	});
+}
+
+#[test]
+fn do_try_state_for_outbound_lanes_works() {
+	run_test(|| {
+		let lane_id = test_lane_id();
+
+		// setup delivered nonce 1
+		OutboundLanes::<TestRuntime>::insert(
+			lane_id,
+			OutboundLaneData {
+				state: LaneState::Opened,
+				oldest_unpruned_nonce: 2,
+				latest_received_nonce: 1,
+				latest_generated_nonce: 0,
+			},
+		);
+		// store message for nonce 1
+		OutboundMessages::<TestRuntime>::insert(
+			MessageKey { lane_id, nonce: 1 },
+			BoundedVec::default(),
+		);
+		assert_err!(
+			Pallet::<TestRuntime>::do_try_state(),
+			sp_runtime::TryRuntimeError::Other("Found unpruned lanes!")
+		);
+
+		// remove message for nonce 1
+		OutboundMessages::<TestRuntime>::remove(MessageKey { lane_id, nonce: 1 });
+		assert_ok!(Pallet::<TestRuntime>::do_try_state());
+	})
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 }

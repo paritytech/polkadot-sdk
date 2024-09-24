@@ -59,10 +59,15 @@ pub use xcm_emulator::{
 // Bridges
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
-	LaneId, MessageKey, OutboundLaneData,
+	MessageKey, OutboundLaneData,
 };
+<<<<<<< HEAD
 use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
 use pallet_bridge_messages::{Config, OutboundLanes, Pallet};
+=======
+pub use bp_xcm_bridge_hub::XcmBridgeHubCall;
+use pallet_bridge_messages::{Config as BridgeMessagesConfig, LaneIdOf, OutboundLanes, Pallet};
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 pub use pallet_bridge_messages::{
 	Instance1 as BridgeMessagesInstance1, Instance2 as BridgeMessagesInstance2,
 	Instance3 as BridgeMessagesInstance3,
@@ -72,6 +77,7 @@ pub struct BridgeHubMessageHandler<S, SI, T, TI> {
 	_marker: std::marker::PhantomData<(S, SI, T, TI)>,
 }
 
+<<<<<<< HEAD
 struct LaneIdWrapper(LaneId);
 
 impl From<LaneIdWrapper> for u32 {
@@ -83,6 +89,17 @@ impl From<LaneIdWrapper> for u32 {
 impl From<u32> for LaneIdWrapper {
 	fn from(id: u32) -> LaneIdWrapper {
 		LaneIdWrapper(LaneId(id.to_be_bytes()))
+=======
+struct LaneIdWrapper<LaneId>(LaneId);
+impl<LaneId: Encode> From<LaneIdWrapper<LaneId>> for BridgeLaneId {
+	fn from(lane_id: LaneIdWrapper<LaneId>) -> BridgeLaneId {
+		lane_id.0.encode()
+	}
+}
+impl<LaneId: Decode> From<BridgeLaneId> for LaneIdWrapper<LaneId> {
+	fn from(id: BridgeLaneId) -> LaneIdWrapper<LaneId> {
+		LaneIdWrapper(LaneId::decode(&mut &id[..]).expect("decodable"))
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	}
 }
 
@@ -151,8 +168,14 @@ where
 		result
 	}
 
+<<<<<<< HEAD
 	fn notify_source_message_delivery(lane_id: u32) {
 		let data = OutboundLanes::<S, SI>::get(LaneIdWrapper::from(lane_id).0);
+=======
+	fn notify_source_message_delivery(lane_id: BridgeLaneId) {
+		let lane_id: LaneIdOf<S, SI> = LaneIdWrapper::from(lane_id).0;
+		let data = OutboundLanes::<S, SI>::get(lane_id).unwrap();
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 		let new_data = OutboundLaneData {
 			oldest_unpruned_nonce: data.oldest_unpruned_nonce + 1,
 			latest_received_nonce: data.latest_received_nonce + 1,

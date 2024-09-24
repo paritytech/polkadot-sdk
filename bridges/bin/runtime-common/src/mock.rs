@@ -23,7 +23,7 @@ use crate::messages_xcm_extension::XcmAsPlainPayload;
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
-	ChainWithMessages, LaneId, MessageNonce,
+	ChainWithMessages, HashedLaneId, LaneIdType, MessageNonce,
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_relayers::PayRewardFromAccount;
@@ -71,7 +71,7 @@ pub type BridgedChainHeader =
 	sp_runtime::generic::Header<BridgedChainBlockNumber, BridgedChainHasher>;
 
 /// Rewards payment procedure.
-pub type TestPaymentProcedure = PayRewardFromAccount<Balances, ThisChainAccountId>;
+pub type TestPaymentProcedure = PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType>;
 /// Stake that we are using in tests.
 pub type TestStake = ConstU64<5_000>;
 /// Stake and slash mechanism to use in tests.
@@ -84,8 +84,18 @@ pub type TestStakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 	ConstU32<8>,
 >;
 
+<<<<<<< HEAD
 /// Message lane used in tests.
 pub const TEST_LANE_ID: LaneId = LaneId([0, 0, 0, 0]);
+=======
+/// Lane identifier type used for tests.
+pub type TestLaneIdType = HashedLaneId;
+/// Lane that we're using in tests.
+pub fn test_lane_id() -> TestLaneIdType {
+	TestLaneIdType::try_new(1, 2).unwrap()
+}
+
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 /// Bridged chain id used in tests.
 pub const TEST_BRIDGED_CHAIN_ID: ChainId = *b"brdg";
 /// Maximal extrinsic size at the `BridgedChain`.
@@ -187,11 +197,16 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<TestRuntime>;
 	type ActiveOutboundLanes = ActiveOutboundLanes;
 
+<<<<<<< HEAD
 	type OutboundPayload = XcmAsPlainPayload;
 
+=======
+	type OutboundPayload = Vec<u8>;
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	type InboundPayload = Vec<u8>;
-	type DeliveryPayments = ();
+	type LaneId = TestLaneIdType;
 
+	type DeliveryPayments = ();
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		TestRuntime,
 		(),
@@ -212,31 +227,46 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;
 	type WeightInfo = ();
+	type LaneId = TestLaneIdType;
 }
 
 /// Dummy message dispatcher.
 pub struct DummyMessageDispatch;
 
 impl DummyMessageDispatch {
+<<<<<<< HEAD
 	pub fn deactivate() {
 		frame_support::storage::unhashed::put(&b"inactive"[..], &false);
+=======
+	pub fn deactivate(lane: TestLaneIdType) {
+		frame_support::storage::unhashed::put(&(b"inactive", lane).encode()[..], &false);
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	}
 }
 
 impl MessageDispatch for DummyMessageDispatch {
 	type DispatchPayload = Vec<u8>;
 	type DispatchLevelResult = ();
+	type LaneId = TestLaneIdType;
 
+<<<<<<< HEAD
 	fn is_active() -> bool {
 		frame_support::storage::unhashed::take::<bool>(&b"inactive"[..]) != Some(false)
+=======
+	fn is_active(lane: Self::LaneId) -> bool {
+		frame_support::storage::unhashed::take::<bool>(&(b"inactive", lane).encode()[..]) !=
+			Some(false)
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 	}
 
-	fn dispatch_weight(_message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
+	fn dispatch_weight(
+		_message: &mut DispatchMessage<Self::DispatchPayload, Self::LaneId>,
+	) -> Weight {
 		Weight::zero()
 	}
 
 	fn dispatch(
-		_: DispatchMessage<Self::DispatchPayload>,
+		_: DispatchMessage<Self::DispatchPayload, Self::LaneId>,
 	) -> MessageDispatchResult<Self::DispatchLevelResult> {
 		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result: () }
 	}

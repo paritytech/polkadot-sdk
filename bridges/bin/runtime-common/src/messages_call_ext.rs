@@ -17,7 +17,13 @@
 //! Helpers for easier manipulation of call processing with signed extensions.
 
 use bp_messages::{
+<<<<<<< HEAD:bridges/bin/runtime-common/src/messages_call_ext.rs
 	target_chain::MessageDispatch, ChainWithMessages, InboundLaneData, LaneId, MessageNonce,
+=======
+	target_chain::MessageDispatch, BaseMessagesProofInfo, ChainWithMessages, InboundLaneData,
+	MessageNonce, MessagesCallInfo, ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo,
+	UnrewardedRelayerOccupation,
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/messages/src/call_ext.rs
 };
 use bp_runtime::{AccountIdOf, OwnedBridgeModule};
 use frame_support::{dispatch::CallableCallFor, traits::IsSubType};
@@ -142,7 +148,11 @@ impl<T: Config<I>, I: 'static> CallHelper<T, I> {
 	///
 	/// - call is `receive_messages_delivery_proof` and all messages confirmations have been
 	///   received.
+<<<<<<< HEAD:bridges/bin/runtime-common/src/messages_call_ext.rs
 	pub fn was_successful(info: &CallInfo) -> bool {
+=======
+	pub fn was_successful(info: &MessagesCallInfo<T::LaneId>) -> bool {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/messages/src/call_ext.rs
 		match info {
 			CallInfo::ReceiveMessagesProof(info) => {
 				let inbound_lane_data =
@@ -174,19 +184,29 @@ pub trait MessagesCallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 	IsSubType<CallableCallFor<Pallet<T, I>, T>>
 {
 	/// Create a new instance of `ReceiveMessagesProofInfo` from a `ReceiveMessagesProof` call.
-	fn receive_messages_proof_info(&self) -> Option<ReceiveMessagesProofInfo>;
+	fn receive_messages_proof_info(&self) -> Option<ReceiveMessagesProofInfo<T::LaneId>>;
 
 	/// Create a new instance of `ReceiveMessagesDeliveryProofInfo` from
 	/// a `ReceiveMessagesDeliveryProof` call.
-	fn receive_messages_delivery_proof_info(&self) -> Option<ReceiveMessagesDeliveryProofInfo>;
+	fn receive_messages_delivery_proof_info(
+		&self,
+	) -> Option<ReceiveMessagesDeliveryProofInfo<T::LaneId>>;
 
 	/// Create a new instance of `CallInfo` from a `ReceiveMessagesProof`
 	/// or a `ReceiveMessagesDeliveryProof` call.
+<<<<<<< HEAD:bridges/bin/runtime-common/src/messages_call_ext.rs
 	fn call_info(&self) -> Option<CallInfo>;
+=======
+	fn call_info(&self) -> Option<MessagesCallInfo<T::LaneId>>;
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/messages/src/call_ext.rs
 
 	/// Create a new instance of `CallInfo` from a `ReceiveMessagesProof`
 	/// or a `ReceiveMessagesDeliveryProof` call, if the call is for the provided lane.
+<<<<<<< HEAD:bridges/bin/runtime-common/src/messages_call_ext.rs
 	fn call_info_for(&self, lane_id: LaneId) -> Option<CallInfo>;
+=======
+	fn call_info_for(&self, lane_id: T::LaneId) -> Option<MessagesCallInfo<T::LaneId>>;
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/messages/src/call_ext.rs
 
 	/// Ensures that a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call:
 	///
@@ -213,11 +233,17 @@ impl<
 		I: 'static,
 	> MessagesCallSubType<T, I> for T::RuntimeCall
 {
+<<<<<<< HEAD:bridges/bin/runtime-common/src/messages_call_ext.rs
 	fn receive_messages_proof_info(&self) -> Option<ReceiveMessagesProofInfo> {
 		if let Some(pallet_bridge_messages::Call::<T, I>::receive_messages_proof {
 			ref proof,
 			..
 		}) = self.is_sub_type()
+=======
+	fn receive_messages_proof_info(&self) -> Option<ReceiveMessagesProofInfo<T::LaneId>> {
+		if let Some(crate::Call::<T, I>::receive_messages_proof { ref proof, .. }) =
+			self.is_sub_type()
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/messages/src/call_ext.rs
 		{
 			let inbound_lane_data = pallet_bridge_messages::InboundLanes::<T, I>::get(proof.lane);
 
@@ -236,8 +262,15 @@ impl<
 		None
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/messages_call_ext.rs
 	fn receive_messages_delivery_proof_info(&self) -> Option<ReceiveMessagesDeliveryProofInfo> {
 		if let Some(pallet_bridge_messages::Call::<T, I>::receive_messages_delivery_proof {
+=======
+	fn receive_messages_delivery_proof_info(
+		&self,
+	) -> Option<ReceiveMessagesDeliveryProofInfo<T::LaneId>> {
+		if let Some(crate::Call::<T, I>::receive_messages_delivery_proof {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/messages/src/call_ext.rs
 			ref proof,
 			ref relayers_state,
 			..
@@ -260,7 +293,11 @@ impl<
 		None
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/messages_call_ext.rs
 	fn call_info(&self) -> Option<CallInfo> {
+=======
+	fn call_info(&self) -> Option<MessagesCallInfo<T::LaneId>> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/messages/src/call_ext.rs
 		if let Some(info) = self.receive_messages_proof_info() {
 			return Some(CallInfo::ReceiveMessagesProof(info))
 		}
@@ -272,7 +309,11 @@ impl<
 		None
 	}
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/messages_call_ext.rs
 	fn call_info_for(&self, lane_id: LaneId) -> Option<CallInfo> {
+=======
+	fn call_info_for(&self, lane_id: T::LaneId) -> Option<MessagesCallInfo<T::LaneId>> {
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649)):bridges/modules/messages/src/call_ext.rs
 		self.call_info().filter(|info| {
 			let actual_lane_id = match info {
 				CallInfo::ReceiveMessagesProof(info) => info.base.lane_id,

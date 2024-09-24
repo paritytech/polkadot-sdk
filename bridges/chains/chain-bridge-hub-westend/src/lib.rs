@@ -87,7 +87,7 @@ pub const WITH_BRIDGE_HUB_WESTEND_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 pub const WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 44;
 
 decl_bridge_finality_runtime_apis!(bridge_hub_westend);
-decl_bridge_messages_runtime_apis!(bridge_hub_westend);
+decl_bridge_messages_runtime_apis!(bridge_hub_westend, LegacyLaneId);
 
 frame_support::parameter_types! {
 	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Westend

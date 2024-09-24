@@ -11,6 +11,7 @@ publish = false
 workspace = true
 
 [dependencies]
+<<<<<<< HEAD
 sp-core.workspace = true
 frame-support.workspace = true
 parachains-common.workspace = true
@@ -19,4 +20,22 @@ emulated-integration-tests-common.workspace = true
 bridge-hub-westend-runtime.workspace = true
 bridge-hub-westend-runtime.default-features = true
 bridge-hub-common.workspace = true
+=======
+
+# Substrate
+sp-core = { workspace = true }
+frame-support = { workspace = true }
+
+# Polkadot Dependencies
+xcm = { workspace = true }
+
+# Bridge dependencies
+bp-messages = { workspace = true }
+
+# Cumulus
+parachains-common = { workspace = true, default-features = true }
+emulated-integration-tests-common = { workspace = true }
+bridge-hub-westend-runtime = { workspace = true, default-features = true }
+bridge-hub-common = { workspace = true }
+>>>>>>> 710e74d (Bridges lane id agnostic for backwards compatibility (#5649))
 testnet-parachains-constants = { features = ["westend"], workspace = true, default-features = true }
