@@ -20,6 +20,7 @@ scale-info = { features = [
 	"derive",
 	"serde",
 ], workspace = true }
+serde_json = { workspace = true, default-features = false }
 
 # frame
 frame-support = { features = ["experimental"], workspace = true }
@@ -45,6 +46,7 @@ sp-consensus-aura = { features = [
 sp-consensus-grandpa = { features = [
 	"serde",
 ], workspace = true }
+sp-keyring = { workspace = true }
 sp-core = { features = [
 	"serde",
 ], workspace = true }
