@@ -12,7 +12,8 @@ doc:
       When Byzantine Threshold Validators (1/3) are already disabled instead of no longer
       disabling the highest offenders will be disabled potentially re-enabling low offenders.
 
-    - audience: Node Operator
+  - audience: Node Operator
+    description: |
       Implementation of the Stage 3 for the New Disabling Strategy: https://github.com/paritytech/polkadot-sdk/issues/4359
 
       This PR changes when an active validator node gets disabled within parachain consensus (reduced responsibilities and
