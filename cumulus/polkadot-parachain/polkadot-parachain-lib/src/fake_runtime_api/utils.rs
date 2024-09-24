@@ -15,6 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 pub(crate) mod imports {
+	pub use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector};
 	pub use parachains_common::{AccountId, Balance, Nonce};
 	pub use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 	pub use sp_runtime::{
@@ -152,6 +153,12 @@ macro_rules! impl_node_runtime_apis {
 				fn collect_collation_info(
 					_: &<$block as BlockT>::Header
 				) -> cumulus_primitives_core::CollationInfo {
+					unimplemented!()
+				}
+			}
+
+			impl cumulus_primitives_core::GetCoreSelectorApi<$block> for $runtime {
+				fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
 					unimplemented!()
 				}
 			}

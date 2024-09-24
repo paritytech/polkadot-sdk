@@ -15,7 +15,9 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use cumulus_primitives_core::ParaId;
-use parachains_common::{AccountId, Signature};
+pub(crate) use parachains_common::genesis_config_helpers::{
+	get_account_id_from_seed, get_collator_keys_from_seed, get_from_seed,
+};
 use polkadot_parachain_lib::{
 	chain_spec::{GenericChainSpec, LoadSpec},
 	runtime::{
@@ -23,8 +25,6 @@ use polkadot_parachain_lib::{
 	},
 };
 use sc_chain_spec::ChainSpec;
-use sp_core::{Pair, Public};
-use sp_runtime::traits::{IdentifyAccount, Verify};
 
 pub mod asset_hubs;
 pub mod bridge_hubs;
@@ -39,30 +39,6 @@ pub mod shell;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
-
-/// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
-}
-
-type AccountPublic = <Signature as Verify>::Signer;
-
-/// Helper function to generate an account ID from seed
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
-{
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
-}
-
-/// Generate collator keys from seed.
-///
-/// This function's return type must always match the session keys of the chain in tuple format.
-pub fn get_collator_keys_from_seed<AuraId: Public>(seed: &str) -> <AuraId::Pair as Pair>::Public {
-	get_from_seed::<AuraId>(seed)
-}
 
 /// Extracts the normalized chain id and parachain id from the input chain id.
 /// (H/T to Phala for the idea)

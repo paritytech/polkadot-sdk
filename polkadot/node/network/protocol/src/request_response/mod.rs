@@ -51,8 +51,8 @@
 
 use std::{collections::HashMap, time::Duration, u64};
 
-use polkadot_primitives::{MAX_CODE_SIZE, MAX_POV_SIZE};
-use sc_network::NetworkBackend;
+use polkadot_primitives::MAX_CODE_SIZE;
+use sc_network::{NetworkBackend, MAX_RESPONSE_SIZE};
 use sp_runtime::traits::Block;
 use strum::{EnumIter, IntoEnumIterator};
 
@@ -159,11 +159,8 @@ pub const MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS: u32 = 5;
 
 /// Response size limit for responses of POV like data.
 ///
-/// This is larger than `MAX_POV_SIZE` to account for protocol overhead and for additional data in
-/// `CollationFetchingV1` or `AvailableDataFetchingV1` for example. We try to err on larger limits
-/// here as a too large limit only allows an attacker to waste our bandwidth some more, a too low
-/// limit might have more severe effects.
-const POV_RESPONSE_SIZE: u64 = MAX_POV_SIZE as u64 + 10_000;
+/// Same as what we use in substrate networking.
+const POV_RESPONSE_SIZE: u64 = MAX_RESPONSE_SIZE;
 
 /// Maximum response sizes for `StatementFetchingV1`.
 ///
@@ -217,7 +214,7 @@ impl Protocol {
 				name,
 				legacy_names,
 				1_000,
-				POV_RESPONSE_SIZE as u64 * 3,
+				POV_RESPONSE_SIZE,
 				// We are connected to all validators:
 				CHUNK_REQUEST_TIMEOUT,
 				tx,
