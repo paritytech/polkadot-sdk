@@ -83,6 +83,7 @@ mod sys {
 		pub fn weight_left(out_ptr: *mut u8, out_len_ptr: *mut u32);
 		pub fn balance(out_ptr: *mut u8);
 		pub fn balance_of(addr_ptr: *const u8, out_ptr: *mut u8);
+		pub fn chain_id(out_ptr: *mut u8);
 		pub fn value_transferred(out_ptr: *mut u8);
 		pub fn now(out_ptr: *mut u8);
 		pub fn minimum_balance(out_ptr: *mut u8);
@@ -449,7 +450,7 @@ impl HostFn for HostFnImpl {
 	}
 
 	impl_wrapper_for! {
-		[u8; 32] => block_number, balance, value_transferred, now, minimum_balance;
+		[u8; 32] => block_number, balance, value_transferred, now, minimum_balance, chain_id;
 		[u8; 20] => address, caller;
 	}
 

@@ -412,6 +412,7 @@ parameter_types! {
 	pub static DepositPerByte: BalanceOf<Test> = 1;
 	pub const DepositPerItem: BalanceOf<Test> = 2;
 	pub static CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+	pub static ChainId: u64 = 384;
 }
 
 impl Convert<Weight, BalanceOf<Self>> for Test {
@@ -496,6 +497,7 @@ impl Config for Test {
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Debug = TestDebug;
+	type ChainId = ChainId;
 }
 
 pub struct ExtBuilder {
@@ -4308,6 +4310,19 @@ mod run_tests {
 			// correct output if the supplied output length was smaller than
 			// than what the callee returned.
 			assert_ok!(builder::call(addr).build());
+		});
+	}
+
+	#[test]
+	fn chain_id_works() {
+		let (code, _) = compile_module("chain_id").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let chain_id = U256::from(<Test as Config>::ChainId::get());
+			let received = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_result();
+			assert_eq!(received.result.data, chain_id.encode());
 		});
 	}
 
