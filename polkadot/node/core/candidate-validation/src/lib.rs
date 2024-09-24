@@ -82,10 +82,8 @@ const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_secs(3);
 #[cfg(test)]
 const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(200);
 
-// TODO: Change comment
 // The task queue size is chosen to be somewhat bigger than the PVF host incoming queue size
-// to allow exhaustive validation messages to fall through in case the tasks are clogged with
-// `ValidateFromChainState` messages awaiting data from the runtime
+// to allow exhaustive validation messages to fall through in case the tasks are clogged
 const TASK_LIMIT: usize = 30;
 
 /// Configuration for the candidate validation subsystem
