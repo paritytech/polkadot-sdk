@@ -1469,26 +1469,28 @@ fn location_conversion_works() {
 			location: Location::new(
 				0,
 				[
+					Parachain(1111),
 					Plurality {
 						id: BodyId::Treasury,
 						part: BodyPart::Voice,
 					},
 				],
 			),
-			expected_account_id_str: "5HohjXdjs6afcYcgHHSstkrtGfxgfGKsnZ1jtewBpFiGu4DL",
+			expected_account_id_str: "5GenE4vJgHvwYVcD6b4nBvH5HNY4pzpVHWoqwFpNMFT7a2oX",
 		},
 		TestCase {
 			description: "DescribeTreasuryVoiceTerminal Sibling",
 			location: Location::new(
 				1,
 				[
+					Parachain(1111),
 					Plurality {
 						id: BodyId::Treasury,
 						part: BodyPart::Voice,
 					},
 				],
 			),
-			expected_account_id_str: "5CUjnE2vgcUCuhxPwFoQ5r7p1DkhujgvMNDHaF2bLqRp4D5F",
+			expected_account_id_str: "5G6TDwaVgbWmhqRUKjBhRRnH4ry9L9cjRymUEmiRsLbSE4gB",
 		},
 		// DescribeBodyTerminal
 		TestCase {
@@ -1496,26 +1498,28 @@ fn location_conversion_works() {
 			location: Location::new(
 				0,
 				[
+					Parachain(1111),
 					Plurality {
 						id: BodyId::Unit,
 						part: BodyPart::Voice,
 					},
 				],
 			),
-			expected_account_id_str: "5HohjXdjs6afcYcgHHSstkrtGfxgfGKsnZ1jtewBpFiGu4DL",
+			expected_account_id_str: "5DPgGBFTTYm1dGbtB1VWHJ3T3ScvdrskGGx6vSJZNP1WNStV",
 		},
 		TestCase {
 			description: "DescribeBodyTerminal Sibling",
 			location: Location::new(
 				1,
 				[
+					Parachain(1111),
 					Plurality {
 						id: BodyId::Unit,
 						part: BodyPart::Voice,
 					},
 				],
 			),
-			expected_account_id_str: "5CUjnE2vgcUCuhxPwFoQ5r7p1DkhujgvMNDHaF2bLqRp4D5F",
+			expected_account_id_str: "5DBoExvojy8tYnHgLL97phNH975CyT45PWTZEeGoBZfAyRMH",
 		},
 	];
 
