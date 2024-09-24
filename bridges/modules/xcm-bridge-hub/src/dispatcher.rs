@@ -196,14 +196,14 @@ mod tests {
 
 	fn invalid_message() -> DispatchMessage<Vec<u8>, TestLaneIdType> {
 		DispatchMessage {
-			key: MessageKey { lane_id: TestLaneIdType::new(1, 2), nonce: 1 },
+			key: MessageKey { lane_id: TestLaneIdType::try_new(1, 2).unwrap(), nonce: 1 },
 			data: DispatchMessageData { payload: Err(codec::Error::from("test")) },
 		}
 	}
 
 	fn valid_message() -> DispatchMessage<Vec<u8>, TestLaneIdType> {
 		DispatchMessage {
-			key: MessageKey { lane_id: TestLaneIdType::new(1, 2), nonce: 1 },
+			key: MessageKey { lane_id: TestLaneIdType::try_new(1, 2).unwrap(), nonce: 1 },
 			data: DispatchMessageData { payload: Ok(vec![42]) },
 		}
 	}

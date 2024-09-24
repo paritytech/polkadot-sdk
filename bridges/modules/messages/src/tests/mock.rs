@@ -263,17 +263,17 @@ pub const TEST_RELAYER_C: AccountId = 102;
 pub type TestLaneIdType = HashedLaneId;
 /// Lane that we're using in tests.
 pub fn test_lane_id() -> TestLaneIdType {
-	TestLaneIdType::new(1, 2)
+	TestLaneIdType::try_new(1, 2).unwrap()
 }
 
 /// Lane that is completely unknown to our runtime.
 pub fn unknown_lane_id() -> TestLaneIdType {
-	TestLaneIdType::new(1, 3)
+	TestLaneIdType::try_new(1, 3).unwrap()
 }
 
 /// Lane that is registered, but it is closed.
 pub fn closed_lane_id() -> TestLaneIdType {
-	TestLaneIdType::new(1, 4)
+	TestLaneIdType::try_new(1, 4).unwrap()
 }
 
 /// Regular message payload.

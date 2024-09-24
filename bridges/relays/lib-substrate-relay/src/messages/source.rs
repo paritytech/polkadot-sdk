@@ -668,7 +668,7 @@ mod tests {
 		}
 
 		let maybe_batches = split_msgs_to_refine::<TestChain, TestChain, TestLaneIdType>(
-			TestLaneIdType::new(1, 2),
+			TestLaneIdType::try_new(1, 2).unwrap(),
 			msgs_to_refine,
 		);
 		match expected_batches {

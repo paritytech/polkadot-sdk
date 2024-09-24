@@ -209,6 +209,8 @@ pub enum BridgeLocationsError {
 	UnsupportedDestinationLocation,
 	/// The version of XCM location argument is unsupported.
 	UnsupportedXcmVersion,
+	/// The `LaneIdType` generator is not supported.
+	UnsupportedLaneIdType,
 }
 
 impl BridgeLocations {
@@ -346,10 +348,11 @@ impl BridgeLocations {
 				.into_version(xcm_version)
 				.map_err(|_| BridgeLocationsError::UnsupportedXcmVersion);
 
-		Ok(LaneId::new(
+		LaneId::try_new(
 			EncodedVersionedInteriorLocation(universal_location1.encode()),
 			EncodedVersionedInteriorLocation(universal_location2.encode()),
-		))
+		)
+		.map_err(|_| BridgeLocationsError::UnsupportedLaneIdType)
 	}
 }
 

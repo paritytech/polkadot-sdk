@@ -720,7 +720,7 @@ mod tests {
 		let receive_messages_proof = FromBridgedChainMessagesProof {
 			bridged_header_hash: Default::default(),
 			storage_proof: Default::default(),
-			lane: mock::TestLaneIdType::new(1, 2),
+			lane: mock::TestLaneIdType::try_new(1, 2).unwrap(),
 			nonces_start: 0,
 			nonces_end: 0,
 		};
@@ -775,7 +775,7 @@ mod tests {
 		let receive_messages_delivery_proof = FromBridgedChainMessagesDeliveryProof {
 			bridged_header_hash: Default::default(),
 			storage_proof: Default::default(),
-			lane: mock::TestLaneIdType::new(1, 2),
+			lane: mock::TestLaneIdType::try_new(1, 2).unwrap(),
 		};
 		let relayers_state = UnrewardedRelayersState {
 			unrewarded_relayer_entries: 0,

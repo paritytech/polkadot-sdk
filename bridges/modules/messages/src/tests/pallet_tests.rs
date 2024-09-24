@@ -632,7 +632,7 @@ fn receive_messages_delivery_proof_rewards_relayers() {
 fn receive_messages_delivery_proof_rejects_invalid_proof() {
 	run_test(|| {
 		let mut proof = prepare_messages_delivery_proof(test_lane_id(), Default::default());
-		proof.lane = TestLaneIdType::new(42, 84);
+		proof.lane = TestLaneIdType::try_new(42, 84).unwrap();
 
 		assert_noop!(
 			Pallet::<TestRuntime>::receive_messages_delivery_proof(
@@ -1087,7 +1087,7 @@ fn inbound_storage_extra_proof_size_bytes_works() {
 
 	fn storage(relayer_entries: usize) -> RuntimeInboundLaneStorage<TestRuntime, ()> {
 		RuntimeInboundLaneStorage {
-			lane_id: TestLaneIdType::new(1, 2),
+			lane_id: TestLaneIdType::try_new(1, 2).unwrap(),
 			cached_data: InboundLaneData {
 				state: LaneState::Opened,
 				relayers: vec![relayer_entry(); relayer_entries].into(),

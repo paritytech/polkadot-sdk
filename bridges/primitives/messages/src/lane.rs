@@ -39,8 +39,8 @@ pub trait LaneIdType:
 	+ Serialize
 	+ DeserializeOwned
 {
-	/// Creates a new `LaneId` type.
-	fn new<E: Ord + Encode>(endpoint1: E, endpoint2: E) -> Self;
+	/// Creates a new `LaneId` type (if supported).
+	fn try_new<E: Ord + Encode>(endpoint1: E, endpoint2: E) -> Result<Self, ()>;
 }
 
 /// Bridge lane identifier (legacy).
@@ -65,9 +65,9 @@ pub struct LegacyLaneId(pub [u8; 4]);
 
 impl LaneIdType for LegacyLaneId {
 	/// Create lane identifier from two locations.
-	fn new<T: Ord + Encode>(_endpoint1: T, _endpoint2: T) -> Self {
+	fn try_new<T: Ord + Encode>(_endpoint1: T, _endpoint2: T) -> Result<Self, ()> {
 		// we don't support this for `LegacyLaneId`, because it was hard-coded before
-		unimplemented!();
+		Err(())
 	}
 }
 
@@ -169,10 +169,10 @@ impl TypeId for HashedLaneId {
 
 impl LaneIdType for HashedLaneId {
 	/// Create lane identifier from two locations.
-	fn new<T: Ord + Encode>(endpoint1: T, endpoint2: T) -> Self {
+	fn try_new<T: Ord + Encode>(endpoint1: T, endpoint2: T) -> Result<Self, ()> {
 		const VALUES_SEPARATOR: [u8; 31] = *b"bridges-lane-id-value-separator";
 
-		Self(
+		Ok(Self(
 			if endpoint1 < endpoint2 {
 				(endpoint1, VALUES_SEPARATOR, endpoint2)
 			} else {
@@ -180,7 +180,7 @@ impl LaneIdType for HashedLaneId {
 			}
 			.using_encoded(blake2_256)
 			.into(),
-		)
+		))
 	}
 }
 
@@ -294,12 +294,12 @@ mod tests {
 
 	#[test]
 	fn hashed_lane_id_is_generated_using_ordered_endpoints() {
-		assert_eq!(HashedLaneId::new(1, 2), HashedLaneId::new(2, 1));
+		assert_eq!(HashedLaneId::try_new(1, 2).unwrap(), HashedLaneId::try_new(2, 1).unwrap());
 	}
 
 	#[test]
 	fn hashed_lane_id_is_different_for_different_endpoints() {
-		assert_ne!(HashedLaneId::new(1, 2), HashedLaneId::new(1, 3));
+		assert_ne!(HashedLaneId::try_new(1, 2).unwrap(), HashedLaneId::try_new(1, 3).unwrap());
 	}
 
 	#[test]
@@ -327,8 +327,8 @@ mod tests {
 		}
 
 		assert_ne!(
-			HashedLaneId::new(Either::Two(1, 2), Either::Two(3, 4)),
-			HashedLaneId::new(Either::Three(1, 2, 3), Either::One(4)),
+			HashedLaneId::try_new(Either::Two(1, 2), Either::Two(3, 4)).unwrap(),
+			HashedLaneId::try_new(Either::Three(1, 2, 3), Either::One(4)).unwrap(),
 		);
 	}
 }

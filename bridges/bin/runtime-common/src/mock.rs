@@ -87,7 +87,7 @@ pub type TestStakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 pub type TestLaneIdType = HashedLaneId;
 /// Lane that we're using in tests.
 pub fn test_lane_id() -> TestLaneIdType {
-	TestLaneIdType::new(1, 2)
+	TestLaneIdType::try_new(1, 2).unwrap()
 }
 
 /// Bridged chain id used in tests.

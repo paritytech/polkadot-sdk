@@ -962,7 +962,7 @@ pub(crate) mod tests {
 			};
 			let _ = run(
 				Params {
-					lane: TestLaneIdType::new(1, 2),
+					lane: TestLaneIdType::try_new(1, 2).unwrap(),
 					source_tick: Duration::from_millis(100),
 					target_tick: Duration::from_millis(100),
 					reconnect_delay: Duration::from_millis(0),
@@ -1283,7 +1283,7 @@ pub(crate) mod tests {
 	#[test]
 	fn metrics_prefix_is_valid() {
 		assert!(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<TestMessageLane>(
-			&HashedLaneId::new(1, 2)
+			&HashedLaneId::try_new(1, 2).unwrap()
 		)))
 		.is_ok());
 

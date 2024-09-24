@@ -79,7 +79,7 @@ pub const BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE: u32 = 1024;
 pub type TestLaneIdType = HashedLaneId;
 /// Lane that we're using in tests.
 pub fn test_lane_id() -> TestLaneIdType {
-	TestLaneIdType::new(1, 2)
+	TestLaneIdType::try_new(1, 2).unwrap()
 }
 
 /// Underlying chain of `ThisChain`.
@@ -373,7 +373,11 @@ impl MessageDispatch for DummyMessageDispatch {
 
 /// Reward account params that we are using in tests.
 pub fn test_reward_account_param() -> RewardsAccountParams<TestLaneIdType> {
-	RewardsAccountParams::new(TestLaneIdType::new(1, 2), *b"test", RewardsAccountOwner::ThisChain)
+	RewardsAccountParams::new(
+		TestLaneIdType::try_new(1, 2).unwrap(),
+		*b"test",
+		RewardsAccountOwner::ThisChain,
+	)
 }
 
 /// Return test externalities to use in tests.

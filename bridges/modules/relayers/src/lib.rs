@@ -620,12 +620,12 @@ mod tests {
 
 		run_test(|| {
 			let in_lane_0 = RewardsAccountParams::new(
-				TestLaneIdType::new(1, 2),
+				TestLaneIdType::try_new(1, 2).unwrap(),
 				*b"test",
 				RewardsAccountOwner::ThisChain,
 			);
 			let out_lane_1 = RewardsAccountParams::new(
-				TestLaneIdType::new(1, 3),
+				TestLaneIdType::try_new(1, 3).unwrap(),
 				*b"test",
 				RewardsAccountOwner::BridgedChain,
 			);

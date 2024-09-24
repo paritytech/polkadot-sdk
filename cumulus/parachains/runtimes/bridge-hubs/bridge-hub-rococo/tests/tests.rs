@@ -609,7 +609,7 @@ mod bridge_hub_bulletin_tests {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance
-						>(locations, fee, HashedLaneId::new(1, 2))
+						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
 					}
 				).1
 			},
@@ -672,7 +672,7 @@ mod bridge_hub_bulletin_tests {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance,
-						>(locations, fee, HashedLaneId::new(1, 2))
+						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
 					},
 				)
 				.1
@@ -705,7 +705,7 @@ mod bridge_hub_bulletin_tests {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance,
-						>(locations, fee, HashedLaneId::new(1, 2))
+						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
 					},
 				)
 				.1

@@ -1453,8 +1453,8 @@ mod tests {
 			&bridge_destination_universal_location,
 		);
 		let bridge_id_mismatch = BridgeId::new(&InteriorLocation::Here, &InteriorLocation::Here);
-		let lane_id = TestLaneIdType::new(1, 2);
-		let lane_id_mismatch = TestLaneIdType::new(3, 4);
+		let lane_id = TestLaneIdType::try_new(1, 2).unwrap();
+		let lane_id_mismatch = TestLaneIdType::try_new(3, 4).unwrap();
 
 		let test_bridge_state = |id,
 		                         bridge,

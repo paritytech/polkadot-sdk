@@ -190,7 +190,7 @@ mod tests {
 		assert_eq!(
 			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
 				RewardsAccountParams::new(
-					HashedLaneId::new(1, 2),
+					HashedLaneId::try_new(1, 2).unwrap(),
 					*b"test",
 					RewardsAccountOwner::ThisChain
 				)
@@ -202,7 +202,7 @@ mod tests {
 		assert_eq!(
 			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
 				RewardsAccountParams::new(
-					HashedLaneId::new(1, 3),
+					HashedLaneId::try_new(1, 3).unwrap(),
 					*b"test",
 					RewardsAccountOwner::ThisChain
 				)
@@ -217,7 +217,7 @@ mod tests {
 		assert_eq!(
 			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
 				RewardsAccountParams::new(
-					HashedLaneId::new(1, 2),
+					HashedLaneId::try_new(1, 2).unwrap(),
 					*b"test",
 					RewardsAccountOwner::ThisChain
 				)
@@ -229,7 +229,7 @@ mod tests {
 		assert_eq!(
 			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
 				RewardsAccountParams::new(
-					HashedLaneId::new(1, 2),
+					HashedLaneId::try_new(1, 2).unwrap(),
 					*b"test",
 					RewardsAccountOwner::BridgedChain
 				)
