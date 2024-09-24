@@ -15,20 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::{AccountId, BalancesConfig, RuntimeGenesisConfig, SudoConfig, Vec};
 use polkadot_sdk::sp_genesis_builder::{self, PresetId};
+use polkadot_sdk::sp_keyring::AccountKeyring;
 use serde_json::Value;
-
-use crate::{AccountId, Balances, BalancesConfig, RuntimeGenesisConfig, Sudo, SudoConfig};
 
 fn testnet_genesis(endowed_accounts: Vec<AccountId>, root: AccountId) -> Value {
 	let config = RuntimeGenesisConfig {
-		//balances: Balances(vec![]),
 		balances: BalancesConfig {
-			balances: endowed_accounts
-				.iter()
-				.cloned()
-				.map(|k| (k, 1u128 << 60))
-				.collect::<Vec<_>>(),
+			balances: endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
 		},
 		sudo: SudoConfig { key: Some(root) },
 		..Default::default()
@@ -39,20 +34,10 @@ fn testnet_genesis(endowed_accounts: Vec<AccountId>, root: AccountId) -> Value {
 
 fn development_config_genesis() -> Value {
 	testnet_genesis(
-		vec![
-			polkadot_sdk::sp_keyring::AccountKeyring::Alice.to_account_id(),
-			polkadot_sdk::sp_keyring::AccountKeyring::Bob.to_account_id(),
-			polkadot_sdk::sp_keyring::AccountKeyring::Bob.to_account_id(),
-			polkadot_sdk::sp_keyring::AccountKeyring::Dave.to_account_id(),
-			polkadot_sdk::sp_keyring::AccountKeyring::Ferdie.to_account_id(),
-			polkadot_sdk::sp_keyring::AccountKeyring::AliceStash.to_account_id(),
-			polkadot_sdk::sp_keyring::AccountKeyring::BobStash.to_account_id(),
-			polkadot_sdk::sp_keyring::AccountKeyring::CharlieStash.to_account_id(),
-			polkadot_sdk::sp_keyring::AccountKeyring::DaveStash.to_account_id(),
-			polkadot_sdk::sp_keyring::AccountKeyring::EveStash.to_account_id(),
-			polkadot_sdk::sp_keyring::AccountKeyring::FerdieStash.to_account_id(),
-		],
-		polkadot_sdk::sp_keyring::AccountKeyring::Alice.to_account_id(),
+		AccountKeyring::iter()
+			.filter(|v| v != AccountKeyring::One && v != AccountKeyring::Two)
+			.collect(),
+		AccountKeyring::Alice.to_account_id(),
 	)
 }
 

@@ -15,14 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::{AccountId, BalancesConfig, RuntimeGenesisConfig, SudoConfig, Vec};
+use alloc::vec;
 use serde_json::Value;
 use sp_genesis_builder::{self, PresetId};
-
-use crate::{AccountId, Balances, BalancesConfig, RuntimeGenesisConfig, Sudo, SudoConfig};
+use sp_keyring::AccountKeyring;
 
 fn testnet_genesis(endowed_accounts: Vec<AccountId>, root: AccountId) -> Value {
 	let config = RuntimeGenesisConfig {
-		//balances: Balances(vec![]),
 		balances: BalancesConfig {
 			balances: endowed_accounts
 				.iter()
@@ -39,19 +39,9 @@ fn testnet_genesis(endowed_accounts: Vec<AccountId>, root: AccountId) -> Value {
 
 fn development_config_genesis() -> Value {
 	testnet_genesis(
-		vec![
-			sp_keyring::AccountKeyring::Alice.to_account_id(),
-			sp_keyring::AccountKeyring::Bob.to_account_id(),
-			sp_keyring::AccountKeyring::Bob.to_account_id(),
-			sp_keyring::AccountKeyring::Dave.to_account_id(),
-			sp_keyring::AccountKeyring::Ferdie.to_account_id(),
-			sp_keyring::AccountKeyring::AliceStash.to_account_id(),
-			sp_keyring::AccountKeyring::BobStash.to_account_id(),
-			sp_keyring::AccountKeyring::CharlieStash.to_account_id(),
-			sp_keyring::AccountKeyring::DaveStash.to_account_id(),
-			sp_keyring::AccountKeyring::EveStash.to_account_id(),
-			sp_keyring::AccountKeyring::FerdieStash.to_account_id(),
-		],
+		sp_keyring::AccountKeyring::iter()
+			.filter(|v| v != AccountKeyring::One && v != AccountKeyring::Two)
+			.collect(),
 		sp_keyring::AccountKeyring::Alice.to_account_id(),
 	)
 }
