@@ -40,9 +40,6 @@ pub enum GenesisBuilderPolicy {
 	Spec,
 }
 
-/// Convenience alias for backwards compatibility.
-pub use GenesisBuilderPolicy as GenesisBuilder;
-
 /// A runtime blob that was either fetched from genesis storage or loaded from a file.
 // NOTE: This enum is only needed for the annoying lifetime bounds on `RuntimeCode`. Otherwise we
 // could just directly return the blob.
