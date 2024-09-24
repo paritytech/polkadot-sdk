@@ -1680,7 +1680,6 @@ pub mod migrations {
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
         parachains_inclusion::migration::MigrateToV1<Runtime>,
 		parachains_shared::migration::MigrateToV1<Runtime>,
-        parachains_configuration::migration::v13::MigrateToV13<Runtime>,
         parachains_scheduler::migration::MigrateV2ToV3<Runtime>,
     );
 }

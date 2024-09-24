@@ -322,10 +322,12 @@ fn setting_pending_config_members() {
 				max_validators_per_core: None,
 				lookahead: 3,
 				num_cores: 2,
+				max_availability_timeouts: 5,
 				on_demand_queue_max_size: 10_000u32,
 				on_demand_base_fee: 10_000_000u128,
 				on_demand_fee_variability: Perbill::from_percent(3),
 				on_demand_target_queue_utilization: Perbill::from_percent(25),
+				ttl: 5u32,
 			},
 		};
 
@@ -351,6 +353,11 @@ fn setting_pending_config_members() {
 		Configuration::set_coretime_cores(
 			RuntimeOrigin::root(),
 			new_config.scheduler_params.num_cores,
+		)
+		.unwrap();
+		Configuration::set_max_availability_timeouts(
+			RuntimeOrigin::root(),
+			new_config.scheduler_params.max_availability_timeouts,
 		)
 		.unwrap();
 		Configuration::set_group_rotation_frequency(
