@@ -27,7 +27,7 @@ use frame_benchmarking::{
 	v2::*,
 };
 
-use frame_support::{assert_err, assert_ok, traits::UnfilteredDispatchable};
+use frame_support::{assert_err, assert_ok};
 use frame_system::RawOrigin as SystemOrigin;
 
 const SEED: u32 = 0;
