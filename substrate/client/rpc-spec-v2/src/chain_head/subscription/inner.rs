@@ -145,7 +145,7 @@ impl LimitOperations {
 			.try_acquire_many_owned(num_ops.try_into().ok()?)
 			.ok()?;
 
-		Some(PermitOperations { num_ops, _permit: permits })
+		Some(permits)
 	}
 }
 
@@ -155,12 +155,7 @@ impl LimitOperations {
 /// to guarantee the RPC server can execute the number of operations.
 ///
 /// The number of reserved items are given back to the [`LimitOperations`] on drop.
-struct PermitOperations {
-	/// The number of operations permitted (reserved).
-	num_ops: usize,
-	/// The permit for these operations.
-	_permit: tokio::sync::OwnedSemaphorePermit,
-}
+type PermitOperations = tokio::sync::OwnedSemaphorePermit;
 
 /// Stop handle for the operation.
 #[derive(Clone)]
@@ -204,7 +199,7 @@ pub struct RegisteredOperation {
 	/// The operation ID of the request.
 	operation_id: String,
 	/// Permit a number of items to be executed by this operation.
-	permit: PermitOperations,
+	_permit: PermitOperations,
 }
 
 impl RegisteredOperation {
@@ -216,14 +211,6 @@ impl RegisteredOperation {
 	/// Get the operation ID.
 	pub fn operation_id(&self) -> String {
 		self.operation_id.clone()
-	}
-
-	/// Returns the number of reserved elements for this permit.
-	///
-	/// This can be smaller than the number of items requested via [`LimitOperations::reserve()`].
-	#[allow(unused)]
-	pub fn num_reserved(&self) -> usize {
-		self.permit.num_ops
 	}
 }
 
@@ -263,7 +250,7 @@ impl Operations {
 		let operations = self.operations.clone();
 		operations.lock().insert(operation_id.clone(), (rx, stop_handle.clone()));
 
-		Some(RegisteredOperation { stop_handle, operation_id, operations, permit })
+		Some(RegisteredOperation { stop_handle, operation_id, operations, _permit: permit })
 	}
 
 	/// Get the associated operation state with the ID.

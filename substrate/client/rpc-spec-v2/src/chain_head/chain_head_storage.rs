@@ -61,8 +61,7 @@ where
 		<<Block as BlockT>::Header as HeaderT>::Hashing,
 	>>::RawIter: Send,
 {
-	/// Iterate over (key, hash) and (key, value) generating the `WaitingForContinue` event if
-	/// necessary.
+	/// Iterate over (key, hash) and (key, value).
 	async fn generate_storage_iter_events(
 		&self,
 		query_iter: Vec<QueryIter>,

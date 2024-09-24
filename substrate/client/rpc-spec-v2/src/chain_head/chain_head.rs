@@ -558,12 +558,27 @@ where
 
 	async fn chain_head_unstable_continue(
 		&self,
-		_ext: &Extensions,
-		_follow_subscription: String,
-		_operation_id: String,
+		ext: &Extensions,
+		follow_subscription: String,
+		operation_id: String,
 	) -> Result<(), ChainHeadRpcError> {
-		// `WaitingForContinue`` is never emitted by the server.
-		Ok(())
+		let conn_id = ext
+			.get::<ConnectionId>()
+			.copied()
+			.expect("ConnectionId is always set by jsonrpsee; qed");
+
+		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
+			return Ok(())
+		}
+
+		// WaitingForContinue event is never emitted, in such cases
+		// emit an `InvalidContinue error`.
+		if self.subscriptions.get_operation(&follow_subscription, &operation_id).is_some() {
+			Err(ChainHeadRpcError::InvalidContinue.into())
+		}
+		else {
+			Ok(())
+		}
 	}
 
 	async fn chain_head_unstable_stop_operation(
