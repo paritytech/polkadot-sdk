@@ -120,8 +120,6 @@ use xcm_runtime_apis::{
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_election_provider_multi_phase::{Call as EPMCall, GeometricDepositBase};
-#[cfg(feature = "std")]
-pub use pallet_staking::StakerStatus;
 use pallet_staking::UseValidatorsMap;
 pub use pallet_timestamp::Call as TimestampCall;
 use sp_runtime::traits::Get;
@@ -137,6 +135,7 @@ use westend_runtime_constants::{
 };
 
 mod bag_thresholds;
+mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
 
@@ -175,7 +174,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 26,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// The BABE epoch configuration at genesis.
@@ -2757,11 +2756,11 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+			get_preset::<RuntimeGenesisConfig>(id, &genesis_config_presets::get_preset)
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			vec![]
+			genesis_config_presets::preset_names()
 		}
 	}
 }
