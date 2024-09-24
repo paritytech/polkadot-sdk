@@ -24,6 +24,8 @@ use sp_core::{crypto::UncheckedInto, sr25519};
 use sp_genesis_builder::PresetId;
 use testnet_parachains_constants::rococo::{currency::UNITS as ROC, xcm_version::SAFE_XCM_VERSION};
 
+use frame_support::runtime_genesis_config_json;
+
 const ASSET_HUB_ROCOCO_ED: Balance = ExistentialDeposit::get();
 
 fn asset_hub_rococo_genesis(
@@ -32,7 +34,7 @@ fn asset_hub_rococo_genesis(
 	endowment: Balance,
 	id: ParaId,
 ) -> serde_json::Value {
-	let config = RuntimeGenesisConfig {
+	runtime_genesis_config_json!({
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
 		},
@@ -59,10 +61,7 @@ fn asset_hub_rococo_genesis(
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 			..Default::default()
 		},
-		..Default::default()
-	};
-
-	serde_json::to_value(config).expect("Could not build genesis config.")
+	})
 }
 
 /// Encapsulates names of predefined presets.

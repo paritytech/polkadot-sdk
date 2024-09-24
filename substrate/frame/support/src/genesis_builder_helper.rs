@@ -55,3 +55,79 @@ where
 		preset_for_name,
 	)
 }
+
+/// Creates a `RuntimeGenesisConfig` JSON patch.
+///
+/// This macro creates a default `RuntimeGenesisConfig` initializing provided fields with given
+/// values, serialize it to JSON blob, and retain only the specified fields.
+///
+/// This macro helps to prevents errors that could occur from manually creating JSON objects, such
+/// as typos or discrepancies caused by future changes to the `RuntimeGenesisConfig` structure. By
+/// using the actual struct, it ensures that the JSON generated is valid and up-to-date.
+///
+/// This macro assumes that `serde(renameAll="camelCase")` attribute is used for
+/// RuntimeGenesisConfig, what should be the case for frame-based runtimes.
+///
+/// # Example
+///
+/// ```rust
+/// use frame_support::runtime_genesis_config_json;
+/// #[derive(Default, serde::Serialize, serde::Deserialize)]
+/// #[serde(rename_all = "camelCase")]
+/// struct RuntimeGenesisConfig {
+///     a_field: u32,
+///     b_field: u32,
+///     c_field: u32,
+/// }
+/// assert_eq!(
+///     runtime_genesis_config_json! ({a_field:31, b_field:127}),
+///     serde_json::json!({"aField":31, "bField":127})
+/// );
+/// assert_eq!(
+///     runtime_genesis_config_json! ({a_field:31}),
+///     serde_json::json!({"aField":31})
+/// );
+/// ```
+#[macro_export]
+macro_rules! runtime_genesis_config_json {
+	({ $( $key:ident : $value:expr ),* $(,)? }) => {{
+        let config = RuntimeGenesisConfig {
+            $( $key : $value, )*
+            ..Default::default()
+        };
+        fn compare_snake_to_camel(
+            mut snake_chars: core::str::Chars,
+            mut camel_chars: core::str::Chars,
+        ) -> bool {
+            while let (Some(snake_char), Some(camel_char)) =
+                (snake_chars.next(), camel_chars.next())
+            {
+                if snake_char == '_' {
+                    if let Some(next_snake_char) = snake_chars.next() {
+                        if next_snake_char.to_ascii_uppercase() != camel_char {
+                            return false;
+                        }
+                    }
+                } else {
+                    if snake_char != camel_char {
+                        return false;
+                    }
+                }
+            }
+
+            snake_chars.next().is_none() && camel_chars.next().is_none()
+        }
+
+		let mut json_value =
+			serde_json::to_value(config).expect("serialization to json should work. qed");
+		if let serde_json::Value::Object(ref mut map) = json_value {
+            let keys_to_keep : Vec<&'static str> = vec![ $( stringify!($key) ),* ];
+			map.retain(|camel_case_key, _| {
+				keys_to_keep.iter().any(|&snake_case_key| {
+					compare_snake_to_camel(snake_case_key.chars(), camel_case_key.chars())
+				})
+			});
+		}
+        json_value
+    }};
+}
