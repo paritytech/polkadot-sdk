@@ -22,6 +22,12 @@ fn main() {
 		.set_file_name("fast_runtime_binary.rs")
 		.enable_feature("fast-runtime")
 		.build();
+
+	substrate_wasm_builder::WasmBuilder::init_with_defaults()
+		.enable_feature("increment-spec-version")
+		.enable_feature("fast-runtime")
+		.set_file_name("wasm_binary_spec_version_incremented.rs")
+		.build();
 }
 
 #[cfg(all(feature = "metadata-hash", feature = "std"))]
@@ -34,6 +40,13 @@ fn main() {
 		.set_file_name("fast_runtime_binary.rs")
 		.enable_feature("fast-runtime")
 		.enable_metadata_hash("ROC", 12)
+		.build();
+
+	substrate_wasm_builder::WasmBuilder::init_with_defaults()
+		.enable_feature("increment-spec-version")
+		.enable_feature("fast-runtime")
+		.enable_metadata_hash("ROC", 12)
+		.set_file_name("wasm_binary_spec_version_incremented.rs")
 		.build();
 }
 

@@ -164,13 +164,39 @@ pub mod fast_runtime_binary {
 	include!(concat!(env!("OUT_DIR"), "/fast_runtime_binary.rs"));
 }
 
+// The only difference between the two declarations below is the `spec_version`. With the
+// `increment-spec-version` feature enabled `spec_version` should be greater than the one of without
+// the `increment-spec-version` feature.
+//
+// The duplication here is unfortunate necessity.
+//
+// runtime_version macro is dumb. It accepts a const item declaration, passes it through and
+// also emits runtime version custom section. It parses the expressions to extract the version
+// details. Since macro kicks in early, it operates on AST. Thus you cannot use constants.
+// Macros are expanded top to bottom, meaning we also cannot use `cfg` here.
+
 /// Runtime version (Rococo).
+#[cfg(not(feature = "increment-spec-version"))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("rococo"),
 	impl_name: create_runtime_str!("parity-rococo-v2.0"),
 	authoring_version: 0,
 	spec_version: 1_015_000,
+	impl_version: 0,
+	apis: RUNTIME_API_VERSIONS,
+	transaction_version: 26,
+	system_version: 1,
+};
+
+/// Runtime version (Rococo).
+#[cfg(feature = "increment-spec-version")]
+#[sp_version::runtime_version]
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: create_runtime_str!("rococo"),
+	impl_name: create_runtime_str!("parity-rococo-v2.0"),
+	authoring_version: 0,
+	spec_version: 1_016_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 26,
