@@ -1,0 +1,42 @@
+title: "Switch to new `CandidateReceipt` primitives"
+
+doc:
+  - audience: Node Dev
+    description: |
+      This change is just plumbing work and updates all crate interfaces to use the new primitives.
+      Id doesn't alter any functionality and is required before implementing RFC103 on the 
+      node side. 
+
+crates:
+  - name: polkadot-primitives
+    bump: minor
+  - name: polkadot-runtime-parachains
+    bump: minor
+  - name: cumulus-client-consensus-common
+    bump: major
+  - name: cumulus-client-pov-recovery
+    bump: major
+  - name: cumulus-relay-chain-interface
+    bump: major
+  - name: polkadot-node-core-candidate-validation
+    bump: major
+  - name: polkadot-node-core-dispute-coordinator
+    bump: major
+  - name: polkadot-node-core-parachains-inherent
+    bump: major
+  - name: polkadot-node-core-prospective-parachains
+    bump: major
+  - name: polkadot-node-core-provisioner
+    bump: major
+  - name: polkadot-node-core-runtime-api
+    bump: major
+  - name: cumulus-client-network
+    bump: major
+  - name: cumulus-relay-chain-inprocess-interface
+    bump: major
+  - name: cumulus-client-consensus-aura
+    bump: major
+  - name: cumulus-relay-chain-minimal-node 
+    bump: major
+  - name: cumulus-relay-chain-rpc-interface
+    bump: major
