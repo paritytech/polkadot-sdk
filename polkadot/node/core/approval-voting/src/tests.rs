@@ -39,7 +39,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
-use polkadot_overseer::{HeadSupportsParachains, SpawnGlue};
+use polkadot_overseer::SpawnGlue;
 use polkadot_primitives::{
 	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, DisputeStatement, GroupIndex,
 	Header, Id as ParaId, IndexedVec, NodeFeatures, ValidDisputeStatementKind, ValidationCode,
@@ -48,7 +48,6 @@ use polkadot_primitives::{
 use std::{cmp::max, time::Duration};
 
 use assert_matches::assert_matches;
-use async_trait::async_trait;
 use parking_lot::Mutex;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 use sp_keystore::Keystore;
