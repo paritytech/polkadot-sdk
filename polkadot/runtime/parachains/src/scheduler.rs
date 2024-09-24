@@ -158,12 +158,11 @@ impl<T: Config> Pallet<T> {
 	/// Called before the initializer notifies any modules of a new session.
 	pub(crate) fn pre_new_session(occupied_cores: impl Iterator<Item = (CoreIndex, ParaId)>) {
 		// The formerly occupied cores will have their candidates dropped in the inclusion module.
-		// We only need to report them as processed. These are candidates that took longer then 1
+		// We only need to report them as processed. These are candidates that took longer than 1
 		// block to become available and unfortunately they happened to be right before the session
-		// change.
+		// change. We don't push back to the assignment provider for simplicity.
 		for (core_index, para_id) in occupied_cores {
-			// TODO: can we assume a pool assignment for simplicity?
-			T::AssignmentProvider::report_processed(Assignment::Pool { para_id, core_index });
+			T::AssignmentProvider::report_processed(para_id, core_index);
 		}
 	}
 
@@ -419,7 +418,7 @@ impl<T: Config> Pallet<T> {
 				let core_idx = CoreIndex::from(core_idx);
 
 				if let Some(dropped_para) = Self::pop_from_claim_queue(&core_idx) {
-					T::AssignmentProvider::report_processed(dropped_para);
+					T::AssignmentProvider::report_processed(dropped_para.para_id(), core_idx);
 				}
 
 				Self::fill_claim_queue(core_idx, n_lookahead);

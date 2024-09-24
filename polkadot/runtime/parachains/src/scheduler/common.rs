@@ -60,7 +60,7 @@ pub trait AssignmentProvider<BlockNumber> {
 	/// the scheduler.
 	///
 	/// This is one way of the life of an assignment coming to an end.
-	fn report_processed(assignment: Assignment);
+	fn report_processed(_: ParaId, _: CoreIndex);
 
 	/// Push back a previously popped assignment.
 	///
@@ -73,7 +73,7 @@ pub trait AssignmentProvider<BlockNumber> {
 	/// Push some assignment for mocking/benchmarks purposes.
 	///
 	/// Useful for benchmarks and testing. The returned assignment is "valid" and can if need be
-	/// passed into `report_processed` for example.
+	/// passed into `push_back_assignment` for example.
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn get_mock_assignment(core_idx: CoreIndex, para_id: ParaId) -> Assignment;
 

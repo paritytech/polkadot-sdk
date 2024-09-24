@@ -328,6 +328,7 @@ where
 	///
 	/// In other words for each `pop_assignment_for_core` a call to this function or
 	/// `push_back_assignment` must follow, but only one.
+	/// Is a no-op if the paraid had no affinity to the core.
 	pub fn report_processed(para_id: ParaId, core_index: CoreIndex) {
 		Pallet::<T>::decrease_affinity_update_queue(para_id, core_index);
 	}
@@ -569,13 +570,9 @@ where
 	/// Decrease core affinity for para and update queue
 	///
 	/// if affinity dropped to 0, moving entries back to `FreeEntries`.
+	/// if the paraid had no affinity to the core, do nothing.
 	fn decrease_affinity_update_queue(para_id: ParaId, core_index: CoreIndex) {
 		let affinity = Pallet::<T>::decrease_affinity(para_id, core_index);
-		#[cfg(not(test))]
-		debug_assert_ne!(
-			affinity, None,
-			"Decreased affinity for a para that has not been served on a core?"
-		);
 		if affinity != Some(0) {
 			return;
 		}

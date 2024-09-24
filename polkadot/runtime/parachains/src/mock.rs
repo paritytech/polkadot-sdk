@@ -545,7 +545,7 @@ pub mod mock_assigner {
 		}
 
 		// We don't care about core affinity in the test assigner
-		fn report_processed(_assignment: Assignment) {}
+		fn report_processed(_: ParaId, _: CoreIndex) {}
 
 		// The results of this are tested in on_demand tests. No need to represent it
 		// in the mock assigner.
