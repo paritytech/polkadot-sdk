@@ -575,8 +575,7 @@ where
 		// emit an `InvalidContinue error`.
 		if self.subscriptions.get_operation(&follow_subscription, &operation_id).is_some() {
 			Err(ChainHeadRpcError::InvalidContinue.into())
-		}
-		else {
+		} else {
 			Ok(())
 		}
 	}
