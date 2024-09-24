@@ -183,8 +183,6 @@ where
 			_ => return RelayerAccountAction::None,
 		};
 
-		// lane_id.as_32-byte stuff to trait
-
 		// now we know that the call is supported and we may need to reward or slash relayer
 		// => let's prepare the correspondent account that pays reward/receives slashed amount
 		let lane_id = call_info.messages_call_info().lane_id();
