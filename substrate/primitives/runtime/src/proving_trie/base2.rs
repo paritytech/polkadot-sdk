@@ -70,8 +70,7 @@ where
 	}
 
 	/// Create a compact merkle proof needed to prove a single key and its value are in the trie.
-	/// Returns `None` if the nodes within the current `db` are insufficient to create a
-	/// proof.
+	/// Returns an error if the nodes within the current `db` are insufficient to create a proof.
 	fn create_proof(&self, key: &Key) -> Result<Vec<u8>, DispatchError> {
 		let mut encoded = Vec::with_capacity(self.db.len());
 		let mut found_index = None;
