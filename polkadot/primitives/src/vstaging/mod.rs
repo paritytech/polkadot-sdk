@@ -460,7 +460,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	/// between `ParaId` and the cores assigned per depth.
 	pub fn check_core_index(
 		&self,
-		cores_per_para: &BTreeMap<ParaId, BTreeMap<u8, BTreeSet<CoreIndex>>>,
+		cores_per_para: &TransposedClaimQueue,
 	) -> Result<(), CandidateReceiptError> {
 		match self.descriptor.version() {
 			// Don't check v1 descriptors.
@@ -750,11 +750,14 @@ impl<H: Copy> From<CoreState<H>> for super::v8::CoreState<H> {
 	}
 }
 
+/// The claim queue mapped by parachain id.
+pub type TransposedClaimQueue = BTreeMap<ParaId, BTreeMap<u8, BTreeSet<CoreIndex>>>;
+
 /// Returns a mapping between the para id and the core indices assigned at different
 /// depths in the claim queue.
 pub fn transpose_claim_queue(
 	claim_queue: BTreeMap<CoreIndex, VecDeque<Id>>,
-) -> BTreeMap<ParaId, BTreeMap<u8, BTreeSet<CoreIndex>>> {
+) -> TransposedClaimQueue {
 	let mut per_para_claim_queue = BTreeMap::new();
 
 	for (core, paras) in claim_queue {
