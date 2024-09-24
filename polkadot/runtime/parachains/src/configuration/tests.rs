@@ -355,11 +355,6 @@ fn setting_pending_config_members() {
 			new_config.scheduler_params.num_cores,
 		)
 		.unwrap();
-		Configuration::set_max_availability_timeouts(
-			RuntimeOrigin::root(),
-			new_config.scheduler_params.max_availability_timeouts,
-		)
-		.unwrap();
 		Configuration::set_group_rotation_frequency(
 			RuntimeOrigin::root(),
 			new_config.scheduler_params.group_rotation_frequency,
