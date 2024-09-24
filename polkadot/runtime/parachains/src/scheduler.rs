@@ -167,8 +167,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Called after the initializer notifies all modules of a new session.
-	pub(crate) fn post_new_session() {
-		Self::maybe_resize_claim_queue();
+	pub(crate) fn post_new_session(prev_core_count: u32) {
+		Self::maybe_resize_claim_queue(prev_core_count);
 		Self::populate_claim_queue_after_session_change();
 	}
 
@@ -355,9 +355,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// on new session
-	fn maybe_resize_claim_queue() {
+	fn maybe_resize_claim_queue(old_core_count: u32) {
 		let new_core_count = Self::num_cores();
-		let old_core_count = ClaimQueue::<T>::get().len() as u32;
 
 		if new_core_count < old_core_count {
 			let dropped_cores = ClaimQueue::<T>::mutate(|cq| {

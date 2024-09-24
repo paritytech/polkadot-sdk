@@ -260,6 +260,7 @@ impl<T: Config> Pallet<T> {
 		let configuration::SessionChangeOutcome { prev_config, new_config } =
 			configuration::Pallet::<T>::initializer_on_new_session(&session_index);
 		let new_config = new_config.unwrap_or_else(|| prev_config.clone());
+		let prev_core_count = scheduler::Pallet::<T>::num_cores();
 
 		let validators = shared::Pallet::<T>::initializer_on_new_session(
 			session_index,
@@ -287,7 +288,7 @@ impl<T: Config> Pallet<T> {
 		hrmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
 		T::CoretimeOnNewSession::on_new_session(&notification);
 
-		scheduler::Pallet::<T>::post_new_session();
+		scheduler::Pallet::<T>::post_new_session(prev_core_count);
 	}
 
 	/// Should be called when a new session occurs. Buffers the session notification to be applied
