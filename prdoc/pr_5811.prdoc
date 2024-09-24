@@ -10,4 +10,4 @@ doc:
 
 crates:
   - name: sc-client-api
-    bump: minor
+    bump: patch
