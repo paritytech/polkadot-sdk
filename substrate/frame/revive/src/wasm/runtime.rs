@@ -1904,12 +1904,9 @@ pub mod env {
 	/// See [`pallet_revive_uapi::HostFn::return_data_size`].
 	#[api_version(0)]
 	fn return_data_size(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::CopyToContract(32))?;
-		Ok(memory.write_fixed_sandbox_output(
-			out_ptr,
-			&as_bytes(U256::from(self.ext.last_frame_output().data.len())),
-			false,
-		)?)
+		let bytes = as_bytes(U256::from(self.ext.last_frame_output().data.len()));
+		self.charge_gas(RuntimeCosts::CopyToContract(bytes.len() as u32))?;
+		Ok(memory.write_fixed_sandbox_output(out_ptr, &bytes, false)?)
 	}
 
 	/// Stores data returned by the last call, starting from `offset`, into the supplied buffer.
