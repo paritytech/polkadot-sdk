@@ -48,9 +48,9 @@ use frame_support::{
 };
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
+use sp_core::crypto::Ss58Codec;
 use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
-use sp_core::crypto::Ss58Codec;
 use testnet_parachains_constants::rococo::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::prelude::{Assets as XcmAssets, *};
 use xcm_builder::WithLatestLocationConverter;
@@ -1371,56 +1371,29 @@ fn location_conversion_works() {
 		// DescribeTerminus
 		TestCase {
 			description: "DescribeTerminus Child",
-			location: Location::new(
-				0,
-				[
-					Parachain(1111),
-				],
-			),
+			location: Location::new(0, [Parachain(1111)]),
 			expected_account_id_str: "5FiBkHTJvHyWmbJJJSCc8X8Y1xS3niAfabkgi3L27usapmSX",
 		},
 		TestCase {
 			description: "DescribeTerminus Sibling",
-			location: Location::new(
-				1,
-				[
-					Parachain(1111),
-				],
-			),
+			location: Location::new(1, [Parachain(1111)]),
 			expected_account_id_str: "5Eg2fnssmmJnF3z1iZ1NouAuzciDaaDQH7qURAy3w15jULDk",
 		},
 		// DescribePalletTerminal
 		TestCase {
 			description: "DescribePalletTerminal Child",
-			location: Location::new(
-				0,
-				[
-					Parachain(1111),
-					PalletInstance(50),
-				],
-			),
+			location: Location::new(0, [Parachain(1111), PalletInstance(50)]),
 			expected_account_id_str: "5FjEBrKn3STAFsZpQF4jzwxUYHNGnNgzdZqSQfTzeJ82XKp6",
 		},
 		TestCase {
 			description: "DescribePalletTerminal Sibling",
-			location: Location::new(
-				1,
-				[
-					Parachain(1111),
-					PalletInstance(50),
-				],
-			),
+			location: Location::new(1, [Parachain(1111), PalletInstance(50)]),
 			expected_account_id_str: "5GFBgPjpEQPdaxEnFirUoa51u5erVx84twYxJVuBRAT2UP2g",
 		},
 		// DescribeAccountId32Terminal
 		TestCase {
 			description: "DescribeAccountId32Terminal Child",
-			location: Location::new(
-				0,
-				[
-					Parachain(1111),
-				],
-			),
+			location: Location::new(0, [Parachain(1111)]),
 			expected_account_id_str: "5FiBkHTJvHyWmbJJJSCc8X8Y1xS3niAfabkgi3L27usapmSX",
 		},
 		TestCase {
@@ -1439,13 +1412,7 @@ fn location_conversion_works() {
 			description: "DescribeAccountKey20Terminal Child",
 			location: Location::new(
 				0,
-				[
-					Parachain(1111),
-					AccountKey20 {
-						network: None,
-						key: [0u8; 20],
-					},
-				],
+				[Parachain(1111), AccountKey20 { network: None, key: [0u8; 20] }],
 			),
 			expected_account_id_str: "5HohjXdjs6afcYcgHHSstkrtGfxgfGKsnZ1jtewBpFiGu4DL",
 		},
@@ -1453,13 +1420,7 @@ fn location_conversion_works() {
 			description: "DescribeAccountKey20Terminal Sibling",
 			location: Location::new(
 				1,
-				[
-					Parachain(1111),
-					AccountKey20 {
-						network: None,
-						key: [0u8; 20],
-					},
-				],
+				[Parachain(1111), AccountKey20 { network: None, key: [0u8; 20] }],
 			),
 			expected_account_id_str: "5CB2FbUds2qvcJNhDiTbRZwiS3trAy6ydFGMSVutmYijpPAg",
 		},
@@ -1468,13 +1429,7 @@ fn location_conversion_works() {
 			description: "DescribeTreasuryVoiceTerminal Child",
 			location: Location::new(
 				0,
-				[
-					Parachain(1111),
-					Plurality {
-						id: BodyId::Treasury,
-						part: BodyPart::Voice,
-					},
-				],
+				[Parachain(1111), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }],
 			),
 			expected_account_id_str: "5GenE4vJgHvwYVcD6b4nBvH5HNY4pzpVHWoqwFpNMFT7a2oX",
 		},
@@ -1482,13 +1437,7 @@ fn location_conversion_works() {
 			description: "DescribeTreasuryVoiceTerminal Sibling",
 			location: Location::new(
 				1,
-				[
-					Parachain(1111),
-					Plurality {
-						id: BodyId::Treasury,
-						part: BodyPart::Voice,
-					},
-				],
+				[Parachain(1111), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }],
 			),
 			expected_account_id_str: "5G6TDwaVgbWmhqRUKjBhRRnH4ry9L9cjRymUEmiRsLbSE4gB",
 		},
@@ -1497,13 +1446,7 @@ fn location_conversion_works() {
 			description: "DescribeBodyTerminal Child",
 			location: Location::new(
 				0,
-				[
-					Parachain(1111),
-					Plurality {
-						id: BodyId::Unit,
-						part: BodyPart::Voice,
-					},
-				],
+				[Parachain(1111), Plurality { id: BodyId::Unit, part: BodyPart::Voice }],
 			),
 			expected_account_id_str: "5DPgGBFTTYm1dGbtB1VWHJ3T3ScvdrskGGx6vSJZNP1WNStV",
 		},
@@ -1511,25 +1454,20 @@ fn location_conversion_works() {
 			description: "DescribeBodyTerminal Sibling",
 			location: Location::new(
 				1,
-				[
-					Parachain(1111),
-					Plurality {
-						id: BodyId::Unit,
-						part: BodyPart::Voice,
-					},
-				],
+				[Parachain(1111), Plurality { id: BodyId::Unit, part: BodyPart::Voice }],
 			),
 			expected_account_id_str: "5DBoExvojy8tYnHgLL97phNH975CyT45PWTZEeGoBZfAyRMH",
 		},
 	];
 
 	for tc in test_cases {
-		let expected = AccountId::from_string(tc.expected_account_id_str)
-			.expect("Invalid AccountId string");
+		let expected =
+			AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
 
 		let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
 			tc.location.into(),
-		).unwrap();
+		)
+		.unwrap();
 
 		assert_eq!(got, expected, "{}", tc.description);
 	}
