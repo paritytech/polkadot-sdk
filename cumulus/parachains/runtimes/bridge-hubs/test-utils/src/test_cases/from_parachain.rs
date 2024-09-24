@@ -115,6 +115,7 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 		sp_keyring::AccountKeyring,
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
 	) -> sp_runtime::DispatchOutcome,
+	expect_rewards: bool,
 ) where
 	RuntimeHelper: WithRemoteParachainHelper,
 	AccountIdOf<RuntimeHelper::Runtime>: From<AccountId32>,
@@ -213,14 +214,18 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 							lane_id,
 							1,
 						),
-						helpers::VerifyRelayerRewarded::<RuntimeHelper::Runtime, RuntimeHelper::RPI>::expect_relayer_reward(
-							relayer_id_at_this_chain,
-							RewardsAccountParams::new(
-								lane_id,
-								bridged_chain_id,
-								RewardsAccountOwner::ThisChain,
-							),
-						),
+						if expect_rewards {
+                            helpers::VerifyRelayerRewarded::<RuntimeHelper::Runtime, RuntimeHelper::RPI>::expect_relayer_reward(
+                                relayer_id_at_this_chain,
+                                RewardsAccountParams::new(
+                                    lane_id,
+                                    bridged_chain_id,
+                                    RewardsAccountOwner::ThisChain,
+                                ),
+                            )
+						} else {
+							Box::new(())
+						}
 					)),
 				),
 			]
@@ -244,6 +249,7 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 		sp_keyring::AccountKeyring,
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
 	) -> sp_runtime::DispatchOutcome,
+	expect_rewards: bool,
 ) where
 	RuntimeHelper: WithRemoteParachainHelper,
 	RuntimeHelper::Runtime: pallet_balances::Config,
@@ -359,10 +365,10 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 							bridged_para_id,
 							parachain_head_hash,
 						),
-						/*helpers::VerifyRelayerBalance::<RuntimeHelper::Runtime>::expect_relayer_balance(
+						helpers::VerifyRelayerBalance::<RuntimeHelper::Runtime>::expect_relayer_balance(
 							relayer_id_at_this_chain.clone(),
 							initial_relayer_balance,
-						),*/
+						),
 					)),
 				),
 				(
@@ -377,14 +383,18 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 							lane_id,
 							1,
 						),
-						helpers::VerifyRelayerRewarded::<RuntimeHelper::Runtime, RuntimeHelper::RPI>::expect_relayer_reward(
-							relayer_id_at_this_chain,
-							RewardsAccountParams::new(
-								lane_id,
-								bridged_chain_id,
-								RewardsAccountOwner::ThisChain,
-							),
-						),
+						if expect_rewards {
+                            helpers::VerifyRelayerRewarded::<RuntimeHelper::Runtime, RuntimeHelper::RPI>::expect_relayer_reward(
+                                relayer_id_at_this_chain,
+                                RewardsAccountParams::new(
+                                    lane_id,
+                                    bridged_chain_id,
+                                    RewardsAccountOwner::ThisChain,
+                                ),
+                            )
+						} else {
+							Box::new(())
+						}
 					)),
 				),
 			]

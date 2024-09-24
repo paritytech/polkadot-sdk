@@ -58,6 +58,8 @@ pub struct WithParachainExtensionConfig<
 	BridgeParachainsPalletInstance,
 	// instance of BridgedChain `pallet-bridge-messages`, tracked by this extension
 	BridgeMessagesPalletInstance,
+	// instance of `pallet-bridge-relayers`, tracked by this extension
+	BridgeRelayersPalletInstance,
 	// message delivery transaction priority boost for every additional message
 	PriorityBoostPerMessage,
 >(
@@ -67,20 +69,23 @@ pub struct WithParachainExtensionConfig<
 		BatchCallUnpacker,
 		BridgeParachainsPalletInstance,
 		BridgeMessagesPalletInstance,
+		BridgeRelayersPalletInstance,
 		PriorityBoostPerMessage,
 	)>,
 );
 
-impl<ID, R, BCU, PI, MI, P> ExtensionConfig for WithParachainExtensionConfig<ID, R, BCU, PI, MI, P>
+impl<ID, R, BCU, PI, MI, RI, P> ExtensionConfig
+	for WithParachainExtensionConfig<ID, R, BCU, PI, MI, RI, P>
 where
 	ID: StaticStrProvider,
-	R: BridgeRelayersConfig
+	R: BridgeRelayersConfig<RI>
 		+ BridgeMessagesConfig<MI>
 		+ BridgeParachainsConfig<PI>
 		+ BridgeGrandpaConfig<R::BridgesGrandpaPalletInstance>,
 	BCU: BatchCallUnpacker<R>,
 	PI: 'static,
 	MI: 'static,
+	RI: 'static,
 	P: Get<TransactionPriority>,
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
 		+ BridgeGrandpaCallSubtype<R, R::BridgesGrandpaPalletInstance>
@@ -91,6 +96,7 @@ where
 	type IdProvider = ID;
 	type Runtime = R;
 	type BridgeMessagesPalletInstance = MI;
+	type BridgeRelayersPalletInstance = RI;
 	type PriorityBoostPerMessage = P;
 	type RemoteGrandpaChainBlockNumber =
 		pallet_bridge_grandpa::BridgedBlockNumber<R, R::BridgesGrandpaPalletInstance>;

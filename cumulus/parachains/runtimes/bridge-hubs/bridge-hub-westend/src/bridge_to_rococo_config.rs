@@ -17,7 +17,9 @@
 //! Bridge definitions used on BridgeHub with the Westend flavor.
 
 use crate::{
-	bridge_common_config::DeliveryRewardInBalance, weights, xcm_config::UniversalLocation,
+	bridge_common_config::{DeliveryRewardInBalance, RelayersForLegacyLaneIdsMessagesInstance},
+	weights,
+	xcm_config::UniversalLocation,
 	AccountId, Balance, Balances, BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent,
 	RuntimeHoldReason, XcmOverBridgeHubRococo, XcmRouter,
 };
@@ -96,6 +98,7 @@ pub type OnBridgeHubWestendRefundBridgeHubRococoMessages = BridgeRelayersSignedE
 		StrOnBridgeHubWestendRefundBridgeHubRococoMessages,
 		Runtime,
 		WithBridgeHubRococoMessagesInstance,
+		RelayersForLegacyLaneIdsMessagesInstance,
 		PriorityBoostPerMessage,
 	>,
 	LaneIdOf<Runtime, WithBridgeHubRococoMessagesInstance>,

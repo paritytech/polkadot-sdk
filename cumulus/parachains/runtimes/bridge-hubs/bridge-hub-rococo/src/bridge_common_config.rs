@@ -22,7 +22,6 @@
 //! GRANDPA tracking pallet only needs to be aware of one chain.
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
-use bp_messages::LegacyLaneId;
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use frame_support::{parameter_types, traits::ConstU32};
 
@@ -83,7 +82,29 @@ impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> fo
 		RelayerStakeLease,
 	>;
 	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
-	type LaneId = LegacyLaneId;
+	type LaneId = bp_messages::LegacyLaneId;
+}
+
+/// Allows collect and claim rewards for relayers
+pub type RelayersForPermissionlessLanesInstance = pallet_bridge_relayers::Instance2;
+impl pallet_bridge_relayers::Config<RelayersForPermissionlessLanesInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Reward = Balance;
+	type PaymentProcedure = bp_relayers::PayRewardFromAccount<
+		pallet_balances::Pallet<Runtime>,
+		AccountId,
+		Self::LaneId,
+	>;
+	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
+		AccountId,
+		BlockNumber,
+		Balances,
+		RelayerStakeReserveId,
+		RequiredStakeForStakeAndSlash,
+		RelayerStakeLease,
+	>;
+	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
+	type LaneId = bp_messages::HashedLaneId;
 }
 
 /// Add GRANDPA bridge pallet to track Rococo Bulletin chain.

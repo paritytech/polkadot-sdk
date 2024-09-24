@@ -123,6 +123,8 @@ pub trait ExtensionConfig {
 	/// Runtime that optionally supports batched calls. We assume that batched call
 	/// succeeds if and only if all of its nested calls succeed.
 	type Runtime: frame_system::Config;
+	/// Relayers pallet instance.
+	type BridgeRelayersPalletInstance: 'static;
 	/// Messages pallet instance.
 	type BridgeMessagesPalletInstance: 'static;
 	/// Additional priority that is added to base message delivery transaction priority

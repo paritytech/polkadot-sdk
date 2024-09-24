@@ -37,6 +37,7 @@ pub struct WithMessagesExtensionConfig<
 	IdProvider,
 	Runtime,
 	BridgeMessagesPalletInstance,
+	BridgeRelayersPalletInstance,
 	PriorityBoostPerMessage,
 >(
 	PhantomData<(
@@ -46,16 +47,19 @@ pub struct WithMessagesExtensionConfig<
 		Runtime,
 		// instance of BridgedChain `pallet-bridge-messages`, tracked by this extension
 		BridgeMessagesPalletInstance,
+		// instance of `pallet-bridge-relayers`, tracked by this extension
+		BridgeRelayersPalletInstance,
 		// message delivery transaction priority boost for every additional message
 		PriorityBoostPerMessage,
 	)>,
 );
 
-impl<ID, R, MI, P> ExtensionConfig for WithMessagesExtensionConfig<ID, R, MI, P>
+impl<ID, R, MI, RI, P> ExtensionConfig for WithMessagesExtensionConfig<ID, R, MI, RI, P>
 where
 	ID: StaticStrProvider,
-	R: BridgeRelayersConfig + BridgeMessagesConfig<MI>,
+	R: BridgeRelayersConfig<RI> + BridgeMessagesConfig<MI>,
 	MI: 'static,
+	RI: 'static,
 	P: Get<TransactionPriority>,
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
 		+ BridgeMessagesCallSubType<R, MI>,
@@ -63,6 +67,7 @@ where
 	type IdProvider = ID;
 	type Runtime = R;
 	type BridgeMessagesPalletInstance = MI;
+	type BridgeRelayersPalletInstance = RI;
 	type PriorityBoostPerMessage = P;
 	type RemoteGrandpaChainBlockNumber = ();
 	type LaneId = LaneIdOf<R, Self::BridgeMessagesPalletInstance>;

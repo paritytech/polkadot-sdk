@@ -62,10 +62,7 @@ fn construct_extrinsic(
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
-		(
-			bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
-			bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
-		),
+		(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),),
 		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 	);
@@ -418,6 +415,7 @@ mod bridge_hub_westend_tests {
 				.1
 			},
 			construct_and_apply_extrinsic,
+			true,
 		)
 	}
 
@@ -451,6 +449,7 @@ mod bridge_hub_westend_tests {
 				.1
 			},
 			construct_and_apply_extrinsic,
+			false,
 		)
 	}
 
@@ -516,9 +515,9 @@ mod bridge_hub_westend_tests {
 
 mod bridge_hub_bulletin_tests {
 	use super::*;
-	use bp_messages::LegacyLaneId;
+	use bp_messages::{HashedLaneId, LaneIdType};
 	use bridge_common_config::BridgeGrandpaRococoBulletinInstance;
-	use bridge_hub_rococo_runtime::bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance;
+	use bridge_hub_rococo_runtime::bridge_common_config::RelayersForPermissionlessLanesInstance;
 	use bridge_hub_test_utils::test_cases::from_grandpa_chain;
 	use bridge_to_bulletin_config::{
 		RococoBulletinGlobalConsensusNetwork, RococoBulletinGlobalConsensusNetworkLocation,
@@ -540,7 +539,7 @@ mod bridge_hub_bulletin_tests {
 		AllPalletsWithoutSystem,
 		BridgeGrandpaRococoBulletinInstance,
 		WithRococoBulletinMessagesInstance,
-		RelayersForLegacyLaneIdsMessagesInstance,
+		RelayersForPermissionlessLanesInstance,
 	>;
 
 	#[test]
@@ -610,7 +609,7 @@ mod bridge_hub_bulletin_tests {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance
-						>(locations, fee, LegacyLaneId([0, 0, 0, 2]))
+						>(locations, fee, HashedLaneId::new(1, 2))
 					}
 				).1
 			},
@@ -673,12 +672,13 @@ mod bridge_hub_bulletin_tests {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance,
-						>(locations, fee, LegacyLaneId([0, 0, 0, 2]))
+						>(locations, fee, HashedLaneId::new(1, 2))
 					},
 				)
 				.1
 			},
 			construct_and_apply_extrinsic,
+			false,
 		)
 	}
 
@@ -705,12 +705,13 @@ mod bridge_hub_bulletin_tests {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance,
-						>(locations, fee, LegacyLaneId([0, 0, 0, 2]))
+						>(locations, fee, HashedLaneId::new(1, 2))
 					},
 				)
 				.1
 			},
 			construct_and_apply_extrinsic,
+			false,
 		)
 	}
 }

@@ -494,6 +494,7 @@ mod tests {
 		RuntimeWithUtilityPallet<TestRuntime>,
 		(),
 		(),
+		(),
 		ConstU64<1>,
 	>;
 	type TestGrandpaExtension =
@@ -504,6 +505,7 @@ mod tests {
 		RuntimeWithUtilityPallet<TestRuntime>,
 		(),
 		(),
+		(),
 		ConstU64<1>,
 	>;
 	type TestExtension =
@@ -511,6 +513,7 @@ mod tests {
 	type TestMessagesExtensionConfig = messages_adapter::WithMessagesExtensionConfig<
 		StrTestMessagesExtension,
 		TestRuntime,
+		(),
 		(),
 		ConstU64<1>,
 	>;

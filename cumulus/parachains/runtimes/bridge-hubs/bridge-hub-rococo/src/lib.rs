@@ -131,10 +131,7 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteHeadersAndMessages,
-	(
-		bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
-		bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages,
-	),
+	(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,),
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
@@ -599,6 +596,9 @@ construct_runtime!(
 		// With-Rococo Bulletin bridge hub pallet.
 		XcmOverPolkadotBulletin: pallet_xcm_bridge_hub::<Instance2> = 62,
 
+		// Bridge relayers pallet, used by several bridges here (another instance).
+		BridgeRelayersForPermissionlessLanes: pallet_bridge_relayers::<Instance2> = 63,
+
 		EthereumInboundQueue: snowbridge_pallet_inbound_queue = 80,
 		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 81,
 		EthereumBeaconClient: snowbridge_pallet_ethereum_client = 82,
@@ -668,13 +668,19 @@ mod benches {
 		[pallet_bridge_parachains, WithinWestend]
 		[pallet_bridge_messages, RococoToWestend]
 		[pallet_bridge_messages, RococoToRococoBulletin]
-		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime>]
+		[pallet_bridge_relayers, Legacy]
+		[pallet_bridge_relayers, PermissionlessLanes]
 		// Ethereum Bridge
 		[snowbridge_pallet_inbound_queue, EthereumInboundQueue]
 		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
 		[snowbridge_pallet_system, EthereumSystem]
 		[snowbridge_pallet_ethereum_client, EthereumBeaconClient]
 	);
+}
+
+cumulus_pallet_parachain_system::register_validate_block! {
+	Runtime = Runtime,
+	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 }
 
 impl_runtime_apis! {
@@ -1045,6 +1051,8 @@ impl_runtime_apis! {
 			type WithinWestend = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWestendInstance>;
 			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>;
 			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
+			type Legacy = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>;
+			type PermissionlessLanes = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForPermissionlessLanesInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -1294,6 +1302,8 @@ impl_runtime_apis! {
 			type WithinWestend = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWestendInstance>;
 			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>;
 			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
+			type Legacy = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>;
+			type PermissionlessLanes = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForPermissionlessLanesInstance>;
 
 			use bridge_runtime_common::messages_benchmarking::{
 				prepare_message_delivery_proof_from_grandpa_chain,
@@ -1448,7 +1458,26 @@ impl_runtime_apis! {
 						AccountId,
 						<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::LaneId,
 					>::rewards_account(account_params);
-					Self::deposit_account(rewards_account, reward);
+					<Runtime as BridgeRelayersConfig<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::deposit_account(rewards_account, reward);
+				}
+
+				fn deposit_account(account: AccountId, balance: Balance) {
+					use frame_support::traits::fungible::Mutate;
+					Balances::mint_into(&account, balance.saturating_add(ExistentialDeposit::get())).unwrap();
+				}
+			}
+
+			impl BridgeRelayersConfig<bridge_common_config::RelayersForPermissionlessLanesInstance> for Runtime {
+				fn prepare_rewards_account(
+					account_params: bp_relayers::RewardsAccountParams<<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForPermissionlessLanesInstance>>::LaneId>,
+					reward: Balance,
+				) {
+					let rewards_account = bp_relayers::PayRewardFromAccount::<
+						Balances,
+						AccountId,
+						<Self as pallet_bridge_relayers::Config<bridge_common_config::RelayersForPermissionlessLanesInstance>>::LaneId,
+					>::rewards_account(account_params);
+					<Runtime as BridgeRelayersConfig<bridge_common_config::RelayersForPermissionlessLanesInstance>>::deposit_account(rewards_account, reward);
 				}
 
 				fn deposit_account(account: AccountId, balance: Balance) {
@@ -1493,11 +1522,6 @@ impl_runtime_apis! {
 	}
 }
 
-cumulus_pallet_parachain_system::register_validate_block! {
-	Runtime = Runtime,
-	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -1525,7 +1549,6 @@ mod tests {
                 BridgeRejectObsoleteHeadersAndMessages,
                 (
                     bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
-                    bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
                 ),
                 cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
                 frame_metadata_hash_extension::CheckMetadataHash::new(false),
