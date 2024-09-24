@@ -9,6 +9,7 @@ repository = "https://github.com/paritytech/polkadot-sdk.git"
 resolver = "2"
 
 members = [
+        "umbrella",
 	"bridges/bin/runtime-common",
 	"bridges/chains/chain-asset-hub-rococo",
 	"bridges/chains/chain-asset-hub-westend",
@@ -538,9 +539,7 @@ members = [
 	"templates/solochain/node",
 	"templates/solochain/pallets/template",
 	"templates/solochain/runtime",
-	"templates/zombienet",
-	"umbrella",
-]
+	"templates/zombienet",]
 
 default-members = [
 	"cumulus/polkadot-parachain",
