@@ -20,7 +20,7 @@
 //! this library is designed to work more easily with runtime native types, which simply need to
 //! implement `Encode`/`Decode`.
 
-use super::{ProofSizeToHashes, ProvingTrie, TrieError};
+use super::{ProofToHashes, ProvingTrie, TrieError};
 use crate::{Decode, DispatchError, Encode};
 use binary_merkle_tree::{merkle_proof, merkle_root, MerkleProof};
 use codec::MaxEncodedLen;
@@ -102,21 +102,21 @@ where
 	}
 }
 
-impl<Hashing, Key, Value> ProofSizeToHashes for BasicProvingTrie<Hashing, Key, Value>
+impl<Hashing, Key, Value> ProofToHashes for BasicProvingTrie<Hashing, Key, Value>
 where
 	Hashing: sp_core::Hasher,
-	Hashing::Out: MaxEncodedLen,
+	Hashing::Out: MaxEncodedLen + Decode,
+	Key: Decode,
+	Value: Decode,
 {
-	fn proof_size_to_hashes(proof_size: &u32) -> u32 {
-		let hash_len = Hashing::Out::max_encoded_len() as u32;
-		// A base 2 trie is expected to include the data for 1 hash per layer.
-		let layer_len = 1 * hash_len;
-		// The proof includes `number_of_leaves: u32` and `leaf_index: u32`.
-		let proof_size = proof_size.saturating_sub(8);
-		// The implementation of this trie also includes the `key` and `value` encoded within the
-		// proof, but since we cannot know the "minimum" size of those items, we count it toward
-		// the number of hashes for a worst case scenario.
-		(proof_size + layer_len - 1) / layer_len
+	// This base 2 merkle trie includes the number of items in the trie, which we can directly use
+	// to figure out the depth of the trie.
+	fn proof_to_hashes(proof: &[u8]) -> Result<u32, DispatchError> {
+		let decoded_proof: MerkleProof<Hashing::Out, Vec<u8>> =
+			Decode::decode(&mut &proof[..]).map_err(|_| TrieError::IncompleteProof)?;
+		// Base 2 trie should have depth log2(n).
+		let depth = log2_rounded_up(decoded_proof.number_of_leaves);
+		Ok(depth)
 	}
 }
 
@@ -153,6 +153,22 @@ where
 		Ok(())
 	} else {
 		Err(TrieError::IncompleteProof.into())
+	}
+}
+
+// This calculates a pessimistic log2 of a u32. For our needs `log2(0)` can be zero.
+fn log2_rounded_up(x: u32) -> u32 {
+	if x == 0 || x == 1 {
+		return 0;
+	}
+
+	let log2_floor = 31 - x.leading_zeros();
+
+	// If x is a power of 2, no need to round up. Otherwise, add 1 to round up.
+	if x & (x - 1) == 0 {
+		log2_floor
+	} else {
+		log2_floor + 1
 	}
 }
 
@@ -270,5 +286,22 @@ mod tests {
 			leaf: (6u32, 6u128).encode(),
 		};
 		assert_eq!(constructed_proof, decoded_proof);
+	}
+
+	#[test]
+	fn log2_rounded_up_works() {
+		// Broad check.
+		let mut i: u32 = 1;
+		while i < 1_000_000_000 {
+			let log2 = (i as f64).log2().ceil() as u32;
+			assert_eq!(log2_rounded_up(i), log2);
+			i = i * 10;
+		}
+
+		// Explicit edge case check.
+		assert_eq!(log2_rounded_up(0), 0);
+		assert_eq!(log2_rounded_up(1), 0);
+		assert_eq!(log2_rounded_up(32), 5);
+		assert_eq!(log2_rounded_up(33), 6);
 	}
 }

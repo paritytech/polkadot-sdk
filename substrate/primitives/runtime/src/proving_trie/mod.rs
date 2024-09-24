@@ -141,9 +141,9 @@ where
 
 /// This trait is one strategy that can be used to benchmark a trie proof verification for the
 /// runtime. This strategy assumes that the majority complexity of verifying a merkle proof comes
-/// from computing hashes to recreate the merkle root. This trait converts the size of the proof, in
-/// bytes, to the number of hashes we expect to execute.
-pub trait ProofSizeToHashes {
+/// from computing hashes to recreate the merkle root. This trait converts the the proof, some
+/// bytes, to the number of hashes we expect to execute to verify that proof.
+pub trait ProofToHashes {
 	/// This function returns the number of hashes we expect to calculate based on the
 	/// size of the proof. This is used for benchmarking, so for worst case scenario, we should
 	/// round up.
@@ -152,7 +152,7 @@ pub trait ProofSizeToHashes {
 	/// to calculate the merkle root. For tries, it should be easy to predict the depth
 	/// of the trie (which is equivalent to the hashes), by looking at the size of the proof.
 	/// A rough estimate should be: `proof_size` / (`hash_size` * `num_hashes_per_layer`).
-	fn proof_size_to_hashes(proof_size: &u32) -> u32;
+	fn proof_to_hashes(proof: &[u8]) -> Result<u32, DispatchError>;
 }
 
 #[cfg(test)]
@@ -187,7 +187,7 @@ mod tests {
 	}
 
 	#[test]
-	fn proof_size_to_hashes() {
+	fn proof_to_hashes() {
 		// We can be off by up to 2 hashes... should be trivial.
 		let tolerance = 2;
 
@@ -203,7 +203,7 @@ mod tests {
 		while i < 10_000_000 {
 			let trie = BalanceTrie2::generate_for((0..i).map(|i| (i, u128::from(i)))).unwrap();
 			let proof = trie.create_proof(&(i / 2)).unwrap();
-			let hashes = BalanceTrie2::proof_size_to_hashes(&(proof.len() as u32));
+			let hashes = BalanceTrie2::proof_to_hashes(&proof).unwrap();
 			let log2 = (i as f64).log2().ceil() as u32;
 
 			assert!(abs_dif(hashes, log2) <= tolerance);
@@ -221,7 +221,7 @@ mod tests {
 		while i < 10_000_000 {
 			let trie = BalanceTrie16::generate_for((0..i).map(|i| (i, u128::from(i)))).unwrap();
 			let proof = trie.create_proof(&(i / 2)).unwrap();
-			let hashes = BalanceTrie16::proof_size_to_hashes(&(proof.len() as u32));
+			let hashes = BalanceTrie16::proof_to_hashes(&proof).unwrap();
 			let log16 = log16(i);
 
 			assert!(abs_dif(hashes, log16) <= tolerance);

@@ -24,8 +24,8 @@
 //! Proofs are created with latest substrate trie format (`LayoutV1`), and are not compatible with
 //! proofs using `LayoutV0`.
 
-use super::{ProofSizeToHashes, ProvingTrie, TrieError};
-use crate::{Decode, DispatchError, Encode};
+use super::{ProofToHashes, ProvingTrie, TrieError};
+use crate::{ArithmeticError, Decode, DispatchError, Encode};
 use codec::MaxEncodedLen;
 use sp_std::vec::Vec;
 use sp_trie::{
@@ -135,16 +135,29 @@ where
 	}
 }
 
-impl<Hashing, Key, Value> ProofSizeToHashes for BasicProvingTrie<Hashing, Key, Value>
+impl<Hashing, Key, Value> ProofToHashes for BasicProvingTrie<Hashing, Key, Value>
 where
 	Hashing: sp_core::Hasher,
 	Hashing::Out: MaxEncodedLen,
 {
-	fn proof_size_to_hashes(proof_size: &u32) -> u32 {
+	// This base 16 trie does not directly expose the depth of the trie, so we can roughly calculate
+	// it assuming the data in the proof are hashes, and the number of hashes present will tell us
+	// the depth of the trie.
+	fn proof_to_hashes(proof: &[u8]) -> Result<u32, DispatchError> {
+		let proof_size = proof.len() as u32;
 		let hash_len = Hashing::Out::max_encoded_len() as u32;
 		// A base 16 trie is expected to include the data for 15 hashes per layer.
-		let layer_len = 15 * hash_len;
-		(proof_size + layer_len - 1) / layer_len
+		let layer_len = hash_len.checked_mul(15).ok_or(ArithmeticError::Overflow)?;
+		let proof_size_round_up = proof_size
+			.checked_add(layer_len)
+			.ok_or(ArithmeticError::Overflow)?
+			.checked_sub(1)
+			.ok_or(ArithmeticError::Underflow)?;
+
+		let depth = proof_size_round_up
+			.checked_div(layer_len)
+			.ok_or(ArithmeticError::DivisionByZero)?;
+		Ok(depth)
 	}
 }
 
