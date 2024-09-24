@@ -191,11 +191,14 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
+      - uses: actions/checkout@v4
 
       - name: Info rust
         run: |
           rustup show
           cargo --version
+          cargo +nightly --version
+          cargo clippy --version
           echo "yarn version: $(yarn --version)"
           echo $( substrate-contracts-node --version | awk 'NF' )
           estuary --version
