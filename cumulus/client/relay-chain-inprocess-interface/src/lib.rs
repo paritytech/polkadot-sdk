@@ -14,14 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{collections::btree_map::BTreeMap, pin::Pin, sync::Arc, time::Duration};
+use std::{
+	collections::{BTreeMap, VecDeque},
+	pin::Pin,
+	sync::Arc,
+	time::Duration,
+};
 
 use async_trait::async_trait;
 use cumulus_primitives_core::{
 	relay_chain::{
 		runtime_api::ParachainHost, Block as PBlock, BlockId, BlockNumber,
-		CommittedCandidateReceipt, CoreState, Hash as PHash, Header as PHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
+		CommittedCandidateReceipt, CoreIndex, CoreState, Hash as PHash, Header as PHeader,
+		InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -302,6 +307,13 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 			.into_iter()
 			.map(|receipt| receipt.into())
 			.collect::<Vec<_>>())
+	}
+
+	async fn claim_queue(
+		&self,
+		hash: PHash,
+	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+		Ok(self.full_client.runtime_api().claim_queue(hash)?)
 	}
 }
 

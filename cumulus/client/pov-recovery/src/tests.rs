@@ -18,7 +18,7 @@ use super::*;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::relay_chain::{
-	BlockId, CandidateCommitments, CandidateDescriptor, CoreState,
+	BlockId, CandidateCommitments, CandidateDescriptor, CoreIndex, CoreState,
 };
 use cumulus_relay_chain_interface::{
 	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,
@@ -43,7 +43,7 @@ use sp_runtime::{generic::SignedBlock, Justifications};
 use sp_version::RuntimeVersion;
 use std::{
 	borrow::Cow,
-	collections::BTreeMap,
+	collections::{BTreeMap, VecDeque},
 	ops::Range,
 	sync::{Arc, Mutex},
 };
@@ -485,6 +485,13 @@ impl RelayChainInterface for Relaychain {
 		&self,
 		_: PHash,
 	) -> RelayChainResult<Vec<CoreState<PHash, NumberFor<Block>>>> {
+		unimplemented!("Not needed for test");
+	}
+
+	async fn claim_queue(
+		&self,
+		_: PHash,
+	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
 		unimplemented!("Not needed for test");
 	}
 

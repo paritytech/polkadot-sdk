@@ -22,7 +22,7 @@ mod test_runtime {
 	#[runtime::pallet_index(0)]
 	pub type System = frame_system;
 	#[runtime::pallet_index(1)]
-	pub type TemplateModule = crate;
+	pub type Template = crate;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
