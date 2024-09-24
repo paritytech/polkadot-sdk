@@ -50,11 +50,12 @@ use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance}
 use sp_consensus_aura::SlotDuration;
 use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
+use sp_core::crypto::Ss58Codec;
 use testnet_parachains_constants::rococo::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::prelude::{Assets as XcmAssets, *};
 use xcm_builder::WithLatestLocationConverter;
 use xcm_executor::traits::{JustTry, WeightTrader};
-use xcm_runtime_apis::conversions::LocationToAccountHelper;
+use xcm_runtime_apis::conversions::{Error, LocationToAccountHelper};
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
@@ -1359,14 +1360,63 @@ fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 
 #[test]
 fn location_conversion_works() {
-	let alice_on_bh = Location::new(
-		1,
-		[
-			Parachain(1111),
-			Junction::AccountId32 { network: None, id: AccountId::from(ALICE).into() },
-		],
-	);
-	assert_ok!(LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
-		alice_on_bh.into()
-	));
+	// the purpose of hardcoded values is to catch an unintended location conversion logic change.
+	struct TestCase {
+		description: &'static str,
+		location: Location,
+		expected_account_id_str: &'static str,
+	}
+
+	let test_cases = vec![
+		TestCase {
+			description: "Child Chain",
+			location: Location::new(
+				0,
+				[
+					Parachain(1111),
+				],
+			),
+			expected_account_id_str: "5FiBkHTJvHyWmbJJJSCc8X8Y1xS3niAfabkgi3L27usapmSX",
+		},
+		TestCase {
+			description: "Sibling Chain with Account",
+			location: Location::new(
+				1,
+				[
+					Parachain(1111),
+					Junction::AccountId32 { network: None, id: AccountId::from(ALICE).into() },
+				],
+			),
+			expected_account_id_str: "5DGRXLYwWGce7wvm14vX1Ms4Vf118FSWQbJkyQigY2pfm6bg",
+		},
+		TestCase {
+			description: "Raw Sibling Chain",
+			location: Location::new(
+				1,
+				[
+					Parachain(1111),
+				],
+			),
+			expected_account_id_str: "5Eg2fnssmmJnF3z1iZ1NouAuzciDaaDQH7qURAy3w15jULDk",
+		},
+		TestCase {
+			description: "Parent Chain",
+			location: Location::new(
+				1,
+				[],
+			),
+			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+		},
+	];
+
+	for test_case in test_cases {
+		let expected = AccountId::from_string(test_case.expected_account_id_str)
+			.expect("Invalid AccountId string");
+
+		let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
+			test_case.location.into(),
+		).unwrap();
+
+		assert_eq!(got, expected, "{}", test_case.description);
+	}
 }
