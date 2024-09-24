@@ -28,6 +28,7 @@ use cumulus_primitives_core::{
 		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
 		Block as PBlock, BlockId, BlockNumber, Hash as PHash, Header as PHeader,
 		InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
+		CoreIndex,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
