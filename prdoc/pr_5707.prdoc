@@ -9,11 +9,11 @@ doc:
       Removed the `CandidateValidationMessage::ValidateFromChainState`, which was previously used by backing, but is no longer relevant since initial async backing implementation
 
 crates:
-  - name: polkadot-overseer
-    bump: patch
   - name: polkadot-node-subsystem-types
-    bump: patch
+    bump: major
   - name: polkadot-node-core-candidate-validation
-    bump: patch
+    bump: major
   - name: polkadot
+    bump: patch
+  - name: polkadot-overseer
     bump: patch
