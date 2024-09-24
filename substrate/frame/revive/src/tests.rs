@@ -412,6 +412,7 @@ parameter_types! {
 	pub static DepositPerByte: BalanceOf<Test> = 1;
 	pub const DepositPerItem: BalanceOf<Test> = 2;
 	pub static CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+	pub static ChainId: u64 = 384;
 }
 
 impl Convert<Weight, BalanceOf<Self>> for Test {
@@ -496,6 +497,7 @@ impl Config for Test {
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Debug = TestDebug;
+	type ChainId = ChainId;
 }
 
 pub struct ExtBuilder {
@@ -4230,6 +4232,97 @@ mod run_tests {
 				builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_contract();
 
 			assert_ok!(builder::call(addr_caller).data(addr_callee.encode()).build());
+		});
+	}
+
+	#[test]
+	fn create1_with_value_works() {
+		let (code, code_hash) = compile_module("create1_with_value").unwrap();
+		let value = 42;
+		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Create the contract: Constructor does nothing.
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Call the contract: Deploys itself using create1 and the expected value
+			assert_ok!(builder::call(addr).value(value).data(code_hash.encode()).build());
+
+			// We should see the expected balance at the expected account
+			let address = crate::address::create1(&addr, 0);
+			let account_id = <Test as Config>::AddressMapper::to_account_id(&address);
+			let usable_balance = <Test as Config>::Currency::usable_balance(&account_id);
+			assert_eq!(usable_balance, value);
+		});
+	}
+
+	#[test]
+	fn static_data_limit_is_enforced() {
+		let (oom_rw_trailing, _) = compile_module("oom_rw_trailing").unwrap();
+		let (oom_rw_included, _) = compile_module("oom_rw_included").unwrap();
+		let (oom_ro, _) = compile_module("oom_ro").unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = Balances::set_balance(&ALICE, 1_000_000);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					oom_rw_trailing,
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::StaticMemoryTooLarge
+			);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					oom_rw_included,
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::BlobTooLarge
+			);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					oom_ro,
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::BlobTooLarge
+			);
+		});
+	}
+
+	#[test]
+	fn call_diverging_out_len_works() {
+		let (code, _) = compile_module("call_diverging_out_len").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Create the contract: Constructor does nothing
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Call the contract: It will issue calls and deploys, asserting on
+			// correct output if the supplied output length was smaller than
+			// than what the callee returned.
+			assert_ok!(builder::call(addr).build());
+		});
+	}
+
+	#[test]
+	fn chain_id_works() {
+		let (code, _) = compile_module("chain_id").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let chain_id = U256::from(<Test as Config>::ChainId::get());
+			let received = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_result();
+			assert_eq!(received.result.data, chain_id.encode());
 		});
 	}
 }

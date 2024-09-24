@@ -678,7 +678,7 @@ impl<T: Config> Pallet<T> {
 			return Some(ControlFlow::Break(cursor))
 		}
 
-		let Some(id) = T::Migrations::nth_id(cursor.index) else {
+		if cursor.index >= T::Migrations::len() {
 			// No more migrations in the tuple - we are done.
 			defensive_assert!(cursor.index == T::Migrations::len(), "Inconsistent MBMs tuple");
 			Self::deposit_event(Event::UpgradeCompleted);
@@ -687,8 +687,9 @@ impl<T: Config> Pallet<T> {
 			return None;
 		};
 
-		let Ok(bounded_id): Result<IdentifierOf<T>, _> = id.try_into() else {
-			defensive!("integrity_test ensures that all identifiers' MEL bounds fit into CursorMaxLen; qed.");
+		let id = T::Migrations::nth_id(cursor.index).map(TryInto::try_into);
+		let Some(Ok(bounded_id)): Option<Result<IdentifierOf<T>, _>> = id else {
+			defensive!("integrity_test ensures that all identifiers are present and bounde; qed.");
 			Self::upgrade_failed(Some(cursor.index));
 			return None
 		};
