@@ -16,9 +16,11 @@ crates:
 - name: parachains-runtimes-test-utils
   bump: patch
 - name: bp-messages
-  bump: major
+  bump: minor
+  validate: false
 - name: bp-relayers
-  bump: major
+  bump: minor
+  validate: false
 - name: bp-xcm-bridge-hub
   bump: patch
 - name: pallet-bridge-messages
@@ -26,7 +28,8 @@ crates:
 - name: pallet-bridge-relayers
   bump: patch
 - name: pallet-xcm-bridge-hub
-  bump: major
+  bump: minor
+  validate: false
 - name: emulated-integration-tests-common
   bump: patch
 - name: bp-bridge-hub-kusama
@@ -40,10 +43,12 @@ crates:
 - name: bp-polkadot-bulletin
   bump: patch
 - name: bridge-hub-rococo-runtime
-  bump: major
+  bump: minor
+  validate: false
 - name: bridge-hub-westend-runtime
   bump: patch
 - name: polkadot-parachain-bin
   bump: none
 - name: bridge-hub-test-utils
-  bump: major
+  bump: minor
+  validate: false
