@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: make RPC endpoint `chainHead_v1_storage` faster
+
+doc:
+  - audience: Node Operator
+    description: |
+      The RPC endpoint `chainHead_v1_storage` has removed the static limit for the number 
+      of storage queries instead it has removed all static limits and relies on backpressure.
+      This should improve the throughput for bigger storage queries significantly.
+
+      Benchmarks using subxt on localhost:
+        - Iterate over 10 accounts on westend-dev -> ~2-3x faster
+        - Fetch 1024 storage values (i.e, not descedant values) -> ~50x faster
+        - Fetch 1024 descendant values -> ~500x faster
+
+crates: 
+  - name: sc-rpc-spec-v2
+    bump: patch
