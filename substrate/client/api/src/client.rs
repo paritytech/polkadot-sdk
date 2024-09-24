@@ -65,8 +65,9 @@ pub trait BlockOf {
 pub trait BlockchainEvents<Block: BlockT> {
 	/// Get block import event stream.
 	///
-	/// Not guaranteed to be fired for every imported block. Use `every_import_notification_stream()`
-	/// if you want a notification of every imported block regardless.
+	/// Not guaranteed to be fired for every imported block. Use
+	/// `every_import_notification_stream()` if you want a notification of every imported block
+	/// regardless.
 	///
 	/// The events for this notification stream are emitted:
 	/// - During initial sync process: if there is a re-org while importing blocks. See
