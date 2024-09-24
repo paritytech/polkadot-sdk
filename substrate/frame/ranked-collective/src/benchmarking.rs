@@ -72,20 +72,14 @@ mod benchmarks {
 		let origin =
 			T::AddOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
-		// Create the `Call` to add the member.
-		let call = Call::<T, I>::add_member { who: who_lookup };
-
-		// Dispatch the call and measure execution.
-		#[block]
-		{
-			call.dispatch_bypass_filter(origin)?;
-		}
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, who_lookup);
 
 		// Ensure the member count has increased (or is 1 for rank 0).
 		assert_eq!(MemberCount::<T, I>::get(0), 1);
 
 		// Check that the correct event was emitted.
-		assert_last_event::<T, I>(Event::MemberAdded { who: who.clone() }.into());
+		assert_last_event::<T, I>(Event::MemberAdded { who }.into());
 
 		Ok(())
 	}
@@ -94,7 +88,6 @@ mod benchmarks {
 	fn remove_member(r: Linear<0, 10>) -> Result<(), BenchmarkError> {
 		// Convert `r` to a rank and create members.
 		let rank = r as u16;
-		let _first = make_member::<T, I>(rank);
 		let who = make_member::<T, I>(rank);
 		let who_lookup = T::Lookup::unlookup(who.clone());
 		let last = make_member::<T, I>(rank);
@@ -107,22 +100,16 @@ mod benchmarks {
 		let origin =
 			T::RemoveOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
-		// Create the `Call` for removing the member.
-		let call = Call::<T, I>::remove_member { who: who_lookup, min_rank: rank };
-
-		// Dispatch the call and measure its execution.
-		#[block]
-		{
-			call.dispatch_bypass_filter(origin)?;
-		}
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, who_lookup, rank);
 
 		for r in 0..=rank {
-			assert_eq!(MemberCount::<T, I>::get(r), 2);
+			assert_eq!(MemberCount::<T, I>::get(r), 1);
 			assert_ne!(last_index[r as usize], IdToIndex::<T, I>::get(r, &last).unwrap());
 		}
 
 		// Ensure the correct event was emitted for the member removal.
-		assert_last_event::<T, I>(Event::MemberRemoved { who: who.clone(), rank }.into());
+		assert_last_event::<T, I>(Event::MemberRemoved { who, rank }.into());
 
 		Ok(())
 	}
@@ -138,20 +125,14 @@ mod benchmarks {
 		let origin =
 			T::PromoteOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
-		// Create the `Call` for promoting the member.
-		let call = Call::<T, I>::promote_member { who: who_lookup };
-
-		// Dispatch the call and measure its execution.
-		#[block]
-		{
-			call.dispatch_bypass_filter(origin)?;
-		}
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, who_lookup);
 
 		// Ensure the member's rank has increased by 1.
 		assert_eq!(Members::<T, I>::get(&who).unwrap().rank, rank + 1);
 
 		// Ensure the correct event was emitted for the rank change.
-		assert_last_event::<T, I>(Event::RankChanged { who: who.clone(), rank: rank + 1 }.into());
+		assert_last_event::<T, I>(Event::RankChanged { who, rank: rank + 1 }.into());
 
 		Ok(())
 	}
@@ -160,7 +141,6 @@ mod benchmarks {
 	fn demote_member(r: Linear<0, 10>) -> Result<(), BenchmarkError> {
 		// Convert `r` to a rank and create necessary members for the benchmark.
 		let rank = r as u16;
-		let _first = make_member::<T, I>(rank);
 		let who = make_member::<T, I>(rank);
 		let who_lookup = T::Lookup::unlookup(who.clone());
 		let last = make_member::<T, I>(rank);
@@ -172,20 +152,14 @@ mod benchmarks {
 		let origin =
 			T::DemoteOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
-		// Create the `Call` for demoting the member.
-		let call = Call::<T, I>::demote_member { who: who_lookup };
-
-		// Dispatch the call and measure its execution.
-		#[block]
-		{
-			call.dispatch_bypass_filter(origin)?;
-		}
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, who_lookup);
 
 		// Ensure the member's rank has decreased by 1.
 		assert_eq!(Members::<T, I>::get(&who).map(|x| x.rank), rank.checked_sub(1));
 
 		// Ensure the member count remains as expected.
-		assert_eq!(MemberCount::<T, I>::get(rank), 2);
+		assert_eq!(MemberCount::<T, I>::get(rank), 1);
 
 		// Ensure the index of the last member has changed.
 		assert_ne!(last_index, IdToIndex::<T, I>::get(rank, &last).unwrap());
@@ -193,8 +167,8 @@ mod benchmarks {
 		// Ensure the correct event was emitted depending on the member's rank.
 		assert_last_event::<T, I>(
 			match rank {
-				0 => Event::MemberRemoved { who: who.clone(), rank: 0 },
-				r => Event::RankChanged { who: who.clone(), rank: r - 1 },
+				0 => Event::MemberRemoved { who, rank: 0 },
+				r => Event::RankChanged { who, rank: r - 1 },
 			}
 			.into(),
 		);
@@ -247,9 +221,6 @@ mod benchmarks {
 			assert_err!(vote_false, crate::Error::<T, I>::NotPolling);
 		}
 
-		// Vote again with a different decision (false).
-		assert_ok!(Pallet::<T, I>::vote(SystemOrigin::Signed(caller.clone()).into(), poll, false));
-
 		// If the class exists, verify the vote event and tally.
 		if class_exists {
 			let tally = Tally::from_parts(0, 0, 1);
@@ -268,6 +239,8 @@ mod benchmarks {
 			.next()
 			.map(|c| (true, c))
 			.unwrap_or_else(|| (false, Default::default()));
+		let alice: T::AccountId = whitelisted_caller();
+		let origin = SystemOrigin::Signed(alice.clone());
 
 		// Get rank and create a poll if the class exists.
 		let rank = T::MinRankOfClass::convert(class.clone());
@@ -301,14 +274,8 @@ mod benchmarks {
 		assert_eq!(Voting::<T, I>::iter_prefix(poll).count(), expected_votes);
 
 		// Benchmark the cleanup function.
-		#[block]
-		{
-			let _ = Pallet::<T, I>::cleanup_poll(
-				SystemOrigin::Signed(whitelisted_caller()).into(),
-				poll,
-				n,
-			);
-		}
+		#[extrinsic_call]
+		_(origin, poll, n);
 
 		// Ensure all votes are cleaned up.
 		assert_eq!(Voting::<T, I>::iter().count(), 0);
@@ -330,14 +297,8 @@ mod benchmarks {
 		let origin =
 			T::ExchangeOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
-		// Create the `Call` to exchange the member.
-		let call = Call::<T, I>::exchange_member { who: who_lookup, new_who: new_who_lookup };
-
-		// Dispatch the call and measure execution.
-		#[block]
-		{
-			call.dispatch_bypass_filter(origin)?;
-		}
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, who_lookup, new_who_lookup);
 
 		// Check that the new member was successfully exchanged and holds the correct rank.
 		assert_eq!(Members::<T, I>::get(&new_who).unwrap().rank, 1);
@@ -346,9 +307,7 @@ mod benchmarks {
 		assert_eq!(Members::<T, I>::get(&who), None);
 
 		// Ensure the correct event was emitted.
-		assert_has_event::<T, I>(
-			Event::MemberExchanged { who: who.clone(), new_who: new_who.clone() }.into(),
-		);
+		assert_has_event::<T, I>(Event::MemberExchanged { who, new_who }.into());
 
 		Ok(())
 	}
