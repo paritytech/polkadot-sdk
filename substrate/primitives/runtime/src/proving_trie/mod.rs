@@ -137,6 +137,13 @@ where
 		key: &Key,
 		value: &Value,
 	) -> Result<(), DispatchError>;
+}
+
+/// This trait is one strategy that can be used to benchmark a trie proof verification for the
+/// runtime. This strategy assumes that the majority complexity of verifying a merkle proof comes
+/// from computing hashes to recreate the merkle root. This trait converts the size of the proof, in
+/// bytes, to the number of hashes we expect to execute.
+pub trait ProofSizeToHashes {
 	/// This function returns the number of hashes we expect to calculate based on the
 	/// size of the proof. This is used for benchmarking, so for worst case scenario, we should
 	/// round up.
@@ -181,8 +188,6 @@ mod tests {
 
 	#[test]
 	fn proof_size_to_hashes() {
-		use crate::{testing::H256, traits::BlakeTwo256};
-
 		// We can be off by up to 2 hashes... should be trivial.
 		let tolerance = 2;
 

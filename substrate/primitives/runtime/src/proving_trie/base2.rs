@@ -20,7 +20,7 @@
 //! this library is designed to work more easily with runtime native types, which simply need to
 //! implement `Encode`/`Decode`.
 
-use super::{ProvingTrie, TrieError};
+use super::{ProofSizeToHashes, ProvingTrie, TrieError};
 use crate::{Decode, DispatchError, Encode};
 use binary_merkle_tree::{merkle_proof, merkle_root, MerkleProof};
 use codec::MaxEncodedLen;
@@ -41,7 +41,7 @@ where
 impl<Hashing, Key, Value> ProvingTrie<Hashing, Key, Value> for BasicProvingTrie<Hashing, Key, Value>
 where
 	Hashing: sp_core::Hasher,
-	Hashing::Out: Encode + Decode + MaxEncodedLen,
+	Hashing::Out: Encode + Decode,
 	Key: Encode + Decode + Ord,
 	Value: Encode + Decode + Clone,
 {
@@ -100,11 +100,19 @@ where
 	) -> Result<(), DispatchError> {
 		verify_proof::<Hashing, Key, Value>(root, proof, key, value)
 	}
+}
 
-	/// A base 2 trie is expected to include the data for 1 hash per layer.
+impl<Hashing, Key, Value> ProofSizeToHashes for BasicProvingTrie<Hashing, Key, Value>
+where
+	Hashing: sp_core::Hasher,
+	Hashing::Out: MaxEncodedLen,
+{
 	fn proof_size_to_hashes(proof_size: &u32) -> u32 {
 		let hash_len = Hashing::Out::max_encoded_len() as u32;
+		// A base 2 trie is expected to include the data for 1 hash per layer.
 		let layer_len = 1 * hash_len;
+		// The proof includes `number_of_leaves: u32` and `leaf_index: u32`.
+		let proof_size = proof_size.saturating_sub(8);
 		// The implementation of this trie also includes the `key` and `value` encoded within the
 		// proof, but since we cannot know the "minimum" size of those items, we count it toward
 		// the number of hashes for a worst case scenario.
@@ -242,5 +250,25 @@ mod tests {
 			verify_proof::<BlakeTwo256, _, _>(&root, &[], &6u32, &6u128),
 			Err(TrieError::IncompleteProof.into())
 		);
+	}
+
+	// We make assumptions about the structure of the merkle proof in order to provide the
+	// `proof_size_to_hashes` function. This test keeps those assumptions checked.
+	#[test]
+	fn assert_structure_of_merkle_proof() {
+		let balance_trie = create_balance_trie();
+		let root = *balance_trie.root();
+		// Create a proof for a valid key.
+		let proof = balance_trie.create_proof(&6u32).unwrap();
+		let decoded_proof: MerkleProof<H256, Vec<u8>> = Decode::decode(&mut &proof[..]).unwrap();
+
+		let constructed_proof = MerkleProof::<H256, Vec<u8>> {
+			root,
+			proof: decoded_proof.proof.clone(),
+			number_of_leaves: 100,
+			leaf_index: 6,
+			leaf: (6u32, 6u128).encode(),
+		};
+		assert_eq!(constructed_proof, decoded_proof);
 	}
 }
