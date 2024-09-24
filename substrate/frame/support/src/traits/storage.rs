@@ -200,23 +200,6 @@ where
 	}
 }
 
-/// A storage price modifier that returns zero if number of elements is zero,
-/// otherwise uses a configured [`Convert`] parameter
-pub struct ZeroFootprintOr<I: Convert<Footprint, Balance>, Balance>(PhantomData<(Balance, I)>);
-impl<I, Balance> Convert<Footprint, Balance> for ZeroFootprintOr<I, Balance>
-where
-	I: Convert<Footprint, Balance>,
-	Balance: From<u32>,
-{
-	fn convert(a: Footprint) -> Balance {
-		if a.count > 0 {
-			I::convert(a)
-		} else {
-			0.into()
-		}
-	}
-}
-
 /// Some sort of cost taken from account temporarily in order to offset the cost to the chain of
 /// holding some data [`Footprint`] in state.
 ///
@@ -344,22 +327,6 @@ mod tests {
 
 		assert_eq!(p(0, 0), 7);
 		assert_eq!(p(0, 1), 7);
-		assert_eq!(p(1, 0), 7);
-
-		assert_eq!(p(1, 1), 10);
-		assert_eq!(p(8, 1), 31);
-		assert_eq!(p(1, 8), 31);
-
-		assert_eq!(p(u64::MAX, u64::MAX), u64::MAX);
-	}
-
-	#[test]
-	fn zero_footprint_or_linear_storage_price_works() {
-		type Linear = ZeroFootprintOr<LinearStoragePrice<ConstU64<7>, ConstU64<3>, u64>, u64>;
-		let p = |count, size| Linear::convert(Footprint { count, size });
-
-		assert_eq!(p(0, 0), 0);
-		assert_eq!(p(0, 1), 0);
 		assert_eq!(p(1, 0), 7);
 
 		assert_eq!(p(1, 1), 10);

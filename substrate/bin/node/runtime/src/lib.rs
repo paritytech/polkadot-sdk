@@ -52,7 +52,7 @@ use frame_support::{
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency,
 		EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance, InsideBoth,
 		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing,
-		OnUnbalanced, VariantCountOf, WithdrawReasons, ZeroFootprintOr,
+		OnUnbalanced, VariantCountOf, WithdrawReasons,
 	},
 	weights::{
 		constants::{
@@ -440,19 +440,13 @@ impl pallet_proxy::Config for Runtime {
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		ZeroFootprintOr<
-			LinearStoragePrice<ProxyDepositBase, ProxyDepositPerByte, Balance>,
-			Balance,
-		>,
+		LinearStoragePrice<ProxyDepositBase, ProxyDepositPerByte, Balance>,
 	>;
 	type AnnouncementConsideration = HoldConsideration<
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		ZeroFootprintOr<
-			LinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositPerByte, Balance>,
-			Balance,
-		>,
+		LinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositPerByte, Balance>,
 	>;
 }
 

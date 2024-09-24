@@ -89,7 +89,7 @@ use frame_support::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, Contains, EitherOf,
 		EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg, EverythingBut, InstanceFilter,
 		KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage, ProcessMessageError,
-		StorageMapShim, WithdrawReasons, ZeroFootprintOr,
+		StorageMapShim, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -939,19 +939,13 @@ impl pallet_proxy::Config for Runtime {
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		ZeroFootprintOr<
-			LinearStoragePrice<ProxyDepositBase, ProxyDepositPerByte, Balance>,
-			Balance,
-		>,
+		LinearStoragePrice<ProxyDepositBase, ProxyDepositPerByte, Balance>,
 	>;
 	type AnnouncementConsideration = HoldConsideration<
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		ZeroFootprintOr<
-			LinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositPerByte, Balance>,
-			Balance,
-		>,
+		LinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositPerByte, Balance>,
 	>;
 }
 

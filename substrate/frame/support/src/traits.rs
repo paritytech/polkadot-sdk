@@ -97,7 +97,6 @@ pub use storage::MaybeConsideration;
 pub use storage::{
 	Consideration, Footprint, Incrementable, Instance, LinearStoragePrice, PartialStorageInfoTrait,
 	StorageInfo, StorageInfoTrait, StorageInstance, TrackedStorageKey, WhitelistedStorageKeys,
-	ZeroFootprintOr,
 };
 
 mod dispatch;

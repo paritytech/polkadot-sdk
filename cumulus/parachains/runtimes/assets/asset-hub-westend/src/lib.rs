@@ -46,7 +46,7 @@ use frame_support::{
 		fungible, fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, InstanceFilter,
-		LinearStoragePrice, TransformOrigin, ZeroFootprintOr,
+		LinearStoragePrice, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
@@ -644,19 +644,13 @@ impl pallet_proxy::Config for Runtime {
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		ZeroFootprintOr<
-			LinearStoragePrice<ProxyDepositBase, ProxyDepositPerByte, Balance>,
-			Balance,
-		>,
+		LinearStoragePrice<ProxyDepositBase, ProxyDepositPerByte, Balance>,
 	>;
 	type AnnouncementConsideration = fungible::HoldConsideration<
 		AccountId,
 		Balances,
 		ProxyHoldReason,
-		ZeroFootprintOr<
-			LinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositPerByte, Balance>,
-			Balance,
-		>,
+		LinearStoragePrice<AnnouncementDepositBase, AnnouncementDepositPerByte, Balance>,
 	>;
 }
 

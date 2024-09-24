@@ -10,10 +10,6 @@ doc:
       trait simplifies the implementation, although users now need to refactor their
       configuration of proxy pallet.
 
-      Adds new ZeroFootprintOr storage trait that which is needed to implement previous
-      `proxy-pallet` balance reservation of reserving no balance if there are no items and reserving
-      `base + size * factor` balance if there's at least one item.
-
       Refactors the rest of the dependent crates to use the new proxy pallet with
       Consideration.
 
