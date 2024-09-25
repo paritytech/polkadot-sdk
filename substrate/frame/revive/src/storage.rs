@@ -75,6 +75,8 @@ pub struct ContractInfo<T: Config> {
 	/// to the map can not be removed from the chain state and can be safely used for delegate
 	/// calls.
 	delegate_dependencies: DelegateDependencyMap<T>,
+	/// The size of the immutable data of this contract.
+	immutable_bytes: u32,
 }
 
 impl<T: Config> ContractInfo<T> {
@@ -88,7 +90,7 @@ impl<T: Config> ContractInfo<T> {
 		code_hash: sp_core::H256,
 	) -> Result<Self, DispatchError> {
 		if <ContractInfoOf<T>>::contains_key(address) {
-			return Err(Error::<T>::DuplicateContract.into())
+			return Err(Error::<T>::DuplicateContract.into());
 		}
 
 		let trie_id = {
@@ -108,6 +110,7 @@ impl<T: Config> ContractInfo<T> {
 			storage_item_deposit: Zero::zero(),
 			storage_base_deposit: Zero::zero(),
 			delegate_dependencies: Default::default(),
+			immutable_bytes: 0,
 		};
 
 		Ok(contract)
@@ -202,12 +205,13 @@ impl<T: Config> ContractInfo<T> {
 		if let Some(storage_meter) = storage_meter {
 			let mut diff = meter::Diff::default();
 			match (old_len, new_value.as_ref().map(|v| v.len() as u32)) {
-				(Some(old_len), Some(new_len)) =>
+				(Some(old_len), Some(new_len)) => {
 					if new_len > old_len {
 						diff.bytes_added = new_len - old_len;
 					} else {
 						diff.bytes_removed = old_len - new_len;
-					},
+					}
+				},
 				(None, Some(new_len)) => {
 					diff.bytes_added = new_len;
 					diff.items_added = 1;
@@ -299,8 +303,8 @@ impl<T: Config> ContractInfo<T> {
 	/// of those keys can be deleted from the deletion queue given the supplied weight limit.
 	pub fn deletion_budget(meter: &WeightMeter) -> (Weight, u32) {
 		let base_weight = T::WeightInfo::on_process_deletion_queue_batch();
-		let weight_per_key = T::WeightInfo::on_initialize_per_trie_key(1) -
-			T::WeightInfo::on_initialize_per_trie_key(0);
+		let weight_per_key = T::WeightInfo::on_initialize_per_trie_key(1)
+			- T::WeightInfo::on_initialize_per_trie_key(0);
 
 		// `weight_per_key` being zero makes no sense and would constitute a failure to
 		// benchmark properly. We opt for not removing any keys at all in this case.
@@ -316,7 +320,7 @@ impl<T: Config> ContractInfo<T> {
 	/// Delete as many items from the deletion queue possible within the supplied weight limit.
 	pub fn process_deletion_queue_batch(meter: &mut WeightMeter) {
 		if meter.try_consume(T::WeightInfo::on_process_deletion_queue_batch()).is_err() {
-			return
+			return;
 		};
 
 		let mut queue = <DeletionQueueManager<T>>::load();
@@ -339,7 +343,7 @@ impl<T: Config> ContractInfo<T> {
 				// This happens when our budget wasn't large enough to remove all keys.
 				KillStorageResult::SomeRemaining(keys_removed) => {
 					remaining_key_budget.saturating_reduce(keys_removed);
-					break
+					break;
 				},
 				KillStorageResult::AllRemoved(keys_removed) => {
 					entry.remove();
@@ -355,6 +359,11 @@ impl<T: Config> ContractInfo<T> {
 	/// Returns the code hash of the contract specified by `account` ID.
 	pub fn load_code_hash(account: &AccountIdOf<T>) -> Option<sp_core::H256> {
 		<ContractInfoOf<T>>::get(&T::AddressMapper::to_address(account)).map(|i| i.code_hash)
+	}
+
+	/// Returns the size in bytes of the immutable data of this contract.
+	pub fn immutable_data_size(&self) -> u32 {
+		self.immutable_bytes
 	}
 }
 
@@ -463,7 +472,7 @@ impl<T: Config> DeletionQueueManager<T> {
 	/// the cost of an extra call to `sp_io::storage::next_key` to lookup the next entry in the map
 	fn next(&mut self) -> Option<DeletionQueueEntry<T>> {
 		if self.is_empty() {
-			return None
+			return None;
 		}
 
 		let entry = <DeletionQueue<T>>::get(self.delete_counter);

@@ -167,7 +167,7 @@ impl Diff {
 		} else {
 			debug_assert_eq!(self.bytes_removed, 0);
 			debug_assert_eq!(self.items_removed, 0);
-			return bytes_deposit.saturating_add(&items_deposit)
+			return bytes_deposit.saturating_add(&items_deposit);
 		};
 
 		// Refunds are calculated pro rata based on the accumulated storage within the contract
@@ -190,16 +190,20 @@ impl Diff {
 		info.storage_items =
 			info.storage_items.saturating_add(items_added).saturating_sub(items_removed);
 		match &bytes_deposit {
-			Deposit::Charge(amount) =>
-				info.storage_byte_deposit = info.storage_byte_deposit.saturating_add(*amount),
-			Deposit::Refund(amount) =>
-				info.storage_byte_deposit = info.storage_byte_deposit.saturating_sub(*amount),
+			Deposit::Charge(amount) => {
+				info.storage_byte_deposit = info.storage_byte_deposit.saturating_add(*amount)
+			},
+			Deposit::Refund(amount) => {
+				info.storage_byte_deposit = info.storage_byte_deposit.saturating_sub(*amount)
+			},
 		}
 		match &items_deposit {
-			Deposit::Charge(amount) =>
-				info.storage_item_deposit = info.storage_item_deposit.saturating_add(*amount),
-			Deposit::Refund(amount) =>
-				info.storage_item_deposit = info.storage_item_deposit.saturating_sub(*amount),
+			Deposit::Charge(amount) => {
+				info.storage_item_deposit = info.storage_item_deposit.saturating_add(*amount)
+			},
+			Deposit::Refund(amount) => {
+				info.storage_item_deposit = info.storage_item_deposit.saturating_sub(*amount)
+			},
 		}
 
 		bytes_deposit.saturating_add(&items_deposit)
@@ -261,8 +265,9 @@ impl<T: Config> Contribution<T> {
 	fn update_contract(&self, info: Option<&mut ContractInfo<T>>) -> DepositOf<T> {
 		match self {
 			Self::Alive(diff) => diff.update_contract::<T>(info),
-			Self::Terminated { deposit, beneficiary: _ } | Self::Checked(deposit) =>
-				deposit.clone(),
+			Self::Terminated { deposit, beneficiary: _ } | Self::Checked(deposit) => {
+				deposit.clone()
+			},
 		}
 	}
 }
@@ -342,8 +347,9 @@ where
 	/// Returns the state of the currently executed contract.
 	fn contract_state(&self) -> ContractState<T> {
 		match &self.own_contribution {
-			Contribution::Terminated { deposit: _, beneficiary } =>
-				ContractState::Terminated { beneficiary: beneficiary.clone() },
+			Contribution::Terminated { deposit: _, beneficiary } => {
+				ContractState::Terminated { beneficiary: beneficiary.clone() }
+			},
 			_ => ContractState::Alive,
 		}
 	}
@@ -370,7 +376,7 @@ where
 				let limit = E::check_limit(o, limit, min_leftover)?;
 				Ok(Self { limit, ..Default::default() })
 			},
-		}
+		};
 	}
 
 	/// The total amount of deposit that should change hands as result of the execution
@@ -479,7 +485,7 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 		}
 		if let Deposit::Charge(amount) = total_deposit {
 			if amount > self.limit {
-				return Err(<Error<T>>::StorageDepositLimitExhausted.into())
+				return Err(<Error<T>>::StorageDepositLimitExhausted.into());
 			}
 		}
 		Ok(())
@@ -674,6 +680,7 @@ mod tests {
 		items: u32,
 		bytes_deposit: BalanceOf<Test>,
 		items_deposit: BalanceOf<Test>,
+		immutable_bytes: u32,
 	}
 
 	fn new_info(info: StorageInfo) -> ContractInfo<Test> {
@@ -686,6 +693,7 @@ mod tests {
 			storage_item_deposit: info.items_deposit,
 			storage_base_deposit: Default::default(),
 			delegate_dependencies: Default::default(),
+			immutable_bytes: info.immutable_bytes,
 		}
 	}
 
@@ -773,6 +781,7 @@ mod tests {
 				items: 5,
 				bytes_deposit: 100,
 				items_deposit: 10,
+				immutable_bytes: 0,
 			});
 			let mut nested0 = meter.nested(BalanceOf::<Test>::zero());
 			nested0.charge(&Diff {
@@ -788,6 +797,7 @@ mod tests {
 				items: 10,
 				bytes_deposit: 100,
 				items_deposit: 20,
+				immutable_bytes: 0,
 			});
 			let mut nested1 = nested0.nested(BalanceOf::<Test>::zero());
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
@@ -798,6 +808,7 @@ mod tests {
 				items: 7,
 				bytes_deposit: 100,
 				items_deposit: 20,
+				immutable_bytes: 0,
 			});
 			let mut nested2 = nested0.nested(BalanceOf::<Test>::zero());
 			nested2.charge(&Diff { items_removed: 7, ..Default::default() });
@@ -867,6 +878,7 @@ mod tests {
 				items: 10,
 				bytes_deposit: 100,
 				items_deposit: 20,
+				immutable_bytes: 0,
 			});
 			let mut nested1 = nested0.nested(BalanceOf::<Test>::zero());
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });

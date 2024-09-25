@@ -25,7 +25,7 @@ use crate::{
 	storage::{self, meter::Diff, WriteOutcome},
 	transient_storage::TransientStorage,
 	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DebugBuffer, Error,
-	Event, Pallet as Contracts, LOG_TARGET,
+	Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -56,6 +56,7 @@ use sp_runtime::{
 	traits::{BadOrigin, Convert, Dispatchable, Zero},
 	DispatchError, SaturatedConversion,
 };
+use sp_std::collections::btree_map::BTreeMap;
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
@@ -300,6 +301,11 @@ pub trait Ext: sealing::Sealed {
 		<Self::T as Config>::AddressMapper::to_address(self.account_id())
 	}
 
+	/// Returns the immutable data of the current contract.
+	///
+	/// Returns `Err(InvalidImmutableAccess)` if called from a constructor.
+	fn get_immutable_data(&mut self) -> Result<&mut ImmutableData, DispatchError>;
+
 	/// Returns the balance of the current contract.
 	///
 	/// The `value_transferred` is already added.
@@ -520,6 +526,8 @@ pub struct Stack<'a, T: Config, E> {
 	debug_message: Option<&'a mut DebugBuffer>,
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
+	/// Contract immutable data is kept for the duration of a transaction.
+	immutable_data: BTreeMap<T::AccountId, ImmutableData>,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -835,6 +843,7 @@ where
 			frames: Default::default(),
 			debug_message,
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
+			immutable_data: Default::default(),
 			_phantom: Default::default(),
 		};
 
@@ -865,7 +874,7 @@ where
 					{
 						contract
 					} else {
-						return Ok(None)
+						return Ok(None);
 					}
 				};
 
@@ -1088,8 +1097,9 @@ where
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let output = do_transaction();
 				match &output {
-					Ok(result) if !result.did_revert() =>
-						TransactionOutcome::Commit(Ok((true, output))),
+					Ok(result) if !result.did_revert() => {
+						TransactionOutcome::Commit(Ok((true, output)))
+					},
 					_ => TransactionOutcome::Rollback(Ok((false, output))),
 				}
 			});
@@ -1501,6 +1511,19 @@ where
 	fn caller_is_root(&self) -> bool {
 		// if the caller isn't origin, then it can't be root.
 		self.caller_is_origin() && self.origin == Origin::Root
+	}
+
+	fn get_immutable_data(&mut self) -> Result<&mut ImmutableData, DispatchError> {
+		if self.top_frame().entry_point == ExportedFunction::Constructor {
+			return Err(Error::<T>::InvalidImmutableAccess.into());
+		}
+
+		let account_id = self.account_id().clone();
+		let address = T::AddressMapper::to_address(&account_id);
+		Ok(self
+			.immutable_data
+			.entry(account_id)
+			.or_insert_with(move || <ImmutableDataOf<T>>::get(address).unwrap_or_default()))
 	}
 
 	fn balance(&self) -> U256 {
