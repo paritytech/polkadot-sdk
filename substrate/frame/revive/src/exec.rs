@@ -4320,4 +4320,55 @@ mod tests {
 			assert_matches!(result, Ok(_));
 		});
 	}
+
+	#[test]
+	fn immutable_data_access_checks_work() {
+		let dummy_ch = MockLoader::insert(Constructor, move |ctx, _| {
+			// Calls can not store immutable data
+			assert_eq!(
+				ctx.ext.get_immutable_data(),
+				Err(Error::<Test>::InvalidImmutableAccess.into())
+			);
+			exec_success()
+		});
+		let instantiator_ch = MockLoader::insert(Call, {
+			move |ctx, _| {
+				let value = <Test as Config>::Currency::minimum_balance().into();
+
+				assert_eq!(
+					ctx.ext.set_immutable_data(Default::default()),
+					Err(Error::<Test>::InvalidImmutableAccess.into())
+				);
+
+				// Constructors can not access the immutable data
+				ctx.ext
+					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.unwrap();
+
+				exec_success()
+			}
+		});
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.existential_deposit(15)
+			.build()
+			.execute_with(|| {
+				set_balance(&ALICE, 1000);
+				set_balance(&BOB_CONTRACT_ID, 100);
+				place_contract(&BOB, instantiator_ch);
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap()
+			});
+	}
 }
