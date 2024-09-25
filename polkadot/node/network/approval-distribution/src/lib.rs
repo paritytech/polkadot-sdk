@@ -27,7 +27,6 @@ use self::metrics::Metrics;
 use futures::{select, FutureExt as _};
 use itertools::Itertools;
 use net_protocol::peer_set::{ProtocolVersion, ValidationVersion};
-use polkadot_node_jaeger as jaeger;
 use polkadot_node_network_protocol::{
 	self as net_protocol, filter_by_peer_version,
 	grid_topology::{RandomRouting, RequiredRouting, SessionGridTopologies, SessionGridTopology},
@@ -357,9 +356,6 @@ pub struct State {
 
 	/// Tracks recently finalized blocks.
 	recent_outdated_blocks: RecentlyOutdated,
-
-	/// HashMap from active leaves to spans
-	spans: HashMap<Hash, jaeger::PerLeafSpan>,
 
 	/// Aggression configuration.
 	aggression_config: AggressionConfig,
@@ -871,18 +867,9 @@ impl State {
 		);
 
 		for meta in metas {
-			let mut span = self
-				.spans
-				.get(&meta.hash)
-				.map(|span| span.child(&"handle-new-blocks"))
-				.unwrap_or_else(|| jaeger::Span::new(meta.hash, &"handle-new-blocks"))
-				.with_string_tag("block-hash", format!("{:?}", meta.hash))
-				.with_stage(jaeger::Stage::ApprovalDistribution);
-
 			match self.blocks.entry(meta.hash) {
 				hash_map::Entry::Vacant(entry) => {
 					let candidates_count = meta.candidates.len();
-					span.add_uint_tag("candidates-count", candidates_count as u64);
 					let mut candidates = Vec::with_capacity(candidates_count);
 					candidates.resize_with(candidates_count, Default::default);
 
@@ -1329,7 +1316,6 @@ impl State {
 			if let Some(block_entry) = self.blocks.remove(relay_block) {
 				self.topologies.dec_session_refs(block_entry.session);
 			}
-			self.spans.remove(&relay_block);
 		});
 
 		// If a block was finalized, this means we may need to move our aggression
@@ -1356,21 +1342,6 @@ impl State {
 		RA: overseer::SubsystemSender<RuntimeApiMessage>,
 		R: CryptoRng + Rng,
 	{
-		let _span = self
-			.spans
-			.get(&assignment.block_hash)
-			.map(|span| {
-				span.child(if source.peer_id().is_some() {
-					"peer-import-and-distribute-assignment"
-				} else {
-					"local-import-and-distribute-assignment"
-				})
-			})
-			.unwrap_or_else(|| jaeger::Span::new(&assignment.block_hash, "distribute-assignment"))
-			.with_string_tag("block-hash", format!("{:?}", assignment.block_hash))
-			.with_optional_peer_id(source.peer_id().as_ref())
-			.with_stage(jaeger::Stage::ApprovalDistribution);
-
 		let block_hash = assignment.block_hash;
 		let validator_index = assignment.validator;
 
@@ -1836,21 +1807,6 @@ impl State {
 		vote: IndirectSignedApprovalVoteV2,
 		session_info_provider: &mut RuntimeInfo,
 	) {
-		let _span = self
-			.spans
-			.get(&vote.block_hash)
-			.map(|span| {
-				span.child(if source.peer_id().is_some() {
-					"peer-import-and-distribute-approval"
-				} else {
-					"local-import-and-distribute-approval"
-				})
-			})
-			.unwrap_or_else(|| jaeger::Span::new(&vote.block_hash, "distribute-approval"))
-			.with_string_tag("block-hash", format!("{:?}", vote.block_hash))
-			.with_optional_peer_id(source.peer_id().as_ref())
-			.with_stage(jaeger::Stage::ApprovalDistribution);
-
 		let block_hash = vote.block_hash;
 		let validator_index = vote.validator;
 		let candidate_indices = &vote.candidate_indices;
@@ -2090,14 +2046,6 @@ impl State {
 	) -> HashMap<ValidatorIndex, (Hash, Vec<CandidateIndex>, ValidatorSignature)> {
 		let mut all_sigs = HashMap::new();
 		for (hash, index) in indices {
-			let _span = self
-				.spans
-				.get(&hash)
-				.map(|span| span.child("get-approval-signatures"))
-				.unwrap_or_else(|| jaeger::Span::new(&hash, "get-approval-signatures"))
-				.with_string_tag("block-hash", format!("{:?}", hash))
-				.with_stage(jaeger::Stage::ApprovalDistribution);
-
 			let block_entry = match self.blocks.get(&hash) {
 				None => {
 					gum::debug!(
@@ -2775,18 +2723,12 @@ impl ApprovalDistribution {
 					session_info_provider,
 				)
 				.await,
-			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
+			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_update)) => {
 				gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
 				// the relay chain blocks relevant to the approval subsystems
 				// are those that are available, but not finalized yet
 				// activated and deactivated heads hence are irrelevant to this subsystem, other
 				// than for tracing purposes.
-				if let Some(activated) = update.activated {
-					let head = activated.hash;
-					let approval_distribution_span =
-						jaeger::PerLeafSpan::new(activated.span, "approval-distribution");
-					state.spans.insert(head, approval_distribution_span);
-				}
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, number)) => {
 				gum::trace!(target: LOG_TARGET, number = %number, "finalized signal");
@@ -2845,14 +2787,6 @@ impl ApprovalDistribution {
 					.await;
 			},
 			ApprovalDistributionMessage::DistributeAssignment(cert, candidate_indices) => {
-				let _span = state
-					.spans
-					.get(&cert.block_hash)
-					.map(|span| span.child("import-and-distribute-assignment"))
-					.unwrap_or_else(|| jaeger::Span::new(&cert.block_hash, "distribute-assignment"))
-					.with_string_tag("block-hash", format!("{:?}", cert.block_hash))
-					.with_stage(jaeger::Stage::ApprovalDistribution);
-
 				gum::debug!(
 					target: LOG_TARGET,
 					?candidate_indices,

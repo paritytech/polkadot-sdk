@@ -13901,7 +13901,6 @@ dependencies = [
  "futures-timer",
  "itertools 0.11.0",
  "log",
- "polkadot-node-jaeger",
  "polkadot-node-metrics",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
