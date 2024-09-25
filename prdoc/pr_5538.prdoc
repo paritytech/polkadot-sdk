@@ -1,11 +1,16 @@
-title: "collator-protocol: Remove race condition"
+title: "substrate/utils: enable wasm builder diagnostics propagation"
 
 doc:
-  - audience: Node Dev
+      - audience: Runtime Dev
     description: |
-      Remove a race condition in the collator protocol that could lead
-      to collations not being announced to a validator.
+      `substrate-wasm-builder` is used as a build dependency by crates that implement FRAME runtimes.
+      Errors that occur in these crates can not be detected by IDEs that use rust-analyzer as a language
+      server because rust-analyzer needs the errors to be reported as diagnostic message in json format to
+      be able to publish them to language server clients. This PR adds a `--message-format=json` flag when
+      building against the wasm target so that diagnostic messages are emitted in the build phase as well
+      for the crates having `substrate-wasm-builder` as a build dependency.
+  
 
 crates:
-  - name: polkadot-collator-protocol
+  - name: substrate-wasm-builder 
     bump: patch
