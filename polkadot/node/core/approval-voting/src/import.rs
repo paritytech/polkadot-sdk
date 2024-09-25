@@ -667,7 +667,6 @@ pub(crate) mod tests {
 			slot_duration_millis: 6_000,
 			clock: Arc::new(MockClock::default()),
 			assignment_criteria: Box::new(MockAssignmentCriteria::default()),
-			spans: HashMap::new(),
 			per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 				MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 			)),
