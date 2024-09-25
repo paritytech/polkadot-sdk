@@ -14239,7 +14239,6 @@ dependencies = [
  "merlin",
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "polkadot-node-jaeger",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
