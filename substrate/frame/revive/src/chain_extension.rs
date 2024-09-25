@@ -344,11 +344,15 @@ impl<'a, 'b, E: Ext, M: ?Sized + Memory<E::T>> Environment<'a, 'b, E, M> {
 		allow_skip: bool,
 		weight_per_byte: Option<Weight>,
 	) -> Result<()> {
-		if let Some(weight_per_byte) = weight_per_byte {
-			let weight = weight_per_byte.saturating_mul(buffer.len() as u64);
-			self.runtime.charge_gas(RuntimeCosts::ChainExtension(weight))?;
-		}
-		self.memory
-			.write_sandbox_output(self.output_ptr, self.output_len_ptr, buffer, allow_skip)
+		self.runtime.write_sandbox_output(
+			self.memory,
+			self.output_ptr,
+			self.output_len_ptr,
+			buffer,
+			allow_skip,
+			|len| {
+				weight_per_byte.map(|w| RuntimeCosts::ChainExtension(w.saturating_mul(len.into())))
+			},
+		)
 	}
 }
