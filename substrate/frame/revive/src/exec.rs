@@ -305,6 +305,8 @@ pub trait Ext: sealing::Sealed {
 	/// Set the the immutable data of the current contract.
 	///
 	/// Returns `Err(InvalidImmutableAccess)` if not called from a constructor.
+	///
+	/// Note: Requires &mut self to access the contract info.
 	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError>;
 
 	/// Returns the balance of the current contract.
@@ -1556,8 +1558,11 @@ where
 
 		let account_id = self.account_id().clone();
 		let address = T::AddressMapper::to_address(&account_id);
+
+		self.top_frame_mut().contract_info.get(&account_id).immutable_bytes = data.len() as u32;
 		<ImmutableDataOf<T>>::insert(address, &data);
 		self.immutable_data.insert(account_id, data);
+
 		Ok(())
 	}
 
