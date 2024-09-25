@@ -13,15 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{pallet, OutboundState};
+use crate::{pallet, ChannelSignal, OutboundState, LOG_TARGET};
 use cumulus_primitives_core::ParaId;
 use xcm::latest::prelude::*;
 
-/// Adapter implementation for `bp_xcm_bridge_hub_router::XcmChannelStatusProvider` which checks
+/// Adapter implementation for `XcmChannelStatusProvider` which checks
 /// both `OutboundXcmpStatus` and `InboundXcmpStatus` for defined `Location` if any of those is
 /// suspended.
 pub struct InAndOutXcmpChannelStatusProvider<Runtime>(core::marker::PhantomData<Runtime>);
-impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
+impl<Runtime: crate::Config> bp_xcm_bridge_hub::XcmChannelStatusProvider
 	for InAndOutXcmpChannelStatusProvider<Runtime>
 {
 	fn is_congested(with: &Location) -> bool {
@@ -45,10 +45,64 @@ impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
 	}
 }
 
-/// Adapter implementation for `bp_xcm_bridge_hub_router::XcmChannelStatusProvider` which checks
+impl<Runtime: crate::Config> bp_xcm_bridge_hub::LocalXcmChannelManager
+	for InAndOutXcmpChannelStatusProvider<Runtime>
+{
+	type Error = ();
+	fn suspend_bridge(with: &Location, _: bp_xcm_bridge_hub::BridgeId) -> Result<(), Self::Error> {
+		// handle congestion only for a sibling parachain locations.
+		let sibling_para_id: ParaId = match with.unpack() {
+			(_, [Parachain(para_id)]) => (*para_id).into(),
+			loc @ _ =>
+				return {
+					log::trace!(
+						target: LOG_TARGET,
+						"Unhandled location with: {loc:?}"
+					);
+					Ok(())
+				},
+		};
+
+		// report congestion = true
+		pallet::Pallet::<Runtime>::send_signal(sibling_para_id, ChannelSignal::ReportCongestion(true))
+			.map_err(|e| {
+				log::error!(
+					target: LOG_TARGET,
+					"Failed to send_signal(ReportCongestion(true)) to the sibling_para_id: `{sibling_para_id:?}` with error: {e:?}"
+				);
+				()
+			})
+	}
+	fn resume_bridge(with: &Location, _: bp_xcm_bridge_hub::BridgeId) -> Result<(), Self::Error> {
+		// handle congestion only for a sibling parachain locations.
+		let sibling_para_id: ParaId = match with.unpack() {
+			(_, [Parachain(para_id)]) => (*para_id).into(),
+			loc @ _ =>
+				return {
+					log::trace!(
+						target: LOG_TARGET,
+						"Unhandled location with: {loc:?}"
+					);
+					Ok(())
+				},
+		};
+
+		// report congestion = false
+		pallet::Pallet::<Runtime>::send_signal(sibling_para_id, ChannelSignal::ReportCongestion(false))
+			.map_err(|e| {
+				log::error!(
+					target: LOG_TARGET,
+					"Failed to send_signal(ReportCongestion(false)) to the sibling_para_id: `{sibling_para_id:?}` with error: {e:?}"
+				);
+				()
+			})
+	}
+}
+
+/// Adapter implementation for `XcmChannelStatusProvider` which checks
 /// only `OutboundXcmpStatus` for defined `SiblingParaId` if is suspended.
 pub struct OutXcmpChannelStatusProvider<Runtime>(core::marker::PhantomData<Runtime>);
-impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
+impl<Runtime: crate::Config> bp_xcm_bridge_hub::XcmChannelStatusProvider
 	for OutXcmpChannelStatusProvider<Runtime>
 {
 	fn is_congested(with: &Location) -> bool {

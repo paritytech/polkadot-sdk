@@ -384,6 +384,8 @@ pub struct OutboundChannelDetails {
 	first_index: u16,
 	/// The index of the last outbound message.
 	last_index: u16,
+	/// Flag indicating that `recipient` reports congestion.
+	congestion_reported: bool,
 }
 
 impl OutboundChannelDetails {
@@ -394,6 +396,7 @@ impl OutboundChannelDetails {
 			signals_exist: false,
 			first_index: 0,
 			last_index: 0,
+			congestion_reported: false,
 		}
 	}
 
@@ -404,6 +407,11 @@ impl OutboundChannelDetails {
 
 	pub fn with_suspended_state(mut self) -> OutboundChannelDetails {
 		self.state = OutboundState::Suspended;
+		self
+	}
+
+	pub fn with_congestion_reported(mut self) -> OutboundChannelDetails {
+		self.congestion_reported = true;
 		self
 	}
 }
@@ -454,6 +462,7 @@ impl QueueConfigData {
 pub enum ChannelSignal {
 	Suspend,
 	Resume,
+	ReportCongestion(bool),
 }
 
 impl<T: Config> Pallet<T> {
@@ -638,6 +647,55 @@ impl<T: Config> Pallet<T> {
 		});
 	}
 
+	fn report_congestion(target: ParaId, is_congested: bool) {
+		log::trace!(target: LOG_TARGET, "Target `{target:?}` reports congestion is_congested: {is_congested:?}");
+
+		// check actual state
+		let is_already_congested = <OutboundXcmpStatus<T>>::get()
+			.iter()
+			.find(|c| c.recipient == target)
+			.map(|c| c.congestion_reported)
+			.unwrap_or(false);
+
+		// handle reported state
+		if is_congested {
+			Self::increase_fee_factor(target, delivery_fee_constants::MESSAGE_SIZE_FEE_BASE);
+
+			// store `congestion_reported = true`
+			if !is_already_congested {
+				<OutboundXcmpStatus<T>>::mutate(|s| {
+					if let Some(details) = s.iter_mut().find(|item| item.recipient == target) {
+						details.congestion_reported = true;
+					} else {
+						if s.try_push(
+							OutboundChannelDetails::new(target).with_congestion_reported(),
+						)
+						.is_err()
+						{
+							defensive!("Cannot report congestion for a channel; too many outbound channels");
+						}
+					}
+				});
+			}
+		} else if is_already_congested {
+			// if reports not congested and was congested before, just decrease and clean up state
+			Self::decrease_fee_factor(target);
+
+			// store `congestion_reported = false`
+			<OutboundXcmpStatus<T>>::mutate(|s| {
+				if let Some(details) = s.iter_mut().find(|item| item.recipient == target) {
+					details.congestion_reported = false;
+				} else {
+					if s.try_push(OutboundChannelDetails::new(target)).is_err() {
+						defensive!(
+							"Cannot report congestion for a channel; too many outbound channels"
+						);
+					}
+				}
+			});
+		}
+	}
+
 	fn enqueue_xcmp_message(
 		sender: ParaId,
 		xcm: BoundedVec<u8, MaxXcmpMessageLenOf<T>>,
@@ -789,6 +847,8 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 						match ChannelSignal::decode(&mut data) {
 							Ok(ChannelSignal::Suspend) => Self::suspend_channel(sender),
 							Ok(ChannelSignal::Resume) => Self::resume_channel(sender),
+							Ok(ChannelSignal::ReportCongestion(is_congested)) =>
+								Self::report_congestion(sender, is_congested),
 							Err(_) => {
 								defensive!("Undecodable channel signal - dropping");
 								break
@@ -836,6 +896,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				mut signals_exist,
 				mut first_index,
 				mut last_index,
+				congestion_reported,
 			} = *status;
 
 			let (max_size_now, max_size_ever) = match T::ChannelInfo::get_channel_status(para_id) {
@@ -910,12 +971,19 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 					MAX_POSSIBLE_ALLOCATION // We use this as a fallback in case the messaging state is not present
 				},
 			};
-			let threshold = max_total_size.saturating_div(delivery_fee_constants::THRESHOLD_FACTOR);
-			let remaining_total_size: usize = (first_index..last_index)
-				.map(|index| OutboundXcmpMessages::<T>::decode_len(para_id, index).unwrap())
-				.sum();
-			if remaining_total_size <= threshold as usize {
-				Self::decrease_fee_factor(para_id);
+			if congestion_reported {
+				// TODO: not sure about this is a good place
+				// if congested, then increase
+				Self::increase_fee_factor(para_id, delivery_fee_constants::MESSAGE_SIZE_FEE_BASE);
+			} else {
+				let threshold =
+					max_total_size.saturating_div(delivery_fee_constants::THRESHOLD_FACTOR);
+				let remaining_total_size: usize = (first_index..last_index)
+					.map(|index| OutboundXcmpMessages::<T>::decode_len(para_id, index).unwrap())
+					.sum();
+				if remaining_total_size <= threshold as usize {
+					Self::decrease_fee_factor(para_id);
+				}
 			}
 
 			*status = OutboundChannelDetails {
@@ -924,6 +992,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				signals_exist,
 				first_index,
 				last_index,
+				congestion_reported,
 			};
 		}
 		debug_assert!(!statuses.iter().any(|s| s.signals_exist), "Signals should be handled");

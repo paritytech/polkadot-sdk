@@ -37,7 +37,7 @@ frame-benchmarking = { optional = true, workspace = true }
 bounded-collections = { workspace = true }
 
 # Bridges
-bp-xcm-bridge-hub-router = { optional = true, workspace = true }
+bp-xcm-bridge-hub = { optional = true, workspace = true }
 
 [dev-dependencies]
 
@@ -53,7 +53,7 @@ cumulus-pallet-parachain-system = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"bounded-collections/std",
-	"bp-xcm-bridge-hub-router?/std",
+	"bp-xcm-bridge-hub?/std",
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"frame-benchmarking?/std",
@@ -96,4 +96,4 @@ try-runtime = [
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-bridging = ["bp-xcm-bridge-hub-router"]
+bridging = ["bp-xcm-bridge-hub"]
