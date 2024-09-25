@@ -184,8 +184,8 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type AllowWithoutBridgeDeposit =
 		RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>;
 
-	// TODO:(bridges-v2) - add `LocalXcmChannelManager` impl - https://github.com/paritytech/parity-bridges-common/issues/3047
-	type LocalXcmChannelManager = ();
+	type LocalXcmChannelManager =
+		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<Runtime>;
 	type BlobDispatcher = FromRococoMessageBlobDispatcher;
 }
 
