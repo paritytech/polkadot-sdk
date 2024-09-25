@@ -11,4 +11,4 @@ doc:
       allows developers to express the computational complexity of proof verification using the proof data.
 crates:
   - name: sp-runtime
-    bump: minor
+    bump: major
