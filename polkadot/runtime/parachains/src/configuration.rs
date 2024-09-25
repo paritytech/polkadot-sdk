@@ -518,8 +518,7 @@ pub mod pallet {
 	/// v9-v10: <https://github.com/paritytech/polkadot-sdk/pull/2177>
 	/// v10-11: <https://github.com/paritytech/polkadot-sdk/pull/1191>
 	/// v11-12: <https://github.com/paritytech/polkadot-sdk/pull/3181>
-	/// v12-13: <https://github.com/paritytech/polkadot-sdk/pull/5461>
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(13);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(12);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
