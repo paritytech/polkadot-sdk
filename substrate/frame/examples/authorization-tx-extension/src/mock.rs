@@ -64,7 +64,7 @@ mod example_runtime {
 		pub enum Runtime
 		{
 			System: frame_system,
-			VerifySignature: pallet_verify_signature,
+			VerifySignaturePallet: pallet_verify_signature,
 
 			Assets: pallet_assets,
 			Coownership: pallet_coownership,
