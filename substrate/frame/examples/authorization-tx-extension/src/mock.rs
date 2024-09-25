@@ -18,8 +18,9 @@
 use crate::*;
 pub(crate) use example_runtime::*;
 use extensions::AuthorizeCoownership;
-use frame_support::{derive_impl, transaction_extensions::VerifyMultiSignature};
+use frame_support::derive_impl;
 use frame_system::{CheckEra, CheckGenesis, CheckNonce, CheckTxVersion};
+use pallet_verify_signature::VerifySignature;
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
@@ -34,7 +35,7 @@ mod example_runtime {
 	pub type TxExtension = (
 		// Validate the signature of regular account transactions (substitutes the old signed
 		// transaction).
-		VerifyMultiSignature<MultiSignature>,
+		VerifySignature<Runtime>,
 		// Nonce check (and increment) for the caller.
 		CheckNonce<Runtime>,
 		// If activated, will mutate the origin to a `pallet_coownership` origin of 2 accounts that
@@ -63,6 +64,7 @@ mod example_runtime {
 		pub enum Runtime
 		{
 			System: frame_system,
+			VerifySignature: pallet_verify_signature,
 
 			Assets: pallet_assets,
 			Coownership: pallet_coownership,
@@ -74,6 +76,28 @@ mod example_runtime {
 		type AccountId = AccountId;
 		type Block = Block;
 		type Lookup = IdentityLookup<Self::AccountId>;
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub struct BenchmarkHelper;
+	#[cfg(feature = "runtime-benchmarks")]
+	impl pallet_verify_signature::BenchmarkHelper<MultiSignature, AccountId> for BenchmarkHelper {
+		fn create_signature(_entropy: &[u8], msg: &[u8]) -> (MultiSignature, AccountId) {
+			use sp_io::crypto::{sr25519_generate, sr25519_sign};
+			use sp_runtime::traits::IdentifyAccount;
+			let public = sr25519_generate(0.into(), None);
+			let who_account: AccountId = MultiSigner::Sr25519(public).into_account().into();
+			let signature = MultiSignature::Sr25519(sr25519_sign(0.into(), &public, msg).unwrap());
+			(signature, who_account)
+		}
+	}
+
+	impl pallet_verify_signature::Config for Runtime {
+		type Signature = MultiSignature;
+		type AccountIdentifier = MultiSigner;
+		type WeightInfo = ();
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper = BenchmarkHelper;
 	}
 
 	/// Type that enables any pallet to ask for a coowner origin.

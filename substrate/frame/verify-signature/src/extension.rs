@@ -15,21 +15,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Transaction extensions.
+//! Transaction extension which validates a signature against a payload constructed from a call and
+//! the rest of the transaction extension pipeline.
 
-use crate::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
-use codec::{Codec, Decode, Encode};
-use scale_info::{StaticTypeInfo, TypeInfo};
+use crate::{Config, WeightInfo};
+use codec::{Decode, Encode};
+use frame_support::traits::OriginTrait;
+use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
 		transaction_extension::TransactionExtension, AsAuthorizedOrigin, DispatchInfoOf,
-		Dispatchable, IdentifyAccount, Verify,
+		Dispatchable, Verify,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
-use sp_std::fmt::Debug;
 use sp_weights::Weight;
 
 /// Extension that, if enabled, validates a signature type against the payload constructed from the
@@ -37,40 +38,45 @@ use sp_weights::Weight;
 /// functionality that traditionally signed transactions had with the implicit signature checking
 /// implemented in [`Checkable`](sp_runtime::traits::Checkable). It is meant to be placed ahead of
 /// any other extensions that do authorization work in the [`TransactionExtension`] pipeline.
-#[derive(
-	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo,
-)]
-#[codec(encode_bound())]
-#[codec(decode_bound())]
-pub enum VerifyMultiSignature<V: Verify>
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub enum VerifySignature<T>
 where
-	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-	<V::Signer as IdentifyAccount>::AccountId:
-		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
+	T: Config + Send + Sync,
 {
 	/// The extension will verify the signature and, if successful, authorize a traditionally
 	/// signed transaction.
 	Signed {
 		/// The signature provided by the transaction submitter.
-		signature: V,
+		signature: T::Signature,
 		/// The account that signed the payload.
-		account: <V::Signer as IdentifyAccount>::AccountId,
+		account: T::AccountId,
 	},
 	/// The extension is disabled and will be passthrough.
 	Disabled,
 }
 
-impl<V: Verify> VerifyMultiSignature<V>
+impl<T> core::fmt::Debug for VerifySignature<T>
 where
-	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-	<V::Signer as IdentifyAccount>::AccountId:
-		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
+	T: Config + Send + Sync,
+{
+	#[cfg(feature = "std")]
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		write!(f, "VerifySignature")
+	}
+
+	#[cfg(not(feature = "std"))]
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
+		Ok(())
+	}
+}
+
+impl<T> VerifySignature<T>
+where
+	T: Config + Send + Sync,
 {
 	/// Create a new extension instance that will validate the provided signature.
-	pub fn new_with_signature(
-		signature: V,
-		account: <V::Signer as IdentifyAccount>::AccountId,
-	) -> Self {
+	pub fn new_with_signature(signature: T::Signature, account: T::AccountId) -> Self {
 		Self::Signed { signature, account }
 	}
 
@@ -80,26 +86,22 @@ where
 	}
 }
 
-impl<V: Verify, Call: Dispatchable + Encode> TransactionExtension<Call> for VerifyMultiSignature<V>
+impl<T> TransactionExtension<T::RuntimeCall> for VerifySignature<T>
 where
-	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-	<V::Signer as IdentifyAccount>::AccountId:
-		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-	<Call as Dispatchable>::RuntimeOrigin:
-		From<Option<<V::Signer as IdentifyAccount>::AccountId>> + AsAuthorizedOrigin,
+	T: Config + Send + Sync,
+	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsAuthorizedOrigin,
 {
 	const IDENTIFIER: &'static str = "VerifyMultiSignature";
 	type Implicit = ();
 	type Val = ();
 	type Pre = ();
-	impl_tx_ext_default!(Call; prepare);
 
-	fn weight(&self, _call: &Call) -> Weight {
+	fn weight(&self, _call: &T::RuntimeCall) -> Weight {
 		match &self {
 			// The benchmarked weight of the payload construction and signature checking.
 			Self::Signed { .. } => {
 				// TODO: create a pallet to benchmark this weight.
-				Weight::zero()
+				T::WeightInfo::verify_signature()
 			},
 			// When the extension is passthrough, it consumes no weight.
 			Self::Disabled => Weight::zero(),
@@ -108,14 +110,14 @@ where
 
 	fn validate(
 		&self,
-		origin: <Call as Dispatchable>::RuntimeOrigin,
-		_call: &Call,
-		_info: &DispatchInfoOf<Call>,
+		mut origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_: (),
 		inherited_implication: &impl Encode,
 	) -> Result<
-		(ValidTransaction, Self::Val, <Call as Dispatchable>::RuntimeOrigin),
+		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
 		// If the extension is disabled, return early.
@@ -149,7 +151,9 @@ where
 		}
 
 		// Return the signer as the transaction origin.
-		let origin = Some(account.clone()).into();
+		origin.set_caller_from_signed(account.clone());
 		Ok((ValidTransaction::default(), (), origin))
 	}
+
+	impl_tx_ext_default!(T::RuntimeCall; prepare);
 }

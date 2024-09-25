@@ -425,7 +425,7 @@ macro_rules! impl_tx_ext_default {
 	($call:ty ; validate $( $rest:tt )*) => {
 		fn validate(
 			&self,
-			origin: $crate::traits::OriginOf<$call>,
+			origin: $crate::traits::DispatchOriginOf<$call>,
 			_call: &$call,
 			_info: &$crate::traits::DispatchInfoOf<$call>,
 			_len: usize,
@@ -440,7 +440,7 @@ macro_rules! impl_tx_ext_default {
 		fn prepare(
 			self,
 			_val: Self::Val,
-			_origin: &$crate::traits::OriginOf<$call>,
+			_origin: &$crate::traits::DispatchOriginOf<$call>,
 			_call: &$call,
 			_info: &$crate::traits::DispatchInfoOf<$call>,
 			_len: usize,

@@ -444,6 +444,7 @@ members = [
 	"substrate/frame/tx-pause",
 	"substrate/frame/uniques",
 	"substrate/frame/utility",
+	"substrate/frame/verify-signature",
 	"substrate/frame/vesting",
 	"substrate/frame/whitelist",
 	"substrate/primitives/api",
@@ -993,6 +994,7 @@ pallet-treasury = { path = "substrate/frame/treasury", default-features = false 
 pallet-tx-pause = { default-features = false, path = "substrate/frame/tx-pause" }
 pallet-uniques = { path = "substrate/frame/uniques", default-features = false }
 pallet-utility = { path = "substrate/frame/utility", default-features = false }
+pallet-verify-signature = { path = "substrate/frame/verify-signature", default-features = false }
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false }
 pallet-whitelist = { path = "substrate/frame/whitelist", default-features = false }
 pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false }

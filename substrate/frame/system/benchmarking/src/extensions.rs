@@ -234,7 +234,8 @@ mod benchmarks {
 		assert_eq!(
 			System::<T>::block_weight().total(),
 			initial_block_weight +
-				base_extrinsic + post_info.actual_weight.unwrap().saturating_add(extension_weight),
+				base_extrinsic +
+				post_info.actual_weight.unwrap().saturating_add(extension_weight),
 		);
 		Ok(())
 	}
