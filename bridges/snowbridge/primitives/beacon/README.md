@@ -8,3 +8,8 @@ Crate with low-level supporting functions for the beacon client, including:
 - ssz types
 
 The code in this crate relates to the Ethereum consensus chain, commonly referred to as the beacon chain.
+
+
+## Release
+
+Polkadot SDK stable2409

@@ -45,3 +45,8 @@ another popular persistent shell, mosh, it allows scrollback.
 [glossary]: https://paritytech.github.io/polkadot-sdk/book/glossary.html
 [testing]: https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/doc/testing.md
 [et]: https://github.com/MisterTea/EternalTerminal
+
+
+## Release
+
+Polkadot SDK stable2409

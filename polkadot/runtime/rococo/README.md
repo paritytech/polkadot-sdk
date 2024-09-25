@@ -18,3 +18,8 @@ testing `rococo-local` and parachains connecting to it.
 
 The [parachain registration process](https://docs.substrate.io/tutorials/v3/cumulus/rococo/) on the public Rococo
 testnet is also outlined.
+
+
+## Release
+
+Polkadot SDK stable2409

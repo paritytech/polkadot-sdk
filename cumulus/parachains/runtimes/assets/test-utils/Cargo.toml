@@ -1,6 +1,6 @@
 [package]
 name = "asset-test-utils"
-version = "7.0.0"
+version = "18.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Test utils for Asset Hub runtimes."
@@ -11,40 +11,33 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-
-# Substrate
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-assets = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-timestamp = { workspace = true }
-pallet-session = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-
-# Cumulus
-cumulus-pallet-parachain-system = { workspace = true }
-cumulus-pallet-xcmp-queue = { workspace = true }
-pallet-collator-selection = { workspace = true }
-parachains-common = { workspace = true }
-cumulus-primitives-core = { workspace = true }
-parachain-info = { workspace = true }
-parachains-runtimes-test-utils = { workspace = true }
-
-# Polkadot
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
-pallet-xcm = { workspace = true }
-
-# Bridges
-pallet-xcm-bridge-hub-router = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-assets.workspace = true
+pallet-balances.workspace = true
+pallet-timestamp.workspace = true
+pallet-session.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+cumulus-pallet-parachain-system.workspace = true
+cumulus-pallet-xcmp-queue.workspace = true
+pallet-collator-selection.workspace = true
+parachains-common.workspace = true
+cumulus-primitives-core.workspace = true
+parachain-info.workspace = true
+parachains-runtimes-test-utils.workspace = true
+xcm.workspace = true
+xcm-builder.workspace = true
+xcm-executor.workspace = true
+pallet-xcm.workspace = true
+pallet-xcm-bridge-hub-router.workspace = true
 
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }
 
 [build-dependencies]
-substrate-wasm-builder = { workspace = true, default-features = true }
+substrate-wasm-builder.workspace = true
+substrate-wasm-builder.default-features = true
 
 [features]
 default = ["std"]

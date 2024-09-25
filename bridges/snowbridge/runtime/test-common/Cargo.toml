@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-runtime-test-common"
 description = "Snowbridge Runtime Tests"
-version = "0.2.0"
+version = "0.10.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 license = "Apache-2.0"
@@ -12,37 +12,30 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-
-# Substrate
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-session = { workspace = true }
-pallet-message-queue = { workspace = true }
-pallet-timestamp = { workspace = true }
-pallet-utility = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-runtime = { workspace = true }
-
-# Polkadot
-pallet-xcm = { workspace = true }
-xcm = { workspace = true }
-xcm-executor = { workspace = true }
-
-# Cumulus
-cumulus-pallet-parachain-system = { workspace = true }
-pallet-collator-selection = { workspace = true }
-parachain-info = { workspace = true }
-parachains-runtimes-test-utils = { workspace = true }
-
-# Ethereum Bridge (Snowbridge)
-snowbridge-core = { workspace = true }
-snowbridge-pallet-ethereum-client = { workspace = true }
-snowbridge-pallet-ethereum-client-fixtures = { workspace = true }
-snowbridge-pallet-outbound-queue = { workspace = true }
-snowbridge-pallet-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-balances.workspace = true
+pallet-session.workspace = true
+pallet-message-queue.workspace = true
+pallet-timestamp.workspace = true
+pallet-utility.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-keyring.workspace = true
+sp-keyring.default-features = true
+sp-runtime.workspace = true
+pallet-xcm.workspace = true
+xcm.workspace = true
+xcm-executor.workspace = true
+cumulus-pallet-parachain-system.workspace = true
+pallet-collator-selection.workspace = true
+parachain-info.workspace = true
+parachains-runtimes-test-utils.workspace = true
+snowbridge-core.workspace = true
+snowbridge-pallet-ethereum-client.workspace = true
+snowbridge-pallet-ethereum-client-fixtures.workspace = true
+snowbridge-pallet-outbound-queue.workspace = true
+snowbridge-pallet-system.workspace = true
 
 [features]
 default = ["std"]

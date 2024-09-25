@@ -1,6 +1,6 @@
 [package]
 name = "sp-blockchain"
-version = "28.0.0"
+version = "37.0.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -22,10 +22,16 @@ futures = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 thiserror = { workspace = true }
-sp-api = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-sp-database = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
+sp-api.workspace = true
+sp-api.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-consensus.workspace = true
+sp-consensus.default-features = true
+sp-database.workspace = true
+sp-database.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-state-machine.workspace = true
+sp-state-machine.default-features = true
 tracing = { workspace = true, default-features = true }

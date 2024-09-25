@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-runtime-metrics"
-version = "7.0.0"
+version = "17.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,9 +10,9 @@ description = "Runtime metric interface for the Polkadot node"
 workspace = true
 
 [dependencies]
-sp-tracing = { workspace = true }
+sp-tracing.workspace = true
 codec = { workspace = true }
-polkadot-primitives = { workspace = true }
+polkadot-primitives.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 
 bs58 = { features = ["alloc"], workspace = true }

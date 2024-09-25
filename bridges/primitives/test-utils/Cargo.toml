@@ -1,6 +1,6 @@
 [package]
 name = "bp-test-utils"
-version = "0.7.0"
+version = "0.18.0"
 description = "Utilities for testing substrate-based runtime bridge code"
 authors.workspace = true
 edition.workspace = true
@@ -11,19 +11,19 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-bp-header-chain = { workspace = true }
-bp-parachains = { workspace = true }
-bp-polkadot-core = { workspace = true }
+bp-header-chain.workspace = true
+bp-parachains.workspace = true
+bp-polkadot-core.workspace = true
 bp-runtime = { features = ["test-helpers"], workspace = true }
 codec = { workspace = true }
 ed25519-dalek = { workspace = true }
 finality-grandpa = { workspace = true }
-sp-application-crypto = { workspace = true }
-sp-consensus-grandpa = { workspace = true }
-sp-core = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
-sp-trie = { workspace = true }
+sp-application-crypto.workspace = true
+sp-consensus-grandpa.workspace = true
+sp-core.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+sp-trie.workspace = true
 
 [features]
 default = ["std"]

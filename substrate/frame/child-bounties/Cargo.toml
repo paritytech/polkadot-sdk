@@ -1,6 +1,6 @@
 [package]
 name = "pallet-child-bounties"
-version = "27.0.0"
+version = "37.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -22,16 +22,16 @@ codec = { features = [
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-bounties = { workspace = true }
-pallet-treasury = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-bounties.workspace = true
+pallet-treasury.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = true }
+pallet-balances = { default-features = true, path = "../balances" }
 
 [features]
 default = ["std"]
@@ -41,7 +41,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
 	"pallet-bounties/std",
 	"pallet-treasury/std",
 	"scale-info/std",
@@ -54,7 +53,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-bounties/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -62,7 +60,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-bounties/try-runtime",
 	"pallet-treasury/try-runtime",
 	"sp-runtime/try-runtime",

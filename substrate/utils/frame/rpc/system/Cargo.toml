@@ -1,6 +1,6 @@
 [package]
 name = "substrate-frame-rpc-system"
-version = "28.0.0"
+version = "39.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -25,18 +25,26 @@ jsonrpsee = { features = [
 	"server-core",
 ], workspace = true }
 log = { workspace = true, default-features = true }
-frame-system-rpc-runtime-api = { workspace = true, default-features = true }
-sc-rpc-api = { workspace = true, default-features = true }
-sc-transaction-pool-api = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-block-builder = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+frame-system-rpc-runtime-api.workspace = true
+frame-system-rpc-runtime-api.default-features = true
+sc-rpc-api.workspace = true
+sc-rpc-api.default-features = true
+sc-transaction-pool-api.workspace = true
+sc-transaction-pool-api.default-features = true
+sp-api.workspace = true
+sp-api.default-features = true
+sp-block-builder.workspace = true
+sp-block-builder.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
 
 [dev-dependencies]
-sc-transaction-pool = { workspace = true, default-features = true }
+sc-transaction-pool = { default-features = true, path = "../../../../client/transaction-pool" }
 tokio = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
-substrate-test-runtime-client = { workspace = true }
+sp-tracing = { default-features = true, path = "../../../../primitives/tracing" }
+substrate-test-runtime-client = { path = "../../../../test-utils/runtime/client" }

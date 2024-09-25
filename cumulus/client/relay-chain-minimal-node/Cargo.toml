@@ -1,7 +1,7 @@
 [package]
 authors.workspace = true
 name = "cumulus-relay-chain-minimal-node"
-version = "0.7.0"
+version = "0.18.0"
 edition.workspace = true
 description = "Minimal node implementation to be used in tandem with RPC or light-client mode."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -10,36 +10,53 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-# polkadot deps
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-core-primitives = { workspace = true, default-features = true }
-polkadot-overseer = { workspace = true, default-features = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
-polkadot-node-network-protocol = { workspace = true, default-features = true }
-
-polkadot-network-bridge = { workspace = true, default-features = true }
-polkadot-service = { workspace = true, default-features = true }
-
-# substrate deps
-sc-authority-discovery = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-sc-network-common = { workspace = true, default-features = true }
-sc-service = { workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
-prometheus-endpoint = { workspace = true, default-features = true }
-sc-tracing = { workspace = true, default-features = true }
-sc-utils = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-consensus-babe = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+polkadot-core-primitives.workspace = true
+polkadot-core-primitives.default-features = true
+polkadot-overseer.workspace = true
+polkadot-overseer.default-features = true
+polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem-util.default-features = true
+polkadot-node-network-protocol.workspace = true
+polkadot-node-network-protocol.default-features = true
+polkadot-network-bridge.workspace = true
+polkadot-network-bridge.default-features = true
+polkadot-service.workspace = true
+polkadot-service.default-features = true
+sc-authority-discovery.workspace = true
+sc-authority-discovery.default-features = true
+sc-network.workspace = true
+sc-network.default-features = true
+sc-network-common.workspace = true
+sc-network-common.default-features = true
+sc-service.workspace = true
+sc-service.default-features = true
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+prometheus-endpoint.workspace = true
+prometheus-endpoint.default-features = true
+sc-tracing.workspace = true
+sc-tracing.default-features = true
+sc-utils.workspace = true
+sc-utils.default-features = true
+sp-api.workspace = true
+sp-api.default-features = true
+sp-consensus-babe.workspace = true
+sp-consensus-babe.default-features = true
+sp-consensus.workspace = true
+sp-consensus.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
 tokio = { features = ["macros"], workspace = true, default-features = true }
-
-# cumulus deps
-cumulus-relay-chain-interface = { workspace = true, default-features = true }
-cumulus-relay-chain-rpc-interface = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-relay-chain-interface.workspace = true
+cumulus-relay-chain-interface.default-features = true
+cumulus-relay-chain-rpc-interface.workspace = true
+cumulus-relay-chain-rpc-interface.default-features = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-core.default-features = true
 
 array-bytes = { workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }

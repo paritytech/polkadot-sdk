@@ -6,3 +6,8 @@
 ## Overview
 
 Pallet for voting in referenda.
+
+
+## Release
+
+Polkadot SDK stable2409

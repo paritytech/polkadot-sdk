@@ -1,6 +1,6 @@
 [package]
 name = "pallet-fast-unstake"
-version = "27.0.0"
+version = "37.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -18,27 +18,24 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-staking = { workspace = true }
-frame-election-provider-support = { workspace = true }
-
+frame-support.workspace = true
+frame-system.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-staking.workspace = true
+frame-election-provider-support.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 
 docify = { workspace = true }
 
 [dev-dependencies]
-pallet-staking-reward-curve = { workspace = true, default-features = true }
-sp-core = { workspace = true }
-substrate-test-utils = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
-pallet-staking = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
+pallet-staking-reward-curve = { default-features = true, path = "../staking/reward-curve" }
+sp-core = { path = "../../primitives/core", default-features = false }
+substrate-test-utils = { path = "../../test-utils" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+pallet-staking = { default-features = true, path = "../staking" }
+pallet-balances = { default-features = true, path = "../balances" }
+pallet-timestamp = { default-features = true, path = "../timestamp" }
 
 [features]
 default = ["std"]
@@ -49,24 +46,16 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
-	"pallet-staking/std",
-	"pallet-timestamp/std",
 	"scale-info/std",
-	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-tracing/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-staking/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
@@ -74,8 +63,5 @@ try-runtime = [
 	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-staking/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]

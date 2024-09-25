@@ -1,6 +1,6 @@
 [package]
 name = "pallet-bridge-parachains"
-version = "0.7.0"
+version = "0.18.0"
 description = "Module that allows bridged relay chains to exchange information on their parachains' heads."
 authors.workspace = true
 edition.workspace = true
@@ -14,28 +14,22 @@ workspace = true
 codec = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-
-# Bridge Dependencies
-
-bp-header-chain = { workspace = true }
-bp-parachains = { workspace = true }
-bp-polkadot-core = { workspace = true }
-bp-runtime = { workspace = true }
-pallet-bridge-grandpa = { workspace = true }
-
-# Substrate Dependencies
-
+bp-header-chain.workspace = true
+bp-parachains.workspace = true
+bp-polkadot-core.workspace = true
+bp-runtime.workspace = true
+pallet-bridge-grandpa.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
 
 [dev-dependencies]
-bp-header-chain = { workspace = true, default-features = true }
-bp-test-utils = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
+bp-header-chain = { default-features = true, path = "../../primitives/header-chain" }
+bp-test-utils = { default-features = true, path = "../../primitives/test-utils" }
+sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
+sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
 
 [features]
 default = ["std"]

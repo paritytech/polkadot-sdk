@@ -1,6 +1,6 @@
 [package]
 name = "pallet-timestamp"
-version = "27.0.0"
+version = "37.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -21,19 +21,19 @@ codec = { features = ["derive", "max-encoded-len"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-inherents = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-inherents.workspace = true
 sp-io = { optional = true, workspace = true }
-sp-runtime = { workspace = true }
-sp-storage = { workspace = true }
-sp-timestamp = { workspace = true }
+sp-runtime.workspace = true
+sp-storage.workspace = true
+sp-timestamp.workspace = true
 
 docify = { workspace = true }
 
 [dev-dependencies]
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
+sp-core = { default-features = true, path = "../../primitives/core" }
+sp-io = { default-features = true, path = "../../primitives/io" }
 
 [features]
 default = ["std"]
@@ -44,7 +44,6 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"scale-info/std",
-	"sp-core/std",
 	"sp-inherents/std",
 	"sp-io?/std",
 	"sp-runtime/std",

@@ -1,6 +1,6 @@
 [package]
 name = "frame-system"
-version = "28.0.0"
+version = "38.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -21,19 +21,19 @@ codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
-frame-support = { workspace = true }
+frame-support.workspace = true
 sp-core = { features = ["serde"], workspace = true }
-sp-io = { workspace = true }
+sp-io.workspace = true
 sp-runtime = { features = ["serde"], workspace = true }
-sp-std = { workspace = true }
+sp-std.workspace = true
 sp-version = { features = ["serde"], workspace = true }
 sp-weights = { features = ["serde"], workspace = true }
 docify = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
-sp-externalities = { workspace = true, default-features = true }
-substrate-test-runtime-client = { workspace = true }
+sp-externalities = { default-features = true, path = "../../primitives/externalities" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 
 [features]
 default = ["std"]
@@ -44,7 +44,6 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"sp-core/std",
-	"sp-externalities/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",

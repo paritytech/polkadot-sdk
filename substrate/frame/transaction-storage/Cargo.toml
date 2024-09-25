@@ -1,6 +1,6 @@
 [package]
 name = "pallet-transaction-storage"
-version = "27.0.0"
+version = "37.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -21,18 +21,18 @@ codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-balances = { workspace = true }
-sp-inherents = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-transaction-storage-proof = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-balances.workspace = true
+sp-inherents.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-transaction-storage-proof.workspace = true
 log = { workspace = true }
 
 [dev-dependencies]
-sp-core = { workspace = true }
-sp-transaction-storage-proof = { default-features = true, workspace = true }
+sp-core = { path = "../../primitives/core", default-features = false }
+sp-transaction-storage-proof = { default-features = true, path = "../../primitives/transaction-storage-proof" }
 
 [features]
 default = ["std"]
@@ -53,7 +53,6 @@ std = [
 	"pallet-balances/std",
 	"scale-info/std",
 	"serde",
-	"sp-core/std",
 	"sp-inherents/std",
 	"sp-io/std",
 	"sp-runtime/std",

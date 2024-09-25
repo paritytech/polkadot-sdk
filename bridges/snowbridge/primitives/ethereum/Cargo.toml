@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-ethereum"
 description = "Snowbridge Ethereum"
-version = "0.3.0"
+version = "0.9.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -21,10 +21,9 @@ ethereum-types = { features = ["codec", "rlp", "serialize"], workspace = true }
 hex-literal = { workspace = true }
 parity-bytes = { workspace = true }
 rlp = { workspace = true }
-
-sp-io = { workspace = true }
-sp-std = { workspace = true }
-sp-runtime = { workspace = true }
+sp-io.workspace = true
+sp-std.workspace = true
+sp-runtime.workspace = true
 
 ethabi = { workspace = true }
 

@@ -19,8 +19,12 @@ codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-sc-transaction-pool = { workspace = true, default-features = true }
-sc-transaction-pool-api = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-substrate-test-runtime-client = { workspace = true }
+sc-transaction-pool.workspace = true
+sc-transaction-pool.default-features = true
+sc-transaction-pool-api.workspace = true
+sc-transaction-pool-api.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+substrate-test-runtime-client.workspace = true

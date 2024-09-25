@@ -1,6 +1,6 @@
 [package]
 name = "pallet-aura"
-version = "27.0.0"
+version = "37.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -19,16 +19,16 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-timestamp = { workspace = true }
-sp-application-crypto = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-runtime = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-timestamp.workspace = true
+sp-application-crypto.workspace = true
+sp-consensus-aura.workspace = true
+sp-runtime.workspace = true
 
 [dev-dependencies]
-sp-core = { workspace = true }
-sp-io = { workspace = true, default-features = true }
+sp-core = { path = "../../primitives/core", default-features = false }
+sp-io = { default-features = true, path = "../../primitives/io" }
 
 [features]
 default = ["std"]
@@ -41,8 +41,6 @@ std = [
 	"scale-info/std",
 	"sp-application-crypto/std",
 	"sp-consensus-aura/std",
-	"sp-core/std",
-	"sp-io/std",
 	"sp-runtime/std",
 ]
 try-runtime = [

@@ -1,6 +1,6 @@
 [package]
 name = "sp-core"
-version = "28.0.0"
+version = "34.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -27,16 +27,16 @@ hash-db = { workspace = true }
 hash256-std-hasher = { workspace = true }
 bs58 = { optional = true, workspace = true }
 rand = { features = ["small_rng"], optional = true, workspace = true, default-features = true }
-substrate-bip39 = { workspace = true }
+substrate-bip39.workspace = true
 # personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
 bip39 = { package = "parity-bip39", version = "2.0.1", default-features = false, features = ["alloc"] }
 zeroize = { workspace = true }
 secrecy = { features = ["alloc"], workspace = true }
 parking_lot = { optional = true, workspace = true, default-features = true }
 ss58-registry = { workspace = true }
-sp-std = { workspace = true }
-sp-debug-derive = { workspace = true }
-sp-storage = { workspace = true }
+sp-std.workspace = true
+sp-debug-derive.workspace = true
+sp-storage.workspace = true
 sp-externalities = { optional = true, workspace = true }
 futures = { optional = true, workspace = true }
 dyn-clonable = { optional = true, workspace = true }
@@ -53,8 +53,8 @@ blake2 = { optional = true, workspace = true }
 libsecp256k1 = { features = ["static-context"], workspace = true }
 schnorrkel = { features = ["preaudit_deprecated"], workspace = true }
 merlin = { workspace = true }
-sp-crypto-hashing = { workspace = true }
-sp-runtime-interface = { workspace = true }
+sp-crypto-hashing.workspace = true
+sp-runtime-interface.workspace = true
 # k256 crate, better portability, intended to be used in substrate-runtimes (no-std)
 k256 = { features = ["alloc", "ecdsa"], workspace = true }
 # secp256k1 crate, better performance, intended to be used on host side (std)
@@ -62,8 +62,6 @@ secp256k1 = { features = ["alloc", "recovery"], optional = true, workspace = tru
 
 # bls crypto
 w3f-bls = { optional = true, workspace = true }
-# bandersnatch crypto
-bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "0fef826", default-features = false, features = ["substrate-curves"], optional = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
@@ -82,7 +80,6 @@ bench = false
 default = ["std"]
 
 std = [
-	"bandersnatch_vrfs?/std",
 	"bip39/rand",
 	"bip39/std",
 	"blake2/std",
@@ -153,8 +150,3 @@ full_crypto = [
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
 bls-experimental = ["w3f-bls"]
-
-# This feature adds Bandersnatch crypto primitives.
-# It should not be used in production since the implementation and interface may still
-# be subject to significant changes.
-bandersnatch-experimental = ["bandersnatch_vrfs"]

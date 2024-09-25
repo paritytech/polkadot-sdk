@@ -22,3 +22,8 @@ as the storage, but it is not recommended as it won't work well with light
 clients.
 
 License: GPL-3.0-or-later WITH Classpath-exception-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

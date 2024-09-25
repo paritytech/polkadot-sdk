@@ -12,3 +12,8 @@ We have two examples of how this pallet is used in production. Rewards are regis
 compensate fees of message delivery transactions (and linked finality delivery calls). At the source chain, rewards
 are registered during delivery confirmation transactions. You may find more information about that in the
 [Kusama <> Polkadot bridge](../../docs/polkadot-kusama-bridge-overview.md) documentation.
+
+
+## Release
+
+Polkadot SDK stable2409

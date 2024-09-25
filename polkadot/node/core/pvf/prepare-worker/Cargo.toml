@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-core-pvf-prepare-worker"
 description = "Polkadot crate that contains the logic for preparing PVFs. Used by the polkadot-prepare-worker binary."
-version = "7.0.0"
+version = "16.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,23 +12,29 @@ workspace = true
 [dependencies]
 blake3 = { workspace = true }
 cfg-if = { workspace = true }
-gum = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
 libc = { workspace = true }
 rayon = { workspace = true }
-tracking-allocator = { workspace = true, default-features = true }
+tracking-allocator.workspace = true
+tracking-allocator.default-features = true
 tikv-jemalloc-ctl = { optional = true, workspace = true }
 tikv-jemallocator = { optional = true, workspace = true }
 nix = { features = ["process", "resource", "sched"], workspace = true }
 
 codec = { features = ["derive"], workspace = true }
-
-polkadot-node-core-pvf-common = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-
-sc-executor-common = { workspace = true, default-features = true }
-sc-executor-wasmtime = { workspace = true, default-features = true }
-sp-maybe-compressed-blob = { workspace = true, default-features = true }
+polkadot-node-core-pvf-common.workspace = true
+polkadot-node-core-pvf-common.default-features = true
+polkadot-node-primitives.workspace = true
+polkadot-node-primitives.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+sc-executor-common.workspace = true
+sc-executor-common.default-features = true
+sc-executor-wasmtime.workspace = true
+sc-executor-wasmtime.default-features = true
+sp-maybe-compressed-blob.workspace = true
+sp-maybe-compressed-blob.default-features = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemallocator = "0.5.0"
@@ -44,8 +50,8 @@ jemalloc-allocator = [
 
 [dev-dependencies]
 criterion = { features = ["cargo_bench_support"], workspace = true }
-rococo-runtime = { workspace = true }
-sp-maybe-compressed-blob = { workspace = true, default-features = true }
+rococo-runtime = { path = "../../../../runtime/rococo" }
+sp-maybe-compressed-blob = { default-features = true, path = "../../../../../substrate/primitives/maybe-compressed-blob" }
 
 [[bench]]
 name = "prepare_rococo_runtime"

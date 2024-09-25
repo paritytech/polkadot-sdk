@@ -1,7 +1,7 @@
 [package]
 description = "FRAME's mixnet pallet"
 name = "pallet-mixnet"
-version = "0.4.0"
+version = "0.14.0"
 license = "Apache-2.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition.workspace = true
@@ -18,16 +18,16 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["derive"], workspace = true }
-sp-application-crypto = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-io = { workspace = true }
-sp-mixnet = { workspace = true }
-sp-runtime = { workspace = true }
+sp-application-crypto.workspace = true
+sp-arithmetic.workspace = true
+sp-io.workspace = true
+sp-mixnet.workspace = true
+sp-runtime.workspace = true
 
 [features]
 default = ["std"]

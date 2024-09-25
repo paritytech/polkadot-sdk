@@ -8,3 +8,8 @@ responsible for validating blocks and executing the state changes they define.
 
 👉 Learn more about FRAME
 [here](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html).
+
+
+## Release
+
+Polkadot SDK stable2409

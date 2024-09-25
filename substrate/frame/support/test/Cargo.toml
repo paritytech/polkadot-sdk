@@ -20,23 +20,22 @@ serde = { features = ["derive"], workspace = true }
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 frame-metadata = { features = ["current"], workspace = true }
-sp-api = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-io = { workspace = true }
+sp-api.workspace = true
+sp-arithmetic.workspace = true
+sp-io.workspace = true
 sp-state-machine = { optional = true, workspace = true, default-features = true }
 frame-support = { features = ["experimental"], workspace = true }
-frame-benchmarking = { workspace = true }
-sp-runtime = { workspace = true }
-sp-core = { workspace = true }
-sp-version = { workspace = true }
-sp-metadata-ir = { workspace = true }
+frame-benchmarking.workspace = true
+sp-runtime.workspace = true
+sp-core.workspace = true
+sp-version.workspace = true
+sp-metadata-ir.workspace = true
 trybuild = { features = ["diff"], workspace = true }
 pretty_assertions = { workspace = true }
 rustversion = { workspace = true }
-frame-system = { workspace = true }
-frame-executive = { workspace = true }
-# The "std" feature for this pallet is never activated on purpose, in order to test construct_runtime error message
-test-pallet = { workspace = true }
+frame-system.workspace = true
+frame-executive.workspace = true
+test-pallet.workspace = true
 
 [features]
 default = ["std"]

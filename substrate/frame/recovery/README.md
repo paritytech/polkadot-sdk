@@ -132,3 +132,8 @@ of this pallet are:
   one account to access another.
 
 License: Apache-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-network-protocol"
-version = "7.0.0"
+version = "18.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,21 +13,29 @@ workspace = true
 async-channel = { workspace = true }
 async-trait = { workspace = true }
 hex = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-node-jaeger = { workspace = true, default-features = true }
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+polkadot-node-primitives.workspace = true
+polkadot-node-primitives.default-features = true
+polkadot-node-jaeger.workspace = true
+polkadot-node-jaeger.default-features = true
 codec = { features = ["derive"], workspace = true }
-sc-network = { workspace = true, default-features = true }
-sc-network-types = { workspace = true, default-features = true }
-sc-authority-discovery = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+sc-network.workspace = true
+sc-network.default-features = true
+sc-network-types.workspace = true
+sc-network-types.default-features = true
+sc-authority-discovery.workspace = true
+sc-authority-discovery.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
 strum = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
 thiserror = { workspace = true }
 fatality = { workspace = true }
 rand = { workspace = true, default-features = true }
 derive_more = { workspace = true, default-features = true }
-gum = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
 bitvec = { workspace = true, default-features = true }
 
 [dev-dependencies]

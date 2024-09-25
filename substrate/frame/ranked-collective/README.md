@@ -20,3 +20,8 @@ controls the weight of a vote given the voters rank compared to the minimum rank
 
 An origin control, `EnsureRank`, ensures that the origin is a member of the collective of at
 least a particular rank.
+
+
+## Release
+
+Polkadot SDK stable2409

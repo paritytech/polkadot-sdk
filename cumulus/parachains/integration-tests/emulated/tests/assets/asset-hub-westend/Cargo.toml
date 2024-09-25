@@ -13,33 +13,31 @@ workspace = true
 [dependencies]
 codec = { workspace = true }
 assert_matches = { workspace = true }
-
-# Substrate
-sp-runtime = { workspace = true }
-sp-keyring = { workspace = true }
-sp-core = { workspace = true }
-frame-metadata-hash-extension = { workspace = true, default-features = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-assets = { workspace = true }
-pallet-asset-conversion = { workspace = true }
-pallet-treasury = { workspace = true }
-pallet-message-queue = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-asset-tx-payment = { workspace = true }
-
-# Polkadot
-polkadot-runtime-common = { workspace = true, default-features = true }
-xcm = { workspace = true }
-xcm-executor = { workspace = true }
-pallet-xcm = { workspace = true }
-xcm-runtime-apis = { workspace = true }
-
-# Cumulus
-parachains-common = { workspace = true, default-features = true }
-asset-test-utils = { workspace = true, default-features = true }
-cumulus-pallet-xcmp-queue = { workspace = true }
-cumulus-pallet-parachain-system = { workspace = true }
-emulated-integration-tests-common = { workspace = true }
-westend-system-emulated-network = { workspace = true }
+sp-runtime.workspace = true
+sp-keyring.workspace = true
+sp-core.workspace = true
+frame-metadata-hash-extension.workspace = true
+frame-metadata-hash-extension.default-features = true
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-balances.workspace = true
+pallet-assets.workspace = true
+pallet-asset-conversion.workspace = true
+pallet-treasury.workspace = true
+pallet-message-queue.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-asset-tx-payment.workspace = true
+polkadot-runtime-common.workspace = true
+polkadot-runtime-common.default-features = true
+xcm.workspace = true
+xcm-executor.workspace = true
+pallet-xcm.workspace = true
+xcm-runtime-apis.workspace = true
+parachains-common.workspace = true
+parachains-common.default-features = true
+asset-test-utils.workspace = true
+asset-test-utils.default-features = true
+cumulus-pallet-xcmp-queue.workspace = true
+cumulus-pallet-parachain-system.workspace = true
+emulated-integration-tests-common.workspace = true
+westend-system-emulated-network.workspace = true

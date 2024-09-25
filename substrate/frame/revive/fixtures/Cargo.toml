@@ -1,7 +1,7 @@
 [package]
 name = "pallet-revive-fixtures"
 publish = true
-version = "0.1.0"
+version = "0.2.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,8 +11,8 @@ description = "Fixtures for testing and benchmarking"
 workspace = true
 
 [dependencies]
-frame-system = { workspace = true, default-features = true, optional = true }
-sp-runtime = { workspace = true, default-features = true, optional = true }
+frame-system = { workspace = true, optional = true, default-features = true }
+sp-runtime = { workspace = true, optional = true, default-features = true }
 anyhow = { workspace = true }
 
 [build-dependencies]

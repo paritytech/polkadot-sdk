@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-dispute-coordinator"
-version = "7.0.0"
+version = "18.0.0"
 description = "The node-side components that participate in disputes"
 authors.workspace = true
 edition.workspace = true
@@ -11,32 +11,36 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
-gum = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
 codec = { workspace = true, default-features = true }
 kvdb = { workspace = true }
 thiserror = { workspace = true }
 schnellru = { workspace = true }
 fatality = { workspace = true }
-
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
-
-sc-keystore = { workspace = true, default-features = true }
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+polkadot-node-primitives.workspace = true
+polkadot-node-primitives.default-features = true
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem-util.default-features = true
+sc-keystore.workspace = true
+sc-keystore.default-features = true
 
 
 [dev-dependencies]
 kvdb-memorydb = { workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+sp-keystore = { default-features = true, path = "../../../../substrate/primitives/keystore" }
 assert_matches = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
 futures-timer = { workspace = true }
-sp-application-crypto = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
+sp-application-crypto = { default-features = true, path = "../../../../substrate/primitives/application-crypto" }
+sp-tracing = { default-features = true, path = "../../../../substrate/primitives/tracing" }
 
 [features]
 # If not enabled, the dispute coordinator will do nothing.

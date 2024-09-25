@@ -1,6 +1,6 @@
 [package]
 name = "emulated-integration-tests-common"
-version = "3.0.0"
+version = "14.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -12,37 +12,55 @@ workspace = true
 [dependencies]
 codec = { workspace = true }
 paste = { workspace = true, default-features = true }
-
-# Substrate
-sp-consensus-beefy = { workspace = true, default-features = true }
-sc-consensus-grandpa = { workspace = true, default-features = true }
-sp-authority-discovery = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-frame-support = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-consensus-babe = { workspace = true, default-features = true }
-pallet-assets = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-pallet-message-queue = { workspace = true, default-features = true }
-
-# Polkadot
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-parachain-primitives = { workspace = true, default-features = true }
-polkadot-runtime-parachains = { workspace = true, default-features = true }
-xcm = { workspace = true, default-features = true }
-pallet-xcm = { workspace = true, default-features = true }
-
-# Cumulus
-parachains-common = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
-xcm-emulator = { workspace = true, default-features = true }
-cumulus-pallet-xcmp-queue = { workspace = true, default-features = true }
-cumulus-pallet-parachain-system = { workspace = true, default-features = true }
-asset-test-utils = { workspace = true, default-features = true }
-
-# Bridges
-bp-messages = { workspace = true, default-features = true }
-bp-xcm-bridge-hub = { workspace = true, default-features = true }
-pallet-bridge-messages = { workspace = true, default-features = true }
-pallet-xcm-bridge-hub = { workspace = true, default-features = true }
-bridge-runtime-common = { workspace = true, default-features = true }
+sp-consensus-beefy.workspace = true
+sp-consensus-beefy.default-features = true
+sc-consensus-grandpa.workspace = true
+sc-consensus-grandpa.default-features = true
+sp-authority-discovery.workspace = true
+sp-authority-discovery.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+frame-support.workspace = true
+frame-support.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-consensus-babe.workspace = true
+sp-consensus-babe.default-features = true
+pallet-assets.workspace = true
+pallet-assets.default-features = true
+pallet-balances.workspace = true
+pallet-balances.default-features = true
+pallet-message-queue.workspace = true
+pallet-message-queue.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+polkadot-parachain-primitives.workspace = true
+polkadot-parachain-primitives.default-features = true
+polkadot-runtime-parachains.workspace = true
+polkadot-runtime-parachains.default-features = true
+xcm.workspace = true
+xcm.default-features = true
+pallet-xcm.workspace = true
+pallet-xcm.default-features = true
+parachains-common.workspace = true
+parachains-common.default-features = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-core.default-features = true
+xcm-emulator.workspace = true
+xcm-emulator.default-features = true
+cumulus-pallet-xcmp-queue.workspace = true
+cumulus-pallet-xcmp-queue.default-features = true
+cumulus-pallet-parachain-system.workspace = true
+cumulus-pallet-parachain-system.default-features = true
+asset-test-utils.workspace = true
+asset-test-utils.default-features = true
+bp-messages.workspace = true
+bp-messages.default-features = true
+bp-xcm-bridge-hub.workspace = true
+bp-xcm-bridge-hub.default-features = true
+pallet-bridge-messages.workspace = true
+pallet-bridge-messages.default-features = true
+pallet-xcm-bridge-hub.workspace = true
+pallet-xcm-bridge-hub.default-features = true
+bridge-runtime-common.workspace = true
+bridge-runtime-common.default-features = true

@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-aura-ext"
-version = "0.7.0"
+version = "0.17.0"
 authors.workspace = true
 edition.workspace = true
 description = "AURA consensus extension pallet for parachains"
@@ -12,23 +12,19 @@ workspace = true
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-
-# Substrate
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-aura = { workspace = true }
-pallet-timestamp = { workspace = true }
-sp-application-crypto = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-runtime = { workspace = true }
-
-# Cumulus
-cumulus-pallet-parachain-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-aura.workspace = true
+pallet-timestamp.workspace = true
+sp-application-crypto.workspace = true
+sp-consensus-aura.workspace = true
+sp-runtime.workspace = true
+cumulus-pallet-parachain-system.workspace = true
 
 [dev-dependencies]
 
 # Cumulus
-cumulus-pallet-parachain-system = { workspace = true, default-features = true }
+cumulus-pallet-parachain-system = { default-features = true, path = "../parachain-system" }
 
 [features]
 default = ["std"]

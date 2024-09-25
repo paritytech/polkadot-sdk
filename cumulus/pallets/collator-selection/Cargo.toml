@@ -7,7 +7,7 @@ license = "Apache-2.0"
 name = "pallet-collator-selection"
 readme = "README.md"
 repository.workspace = true
-version = "9.0.0"
+version = "19.0.0"
 
 [lints]
 workspace = true
@@ -20,25 +20,23 @@ log = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 rand = { features = ["std_rng"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-
-sp-runtime = { workspace = true }
-sp-staking = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-authorship = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-session = { workspace = true }
-
+sp-runtime.workspace = true
+sp-staking.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-authorship.workspace = true
+pallet-balances.workspace = true
+pallet-session.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
-sp-consensus-aura = { workspace = true, default-features = true }
-pallet-aura = { workspace = true, default-features = true }
+sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
+sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
+sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+sp-runtime = { default-features = true, path = "../../../substrate/primitives/runtime" }
+pallet-timestamp = { default-features = true, path = "../../../substrate/frame/timestamp" }
+sp-consensus-aura = { default-features = true, path = "../../../substrate/primitives/consensus/aura" }
+pallet-aura = { default-features = true, path = "../../../substrate/frame/aura" }
 
 [features]
 default = ["std"]
@@ -47,7 +45,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
@@ -69,10 +66,8 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-session/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -1,6 +1,6 @@
 [package]
 name = "sp-core-fuzz"
-version = "0.0.0"
+version = "0.1.0"
 publish = false
 edition.workspace = true
 
@@ -14,8 +14,8 @@ cargo-fuzz = true
 lazy_static = { workspace = true }
 libfuzzer-sys = { workspace = true }
 regex = { workspace = true }
-
-sp-core = { workspace = true, default-features = true }
+sp-core.workspace = true
+sp-core.default-features = true
 
 [[bin]]
 name = "fuzz_address_uri"

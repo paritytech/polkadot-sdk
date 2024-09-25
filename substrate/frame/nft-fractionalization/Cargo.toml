@@ -1,6 +1,6 @@
 [package]
 name = "pallet-nft-fractionalization"
-version = "10.0.0"
+version = "21.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -20,17 +20,17 @@ codec = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-assets = { workspace = true }
-pallet-nfts = { workspace = true }
-sp-runtime = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-assets.workspace = true
+pallet-nfts.workspace = true
+sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-std = { workspace = true, default-features = true }
+pallet-balances = { default-features = true, path = "../balances" }
+sp-core = { default-features = true, path = "../../primitives/core" }
+sp-io = { default-features = true, path = "../../primitives/io" }
+sp-std = { default-features = true, path = "../../primitives/std" }
 
 [features]
 default = ["std"]
@@ -41,11 +41,8 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-assets/std",
-	"pallet-balances/std",
 	"pallet-nfts/std",
 	"scale-info/std",
-	"sp-core/std",
-	"sp-io/std",
 	"sp-runtime/std",
 ]
 runtime-benchmarks = [
@@ -53,7 +50,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -61,7 +57,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-assets/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-nfts/try-runtime",
 	"sp-runtime/try-runtime",
 ]

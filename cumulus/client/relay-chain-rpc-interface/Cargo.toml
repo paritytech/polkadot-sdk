@@ -1,7 +1,7 @@
 [package]
 authors.workspace = true
 name = "cumulus-relay-chain-rpc-interface"
-version = "0.7.0"
+version = "0.18.0"
 edition.workspace = true
 description = "Implementation of the RelayChainInterface trait that connects to a remote RPC-node."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -10,22 +10,34 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-polkadot-overseer = { workspace = true, default-features = true }
-
-cumulus-primitives-core = { workspace = true, default-features = true }
-cumulus-relay-chain-interface = { workspace = true, default-features = true }
-
-sp-api = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-consensus-babe = { workspace = true, default-features = true }
-sp-authority-discovery = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
-sp-storage = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-version = { workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
-sc-rpc-api = { workspace = true, default-features = true }
-sc-service = { workspace = true, default-features = true }
+polkadot-overseer.workspace = true
+polkadot-overseer.default-features = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-core.default-features = true
+cumulus-relay-chain-interface.workspace = true
+cumulus-relay-chain-interface.default-features = true
+sp-api.workspace = true
+sp-api.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-consensus-babe.workspace = true
+sp-consensus-babe.default-features = true
+sp-authority-discovery.workspace = true
+sp-authority-discovery.default-features = true
+sp-state-machine.workspace = true
+sp-state-machine.default-features = true
+sp-storage.workspace = true
+sp-storage.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-version.workspace = true
+sp-version.default-features = true
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+sc-rpc-api.workspace = true
+sc-rpc-api.default-features = true
+sc-service.workspace = true
+sc-service.default-features = true
 
 tokio = { features = ["sync"], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }

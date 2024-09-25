@@ -81,3 +81,8 @@ the Timestamp module for session management.
 - [Session](https://docs.rs/pallet-session/latest/pallet_session/)
 
 License: Apache-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

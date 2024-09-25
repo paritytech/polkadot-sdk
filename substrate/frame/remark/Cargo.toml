@@ -1,6 +1,6 @@
 [package]
 name = "pallet-remark"
-version = "28.0.0"
+version = "38.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -20,14 +20,14 @@ codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
 
 [dev-dependencies]
-sp-core = { workspace = true }
+sp-core = { path = "../../primitives/core", default-features = false }
 
 [features]
 default = ["std"]

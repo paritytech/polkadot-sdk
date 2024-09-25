@@ -230,3 +230,8 @@ that we currently maintain.
 ## License
 
 Polkadot is [GPL 3.0 licensed](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/LICENSE).
+
+
+## Release
+
+Polkadot SDK stable2409

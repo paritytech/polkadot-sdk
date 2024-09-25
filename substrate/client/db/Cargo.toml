@@ -1,6 +1,6 @@
 [package]
 name = "sc-client-db"
-version = "0.35.0"
+version = "0.44.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -27,16 +27,25 @@ linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
 parity-db = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
-sc-state-db = { workspace = true, default-features = true }
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+sc-state-db.workspace = true
+sc-state-db.default-features = true
 schnellru = { workspace = true }
-sp-arithmetic = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-database = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
-sp-trie = { workspace = true, default-features = true }
+sp-arithmetic.workspace = true
+sp-arithmetic.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-database.workspace = true
+sp-database.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-state-machine.workspace = true
+sp-state-machine.default-features = true
+sp-trie.workspace = true
+sp-trie.default-features = true
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
@@ -44,16 +53,15 @@ kvdb-rocksdb = { workspace = true }
 rand = { workspace = true, default-features = true }
 tempfile = { workspace = true }
 quickcheck = { workspace = true }
-kitchensink-runtime = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
-substrate-test-runtime-client = { workspace = true }
+kitchensink-runtime = { path = "../../bin/node/runtime" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 array-bytes = { workspace = true, default-features = true }
 
 [features]
 default = []
 test-helpers = []
 runtime-benchmarks = [
-	"kitchensink-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 rocksdb = ["kvdb-rocksdb"]

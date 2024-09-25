@@ -1,7 +1,7 @@
 [package]
 description = "Substrate network protocol"
 name = "sc-network"
-version = "0.34.0"
+version = "0.45.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -48,16 +48,25 @@ tokio = { features = ["macros", "sync"], workspace = true, default-features = tr
 tokio-stream = { workspace = true }
 unsigned-varint = { features = ["asynchronous_codec", "futures"], workspace = true }
 zeroize = { workspace = true, default-features = true }
-prometheus-endpoint = { workspace = true, default-features = true }
+prometheus-endpoint.workspace = true
+prometheus-endpoint.default-features = true
 prost = { workspace = true }
-sc-client-api = { workspace = true, default-features = true }
-sc-network-common = { workspace = true, default-features = true }
-sc-network-types = { workspace = true, default-features = true }
-sc-utils = { workspace = true, default-features = true }
-sp-arithmetic = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+sc-network-common.workspace = true
+sc-network-common.default-features = true
+sc-network-types.workspace = true
+sc-network-types.default-features = true
+sc-utils.workspace = true
+sc-utils.default-features = true
+sp-arithmetic.workspace = true
+sp-arithmetic.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
 wasm-timer = { workspace = true }
 litep2p = { workspace = true }
 once_cell = { workspace = true }
@@ -73,15 +82,15 @@ tempfile = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }
 tokio-test = { workspace = true }
-sc-block-builder = { workspace = true, default-features = true }
-sc-network-light = { workspace = true, default-features = true }
-sc-network-sync = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-sp-test-primitives = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
-substrate-test-runtime = { workspace = true }
-substrate-test-runtime-client = { workspace = true }
+sc-block-builder = { default-features = true, path = "../block-builder" }
+sc-network-light = { default-features = true, path = "light" }
+sc-network-sync = { default-features = true, path = "sync" }
+sp-crypto-hashing = { default-features = true, path = "../../primitives/crypto/hashing" }
+sp-consensus = { default-features = true, path = "../../primitives/consensus/common" }
+sp-test-primitives = { path = "../../primitives/test-primitives" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+substrate-test-runtime = { path = "../../test-utils/runtime" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 
 [features]
 default = []

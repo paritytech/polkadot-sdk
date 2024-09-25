@@ -1,6 +1,6 @@
 [package]
 name = "pallet-society"
-version = "28.0.0"
+version = "38.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -20,35 +20,31 @@ log = { workspace = true }
 rand_chacha = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 codec = { features = ["derive"], workspace = true }
-
-sp-io = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-runtime = { workspace = true }
+sp-io.workspace = true
+sp-arithmetic.workspace = true
+sp-runtime.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 
 [dev-dependencies]
-frame-support-test = { workspace = true }
-pallet-balances = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
+frame-support-test = { path = "../support/test" }
+pallet-balances = { default-features = true, path = "../balances" }
+sp-core = { default-features = true, path = "../../primitives/core" }
+sp-crypto-hashing = { default-features = true, path = "../../primitives/crypto/hashing" }
+sp-io = { default-features = true, path = "../../primitives/io" }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
-	"frame-support-test/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
 	"rand_chacha/std",
 	"scale-info/std",
 	"sp-arithmetic/std",
-	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 ]
@@ -57,13 +53,10 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

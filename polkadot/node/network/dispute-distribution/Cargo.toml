@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-dispute-distribution"
-version = "7.0.0"
+version = "18.0.0"
 description = "Polkadot Dispute Distribution subsystem, which ensures all concerned validators are aware of a dispute and have the relevant votes."
 authors.workspace = true
 edition.workspace = true
@@ -12,18 +12,28 @@ workspace = true
 [dependencies]
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
 derive_more = { workspace = true, default-features = true }
 codec = { features = ["std"], workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-erasure-coding = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-node-network-protocol = { workspace = true, default-features = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-sp-application-crypto = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+polkadot-erasure-coding.workspace = true
+polkadot-erasure-coding.default-features = true
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-node-network-protocol.workspace = true
+polkadot-node-network-protocol.default-features = true
+polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem-util.default-features = true
+polkadot-node-primitives.workspace = true
+polkadot-node-primitives.default-features = true
+sc-network.workspace = true
+sc-network.default-features = true
+sp-application-crypto.workspace = true
+sp-application-crypto.default-features = true
+sp-keystore.workspace = true
+sp-keystore.default-features = true
 thiserror = { workspace = true }
 fatality = { workspace = true }
 schnellru = { workspace = true }
@@ -32,11 +42,11 @@ indexmap = { workspace = true }
 [dev-dependencies]
 async-channel = { workspace = true }
 async-trait = { workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-sc-keystore = { workspace = true, default-features = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+sp-tracing = { default-features = true, path = "../../../../substrate/primitives/tracing" }
+sc-keystore = { default-features = true, path = "../../../../substrate/client/keystore" }
 futures-timer = { workspace = true }
 assert_matches = { workspace = true }
 lazy_static = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }

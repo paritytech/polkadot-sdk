@@ -1,7 +1,7 @@
 [package]
 name = "parachain-template-node"
 description = "A parachain node template built with Substrate and Cumulus, part of Polkadot Sdk."
-version = "0.0.0"
+version = "0.1.0"
 license = "Unlicense"
 authors.workspace = true
 homepage.workspace = true
@@ -22,62 +22,96 @@ jsonrpsee = { features = ["server"], workspace = true }
 futures = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 docify = { workspace = true }
-
-# Local
-parachain-template-runtime = { workspace = true }
-
-# Substrate
-frame-benchmarking = { workspace = true, default-features = true }
-frame-benchmarking-cli = { workspace = true, default-features = true }
-pallet-transaction-payment-rpc = { workspace = true, default-features = true }
-sc-basic-authorship = { workspace = true, default-features = true }
-sc-chain-spec = { workspace = true, default-features = true }
-sc-cli = { workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
-sc-offchain = { workspace = true, default-features = true }
-sc-consensus = { workspace = true, default-features = true }
-sc-executor = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-sc-network-sync = { workspace = true, default-features = true }
-sc-rpc = { workspace = true, default-features = true }
-sc-service = { workspace = true, default-features = true }
-sc-sysinfo = { workspace = true, default-features = true }
-sc-telemetry = { workspace = true, default-features = true }
-sc-tracing = { workspace = true, default-features = true }
-sc-transaction-pool = { workspace = true, default-features = true }
-sc-transaction-pool-api = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-block-builder = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-consensus-aura = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-genesis-builder = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-timestamp = { workspace = true, default-features = true }
-substrate-frame-rpc-system = { workspace = true, default-features = true }
-prometheus-endpoint = { workspace = true, default-features = true }
-
-# Polkadot
+parachain-template-runtime.workspace = true
+frame-benchmarking.workspace = true
+frame-benchmarking.default-features = true
+frame-benchmarking-cli.workspace = true
+frame-benchmarking-cli.default-features = true
+pallet-transaction-payment-rpc.workspace = true
+pallet-transaction-payment-rpc.default-features = true
+sc-basic-authorship.workspace = true
+sc-basic-authorship.default-features = true
+sc-chain-spec.workspace = true
+sc-chain-spec.default-features = true
+sc-cli.workspace = true
+sc-cli.default-features = true
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+sc-offchain.workspace = true
+sc-offchain.default-features = true
+sc-consensus.workspace = true
+sc-consensus.default-features = true
+sc-executor.workspace = true
+sc-executor.default-features = true
+sc-network.workspace = true
+sc-network.default-features = true
+sc-network-sync.workspace = true
+sc-network-sync.default-features = true
+sc-rpc.workspace = true
+sc-rpc.default-features = true
+sc-service.workspace = true
+sc-service.default-features = true
+sc-sysinfo.workspace = true
+sc-sysinfo.default-features = true
+sc-telemetry.workspace = true
+sc-telemetry.default-features = true
+sc-tracing.workspace = true
+sc-tracing.default-features = true
+sc-transaction-pool.workspace = true
+sc-transaction-pool.default-features = true
+sc-transaction-pool-api.workspace = true
+sc-transaction-pool-api.default-features = true
+sp-api.workspace = true
+sp-api.default-features = true
+sp-block-builder.workspace = true
+sp-block-builder.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-consensus-aura.workspace = true
+sp-consensus-aura.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-genesis-builder.workspace = true
+sp-genesis-builder.default-features = true
+sp-keystore.workspace = true
+sp-keystore.default-features = true
+sp-io.workspace = true
+sp-io.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-timestamp.workspace = true
+sp-timestamp.default-features = true
+substrate-frame-rpc-system.workspace = true
+substrate-frame-rpc-system.default-features = true
+prometheus-endpoint.workspace = true
+prometheus-endpoint.default-features = true
 polkadot-cli = { features = ["rococo-native"], workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-xcm = { workspace = true }
-
-# Cumulus
-cumulus-client-cli = { workspace = true, default-features = true }
-cumulus-client-collator = { workspace = true, default-features = true }
-cumulus-client-consensus-aura = { workspace = true, default-features = true }
-cumulus-client-consensus-common = { workspace = true, default-features = true }
-cumulus-client-consensus-proposer = { workspace = true, default-features = true }
-cumulus-client-service = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
-cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }
-cumulus-relay-chain-interface = { workspace = true, default-features = true }
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+xcm.workspace = true
+cumulus-client-cli.workspace = true
+cumulus-client-cli.default-features = true
+cumulus-client-collator.workspace = true
+cumulus-client-collator.default-features = true
+cumulus-client-consensus-aura.workspace = true
+cumulus-client-consensus-aura.default-features = true
+cumulus-client-consensus-common.workspace = true
+cumulus-client-consensus-common.default-features = true
+cumulus-client-consensus-proposer.workspace = true
+cumulus-client-consensus-proposer.default-features = true
+cumulus-client-service.workspace = true
+cumulus-client-service.default-features = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-core.default-features = true
+cumulus-primitives-parachain-inherent.workspace = true
+cumulus-primitives-parachain-inherent.default-features = true
+cumulus-relay-chain-interface.workspace = true
+cumulus-relay-chain-interface.default-features = true
 color-print = { workspace = true }
 
 [build-dependencies]
-substrate-build-script-utils = { workspace = true, default-features = true }
+substrate-build-script-utils.workspace = true
+substrate-build-script-utils.default-features = true
 
 [features]
 default = ["std"]

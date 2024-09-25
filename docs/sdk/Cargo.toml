@@ -8,7 +8,7 @@ authors.workspace = true
 edition.workspace = true
 # This crate is not publish-able to crates.io for now because of docify.
 publish = false
-version = "0.0.1"
+version = "0.1.0"
 
 [lints]
 workspace = true
@@ -17,108 +17,148 @@ workspace = true
 # Needed for all FRAME-based code
 codec = { workspace = true }
 scale-info = { workspace = true }
-frame = { features = [
-	"experimental",
-	"runtime",
-], workspace = true, default-features = true }
-pallet-examples = { workspace = true }
-pallet-contracts = { workspace = true }
-pallet-default-config-example = { workspace = true, default-features = true }
-pallet-example-offchain-worker = { workspace = true, default-features = true }
+frame = { features = ["experimental", "runtime"], workspace = true, default-features = true }
+pallet-examples.workspace = true
+pallet-contracts.workspace = true
+pallet-default-config-example.workspace = true
+pallet-default-config-example.default-features = true
+pallet-example-offchain-worker.workspace = true
+pallet-example-offchain-worker.default-features = true
 
 # How we build docs in rust-docs
 simple-mermaid = "0.1.1"
 docify = { workspace = true }
-
-# Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
 polkadot-sdk = { features = ["runtime-full"], workspace = true, default-features = true }
-node-cli = { workspace = true }
-kitchensink-runtime = { workspace = true }
-chain-spec-builder = { workspace = true, default-features = true }
-subkey = { workspace = true, default-features = true }
-frame-system = { workspace = true }
-frame-support = { workspace = true }
-frame-executive = { workspace = true }
-pallet-example-single-block-migrations = { workspace = true, default-features = true }
-frame-metadata-hash-extension = { workspace = true, default-features = true }
+node-cli.workspace = true
+kitchensink-runtime.workspace = true
+chain-spec-builder.workspace = true
+chain-spec-builder.default-features = true
+subkey.workspace = true
+subkey.default-features = true
+frame-system.workspace = true
+frame-support.workspace = true
+frame-executive.workspace = true
+pallet-example-single-block-migrations.workspace = true
+pallet-example-single-block-migrations.default-features = true
+frame-metadata-hash-extension.workspace = true
+frame-metadata-hash-extension.default-features = true
 log = { workspace = true, default-features = true }
-
-# Substrate Client
-sc-network = { workspace = true, default-features = true }
-sc-rpc-api = { workspace = true, default-features = true }
-sc-rpc = { workspace = true, default-features = true }
-sc-client-db = { workspace = true, default-features = true }
-sc-cli = { workspace = true, default-features = true }
-sc-consensus-aura = { workspace = true, default-features = true }
-sc-consensus-babe = { workspace = true, default-features = true }
-sc-consensus-grandpa = { workspace = true, default-features = true }
-sc-consensus-beefy = { workspace = true, default-features = true }
-sc-consensus-manual-seal = { workspace = true, default-features = true }
-sc-consensus-pow = { workspace = true, default-features = true }
-sc-executor = { workspace = true, default-features = true }
-sc-service = { workspace = true, default-features = true }
-sc-chain-spec = { workspace = true, default-features = true }
-
-substrate-wasm-builder = { workspace = true, default-features = true }
-
-# Cumulus
-cumulus-pallet-aura-ext = { workspace = true, default-features = true }
-cumulus-pallet-parachain-system = { workspace = true, default-features = true }
-parachain-info = { workspace = true, default-features = true }
-cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
-cumulus-client-service = { workspace = true, default-features = true }
-cumulus-primitives-storage-weight-reclaim = { workspace = true, default-features = true }
-
-# Pallets and FRAME internals
-pallet-aura = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-pallet-assets = { workspace = true, default-features = true }
-pallet-preimage = { workspace = true, default-features = true }
-pallet-transaction-payment = { workspace = true, default-features = true }
-pallet-asset-tx-payment = { workspace = true, default-features = true }
-pallet-skip-feeless-payment = { workspace = true, default-features = true }
-pallet-asset-conversion-tx-payment = { workspace = true, default-features = true }
-pallet-utility = { workspace = true, default-features = true }
-pallet-multisig = { workspace = true, default-features = true }
-pallet-proxy = { workspace = true, default-features = true }
-pallet-authorship = { workspace = true, default-features = true }
-pallet-collective = { workspace = true, default-features = true }
-pallet-democracy = { workspace = true, default-features = true }
-pallet-uniques = { workspace = true, default-features = true }
-pallet-nfts = { workspace = true, default-features = true }
-pallet-scheduler = { workspace = true, default-features = true }
-pallet-referenda = { workspace = true, default-features = true }
-pallet-broker = { workspace = true, default-features = true }
-pallet-babe = { workspace = true, default-features = true }
-
-# Primitives
-sp-io = { workspace = true, default-features = true }
-sp-std = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-sp-runtime-interface = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-arithmetic = { workspace = true, default-features = true }
-sp-genesis-builder = { workspace = true, default-features = true }
-sp-offchain = { workspace = true, default-features = true }
-sp-version = { workspace = true, default-features = true }
-
-
-# XCM
-xcm = { workspace = true, default-features = true }
-xcm-builder = { workspace = true }
-xcm-docs = { workspace = true }
-xcm-executor = { workspace = true }
-xcm-simulator = { workspace = true }
-pallet-xcm = { workspace = true }
-
-# runtime guides
-chain-spec-guide-runtime = { workspace = true }
-
-# Templates
-minimal-template-runtime = { workspace = true }
-solochain-template-runtime = { workspace = true }
-parachain-template-runtime = { workspace = true }
+sc-network.workspace = true
+sc-network.default-features = true
+sc-rpc-api.workspace = true
+sc-rpc-api.default-features = true
+sc-rpc.workspace = true
+sc-rpc.default-features = true
+sc-client-db.workspace = true
+sc-client-db.default-features = true
+sc-cli.workspace = true
+sc-cli.default-features = true
+sc-consensus-aura.workspace = true
+sc-consensus-aura.default-features = true
+sc-consensus-babe.workspace = true
+sc-consensus-babe.default-features = true
+sc-consensus-grandpa.workspace = true
+sc-consensus-grandpa.default-features = true
+sc-consensus-beefy.workspace = true
+sc-consensus-beefy.default-features = true
+sc-consensus-manual-seal.workspace = true
+sc-consensus-manual-seal.default-features = true
+sc-consensus-pow.workspace = true
+sc-consensus-pow.default-features = true
+sc-executor.workspace = true
+sc-executor.default-features = true
+sc-service.workspace = true
+sc-service.default-features = true
+sc-chain-spec.workspace = true
+sc-chain-spec.default-features = true
+substrate-wasm-builder.workspace = true
+substrate-wasm-builder.default-features = true
+cumulus-pallet-aura-ext.workspace = true
+cumulus-pallet-aura-ext.default-features = true
+cumulus-pallet-parachain-system.workspace = true
+cumulus-pallet-parachain-system.default-features = true
+parachain-info.workspace = true
+parachain-info.default-features = true
+cumulus-primitives-proof-size-hostfunction.workspace = true
+cumulus-primitives-proof-size-hostfunction.default-features = true
+cumulus-client-service.workspace = true
+cumulus-client-service.default-features = true
+cumulus-primitives-storage-weight-reclaim.workspace = true
+cumulus-primitives-storage-weight-reclaim.default-features = true
+pallet-aura.workspace = true
+pallet-aura.default-features = true
+pallet-timestamp.workspace = true
+pallet-timestamp.default-features = true
+pallet-balances.workspace = true
+pallet-balances.default-features = true
+pallet-assets.workspace = true
+pallet-assets.default-features = true
+pallet-preimage.workspace = true
+pallet-preimage.default-features = true
+pallet-transaction-payment.workspace = true
+pallet-transaction-payment.default-features = true
+pallet-asset-tx-payment.workspace = true
+pallet-asset-tx-payment.default-features = true
+pallet-skip-feeless-payment.workspace = true
+pallet-skip-feeless-payment.default-features = true
+pallet-asset-conversion-tx-payment.workspace = true
+pallet-asset-conversion-tx-payment.default-features = true
+pallet-utility.workspace = true
+pallet-utility.default-features = true
+pallet-multisig.workspace = true
+pallet-multisig.default-features = true
+pallet-proxy.workspace = true
+pallet-proxy.default-features = true
+pallet-authorship.workspace = true
+pallet-authorship.default-features = true
+pallet-collective.workspace = true
+pallet-collective.default-features = true
+pallet-democracy.workspace = true
+pallet-democracy.default-features = true
+pallet-uniques.workspace = true
+pallet-uniques.default-features = true
+pallet-nfts.workspace = true
+pallet-nfts.default-features = true
+pallet-scheduler.workspace = true
+pallet-scheduler.default-features = true
+pallet-referenda.workspace = true
+pallet-referenda.default-features = true
+pallet-broker.workspace = true
+pallet-broker.default-features = true
+pallet-babe.workspace = true
+pallet-babe.default-features = true
+sp-io.workspace = true
+sp-io.default-features = true
+sp-std.workspace = true
+sp-std.default-features = true
+sp-tracing.workspace = true
+sp-tracing.default-features = true
+sp-runtime-interface.workspace = true
+sp-runtime-interface.default-features = true
+sp-api.workspace = true
+sp-api.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-keyring.workspace = true
+sp-keyring.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-arithmetic.workspace = true
+sp-arithmetic.default-features = true
+sp-genesis-builder.workspace = true
+sp-genesis-builder.default-features = true
+sp-offchain.workspace = true
+sp-offchain.default-features = true
+sp-version.workspace = true
+sp-version.default-features = true
+xcm.workspace = true
+xcm.default-features = true
+xcm-builder.workspace = true
+xcm-docs.workspace = true
+xcm-executor.workspace = true
+xcm-simulator.workspace = true
+pallet-xcm.workspace = true
+chain-spec-guide-runtime.workspace = true
+minimal-template-runtime.workspace = true
+solochain-template-runtime.workspace = true
+parachain-template-runtime.workspace = true

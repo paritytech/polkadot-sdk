@@ -77,3 +77,8 @@ only map to a single username, known as the *primary*.
 [`Config`]: ./trait.Config.html
 
 License: Apache-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

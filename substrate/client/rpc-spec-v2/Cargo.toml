@@ -1,6 +1,6 @@
 [package]
 name = "sc-rpc-spec-v2"
-version = "0.34.0"
+version = "0.45.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -17,19 +17,28 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 jsonrpsee = { workspace = true, features = ["client-core", "macros", "server-core"] }
-# Internal chain structures for "chain_spec".
-sc-chain-spec = { workspace = true, default-features = true }
-# Pool for submitting extrinsics required by "transaction"
-sc-transaction-pool-api = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-rpc = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-version = { workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
-sc-utils = { workspace = true, default-features = true }
-sc-rpc = { workspace = true, default-features = true }
+sc-chain-spec.workspace = true
+sc-chain-spec.default-features = true
+sc-transaction-pool-api.workspace = true
+sc-transaction-pool-api.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-api.workspace = true
+sp-api.default-features = true
+sp-rpc.workspace = true
+sp-rpc.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-version.workspace = true
+sp-version.default-features = true
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+sc-utils.workspace = true
+sc-utils.default-features = true
+sc-rpc.workspace = true
+sc-rpc.default-features = true
 codec = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 serde = { workspace = true, default-features = true }
@@ -48,14 +57,14 @@ schnellru = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server", "ws-client"] }
 serde_json = { workspace = true, default-features = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
-substrate-test-runtime-client = { workspace = true }
-substrate-test-runtime = { workspace = true }
-substrate-test-runtime-transaction-pool = { workspace = true }
-sp-consensus = { workspace = true, default-features = true }
-sp-externalities = { workspace = true, default-features = true }
-sp-maybe-compressed-blob = { workspace = true, default-features = true }
-sc-block-builder = { workspace = true, default-features = true }
-sc-service = { features = ["test-helpers"], workspace = true, default-features = true }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+substrate-test-runtime = { path = "../../test-utils/runtime" }
+substrate-test-runtime-transaction-pool = { path = "../../test-utils/runtime/transaction-pool" }
+sp-consensus = { default-features = true, path = "../../primitives/consensus/common" }
+sp-externalities = { default-features = true, path = "../../primitives/externalities" }
+sp-maybe-compressed-blob = { default-features = true, path = "../../primitives/maybe-compressed-blob" }
+sc-block-builder = { default-features = true, path = "../block-builder" }
+sc-service = { features = ["test-helpers"], default-features = true, path = "../service" }
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
-sc-transaction-pool = { workspace = true, default-features = true }
+sc-transaction-pool = { default-features = true, path = "../transaction-pool" }

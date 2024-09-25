@@ -1,6 +1,6 @@
 [package]
 name = "sc-transaction-pool"
-version = "28.0.0"
+version = "37.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -25,27 +25,38 @@ log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
-prometheus-endpoint = { workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
-sc-transaction-pool-api = { workspace = true, default-features = true }
-sc-utils = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-sp-transaction-pool = { workspace = true, default-features = true }
+prometheus-endpoint.workspace = true
+prometheus-endpoint.default-features = true
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+sc-transaction-pool-api.workspace = true
+sc-transaction-pool-api.default-features = true
+sc-utils.workspace = true
+sc-utils.default-features = true
+sp-api.workspace = true
+sp-api.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-crypto-hashing.workspace = true
+sp-crypto-hashing.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-tracing.workspace = true
+sp-tracing.default-features = true
+sp-transaction-pool.workspace = true
+sp-transaction-pool.default-features = true
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 criterion = { workspace = true, default-features = true }
-sc-block-builder = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-substrate-test-runtime = { workspace = true }
-substrate-test-runtime-client = { workspace = true }
-substrate-test-runtime-transaction-pool = { workspace = true }
+sc-block-builder = { default-features = true, path = "../block-builder" }
+sp-consensus = { default-features = true, path = "../../primitives/consensus/common" }
+substrate-test-runtime = { path = "../../test-utils/runtime" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+substrate-test-runtime-transaction-pool = { path = "../../test-utils/runtime/transaction-pool" }
 
 [[bench]]
 name = "basics"

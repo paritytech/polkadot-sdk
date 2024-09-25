@@ -1,6 +1,6 @@
 [package]
 name = "sc-utils"
-version = "14.0.0"
+version = "17.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -20,7 +20,7 @@ lazy_static = { workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 prometheus = { workspace = true }
-sp-arithmetic = { workspace = true }
+sp-arithmetic.workspace = true
 
 [features]
 default = ["metered"]

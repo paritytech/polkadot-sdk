@@ -1,6 +1,6 @@
 [package]
 name = "pallet-asset-conversion-tx-payment"
-version = "10.0.0"
+version = "20.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -16,21 +16,20 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-# Substrate dependencies
-sp-runtime = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-asset-conversion = { workspace = true }
-pallet-transaction-payment = { workspace = true }
+sp-runtime.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-asset-conversion.workspace = true
+pallet-transaction-payment.workspace = true
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-storage = { workspace = true }
-pallet-assets = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
+sp-core = { path = "../../../primitives/core", default-features = false }
+sp-io = { path = "../../../primitives/io", default-features = false }
+sp-storage = { path = "../../../primitives/storage", default-features = false }
+pallet-assets = { default-features = true, path = "../../assets" }
+pallet-balances = { default-features = true, path = "../../balances" }
 
 [features]
 default = ["std"]
@@ -39,21 +38,14 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-asset-conversion/std",
-	"pallet-assets/std",
-	"pallet-balances/std",
 	"pallet-transaction-payment/std",
 	"scale-info/std",
-	"sp-core/std",
-	"sp-io/std",
 	"sp-runtime/std",
-	"sp-storage/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-asset-conversion/try-runtime",
-	"pallet-assets/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 ]

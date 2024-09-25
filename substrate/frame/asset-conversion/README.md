@@ -23,3 +23,8 @@ Please see the rust module documentation for full details:
 ### License
 
 License: Apache-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

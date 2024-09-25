@@ -1,6 +1,6 @@
 [package]
 name = "sp-consensus"
-version = "0.32.0"
+version = "0.40.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -21,14 +21,18 @@ async-trait = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
 log = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-sp-core = { workspace = true, default-features = true }
-sp-inherents = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
+sp-core.workspace = true
+sp-core.default-features = true
+sp-inherents.workspace = true
+sp-inherents.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-state-machine.workspace = true
+sp-state-machine.default-features = true
 
 [dev-dependencies]
 futures = { workspace = true }
-sp-test-primitives = { workspace = true }
+sp-test-primitives = { path = "../../test-primitives" }
 
 [features]
 default = []

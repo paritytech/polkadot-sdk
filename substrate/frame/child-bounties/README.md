@@ -27,3 +27,8 @@ Child Bounty protocol:
 - `unassign_curator` - Unassign an accepted curator from a specific child bounty.
 - `close_child_bounty` - Cancel the child bounty for a specific treasury amount
   and close the bounty.
+
+
+## Release
+
+Polkadot SDK stable2409

@@ -57,3 +57,8 @@ podman build -t paritypr/malus:v1 -f Containerfile ../../..
 
 [zombienet]: https://github.com/paritytech/zombienet
 [gke]: (https://github.com/paritytech/gurke/blob/main/docs/How-to-setup-access-to-gke-k8s-cluster.md)
+
+
+## Release
+
+Polkadot SDK stable2409

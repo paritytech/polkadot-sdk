@@ -1,7 +1,7 @@
 [package]
 name = "chain-spec-guide-runtime"
 description = "A minimal runtime for chain spec guide"
-version = "0.0.0"
+version = "0.1.0"
 license = "MIT-0"
 authors.workspace = true
 homepage.workspace = true
@@ -15,33 +15,24 @@ codec = { workspace = true }
 scale-info = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-
-# this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
-frame = { features = [
-	"experimental",
-	"runtime",
-], workspace = true }
-
-# pallets that we want to use
-pallet-balances = { workspace = true }
-pallet-sudo = { workspace = true }
-pallet-timestamp = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true }
-
-# genesis builder that allows us to interact with runtime genesis config
-sp-genesis-builder = { workspace = true }
+frame = { features = ["experimental", "runtime"], workspace = true }
+pallet-balances.workspace = true
+pallet-sudo.workspace = true
+pallet-timestamp.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
+sp-genesis-builder.workspace = true
 sp-runtime = { features = ["serde"], workspace = true }
-sp-core = { workspace = true }
-sp-keyring = { workspace = true }
+sp-core.workspace = true
+sp-keyring.workspace = true
 sp-application-crypto = { features = ["serde"], workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-chain-spec-builder = { workspace = true, default-features = true }
-sc-chain-spec = { workspace = true, default-features = true }
+chain-spec-builder = { default-features = true, path = "../../../../../substrate/bin/utils/chain-spec-builder", package = "staging-chain-spec-builder" }
+sc-chain-spec = { default-features = true, path = "../../../../../substrate/client/chain-spec" }
 
 [features]
 default = ["std"]

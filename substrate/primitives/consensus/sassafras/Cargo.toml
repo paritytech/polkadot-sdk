@@ -1,6 +1,6 @@
 [package]
 name = "sp-consensus-sassafras"
-version = "0.3.4-dev"
+version = "0.3.4"
 authors.workspace = true
 description = "Primitives for Sassafras consensus"
 edition.workspace = true
@@ -21,11 +21,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["derive"], optional = true, workspace = true }
-sp-api = { workspace = true }
+sp-api.workspace = true
 sp-application-crypto = { features = ["bandersnatch-experimental"], workspace = true }
-sp-consensus-slots = { workspace = true }
+sp-consensus-slots.workspace = true
 sp-core = { features = ["bandersnatch-experimental"], workspace = true }
-sp-runtime = { workspace = true }
+sp-runtime.workspace = true
 
 [features]
 default = ["std"]

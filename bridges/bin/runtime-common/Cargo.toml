@@ -1,6 +1,6 @@
 [package]
 name = "bridge-runtime-common"
-version = "0.7.0"
+version = "0.18.0"
 description = "Common types and functions that may be used by substrate-based runtimes of all bridged chains"
 authors.workspace = true
 edition.workspace = true
@@ -16,41 +16,32 @@ log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 static_assertions = { optional = true, workspace = true, default-features = true }
 tuplex = { workspace = true }
-
-# Bridge dependencies
-bp-header-chain = { workspace = true }
-bp-messages = { workspace = true }
-bp-parachains = { workspace = true }
-bp-polkadot-core = { workspace = true }
-bp-relayers = { workspace = true }
-bp-runtime = { workspace = true }
-bp-xcm-bridge-hub = { workspace = true }
-pallet-bridge-grandpa = { workspace = true }
-pallet-bridge-messages = { workspace = true }
-pallet-bridge-parachains = { workspace = true }
-pallet-bridge-relayers = { workspace = true }
-
-# Substrate dependencies
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-utility = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
+bp-header-chain.workspace = true
+bp-messages.workspace = true
+bp-parachains.workspace = true
+bp-polkadot-core.workspace = true
+bp-relayers.workspace = true
+bp-runtime.workspace = true
+bp-xcm-bridge-hub.workspace = true
+pallet-bridge-grandpa.workspace = true
+pallet-bridge-messages.workspace = true
+pallet-bridge-parachains.workspace = true
+pallet-bridge-relayers.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-utility.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
 sp-trie = { optional = true, workspace = true }
-
-# Polkadot dependencies
-xcm = { workspace = true }
+xcm.workspace = true
 
 [dev-dependencies]
-bp-test-utils = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-bridge-messages = { features = [
-	"std",
-	"test-helpers",
-], workspace = true }
-sp-core = { workspace = true }
+bp-test-utils = { path = "../../primitives/test-utils", default-features = false }
+pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
+pallet-bridge-messages = { features = ["std", "test-helpers"], path = "../../modules/messages", default-features = false }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false }
 
 [features]
 default = ["std"]
@@ -61,13 +52,11 @@ std = [
 	"bp-polkadot-core/std",
 	"bp-relayers/std",
 	"bp-runtime/std",
-	"bp-test-utils/std",
 	"bp-xcm-bridge-hub/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
 	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
 	"pallet-bridge-parachains/std",
@@ -75,7 +64,6 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
 	"scale-info/std",
-	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
@@ -87,7 +75,6 @@ runtime-benchmarks = [
 	"bp-runtime/test-helpers",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-grandpa/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"pallet-bridge-messages/test-helpers",

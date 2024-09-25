@@ -13,3 +13,8 @@ and labels:
 | action       | One of `send`/`received`/`dropped`            |
 
 License: Apache-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

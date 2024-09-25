@@ -1,6 +1,6 @@
 [package]
 name = "pallet-election-provider-multi-phase"
-version = "27.0.0"
+version = "37.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -22,18 +22,14 @@ scale-info = { features = [
 	"derive",
 ], workspace = true }
 log = { workspace = true }
-
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-
-sp-io = { workspace = true }
-sp-core = { workspace = true }
-sp-runtime = { workspace = true }
-sp-npos-elections = { workspace = true }
-sp-arithmetic = { workspace = true }
-frame-election-provider-support = { workspace = true }
-
-# Optional imports for benchmarking
+frame-support.workspace = true
+frame-system.workspace = true
+sp-io.workspace = true
+sp-core.workspace = true
+sp-runtime.workspace = true
+sp-npos-elections.workspace = true
+sp-arithmetic.workspace = true
+frame-election-provider-support.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 pallet-election-provider-support-benchmarking = { optional = true, workspace = true }
 rand = { features = ["alloc", "small_rng"], optional = true, workspace = true }
@@ -42,12 +38,12 @@ strum = { features = ["derive"], optional = true, workspace = true }
 [dev-dependencies]
 parking_lot = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true, default-features = true }
-sp-npos-elections = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-frame-benchmarking = { workspace = true, default-features = true }
+sp-core = { path = "../../primitives/core", default-features = false }
+sp-io = { default-features = true, path = "../../primitives/io" }
+sp-npos-elections = { path = "../../primitives/npos-elections", default-features = false }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+pallet-balances = { default-features = true, path = "../balances" }
+frame-benchmarking = { default-features = true, path = "../benchmarking" }
 
 [features]
 default = ["std"]
@@ -58,7 +54,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"rand/std",
 	"scale-info/std",
@@ -67,7 +62,6 @@ std = [
 	"sp-io/std",
 	"sp-npos-elections/std",
 	"sp-runtime/std",
-	"sp-tracing/std",
 	"strum/std",
 ]
 runtime-benchmarks = [
@@ -75,7 +69,6 @@ runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking?/runtime-benchmarks",
 	"rand",
 	"sp-runtime/runtime-benchmarks",
@@ -85,6 +78,5 @@ try-runtime = [
 	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

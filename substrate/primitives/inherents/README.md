@@ -15,3 +15,8 @@ to be registered by the `construct_runtime!` macro. The macro documentation give
 information on how that is done.
 
 License: Apache-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

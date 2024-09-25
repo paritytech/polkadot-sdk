@@ -64,3 +64,8 @@ to update the Alliance's rule and make announcements.
 
 - `init_members` - Initialize the Alliance, onboard fellows and allies.
 - `disband` - Disband the Alliance, remove all active members and unreserve deposits.
+
+
+## Release
+
+Polkadot SDK stable2409

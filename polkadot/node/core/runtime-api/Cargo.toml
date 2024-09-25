@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-runtime-api"
-version = "7.0.0"
+version = "18.0.0"
 description = "Wrapper around the parachain-related runtime APIs"
 authors.workspace = true
 edition.workspace = true
@@ -11,22 +11,26 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
-gum = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
 schnellru = { workspace = true }
-
-sp-consensus-babe = { workspace = true, default-features = true }
-
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-node-metrics = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-node-subsystem-types = { workspace = true, default-features = true }
+sp-consensus-babe.workspace = true
+sp-consensus-babe.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+polkadot-node-metrics.workspace = true
+polkadot-node-metrics.default-features = true
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-node-subsystem-types.workspace = true
+polkadot-node-subsystem-types.default-features = true
 
 [dev-dependencies]
-sp-api = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
+sp-api = { default-features = true, path = "../../../../substrate/primitives/api" }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
 async-trait = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-primitives-test-helpers = { workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-node-primitives = { default-features = true, path = "../../primitives" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }

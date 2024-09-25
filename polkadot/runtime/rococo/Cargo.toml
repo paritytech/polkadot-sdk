@@ -1,7 +1,7 @@
 [package]
 name = "rococo-runtime"
 build = "build.rs"
-version = "7.0.0"
+version = "18.0.0"
 description = "Rococo testnet Relay Chain runtime."
 authors.workspace = true
 edition.workspace = true
@@ -20,103 +20,98 @@ serde_json = { features = ["alloc"], workspace = true }
 static_assertions = { workspace = true, default-features = true }
 smallvec = { workspace = true, default-features = true }
 bitvec = { features = ["alloc"], workspace = true }
-
-sp-authority-discovery = { workspace = true }
-sp-consensus-babe = { workspace = true }
-sp-consensus-beefy = { workspace = true }
-sp-consensus-grandpa = { workspace = true }
-binary-merkle-tree = { workspace = true }
-rococo-runtime-constants = { workspace = true }
-sp-api = { workspace = true }
-sp-genesis-builder = { workspace = true }
-sp-inherents = { workspace = true }
-sp-offchain = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-io = { workspace = true }
-sp-mmr-primitives = { workspace = true }
-sp-runtime = { workspace = true }
-sp-staking = { workspace = true }
-sp-core = { workspace = true }
-sp-session = { workspace = true }
-sp-storage = { workspace = true }
-sp-version = { workspace = true }
-sp-transaction-pool = { workspace = true }
-sp-block-builder = { workspace = true }
-
-pallet-authority-discovery = { workspace = true }
-pallet-authorship = { workspace = true }
-pallet-babe = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-beefy = { workspace = true }
-pallet-beefy-mmr = { workspace = true }
-pallet-bounties = { workspace = true }
-pallet-child-bounties = { workspace = true }
-pallet-state-trie-migration = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true }
-pallet-collective = { workspace = true }
-pallet-conviction-voting = { workspace = true }
-pallet-democracy = { workspace = true }
-pallet-elections-phragmen = { workspace = true }
-pallet-asset-rate = { workspace = true }
-frame-executive = { workspace = true }
-pallet-grandpa = { workspace = true }
-pallet-identity = { workspace = true }
-pallet-indices = { workspace = true }
-pallet-membership = { workspace = true }
-pallet-message-queue = { workspace = true }
-pallet-mmr = { workspace = true }
-pallet-multisig = { workspace = true }
-pallet-nis = { workspace = true }
-pallet-offences = { workspace = true }
-pallet-parameters = { workspace = true }
-pallet-preimage = { workspace = true }
-pallet-proxy = { workspace = true }
-pallet-ranked-collective = { workspace = true }
-pallet-recovery = { workspace = true }
-pallet-referenda = { workspace = true }
-pallet-scheduler = { workspace = true }
-pallet-session = { workspace = true }
-pallet-society = { workspace = true }
-pallet-sudo = { workspace = true }
+sp-authority-discovery.workspace = true
+sp-consensus-babe.workspace = true
+sp-consensus-beefy.workspace = true
+sp-consensus-grandpa.workspace = true
+binary-merkle-tree.workspace = true
+rococo-runtime-constants.workspace = true
+sp-api.workspace = true
+sp-genesis-builder.workspace = true
+sp-inherents.workspace = true
+sp-offchain.workspace = true
+sp-arithmetic.workspace = true
+sp-io.workspace = true
+sp-mmr-primitives.workspace = true
+sp-runtime.workspace = true
+sp-staking.workspace = true
+sp-core.workspace = true
+sp-session.workspace = true
+sp-storage.workspace = true
+sp-version.workspace = true
+sp-transaction-pool.workspace = true
+sp-block-builder.workspace = true
+pallet-authority-discovery.workspace = true
+pallet-authorship.workspace = true
+pallet-babe.workspace = true
+pallet-balances.workspace = true
+pallet-beefy.workspace = true
+pallet-beefy-mmr.workspace = true
+pallet-bounties.workspace = true
+pallet-child-bounties.workspace = true
+pallet-state-trie-migration.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
+pallet-collective.workspace = true
+pallet-conviction-voting.workspace = true
+pallet-democracy.workspace = true
+pallet-elections-phragmen.workspace = true
+pallet-asset-rate.workspace = true
+frame-executive.workspace = true
+pallet-grandpa.workspace = true
+pallet-identity.workspace = true
+pallet-indices.workspace = true
+pallet-membership.workspace = true
+pallet-message-queue.workspace = true
+pallet-mmr.workspace = true
+pallet-multisig.workspace = true
+pallet-nis.workspace = true
+pallet-offences.workspace = true
+pallet-parameters.workspace = true
+pallet-preimage.workspace = true
+pallet-proxy.workspace = true
+pallet-ranked-collective.workspace = true
+pallet-recovery.workspace = true
+pallet-referenda.workspace = true
+pallet-scheduler.workspace = true
+pallet-session.workspace = true
+pallet-society.workspace = true
+pallet-sudo.workspace = true
 frame-support = { features = ["tuples-96"], workspace = true }
-pallet-staking = { workspace = true }
-frame-system = { workspace = true }
-frame-system-rpc-runtime-api = { workspace = true }
-pallet-timestamp = { workspace = true }
-pallet-tips = { workspace = true }
-pallet-treasury = { workspace = true }
-pallet-utility = { workspace = true }
-pallet-vesting = { workspace = true }
-pallet-whitelist = { workspace = true }
-pallet-xcm = { workspace = true }
+pallet-staking.workspace = true
+frame-system.workspace = true
+frame-system-rpc-runtime-api.workspace = true
+pallet-timestamp.workspace = true
+pallet-tips.workspace = true
+pallet-treasury.workspace = true
+pallet-utility.workspace = true
+pallet-vesting.workspace = true
+pallet-whitelist.workspace = true
+pallet-xcm.workspace = true
 pallet-xcm-benchmarks = { optional = true, workspace = true }
-pallet-root-testing = { workspace = true }
-
+pallet-root-testing.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
-frame-metadata-hash-extension = { workspace = true }
+frame-metadata-hash-extension.workspace = true
 frame-try-runtime = { optional = true, workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 hex-literal = { workspace = true, default-features = true }
-
-polkadot-runtime-common = { workspace = true }
-polkadot-runtime-parachains = { workspace = true }
-polkadot-primitives = { workspace = true }
-polkadot-parachain-primitives = { workspace = true }
-
-xcm = { workspace = true }
-xcm-executor = { workspace = true }
-xcm-builder = { workspace = true }
-xcm-runtime-apis = { workspace = true }
+polkadot-runtime-common.workspace = true
+polkadot-runtime-parachains.workspace = true
+polkadot-primitives.workspace = true
+polkadot-parachain-primitives.workspace = true
+xcm.workspace = true
+xcm-executor.workspace = true
+xcm-builder.workspace = true
+xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
 tiny-keccak = { features = ["keccak"], workspace = true }
-sp-keyring = { workspace = true, default-features = true }
-remote-externalities = { workspace = true, default-features = true }
-sp-trie = { workspace = true, default-features = true }
+sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
+remote-externalities = { default-features = true, path = "../../../substrate/utils/frame/remote-externalities", package = "frame-remote-externalities" }
+sp-trie = { default-features = true, path = "../../../substrate/primitives/trie" }
 separator = { workspace = true }
 serde_json = { workspace = true, default-features = true }
-sp-tracing = { workspace = true }
+sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]
@@ -209,7 +204,6 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-storage/std",
-	"sp-tracing/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",

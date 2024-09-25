@@ -1,6 +1,6 @@
 [package]
 name = "collectives-westend-runtime"
-version = "3.0.0"
+version = "14.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -15,84 +15,77 @@ hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
-
-# Substrate
 frame-benchmarking = { optional = true, workspace = true }
-frame-executive = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-executive.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
 frame-system-benchmarking = { optional = true, workspace = true }
-frame-system-rpc-runtime-api = { workspace = true }
+frame-system-rpc-runtime-api.workspace = true
 frame-try-runtime = { optional = true, workspace = true }
-pallet-asset-rate = { workspace = true }
-pallet-alliance = { workspace = true }
-pallet-aura = { workspace = true }
-pallet-authorship = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-collective = { workspace = true }
-pallet-multisig = { workspace = true }
-pallet-preimage = { workspace = true }
-pallet-proxy = { workspace = true }
-pallet-scheduler = { workspace = true }
-pallet-session = { workspace = true }
-pallet-state-trie-migration = { workspace = true }
-pallet-timestamp = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true }
-pallet-treasury = { workspace = true }
-pallet-utility = { workspace = true }
-pallet-referenda = { workspace = true }
-pallet-ranked-collective = { workspace = true }
-pallet-core-fellowship = { workspace = true }
-pallet-salary = { workspace = true }
-sp-api = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-block-builder = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-core = { workspace = true }
-sp-genesis-builder = { workspace = true }
-sp-inherents = { workspace = true }
-sp-offchain = { workspace = true }
-sp-runtime = { workspace = true }
-sp-session = { workspace = true }
-sp-std = { workspace = true }
-sp-storage = { workspace = true }
-sp-transaction-pool = { workspace = true }
-sp-version = { workspace = true }
-
-# Polkadot
-pallet-xcm = { workspace = true }
-polkadot-parachain-primitives = { workspace = true }
-polkadot-runtime-common = { workspace = true }
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
-westend-runtime-constants = { workspace = true }
-xcm-runtime-apis = { workspace = true }
-
-# Cumulus
-cumulus-pallet-aura-ext = { workspace = true }
-pallet-message-queue = { workspace = true }
-cumulus-pallet-parachain-system = { workspace = true }
-cumulus-pallet-session-benchmarking = { workspace = true }
-cumulus-pallet-xcm = { workspace = true }
-cumulus-pallet-xcmp-queue = { workspace = true }
-cumulus-primitives-aura = { workspace = true }
-cumulus-primitives-core = { workspace = true }
-cumulus-primitives-utility = { workspace = true }
-cumulus-primitives-storage-weight-reclaim = { workspace = true }
-
-pallet-collator-selection = { workspace = true }
-pallet-collective-content = { workspace = true }
-parachain-info = { workspace = true }
-parachains-common = { workspace = true }
+pallet-asset-rate.workspace = true
+pallet-alliance.workspace = true
+pallet-aura.workspace = true
+pallet-authorship.workspace = true
+pallet-balances.workspace = true
+pallet-collective.workspace = true
+pallet-multisig.workspace = true
+pallet-preimage.workspace = true
+pallet-proxy.workspace = true
+pallet-scheduler.workspace = true
+pallet-session.workspace = true
+pallet-state-trie-migration.workspace = true
+pallet-timestamp.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
+pallet-treasury.workspace = true
+pallet-utility.workspace = true
+pallet-referenda.workspace = true
+pallet-ranked-collective.workspace = true
+pallet-core-fellowship.workspace = true
+pallet-salary.workspace = true
+sp-api.workspace = true
+sp-arithmetic.workspace = true
+sp-block-builder.workspace = true
+sp-consensus-aura.workspace = true
+sp-core.workspace = true
+sp-genesis-builder.workspace = true
+sp-inherents.workspace = true
+sp-offchain.workspace = true
+sp-runtime.workspace = true
+sp-session.workspace = true
+sp-std.workspace = true
+sp-storage.workspace = true
+sp-transaction-pool.workspace = true
+sp-version.workspace = true
+pallet-xcm.workspace = true
+polkadot-parachain-primitives.workspace = true
+polkadot-runtime-common.workspace = true
+xcm.workspace = true
+xcm-builder.workspace = true
+xcm-executor.workspace = true
+westend-runtime-constants.workspace = true
+xcm-runtime-apis.workspace = true
+cumulus-pallet-aura-ext.workspace = true
+pallet-message-queue.workspace = true
+cumulus-pallet-parachain-system.workspace = true
+cumulus-pallet-session-benchmarking.workspace = true
+cumulus-pallet-xcm.workspace = true
+cumulus-pallet-xcmp-queue.workspace = true
+cumulus-primitives-aura.workspace = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-utility.workspace = true
+cumulus-primitives-storage-weight-reclaim.workspace = true
+pallet-collator-selection.workspace = true
+pallet-collective-content.workspace = true
+parachain-info.workspace = true
+parachains-common.workspace = true
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-io = { features = ["std"], workspace = true, default-features = true }
+sp-io = { features = ["std"], default-features = true, path = "../../../../../substrate/primitives/io" }
 
 [features]
 default = ["std"]

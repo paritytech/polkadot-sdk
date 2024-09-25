@@ -3,7 +3,7 @@ name = "pallet-xcm-benchmarks"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "7.0.0"
+version = "17.0.0"
 description = "Benchmarks for the XCM pallet"
 
 [lints]
@@ -15,26 +15,26 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-runtime = { workspace = true }
-sp-io = { workspace = true }
-xcm-executor = { workspace = true }
-frame-benchmarking = { workspace = true }
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-runtime.workspace = true
+sp-io.workspace = true
+xcm-executor.workspace = true
+frame-benchmarking.workspace = true
+xcm.workspace = true
+xcm-builder.workspace = true
 log = { workspace = true, default-features = true }
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = true }
-pallet-assets = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-xcm = { workspace = true, default-features = true }
+pallet-balances = { default-features = true, path = "../../../substrate/frame/balances" }
+pallet-assets = { default-features = true, path = "../../../substrate/frame/assets" }
+sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+xcm = { default-features = true, path = "..", package = "staging-xcm" }
 # temp
-pallet-xcm = { workspace = true, default-features = true }
-polkadot-runtime-common = { workspace = true, default-features = true }
+pallet-xcm = { default-features = true, path = "../pallet-xcm" }
+polkadot-runtime-common = { default-features = true, path = "../../runtime/common" }
 # westend-runtime = { path = "../../runtime/westend", features = ["runtime-benchmarks"] }
-polkadot-primitives = { workspace = true, default-features = true }
+polkadot-primitives = { default-features = true, path = "../../primitives" }
 
 [features]
 default = ["std"]
@@ -54,11 +54,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-xcm/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
-	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

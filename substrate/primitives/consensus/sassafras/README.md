@@ -4,3 +4,8 @@ Primitives for SASSAFRAS.
 - RFC proposal: https://github.com/polkadot-fellows/RFCs/pull/26
 
 Depends on `sp-core` feature: `bandersnatch-experimental`.
+
+
+## Release
+
+Polkadot SDK stable2409

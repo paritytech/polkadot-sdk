@@ -32,3 +32,8 @@ then those filter will not be used when dispatching the schedule call.
 - `cancel_named` - the named complement to the cancel function.
 
 License: Apache 2.0
+
+
+## Release
+
+Polkadot SDK stable2409

@@ -1,6 +1,6 @@
 [package]
 name = "sp-runtime"
-version = "31.0.1"
+version = "39.0.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -27,12 +27,12 @@ paste = { workspace = true, default-features = true }
 rand = { optional = true, workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
-sp-application-crypto = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-std = { workspace = true }
-sp-weights = { workspace = true }
+sp-application-crypto.workspace = true
+sp-arithmetic.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-std.workspace = true
+sp-weights.workspace = true
 docify = { workspace = true }
 tracing = { workspace = true, features = ["log"], default-features = false }
 
@@ -42,10 +42,10 @@ simple-mermaid = { version = "0.1.1", optional = true }
 rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 zstd = { workspace = true }
-sp-api = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-substrate-test-runtime-client = { workspace = true }
+sp-api = { default-features = true, path = "../api" }
+sp-state-machine = { default-features = true, path = "../state-machine" }
+sp-tracing = { default-features = true, path = "../tracing" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 
 [features]
 runtime-benchmarks = []
@@ -61,14 +61,11 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"simple-mermaid",
-	"sp-api/std",
 	"sp-application-crypto/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-io/std",
-	"sp-state-machine/std",
 	"sp-std/std",
-	"sp-tracing/std",
 	"sp-weights/std",
 	"tracing/std",
 ]

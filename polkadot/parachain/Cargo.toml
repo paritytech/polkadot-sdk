@@ -4,7 +4,7 @@ description = "Types and utilities for creating and working with parachains"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "6.0.0"
+version = "14.0.0"
 
 [lints]
 workspace = true
@@ -17,8 +17,8 @@ codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-core = { features = ["serde"], workspace = true }
-sp-weights = { workspace = true }
-polkadot-core-primitives = { workspace = true }
+sp-weights.workspace = true
+polkadot-core-primitives.workspace = true
 derive_more = { workspace = true, default-features = true }
 bounded-collections = { features = ["serde"], workspace = true }
 

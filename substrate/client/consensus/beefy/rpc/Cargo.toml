@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-beefy-rpc"
-version = "13.0.0"
+version = "24.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -19,15 +19,21 @@ log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
-sc-consensus-beefy = { workspace = true, default-features = true }
-sp-consensus-beefy = { workspace = true, default-features = true }
-sc-rpc = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-application-crypto = { workspace = true, default-features = true }
+sc-consensus-beefy.workspace = true
+sc-consensus-beefy.default-features = true
+sp-consensus-beefy.workspace = true
+sp-consensus-beefy.default-features = true
+sc-rpc.workspace = true
+sc-rpc.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-application-crypto.workspace = true
+sp-application-crypto.default-features = true
 
 [dev-dependencies]
 serde_json = { workspace = true, default-features = true }
-sc-rpc = { features = ["test-helpers"], workspace = true, default-features = true }
-substrate-test-runtime-client = { workspace = true }
+sc-rpc = { features = ["test-helpers"], default-features = true, path = "../../../rpc" }
+substrate-test-runtime-client = { path = "../../../../test-utils/runtime/client" }
 tokio = { features = ["macros"], workspace = true, default-features = true }

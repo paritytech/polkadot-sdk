@@ -200,3 +200,8 @@ If pallet owner is not defined, the governance may be used to make those calls.
 
 We have an offchain actor, who is watching for new messages and submits them to the bridged chain. It is the messages
 relay - you may look at the [crate level documentation and the code](../../relays/messages/).
+
+
+## Release
+
+Polkadot SDK stable2409

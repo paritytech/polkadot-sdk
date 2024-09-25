@@ -1,6 +1,6 @@
 [package]
 name = "parachains-common"
-version = "7.0.0"
+version = "18.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Logic which is common to all parachain runtimes"
@@ -16,38 +16,33 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-
-# Substrate
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-asset-tx-payment = { workspace = true }
-pallet-assets = { workspace = true }
-pallet-authorship = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-message-queue = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-
-# Polkadot
-pallet-xcm = { workspace = true }
-polkadot-primitives = { workspace = true }
-xcm = { workspace = true }
-xcm-executor = { workspace = true }
-
-# Cumulus
-pallet-collator-selection = { workspace = true }
-cumulus-primitives-core = { workspace = true }
-cumulus-primitives-utility = { workspace = true }
-parachain-info = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-asset-tx-payment.workspace = true
+pallet-assets.workspace = true
+pallet-authorship.workspace = true
+pallet-balances.workspace = true
+pallet-message-queue.workspace = true
+sp-consensus-aura.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+pallet-xcm.workspace = true
+polkadot-primitives.workspace = true
+xcm.workspace = true
+xcm-executor.workspace = true
+pallet-collator-selection.workspace = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-utility.workspace = true
+parachain-info.workspace = true
 
 [dev-dependencies]
-pallet-authorship = { workspace = true }
-sp-io = { workspace = true }
+pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
+sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 
 [build-dependencies]
-substrate-wasm-builder = { workspace = true, default-features = true }
+substrate-wasm-builder.workspace = true
+substrate-wasm-builder.default-features = true
 
 [features]
 default = ["std"]

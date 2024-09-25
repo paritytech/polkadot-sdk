@@ -1,6 +1,6 @@
 [package]
 name = "sc-block-builder"
-version = "0.33.0"
+version = "0.42.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -19,14 +19,21 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = [
 	"derive",
 ], workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-block-builder = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-trie = { workspace = true, default-features = true }
-sp-inherents = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+sp-api.workspace = true
+sp-api.default-features = true
+sp-block-builder.workspace = true
+sp-block-builder.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-trie.workspace = true
+sp-trie.default-features = true
+sp-inherents.workspace = true
+sp-inherents.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
 
 [dev-dependencies]
-sp-state-machine = { workspace = true, default-features = true }
-substrate-test-runtime-client = { workspace = true }
+sp-state-machine = { default-features = true, path = "../../primitives/state-machine" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }

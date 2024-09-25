@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-bitfield-signing"
-version = "7.0.0"
+version = "18.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,14 +11,19 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
-gum = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem-util.default-features = true
+sp-keystore.workspace = true
+sp-keystore.default-features = true
 wasm-timer = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }

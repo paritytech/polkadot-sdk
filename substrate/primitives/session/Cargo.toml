@@ -1,6 +1,6 @@
 [package]
 name = "sp-session"
-version = "27.0.0"
+version = "36.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -18,10 +18,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-api = { workspace = true }
-sp-core = { workspace = true }
+sp-api.workspace = true
+sp-core.workspace = true
 sp-runtime = { optional = true, workspace = true }
-sp-staking = { workspace = true }
+sp-staking.workspace = true
 sp-keystore = { optional = true, workspace = true }
 
 [features]

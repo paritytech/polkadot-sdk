@@ -1,6 +1,6 @@
 [package]
 name = "staging-chain-spec-builder"
-version = "1.6.1"
+version = "6.0.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -28,4 +28,5 @@ clap = { features = ["derive"], workspace = true }
 log = { workspace = true, default-features = true }
 sc-chain-spec = { features = ["clap"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
+sp-tracing.workspace = true
+sp-tracing.default-features = true

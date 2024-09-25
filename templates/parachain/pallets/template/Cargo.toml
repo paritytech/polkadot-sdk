@@ -1,7 +1,7 @@
 [package]
 name = "pallet-parachain-template"
 description = "FRAME pallet template for defining custom runtime logic."
-version = "0.0.0"
+version = "0.1.0"
 license = "Unlicense"
 authors.workspace = true
 homepage.workspace = true
@@ -19,18 +19,14 @@ codec = { features = [
 scale-info = { features = [
 	"derive",
 ], workspace = true }
-
-# frame deps
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-
-# primitive deps
-sp-runtime = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-runtime.workspace = true
 
 [dev-dependencies]
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+sp-io = { default-features = true, path = "../../../../substrate/primitives/io" }
 
 [features]
 default = ["std"]

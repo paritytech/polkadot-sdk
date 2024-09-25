@@ -8,20 +8,16 @@ description = "Coretime Westend runtime integration tests with xcm-emulator"
 publish = false
 
 [dependencies]
-
-# Substrate
-frame-support = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-message-queue = { workspace = true }
-pallet-identity = { workspace = true }
-sp-runtime = { workspace = true }
-
-# Polkadot
-polkadot-runtime-common = { workspace = true, default-features = true }
-westend-runtime-constants = { workspace = true, default-features = true }
-xcm = { workspace = true }
-xcm-executor = { workspace = true }
-
-# Cumulus
-emulated-integration-tests-common = { workspace = true }
-westend-system-emulated-network = { workspace = true }
+frame-support.workspace = true
+pallet-balances.workspace = true
+pallet-message-queue.workspace = true
+pallet-identity.workspace = true
+sp-runtime.workspace = true
+polkadot-runtime-common.workspace = true
+polkadot-runtime-common.default-features = true
+westend-runtime-constants.workspace = true
+westend-runtime-constants.default-features = true
+xcm.workspace = true
+xcm-executor.workspace = true
+emulated-integration-tests-common.workspace = true
+westend-system-emulated-network.workspace = true

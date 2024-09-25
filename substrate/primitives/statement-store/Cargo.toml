@@ -1,6 +1,6 @@
 [package]
 name = "sp-statement-store"
-version = "10.0.0"
+version = "18.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -18,13 +18,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-core = { workspace = true }
-sp-crypto-hashing = { workspace = true }
-sp-runtime = { workspace = true }
-sp-api = { workspace = true }
-sp-application-crypto = { workspace = true }
-sp-runtime-interface = { workspace = true }
-sp-externalities = { workspace = true }
+sp-core.workspace = true
+sp-crypto-hashing.workspace = true
+sp-runtime.workspace = true
+sp-api.workspace = true
+sp-application-crypto.workspace = true
+sp-runtime-interface.workspace = true
+sp-externalities.workspace = true
 thiserror = { optional = true, workspace = true }
 
 # ECIES dependencies

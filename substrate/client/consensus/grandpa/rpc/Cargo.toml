@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-grandpa-rpc"
-version = "0.19.0"
+version = "0.30.0"
 authors.workspace = true
 description = "RPC extensions for the GRANDPA finality gadget"
 repository.workspace = true
@@ -20,18 +20,24 @@ log = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
-sc-client-api = { workspace = true, default-features = true }
-sc-consensus-grandpa = { workspace = true, default-features = true }
-sc-rpc = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+sc-consensus-grandpa.workspace = true
+sc-consensus-grandpa.default-features = true
+sc-rpc.workspace = true
+sc-rpc.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
 
 [dev-dependencies]
-sc-block-builder = { workspace = true, default-features = true }
-sc-rpc = { features = ["test-helpers"], workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-consensus-grandpa = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-substrate-test-runtime-client = { workspace = true }
+sc-block-builder = { default-features = true, path = "../../../block-builder" }
+sc-rpc = { features = ["test-helpers"], default-features = true, path = "../../../rpc" }
+sp-core = { default-features = true, path = "../../../../primitives/core" }
+sp-consensus-grandpa = { default-features = true, path = "../../../../primitives/consensus/grandpa" }
+sp-keyring = { default-features = true, path = "../../../../primitives/keyring" }
+substrate-test-runtime-client = { path = "../../../../test-utils/runtime/client" }
 tokio = { features = ["macros"], workspace = true, default-features = true }

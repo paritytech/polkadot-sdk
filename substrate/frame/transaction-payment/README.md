@@ -14,3 +14,8 @@ Additionally, this pallet allows one to configure:
     [`Config::FeeMultiplierUpdate`]
 
 License: Apache-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

@@ -1,6 +1,6 @@
 [package]
 name = "westend-runtime-constants"
-version = "7.0.0"
+version = "17.0.0"
 description = "Constants used throughout the Westend network."
 authors.workspace = true
 edition.workspace = true
@@ -14,16 +14,14 @@ workspace = true
 
 [dependencies]
 smallvec = { workspace = true, default-features = true }
-
-frame-support = { workspace = true }
-polkadot-primitives = { workspace = true }
-polkadot-runtime-common = { workspace = true }
-sp-runtime = { workspace = true }
-sp-weights = { workspace = true }
-sp-core = { workspace = true }
-
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
+frame-support.workspace = true
+polkadot-primitives.workspace = true
+polkadot-runtime-common.workspace = true
+sp-runtime.workspace = true
+sp-weights.workspace = true
+sp-core.workspace = true
+xcm.workspace = true
+xcm-builder.workspace = true
 
 [features]
 default = ["std"]

@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-solo-to-para"
-version = "0.7.0"
+version = "0.17.0"
 authors.workspace = true
 edition.workspace = true
 description = "Adds functionality to migrate from a Solo to a Parachain"
@@ -12,18 +12,12 @@ workspace = true
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-
-# Substrate
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-sudo = { workspace = true }
-sp-runtime = { workspace = true }
-
-# Polkadot
-polkadot-primitives = { workspace = true }
-
-# Cumulus
-cumulus-pallet-parachain-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-sudo.workspace = true
+sp-runtime.workspace = true
+polkadot-primitives.workspace = true
+cumulus-pallet-parachain-system.workspace = true
 
 [features]
 default = ["std"]

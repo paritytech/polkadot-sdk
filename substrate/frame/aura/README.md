@@ -27,3 +27,8 @@ If you're interested in hacking on this module, it is useful to understand the i
 check inherents.
 
 License: Apache-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

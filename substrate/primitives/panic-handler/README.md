@@ -8,3 +8,8 @@ By default, the panic handler aborts the process by calling [`std::process::exit
 temporarily be disabled by using an [`AbortGuard`].
 
 License: Apache-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

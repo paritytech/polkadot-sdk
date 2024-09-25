@@ -13,3 +13,8 @@ far in the future they are.
 NOTE: Aura itself is designed to be generic over the crypto used.
 
 License: GPL-3.0-or-later WITH Classpath-exception-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

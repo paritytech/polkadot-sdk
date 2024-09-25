@@ -3,7 +3,7 @@ name = "pallet-parameters"
 description = "Pallet to store and configure parameters."
 repository.workspace = true
 license = "Apache-2.0"
-version = "0.1.0"
+version = "0.9.0"
 authors = ["Acala Developers", "Parity Technologies <admin@parity.io>"]
 edition.workspace = true
 
@@ -13,18 +13,17 @@ scale-info = { features = ["derive"], workspace = true }
 paste = { workspace = true }
 serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
 docify = { workspace = true }
-
 frame-support = { features = ["experimental"], workspace = true }
-frame-system = { workspace = true }
-sp-core = { workspace = true }
-sp-runtime = { workspace = true }
+frame-system.workspace = true
+sp-core.workspace = true
+sp-runtime.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-sp-core = { features = ["std"], workspace = true, default-features = true }
-sp-io = { features = ["std"], workspace = true, default-features = true }
-pallet-example-basic = { features = ["std"], workspace = true, default-features = true }
-pallet-balances = { features = ["std"], workspace = true, default-features = true }
+sp-core = { features = ["std"], default-features = true, path = "../../primitives/core" }
+sp-io = { features = ["std"], default-features = true, path = "../../primitives/io" }
+pallet-example-basic = { features = ["std"], default-features = true, path = "../examples/basic" }
+pallet-balances = { features = ["std"], default-features = true, path = "../balances" }
 
 [features]
 default = ["std"]
@@ -42,14 +41,10 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-example-basic/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-example-basic/try-runtime",
 	"sp-runtime/try-runtime",
 ]

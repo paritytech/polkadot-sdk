@@ -20,6 +20,7 @@ lazy_static = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 reqwest = { features = ["rustls-tls"], workspace = true }
 thiserror = { workspace = true }
-gum = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }

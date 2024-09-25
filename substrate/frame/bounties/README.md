@@ -62,3 +62,8 @@ Bounty protocol:
 - `claim_bounty` - Claim a specific bounty amount from the Payout Address.
 - `unassign_curator` - Unassign an accepted curator from a specific earmark.
 - `close_bounty` - Cancel the earmark for a specific treasury amount and close the bounty.
+
+
+## Release
+
+Polkadot SDK stable2409

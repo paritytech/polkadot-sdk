@@ -1,6 +1,6 @@
 [package]
 name = "penpal-runtime"
-version = "0.14.0"
+version = "0.25.0"
 authors = ["Anonymous"]
 description = "A parachain for communication back and forth with XCM of assets and uniques."
 license = "Unlicense"
@@ -23,62 +23,56 @@ hex-literal = { optional = true, workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 smallvec = { workspace = true, default-features = true }
-
-# Substrate
 frame-benchmarking = { optional = true, workspace = true }
-frame-executive = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-executive.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
 frame-system-benchmarking = { optional = true, workspace = true }
-frame-system-rpc-runtime-api = { workspace = true }
+frame-system-rpc-runtime-api.workspace = true
 frame-try-runtime = { optional = true, workspace = true }
-pallet-aura = { workspace = true }
-pallet-authorship = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-session = { workspace = true }
-pallet-sudo = { workspace = true }
-pallet-timestamp = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true }
-pallet-asset-tx-payment = { workspace = true }
-pallet-assets = { workspace = true }
-pallet-asset-conversion = { workspace = true }
-sp-api = { workspace = true }
-sp-block-builder = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-core = { workspace = true }
-sp-genesis-builder = { workspace = true }
-sp-inherents = { workspace = true }
-sp-offchain = { workspace = true }
-sp-runtime = { workspace = true }
-sp-session = { workspace = true }
-sp-storage = { workspace = true }
-sp-transaction-pool = { workspace = true }
-sp-version = { workspace = true }
-
-# Polkadot
-polkadot-primitives = { workspace = true }
-pallet-xcm = { workspace = true }
-polkadot-parachain-primitives = { workspace = true }
-polkadot-runtime-common = { workspace = true }
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
-xcm-runtime-apis = { workspace = true }
-
-# Cumulus
-cumulus-pallet-aura-ext = { workspace = true }
-pallet-message-queue = { workspace = true }
-cumulus-pallet-parachain-system = { workspace = true }
-cumulus-pallet-session-benchmarking = { workspace = true }
-cumulus-pallet-xcm = { workspace = true }
-cumulus-pallet-xcmp-queue = { workspace = true }
-cumulus-primitives-core = { workspace = true }
-cumulus-primitives-utility = { workspace = true }
-pallet-collator-selection = { workspace = true }
-parachain-info = { workspace = true }
-parachains-common = { workspace = true }
-assets-common = { workspace = true }
+pallet-aura.workspace = true
+pallet-authorship.workspace = true
+pallet-balances.workspace = true
+pallet-session.workspace = true
+pallet-sudo.workspace = true
+pallet-timestamp.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
+pallet-asset-tx-payment.workspace = true
+pallet-assets.workspace = true
+pallet-asset-conversion.workspace = true
+sp-api.workspace = true
+sp-block-builder.workspace = true
+sp-consensus-aura.workspace = true
+sp-core.workspace = true
+sp-genesis-builder.workspace = true
+sp-inherents.workspace = true
+sp-offchain.workspace = true
+sp-runtime.workspace = true
+sp-session.workspace = true
+sp-storage.workspace = true
+sp-transaction-pool.workspace = true
+sp-version.workspace = true
+polkadot-primitives.workspace = true
+pallet-xcm.workspace = true
+polkadot-parachain-primitives.workspace = true
+polkadot-runtime-common.workspace = true
+xcm.workspace = true
+xcm-builder.workspace = true
+xcm-executor.workspace = true
+xcm-runtime-apis.workspace = true
+cumulus-pallet-aura-ext.workspace = true
+pallet-message-queue.workspace = true
+cumulus-pallet-parachain-system.workspace = true
+cumulus-pallet-session-benchmarking.workspace = true
+cumulus-pallet-xcm.workspace = true
+cumulus-pallet-xcmp-queue.workspace = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-utility.workspace = true
+pallet-collator-selection.workspace = true
+parachain-info.workspace = true
+parachains-common.workspace = true
+assets-common.workspace = true
 
 primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "num-traits", "scale-info"] }
 

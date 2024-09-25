@@ -1,6 +1,6 @@
 [package]
 name = "sc-cli"
-version = "0.36.0"
+version = "0.47.0"
 authors.workspace = true
 description = "Substrate CLI interface."
 edition.workspace = true
@@ -35,27 +35,41 @@ thiserror = { workspace = true }
 # personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
 bip39 = { package = "parity-bip39", version = "2.0.1", features = ["rand"] }
 tokio = { features = ["parking_lot", "rt-multi-thread", "signal"], workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
-sc-client-db = { workspace = true }
-sc-keystore = { workspace = true, default-features = true }
-sc-mixnet = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-sc-service = { workspace = true }
-sc-telemetry = { workspace = true, default-features = true }
-sc-tracing = { workspace = true, default-features = true }
-sc-utils = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-panic-handler = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-version = { workspace = true, default-features = true }
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+sc-client-db.workspace = true
+sc-keystore.workspace = true
+sc-keystore.default-features = true
+sc-mixnet.workspace = true
+sc-mixnet.default-features = true
+sc-network.workspace = true
+sc-network.default-features = true
+sc-service.workspace = true
+sc-telemetry.workspace = true
+sc-telemetry.default-features = true
+sc-tracing.workspace = true
+sc-tracing.default-features = true
+sc-utils.workspace = true
+sc-utils.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-keyring.workspace = true
+sp-keyring.default-features = true
+sp-keystore.workspace = true
+sp-keystore.default-features = true
+sp-panic-handler.workspace = true
+sp-panic-handler.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-version.workspace = true
+sp-version.default-features = true
 
 [dev-dependencies]
 tempfile = { workspace = true }
 futures-timer = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 
 [features]
 default = ["rocksdb"]

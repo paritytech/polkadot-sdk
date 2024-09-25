@@ -9,27 +9,35 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-# For XCM stuff
-xcm = { workspace = true, default-features = true }
-xcm-executor = { workspace = true, default-features = true }
-xcm-builder = { workspace = true, default-features = true }
-xcm-simulator = { workspace = true, default-features = true }
-pallet-xcm = { workspace = true, default-features = true }
-
-# For building FRAME runtimes
+xcm.workspace = true
+xcm.default-features = true
+xcm-executor.workspace = true
+xcm-executor.default-features = true
+xcm-builder.workspace = true
+xcm-builder.default-features = true
+xcm-simulator.workspace = true
+xcm-simulator.default-features = true
+pallet-xcm.workspace = true
+pallet-xcm.default-features = true
 frame = { features = ["experimental", "runtime"], workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
 scale-info = { workspace = true }
-polkadot-parachain-primitives = { workspace = true, default-features = true }
-polkadot-runtime-parachains = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-std = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-
-# Some pallets
-pallet-message-queue = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
+polkadot-parachain-primitives.workspace = true
+polkadot-parachain-primitives.default-features = true
+polkadot-runtime-parachains.workspace = true
+polkadot-runtime-parachains.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-std.workspace = true
+sp-std.default-features = true
+sp-io.workspace = true
+sp-io.default-features = true
+pallet-message-queue.workspace = true
+pallet-message-queue.default-features = true
+pallet-balances.workspace = true
+pallet-balances.default-features = true
 
 # For building docs
 simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }

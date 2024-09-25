@@ -1,6 +1,6 @@
 [package]
 name = "pallet-offences-benchmarking"
-version = "28.0.0"
+version = "38.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -18,26 +18,26 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-frame-benchmarking = { workspace = true }
-frame-election-provider-support = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-babe = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-grandpa = { workspace = true }
-pallet-im-online = { workspace = true }
-pallet-offences = { workspace = true }
-pallet-session = { workspace = true }
-pallet-staking = { workspace = true }
-sp-runtime = { workspace = true }
-sp-staking = { workspace = true }
+frame-benchmarking.workspace = true
+frame-election-provider-support.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-babe.workspace = true
+pallet-balances.workspace = true
+pallet-grandpa.workspace = true
+pallet-im-online.workspace = true
+pallet-offences.workspace = true
+pallet-session.workspace = true
+pallet-staking.workspace = true
+sp-runtime.workspace = true
+sp-staking.workspace = true
 log = { workspace = true }
 
 [dev-dependencies]
-pallet-staking-reward-curve = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
+pallet-staking-reward-curve = { default-features = true, path = "../../staking/reward-curve" }
+pallet-timestamp = { default-features = true, path = "../../timestamp" }
+sp-core = { default-features = true, path = "../../../primitives/core" }
+sp-io = { default-features = true, path = "../../../primitives/io" }
 
 [features]
 default = ["std"]
@@ -55,10 +55,7 @@ std = [
 	"pallet-offences/std",
 	"pallet-session/std",
 	"pallet-staking/std",
-	"pallet-timestamp/std",
 	"scale-info/std",
-	"sp-core/std",
-	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
 ]
@@ -74,7 +71,6 @@ runtime-benchmarks = [
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]

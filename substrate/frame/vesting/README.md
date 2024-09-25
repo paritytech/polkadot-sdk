@@ -30,3 +30,8 @@ This module implements the `VestingSchedule` trait.
 [`Config`]: ./trait.Config.html
 
 License: Apache-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

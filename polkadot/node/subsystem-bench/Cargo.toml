@@ -23,37 +23,55 @@ doc = false
 [dependencies]
 tikv-jemallocator = { features = ["profiling", "unprefixed_malloc_on_supported_platforms"], workspace = true, optional = true }
 jemalloc_pprof = { workspace = true, optional = true }
-polkadot-service = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
-polkadot-node-subsystem-types = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-node-network-protocol = { workspace = true, default-features = true }
+polkadot-service.workspace = true
+polkadot-service.default-features = true
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem-types.workspace = true
+polkadot-node-subsystem-types.default-features = true
+polkadot-node-primitives.workspace = true
+polkadot-node-primitives.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+polkadot-node-network-protocol.workspace = true
+polkadot-node-network-protocol.default-features = true
 polkadot-availability-recovery = { features = ["subsystem-benchmarks"], workspace = true, default-features = true }
-polkadot-availability-distribution = { workspace = true, default-features = true }
-polkadot-statement-distribution = { workspace = true, default-features = true }
-polkadot-node-core-av-store = { workspace = true, default-features = true }
-polkadot-node-core-chain-api = { workspace = true, default-features = true }
-polkadot-availability-bitfield-distribution = { workspace = true, default-features = true }
+polkadot-availability-distribution.workspace = true
+polkadot-availability-distribution.default-features = true
+polkadot-statement-distribution.workspace = true
+polkadot-statement-distribution.default-features = true
+polkadot-node-core-av-store.workspace = true
+polkadot-node-core-av-store.default-features = true
+polkadot-node-core-chain-api.workspace = true
+polkadot-node-core-chain-api.default-features = true
+polkadot-availability-bitfield-distribution.workspace = true
+polkadot-availability-bitfield-distribution.default-features = true
 color-eyre = { workspace = true }
-polkadot-overseer = { workspace = true, default-features = true }
+polkadot-overseer.workspace = true
+polkadot-overseer.default-features = true
 colored = { workspace = true }
 assert_matches = { workspace = true }
 async-trait = { workspace = true }
-sp-keystore = { workspace = true, default-features = true }
-sc-keystore = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
+sp-keystore.workspace = true
+sp-keystore.default-features = true
+sc-keystore.workspace = true
+sc-keystore.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
 clap = { features = ["derive"], workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 bincode = { workspace = true }
 sha1 = { workspace = true }
 hex = { workspace = true, default-features = true }
-gum = { workspace = true, default-features = true }
-polkadot-erasure-coding = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
+polkadot-erasure-coding.workspace = true
+polkadot-erasure-coding.default-features = true
 log = { workspace = true, default-features = true }
-sp-tracing = { workspace = true }
+sp-tracing.workspace = true
 rand = { workspace = true, default-features = true }
 # `rand` only supports uniform distribution, we need normal distribution for latency.
 rand_distr = { workspace = true }
@@ -63,27 +81,38 @@ kvdb-memorydb = { workspace = true }
 codec = { features = ["derive", "std"], workspace = true, default-features = true }
 tokio = { features = ["parking_lot", "rt-multi-thread"], workspace = true, default-features = true }
 clap-num = { workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-application-crypto = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-sc-network-types = { workspace = true, default-features = true }
-sc-service = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-polkadot-node-metrics = { workspace = true, default-features = true }
+polkadot-node-subsystem-test-helpers.workspace = true
+sp-keyring.workspace = true
+sp-keyring.default-features = true
+sp-application-crypto.workspace = true
+sp-application-crypto.default-features = true
+sc-network.workspace = true
+sc-network.default-features = true
+sc-network-types.workspace = true
+sc-network-types.default-features = true
+sc-service.workspace = true
+sc-service.default-features = true
+sp-consensus.workspace = true
+sp-consensus.default-features = true
+polkadot-node-metrics.workspace = true
+polkadot-node-metrics.default-features = true
 itertools = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
-prometheus-endpoint = { workspace = true, default-features = true }
+polkadot-primitives-test-helpers.workspace = true
+prometheus-endpoint.workspace = true
+prometheus-endpoint.default-features = true
 prometheus = { workspace = true }
 serde = { workspace = true, default-features = true }
 serde_yaml = { workspace = true }
 serde_json = { workspace = true }
-
-polkadot-node-core-approval-voting = { workspace = true, default-features = true }
-polkadot-approval-distribution = { workspace = true, default-features = true }
-sp-consensus-babe = { workspace = true, default-features = true }
-sp-runtime = { workspace = true }
-sp-timestamp = { workspace = true, default-features = true }
+polkadot-node-core-approval-voting.workspace = true
+polkadot-node-core-approval-voting.default-features = true
+polkadot-approval-distribution.workspace = true
+polkadot-approval-distribution.default-features = true
+sp-consensus-babe.workspace = true
+sp-consensus-babe.default-features = true
+sp-runtime.workspace = true
+sp-timestamp.workspace = true
+sp-timestamp.default-features = true
 
 schnorrkel = { workspace = true }
 # rand_core should match schnorrkel

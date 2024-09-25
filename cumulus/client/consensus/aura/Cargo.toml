@@ -1,7 +1,7 @@
 [package]
 name = "cumulus-client-consensus-aura"
 description = "AURA consensus algorithm for parachains"
-version = "0.7.0"
+version = "0.18.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -17,43 +17,68 @@ parking_lot = { workspace = true }
 tracing = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
-
-# Substrate
-sc-client-api = { workspace = true, default-features = true }
-sc-consensus = { workspace = true, default-features = true }
-sc-consensus-aura = { workspace = true, default-features = true }
-sc-consensus-babe = { workspace = true, default-features = true }
-sc-consensus-slots = { workspace = true, default-features = true }
-sc-utils = { workspace = true, default-features = true }
-sc-telemetry = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-application-crypto = { workspace = true, default-features = true }
-sp-block-builder = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-sp-consensus-aura = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-inherents = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-timestamp = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
-prometheus-endpoint = { workspace = true, default-features = true }
-
-# Cumulus
-cumulus-client-consensus-common = { workspace = true, default-features = true }
-cumulus-relay-chain-interface = { workspace = true, default-features = true }
-cumulus-client-consensus-proposer = { workspace = true, default-features = true }
-cumulus-client-parachain-inherent = { workspace = true, default-features = true }
-cumulus-primitives-aura = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
-cumulus-client-collator = { workspace = true, default-features = true }
-
-# Polkadot
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-overseer = { workspace = true, default-features = true }
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+sc-consensus.workspace = true
+sc-consensus.default-features = true
+sc-consensus-aura.workspace = true
+sc-consensus-aura.default-features = true
+sc-consensus-babe.workspace = true
+sc-consensus-babe.default-features = true
+sc-consensus-slots.workspace = true
+sc-consensus-slots.default-features = true
+sc-utils.workspace = true
+sc-utils.default-features = true
+sc-telemetry.workspace = true
+sc-telemetry.default-features = true
+sp-api.workspace = true
+sp-api.default-features = true
+sp-application-crypto.workspace = true
+sp-application-crypto.default-features = true
+sp-block-builder.workspace = true
+sp-block-builder.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-consensus.workspace = true
+sp-consensus.default-features = true
+sp-consensus-aura.workspace = true
+sp-consensus-aura.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-inherents.workspace = true
+sp-inherents.default-features = true
+sp-keystore.workspace = true
+sp-keystore.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-timestamp.workspace = true
+sp-timestamp.default-features = true
+sp-state-machine.workspace = true
+sp-state-machine.default-features = true
+prometheus-endpoint.workspace = true
+prometheus-endpoint.default-features = true
+cumulus-client-consensus-common.workspace = true
+cumulus-client-consensus-common.default-features = true
+cumulus-relay-chain-interface.workspace = true
+cumulus-relay-chain-interface.default-features = true
+cumulus-client-consensus-proposer.workspace = true
+cumulus-client-consensus-proposer.default-features = true
+cumulus-client-parachain-inherent.workspace = true
+cumulus-client-parachain-inherent.default-features = true
+cumulus-primitives-aura.workspace = true
+cumulus-primitives-aura.default-features = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-core.default-features = true
+cumulus-client-collator.workspace = true
+cumulus-client-collator.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+polkadot-node-primitives.workspace = true
+polkadot-node-primitives.default-features = true
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-overseer.workspace = true
+polkadot-overseer.default-features = true
 
 [features]
 # Allows collator to use full PoV size for block building

@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-runtime-parachains"
-version = "7.0.0"
+version = "17.0.0"
 description = "Relay Chain runtime code responsible for Parachains."
 authors.workspace = true
 edition.workspace = true
@@ -18,55 +18,52 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 derive_more = { workspace = true, default-features = true }
 bitflags = { workspace = true }
-
-sp-api = { workspace = true }
-sp-inherents = { workspace = true }
-sp-io = { workspace = true }
+sp-api.workspace = true
+sp-inherents.workspace = true
+sp-io.workspace = true
 sp-runtime = { features = ["serde"], workspace = true }
-sp-session = { workspace = true }
+sp-session.workspace = true
 sp-staking = { features = ["serde"], workspace = true }
 sp-core = { features = ["serde"], workspace = true }
 sp-keystore = { optional = true, workspace = true }
 sp-application-crypto = { optional = true, workspace = true }
 sp-tracing = { optional = true, workspace = true }
-sp-arithmetic = { workspace = true }
+sp-arithmetic.workspace = true
 sp-std = { workspace = true, optional = true }
-
-pallet-authority-discovery = { workspace = true }
-pallet-authorship = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-babe = { workspace = true }
-pallet-broker = { workspace = true }
-pallet-message-queue = { workspace = true }
+pallet-authority-discovery.workspace = true
+pallet-authorship.workspace = true
+pallet-balances.workspace = true
+pallet-babe.workspace = true
+pallet-broker.workspace = true
+pallet-message-queue.workspace = true
 pallet-mmr = { workspace = true, optional = true }
-pallet-session = { workspace = true }
-pallet-staking = { workspace = true }
-pallet-timestamp = { workspace = true }
-pallet-vesting = { workspace = true }
+pallet-session.workspace = true
+pallet-staking.workspace = true
+pallet-timestamp.workspace = true
+pallet-vesting.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-
-xcm = { workspace = true }
-xcm-executor = { workspace = true }
-polkadot-primitives = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+xcm.workspace = true
+xcm-executor.workspace = true
+polkadot-primitives.workspace = true
 
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 static_assertions = { optional = true, workspace = true, default-features = true }
-polkadot-parachain-primitives = { workspace = true }
-polkadot-runtime-metrics = { workspace = true }
-polkadot-core-primitives = { workspace = true }
+polkadot-parachain-primitives.workspace = true
+polkadot-runtime-metrics.workspace = true
+polkadot-core-primitives.workspace = true
 
 [dev-dependencies]
 futures = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-frame-support-test = { workspace = true }
-sc-keystore = { workspace = true, default-features = true }
-polkadot-primitives-test-helpers = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
+sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
+frame-support-test = { path = "../../../substrate/frame/support/test" }
+sc-keystore = { default-features = true, path = "../../../substrate/client/keystore" }
+polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
+sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+sp-crypto-hashing = { default-features = true, path = "../../../substrate/primitives/crypto/hashing" }
 thousands = { workspace = true }
 assert_matches = { workspace = true }
 rstest = { workspace = true }
@@ -138,7 +135,6 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authority-discovery/try-runtime",

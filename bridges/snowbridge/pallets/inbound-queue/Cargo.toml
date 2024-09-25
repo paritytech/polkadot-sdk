@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-pallet-inbound-queue"
 description = "Snowbridge Inbound Queue Pallet"
-version = "0.2.0"
+version = "0.10.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -22,28 +22,25 @@ hex-literal = { optional = true, workspace = true, default-features = true }
 log = { workspace = true }
 alloy-primitives = { features = ["rlp"], workspace = true }
 alloy-sol-types = { workspace = true }
-
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-balances = { workspace = true }
-sp-core = { workspace = true }
-sp-std = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-
-xcm = { workspace = true }
-xcm-executor = { workspace = true }
-
-snowbridge-core = { workspace = true }
-snowbridge-router-primitives = { workspace = true }
-snowbridge-beacon-primitives = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-balances.workspace = true
+sp-core.workspace = true
+sp-std.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+xcm.workspace = true
+xcm-executor.workspace = true
+snowbridge-core.workspace = true
+snowbridge-router-primitives.workspace = true
+snowbridge-beacon-primitives.workspace = true
 snowbridge-pallet-inbound-queue-fixtures = { optional = true, workspace = true }
 
 [dev-dependencies]
-frame-benchmarking = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-snowbridge-pallet-ethereum-client = { workspace = true, default-features = true }
+frame-benchmarking = { default-features = true, path = "../../../../substrate/frame/benchmarking" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+snowbridge-pallet-ethereum-client = { default-features = true, path = "../ethereum-client" }
 hex-literal = { workspace = true, default-features = true }
 
 [features]
@@ -78,7 +75,6 @@ runtime-benchmarks = [
 	"hex-literal",
 	"pallet-balances/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
-	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue-fixtures/runtime-benchmarks",
 	"snowbridge-router-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -88,6 +84,5 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"snowbridge-pallet-ethereum-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]

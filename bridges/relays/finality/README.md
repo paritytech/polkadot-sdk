@@ -60,3 +60,8 @@ chains, simply change chain names. So the metrics are:
 
 If relay operates properly, you should see that the `Rococo_to_BridgeHubWestend_Sync_best_source_at_target_block_number`
 tries to reach the `Rococo_to_BridgeHubWestend_Sync_best_source_block_number`. And the latter one always increases.
+
+
+## Release
+
+Polkadot SDK stable2409

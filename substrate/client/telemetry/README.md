@@ -19,3 +19,8 @@ the running [`TelemetryWorker`] dedicated to registration. Registering can happe
 in time during the process execution.
 
 License: GPL-3.0-or-later WITH Classpath-exception-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

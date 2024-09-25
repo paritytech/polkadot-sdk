@@ -96,3 +96,8 @@ License: Apache-2.0
 [storage]: src/storage/README.md
 [overhead]: src/overhead/README.md
 [block]: src/block/README.md
+
+
+## Release
+
+Polkadot SDK stable2409

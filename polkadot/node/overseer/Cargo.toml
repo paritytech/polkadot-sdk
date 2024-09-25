@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-overseer"
-version = "7.0.0"
+version = "18.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,30 +10,39 @@ description = "System overseer of the Polkadot node"
 workspace = true
 
 [dependencies]
-sc-client-api = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+sp-api.workspace = true
+sp-api.default-features = true
 futures = { workspace = true }
 futures-timer = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-polkadot-node-network-protocol = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-node-subsystem-types = { workspace = true, default-features = true }
-polkadot-node-metrics = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-network-protocol.workspace = true
+polkadot-node-network-protocol.default-features = true
+polkadot-node-primitives.workspace = true
+polkadot-node-primitives.default-features = true
+polkadot-node-subsystem-types.workspace = true
+polkadot-node-subsystem-types.default-features = true
+polkadot-node-metrics.workspace = true
+polkadot-node-metrics.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 orchestra = { features = ["futures_channel"], workspace = true }
-gum = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
 async-trait = { workspace = true }
 tikv-jemalloc-ctl = { optional = true, workspace = true }
 
 [dev-dependencies]
 metered = { features = ["futures_channel"], workspace = true }
-sp-core = { workspace = true, default-features = true }
+sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
 futures = { features = ["thread-pool"], workspace = true }
 femme = { workspace = true }
 assert_matches = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
+polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemalloc-ctl = "0.5.0"
@@ -41,5 +50,5 @@ tikv-jemalloc-ctl = "0.5.0"
 [features]
 default = ["futures_channel"]
 expand = ["orchestra/expand"]
-futures_channel = ["metered/futures_channel", "orchestra/futures_channel"]
+futures_channel = [ "orchestra/futures_channel"]
 jemalloc-allocator = ["dep:tikv-jemalloc-ctl"]

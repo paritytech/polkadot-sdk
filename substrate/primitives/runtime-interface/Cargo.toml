@@ -1,6 +1,6 @@
 [package]
 name = "sp-runtime-interface"
-version = "24.0.0"
+version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -18,25 +18,26 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 bytes = { workspace = true }
-sp-wasm-interface = { workspace = true }
-sp-std = { workspace = true }
-sp-tracing = { workspace = true }
-sp-runtime-interface-proc-macro = { workspace = true, default-features = true }
-sp-externalities = { workspace = true }
+sp-wasm-interface.workspace = true
+sp-std.workspace = true
+sp-tracing.workspace = true
+sp-runtime-interface-proc-macro.workspace = true
+sp-runtime-interface-proc-macro.default-features = true
+sp-externalities.workspace = true
 codec = { features = ["bytes"], workspace = true }
 static_assertions = { workspace = true, default-features = true }
 primitive-types = { workspace = true }
-sp-storage = { workspace = true }
+sp-storage.workspace = true
 impl-trait-for-tuples = { workspace = true }
 
 [target.'cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))'.dependencies]
 polkavm-derive = { workspace = true }
 
 [dev-dependencies]
-sp-runtime-interface-test-wasm = { workspace = true }
-sp-state-machine = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
+sp-runtime-interface-test-wasm = { path = "test-wasm" }
+sp-state-machine = { default-features = true, path = "../state-machine" }
+sp-core = { default-features = true, path = "../core" }
+sp-io = { default-features = true, path = "../io" }
 rustversion = { workspace = true }
 trybuild = { workspace = true }
 
@@ -46,11 +47,7 @@ std = [
 	"bytes/std",
 	"codec/std",
 	"primitive-types/std",
-	"sp-core/std",
 	"sp-externalities/std",
-	"sp-io/std",
-	"sp-runtime-interface-test-wasm/std",
-	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-storage/std",
 	"sp-tracing/std",

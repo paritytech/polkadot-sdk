@@ -1,6 +1,6 @@
 [package]
 name = "pallet-asset-conversion-ops"
-version = "0.1.0"
+version = "0.6.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -17,19 +17,19 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true }
 log = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
-pallet-asset-conversion = { workspace = true }
+pallet-asset-conversion.workspace = true
 scale-info = { features = ["derive"], workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-arithmetic = { workspace = true }
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-arithmetic.workspace = true
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = true }
-pallet-assets = { workspace = true, default-features = true }
+pallet-balances = { default-features = true, path = "../../balances" }
+pallet-assets = { default-features = true, path = "../../assets" }
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
 
 [features]
@@ -41,9 +41,6 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-asset-conversion/std",
-	"pallet-assets/std",
-	"pallet-balances/std",
-	"primitive-types/std",
 	"scale-info/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
@@ -55,15 +52,11 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-asset-conversion/try-runtime",
-	"pallet-assets/try-runtime",
-	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

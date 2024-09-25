@@ -25,7 +25,7 @@ twox-hash = { features = ["digest_0_10"], workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
-sp-crypto-hashing-proc-macro = { workspace = true, default-features = true }
+sp-crypto-hashing-proc-macro = { default-features = true, path = "proc-macro" }
 
 [[bench]]
 name = "bench"

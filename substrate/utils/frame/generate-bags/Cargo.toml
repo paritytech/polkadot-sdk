@@ -1,6 +1,6 @@
 [package]
 name = "generate-bags"
-version = "28.0.0"
+version = "38.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -12,12 +12,16 @@ description = "Bag threshold generation script for pallet-bag-list"
 workspace = true
 
 [dependencies]
-# FRAME
-frame-support = { workspace = true, default-features = true }
-frame-election-provider-support = { workspace = true, default-features = true }
-frame-system = { workspace = true, default-features = true }
-pallet-staking = { workspace = true, default-features = true }
-sp-staking = { workspace = true, default-features = true }
+frame-support.workspace = true
+frame-support.default-features = true
+frame-election-provider-support.workspace = true
+frame-election-provider-support.default-features = true
+frame-system.workspace = true
+frame-system.default-features = true
+pallet-staking.workspace = true
+pallet-staking.default-features = true
+sp-staking.workspace = true
+sp-staking.default-features = true
 
 # third party
 chrono = { workspace = true }

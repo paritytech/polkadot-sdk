@@ -366,3 +366,8 @@ Runtime calls to verify transactions are performed from a separate (limited)
 thread pool to avoid interfering too much with other subsystems of the node. We
 definitely don't want to have all cores validating network transactions, because
 all of these transactions need to be considered untrusted (potentially DoS).
+
+
+## Release
+
+Polkadot SDK stable2409

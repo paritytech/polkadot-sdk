@@ -1,6 +1,6 @@
 [package]
 name = "sc-executor"
-version = "0.32.0"
+version = "0.40.1"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -22,31 +22,43 @@ schnellru = { workspace = true }
 tracing = { workspace = true, default-features = true }
 
 codec = { workspace = true, default-features = true }
-sc-executor-common = { workspace = true, default-features = true }
-sc-executor-polkavm = { workspace = true, default-features = true }
-sc-executor-wasmtime = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-externalities = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-panic-handler = { workspace = true, default-features = true }
-sp-runtime-interface = { workspace = true, default-features = true }
-sp-trie = { workspace = true, default-features = true }
-sp-version = { workspace = true, default-features = true }
-sp-wasm-interface = { workspace = true, default-features = true }
+sc-executor-common.workspace = true
+sc-executor-common.default-features = true
+sc-executor-polkavm.workspace = true
+sc-executor-polkavm.default-features = true
+sc-executor-wasmtime.workspace = true
+sc-executor-wasmtime.default-features = true
+sp-api.workspace = true
+sp-api.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-externalities.workspace = true
+sp-externalities.default-features = true
+sp-io.workspace = true
+sp-io.default-features = true
+sp-panic-handler.workspace = true
+sp-panic-handler.default-features = true
+sp-runtime-interface.workspace = true
+sp-runtime-interface.default-features = true
+sp-trie.workspace = true
+sp-trie.default-features = true
+sp-version.workspace = true
+sp-version.default-features = true
+sp-wasm-interface.workspace = true
+sp-wasm-interface.default-features = true
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 wat = { workspace = true }
-sc-runtime-test = { workspace = true }
-substrate-test-runtime = { workspace = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-maybe-compressed-blob = { workspace = true, default-features = true }
-sc-tracing = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
+sc-runtime-test = { path = "runtime-test" }
+substrate-test-runtime = { path = "../../test-utils/runtime" }
+sp-crypto-hashing = { default-features = true, path = "../../primitives/crypto/hashing" }
+sp-state-machine = { default-features = true, path = "../../primitives/state-machine" }
+sp-runtime = { default-features = true, path = "../../primitives/runtime" }
+sp-maybe-compressed-blob = { default-features = true, path = "../../primitives/maybe-compressed-blob" }
+sc-tracing = { default-features = true, path = "../tracing" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 tracing-subscriber = { workspace = true }
 paste = { workspace = true, default-features = true }
 regex = { workspace = true }
@@ -62,18 +74,13 @@ harness = false
 default = ["std"]
 # This crate does not have `no_std` support, we just require this for tests
 std = [
-	"sc-runtime-test/std",
 	"sp-api/std",
 	"sp-core/std",
 	"sp-externalities/std",
 	"sp-io/std",
 	"sp-runtime-interface/std",
-	"sp-runtime/std",
-	"sp-state-machine/std",
-	"sp-tracing/std",
 	"sp-trie/std",
 	"sp-version/std",
 	"sp-wasm-interface/std",
-	"substrate-test-runtime/std",
 ]
 wasm-extern-trace = []

@@ -19,3 +19,8 @@ reject the announcement and in doing so, veto the execution.
 [`Config`]: ./trait.Config.html
 
 License: Apache-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

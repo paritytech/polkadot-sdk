@@ -87,3 +87,8 @@ If everything worked out, the teleported `ROC` tokens will show up under
 Once you have `ROC` you can deploy a contract as you would normally.
 If you're unsure about this, our [guided tutorial](https://use.ink/getting-started/deploy-your-contract)
 will clarify that for you in no time.
+
+
+## Release
+
+Polkadot SDK stable2409

@@ -1,7 +1,7 @@
 [package]
 name = "pallet-xcm-bridge-hub-router"
 description = "Bridge hub interface for sibling/parent chains with dynamic fees support."
-version = "0.5.0"
+version = "0.15.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -14,25 +14,19 @@ workspace = true
 codec = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
-
-# Bridge dependencies
-bp-xcm-bridge-hub-router = { workspace = true }
-
-# Substrate Dependencies
+bp-xcm-bridge-hub-router.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-core = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
-
-# Polkadot Dependencies
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-core.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+xcm.workspace = true
+xcm-builder.workspace = true
 
 [dev-dependencies]
-sp-io = { workspace = true, default-features = true }
-sp-std = { workspace = true, default-features = true }
+sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
+sp-std = { default-features = true, path = "../../../substrate/primitives/std" }
 
 [features]
 default = ["std"]

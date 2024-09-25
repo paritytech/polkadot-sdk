@@ -1,6 +1,6 @@
 [package]
 name = "pallet-revive-mock-network"
-version = "0.1.0"
+version = "0.2.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,38 +13,52 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-assets = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-pallet-revive = { workspace = true, default-features = true }
-pallet-revive-uapi = { workspace = true }
-pallet-revive-proc-macro = { workspace = true, default-features = true }
-pallet-message-queue = { workspace = true, default-features = true }
-pallet-proxy = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
-pallet-utility = { workspace = true, default-features = true }
-pallet-xcm = { workspace = true }
-polkadot-parachain-primitives = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-runtime-parachains = { workspace = true, default-features = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-assets.workspace = true
+pallet-assets.default-features = true
+pallet-balances.workspace = true
+pallet-balances.default-features = true
+pallet-revive.workspace = true
+pallet-revive.default-features = true
+pallet-revive-uapi.workspace = true
+pallet-revive-proc-macro.workspace = true
+pallet-revive-proc-macro.default-features = true
+pallet-message-queue.workspace = true
+pallet-message-queue.default-features = true
+pallet-proxy.workspace = true
+pallet-proxy.default-features = true
+pallet-timestamp.workspace = true
+pallet-timestamp.default-features = true
+pallet-utility.workspace = true
+pallet-utility.default-features = true
+pallet-xcm.workspace = true
+polkadot-parachain-primitives.workspace = true
+polkadot-parachain-primitives.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+polkadot-runtime-parachains.workspace = true
+polkadot-runtime-parachains.default-features = true
 scale-info = { features = ["derive"], workspace = true }
-sp-api = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-runtime = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
-xcm = { workspace = true }
-xcm-builder = { workspace = true, default-features = true }
-xcm-executor = { workspace = true }
-xcm-simulator = { workspace = true, default-features = true }
+sp-api.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-keystore.workspace = true
+sp-keystore.default-features = true
+sp-runtime.workspace = true
+sp-tracing.workspace = true
+sp-tracing.default-features = true
+xcm.workspace = true
+xcm-builder.workspace = true
+xcm-builder.default-features = true
+xcm-executor.workspace = true
+xcm-simulator.workspace = true
+xcm-simulator.default-features = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
-pallet-revive-fixtures = { workspace = true }
+pallet-revive-fixtures = { path = "../fixtures", default-features = false }
 
 [features]
 default = ["std"]
@@ -54,7 +68,6 @@ std = [
 	"frame-system/std",
 	"pallet-balances/std",
 	"pallet-proxy/std",
-	"pallet-revive-fixtures/std",
 	"pallet-revive/std",
 	"pallet-timestamp/std",
 	"pallet-utility/std",

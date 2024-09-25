@@ -99,3 +99,8 @@ macro that bundles several similar signed extensions in a single one.
 
 We have an offchain actor, who is watching for GRANDPA justifications and submits them to the bridged chain.
 It is the finality relay - you may look at the [crate level documentation and the code](../../relays/finality/).
+
+
+## Release
+
+Polkadot SDK stable2409

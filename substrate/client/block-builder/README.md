@@ -7,3 +7,8 @@ The block builder utility is used in the node as an abstraction over the runtime
 initialize a block, to push extrinsics and to finalize a block.
 
 License: GPL-3.0-or-later WITH Classpath-exception-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

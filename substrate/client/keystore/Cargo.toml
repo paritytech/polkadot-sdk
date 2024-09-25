@@ -1,6 +1,6 @@
 [package]
 name = "sc-keystore"
-version = "25.0.0"
+version = "33.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -21,9 +21,12 @@ array-bytes = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-sp-application-crypto = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
+sp-application-crypto.workspace = true
+sp-application-crypto.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-keystore.workspace = true
+sp-keystore.default-features = true
 
 [dev-dependencies]
 tempfile = { workspace = true }
@@ -35,12 +38,4 @@ tempfile = { workspace = true }
 bls-experimental = [
 	"sp-core/bls-experimental",
 	"sp-keystore/bls-experimental",
-]
-
-# This feature adds Bandersnatch crypto primitives.
-# It should not be used in production since the implementation and interface may still
-# be subject to significant changes.
-bandersnatch-experimental = [
-	"sp-core/bandersnatch-experimental",
-	"sp-keystore/bandersnatch-experimental",
 ]

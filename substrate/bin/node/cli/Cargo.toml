@@ -1,6 +1,6 @@
 [package]
 name = "staging-node-cli"
-version = "3.0.0-dev"
+version = "3.0.0"
 authors.workspace = true
 description = "Generic Substrate node implementation in Rust."
 build = "build.rs"
@@ -46,14 +46,11 @@ futures = { workspace = true }
 log = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-
-# The Polkadot-SDK:
 polkadot-sdk = { features = ["node"], workspace = true, default-features = true }
-
-# Shared code between the staging node and kitchensink runtime:
-kitchensink-runtime = { workspace = true }
-node-rpc = { workspace = true }
-node-primitives = { workspace = true, default-features = true }
+kitchensink-runtime.workspace = true
+node-rpc.workspace = true
+node-primitives.workspace = true
+node-primitives.default-features = true
 node-inspect = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
@@ -74,16 +71,14 @@ scale-info = { features = ["derive", "serde"], workspace = true, default-feature
 pretty_assertions.workspace = true
 
 # These testing-only dependencies are not exported by the Polkadot-SDK crate:
-node-testing = { workspace = true }
-substrate-cli-test-utils = { workspace = true }
-sc-service-test = { workspace = true }
+node-testing = { path = "../testing" }
+substrate-cli-test-utils = { path = "../../../test-utils/cli" }
+sc-service-test = { path = "../../../client/service/test" }
 
 [build-dependencies]
 clap = { optional = true, workspace = true }
 clap_complete = { optional = true, workspace = true }
-
 node-inspect = { optional = true, workspace = true, default-features = true }
-
 polkadot-sdk = { features = ["frame-benchmarking-cli", "sc-cli", "sc-storage-monitor", "substrate-build-script-utils"], optional = true, workspace = true, default-features = true }
 
 [features]
@@ -102,7 +97,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"kitchensink-runtime/try-runtime",
 	"polkadot-sdk/try-runtime",
-	"substrate-cli-test-utils/try-runtime",
 ]
 riscv = [
 	"kitchensink-runtime/riscv",

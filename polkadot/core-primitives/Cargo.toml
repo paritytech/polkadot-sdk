@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-core-primitives"
-version = "7.0.0"
+version = "15.0.0"
 description = "Core Polkadot types used by Relay Chains and parachains."
 authors.workspace = true
 edition.workspace = true
@@ -10,8 +10,8 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-sp-core = { workspace = true }
-sp-runtime = { workspace = true }
+sp-core.workspace = true
+sp-runtime.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 codec = { features = ["derive"], workspace = true }
 

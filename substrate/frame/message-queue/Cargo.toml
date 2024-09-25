@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 name = "pallet-message-queue"
-version = "31.0.0"
+version = "41.0.0"
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
@@ -17,20 +17,18 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 log = { workspace = true }
 environmental = { workspace = true }
-
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-weights = { workspace = true }
-
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-arithmetic.workspace = true
+sp-weights.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 
 [dev-dependencies]
-sp-crypto-hashing = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
+sp-crypto-hashing = { default-features = true, path = "../../primitives/crypto/hashing" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 rand = { workspace = true, default-features = true }
 rand_distr = { workspace = true }
 
@@ -48,7 +46,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-tracing/std",
 	"sp-weights/std",
 ]
 runtime-benchmarks = [

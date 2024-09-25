@@ -20,25 +20,30 @@ clap = { features = ["derive"], workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
-
-test-parachain-adder = { workspace = true }
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-cli = { workspace = true, default-features = true }
+test-parachain-adder.workspace = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+polkadot-cli.workspace = true
+polkadot-cli.default-features = true
 polkadot-service = { features = ["rococo-native"], workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
-
-sc-cli = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sc-service = { workspace = true, default-features = true }
+polkadot-node-primitives.workspace = true
+polkadot-node-primitives.default-features = true
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem.default-features = true
+sc-cli.workspace = true
+sc-cli.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sc-service.workspace = true
+sc-service.default-features = true
 
 [dev-dependencies]
-polkadot-parachain-primitives = { workspace = true, default-features = true }
-polkadot-test-service = { workspace = true }
-polkadot-node-core-pvf = { features = ["test-utils"], workspace = true, default-features = true }
+polkadot-parachain-primitives = { default-features = true, path = "../../.." }
+polkadot-test-service = { path = "../../../../node/test/service" }
+polkadot-node-core-pvf = { features = ["test-utils"], default-features = true, path = "../../../../node/core/pvf" }
 
-substrate-test-utils = { workspace = true }
-sc-service = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
+substrate-test-utils = { path = "../../../../../substrate/test-utils" }
+sc-service = { default-features = true, path = "../../../../../substrate/client/service" }
+sp-keyring = { default-features = true, path = "../../../../../substrate/primitives/keyring" }
 
 tokio = { features = ["macros"], workspace = true, default-features = true }

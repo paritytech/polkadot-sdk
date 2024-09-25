@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-parachains-inherent"
-version = "7.0.0"
+version = "18.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,11 +12,17 @@ workspace = true
 [dependencies]
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
 thiserror = { workspace = true }
 async-trait = { workspace = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-overseer = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-inherents = { workspace = true, default-features = true }
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-overseer.workspace = true
+polkadot-overseer.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-inherents.workspace = true
+sp-inherents.default-features = true

@@ -4,7 +4,7 @@ description = "Procedural macros for XCM"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "7.0.0"
+version = "10.1.0"
 publish = true
 
 [lints]
@@ -23,4 +23,4 @@ Inflector = { workspace = true }
 trybuild = { features = ["diff"], workspace = true }
 # NOTE: we have to explicitly specify `std` because of trybuild
 # https://github.com/paritytech/polkadot-sdk/pull/5167
-xcm = { workspace = true, default-features = true, features = ["std"] }
+xcm = { default-features = true, features = ["std"], path = "..", package = "staging-xcm" }

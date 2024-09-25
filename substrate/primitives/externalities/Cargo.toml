@@ -1,6 +1,6 @@
 [package]
 name = "sp-externalities"
-version = "0.25.0"
+version = "0.29.0"
 license = "Apache-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true }
 environmental = { workspace = true }
-sp-storage = { workspace = true }
+sp-storage.workspace = true
 
 [features]
 default = ["std"]

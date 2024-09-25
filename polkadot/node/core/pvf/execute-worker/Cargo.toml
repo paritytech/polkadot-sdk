@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-core-pvf-execute-worker"
 description = "Polkadot crate that contains the logic for executing PVFs. Used by the polkadot-execute-worker binary."
-version = "7.0.0"
+version = "16.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,19 +11,23 @@ workspace = true
 
 [dependencies]
 cpu-time = { workspace = true }
-gum = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
 cfg-if = { workspace = true }
 nix = { features = ["process", "resource", "sched"], workspace = true }
 libc = { workspace = true }
 
 codec = { features = ["derive"], workspace = true }
-
-polkadot-node-core-pvf-common = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-parachain-primitives = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-
-sp-maybe-compressed-blob = { workspace = true, default-features = true }
+polkadot-node-core-pvf-common.workspace = true
+polkadot-node-core-pvf-common.default-features = true
+polkadot-node-primitives.workspace = true
+polkadot-node-primitives.default-features = true
+polkadot-parachain-primitives.workspace = true
+polkadot-parachain-primitives.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+sp-maybe-compressed-blob.workspace = true
+sp-maybe-compressed-blob.default-features = true
 
 [features]
 builder = []

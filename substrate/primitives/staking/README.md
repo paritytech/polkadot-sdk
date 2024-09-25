@@ -2,3 +2,8 @@ A crate which contains primitives that are useful for implementation that uses s
 approaches in general. Definitions related to sessions, slashing, etc go here.
 
 License: Apache-2.0
+
+
+## Release
+
+Polkadot SDK stable2409

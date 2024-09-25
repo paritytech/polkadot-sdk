@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-client-service"
-version = "0.7.0"
+version = "0.18.0"
 authors.workspace = true
 edition.workspace = true
 description = "Common functions used to assemble the components of a parachain node."
@@ -11,38 +11,61 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
-
-# Substrate
-sc-client-api = { workspace = true, default-features = true }
-sc-consensus = { workspace = true, default-features = true }
-sc-transaction-pool = { workspace = true, default-features = true }
-sc-rpc = { workspace = true, default-features = true }
-sc-service = { workspace = true, default-features = true }
-sc-sysinfo = { workspace = true, default-features = true }
-sc-telemetry = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-sc-network-sync = { workspace = true, default-features = true }
-sc-utils = { workspace = true, default-features = true }
-sc-network-transactions = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-transaction-pool = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-
-# Polkadot
-polkadot-primitives = { workspace = true, default-features = true }
-
-# Cumulus
-cumulus-client-cli = { workspace = true, default-features = true }
-cumulus-client-collator = { workspace = true, default-features = true }
-cumulus-client-consensus-common = { workspace = true, default-features = true }
-cumulus-client-pov-recovery = { workspace = true, default-features = true }
-cumulus-client-network = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
-cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
-cumulus-relay-chain-interface = { workspace = true, default-features = true }
-cumulus-relay-chain-inprocess-interface = { workspace = true, default-features = true }
-cumulus-relay-chain-minimal-node = { workspace = true, default-features = true }
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+sc-consensus.workspace = true
+sc-consensus.default-features = true
+sc-transaction-pool.workspace = true
+sc-transaction-pool.default-features = true
+sc-rpc.workspace = true
+sc-rpc.default-features = true
+sc-service.workspace = true
+sc-service.default-features = true
+sc-sysinfo.workspace = true
+sc-sysinfo.default-features = true
+sc-telemetry.workspace = true
+sc-telemetry.default-features = true
+sc-network.workspace = true
+sc-network.default-features = true
+sc-network-sync.workspace = true
+sc-network-sync.default-features = true
+sc-utils.workspace = true
+sc-utils.default-features = true
+sc-network-transactions.workspace = true
+sc-network-transactions.default-features = true
+sp-api.workspace = true
+sp-api.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-consensus.workspace = true
+sp-consensus.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-transaction-pool.workspace = true
+sp-transaction-pool.default-features = true
+sp-io.workspace = true
+sp-io.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+cumulus-client-cli.workspace = true
+cumulus-client-cli.default-features = true
+cumulus-client-collator.workspace = true
+cumulus-client-collator.default-features = true
+cumulus-client-consensus-common.workspace = true
+cumulus-client-consensus-common.default-features = true
+cumulus-client-pov-recovery.workspace = true
+cumulus-client-pov-recovery.default-features = true
+cumulus-client-network.workspace = true
+cumulus-client-network.default-features = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-core.default-features = true
+cumulus-primitives-proof-size-hostfunction.workspace = true
+cumulus-primitives-proof-size-hostfunction.default-features = true
+cumulus-relay-chain-interface.workspace = true
+cumulus-relay-chain-interface.default-features = true
+cumulus-relay-chain-inprocess-interface.workspace = true
+cumulus-relay-chain-inprocess-interface.default-features = true
+cumulus-relay-chain-minimal-node.workspace = true
+cumulus-relay-chain-minimal-node.default-features = true

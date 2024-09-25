@@ -1,7 +1,7 @@
 [package]
 name = "staging-xcm"
 description = "The basic XCM datastructures."
-version = "7.0.0"
+version = "14.2.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -17,15 +17,16 @@ impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
-sp-runtime = { workspace = true }
+sp-runtime.workspace = true
 sp-weights = { features = ["serde"], workspace = true }
 serde = { features = ["alloc", "derive", "rc"], workspace = true }
 schemars = { default-features = true, optional = true, workspace = true }
-xcm-procedural = { workspace = true, default-features = true }
+xcm-procedural.workspace = true
+xcm-procedural.default-features = true
 environmental = { workspace = true }
 
 [dev-dependencies]
-sp-io = { workspace = true, default-features = true }
+sp-io = { default-features = true, path = "../../substrate/primitives/io" }
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 

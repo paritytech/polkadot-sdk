@@ -18,14 +18,12 @@ hex = { workspace = true, default-features = true }
 log = { workspace = true }
 num-traits = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
-
-# Bridge Dependencies
-
-bp-messages = { workspace = true, default-features = true }
-finality-relay = { workspace = true }
-relay-utils = { workspace = true }
-
-sp-arithmetic = { workspace = true, default-features = true }
+bp-messages.workspace = true
+bp-messages.default-features = true
+finality-relay.workspace = true
+relay-utils.workspace = true
+sp-arithmetic.workspace = true
+sp-arithmetic.default-features = true
 
 [dev-dependencies]
-sp-core = { workspace = true }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false }

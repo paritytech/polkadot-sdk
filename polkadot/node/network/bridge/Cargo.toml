@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-network-bridge"
-version = "7.0.0"
+version = "18.0.0"
 description = "The Network Bridge Subsystem — protocol multiplexer for Polkadot."
 authors.workspace = true
 edition.workspace = true
@@ -13,15 +13,23 @@ workspace = true
 always-assert = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
-gum = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 codec = { features = ["derive"], workspace = true }
-sc-network = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-polkadot-node-metrics = { workspace = true, default-features = true }
-polkadot-node-network-protocol = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-overseer = { workspace = true, default-features = true }
+sc-network.workspace = true
+sc-network.default-features = true
+sp-consensus.workspace = true
+sp-consensus.default-features = true
+polkadot-node-metrics.workspace = true
+polkadot-node-metrics.default-features = true
+polkadot-node-network-protocol.workspace = true
+polkadot-node-network-protocol.default-features = true
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-overseer.workspace = true
+polkadot-overseer.default-features = true
 parking_lot = { workspace = true, default-features = true }
 bytes = { workspace = true, default-features = true }
 fatality = { workspace = true }
@@ -29,9 +37,9 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-node-subsystem-util = { default-features = true, path = "../../subsystem-util" }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
 futures-timer = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }

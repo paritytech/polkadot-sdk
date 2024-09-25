@@ -1,7 +1,7 @@
 [package]
 description = "Substrate network common"
 name = "sc-network-common"
-version = "0.33.0"
+version = "0.44.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -26,11 +26,16 @@ codec = { features = [
 ], workspace = true, default-features = true }
 futures = { workspace = true }
 libp2p-identity = { features = ["peerid"], workspace = true }
-sc-consensus = { workspace = true, default-features = true }
-sc-network-types = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-sp-consensus-grandpa = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+sc-consensus.workspace = true
+sc-consensus.default-features = true
+sc-network-types.workspace = true
+sc-network-types.default-features = true
+sp-consensus.workspace = true
+sp-consensus.default-features = true
+sp-consensus-grandpa.workspace = true
+sp-consensus-grandpa.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
 
 [dev-dependencies]
 tempfile = { workspace = true }

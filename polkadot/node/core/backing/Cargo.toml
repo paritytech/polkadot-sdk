@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-backing"
-version = "7.0.0"
+version = "18.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,27 +11,35 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
-sp-keystore = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
-polkadot-erasure-coding = { workspace = true, default-features = true }
-polkadot-statement-table = { workspace = true, default-features = true }
+sp-keystore.workspace = true
+sp-keystore.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+polkadot-node-primitives.workspace = true
+polkadot-node-primitives.default-features = true
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem-util.default-features = true
+polkadot-erasure-coding.workspace = true
+polkadot-erasure-coding.default-features = true
+polkadot-statement-table.workspace = true
+polkadot-statement-table.default-features = true
 bitvec = { features = ["alloc"], workspace = true }
-gum = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
 thiserror = { workspace = true }
 fatality = { workspace = true }
 schnellru = { workspace = true }
 
 [dev-dependencies]
-sp-core = { workspace = true, default-features = true }
-sp-application-crypto = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-sc-keystore = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+sp-application-crypto = { default-features = true, path = "../../../../substrate/primitives/application-crypto" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+sc-keystore = { default-features = true, path = "../../../../substrate/client/keystore" }
+sp-tracing = { default-features = true, path = "../../../../substrate/primitives/tracing" }
 futures = { features = ["thread-pool"], workspace = true }
 assert_matches = { workspace = true }
 rstest = { workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }

@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-parachain-system"
-version = "0.7.0"
+version = "0.17.0"
 authors.workspace = true
 edition.workspace = true
 description = "Base pallet for cumulus-based parachains"
@@ -17,34 +17,28 @@ impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 trie-db = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-
-# Substrate
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-message-queue = { workspace = true }
-sp-core = { workspace = true }
-sp-externalities = { workspace = true }
-sp-inherents = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-state-machine = { workspace = true }
-sp-std = { workspace = true }
-sp-trie = { workspace = true }
-sp-version = { workspace = true }
-
-# Polkadot
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-message-queue.workspace = true
+sp-core.workspace = true
+sp-externalities.workspace = true
+sp-inherents.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-state-machine.workspace = true
+sp-std.workspace = true
+sp-trie.workspace = true
+sp-version.workspace = true
 polkadot-parachain-primitives = { features = ["wasm-api"], workspace = true }
-polkadot-runtime-parachains = { workspace = true }
+polkadot-runtime-parachains.workspace = true
 polkadot-runtime-common = { optional = true, workspace = true }
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
-
-# Cumulus
-cumulus-pallet-parachain-system-proc-macro = { workspace = true }
-cumulus-primitives-core = { workspace = true }
-cumulus-primitives-parachain-inherent = { workspace = true }
-cumulus-primitives-proof-size-hostfunction = { workspace = true }
+xcm.workspace = true
+xcm-builder.workspace = true
+cumulus-pallet-parachain-system-proc-macro.workspace = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-parachain-inherent.workspace = true
+cumulus-primitives-proof-size-hostfunction.workspace = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }
@@ -55,17 +49,17 @@ rand = { workspace = true, default-features = true }
 futures = { workspace = true }
 
 # Substrate
-sc-client-api = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-sp-version = { workspace = true, default-features = true }
-sp-consensus-slots = { workspace = true, default-features = true }
+sc-client-api = { default-features = true, path = "../../../substrate/client/api" }
+sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
+sp-crypto-hashing = { default-features = true, path = "../../../substrate/primitives/crypto/hashing" }
+sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+sp-version = { default-features = true, path = "../../../substrate/primitives/version" }
+sp-consensus-slots = { default-features = true, path = "../../../substrate/primitives/consensus/slots" }
 
 # Cumulus
-cumulus-test-client = { workspace = true }
-cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
-cumulus-test-runtime = { workspace = true }
+cumulus-test-client = { path = "../../test/client" }
+cumulus-test-relay-sproof-builder = { default-features = true, path = "../../test/relay-sproof-builder" }
+cumulus-test-runtime = { path = "../../test/runtime" }
 
 [features]
 default = ["std"]
@@ -93,7 +87,6 @@ std = [
 	"sp-runtime/std",
 	"sp-state-machine/std",
 	"sp-std/std",
-	"sp-tracing/std",
 	"sp-trie/std",
 	"trie-db/std",
 	"xcm-builder/std",
@@ -102,7 +95,6 @@ std = [
 
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
-	"cumulus-test-client/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",

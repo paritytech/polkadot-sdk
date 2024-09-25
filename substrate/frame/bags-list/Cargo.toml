@@ -1,6 +1,6 @@
 [package]
 name = "pallet-bags-list"
-version = "27.0.0"
+version = "37.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -22,21 +22,15 @@ codec = { features = [
 scale-info = { features = [
 	"derive",
 ], workspace = true }
-
-# primitives
-sp-runtime = { workspace = true }
-
-# FRAME
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-frame-election-provider-support = { workspace = true }
+sp-runtime.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
+frame-election-provider-support.workspace = true
 
 # third party
 log = { workspace = true }
 docify = { workspace = true }
 aquamarine = { workspace = true }
-
-# Optional imports for benchmarking
 frame-benchmarking = { optional = true, workspace = true }
 pallet-balances = { optional = true, workspace = true }
 sp-core = { optional = true, workspace = true }
@@ -44,12 +38,12 @@ sp-io = { optional = true, workspace = true }
 sp-tracing = { optional = true, workspace = true }
 
 [dev-dependencies]
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-frame-election-provider-support = { workspace = true, default-features = true }
-frame-benchmarking = { workspace = true, default-features = true }
+sp-core = { default-features = true, path = "../../primitives/core" }
+sp-io = { default-features = true, path = "../../primitives/io" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+pallet-balances = { default-features = true, path = "../balances" }
+frame-election-provider-support = { default-features = true, path = "../election-provider-support" }
+frame-benchmarking = { default-features = true, path = "../benchmarking" }
 
 [features]
 default = ["std"]

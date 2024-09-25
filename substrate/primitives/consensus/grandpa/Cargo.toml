@@ -1,6 +1,6 @@
 [package]
 name = "sp-consensus-grandpa"
-version = "13.0.0"
+version = "21.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -22,11 +22,11 @@ finality-grandpa = { features = ["derive-codec"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
-sp-api = { workspace = true }
-sp-application-crypto = { workspace = true }
-sp-core = { workspace = true }
+sp-api.workspace = true
+sp-application-crypto.workspace = true
+sp-core.workspace = true
 sp-keystore = { optional = true, workspace = true }
-sp-runtime = { workspace = true }
+sp-runtime.workspace = true
 
 [features]
 default = ["std"]

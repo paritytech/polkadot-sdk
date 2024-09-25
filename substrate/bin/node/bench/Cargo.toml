@@ -1,6 +1,6 @@
 [package]
 name = "node-bench"
-version = "0.9.0-dev"
+version = "0.9.0"
 authors.workspace = true
 description = "Substrate node integration benchmarks."
 edition.workspace = true
@@ -18,30 +18,42 @@ workspace = true
 array-bytes = { workspace = true, default-features = true }
 clap = { features = ["derive"], workspace = true }
 log = { workspace = true, default-features = true }
-node-primitives = { workspace = true, default-features = true }
-node-testing = { workspace = true }
-kitchensink-runtime = { workspace = true }
-sc-client-api = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
+node-primitives.workspace = true
+node-primitives.default-features = true
+node-testing.workspace = true
+kitchensink-runtime.workspace = true
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-state-machine.workspace = true
+sp-state-machine.default-features = true
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 derive_more = { features = ["display"], workspace = true }
 kvdb = { workspace = true }
 kvdb-rocksdb = { workspace = true }
-sp-trie = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-sc-basic-authorship = { workspace = true, default-features = true }
-sp-inherents = { workspace = true, default-features = true }
-sp-timestamp = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
+sp-trie.workspace = true
+sp-trie.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-consensus.workspace = true
+sp-consensus.default-features = true
+sc-basic-authorship.workspace = true
+sc-basic-authorship.default-features = true
+sp-inherents.workspace = true
+sp-inherents.default-features = true
+sp-timestamp.workspace = true
+sp-tracing.workspace = true
+sp-tracing.default-features = true
 hash-db = { workspace = true, default-features = true }
 tempfile = { workspace = true }
 fs_extra = { workspace = true }
 rand = { features = ["small_rng"], workspace = true, default-features = true }
 lazy_static = { workspace = true }
 parity-db = { workspace = true }
-sc-transaction-pool = { workspace = true, default-features = true }
-sc-transaction-pool-api = { workspace = true, default-features = true }
+sc-transaction-pool.workspace = true
+sc-transaction-pool.default-features = true
+sc-transaction-pool-api.workspace = true
+sc-transaction-pool-api.default-features = true
 futures = { features = ["thread-pool"], workspace = true }

@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-statement-distribution"
 description = "Statement Distribution Subsystem"
-version = "7.0.0"
+version = "18.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,14 +12,21 @@ workspace = true
 [dependencies]
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-sp-staking = { workspace = true }
-sp-keystore = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
-polkadot-node-network-protocol = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+sp-staking.workspace = true
+sp-keystore.workspace = true
+sp-keystore.default-features = true
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-node-primitives.workspace = true
+polkadot-node-primitives.default-features = true
+polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem-util.default-features = true
+polkadot-node-network-protocol.workspace = true
+polkadot-node-network-protocol.default-features = true
 arrayvec = { workspace = true }
 indexmap = { workspace = true }
 codec = { features = ["derive"], workspace = true }
@@ -30,19 +37,19 @@ bitvec = { workspace = true, default-features = true }
 [dev-dependencies]
 async-channel = { workspace = true }
 assert_matches = { workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-sp-authority-discovery = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-application-crypto = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-sc-keystore = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+sp-authority-discovery = { default-features = true, path = "../../../../substrate/primitives/authority-discovery" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+sp-application-crypto = { default-features = true, path = "../../../../substrate/primitives/application-crypto" }
+sp-keystore = { default-features = true, path = "../../../../substrate/primitives/keystore" }
+sp-tracing = { default-features = true, path = "../../../../substrate/primitives/tracing" }
+sc-keystore = { default-features = true, path = "../../../../substrate/client/keystore" }
+sc-network = { default-features = true, path = "../../../../substrate/client/network" }
 futures-timer = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
 rand_chacha = { workspace = true, default-features = true }
-polkadot-subsystem-bench = { workspace = true }
+polkadot-subsystem-bench = { path = "../../subsystem-bench" }
 
 [[bench]]
 name = "statement-distribution-regression-bench"

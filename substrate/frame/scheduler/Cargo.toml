@@ -1,6 +1,6 @@
 [package]
 name = "pallet-scheduler"
-version = "29.0.0"
+version = "39.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -17,17 +17,17 @@ codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-weights = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-weights.workspace = true
 docify = { workspace = true }
 
 [dev-dependencies]
-pallet-preimage = { workspace = true, default-features = true }
-sp-core = { workspace = true }
-substrate-test-utils = { workspace = true }
+pallet-preimage = { default-features = true, path = "../preimage" }
+sp-core = { path = "../../primitives/core", default-features = false }
+substrate-test-utils = { path = "../../test-utils" }
 
 [features]
 default = ["std"]
@@ -36,7 +36,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-preimage/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 std = [
@@ -45,9 +44,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-preimage/std",
 	"scale-info/std",
-	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-weights/std",
@@ -55,6 +52,5 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-preimage/try-runtime",
 	"sp-runtime/try-runtime",
 ]

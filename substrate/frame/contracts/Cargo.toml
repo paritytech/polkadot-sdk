@@ -1,6 +1,6 @@
 [package]
 name = "pallet-contracts"
-version = "27.0.0"
+version = "38.0.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -41,40 +41,41 @@ rand_pcg = { optional = true, workspace = true }
 # Substrate Dependencies
 environmental = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 pallet-balances = { optional = true, workspace = true }
-pallet-contracts-uapi = { workspace = true, default-features = true }
-pallet-contracts-proc-macro = { workspace = true, default-features = true }
-sp-api = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
-
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
+pallet-contracts-uapi.workspace = true
+pallet-contracts-uapi.default-features = true
+pallet-contracts-proc-macro.workspace = true
+pallet-contracts-proc-macro.default-features = true
+sp-api.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+xcm.workspace = true
+xcm-builder.workspace = true
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
 wat = { workspace = true }
-pallet-contracts-fixtures = { workspace = true }
+pallet-contracts-fixtures = { path = "fixtures", default-features = false }
 
 # Polkadot Dependencies
-xcm-builder = { workspace = true, default-features = true }
+xcm-builder = { default-features = true, path = "../../../polkadot/xcm/xcm-builder", package = "staging-xcm-builder" }
 
 # Substrate Dependencies
-pallet-balances = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
-pallet-message-queue = { workspace = true, default-features = true }
-pallet-insecure-randomness-collective-flip = { workspace = true, default-features = true }
-pallet-utility = { workspace = true, default-features = true }
-pallet-assets = { workspace = true, default-features = true }
-pallet-proxy = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
+pallet-balances = { default-features = true, path = "../balances" }
+pallet-timestamp = { default-features = true, path = "../timestamp" }
+pallet-message-queue = { default-features = true, path = "../message-queue" }
+pallet-insecure-randomness-collective-flip = { default-features = true, path = "../insecure-randomness-collective-flip" }
+pallet-utility = { default-features = true, path = "../utility" }
+pallet-assets = { default-features = true, path = "../assets" }
+pallet-proxy = { default-features = true, path = "../proxy" }
+sp-keystore = { default-features = true, path = "../../primitives/keystore" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 
 [features]
 default = ["std"]
@@ -86,17 +87,12 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-balances?/std",
-	"pallet-insecure-randomness-collective-flip/std",
-	"pallet-proxy/std",
-	"pallet-timestamp/std",
-	"pallet-utility/std",
 	"rand?/std",
 	"scale-info/std",
 	"serde",
 	"sp-api/std",
 	"sp-core/std",
 	"sp-io/std",
-	"sp-keystore/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"wasm-instrument?/std",
@@ -108,12 +104,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-message-queue/runtime-benchmarks",
-	"pallet-proxy/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
 	"rand",
 	"rand_pcg",
 	"sp-runtime/runtime-benchmarks",
@@ -123,12 +114,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-insecure-randomness-collective-flip/try-runtime",
-	"pallet-message-queue/try-runtime",
-	"pallet-proxy/try-runtime",
-	"pallet-timestamp/try-runtime",
-	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 ]

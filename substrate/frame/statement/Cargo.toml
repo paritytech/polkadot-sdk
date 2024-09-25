@@ -1,6 +1,6 @@
 [package]
 name = "pallet-statement"
-version = "10.0.0"
+version = "20.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -17,17 +17,17 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-statement-store = { workspace = true }
-sp-api = { workspace = true }
-sp-runtime = { workspace = true }
-sp-io = { workspace = true }
-sp-core = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-statement-store.workspace = true
+sp-api.workspace = true
+sp-runtime.workspace = true
+sp-io.workspace = true
+sp-core.workspace = true
 log = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = true }
+pallet-balances = { default-features = true, path = "../balances" }
 
 [features]
 default = ["std"]
@@ -36,7 +36,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-core/std",
@@ -47,6 +46,5 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -1,6 +1,6 @@
 [package]
 name = "contracts-rococo-runtime"
-version = "0.8.0"
+version = "0.19.0"
 description = "Parachain testnet runtime for FRAME Contracts pallet."
 authors.workspace = true
 edition.workspace = true
@@ -20,65 +20,58 @@ codec = { features = ["derive"], workspace = true }
 hex-literal = { optional = true, workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-
-# Substrate
-sp-api = { workspace = true }
-sp-block-builder = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-core = { workspace = true }
-sp-genesis-builder = { workspace = true }
-sp-inherents = { workspace = true }
-sp-offchain = { workspace = true }
-sp-runtime = { workspace = true }
-sp-session = { workspace = true }
-sp-storage = { workspace = true }
-sp-transaction-pool = { workspace = true }
-sp-version = { workspace = true }
+sp-api.workspace = true
+sp-block-builder.workspace = true
+sp-consensus-aura.workspace = true
+sp-core.workspace = true
+sp-genesis-builder.workspace = true
+sp-inherents.workspace = true
+sp-offchain.workspace = true
+sp-runtime.workspace = true
+sp-session.workspace = true
+sp-storage.workspace = true
+sp-transaction-pool.workspace = true
+sp-version.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
-frame-executive = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-executive.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
 frame-system-benchmarking = { optional = true, workspace = true }
-frame-system-rpc-runtime-api = { workspace = true }
-pallet-aura = { workspace = true }
-pallet-authorship = { workspace = true }
-pallet-insecure-randomness-collective-flip = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-multisig = { workspace = true }
-pallet-session = { workspace = true }
-pallet-timestamp = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true }
-pallet-utility = { workspace = true }
-pallet-sudo = { workspace = true }
-pallet-contracts = { workspace = true }
-
-# Polkadot
-pallet-xcm = { workspace = true }
-polkadot-parachain-primitives = { workspace = true }
-polkadot-runtime-common = { workspace = true }
-rococo-runtime-constants = { workspace = true }
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
-xcm-runtime-apis = { workspace = true }
-
-# Cumulus
-cumulus-pallet-aura-ext = { workspace = true }
-pallet-message-queue = { workspace = true }
-cumulus-pallet-parachain-system = { workspace = true }
-cumulus-pallet-session-benchmarking = { workspace = true }
-cumulus-pallet-xcm = { workspace = true }
-cumulus-pallet-xcmp-queue = { workspace = true }
-cumulus-primitives-aura = { workspace = true }
-cumulus-primitives-core = { workspace = true }
-cumulus-primitives-utility = { workspace = true }
-cumulus-primitives-storage-weight-reclaim = { workspace = true }
-
-pallet-collator-selection = { workspace = true }
-parachain-info = { workspace = true }
-parachains-common = { workspace = true }
+frame-system-rpc-runtime-api.workspace = true
+pallet-aura.workspace = true
+pallet-authorship.workspace = true
+pallet-insecure-randomness-collective-flip.workspace = true
+pallet-balances.workspace = true
+pallet-multisig.workspace = true
+pallet-session.workspace = true
+pallet-timestamp.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
+pallet-utility.workspace = true
+pallet-sudo.workspace = true
+pallet-contracts.workspace = true
+pallet-xcm.workspace = true
+polkadot-parachain-primitives.workspace = true
+polkadot-runtime-common.workspace = true
+rococo-runtime-constants.workspace = true
+xcm.workspace = true
+xcm-builder.workspace = true
+xcm-executor.workspace = true
+xcm-runtime-apis.workspace = true
+cumulus-pallet-aura-ext.workspace = true
+pallet-message-queue.workspace = true
+cumulus-pallet-parachain-system.workspace = true
+cumulus-pallet-session-benchmarking.workspace = true
+cumulus-pallet-xcm.workspace = true
+cumulus-pallet-xcmp-queue.workspace = true
+cumulus-primitives-aura.workspace = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-utility.workspace = true
+cumulus-primitives-storage-weight-reclaim.workspace = true
+pallet-collator-selection.workspace = true
+parachain-info.workspace = true
+parachains-common.workspace = true
 testnet-parachains-constants = { features = ["rococo"], workspace = true }
 
 [features]

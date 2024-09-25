@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-test-utils"
-version = "0.7.0"
+version = "0.18.0"
 authors.workspace = true
 edition.workspace = true
 description = "Utils for BridgeHub testing"
@@ -13,47 +13,42 @@ workspace = true
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
-
-# Substrate
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-runtime = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
-pallet-balances = { workspace = true }
-pallet-utility = { workspace = true }
-pallet-timestamp = { workspace = true }
-
-# Cumulus
-asset-test-utils = { workspace = true, default-features = true }
-cumulus-pallet-parachain-system = { workspace = true }
-cumulus-pallet-xcmp-queue = { workspace = true }
-parachains-common = { workspace = true }
-parachains-runtimes-test-utils = { workspace = true }
-
-# Polkadot
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
-pallet-xcm = { workspace = true }
-
-# Bridges
-bp-header-chain = { workspace = true }
-bp-messages = { workspace = true }
-bp-parachains = { workspace = true }
-bp-polkadot-core = { workspace = true }
-bp-relayers = { workspace = true }
-bp-runtime = { workspace = true }
-bp-test-utils = { workspace = true }
-bp-xcm-bridge-hub = { workspace = true }
-pallet-bridge-grandpa = { workspace = true }
-pallet-bridge-parachains = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-keyring.workspace = true
+sp-keyring.default-features = true
+sp-runtime.workspace = true
+sp-tracing.workspace = true
+sp-tracing.default-features = true
+pallet-balances.workspace = true
+pallet-utility.workspace = true
+pallet-timestamp.workspace = true
+asset-test-utils.workspace = true
+asset-test-utils.default-features = true
+cumulus-pallet-parachain-system.workspace = true
+cumulus-pallet-xcmp-queue.workspace = true
+parachains-common.workspace = true
+parachains-runtimes-test-utils.workspace = true
+xcm.workspace = true
+xcm-builder.workspace = true
+xcm-executor.workspace = true
+pallet-xcm.workspace = true
+bp-header-chain.workspace = true
+bp-messages.workspace = true
+bp-parachains.workspace = true
+bp-polkadot-core.workspace = true
+bp-relayers.workspace = true
+bp-runtime.workspace = true
+bp-test-utils.workspace = true
+bp-xcm-bridge-hub.workspace = true
+pallet-bridge-grandpa.workspace = true
+pallet-bridge-parachains.workspace = true
 pallet-bridge-messages = { features = ["test-helpers"], workspace = true }
-pallet-bridge-relayers = { workspace = true }
-pallet-xcm-bridge-hub = { workspace = true }
-bridge-runtime-common = { workspace = true }
+pallet-bridge-relayers.workspace = true
+pallet-xcm-bridge-hub.workspace = true
+bridge-runtime-common.workspace = true
 
 [features]
 default = ["std"]

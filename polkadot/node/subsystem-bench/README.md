@@ -315,3 +315,8 @@ need to also build an `Overseer`, but that should be easy using the mockups for 
 Ideally we want to have a single mock implementation for subsystems that can be minimally configured to
 be used in different tests. A good example is `runtime-api` which currently only responds to session information
 requests based on static data. It can be easily extended to service other requests.
+
+
+## Release
+
+Polkadot SDK stable2409

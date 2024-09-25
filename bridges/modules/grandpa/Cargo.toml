@@ -1,6 +1,6 @@
 [package]
 name = "pallet-bridge-grandpa"
-version = "0.7.0"
+version = "0.18.0"
 description = "Module implementing GRANDPA on-chain light client used for bridging consensus of substrate-based chains."
 authors.workspace = true
 edition.workspace = true
@@ -16,28 +16,20 @@ workspace = true
 codec = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-
-# Bridge Dependencies
-
-bp-runtime = { workspace = true }
-bp-header-chain = { workspace = true }
-
-# Substrate Dependencies
-
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+bp-runtime.workspace = true
+bp-header-chain.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
 sp-consensus-grandpa = { features = ["serde"], workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
-sp-std = { workspace = true }
-
-# Optional Benchmarking Dependencies
+sp-std.workspace = true
 bp-test-utils = { optional = true, workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-bp-runtime = { features = ["test-helpers"], workspace = true }
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
+bp-runtime = { features = ["test-helpers"], path = "../../primitives/runtime", default-features = false }
+sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
+sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
 
 [features]
 default = ["std"]

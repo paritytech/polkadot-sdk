@@ -1,6 +1,6 @@
 [package]
 name = "frame-election-solution-type-fuzzer"
-version = "2.0.0-alpha.5"
+version = "2.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -22,13 +22,17 @@ rand = { features = ["small_rng", "std"], workspace = true, default-features = t
 
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-frame-election-provider-solution-type = { workspace = true, default-features = true }
-frame-election-provider-support = { workspace = true, default-features = true }
-sp-arithmetic = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-# used by generate_solution_type:
-sp-npos-elections = { workspace = true }
-frame-support = { workspace = true, default-features = true }
+frame-election-provider-solution-type.workspace = true
+frame-election-provider-solution-type.default-features = true
+frame-election-provider-support.workspace = true
+frame-election-provider-support.default-features = true
+sp-arithmetic.workspace = true
+sp-arithmetic.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-npos-elections.workspace = true
+frame-support.workspace = true
+frame-support.default-features = true
 
 [[bin]]
 name = "compact"

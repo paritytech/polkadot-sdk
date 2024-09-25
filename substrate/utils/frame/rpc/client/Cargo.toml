@@ -1,6 +1,6 @@
 [package]
 name = "substrate-rpc-client"
-version = "0.33.0"
+version = "0.44.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -16,12 +16,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 jsonrpsee = { features = ["ws-client"], workspace = true }
-sc-rpc-api = { workspace = true, default-features = true }
+sc-rpc-api.workspace = true
+sc-rpc-api.default-features = true
 async-trait = { workspace = true }
 serde = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+sp-runtime.workspace = true
+sp-runtime.default-features = true
 log = { workspace = true, default-features = true }
 
 [dev-dependencies]
 tokio = { features = ["macros", "rt-multi-thread", "sync"], workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
+sp-core = { default-features = true, path = "../../../../primitives/core" }

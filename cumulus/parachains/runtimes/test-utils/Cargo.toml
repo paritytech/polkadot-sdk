@@ -1,6 +1,6 @@
 [package]
 name = "parachains-runtimes-test-utils"
-version = "7.0.0"
+version = "17.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Utils for Runtimes testing"
@@ -11,39 +11,35 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-
-# Substrate
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-session = { workspace = true }
-pallet-timestamp = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
-sp-core = { workspace = true }
-
-# Cumulus
-cumulus-pallet-parachain-system = { workspace = true }
-cumulus-pallet-xcmp-queue = { workspace = true }
-pallet-collator-selection = { workspace = true }
-parachain-info = { workspace = true }
-cumulus-primitives-core = { workspace = true }
-cumulus-primitives-parachain-inherent = { workspace = true }
-cumulus-test-relay-sproof-builder = { workspace = true }
-
-# Polkadot
-xcm = { workspace = true }
-xcm-executor = { workspace = true }
-pallet-xcm = { workspace = true }
-polkadot-parachain-primitives = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-balances.workspace = true
+pallet-session.workspace = true
+pallet-timestamp.workspace = true
+sp-consensus-aura.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-tracing.workspace = true
+sp-tracing.default-features = true
+sp-core.workspace = true
+cumulus-pallet-parachain-system.workspace = true
+cumulus-pallet-xcmp-queue.workspace = true
+pallet-collator-selection.workspace = true
+parachain-info.workspace = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-parachain-inherent.workspace = true
+cumulus-test-relay-sproof-builder.workspace = true
+xcm.workspace = true
+xcm-executor.workspace = true
+pallet-xcm.workspace = true
+polkadot-parachain-primitives.workspace = true
 
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }
 
 [build-dependencies]
-substrate-wasm-builder = { workspace = true, default-features = true }
+substrate-wasm-builder.workspace = true
+substrate-wasm-builder.default-features = true
 
 [features]
 default = ["std"]

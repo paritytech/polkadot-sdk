@@ -1,6 +1,6 @@
 [package]
 name = "sp-consensus-babe"
-version = "0.32.0"
+version = "0.40.0"
 authors.workspace = true
 description = "Primitives for BABE consensus"
 edition.workspace = true
@@ -20,12 +20,12 @@ async-trait = { optional = true, workspace = true }
 codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
-sp-api = { workspace = true }
-sp-application-crypto = { workspace = true }
-sp-consensus-slots = { workspace = true }
-sp-core = { workspace = true }
-sp-inherents = { workspace = true }
-sp-runtime = { workspace = true }
+sp-api.workspace = true
+sp-application-crypto.workspace = true
+sp-consensus-slots.workspace = true
+sp-core.workspace = true
+sp-inherents.workspace = true
+sp-runtime.workspace = true
 sp-timestamp = { optional = true, workspace = true }
 
 [features]

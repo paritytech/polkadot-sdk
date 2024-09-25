@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-parachain-bin"
-version = "1.16.0"
+version = "6.0.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -20,48 +20,48 @@ hex-literal = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-
-# Local
 polkadot-parachain-lib = { features = ["rococo-native", "westend-native"], workspace = true }
-rococo-parachain-runtime = { workspace = true }
-shell-runtime = { workspace = true }
-glutton-westend-runtime = { workspace = true }
-seedling-runtime = { workspace = true }
-asset-hub-rococo-runtime = { workspace = true, default-features = true }
-asset-hub-westend-runtime = { workspace = true }
-collectives-westend-runtime = { workspace = true }
-contracts-rococo-runtime = { workspace = true }
-bridge-hub-rococo-runtime = { workspace = true, default-features = true }
-coretime-rococo-runtime = { workspace = true }
-coretime-westend-runtime = { workspace = true }
-bridge-hub-westend-runtime = { workspace = true, default-features = true }
-penpal-runtime = { workspace = true }
-people-rococo-runtime = { workspace = true }
-people-westend-runtime = { workspace = true }
-parachains-common = { workspace = true, default-features = true }
-testnet-parachains-constants = { features = [
-	"rococo",
-	"westend",
-], workspace = true }
-
-# Substrate
-sp-core = { workspace = true, default-features = true }
-sc-cli = { workspace = true, default-features = true }
-sc-service = { workspace = true, default-features = true }
-sc-chain-spec = { workspace = true, default-features = true }
-sp-genesis-builder = { workspace = true, default-features = true }
-
-# Polkadot
-xcm = { workspace = true, default-features = true }
-
-# Cumulus
-cumulus-primitives-core = { workspace = true, default-features = true }
-
-# Bridges
-bp-messages = { workspace = true, default-features = true }
+rococo-parachain-runtime.workspace = true
+shell-runtime.workspace = true
+glutton-westend-runtime.workspace = true
+seedling-runtime.workspace = true
+asset-hub-rococo-runtime.workspace = true
+asset-hub-rococo-runtime.default-features = true
+asset-hub-westend-runtime.workspace = true
+collectives-westend-runtime.workspace = true
+contracts-rococo-runtime.workspace = true
+bridge-hub-rococo-runtime.workspace = true
+bridge-hub-rococo-runtime.default-features = true
+coretime-rococo-runtime.workspace = true
+coretime-westend-runtime.workspace = true
+bridge-hub-westend-runtime.workspace = true
+bridge-hub-westend-runtime.default-features = true
+penpal-runtime.workspace = true
+people-rococo-runtime.workspace = true
+people-westend-runtime.workspace = true
+parachains-common.workspace = true
+parachains-common.default-features = true
+testnet-parachains-constants = { features = ["rococo", "westend"], workspace = true }
+sp-core.workspace = true
+sp-core.default-features = true
+sc-cli.workspace = true
+sc-cli.default-features = true
+sc-service.workspace = true
+sc-service.default-features = true
+sc-chain-spec.workspace = true
+sc-chain-spec.default-features = true
+sp-genesis-builder.workspace = true
+sp-genesis-builder.default-features = true
+xcm.workspace = true
+xcm.default-features = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-core.default-features = true
+bp-messages.workspace = true
+bp-messages.default-features = true
 
 [build-dependencies]
-substrate-build-script-utils = { workspace = true, default-features = true }
+substrate-build-script-utils.workspace = true
+substrate-build-script-utils.default-features = true
 
 [features]
 default = []

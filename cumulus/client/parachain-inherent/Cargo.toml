@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-client-parachain-inherent"
-version = "0.1.0"
+version = "0.12.0"
 authors.workspace = true
 edition.workspace = true
 description = "Inherent that needs to be present in every parachain block. Contains messages and a relay chain storage-proof."
@@ -10,19 +10,27 @@ license = "Apache-2.0"
 async-trait = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
-
-# Substrate
-sc-client-api = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
-sp-inherents = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
-sp-storage = { workspace = true, default-features = true }
-sp-trie = { workspace = true, default-features = true }
-
-# Cumulus
-cumulus-primitives-core = { workspace = true, default-features = true }
-cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }
-cumulus-relay-chain-interface = { workspace = true, default-features = true }
-cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+sp-api.workspace = true
+sp-api.default-features = true
+sp-crypto-hashing.workspace = true
+sp-crypto-hashing.default-features = true
+sp-inherents.workspace = true
+sp-inherents.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-state-machine.workspace = true
+sp-state-machine.default-features = true
+sp-storage.workspace = true
+sp-storage.default-features = true
+sp-trie.workspace = true
+sp-trie.default-features = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-core.default-features = true
+cumulus-primitives-parachain-inherent.workspace = true
+cumulus-primitives-parachain-inherent.default-features = true
+cumulus-relay-chain-interface.workspace = true
+cumulus-relay-chain-interface.default-features = true
+cumulus-test-relay-sproof-builder.workspace = true
+cumulus-test-relay-sproof-builder.default-features = true
