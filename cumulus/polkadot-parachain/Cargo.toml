@@ -108,3 +108,6 @@ fast-runtime = [
 	"coretime-rococo-runtime/fast-runtime",
 	"coretime-westend-runtime/fast-runtime",
 ]
+# needs to be passed down to runtimes using pallet_revive later
+# for now we just add it so that the benchbot can start using it
+riscv = []
