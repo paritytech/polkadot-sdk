@@ -32,7 +32,7 @@ codecov-start:
   extends:
     - .kubernetes-env
     - .common-refs
-    # - .pipeline-stopper-artifacts
+    - .pipeline-stopper-artifacts
     - .run-immediately
   script:
     - !reference [.codecov-check, script]
@@ -53,7 +53,7 @@ codecov-finish:
   extends:
     - .kubernetes-env
     - .common-refs
-    # - .pipeline-stopper-artifacts
+    - .pipeline-stopper-artifacts
   needs:
     - test-linux-stable-codecov
   script:
@@ -72,7 +72,7 @@ test-linux-stable-codecov:
   extends:
     - .docker-env
     - .common-refs
-    # - .pipeline-stopper-artifacts
+    - .pipeline-stopper-artifacts
   variables:
     CI_IMAGE: europe-docker.pkg.dev/parity-build/ci-images/ci-unified:bullseye-1.77.0
     RUST_TOOLCHAIN: stable
