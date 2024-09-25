@@ -411,7 +411,7 @@ where
 				let signed = lookup.lookup(signed)?;
 				// The `Implicit` is "implicitly" included in the payload.
 				let raw_payload = match tx_version {
-					0..=LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION =>
+					LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION =>
 						SignedPayload::new_legacy(self.function, tx_ext)?,
 					EXTRINSIC_FORMAT_VERSION => SignedPayload::new(self.function, tx_ext)?,
 					_ => return Err(InvalidTransaction::Future.into()),
