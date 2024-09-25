@@ -19,5 +19,3 @@
 //! contracts, where crypto calculations have weak performance.
 
 pub mod ecdsa;
-#[cfg(any(feature = "std", test))]
-pub mod mock;

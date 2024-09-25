@@ -19,9 +19,7 @@
 use std::collections::BTreeMap;
 
 use frame_support::{
-	assert_ok,
-	crypto::mock::AccountU64,
-	derive_impl,
+	assert_ok, derive_impl,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Parameter, Pays},
 	dispatch_context::with_context,
 	pallet_prelude::{StorageInfoTrait, ValueQuery},
@@ -42,6 +40,7 @@ use sp_io::{
 	TestExternalities,
 };
 use sp_runtime::{
+	testing::UintAuthorityId,
 	traits::{Block as BlockT, Dispatchable},
 	DispatchError, ModuleError,
 };
@@ -757,18 +756,18 @@ pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
 	u64,
 	RuntimeCall,
-	frame_support::crypto::mock::AccountU64,
+	UintAuthorityId,
 	frame_system::CheckNonZeroSender<Runtime>,
 >;
 pub type UncheckedSignaturePayload = sp_runtime::generic::UncheckedSignaturePayload<
 	u64,
-	AccountU64,
+	UintAuthorityId,
 	frame_system::CheckNonZeroSender<Runtime>,
 >;
 
 impl SigningTypes for Runtime {
-	type Public = AccountU64;
-	type Signature = AccountU64;
+	type Public = UintAuthorityId;
+	type Signature = UintAuthorityId;
 }
 
 impl<LocalCall> CreateTransactionBase<LocalCall> for Runtime
@@ -787,7 +786,7 @@ where
 		C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
 	>(
 		call: RuntimeCall,
-		_public: AccountU64,
+		_public: UintAuthorityId,
 		account: u64,
 		nonce: u64,
 	) -> Option<UncheckedExtrinsic> {
@@ -1983,7 +1982,7 @@ fn extrinsic_metadata_ir_types() {
 		meta_type::<<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Signature>(),
 		ir.signature_ty
 	);
-	assert_eq!(meta_type::<AccountU64>(), ir.signature_ty);
+	assert_eq!(meta_type::<UintAuthorityId>(), ir.signature_ty);
 
 	assert_eq!(
 		meta_type::<<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Extension>(),
@@ -2476,9 +2475,10 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 		// any storage version "enabled".
 		assert!(
 			ExecutiveWithUpgradePallet4::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost)
-				.unwrap_err() == "On chain storage version set, while the pallet \
+				.unwrap_err() ==
+				"On chain storage version set, while the pallet \
 				doesn't have the `#[pallet::storage_version(VERSION)]` attribute."
-				.into()
+					.into()
 		);
 	});
 }

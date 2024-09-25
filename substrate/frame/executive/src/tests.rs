@@ -456,7 +456,7 @@ type TxExtension = (
 type UncheckedXt = sp_runtime::generic::UncheckedExtrinsic<
 	u64,
 	RuntimeCall,
-	frame_support::crypto::mock::AccountU64,
+	sp_runtime::testing::UintAuthorityId,
 	TxExtension,
 >;
 type TestBlock = Block<UncheckedXt>;

@@ -135,7 +135,7 @@ pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
 	u64,
 	RuntimeCall,
-	frame_support::crypto::mock::AccountU64,
+	sp_runtime::testing::UintAuthorityId,
 	frame_system::CheckNonZeroSender<Runtime>,
 >;
 

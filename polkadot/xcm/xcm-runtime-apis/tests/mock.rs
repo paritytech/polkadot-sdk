@@ -65,7 +65,7 @@ pub type TxExtension = (frame_system::CheckWeight<TestRuntime>,);
 pub(crate) type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<
 	u64,
 	RuntimeCall,
-	frame_support::crypto::mock::AccountU64,
+	sp_runtime::testing::UintAuthorityId,
 	TxExtension,
 >;
 type Block = sp_runtime::testing::Block<Extrinsic>;
