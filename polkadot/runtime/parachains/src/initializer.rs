@@ -254,13 +254,14 @@ impl<T: Config> Pallet<T> {
 			buf
 		};
 
+		let prev_core_count = scheduler::Pallet::<T>::num_cores();
+
 		// inform about upcoming new session
 		scheduler::Pallet::<T>::pre_new_session(inclusion::Pallet::<T>::get_occupied_cores());
 
 		let configuration::SessionChangeOutcome { prev_config, new_config } =
 			configuration::Pallet::<T>::initializer_on_new_session(&session_index);
 		let new_config = new_config.unwrap_or_else(|| prev_config.clone());
-		let prev_core_count = scheduler::Pallet::<T>::num_cores();
 
 		let validators = shared::Pallet::<T>::initializer_on_new_session(
 			session_index,

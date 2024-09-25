@@ -104,8 +104,7 @@ pub mod pallet {
 	pub type SessionStartBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	/// One entry for each availability core. The `VecDeque` represents the assignments to be
-	/// scheduled on that core. The value contained here will not be valid after the end of
-	/// a block. Runtime APIs should be used to determine scheduled cores for the upcoming block.
+	/// scheduled on that core.
 	#[pallet::storage]
 	pub type ClaimQueue<T> = StorageValue<_, BTreeMap<CoreIndex, VecDeque<Assignment>>, ValueQuery>;
 
@@ -366,15 +365,17 @@ impl<T: Config> Pallet<T> {
 		let new_core_count = Self::num_cores();
 
 		if new_core_count < old_core_count {
-			let dropped_cores = ClaimQueue::<T>::mutate(|cq| {
-				// old_core_count must be greater than 1, as it's greater than new_core_count, which
-				// is is a positive number.
-				cq.split_off(&CoreIndex(old_core_count.saturating_sub(1)))
+			ClaimQueue::<T>::mutate(|cq| {
+				let to_remove: Vec<_> = cq
+					.range(CoreIndex(new_core_count)..CoreIndex(old_core_count))
+					.map(|(k, _)| k.clone())
+					.collect();
+				for key in to_remove {
+					if let Some(dropped_assignments) = cq.remove(&key) {
+						Self::push_back_to_assignment_provider(dropped_assignments.into_iter());
+					}
+				}
 			});
-
-			for (_, claim_queue) in dropped_cores {
-				Self::push_back_to_assignment_provider(claim_queue.into_iter());
-			}
 		}
 	}
 
@@ -444,15 +445,12 @@ impl<T: Config> Pallet<T> {
 			// Only do this if the configured lookahead is greater than 1. Otherwise, it doesn't
 			// make sense.
 			if n_lookahead_used == 0 && n_lookahead > 1 {
-				let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx)
-				else {
-					return
-				};
-
-				T::AssignmentProvider::assignment_duplicated(&assignment);
-				cq.push_back(assignment.clone());
-				cq.push_back(assignment);
-				n_lookahead_used += 2;
+				if let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
+					T::AssignmentProvider::assignment_duplicated(&assignment);
+					cq.push_back(assignment.clone());
+					cq.push_back(assignment);
+					n_lookahead_used += 2;
+				}
 			}
 
 			for _ in n_lookahead_used..n_lookahead {
