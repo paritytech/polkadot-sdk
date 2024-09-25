@@ -18,12 +18,12 @@ requests = { memory = "2G", cpu = "1" }
 
   [[relaychain.node_groups]]
   name = "alice"
-  args = ["-lparachain=trace,runtime=debug", "--enable-approval-voting-parallel"]
+  args = ["-lparachain=debug,runtime=debug", "--enable-approval-voting-parallel"]
   count = 8
   
   [[relaychain.node_groups]]
   name = "bob"
-  args = ["-lparachain=trace,runtime=debug"]
+  args = ["-lparachain=debug,runtime=debug"]
   count = 7
 
 [[parachains]]
