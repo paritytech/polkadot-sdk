@@ -679,19 +679,30 @@ struct Unscheduled {
 }
 
 impl Unscheduled {
-	// A threshold reaching which we reset counted jobs.
-	// The max expected queue_size in normal conditions, at the beginning of each block,
-	// a validator will submit jobs for at least vrf_module_samples(6) + 1 for backing
-	// the parachain candidate they are assigned to, there is some buffer added to cover
-	// for situations, where more work arrives in the queue.
-	const MAX_COUNT: usize = 12;
-	// A threshold in percentages, the portion a current priority can "steal" from lower ones.
-	// For example:
-	// Disputes take 70%, leaving 30% for approvals and all backings.
-	// 80% of the remaining goes to approvals, which is 30% * 80% = 24% of the original 100%.
-	// If we used parts of the original 100%, approvals can't take more than 24%,
-	// even if there are no disputes.
-	const FULFILLED_THRESHOLDS: &'static [(PvfExecPriority, usize)] = &[
+	/// We keep track of every scheduled job in the `counter`, but reset it if the total number of
+	/// counted jobs reaches the threshold. This number is set as the maximum amount of jobs per
+	/// relay chain block possible with 4 CPU cores and 2 seconds of execution time. Under normal
+	/// conditions, the maximum expected queue size is at least vrf_module_samples(6) + 1 for
+	/// backing a parachain candidate. A buffer is added to cover situations where more work
+	/// arrives in the queue.
+	const SCHEDULING_WINDOW_SIZE: usize = 12;
+
+	/// A threshold in percentages indicates how much time a current priority can "steal" from lower
+	/// priorities. Given the `SCHEDULING_WINDOW_SIZE` is 12 and all job priorities are present:
+	/// - Disputes consume 70% or 8 jobs in a row.
+	/// - The remaining 30% of original 100% is allocated for approval and all backing jobs.
+	/// - 80% or 3 jobs of the remaining goes to approvals.
+	/// - The remaining 6% of original 100% is allocated for all backing jobs.
+	/// - 100% or 1 job of the remaining goes to backing system parachains.
+	/// - Nothing is left for backing.
+	/// - The counter is restarted and the distribution starts from the beginning.
+	///
+	/// This system might seem complex, but we operate with the remaining percentages because:
+	/// - Not all job types are present in each block. If we used parts of the original 100%,
+	///   approvals could not exceed 24%, even if there are no disputes.
+	/// - We cannot fully prioritize backing system parachains over backing other parachains based
+	///   on the distribution of the original 100%.
+	const PRIORITY_ALLOCATION_THRESHOLDS: &'static [(PvfExecPriority, usize)] = &[
 		(PvfExecPriority::Dispute, 70),
 		(PvfExecPriority::Approval, 80),
 		(PvfExecPriority::BackingSystemParas, 100),
@@ -716,7 +727,7 @@ impl Unscheduled {
 		);
 
 		let priority = PvfExecPriority::iter()
-			.find(|priority| self.has_pending(priority) && !self.is_fulfilled(priority))
+			.find(|priority| self.has_pending(priority) && !self.has_reached_threshold(priority))
 			.unwrap_or_else(|| {
 				PvfExecPriority::iter()
 					.find(|priority| self.has_pending(priority))
@@ -744,20 +755,20 @@ impl Unscheduled {
 		!self.unscheduled.get(priority).unwrap_or(&VecDeque::new()).is_empty()
 	}
 
-	fn fulfilled_threshold(priority: &PvfExecPriority) -> Option<usize> {
-		Self::FULFILLED_THRESHOLDS.iter().find_map(
-			|&(p, value)| {
-				if p == *priority {
-					Some(value)
-				} else {
-					None
-				}
-			},
-		)
+	fn priority_allocation_threshold(priority: &PvfExecPriority) -> Option<usize> {
+		Self::PRIORITY_ALLOCATION_THRESHOLDS.iter().find_map(|&(p, value)| {
+			if p == *priority {
+				Some(value)
+			} else {
+				None
+			}
+		})
 	}
 
-	fn is_fulfilled(&self, priority: &PvfExecPriority) -> bool {
-		let Some(threshold) = Self::fulfilled_threshold(priority) else { return false };
+	/// Checks if a given priority has reached its allocated threshold
+	/// The thresholds are defined in `PRIORITY_ALLOCATION_THRESHOLDS`.
+	fn has_reached_threshold(&self, priority: &PvfExecPriority) -> bool {
+		let Some(threshold) = Self::priority_allocation_threshold(priority) else { return false };
 		let Some(count) = self.counter.get(&priority) else { return false };
 		// Every time we iterate by lower level priorities
 		let total_scheduled_at_priority_or_lower: usize = self
@@ -769,27 +780,26 @@ impl Unscheduled {
 			return false
 		}
 
-		let is_fulfilled = count * 100 / total_scheduled_at_priority_or_lower >= threshold;
+		let has_reached_threshold = count * 100 / total_scheduled_at_priority_or_lower >= threshold;
 
 		gum::debug!(
 			target: LOG_TARGET,
 			?priority,
 			?count,
 			?total_scheduled_at_priority_or_lower,
-			"Execution priority is {}fulfilled: {}/{}%",
-			if is_fulfilled {""} else {"not "},
+			"Execution priority has {}reached threshold: {}/{}%",
+			if has_reached_threshold {""} else {"not "},
 			count * 100 / total_scheduled_at_priority_or_lower,
 			threshold
 		);
 
-		is_fulfilled
+		has_reached_threshold
 	}
 
 	fn mark_scheduled(&mut self, priority: PvfExecPriority) {
-		let current_count: &mut usize = self.counter.entry(priority).or_default();
-		*current_count += 1;
+		*self.counter.entry(priority).or_default() += 1;
 
-		if self.counter.values().sum::<usize>() >= Self::MAX_COUNT {
+		if self.counter.values().sum::<usize>() >= Self::SCHEDULING_WINDOW_SIZE {
 			self.reset_counter();
 		}
 		gum::debug!(
@@ -855,14 +865,14 @@ mod tests {
 		let mut priorities = vec![];
 
 		let mut unscheduled = Unscheduled::new();
-		for _ in 0..Unscheduled::MAX_COUNT {
+		for _ in 0..Unscheduled::SCHEDULING_WINDOW_SIZE {
 			unscheduled.add(create_execution_job(), Dispute);
 			unscheduled.add(create_execution_job(), Approval);
 			unscheduled.add(create_execution_job(), BackingSystemParas);
 			unscheduled.add(create_execution_job(), Backing);
 		}
 
-		for _ in 0..Unscheduled::MAX_COUNT {
+		for _ in 0..Unscheduled::SCHEDULING_WINDOW_SIZE {
 			let priority = unscheduled.select_next_priority();
 			priorities.push(priority);
 			unscheduled.mark_scheduled(priority);
@@ -880,13 +890,13 @@ mod tests {
 		let mut priorities = vec![];
 
 		let mut unscheduled = Unscheduled::new();
-		for _ in 0..Unscheduled::MAX_COUNT {
+		for _ in 0..Unscheduled::SCHEDULING_WINDOW_SIZE {
 			unscheduled.add(create_execution_job(), Dispute);
 			unscheduled.add(create_execution_job(), Approval);
 			unscheduled.add(create_execution_job(), Backing);
 		}
 
-		for _ in 0..Unscheduled::MAX_COUNT {
+		for _ in 0..Unscheduled::SCHEDULING_WINDOW_SIZE {
 			let priority = unscheduled.select_next_priority();
 			priorities.push(priority);
 			unscheduled.mark_scheduled(priority);
@@ -904,13 +914,13 @@ mod tests {
 		let mut priorities = vec![];
 
 		let mut unscheduled = Unscheduled::new();
-		for _ in 0..Unscheduled::MAX_COUNT {
+		for _ in 0..Unscheduled::SCHEDULING_WINDOW_SIZE {
 			unscheduled.add(create_execution_job(), Approval);
 			unscheduled.add(create_execution_job(), BackingSystemParas);
 			unscheduled.add(create_execution_job(), Backing);
 		}
 
-		for _ in 0..Unscheduled::MAX_COUNT {
+		for _ in 0..Unscheduled::SCHEDULING_WINDOW_SIZE {
 			let priority = unscheduled.select_next_priority();
 			priorities.push(priority);
 			unscheduled.mark_scheduled(priority);
@@ -928,12 +938,12 @@ mod tests {
 		let mut priorities = vec![];
 
 		let mut unscheduled = Unscheduled::new();
-		for _ in 0..Unscheduled::MAX_COUNT {
+		for _ in 0..Unscheduled::SCHEDULING_WINDOW_SIZE {
 			unscheduled.add(create_execution_job(), Approval);
 		}
 		unscheduled.add(create_execution_job(), Backing);
 
-		for _ in 0..Unscheduled::MAX_COUNT {
+		for _ in 0..Unscheduled::SCHEDULING_WINDOW_SIZE {
 			let priority = unscheduled.select_next_priority();
 			priorities.push(priority);
 			unscheduled.mark_scheduled(priority);
@@ -950,12 +960,12 @@ mod tests {
 		let mut priorities = vec![];
 
 		let mut unscheduled = Unscheduled::new();
-		for _ in 0..Unscheduled::MAX_COUNT {
+		for _ in 0..Unscheduled::SCHEDULING_WINDOW_SIZE {
 			unscheduled.add(create_execution_job(), Approval);
 		}
 		unscheduled.add(create_execution_job(), Backing);
 
-		for _ in 0..Unscheduled::MAX_COUNT {
+		for _ in 0..Unscheduled::SCHEDULING_WINDOW_SIZE {
 			let priority = unscheduled.select_next_priority();
 			priorities.push(priority);
 			unscheduled.mark_scheduled(priority);

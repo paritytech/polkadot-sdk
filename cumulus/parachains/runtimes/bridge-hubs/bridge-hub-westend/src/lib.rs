@@ -30,6 +30,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 pub mod bridge_common_config;
 pub mod bridge_to_ethereum_config;
 pub mod bridge_to_rococo_config;
+mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
 
@@ -100,6 +101,8 @@ use snowbridge_core::{
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm::VersionedLocation;
 
+use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};
+
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
 
@@ -152,6 +155,11 @@ pub type Migrations = (
 	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	snowbridge_pallet_system::migration::v0::InitializeOnUpgrade<
+		Runtime,
+		ConstU32<BRIDGE_HUB_ID>,
+		ConstU32<ASSET_HUB_ID>,
+	>,
 );
 
 parameter_types! {
@@ -209,7 +217,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-westend"),
 	impl_name: create_runtime_str!("bridge-hub-westend"),
 	authoring_version: 1,
-	spec_version: 1_016_000,
+	spec_version: 1_016_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
@@ -1294,11 +1302,11 @@ impl_runtime_apis! {
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+			get_preset::<RuntimeGenesisConfig>(id, &genesis_config_presets::get_preset)
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			vec![]
+			genesis_config_presets::preset_names()
 		}
 	}
 }
