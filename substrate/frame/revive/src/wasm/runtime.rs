@@ -569,9 +569,8 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 				log::error!(target: LOG_TARGET, "polkavm execution error: {error}");
 				Some(Err(Error::<E::T>::ExecutionFailed.into()))
 			},
-			Ok(Finished) => {
-				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() }))
-			},
+			Ok(Finished) =>
+				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })),
 			Ok(Trap) => Some(Err(Error::<E::T>::ContractTrapped.into())),
 			Ok(Segfault(_)) => Some(Err(Error::<E::T>::ExecutionFailed.into())),
 			Ok(NotEnoughGas) => Some(Err(Error::<E::T>::OutOfGas.into())),
@@ -586,12 +585,11 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 						instance.write_output(return_value);
 						None
 					},
-					Err(TrapReason::Return(ReturnData { flags, data })) => {
+					Err(TrapReason::Return(ReturnData { flags, data })) =>
 						match ReturnFlags::from_bits(flags) {
 							None => Some(Err(Error::<E::T>::InvalidCallFlags.into())),
 							Some(flags) => Some(Ok(ExecReturnValue { flags, data })),
-						}
-					},
+						},
 					Err(TrapReason::Termination) => Some(Ok(Default::default())),
 					Err(TrapReason::SupervisorError(error)) => Some(Err(error.into())),
 				}
@@ -1746,9 +1744,8 @@ pub mod env {
 			Environment::new(self, memory, id, input_ptr, input_len, output_ptr, output_len_ptr);
 		let ret = match chain_extension.call(env)? {
 			RetVal::Converging(val) => Ok(val),
-			RetVal::Diverging { flags, data } => {
-				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data }))
-			},
+			RetVal::Diverging { flags, data } =>
+				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data })),
 		};
 		self.chain_extension = Some(chain_extension);
 		ret
