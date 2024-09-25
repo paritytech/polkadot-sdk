@@ -24,7 +24,7 @@ use cumulus_primitives_core::{
 	CumulusDigestItem, InboundDownwardMessage, InboundHrmpMessage,
 };
 use cumulus_relay_chain_interface::{
-	CommittedCandidateReceipt, OccupiedCoreAssumption, OverseerHandle, PHeader, ParaId,
+	CommittedCandidateReceipt, CoreIndex, OccupiedCoreAssumption, OverseerHandle, PHeader, ParaId,
 	RelayChainInterface, RelayChainResult, SessionIndex, StorageValue, ValidatorId,
 };
 use cumulus_test_client::{
@@ -41,7 +41,7 @@ use sp_blockchain::Backend as BlockchainBackend;
 use sp_consensus::{BlockOrigin, BlockStatus};
 use sp_version::RuntimeVersion;
 use std::{
-	collections::{BTreeMap, HashMap},
+	collections::{BTreeMap, HashMap, VecDeque},
 	pin::Pin,
 	sync::{Arc, Mutex},
 	time::Duration,
@@ -267,6 +267,13 @@ impl RelayChainInterface for Relaychain {
 
 	async fn version(&self, _: PHash) -> RelayChainResult<RuntimeVersion> {
 		unimplemented!("Not needed for test")
+	}
+
+	async fn claim_queue(
+		&self,
+		_: PHash,
+	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+		unimplemented!("Not needed for test");
 	}
 
 	async fn call_runtime_api(

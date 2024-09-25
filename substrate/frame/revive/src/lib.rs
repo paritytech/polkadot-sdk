@@ -60,7 +60,7 @@ use frame_support::{
 	ensure,
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
-		ConstU32, Contains, EnsureOrigin, Get, Time,
+		ConstU32, ConstU64, Contains, EnsureOrigin, Get, Time,
 	},
 	weights::{Weight, WeightMeter},
 	BoundedVec, RuntimeDebugNoBound,
@@ -293,6 +293,13 @@ pub mod pallet {
 		/// This value is usually higher than [`Self::RuntimeMemory`] to account for the fact
 		/// that validators have to hold all storage items in PvF memory.
 		type PVFMemory: Get<u32>;
+
+		/// The [EIP-155](https://eips.ethereum.org/EIPS/eip-155) chain ID.
+		///
+		/// This is a unique identifier assigned to each blockchain network,
+		/// preventing replay attacks.
+		#[pallet::constant]
+		type ChainId: Get<u64>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -365,6 +372,7 @@ pub mod pallet {
 			type Xcm = ();
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
+			type ChainId = ConstU64<{ 0 }>;
 		}
 	}
 
@@ -919,7 +927,7 @@ pub mod pallet {
 				let contract = if let Some(contract) = contract {
 					contract
 				} else {
-					return Err(<Error<T>>::ContractNotFound.into())
+					return Err(<Error<T>>::ContractNotFound.into());
 				};
 				<ExecStack<T, WasmBlob<T>>>::increment_refcount(code_hash)?;
 				<ExecStack<T, WasmBlob<T>>>::decrement_refcount(contract.code_hash);
