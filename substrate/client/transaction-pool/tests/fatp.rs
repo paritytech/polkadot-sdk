@@ -31,6 +31,7 @@ use substrate_test_runtime_client::{
 	AccountKeyring::*,
 };
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
+use std::time::Duration;
 const LOG_TARGET: &str = "txpool";
 
 use sc_transaction_pool::{ForkAwareTxPool, ForkAwareTxPoolTask};
@@ -2624,10 +2625,9 @@ fn fatp_ready_txs_are_provided_in_valid_order() {
 
 //todo: add test: check len of filter after finalization (!)
 //todo: broadcasted test?
-//todo: ready_at_with_timeout [#5488]
 
 #[test]
-fn fatp_ready_light_empty_on_unmaintained_fork_works() {
+fn fatp_ready_light_empty_on_unmaintained_fork() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -2646,8 +2646,7 @@ fn fatp_ready_light_empty_on_unmaintained_fork_works() {
 	let header01b = api.push_block_with_parent(genesis, vec![xt1.clone()], true);
 
 	let mut ready_iterator = pool.ready_at_light(header01b.hash()).now_or_never().unwrap();
-	let ready01 = ready_iterator.next();
-	assert!(ready01.is_none());
+	assert!(ready_iterator.next().is_none());
 }
 
 #[test]
@@ -2804,4 +2803,54 @@ fn fatp_ready_light_long_fork_retracted_works() {
 	let ready02 = ready_iterator.next();
 	assert_eq!(ready02.unwrap().hash, api.hash_and_length(&xt4).0);
 	assert!(ready_iterator.next().is_none());
+}
+
+
+
+#[test]
+fn fatp_ready_at_with_timeout_works_for_misc_scenarios() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
+	let (pool, _) = create_basic_pool(api.clone());
+	let genesis = api.genesis_hash();
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 200);
+
+	let header01a = api.push_block_with_parent(genesis, vec![xt0.clone()], true);
+	let event = new_best_block_event(&pool, Some(genesis), header01a.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header01a.hash(), &pool, 0, 0);
+
+	let header01b = api.push_block_with_parent(genesis, vec![xt1.clone()], true);
+
+	let mut ready_at_future = pool.ready_at_with_timeout(header01b.hash(), Duration::from_secs(36000));
+
+	let noop_waker = futures::task::noop_waker();
+	let mut context = futures::task::Context::from_waker(&noop_waker);
+
+	if ready_at_future.poll_unpin(&mut context).is_ready() {
+		panic!("Ready set should not be ready before maintenance on block update!");
+	}
+
+	let event = new_best_block_event(&pool, Some(header01a.hash()), header01b.hash());
+	block_on(pool.maintain(event));
+
+	// ready should now be triggered:
+	let mut ready_at = ready_at_future.now_or_never().unwrap();
+	assert_eq!(ready_at.next().unwrap().hash, api.hash_and_length(&xt0).0);
+	assert!(ready_at.next().is_none());
+
+
+	let header02a = api.push_block_with_parent(header01a.hash(), vec![], true);
+	let xt2 = uxt(Charlie, 200);
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt2.clone())).unwrap();
+
+	// ready light should now be triggered:
+	let mut ready_at2 = block_on(pool.ready_at_with_timeout(header02a.hash(), Duration::ZERO));
+	assert_eq!(ready_at2.next().unwrap().hash, api.hash_and_length(&xt2).0);
+	assert!(ready_at2.next().is_none());
 }
