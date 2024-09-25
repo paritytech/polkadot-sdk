@@ -523,6 +523,8 @@ mod bridge_hub_bulletin_tests {
 		RococoBulletinGlobalConsensusNetwork, RococoBulletinGlobalConsensusNetworkLocation,
 		WithRococoBulletinMessagesInstance, XcmOverPolkadotBulletinInstance,
 	};
+	use sp_core::crypto::Ss58Codec;
+	use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 	// Random para id of sibling chain used in tests.
 	pub const SIBLING_PEOPLE_PARACHAIN_ID: u32 =
@@ -539,6 +541,7 @@ mod bridge_hub_bulletin_tests {
 		AllPalletsWithoutSystem,
 		BridgeGrandpaRococoBulletinInstance,
 		WithRococoBulletinMessagesInstance,
+		RelayersForPermissionlessLanesInstance,
 	>;
 
 	#[test]
@@ -601,7 +604,16 @@ mod bridge_hub_bulletin_tests {
 					XcmOverPolkadotBulletinInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingPeopleParachainLocation::get(), BridgedBulletinLocation::get()).1
+				>(
+					SiblingPeopleParachainLocation::get(),
+					BridgedBulletinLocation::get(),
+					|locations, fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverPolkadotBulletinInstance
+						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
+					}
+				).1
 			},
 		)
 	}
