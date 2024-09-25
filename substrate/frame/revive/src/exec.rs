@@ -302,6 +302,11 @@ pub trait Ext: sealing::Sealed {
 	/// Returns `Err(InvalidImmutableAccess)` if called from a constructor.
 	fn get_immutable_data(&mut self) -> Result<&mut ImmutableData, DispatchError>;
 
+	/// Set the the immutable data of the current contract.
+	///
+	/// Returns `Err(InvalidImmutableAccess)` if not called from a constructor.
+	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError>;
+
 	/// Returns the balance of the current contract.
 	///
 	/// The `value_transferred` is already added.
@@ -1542,6 +1547,18 @@ where
 			.immutable_data
 			.entry(account_id)
 			.or_insert_with(move || <ImmutableDataOf<T>>::get(address).unwrap_or_default()))
+	}
+
+	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError> {
+		if self.top_frame().entry_point == ExportedFunction::Call {
+			return Err(Error::<T>::InvalidImmutableAccess.into());
+		}
+
+		let account_id = self.account_id().clone();
+		let address = T::AddressMapper::to_address(&account_id);
+		<ImmutableDataOf<T>>::insert(address, &data);
+		self.immutable_data.insert(account_id, data);
+		Ok(())
 	}
 
 	fn balance(&self) -> U256 {

@@ -1533,6 +1533,20 @@ pub mod env {
 		Ok(())
 	}
 
+	/// Attaches the supplied immutable data to the currently executing contract.
+	/// See [`pallet_revive_uapi::HostFn::get_immutable_data`].
+	#[api_version(0)]
+	fn set_immutable_data(&mut self, memory: &mut M, ptr: u32, len: u32) -> Result<(), TrapReason> {
+		if len > limits::IMMUTABLE_BYTES {
+			return Err(Error::<E::T>::OutOfBounds.into());
+		}
+		self.charge_gas(RuntimeCosts::GasLeft)?;
+		let buf = memory.read(ptr, len)?;
+		let data = buf.try_into().expect("bailed out earlier; qed");
+		self.ext.set_immutable_data(data)?;
+		Ok(())
+	}
+
 	/// Stores the *free* balance of the current account into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::balance`].
 	#[api_version(0)]
