@@ -80,10 +80,10 @@ crates:
   - name: rococo-parachain-runtime
     bump: minor
 
-  - name: staging-xcm-builder:
+  - name: staging-xcm-builder
     bump: minor
 
-  - name: polkadot-sdk:
+  - name: polkadot-sdk
     bump: minor
 
 
