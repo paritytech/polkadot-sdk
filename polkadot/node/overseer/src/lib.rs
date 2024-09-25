@@ -522,7 +522,7 @@ pub struct Overseer<SupportsParachains> {
 	])]
 	bitfield_signing: BitfieldSigning,
 
-	#[subsystem(BitfieldDistributionMessage, sends: [
+	#[subsystem(blocking, message_capacity: 8192, BitfieldDistributionMessage, sends: [
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
 		ProvisionerMessage,

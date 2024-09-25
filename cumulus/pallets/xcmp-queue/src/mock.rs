@@ -104,6 +104,7 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type ReservedXcmpWeight = ();
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::ExpectParentIncluded;
+	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Test>;
 }
 
 parameter_types! {

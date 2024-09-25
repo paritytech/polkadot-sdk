@@ -31,12 +31,16 @@ extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode};
-use core::cmp;
+use core::{cmp, marker::PhantomData};
 use cumulus_primitives_core::{
-	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
-	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
+	relay_chain::{
+		self,
+		vstaging::{ClaimQueueOffset, CoreSelector},
+	},
+	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, GetChannelInfo,
+	InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
-	XcmpMessageHandler, XcmpMessageSource,
+	XcmpMessageHandler, XcmpMessageSource, DEFAULT_CLAIM_QUEUE_OFFSET,
 };
 use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
 use frame_support::{
@@ -51,8 +55,9 @@ use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
+use sp_core::U256;
 use sp_runtime::{
-	traits::{Block as BlockT, BlockNumberProvider, Hash},
+	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
@@ -186,6 +191,22 @@ pub mod ump_constants {
 	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 }
 
+/// Trait for selecting the next core to build the candidate for.
+pub trait SelectCore {
+	fn select_core_for_child() -> (CoreSelector, ClaimQueueOffset);
+}
+
+/// The default core selection policy.
+pub struct DefaultCoreSelector<T>(PhantomData<T>);
+
+impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
+	fn select_core_for_child() -> (CoreSelector, ClaimQueueOffset) {
+		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
+
+		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -246,6 +267,9 @@ pub mod pallet {
 		/// that collators aren't expected to have node versions that supply the included block
 		/// in the relay-chain state proof.
 		type ConsensusHook: ConsensusHook;
+
+		/// Select core.
+		type SelectCore: SelectCore;
 	}
 
 	#[pallet::hooks]
@@ -1371,6 +1395,11 @@ impl<T: Config> Pallet<T> {
 				.map_or_else(|| header.encode(), |v| v)
 				.into(),
 		}
+	}
+
+	/// Returns the core selector.
+	pub fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+		T::SelectCore::select_core_for_child()
 	}
 
 	/// Set a custom head data that should be returned as result of `validate_block`.
