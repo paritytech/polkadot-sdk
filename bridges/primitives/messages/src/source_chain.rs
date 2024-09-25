@@ -16,7 +16,7 @@
 
 //! Primitives of messages module, that are used on the source chain.
 
-use crate::{LaneId, MessageNonce, UnrewardedRelayer};
+use crate::{MessageNonce, UnrewardedRelayer};
 
 use bp_runtime::{raw_storage_proof_size, RawStorageProof, Size};
 use codec::{Decode, Encode};
@@ -39,7 +39,7 @@ use sp_std::{
 ///
 /// - lane id.
 #[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-pub struct FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash> {
+pub struct FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash, LaneId> {
 	/// Hash of the bridge header the proof is for.
 	pub bridged_header_hash: BridgedHeaderHash,
 	/// Storage trie proof generated for [`Self::bridged_header_hash`].
@@ -48,7 +48,9 @@ pub struct FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash> {
 	pub lane: LaneId,
 }
 
-impl<BridgedHeaderHash> Size for FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash> {
+impl<BridgedHeaderHash, LaneId> Size
+	for FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash, LaneId>
+{
 	fn size(&self) -> u32 {
 		use frame_support::sp_runtime::SaturatedConversion;
 		raw_storage_proof_size(&self.storage_proof).saturated_into()
@@ -60,7 +62,7 @@ pub type RelayersRewards<AccountId> = BTreeMap<AccountId, MessageNonce>;
 
 /// Manages payments that are happening at the source chain during delivery confirmation
 /// transaction.
-pub trait DeliveryConfirmationPayments<AccountId> {
+pub trait DeliveryConfirmationPayments<AccountId, LaneId> {
 	/// Error type.
 	type Error: Debug + Into<&'static str>;
 
@@ -78,7 +80,7 @@ pub trait DeliveryConfirmationPayments<AccountId> {
 	) -> MessageNonce;
 }
 
-impl<AccountId> DeliveryConfirmationPayments<AccountId> for () {
+impl<AccountId, LaneId> DeliveryConfirmationPayments<AccountId, LaneId> for () {
 	type Error = &'static str;
 
 	fn pay_reward(
@@ -94,14 +96,14 @@ impl<AccountId> DeliveryConfirmationPayments<AccountId> for () {
 
 /// Callback that is called at the source chain (bridge hub) when we get delivery confirmation
 /// for new messages.
-pub trait OnMessagesDelivered {
+pub trait OnMessagesDelivered<LaneId> {
 	/// New messages delivery has been confirmed.
 	///
 	/// The only argument of the function is the number of yet undelivered messages
 	fn on_messages_delivered(lane: LaneId, enqueued_messages: MessageNonce);
 }
 
-impl OnMessagesDelivered for () {
+impl<LaneId> OnMessagesDelivered<LaneId> for () {
 	fn on_messages_delivered(_lane: LaneId, _enqueued_messages: MessageNonce) {}
 }
 
@@ -115,7 +117,7 @@ pub struct SendMessageArtifacts {
 }
 
 /// Messages bridge API to be used from other pallets.
-pub trait MessagesBridge<Payload> {
+pub trait MessagesBridge<Payload, LaneId> {
 	/// Error type.
 	type Error: Debug;
 
@@ -141,7 +143,7 @@ pub trait MessagesBridge<Payload> {
 /// where outbound messages are forbidden.
 pub struct ForbidOutboundMessages;
 
-impl<AccountId> DeliveryConfirmationPayments<AccountId> for ForbidOutboundMessages {
+impl<AccountId, LaneId> DeliveryConfirmationPayments<AccountId, LaneId> for ForbidOutboundMessages {
 	type Error = &'static str;
 
 	fn pay_reward(
