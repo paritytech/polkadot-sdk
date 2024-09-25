@@ -644,9 +644,9 @@ impl<'a> Fold for ApiRuntimeImplToApiRuntimeApiImpl<'a> {
 			Box::new(parse_quote!( RuntimeApiImpl<__SrApiBlock__, RuntimeApiImplCall> ));
 
 		input.generics.params.push(parse_quote!(
-			__SrApiBlock__: #crate_::BlockT + std::panic::UnwindSafe +
-				std::panic::RefUnwindSafe
+			__SrApiBlock__: #crate_::BlockT
 		));
+
 		input
 			.generics
 			.params
@@ -660,17 +660,6 @@ impl<'a> Fold for ApiRuntimeImplToApiRuntimeApiImpl<'a> {
 		});
 
 		where_clause.predicates.push(parse_quote! { &'static RuntimeApiImplCall: Send });
-
-		// Require that all types used in the function signatures are unwind safe.
-		extract_all_signature_types(&input.items).iter().for_each(|i| {
-			where_clause.predicates.push(parse_quote! {
-				#i: std::panic::UnwindSafe + std::panic::RefUnwindSafe
-			});
-		});
-
-		where_clause.predicates.push(parse_quote! {
-			__SrApiBlock__::Header: std::panic::UnwindSafe + std::panic::RefUnwindSafe
-		});
 
 		input.attrs = filter_cfg_attrs(&input.attrs);
 
