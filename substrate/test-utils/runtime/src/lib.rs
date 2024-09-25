@@ -28,7 +28,7 @@ pub mod genesismap;
 pub mod substrate_test_pallet;
 
 #[cfg(not(feature = "std"))]
-use alloc::{vec, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	construct_runtime, derive_impl,

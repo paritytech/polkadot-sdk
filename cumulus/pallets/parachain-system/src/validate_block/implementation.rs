@@ -26,7 +26,7 @@ use polkadot_parachain_primitives::primitives::{
 	HeadData, RelayChainBlockNumber, ValidationResult,
 };
 
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
 
 use frame_support::traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType};

@@ -219,8 +219,6 @@ pub fn grow_storage_proof<L: TrieConfiguration>(
 	prefix: Vec<u8>,
 	num_extra_nodes: usize,
 ) {
-	use sp_trie::TrieMut;
-
 	let mut added_nodes = 0;
 	for i in 0..prefix.len() {
 		let mut prefix = prefix[0..=i].to_vec();
