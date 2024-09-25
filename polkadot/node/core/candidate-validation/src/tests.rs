@@ -1162,7 +1162,6 @@ fn dummy_active_leaves_update(hash: Hash) -> ActiveLeavesUpdate {
 			hash,
 			number: 10,
 			unpin_handle: polkadot_node_subsystem_test_helpers::mock::dummy_unpin_handle(hash),
-			span: Arc::new(overseer::jaeger::Span::Disabled),
 		}),
 		..Default::default()
 	}

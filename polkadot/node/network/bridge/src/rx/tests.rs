@@ -16,7 +16,6 @@
 
 use super::*;
 use futures::{channel::oneshot, executor};
-use overseer::jaeger;
 use polkadot_node_network_protocol::{self as net_protocol, OurView};
 use polkadot_node_subsystem::messages::NetworkBridgeEvent;
 
@@ -1380,12 +1379,7 @@ fn our_view_updates_decreasing_order_and_limited_to_max() {
 		}
 
 		let our_views = (1..=MAX_VIEW_HEADS).rev().map(|start| {
-			OurView::new(
-				(start..=MAX_VIEW_HEADS)
-					.rev()
-					.map(|i| (Hash::repeat_byte(i as u8), Arc::new(jaeger::Span::Disabled))),
-				0,
-			)
+			OurView::new((start..=MAX_VIEW_HEADS).rev().map(|i| Hash::repeat_byte(i as u8)), 0)
 		});
 
 		for our_view in our_views {

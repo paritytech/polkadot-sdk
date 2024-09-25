@@ -176,7 +176,6 @@ members = [
 	"polkadot/node/core/runtime-api",
 	"polkadot/node/gum",
 	"polkadot/node/gum/proc-macro",
-	"polkadot/node/jaeger",
 	"polkadot/node/malus",
 	"polkadot/node/metrics",
 	"polkadot/node/network/approval-distribution",

@@ -70,7 +70,6 @@ macro_rules! dummy_builder {
 			.dispute_distribution(MockDisputeDistribution {})
 			.prospective_parachains(MockProspectiveParachains {})
 			.activation_external_listeners(Default::default())
-			.span_per_active_leaf(Default::default())
 			.active_leaves(Default::default())
 			.metrics($metrics)
 			.supports_parachains(AlwaysSupportsParachains {})
