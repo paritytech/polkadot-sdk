@@ -16,8 +16,12 @@
 
 #![cfg(test)]
 
+use bp_messages::LegacyLaneId;
 use bp_polkadot_core::Signature;
-use bridge_common_config::{DeliveryRewardInBalance, RequiredStakeForStakeAndSlash};
+use bridge_common_config::{
+	DeliveryRewardInBalance, RelayersForLegacyLaneIdsMessagesInstance,
+	RequiredStakeForStakeAndSlash,
+};
 use bridge_hub_test_utils::{test_cases::from_parachain, SlotDurations};
 use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
@@ -32,7 +36,7 @@ use bridge_to_rococo_config::{
 	WithBridgeHubRococoMessagesInstance, XcmOverBridgeHubRococoInstance,
 };
 use codec::{Decode, Encode};
-use frame_support::{assert_ok, dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
+use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
 use parachains_common::{AccountId, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
@@ -65,6 +69,7 @@ type RuntimeTestsAdapter = from_parachain::WithRemoteParachainHelperAdapter<
 	BridgeGrandpaRococoInstance,
 	BridgeParachainRococoInstance,
 	WithBridgeHubRococoMessagesInstance,
+	RelayersForLegacyLaneIdsMessagesInstance,
 >;
 
 parameter_types! {
@@ -237,7 +242,15 @@ fn handle_export_message_from_system_parachain_add_to_outbound_queue_works() {
 					XcmOverBridgeHubRococoInstance,
 					LocationToAccountId,
 					WestendLocation,
-				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get()).1
+				>(
+					SiblingParachainLocation::get(),
+					BridgedUniversalLocation::get(),
+					|locations, fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime, XcmOverBridgeHubRococoInstance
+						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+					}
+				).1
 			},
 		)
 }
@@ -290,10 +303,16 @@ fn relayed_incoming_message_works() {
 				XcmOverBridgeHubRococoInstance,
 				LocationToAccountId,
 				WestendLocation,
-			>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
+			>(SiblingParachainLocation::get(), BridgedUniversalLocation::get(), |locations, fee| {
+				bridge_hub_test_utils::open_bridge_with_storage::<
+					Runtime,
+					XcmOverBridgeHubRococoInstance,
+				>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+			})
 			.1
 		},
 		construct_and_apply_extrinsic,
+		true,
 	)
 }
 
@@ -314,10 +333,16 @@ fn free_relay_extrinsic_works() {
 				XcmOverBridgeHubRococoInstance,
 				LocationToAccountId,
 				WestendLocation,
-			>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
+			>(SiblingParachainLocation::get(), BridgedUniversalLocation::get(), |locations, fee| {
+				bridge_hub_test_utils::open_bridge_with_storage::<
+					Runtime,
+					XcmOverBridgeHubRococoInstance,
+				>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+			})
 			.1
 		},
 		construct_and_apply_extrinsic,
+		true,
 	)
 }
 

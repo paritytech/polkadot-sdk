@@ -62,10 +62,7 @@ fn construct_extrinsic(
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
-		(
-			bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
-			bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
-		),
+		(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),),
 		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 	);
@@ -145,8 +142,10 @@ fn change_required_stake_by_governance_works() {
 
 mod bridge_hub_westend_tests {
 	use super::*;
+	use bp_messages::LegacyLaneId;
 	use bridge_common_config::{
 		BridgeGrandpaWestendInstance, BridgeParachainWestendInstance, DeliveryRewardInBalance,
+		RelayersForLegacyLaneIdsMessagesInstance,
 	};
 	use bridge_hub_test_utils::test_cases::from_parachain;
 	use bridge_to_westend_config::{
@@ -174,6 +173,7 @@ mod bridge_hub_westend_tests {
 		BridgeGrandpaWestendInstance,
 		BridgeParachainWestendInstance,
 		WithBridgeHubWestendMessagesInstance,
+		RelayersForLegacyLaneIdsMessagesInstance,
 	>;
 
 	#[test]
@@ -338,7 +338,16 @@ mod bridge_hub_westend_tests {
 					XcmOverBridgeHubWestendInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get()).1
+				>(
+					SiblingParachainLocation::get(),
+					BridgedUniversalLocation::get(),
+					|locations, fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverBridgeHubWestendInstance
+						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+					}
+				).1
 			},
 		)
 	}
@@ -393,10 +402,20 @@ mod bridge_hub_westend_tests {
 					XcmOverBridgeHubWestendInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
+				>(
+					SiblingParachainLocation::get(),
+					BridgedUniversalLocation::get(),
+					|locations, fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverBridgeHubWestendInstance,
+						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+					},
+				)
 				.1
 			},
 			construct_and_apply_extrinsic,
+			true,
 		)
 	}
 
@@ -417,10 +436,20 @@ mod bridge_hub_westend_tests {
 					XcmOverBridgeHubWestendInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
+				>(
+					SiblingParachainLocation::get(),
+					BridgedUniversalLocation::get(),
+					|locations, fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverBridgeHubWestendInstance,
+						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+					},
+				)
 				.1
 			},
 			construct_and_apply_extrinsic,
+			false,
 		)
 	}
 
@@ -482,46 +511,26 @@ mod bridge_hub_westend_tests {
 			),
 		)
 	}
-
-	#[test]
-	fn open_and_close_bridge_works() {
-		let origins = [SiblingParachainLocation::get(), SiblingSystemParachainLocation::get()];
-
-		for origin in origins {
-			bridge_hub_test_utils::test_cases::open_and_close_bridge_works::<
-				Runtime,
-				XcmOverBridgeHubWestendInstance,
-				LocationToAccountId,
-				TokenLocation,
-			>(
-				collator_session_keys(),
-				bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-				origin,
-				BridgedUniversalLocation::get(),
-			)
-		}
-	}
 }
 
 mod bridge_hub_bulletin_tests {
 	use super::*;
+	use bp_messages::{HashedLaneId, LaneIdType};
 	use bridge_common_config::BridgeGrandpaRococoBulletinInstance;
+	use bridge_hub_rococo_runtime::bridge_common_config::RelayersForPermissionlessLanesInstance;
 	use bridge_hub_test_utils::test_cases::from_grandpa_chain;
 	use bridge_to_bulletin_config::{
 		RococoBulletinGlobalConsensusNetwork, RococoBulletinGlobalConsensusNetworkLocation,
 		WithRococoBulletinMessagesInstance, XcmOverPolkadotBulletinInstance,
 	};
-	use frame_support::assert_ok;
-	use sp_core::crypto::Ss58Codec;
-	use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 	// Random para id of sibling chain used in tests.
 	pub const SIBLING_PEOPLE_PARACHAIN_ID: u32 =
 		rococo_runtime_constants::system_parachain::PEOPLE_ID;
 
 	parameter_types! {
-																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																					pub SiblingPeopleParachainLocation: Location = Location::new(1, [Parachain(SIBLING_PEOPLE_PARACHAIN_ID)]);
-																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																					pub BridgedBulletinLocation: InteriorLocation = [GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())].into();
+		pub SiblingPeopleParachainLocation: Location = Location::new(1, [Parachain(SIBLING_PEOPLE_PARACHAIN_ID)]);
+		pub BridgedBulletinLocation: InteriorLocation = [GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())].into();
 	}
 
 	// Runtime from tests PoV
@@ -646,10 +655,20 @@ mod bridge_hub_bulletin_tests {
 					XcmOverPolkadotBulletinInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingPeopleParachainLocation::get(), BridgedBulletinLocation::get())
-					.1
+				>(
+					SiblingPeopleParachainLocation::get(),
+					BridgedBulletinLocation::get(),
+					|locations, fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverPolkadotBulletinInstance,
+						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
+					},
+				)
+				.1
 			},
 			construct_and_apply_extrinsic,
+			false,
 		)
 	}
 
@@ -669,30 +688,21 @@ mod bridge_hub_bulletin_tests {
 					XcmOverPolkadotBulletinInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingPeopleParachainLocation::get(), BridgedBulletinLocation::get())
-					.1
+				>(
+					SiblingPeopleParachainLocation::get(),
+					BridgedBulletinLocation::get(),
+					|locations, fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverPolkadotBulletinInstance,
+						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
+					},
+				)
+				.1
 			},
 			construct_and_apply_extrinsic,
+			false,
 		)
-	}
-
-	#[test]
-	fn open_and_close_bridge_works() {
-		let origins = [SiblingPeopleParachainLocation::get()];
-
-		for origin in origins {
-			bridge_hub_test_utils::test_cases::open_and_close_bridge_works::<
-				Runtime,
-				XcmOverPolkadotBulletinInstance,
-				LocationToAccountId,
-				TokenLocation,
-			>(
-				collator_session_keys(),
-				bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-				origin,
-				BridgedBulletinLocation::get(),
-			)
-		}
 	}
 
 	#[test]

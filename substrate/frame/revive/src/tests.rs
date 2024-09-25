@@ -412,6 +412,7 @@ parameter_types! {
 	pub static DepositPerByte: BalanceOf<Test> = 1;
 	pub const DepositPerItem: BalanceOf<Test> = 2;
 	pub static CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+	pub static ChainId: u64 = 384;
 }
 
 impl Convert<Weight, BalanceOf<Self>> for Test {
@@ -496,6 +497,7 @@ impl Config for Test {
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Debug = TestDebug;
+	type ChainId = ChainId;
 }
 
 pub struct ExtBuilder {
@@ -4308,6 +4310,48 @@ mod run_tests {
 			// correct output if the supplied output length was smaller than
 			// than what the callee returned.
 			assert_ok!(builder::call(addr).build());
+		});
+	}
+
+	#[test]
+	fn chain_id_works() {
+		let (code, _) = compile_module("chain_id").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let chain_id = U256::from(<Test as Config>::ChainId::get());
+			let received = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_result();
+			assert_eq!(received.result.data, chain_id.encode());
+		});
+	}
+
+	#[test]
+	fn return_data_api_works() {
+		let (code_return_data_api, _) = compile_module("return_data_api").unwrap();
+		let (code_return_with_data, hash_return_with_data) =
+			compile_module("return_with_data").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Upload the io echoing fixture for later use
+			assert_ok!(Contracts::upload_code(
+				RuntimeOrigin::signed(ALICE),
+				code_return_with_data,
+				deposit_limit::<Test>(),
+			));
+
+			// Create fixture: Constructor does nothing
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code_return_data_api))
+					.build_and_unwrap_contract();
+
+			// Call the contract: It will issue calls and deploys, asserting on
+			assert_ok!(builder::call(addr)
+				.value(10 * 1024)
+				.data(hash_return_with_data.encode())
+				.build());
 		});
 	}
 }
