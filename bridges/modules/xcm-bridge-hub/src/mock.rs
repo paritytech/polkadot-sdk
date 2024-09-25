@@ -415,10 +415,6 @@ impl TestLocalXcmChannelManager {
 impl LocalXcmChannelManager for TestLocalXcmChannelManager {
 	type Error = ();
 
-	fn is_congested(_with: &Location) -> bool {
-		frame_support::storage::unhashed::get_or_default(b"TestLocalXcmChannelManager.Congested")
-	}
-
 	fn suspend_bridge(_local_origin: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
 		frame_support::storage::unhashed::put(b"TestLocalXcmChannelManager.Suspended", &true);
 		Ok(())
@@ -430,9 +426,9 @@ impl LocalXcmChannelManager for TestLocalXcmChannelManager {
 	}
 }
 
-impl pallet_xcm_bridge_hub_router::XcmChannelStatusProvider for TestLocalXcmChannelManager {
-	fn is_congested(with: &Location) -> bool {
-		<Self as LocalXcmChannelManager>::is_congested(with)
+impl bp_xcm_bridge_hub::XcmChannelStatusProvider for TestLocalXcmChannelManager {
+	fn is_congested(_with: &Location) -> bool {
+		frame_support::storage::unhashed::get_or_default(b"TestLocalXcmChannelManager.Congested")
 	}
 }
 

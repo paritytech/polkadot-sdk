@@ -18,29 +18,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use bp_xcm_bridge_support::XcmChannelStatusProvider;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::{FixedU128, RuntimeDebug};
-use xcm::latest::prelude::Location;
 
 /// Minimal delivery fee factor.
 pub const MINIMAL_DELIVERY_FEE_FACTOR: FixedU128 = FixedU128::from_u32(1);
-
-/// XCM channel status provider that may report whether it is congested or not.
-///
-/// By channel we mean the physical channel that is used to deliver messages of one
-/// of the bridge queues.
-pub trait XcmChannelStatusProvider {
-	/// Returns true if the channel is currently congested.
-	fn is_congested(with: &Location) -> bool;
-}
-
-impl XcmChannelStatusProvider for () {
-	fn is_congested(_with: &Location) -> bool {
-		false
-	}
-}
 
 /// Current status of the bridge.
 #[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen, RuntimeDebug)]

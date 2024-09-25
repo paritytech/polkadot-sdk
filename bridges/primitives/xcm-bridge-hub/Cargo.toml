@@ -18,6 +18,7 @@ serde = { features = ["alloc", "derive"], workspace = true }
 # Bridge Dependencies
 bp-messages = { workspace = true }
 bp-runtime = { workspace = true }
+bp-xcm-bridge-support = { workspace = true }
 
 # Substrate Dependencies
 sp-std = { workspace = true }
