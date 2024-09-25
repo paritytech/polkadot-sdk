@@ -237,8 +237,8 @@ parameter_types! {
 	const XcmExecutionFailed: ReturnErrorCode = ReturnErrorCode::XcmExecutionFailed;
 }
 
-impl<'a> From<&'a ExecReturnValue> for ReturnErrorCode {
-	fn from(from: &'a ExecReturnValue) -> Self {
+impl From<&ExecReturnValue> for ReturnErrorCode {
+	fn from(from: &ExecReturnValue) -> Self {
 		if from.flags.contains(ReturnFlags::REVERT) {
 			Self::CalleeReverted
 		} else {
