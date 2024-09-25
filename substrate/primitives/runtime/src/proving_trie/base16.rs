@@ -188,7 +188,7 @@ where
 /// Verify the existence of multiple `items` in a given trie root and proof.
 ///
 /// Proofs must be created with latest substrate trie format (`LayoutV1`).
-pub fn verify_multi_value_proof<Hashing, Key, Value>(
+pub fn verify_multi_proof<Hashing, Key, Value>(
 	root: &Hashing::Out,
 	proof: &[u8],
 	items: &[(Key, Value)],
@@ -287,7 +287,7 @@ mod tests {
 	}
 
 	#[test]
-	fn basic_end_to_end_multi_value() {
+	fn basic_end_to_end_multi() {
 		let balance_trie = create_balance_trie();
 		let root = *balance_trie.root();
 
@@ -295,7 +295,7 @@ mod tests {
 		let proof = balance_trie.create_multi_proof(&[6u32, 9u32, 69u32]).unwrap();
 		let items = [(6u32, 6u128), (9u32, 9u128), (69u32, 69u128)];
 
-		assert_eq!(verify_multi_value_proof::<BlakeTwo256, _, _>(&root, &proof, &items), Ok(()));
+		assert_eq!(verify_multi_proof::<BlakeTwo256, _, _>(&root, &proof, &items), Ok(()));
 	}
 
 	#[test]
