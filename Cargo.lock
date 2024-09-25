@@ -2188,12 +2188,14 @@ dependencies = [
 name = "bridge-hub-rococo-emulated-chain"
 version = "0.0.0"
 dependencies = [
+ "bp-messages",
  "bridge-hub-common",
  "bridge-hub-rococo-runtime",
  "emulated-integration-tests-common",
  "frame-support",
  "parachains-common",
  "sp-core 28.0.0",
+ "staging-xcm",
  "testnet-parachains-constants",
 ]
 
@@ -2357,6 +2359,7 @@ dependencies = [
  "pallet-bridge-relayers",
  "pallet-timestamp",
  "pallet-utility",
+ "pallet-xcm",
  "pallet-xcm-bridge-hub",
  "parachains-common",
  "parachains-runtimes-test-utils",
@@ -2375,12 +2378,14 @@ dependencies = [
 name = "bridge-hub-westend-emulated-chain"
 version = "0.0.0"
 dependencies = [
+ "bp-messages",
  "bridge-hub-common",
  "bridge-hub-westend-runtime",
  "emulated-integration-tests-common",
  "frame-support",
  "parachains-common",
  "sp-core 28.0.0",
+ "staging-xcm",
  "testnet-parachains-constants",
 ]
 
@@ -9560,6 +9565,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "relay-utils",
  "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
 ]
 
 [[package]]
@@ -14877,6 +14883,7 @@ version = "4.0.0"
 dependencies = [
  "asset-hub-rococo-runtime",
  "asset-hub-westend-runtime",
+ "bp-messages",
  "bridge-hub-rococo-runtime",
  "bridge-hub-westend-runtime",
  "collectives-westend-runtime",
