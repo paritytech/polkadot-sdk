@@ -547,9 +547,9 @@ pub mod mock_assigner {
 		// We don't care about core affinity in the test assigner
 		fn report_processed(_: ParaId, _: CoreIndex) {}
 
-		// The results of this are tested in on_demand tests. No need to represent it
-		// in the mock assigner.
-		fn push_back_assignment(_assignment: Assignment) {}
+		fn push_back_assignment(assignment: Assignment) {
+			Self::add_test_assignment(assignment);
+		}
 
 		#[cfg(any(feature = "runtime-benchmarks", test))]
 		fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Assignment {
