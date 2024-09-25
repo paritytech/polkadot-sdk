@@ -27,18 +27,9 @@ use crate::{
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "std"))]
 use k256::ecdsa::{SigningKey as SecretKey, VerifyingKey};
-#[cfg(feature = "std")]
-use secp256k1::{
-	ecdsa::{RecoverableSignature, RecoveryId},
-	Message, PublicKey, SecretKey, SECP256K1,
-};
 
-#[cfg(all(feature = "std", feature = "full_crypto"))]
-type NativeSignature = secp256k1::ecdsa::RecoverableSignature;
-
-#[cfg(all(not(feature = "std"), feature = "full_crypto"))]
+#[cfg(feature = "full_crypto")]
 type NativeSignature = (k256::ecdsa::Signature, k256::ecdsa::RecoveryId);
 
 /// An identifier used to match public keys against ecdsa keys
@@ -49,6 +40,20 @@ pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 33;
 
 /// The byte length of signature
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
+
+/// Half of the secp256k1 curve order (N/2).
+/// Signatures with s > HALF_ORDER are considered "high-S" and malleable.
+/// Per BIP-62 and EIP-2, only low-S signatures (s <= N/2) should be accepted.
+pub const SECP256K1_HALF_ORDER: [u8; 32] = [
+	0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0x5d, 0x57, 0x6e, 0x73, 0x57, 0xa4, 0x50, 0x1d, 0xdf, 0xe9, 0x2f, 0x46, 0x68, 0x1b, 0x20, 0xa0,
+];
+
+/// Returns `true` if the S component of a 65-byte ECDSA signature (R||S||V) is in
+/// the low range (s <= N/2), i.e. the signature is canonical.
+pub fn is_signature_normalized(sig: &[u8; 65]) -> bool {
+	sig[32..64] <= SECP256K1_HALF_ORDER[..]
+}
 
 #[doc(hidden)]
 #[derive(Clone)]
@@ -90,9 +95,6 @@ impl<TAG> GenericPublic<TAG> {
 		} else {
 			full
 		};
-		#[cfg(feature = "std")]
-		let pubkey = PublicKey::from_slice(&full);
-		#[cfg(not(feature = "std"))]
 		let pubkey = VerifyingKey::from_sec1_bytes(&full);
 		pubkey.map(|k| k.into()).map_err(|_| ())
 	}
@@ -104,14 +106,6 @@ impl<TAG> PartialEq<[u8; 33]> for GenericPublic<TAG> {
 	}
 }
 
-#[cfg(feature = "std")]
-impl<TAG> From<PublicKey> for GenericPublic<TAG> {
-	fn from(pubkey: PublicKey) -> Self {
-		Self::from(pubkey.serialize())
-	}
-}
-
-#[cfg(not(feature = "std"))]
 impl<TAG> From<VerifyingKey> for GenericPublic<TAG> {
 	fn from(pubkey: VerifyingKey) -> Self {
 		Self::try_from(&pubkey.to_sec1_bytes()[..])
@@ -151,18 +145,6 @@ pub trait Recover: seal::Sealed {
 	fn recover<M: AsRef<[u8]>>(&self, message: M) -> Option<Self::Public>;
 }
 
-#[cfg(feature = "std")]
-impl<PUBLIC: From<PublicKey>> GenericSignature<PUBLIC> {
-	/// Recover the public key from this signature and a pre-hashed message.
-	pub fn recover_prehashed(&self, message: &[u8; 32]) -> Option<PUBLIC> {
-		let rid = RecoveryId::from_i32(self.0[64] as i32).ok()?;
-		let sig = RecoverableSignature::from_compact(&self.0[..64], rid).ok()?;
-		let message = Message::from_digest_slice(message).expect("Message is a 32 bytes hash; qed");
-		SECP256K1.recover_ecdsa(&message, &sig).ok().map(From::from)
-	}
-}
-
-#[cfg(not(feature = "std"))]
 impl<PUBLIC: From<VerifyingKey>> GenericSignature<PUBLIC> {
 	/// Recover the public key from this signature and a pre-hashed message.
 	pub fn recover_prehashed(&self, message: &[u8; 32]) -> Option<PUBLIC> {
@@ -220,24 +202,11 @@ impl Recover for KeccakSignature {
 	}
 }
 
-#[cfg(not(feature = "std"))]
 impl<PUBLIC> From<(k256::ecdsa::Signature, k256::ecdsa::RecoveryId)> for GenericSignature<PUBLIC> {
 	fn from(recsig: (k256::ecdsa::Signature, k256::ecdsa::RecoveryId)) -> Self {
 		let mut r = Self::default();
 		r.0[..64].copy_from_slice(&recsig.0.to_bytes());
 		r.0[64] = recsig.1.to_byte();
-		r
-	}
-}
-
-#[cfg(feature = "std")]
-impl<PUBLIC> From<RecoverableSignature> for GenericSignature<PUBLIC> {
-	fn from(recsig: RecoverableSignature) -> Self {
-		let mut r = Self::default();
-		let (recid, sig) = recsig.serialize_compact();
-		r.0[..64].copy_from_slice(&sig);
-		// This is safe due to the limited range of possible valid ids.
-		r.0[64] = recid.to_i32() as u8;
 		r
 	}
 }
@@ -345,14 +314,7 @@ where
 {
 	/// Get the seed for this key.
 	pub fn seed(&self) -> Seed {
-		#[cfg(feature = "std")]
-		{
-			self.secret.secret_bytes()
-		}
-		#[cfg(not(feature = "std"))]
-		{
-			self.secret.to_bytes().into()
-		}
+		self.secret.to_bytes().into()
 	}
 
 	/// Exactly as `from_string` except that if no matches are found then, the the first 32
@@ -430,16 +392,6 @@ where
 	}
 }
 
-#[cfg(feature = "std")]
-impl<PUBLIC: From<PublicKey>> GenericPair<PUBLIC> {
-	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
-		let secret =
-			SecretKey::from_slice(seed_slice).map_err(|_| SecretStringError::InvalidSeedLength)?;
-		Ok(Self { public: PublicKey::from_secret_key(&SECP256K1, &secret).into(), secret })
-	}
-}
-
-#[cfg(not(feature = "std"))]
 impl<PUBLIC: From<VerifyingKey>> GenericPair<PUBLIC> {
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		let secret =
@@ -456,22 +408,23 @@ where
 {
 	/// Sign a pre-hashed message
 	pub fn sign_prehashed(&self, message: &[u8; 32]) -> <Self as TraitPair>::Signature {
-		#[cfg(feature = "std")]
-		{
-			let message =
-				Message::from_digest_slice(message).expect("Message is a 32 bytes hash; qed");
-			SECP256K1.sign_ecdsa_recoverable(&message, &self.secret).into()
-		}
+		let (raw_sig, recovery_id) = self
+			.secret
+			.sign_prehash_recoverable(message)
+			.expect("Signing can't fail when using 32 bytes message hash. qed.");
 
-		#[cfg(not(feature = "std"))]
-		{
-			// Signing fails only if the `message` number of bytes is less than the field length
-			// (unfallible as we're using a fixed message length of 32).
-			self.secret
-				.sign_prehash_recoverable(message)
-				.expect("Signing can't fail when using 32 bytes message hash. qed.")
-				.into()
-		}
+		// k256 normalizes via RFC 6979 but we explicitly ensure low-S
+		let (normalized_sig, adjusted_v) = if raw_sig.normalize_s().is_some() {
+			let normalized = raw_sig.normalize_s().unwrap();
+			(normalized, k256::ecdsa::RecoveryId::from_byte(recovery_id.to_byte() ^ 1).unwrap())
+		} else {
+			(raw_sig, recovery_id)
+		};
+		debug_assert!(
+			normalized_sig.to_bytes()[32..] <= SECP256K1_HALF_ORDER[..],
+			"secp256k1 signing must produce low-S signatures"
+		);
+		(normalized_sig, adjusted_v).into()
 	}
 }
 
@@ -492,18 +445,6 @@ where
 {
 	fn sign(&self, message: &[u8]) -> KeccakSignature {
 		self.sign_prehashed(&sp_crypto_hashing::keccak_256(message))
-	}
-}
-
-// The `secp256k1` backend doesn't implement cleanup for their private keys.
-// Currently we should take care of wiping the secret from memory.
-// NOTE: this solution is not effective when `Pair` is moved around memory.
-// The very same problem affects other cryptographic backends that are just using
-// `zeroize`for their secrets.
-#[cfg(feature = "std")]
-impl<PUBLIC> Drop for GenericPair<PUBLIC> {
-	fn drop(&mut self) {
-		self.secret.non_secure_erase()
 	}
 }
 
@@ -796,20 +737,11 @@ mod test {
 		// `msg` shouldn't be mangled
 		let msg = [0u8; 32];
 		let sig1 = pair.sign_prehashed(&msg);
-		let sig2: Signature = {
-			#[cfg(feature = "std")]
-			{
-				let message = Message::from_digest_slice(&msg).unwrap();
-				SECP256K1.sign_ecdsa_recoverable(&message, &pair.secret).into()
-			}
-			#[cfg(not(feature = "std"))]
-			{
-				pair.secret
-					.sign_prehash_recoverable(&msg)
-					.expect("signing may not fail (???). qed.")
-					.into()
-			}
-		};
+		let sig2: Signature = pair
+			.secret
+			.sign_prehash_recoverable(&msg)
+			.expect("signing may not fail. qed.")
+			.into();
 		assert_eq!(sig1, sig2);
 
 		// signature is actually different
@@ -869,5 +801,90 @@ mod test {
 			false
 		);
 		assert!(!Pair::verify_proof_of_possession(not_owner, &proof_of_possession, &pair.public()));
+	}
+
+	#[test]
+	fn is_signature_normalized_accepts_low_s() {
+		let mut sig = [0u8; 65];
+		assert!(is_signature_normalized(&sig));
+
+		sig[32..64].copy_from_slice(&SECP256K1_HALF_ORDER);
+		assert!(is_signature_normalized(&sig));
+	}
+
+	#[test]
+	fn is_signature_normalized_rejects_high_s() {
+		let mut half_order_plus_one = SECP256K1_HALF_ORDER;
+		let mut carry = 1u16;
+		for byte in half_order_plus_one.iter_mut().rev() {
+			let sum = *byte as u16 + carry;
+			*byte = sum as u8;
+			carry = sum >> 8;
+			if carry == 0 {
+				break;
+			}
+		}
+		let mut sig = [0u8; 65];
+		sig[32..64].copy_from_slice(&half_order_plus_one);
+		assert!(!is_signature_normalized(&sig));
+
+		sig[32..64].fill(0xff);
+		assert!(!is_signature_normalized(&sig));
+	}
+
+	#[test]
+	fn sign_prehashed_produces_low_s() {
+		for i in 1..21u8 {
+			let seed = [i; 32];
+			let pair = Pair::from_seed(&seed);
+			let msg = sp_crypto_hashing::blake2_256(&[i]);
+			let sig = pair.sign_prehashed(&msg);
+			assert!(
+				is_signature_normalized(&sig.0),
+				"sign_prehashed produced high-S for seed {}",
+				i
+			);
+		}
+	}
+
+	#[test]
+	fn malleable_signature_is_rejected_by_normalization_check() {
+		let order: [u8; 32] = [
+			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+			0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c,
+			0xd0, 0x36, 0x41, 0x41,
+		];
+
+		let pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let msg = sp_crypto_hashing::blake2_256(b"malleable test");
+		let sig = pair.sign_prehashed(&msg);
+
+		// Original signature should be low-S
+		assert!(is_signature_normalized(&sig.0));
+
+		let s_bytes: [u8; 32] = sig.0[32..64].try_into().unwrap();
+		let mut s_prime = [0u8; 32];
+		let mut borrow = 0i16;
+		for i in (0..32).rev() {
+			let diff = order[i] as i16 - s_bytes[i] as i16 - borrow;
+			if diff < 0 {
+				s_prime[i] = (diff + 256) as u8;
+				borrow = 1;
+			} else {
+				s_prime[i] = diff as u8;
+				borrow = 0;
+			}
+		}
+
+		let mut malleable_sig = [0u8; 65];
+		malleable_sig[0..32].copy_from_slice(&sig.0[0..32]);
+		malleable_sig[32..64].copy_from_slice(&s_prime);
+		malleable_sig[64] = sig.0[64] ^ 1;
+
+		// The malleable signature should have high-S (since original was low-S, complement is high)
+		assert!(
+			!is_signature_normalized(&malleable_sig),
+			"malleable signature should be rejected as high-S"
+		);
 	}
 }

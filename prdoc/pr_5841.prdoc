@@ -1,0 +1,80 @@
+title: "Replace secp256k1 with k256 in sp-core, add v3 host functions with low-S enforcement (BIP-62 / EIP-2)"
+doc:
+  - audience: Runtime Dev
+    description: |
+      Unifies `sp-core`'s ECDSA implementation to use `k256` exclusively, removing the
+      `#[cfg(feature = "std")]` / `#[cfg(not(feature = "std"))]` bifurcation that previously
+      switched between `secp256k1` (std) and `k256` (no_std). The `secp256k1` crate is removed
+      from `sp-core` dependencies entirely. `k256/precomputed-tables` is enabled under the `std`
+      feature for host-side performance.
+
+      **New v3 host functions** — Four new host function versions are added in `sp-io` that use
+      `k256` and enforce low-S signatures (BIP-62 / EIP-2):
+      - `ecdsa_verify` v3 — rejects high-S signatures before delegating to `Pair::verify()`
+      - `ecdsa_verify_prehashed` v2 — rejects high-S signatures before delegating to
+        `Pair::verify_prehashed()`
+      - `secp256k1_ecdsa_recover` v3 — rejects high-S, uses k256 for recovery (uncompressed)
+      - `secp256k1_ecdsa_recover_compressed` v3 — rejects high-S, uses k256 for recovery
+        (compressed)
+
+      Existing v1 (libsecp256k1) and v2 (secp256k1) host functions are completely unchanged for
+      backward compatibility. The `secp256k1` crate remains a dependency of `sp-io` for these
+      v2 recovery functions (`secp256k1_ecdsa_recover`, `secp256k1_ecdsa_recover_compressed`).
+
+      **Note:** `ecdsa_verify` v2 calls `Pair::verify()`, which now implicitly uses `k256`
+      after the sp-core unification. This is accepted because the mathematical result is
+      identical — both libraries implement the same secp256k1 curve operations.
+
+      **Host function library layering:**
+      | Version | Library | Low-S |
+      |---------|---------|-------|
+      | v1 | `libsecp256k1` | No |
+      | v2 | `secp256k1` (rust-bitcoin) | No |
+      | v3 | `k256` | **Yes** |
+
+      **Claims pallet** — Migrated from `secp256k1` to `k256`. The test/benchmark helpers
+      (`secp_utils`, `mock.rs`, `benchmarking.rs`) now use `k256::ecdsa::SigningKey` instead of
+      `secp256k1::SecretKey`. The `secp256k1` crate is removed from `polkadot-runtime-common`.
+
+      **sp_core::ecdsa** — A public constant `SECP256K1_HALF_ORDER` and helper function
+      `is_signature_normalized()` are available for checking whether a 65-byte ECDSA signature
+      has its S value in the lower half of the curve order. `Pair::sign_prehashed()` performs
+      explicit low-S normalization and includes a debug assertion. The `Drop` impl for
+      `GenericPair` is removed since k256's `SigningKey` implements `ZeroizeOnDrop`.
+
+      **pallet-revive** — `recover_eth_address()` rejects high-S signatures before calling
+      `secp256k1_ecdsa_recover`, matching Ethereum post-Homestead validation (EIP-2). The
+      `ECRecover` precompile is intentionally unchanged. The unused `secp256k1` dev-dependency
+      is removed.
+
+      **sp-consensus-beefy** — `ecdsa_crypto::BeefyAuthorityId::verify()` rejects high-S
+      signatures before recovery, ensuring canonical form for Ethereum-side light clients.
+
+      `Pair::verify()` and `Pair::verify_prehashed()` are not changed to preserve backward
+      compatibility with historical block verification.
+
+  - audience: Runtime User
+    description: |
+      New v3 host functions for ECDSA verification and recovery are available that enforce
+      low-S signature normalization per BIP-62 / EIP-2. Runtimes can opt into these stricter
+      functions to reject malleable signatures.
+
+      EVM transactions submitted to pallet-revive now require low-S signatures per EIP-2. All
+      standard Ethereum signing libraries already produce low-S signatures by default, so no
+      action is needed for well-behaved signers. Transactions with non-canonical (high-S)
+      signatures will be rejected at validation time.
+
+      BEEFY ECDSA signature verification now also requires low-S. Validators using standard
+      signing tooling are unaffected.
+
+crates:
+  - name: sp-core
+    bump: major
+  - name: sp-io
+    bump: minor
+  - name: polkadot-runtime-common
+    bump: patch
+  - name: pallet-revive
+    bump: patch
+  - name: sp-consensus-beefy
+    bump: patch

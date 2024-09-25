@@ -52,9 +52,9 @@ pallet-vesting = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 pallet-babe = { optional = true, workspace = true }
 
-libsecp256k1 = { workspace = true }
 polkadot-primitives = { workspace = true }
 polkadot-runtime-parachains = { workspace = true }
+k256 = { features = ["alloc", "ecdsa"], workspace = true }
 
 slot-range-helper = { workspace = true }
 xcm = { workspace = true }
@@ -64,7 +64,6 @@ xcm-executor = { optional = true, workspace = true }
 [dev-dependencies]
 frame-support-test = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
-libsecp256k1 = { workspace = true, default-features = true }
 pallet-babe = { workspace = true, default-features = true }
 pallet-treasury = { workspace = true, default-features = true }
 polkadot-primitives-test-helpers = { workspace = true }
@@ -82,7 +81,6 @@ std = [
 	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
-	"libsecp256k1/std",
 	"log/std",
 	"pallet-asset-rate?/std",
 	"pallet-authorship/std",
@@ -102,6 +100,7 @@ std = [
 	"polkadot-runtime-parachains/std",
 	"rustc-hex/std",
 	"scale-info/std",
+	"k256/std",
 	"serde/std",
 	"slot-range-helper/std",
 	"sp-api/std",
@@ -122,8 +121,6 @@ runtime-benchmarks = [
 	"frame-support-test/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"libsecp256k1/hmac",
-	"libsecp256k1/static-context",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",

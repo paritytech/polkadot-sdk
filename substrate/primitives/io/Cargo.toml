@@ -37,6 +37,7 @@ sp-keystore = { workspace = true, default-features = false }
 sp-trie = { workspace = true, default-features = false }
 sp-state-machine = { workspace = true, default-features = false }
 log = { workspace = true, default-features = true }
+k256 = { workspace = true, default-features = false, features = ["alloc", "ecdsa"] }
 libsecp256k1 = { workspace = true, default-features = false, features = ["static-context"] }
 secp256k1 = { workspace = true, default-features = false, features = ["alloc", "recovery"] }
 
@@ -57,6 +58,8 @@ std = [
 	"bytes/std",
 	"codec/std",
 	"ed25519-dalek/std",
+	"k256/std",
+	"k256/precomputed-tables",
 	"libsecp256k1/std",
 	"log/std",
 	"secp256k1/global-context",
