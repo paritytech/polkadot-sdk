@@ -38,7 +38,6 @@ fn set_asset_claimer() {
         // if withdrawing fails we're not missing any corner case.
         .withdraw_asset((Here, 100u128))
         .clear_origin()
-        // .trap(0u64)
         .set_asset_claimer(bob.clone())
         .pay_fees((Here, 10u128)) // 10% destined for fees, not more.
         .build();

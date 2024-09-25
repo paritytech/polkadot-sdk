@@ -33,8 +33,10 @@ fn test_set_asset_claimer_within_a_chain() {
 	let amount_to_send = 16_000_000_000_000;
 	let assets: Assets = (Parent, amount_to_send).into();
 
-	fund_account(&alice_account, amount_to_send * 2);
-	assert_eq!(query_balance(&alice_account, &RelayLocation::get()), amount_to_send * 2);
+	let alice_balance_before = <AssetHubWestend as Chain>::account_data_of(alice_account.clone()).free;
+	AssetHubWestend::fund_accounts(vec![(alice_account.clone(), amount_to_send * 2)]);
+	let alice_balance_after = <AssetHubWestend as Chain>::account_data_of(alice_account.clone()).free;
+	assert_eq!(alice_balance_after - alice_balance_before, amount_to_send * 2);
 
 	let test_args = TestContext {
 		sender: alice_account.clone(),
@@ -48,12 +50,15 @@ fn test_set_asset_claimer_within_a_chain() {
 			0,
 		),
 	};
-	let test = ParaToParaThroughAHTest::new(test_args);
-	execute_test(test.clone(), bob_location.clone(), transfer_assets);
+	let test = SystemParaToParaTest::new(test_args);
+	AssetHubWestend::execute_with(|| {
+		assert_ok!(trap_assets_with_claimer(test.clone(), bob_location.clone()).dispatch(test.signed_origin));
+	});
 
-	let alice_assets_after = query_balance(&alice_account, &RelayLocation::get());
-	assert_eq!(alice_assets_after, amount_to_send);
+	let balance_after_trap = <AssetHubWestend as Chain>::account_data_of(alice_account.clone()).free;
+	assert_eq!(alice_balance_after - balance_after_trap, amount_to_send);
 
+	let bob_balance_before = <AssetHubWestend as Chain>::account_data_of(bob_account.clone()).free;
 	let test_args = TestContext {
 		sender: bob_account.clone(),
 		receiver: alice_account.clone(),
@@ -66,54 +71,28 @@ fn test_set_asset_claimer_within_a_chain() {
 			0,
 		),
 	};
-	let test = ParaToParaThroughAHTest::new(test_args);
-	execute_test(test.clone(), bob_location.clone(), claim_assets);
+	let test = SystemParaToParaTest::new(test_args);
+	AssetHubWestend::execute_with(|| {
+		assert_ok!(claim_assets(test.clone(), bob_location.clone()).dispatch(test.signed_origin));
+	});
 
-	let bob_assets_after = query_balance(&bob_account, &RelayLocation::get());
-	assert_eq!(bob_assets_after, amount_to_send);
+	let bob_balance_after = <AssetHubWestend as Chain>::account_data_of(bob_account.clone()).free;
+	assert_eq!(bob_balance_after - bob_balance_before, amount_to_send);
 }
 
 fn account_and_location(account: &str) -> (AccountId32, Location) {
-	let account_id = PenpalA::account_id_of(account);
+	let account_id = AssetHubWestend::account_id_of(account);
 	let account_clone = account_id.clone();
 	let location: Location =
 		[Junction::AccountId32 { network: Some(Westend), id: account_id.into() }].into();
 	(account_clone, location)
 }
 
-fn fund_account(account: &AccountId, amount: u128) {
-	let asset_owner = PenpalAssetOwner::get();
-	PenpalA::mint_foreign_asset(
-		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner),
-		Location::parent(),
-		account.clone(),
-		amount,
-	);
-}
-
-fn query_balance(account: &AccountId, asset_location: &Location) -> u128 {
-	PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(asset_location.clone(), account)
-	})
-}
-
-fn execute_test(
-	test: ParaToParaThroughAHTest,
+fn trap_assets_with_claimer(
+	test: SystemParaToParaTest,
 	claimer: Location,
-	xcm_fn: impl Fn(ParaToParaThroughAHTest, Location) -> <PenpalA as Chain>::RuntimeCall,
-) {
-	let call = xcm_fn(test.clone(), claimer.clone());
-	PenpalA::execute_with(|| {
-		assert!(call.dispatch(test.signed_origin).is_ok());
-	});
-}
-
-fn transfer_assets(
-	test: ParaToParaThroughAHTest,
-	claimer: Location,
-) -> <PenpalA as Chain>::RuntimeCall {
-	type RuntimeCall = <PenpalA as Chain>::RuntimeCall;
+) -> <AssetHubWestend as Chain>::RuntimeCall {
+	type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
 
 	let local_xcm = Xcm::<RuntimeCall>::builder_unsafe()
 		.set_asset_claimer(claimer.clone())
@@ -128,10 +107,10 @@ fn transfer_assets(
 }
 
 fn claim_assets(
-	test: ParaToParaThroughAHTest,
+	test: SystemParaToParaTest,
 	claimer: Location,
-) -> <PenpalA as Chain>::RuntimeCall {
-	type RuntimeCall = <PenpalA as Chain>::RuntimeCall;
+) -> <AssetHubWestend as Chain>::RuntimeCall {
+	type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
 
 	let local_xcm = Xcm::<RuntimeCall>::builder_unsafe()
 		.claim_asset(test.args.assets.clone(), Here)
@@ -180,7 +159,9 @@ fn test_sac_between_the_chains() {
 		),
 	};
 	let test = BridgeHubToAssetHubTest::new(test_args);
-	execute_bob_bh_test(test.clone(), alice_bh_sibling.clone(), trap_assets_bh);
+	BridgeHubWestend::execute_with(|| {
+		assert_ok!(trap_assets_bh(test.clone(), alice_bh_sibling.clone()).dispatch(test.signed_origin));
+	});
 
 	let alice_bh_acc = LocationToAccountId::convert_location(&alice_bh_sibling).unwrap();
 	let balance = <BridgeHubWestend as Chain>::account_data_of(alice_bh_acc.clone()).free;
@@ -243,15 +224,4 @@ fn trap_assets_bh(
 		message: bx!(VersionedXcm::from(local_xcm)),
 		max_weight: Weight::from_parts(4_000_000_000_000, 700_000),
 	})
-}
-
-fn execute_bob_bh_test(
-	test: BridgeHubToAssetHubTest,
-	claimer: Location,
-	xcm_fn: impl Fn(BridgeHubToAssetHubTest, Location) -> <BridgeHubWestend as Chain>::RuntimeCall,
-) {
-	let call = xcm_fn(test.clone(), claimer.clone());
-	BridgeHubWestend::execute_with(|| {
-		assert!(call.dispatch(test.signed_origin).is_ok());
-	});
 }
