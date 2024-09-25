@@ -737,7 +737,7 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			Self::transfer_no_contract(&origin, &dest, value).map(|_| Default::default())
+			Self::transfer_no_contract(&origin, &dest, value)
 		}
 	}
 
@@ -1243,8 +1243,10 @@ where
 		from: &Origin<T>,
 		to: &T::AccountId,
 		value: BalanceOf<T>,
-	) -> Result<(), ExecError> {
-		Self::transfer_from_origin(from, to, value).map_err(Into::into)
+	) -> ExecResult {
+		Self::transfer_from_origin(from, to, value)
+			.map(|_| ExecReturnValue::default())
+			.map_err(Into::into)
 	}
 
 	/// Reference to the current (top) frame.
@@ -1342,7 +1344,8 @@ where
 					&Origin::from_account_id(self.account_id().clone()),
 					&dest,
 					value,
-				)
+				)?;
+				Ok(())
 			}
 		};
 
