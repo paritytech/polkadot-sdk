@@ -16,12 +16,88 @@
 
 //! Primitives of messages module, that represents lane id.
 
-use codec::{Decode, Encode, Error as CodecError, Input, MaxEncodedLen};
-use frame_support::sp_runtime::Either;
+use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_core::{RuntimeDebug, TypeId, H256};
 use sp_io::hashing::blake2_256;
+use sp_std::fmt::Debug;
+
+/// Trait representing a generic `LaneId` type.
+pub trait LaneIdType:
+	Clone
+	+ Copy
+	+ Codec
+	+ EncodeLike
+	+ Debug
+	+ Default
+	+ PartialEq
+	+ Eq
+	+ Ord
+	+ TypeInfo
+	+ MaxEncodedLen
+	+ Serialize
+	+ DeserializeOwned
+{
+	/// Creates a new `LaneId` type (if supported).
+	fn try_new<E: Ord + Encode>(endpoint1: E, endpoint2: E) -> Result<Self, ()>;
+}
+
+/// Bridge lane identifier (legacy).
+///
+/// Note: For backwards compatibility reasons, we also handle the older format `[u8; 4]`.
+#[derive(
+	Clone,
+	Copy,
+	Decode,
+	Default,
+	Encode,
+	Eq,
+	Ord,
+	PartialOrd,
+	PartialEq,
+	TypeInfo,
+	MaxEncodedLen,
+	Serialize,
+	Deserialize,
+)]
+pub struct LegacyLaneId(pub [u8; 4]);
+
+impl LaneIdType for LegacyLaneId {
+	/// Create lane identifier from two locations.
+	fn try_new<T: Ord + Encode>(_endpoint1: T, _endpoint2: T) -> Result<Self, ()> {
+		// we don't support this for `LegacyLaneId`, because it was hard-coded before
+		Err(())
+	}
+}
+
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+impl TryFrom<Vec<u8>> for LegacyLaneId {
+	type Error = ();
+
+	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+		if value.len() == 4 {
+			return <[u8; 4]>::try_from(value).map(Self).map_err(|_| ());
+		}
+		Err(())
+	}
+}
+
+impl core::fmt::Debug for LegacyLaneId {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+		self.0.fmt(fmt)
+	}
+}
+
+impl AsRef<[u8]> for LegacyLaneId {
+	fn as_ref(&self) -> &[u8] {
+		&self.0
+	}
+}
+
+impl TypeId for LegacyLaneId {
+	const TYPE_ID: [u8; 4] = *b"blan";
+}
 
 /// Bridge lane identifier.
 ///
@@ -41,12 +117,11 @@ use sp_io::hashing::blake2_256;
 ///     (endpoint2, VALUES_SEPARATOR, endpoint1)
 /// }.using_encoded(blake2_256);
 /// ```
-///
-/// Note: For backwards compatibility reasons, we also handle the older format `[u8; 4]`.
 #[derive(
 	Clone,
 	Copy,
 	Decode,
+	Default,
 	Encode,
 	Eq,
 	Ord,
@@ -57,14 +132,47 @@ use sp_io::hashing::blake2_256;
 	Serialize,
 	Deserialize,
 )]
-pub struct LaneId(InnerLaneId);
+pub struct HashedLaneId(H256);
 
-impl LaneId {
+impl HashedLaneId {
+	/// Create lane identifier from given hash.
+	///
+	/// There's no `From<H256>` implementation for the `LaneId`, because using this conversion
+	/// in a wrong way (i.e. computing hash of endpoints manually) may lead to issues. So we
+	/// want the call to be explicit.
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	pub const fn from_inner(inner: H256) -> Self {
+		Self(inner)
+	}
+
+	/// Access the inner lane representation.
+	pub fn inner(&self) -> &H256 {
+		&self.0
+	}
+}
+
+impl core::fmt::Display for HashedLaneId {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		core::fmt::Display::fmt(&self.0, f)
+	}
+}
+
+impl core::fmt::Debug for HashedLaneId {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		core::fmt::Debug::fmt(&self.0, f)
+	}
+}
+
+impl TypeId for HashedLaneId {
+	const TYPE_ID: [u8; 4] = *b"hlan";
+}
+
+impl LaneIdType for HashedLaneId {
 	/// Create lane identifier from two locations.
-	pub fn new<T: Ord + Encode>(endpoint1: T, endpoint2: T) -> Self {
+	fn try_new<T: Ord + Encode>(endpoint1: T, endpoint2: T) -> Result<Self, ()> {
 		const VALUES_SEPARATOR: [u8; 31] = *b"bridges-lane-id-value-separator";
 
-		LaneId(InnerLaneId::Hash(
+		Ok(Self(
 			if endpoint1 < endpoint2 {
 				(endpoint1, VALUES_SEPARATOR, endpoint2)
 			} else {
@@ -74,98 +182,17 @@ impl LaneId {
 			.into(),
 		))
 	}
-
-	/// Create lane identifier from given hash.
-	///
-	/// There's no `From<H256>` implementation for the `LaneId`, because using this conversion
-	/// in a wrong way (i.e. computing hash of endpoints manually) may lead to issues. So we
-	/// want the call to be explicit.
-	pub const fn from_inner(inner: Either<H256, [u8; 4]>) -> Self {
-		LaneId(match inner {
-			Either::Left(hash) => InnerLaneId::Hash(hash),
-			Either::Right(array) => InnerLaneId::Array(array),
-		})
-	}
 }
 
-impl core::fmt::Display for LaneId {
-	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-		core::fmt::Display::fmt(&self.0, f)
-	}
-}
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+impl TryFrom<Vec<u8>> for HashedLaneId {
+	type Error = ();
 
-impl core::fmt::Debug for LaneId {
-	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-		core::fmt::Debug::fmt(&self.0, f)
-	}
-}
-
-impl AsRef<[u8]> for LaneId {
-	fn as_ref(&self) -> &[u8] {
-		self.0.as_ref()
-	}
-}
-
-impl TypeId for LaneId {
-	const TYPE_ID: [u8; 4] = *b"blan";
-}
-
-#[derive(
-	Clone, Copy, Eq, Ord, PartialOrd, PartialEq, TypeInfo, MaxEncodedLen, Serialize, Deserialize,
-)]
-enum InnerLaneId {
-	/// Old format (for backwards compatibility).
-	Array([u8; 4]),
-	/// New format 32-byte hash generated by `blake2_256`.
-	Hash(H256),
-}
-
-impl Encode for InnerLaneId {
-	fn encode(&self) -> sp_std::vec::Vec<u8> {
-		match self {
-			InnerLaneId::Array(array) => array.encode(),
-			InnerLaneId::Hash(hash) => hash.encode(),
+	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+		if value.len() == 32 {
+			return <[u8; 32]>::try_from(value).map(|v| Self(H256::from(v))).map_err(|_| ());
 		}
-	}
-}
-
-impl Decode for InnerLaneId {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, CodecError> {
-		// check backwards compatibly first
-		if input.remaining_len() == Ok(Some(4)) {
-			let array: [u8; 4] = Decode::decode(input)?;
-			return Ok(InnerLaneId::Array(array))
-		}
-
-		// else check new format
-		H256::decode(input).map(InnerLaneId::Hash)
-	}
-}
-
-impl core::fmt::Display for InnerLaneId {
-	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-		match self {
-			InnerLaneId::Array(array) => write!(f, "Array({:?})", array),
-			InnerLaneId::Hash(hash) => write!(f, "Hash({:?})", hash),
-		}
-	}
-}
-
-impl core::fmt::Debug for InnerLaneId {
-	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
-		match self {
-			InnerLaneId::Array(array) => array.fmt(fmt),
-			InnerLaneId::Hash(hash) => hash.fmt(fmt),
-		}
-	}
-}
-
-impl AsRef<[u8]> for InnerLaneId {
-	fn as_ref(&self) -> &[u8] {
-		match self {
-			InnerLaneId::Array(array) => array.as_ref(),
-			InnerLaneId::Hash(hash) => hash.as_ref(),
-		}
+		Err(())
 	}
 }
 
@@ -194,63 +221,89 @@ impl LaneState {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::MessageNonce;
 
 	#[test]
 	fn lane_id_debug_format_matches_inner_hash_format() {
 		assert_eq!(
-			format!("{:?}", LaneId(InnerLaneId::Hash(H256::from([1u8; 32])))),
+			format!("{:?}", HashedLaneId(H256::from([1u8; 32]))),
 			format!("{:?}", H256::from([1u8; 32])),
 		);
-		assert_eq!(
-			format!("{:?}", LaneId(InnerLaneId::Array([0, 0, 0, 1]))),
-			format!("{:?}", [0, 0, 0, 1]),
-		);
+		assert_eq!(format!("{:?}", LegacyLaneId([0, 0, 0, 1])), format!("{:?}", [0, 0, 0, 1]),);
 	}
 
 	#[test]
-	fn lane_id_as_ref_works() {
+	fn hashed_encode_decode_works() {
+		// simple encode/decode - new format
+		let lane_id = HashedLaneId(H256::from([1u8; 32]));
+		let encoded_lane_id = lane_id.encode();
+		let decoded_lane_id = HashedLaneId::decode(&mut &encoded_lane_id[..]).expect("decodable");
+		assert_eq!(lane_id, decoded_lane_id);
 		assert_eq!(
 			"0101010101010101010101010101010101010101010101010101010101010101",
-			hex::encode(LaneId(InnerLaneId::Hash(H256::from([1u8; 32]))).as_ref()),
+			hex::encode(encoded_lane_id)
 		);
-		assert_eq!("00000001", hex::encode(LaneId(InnerLaneId::Array([0, 0, 0, 1])).as_ref()),);
 	}
 
 	#[test]
-	fn lane_id_encode_decode_works() {
-		let test_encode_decode = |expected_hex, lane_id: LaneId| {
-			let enc = lane_id.encode();
-			let decoded_lane_id = LaneId::decode(&mut &enc[..]).expect("decodable");
-			assert_eq!(lane_id, decoded_lane_id);
+	fn legacy_encode_decode_works() {
+		// simple encode/decode - old format
+		let lane_id = LegacyLaneId([0, 0, 0, 1]);
+		let encoded_lane_id = lane_id.encode();
+		let decoded_lane_id = LegacyLaneId::decode(&mut &encoded_lane_id[..]).expect("decodable");
+		assert_eq!(lane_id, decoded_lane_id);
+		assert_eq!("00000001", hex::encode(encoded_lane_id));
 
-			assert_eq!(expected_hex, hex::encode(lane_id.as_ref()),);
-			assert_eq!(expected_hex, hex::encode(decoded_lane_id.as_ref()),);
+		// decode sample
+		let bytes = vec![0, 0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0];
+		let (lane, nonce_start, nonce_end): (LegacyLaneId, MessageNonce, MessageNonce) =
+			Decode::decode(&mut &bytes[..]).unwrap();
+		assert_eq!(lane, LegacyLaneId([0, 0, 0, 2]));
+		assert_eq!(nonce_start, 1);
+		assert_eq!(nonce_end, 1);
 
-			let hex_bytes = hex::decode(expected_hex).expect("valid hex");
-			let hex_decoded_lane_id = LaneId::decode(&mut &hex_bytes[..]).expect("decodable");
-			assert_eq!(hex_decoded_lane_id, lane_id);
-			assert_eq!(hex_decoded_lane_id, decoded_lane_id);
-		};
+		// run encode/decode for `LaneId` with different positions
+		let expected_lane = LegacyLaneId([0, 0, 0, 1]);
+		let expected_nonce_start = 1088_u64;
+		let expected_nonce_end = 9185_u64;
 
-		test_encode_decode(
-			"0101010101010101010101010101010101010101010101010101010101010101",
-			LaneId(InnerLaneId::Hash(H256::from([1u8; 32]))),
-		);
-		test_encode_decode("00000001", LaneId(InnerLaneId::Array([0, 0, 0, 1])));
+		// decode: LaneId,Nonce,Nonce
+		let bytes = (expected_lane, expected_nonce_start, expected_nonce_end).encode();
+		let (lane, nonce_start, nonce_end): (LegacyLaneId, MessageNonce, MessageNonce) =
+			Decode::decode(&mut &bytes[..]).unwrap();
+		assert_eq!(lane, expected_lane);
+		assert_eq!(nonce_start, expected_nonce_start);
+		assert_eq!(nonce_end, expected_nonce_end);
+
+		// decode: Nonce,LaneId,Nonce
+		let bytes = (expected_nonce_start, expected_lane, expected_nonce_end).encode();
+		let (nonce_start, lane, nonce_end): (MessageNonce, LegacyLaneId, MessageNonce) =
+			Decode::decode(&mut &bytes[..]).unwrap();
+		assert_eq!(lane, expected_lane);
+		assert_eq!(nonce_start, expected_nonce_start);
+		assert_eq!(nonce_end, expected_nonce_end);
+
+		// decode: Nonce,Nonce,LaneId
+		let bytes = (expected_nonce_start, expected_nonce_end, expected_lane).encode();
+		let (nonce_start, nonce_end, lane): (MessageNonce, MessageNonce, LegacyLaneId) =
+			Decode::decode(&mut &bytes[..]).unwrap();
+		assert_eq!(lane, expected_lane);
+		assert_eq!(nonce_start, expected_nonce_start);
+		assert_eq!(nonce_end, expected_nonce_end);
 	}
 
 	#[test]
-	fn lane_id_is_generated_using_ordered_endpoints() {
-		assert_eq!(LaneId::new(1, 2), LaneId::new(2, 1));
+	fn hashed_lane_id_is_generated_using_ordered_endpoints() {
+		assert_eq!(HashedLaneId::try_new(1, 2).unwrap(), HashedLaneId::try_new(2, 1).unwrap());
 	}
 
 	#[test]
-	fn lane_id_is_different_for_different_endpoints() {
-		assert_ne!(LaneId::new(1, 2), LaneId::new(1, 3));
+	fn hashed_lane_id_is_different_for_different_endpoints() {
+		assert_ne!(HashedLaneId::try_new(1, 2).unwrap(), HashedLaneId::try_new(1, 3).unwrap());
 	}
 
 	#[test]
-	fn lane_id_is_different_even_if_arguments_has_partial_matching_encoding() {
+	fn hashed_lane_id_is_different_even_if_arguments_has_partial_matching_encoding() {
 		/// Some artificial type that generates the same encoding for different values
 		/// concatenations. I.e. the encoding for `(Either::Two(1, 2), Either::Two(3, 4))`
 		/// is the same as encoding of `(Either::Three(1, 2, 3), Either::One(4))`.
@@ -274,8 +327,8 @@ mod tests {
 		}
 
 		assert_ne!(
-			LaneId::new(Either::Two(1, 2), Either::Two(3, 4)),
-			LaneId::new(Either::Three(1, 2, 3), Either::One(4)),
+			HashedLaneId::try_new(Either::Two(1, 2), Either::Two(3, 4)).unwrap(),
+			HashedLaneId::try_new(Either::Three(1, 2, 3), Either::One(4)).unwrap(),
 		);
 	}
 }
