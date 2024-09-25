@@ -13,25 +13,14 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
-  set-image:
-    # GitHub Actions allows using 'env' in a container context.
-    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
-    # This workaround sets the container image for each job using 'set-image' job output.
-    # TODO: remove once migration is complete or this workflow is fully stable
-    if: contains(github.event.label.name, 'GHA-migration') || contains(github.event.pull_request.labels.*.name, 'GHA-migration')
-    runs-on: ubuntu-latest
-    outputs:
-      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - id: set_image
-        run: cat .github/env >> $GITHUB_OUTPUT
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
   test-rustdoc:
     runs-on: arc-runners-polkadot-sdk-beefy
-    needs: [set-image]
+    needs: [preflight]
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - uses: actions/checkout@v4
       - run: forklift cargo doc --workspace --all-features --no-deps
@@ -39,9 +28,9 @@ jobs:
           SKIP_WASM_BUILD: 1
   test-doc:
     runs-on: arc-runners-polkadot-sdk-beefy
-    needs: [set-image]
+    needs: [preflight]
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - uses: actions/checkout@v4
       - run: forklift cargo test --doc --workspace
@@ -50,9 +39,9 @@ jobs:
 
   build-rustdoc:
     runs-on: arc-runners-polkadot-sdk-beefy
-    needs: [set-image, test-rustdoc]
+    needs: [preflight, test-rustdoc]
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - uses: actions/checkout@v4
       - run: forklift cargo doc --all-features --workspace --no-deps

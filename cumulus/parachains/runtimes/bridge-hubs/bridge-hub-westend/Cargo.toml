@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-westend-runtime"
-version = "0.2.0"
+version = "0.3.0"
 authors.workspace = true
 edition.workspace = true
 description = "Westend's BridgeHub parachain runtime"
@@ -18,6 +18,7 @@ hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
+serde_json = { features = ["alloc"], workspace = true }
 
 # Substrate
 frame-benchmarking = { optional = true, workspace = true }
@@ -181,6 +182,7 @@ std = [
 	"polkadot-runtime-common/std",
 	"scale-info/std",
 	"serde",
+	"serde_json/std",
 	"snowbridge-beacon-primitives/std",
 	"snowbridge-core/std",
 	"snowbridge-outbound-queue-runtime-api/std",
