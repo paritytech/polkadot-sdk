@@ -851,6 +851,7 @@ fn build_bloaty_blob(
 
 	build_cmd
 		.arg("rustc")
+		.arg("--message-format=json")
 		.arg(format!("--target={}", target.rustc_target()))
 		.arg(format!("--manifest-path={}", manifest_path.display()))
 		.env("RUSTFLAGS", rustflags)
