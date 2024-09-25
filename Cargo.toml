@@ -1048,7 +1048,6 @@ polkadot-node-core-pvf-common = { path = "polkadot/node/core/pvf/common", defaul
 polkadot-node-core-pvf-execute-worker = { path = "polkadot/node/core/pvf/execute-worker", default-features = false }
 polkadot-node-core-pvf-prepare-worker = { path = "polkadot/node/core/pvf/prepare-worker", default-features = false }
 polkadot-node-core-runtime-api = { path = "polkadot/node/core/runtime-api", default-features = false }
-polkadot-node-jaeger = { path = "polkadot/node/jaeger", default-features = false }
 polkadot-node-metrics = { path = "polkadot/node/metrics", default-features = false }
 polkadot-node-network-protocol = { path = "polkadot/node/network/protocol", default-features = false }
 polkadot-node-primitives = { path = "polkadot/node/primitives", default-features = false }

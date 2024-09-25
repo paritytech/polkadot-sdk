@@ -307,7 +307,7 @@ pub fn run() -> Result<()> {
 
 			runner.async_run(|mut config| {
 				let (client, _, import_queue, task_manager) =
-					polkadot_service::new_chain_ops(&mut config, None)?;
+					polkadot_service::new_chain_ops(&mut config)?;
 				Ok((cmd.run(client, import_queue).map_err(Error::SubstrateCli), task_manager))
 			})
 		},
@@ -319,8 +319,7 @@ pub fn run() -> Result<()> {
 
 			Ok(runner.async_run(|mut config| {
 				let (client, _, _, task_manager) =
-					polkadot_service::new_chain_ops(&mut config, None)
-						.map_err(Error::PolkadotService)?;
+					polkadot_service::new_chain_ops(&mut config).map_err(Error::PolkadotService)?;
 				Ok((cmd.run(client, config.database).map_err(Error::SubstrateCli), task_manager))
 			})?)
 		},
@@ -331,8 +330,7 @@ pub fn run() -> Result<()> {
 			set_default_ss58_version(chain_spec);
 
 			Ok(runner.async_run(|mut config| {
-				let (client, _, _, task_manager) =
-					polkadot_service::new_chain_ops(&mut config, None)?;
+				let (client, _, _, task_manager) = polkadot_service::new_chain_ops(&mut config)?;
 				Ok((cmd.run(client, config.chain_spec).map_err(Error::SubstrateCli), task_manager))
 			})?)
 		},
@@ -344,7 +342,7 @@ pub fn run() -> Result<()> {
 
 			Ok(runner.async_run(|mut config| {
 				let (client, _, import_queue, task_manager) =
-					polkadot_service::new_chain_ops(&mut config, None)?;
+					polkadot_service::new_chain_ops(&mut config)?;
 				Ok((cmd.run(client, import_queue).map_err(Error::SubstrateCli), task_manager))
 			})?)
 		},
@@ -360,7 +358,7 @@ pub fn run() -> Result<()> {
 
 			Ok(runner.async_run(|mut config| {
 				let (client, backend, _, task_manager) =
-					polkadot_service::new_chain_ops(&mut config, None)?;
+					polkadot_service::new_chain_ops(&mut config)?;
 				let task_handle = task_manager.spawn_handle();
 				let aux_revert = Box::new(|client, backend, blocks| {
 					polkadot_service::revert_backend(client, backend, blocks, config, task_handle)
@@ -401,14 +399,14 @@ pub fn run() -> Result<()> {
 					cmd.run(config, client.clone(), db, storage).map_err(Error::SubstrateCli)
 				}),
 				BenchmarkCmd::Block(cmd) => runner.sync_run(|mut config| {
-					let (client, _, _, _) = polkadot_service::new_chain_ops(&mut config, None)?;
+					let (client, _, _, _) = polkadot_service::new_chain_ops(&mut config)?;
 
 					cmd.run(client.clone()).map_err(Error::SubstrateCli)
 				}),
 				// These commands are very similar and can be handled in nearly the same way.
 				BenchmarkCmd::Extrinsic(_) | BenchmarkCmd::Overhead(_) =>
 					runner.sync_run(|mut config| {
-						let (client, _, _, _) = polkadot_service::new_chain_ops(&mut config, None)?;
+						let (client, _, _, _) = polkadot_service::new_chain_ops(&mut config)?;
 						let header = client.header(client.info().genesis_hash).unwrap().unwrap();
 						let inherent_data = benchmark_inherent_data(header)
 							.map_err(|e| format!("generating inherent data: {:?}", e))?;

@@ -14279,7 +14279,6 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "polkadot-erasure-coding",
- "polkadot-node-jaeger",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
@@ -14706,7 +14705,6 @@ dependencies = [
  "futures",
  "hex",
  "parity-scale-codec",
- "polkadot-node-jaeger",
  "polkadot-node-primitives",
  "polkadot-primitives",
  "rand",
@@ -14750,7 +14748,6 @@ dependencies = [
 name = "polkadot-node-subsystem"
 version = "7.0.0"
 dependencies = [
- "polkadot-node-jaeger",
  "polkadot-node-subsystem-types",
  "polkadot-overseer",
 ]
@@ -14786,7 +14783,6 @@ dependencies = [
  "fatality",
  "futures",
  "orchestra",
- "polkadot-node-jaeger",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
  "polkadot-primitives",
@@ -14826,7 +14822,6 @@ dependencies = [
  "parking_lot 0.12.3",
  "pin-project",
  "polkadot-erasure-coding",
- "polkadot-node-jaeger",
  "polkadot-node-metrics",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",

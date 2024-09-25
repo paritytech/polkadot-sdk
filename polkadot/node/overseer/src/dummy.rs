@@ -189,7 +189,6 @@ where
 		.chain_selection(subsystem.clone())
 		.prospective_parachains(subsystem.clone())
 		.activation_external_listeners(Default::default())
-		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.spawner(SpawnGlue(spawner))
 		.metrics(metrics)

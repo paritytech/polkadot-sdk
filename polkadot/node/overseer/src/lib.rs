@@ -87,8 +87,8 @@ use polkadot_node_subsystem_types::messages::{
 
 pub use polkadot_node_subsystem_types::{
 	errors::{SubsystemError, SubsystemResult},
-	jaeger, ActivatedLeaf, ActiveLeavesUpdate, ChainApiBackend, OverseerSignal,
-	RuntimeApiSubsystemClient, UnpinHandle,
+	ActivatedLeaf, ActiveLeavesUpdate, ChainApiBackend, OverseerSignal, RuntimeApiSubsystemClient,
+	UnpinHandle,
 };
 
 pub mod metrics;
@@ -635,9 +635,6 @@ pub struct Overseer<SupportsParachains> {
 	/// External listeners waiting for a hash to be in the active-leave set.
 	pub activation_external_listeners: HashMap<Hash, Vec<oneshot::Sender<SubsystemResult<()>>>>,
 
-	/// Stores the [`jaeger::Span`] per active leaf.
-	pub span_per_active_leaf: HashMap<Hash, Arc<jaeger::Span>>,
-
 	/// The set of the "active leaves".
 	pub active_leaves: HashMap<Hash, BlockNumber>,
 
@@ -802,11 +799,10 @@ where
 		};
 
 		let mut update = match self.on_head_activated(&block.hash, Some(block.parent_hash)).await {
-			Some(span) => ActiveLeavesUpdate::start_work(ActivatedLeaf {
+			Some(_) => ActiveLeavesUpdate::start_work(ActivatedLeaf {
 				hash: block.hash,
 				number: block.number,
 				unpin_handle: block.unpin_handle,
-				span,
 			}),
 			None => ActiveLeavesUpdate::default(),
 		};
@@ -859,11 +855,7 @@ where
 
 	/// Handles a header activation. If the header's state doesn't support the parachains API,
 	/// this returns `None`.
-	async fn on_head_activated(
-		&mut self,
-		hash: &Hash,
-		parent_hash: Option<Hash>,
-	) -> Option<Arc<jaeger::Span>> {
+	async fn on_head_activated(&mut self, hash: &Hash, _parent_hash: Option<Hash>) -> Option<()> {
 		if !self.supports_parachains.head_supports_parachains(hash).await {
 			return None
 		}
@@ -881,22 +873,12 @@ where
 			}
 		}
 
-		let mut span = jaeger::Span::new(*hash, "leaf-activated");
-
-		if let Some(parent_span) = parent_hash.and_then(|h| self.span_per_active_leaf.get(&h)) {
-			span.add_follows_from(parent_span);
-		}
-
-		let span = Arc::new(span);
-		self.span_per_active_leaf.insert(*hash, span.clone());
-
-		Some(span)
+		Some(())
 	}
 
 	fn on_head_deactivated(&mut self, hash: &Hash) {
 		self.metrics.on_head_deactivated();
 		self.activation_external_listeners.remove(hash);
-		self.span_per_active_leaf.remove(hash);
 	}
 
 	fn clean_up_external_listeners(&mut self) {
