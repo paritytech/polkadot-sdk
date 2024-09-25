@@ -47,7 +47,7 @@
   {
     "name": "bridge-hub-rococo",
     "package": "bridge-hub-rococo-runtime",
-    "path": "cumulus/parachains/runtimes/bridges/bridge-hub-rococo",
+    "path": "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo",
     "header": "cumulus/file_header.txt",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-bridge-hub-rpc.polkadot.io:443",
@@ -56,7 +56,7 @@
   {
     "name": "bridge-hub-westend",
     "package": "bridge-hub-rococo-runtime",
-    "path": "cumulus/parachains/runtimes/bridges/bridge-hub-westend",
+    "path": "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend",
     "header": "cumulus/file_header.txt",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://westend-bridge-hub-rpc.polkadot.io:443",
