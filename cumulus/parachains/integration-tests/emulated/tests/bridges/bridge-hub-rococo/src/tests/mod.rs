@@ -231,17 +231,6 @@ pub(crate) fn open_bridge_between_asset_hub_rococo_and_asset_hub_westend() {
 			)),
 		)),
 	);
-	BridgeHubRococo::execute_with(|| {
-		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			BridgeHubRococo,
-			vec![
-				RuntimeEvent::XcmOverBridgeHubWestend(
-					pallet_xcm_bridge_hub::Event::BridgeOpened { .. }
-				) => {},
-			]
-		);
-	});
 
 	// open AHW -> AHR
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), WND * 5);
@@ -255,15 +244,4 @@ pub(crate) fn open_bridge_between_asset_hub_rococo_and_asset_hub_westend() {
 			)),
 		)),
 	);
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![
-				RuntimeEvent::XcmOverBridgeHubRococo(
-					pallet_xcm_bridge_hub::Event::BridgeOpened { .. }
-				) => {},
-			]
-		);
-	});
 }

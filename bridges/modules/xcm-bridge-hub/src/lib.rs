@@ -143,7 +143,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_messages::{LaneId, LaneState, MessageNonce};
+use bp_messages::{LaneState, MessageNonce};
 use bp_runtime::{AccountIdOf, BalanceOf, RangeInclusiveExt};
 pub use bp_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
 use bp_xcm_bridge_hub::{BridgeLocations, BridgeLocationsError, LocalXcmChannelManager};
@@ -213,9 +213,8 @@ pub mod pallet {
 		type DestinationVersion: GetVersion;
 
 		/// The origin that is allowed to call privileged operations on the pallet, e.g. open/close
-		/// bridge for location that coresponds to `Self::BridgeOriginAccountIdConverter` and
-		/// `Self::BridgedNetwork`.
-		type AdminOrigin: EnsureOrigin<<Self as SystemConfig>::RuntimeOrigin>;
+		/// bridge for locations.
+		type ForceOrigin: EnsureOrigin<<Self as SystemConfig>::RuntimeOrigin>;
 		/// A set of XCM locations within local consensus system that are allowed to open
 		/// bridges with remote destinations.
 		type OpenBridgeOrigin: EnsureOrigin<
@@ -248,10 +247,13 @@ pub mod pallet {
 	}
 
 	/// An alias for the bridge metadata.
-	pub type BridgeOf<T, I> = Bridge<ThisChainOf<T, I>>;
+	pub type BridgeOf<T, I> = Bridge<ThisChainOf<T, I>, LaneIdOf<T, I>>;
 	/// An alias for this chain.
 	pub type ThisChainOf<T, I> =
 		pallet_bridge_messages::ThisChainOf<T, <T as Config<I>>::BridgeMessagesPalletInstance>;
+	/// An alias for lane identifier type.
+	pub type LaneIdOf<T, I> =
+		<T as BridgeMessagesConfig<<T as Config<I>>::BridgeMessagesPalletInstance>>::LaneId;
 	/// An alias for the associated lanes manager.
 	pub type LanesManagerOf<T, I> =
 		pallet_bridge_messages::LanesManager<T, <T as Config<I>>::BridgeMessagesPalletInstance>;
@@ -392,7 +394,7 @@ pub mod pallet {
 				// deposit the `ClosingBridge` event
 				Self::deposit_event(Event::<T, I>::ClosingBridge {
 					bridge_id: *locations.bridge_id(),
-					lane_id: bridge.lane_id,
+					lane_id: bridge.lane_id.into(),
 					pruned_messages,
 					enqueued_messages,
 				});
@@ -439,7 +441,7 @@ pub mod pallet {
 			// deposit the `BridgePruned` event
 			Self::deposit_event(Event::<T, I>::BridgePruned {
 				bridge_id: *locations.bridge_id(),
-				lane_id: bridge.lane_id,
+				lane_id: bridge.lane_id.into(),
 				bridge_deposit: released_deposit,
 				pruned_messages,
 			});
@@ -449,9 +451,10 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		pub(crate) fn do_open_bridge(
+		/// Open bridge for lane.
+		pub fn do_open_bridge(
 			locations: Box<BridgeLocations>,
-			lane_id: LaneId,
+			lane_id: T::LaneId,
 			create_lanes: bool,
 		) -> Result<(), DispatchError> {
 			// reserve balance on the origin's sovereign account (if needed)
@@ -542,7 +545,7 @@ pub mod pallet {
 				remote_endpoint: Box::new(
 					locations.bridge_destination_universal_location().clone(),
 				),
-				lane_id,
+				lane_id: lane_id.into(),
 			});
 
 			Ok(())
@@ -585,10 +588,15 @@ pub mod pallet {
 			})
 		}
 
+		/// Return bridge metadata by bridge_id
+		pub fn bridge(bridge_id: &BridgeId) -> Option<BridgeOf<T, I>> {
+			Bridges::<T, I>::get(bridge_id)
+		}
+
 		/// Return bridge metadata by lane_id
-		pub fn bridge_by_lane_id(lane_id: &LaneId) -> Option<(BridgeId, BridgeOf<T, I>)> {
+		pub fn bridge_by_lane_id(lane_id: &T::LaneId) -> Option<(BridgeId, BridgeOf<T, I>)> {
 			LaneToBridge::<T, I>::get(lane_id)
-				.and_then(|bridge_id| Self::bridge(bridge_id).map(|bridge| (bridge_id, bridge)))
+				.and_then(|bridge_id| Self::bridge(&bridge_id).map(|bridge| (bridge_id, bridge)))
 		}
 	}
 
@@ -634,7 +642,7 @@ pub mod pallet {
 		pub fn do_try_state_for_bridge(
 			bridge_id: BridgeId,
 			bridge: BridgeOf<T, I>,
-		) -> Result<LaneId, sp_runtime::TryRuntimeError> {
+		) -> Result<T::LaneId, sp_runtime::TryRuntimeError> {
 			log::info!(target: LOG_TARGET, "Checking `do_try_state_for_bridge` for bridge_id: {bridge_id:?} and bridge: {bridge:?}");
 
 			// check `BridgeId` points to the same `LaneId` and vice versa.
@@ -707,13 +715,12 @@ pub mod pallet {
 
 	/// All registered bridges.
 	#[pallet::storage]
-	#[pallet::getter(fn bridge)]
 	pub type Bridges<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, BridgeId, BridgeOf<T, I>>;
 	/// All registered `lane_id` and `bridge_id` mappings.
 	#[pallet::storage]
 	pub type LaneToBridge<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, LaneId, BridgeId>;
+		StorageMap<_, Identity, T::LaneId, BridgeId>;
 
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
@@ -723,7 +730,7 @@ pub mod pallet {
 		/// Keep in mind that we are **NOT** reserving any amount for the bridges opened at
 		/// genesis. We are **NOT** opening lanes, used by this bridge. It all must be done using
 		/// other pallets genesis configuration or some other means.
-		pub opened_bridges: Vec<(Location, InteriorLocation)>,
+		pub opened_bridges: Vec<(Location, InteriorLocation, Option<T::LaneId>)>,
 		/// Dummy marker.
 		#[serde(skip)]
 		pub _phantom: sp_std::marker::PhantomData<(T, I)>,
@@ -735,48 +742,26 @@ pub mod pallet {
 		T: frame_system::Config<AccountId = AccountIdOf<ThisChainOf<T, I>>>,
 	{
 		fn build(&self) {
-			for (bridge_origin_relative_location, bridge_destination_universal_location) in
-				&self.opened_bridges
+			for (
+				bridge_origin_relative_location,
+				bridge_destination_universal_location,
+				maybe_lane_id,
+			) in &self.opened_bridges
 			{
 				let locations = Pallet::<T, I>::bridge_locations(
 					bridge_origin_relative_location.clone(),
 					bridge_destination_universal_location.clone().into(),
 				)
 				.expect("Invalid genesis configuration");
-				let lane_id =
-					locations.calculate_lane_id(xcm::latest::VERSION).expect("Valid locations");
-				let bridge_owner_account = T::BridgeOriginAccountIdConverter::convert_location(
-					locations.bridge_origin_relative_location(),
-				)
-				.expect("Invalid genesis configuration");
 
-				Bridges::<T, I>::insert(
-					locations.bridge_id(),
-					Bridge {
-						bridge_origin_relative_location: Box::new(
-							locations.bridge_origin_relative_location().clone().into(),
-						),
-						bridge_origin_universal_location: Box::new(
-							locations.bridge_origin_universal_location().clone().into(),
-						),
-						bridge_destination_universal_location: Box::new(
-							locations.bridge_destination_universal_location().clone().into(),
-						),
-						state: BridgeState::Opened,
-						bridge_owner_account,
-						deposit: Zero::zero(),
-						lane_id,
-					},
-				);
-				LaneToBridge::<T, I>::insert(lane_id, locations.bridge_id());
+				let lane_id = match maybe_lane_id {
+					Some(lane_id) => *lane_id,
+					None =>
+						locations.calculate_lane_id(xcm::latest::VERSION).expect("Valid locations"),
+				};
 
-				let lanes_manager = LanesManagerOf::<T, I>::new();
-				lanes_manager
-					.create_inbound_lane(lane_id)
-					.expect("Invalid genesis configuration");
-				lanes_manager
-					.create_outbound_lane(lane_id)
-					.expect("Invalid genesis configuration");
+				Pallet::<T, I>::do_open_bridge(locations, lane_id, true)
+					.expect("Valid opened bridge!");
 			}
 		}
 	}
@@ -796,14 +781,14 @@ pub mod pallet {
 			/// Universal location of remote bridge endpoint.
 			remote_endpoint: Box<InteriorLocation>,
 			/// Lane identifier.
-			lane_id: LaneId,
+			lane_id: T::LaneId,
 		},
 		/// Bridge is going to be closed, but not yet fully pruned from the runtime storage.
 		ClosingBridge {
 			/// Bridge identifier.
 			bridge_id: BridgeId,
 			/// Lane identifier.
-			lane_id: LaneId,
+			lane_id: T::LaneId,
 			/// Number of pruned messages during the close call.
 			pruned_messages: MessageNonce,
 			/// Number of enqueued messages that need to be pruned in follow up calls.
@@ -815,7 +800,7 @@ pub mod pallet {
 			/// Bridge identifier.
 			bridge_id: BridgeId,
 			/// Lane identifier.
-			lane_id: LaneId,
+			lane_id: T::LaneId,
 			/// Amount of deposit released.
 			bridge_deposit: BalanceOf<ThisChainOf<T, I>>,
 			/// Number of pruned messages during the close call.
@@ -849,12 +834,11 @@ pub mod pallet {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use bp_messages::LaneIdType;
 	use mock::*;
 
-	use bp_messages::LaneId;
 	use frame_support::{assert_err, assert_noop, assert_ok, traits::fungible::Mutate, BoundedVec};
 	use frame_system::{EventRecord, Phase};
-	use sp_core::H256;
 	use sp_runtime::TryRuntimeError;
 
 	fn fund_origin_sovereign_account(locations: &BridgeLocations, balance: Balance) -> AccountId {
@@ -911,7 +895,7 @@ mod tests {
 		mock_open_bridge_from_with(origin, deposit, bridged_asset_hub_universal_location())
 	}
 
-	fn enqueue_message(lane: LaneId) {
+	fn enqueue_message(lane: TestLaneIdType) {
 		let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
 		lanes_manager
 			.active_outbound_lane(lane)
@@ -1212,7 +1196,7 @@ mod tests {
 							remote_endpoint: Box::new(
 								locations.bridge_destination_universal_location().clone()
 							),
-							lane_id
+							lane_id: lane_id.into()
 						}),
 						topics: vec![],
 					}),
@@ -1355,7 +1339,7 @@ mod tests {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::XcmOverBridge(Event::ClosingBridge {
 						bridge_id: *locations.bridge_id(),
-						lane_id: bridge.lane_id,
+						lane_id: bridge.lane_id.into(),
 						pruned_messages: 16,
 						enqueued_messages: 16,
 					}),
@@ -1403,7 +1387,7 @@ mod tests {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::XcmOverBridge(Event::ClosingBridge {
 						bridge_id: *locations.bridge_id(),
-						lane_id: bridge.lane_id,
+						lane_id: bridge.lane_id.into(),
 						pruned_messages: 8,
 						enqueued_messages: 8,
 					}),
@@ -1444,7 +1428,7 @@ mod tests {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::XcmOverBridge(Event::BridgePruned {
 						bridge_id: *locations.bridge_id(),
-						lane_id: bridge.lane_id,
+						lane_id: bridge.lane_id.into(),
 						bridge_deposit: expected_deposit,
 						pruned_messages: 8,
 					}),
@@ -1456,8 +1440,6 @@ mod tests {
 
 	#[test]
 	fn do_try_state_works() {
-		use sp_runtime::Either;
-
 		let bridge_origin_relative_location = SiblingLocation::get();
 		let bridge_origin_universal_location = SiblingUniversalLocation::get();
 		let bridge_destination_universal_location = BridgedUniversalDestination::get();
@@ -1471,8 +1453,8 @@ mod tests {
 			&bridge_destination_universal_location,
 		);
 		let bridge_id_mismatch = BridgeId::new(&InteriorLocation::Here, &InteriorLocation::Here);
-		let lane_id = LaneId::from_inner(Either::Left(H256::default()));
-		let lane_id_mismatch = LaneId::from_inner(Either::Left(H256::from([1u8; 32])));
+		let lane_id = TestLaneIdType::try_new(1, 2).unwrap();
+		let lane_id_mismatch = TestLaneIdType::try_new(3, 4).unwrap();
 
 		let test_bridge_state = |id,
 		                         bridge,
