@@ -912,13 +912,18 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			InitiateReserveWithdraw { assets, reserve, xcm } => {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
+					let assets = self.holding.saturating_take(assets);
+					// Must ensure that we recognise the assets as being managed by the destination.
+					#[cfg(not(feature = "runtime-benchmarks"))]
+					for asset in assets.assets_iter() {
+						ensure!(
+							Config::IsReserve::contains(&asset, &reserve),
+							XcmError::UntrustedReserveLocation
+						);
+					}
 					// Note that here we are able to place any assets which could not be reanchored
 					// back into Holding.
-					let assets = Self::reanchored(
-						self.holding.saturating_take(assets),
-						&reserve,
-						Some(&mut self.holding),
-					);
+					let assets = Self::reanchored(assets, &reserve, Some(&mut self.holding));
 					let mut message = vec![WithdrawAsset(assets), ClearOrigin];
 					message.extend(xcm.0.into_iter());
 					self.send(reserve, Xcm(message), FeeReason::InitiateReserveWithdraw)?;
@@ -934,6 +939,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let result = (|| -> Result<(), XcmError> {
 					// We must do this first in order to resolve wildcards.
 					let assets = self.holding.saturating_take(assets);
+					// Must ensure that we have teleport trust with destination for these assets.
+					#[cfg(not(feature = "runtime-benchmarks"))]
+					for asset in assets.assets_iter() {
+						ensure!(
+							Config::IsTeleporter::contains(&asset, &dest),
+							XcmError::UntrustedTeleportLocation
+						);
+					}
 					for asset in assets.assets_iter() {
 						// We should check that the asset can actually be teleported out (for this
 						// to be in error, there would need to be an accounting violation by

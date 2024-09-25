@@ -16,6 +16,7 @@
 #[cfg(test)]
 mod imports {
 	// Substrate
+	pub use codec::Encode;
 	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult};
 	pub use sp_runtime::DispatchError;
 

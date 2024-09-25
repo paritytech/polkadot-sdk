@@ -47,6 +47,7 @@ mod imports {
 	pub use westend_system_emulated_network::{
 		asset_hub_westend_emulated_chain::{
 			asset_hub_westend_runtime::{
+				self,
 				xcm_config::{
 					self as ahw_xcm_config, WestendLocation as RelayLocation,
 					XcmConfig as AssetHubWestendXcmConfig,
