@@ -1,0 +1,14 @@
+title: "snowbridge: improve destination fee handling to avoid trapping fees dust"
+
+doc:
+  - audience: Runtime User
+    description: |
+      On Ethereum -> Polkadot Asset Hub messages, whether they are a token transfer
+      or a `Transact` for registering a new token, any unspent fees are deposited to
+      Snowbridge's sovereign account on Asset Hub, rather than trapped in AH's asset trap.
+
+crates:
+  - name: snowbridge-router-primitives
+    bump: patch
+  - name: snowbridge-pallet-inbound-queue
+    bump: patch

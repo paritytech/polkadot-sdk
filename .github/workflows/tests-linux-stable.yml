@@ -68,7 +68,7 @@ jobs:
         runners:
           [
             "${{ needs.preflight.outputs.RUNNER }}",
-            "${{ needs.preflight.outputs.OLDLINUXRUNNER }}",
+            "${{ needs.preflight.outputs.RUNNER_OLDLINUX }}",
           ]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
