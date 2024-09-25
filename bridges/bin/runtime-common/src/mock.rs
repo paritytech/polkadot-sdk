@@ -21,7 +21,7 @@
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
-	ChainWithMessages, LaneId, MessageNonce,
+	ChainWithMessages, HashedLaneId, LaneIdType, MessageNonce,
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_relayers::PayRewardFromAccount;
@@ -70,7 +70,7 @@ pub type BridgedChainHeader =
 	sp_runtime::generic::Header<BridgedChainBlockNumber, BridgedChainHasher>;
 
 /// Rewards payment procedure.
-pub type TestPaymentProcedure = PayRewardFromAccount<Balances, ThisChainAccountId>;
+pub type TestPaymentProcedure = PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType>;
 /// Stake that we are using in tests.
 pub type TestStake = ConstU64<5_000>;
 /// Stake and slash mechanism to use in tests.
@@ -83,10 +83,11 @@ pub type TestStakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 	ConstU32<8>,
 >;
 
-/// Message lane used in tests.
-#[allow(unused)]
-pub fn test_lane_id() -> LaneId {
-	LaneId::new(1, 2)
+/// Lane identifier type used for tests.
+pub type TestLaneIdType = HashedLaneId;
+/// Lane that we're using in tests.
+pub fn test_lane_id() -> TestLaneIdType {
+	TestLaneIdType::try_new(1, 2).unwrap()
 }
 
 /// Bridged chain id used in tests.
@@ -188,10 +189,10 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<TestRuntime>;
 
 	type OutboundPayload = Vec<u8>;
-
 	type InboundPayload = Vec<u8>;
-	type DeliveryPayments = ();
+	type LaneId = TestLaneIdType;
 
+	type DeliveryPayments = ();
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		TestRuntime,
 		(),
@@ -212,13 +213,14 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;
 	type WeightInfo = ();
+	type LaneId = TestLaneIdType;
 }
 
 /// Dummy message dispatcher.
 pub struct DummyMessageDispatch;
 
 impl DummyMessageDispatch {
-	pub fn deactivate(lane: LaneId) {
+	pub fn deactivate(lane: TestLaneIdType) {
 		frame_support::storage::unhashed::put(&(b"inactive", lane).encode()[..], &false);
 	}
 }
@@ -226,18 +228,21 @@ impl DummyMessageDispatch {
 impl MessageDispatch for DummyMessageDispatch {
 	type DispatchPayload = Vec<u8>;
 	type DispatchLevelResult = ();
+	type LaneId = TestLaneIdType;
 
-	fn is_active(lane: LaneId) -> bool {
+	fn is_active(lane: Self::LaneId) -> bool {
 		frame_support::storage::unhashed::take::<bool>(&(b"inactive", lane).encode()[..]) !=
 			Some(false)
 	}
 
-	fn dispatch_weight(_message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
+	fn dispatch_weight(
+		_message: &mut DispatchMessage<Self::DispatchPayload, Self::LaneId>,
+	) -> Weight {
 		Weight::zero()
 	}
 
 	fn dispatch(
-		_: DispatchMessage<Self::DispatchPayload>,
+		_: DispatchMessage<Self::DispatchPayload, Self::LaneId>,
 	) -> MessageDispatchResult<Self::DispatchLevelResult> {
 		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result: () }
 	}

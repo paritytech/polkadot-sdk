@@ -465,8 +465,8 @@ impl<
 	}
 
 	pub fn execute_as_origin_xcm<Call: GetDispatchInfo + Encode>(
-		call: Call,
 		origin: Location,
+		call: Call,
 		buy_execution_fee: Asset,
 	) -> Outcome {
 		// prepare `Transact` xcm

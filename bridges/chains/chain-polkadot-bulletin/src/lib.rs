@@ -225,4 +225,4 @@ impl ChainWithMessages for PolkadotBulletin {
 }
 
 decl_bridge_finality_runtime_apis!(polkadot_bulletin, grandpa);
-decl_bridge_messages_runtime_apis!(polkadot_bulletin);
+decl_bridge_messages_runtime_apis!(polkadot_bulletin, bp_messages::HashedLaneId);

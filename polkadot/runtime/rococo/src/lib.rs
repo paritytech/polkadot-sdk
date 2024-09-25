@@ -2613,13 +2613,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn preset_names() -> Vec<PresetId> {
-			vec![
-				PresetId::from("local_testnet"),
-				PresetId::from("development"),
-				PresetId::from("staging_testnet"),
-				PresetId::from("wococo_local_testnet"),
-				PresetId::from("versi_local_testnet"),
-			]
+			genesis_config_presets::preset_names()
 		}
 	}
 }
