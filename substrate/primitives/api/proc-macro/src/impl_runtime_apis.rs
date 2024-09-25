@@ -632,11 +632,6 @@ impl<'a> Fold for ApiRuntimeImplToApiRuntimeApiImpl<'a> {
 	}
 
 	fn fold_item_impl(&mut self, mut input: ItemImpl) -> ItemImpl {
-		// All this `UnwindSafe` magic below here is required for this rust bug:
-		// https://github.com/rust-lang/rust/issues/24159
-		// Before we directly had the final block type and rust could determine that it is unwind
-		// safe, but now we just have a generic parameter `Block`.
-
 		let crate_ = generate_crate_access();
 
 		// Implement the trait for the `RuntimeApiImpl`
