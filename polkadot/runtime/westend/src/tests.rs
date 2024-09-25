@@ -20,7 +20,10 @@ use std::collections::HashSet;
 
 use crate::*;
 use frame_support::traits::WhitelistedStorageKeys;
+use sp_core::crypto::Ss58Codec;
 use sp_core::hexdisplay::HexDisplay;
+use xcm_runtime_apis::conversions::LocationToAccountHelper;
+use crate::xcm_config::LocationConverter;
 
 #[test]
 fn remove_keys_weight_is_sensible() {
@@ -234,5 +237,75 @@ mod remote_tests {
 				unexpected_errors
 			);
 		});
+	}
+}
+
+#[test]
+fn location_conversion_works() {
+	// the purpose of hardcoded values is to catch an unintended location conversion logic change.
+	struct TestCase {
+		description: &'static str,
+		location: Location,
+		expected_account_id_str: &'static str,
+	}
+
+	let test_cases = vec![
+		// DescribeTerminus
+		TestCase {
+			description: "DescribeTerminus Child",
+			location: Location::new(0, [Parachain(1111)]),
+			expected_account_id_str: "5Ec4AhP4h37t7TFsAZ4HhFq6k92usAAJDUC3ADSZ4H4Acru3",
+		},
+		// DescribePalletTerminal
+		TestCase {
+			description: "DescribePalletTerminal Child",
+			location: Location::new(0, [Parachain(1111), PalletInstance(50)]),
+			expected_account_id_str: "5FjEBrKn3STAFsZpQF4jzwxUYHNGnNgzdZqSQfTzeJ82XKp6",
+		},
+		// DescribeAccountId32Terminal
+		TestCase {
+			description: "DescribeAccountId32Terminal Child",
+			location: Location::new(0, [Parachain(1111)]),
+			expected_account_id_str: "5Ec4AhP4h37t7TFsAZ4HhFq6k92usAAJDUC3ADSZ4H4Acru3",
+		},
+		// DescribeAccountKey20Terminal
+		TestCase {
+			description: "DescribeAccountKey20Terminal Child",
+			location: Location::new(
+				0,
+				[Parachain(1111), AccountKey20 { network: None, key: [0u8; 20] }],
+			),
+			expected_account_id_str: "5HohjXdjs6afcYcgHHSstkrtGfxgfGKsnZ1jtewBpFiGu4DL",
+		},
+		// DescribeTreasuryVoiceTerminal
+		TestCase {
+			description: "DescribeTreasuryVoiceTerminal Child",
+			location: Location::new(
+				0,
+				[Parachain(1111), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }],
+			),
+			expected_account_id_str: "5GenE4vJgHvwYVcD6b4nBvH5HNY4pzpVHWoqwFpNMFT7a2oX",
+		},
+		// DescribeBodyTerminal
+		TestCase {
+			description: "DescribeBodyTerminal Child",
+			location: Location::new(
+				0,
+				[Parachain(1111), Plurality { id: BodyId::Unit, part: BodyPart::Voice }],
+			),
+			expected_account_id_str: "5DPgGBFTTYm1dGbtB1VWHJ3T3ScvdrskGGx6vSJZNP1WNStV",
+		},
+	];
+
+	for tc in test_cases {
+		let expected =
+			AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
+
+		let got = LocationToAccountHelper::<AccountId, LocationConverter>::convert_location(
+			tc.location.into(),
+		)
+			.unwrap();
+
+		assert_eq!(got, expected, "{}", tc.description);
 	}
 }
