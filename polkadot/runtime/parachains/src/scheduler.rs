@@ -462,6 +462,12 @@ impl<T: Config> Pallet<T> {
 					break
 				}
 			}
+
+			// If we didn't end up pushing anything, remove the entry. We don't want to waste the
+			// space if we've no assignments.
+			if cq.is_empty() {
+				la.remove(&core_idx);
+			}
 		});
 	}
 
