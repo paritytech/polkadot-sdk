@@ -1370,9 +1370,9 @@ fn location_conversion_works() {
 	let test_cases = vec![
 		// DescribeTerminus
 		TestCase {
-			description: "DescribeTerminus Child",
-			location: Location::new(0, [Parachain(1111)]),
-			expected_account_id_str: "5FiBkHTJvHyWmbJJJSCc8X8Y1xS3niAfabkgi3L27usapmSX",
+			description: "DescribeTerminus Parent",
+			location: Location::new(1, Here),
+			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
 		},
 		TestCase {
 			description: "DescribeTerminus Sibling",
@@ -1381,9 +1381,9 @@ fn location_conversion_works() {
 		},
 		// DescribePalletTerminal
 		TestCase {
-			description: "DescribePalletTerminal Child",
-			location: Location::new(0, [Parachain(1111), PalletInstance(50)]),
-			expected_account_id_str: "5FjEBrKn3STAFsZpQF4jzwxUYHNGnNgzdZqSQfTzeJ82XKp6",
+			description: "DescribePalletTerminal Parent",
+			location: Location::new(1, Here),
+			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
 		},
 		TestCase {
 			description: "DescribePalletTerminal Sibling",
@@ -1392,9 +1392,9 @@ fn location_conversion_works() {
 		},
 		// DescribeAccountId32Terminal
 		TestCase {
-			description: "DescribeAccountId32Terminal Child",
-			location: Location::new(0, [Parachain(1111)]),
-			expected_account_id_str: "5FiBkHTJvHyWmbJJJSCc8X8Y1xS3niAfabkgi3L27usapmSX",
+			description: "DescribeAccountId32Terminal Parent",
+			location: Location::new(1, Here),
+			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
 		},
 		TestCase {
 			description: "DescribeAccountId32Terminal Sibling",
@@ -1409,12 +1409,12 @@ fn location_conversion_works() {
 		},
 		// DescribeAccountKey20Terminal
 		TestCase {
-			description: "DescribeAccountKey20Terminal Child",
+			description: "DescribeAccountKey20Terminal Parent",
 			location: Location::new(
-				0,
-				[Parachain(1111), AccountKey20 { network: None, key: [0u8; 20] }],
+				1,
+				Here,
 			),
-			expected_account_id_str: "5HohjXdjs6afcYcgHHSstkrtGfxgfGKsnZ1jtewBpFiGu4DL",
+			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
 		},
 		TestCase {
 			description: "DescribeAccountKey20Terminal Sibling",
@@ -1426,12 +1426,12 @@ fn location_conversion_works() {
 		},
 		// DescribeTreasuryVoiceTerminal
 		TestCase {
-			description: "DescribeTreasuryVoiceTerminal Child",
+			description: "DescribeTreasuryVoiceTerminal Parent",
 			location: Location::new(
-				0,
-				[Parachain(1111), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }],
+				1,
+				Here,
 			),
-			expected_account_id_str: "5GenE4vJgHvwYVcD6b4nBvH5HNY4pzpVHWoqwFpNMFT7a2oX",
+			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
 		},
 		TestCase {
 			description: "DescribeTreasuryVoiceTerminal Sibling",
@@ -1443,12 +1443,12 @@ fn location_conversion_works() {
 		},
 		// DescribeBodyTerminal
 		TestCase {
-			description: "DescribeBodyTerminal Child",
+			description: "DescribeBodyTerminal Parent",
 			location: Location::new(
-				0,
-				[Parachain(1111), Plurality { id: BodyId::Unit, part: BodyPart::Voice }],
+				1,
+				Here,
 			),
-			expected_account_id_str: "5DPgGBFTTYm1dGbtB1VWHJ3T3ScvdrskGGx6vSJZNP1WNStV",
+			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
 		},
 		TestCase {
 			description: "DescribeBodyTerminal Sibling",

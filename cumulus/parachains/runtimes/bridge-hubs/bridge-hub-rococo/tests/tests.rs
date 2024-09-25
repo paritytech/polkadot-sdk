@@ -512,6 +512,7 @@ mod bridge_hub_bulletin_tests {
 		WithRococoBulletinMessagesInstance, XcmOverPolkadotBulletinInstance,
 	};
 	use frame_support::assert_ok;
+	use sp_core::crypto::Ss58Codec;
 	use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 	// Random para id of sibling chain used in tests.
@@ -519,8 +520,8 @@ mod bridge_hub_bulletin_tests {
 		rococo_runtime_constants::system_parachain::PEOPLE_ID;
 
 	parameter_types! {
-		pub SiblingPeopleParachainLocation: Location = Location::new(1, [Parachain(SIBLING_PEOPLE_PARACHAIN_ID)]);
-		pub BridgedBulletinLocation: InteriorLocation = [GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())].into();
+																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																					pub SiblingPeopleParachainLocation: Location = Location::new(1, [Parachain(SIBLING_PEOPLE_PARACHAIN_ID)]);
+																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																					pub BridgedBulletinLocation: InteriorLocation = [GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())].into();
 	}
 
 	// Runtime from tests PoV
@@ -646,7 +647,7 @@ mod bridge_hub_bulletin_tests {
 					LocationToAccountId,
 					TokenLocation,
 				>(SiblingPeopleParachainLocation::get(), BridgedBulletinLocation::get())
-				.1
+					.1
 			},
 			construct_and_apply_extrinsic,
 		)
@@ -669,7 +670,7 @@ mod bridge_hub_bulletin_tests {
 					LocationToAccountId,
 					TokenLocation,
 				>(SiblingPeopleParachainLocation::get(), BridgedBulletinLocation::get())
-				.1
+					.1
 			},
 			construct_and_apply_extrinsic,
 		)
@@ -696,15 +697,116 @@ mod bridge_hub_bulletin_tests {
 
 	#[test]
 	fn location_conversion_works() {
-		let alice_on_ah = Location::new(
-			1,
-			[
-				Parachain(1111),
-				Junction::AccountId32 { network: None, id: AccountId::from(Alice).into() },
-			],
-		);
-		assert_ok!(LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
-			alice_on_ah.into()
-		));
+		// the purpose of hardcoded values is to catch an unintended location conversion logic change.
+		struct TestCase {
+			description: &'static str,
+			location: Location,
+			expected_account_id_str: &'static str,
+		}
+
+		let test_cases = vec![
+			// DescribeTerminus
+			TestCase {
+				description: "DescribeTerminus Parent",
+				location: Location::new(1, Here),
+				expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+			},
+			TestCase {
+				description: "DescribeTerminus Sibling",
+				location: Location::new(1, [Parachain(1111)]),
+				expected_account_id_str: "5Eg2fnssmmJnF3z1iZ1NouAuzciDaaDQH7qURAy3w15jULDk",
+			},
+			// DescribePalletTerminal
+			TestCase {
+				description: "DescribePalletTerminal Parent",
+				location: Location::new(1, Here),
+				expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+			},
+			TestCase {
+				description: "DescribePalletTerminal Sibling",
+				location: Location::new(1, [Parachain(1111), PalletInstance(50)]),
+				expected_account_id_str: "5GFBgPjpEQPdaxEnFirUoa51u5erVx84twYxJVuBRAT2UP2g",
+			},
+			// DescribeAccountId32Terminal
+			TestCase {
+				description: "DescribeAccountId32Terminal Parent",
+				location: Location::new(1, Here),
+				expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+			},
+			TestCase {
+				description: "DescribeAccountId32Terminal Sibling",
+				location: Location::new(
+					1,
+					[
+						Parachain(1111),
+						Junction::AccountId32 { network: None, id: AccountId::from(Alice).into() },
+					],
+				),
+				expected_account_id_str: "5Dmbuiq48fU4iW58FKYqoGbbfxFHjbAeGLMtjFg6NNCw3ssr",
+			},
+			// DescribeAccountKey20Terminal
+			TestCase {
+				description: "DescribeAccountKey20Terminal Parent",
+				location: Location::new(
+					1,
+					Here,
+				),
+				expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+			},
+			TestCase {
+				description: "DescribeAccountKey20Terminal Sibling",
+				location: Location::new(
+					1,
+					[Parachain(1111), AccountKey20 { network: None, key: [0u8; 20] }],
+				),
+				expected_account_id_str: "5CB2FbUds2qvcJNhDiTbRZwiS3trAy6ydFGMSVutmYijpPAg",
+			},
+			// DescribeTreasuryVoiceTerminal
+			TestCase {
+				description: "DescribeTreasuryVoiceTerminal Parent",
+				location: Location::new(
+					1,
+					Here,
+				),
+				expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+			},
+			TestCase {
+				description: "DescribeTreasuryVoiceTerminal Sibling",
+				location: Location::new(
+					1,
+					[Parachain(1111), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }],
+				),
+				expected_account_id_str: "5G6TDwaVgbWmhqRUKjBhRRnH4ry9L9cjRymUEmiRsLbSE4gB",
+			},
+			// DescribeBodyTerminal
+			TestCase {
+				description: "DescribeBodyTerminal Parent",
+				location: Location::new(
+					1,
+					Here,
+				),
+				expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+			},
+			TestCase {
+				description: "DescribeBodyTerminal Sibling",
+				location: Location::new(
+					1,
+					[Parachain(1111), Plurality { id: BodyId::Unit, part: BodyPart::Voice }],
+				),
+				expected_account_id_str: "5DBoExvojy8tYnHgLL97phNH975CyT45PWTZEeGoBZfAyRMH",
+			},
+		];
+
+		for tc in test_cases {
+			let expected =
+				AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
+
+			let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
+				tc.location.into(),
+			)
+				.unwrap();
+
+			assert_eq!(got, expected, "{}", tc.description);
+		}
 	}
 }
