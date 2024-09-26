@@ -27,10 +27,7 @@ pub mod config;
 pub mod error;
 
 mod builder;
-#[cfg(feature = "test-helpers")]
 pub mod client;
-#[cfg(not(feature = "test-helpers"))]
-mod client;
 mod metrics;
 mod task_manager;
 
