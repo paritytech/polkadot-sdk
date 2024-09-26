@@ -26,10 +26,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame_support::{
-	traits::{ChangeMembers, Contains, ContainsLengthBound, Get, InitializeMembers, SortedMembers},
-	BoundedVec,
-};
+use frame_support::{traits::{ChangeMembers, Contains, ContainsLengthBound, Get, InitializeMembers, SortedMembers}, BoundedVec, ensure};
 use sp_runtime::traits::{StaticLookup, UniqueSaturatedInto};
 
 pub mod migrations;
@@ -350,6 +347,40 @@ pub mod pallet {
 			T::MembershipChanged::set_prime(None);
 			Ok(())
 		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_membership()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * `Prime` member must be part of `Members`
+	/// * Numbers of `Members` cannot be more than `MaxMember` allowed
+	fn try_state_membership() -> Result<(), sp_runtime::TryRuntimeError> {
+		let members = Members::<T, I>::get();
+		if let Some(prime) = Prime::<T, I>::get() {
+			ensure!(members.contains(&prime),"`Prime` must be a member of  `Members` in storage");
+		}
+
+		ensure!(members.len() <= T::MaxMembers::get() as usize, "`Member` cannot be greater than `MaxMember`");
+		Ok(())
 	}
 }
 
