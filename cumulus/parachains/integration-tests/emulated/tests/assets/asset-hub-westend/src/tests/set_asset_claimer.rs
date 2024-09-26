@@ -21,9 +21,9 @@ use emulated_integration_tests_common::{
 	impls::AccountId32,
 };
 
+use crate::imports::bhw_xcm_config::{LocationToAccountId, UniversalLocation};
 use frame_support::{assert_ok, sp_runtime::traits::Dispatchable};
 use xcm_executor::traits::ConvertLocation;
-use crate::imports::bhw_xcm_config::{LocationToAccountId, UniversalLocation};
 
 #[test]
 fn test_set_asset_claimer_within_a_chain() {
@@ -33,9 +33,11 @@ fn test_set_asset_claimer_within_a_chain() {
 	let amount_to_send = 16_000_000_000_000;
 	let assets: Assets = (Parent, amount_to_send).into();
 
-	let alice_balance_before = <AssetHubWestend as Chain>::account_data_of(alice_account.clone()).free;
+	let alice_balance_before =
+		<AssetHubWestend as Chain>::account_data_of(alice_account.clone()).free;
 	AssetHubWestend::fund_accounts(vec![(alice_account.clone(), amount_to_send * 2)]);
-	let alice_balance_after = <AssetHubWestend as Chain>::account_data_of(alice_account.clone()).free;
+	let alice_balance_after =
+		<AssetHubWestend as Chain>::account_data_of(alice_account.clone()).free;
 	assert_eq!(alice_balance_after - alice_balance_before, amount_to_send * 2);
 
 	let test_args = TestContext {
@@ -51,11 +53,23 @@ fn test_set_asset_claimer_within_a_chain() {
 		),
 	};
 	let test = SystemParaToParaTest::new(test_args);
+	type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
+	let local_xcm = Xcm::<RuntimeCall>::builder_unsafe()
+		.set_asset_claimer(bob_location.clone())
+		.withdraw_asset(test.args.assets.clone())
+		.clear_origin()
+		.build();
+
 	AssetHubWestend::execute_with(|| {
-		assert_ok!(trap_assets_with_claimer(test.clone(), bob_location.clone()).dispatch(test.signed_origin));
+		assert_ok!(RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
+			message: bx!(VersionedXcm::from(local_xcm)),
+			max_weight: Weight::from_parts(4_000_000_000_000, 300_000),
+		})
+		.dispatch(test.signed_origin));
 	});
 
-	let balance_after_trap = <AssetHubWestend as Chain>::account_data_of(alice_account.clone()).free;
+	let balance_after_trap =
+		<AssetHubWestend as Chain>::account_data_of(alice_account.clone()).free;
 	assert_eq!(alice_balance_after - balance_after_trap, amount_to_send);
 
 	let bob_balance_before = <AssetHubWestend as Chain>::account_data_of(bob_account.clone()).free;
@@ -72,8 +86,17 @@ fn test_set_asset_claimer_within_a_chain() {
 		),
 	};
 	let test = SystemParaToParaTest::new(test_args);
+	let xcm = Xcm::<RuntimeCall>::builder_unsafe()
+		.claim_asset(test.args.assets.clone(), Here)
+		.deposit_asset(AllCounted(test.args.assets.len() as u32), bob_location.clone())
+		.build();
+
 	AssetHubWestend::execute_with(|| {
-		assert_ok!(claim_assets(test.clone(), bob_location.clone()).dispatch(test.signed_origin));
+		assert_ok!(RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
+			message: bx!(VersionedXcm::from(xcm)),
+			max_weight: Weight::from_parts(4_000_000_000_000, 300_000),
+		})
+		.dispatch(test.signed_origin));
 	});
 
 	let bob_balance_after = <AssetHubWestend as Chain>::account_data_of(bob_account.clone()).free;
@@ -86,41 +109,6 @@ fn account_and_location(account: &str) -> (AccountId32, Location) {
 	let location: Location =
 		[Junction::AccountId32 { network: Some(Westend), id: account_id.into() }].into();
 	(account_clone, location)
-}
-
-fn trap_assets_with_claimer(
-	test: SystemParaToParaTest,
-	claimer: Location,
-) -> <AssetHubWestend as Chain>::RuntimeCall {
-	type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
-
-	let local_xcm = Xcm::<RuntimeCall>::builder_unsafe()
-		.set_asset_claimer(claimer.clone())
-		.withdraw_asset(test.args.assets.clone())
-		.clear_origin()
-		.build();
-
-	RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
-		message: bx!(VersionedXcm::from(local_xcm)),
-		max_weight: Weight::from_parts(4_000_000_000_000, 300_000),
-	})
-}
-
-fn claim_assets(
-	test: SystemParaToParaTest,
-	claimer: Location,
-) -> <AssetHubWestend as Chain>::RuntimeCall {
-	type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
-
-	let local_xcm = Xcm::<RuntimeCall>::builder_unsafe()
-		.claim_asset(test.args.assets.clone(), Here)
-		.deposit_asset(AllCounted(test.args.assets.len() as u32), claimer)
-		.build();
-
-	RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
-		message: bx!(VersionedXcm::from(local_xcm)),
-		max_weight: Weight::from_parts(4_000_000_000_000, 300_000),
-	})
 }
 
 // The test:
@@ -160,7 +148,9 @@ fn test_sac_between_the_chains() {
 	};
 	let test = BridgeHubToAssetHubTest::new(test_args);
 	BridgeHubWestend::execute_with(|| {
-		assert_ok!(trap_assets_bh(test.clone(), alice_bh_sibling.clone()).dispatch(test.signed_origin));
+		assert_ok!(
+			trap_assets_bh(test.clone(), alice_bh_sibling.clone()).dispatch(test.signed_origin)
+		);
 	});
 
 	let alice_bh_acc = LocationToAccountId::convert_location(&alice_bh_sibling).unwrap();
