@@ -104,10 +104,10 @@ jobs:
     if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        partition: [1/2, 2/2]
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     partition: [1/2, 2/2]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
@@ -125,8 +125,8 @@ jobs:
                    --release \
                    --no-fail-fast \
                    --cargo-quiet \
-                   --features experimental,riscv,ci-only-tests \
-                   --partition count:${{ matrix.partition }}
+                   --features experimental,riscv,ci-only-tests # \
+                   # --partition count:${{ matrix.partition }}
 
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
