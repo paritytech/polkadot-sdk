@@ -22,6 +22,7 @@ jobs:
   test-full-crypto-feature:
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -46,6 +47,7 @@ jobs:
     # into one job
     needs: [preflight, test-full-crypto-feature]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
@@ -67,6 +69,7 @@ jobs:
     timeout-minutes: 60
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
@@ -95,6 +98,7 @@ jobs:
     timeout-minutes: 20
     needs: [preflight, test-frame-examples-compile-to-wasm]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
@@ -194,6 +198,7 @@ jobs:
     needs: [preflight]
     timeout-minutes: 30
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
@@ -226,6 +231,7 @@ jobs:
     timeout-minutes: 20
     needs: [preflight, test-node-metrics]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
@@ -241,6 +247,7 @@ jobs:
     timeout-minutes: 20
     needs: [preflight, check-tracing]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
@@ -251,50 +258,52 @@ jobs:
         run: |
           forklift cargo build --locked -p westend-runtime --features metadata-hash
 
-  cargo-hfuzz:
-    timeout-minutes: 20
-    needs: [preflight, check-metadata-hash]
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
-    env:
-      # max 10s per iteration, 60s per file
-      HFUZZ_RUN_ARGS: |
-        --exit_upon_crash
-        --exit_code_upon_crash 1
-        --timeout 10
-        --run_time 60
+  # disabled until https://github.com/paritytech/polkadot-sdk/issues/5812 is resolved
+  # cargo-hfuzz:
+  #   timeout-minutes: 20
+  #   needs: [preflight, check-metadata-hash]
+  #   runs-on: ${{ needs.preflight.outputs.RUNNER }}
+  #   container:
+  #     image: ${{ needs.preflight.outputs.IMAGE }}
+  #   env:
+  #     # max 10s per iteration, 60s per file
+  #     HFUZZ_RUN_ARGS: |
+  #       --exit_upon_crash
+  #       --exit_code_upon_crash 1
+  #       --timeout 10
+  #       --run_time 60
 
-      # use git version of honggfuzz-rs until v0.5.56 is out, we need a few recent changes:
-      # https://github.com/rust-fuzz/honggfuzz-rs/pull/75 to avoid breakage on debian
-      # https://github.com/rust-fuzz/honggfuzz-rs/pull/81 fix to the above pr
-      # https://github.com/rust-fuzz/honggfuzz-rs/pull/82 fix for handling absolute CARGO_TARGET_DIR
-      HFUZZ_BUILD_ARGS: |
-        --config=patch.crates-io.honggfuzz.git="https://github.com/altaua/honggfuzz-rs"
-        --config=patch.crates-io.honggfuzz.rev="205f7c8c059a0d98fe1cb912cdac84f324cb6981"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  #     # use git version of honggfuzz-rs until v0.5.56 is out, we need a few recent changes:
+  #     # https://github.com/rust-fuzz/honggfuzz-rs/pull/75 to avoid breakage on debian
+  #     # https://github.com/rust-fuzz/honggfuzz-rs/pull/81 fix to the above pr
+  #     # https://github.com/rust-fuzz/honggfuzz-rs/pull/82 fix for handling absolute CARGO_TARGET_DIR
+  #     HFUZZ_BUILD_ARGS: |
+  #       --config=patch.crates-io.honggfuzz.git="https://github.com/altaua/honggfuzz-rs"
+  #       --config=patch.crates-io.honggfuzz.rev="205f7c8c059a0d98fe1cb912cdac84f324cb6981"
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
 
-      - name: Run honggfuzz
-        run: |
-          cd substrate/primitives/arithmetic/fuzzer
-          forklift cargo hfuzz build
-          for target in $(cargo read-manifest | jq -r '.targets | .[] | .name');
-          do
-            forklift cargo hfuzz run "$target" || { printf "fuzzing failure for %s\n" "$target"; exit 1; };
-          done
+  #     - name: Run honggfuzz
+  #       run: |
+  #         cd substrate/primitives/arithmetic/fuzzer
+  #         forklift cargo hfuzz build
+  #         for target in $(cargo read-manifest | jq -r '.targets | .[] | .name');
+  #         do
+  #           forklift cargo hfuzz run "$target" || { printf "fuzzing failure for %s\n" "$target"; exit 1; };
+  #         done
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4.3.6
-        with:
-          path: substrate/primitives/arithmetic/fuzzer/hfuzz_workspace/
-          name: hfuzz-${{ github.sha }}
+  #     - name: Upload artifacts
+  #       uses: actions/upload-artifact@v4.3.6
+  #       with:
+  #         path: substrate/primitives/arithmetic/fuzzer/hfuzz_workspace/
+  #         name: hfuzz-${{ github.sha }}
 
   cargo-check-each-crate:
     timeout-minutes: 140
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
@@ -322,6 +331,7 @@ jobs:
     timeout-minutes: 30
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER_MACOS }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     env:
       SKIP_WASM_BUILD: 1
     steps:
