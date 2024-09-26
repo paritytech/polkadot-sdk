@@ -36,7 +36,7 @@ use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof, storage_keys::inbound_lane_data_key,
-	ChainWithMessages as _, InboundLaneData, LaneId, MessageNonce, UnrewardedRelayersState,
+	ChainWithMessages as _, InboundLaneData, MessageNonce, UnrewardedRelayersState,
 };
 use messages_relay::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
@@ -51,14 +51,14 @@ use sp_core::Pair;
 use std::{convert::TryFrom, ops::RangeInclusive};
 
 /// Message receiving proof returned by the target Substrate node.
-pub type SubstrateMessagesDeliveryProof<C> =
-	(UnrewardedRelayersState, FromBridgedChainMessagesDeliveryProof<HashOf<C>>);
+pub type SubstrateMessagesDeliveryProof<C, L> =
+	(UnrewardedRelayersState, FromBridgedChainMessagesDeliveryProof<HashOf<C>, L>);
 
 /// Substrate client as Substrate messages target.
 pub struct SubstrateMessagesTarget<P: SubstrateMessageLane, SourceClnt, TargetClnt> {
 	target_client: TargetClnt,
 	source_client: SourceClnt,
-	lane_id: LaneId,
+	lane_id: P::LaneId,
 	relayer_id_at_source: AccountIdOf<P::SourceChain>,
 	transaction_params: Option<TransactionParams<AccountKeyPairOf<P::TargetChain>>>,
 	source_to_target_headers_relay: Option<Arc<dyn OnDemandRelay<P::SourceChain, P::TargetChain>>>,
@@ -73,7 +73,7 @@ where
 	pub fn new(
 		target_client: TargetClnt,
 		source_client: SourceClnt,
-		lane_id: LaneId,
+		lane_id: P::LaneId,
 		relayer_id_at_source: AccountIdOf<P::SourceChain>,
 		transaction_params: Option<TransactionParams<AccountKeyPairOf<P::TargetChain>>>,
 		source_to_target_headers_relay: Option<
@@ -308,7 +308,7 @@ where
 fn make_messages_delivery_call<P: SubstrateMessageLane>(
 	relayer_id_at_source: AccountIdOf<P::SourceChain>,
 	nonces: RangeInclusive<MessageNonce>,
-	proof: SubstrateMessagesProof<P::SourceChain>,
+	proof: SubstrateMessagesProof<P::SourceChain, P::LaneId>,
 	trace_call: bool,
 ) -> CallOf<P::TargetChain> {
 	let messages_count = nonces.end() - nonces.start() + 1;

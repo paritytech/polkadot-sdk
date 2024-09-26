@@ -2188,12 +2188,14 @@ dependencies = [
 name = "bridge-hub-rococo-emulated-chain"
 version = "0.0.0"
 dependencies = [
+ "bp-messages",
  "bridge-hub-common",
  "bridge-hub-rococo-runtime",
  "emulated-integration-tests-common",
  "frame-support",
  "parachains-common",
  "sp-core 28.0.0",
+ "staging-xcm",
  "testnet-parachains-constants",
 ]
 
@@ -2357,6 +2359,7 @@ dependencies = [
  "pallet-bridge-relayers",
  "pallet-timestamp",
  "pallet-utility",
+ "pallet-xcm",
  "pallet-xcm-bridge-hub",
  "parachains-common",
  "parachains-runtimes-test-utils",
@@ -2375,12 +2378,14 @@ dependencies = [
 name = "bridge-hub-westend-emulated-chain"
 version = "0.0.0"
 dependencies = [
+ "bp-messages",
  "bridge-hub-common",
  "bridge-hub-westend-runtime",
  "emulated-integration-tests-common",
  "frame-support",
  "parachains-common",
  "sp-core 28.0.0",
+ "staging-xcm",
  "testnet-parachains-constants",
 ]
 
@@ -9560,6 +9565,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "relay-utils",
  "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
 ]
 
 [[package]]
@@ -11834,6 +11840,7 @@ dependencies = [
 name = "pallet-migrations"
 version = "1.0.0"
 dependencies = [
+ "cfg-if",
  "docify",
  "frame-benchmarking",
  "frame-executive",
@@ -14919,6 +14926,7 @@ version = "4.0.0"
 dependencies = [
  "asset-hub-rococo-runtime",
  "asset-hub-westend-runtime",
+ "bp-messages",
  "bridge-hub-rococo-runtime",
  "bridge-hub-westend-runtime",
  "collectives-westend-runtime",
@@ -27276,17 +27284,19 @@ dependencies = [
 
 [[package]]
 name = "zombienet-configuration"
-version = "0.2.10"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23322e411b8d19b41b5c20ab8e88c10822189a4fcfd069c7fcd1542b8d3035aa"
+checksum = "ebbfc98adb25076777967f7aad078e74029e129b102eb0812c425432f8c2be7b"
 dependencies = [
  "anyhow",
  "lazy_static",
  "multiaddr 0.18.1",
  "regex",
+ "reqwest 0.11.20",
  "serde",
  "serde_json",
  "thiserror",
+ "tokio",
  "toml 0.7.8",
  "url",
  "zombienet-support",
@@ -27294,9 +27304,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-orchestrator"
-version = "0.2.10"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "381f701565b3918a909132743b3674569ce3da25b5c3a6493883abaf1046577a"
+checksum = "5b17f4d1d05b3aedf02818eb0f4d5a76664da0e07bb2f7e7d02613e0ef0f316a"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -27327,9 +27337,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-prom-metrics-parser"
-version = "0.2.10"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dab79fa58bcfecbcd41485c6f13052853ccde8b09f173b601f78747d7abc2b7f"
+checksum = "7203390ab88919240da3a3eb06b625b6e300e94f98e04ba5141e9138dc663b7d"
 dependencies = [
  "pest",
  "pest_derive",
@@ -27338,9 +27348,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-provider"
-version = "0.2.10"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6af0264938da61b25da89f17ee0630393a4ba793582a4a8a1650eb15b47fc1ef"
+checksum = "ee02ee957ec39b698798fa6dc2a0d5ba4524198471c37d57755e9685b67fb50c"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -27369,9 +27379,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-sdk"
-version = "0.2.10"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bc5b7ebfba4ab62486c8cb5bcd7345c4376487487cfe3481476cb4d4accc75e"
+checksum = "f594e67922182277a3da0926f21b693eb5a0c38b32ca7fd6ef16167809fe5064"
 dependencies = [
  "async-trait",
  "futures",
@@ -27386,9 +27396,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-support"
-version = "0.2.10"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f5b80d34a0eecca69dd84c2e13f84f1fae0cc378baf4f15f769027af068418b"
+checksum = "93d3144537df7c8939bbb355cc5245a6dc0078446a6cdaf9272268bd1043c788"
 dependencies = [
  "anyhow",
  "async-trait",

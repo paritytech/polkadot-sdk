@@ -738,6 +738,7 @@ either = { version = "1.8.1", default-features = false }
 emulated-integration-tests-common = { path = "cumulus/parachains/integration-tests/emulated/common", default-features = false }
 enumflags2 = { version = "0.7.7" }
 enumn = { version = "0.1.13" }
+env_logger = { version = "0.11.2" }
 environmental = { version = "1.1.4", default-features = false }
 equivocation-detector = { path = "bridges/relays/equivocation" }
 ethabi = { version = "1.0.0", default-features = false, package = "ethabi-decode" }
@@ -1301,6 +1302,8 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
+subxt = { version = "0.37", default-features = false }
+subxt-signer = { version = "0.37" }
 syn = { version = "2.0.77" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
@@ -1370,6 +1373,7 @@ xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
+zombienet-sdk = { version = "0.2.13" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]

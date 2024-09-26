@@ -51,6 +51,7 @@ mod imports {
 	pub use rococo_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
 			asset_hub_rococo_runtime::{
+				self,
 				xcm_config::{
 					self as ahr_xcm_config, TokenLocation as RelayLocation,
 					XcmConfig as AssetHubRococoXcmConfig,
