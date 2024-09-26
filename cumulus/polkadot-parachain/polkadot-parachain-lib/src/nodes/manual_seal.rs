@@ -18,7 +18,6 @@ use crate::common::{
 	rpc::BuildRpcExtensions as BuildRpcExtensionsT,
 	spec::{BaseNodeSpec, BuildImportQueue, NodeSpec as NodeSpecT},
 	types::{Hash, ParachainBlockImport, ParachainClient},
-	ConstructNodeRuntimeApi, NodeBlock,
 };
 use codec::Encode;
 use cumulus_client_parachain_inherent::{MockValidationDataInherentDataProvider, MockXcmConfig};
@@ -32,21 +31,18 @@ use sp_runtime::traits::Header;
 use sp_timestamp::Timestamp;
 use std::{marker::PhantomData, sync::Arc};
 
-/// Build the import queue for a manual seal node.
-pub struct BuildManualSealImportQueue<Block, RuntimeApi>(PhantomData<(Block, RuntimeApi)>);
+pub struct ManualSealNode<NodeSpec>(PhantomData<NodeSpec>);
 
-impl<
-		Block: NodeBlock,
-		RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	> BuildImportQueue<Block, RuntimeApi> for BuildManualSealImportQueue<Block, RuntimeApi>
+impl<NodeSpec: NodeSpecT> BuildImportQueue<NodeSpec::Block, NodeSpec::RuntimeApi>
+	for ManualSealNode<NodeSpec>
 {
 	fn build_import_queue(
-		client: Arc<ParachainClient<Block, RuntimeApi>>,
-		_block_import: ParachainBlockImport<Block, RuntimeApi>,
+		client: Arc<ParachainClient<NodeSpec::Block, NodeSpec::RuntimeApi>>,
+		_block_import: ParachainBlockImport<NodeSpec::Block, NodeSpec::RuntimeApi>,
 		config: &Configuration,
 		_telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
-	) -> sc_service::error::Result<DefaultImportQueue<Block>> {
+	) -> sc_service::error::Result<DefaultImportQueue<NodeSpec::Block>> {
 		Ok(sc_consensus_manual_seal::import_queue(
 			Box::new(client.clone()),
 			&task_manager.spawn_essential_handle(),
@@ -55,12 +51,10 @@ impl<
 	}
 }
 
-pub struct ManualSealNode<NodeSpec>(PhantomData<NodeSpec>);
-
 impl<NodeSpec: NodeSpecT> BaseNodeSpec for ManualSealNode<NodeSpec> {
 	type Block = NodeSpec::Block;
 	type RuntimeApi = NodeSpec::RuntimeApi;
-	type BuildImportQueue = BuildManualSealImportQueue<Self::Block, Self::RuntimeApi>;
+	type BuildImportQueue = Self;
 }
 
 impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
@@ -70,7 +64,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 
 	pub fn start_node<Net>(
 		&self,
-		config: Configuration,
+		mut config: Configuration,
 		para_id: ParaId,
 		block_time: u64,
 	) -> sc_service::error::Result<TaskManager>
@@ -89,6 +83,9 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 		} = Self::new_partial(&config)?;
 		let select_chain = LongestChain::new(backend.clone());
 
+		// Since this is a dev node, prevent it from connecting to peers.
+		config.network.default_peers_set.in_peers = 0;
+		config.network.default_peers_set.out_peers = 0;
 		let mut net_config = sc_network::config::FullNetworkConfiguration::<_, _, Net>::new(
 			&config.network,
 			config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
@@ -131,19 +128,21 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 
 		let (manual_seal_sink, manual_seal_stream) = futures::channel::mpsc::channel(1024);
 		let mut manual_seal_sink_clone = manual_seal_sink.clone();
-		task_manager.spawn_handle().spawn("block_authoring", None, async move {
-			loop {
-				futures_timer::Delay::new(std::time::Duration::from_millis(block_time)).await;
-				manual_seal_sink_clone
-					.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
-						create_empty: true,
-						finalize: true,
-						parent_hash: None,
-						sender: None,
-					})
-					.unwrap();
-			}
-		});
+		task_manager
+			.spawn_essential_handle()
+			.spawn("block_authoring", None, async move {
+				loop {
+					futures_timer::Delay::new(std::time::Duration::from_millis(block_time)).await;
+					manual_seal_sink_clone
+						.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
+							create_empty: true,
+							finalize: true,
+							parent_hash: None,
+							sender: None,
+						})
+						.unwrap();
+				}
+			});
 
 		let client_for_cidp = client.clone();
 		let params = sc_consensus_manual_seal::ManualSealParams {
