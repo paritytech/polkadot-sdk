@@ -11862,6 +11862,7 @@ dependencies = [
 name = "pallet-migrations"
 version = "1.0.0"
 dependencies = [
+ "cfg-if",
  "docify",
  "frame-benchmarking",
  "frame-executive",
@@ -14310,6 +14311,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-node-core-approval-voting-parallel"
+version = "7.0.0"
+dependencies = [
+ "assert_matches",
+ "async-trait",
+ "futures",
+ "futures-timer",
+ "itertools 0.11.0",
+ "kvdb-memorydb",
+ "log",
+ "parking_lot 0.12.3",
+ "polkadot-approval-distribution",
+ "polkadot-node-core-approval-voting",
+ "polkadot-node-jaeger",
+ "polkadot-node-metrics",
+ "polkadot-node-network-protocol",
+ "polkadot-node-primitives",
+ "polkadot-node-subsystem",
+ "polkadot-node-subsystem-test-helpers",
+ "polkadot-node-subsystem-util",
+ "polkadot-overseer",
+ "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
+ "polkadot-subsystem-bench",
+ "rand",
+ "rand_chacha",
+ "rand_core 0.6.4",
+ "sc-keystore",
+ "schnorrkel 0.11.4",
+ "sp-application-crypto 30.0.0",
+ "sp-consensus",
+ "sp-consensus-babe",
+ "sp-consensus-slots",
+ "sp-core 28.0.0",
+ "sp-keyring",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0",
+ "thiserror",
+ "tracing-gum",
+]
+
+[[package]]
 name = "polkadot-node-core-av-store"
 version = "7.0.0"
 dependencies = [
@@ -15439,6 +15483,7 @@ dependencies = [
  "polkadot-network-bridge",
  "polkadot-node-collation-generation",
  "polkadot-node-core-approval-voting",
+ "polkadot-node-core-approval-voting-parallel",
  "polkadot-node-core-av-store",
  "polkadot-node-core-backing",
  "polkadot-node-core-bitfield-signing",
@@ -15779,6 +15824,7 @@ dependencies = [
  "polkadot-network-bridge",
  "polkadot-node-collation-generation",
  "polkadot-node-core-approval-voting",
+ "polkadot-node-core-approval-voting-parallel",
  "polkadot-node-core-av-store",
  "polkadot-node-core-backing",
  "polkadot-node-core-bitfield-signing",
@@ -15935,6 +15981,7 @@ dependencies = [
  "polkadot-availability-recovery",
  "polkadot-erasure-coding",
  "polkadot-node-core-approval-voting",
+ "polkadot-node-core-approval-voting-parallel",
  "polkadot-node-core-av-store",
  "polkadot-node-core-chain-api",
  "polkadot-node-metrics",
