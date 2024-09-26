@@ -4399,4 +4399,75 @@ mod tests {
 				.unwrap()
 			});
 	}
+
+	#[test]
+	fn correct_immutable_data_in_delegate_call() {
+		let charlie_ch = MockLoader::insert(Call, |ctx, _| {
+			Ok(ExecReturnValue {
+				flags: ReturnFlags::empty(),
+				data: ctx.ext.get_immutable_data()?.to_vec(),
+			})
+		});
+		let bob_ch = MockLoader::insert(Call, move |ctx, _| {
+			// In a regular call, we should witness the callee immutable data
+			assert_eq!(
+				ctx.ext
+					.call(
+						Weight::zero(),
+						U256::zero(),
+						&CHARLIE_ADDR,
+						U256::zero(),
+						vec![],
+						true,
+						false,
+					)
+					.map(|_| ctx.ext.last_frame_output().data.clone()),
+				Ok(vec![2]),
+			);
+
+			// In a delegate call, we should witness the caller immutable data
+			assert_eq!(
+				ctx.ext.delegate_call(charlie_ch, Vec::new()).map(|_| ctx
+					.ext
+					.last_frame_output()
+					.data
+					.clone()),
+				Ok(vec![1])
+			);
+
+			exec_success()
+		});
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.existential_deposit(15)
+			.build()
+			.execute_with(|| {
+				place_contract(&BOB, bob_ch);
+				place_contract(&CHARLIE, charlie_ch);
+
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+
+				// Place unique immutable data for each contract
+				<ImmutableDataOf<Test>>::insert::<_, ImmutableData>(
+					BOB_ADDR,
+					vec![1].try_into().unwrap(),
+				);
+				<ImmutableDataOf<Test>>::insert::<_, ImmutableData>(
+					CHARLIE_ADDR,
+					vec![2].try_into().unwrap(),
+				);
+
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap()
+			});
+	}
 }
