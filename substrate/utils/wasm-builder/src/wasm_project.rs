@@ -849,16 +849,13 @@ fn build_bloaty_blob(
 	rustflags.push_str(" --cfg substrate_runtime ");
 	rustflags.push_str(&env::var(crate::WASM_BUILD_RUSTFLAGS_ENV).unwrap_or_default());
 
+	let cargo_args = env::var(crate::WASM_BUILD_CARGO_ARGS).unwrap_or_default();
+	let parsed_args = cargo_args.split(" ").collect::<Vec<&str>>();
+
 	build_cmd
 		.arg("rustc")
 		.arg(format!("--target={}", target.rustc_target()))
 		.arg(format!("--manifest-path={}", manifest_path.display()))
-		.args(
-			env::var(crate::WASM_BUILD_CARGO_ARGS)
-				.unwrap_or_default()
-				.split(" ")
-				.into_iter(),
-		)
 		.env("RUSTFLAGS", rustflags)
 		// Manually set the `CARGO_TARGET_DIR` to prevent a cargo deadlock (cargo locks a target dir
 		// exclusive). The runner project is created in `CARGO_TARGET_DIR` and executing it will
@@ -873,6 +870,10 @@ fn build_bloaty_blob(
 		.env_remove("RUSTC")
 		// We don't want to call ourselves recursively
 		.env(crate::SKIP_BUILD_ENV, "");
+
+	if !parsed_args.is_empty() {
+		build_cmd.args(parsed_args);
+	}
 
 	#[cfg(feature = "metadata-hash")]
 	if let Some(hash) = metadata_hash {
