@@ -1066,7 +1066,7 @@ where
 						self.view_store.listener.invalidate_transactions(vec![tx_hash]);
 						self.mempool.remove_watched(tx_hash);
 					},
-					_ => {},
+					Ok(_) => {},
 				}
 			}
 		}
