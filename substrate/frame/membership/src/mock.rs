@@ -109,8 +109,8 @@ impl ExtBuilder {
 			members: bounded_vec![10, 20, 30],
 			..Default::default()
 		}
-			.assimilate_storage(&mut t)
-			.unwrap();
+		.assimilate_storage(&mut t)
+		.unwrap();
 		t.into()
 	}
 
@@ -121,7 +121,6 @@ impl ExtBuilder {
 		})
 	}
 }
-
 
 #[cfg(feature = "runtime-benchmarks")]
 pub(crate) fn new_bench_ext() -> sp_io::TestExternalities {

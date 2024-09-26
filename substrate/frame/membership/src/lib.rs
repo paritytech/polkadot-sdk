@@ -376,10 +376,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn try_state_membership() -> Result<(), sp_runtime::TryRuntimeError> {
 		let members = Members::<T, I>::get();
 		if let Some(prime) = Prime::<T, I>::get() {
-			ensure!(members.contains(&prime),"`Prime` must be a member of  `Members` in storage");
+			ensure!(members.contains(&prime), "`Prime` must be a member of  `Members` in storage");
 		}
 
-		ensure!(members.len() <= T::MaxMembers::get() as usize, "`Member` cannot be greater than `MaxMember`");
+		ensure!(
+			members.len() <= T::MaxMembers::get() as usize,
+			"`Member` cannot be greater than `MaxMember`"
+		);
 		Ok(())
 	}
 }
