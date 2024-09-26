@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for pallet-example-kitchensink.
+//! Tests for pallet-example-authorization-tx-extension.
 
 use codec::Encode;
 use frame_support::{

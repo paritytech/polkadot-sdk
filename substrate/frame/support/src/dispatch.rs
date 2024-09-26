@@ -723,23 +723,6 @@ mod weight_tests {
 			type DbWeight: Get<crate::weights::RuntimeDbWeight>;
 		}
 
-		#[pallet::genesis_config]
-		pub struct GenesisConfig<T: Config> {
-			#[serde(skip)]
-			pub _config: core::marker::PhantomData<T>,
-		}
-
-		impl<T: Config> Default for GenesisConfig<T> {
-			fn default() -> Self {
-				Self { _config: Default::default() }
-			}
-		}
-
-		#[pallet::genesis_build]
-		impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-			fn build(&self) {}
-		}
-
 		#[pallet::error]
 		pub enum Error<T> {
 			/// Required by construct_runtime
@@ -1201,7 +1184,8 @@ mod test_extensions {
 	use sp_runtime::{
 		impl_tx_ext_default,
 		traits::{
-			DispatchInfoOf, Dispatchable, DispatchOriginOf, PostDispatchInfoOf, TransactionExtension,
+			DispatchInfoOf, DispatchOriginOf, Dispatchable, PostDispatchInfoOf,
+			TransactionExtension,
 		},
 		transaction_validity::TransactionValidityError,
 	};
@@ -1346,7 +1330,6 @@ mod extension_weight_tests {
 	use sp_runtime::{
 		generic::{self, ExtrinsicFormat},
 		traits::{Applyable, BlakeTwo256, DispatchTransaction, TransactionExtension},
-		BuildStorage,
 	};
 	use sp_weights::RuntimeDbWeight;
 	use test_extensions::{ActualWeightIs, FreeIfUnder, HalfCostIf};
@@ -1397,8 +1380,7 @@ mod extension_weight_tests {
 
 	impl ExtBuilder {
 		pub fn build(self) -> sp_io::TestExternalities {
-			let t = frame_system::GenesisConfig::<ExtRuntime>::default().build_storage().unwrap();
-			let mut ext = sp_io::TestExternalities::new(t);
+			let mut ext = sp_io::TestExternalities::new(Default::default());
 			ext.execute_with(|| {});
 			ext
 		}

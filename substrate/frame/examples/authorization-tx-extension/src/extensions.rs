@@ -18,12 +18,13 @@
 use core::{fmt, marker::PhantomData};
 
 use codec::{Decode, Encode};
-use frame_support::traits::OriginTrait;
+use frame_support::{traits::OriginTrait, Parameter};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
-		DispatchInfoOf, IdentifyAccount, DispatchOriginOf, TransactionExtension, ValidateResult, Verify,
+		DispatchInfoOf, DispatchOriginOf, IdentifyAccount, TransactionExtension, ValidateResult,
+		Verify,
 	},
 	transaction_validity::{InvalidTransaction, ValidTransaction},
 };
@@ -43,8 +44,8 @@ pub struct AuthCredentials<Signer, Signature> {
 /// the call. Essentially resign the transaction from this point onwards in the pipeline by using
 /// the `inherited_implication`, as shown below.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
-#[scale_info(skip_type_params(T, Signer, Signature))]
-pub struct AuthorizeCoownership<T: Config, Signer, Signature> {
+#[scale_info(skip_type_params(T))]
+pub struct AuthorizeCoownership<T, Signer, Signature> {
 	inner: Option<AuthCredentials<Signer, Signature>>,
 	_phantom: PhantomData<T>,
 }
@@ -77,26 +78,8 @@ impl<T: Config, Signer, Signature> fmt::Debug for AuthorizeCoownership<T, Signer
 impl<T: Config + Send + Sync, Signer, Signature> TransactionExtension<T::RuntimeCall>
 	for AuthorizeCoownership<T, Signer, Signature>
 where
-	Signer: IdentifyAccount<AccountId = T::AccountId>
-		+ Clone
-		+ Eq
-		+ PartialEq
-		+ Encode
-		+ Decode
-		+ TypeInfo
-		+ Send
-		+ Sync
-		+ 'static,
-	Signature: Verify<Signer = Signer>
-		+ Clone
-		+ Eq
-		+ PartialEq
-		+ Encode
-		+ Decode
-		+ TypeInfo
-		+ Send
-		+ Sync
-		+ 'static,
+	Signer: IdentifyAccount<AccountId = T::AccountId> + Parameter + Send + Sync + 'static,
+	Signature: Verify<Signer = Signer> + Parameter + Send + Sync + 'static,
 {
 	const IDENTIFIER: &'static str = "AuthorizeCoownership";
 	type Implicit = ();

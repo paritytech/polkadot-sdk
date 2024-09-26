@@ -36,7 +36,7 @@ fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
 	T: Send + Sync,
 	<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
-	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::PostInfo: From<()>,
+	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::PostInfo: Default,
 	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
 		AsSystemOriginSigner<T::AccountId> + AsAuthorizedOrigin + Clone,
 )]
@@ -110,7 +110,9 @@ mod benchmarks {
 		#[block]
 		{
 			assert!(ext
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, 0, |_| Ok(().into()))
+				.test_run(RawOrigin::Signed(caller).into(), &call, &info, 0, |_| Ok(
+					Default::default()
+				))
 				.unwrap()
 				.is_ok());
 		}

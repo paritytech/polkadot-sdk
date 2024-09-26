@@ -19,7 +19,7 @@
 //!
 //! **This pallet serves as an example and is not meant to be used in production.**
 //!
-//! FRAME Transaction Extension reference implemenmtation, origin mutation, origin authorization and
+//! FRAME Transaction Extension reference implementation, origin mutation, origin authorization and
 //! integration in a `TransactionExtension` pipeline.
 //!
 //! The [TransactionExtension](sp_runtime::traits::TransactionExtension) used in this example is
@@ -88,7 +88,7 @@ pub mod pallet_coownership {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	/// Origin that this pallet can auhtorize. For the purposes of this example, it's just two
+	/// Origin that this pallet can authorize. For the purposes of this example, it's just two
 	/// accounts that own something together.
 	#[pallet::origin]
 	#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]

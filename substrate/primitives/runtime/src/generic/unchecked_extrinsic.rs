@@ -77,7 +77,9 @@ pub enum Preamble<Address, Signature, Extension> {
 	Bare(ExtrinsicVersion),
 	/// An old-school transaction extrinsic which includes a signature of some hard-coded crypto.
 	Signed(Address, Signature, ExtensionVersion, Extension, ExtrinsicVersion),
-	/// A new-school transaction extrinsic which does not include a signature.
+	/// A new-school transaction extrinsic which does not include a signature by default. The
+	/// origin authorization, through signatures or other means, is performed by the transaction
+	/// extension in this extrinsic.
 	General(ExtensionVersion, Extension),
 }
 

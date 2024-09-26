@@ -179,7 +179,9 @@ where
 mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, RuntimeCall, Test, CALL};
-	use frame_support::{assert_ok, dispatch::GetDispatchInfo, traits::OriginTrait};
+	use frame_support::{
+		assert_ok, assert_storage_noop, dispatch::GetDispatchInfo, traits::OriginTrait,
+	};
 	use sp_runtime::traits::{AsAuthorizedOrigin, DispatchTransaction};
 
 	#[test]
@@ -198,18 +200,20 @@ mod tests {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			// stale
-			assert_eq!(
-				CheckNonce::<Test>(0u64.into())
-					.validate_only(Some(1).into(), CALL, &info, len)
-					.unwrap_err(),
-				TransactionValidityError::Invalid(InvalidTransaction::Stale)
-			);
-			assert_eq!(
-				CheckNonce::<Test>(0u64.into())
-					.validate_and_prepare(Some(1).into(), CALL, &info, len)
-					.unwrap_err(),
-				TransactionValidityError::Invalid(InvalidTransaction::Stale)
-			);
+			assert_storage_noop!({
+				assert_eq!(
+					CheckNonce::<Test>(0u64.into())
+						.validate_only(Some(1).into(), CALL, &info, len)
+						.unwrap_err(),
+					TransactionValidityError::Invalid(InvalidTransaction::Stale)
+				);
+				assert_eq!(
+					CheckNonce::<Test>(0u64.into())
+						.validate_and_prepare(Some(1).into(), CALL, &info, len)
+						.unwrap_err(),
+					TransactionValidityError::Invalid(InvalidTransaction::Stale)
+				);
+			});
 			// correct
 			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_only(
 				Some(1).into(),
@@ -265,18 +269,20 @@ mod tests {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			// Both providers and sufficients zero
-			assert_eq!(
-				CheckNonce::<Test>(1u64.into())
-					.validate_only(Some(1).into(), CALL, &info, len)
-					.unwrap_err(),
-				TransactionValidityError::Invalid(InvalidTransaction::Payment)
-			);
-			assert_eq!(
-				CheckNonce::<Test>(1u64.into())
-					.validate_and_prepare(Some(1).into(), CALL, &info, len)
-					.unwrap_err(),
-				TransactionValidityError::Invalid(InvalidTransaction::Payment)
-			);
+			assert_storage_noop!({
+				assert_eq!(
+					CheckNonce::<Test>(1u64.into())
+						.validate_only(Some(1).into(), CALL, &info, len)
+						.unwrap_err(),
+					TransactionValidityError::Invalid(InvalidTransaction::Payment)
+				);
+				assert_eq!(
+					CheckNonce::<Test>(1u64.into())
+						.validate_and_prepare(Some(1).into(), CALL, &info, len)
+						.unwrap_err(),
+					TransactionValidityError::Invalid(InvalidTransaction::Payment)
+				);
+			});
 			// Non-zero providers
 			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_only(
 				Some(2).into(),
