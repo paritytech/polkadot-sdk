@@ -529,6 +529,7 @@ impl<T: Config> Pallet<T> {
 				.expect("can't be empty; a new element was just pushed; qed")
 		};
 		let have_active = channel_details.last_index > channel_details.first_index;
+		let is_congested = channel_details.congestion_reported;
 		// Try to append fragment to the last page, if there is enough space.
 		// We return the size of the last page inside of the option, to not calculate it again.
 		let appended_to_last_page = have_active
@@ -584,6 +585,12 @@ impl<T: Config> Pallet<T> {
 			number_of_pages.saturating_sub(1) * max_message_size as u32 + last_page_size as u32;
 		let threshold = channel_info.max_total_size / delivery_fee_constants::THRESHOLD_FACTOR;
 		if total_size > threshold {
+			let message_size_factor = FixedU128::from((encoded_fragment.len() / 1024) as u128)
+				.saturating_mul(delivery_fee_constants::MESSAGE_SIZE_FEE_BASE);
+			Self::increase_fee_factor(recipient, message_size_factor);
+		} else if is_congested {
+			// TODO: not sure about this is a good place
+			// if congested, then increase
 			let message_size_factor = FixedU128::from((encoded_fragment.len() / 1024) as u128)
 				.saturating_mul(delivery_fee_constants::MESSAGE_SIZE_FEE_BASE);
 			Self::increase_fee_factor(recipient, message_size_factor);
