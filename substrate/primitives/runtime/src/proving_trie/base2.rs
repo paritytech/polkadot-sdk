@@ -32,7 +32,6 @@ pub struct BasicProvingTrie<Hashing, Key, Value>
 where
 	Hashing: sp_core::Hasher,
 {
-	// Deduplicated and flattened list of key value pairs.
 	db: BTreeMap<Key, Value>,
 	root: Hashing::Out,
 	_phantom: core::marker::PhantomData<(Key, Value)>,
