@@ -28,7 +28,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
-use core::{fmt, marker::PhantomData};
+use core::{fmt, marker::PhantomData, mem};
 use frame_support::{
 	dispatch::DispatchInfo, ensure, pallet_prelude::DispatchResultWithPostInfo, parameter_types,
 	traits::Get, weights::Weight,
@@ -237,8 +237,8 @@ parameter_types! {
 	const XcmExecutionFailed: ReturnErrorCode = ReturnErrorCode::XcmExecutionFailed;
 }
 
-impl From<ExecReturnValue> for ReturnErrorCode {
-	fn from(from: ExecReturnValue) -> Self {
+impl From<&ExecReturnValue> for ReturnErrorCode {
+	fn from(from: &ExecReturnValue) -> Self {
 		if from.flags.contains(ReturnFlags::REVERT) {
 			Self::CalleeReverted
 		} else {
@@ -769,20 +769,16 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		}
 	}
 
-	/// Fallible conversion of a `ExecResult` to `ReturnErrorCode`.
-	fn exec_into_return_code(from: ExecResult) -> Result<ReturnErrorCode, DispatchError> {
+	/// Fallible conversion of a `ExecError` to `ReturnErrorCode`.
+	fn exec_error_into_return_code(from: ExecError) -> Result<ReturnErrorCode, DispatchError> {
 		use crate::exec::ErrorOrigin::Callee;
 
-		let ExecError { error, origin } = match from {
-			Ok(retval) => return Ok(retval.into()),
-			Err(err) => err,
-		};
-
-		match (error, origin) {
+		match (from.error, from.origin) {
 			(_, Callee) => Ok(ReturnErrorCode::CalleeTrapped),
 			(err, _) => Self::err_into_return_code(err),
 		}
 	}
+
 	fn decode_key(&self, memory: &M, key_ptr: u32, key_len: u32) -> Result<Key, TrapReason> {
 		let res = match key_len {
 			SENTINEL => {
@@ -1036,28 +1032,32 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			},
 		};
 
-		// `TAIL_CALL` only matters on an `OK` result. Otherwise the call stack comes to
-		// a halt anyways without anymore code being executed.
-		if flags.contains(CallFlags::TAIL_CALL) {
-			if let Ok(return_value) = call_outcome {
+		match call_outcome {
+			// `TAIL_CALL` only matters on an `OK` result. Otherwise the call stack comes to
+			// a halt anyways without anymore code being executed.
+			Ok(_) if flags.contains(CallFlags::TAIL_CALL) => {
+				let output = mem::take(self.ext.last_frame_output_mut());
 				return Err(TrapReason::Return(ReturnData {
-					flags: return_value.flags.bits(),
-					data: return_value.data,
+					flags: output.flags.bits(),
+					data: output.data,
 				}));
-			}
+			},
+			Ok(_) => {
+				let output = mem::take(self.ext.last_frame_output_mut());
+				let write_result = self.write_sandbox_output(
+					memory,
+					output_ptr,
+					output_len_ptr,
+					&output.data,
+					true,
+					|len| Some(RuntimeCosts::CopyToContract(len)),
+				);
+				*self.ext.last_frame_output_mut() = output;
+				write_result?;
+				Ok(self.ext.last_frame_output().into())
+			},
+			Err(err) => Ok(Self::exec_error_into_return_code(err)?),
 		}
-
-		if let Ok(output) = &call_outcome {
-			self.write_sandbox_output(
-				memory,
-				output_ptr,
-				output_len_ptr,
-				&output.data,
-				true,
-				|len| Some(RuntimeCosts::CopyToContract(len)),
-			)?;
-		}
-		Ok(Self::exec_into_return_code(call_outcome)?)
 	}
 
 	fn instantiate(
@@ -1086,34 +1086,40 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			let salt: [u8; 32] = memory.read_array(salt_ptr)?;
 			Some(salt)
 		};
-		let instantiate_outcome = self.ext.instantiate(
+
+		match self.ext.instantiate(
 			weight,
 			deposit_limit,
 			code_hash,
 			value,
 			input_data,
 			salt.as_ref(),
-		);
-		if let Ok((address, output)) = &instantiate_outcome {
-			if !output.flags.contains(ReturnFlags::REVERT) {
-				self.write_fixed_sandbox_output(
+		) {
+			Ok(address) => {
+				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {
+					self.write_fixed_sandbox_output(
+						memory,
+						address_ptr,
+						&address.as_bytes(),
+						true,
+						already_charged,
+					)?;
+				}
+				let output = mem::take(self.ext.last_frame_output_mut());
+				let write_result = self.write_sandbox_output(
 					memory,
-					address_ptr,
-					&address.as_bytes(),
+					output_ptr,
+					output_len_ptr,
+					&output.data,
 					true,
-					already_charged,
-				)?;
-			}
-			self.write_sandbox_output(
-				memory,
-				output_ptr,
-				output_len_ptr,
-				&output.data,
-				true,
-				|len| Some(RuntimeCosts::CopyToContract(len)),
-			)?;
+					|len| Some(RuntimeCosts::CopyToContract(len)),
+				);
+				*self.ext.last_frame_output_mut() = output;
+				write_result?;
+				Ok(self.ext.last_frame_output().into())
+			},
+			Err(err) => Ok(Self::exec_error_into_return_code(err)?),
 		}
-		Ok(Self::exec_into_return_code(instantiate_outcome.map(|(_, retval)| retval))?)
 	}
 
 	fn terminate(&mut self, memory: &M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
@@ -1992,5 +1998,45 @@ pub mod env {
 		let code_hash = memory.read_h256(code_hash_ptr)?;
 		self.ext.unlock_delegate_dependency(&code_hash)?;
 		Ok(())
+	}
+
+	/// Stores the length of the data returned by the last call into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::return_data_size`].
+	#[api_version(0)]
+	fn return_data_size(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&as_bytes(U256::from(self.ext.last_frame_output().data.len())),
+			false,
+			|len| Some(RuntimeCosts::CopyToContract(len)),
+		)?)
+	}
+
+	/// Stores data returned by the last call, starting from `offset`, into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::return_data`].
+	#[api_version(0)]
+	fn return_data_copy(
+		&mut self,
+		memory: &mut M,
+		out_ptr: u32,
+		out_len_ptr: u32,
+		offset: u32,
+	) -> Result<(), TrapReason> {
+		let output = mem::take(self.ext.last_frame_output_mut());
+		let result = if offset as usize > output.data.len() {
+			Err(Error::<E::T>::OutOfBounds.into())
+		} else {
+			self.write_sandbox_output(
+				memory,
+				out_ptr,
+				out_len_ptr,
+				&output.data[offset as usize..],
+				false,
+				|len| Some(RuntimeCosts::CopyToContract(len)),
+			)
+		};
+		*self.ext.last_frame_output_mut() = output;
+		Ok(result?)
 	}
 }
