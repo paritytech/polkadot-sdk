@@ -26,9 +26,8 @@ use cumulus_primitives_core::{
 	relay_chain::{
 		runtime_api::ParachainHost,
 		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
-		Block as PBlock, BlockId, BlockNumber, Hash as PHash, Header as PHeader,
+		Block as PBlock, BlockId, BlockNumber, CoreIndex, Hash as PHash, Header as PHeader,
 		InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
-		CoreIndex,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
