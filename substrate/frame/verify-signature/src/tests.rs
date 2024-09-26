@@ -33,7 +33,6 @@ use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	testing::{TestSignature, UintAuthorityId},
 	traits::DispatchTransaction,
-	BuildStorage,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -68,7 +67,9 @@ impl crate::Config for Test {
 	type BenchmarkHelper = BenchmarkHelper;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
 pub fn new_test_ext() -> sp_io::TestExternalities {
+	use sp_runtime::BuildStorage;
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
