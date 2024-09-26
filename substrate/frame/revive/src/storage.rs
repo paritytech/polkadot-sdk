@@ -252,7 +252,13 @@ impl<T: Config> ContractInfo<T> {
 		// to prevent abuse.
 		let upload_deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_info.deposit());
 
-		let deposit = info_deposit.saturating_add(upload_deposit);
+		// Immutable data is unique per contract and part of the base deposit.
+		let immutable_data_deposit =
+			T::DepositPerByte::get().saturating_mul(self.immutable_bytes.into());
+
+		let deposit = info_deposit
+			.saturating_add(upload_deposit)
+			.saturating_add(immutable_data_deposit);
 		self.storage_base_deposit = deposit;
 		deposit
 	}

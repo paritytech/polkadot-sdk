@@ -53,7 +53,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Convert, Dispatchable, Zero},
+	traits::{BadOrigin, Convert, Dispatchable, Saturating, Zero},
 	DispatchError, SaturatedConversion,
 };
 use sp_std::collections::btree_map::BTreeMap;
@@ -386,8 +386,8 @@ pub trait Ext: sealing::Sealed {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn transient_storage(&mut self) -> &mut TransientStorage<Self::T>;
 
-	/// Sets new code hash for existing contract.
-	fn set_code_hash(&mut self, hash: H256) -> DispatchResult;
+	/// Sets new code hash and immutable data for an existing contract.
+	fn set_code_hash(&mut self, address: H160) -> DispatchResult;
 
 	/// Returns the number of times the specified contract exists on the call stack. Delegated calls
 	/// Increment the reference count of a of a stored code by one.
@@ -1074,11 +1074,21 @@ where
 						return Err(Error::<T>::TerminatedInConstructor.into());
 					}
 
+					let frame = self.top_frame_mut();
+					let contract = frame.contract_info.as_contract().inspect(|info| {
+						// Charge for immutable data stored during constructor execution.
+						if info.immutable_bytes == 0 {
+							return;
+						};
+						let amount = StorageDeposit::Charge(
+							T::DepositPerByte::get().saturating_mul(info.immutable_bytes.into()),
+						);
+						frame.nested_storage.charge_deposit(frame.account_id.clone(), amount);
+					});
+
 					// If a special limit was set for the sub-call, we enforce it here.
 					// This is needed because contract constructor might write to storage.
 					// The sub-call will be rolled back in case the limit is exhausted.
-					let frame = self.top_frame_mut();
-					let contract = frame.contract_info.as_contract();
 					frame.nested_storage.enforce_subcall_limit(contract)?;
 
 					let caller = T::AddressMapper::to_address(self.caller().account_id()?);
@@ -1673,15 +1683,25 @@ where
 		&mut self.transient_storage
 	}
 
-	fn set_code_hash(&mut self, hash: H256) -> DispatchResult {
+	fn set_code_hash(&mut self, address: H160) -> DispatchResult {
 		let frame = top_frame_mut!(self);
+		let contract = T::AddressMapper::to_address(&frame.account_id);
+
+		let Some(new_info) = ContractInfoOf::<T>::get(&address) else {
+			return Err(Error::<T>::CodeNotFound.into());
+		};
 
 		let info = frame.contract_info();
 
+		let hash = new_info.code_hash;
 		let prev_hash = info.code_hash;
 		info.code_hash = hash;
 
 		let code_info = CodeInfoOf::<T>::get(hash).ok_or(Error::<T>::CodeNotFound)?;
+
+		let immutable_data = ImmutableDataOf::<T>::get(&address);
+		info.immutable_bytes = immutable_data.as_ref().map(|data| data.len() as u32).unwrap_or(0);
+		ImmutableDataOf::<T>::mutate(&contract, |data| *data = immutable_data);
 
 		let old_base_deposit = info.storage_base_deposit();
 		let new_base_deposit = info.update_base_deposit(&code_info);
@@ -1693,7 +1713,7 @@ where
 		Self::increment_refcount(hash)?;
 		Self::decrement_refcount(prev_hash);
 		Contracts::<Self::T>::deposit_event(Event::ContractCodeUpdated {
-			contract: T::AddressMapper::to_address(&frame.account_id),
+			contract,
 			new_code_hash: hash,
 			old_code_hash: prev_hash,
 		});
