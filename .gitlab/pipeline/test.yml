@@ -112,6 +112,7 @@ test-linux-stable-codecov:
 
 # some tests do not run with `try-runtime` feature enabled
 # https://github.com/paritytech/polkadot-sdk/pull/4251#discussion_r1624282143
+# Move to github after https://github.com/paritytech/ci_cd/issues/1056 is fixed
 test-linux-stable-no-try-runtime:
   stage: test
   extends:
