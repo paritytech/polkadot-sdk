@@ -99,6 +99,16 @@ impl From<libp2p_kad::Record> for Record {
         Record {key, value: out.value, publisher, expires: out.expires}
     }
 }
+impl From<Record> for libp2p_kad::Record {
+    fn from(a:Record) -> libp2p_kad::Record {
+        //let key: KademliaKey = a.key.to_vec().into();
+        let mut peer: Option<libp2p_identity::PeerId> = None;
+        if let Some(x) = a.publisher {
+            peer = Some(x.into()); 
+        } 
+        libp2p_kad::Record {key: a.key.to_vec().into(), value: a.value, publisher: peer, expires: a.expires}
+    }
+}
 
 /// A record either received by the given peer or retrieved from the local
 /// record store.

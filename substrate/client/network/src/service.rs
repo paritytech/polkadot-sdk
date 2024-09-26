@@ -68,7 +68,7 @@ use libp2p::{
 	core::{upgrade, ConnectedPoint, Endpoint},
 	identify::Info as IdentifyInfo,
 	identity::ed25519,
-	kad::{record::Key as KademliaKey, Record},
+	kad::Record,
 	multiaddr::{self, Multiaddr},
 	swarm::{
 		Config as SwarmConfig, ConnectionError, ConnectionId, DialError, Executor, ListenError,
@@ -76,6 +76,7 @@ use libp2p::{
 	},
 	PeerId,
 };
+use sc_network_types::rec::Key as KademliaKey;
 use log::{debug, error, info, trace, warn};
 use metrics::{Histogram, MetricSources, Metrics};
 use parking_lot::Mutex;
@@ -1455,9 +1456,9 @@ where
 	fn handle_worker_message(&mut self, msg: ServiceToWorkerMsg) {
 		match msg {
 			ServiceToWorkerMsg::GetValue(key) =>
-				self.network_service.behaviour_mut().get_value(key),
+				self.network_service.behaviour_mut().get_value(key.to_vec().into()),
 			ServiceToWorkerMsg::PutValue(key, value) =>
-				self.network_service.behaviour_mut().put_value(key, value),
+				self.network_service.behaviour_mut().put_value(key.to_vec().into(), value),
 			ServiceToWorkerMsg::PutRecordTo { record, peers, update_local_storage } => self
 				.network_service
 				.behaviour_mut()
@@ -1465,7 +1466,7 @@ where
 			ServiceToWorkerMsg::StoreRecord(key, value, publisher, expires) => self
 				.network_service
 				.behaviour_mut()
-				.store_record(key, value, publisher, expires),
+				.store_record(key.to_vec().into(), value, publisher, expires),
 			ServiceToWorkerMsg::AddKnownAddress(peer_id, addr) =>
 				self.network_service.behaviour_mut().add_known_address(peer_id, addr),
 			ServiceToWorkerMsg::EventStream(sender) => self.event_streams.push(sender),

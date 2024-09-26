@@ -37,7 +37,7 @@ use prometheus_endpoint::Registry;
 
 use sc_client_api::BlockBackend;
 use sc_network_common::{role::ObservedRole, ExHashT};
-use sc_network_types::{multiaddr::Multiaddr, PeerId};
+pub use sc_network_types::{multiaddr::Multiaddr, PeerId, rec::Key as KademliaKey};
 use sp_runtime::traits::Block as BlockT;
 
 use std::{
@@ -49,7 +49,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
-pub use libp2p::{identity::SigningError, kad::record::Key as KademliaKey};
+pub use libp2p::{identity::SigningError};
 
 /// Supertrait defining the services provided by [`NetworkBackend`] service handle.
 pub trait NetworkService:

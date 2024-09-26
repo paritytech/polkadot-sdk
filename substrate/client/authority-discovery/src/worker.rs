@@ -34,7 +34,7 @@ use futures::{channel::mpsc, future, stream::Fuse, FutureExt, Stream, StreamExt}
 use addr_cache::AddrCache;
 use codec::{Decode, Encode};
 use ip_network::IpNetwork;
-use libp2p::kad::{PeerRecord, Record};
+use sc_network_types::rec::{PeerRecord, Record, Key};
 use linked_hash_set::LinkedHashSet;
 
 use log::{debug, error, trace};
@@ -580,7 +580,7 @@ where
 
 				debug!(target: LOG_TARGET, "Value for hash '{:?}' found on Dht.", v.record.key);
 
-				if let Err(e) = self.handle_dht_value_found_event(v) {
+				if let Err(e) = self.handle_dht_value_found_event(v.into()) {
 					if let Some(metrics) = &self.metrics {
 						metrics.handle_value_found_event_failure.inc();
 					}
@@ -592,7 +592,7 @@ where
 					metrics.dht_event_received.with_label_values(&["value_not_found"]).inc();
 				}
 
-				if self.in_flight_lookups.remove(&hash).is_some() {
+				if self.in_flight_lookups.remove::<KademliaKey>(&hash.to_vec().into()).is_some() {
 					debug!(target: LOG_TARGET, "Value for hash '{:?}' not found on Dht.", hash)
 				} else {
 					debug!(
@@ -602,7 +602,7 @@ where
 				}
 			},
 			DhtEvent::ValuePut(hash) => {
-				if !self.latest_published_kad_keys.contains(&hash) {
+				if !self.latest_published_kad_keys.contains::<KademliaKey>(&hash.to_vec().into()) {
 					return;
 				}
 
@@ -618,7 +618,7 @@ where
 				debug!(target: LOG_TARGET, "Successfully put hash '{:?}' on Dht.", hash)
 			},
 			DhtEvent::ValuePutFailed(hash) => {
-				if !self.latest_published_kad_keys.contains(&hash) {
+				if !self.latest_published_kad_keys.contains::<KademliaKey>(&hash.to_vec().into()) {
 					// Not a value we have published or received multiple times.
 					return;
 				}
@@ -646,7 +646,7 @@ where
 
 	async fn handle_put_record_requested(
 		&mut self,
-		record_key: KademliaKey,
+		record_key: Key,
 		record_value: Vec<u8>,
 		publisher: Option<PeerId>,
 		expires: Option<std::time::Instant>,
@@ -656,7 +656,7 @@ where
 		// Make sure we don't ever work with an outdated set of authorities
 		// and that we do not update known_authorithies too often.
 		let best_hash = self.client.best_hash().await?;
-		if !self.known_authorities.contains_key(&record_key) &&
+		if !self.known_authorities.contains_key::<KademliaKey>(&record_key.to_vec().into()) &&
 			self.authorities_queried_at
 				.map(|authorities_queried_at| authorities_queried_at != best_hash)
 				.unwrap_or(true)
@@ -678,7 +678,7 @@ where
 		}
 
 		let authority_id =
-			self.known_authorities.get(&record_key).ok_or(Error::UnknownAuthority)?;
+			self.known_authorities.get::<KademliaKey>(&record_key.to_vec().into()).ok_or(Error::UnknownAuthority)?;
 		let signed_record =
 			Self::check_record_signed_with_authority_id(record_value.as_slice(), authority_id)?;
 		self.check_record_signed_with_network_key(
@@ -697,7 +697,7 @@ where
 				})
 				.unwrap_or_default(); // 0 is a sane default for records that do not have creation time present.
 
-		let current_record_info = self.last_known_records.get(&record_key);
+		let current_record_info = self.last_known_records.get::<KademliaKey>(&record_key.to_vec().into());
 		// If record creation time is older than the current record creation time,
 		// we don't store it since we want to give higher priority to newer records.
 		if let Some(current_record_info) = current_record_info {
@@ -712,7 +712,7 @@ where
 			}
 		}
 
-		self.network.store_record(record_key, record_value, Some(publisher), expires);
+		self.network.store_record(record_key.to_vec().into(), record_value, Some(publisher), expires);
 		Ok(())
 	}
 
@@ -767,10 +767,10 @@ where
 		let remote_key = peer_record.record.key.clone();
 
 		let authority_id: AuthorityId =
-			if let Some(authority_id) = self.in_flight_lookups.remove(&remote_key) {
-				self.known_lookups.insert(remote_key.clone(), authority_id.clone());
+			if let Some(authority_id) = self.in_flight_lookups.remove::<KademliaKey>(&remote_key.to_vec().into()) {
+				self.known_lookups.insert(remote_key.clone().to_vec().into(), authority_id.clone());
 				authority_id
-			} else if let Some(authority_id) = self.known_lookups.get(&remote_key) {
+			} else if let Some(authority_id) = self.known_lookups.get::<KademliaKey>(&remote_key.to_vec().into()) {
 				authority_id.clone()
 			} else {
 				return Err(Error::ReceivingUnexpectedRecord);
@@ -835,7 +835,7 @@ where
 
 		let addr_cache_needs_update = self.handle_new_record(
 			&authority_id,
-			remote_key.clone(),
+			remote_key.clone().to_vec().into(),
 			RecordInfo {
 				creation_time: records_creation_time,
 				peers_with_record: answering_peer_id.into_iter().collect(),
@@ -870,7 +870,7 @@ where
 		if new_record.creation_time > current_record_info.creation_time {
 			let peers_that_need_updating = current_record_info.peers_with_record.clone();
 			self.network.put_record_to(
-				new_record.record.clone(),
+				new_record.record.clone().into(),
 				peers_that_need_updating.clone(),
 				// If this is empty it means we received the answer from our node local
 				// storage, so we need to update that as well.
@@ -907,7 +907,7 @@ where
 				authority_id, new_record.creation_time, current_record_info.creation_time,
 		);
 		self.network.put_record_to(
-			current_record_info.record.clone(),
+			current_record_info.record.clone().into(),
 			new_record.peers_with_record.clone(),
 			// If this is empty it means we received the answer from our node local
 			// storage, so we need to update that as well.

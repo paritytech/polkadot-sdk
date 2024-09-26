@@ -379,18 +379,18 @@ impl From<DiscoveryOut> for BehaviourOut {
 			},
 			DiscoveryOut::Discovered(peer_id) => BehaviourOut::Discovered(peer_id),
 			DiscoveryOut::ValueFound(results, duration) =>
-				BehaviourOut::Dht(DhtEvent::ValueFound(results), Some(duration)),
+				BehaviourOut::Dht(DhtEvent::ValueFound(results.into()), Some(duration)),
 			DiscoveryOut::ValueNotFound(key, duration) =>
-				BehaviourOut::Dht(DhtEvent::ValueNotFound(key), Some(duration)),
+				BehaviourOut::Dht(DhtEvent::ValueNotFound(key.to_vec().into()), Some(duration)),
 			DiscoveryOut::ValuePut(key, duration) =>
-				BehaviourOut::Dht(DhtEvent::ValuePut(key), Some(duration)),
+				BehaviourOut::Dht(DhtEvent::ValuePut(key.to_vec().into()), Some(duration)),
 			DiscoveryOut::PutRecordRequest(record_key, record_value, publisher, expires) =>
 				BehaviourOut::Dht(
-					DhtEvent::PutRecordRequest(record_key, record_value, publisher, expires),
+					DhtEvent::PutRecordRequest(record_key.to_vec().into(), record_value, publisher, expires),
 					None,
 				),
 			DiscoveryOut::ValuePutFailed(key, duration) =>
-				BehaviourOut::Dht(DhtEvent::ValuePutFailed(key), Some(duration)),
+				BehaviourOut::Dht(DhtEvent::ValuePutFailed(key.to_vec().into()), Some(duration)),
 			DiscoveryOut::RandomKademliaStarted => BehaviourOut::RandomKademliaStarted,
 		}
 	}
