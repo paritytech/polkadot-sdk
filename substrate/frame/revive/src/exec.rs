@@ -387,7 +387,7 @@ pub trait Ext: sealing::Sealed {
 	fn transient_storage(&mut self) -> &mut TransientStorage<Self::T>;
 
 	/// Sets new code hash and immutable data for an existing contract.
-	fn set_code_hash(&mut self, address: H160) -> DispatchResult;
+	fn set_code_hash(&mut self, hash: H256) -> DispatchResult;
 
 	/// Returns the number of times the specified contract exists on the call stack. Delegated calls
 	/// Increment the reference count of a of a stored code by one.
@@ -1572,7 +1572,6 @@ where
 
 		self.top_frame_mut().contract_info.get(&account_id).immutable_bytes = data.len() as u32;
 		<ImmutableDataOf<T>>::insert(address, &data);
-		self.immutable_data.insert(account_id, data);
 
 		Ok(())
 	}
@@ -1683,25 +1682,28 @@ where
 		&mut self.transient_storage
 	}
 
-	fn set_code_hash(&mut self, address: H160) -> DispatchResult {
+	/// TODO: This should be changed to run the constructor of the supplied `hash`.
+	///
+	/// Because the immutable data is attached to a contract and not a code,
+	/// we need to update the immutable data too.
+	///
+	/// Otherwise we open a massive footgun:
+	/// If the immutables changed in the new code, the contract will brick.
+	///
+	/// A possible implementation strategy is to add a flag to `FrameArgs::Instantiate`,
+	/// so that `fn run()` will roll back any changes if this flag is set.
+	///
+	/// After running the constructor, the new immutable data is already stored in
+	/// `self.immutable_data` at the address of the (reverted) contract instantiation.
+	fn set_code_hash(&mut self, hash: H256) -> DispatchResult {
 		let frame = top_frame_mut!(self);
-		let contract = T::AddressMapper::to_address(&frame.account_id);
-
-		let Some(new_info) = ContractInfoOf::<T>::get(&address) else {
-			return Err(Error::<T>::CodeNotFound.into());
-		};
 
 		let info = frame.contract_info();
 
-		let hash = new_info.code_hash;
 		let prev_hash = info.code_hash;
 		info.code_hash = hash;
 
 		let code_info = CodeInfoOf::<T>::get(hash).ok_or(Error::<T>::CodeNotFound)?;
-
-		let immutable_data = ImmutableDataOf::<T>::get(&address);
-		info.immutable_bytes = immutable_data.as_ref().map(|data| data.len() as u32).unwrap_or(0);
-		ImmutableDataOf::<T>::mutate(&contract, |data| *data = immutable_data);
 
 		let old_base_deposit = info.storage_base_deposit();
 		let new_base_deposit = info.update_base_deposit(&code_info);
@@ -1713,7 +1715,7 @@ where
 		Self::increment_refcount(hash)?;
 		Self::decrement_refcount(prev_hash);
 		Contracts::<Self::T>::deposit_event(Event::ContractCodeUpdated {
-			contract,
+			contract: T::AddressMapper::to_address(&frame.account_id),
 			new_code_hash: hash,
 			old_code_hash: prev_hash,
 		});
