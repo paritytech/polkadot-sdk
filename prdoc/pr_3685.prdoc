@@ -152,7 +152,7 @@ crates:
   - name: pallet-sudo
     bump: major
   - name: frame-support-procedural
-    bump: minor
+    bump: major
   - name: frame-support
     bump: major
   - name: frame-system
