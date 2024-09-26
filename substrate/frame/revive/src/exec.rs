@@ -189,16 +189,12 @@ pub trait Ext: sealing::Sealed {
 		input_data: Vec<u8>,
 		allows_reentry: bool,
 		read_only: bool,
-	) -> Result<ExecReturnValue, ExecError>;
+	) -> Result<(), ExecError>;
 
 	/// Execute code in the current frame.
 	///
 	/// Returns the code size of the called contract.
-	fn delegate_call(
-		&mut self,
-		code: H256,
-		input_data: Vec<u8>,
-	) -> Result<ExecReturnValue, ExecError>;
+	fn delegate_call(&mut self, code: H256, input_data: Vec<u8>) -> Result<(), ExecError>;
 
 	/// Instantiate a contract from the given code.
 	///
@@ -213,7 +209,7 @@ pub trait Ext: sealing::Sealed {
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-	) -> Result<(H160, ExecReturnValue), ExecError>;
+	) -> Result<H160, ExecError>;
 
 	/// Transfer all funds to `beneficiary` and delete the contract.
 	///
@@ -427,6 +423,12 @@ pub trait Ext: sealing::Sealed {
 
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
+
+	/// Returns an immutable reference to the output of the last executed call frame.
+	fn last_frame_output(&self) -> &ExecReturnValue;
+
+	/// Returns a mutable reference to the output of the last executed call frame.
+	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -547,6 +549,8 @@ struct Frame<T: Config> {
 	read_only: bool,
 	/// The caller of the currently executing frame which was spawned by `delegate_call`.
 	delegate_caller: Option<Origin<T>>,
+	/// The output of the last executed call frame.
+	last_frame_output: ExecReturnValue,
 }
 
 /// Used in a delegate call frame arguments in order to override the executable and caller.
@@ -731,7 +735,7 @@ where
 			value,
 			debug_message,
 		)? {
-			stack.run(executable, input_data)
+			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
 			Self::transfer_no_contract(&origin, &dest, value)
 		}
@@ -772,7 +776,9 @@ where
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
-		stack.run(executable, input_data).map(|ret| (address, ret))
+		stack
+			.run(executable, input_data)
+			.map(|_| (address, stack.first_frame.last_frame_output))
 	}
 
 	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
@@ -865,7 +871,7 @@ where
 					{
 						contract
 					} else {
-						return Ok(None)
+						return Ok(None);
 					}
 				};
 
@@ -911,6 +917,7 @@ where
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
 			read_only,
+			last_frame_output: Default::default(),
 		};
 
 		Ok(Some((frame, executable)))
@@ -965,11 +972,23 @@ where
 	/// Run the current (top) frame.
 	///
 	/// This can be either a call or an instantiate.
-	fn run(&mut self, executable: E, input_data: Vec<u8>) -> ExecResult {
+	fn run(&mut self, executable: E, input_data: Vec<u8>) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
 		let delegated_code_hash =
 			if frame.delegate_caller.is_some() { Some(*executable.code_hash()) } else { None };
+
+		// The output of the caller frame will be replaced by the output of this run.
+		// It is also not accessible from nested frames.
+		// Hence we drop it early to save the memory.
+		let frames_len = self.frames.len();
+		if let Some(caller_frame) = match frames_len {
+			0 => None,
+			1 => Some(&mut self.first_frame.last_frame_output),
+			_ => self.frames.get_mut(frames_len - 2).map(|frame| &mut frame.last_frame_output),
+		} {
+			*caller_frame = Default::default();
+		}
 
 		self.transient_storage.start_transaction();
 
@@ -1109,7 +1128,9 @@ where
 		}
 
 		self.pop_frame(success);
-		output
+		output.map(|output| {
+			self.top_frame_mut().last_frame_output = output;
+		})
 	}
 
 	/// Remove the current (top) frame from the stack.
@@ -1285,7 +1306,7 @@ where
 		input_data: Vec<u8>,
 		allows_reentry: bool,
 		read_only: bool,
-	) -> ExecResult {
+	) -> Result<(), ExecError> {
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
@@ -1323,7 +1344,8 @@ where
 					&Origin::from_account_id(self.account_id().clone()),
 					&dest,
 					value,
-				)
+				)?;
+				Ok(())
 			}
 		};
 
@@ -1336,11 +1358,7 @@ where
 		result
 	}
 
-	fn delegate_call(
-		&mut self,
-		code_hash: H256,
-		input_data: Vec<u8>,
-	) -> Result<ExecReturnValue, ExecError> {
+	fn delegate_call(&mut self, code_hash: H256, input_data: Vec<u8>) -> Result<(), ExecError> {
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let top_frame = self.top_frame_mut();
 		let contract_info = top_frame.contract_info().clone();
@@ -1368,7 +1386,7 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-	) -> Result<(H160, ExecReturnValue), ExecError> {
+	) -> Result<H160, ExecError> {
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let sender = &self.top_frame().account_id;
 		let executable = self.push_frame(
@@ -1385,7 +1403,7 @@ where
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
 		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data)
-			.map(|ret| (address, ret))
+			.map(|_| address)
 	}
 
 	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult {
@@ -1689,6 +1707,14 @@ where
 
 	fn is_read_only(&self) -> bool {
 		self.top_frame().read_only
+	}
+
+	fn last_frame_output(&self) -> &ExecReturnValue {
+		&self.top_frame().last_frame_output
+	}
+
+	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
+		&mut self.top_frame_mut().last_frame_output
 	}
 }
 
@@ -2353,15 +2379,17 @@ mod tests {
 			// ALICE is the origin of the call stack
 			assert!(ctx.ext.caller_is_origin());
 			// BOB calls CHARLIE
-			ctx.ext.call(
-				Weight::zero(),
-				U256::zero(),
-				&CHARLIE_ADDR,
-				U256::zero(),
-				vec![],
-				true,
-				false,
-			)
+			ctx.ext
+				.call(
+					Weight::zero(),
+					U256::zero(),
+					&CHARLIE_ADDR,
+					U256::zero(),
+					vec![],
+					true,
+					false,
+				)
+				.map(|_| ctx.ext.last_frame_output().clone())
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2447,15 +2475,17 @@ mod tests {
 			// root is the origin of the call stack.
 			assert!(ctx.ext.caller_is_root());
 			// BOB calls CHARLIE.
-			ctx.ext.call(
-				Weight::zero(),
-				U256::zero(),
-				&CHARLIE_ADDR,
-				U256::zero(),
-				vec![],
-				true,
-				false,
-			)
+			ctx.ext
+				.call(
+					Weight::zero(),
+					U256::zero(),
+					&CHARLIE_ADDR,
+					U256::zero(),
+					vec![],
+					true,
+					false,
+				)
+				.map(|_| ctx.ext.last_frame_output().clone())
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2666,6 +2696,7 @@ mod tests {
 						vec![],
 						Some(&[48; 32]),
 					)
+					.map(|address| (address, ctx.ext.last_frame_output().clone()))
 					.unwrap();
 
 				*instantiated_contract_address.borrow_mut() = Some(address);
@@ -2841,15 +2872,17 @@ mod tests {
 				assert_eq!(info.storage_byte_deposit, 0);
 				info.storage_byte_deposit = 42;
 				assert_eq!(
-					ctx.ext.call(
-						Weight::zero(),
-						U256::zero(),
-						&CHARLIE_ADDR,
-						U256::zero(),
-						vec![],
-						true,
-						false
-					),
+					ctx.ext
+						.call(
+							Weight::zero(),
+							U256::zero(),
+							&CHARLIE_ADDR,
+							U256::zero(),
+							vec![],
+							true,
+							false
+						)
+						.map(|_| ctx.ext.last_frame_output().clone()),
 					exec_trapped()
 				);
 				assert_eq!(ctx.ext.contract_info().storage_byte_deposit, 42);
@@ -3095,6 +3128,7 @@ mod tests {
 			let dest = H160::from_slice(ctx.input_data.as_ref());
 			ctx.ext
 				.call(Weight::zero(), U256::zero(), &dest, U256::zero(), vec![], false, false)
+				.map(|_| ctx.ext.last_frame_output().clone())
 		});
 
 		let code_charlie = MockLoader::insert(Call, |_, _| exec_success());
@@ -3137,15 +3171,17 @@ mod tests {
 	fn call_deny_reentry() {
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			if ctx.input_data[0] == 0 {
-				ctx.ext.call(
-					Weight::zero(),
-					U256::zero(),
-					&CHARLIE_ADDR,
-					U256::zero(),
-					vec![],
-					false,
-					false,
-				)
+				ctx.ext
+					.call(
+						Weight::zero(),
+						U256::zero(),
+						&CHARLIE_ADDR,
+						U256::zero(),
+						vec![],
+						false,
+						false,
+					)
+					.map(|_| ctx.ext.last_frame_output().clone())
 			} else {
 				exec_success()
 			}
@@ -3153,15 +3189,9 @@ mod tests {
 
 		// call BOB with input set to '1'
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.call(
-				Weight::zero(),
-				U256::zero(),
-				&BOB_ADDR,
-				U256::zero(),
-				vec![1],
-				true,
-				false,
-			)
+			ctx.ext
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![1], true, false)
+				.map(|_| ctx.ext.last_frame_output().clone())
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -3360,7 +3390,7 @@ mod tests {
 			let alice_nonce = System::account_nonce(&ALICE);
 			assert_eq!(System::account_nonce(ctx.ext.account_id()), 0);
 			assert_eq!(ctx.ext.caller().account_id().unwrap(), &ALICE);
-			let (addr, _) = ctx
+			let addr = ctx
 				.ext
 				.instantiate(
 					Weight::zero(),
@@ -3916,15 +3946,17 @@ mod tests {
 					Ok(WriteOutcome::New)
 				);
 				assert_eq!(
-					ctx.ext.call(
-						Weight::zero(),
-						U256::zero(),
-						&CHARLIE_ADDR,
-						U256::zero(),
-						vec![],
-						true,
-						false,
-					),
+					ctx.ext
+						.call(
+							Weight::zero(),
+							U256::zero(),
+							&CHARLIE_ADDR,
+							U256::zero(),
+							vec![],
+							true,
+							false,
+						)
+						.map(|_| ctx.ext.last_frame_output().clone()),
 					exec_success()
 				);
 				assert_eq!(ctx.ext.get_transient_storage(storage_key_1), Some(vec![3]));
@@ -4020,15 +4052,17 @@ mod tests {
 					Ok(WriteOutcome::New)
 				);
 				assert_eq!(
-					ctx.ext.call(
-						Weight::zero(),
-						U256::zero(),
-						&CHARLIE_ADDR,
-						U256::zero(),
-						vec![],
-						true,
-						false
-					),
+					ctx.ext
+						.call(
+							Weight::zero(),
+							U256::zero(),
+							&CHARLIE_ADDR,
+							U256::zero(),
+							vec![],
+							true,
+							false
+						)
+						.map(|_| ctx.ext.last_frame_output().clone()),
 					exec_trapped()
 				);
 				assert_eq!(ctx.ext.get_transient_storage(storage_key), Some(vec![1, 2]));
@@ -4097,6 +4131,150 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
+				None,
+			);
+			assert_matches!(result, Ok(_));
+		});
+	}
+
+	#[test]
+	fn last_frame_output_works_on_instantiate() {
+		let ok_ch = MockLoader::insert(Constructor, move |_, _| {
+			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] })
+		});
+		let revert_ch = MockLoader::insert(Constructor, move |_, _| {
+			Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: vec![70] })
+		});
+		let trap_ch = MockLoader::insert(Constructor, |_, _| Err("It's a trap!".into()));
+		let instantiator_ch = MockLoader::insert(Call, {
+			move |ctx, _| {
+				let value = <Test as Config>::Currency::minimum_balance().into();
+
+				// Successful instantiation should set the output
+				let address = ctx
+					.ext
+					.instantiate(Weight::zero(), U256::zero(), ok_ch, value, vec![], None)
+					.unwrap();
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
+				);
+
+				// Plain transfers should not set the output
+				ctx.ext.transfer(&address, U256::from(1)).unwrap();
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
+				);
+
+				// Reverted instantiation should set the output
+				ctx.ext
+					.instantiate(Weight::zero(), U256::zero(), revert_ch, value, vec![], None)
+					.unwrap();
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::REVERT, data: vec![70] }
+				);
+
+				// Trapped instantiation should clear the output
+				ctx.ext
+					.instantiate(Weight::zero(), U256::zero(), trap_ch, value, vec![], None)
+					.unwrap_err();
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![] }
+				);
+
+				exec_success()
+			}
+		});
+
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.existential_deposit(15)
+			.build()
+			.execute_with(|| {
+				set_balance(&ALICE, 1000);
+				set_balance(&BOB_CONTRACT_ID, 100);
+				place_contract(&BOB, instantiator_ch);
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap()
+			});
+	}
+
+	#[test]
+	fn last_frame_output_works_on_nested_call() {
+		// Call stack: BOB -> CHARLIE(revert) -> BOB' (success)
+		let code_bob = MockLoader::insert(Call, |ctx, _| {
+			if ctx.input_data.is_empty() {
+				// We didn't do anything yet
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![] }
+				);
+
+				ctx.ext
+					.call(
+						Weight::zero(),
+						U256::zero(),
+						&CHARLIE_ADDR,
+						U256::zero(),
+						vec![],
+						true,
+						false,
+					)
+					.unwrap();
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::REVERT, data: vec![70] }
+				);
+			}
+
+			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] })
+		});
+		let code_charlie = MockLoader::insert(Call, |ctx, _| {
+			// We didn't do anything yet
+			assert_eq!(
+				ctx.ext.last_frame_output(),
+				&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![] }
+			);
+
+			assert!(ctx
+				.ext
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
+				.is_ok());
+			assert_eq!(
+				ctx.ext.last_frame_output(),
+				&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
+			);
+
+			Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: vec![70] })
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			place_contract(&BOB, code_bob);
+			place_contract(&CHARLIE, code_charlie);
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+
+			let result = MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut storage_meter,
+				0,
+				vec![0],
 				None,
 			);
 			assert_matches!(result, Ok(_));
