@@ -601,9 +601,10 @@ fn project_enabled_features(
 			// We don't want to enable the `std`/`default` feature for the wasm build and
 			// we need to check if the feature is enabled by checking the env variable.
 			*f != "std" &&
-				*f != "default" && env::var(format!("CARGO_FEATURE_{}", feature_env))
-				.map(|v| v == "1")
-				.unwrap_or_default()
+				*f != "default" &&
+				env::var(format!("CARGO_FEATURE_{}", feature_env))
+					.map(|v| v == "1")
+					.unwrap_or_default()
 		})
 		.map(|d| d.0.clone())
 		.collect::<Vec<_>>();
@@ -851,9 +852,14 @@ fn build_bloaty_blob(
 
 	build_cmd
 		.arg("rustc")
-		.arg("--message-format=json")
 		.arg(format!("--target={}", target.rustc_target()))
 		.arg(format!("--manifest-path={}", manifest_path.display()))
+		.args(
+			env::var(crate::WASM_BUILD_CARGO_ARGS)
+				.unwrap_or_default()
+				.split(" ")
+				.into_iter(),
+		)
 		.env("RUSTFLAGS", rustflags)
 		// Manually set the `CARGO_TARGET_DIR` to prevent a cargo deadlock (cargo locks a target dir
 		// exclusive). The runner project is created in `CARGO_TARGET_DIR` and executing it will
@@ -1140,6 +1146,7 @@ fn generate_rerun_if_changed_instructions(
 	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_TOOLCHAIN);
 	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_STD);
 	println!("cargo:rerun-if-env-changed={}", crate::RUNTIME_TARGET);
+	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_CARGO_ARGS);
 }
 
 /// Track files and paths related to the given package to rerun `build.rs` on any relevant change.
