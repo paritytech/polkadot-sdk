@@ -1965,17 +1965,15 @@ pub mod env {
 
 	/// Replace the contract code at the specified address with new code.
 	/// See [`pallet_revive_uapi::HostFn::set_code_hash`].
-	#[api_version(0)]
 	#[mutating]
 	fn set_code_hash(
 		&mut self,
 		memory: &mut M,
-		address_ptr: u32,
+		code_hash_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::SetCodeHash)?;
-		let mut address = H160::zero();
-		memory.read_into_buf(address_ptr, address.as_bytes_mut())?;
-		match self.ext.set_code_hash(address) {
+		let code_hash: H256 = memory.read_h256(code_hash_ptr)?;
+		match self.ext.set_code_hash(code_hash) {
 			Err(err) => {
 				let code = Self::err_into_return_code(err)?;
 				Ok(code)
