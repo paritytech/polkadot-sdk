@@ -517,16 +517,15 @@ pub async fn start_slot_worker<B, C, W, SO, CIDP, Proof>(
 	CIDP: CreateInherentDataProviders<B, ()> + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 {
-	let mut slots = Slots::new(slot_duration.as_duration(), create_inherent_data_providers, client);
+	let mut slots = Slots::new(
+		slot_duration.as_duration(),
+		create_inherent_data_providers,
+		client,
+		sync_oracle,
+	);
 
 	loop {
 		let slot_info = slots.next_slot().await;
-
-		if sync_oracle.is_major_syncing() {
-			debug!(target: LOG_TARGET, "Skipping proposal slot due to sync.");
-			continue
-		}
-
 		let _ = worker.on_slot(slot_info).await;
 	}
 }

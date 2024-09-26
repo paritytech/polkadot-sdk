@@ -4,28 +4,43 @@ set -e
 
 prompt() {
     while true; do
-        echo "$1 [y/N]"
+        printf "$1 [y/N]\n"
         read yn
         case $yn in
             [Yy]* ) return 0;;  # Yes, return 0 (true)
             [Nn]* ) return 1;;  # No, return 1 (false)
             "" ) return 1;;     # Default to no if user just presses Enter
-            * ) echo "Please answer yes or no.";;
+            * ) printf "Please answer yes or no.\n";;
         esac
     done
 }
 
 prompt_default_yes() {
     while true; do
-        echo "$1 [Y/n]"
+        printf "$1 [Y/n]\n"
         read yn
         case $yn in
             [Yy]* ) return 0;;  # Yes, return 0 (true)
             [Nn]* ) return 1;;  # No, return 1 (false)
             "" ) return 0;;     # Default to yes if user just presses Enter
-            * ) echo "Please answer yes or no.";;
+            * ) printf "Please answer yes or no.\n";;
         esac
     done
+}
+
+clone_and_enter_template() {
+    template="$1" # minimal, solochain, or parachain
+    if [ -d "${template}-template" ]; then
+        printf "\n✅︎ ${template}-template directory already exists. -> Entering.\n"
+    else
+        printf "\n↓ Let's grab the ${template} template from github.\n"
+        git clone --quiet https://github.com/paritytech/polkadot-sdk-${template}-template.git ${template}-template
+    fi
+    cd ${template}-template
+    
+    if ! [[ -f "rust-toolchain.toml" ]]; then
+        curl -s -H "Accept:application/vnd.github.v3.raw" https://api.github.com/repos/paritytech/polkadot-sdk/contents/rust-toolchain.toml > rust-toolchain.toml
+    fi
 }
 
 cat <<EOF
@@ -39,35 +54,35 @@ cat <<EOF
      |    \__/ |__/| \_/\_/|_/\_/|_/\__/ |_/  |____/|____/|_|\_\ 
                                                                     quickstart!
 
-⚡ We will be setting up an example template and its environment for you to experiment with.
+⚡ We will help setting up the environment for you to experiment with.
 EOF
 
 # Determine OS
 os_name=$(uname -s)
 if [ "$os_name" = "Darwin" ]; then
-    echo "🍎 Detected macOS. Installing dependencies via Homebrew."
+    printf "🍎 Detected macOS. Installing dependencies via Homebrew.\n"
 
     # Check if brew is installed
     if command -v brew >/dev/null 2>&1; then
-        echo "\n✅︎🍺 Homebrew already installed."
+        printf "\n✅︎🍺 Homebrew already installed.\n"
     else
-        if prompt_default_yes "\n🍺 Homebrew is not installed. Install it?"; then
-            echo "🍺 Installing Homebrew."
+        if prompt_default_yes "\n🍺 Homebrew is not installed. Install it?\n"; then
+            printf "🍺 Installing Homebrew.\n"
             /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
         else
-            echo "❌ Cannot continue without homebrew. Aborting."
+            printf "❌ Cannot continue without homebrew. Aborting.\n"
             exit 1
         fi
     fi
 
     brew update
     if command -v git >/dev/null 2>&1; then
-        echo "\n✅︎🍺 git already installed."
+        printf "\n✅︎🍺 git already installed.\n"
     else
-        if prompt_default_yes "\n🍺 git seems to be missing but we will need it; install git?"; then
+        if prompt_default_yes "\n🍺 git seems to be missing but we will need it; install git?\n"; then
             brew install git
         else
-            echo "❌ Cannot continue without git. Aborting."
+            printf "❌ Cannot continue without git. Aborting.\n"
             exit 1
         fi
     fi
@@ -75,69 +90,85 @@ if [ "$os_name" = "Darwin" ]; then
     if prompt "\n🍺 Install cmake, openssl and protobuf?"; then
         brew install cmake openssl protobuf
     else
-        echo "🍺 Assuming cmake, openssl and protobuf are present."
+        printf "🍺 Assuming cmake, openssl and protobuf are present.\n"
     fi
 elif [ "$os_name" = "Linux" ]; then
     # find the distro name in the release files
     distro=$( cat /etc/*-release | tr '[:upper:]' '[:lower:]' | grep -Poi '(debian|ubuntu|arch|fedora|opensuse)' | uniq | head -n 1 )
 
     if [ "$distro" = "ubuntu" ]; then
-        echo "\n🐧 Detected Ubuntu. Using apt to install dependencies."
-        sudo apt install --assume-yes git clang curl libssl-dev protobuf-compiler
+        printf "\n🐧 Detected Ubuntu. Using apt to install dependencies.\n"
+        sudo apt -qq update
+        sudo apt -qq install --assume-yes git clang curl libssl-dev protobuf-compiler make
     elif [ "$distro" = "debian" ]; then
-        echo "\n🐧 Detected Debian. Using apt to install dependencies."
-        sudo apt install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler
+        printf "\n🐧 Detected Debian. Using apt to install dependencies.\n"
+        sudo apt -qq update
+        sudo apt -qq install --assume-yes git clang curl libssl-dev llvm libudev-dev make protobuf-compiler
     elif [ "$distro" = "arch" ]; then
-        echo "\n🐧 Detected Arch Linux. Using pacman to install dependencies."
+        printf "\n🐧 Detected Arch Linux. Using pacman to install dependencies.\n"
         pacman -Syu --needed --noconfirm curl git clang make protobuf
     elif [ "$distro" = "fedora" ]; then
-        echo "\n🐧 Detected Fedora. Using dnf to install dependencies."
-        sudo dnf update
-        sudo dnf install clang curl git openssl-devel make protobuf-compiler
+        printf "\n🐧 Detected Fedora. Using dnf to install dependencies.\n"
+        sudo dnf update --assumeyes
+        sudo dnf install --assumeyes clang curl git openssl-devel make protobuf-compiler perl
     elif [ "$distro" = "opensuse" ]; then
-        echo "\n🐧 Detected openSUSE. Using zypper to install dependencies."
-        sudo zypper install clang curl git openssl-devel llvm-devel libudev-devel make protobuf
+        printf "\n🐧 Detected openSUSE. Using zypper to install dependencies.\n"
+        sudo zypper install --no-confirm clang gcc gcc-c++ curl git openssl-devel llvm-devel libudev-devel make awk protobuf-devel
     else
-        if prompt "\n🐧 Unknown Linux distribution. Unable to install dependencies. Continue anyway?"; then
-            echo "\n🐧 Proceeding with unknown linux distribution..."
+        if prompt "\n🐧 Unknown Linux distribution. Unable to install dependencies. Continue anyway?\n"; then
+            printf "\n🐧 Proceeding with unknown linux distribution...\n"
         else
             exit 1
         fi
     fi
 else
-    echo "❌ Unknown operating system. Aborting."
+    printf "❌ Unknown operating system. Aborting.\n"
     exit 1
 fi
 
 # Check if rust is installed
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 if command -v rustc >/dev/null 2>&1; then
-    echo "\n✅︎🦀 Rust already installed."
+    printf "\n✅︎🦀 Rust already installed.\n"
 else
     if prompt_default_yes "\n🦀 Rust is not installed. Install it?"; then
-        echo "🦀 Installing via rustup."
+        printf "🦀 Installing via rustup.\n"
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+        . "$HOME/.cargo/env"
     else
-        echo "Aborting."
+        printf "Aborting.\n"
         exit 1
     fi
 fi
 
-if [ -d "minimal-template" ]; then
-    echo "\n✅︎ minimal-template directory already exists. -> Entering."
-else
-    echo "\n↓ Let's grab the minimal template from github."
-    git clone https://github.com/paritytech/polkadot-sdk-minimal-template.git minimal-template
+if ! prompt "\nWould you like to start with one of the templates?"; then
+    printf "⚡ All done, the environment is ready for hacking.\n"
+    exit 0
 fi
 
-cd minimal-template
+while true; do
+    printf "\nWhich template would you like to start with?\n"
+    printf "1) minimal template\n"
+    printf "2) parachain template\n"
+    printf "3) solochain template\n"
+    printf "q) cancel\n"
+    read -p "#? " template
+    case $template in
+        [1]* ) clone_and_enter_template minimal; break;;
+        [2]* ) clone_and_enter_template parachain; break;;
+        [3]* ) clone_and_enter_template solochain; break;;
+        [qQ]* ) printf "Canceling, not using a template.\n"; exit 0;;
+        * ) printf "Selection not recognized.\n";;
+    esac
+done
 
-if ! [[ -f "rust-toolchain.toml" ]]; then
-    curl -s -H "Accept:application/vnd.github.v3.raw" https://api.github.com/repos/paritytech/polkadot-sdk/contents/rust-toolchain.toml > rust-toolchain.toml
+if ! prompt_default_yes "\n⚙️ Let's compile the node? It might take a while."; then
+    printf "⚡ Script finished, you can continue in the ${template}-template directory.\n"
+    exit 0
 fi
 
-echo "\n⚙️ Let's compile the node."
 cargo build --release
 
-if prompt_default_yes "\n🚀 Everything ready to go, let's run the node?"; then
+if prompt_default_yes "\n🚀 Everything ready to go, let's run the node?\n"; then
     cargo run --release -- --dev
 fi

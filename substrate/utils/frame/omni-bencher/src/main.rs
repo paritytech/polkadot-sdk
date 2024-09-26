@@ -19,10 +19,22 @@ mod command;
 
 use clap::Parser;
 use sc_cli::Result;
+use tracing_subscriber::EnvFilter;
 
 fn main() -> Result<()> {
-	sp_tracing::try_init_simple();
+	setup_logger();
+
 	log::warn!("The FRAME omni-bencher is not yet battle tested - double check the results.",);
 
 	command::Command::parse().run()
+}
+
+/// Setup logging with `info` as default level. Can be set via `RUST_LOG` env.
+fn setup_logger() {
+	let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
+	tracing_subscriber::fmt()
+		.with_env_filter(env_filter)
+		.with_writer(std::io::stderr)
+		.init();
 }

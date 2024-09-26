@@ -1,33 +1,26 @@
 name: Check Cargo Check Runtimes
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
-    types: [ opened, synchronize, reopened, ready_for_review, labeled ]
-
+    types: [opened, synchronize, reopened, ready_for_review]
 
 # Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
 
 jobs:
-  # GitHub Actions allows using 'env' in a container context.
-  # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
-  # This workaround sets the container image for each job using 'set-image' job output.
-  set-image:
-    if: contains(github.event.label.name, 'GHA-migration') || contains(github.event.pull_request.labels.*.name, 'GHA-migration')
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    outputs:
-      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - id: set_image
-        run: cat .github/env >> $GITHUB_OUTPUT
+
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
   check-runtime-assets:
-    runs-on: arc-runners-polkadot-sdk-beefy
-    needs: [set-image]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: [preflight]
     timeout-minutes: 20
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,11 +30,11 @@ jobs:
           root: cumulus/parachains/runtimes/assets
 
   check-runtime-collectives:
-    runs-on: arc-runners-polkadot-sdk-beefy
-    needs: [check-runtime-assets, set-image]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: [check-runtime-assets, preflight]
     timeout-minutes: 20
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,10 +44,10 @@ jobs:
           root: cumulus/parachains/runtimes/collectives
 
   check-runtime-coretime:
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
-    needs: [check-runtime-assets, set-image]
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    needs: [check-runtime-assets, preflight]
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -65,10 +58,10 @@ jobs:
           root: cumulus/parachains/runtimes/coretime
 
   check-runtime-bridge-hubs:
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
-    needs: [set-image]
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    needs: [preflight]
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -79,10 +72,10 @@ jobs:
           root: cumulus/parachains/runtimes/bridge-hubs
 
   check-runtime-contracts:
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
-    needs: [check-runtime-collectives, set-image]
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    needs: [check-runtime-collectives, preflight]
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -93,10 +86,10 @@ jobs:
           root: cumulus/parachains/runtimes/contracts
 
   check-runtime-starters:
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
-    needs: [check-runtime-assets, set-image]
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    needs: [check-runtime-assets, preflight]
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -107,10 +100,10 @@ jobs:
           root: cumulus/parachains/runtimes/starters
 
   check-runtime-testing:
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
-    needs: [check-runtime-starters, set-image]
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    needs: [check-runtime-starters, preflight]
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -132,5 +125,14 @@ jobs:
       - check-runtime-contracts
       - check-runtime-starters
       - check-runtime-testing
+    if: always() && !cancelled()
     steps:
-      - run: echo '### Good job! All the tests passed 🚀' >> $GITHUB_STEP_SUMMARY
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi

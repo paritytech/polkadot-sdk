@@ -1,0 +1,11 @@
+title: Calling an address without associated code is a balance transfer
+
+doc:
+  - audience: Runtime Dev
+    description: |
+     This makes pallet_revive behave like EVM where a balance transfer
+     is just a call to a plain wallet.
+
+crates:
+  - name: pallet-revive
+    bump: patch
