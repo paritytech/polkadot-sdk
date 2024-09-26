@@ -18,7 +18,7 @@ use super::*;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::relay_chain::{
-	vstaging::CoreState, BlockId, CandidateCommitments, CandidateDescriptor,
+	vstaging::CoreState, BlockId, CandidateCommitments, CandidateDescriptor, CoreIndex,
 };
 use cumulus_relay_chain_interface::{
 	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,
@@ -29,7 +29,7 @@ use cumulus_test_client::{
 	Sr25519Keyring,
 };
 use futures::{channel::mpsc, SinkExt};
-use polkadot_node_primitives::{CoreIndex, AvailableData};
+use polkadot_node_primitives::AvailableData;
 use polkadot_node_subsystem::{messages::AvailabilityRecoveryMessage, RecoveryError, TimeoutExt};
 use rstest::rstest;
 use sc_client_api::{

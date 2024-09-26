@@ -34,8 +34,8 @@ use cumulus_primitives_core::relay_chain::{BlockId, Hash as RelayHash};
 pub use cumulus_primitives_core::{
 	relay_chain::{
 		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
-		BlockNumber, Hash as PHash, Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption,
-		SessionIndex, ValidationCodeHash, ValidatorId, CoreIndex,
+		BlockNumber, CoreIndex, Hash as PHash, Header as PHeader, InboundHrmpMessage,
+		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
