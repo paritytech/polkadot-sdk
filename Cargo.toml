@@ -735,7 +735,7 @@ enumflags2 = { version = "0.7.7" }
 enumn = { version = "0.1.13" }
 environmental = { version = "1.1.4", default-features = false }
 equivocation-detector = { path = "bridges/relays/equivocation", version = "0.1.0" }
-ethabi = { version = "1.0.0", default-features = false, package = "ethabi-decode" }
+ethabi = { version = "=1.0.0", default-features = false, package = "ethabi-decode" }
 ethbloom = { version = "0.13.0", default-features = false }
 ethereum-types = { version = "0.14.1", default-features = false }
 exit-future = { version = "0.2.0" }
