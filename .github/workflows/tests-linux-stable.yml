@@ -13,13 +13,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
   preflight:
     uses: ./.github/workflows/reusable-preflight.yml
 
   test-linux-stable-int:
     needs: [preflight]
-    # if: ${{ needs.preflight.outputs.changes_rust }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -40,7 +39,7 @@ jobs:
   # https://github.com/paritytech/ci_cd/issues/864
   test-linux-stable-runtime-benchmarks:
     needs: [preflight]
-    # if: ${{ needs.preflight.outputs.changes_rust }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -58,7 +57,7 @@ jobs:
 
   test-linux-stable:
     needs: [preflight]
-    # if: ${{ needs.preflight.outputs.changes_rust }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ matrix.runners }}
     timeout-minutes: 60
     strategy:
