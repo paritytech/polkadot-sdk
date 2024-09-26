@@ -85,7 +85,7 @@ mod tests {
 	use crate::mock::{new_test_ext, Test, CALL};
 	use frame_support::{assert_ok, dispatch::DispatchInfo};
 	use sp_runtime::{
-		traits::{AsAuthorizedOrigin, DispatchTransaction},
+		traits::{AsTransactionAuthorizedOrigin, DispatchTransaction},
 		transaction_validity::TransactionValidityError,
 	};
 
@@ -117,7 +117,7 @@ mod tests {
 			let (_, _, origin) = CheckNonZeroSender::<Test>::new()
 				.validate(None.into(), CALL, &info, len, (), CALL)
 				.unwrap();
-			assert!(!origin.is_authorized());
+			assert!(!origin.is_transaction_authorized());
 		})
 	}
 }

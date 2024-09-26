@@ -30,7 +30,7 @@ use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_support::dispatch::{DispatchInfo, GetDispatchInfo};
 use frame_system::{Call as SystemCall, RawOrigin};
 use sp_io::hashing::blake2_256;
-use sp_runtime::traits::{AsAuthorizedOrigin, Dispatchable, TransactionExtension};
+use sp_runtime::traits::{AsTransactionAuthorizedOrigin, Dispatchable, TransactionExtension};
 
 pub trait BenchmarkHelper<Signature, Signer> {
 	fn create_signature(entropy: &[u8], msg: &[u8]) -> (Signature, Signer);
@@ -39,7 +39,7 @@ pub trait BenchmarkHelper<Signature, Signer> {
 #[benchmarks(where
 	T: Config + Send + Sync,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
-	T::RuntimeOrigin: AsAuthorizedOrigin,
+	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 )]
 mod benchmarks {
 	use super::*;

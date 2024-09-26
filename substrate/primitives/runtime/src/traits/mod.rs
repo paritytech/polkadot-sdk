@@ -1589,21 +1589,29 @@ pub trait AsSystemOriginSigner<AccountId> {
 }
 
 /// Interface to differentiate between Runtime Origins authorized to include a transaction into the
-/// block, and those who aren't.
+/// block and dispatch it, and those who aren't.
+///
+/// This trait targets transactions, by which we mean extrinsics which are validated through a
+/// [`TransactionExtension`]. This excludes bare extrinsics (i.e. inherents), which have their call,
+/// not their origin, validated and authorized.
 ///
 /// Typically, upon validation or application of a transaction, the origin resulting from the
-/// transaction extension (see [`TransactionExtension`]) is checked for authorization. Transaction
-/// is then rejected or applied.
+/// transaction extension (see [`TransactionExtension`]) is checked for authorization. The
+/// transaction is then rejected or applied.
 ///
 /// In FRAME, an authorized origin is either an `Origin::Signed` System origin or a custom origin
-/// authorized in a `TransactionExtension`.
-pub trait AsAuthorizedOrigin {
-	/// Whether the origin is authorized to include the transaction in a block.
+/// authorized in a [`TransactionExtension`].
+pub trait AsTransactionAuthorizedOrigin {
+	/// Whether the origin is authorized to include a transaction in a block.
 	///
-	/// In FRAME returns `false` if the origin is a System `Origin::None` variant, `true` otherwise,
-	/// meaning only signed or custom origin resulting from the transaction extension pipeline are
-	/// authorized.
-	fn is_authorized(&self) -> bool;
+	/// In typical FRAME chains, this function returns `false` if the origin is a System
+	/// `Origin::None` variant, `true` otherwise, meaning only signed or custom origin resulting
+	/// from the transaction extension pipeline are authorized.
+	///
+	/// NOTE: This function should not be used in the context of bare extrinsics (i.e. inherents),
+	/// as bare extrinsics do not authorize the origin but rather the call itself, and are not
+	/// validated through the [`TransactionExtension`] pipeline.
+	fn is_transaction_authorized(&self) -> bool;
 }
 
 /// Means by which a transaction may be extended. This type embodies both the data and the logic

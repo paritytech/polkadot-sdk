@@ -17,7 +17,7 @@
 
 //! The [DispatchTransaction] trait.
 
-use crate::{traits::AsAuthorizedOrigin, transaction_validity::InvalidTransaction};
+use crate::{traits::AsTransactionAuthorizedOrigin, transaction_validity::InvalidTransaction};
 
 use super::*;
 
@@ -79,7 +79,7 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 
 impl<T: TransactionExtension<Call>, Call: Dispatchable + Encode> DispatchTransaction<Call> for T
 where
-	<Call as Dispatchable>::RuntimeOrigin: AsAuthorizedOrigin,
+	<Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 {
 	type Origin = <Call as Dispatchable>::RuntimeOrigin;
 	type Info = DispatchInfoOf<Call>;
@@ -96,7 +96,7 @@ where
 	) -> Result<(ValidTransaction, T::Val, Self::Origin), TransactionValidityError> {
 		match self.validate(origin, call, info, len, self.implicit()?, call) {
 			// After validation, some origin must have been authorized.
-			Ok((_, _, origin)) if !origin.is_authorized() =>
+			Ok((_, _, origin)) if !origin.is_transaction_authorized() =>
 				Err(InvalidTransaction::UnknownOrigin.into()),
 			res => res,
 		}

@@ -26,7 +26,7 @@ use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
-		transaction_extension::TransactionExtension, AsAuthorizedOrigin, DispatchInfoOf,
+		transaction_extension::TransactionExtension, AsTransactionAuthorizedOrigin, DispatchInfoOf,
 		Dispatchable, Verify,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
@@ -89,7 +89,7 @@ where
 impl<T> TransactionExtension<T::RuntimeCall> for VerifySignature<T>
 where
 	T: Config + Send + Sync,
-	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsAuthorizedOrigin,
+	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 {
 	const IDENTIFIER: &'static str = "VerifyMultiSignature";
 	type Implicit = ();
@@ -128,7 +128,7 @@ where
 		// This extension must receive an unauthorized origin as it is meant to headline the
 		// authorization extension pipeline. Any extensions that precede this one must not authorize
 		// any origin and serve some other functional purpose.
-		if origin.is_authorized() {
+		if origin.is_transaction_authorized() {
 			return Err(InvalidTransaction::BadSigner.into());
 		}
 

@@ -28,11 +28,11 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::{
-	AsAuthorizedOrigin, AsSystemOriginSigner, DispatchTransaction, Dispatchable,
+	AsSystemOriginSigner, AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable,
 };
 
 #[benchmarks(where
-	T::RuntimeOrigin: AsAuthorizedOrigin,
+	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	T::AssetId: Send + Sync,
 	BalanceOf<T>: Send

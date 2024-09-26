@@ -182,7 +182,7 @@ mod tests {
 	use frame_support::{
 		assert_ok, assert_storage_noop, dispatch::GetDispatchInfo, traits::OriginTrait,
 	};
-	use sp_runtime::traits::{AsAuthorizedOrigin, DispatchTransaction};
+	use sp_runtime::traits::{AsTransactionAuthorizedOrigin, DispatchTransaction};
 
 	#[test]
 	fn signed_ext_check_nonce_works() {
@@ -320,7 +320,7 @@ mod tests {
 			let (_, val, origin) = CheckNonce::<Test>(1u64.into())
 				.validate(None.into(), CALL, &info, len, (), CALL)
 				.unwrap();
-			assert!(!origin.is_authorized());
+			assert!(!origin.is_transaction_authorized());
 			assert_ok!(CheckNonce::<Test>(1u64.into()).prepare(val, &origin, CALL, &info, len));
 		})
 	}
