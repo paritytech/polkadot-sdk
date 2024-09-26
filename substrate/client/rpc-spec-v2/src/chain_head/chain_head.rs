@@ -27,10 +27,11 @@ use crate::{
 		api::ChainHeadApiServer,
 		chain_head_follow::ChainHeadFollower,
 		error::Error as ChainHeadRpcError,
-		event::{FollowEvent, MethodResponse, OperationError},
-		subscription::{SubscriptionManagement, SubscriptionManagementError},
+		event::{FollowEvent, MethodResponse, OperationError, OperationId, OperationStorageItems},
+		subscription::{StopHandle, SubscriptionManagement, SubscriptionManagementError},
+		FollowEventSendError, FollowEventSender,
 	},
-	common::events::StorageQuery,
+	common::{events::StorageQuery, storage::QueryResult},
 	hex_string, SubscriptionTaskExecutor,
 };
 use codec::Encode;
@@ -51,8 +52,15 @@ use sp_core::{traits::CallContext, Bytes};
 use sp_rpc::list::ListOrValue;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
+use tokio::sync::mpsc;
 
 pub(crate) const LOG_TARGET: &str = "rpc-spec-v2";
+
+/// The buffer capacity for each storage query.
+///
+/// This is small because the underlying JSON-RPC server has
+/// its down buffer capacity per connection as well.
+const STORAGE_QUERY_BUF: usize = 16;
 
 /// The configuration of [`ChainHead`].
 pub struct ChainHeadConfig {
@@ -417,12 +425,10 @@ where
 				Err(_) => return ResponsePayload::error(ChainHeadRpcError::InvalidBlock),
 			};
 
-		let mut storage_client =
-			ChainHeadStorage::<Client, Block, BE>::new(self.client.clone(), self.executor.clone());
-		let operation = block_guard.operation();
-		let operation_id = operation.operation_id();
+		let mut storage_client = ChainHeadStorage::<Client, Block, BE>::new(self.client.clone());
 
-		let (rp, rp_fut) = method_started_response(operation_id);
+		let (rp, rp_fut) = method_started_response(block_guard.operation().operation_id());
+
 		let fut = async move {
 			// Wait for the server to send out the response and if it produces an error no event
 			// should be generated.
@@ -430,10 +436,20 @@ where
 				return;
 			}
 
-			_ = storage_client.generate_events(block_guard, hash, items, child_trie).await;
+			let (tx, rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
+			let operation_id = block_guard.operation().operation_id();
+			let stop_handle = block_guard.operation().stop_handle().clone();
+			let response_sender = block_guard.response_sender();
+
+			// May fail if the channel is closed or the connection is closed.
+			// which is okay to ignore.
+			let _ = futures::future::join(
+				storage_client.generate_events(hash, items, child_trie, tx),
+				process_storage_items(rx, response_sender, operation_id, &stop_handle),
+			)
+			.await;
 		};
-		self.executor
-			.spawn_blocking("substrate-rpc-subscription", Some("rpc"), fut.boxed());
+		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
 
 		rp
 	}
@@ -635,4 +651,47 @@ where
 	executor.spawn_blocking("substrate-rpc-subscription", Some("rpc"), blocking_fut.boxed());
 
 	rx
+}
+
+async fn process_storage_items<Hash>(
+	mut storage_query_stream: mpsc::Receiver<QueryResult>,
+	mut sender: FollowEventSender<Hash>,
+	operation_id: String,
+	stop_handle: &StopHandle,
+) -> Result<(), FollowEventSendError> {
+	loop {
+		tokio::select! {
+			_ = stop_handle.stopped() => {
+				break;
+			},
+
+			maybe_storage = storage_query_stream.recv() => {
+				let Some(storage) = maybe_storage else {
+					break;
+				};
+
+				let item = match storage {
+					QueryResult::Err(error) => {
+						return sender
+						.send(FollowEvent::OperationError(OperationError { operation_id, error }))
+						.await
+					}
+					QueryResult::Ok(Some(v)) => v,
+					QueryResult::Ok(None) => continue,
+				};
+
+				sender
+					.send(FollowEvent::OperationStorageItems(OperationStorageItems {
+						operation_id: operation_id.clone(),
+						items: vec![item],
+				})).await?;
+			},
+		}
+	}
+
+	sender
+		.send(FollowEvent::OperationStorageDone(OperationId { operation_id }))
+		.await?;
+
+	Ok(())
 }

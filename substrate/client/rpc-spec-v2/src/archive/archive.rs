@@ -30,7 +30,6 @@ use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, StorageKey,
 	StorageProvider,
 };
-use sc_rpc::SubscriptionTaskExecutor;
 use sp_api::{CallApiAt, CallContext};
 use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata,
@@ -89,8 +88,6 @@ pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
 	storage_max_queried_items: usize,
 	/// Phantom member to pin the block type.
 	_phantom: PhantomData<Block>,
-	/// Subscription task executor.
-	executor: SubscriptionTaskExecutor,
 }
 
 impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
@@ -100,7 +97,6 @@ impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
 		backend: Arc<BE>,
 		genesis_hash: GenesisHash,
 		config: ArchiveConfig,
-		executor: SubscriptionTaskExecutor,
 	) -> Self {
 		let genesis_hash = hex_string(&genesis_hash.as_ref());
 		Self {
@@ -110,7 +106,6 @@ impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
 			storage_max_descendant_responses: config.max_descendant_responses,
 			storage_max_queried_items: config.max_queried_items,
 			_phantom: PhantomData,
-			executor,
 		}
 	}
 }
@@ -141,9 +136,6 @@ where
 		+ CallApiAt<Block>
 		+ StorageProvider<Block, BE>
 		+ 'static,
-	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<
-		<<Block as BlockT>::Header as HeaderT>::Hashing,
-	>>::RawIter: Send,
 {
 	fn archive_unstable_body(&self, hash: Block::Hash) -> RpcResult<Option<Vec<String>>> {
 		let Ok(Some(signed_block)) = self.client.block(hash) else { return Ok(None) };
@@ -282,7 +274,6 @@ where
 			self.client.clone(),
 			self.storage_max_descendant_responses,
 			self.storage_max_queried_items,
-			self.executor.clone(),
 		);
 
 		Ok(storage_client.handle_query(hash, items, child_trie))

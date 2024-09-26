@@ -3213,30 +3213,23 @@ async fn storage_closest_merkle_value() {
 			MethodResponse::LimitReached => panic!("Expected started response"),
 		};
 
-		let event = get_next_event::<FollowEvent<String>>(&mut sub).await;
-		let merkle_values: HashMap<_, _> = match event {
-			FollowEvent::OperationStorageItems(res) => {
-				assert_eq!(res.operation_id, operation_id);
+		let mut merkle_values = HashMap::new();
 
-				res.items
-					.into_iter()
-					.map(|res| {
+		loop {
+			match get_next_event::<FollowEvent<String>>(&mut sub).await {
+				FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id =>
+					for res in res.items {
 						let value = match res.result {
 							StorageResultType::ClosestDescendantMerkleValue(value) => value,
 							_ => panic!("Unexpected StorageResultType"),
 						};
-						(res.key, value)
-					})
-					.collect()
-			},
-			_ => panic!("Expected OperationStorageItems event"),
-		};
-
-		// Finished.
-		assert_matches!(
-				get_next_event::<FollowEvent<String>>(&mut sub).await,
-				FollowEvent::OperationStorageDone(done) if done.operation_id == operation_id
-		);
+						merkle_values.insert(res.key, value);
+					},
+				FollowEvent::OperationStorageDone(done) if done.operation_id == operation_id =>
+					break,
+				_ => panic!("Unexpected event"),
+			}
+		}
 
 		// Response for AAAA, AAAB, A and AA.
 		assert_eq!(merkle_values.len(), 4);

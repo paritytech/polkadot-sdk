@@ -21,8 +21,7 @@
 use std::sync::Arc;
 
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
-use sc_rpc::SubscriptionTaskExecutor;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::traits::Block as BlockT;
 
 use crate::common::{
 	events::{ArchiveStorageResult, PaginatedStorageQuery, StorageQueryType},
@@ -45,10 +44,9 @@ impl<Client, Block, BE> ArchiveStorage<Client, Block, BE> {
 		client: Arc<Client>,
 		storage_max_descendant_responses: usize,
 		storage_max_queried_items: usize,
-		executor: SubscriptionTaskExecutor,
 	) -> Self {
 		Self {
-			client: Storage::new(client, executor),
+			client: Storage::new(client),
 			storage_max_descendant_responses,
 			storage_max_queried_items,
 		}
@@ -60,9 +58,6 @@ where
 	Block: BlockT + Send + 'static,
 	BE: Backend<Block> + Send + 'static,
 	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
-	<<BE as sc_client_api::Backend<Block>>::State as sc_client_api::StateBackend<
-		<<Block as BlockT>::Header as HeaderT>::Hashing,
-	>>::RawIter: Send,
 {
 	/// Generate the response of the `archive_storage` method.
 	pub fn handle_query(
@@ -75,8 +70,6 @@ where
 		items.truncate(self.storage_max_queried_items);
 
 		let mut storage_results = Vec::with_capacity(items.len());
-		let mut query_iter = Vec::new();
-
 		for item in items {
 			match item.query_type {
 				StorageQueryType::Value => {
@@ -99,37 +92,36 @@ where
 						Err(error) => return ArchiveStorageResult::err(error),
 					},
 				StorageQueryType::DescendantsValues => {
-					query_iter.push(QueryIter {
-						query_key: item.key,
-						ty: IterQueryType::Value,
-						pagination_start_key: item.pagination_start_key,
-					});
+					match self.client.query_iter_pagination(
+						QueryIter {
+							query_key: item.key,
+							ty: IterQueryType::Value,
+							pagination_start_key: item.pagination_start_key,
+						},
+						hash,
+						child_key.as_ref(),
+						self.storage_max_descendant_responses,
+					) {
+						Ok((results, _)) => storage_results.extend(results),
+						Err(error) => return ArchiveStorageResult::err(error),
+					}
 				},
 				StorageQueryType::DescendantsHashes => {
-					query_iter.push(QueryIter {
-						query_key: item.key,
-						ty: IterQueryType::Hash,
-						pagination_start_key: item.pagination_start_key,
-					});
+					match self.client.query_iter_pagination(
+						QueryIter {
+							query_key: item.key,
+							ty: IterQueryType::Hash,
+							pagination_start_key: item.pagination_start_key,
+						},
+						hash,
+						child_key.as_ref(),
+						self.storage_max_descendant_responses,
+					) {
+						Ok((results, _)) => storage_results.extend(results),
+						Err(error) => return ArchiveStorageResult::err(error),
+					}
 				},
 			};
-		}
-
-		if !query_iter.is_empty() {
-			let mut rx = self.client.query_iter_pagination(
-				query_iter,
-				hash,
-				child_key,
-				Some(self.storage_max_descendant_responses),
-			);
-
-			while let Some(val) = rx.blocking_recv() {
-				match val {
-					Ok(Some(value)) => storage_results.push(value),
-					Ok(None) => continue,
-					Err(error) => return ArchiveStorageResult::err(error),
-				}
-			}
 		}
 
 		ArchiveStorageResult::ok(storage_results, discarded_items)
