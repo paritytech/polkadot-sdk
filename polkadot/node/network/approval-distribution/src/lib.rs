@@ -73,7 +73,8 @@ use std::{
 	time::Duration,
 };
 
-mod metrics;
+/// Approval distribution metrics.
+pub mod metrics;
 
 #[cfg(test)]
 mod tests;
@@ -99,7 +100,7 @@ const MAX_BITFIELD_SIZE: usize = 500;
 pub struct ApprovalDistribution {
 	metrics: Metrics,
 	slot_duration_millis: u64,
-	clock: Box<dyn Clock + Send + Sync>,
+	clock: Arc<dyn Clock + Send + Sync>,
 	assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
 }
 
@@ -2668,7 +2669,7 @@ impl ApprovalDistribution {
 		Self::new_with_clock(
 			metrics,
 			slot_duration_millis,
-			Box::new(SystemClock),
+			Arc::new(SystemClock),
 			assignment_criteria,
 		)
 	}
@@ -2677,7 +2678,7 @@ impl ApprovalDistribution {
 	pub fn new_with_clock(
 		metrics: Metrics,
 		slot_duration_millis: u64,
-		clock: Box<dyn Clock + Send + Sync>,
+		clock: Arc<dyn Clock + Send + Sync>,
 		assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
 	) -> Self {
 		Self { metrics, slot_duration_millis, clock, assignment_criteria }
