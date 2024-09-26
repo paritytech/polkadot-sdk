@@ -881,7 +881,7 @@ async fn validate_candidate_exhaustive(
 		"About to validate a candidate.",
 	);
 
-	// We don't want to check the session index must for approvals as the chain has already
+	// We don't want to check the session index for approvals as the chain has already
 	// checked it.
 	if exec_kind == PvfExecKind::Backing {
 		match (current_session_index, candidate_receipt.descriptor.session_index()) {
