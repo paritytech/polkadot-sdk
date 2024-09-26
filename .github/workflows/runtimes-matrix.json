@@ -45,6 +45,7 @@
     "path": "cumulus/parachains/runtimes/assets/asset-hub-rococo",
     "header": "cumulus/file_header.txt",
     "template": "cumulus/templates/xcm-bench-template.hbs",
+    "bench_features": "runtime-benchmarks",
     "uri": "wss://rococo-asset-hub-rpc.polkadot.io:443",
     "is_relay": false
   },
