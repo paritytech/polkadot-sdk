@@ -1491,12 +1491,6 @@ bump = "major"
 reason = "changed"
 
 [[crate]]
-# substrate/frame/sassafras
-name = "pallet-sassafras"
-from = "0.3.5"
-to = "0.3.5"
-
-[[crate]]
 # substrate/frame/scheduler
 name = "pallet-scheduler"
 from = "38.0.0"
