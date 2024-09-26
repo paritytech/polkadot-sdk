@@ -638,18 +638,15 @@ mod tests {
 		data: &[(&[u8], &[u8])],
 	) -> (MemoryDB<L::Hash>, trie_db::TrieHash<L>) {
 		let mut db = MemoryDB::default();
-		let mut root = Default::default();
-
-		{
-			let mut trie = trie_db::TrieDBMutBuilder::<L>::new(&mut db, &mut root).build();
-			for (k, v) in data {
-				trie.insert(k, v).expect("Inserts data");
-			}
+		let mut t = trie_db::TrieDBMutBuilder::<L>::new(&mut db).build();
+		for (k, v) in data {
+			t.insert(k, v).expect("Inserts data");
 		}
+		let root = t.commit().apply_to(&mut db);
 
 		let mut recorder = Recorder::<L>::new();
 		{
-			let trie = trie_db::TrieDBBuilder::<L>::new(&mut db, &mut root)
+			let trie = trie_db::TrieDBBuilder::<L>::new(&mut db, &root)
 				.with_recorder(&mut recorder)
 				.build();
 			for (k, _v) in data {

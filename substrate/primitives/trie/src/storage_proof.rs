@@ -230,9 +230,9 @@ impl CompactProof {
 #[cfg(test)]
 pub mod tests {
 	use super::*;
-	use crate::{tests::create_storage_proof, StorageProof};
+	use crate::{tests::create_storage_proof, DBLocation, StorageProof};
 
-	type Layout = crate::LayoutV1<sp_core::Blake2Hasher>;
+	type Layout = crate::LayoutV1<sp_core::Blake2Hasher, DBLocation>;
 
 	const TEST_DATA: &[(&[u8], &[u8])] =
 		&[(b"key1", &[1; 64]), (b"key2", &[2; 64]), (b"key3", &[3; 64]), (b"key11", &[4; 64])];

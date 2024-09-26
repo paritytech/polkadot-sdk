@@ -75,12 +75,11 @@ impl<H: Hash + Ord, L: Location> TrieRecorder<H, L> for AccessedNodesTracker<H> 
 #[cfg(test)]
 pub mod tests {
 	use super::*;
-	use crate::{tests::create_storage_proof, StorageProof};
-	use hash_db::Hasher;
-	use trie_db::{Trie, TrieDBBuilder};
+	use crate::{tests::create_storage_proof, DBLocation, StorageProof};
+	use trie_db::{node_db::Hasher, Trie, TrieDBBuilder};
 
 	type Hash = <sp_core::Blake2Hasher as Hasher>::Out;
-	type Layout = crate::LayoutV1<sp_core::Blake2Hasher>;
+	type Layout = crate::LayoutV1<sp_core::Blake2Hasher, DBLocation>;
 
 	const TEST_DATA: &[(&[u8], &[u8])] =
 		&[(b"key1", &[1; 64]), (b"key2", &[2; 64]), (b"key3", &[3; 64])];
