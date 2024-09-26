@@ -168,3 +168,7 @@ crates:
   bump: patch
 - name: polkadot
   bump: patch
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: bp-messages
+  bump: patch
