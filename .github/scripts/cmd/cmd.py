@@ -98,13 +98,15 @@ def main():
         runtimesMatrix = {x['name']: x for x in runtimesMatrix}
         print(f'Filtered out runtimes: {runtimesMatrix}')
 
+        os.system('cargo build -p frame-omni-bencher --profile {profile}')
+
         # loop over remaining runtimes to collect available pallets
         for runtime in runtimesMatrix.values():
             os.system(f"forklift cargo build -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}")
             print(f'-- listing pallets for benchmark for {runtime["name"]}')
             wasm_file = f"target/{profile}/wbuild/{runtime['package']}/{runtime['package'].replace('-', '_')}.wasm"
             output = os.popen(
-                f"frame-omni-bencher v1 benchmark pallet --no-csv-header --no-storage-info --no-min-squares --no-median-slopes --all --list --runtime={wasm_file}").read()
+                f"target/{profile}/frame-omni-bencher v1 benchmark pallet --no-csv-header --no-storage-info --no-min-squares --no-median-slopes --all --list --runtime={wasm_file}").read()
             raw_pallets = output.strip().split('\n')
 
             all_pallets = set()

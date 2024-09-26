@@ -336,7 +336,7 @@ jobs:
 
       - name: Install dependencies for bench
         if: startsWith(steps.get-pr-comment.outputs.group2, 'bench')
-        run: cargo install subweight frame-omni-bencher --locked
+        run: cargo install subweight --locked
 
       - name: Run cmd
         id: cmd
