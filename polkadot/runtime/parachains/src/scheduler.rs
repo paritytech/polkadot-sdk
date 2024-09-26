@@ -368,7 +368,7 @@ impl<T: Config> Pallet<T> {
 			ClaimQueue::<T>::mutate(|cq| {
 				let to_remove: Vec<_> = cq
 					.range(CoreIndex(new_core_count)..CoreIndex(old_core_count))
-					.map(|(k, _)| k.clone())
+					.map(|(k, _)| *k)
 					.collect();
 				for key in to_remove {
 					if let Some(dropped_assignments) = cq.remove(&key) {
