@@ -261,6 +261,19 @@ where
 	check_version: bool,
 }
 
+/// Information about the dispatch of a call, to be displayed in the
+/// [`ExtrinsicSuccess`](Event::ExtrinsicSuccess) and [`ExtrinsicFailed`](Event::ExtrinsicFailed)
+/// events.
+#[derive(Clone, Copy, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
+pub struct DispatchEventInfo {
+	/// Weight of this transaction.
+	pub weight: Weight,
+	/// Class of this transaction.
+	pub class: DispatchClass,
+	/// Does this transaction pay fees.
+	pub pays_fee: Pays,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::{self as frame_system, pallet_prelude::*, *};
@@ -841,14 +854,9 @@ pub mod pallet {
 	#[pallet::event]
 	pub enum Event<T: Config> {
 		/// An extrinsic completed successfully.
-		ExtrinsicSuccess { weight: Weight, class: DispatchClass, pays: Pays },
+		ExtrinsicSuccess { dispatch_info: DispatchEventInfo },
 		/// An extrinsic failed.
-		ExtrinsicFailed {
-			dispatch_error: DispatchError,
-			weight: Weight,
-			class: DispatchClass,
-			pays: Pays,
-		},
+		ExtrinsicFailed { dispatch_error: DispatchError, dispatch_info: DispatchEventInfo },
 		/// `:code` was updated.
 		CodeUpdated,
 		/// A new account was created.
@@ -2043,10 +2051,11 @@ impl<T: Config> Pallet<T> {
 		let weight = extract_actual_weight(r, &info)
 			.saturating_add(T::BlockWeights::get().get(info.class).base_extrinsic);
 		let class = info.class;
-		let pays = extract_actual_pays_fee(r, &info);
+		let pays_fee = extract_actual_pays_fee(r, &info);
+		let dispatch_event_info = DispatchEventInfo { weight, class, pays_fee };
 
 		Self::deposit_event(match r {
-			Ok(_) => Event::ExtrinsicSuccess { weight, class, pays },
+			Ok(_) => Event::ExtrinsicSuccess { dispatch_info: dispatch_event_info },
 			Err(err) => {
 				log::trace!(
 					target: LOG_TARGET,
@@ -2054,7 +2063,10 @@ impl<T: Config> Pallet<T> {
 					Self::block_number(),
 					err,
 				);
-				Event::ExtrinsicFailed { dispatch_error: err.error, weight, class, pays }
+				Event::ExtrinsicFailed {
+					dispatch_error: err.error,
+					dispatch_info: dispatch_event_info,
+				}
 			},
 		});
 
