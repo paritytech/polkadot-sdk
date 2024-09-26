@@ -43,3 +43,5 @@ crates:
     bump: major
   - name: polkadot
     bump: major
+  - name: umbrella
+    bump: minor
