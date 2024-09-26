@@ -26,7 +26,11 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame_support::{traits::{ChangeMembers, Contains, ContainsLengthBound, Get, InitializeMembers, SortedMembers}, BoundedVec, ensure};
+use frame_support::{
+	ensure,
+	traits::{ChangeMembers, Contains, ContainsLengthBound, Get, InitializeMembers, SortedMembers},
+	BoundedVec,
+};
 use sp_runtime::traits::{StaticLookup, UniqueSaturatedInto};
 
 pub mod migrations;
