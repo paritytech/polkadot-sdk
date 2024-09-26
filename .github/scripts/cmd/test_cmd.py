@@ -7,10 +7,10 @@ import argparse
 
 # Mock data for runtimes-matrix.json
 mock_runtimes_matrix = [
-    {"name": "dev", "package": "kitchensink-runtime", "path": "substrate/frame", "header": "substrate/HEADER-APACHE2", "template": "substrate/.maintain/frame-weight-template.hbs"},
-    {"name": "westend", "package": "westend-runtime", "path": "polkadot/runtime/westend", "header": "polkadot/file_header.txt", "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs"},
-    {"name": "rococo", "package": "rococo-runtime", "path": "polkadot/runtime/rococo", "header": "polkadot/file_header.txt", "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs"},
-    {"name": "asset-hub-westend", "package": "asset-hub-westend-runtime", "path": "cumulus/parachains/runtimes/assets/asset-hub-westend", "header": "cumulus/file_header.txt", "template": "cumulus/templates/xcm-bench-template.hbs"},
+    {"name": "dev", "package": "kitchensink-runtime", "path": "substrate/frame", "header": "substrate/HEADER-APACHE2",  "template": "substrate/.maintain/frame-weight-template.hbs", "bench_features": "runtime-benchmarks,riscv"},
+    {"name": "westend", "package": "westend-runtime", "path": "polkadot/runtime/westend", "header": "polkadot/file_header.txt", "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs", "bench_features": "runtime-benchmarks"},
+    {"name": "rococo", "package": "rococo-runtime", "path": "polkadot/runtime/rococo", "header": "polkadot/file_header.txt", "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs", "bench_features": "runtime-benchmarks"},
+    {"name": "asset-hub-westend", "package": "asset-hub-westend-runtime", "path": "cumulus/parachains/runtimes/assets/asset-hub-westend", "header": "cumulus/file_header.txt", "template": "cumulus/templates/xcm-bench-template.hbs", "bench_features": "runtime-benchmarks"},
 ]
 
 def get_mock_bench_output(runtime, pallets, output_path, header, template = None):
@@ -84,10 +84,10 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p kitchensink-runtime --profile release --features runtime-benchmarks"),
-                call("forklift cargo build -p westend-runtime --profile release --features runtime-benchmarks"),
-                call("forklift cargo build -p rococo-runtime --profile release --features runtime-benchmarks"),
-                call("forklift cargo build -p asset-hub-westend-runtime --profile release --features runtime-benchmarks"),
+                call("forklift cargo build -p kitchensink-runtime --profile release --features=runtime-benchmarks,riscv"),
+                call("forklift cargo build -p westend-runtime --profile release --features=runtime-benchmarks"),
+                call("forklift cargo build -p rococo-runtime --profile release --features=runtime-benchmarks"),
+                call("forklift cargo build -p asset-hub-westend-runtime --profile release --features=runtime-benchmarks"),
                 
                 call(get_mock_bench_output('kitchensink', 'pallet_balances', './substrate/frame/balances/src/weights.rs', os.path.abspath('substrate/HEADER-APACHE2'), "substrate/.maintain/frame-weight-template.hbs")),
                 call(get_mock_bench_output('westend', 'pallet_balances', './polkadot/runtime/westend/src/weights', os.path.abspath('polkadot/file_header.txt'))),
@@ -118,7 +118,7 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p westend-runtime --profile release --features runtime-benchmarks"),
+                call("forklift cargo build -p westend-runtime --profile release --features=runtime-benchmarks"),
                 
                 # Westend runtime calls
                 call(get_mock_bench_output('westend', 'pallet_balances', './polkadot/runtime/westend/src/weights', header_path)),
@@ -149,7 +149,7 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p westend-runtime --profile release --features runtime-benchmarks"),
+                call("forklift cargo build -p westend-runtime --profile release --features=runtime-benchmarks"),
                 
                 # Westend runtime calls
                 call(get_mock_bench_output(
@@ -185,8 +185,8 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p westend-runtime --profile release --features runtime-benchmarks"),
-                call("forklift cargo build -p rococo-runtime --profile release --features runtime-benchmarks"),
+                call("forklift cargo build -p westend-runtime --profile release --features=runtime-benchmarks"),
+                call("forklift cargo build -p rococo-runtime --profile release --features=runtime-benchmarks"),
                 # Westend runtime calls
                 call(get_mock_bench_output('westend', 'pallet_staking', './polkadot/runtime/westend/src/weights', header_path)),
                 call(get_mock_bench_output('westend', 'pallet_balances', './polkadot/runtime/westend/src/weights', header_path)),
@@ -220,7 +220,7 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p kitchensink-runtime --profile release --features runtime-benchmarks"),
+                call("forklift cargo build -p kitchensink-runtime --profile release --features=runtime-benchmarks,riscv"),
                 # Westend runtime calls
                 call(get_mock_bench_output(
                     'kitchensink', 
@@ -254,7 +254,7 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p asset-hub-westend-runtime --profile release --features runtime-benchmarks"),
+                call("forklift cargo build -p asset-hub-westend-runtime --profile release --features=runtime-benchmarks"),
                 # Asset-hub-westend runtime calls
                 call(get_mock_bench_output(
                     'asset-hub-westend', 
@@ -288,7 +288,7 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p asset-hub-westend-runtime --profile release --features runtime-benchmarks"),
+                call("forklift cargo build -p asset-hub-westend-runtime --profile release --features=runtime-benchmarks"),
                 # Asset-hub-westend runtime calls
                 call(get_mock_bench_output(
                     'asset-hub-westend', 

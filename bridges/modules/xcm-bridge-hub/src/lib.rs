@@ -415,7 +415,7 @@ pub mod pallet {
 				bridge.deposit,
 				Precision::BestEffort,
 			)
-			.map_err(|e| {
+			.inspect_err(|e| {
 				// we can't do anything here - looks like funds have been (partially) unreserved
 				// before by someone else. Let's not fail, though - it'll be worse for the caller
 				log::error!(
@@ -423,7 +423,6 @@ pub mod pallet {
 					"Failed to unreserve during the bridge {:?} closure with error: {e:?}",
 					locations.bridge_id(),
 				);
-				e
 			})
 			.ok()
 			.unwrap_or(BalanceOf::<ThisChainOf<T, I>>::zero());
@@ -1456,25 +1455,26 @@ mod tests {
 		let lane_id = TestLaneIdType::try_new(1, 2).unwrap();
 		let lane_id_mismatch = TestLaneIdType::try_new(3, 4).unwrap();
 
-		let test_bridge_state = |id,
-		                         bridge,
-		                         (lane_id, bridge_id),
-		                         (inbound_lane_id, outbound_lane_id),
-		                         expected_error: Option<TryRuntimeError>| {
-			Bridges::<TestRuntime, ()>::insert(id, bridge);
-			LaneToBridge::<TestRuntime, ()>::insert(lane_id, bridge_id);
+		let test_bridge_state =
+			|id,
+			 bridge,
+			 (lane_id, bridge_id),
+			 (inbound_lane_id, outbound_lane_id),
+			 expected_error: Option<TryRuntimeError>| {
+				Bridges::<TestRuntime, ()>::insert(id, bridge);
+				LaneToBridge::<TestRuntime, ()>::insert(lane_id, bridge_id);
 
-			let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
-			lanes_manager.create_inbound_lane(inbound_lane_id).unwrap();
-			lanes_manager.create_outbound_lane(outbound_lane_id).unwrap();
+				let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
+				lanes_manager.create_inbound_lane(inbound_lane_id).unwrap();
+				lanes_manager.create_outbound_lane(outbound_lane_id).unwrap();
 
-			let result = XcmOverBridge::do_try_state();
-			if let Some(e) = expected_error {
-				assert_err!(result, e);
-			} else {
-				assert_ok!(result);
-			}
-		};
+				let result = XcmOverBridge::do_try_state();
+				if let Some(e) = expected_error {
+					assert_err!(result, e);
+				} else {
+					assert_ok!(result);
+				}
+			};
 		let cleanup = |bridge_id, lane_ids| {
 			Bridges::<TestRuntime, ()>::remove(bridge_id);
 			for lane_id in lane_ids {

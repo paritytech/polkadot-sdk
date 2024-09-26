@@ -151,6 +151,13 @@ pub struct RunCmd {
 	/// TESTING ONLY: disable the version check between nodes and workers.
 	#[arg(long, hide = true)]
 	pub disable_worker_version_check: bool,
+
+	/// Enable approval-voting message processing in parallel.
+	///
+	///**Dangerous!** This is an experimental feature and should not be used in production, unless
+	/// explicitly advised to.
+	#[arg(long)]
+	pub enable_approval_voting_parallel: bool,
 }
 
 #[allow(missing_docs)]
