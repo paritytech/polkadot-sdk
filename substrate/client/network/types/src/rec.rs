@@ -12,8 +12,6 @@ use std::{
 };
 use bytes::Bytes;
 use crate::{PeerId, multihash::Multihash, multiaddr::Multiaddr};
-//use libp2p_kad::behaviour::PeerRecord as PR; 
-
 
 /// The (opaque) key of a record.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -89,6 +87,19 @@ impl Record {
     }
 }
 
+impl From<libp2p_kad::Record> for Record {
+    fn from(out: libp2p_kad::Record) -> Self {
+        let vec: Vec<u8> = out.key.to_vec();
+        let key: Key = vec.into();
+        let mut publisher: Option<PeerId> = None;
+        let mut expires: Option<Instant> = None;
+        if let Some(x) = out.publisher{
+            publisher = Some(x.into());
+        }
+        Record {key, value: out.value, publisher, expires: out.expires}
+    }
+}
+
 /// A record either received by the given peer or retrieved from the local
 /// record store.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -99,10 +110,15 @@ pub struct PeerRecord {
     pub record: Record,
 }
 
-impl<PR> From<PR> for PeerRecord {
+impl From<libp2p_kad::PeerRecord> for PeerRecord {
     fn from(out: libp2p_kad::PeerRecord) -> Self {
-        let peer = out.peer;
-        let record = out.record;
-        PeerRecord {peer, record}
+        let mut peer: Option<PeerId> = None;
+        if let Some(x) = out.peer{
+            peer = Some(x.into());            
+        }
+        let record = out.record.into();
+        PeerRecord {peer: peer, record}
+
+        
     }
 }
