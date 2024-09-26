@@ -363,7 +363,6 @@ fn build_polkadot_full_node(
 			// Disable BEEFY. It should not be required by the internal relay chain node.
 			enable_beefy: false,
 			force_authoring_backoff: false,
-			jaeger_agent: None,
 			telemetry_worker_handle,
 
 			// Cumulus doesn't spawn PVF workers, so we can disable version checks.

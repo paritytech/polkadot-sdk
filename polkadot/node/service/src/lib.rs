@@ -608,7 +608,6 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	/// Whether to enable the block authoring backoff on production networks
 	/// where it isn't enabled by default.
 	pub force_authoring_backoff: bool,
-	pub jaeger_agent: Option<std::net::SocketAddr>,
 	pub telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	/// The version of the node. TESTING ONLY: `None` can be passed to skip the node/worker version
 	/// check, both on startup and in the workers.

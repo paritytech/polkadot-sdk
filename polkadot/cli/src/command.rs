@@ -15,24 +15,24 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::cli::{Cli, Subcommand, NODE_VERSION};
+pub use crate::error::Error;
 use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
 use futures::future::TryFutureExt;
 use log::info;
+#[cfg(feature = "hostperfcheck")]
+pub use polkadot_performance_test::PerfCheckError;
 use polkadot_service::{
 	self,
 	benchmarking::{benchmark_inherent_data, RemarkBuilder, TransferKeepAliveBuilder},
 	HeaderBackend, IdentifyVariant,
 };
+#[cfg(feature = "pyroscope")]
+use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use sc_cli::SubstrateCli;
 use sp_core::crypto::Ss58AddressFormatRegistry;
 use sp_keyring::Sr25519Keyring;
-use std::net::ToSocketAddrs;
-
-pub use crate::error::Error;
-#[cfg(feature = "hostperfcheck")]
-pub use polkadot_performance_test::PerfCheckError;
 #[cfg(feature = "pyroscope")]
-use pyroscope_pprofrs::{pprof_backend, PprofConfig};
+use std::net::ToSocketAddrs;
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -197,18 +197,6 @@ where
 		info!("----------------------------");
 	}
 
-	let jaeger_agent = if let Some(ref jaeger_agent) = cli.run.jaeger_agent {
-		Some(
-			jaeger_agent
-				.to_socket_addrs()
-				.map_err(Error::AddressResolutionFailure)?
-				.next()
-				.ok_or_else(|| Error::AddressResolutionMissing)?,
-		)
-	} else {
-		None
-	};
-
 	let node_version =
 		if cli.run.disable_worker_version_check { None } else { Some(NODE_VERSION.to_string()) };
 
@@ -229,7 +217,6 @@ where
 				is_parachain_node: polkadot_service::IsParachainNode::No,
 				enable_beefy,
 				force_authoring_backoff: cli.run.force_authoring_backoff,
-				jaeger_agent,
 				telemetry_worker_handle: None,
 				node_version,
 				secure_validator_mode,
