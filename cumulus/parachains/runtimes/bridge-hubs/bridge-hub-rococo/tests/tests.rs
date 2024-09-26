@@ -677,7 +677,7 @@ mod bridge_hub_bulletin_tests {
 						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
 					},
 				)
-					.1
+				.1
 			},
 			construct_and_apply_extrinsic,
 			false,
@@ -710,7 +710,7 @@ mod bridge_hub_bulletin_tests {
 						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
 					},
 				)
-					.1
+				.1
 			},
 			construct_and_apply_extrinsic,
 			false,
@@ -719,7 +719,8 @@ mod bridge_hub_bulletin_tests {
 
 	#[test]
 	fn location_conversion_works() {
-		// the purpose of hardcoded values is to catch an unintended location conversion logic change.
+		// the purpose of hardcoded values is to catch an unintended location conversion logic
+		// change.
 		struct TestCase {
 			description: &'static str,
 			location: Location,
@@ -786,7 +787,10 @@ mod bridge_hub_bulletin_tests {
 			// DescribeTreasuryVoiceTerminal
 			TestCase {
 				description: "DescribeTreasuryVoiceTerminal Parent",
-				location: Location::new(1, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]),
+				location: Location::new(
+					1,
+					[Plurality { id: BodyId::Treasury, part: BodyPart::Voice }],
+				),
 				expected_account_id_str: "5CUjnE2vgcUCuhxPwFoQ5r7p1DkhujgvMNDHaF2bLqRp4D5F",
 			},
 			TestCase {
@@ -814,13 +818,13 @@ mod bridge_hub_bulletin_tests {
 		];
 
 		for tc in test_cases {
-			let expected =
-				AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
+			let expected = AccountId::from_string(tc.expected_account_id_str)
+				.expect("Invalid AccountId string");
 
 			let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
 				tc.location.into(),
 			)
-				.unwrap();
+			.unwrap();
 
 			assert_eq!(got, expected, "{}", tc.description);
 		}

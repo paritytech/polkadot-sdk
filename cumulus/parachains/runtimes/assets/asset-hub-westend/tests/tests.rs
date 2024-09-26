@@ -49,12 +49,12 @@ use frame_support::{
 };
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
+use sp_core::crypto::Ss58Codec;
 use sp_runtime::{
 	traits::{IdentifyAccount, MaybeEquivalence, Verify},
 	MultiSignature,
 };
 use std::{convert::Into, ops::Mul};
-use sp_core::crypto::Ss58Codec;
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::prelude::{Assets as XcmAssets, *};
 use xcm_builder::WithLatestLocationConverter;
@@ -1438,7 +1438,7 @@ fn location_conversion_works() {
 		let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
 			tc.location.into(),
 		)
-			.unwrap();
+		.unwrap();
 
 		assert_eq!(got, expected, "{}", tc.description);
 	}

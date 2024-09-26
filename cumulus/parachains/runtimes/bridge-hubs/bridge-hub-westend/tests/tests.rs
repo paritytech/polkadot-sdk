@@ -303,12 +303,16 @@ fn relayed_incoming_message_works() {
 				XcmOverBridgeHubRococoInstance,
 				LocationToAccountId,
 				WestendLocation,
-			>(SiblingParachainLocation::get(), BridgedUniversalLocation::get(), |locations, fee| {
-				bridge_hub_test_utils::open_bridge_with_storage::<
-					Runtime,
-					XcmOverBridgeHubRococoInstance,
-				>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
-			})
+			>(
+				SiblingParachainLocation::get(),
+				BridgedUniversalLocation::get(),
+				|locations, fee| {
+					bridge_hub_test_utils::open_bridge_with_storage::<
+						Runtime,
+						XcmOverBridgeHubRococoInstance,
+					>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+				},
+			)
 			.1
 		},
 		construct_and_apply_extrinsic,
@@ -333,12 +337,16 @@ fn free_relay_extrinsic_works() {
 				XcmOverBridgeHubRococoInstance,
 				LocationToAccountId,
 				WestendLocation,
-			>(SiblingParachainLocation::get(), BridgedUniversalLocation::get(), |locations, fee| {
-				bridge_hub_test_utils::open_bridge_with_storage::<
-					Runtime,
-					XcmOverBridgeHubRococoInstance,
-				>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
-			})
+			>(
+				SiblingParachainLocation::get(),
+				BridgedUniversalLocation::get(),
+				|locations, fee| {
+					bridge_hub_test_utils::open_bridge_with_storage::<
+						Runtime,
+						XcmOverBridgeHubRococoInstance,
+					>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+				},
+			)
 			.1
 		},
 		construct_and_apply_extrinsic,
@@ -527,7 +535,7 @@ fn location_conversion_works() {
 		let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
 			tc.location.into(),
 		)
-			.unwrap();
+		.unwrap();
 
 		assert_eq!(got, expected, "{}", tc.description);
 	}
