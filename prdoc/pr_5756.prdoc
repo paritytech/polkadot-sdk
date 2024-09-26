@@ -1,7 +1,7 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: Benchmark Friendly Tries for the Runtime
+title: Improve APIs for Tries in Runtime
 
 doc:
   - audience: Runtime Dev
