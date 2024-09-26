@@ -61,7 +61,7 @@ where
 /// This macro creates a default `RuntimeGenesisConfig` initializing provided fields with given
 /// values, serialize it to JSON blob, and retain only the specified fields.
 ///
-/// This macro helps to prevents errors that could occur from manually creating JSON objects, such
+/// This macro helps to prevent errors that could occur from manually creating JSON objects, such
 /// as typos or discrepancies caused by future changes to the `RuntimeGenesisConfig` structure. By
 /// using the actual struct, it ensures that the JSON generated is valid and up-to-date.
 ///
