@@ -268,7 +268,7 @@ mod tests {
 	}
 
 	// We make assumptions about the structure of the merkle proof in order to provide the
-	// `proof_size_to_hashes` function. This test keeps those assumptions checked.
+	// `proof_to_hashes` function. This test keeps those assumptions checked.
 	#[test]
 	fn assert_structure_of_merkle_proof() {
 		let balance_trie = create_balance_trie();
