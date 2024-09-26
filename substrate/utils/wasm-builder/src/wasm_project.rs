@@ -868,9 +868,9 @@ fn build_bloaty_blob(
 		// We don't want to call ourselves recursively
 		.env(crate::SKIP_BUILD_ENV, "");
 
-	let cargo_args = &env::var(crate::WASM_BUILD_CARGO_ARGS).unwrap_or_default();
+	let cargo_args = env::var(crate::WASM_BUILD_CARGO_ARGS).unwrap_or_default();
 	if !cargo_args.is_empty() {
-		build_cmd.args(cargo_args.split(" ").into_iter());
+		build_cmd.args(cargo_args.split(" "));
 	}
 
 	#[cfg(feature = "metadata-hash")]
