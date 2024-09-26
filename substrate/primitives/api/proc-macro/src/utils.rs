@@ -22,8 +22,8 @@ use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
 use syn::{
 	parse_quote, punctuated::Punctuated, spanned::Spanned, token::And, Attribute, Error, Expr,
-	ExprLit, FnArg, GenericArgument, Ident, ImplItem, ItemImpl, Lit, Meta, MetaNameValue, Pat,
-	Path, PathArguments, Result, ReturnType, Signature, Token, Type, TypePath,
+	ExprLit, FnArg, GenericArgument, Ident, ItemImpl, Lit, Meta, MetaNameValue, Pat, Path,
+	PathArguments, Result, ReturnType, Signature, Token, Type, TypePath,
 };
 
 /// Generates the access to the `sc_client` crate.
