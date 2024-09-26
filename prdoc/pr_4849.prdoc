@@ -43,5 +43,5 @@ crates:
     bump: major
   - name: polkadot
     bump: major
-  - name: umbrella
+  - name: polkadot-sdk
     bump: minor
