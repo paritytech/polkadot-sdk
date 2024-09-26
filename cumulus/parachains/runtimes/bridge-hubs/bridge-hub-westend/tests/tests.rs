@@ -448,8 +448,8 @@ fn location_conversion_works() {
 		// DescribePalletTerminal
 		TestCase {
 			description: "DescribePalletTerminal Parent",
-			location: Location::new(1, Here),
-			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+			location: Location::new(1, [PalletInstance(50)]),
+			expected_account_id_str: "5CnwemvaAXkWFVwibiCvf2EjqwiqBi29S5cLLydZLEaEw6jZ",
 		},
 		TestCase {
 			description: "DescribePalletTerminal Sibling",
@@ -459,8 +459,11 @@ fn location_conversion_works() {
 		// DescribeAccountId32Terminal
 		TestCase {
 			description: "DescribeAccountId32Terminal Parent",
-			location: Location::new(1, Here),
-			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+			location: Location::new(
+				1,
+				[Junction::AccountId32 { network: None, id: AccountId::from(Alice).into() }],
+			),
+			expected_account_id_str: "5EueAXd4h8u75nSbFdDJbC29cmi4Uo1YJssqEL9idvindxFL",
 		},
 		TestCase {
 			description: "DescribeAccountId32Terminal Sibling",
@@ -476,11 +479,8 @@ fn location_conversion_works() {
 		// DescribeAccountKey20Terminal
 		TestCase {
 			description: "DescribeAccountKey20Terminal Parent",
-			location: Location::new(
-				1,
-				Here,
-			),
-			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+			location: Location::new(1, [AccountKey20 { network: None, key: [0u8; 20] }]),
+			expected_account_id_str: "5F5Ec11567pa919wJkX6VHtv2ZXS5W698YCW35EdEbrg14cg",
 		},
 		TestCase {
 			description: "DescribeAccountKey20Terminal Sibling",
@@ -493,11 +493,8 @@ fn location_conversion_works() {
 		// DescribeTreasuryVoiceTerminal
 		TestCase {
 			description: "DescribeTreasuryVoiceTerminal Parent",
-			location: Location::new(
-				1,
-				Here,
-			),
-			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+			location: Location::new(1, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]),
+			expected_account_id_str: "5CUjnE2vgcUCuhxPwFoQ5r7p1DkhujgvMNDHaF2bLqRp4D5F",
 		},
 		TestCase {
 			description: "DescribeTreasuryVoiceTerminal Sibling",
@@ -510,11 +507,8 @@ fn location_conversion_works() {
 		// DescribeBodyTerminal
 		TestCase {
 			description: "DescribeBodyTerminal Parent",
-			location: Location::new(
-				1,
-				Here,
-			),
-			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+			location: Location::new(1, [Plurality { id: BodyId::Unit, part: BodyPart::Voice }]),
+			expected_account_id_str: "5EBRMTBkDisEXsaN283SRbzx9Xf2PXwUxxFCJohSGo4jYe6B",
 		},
 		TestCase {
 			description: "DescribeBodyTerminal Sibling",

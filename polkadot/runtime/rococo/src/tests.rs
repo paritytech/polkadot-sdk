@@ -19,11 +19,11 @@
 use crate::*;
 use std::collections::HashSet;
 
-use frame_support::traits::WhitelistedStorageKeys;
-use sp_core::crypto::Ss58Codec;
-use sp_core::hexdisplay::HexDisplay;
-use xcm_runtime_apis::conversions::LocationToAccountHelper;
 use crate::xcm_config::LocationConverter;
+use frame_support::traits::WhitelistedStorageKeys;
+use sp_core::{crypto::Ss58Codec, hexdisplay::HexDisplay};
+use sp_keyring::AccountKeyring::Alice;
+use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 #[test]
 fn check_whitelist() {
@@ -90,8 +90,11 @@ fn location_conversion_works() {
 		// DescribeAccountId32Terminal
 		TestCase {
 			description: "DescribeAccountId32Terminal Child",
-			location: Location::new(0, [Parachain(1111)]),
-			expected_account_id_str: "5Ec4AhP4h37t7TFsAZ4HhFq6k92usAAJDUC3ADSZ4H4Acru3",
+			location: Location::new(
+				0,
+				[Parachain(1111), AccountId32 { network: None, id: AccountId::from(Alice).into() }],
+			),
+			expected_account_id_str: "5EEMro9RRDpne4jn9TuD7cTB6Amv1raVZ3xspSkqb2BF3FJH",
 		},
 		// DescribeAccountKey20Terminal
 		TestCase {
@@ -129,8 +132,9 @@ fn location_conversion_works() {
 		let got = LocationToAccountHelper::<AccountId, LocationConverter>::convert_location(
 			tc.location.into(),
 		)
-			.unwrap();
+		.unwrap();
 
+		// println!("[{}]\ngot: {}\nwant: {}", tc.description, got, expected);
 		assert_eq!(got, expected, "{}", tc.description);
 	}
 }
