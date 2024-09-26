@@ -849,9 +849,6 @@ fn build_bloaty_blob(
 	rustflags.push_str(" --cfg substrate_runtime ");
 	rustflags.push_str(&env::var(crate::WASM_BUILD_RUSTFLAGS_ENV).unwrap_or_default());
 
-	let cargo_args = env::var(crate::WASM_BUILD_CARGO_ARGS).unwrap_or_default();
-	let parsed_args = cargo_args.split(" ").collect::<Vec<&str>>();
-
 	build_cmd
 		.arg("rustc")
 		.arg(format!("--target={}", target.rustc_target()))
@@ -871,8 +868,9 @@ fn build_bloaty_blob(
 		// We don't want to call ourselves recursively
 		.env(crate::SKIP_BUILD_ENV, "");
 
-	if !parsed_args.is_empty() {
-		build_cmd.args(parsed_args);
+	let cargo_args = &env::var(crate::WASM_BUILD_CARGO_ARGS).unwrap_or_default();
+	if !cargo_args.is_empty() {
+		build_cmd.args(cargo_args.split(" ").into_iter());
 	}
 
 	#[cfg(feature = "metadata-hash")]
