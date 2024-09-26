@@ -83,13 +83,13 @@ jobs:
       - name: script
         run: |
           cargo version
-          forklift cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental
-          forklift cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,frame-feature-testing-2,no-metadata-docs,try-runtime,experimental
-          forklift cargo test --locked -q --profile testnet -p xcm-procedural
-          forklift cargo test --locked -q --profile testnet -p frame-election-provider-solution-type
-          forklift cargo test --locked -q --profile testnet -p sp-api-test
+          forklift cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental ui
+          forklift cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,frame-feature-testing-2,no-metadata-docs,try-runtime,experimental ui
+          forklift cargo test --locked -q --profile testnet -p xcm-procedural ui
+          forklift cargo test --locked -q --profile testnet -p frame-election-provider-solution-type ui
+          forklift cargo test --locked -q --profile testnet -p sp-api-test ui
           # There is multiple version of sp-runtime-interface in the repo. So we point to the manifest.
-          forklift cargo test --locked -q --profile testnet --manifest-path substrate/primitives/runtime-interface/Cargo.toml
+          forklift cargo test --locked -q --profile testnet --manifest-path substrate/primitives/runtime-interface/Cargo.toml ui
 
   test-deterministic-wasm:
     timeout-minutes: 20
