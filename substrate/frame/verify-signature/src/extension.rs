@@ -100,7 +100,6 @@ where
 		match &self {
 			// The benchmarked weight of the payload construction and signature checking.
 			Self::Signed { .. } => {
-				// TODO: create a pallet to benchmark this weight.
 				T::WeightInfo::verify_signature()
 			},
 			// When the extension is passthrough, it consumes no weight.
