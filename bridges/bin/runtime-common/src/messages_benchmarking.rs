@@ -33,15 +33,15 @@ use pallet_bridge_messages::{
 		encode_all_messages, encode_lane_data, prepare_message_delivery_storage_proof,
 		prepare_messages_storage_proof,
 	},
-	BridgedChainOf, ThisChainOf,
+	BridgedChainOf, LaneIdOf, ThisChainOf,
 };
 use sp_runtime::traits::{Header, Zero};
 use sp_std::prelude::*;
 use xcm::latest::prelude::*;
 
 /// Prepare inbound bridge message according to given message proof parameters.
-fn prepare_inbound_message(
-	params: &MessageProofParams,
+fn prepare_inbound_message<LaneId>(
+	params: &MessageProofParams<LaneId>,
 	successful_dispatch_message_generator: impl Fn(usize) -> MessagePayload,
 ) -> MessagePayload {
 	let expected_size = params.proof_params.db_size.unwrap_or(0) as usize;
@@ -71,9 +71,9 @@ fn prepare_inbound_message(
 /// uses GRANDPA finality. For parachains, please use the `prepare_message_proof_from_parachain`
 /// function.
 pub fn prepare_message_proof_from_grandpa_chain<R, FI, MI>(
-	params: MessageProofParams,
+	params: MessageProofParams<LaneIdOf<R, MI>>,
 	message_generator: impl Fn(usize) -> MessagePayload,
-) -> (FromBridgedChainMessagesProof<HashOf<BridgedChainOf<R, MI>>>, Weight)
+) -> (FromBridgedChainMessagesProof<HashOf<BridgedChainOf<R, MI>>, LaneIdOf<R, MI>>, Weight)
 where
 	R: pallet_bridge_grandpa::Config<FI, BridgedChain = BridgedChainOf<R, MI>>
 		+ pallet_bridge_messages::Config<
@@ -84,18 +84,21 @@ where
 	MI: 'static,
 {
 	// prepare storage proof
-	let (state_root, storage_proof) =
-		prepare_messages_storage_proof::<BridgedChainOf<R, MI>, ThisChainOf<R, MI>>(
-			params.lane,
-			params.message_nonces.clone(),
-			params.outbound_lane_data.clone(),
-			params.proof_params,
-			|_| prepare_inbound_message(&params, &message_generator),
-			encode_all_messages,
-			encode_lane_data,
-			false,
-			false,
-		);
+	let (state_root, storage_proof) = prepare_messages_storage_proof::<
+		BridgedChainOf<R, MI>,
+		ThisChainOf<R, MI>,
+		LaneIdOf<R, MI>,
+	>(
+		params.lane,
+		params.message_nonces.clone(),
+		params.outbound_lane_data.clone(),
+		params.proof_params,
+		|_| prepare_inbound_message(&params, &message_generator),
+		encode_all_messages,
+		encode_lane_data,
+		false,
+		false,
+	);
 
 	// update runtime storage
 	let (_, bridged_header_hash) = insert_header_to_grandpa_pallet::<R, FI>(state_root);
@@ -121,9 +124,9 @@ where
 /// uses parachain finality. For GRANDPA chains, please use the
 /// `prepare_message_proof_from_grandpa_chain` function.
 pub fn prepare_message_proof_from_parachain<R, PI, MI>(
-	params: MessageProofParams,
+	params: MessageProofParams<LaneIdOf<R, MI>>,
 	message_generator: impl Fn(usize) -> MessagePayload,
-) -> (FromBridgedChainMessagesProof<HashOf<BridgedChainOf<R, MI>>>, Weight)
+) -> (FromBridgedChainMessagesProof<HashOf<BridgedChainOf<R, MI>>, LaneIdOf<R, MI>>, Weight)
 where
 	R: pallet_bridge_parachains::Config<PI> + pallet_bridge_messages::Config<MI>,
 	PI: 'static,
@@ -131,18 +134,21 @@ where
 	BridgedChainOf<R, MI>: Chain<Hash = ParaHash> + Parachain,
 {
 	// prepare storage proof
-	let (state_root, storage_proof) =
-		prepare_messages_storage_proof::<BridgedChainOf<R, MI>, ThisChainOf<R, MI>>(
-			params.lane,
-			params.message_nonces.clone(),
-			params.outbound_lane_data.clone(),
-			params.proof_params,
-			|_| prepare_inbound_message(&params, &message_generator),
-			encode_all_messages,
-			encode_lane_data,
-			false,
-			false,
-		);
+	let (state_root, storage_proof) = prepare_messages_storage_proof::<
+		BridgedChainOf<R, MI>,
+		ThisChainOf<R, MI>,
+		LaneIdOf<R, MI>,
+	>(
+		params.lane,
+		params.message_nonces.clone(),
+		params.outbound_lane_data.clone(),
+		params.proof_params,
+		|_| prepare_inbound_message(&params, &message_generator),
+		encode_all_messages,
+		encode_lane_data,
+		false,
+		false,
+	);
 
 	// update runtime storage
 	let (_, bridged_header_hash) =
@@ -166,8 +172,8 @@ where
 /// uses GRANDPA finality. For parachains, please use the
 /// `prepare_message_delivery_proof_from_parachain` function.
 pub fn prepare_message_delivery_proof_from_grandpa_chain<R, FI, MI>(
-	params: MessageDeliveryProofParams<AccountIdOf<ThisChainOf<R, MI>>>,
-) -> FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<R, MI>>>
+	params: MessageDeliveryProofParams<AccountIdOf<ThisChainOf<R, MI>>, LaneIdOf<R, MI>>,
+) -> FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<R, MI>>, LaneIdOf<R, MI>>
 where
 	R: pallet_bridge_grandpa::Config<FI, BridgedChain = BridgedChainOf<R, MI>>
 		+ pallet_bridge_messages::Config<
@@ -182,6 +188,7 @@ where
 	let (state_root, storage_proof) = prepare_message_delivery_storage_proof::<
 		BridgedChainOf<R, MI>,
 		ThisChainOf<R, MI>,
+		LaneIdOf<R, MI>,
 	>(params.lane, params.inbound_lane_data, params.proof_params);
 
 	// update runtime storage
@@ -200,8 +207,8 @@ where
 /// uses parachain finality. For GRANDPA chains, please use the
 /// `prepare_message_delivery_proof_from_grandpa_chain` function.
 pub fn prepare_message_delivery_proof_from_parachain<R, PI, MI>(
-	params: MessageDeliveryProofParams<AccountIdOf<ThisChainOf<R, MI>>>,
-) -> FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<R, MI>>>
+	params: MessageDeliveryProofParams<AccountIdOf<ThisChainOf<R, MI>>, LaneIdOf<R, MI>>,
+) -> FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<R, MI>>, LaneIdOf<R, MI>>
 where
 	R: pallet_bridge_parachains::Config<PI> + pallet_bridge_messages::Config<MI>,
 	PI: 'static,
@@ -213,6 +220,7 @@ where
 	let (state_root, storage_proof) = prepare_message_delivery_storage_proof::<
 		BridgedChainOf<R, MI>,
 		ThisChainOf<R, MI>,
+		LaneIdOf<R, MI>,
 	>(params.lane, params.inbound_lane_data, params.proof_params);
 
 	// update runtime storage

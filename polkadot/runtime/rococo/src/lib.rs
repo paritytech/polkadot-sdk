@@ -66,9 +66,7 @@ use polkadot_runtime_parachains::{
 	initializer as parachains_initializer, on_demand as parachains_on_demand,
 	origin as parachains_origin, paras as parachains_paras,
 	paras_inherent as parachains_paras_inherent,
-	runtime_api_impl::{
-		v10 as parachains_runtime_api_impl, vstaging as vstaging_parachains_runtime_api_impl,
-	},
+	runtime_api_impl::v11 as parachains_runtime_api_impl,
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
@@ -2084,11 +2082,11 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-			vstaging_parachains_runtime_api_impl::claim_queue::<Runtime>()
+			parachains_runtime_api_impl::claim_queue::<Runtime>()
 		}
 
 		fn candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt<Hash>> {
-			vstaging_parachains_runtime_api_impl::candidates_pending_availability::<Runtime>(para_id)
+			parachains_runtime_api_impl::candidates_pending_availability::<Runtime>(para_id)
 		}
 	}
 
@@ -2609,13 +2607,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn preset_names() -> Vec<PresetId> {
-			vec![
-				PresetId::from("local_testnet"),
-				PresetId::from("development"),
-				PresetId::from("staging_testnet"),
-				PresetId::from("wococo_local_testnet"),
-				PresetId::from("versi_local_testnet"),
-			]
+			genesis_config_presets::preset_names()
 		}
 	}
 }

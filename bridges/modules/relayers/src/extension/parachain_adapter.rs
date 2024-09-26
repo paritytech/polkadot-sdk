@@ -32,7 +32,7 @@ use pallet_bridge_grandpa::{
 	CallSubType as BridgeGrandpaCallSubtype, Config as BridgeGrandpaConfig,
 };
 use pallet_bridge_messages::{
-	CallSubType as BridgeMessagesCallSubType, Config as BridgeMessagesConfig,
+	CallSubType as BridgeMessagesCallSubType, Config as BridgeMessagesConfig, LaneIdOf,
 };
 use pallet_bridge_parachains::{
 	CallSubType as BridgeParachainsCallSubtype, Config as BridgeParachainsConfig,
@@ -58,6 +58,8 @@ pub struct WithParachainExtensionConfig<
 	BridgeParachainsPalletInstance,
 	// instance of BridgedChain `pallet-bridge-messages`, tracked by this extension
 	BridgeMessagesPalletInstance,
+	// instance of `pallet-bridge-relayers`, tracked by this extension
+	BridgeRelayersPalletInstance,
 	// message delivery transaction priority boost for every additional message
 	PriorityBoostPerMessage,
 >(
@@ -67,20 +69,23 @@ pub struct WithParachainExtensionConfig<
 		BatchCallUnpacker,
 		BridgeParachainsPalletInstance,
 		BridgeMessagesPalletInstance,
+		BridgeRelayersPalletInstance,
 		PriorityBoostPerMessage,
 	)>,
 );
 
-impl<ID, R, BCU, PI, MI, P> ExtensionConfig for WithParachainExtensionConfig<ID, R, BCU, PI, MI, P>
+impl<ID, R, BCU, PI, MI, RI, P> ExtensionConfig
+	for WithParachainExtensionConfig<ID, R, BCU, PI, MI, RI, P>
 where
 	ID: StaticStrProvider,
-	R: BridgeRelayersConfig
+	R: BridgeRelayersConfig<RI>
 		+ BridgeMessagesConfig<MI>
 		+ BridgeParachainsConfig<PI>
 		+ BridgeGrandpaConfig<R::BridgesGrandpaPalletInstance>,
 	BCU: BatchCallUnpacker<R>,
 	PI: 'static,
 	MI: 'static,
+	RI: 'static,
 	P: Get<TransactionPriority>,
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
 		+ BridgeGrandpaCallSubtype<R, R::BridgesGrandpaPalletInstance>
@@ -91,15 +96,16 @@ where
 	type IdProvider = ID;
 	type Runtime = R;
 	type BridgeMessagesPalletInstance = MI;
+	type BridgeRelayersPalletInstance = RI;
 	type PriorityBoostPerMessage = P;
-	type Reward = R::Reward;
 	type RemoteGrandpaChainBlockNumber =
 		pallet_bridge_grandpa::BridgedBlockNumber<R, R::BridgesGrandpaPalletInstance>;
+	type LaneId = LaneIdOf<R, Self::BridgeMessagesPalletInstance>;
 
 	fn parse_and_check_for_obsolete_call(
 		call: &R::RuntimeCall,
 	) -> Result<
-		Option<ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber>>,
+		Option<ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber, Self::LaneId>>,
 		TransactionValidityError,
 	> {
 		let calls = BCU::unpack(call, 3);
@@ -109,7 +115,7 @@ where
 		let msgs_call = calls.next().transpose()?.and_then(|c| c.call_info());
 		let para_finality_call = calls.next().transpose()?.and_then(|c| {
 			let r = c.submit_parachain_heads_info_for(
-				<R as BridgeMessagesConfig<MI>>::BridgedChain::PARACHAIN_ID,
+				<R as BridgeMessagesConfig<Self::BridgeMessagesPalletInstance>>::BridgedChain::PARACHAIN_ID,
 			);
 			r
 		});
@@ -139,14 +145,14 @@ where
 	}
 
 	fn check_call_result(
-		call_info: &ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber>,
+		call_info: &ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber, Self::LaneId>,
 		call_data: &mut ExtensionCallData,
 		relayer: &R::AccountId,
 	) -> bool {
 		verify_submit_finality_proof_succeeded::<Self, R::BridgesGrandpaPalletInstance>(
 			call_info, call_data, relayer,
 		) && verify_submit_parachain_head_succeeded::<Self, PI>(call_info, call_data, relayer) &&
-			verify_messages_call_succeeded::<Self, MI>(call_info, call_data, relayer)
+			verify_messages_call_succeeded::<Self>(call_info, call_data, relayer)
 	}
 }
 
@@ -155,7 +161,7 @@ where
 ///
 /// Only returns false when parachain state update call has failed.
 pub(crate) fn verify_submit_parachain_head_succeeded<C, PI>(
-	call_info: &ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber>,
+	call_info: &ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber, C::LaneId>,
 	_call_data: &mut ExtensionCallData,
 	relayer: &<C::Runtime as SystemConfig>::AccountId,
 ) -> bool

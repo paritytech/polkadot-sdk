@@ -76,13 +76,13 @@ use sc_client_api::{BlockImportNotification, BlockchainEvents, FinalityNotificat
 
 use self::messages::{BitfieldSigningMessage, PvfCheckerMessage};
 use polkadot_node_subsystem_types::messages::{
-	ApprovalDistributionMessage, ApprovalVotingMessage, AvailabilityDistributionMessage,
-	AvailabilityRecoveryMessage, AvailabilityStoreMessage, BitfieldDistributionMessage,
-	CandidateBackingMessage, CandidateValidationMessage, ChainApiMessage, ChainSelectionMessage,
-	CollationGenerationMessage, CollatorProtocolMessage, DisputeCoordinatorMessage,
-	DisputeDistributionMessage, GossipSupportMessage, NetworkBridgeRxMessage,
-	NetworkBridgeTxMessage, ProspectiveParachainsMessage, ProvisionerMessage, RuntimeApiMessage,
-	StatementDistributionMessage,
+	ApprovalDistributionMessage, ApprovalVotingMessage, ApprovalVotingParallelMessage,
+	AvailabilityDistributionMessage, AvailabilityRecoveryMessage, AvailabilityStoreMessage,
+	BitfieldDistributionMessage, CandidateBackingMessage, CandidateValidationMessage,
+	ChainApiMessage, ChainSelectionMessage, CollationGenerationMessage, CollatorProtocolMessage,
+	DisputeCoordinatorMessage, DisputeDistributionMessage, GossipSupportMessage,
+	NetworkBridgeRxMessage, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
+	ProvisionerMessage, RuntimeApiMessage, StatementDistributionMessage,
 };
 
 pub use polkadot_node_subsystem_types::{
@@ -521,7 +521,7 @@ pub struct Overseer<SupportsParachains> {
 	])]
 	bitfield_signing: BitfieldSigning,
 
-	#[subsystem(BitfieldDistributionMessage, sends: [
+	#[subsystem(blocking, message_capacity: 8192, BitfieldDistributionMessage, sends: [
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
 		ProvisionerMessage,
@@ -550,6 +550,7 @@ pub struct Overseer<SupportsParachains> {
 		BitfieldDistributionMessage,
 		StatementDistributionMessage,
 		ApprovalDistributionMessage,
+		ApprovalVotingParallelMessage,
 		GossipSupportMessage,
 		DisputeDistributionMessage,
 		CollationGenerationMessage,
@@ -595,7 +596,19 @@ pub struct Overseer<SupportsParachains> {
 		RuntimeApiMessage,
 	])]
 	approval_voting: ApprovalVoting,
-
+	#[subsystem(blocking, message_capacity: 64000, ApprovalVotingParallelMessage, sends: [
+		AvailabilityRecoveryMessage,
+		CandidateValidationMessage,
+		ChainApiMessage,
+		ChainSelectionMessage,
+		DisputeCoordinatorMessage,
+		RuntimeApiMessage,
+		NetworkBridgeTxMessage,
+		ApprovalVotingMessage,
+		ApprovalDistributionMessage,
+		ApprovalVotingParallelMessage,
+	])]
+	approval_voting_parallel: ApprovalVotingParallel,
 	#[subsystem(GossipSupportMessage, sends: [
 		NetworkBridgeTxMessage,
 		NetworkBridgeRxMessage, // TODO <https://github.com/paritytech/polkadot/issues/5626>
@@ -613,6 +626,7 @@ pub struct Overseer<SupportsParachains> {
 		AvailabilityStoreMessage,
 		AvailabilityRecoveryMessage,
 		ChainSelectionMessage,
+		ApprovalVotingParallelMessage,
 	])]
 	dispute_coordinator: DisputeCoordinator,
 
