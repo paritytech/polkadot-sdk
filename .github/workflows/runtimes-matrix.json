@@ -5,6 +5,7 @@
     "path": "substrate/frame",
     "header": "substrate/HEADER-APACHE2",
     "template": "substrate/.maintain/frame-weight-template.hbs",
+    "bench_features": "runtime-benchmarks,riscv",
     "uri": null,
     "is_relay": false
   },
@@ -15,6 +16,7 @@
     "header": "polkadot/file_header.txt",
     "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs",
     "uri": "wss://try-runtime-westend.polkadot.io:443",
+    "bench_features": "runtime-benchmarks",
     "is_relay": true
   },
   {
@@ -24,6 +26,7 @@
     "header": "polkadot/file_header.txt",
     "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs",
     "uri": "wss://try-runtime-rococo.polkadot.io:443",
+    "bench_features": "runtime-benchmarks",
     "is_relay": true
   },
   {
@@ -32,6 +35,7 @@
     "path": "cumulus/parachains/runtimes/assets/asset-hub-westend",
     "header": "cumulus/file_header.txt",
     "template": "cumulus/templates/xcm-bench-template.hbs",
+    "bench_features": "runtime-benchmarks",
     "uri": "wss://westend-asset-hub-rpc.polkadot.io:443",
     "is_relay": false
   },
@@ -49,6 +53,7 @@
     "package": "bridge-hub-rococo-runtime",
     "path": "cumulus/parachains/runtimes/bridges/bridge-hub-rococo",
     "header": "cumulus/file_header.txt",
+    "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-bridge-hub-rpc.polkadot.io:443",
     "is_relay": false
@@ -58,6 +63,7 @@
     "package": "bridge-hub-rococo-runtime",
     "path": "cumulus/parachains/runtimes/bridges/bridge-hub-westend",
     "header": "cumulus/file_header.txt",
+    "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://westend-bridge-hub-rpc.polkadot.io:443",
     "is_relay": false
@@ -67,6 +73,7 @@
     "package": "collectives-westend-runtime",
     "path": "cumulus/parachains/runtimes/collectives/collectives-westend",
     "header": "cumulus/file_header.txt",
+    "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://westend-collectives-rpc.polkadot.io:443"
   },
@@ -75,6 +82,7 @@
     "package": "contracts-rococo-runtime",
     "path": "cumulus/parachains/runtimes/contracts/contracts-rococo",
     "header": "cumulus/file_header.txt",
+    "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-contracts-rpc.polkadot.io:443",
     "is_relay": false
@@ -84,6 +92,7 @@
     "package": "coretime-rococo-runtime",
     "path": "cumulus/parachains/runtimes/coretime/coretime-rococo",
     "header": "cumulus/file_header.txt",
+    "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-coretime-rpc.polkadot.io:443",
     "is_relay": false
@@ -93,6 +102,7 @@
     "package": "coretime-westend-runtime",
     "path": "cumulus/parachains/runtimes/coretime/coretime-westend",
     "header": "cumulus/file_header.txt",
+    "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://westend-coretime-rpc.polkadot.io:443",
     "is_relay": false
@@ -102,6 +112,7 @@
     "package": "glutton-westend-runtime",
     "path": "cumulus/parachains/runtimes/gluttons/glutton-westend",
     "header": "cumulus/file_header.txt",
+    "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": null,
     "is_relay": false
@@ -111,6 +122,7 @@
     "package": "people-rococo-runtime",
     "path": "cumulus/parachains/runtimes/people/people-rococo",
     "header": "cumulus/file_header.txt",
+    "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-people-rpc.polkadot.io:443",
     "is_relay": false
@@ -120,6 +132,7 @@
     "package": "people-westend-runtime",
     "path": "cumulus/parachains/runtimes/people/people-westend",
     "header": "cumulus/file_header.txt",
+    "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://westend-people-rpc.polkadot.io:443",
     "is_relay": false
