@@ -7,7 +7,7 @@ chain = "rococo-local"
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config]
   needed_approvals = 4
-  relay_vrf_modulo_samples = 6
+  relay_vrf_modulo_samples = 2
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]
   max_approval_coalesce_count = 5
@@ -18,8 +18,13 @@ requests = { memory = "2G", cpu = "1" }
 
   [[relaychain.node_groups]]
   name = "alice"
-  args = [ "-lparachain=debug,runtime=debug" ]
-  count = 13
+  args = ["-lparachain=debug,runtime=debug", "--enable-approval-voting-parallel"]
+  count = 8
+  
+  [[relaychain.node_groups]]
+  name = "bob"
+  args = ["-lparachain=debug,runtime=debug"]
+  count = 7
 
 [[parachains]]
 id = 2000
