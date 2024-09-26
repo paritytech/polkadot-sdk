@@ -37,7 +37,7 @@ use polkadot_node_subsystem::{
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
 };
-use polkadot_node_subsystem_util as util;
+use polkadot_node_subsystem_util::{self as util, runtime::ClaimQueueSnapshot};
 use polkadot_overseer::ActiveLeavesUpdate;
 use polkadot_parachain_primitives::primitives::ValidationResult as WasmValidationResult;
 use polkadot_primitives::{
@@ -46,7 +46,7 @@ use polkadot_primitives::{
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
 	vstaging::{
-		CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
+		transpose_claim_queue, CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
 		CandidateReceiptV2 as CandidateReceipt,
 	},
 	AuthorityDiscoveryId, CandidateCommitments, ExecutorParams, Hash, OccupiedCoreAssumption,
@@ -149,8 +149,28 @@ impl<Context> CandidateValidationSubsystem {
 	}
 }
 
+// Reteurns the claim queue at relay parent and logs a warning if it is not available.
+async fn claim_queue<Sender>(sender: &mut Sender, relay_parent: Hash) -> Option<ClaimQueueSnapshot>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	match util::runtime::fetch_claim_queue(sender, relay_parent).await {
+		Ok(maybe_cq) => maybe_cq,
+		Err(err) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?err,
+				"Claim queue not available"
+			);
+			None
+		},
+	}
+}
+
 fn handle_validation_message<S>(
 	mut sender: S,
+	current_session_index: Option<SessionIndex>,
 	validation_host: ValidationHost,
 	metrics: Metrics,
 	msg: CandidateValidationMessage,
@@ -168,14 +188,19 @@ where
 			..
 		} => async move {
 			let _timer = metrics.time_validate_from_chain_state();
+			let maybe_cq =
+				claim_queue(&mut sender, candidate_receipt.descriptor.relay_parent()).await;
+
 			let res = validate_from_chain_state(
 				&mut sender,
+				current_session_index,
 				validation_host,
 				candidate_receipt,
 				pov,
 				executor_params,
 				exec_kind,
 				&metrics,
+				maybe_cq,
 			)
 			.await;
 
@@ -194,7 +219,10 @@ where
 			..
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();
+			let maybe_cq =
+				claim_queue(&mut sender, candidate_receipt.descriptor.relay_parent()).await;
 			let res = validate_candidate_exhaustive(
+				current_session_index,
 				validation_host,
 				validation_data,
 				validation_code,
@@ -203,6 +231,7 @@ where
 				executor_params,
 				exec_kind,
 				&metrics,
+				maybe_cq,
 			)
 			.await;
 
@@ -273,7 +302,7 @@ async fn run<Context>(
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
 						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
 						Ok(FromOrchestra::Communication { msg }) => {
-							let task = handle_validation_message(ctx.sender().clone(), validation_host.clone(), metrics.clone(), msg);
+							let task = handle_validation_message(ctx.sender().clone(), prepare_state.session_index.clone(), validation_host.clone(), metrics.clone(), msg);
 							tasks.push(task);
 							if tasks.len() >= TASK_LIMIT {
 								break
@@ -772,12 +801,14 @@ where
 
 async fn validate_from_chain_state<Sender>(
 	sender: &mut Sender,
+	current_session_index: Option<SessionIndex>,
 	validation_host: ValidationHost,
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
 	exec_kind: PvfExecKind,
 	metrics: &Metrics,
+	maybe_cq: Option<ClaimQueueSnapshot>,
 ) -> Result<ValidationResult, ValidationFailed>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
@@ -790,6 +821,7 @@ where
 		};
 
 	let validation_result = validate_candidate_exhaustive(
+		current_session_index,
 		validation_host,
 		validation_data,
 		validation_code,
@@ -798,6 +830,7 @@ where
 		executor_params,
 		exec_kind,
 		metrics,
+		maybe_cq,
 	)
 	.await;
 
@@ -826,6 +859,7 @@ where
 }
 
 async fn validate_candidate_exhaustive(
+	current_session_index: Option<SessionIndex>,
 	mut validation_backend: impl ValidationBackend + Send,
 	persisted_validation_data: PersistedValidationData,
 	validation_code: ValidationCode,
@@ -834,6 +868,7 @@ async fn validate_candidate_exhaustive(
 	executor_params: ExecutorParams,
 	exec_kind: PvfExecKind,
 	metrics: &Metrics,
+	maybe_cq: Option<ClaimQueueSnapshot>,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
 
@@ -845,6 +880,24 @@ async fn validate_candidate_exhaustive(
 		?para_id,
 		"About to validate a candidate.",
 	);
+
+	// We don't want to check the session index must for approvals as the chain has already
+	// checked it.
+	if exec_kind == PvfExecKind::Backing {
+		match (current_session_index, candidate_receipt.descriptor.session_index()) {
+			// If the current session index is not available we don't participate in approvals or
+			// backing, so we will return an internal error.
+			(None, Some(_)) => return Err(ValidationFailed("Session index unavailable".into())),
+			// Candidate needs to be in the latest session.
+			(Some(current_session_index), Some(candidate_session_index)) => {
+				if current_session_index != candidate_session_index {
+					return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex))
+				}
+			},
+			// Fall through for v1 descriptors.
+			(_, None) => {},
+		}
+	}
 
 	if let Err(e) = perform_basic_checks(
 		&candidate_receipt.descriptor,
@@ -949,6 +1002,7 @@ async fn validate_candidate_exhaustive(
 					processed_downward_messages: res.processed_downward_messages,
 					hrmp_watermark: res.hrmp_watermark,
 				};
+
 				if candidate_receipt.commitments_hash != outputs.hash() {
 					gum::info!(
 						target: LOG_TARGET,
@@ -960,6 +1014,56 @@ async fn validate_candidate_exhaustive(
 					// invalid.
 					Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))
 				} else {
+					let selected_core = outputs.selected_core();
+
+					match (selected_core, maybe_cq, exec_kind) {
+						// Check core index for backing only if receipt commits to a core.
+						(Some((_core_selector, cq_offset)), Some(cq), PvfExecKind::Backing) => {
+							let transposed_cq = transpose_claim_queue(cq.0);
+							let para_id = candidate_receipt.descriptor.para_id();
+							let Some(para_assignments) = transposed_cq.get(&para_id) else {
+								return Ok(ValidationResult::Invalid(
+									InvalidCandidate::InvalidCoreIndex,
+								))
+							};
+							let Some(assigned_cores) = para_assignments
+								.get(&cq_offset.0)
+								.map(|cores| cores.into_iter().collect::<Vec<_>>())
+							else {
+								return Ok(ValidationResult::Invalid(
+									InvalidCandidate::InvalidCoreIndex,
+								))
+							};
+							let core_index =
+								outputs.committed_core_index(assigned_cores.as_slice());
+
+							if core_index != candidate_receipt.descriptor.core_index() {
+								return Ok(ValidationResult::Invalid(
+									InvalidCandidate::InvalidCoreIndex,
+								));
+							}
+						},
+						// If the claim queue was not available means an internal error.
+						// We don't want to raise disputes or back invalid candidates.
+						(Some(_selected_core), None, PvfExecKind::Backing) =>
+							return Err(ValidationFailed("Claim queue not available".into())),
+						// Core selectors are optional for V2 descriptors, but we still check the
+						// descriptor core index.
+						(None, Some(cq), PvfExecKind::Backing) => {
+							if let Some(core_index) = candidate_receipt.descriptor.core_index() {
+								if !cq.iter_claims_for_core(&core_index).any(|para_id| {
+									para_id == &candidate_receipt.descriptor.para_id()
+								}) {
+									return Ok(ValidationResult::Invalid(
+										InvalidCandidate::InvalidCoreIndex,
+									));
+								}
+							}
+						},
+						// No checks for approvals and v1 descriptors.
+						(_, _, _) => {},
+					}
+
 					Ok(ValidationResult::Valid(outputs, (*persisted_validation_data).clone()))
 				}
 			},
@@ -1180,6 +1284,7 @@ fn perform_basic_checks(
 		return Err(InvalidCandidate::CodeHashMismatch)
 	}
 
+	// No-op for `v2` receipts.
 	if let Err(()) = candidate.check_collator_signature() {
 		return Err(InvalidCandidate::BadSignature)
 	}
