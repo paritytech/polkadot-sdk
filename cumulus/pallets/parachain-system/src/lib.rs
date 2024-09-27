@@ -390,8 +390,7 @@ pub mod pallet {
 
 			let maximum_channels = host_config
 				.hrmp_max_message_num_per_candidate
-				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take())
-				as usize;
+				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take()) as usize;
 
 			// Note: this internally calls the `GetChannelInfo` implementation for this
 			// pallet, which draws on the `RelevantMessagingState`. That in turn has
