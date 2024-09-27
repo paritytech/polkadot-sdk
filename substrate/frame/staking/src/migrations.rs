@@ -66,17 +66,11 @@ pub mod v16 {
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
 		fn on_runtime_upgrade() -> Weight {
-			// Set the min slashable share to 50%.
-			MinSlashableShare::<T>::set(Perbill::from_percent(50));
-
-			// Set the unbonding period lower bound to 2 eras.
-			UnbondPeriodLowerBound::<T>::set(2u32.into());
-
-			// Set the unbonding period upper bound to 28 eras.
-			UnbondPeriodUpperBound::<T>::set(28u32.into());
+			// Set the default unbonding queue params.
+			UnbondingQueueParams::<T>::set(Default::default());
 
 			log!(info, "v16 applied successfully.");
-			T::DbWeight::get().reads_writes(0, 3)
+			T::DbWeight::get().reads_writes(0, 1)
 		}
 
 		#[cfg(feature = "try-runtime")]

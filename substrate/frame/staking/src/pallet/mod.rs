@@ -51,8 +51,8 @@ use crate::{
 	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, DisablingStrategy,
 	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState,
 	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnbondingQueue,
+	UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -735,25 +735,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
-	/// The share of stake backing the lowest 1/3 of validators that is slashable at any point in
-	/// time. It offers a trade-off between security and unbonding time.
-	#[pallet::storage]
-	pub(crate) type MinSlashableShare<T: Config> = StorageValue<_, Perbill, ValueQuery>;
-
-	/// The minimum unbonding time for an active stake.
-	#[pallet::storage]
-	pub(crate) type UnbondPeriodLowerBound<T: Config> = StorageValue<_, EraIndex, ValueQuery>;
-
-	/// The maximum possible unbonding time for an active stake.
-	#[pallet::storage]
-	pub(crate) type UnbondPeriodUpperBound<T: Config> = StorageValue<_, EraIndex, ValueQuery>;
-
 	/// The total amount of stake backed by the lowest third of validators for the last
-	/// `UnbondPeriodUpperBound` eras. This is used to determine the maximum amount of stake that
-	/// can be unbonded for a period potentially lower than `UnbondPeriodUpperBound` eras.
+	/// upper bound eras. This is used to determine the maximum amount of stake that
+	/// can be unbonded for a period potentially lower than upper bound eras.
 	#[pallet::storage]
 	pub(crate) type EraLowestThirdTotalStake<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
+
+	/// Parameters for the unbonding queue mechanism.
+	#[pallet::storage]
+	pub(crate) type UnbondingQueueParams<T: Config> = StorageValue<_, UnbondingQueue, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -792,9 +783,7 @@ pub mod pallet {
 			if let Some(x) = self.max_nominator_count {
 				MaxNominatorsCount::<T>::put(x);
 			}
-			MinSlashableShare::<T>::put(self.min_slashable_share);
-			UnbondPeriodUpperBound::<T>::put(self.unbond_period_lower_bound);
-			UnbondPeriodLowerBound::<T>::put(self.unbond_period_upper_bound);
+			UnbondingQueueParams::<T>::set(UnbondingQueue::default());
 
 			for &(ref stash, _, balance, ref status) in &self.stakers {
 				crate::log!(

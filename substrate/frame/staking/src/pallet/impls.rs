@@ -758,9 +758,12 @@ impl<T: Config> Pallet<T> {
 		new_planned_era: EraIndex,
 		mut exposures_total_stake: Vec<(T::AccountId, BalanceOf<T>)>,
 	) {
+		let unbonding_queue_params = <UnbondingQueueParams<T>>::get();
+		let undonding_period_upper_bound = unbonding_queue_params.unbond_period_upper_bound;
+
 		// Determine the total stake from lowest third of validators and persist for the era.
 		let total_unbonding_eras_to_check: EraIndex =
-			Perbill::from_percent(33) * <UnbondPeriodUpperBound<T>>::get();
+			Perbill::from_percent(33) * undonding_period_upper_bound;
 
 		// Sort exposure total stake by lowest first, and truncate to lowest third.
 		exposures_total_stake.sort_by(|(_, a), (_, b)| b.cmp(&a));
@@ -779,7 +782,7 @@ impl<T: Config> Pallet<T> {
 
 		// Remove stale entry from `EraLowestThirdTotalStake`.
 		<EraLowestThirdTotalStake<T>>::remove(
-			new_planned_era.saturating_sub(<UnbondPeriodUpperBound<T>>::get()),
+			new_planned_era.saturating_sub(undonding_period_upper_bound),
 		);
 	}
 
@@ -821,16 +824,19 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Gets the lowest of the lowest third validator stake entries for the last
-	/// `UnbondPeriodUpperBound` eras.
+	/// upper bound eras.
 	pub(crate) fn get_min_lowest_third_stake(from_era: EraIndex) -> BalanceOf<T> {
+		let unbonding_queue_params = <UnbondingQueueParams<T>>::get();
+		let undonding_period_upper_bound = unbonding_queue_params.unbond_period_upper_bound;
+
 		// Find the minimum total stake of the lowest third validators over the configured number of
 		// eras.
 		let mut eras_checked = 0;
 		let mut current_era = from_era;
 		let mut lowest_stake: BalanceOf<T> = Zero::zero();
-		let last_era = from_era.saturating_sub(<UnbondPeriodUpperBound<T>>::get());
+		let last_era = from_era.saturating_sub(undonding_period_upper_bound);
 
-		while current_era >= last_era || eras_checked <= <UnbondPeriodUpperBound<T>>::get() {
+		while current_era >= last_era || eras_checked <= undonding_period_upper_bound {
 			if let Some(lowest_third_total_stake) = <EraLowestThirdTotalStake<T>>::get(current_era)
 			{
 				if eras_checked == 0 || lowest_third_total_stake < lowest_stake {
@@ -846,21 +852,25 @@ impl<T: Config> Pallet<T> {
 	// Get the maximum unstake amount for quick unbond time supported at the time of an unbond
 	// request.
 	pub fn get_quick_unbond_max_unstake(from_era: EraIndex) -> BalanceOf<T> {
-		<MinSlashableShare<T>>::get() * Self::get_min_lowest_third_stake(from_era)
+		<UnbondingQueueParams<T>>::get().min_slashable_share *
+			Self::get_min_lowest_third_stake(from_era)
 	}
 
 	// Get the unbonding time (in blocks) for quick unbond for an unbond request.
 	//
 	// We implement the calculation `unbonding_time_delta = new_unbonding_stake / max_unstake *
-	// `UnbondPeriodUpperBound` period in blocks.
+	// upper bound period in blocks.
 	pub fn get_unbond_time_delta(unbond_stake: BalanceOf<T>, era: EraIndex) -> BlockNumberFor<T> {
+		let unbonding_queue_params = <UnbondingQueueParams<T>>::get();
+		let undonding_period_upper_bound = unbonding_queue_params.unbond_period_upper_bound;
+
 		// Conversions are made to `u128` to allow the calculation to be made between block number
 		// and balance types.
 		let session_length_as_u128: u128 =
 			T::NextNewSession::average_session_length().saturated_into();
 		let max_unstake_as_u128: u128 = Self::get_quick_unbond_max_unstake(era).saturated_into();
 		let unbond_stake_as_u128: u128 = unbond_stake.saturated_into();
-		let upper_bound_as_u128: u128 = <UnbondPeriodUpperBound<T>>::get().saturated_into();
+		let upper_bound_as_u128: u128 = undonding_period_upper_bound.saturated_into();
 
 		// Worst case unbond time is maximum eras multiplied by average session length, in blocks.
 		let max_unbond_blocks = upper_bound_as_u128 * session_length_as_u128;

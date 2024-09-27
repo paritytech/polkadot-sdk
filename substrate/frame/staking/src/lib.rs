@@ -381,6 +381,27 @@ pub struct ActiveEraInfo {
 	pub start: Option<u64>,
 }
 
+/// Parameters of the unbonding queue mechanism.
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct UnbondingQueue {
+	/// The share of stake backing the lowest 1/3 of validators that is slashable at any point in
+	/// time. It offers a trade-off between security and unbonding time.
+	pub min_slashable_share: Perbill,
+	/// The minimum unbonding time for an active stake.
+	pub unbond_period_lower_bound: EraIndex,
+	/// The maximum possible unbonding time for an active stake.
+	pub unbond_period_upper_bound: EraIndex,
+}
+
+impl Default for UnbondingQueue {
+	fn default() -> Self {
+		Self {
+			min_slashable_share: Perbill::from_percent(50),
+			unbond_period_lower_bound: 2,
+			unbond_period_upper_bound: 28,
+		}
+	}
+}
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators and their respective nominators.
