@@ -1313,6 +1313,13 @@ where
 	fn account_balance(&self, who: &T::AccountId) -> U256 {
 		T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite).into()
 	}
+
+	/// Certain APIs, e.g. `{set,get}_immutable_data` behave differently depending
+	/// on the configured entry point. Thus, we allow setting the export manually.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub(crate) fn override_export(&mut self, export: ExportedFunction) {
+		self.top_frame_mut().entry_point = export;
+	}
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>

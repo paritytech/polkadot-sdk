@@ -4373,4 +4373,21 @@ mod run_tests {
 			assert_ok!(builder::call(addr).data(data.to_vec()).build());
 		});
 	}
+
+	#[test]
+	fn immutable_data_bench() {
+		let (code, _) = compile_module("immutable_data_bench").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Create fixture: Constructor sets the immtuable data
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+				.data(10u32.encode())
+				.build_and_unwrap_contract();
+
+			// Call the contract: Asserts the input to equal the immutable data
+			assert_ok!(builder::call(addr).data(10u32.encode()).build());
+		});
+	}
 }

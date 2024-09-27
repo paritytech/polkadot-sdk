@@ -390,6 +390,10 @@ pub enum RuntimeCosts {
 	LockDelegateDependency,
 	/// Weight of calling `unlock_delegate_dependency`
 	UnlockDelegateDependency,
+	/// Weight of calling `get_immutable_dependency`
+	GetImmutableData(u32),
+	/// Weight of calling `set_immutable_dependency`
+	SetImmutableData(u32),
 }
 
 /// For functions that modify storage, benchmarks are performed with one item in the
@@ -507,6 +511,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
 			LockDelegateDependency => T::WeightInfo::lock_delegate_dependency(),
 			UnlockDelegateDependency => T::WeightInfo::unlock_delegate_dependency(),
+			GetImmutableData(len) => T::WeightInfo::seal_get_immutable_data(len),
+			SetImmutableData(len) => T::WeightInfo::seal_set_immutable_data(len),
 		}
 	}
 }
@@ -1524,8 +1530,8 @@ pub mod env {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::GasLeft)?;
 		let data = core::mem::take(self.ext.get_immutable_data()?);
+		self.charge_gas(RuntimeCosts::GetImmutableData(data.len() as u32))?;
 		let write_outcome =
 			self.write_sandbox_output(memory, out_ptr, out_len_ptr, &data, false, already_charged);
 		*self.ext.get_immutable_data().expect("bailed out earlier; qed") = data;
@@ -1540,7 +1546,7 @@ pub mod env {
 		if len > limits::IMMUTABLE_BYTES {
 			return Err(Error::<E::T>::OutOfBounds.into());
 		}
-		self.charge_gas(RuntimeCosts::GasLeft)?;
+		self.charge_gas(RuntimeCosts::SetImmutableData(len))?;
 		let buf = memory.read(ptr, len)?;
 		let data = buf.try_into().expect("bailed out earlier; qed");
 		self.ext.set_immutable_data(data)?;
