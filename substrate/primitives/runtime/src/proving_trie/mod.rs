@@ -159,8 +159,6 @@ pub trait ProofToHashes {
 mod tests {
 	use super::*;
 	use crate::traits::BlakeTwo256;
-	use sp_core::H256;
-	use sp_std::collections::btree_map::BTreeMap;
 
 	// A trie which simulates a trie of accounts (u32) and balances (u128).
 	type BalanceTrie2 = base2::BasicProvingTrie<BlakeTwo256, u32, u128>;
@@ -184,48 +182,5 @@ mod tests {
 		assert_eq!(balance_trie.query(&6969), None);
 		let proof = balance_trie.create_proof(&69u32).unwrap();
 		assert_eq!(BalanceTrie16::verify_proof(&root, &proof, &69u32, &69u128), Ok(()));
-	}
-
-	#[test]
-	fn proof_to_hashes() {
-		// We can be off by up to 2 hashes... should be trivial.
-		let tolerance = 2;
-
-		let abs_dif = |x, y| {
-			if x > y {
-				x - y
-			} else {
-				y - x
-			}
-		};
-
-		let mut i: u32 = 1;
-		while i < 10_000_000 {
-			let trie = BalanceTrie2::generate_for((0..i).map(|i| (i, u128::from(i)))).unwrap();
-			let proof = trie.create_proof(&(i / 2)).unwrap();
-			let hashes = BalanceTrie2::proof_to_hashes(&proof).unwrap();
-			let log2 = (i as f64).log2().ceil() as u32;
-
-			assert!(abs_dif(hashes, log2) <= tolerance);
-			i = i * 10;
-		}
-
-		// Compute log base 16 and round up
-		let log16 = |x: u32| -> u32 {
-			let x_f64 = x as f64;
-			let log16_x = (x_f64.ln() / 16_f64.ln()).ceil();
-			log16_x as u32
-		};
-
-		let mut i: u32 = 1;
-		while i < 10_000_000 {
-			let trie = BalanceTrie16::generate_for((0..i).map(|i| (i, u128::from(i)))).unwrap();
-			let proof = trie.create_proof(&(i / 2)).unwrap();
-			let hashes = BalanceTrie16::proof_to_hashes(&proof).unwrap();
-			let log16 = log16(i);
-
-			assert!(abs_dif(hashes, log16) <= tolerance);
-			i = i * 10;
-		}
 	}
 }

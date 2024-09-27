@@ -25,7 +25,7 @@
 //! proofs using `LayoutV0`.
 
 use super::{ProofToHashes, ProvingTrie, TrieError};
-use crate::{ArithmeticError, Decode, DispatchError, Encode};
+use crate::{Decode, DispatchError, Encode};
 use codec::MaxEncodedLen;
 use sp_std::vec::Vec;
 use sp_trie::{
@@ -132,24 +132,13 @@ where
 	Hashing: sp_core::Hasher,
 	Hashing::Out: MaxEncodedLen,
 {
-	// This base 16 trie does not directly expose the depth of the trie, so we can roughly calculate
-	// it assuming the data in the proof are hashes, and the number of hashes present will tell us
-	// the depth of the trie.
+	// This base 16 trie uses a raw proof of `Vec<Vec<u8>`, where the length of the first `Vec`
+	// is the depth of the trie. We can use this to predict the number of hashes.
 	fn proof_to_hashes(proof: &[u8]) -> Result<u32, DispatchError> {
-		let proof_size = proof.len() as u32;
-		let hash_len = Hashing::Out::max_encoded_len() as u32;
-		// A base 16 trie is expected to include the data for 15 hashes per layer.
-		let layer_len = hash_len.checked_mul(15).ok_or(ArithmeticError::Overflow)?;
-		let proof_size_round_up = proof_size
-			.checked_add(layer_len)
-			.ok_or(ArithmeticError::Overflow)?
-			.checked_sub(1)
-			.ok_or(ArithmeticError::Underflow)?;
-
-		let depth = proof_size_round_up
-			.checked_div(layer_len)
-			.ok_or(ArithmeticError::DivisionByZero)?;
-		Ok(depth)
+		use codec::DecodeLength;
+		let depth =
+			<Vec<Vec<u8>> as DecodeLength>::len(proof).map_err(|_| TrieError::DecodeError)?;
+		Ok(depth as u32)
 	}
 }
 
@@ -311,5 +300,26 @@ mod tests {
 			verify_proof::<BlakeTwo256, _, _>(&root, &bad_proof, &6u32, &6u128),
 			Err(TrieError::ExtraneousHashReference.into())
 		);
+	}
+
+	#[test]
+	fn proof_to_hashes() {
+		let mut i: u32 = 1;
+		// Compute log base 16 and round up
+		let log16 = |x: u32| -> u32 {
+			let x_f64 = x as f64;
+			let log16_x = (x_f64.ln() / 16_f64.ln()).ceil();
+			log16_x as u32
+		};
+
+		while i < 10_000_000 {
+			let trie = BalanceTrie::generate_for((0..i).map(|i| (i, u128::from(i)))).unwrap();
+			let proof = trie.create_proof(&0).unwrap();
+			let hashes = BalanceTrie::proof_to_hashes(&proof).unwrap();
+			let log16 = log16(i).max(1);
+
+			assert_eq!(hashes, log16);
+			i = i * 10;
+		}
 	}
 }

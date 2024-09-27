@@ -107,14 +107,14 @@ where
 	Key: Decode,
 	Value: Decode,
 {
-	// This base 2 merkle trie includes the number of items in the trie, which we can directly use
-	// to figure out the depth of the trie.
+	// This base 2 merkle trie includes a `proof` field which is a `Vec<Hash>`.
+	// The length of this vector tells us the depth of the proof, and how many
+	// hashes we need to calculate.
 	fn proof_to_hashes(proof: &[u8]) -> Result<u32, DispatchError> {
 		let decoded_proof: MerkleProof<Hashing::Out, Vec<u8>> =
 			Decode::decode(&mut &proof[..]).map_err(|_| TrieError::IncompleteProof)?;
-		// Base 2 trie should have depth log2(n).
-		let depth = log2_rounded_up(decoded_proof.number_of_leaves);
-		Ok(depth)
+		let depth = decoded_proof.proof.len();
+		Ok(depth as u32)
 	}
 }
 
@@ -151,22 +151,6 @@ where
 		Ok(())
 	} else {
 		Err(TrieError::IncompleteProof.into())
-	}
-}
-
-// This calculates a pessimistic log2 of a u32. For our needs `log2(0)` can be zero.
-fn log2_rounded_up(x: u32) -> u32 {
-	if x == 0 || x == 1 {
-		return 0;
-	}
-
-	let log2_floor = 31 - x.leading_zeros();
-
-	// If x is a power of 2, no need to round up. Otherwise, add 1 to round up.
-	if x & (x - 1) == 0 {
-		log2_floor
-	} else {
-		log2_floor + 1
 	}
 }
 
@@ -287,19 +271,16 @@ mod tests {
 	}
 
 	#[test]
-	fn log2_rounded_up_works() {
-		// Broad check.
+	fn proof_to_hashes() {
 		let mut i: u32 = 1;
-		while i < 1_000_000_000 {
+		while i < 10_000_000 {
+			let trie = BalanceTrie::generate_for((0..i).map(|i| (i, u128::from(i)))).unwrap();
+			let proof = trie.create_proof(&0).unwrap();
+			let hashes = BalanceTrie::proof_to_hashes(&proof).unwrap();
 			let log2 = (i as f64).log2().ceil() as u32;
-			assert_eq!(log2_rounded_up(i), log2);
+
+			assert_eq!(hashes, log2);
 			i = i * 10;
 		}
-
-		// Explicit edge case check.
-		assert_eq!(log2_rounded_up(0), 0);
-		assert_eq!(log2_rounded_up(1), 0);
-		assert_eq!(log2_rounded_up(32), 5);
-		assert_eq!(log2_rounded_up(33), 6);
 	}
 }
