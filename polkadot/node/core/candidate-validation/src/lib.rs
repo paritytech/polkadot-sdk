@@ -47,7 +47,7 @@ use polkadot_primitives::{
 	},
 	vstaging::{
 		transpose_claim_queue, CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
-		CandidateReceiptV2 as CandidateReceipt,
+		CandidateReceiptV2 as CandidateReceipt, CommittedCandidateReceiptV2,
 	},
 	AuthorityDiscoveryId, CandidateCommitments, ExecutorParams, Hash, OccupiedCoreAssumption,
 	PersistedValidationData, PvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
@@ -1017,50 +1017,32 @@ async fn validate_candidate_exhaustive(
 					let selected_core = outputs.selected_core();
 
 					match (selected_core, maybe_cq, exec_kind) {
-						// Check core index for backing only if receipt commits to a core.
-						(Some((_core_selector, cq_offset)), Some(cq), PvfExecKind::Backing) => {
-							let transposed_cq = transpose_claim_queue(cq.0);
-							let para_id = candidate_receipt.descriptor.para_id();
-							let Some(para_assignments) = transposed_cq.get(&para_id) else {
-								return Ok(ValidationResult::Invalid(
-									InvalidCandidate::InvalidCoreIndex,
-								))
+						// Core selectors are optional for V2 descriptors, but we still check the
+						// descriptor core index.
+						(_, Some(cq), PvfExecKind::Backing) => {
+							let ccr = CommittedCandidateReceiptV2 {
+								descriptor: candidate_receipt.descriptor.clone(),
+								commitments: outputs.clone(),
 							};
-							let Some(assigned_cores) = para_assignments
-								.get(&cq_offset.0)
-								.map(|cores| cores.into_iter().collect::<Vec<_>>())
-							else {
-								return Ok(ValidationResult::Invalid(
-									InvalidCandidate::InvalidCoreIndex,
-								))
-							};
-							let core_index =
-								outputs.committed_core_index(assigned_cores.as_slice());
 
-							if core_index != candidate_receipt.descriptor.core_index() {
+							if let Err(err) = ccr.check_core_index(&transpose_claim_queue(cq.0)) {
+								gum::warn!(
+									target: LOG_TARGET,
+									?err,
+									candidate_hash = ?candidate_receipt.hash(),
+									"Candidate core index is invalid",
+								);
 								return Ok(ValidationResult::Invalid(
 									InvalidCandidate::InvalidCoreIndex,
-								));
+								))
 							}
 						},
 						// If the claim queue was not available means an internal error.
 						// We don't want to raise disputes or back invalid candidates.
 						(Some(_selected_core), None, PvfExecKind::Backing) =>
 							return Err(ValidationFailed("Claim queue not available".into())),
-						// Core selectors are optional for V2 descriptors, but we still check the
-						// descriptor core index.
-						(None, Some(cq), PvfExecKind::Backing) => {
-							if let Some(core_index) = candidate_receipt.descriptor.core_index() {
-								if !cq.iter_claims_for_core(&core_index).any(|para_id| {
-									para_id == &candidate_receipt.descriptor.para_id()
-								}) {
-									return Ok(ValidationResult::Invalid(
-										InvalidCandidate::InvalidCoreIndex,
-									));
-								}
-							}
-						},
-						// No checks for approvals and v1 descriptors.
+
+						// No checks for approvals.
 						(_, _, _) => {},
 					}
 
