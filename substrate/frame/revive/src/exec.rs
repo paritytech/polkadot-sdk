@@ -1129,9 +1129,8 @@ where
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let output = do_transaction();
 				match &output {
-					Ok(result) if !result.did_revert() => {
-						TransactionOutcome::Commit(Ok((true, output)))
-					},
+					Ok(result) if !result.did_revert() =>
+						TransactionOutcome::Commit(Ok((true, output))),
 					_ => TransactionOutcome::Rollback(Ok((false, output))),
 				}
 			});
