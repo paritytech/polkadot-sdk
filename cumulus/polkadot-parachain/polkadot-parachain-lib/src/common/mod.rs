@@ -37,31 +37,20 @@ use sp_runtime::{
 };
 use sp_session::SessionKeys;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
-use std::{
-	fmt::Debug,
-	panic::{RefUnwindSafe, UnwindSafe},
-	path::PathBuf,
-	str::FromStr,
-};
+use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
 pub trait NodeBlock:
-	BlockT<Extrinsic = OpaqueExtrinsic, Header = Self::BoundedHeader, Hash = DbHash>
-	+ DeserializeOwned
-	+ UnwindSafe
-	+ RefUnwindSafe
+	BlockT<Extrinsic = OpaqueExtrinsic, Header = Self::BoundedHeader, Hash = DbHash> + DeserializeOwned
 {
 	type BoundedFromStrErr: Debug;
 	type BoundedNumber: FromStr<Err = Self::BoundedFromStrErr> + BlockNumber;
-	type BoundedHeader: HeaderT<Number = Self::BoundedNumber> + Unpin + UnwindSafe + RefUnwindSafe;
+	type BoundedHeader: HeaderT<Number = Self::BoundedNumber> + Unpin;
 }
 
 impl<T> NodeBlock for T
 where
-	T: BlockT<Extrinsic = OpaqueExtrinsic, Hash = DbHash>
-		+ DeserializeOwned
-		+ UnwindSafe
-		+ RefUnwindSafe,
-	<T as BlockT>::Header: Unpin + UnwindSafe + RefUnwindSafe,
+	T: BlockT<Extrinsic = OpaqueExtrinsic, Hash = DbHash> + DeserializeOwned,
+	<T as BlockT>::Header: Unpin,
 	<NumberFor<T> as FromStr>::Err: Debug,
 {
 	type BoundedFromStrErr = <NumberFor<T> as FromStr>::Err;
