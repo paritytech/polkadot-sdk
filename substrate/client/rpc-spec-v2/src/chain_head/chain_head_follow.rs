@@ -442,21 +442,30 @@ where
 		notification: BlockImportNotification<Block>,
 		startup_point: &StartupPoint<Block>,
 	) -> Result<Vec<FollowEvent<Block::Hash>>, SubscriptionManagementError> {
-		// The block was already pinned by the initial block events or by the finalized event.
-		if !self.sub_handle.pin_block(&self.sub_id, notification.hash)? {
-			return Ok(Default::default())
-		}
+		let block_hash = notification.hash;
+
+		// Ensure the block is pinned before generating the events.
+		self.sub_handle.pin_block(&self.sub_id, block_hash)?;
 
 		// Ensure we are only reporting blocks after the starting point.
 		if *notification.header.number() < startup_point.finalized_number {
 			return Ok(Default::default())
 		}
 
-		Ok(self.generate_import_events(
-			notification.hash,
-			*notification.header.parent_hash(),
-			notification.is_new_best,
-		))
+		if self.announced_blocks.get(&block_hash).is_some() {
+			// Block was already reported by the finalized branch.
+			return Ok(Default::default())
+		}
+
+		// Double check the parent hash. If the parent hash is not reported, we have a gap.
+		let parent_block_hash = *notification.header.parent_hash();
+		if self.announced_blocks.get(&parent_block_hash).is_none() {
+			// The parent block was not reported, we have a gap.
+			return Err(SubscriptionManagementError::Custom("Parent block was not reported".into()))
+		}
+
+		self.announced_blocks.insert(block_hash, BlockType::NewBlock);
+		Ok(self.generate_import_events(block_hash, parent_block_hash, notification.is_new_best))
 	}
 
 	/// Generates new block events from the given finalized hashes.
