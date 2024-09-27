@@ -24,7 +24,7 @@ use crate::chain_head::{
 		BestBlockChanged, Finalized, FollowEvent, Initialized, NewBlock, RuntimeEvent,
 		RuntimeVersionEvent,
 	},
-	subscription::{SubscriptionManagement, SubscriptionManagementError},
+	subscription::{InsertedSubscriptionData, SubscriptionManagement, SubscriptionManagementError},
 };
 use futures::{
 	channel::oneshot,
@@ -53,21 +53,6 @@ use std::{
 /// `Initialized` event.
 const MAX_FINALIZED_BLOCKS: usize = 16;
 
-/// The type of the block announcement.
-///
-/// The event lifecycle moves thorugh the following states:
-/// `NewBlock` -> `BestBlock` -> `Finalized` (or pruned)
-enum BlockType {
-	/// The block was announced by the `NewBlock` event.
-	NewBlock,
-	/// The block was announced by the `BestBlock` event.
-	BestBlock,
-	/// The block was announced by the `Finalized` event.
-	FinalizedBlock,
-}
-
-use super::subscription::InsertedSubscriptionData;
-
 /// Generates the events of the `chainHead_follow` method.
 pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	/// Substrate client.
@@ -85,7 +70,7 @@ pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	/// LRU cache of pruned blocks.
 	pruned_blocks: LruMap<Block::Hash, ()>,
 	/// LRU cache of pruned blocks.
-	announced_blocks: LruMap<Block::Hash, BlockType>,
+	announced_blocks: LruMap<Block::Hash, ()>,
 	/// Stop all subscriptions if the distance between the leaves and the current finalized
 	/// block is larger than this value.
 	max_lagging_distance: usize,
@@ -345,7 +330,7 @@ where
 		let finalized_block_runtime = self.generate_runtime_event(finalized_block_hash, None);
 
 		for finalized in &finalized_block_hashes {
-			self.announced_blocks.insert(*finalized, BlockType::FinalizedBlock);
+			self.announced_blocks.insert(*finalized, ());
 		}
 
 		let initialized_event = FollowEvent::Initialized(Initialized {
@@ -363,7 +348,7 @@ where
 			if self.announced_blocks.get(&parent).is_none() {
 				return Err(SubscriptionManagementError::BlockHeaderAbsent);
 			}
-			self.announced_blocks.insert(child, BlockType::NewBlock);
+			self.announced_blocks.insert(child, ());
 
 			let new_runtime = self.generate_runtime_event(child, Some(parent));
 
@@ -383,7 +368,7 @@ where
 			if self.announced_blocks.get(&best_block_hash).is_none() {
 				return Err(SubscriptionManagementError::BlockHeaderAbsent);
 			}
-			self.announced_blocks.insert(best_block_hash, BlockType::BestBlock);
+			self.announced_blocks.insert(best_block_hash, ());
 
 			let best_block = FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
 			self.current_best_block = Some(best_block_hash);
@@ -464,7 +449,7 @@ where
 			return Err(SubscriptionManagementError::Custom("Parent block was not reported".into()))
 		}
 
-		self.announced_blocks.insert(block_hash, BlockType::NewBlock);
+		self.announced_blocks.insert(block_hash, ());
 		Ok(self.generate_import_events(block_hash, parent_block_hash, notification.is_new_best))
 	}
 
@@ -513,7 +498,7 @@ where
 			if !is_last {
 				// Generate only the `NewBlock` event for this block.
 				events.extend(self.generate_import_events(*hash, *parent, false));
-				self.announced_blocks.insert(*hash, BlockType::NewBlock);
+				self.announced_blocks.insert(*hash, ());
 				continue;
 			}
 
@@ -537,7 +522,7 @@ where
 
 			// Let's generate the `NewBlock` and `NewBestBlock` events for the block.
 			events.extend(self.generate_import_events(*hash, *parent, true));
-			self.announced_blocks.insert(*hash, BlockType::NewBlock);
+			self.announced_blocks.insert(*hash, ());
 		}
 
 		Ok(events)
@@ -600,7 +585,7 @@ where
 			self.get_pruned_hashes(&notification.stale_heads, last_finalized)?;
 
 		for finalized in &finalized_block_hashes {
-			self.announced_blocks.insert(*finalized, BlockType::FinalizedBlock);
+			self.announced_blocks.insert(*finalized, ());
 		}
 
 		let finalized_event = FollowEvent::Finalized(Finalized {
