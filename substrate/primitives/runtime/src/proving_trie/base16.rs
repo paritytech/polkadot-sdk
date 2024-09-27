@@ -132,6 +132,8 @@ where
 	Hashing: sp_core::Hasher,
 	Hashing::Out: MaxEncodedLen,
 {
+	// Our proof is just raw bytes.
+	type Proof = [u8];
 	// This base 16 trie uses a raw proof of `Vec<Vec<u8>`, where the length of the first `Vec`
 	// is the depth of the trie. We can use this to predict the number of hashes.
 	fn proof_to_hashes(proof: &[u8]) -> Result<u32, DispatchError> {

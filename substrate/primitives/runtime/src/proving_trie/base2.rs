@@ -107,6 +107,8 @@ where
 	Key: Decode,
 	Value: Decode,
 {
+	// Our proof is just raw bytes.
+	type Proof = [u8];
 	// This base 2 merkle trie includes a `proof` field which is a `Vec<Hash>`.
 	// The length of this vector tells us the depth of the proof, and how many
 	// hashes we need to calculate.

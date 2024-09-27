@@ -144,15 +144,16 @@ where
 /// from computing hashes to recreate the merkle root. This trait converts the the proof, some
 /// bytes, to the number of hashes we expect to execute to verify that proof.
 pub trait ProofToHashes {
+	/// The Proof type we will use to determine the number of hashes.
+	type Proof: ?Sized;
 	/// This function returns the number of hashes we expect to calculate based on the
 	/// size of the proof. This is used for benchmarking, so for worst case scenario, we should
 	/// round up.
 	///
 	/// The major complexity of doing a `verify_proof` is computing the hashes needed
 	/// to calculate the merkle root. For tries, it should be easy to predict the depth
-	/// of the trie (which is equivalent to the hashes), by looking at the size of the proof.
-	/// A rough estimate should be: `proof_size` / (`hash_size` * `num_hashes_per_layer`).
-	fn proof_to_hashes(proof: &[u8]) -> Result<u32, DispatchError>;
+	/// of the trie (which is equivalent to the hashes), by looking at the length of the proof.
+	fn proof_to_hashes(proof: &Self::Proof) -> Result<u32, DispatchError>;
 }
 
 #[cfg(test)]
