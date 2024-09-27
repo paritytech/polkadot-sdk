@@ -32,8 +32,8 @@ jobs:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: script
         run: |
-          forklift cargo clippy --all-targets --locked --workspace
-          forklift cargo clippy --all-targets --all-features --locked --workspace
+          forklift cargo clippy --all-targets --locked --workspace --quiet
+          forklift cargo clippy --all-targets --all-features --locked --workspace --quiet
   check-try-runtime:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     needs: [preflight]
@@ -45,13 +45,13 @@ jobs:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: script
         run: |
-          forklift cargo check --locked --all --features try-runtime
+          forklift cargo check --locked --all --features try-runtime --quiet
           # this is taken from cumulus
           # Check that parachain-template will compile with `try-runtime` feature flag.
           forklift cargo check --locked -p parachain-template-node --features try-runtime
           # add after https://github.com/paritytech/substrate/pull/14502 is merged
           # experimental code may rely on try-runtime and vice-versa
-          forklift cargo check --locked --all --features try-runtime,experimental
+          forklift cargo check --locked --all --features try-runtime,experimental --quiet
   # check-core-crypto-features works fast without forklift
   check-core-crypto-features:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
