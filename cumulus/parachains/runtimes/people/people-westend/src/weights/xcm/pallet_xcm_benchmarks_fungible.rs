@@ -185,4 +185,8 @@ impl<T: frame_system::Config> WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	pub fn initiate_transfer() -> Weight {
+		// TODO
+		Weight::zero()
+	}
 }

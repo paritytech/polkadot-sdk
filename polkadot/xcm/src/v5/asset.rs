@@ -978,6 +978,17 @@ pub enum AssetTransferFilter {
 	ReserveWithdraw(AssetFilter),
 }
 
+impl AssetTransferFilter {
+	/// Returns reference to inner `AssetFilter` ignoring the transfer type.
+	pub fn inner(&self) -> &AssetFilter {
+		match self {
+			AssetTransferFilter::Teleport(inner) => inner,
+			AssetTransferFilter::ReserveDeposit(inner) => inner,
+			AssetTransferFilter::ReserveWithdraw(inner) => inner,
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::super::prelude::*;
