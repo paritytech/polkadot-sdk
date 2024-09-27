@@ -52,9 +52,6 @@ where
 {
 	/// Create a compact merkle proof needed to prove all `keys` and their values are in the trie.
 	///
-	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
-	/// compatible with `LayoutV0`.
-	///
 	/// When verifying the proof created by this function, you must include all of the keys and
 	/// values of the proof, else the verifier will complain that extra nodes are provided in the
 	/// proof that are not needed.
@@ -109,9 +106,6 @@ where
 	}
 
 	/// Create a compact merkle proof needed to prove a single key and its value are in the trie.
-	///
-	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
-	/// compatible with `LayoutV0`.
 	fn create_proof(&self, key: &Key) -> Result<Vec<u8>, DispatchError> {
 		sp_trie::generate_trie_proof::<LayoutV1<Hashing>, _, _, _>(
 			&self.db,
@@ -123,8 +117,6 @@ where
 	}
 
 	/// Verify the existence of `key` and `value` in a given trie root and proof.
-	///
-	/// Proofs must be created with latest substrate trie format (`LayoutV1`).
 	fn verify_proof(
 		root: &Hashing::Out,
 		proof: &[u8],
@@ -162,8 +154,6 @@ where
 }
 
 /// Verify the existence of `key` and `value` in a given trie root and proof.
-///
-/// Proofs must be created with latest substrate trie format (`LayoutV1`).
 pub fn verify_proof<Hashing, Key, Value>(
 	root: &Hashing::Out,
 	proof: &[u8],
@@ -186,8 +176,6 @@ where
 }
 
 /// Verify the existence of multiple `items` in a given trie root and proof.
-///
-/// Proofs must be created with latest substrate trie format (`LayoutV1`).
 pub fn verify_multi_proof<Hashing, Key, Value>(
 	root: &Hashing::Out,
 	proof: &[u8],
