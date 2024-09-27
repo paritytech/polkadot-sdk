@@ -950,6 +950,34 @@ impl TryFrom<OldAssetFilter> for AssetFilter {
 	}
 }
 
+/// Matches assets based on inner `AssetFilter` and tags them for a specific type of asset transfer.
+/// Please note: the transfer type is specific to each particular `(asset, source, dest)`
+/// combination, so it should always be built in the context of `source` after knowing `dest`.
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
+pub enum AssetTransferFilter {
+	/// teleport assets matching `AssetFilter` to a specific destination
+	Teleport(AssetFilter),
+	/// reserve-transfer assets matching `AssetFilter` to a specific destination, using the local
+	/// chain as reserve
+	ReserveDeposit(AssetFilter),
+	/// reserve-transfer assets matching `AssetFilter` to a specific destination, using the
+	/// destination as reserve
+	ReserveWithdraw(AssetFilter),
+}
+
 #[cfg(test)]
 mod tests {
 	use super::super::prelude::*;

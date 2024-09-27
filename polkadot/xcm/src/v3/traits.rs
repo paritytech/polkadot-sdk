@@ -143,6 +143,9 @@ pub enum Error {
 	/// An asset cannot be deposited, probably because (too much of) it already exists.
 	#[codec(index = 34)]
 	NotDepositable,
+	/// Too many assets matched the given asset filter.
+	#[codec(index = 35)]
+	TooManyAssets,
 
 	// Errors that happen prior to instructions being executed. These fall outside of the XCM
 	// spec.

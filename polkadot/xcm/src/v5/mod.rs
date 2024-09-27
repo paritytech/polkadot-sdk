@@ -39,8 +39,8 @@ mod location;
 mod traits;
 
 pub use asset::{
-	Asset, AssetFilter, AssetId, AssetInstance, Assets, Fungibility, WildAsset, WildFungibility,
-	MAX_ITEMS_IN_ASSETS,
+	Asset, AssetFilter, AssetId, AssetInstance, AssetTransferFilter, Assets, Fungibility,
+	WildAsset, WildFungibility, MAX_ITEMS_IN_ASSETS,
 };
 pub use junction::{BodyId, BodyPart, Junction, NetworkId};
 pub use junctions::Junctions;
@@ -1045,6 +1045,50 @@ pub enum Instruction<Call> {
 	/// Defined in fellowship RFC 105.
 	#[builder(pays_fees)]
 	PayFees { asset: Asset },
+
+	/// Initiates cross-chain transfer as follows:
+	///
+	/// Assets in the holding register are matched using the given list of `AssetTransferFilter`s,
+	/// they are then transferred based on their specified transfer type:
+	///
+	/// - teleport: burn local assets and append a `ReceiveTeleportedAsset` XCM instruction to the
+	///   XCM program to be sent onward to the `dest` location,
+	///
+	/// - reserve deposit: place assets under the ownership of `dest` within this consensus system
+	///   (i.e. its sovereign account), and append a `ReserveAssetDeposited` XCM instruction to the
+	///   XCM program to be sent onward to the `dest` location,
+	///
+	/// - reserve withdraw: burn local assets and append a `WithdrawAsset` XCM instruction to the
+	///   XCM program to be sent onward to the `dest` location,
+	///
+	/// The onward XCM is then appended a `ClearOrigin` to allow safe execution of any following
+	/// custom XCM instructions provided in `remote_xcm`.
+	///
+	/// The onward XCM also contains either a `BuyExecution` or `UnpaidExecution` instruction based
+	/// on the presence of the `remote_fees` parameter (see below).
+	///
+	/// If an XCM program requires going through multiple hops, it can compose this instruction to
+	/// be used at every chain along the path, describing that specific leg of the flow.
+	///
+	/// Parameters:
+	/// - `dest`: The location of the program next hop.
+	/// - `remote_fees`: If set to `Some(asset_xfer_filter)`, the single asset matching
+	///   `asset_xfer_filter` in the holding register will be transferred first in the remote XCM
+	///   program, followed by a `BuyExecution(fee)`, then rest of transfers follow. This
+	///   guarantees `remote_xcm` will successfully pass a `AllowTopLevelPaidExecutionFrom`
+	///   barrier. If set to `None`, a `UnpaidExecution` instruction is appended instead.
+	/// - `remote_xcm`: Custom instructions that will be executed on the `dest` chain. Note that
+	///   these instructions will be executed after a `ClearOrigin` so their origin will be `None`.
+	///
+	/// Safety: No concerns.
+	///
+	/// Kind: *Command*.
+	InitiateTransfer {
+		destination: Location,
+		remote_fees: Option<AssetTransferFilter>,
+		assets: Vec<AssetTransferFilter>,
+		remote_xcm: Xcm<()>,
+	},
 }
 
 impl<Call> Xcm<Call> {
@@ -1123,6 +1167,8 @@ impl<Call> Instruction<Call> {
 			UnpaidExecution { weight_limit, check_origin } =>
 				UnpaidExecution { weight_limit, check_origin },
 			PayFees { asset } => PayFees { asset },
+			InitiateTransfer { destination, remote_fees, assets, remote_xcm } =>
+				InitiateTransfer { destination, remote_fees, assets, remote_xcm },
 		}
 	}
 }
@@ -1193,6 +1239,8 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			UnpaidExecution { weight_limit, check_origin } =>
 				W::unpaid_execution(weight_limit, check_origin),
 			PayFees { asset } => W::pay_fees(asset),
+			InitiateTransfer { destination, remote_fees, assets, remote_xcm } =>
+				W::initiate_transfer(destination, remote_fees, assets, remote_xcm),
 		}
 	}
 }
