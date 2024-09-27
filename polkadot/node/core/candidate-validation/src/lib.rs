@@ -994,16 +994,19 @@ async fn validate_candidate_exhaustive(
 				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
 				Ok(ValidationResult::Invalid(InvalidCandidate::ParaHeadHashMismatch))
 			} else {
-				let outputs = CandidateCommitments {
-					head_data: res.head_data,
-					upward_messages: res.upward_messages,
-					horizontal_messages: res.horizontal_messages,
-					new_validation_code: res.new_validation_code,
-					processed_downward_messages: res.processed_downward_messages,
-					hrmp_watermark: res.hrmp_watermark,
+				let ccr = CommittedCandidateReceiptV2 {
+					descriptor: candidate_receipt.descriptor.clone(),
+					commitments: CandidateCommitments {
+						head_data: res.head_data,
+						upward_messages: res.upward_messages,
+						horizontal_messages: res.horizontal_messages,
+						new_validation_code: res.new_validation_code,
+						processed_downward_messages: res.processed_downward_messages,
+						hrmp_watermark: res.hrmp_watermark,
+					},
 				};
 
-				if candidate_receipt.commitments_hash != outputs.hash() {
+				if candidate_receipt.commitments_hash != ccr.commitments.hash() {
 					gum::info!(
 						target: LOG_TARGET,
 						?para_id,
@@ -1014,17 +1017,12 @@ async fn validate_candidate_exhaustive(
 					// invalid.
 					Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))
 				} else {
-					let selected_core = outputs.selected_core();
+					let core_index = candidate_receipt.descriptor.core_index();
 
-					match (selected_core, maybe_cq, exec_kind) {
+					match (core_index, maybe_cq, exec_kind) {
 						// Core selectors are optional for V2 descriptors, but we still check the
 						// descriptor core index.
-						(_, Some(cq), PvfExecKind::Backing) => {
-							let ccr = CommittedCandidateReceiptV2 {
-								descriptor: candidate_receipt.descriptor.clone(),
-								commitments: outputs.clone(),
-							};
-
+						(Some(_core_index), Some(cq), PvfExecKind::Backing) => {
 							if let Err(err) = ccr.check_core_index(&transpose_claim_queue(cq.0)) {
 								gum::warn!(
 									target: LOG_TARGET,
@@ -1039,14 +1037,17 @@ async fn validate_candidate_exhaustive(
 						},
 						// If the claim queue was not available means an internal error.
 						// We don't want to raise disputes or back invalid candidates.
-						(Some(_selected_core), None, PvfExecKind::Backing) =>
+						(Some(_core_index), None, PvfExecKind::Backing) =>
 							return Err(ValidationFailed("Claim queue not available".into())),
 
 						// No checks for approvals.
 						(_, _, _) => {},
 					}
 
-					Ok(ValidationResult::Valid(outputs, (*persisted_validation_data).clone()))
+					Ok(ValidationResult::Valid(
+						ccr.commitments,
+						(*persisted_validation_data).clone(),
+					))
 				}
 			},
 	}
