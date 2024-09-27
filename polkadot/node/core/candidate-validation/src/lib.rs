@@ -47,7 +47,7 @@ use polkadot_primitives::{
 	},
 	vstaging::{
 		transpose_claim_queue, CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
-		CandidateReceiptV2 as CandidateReceipt, CommittedCandidateReceiptV2,
+		CandidateReceiptV2 as CandidateReceipt, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	},
 	AuthorityDiscoveryId, CandidateCommitments, ExecutorParams, Hash, OccupiedCoreAssumption,
 	PersistedValidationData, PvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
@@ -994,7 +994,7 @@ async fn validate_candidate_exhaustive(
 				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
 				Ok(ValidationResult::Invalid(InvalidCandidate::ParaHeadHashMismatch))
 			} else {
-				let ccr = CommittedCandidateReceiptV2 {
+				let ccr = CommittedCandidateReceipt {
 					descriptor: candidate_receipt.descriptor.clone(),
 					commitments: CandidateCommitments {
 						head_data: res.head_data,
