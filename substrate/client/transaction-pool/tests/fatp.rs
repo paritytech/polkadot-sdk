@@ -25,13 +25,12 @@ use sc_transaction_pool_api::{
 	ChainEvent, MaintainedTransactionPool, TransactionPool, TransactionStatus,
 };
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionSource};
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use substrate_test_runtime_client::{
 	runtime::{Block, Hash, Header},
 	AccountKeyring::*,
 };
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
-use std::time::Duration;
 const LOG_TARGET: &str = "txpool";
 
 use sc_transaction_pool::{ForkAwareTxPool, ForkAwareTxPoolTask};
@@ -120,11 +119,13 @@ mod test_chain_with_forks {
 	) -> (Arc<TestApi>, Vec<Vec<Header>>) {
 		// Fork layout:
 		//
+		//       (fork 0)
 		//     F01 - F02 - F03 - F04 - F05 | Alice nonce increasing, alice's txs
 		//    /
 		// F00
-		//    \
+		//    \  (fork 1)
 		//     F11 - F12 - F13 - F14 - F15 | Bob nonce increasing, Bob's txs
+		//
 		//
 		// e.g. F03 contains uxt(Alice, 202), nonces: Alice = 203, Bob = 200
 		//      F12 contains uxt(Bob,   201), nonces: Alice = 200, Bob = 202
@@ -886,8 +887,6 @@ fn fatp_fork_no_xts_ready_switch_to_future() {
 
 #[test]
 fn fatp_ready_at_does_not_trigger() {
-	//this scenario w/o xts is not likely to happen, but similar thing (xt changing from ready to
-	//future) could occur e.g. when runtime was updated on fork1.
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
@@ -902,8 +901,6 @@ fn fatp_ready_at_does_not_trigger() {
 
 #[test]
 fn fatp_ready_at_does_not_trigger_after_submit() {
-	//this scenario w/o xts is not likely to happen, but similar thing (xt changing from ready to
-	//future) could occur e.g. when runtime was updated on fork1.
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
@@ -1530,8 +1527,8 @@ fn fatp_watcher_in_block_across_many_blocks() {
 
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
 	//note 1: transaction is not submitted to views that are not at the tip of the fork
-	//note 2: only views at tip of the fork are kept
 	assert_eq!(pool.active_views_count(), 1);
+	assert_eq!(pool.inactive_views_count(), 1);
 	assert_pool_status!(header02.hash(), &pool, 3, 0);
 
 	let header03 = api.push_block(3, vec![xt0.clone()], true);
@@ -1542,10 +1539,62 @@ fn fatp_watcher_in_block_across_many_blocks() {
 
 	let xt0_status = futures::executor::block_on_stream(xt0_watcher).take(2).collect::<Vec<_>>();
 
-	log::debug!("xt1_status: {:#?}", xt0_status);
+	log::debug!("xt0_status: {:#?}", xt0_status);
 	assert_eq!(
 		xt0_status,
 		vec![TransactionStatus::Ready, TransactionStatus::InBlock((header03.hash(), 0)),]
+	);
+}
+
+#[test]
+fn fatp_watcher_in_block_across_many_blocks2() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, _) = create_basic_pool(api.clone());
+
+	let header01 = api.push_block(1, vec![], true);
+
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+	let xt2 = uxt(Alice, 202);
+
+	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	let xt1_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+	assert_pool_status!(header01.hash(), &pool, 2, 0);
+
+	let header02 = api.push_block(2, vec![], true);
+	let event = new_best_block_event(&pool, Some(header01.hash()), header02.hash());
+	block_on(pool.maintain(event));
+
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
+	//note 1: transaction is not submitted to views that are not at the tip of the fork
+	assert_eq!(pool.active_views_count(), 1);
+	assert_eq!(pool.inactive_views_count(), 1);
+	assert_pool_status!(header02.hash(), &pool, 3, 0);
+
+	let header03 = api.push_block(3, vec![xt0.clone()], true);
+	let header04 = api.push_block(4, vec![xt1.clone()], true);
+	let event = new_best_block_event(&pool, Some(header02.hash()), header04.hash());
+	block_on(pool.maintain(event));
+
+	assert_pool_status!(header04.hash(), &pool, 1, 0);
+
+	let xt0_status = futures::executor::block_on_stream(xt0_watcher).take(2).collect::<Vec<_>>();
+	let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(2).collect::<Vec<_>>();
+
+	log::debug!("xt0_status: {:#?}", xt0_status);
+	log::debug!("xt1_status: {:#?}", xt1_status);
+	assert_eq!(
+		xt0_status,
+		vec![TransactionStatus::Ready, TransactionStatus::InBlock((header03.hash(), 0)),]
+	);
+	assert_eq!(
+		xt1_status,
+		vec![TransactionStatus::Ready, TransactionStatus::InBlock((header04.hash(), 0)),]
 	);
 }
 
@@ -2529,11 +2578,7 @@ fn fatp_dangling_ready_gets_revalidated() {
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
 	let (pool, _) = create_basic_pool(api.clone());
 
-	let xt0 = uxt(Alice, 200);
-	let xt1 = uxt(Alice, 201);
 	let xt2 = uxt(Alice, 202);
-	log::debug!("xt0: {:#?}", api.hash_and_length(&xt0).0);
-	log::debug!("xt1: {:#?}", api.hash_and_length(&xt1).0);
 	log::debug!("xt2: {:#?}", api.hash_and_length(&xt2).0);
 
 	let header01 = api.push_block(1, vec![], true);
@@ -2551,7 +2596,7 @@ fn fatp_dangling_ready_gets_revalidated() {
 	assert_pool_status!(header02a.hash(), &pool, 1, 0);
 	assert_eq!(pool.mempool_len(), (0, 1));
 
-	//xt2 is still ready (revalidation executed in background).
+	//xt2 is still ready: view was just cloned (revalidation executed in background)
 	let header02b = api.push_block_with_parent(header01.hash(), vec![], true);
 	let event = new_best_block_event(&pool, Some(header02a.hash()), header02b.hash());
 	block_on(pool.maintain(event));
@@ -2607,20 +2652,6 @@ fn fatp_ready_txs_are_provided_in_valid_order() {
 	let ready02 = ready_iterator.next();
 	assert_eq!(ready01.unwrap().hash, api.hash_and_length(&xt1).0);
 	assert_eq!(ready02.unwrap().hash, api.hash_and_length(&xt2).0);
-
-	// assert_eq!(pool.mempool_len(), (0, 1));
-	//
-	// //xt2 is still ready (revalidation executed in background).
-	// let header02b = api.push_block_with_parent(header01.hash(), vec![], true);
-	// let event = new_best_block_event(&pool, Some(header03a.hash()), header02b.hash());
-	// block_on(pool.maintain(event));
-	// assert_pool_status!(header02b.hash(), &pool, 1, 0);
-	//
-	// //xt2 is now future - view revalidation worked.
-	// let header03b = api.push_block_with_parent(header02b.hash(), vec![], true);
-	// let event = new_best_block_event(&pool, Some(header02b.hash()), header03b.hash());
-	// block_on(pool.maintain(event));
-	// assert_pool_status!(header03b.hash(), &pool, 0, 1);
 }
 
 //todo: add test: check len of filter after finalization (!)
@@ -2805,8 +2836,6 @@ fn fatp_ready_light_long_fork_retracted_works() {
 	assert!(ready_iterator.next().is_none());
 }
 
-
-
 #[test]
 fn fatp_ready_at_with_timeout_works_for_misc_scenarios() {
 	sp_tracing::try_init_simple();
@@ -2827,7 +2856,8 @@ fn fatp_ready_at_with_timeout_works_for_misc_scenarios() {
 
 	let header01b = api.push_block_with_parent(genesis, vec![xt1.clone()], true);
 
-	let mut ready_at_future = pool.ready_at_with_timeout(header01b.hash(), Duration::from_secs(36000));
+	let mut ready_at_future =
+		pool.ready_at_with_timeout(header01b.hash(), Duration::from_secs(36000));
 
 	let noop_waker = futures::task::noop_waker();
 	let mut context = futures::task::Context::from_waker(&noop_waker);
@@ -2843,7 +2873,6 @@ fn fatp_ready_at_with_timeout_works_for_misc_scenarios() {
 	let mut ready_at = ready_at_future.now_or_never().unwrap();
 	assert_eq!(ready_at.next().unwrap().hash, api.hash_and_length(&xt0).0);
 	assert!(ready_at.next().is_none());
-
 
 	let header02a = api.push_block_with_parent(header01a.hash(), vec![], true);
 	let xt2 = uxt(Charlie, 200);
