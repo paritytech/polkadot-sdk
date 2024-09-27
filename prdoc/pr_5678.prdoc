@@ -1,6 +1,6 @@
 title: 'rpc server: fix deny unsafe on RpcMethods::Auto'
 doc:
-- audience: Node User
+- audience: Node Operator
   description: |-
     Close #5677
 
