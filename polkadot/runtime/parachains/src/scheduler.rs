@@ -172,7 +172,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Retrieve the number of cores of the current session, from the assigner.
-	pub(crate) fn num_cores() -> u32 {
+	/// Can be smaller than the number of "availability cores" (which is equal to the number of
+	/// validator groups).
+	pub(crate) fn num_assigner_cores() -> u32 {
 		T::AssignmentProvider::session_core_count()
 	}
 
@@ -184,7 +186,7 @@ impl<T: Config> Pallet<T> {
 		let config = new_config;
 
 		let n_cores = core::cmp::max(
-			Self::num_cores(),
+			Self::num_assigner_cores(),
 			match config.scheduler_params.max_validators_per_core {
 				Some(x) if x != 0 => validators.len() as u32 / x,
 				_ => 0,
@@ -362,7 +364,7 @@ impl<T: Config> Pallet<T> {
 
 	// on new session
 	fn maybe_resize_claim_queue(old_core_count: u32) {
-		let new_core_count = Self::num_cores();
+		let new_core_count = Self::num_assigner_cores();
 
 		if new_core_count < old_core_count {
 			ClaimQueue::<T>::mutate(|cq| {
@@ -382,7 +384,7 @@ impl<T: Config> Pallet<T> {
 	// Populate the claim queue. To be called on new session, after all the other modules were
 	// initialized.
 	fn populate_claim_queue_after_session_change() {
-		let n_session_cores = Self::num_cores();
+		let n_session_cores = Self::num_assigner_cores();
 		let config = configuration::ActiveConfig::<T>::get();
 		// Extra sanity, config should already never be smaller than 1:
 		let n_lookahead = config.scheduler_params.lookahead.max(1);
@@ -413,7 +415,7 @@ impl<T: Config> Pallet<T> {
 		if ValidatorGroups::<T>::decode_len().map_or(true, |l| l == 0) {
 			return
 		}
-		let n_session_cores = Self::num_cores();
+		let n_session_cores = Self::num_assigner_cores();
 		let config = configuration::ActiveConfig::<T>::get();
 		// Extra sanity, config should already never be smaller than 1:
 		let n_lookahead = config.scheduler_params.lookahead.max(1);

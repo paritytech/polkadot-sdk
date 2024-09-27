@@ -136,7 +136,7 @@ impl<T: Config> Pallet<T> {
 		let active_set = shared::ActiveValidatorIndices::<T>::get();
 
 		let validator_groups = scheduler::ValidatorGroups::<T>::get().into();
-		let n_cores = scheduler::Pallet::<T>::num_cores();
+		let n_cores = scheduler::Pallet::<T>::num_assigner_cores();
 		let zeroth_delay_tranche_width = config.zeroth_delay_tranche_width;
 		let relay_vrf_modulo_samples = config.relay_vrf_modulo_samples;
 		let n_delay_tranches = config.n_delay_tranches;

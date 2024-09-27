@@ -27,8 +27,8 @@ use crate::{
 	configuration::HostConfiguration,
 	initializer::SessionChangeNotification,
 	mock::{
-		new_test_ext, MockAssigner, MockGenesisConfig, Paras, ParasShared, RuntimeOrigin,
-		Scheduler, System, Test,
+		new_test_ext, Configuration, MockAssigner, MockGenesisConfig, Paras, ParasShared,
+		RuntimeOrigin, Scheduler, System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 	scheduler::{self, common::Assignment, ClaimQueue},
@@ -67,6 +67,8 @@ fn run_to_block(
 			Scheduler::pre_new_session(std::iter::empty());
 
 			MockAssigner::set_core_count(notification.new_config.scheduler_params.num_cores);
+
+			Configuration::force_set_active_config(notification.new_config.clone());
 
 			Paras::initializer_on_new_session(&notification);
 
@@ -261,7 +263,7 @@ fn advance_claim_queue_doubles_assignment_only_if_empty() {
 		// start a new session to activate, 2 validators for 2 cores.
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
-				new_config: default_config(),
+				new_config: config.clone(),
 				validators: vec![
 					ValidatorId::from(Sr25519Keyring::Alice.public()),
 					ValidatorId::from(Sr25519Keyring::Bob.public()),
@@ -734,42 +736,20 @@ fn session_change_decreasing_number_of_cores() {
 			_ => None,
 		});
 
-		MockAssigner::add_test_assignment(assignment_a.clone());
-		MockAssigner::add_test_assignment(assignment_b.clone());
-		MockAssigner::add_test_assignment(assignment_b.clone());
-
-		// This will call advance_claim_queue
-		run_to_block(2, |_| None);
-
-		{
-			let mut claim_queue = scheduler::ClaimQueue::<Test>::get();
-			assert_eq!(Scheduler::claim_queue_len(), 6);
-
-			assert_eq!(
-				claim_queue.remove(&CoreIndex(0)).unwrap(),
-				[assignment_a.clone(), assignment_a.clone()]
-					.into_iter()
-					.collect::<VecDeque<_>>()
-			);
-			assert_eq!(
-				claim_queue.remove(&CoreIndex(1)).unwrap(),
-				[assignment_b.clone(), assignment_b.clone()]
-					.into_iter()
-					.collect::<VecDeque<_>>()
-			);
-			assert_eq!(
-				claim_queue.remove(&CoreIndex(2)).unwrap(),
-				[assignment_b.clone(), assignment_b.clone()]
-					.into_iter()
-					.collect::<VecDeque<_>>()
-			);
-		}
+		scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
+			(CoreIndex::from(0), VecDeque::from([assignment_a.clone()])),
+			// Leave a hole for core 1.
+			(CoreIndex::from(2), VecDeque::from([assignment_b.clone(), assignment_b.clone()])),
+		]));
 
 		// Decrease number of cores to 1.
 		let old_config = config;
 		let mut new_config = old_config.clone();
 		new_config.scheduler_params.num_cores = 1;
 
+		// Session change.
+		// Assignment A had its shot already so will be dropped for good.
+		// The two assignments of B will be pushed back to the assignment provider.
 		run_to_block(3, |number| match number {
 			3 => Some(SessionChangeNotification {
 				new_config: new_config.clone(),
@@ -781,58 +761,115 @@ fn session_change_decreasing_number_of_cores() {
 		});
 
 		let mut claim_queue = scheduler::ClaimQueue::<Test>::get();
-		assert_eq!(Scheduler::claim_queue_len(), 2);
-
-		assert_eq!(
-			claim_queue.remove(&CoreIndex(0)).unwrap(),
-			[assignment_a, assignment_b.clone()].into_iter().collect::<VecDeque<_>>()
-		);
-
-		// Pop more assignments to check that they've been pushed back to the assignment provider.
-		Scheduler::advance_claim_queue(&Default::default());
-		let mut claim_queue = scheduler::ClaimQueue::<Test>::get();
-		assert_eq!(Scheduler::claim_queue_len(), 2);
-
-		assert_eq!(
-			claim_queue.remove(&CoreIndex(0)).unwrap(),
-			[assignment_b.clone(), assignment_b.clone()]
-				.into_iter()
-				.collect::<VecDeque<_>>()
-		);
-
-		Scheduler::advance_claim_queue(&Default::default());
-		let mut claim_queue = scheduler::ClaimQueue::<Test>::get();
-		assert_eq!(Scheduler::claim_queue_len(), 2);
-		assert_eq!(
-			claim_queue.remove(&CoreIndex(0)).unwrap(),
-			[assignment_b.clone(), assignment_b.clone()]
-				.into_iter()
-				.collect::<VecDeque<_>>()
-		);
-
-		Scheduler::advance_claim_queue(&Default::default());
-		let mut claim_queue = scheduler::ClaimQueue::<Test>::get();
-		assert_eq!(Scheduler::claim_queue_len(), 2);
-		assert_eq!(
-			claim_queue.remove(&CoreIndex(0)).unwrap(),
-			[assignment_b.clone(), assignment_b.clone()]
-				.into_iter()
-				.collect::<VecDeque<_>>()
-		);
-
-		Scheduler::advance_claim_queue(&Default::default());
-		let mut claim_queue = scheduler::ClaimQueue::<Test>::get();
 		assert_eq!(Scheduler::claim_queue_len(), 1);
+
+		// There's only one assignment for B because run_to_block also calls advance_claim_queue at
+		// the end.
 		assert_eq!(
 			claim_queue.remove(&CoreIndex(0)).unwrap(),
-			[assignment_b].into_iter().collect::<VecDeque<_>>()
+			[assignment_b.clone()].into_iter().collect::<VecDeque<_>>()
 		);
 
+		// No more assignments now.
 		Scheduler::advance_claim_queue(&Default::default());
 		assert_eq!(Scheduler::claim_queue_len(), 0);
-
-		// TODO: test a claim queue with holes in it.
 	});
 }
 
-// TODO: test increasing the lookahead.
+#[test]
+fn session_change_increasing_lookahead() {
+	let mut config = default_config();
+	config.scheduler_params.num_cores = 2;
+	config.scheduler_params.lookahead = 2;
+	let genesis_config = genesis_config(&config);
+
+	let para_a = ParaId::from(3_u32);
+	let para_b = ParaId::from(4_u32);
+
+	let assignment_a = Assignment::Bulk(para_a);
+	let assignment_b = Assignment::Bulk(para_b);
+
+	new_test_ext(genesis_config).execute_with(|| {
+		// Add 2 paras
+		register_para(para_a);
+		register_para(para_b);
+
+		// start a new session to activate, 2 validators for 2 cores.
+		run_to_block(1, |number| match number {
+			1 => Some(SessionChangeNotification {
+				new_config: config.clone(),
+				validators: vec![
+					ValidatorId::from(Sr25519Keyring::Alice.public()),
+					ValidatorId::from(Sr25519Keyring::Bob.public()),
+				],
+				..Default::default()
+			}),
+			_ => None,
+		});
+
+		MockAssigner::add_test_assignment(assignment_a.clone());
+		MockAssigner::add_test_assignment(assignment_a.clone());
+		MockAssigner::add_test_assignment(assignment_a.clone());
+		MockAssigner::add_test_assignment(assignment_b.clone());
+		MockAssigner::add_test_assignment(assignment_b.clone());
+		MockAssigner::add_test_assignment(assignment_b.clone());
+
+		// Lookahead is currently 2.
+
+		run_to_block(2, |_| None);
+
+		{
+			let mut claim_queue = scheduler::ClaimQueue::<Test>::get();
+			assert_eq!(Scheduler::claim_queue_len(), 4);
+
+			assert_eq!(
+				claim_queue.remove(&CoreIndex(0)).unwrap(),
+				[assignment_a.clone(), assignment_a.clone()]
+					.into_iter()
+					.collect::<VecDeque<_>>()
+			);
+			assert_eq!(
+				claim_queue.remove(&CoreIndex(1)).unwrap(),
+				[assignment_a.clone(), assignment_a.clone()]
+					.into_iter()
+					.collect::<VecDeque<_>>()
+			);
+		}
+
+		// Increase lookahead to 4.
+		let old_config = config;
+		let mut new_config = old_config.clone();
+		new_config.scheduler_params.lookahead = 4;
+
+		run_to_block(3, |number| match number {
+			3 => Some(SessionChangeNotification {
+				new_config: new_config.clone(),
+				prev_config: old_config.clone(),
+				validators: vec![
+					ValidatorId::from(Sr25519Keyring::Alice.public()),
+					ValidatorId::from(Sr25519Keyring::Bob.public()),
+				],
+				..Default::default()
+			}),
+			_ => None,
+		});
+
+		{
+			let mut claim_queue = scheduler::ClaimQueue::<Test>::get();
+			assert_eq!(Scheduler::claim_queue_len(), 6);
+
+			assert_eq!(
+				claim_queue.remove(&CoreIndex(0)).unwrap(),
+				[assignment_a.clone(), assignment_a.clone(), assignment_b.clone()]
+					.into_iter()
+					.collect::<VecDeque<_>>()
+			);
+			assert_eq!(
+				claim_queue.remove(&CoreIndex(1)).unwrap(),
+				[assignment_a.clone(), assignment_b.clone(), assignment_b.clone()]
+					.into_iter()
+					.collect::<VecDeque<_>>()
+			);
+		}
+	});
+}

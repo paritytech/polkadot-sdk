@@ -254,7 +254,7 @@ impl<T: Config> Pallet<T> {
 			buf
 		};
 
-		let prev_core_count = scheduler::Pallet::<T>::num_cores();
+		let prev_core_count = scheduler::Pallet::<T>::num_assigner_cores();
 
 		// inform about upcoming new session
 		scheduler::Pallet::<T>::pre_new_session(inclusion::Pallet::<T>::get_occupied_cores());
