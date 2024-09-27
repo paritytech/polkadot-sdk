@@ -253,7 +253,8 @@ where
 		_relay_vrf_story: polkadot_node_primitives::approval::v1::RelayVRFStory,
 		_assignment: &polkadot_node_primitives::approval::v2::AssignmentCertV2,
 		_backing_groups: Vec<polkadot_primitives::GroupIndex>,
-	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment> {
+	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment>
+	{
 		self.1(validator_index)
 	}
 }

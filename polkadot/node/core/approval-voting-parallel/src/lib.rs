@@ -878,7 +878,8 @@ pub struct ApprovalVotingToApprovalDistribution<S: SubsystemSender<ApprovalVotin
 );
 
 impl<S: SubsystemSender<ApprovalVotingParallelMessage>>
-	overseer::SubsystemSender<ApprovalDistributionMessage> for ApprovalVotingToApprovalDistribution<S>
+	overseer::SubsystemSender<ApprovalDistributionMessage>
+	for ApprovalVotingToApprovalDistribution<S>
 {
 	#[allow(clippy::type_complexity, clippy::type_repetition_in_bounds)]
 	fn send_message<'life0, 'async_trait>(
