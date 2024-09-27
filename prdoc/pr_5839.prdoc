@@ -15,3 +15,7 @@ doc:
 crates:
     - name: sp-api-proc-macro
       bump: patch
+    - name: frame-support-procedural
+      bump: patch
+    - name: polkadot-parachain-lib
+      bump: patch
