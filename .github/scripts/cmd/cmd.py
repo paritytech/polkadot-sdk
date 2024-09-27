@@ -100,7 +100,7 @@ def main():
 
         # loop over remaining runtimes to collect available pallets
         for runtime in runtimesMatrix.values():
-            os.system(f"forklift cargo build -p {runtime['package']} --profile {profile} --features runtime-benchmarks")
+            os.system(f"forklift cargo build -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}")
             print(f'-- listing pallets for benchmark for {runtime["name"]}')
             wasm_file = f"target/{profile}/wbuild/{runtime['package']}/{runtime['package'].replace('-', '_')}.wasm"
             output = os.popen(
