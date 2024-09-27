@@ -1157,6 +1157,39 @@ pub mod pallet {
 				// If a user runs into this error, they should chill first.
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
+				// Calculate unbond block based on unbond queue.
+				// TODO: Abstract into function(s).
+				let unbonding_time_delta = Self::get_unbond_time_delta(value);
+				let unbonding_queue_params = <UnbondingQueueParams<T>>::get();
+
+				let current_block = <frame_system::Pallet<T>>::block_number();
+				let session_length = T::NextNewSession::average_session_length();
+
+				let new_back_of_unbonding_queue_block_number = current_block
+					.max(unbonding_queue_params.back_of_unbonding_queue_block_number) +
+					unbonding_time_delta;
+
+				let lower_bound_block = session_length.defensive_saturating_mul(
+					unbonding_queue_params.unbond_period_lower_bound.into(),
+				);
+
+				let upper_bound_block = session_length.defensive_saturating_mul(
+					unbonding_queue_params.unbond_period_upper_bound.into(),
+				);
+
+				// TODO: Either use this or calculate era based on block number.
+				let unbonding_block_number = upper_bound_block.min(
+					new_back_of_unbonding_queue_block_number
+						.defensive_saturating_sub(current_block)
+						.max(lower_bound_block),
+				) + current_block;
+
+				// Update unbonding queue params with new `back_of_unbonding_queue_block_number`.
+				<UnbondingQueueParams<T>>::set(UnbondingQueue {
+					back_of_unbonding_queue_block_number: new_back_of_unbonding_queue_block_number,
+					..unbonding_queue_params
+				});
+
 				// Note: in case there is no current era it is fine to bond one era more.
 				let era = Self::current_era()
 					.unwrap_or(0)

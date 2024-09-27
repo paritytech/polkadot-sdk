@@ -860,7 +860,7 @@ impl<T: Config> Pallet<T> {
 	//
 	// We implement the calculation `unbonding_time_delta = new_unbonding_stake / max_unstake *
 	// upper bound period in blocks.
-	pub fn get_unbond_time_delta(unbond_stake: BalanceOf<T>, era: EraIndex) -> BlockNumberFor<T> {
+	pub(crate) fn get_unbond_time_delta(unbond_stake: BalanceOf<T>) -> BlockNumberFor<T> {
 		let unbonding_queue_params = <UnbondingQueueParams<T>>::get();
 		let undonding_period_upper_bound = unbonding_queue_params.unbond_period_upper_bound;
 
@@ -868,7 +868,9 @@ impl<T: Config> Pallet<T> {
 		// and balance types.
 		let session_length_as_u128: u128 =
 			T::NextNewSession::average_session_length().saturated_into();
-		let max_unstake_as_u128: u128 = Self::get_quick_unbond_max_unstake(era).saturated_into();
+		let max_unstake_as_u128: u128 =
+			Self::get_quick_unbond_max_unstake(CurrentEra::<T>::get().unwrap_or(0))
+				.saturated_into();
 		let unbond_stake_as_u128: u128 = unbond_stake.saturated_into();
 		let upper_bound_as_u128: u128 = undonding_period_upper_bound.saturated_into();
 
