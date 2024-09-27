@@ -848,6 +848,7 @@ pub fn from_post_weight_info(ref_time: Option<u64>, pays_fee: Pays) -> PostDispa
 #[docify::export]
 #[test]
 fn last_runtime_upgrade_spec_version_usage() {
+	#[allow(dead_code)]
 	struct Migration;
 
 	impl OnRuntimeUpgrade for Migration {
