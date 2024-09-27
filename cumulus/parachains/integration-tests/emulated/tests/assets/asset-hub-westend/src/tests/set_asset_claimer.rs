@@ -15,14 +15,16 @@
 
 //! Tests related to claiming assets trapped during XCM execution.
 
-use crate::imports::*;
+use crate::imports::{bhw_xcm_config::LocationToAccountId, *};
 use emulated_integration_tests_common::{
 	accounts::{ALICE, BOB},
 	impls::AccountId32,
 };
-
-use crate::imports::bhw_xcm_config::{LocationToAccountId, UniversalLocation};
 use frame_support::{assert_ok, sp_runtime::traits::Dispatchable};
+use westend_system_emulated_network::{
+	asset_hub_westend_emulated_chain::asset_hub_westend_runtime::RuntimeOrigin as AssetHubRuntimeOrigin,
+	bridge_hub_westend_emulated_chain::bridge_hub_westend_runtime::RuntimeOrigin as BridgeHubRuntimeOrigin,
+};
 use xcm_executor::traits::ConvertLocation;
 
 #[test]
@@ -30,77 +32,51 @@ fn test_set_asset_claimer_within_a_chain() {
 	let (alice_account, alice_location) = account_and_location(ALICE);
 	let (bob_account, bob_location) = account_and_location(BOB);
 
-	let amount_to_send = 16_000_000_000_000;
-	let assets: Assets = (Parent, amount_to_send).into();
+	let trap_amount = 16_000_000_000_000;
+	let assets: Assets = (Parent, trap_amount).into();
 
 	let alice_balance_before =
 		<AssetHubWestend as Chain>::account_data_of(alice_account.clone()).free;
-	AssetHubWestend::fund_accounts(vec![(alice_account.clone(), amount_to_send * 2)]);
+	AssetHubWestend::fund_accounts(vec![(alice_account.clone(), trap_amount * 2)]);
 	let alice_balance_after =
 		<AssetHubWestend as Chain>::account_data_of(alice_account.clone()).free;
-	assert_eq!(alice_balance_after - alice_balance_before, amount_to_send * 2);
+	assert_eq!(alice_balance_after - alice_balance_before, trap_amount * 2);
 
-	let test_args = TestContext {
-		sender: alice_account.clone(),
-		receiver: bob_account.clone(),
-		args: TestArgs::new_para(
-			bob_location.clone(),
-			bob_account.clone(),
-			amount_to_send,
-			assets.clone(),
-			None,
-			0,
-		),
-	};
-	let test = SystemParaToParaTest::new(test_args);
 	type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
-	let local_xcm = Xcm::<RuntimeCall>::builder_unsafe()
+	let asset_trap_xcm = Xcm::<RuntimeCall>::builder_unsafe()
 		.set_asset_claimer(bob_location.clone())
-		.withdraw_asset(test.args.assets.clone())
+		.withdraw_asset(assets.clone())
 		.clear_origin()
 		.build();
 
 	AssetHubWestend::execute_with(|| {
 		assert_ok!(RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
-			message: bx!(VersionedXcm::from(local_xcm)),
+			message: bx!(VersionedXcm::from(asset_trap_xcm)),
 			max_weight: Weight::from_parts(4_000_000_000_000, 300_000),
 		})
-		.dispatch(test.signed_origin));
+		.dispatch(AssetHubRuntimeOrigin::signed(alice_account.clone())));
 	});
 
 	let balance_after_trap =
 		<AssetHubWestend as Chain>::account_data_of(alice_account.clone()).free;
-	assert_eq!(alice_balance_after - balance_after_trap, amount_to_send);
+	assert_eq!(alice_balance_after - balance_after_trap, trap_amount);
 
 	let bob_balance_before = <AssetHubWestend as Chain>::account_data_of(bob_account.clone()).free;
-	let test_args = TestContext {
-		sender: bob_account.clone(),
-		receiver: alice_account.clone(),
-		args: TestArgs::new_para(
-			alice_location.clone(),
-			alice_account.clone(),
-			amount_to_send,
-			assets.clone(),
-			None,
-			0,
-		),
-	};
-	let test = SystemParaToParaTest::new(test_args);
-	let xcm = Xcm::<RuntimeCall>::builder_unsafe()
-		.claim_asset(test.args.assets.clone(), Here)
-		.deposit_asset(AllCounted(test.args.assets.len() as u32), bob_location.clone())
+	let claim_xcm = Xcm::<RuntimeCall>::builder_unsafe()
+		.claim_asset(assets.clone(), Here)
+		.deposit_asset(AllCounted(assets.len() as u32), bob_location.clone())
 		.build();
 
 	AssetHubWestend::execute_with(|| {
 		assert_ok!(RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
-			message: bx!(VersionedXcm::from(xcm)),
+			message: bx!(VersionedXcm::from(claim_xcm)),
 			max_weight: Weight::from_parts(4_000_000_000_000, 300_000),
 		})
-		.dispatch(test.signed_origin));
+		.dispatch(AssetHubRuntimeOrigin::signed(bob_account.clone())));
 	});
 
 	let bob_balance_after = <AssetHubWestend as Chain>::account_data_of(bob_account.clone()).free;
-	assert_eq!(bob_balance_after - bob_balance_before, amount_to_send);
+	assert_eq!(bob_balance_after - bob_balance_before, trap_amount);
 }
 
 fn account_and_location(account: &str) -> (AccountId32, Location) {
@@ -113,7 +89,7 @@ fn account_and_location(account: &str) -> (AccountId32, Location) {
 
 // The test:
 // 1. Funds Bob account on BridgeHub, withdraws the funds, sets asset claimer to
-// sibling account of Alice on AssetHub and traps the funds.
+// sibling-account-of(AssetHub/Alice) and traps the funds.
 // 2. Sends an XCM from AssetHub to BridgeHub on behalf of Alice. The XCM: claims assets,
 // pays fees and deposits assets to alice's sibling account.
 #[test]
@@ -126,50 +102,31 @@ fn test_sac_between_the_chains() {
 			Junction::AccountId32 { network: Some(Westend), id: alice.clone().into() },
 		],
 	);
+
 	let bob = BridgeHubWestend::account_id_of(BOB);
-	let bob_location =
-		Location::new(0, Junction::AccountId32 { network: Some(Westend), id: bob.clone().into() });
+	let trap_amount = 16_000_000_000_000u128;
+	BridgeHubWestend::fund_accounts(vec![(bob.clone(), trap_amount * 2)]);
 
-	let amount_to_send = 16_000_000_000_000u128;
-	BridgeHubWestend::fund_accounts(vec![(bob.clone(), amount_to_send * 2)]);
+	let assets: Assets = (Parent, trap_amount).into();
+	type RuntimeCall = <BridgeHubWestend as Chain>::RuntimeCall;
+	let trap_xcm = Xcm::<RuntimeCall>::builder_unsafe()
+		.set_asset_claimer(alice_bh_sibling.clone())
+		.withdraw_asset(assets.clone())
+		.clear_origin()
+		.build();
 
-	let assets: Assets = (Parent, amount_to_send).into();
-	let test_args = TestContext {
-		sender: bob.clone(),
-		receiver: alice.clone(),
-		args: TestArgs::new_para(
-			bob_location.clone(),
-			bob.clone(),
-			amount_to_send,
-			assets.clone(),
-			None,
-			0,
-		),
-	};
-	let test = BridgeHubToAssetHubTest::new(test_args);
 	BridgeHubWestend::execute_with(|| {
-		assert_ok!(
-			trap_assets_bh(test.clone(), alice_bh_sibling.clone()).dispatch(test.signed_origin)
-		);
+		assert_ok!(RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
+			message: bx!(VersionedXcm::from(trap_xcm)),
+			max_weight: Weight::from_parts(4_000_000_000_000, 700_000),
+		})
+		.dispatch(BridgeHubRuntimeOrigin::signed(bob.clone())));
 	});
 
 	let alice_bh_acc = LocationToAccountId::convert_location(&alice_bh_sibling).unwrap();
 	let balance = <BridgeHubWestend as Chain>::account_data_of(alice_bh_acc.clone()).free;
 	assert_eq!(balance, 0);
 
-	let destination = AssetHubWestend::sibling_location_of(BridgeHubWestend::para_id());
-	let test_args = TestContext {
-		sender: alice.clone(),
-		receiver: bob.clone(),
-		args: TestArgs::new_para(
-			destination.clone(),
-			bob.clone(),
-			amount_to_send,
-			assets.clone(),
-			None,
-			0,
-		),
-	};
 	let alice_bh_sibling = Location::new(
 		1,
 		[
@@ -177,17 +134,16 @@ fn test_sac_between_the_chains() {
 			Junction::AccountId32 { network: Some(Westend), id: alice.clone().into() },
 		],
 	);
-	let test = AssetHubToBridgeHubTest::new(test_args);
 	let pay_fees = 6_000_000_000_000u128;
 	let xcm_on_bh = Xcm::<()>::builder_unsafe()
-		.claim_asset(test.args.assets.clone(), Here)
+		.claim_asset(assets.clone(), Here)
 		.pay_fees((Parent, pay_fees))
 		.deposit_asset(All, alice_bh_sibling.clone())
 		.build();
 	let bh_on_ah = AssetHubWestend::sibling_location_of(BridgeHubWestend::para_id()).into();
 	AssetHubWestend::execute_with(|| {
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::send(
-			test.signed_origin,
+			AssetHubRuntimeOrigin::signed(alice.clone()),
 			bx!(bh_on_ah),
 			bx!(VersionedXcm::from(xcm_on_bh)),
 		));
@@ -195,23 +151,5 @@ fn test_sac_between_the_chains() {
 
 	let al_bh_acc = LocationToAccountId::convert_location(&alice_bh_sibling).unwrap();
 	let balance = <BridgeHubWestend as Chain>::account_data_of(al_bh_acc).free;
-	assert_eq!(balance, amount_to_send - pay_fees);
-}
-
-fn trap_assets_bh(
-	test: BridgeHubToAssetHubTest,
-	claimer: Location,
-) -> <BridgeHubWestend as Chain>::RuntimeCall {
-	type RuntimeCall = <BridgeHubWestend as Chain>::RuntimeCall;
-
-	let local_xcm = Xcm::<RuntimeCall>::builder_unsafe()
-		.set_asset_claimer(claimer.clone())
-		.withdraw_asset(test.args.assets.clone())
-		.clear_origin()
-		.build();
-
-	RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
-		message: bx!(VersionedXcm::from(local_xcm)),
-		max_weight: Weight::from_parts(4_000_000_000_000, 700_000),
-	})
+	assert_eq!(balance, trap_amount - pay_fees);
 }
