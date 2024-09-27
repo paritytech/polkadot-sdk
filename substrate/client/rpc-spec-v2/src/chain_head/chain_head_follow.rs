@@ -84,7 +84,6 @@ pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	current_best_block: Option<Block::Hash>,
 	/// LRU cache of pruned blocks.
 	pruned_blocks: LruMap<Block::Hash, ()>,
-
 	/// LRU cache of pruned blocks.
 	announced_blocks: LruMap<Block::Hash, BlockType>,
 	/// Stop all subscriptions if the distance between the leaves and the current finalized
@@ -233,7 +232,7 @@ where
 	///
 	/// This edge-case can happen for parachains where the relay chain syncs slower to
 	/// the head of the chain than the parachain node that is synced already.
-	fn distace_within_reason(
+	fn distance_within_reason(
 		&self,
 		block: Block::Hash,
 		finalized: Block::Hash,
@@ -269,7 +268,7 @@ where
 		// Ensure all leaves are within a reasonable distance from the finalized block,
 		// before traversing the tree.
 		for leaf in &leaves {
-			self.distace_within_reason(*leaf, finalized)?;
+			self.distance_within_reason(*leaf, finalized)?;
 		}
 
 		for leaf in leaves {
