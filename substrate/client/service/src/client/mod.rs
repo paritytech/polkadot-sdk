@@ -52,6 +52,8 @@ mod notification_pinning;
 mod wasm_override;
 mod wasm_substitutes;
 
+pub use wasm_override::WasmOverride;
+pub use wasm_substitutes::WasmSubstitutes;
 pub use call_executor::LocalCallExecutor;
 pub use client::{Client, ClientConfig};
 pub(crate) use code_provider::CodeProvider;
