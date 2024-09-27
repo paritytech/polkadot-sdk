@@ -53,6 +53,19 @@ use std::{
 /// `Initialized` event.
 const MAX_FINALIZED_BLOCKS: usize = 16;
 
+/// The type of the block announcement.
+///
+/// The event lifecycle moves thorugh the following states:
+/// `NewBlock` -> `BestBlock` -> `Finalized` (or pruned)
+enum BlockType {
+	/// The block was announced by the `NewBlock` event.
+	NewBlock,
+	/// The block was announced by the `BestBlock` event.
+	BestBlock,
+	/// The block was announced by the `Finalized` event.
+	FinalizedBlock,
+}
+
 use super::subscription::InsertedSubscriptionData;
 
 /// Generates the events of the `chainHead_follow` method.
@@ -71,6 +84,9 @@ pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	current_best_block: Option<Block::Hash>,
 	/// LRU cache of pruned blocks.
 	pruned_blocks: LruMap<Block::Hash, ()>,
+
+	/// LRU cache of pruned blocks.
+	announced_blocks: LruMap<Block::Hash, BlockType>,
 	/// Stop all subscriptions if the distance between the leaves and the current finalized
 	/// block is larger than this value.
 	max_lagging_distance: usize,
@@ -94,6 +110,9 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 			sub_id,
 			current_best_block: None,
 			pruned_blocks: LruMap::new(ByLength::new(
+				MAX_PINNED_BLOCKS.try_into().unwrap_or(u32::MAX),
+			)),
+			announced_blocks: LruMap::new(ByLength::new(
 				MAX_PINNED_BLOCKS.try_into().unwrap_or(u32::MAX),
 			)),
 			max_lagging_distance,
