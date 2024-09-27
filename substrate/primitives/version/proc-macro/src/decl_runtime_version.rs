@@ -183,6 +183,23 @@ impl ParseRuntimeVersion {
 
 	fn parse_str_literal(expr: &Expr) -> Result<String> {
 		match expr {
+			// TODO: Remove this branch when `sp_runtime::create_runtime_str` is removed
+			Expr::Macro(syn::ExprMacro { mac, .. }) => {
+				let lit: ExprLit = mac.parse_body().map_err(|e| {
+					Error::new(
+						e.span(),
+						format!(
+							"a single literal argument is expected, but parsing is failed: {}",
+							e
+						),
+					)
+				})?;
+
+				match &lit.lit {
+					Lit::Str(lit) => Ok(lit.value()),
+					_ => Err(Error::new(lit.span(), "only string literals are supported here")),
+				}
+			},
 			Expr::Call(call) => {
 				if call.args.len() != 1 {
 					return Err(Error::new(
@@ -197,15 +214,13 @@ impl ParseRuntimeVersion {
 					));
 				};
 
-				match lit.lit {
-					Lit::Str(ref lit) => Ok(lit.value()),
+				match &lit.lit {
+					Lit::Str(lit) => Ok(lit.value()),
 					_ => Err(Error::new(lit.span(), "only string literals are supported here")),
 				}
 			},
-			_ => Err(Error::new(
-				expr.span(),
-				format!("a macro expression is expected here: {expr:?}"),
-			)),
+			_ =>
+				Err(Error::new(expr.span(), format!("a function call is expected here: {expr:?}"))),
 		}
 	}
 

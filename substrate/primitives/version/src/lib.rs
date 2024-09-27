@@ -46,7 +46,8 @@ use std::collections::HashSet;
 pub use alloc::borrow::Cow;
 use codec::{Decode, Encode, Input};
 use scale_info::TypeInfo;
-pub use sp_runtime::StateVersion;
+#[allow(deprecated)]
+pub use sp_runtime::{create_runtime_str, StateVersion};
 #[doc(hidden)]
 pub use sp_std;
 

@@ -1031,6 +1031,19 @@ impl OpaqueValue {
 	}
 }
 
+// TODO: Remove in future versions and clean up `parse_str_literal` in `sp-version-proc-macro`
+/// Deprecated `Cow::Borrowed()` wrapper.
+#[macro_export]
+#[deprecated = "Use Cow::Borrowed() instead of create_runtime_str!()"]
+macro_rules! create_runtime_str {
+	( $y:expr ) => {{
+		$crate::Cow::Borrowed($y)
+	}};
+}
+// Re-export for ^ macro, should be removed once macro is gone
+#[doc(hidden)]
+pub use alloc::borrow::Cow;
+
 #[cfg(test)]
 mod tests {
 	use crate::traits::BlakeTwo256;
