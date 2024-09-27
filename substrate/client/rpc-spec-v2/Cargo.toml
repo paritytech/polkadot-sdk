@@ -60,4 +60,3 @@ assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
 sc-transaction-pool = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
-#tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
