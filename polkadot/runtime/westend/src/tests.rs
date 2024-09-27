@@ -18,13 +18,11 @@
 
 use std::collections::HashSet;
 
-use crate::*;
+use crate::{xcm_config::LocationConverter, *};
 use frame_support::traits::WhitelistedStorageKeys;
-use sp_core::crypto::Ss58Codec;
-use sp_core::hexdisplay::HexDisplay;
+use sp_core::{crypto::Ss58Codec, hexdisplay::HexDisplay};
 use sp_keyring::AccountKeyring::Alice;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
-use crate::xcm_config::LocationConverter;
 
 #[test]
 fn remove_keys_weight_is_sensible() {
@@ -308,7 +306,7 @@ fn location_conversion_works() {
 		let got = LocationToAccountHelper::<AccountId, LocationConverter>::convert_location(
 			tc.location.into(),
 		)
-			.unwrap();
+		.unwrap();
 
 		assert_eq!(got, expected, "{}", tc.description);
 	}
