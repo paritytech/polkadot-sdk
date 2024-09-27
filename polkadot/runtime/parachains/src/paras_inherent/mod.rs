@@ -37,6 +37,7 @@ use alloc::{
 	vec::Vec,
 };
 use bitvec::prelude::BitVec;
+use core::result::Result;
 use frame_support::{
 	defensive,
 	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
@@ -300,10 +301,8 @@ impl<T: Config> Pallet<T> {
 	fn process_inherent_data(
 		data: ParachainsInherentData<HeaderFor<T>>,
 		context: ProcessInherentDataContext,
-	) -> core::result::Result<
-		(ParachainsInherentData<HeaderFor<T>>, PostDispatchInfo),
-		DispatchErrorWithPostInfo,
-	> {
+	) -> Result<(ParachainsInherentData<HeaderFor<T>>, PostDispatchInfo), DispatchErrorWithPostInfo>
+	{
 		#[cfg(feature = "runtime-metrics")]
 		sp_io::init_tracing();
 
@@ -352,7 +351,6 @@ impl<T: Config> Pallet<T> {
 				);
 			});
 		}
-		let allowed_relay_parents = shared::AllowedRelayParents::<T>::get();
 
 		let candidates_weight = backed_candidates_weight::<T>(&backed_candidates);
 		let bitfields_weight = signed_bitfields_weight::<T>(&bitfields);
@@ -588,98 +586,9 @@ impl<T: Config> Pallet<T> {
 			log::debug!(target: LOG_TARGET, "Evicted timed out cores: {:?}", freed_timeout);
 		}
 
-		let upcoming_new_session = initializer::Pallet::<T>::upcoming_session_change();
-
-		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
-
-		let initial_candidate_count = backed_candidates.len();
-
+		// Back candidates.
 		let (candidate_receipt_with_backing_validator_indices, backed_candidates_with_core) =
-			if !upcoming_new_session {
-				let occupied_cores = inclusion::Pallet::<T>::get_occupied_cores()
-					.map(|(core, _para)| core)
-					.collect();
-
-				let mut eligible: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-				let mut total_eligible_cores = 0;
-
-				for (core_idx, para_id) in scheduler::Pallet::<T>::eligible_paras(&occupied_cores) {
-					total_eligible_cores += 1;
-					log::trace!(target: LOG_TARGET, "Found eligible para {:?} on core {:?}", para_id, core_idx);
-					eligible.entry(para_id).or_default().insert(core_idx);
-				}
-
-				let node_features = configuration::ActiveConfig::<T>::get().node_features;
-				let core_index_enabled = node_features
-					.get(FeatureIndex::ElasticScalingMVP as usize)
-					.map(|b| *b)
-					.unwrap_or(false);
-
-				let allow_v2_receipts = node_features
-					.get(FeatureIndex::CandidateReceiptV2 as usize)
-					.map(|b| *b)
-					.unwrap_or(false);
-
-				let backed_candidates_with_core = sanitize_backed_candidates::<T>(
-					backed_candidates,
-					&allowed_relay_parents,
-					concluded_invalid_hashes,
-					eligible,
-					core_index_enabled,
-					allow_v2_receipts,
-				);
-				let count = count_backed_candidates(&backed_candidates_with_core);
-
-				ensure!(count <= total_eligible_cores, Error::<T>::UnscheduledCandidate);
-
-				METRICS.on_candidates_sanitized(count as u64);
-
-				// In `Enter` context (invoked during execution) no more candidates should be
-				// filtered, because they have already been filtered during `ProvideInherent`
-				// context. Abort in such cases.
-				if context == ProcessInherentDataContext::Enter {
-					ensure!(
-						initial_candidate_count == count,
-						Error::<T>::CandidatesFilteredDuringExecution
-					);
-				}
-
-				// Process backed candidates according to scheduled cores.
-				let candidate_receipt_with_backing_validator_indices =
-					inclusion::Pallet::<T>::process_candidates(
-						&allowed_relay_parents,
-						&backed_candidates_with_core,
-						scheduler::Pallet::<T>::group_validators,
-						core_index_enabled,
-					)?;
-
-				// We need to advance the claim queue on all cores, except for the ones that did not
-				// get freed in this block. The ones that did not get freed also cannot be newly
-				// occupied.
-				scheduler::Pallet::<T>::advance_claim_queue(&occupied_cores);
-
-				(candidate_receipt_with_backing_validator_indices, backed_candidates_with_core)
-			} else {
-				log::debug!(
-					target: LOG_TARGET,
-					"Upcoming session change, not backing any new candidates."
-				);
-				// If we'll initialize a new session at the end of the block, we don't want to
-				// advance the claim queue.
-
-				// In `Enter` context (invoked during execution) no more candidates should be
-				// filtered, because they have already been filtered during `ProvideInherent`
-				// context. Abort in such cases.
-				// In the case of an upcoming session change, the backed candidates should be empty.
-				if context == ProcessInherentDataContext::Enter {
-					ensure!(
-						initial_candidate_count == 0,
-						Error::<T>::CandidatesFilteredDuringExecution
-					);
-				}
-
-				(vec![], BTreeMap::new())
-			};
+			Self::back_candidates(context, concluded_invalid_hashes, backed_candidates)?;
 
 		set_scrapable_on_chain_backings::<T>(
 			current_session,
@@ -707,6 +616,110 @@ impl<T: Config> Pallet<T> {
 			parent_header,
 		};
 		Ok((processed, Some(all_weight_after).into()))
+	}
+
+	fn back_candidates(
+		context: ProcessInherentDataContext,
+		concluded_invalid_hashes: BTreeSet<CandidateHash>,
+		backed_candidates: Vec<BackedCandidate<T::Hash>>,
+	) -> Result<
+		(
+			Vec<(CandidateReceipt<T::Hash>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
+			BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
+		),
+		DispatchErrorWithPostInfo,
+	> {
+		let allowed_relay_parents = shared::AllowedRelayParents::<T>::get();
+		let upcoming_new_session = initializer::Pallet::<T>::upcoming_session_change();
+
+		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
+
+		let initial_candidate_count = backed_candidates.len();
+
+		if !upcoming_new_session {
+			let occupied_cores =
+				inclusion::Pallet::<T>::get_occupied_cores().map(|(core, _para)| core).collect();
+
+			let mut eligible: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
+			let mut total_eligible_cores = 0;
+
+			for (core_idx, para_id) in scheduler::Pallet::<T>::eligible_paras(&occupied_cores) {
+				total_eligible_cores += 1;
+				log::trace!(target: LOG_TARGET, "Found eligible para {:?} on core {:?}", para_id, core_idx);
+				eligible.entry(para_id).or_default().insert(core_idx);
+			}
+
+			let node_features = configuration::ActiveConfig::<T>::get().node_features;
+			let core_index_enabled = node_features
+				.get(FeatureIndex::ElasticScalingMVP as usize)
+				.map(|b| *b)
+				.unwrap_or(false);
+
+			let allow_v2_receipts = node_features
+				.get(FeatureIndex::CandidateReceiptV2 as usize)
+				.map(|b| *b)
+				.unwrap_or(false);
+
+			let backed_candidates_with_core = sanitize_backed_candidates::<T>(
+				backed_candidates,
+				&allowed_relay_parents,
+				concluded_invalid_hashes,
+				eligible,
+				core_index_enabled,
+				allow_v2_receipts,
+			);
+			let count = count_backed_candidates(&backed_candidates_with_core);
+
+			ensure!(count <= total_eligible_cores, Error::<T>::UnscheduledCandidate);
+
+			METRICS.on_candidates_sanitized(count as u64);
+
+			// In `Enter` context (invoked during execution) no more candidates should be
+			// filtered, because they have already been filtered during `ProvideInherent`
+			// context. Abort in such cases.
+			if context == ProcessInherentDataContext::Enter {
+				ensure!(
+					initial_candidate_count == count,
+					Error::<T>::CandidatesFilteredDuringExecution
+				);
+			}
+
+			// Process backed candidates according to scheduled cores.
+			let candidate_receipt_with_backing_validator_indices =
+				inclusion::Pallet::<T>::process_candidates(
+					&allowed_relay_parents,
+					&backed_candidates_with_core,
+					scheduler::Pallet::<T>::group_validators,
+					core_index_enabled,
+				)?;
+
+			// We need to advance the claim queue on all cores, except for the ones that did not
+			// get freed in this block. The ones that did not get freed also cannot be newly
+			// occupied.
+			scheduler::Pallet::<T>::advance_claim_queue(&occupied_cores);
+
+			Ok((candidate_receipt_with_backing_validator_indices, backed_candidates_with_core))
+		} else {
+			log::debug!(
+				target: LOG_TARGET,
+				"Upcoming session change, not backing any new candidates."
+			);
+			// If we'll initialize a new session at the end of the block, we don't want to
+			// advance the claim queue.
+
+			// In `Enter` context (invoked during execution) no more candidates should be
+			// filtered, because they have already been filtered during `ProvideInherent`
+			// context. Abort in such cases.
+			// In the case of an upcoming session change, the backed candidates should be empty.
+			if context == ProcessInherentDataContext::Enter {
+				ensure!(
+					initial_candidate_count == 0,
+					Error::<T>::CandidatesFilteredDuringExecution
+				);
+			}
+
+			Ok((vec![], BTreeMap::new()))
+		}
 	}
 }
 
