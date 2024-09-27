@@ -77,10 +77,7 @@ fn find_process_by_sid_and_name(
 
 	let mut found = None;
 	for process in all_processes {
-		let Ok(stat) = process.stat() else {
-			// /proc existed above. Potential race occurred
-			continue
-		};
+		let stat = process.stat().expect("/proc existed above. Potential race occurred");
 
 		if stat.session != sid || !process.exe().unwrap().to_str().unwrap().contains(exe_name) {
 			continue
