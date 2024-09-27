@@ -39,7 +39,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
-use polkadot_overseer::{HeadSupportsParachains, SpawnGlue};
+use polkadot_overseer::SpawnGlue;
 use polkadot_primitives::{
 	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, DisputeStatement, GroupIndex,
 	Header, Id as ParaId, IndexedVec, NodeFeatures, ValidDisputeStatementKind, ValidationCode,
@@ -48,7 +48,6 @@ use polkadot_primitives::{
 use std::{cmp::max, time::Duration};
 
 use assert_matches::assert_matches;
-use async_trait::async_trait;
 use parking_lot::Mutex;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 use sp_keystore::Keystore;
@@ -129,15 +128,6 @@ pub mod test_constants {
 	pub(crate) const NUM_COLUMNS: u32 = 1;
 
 	pub(crate) const TEST_CONFIG: DatabaseConfig = DatabaseConfig { col_approval_data: DATA_COL };
-}
-
-struct MockSupportsParachains;
-
-#[async_trait]
-impl HeadSupportsParachains for MockSupportsParachains {
-	async fn head_supports_parachains(&self, _head: &Hash) -> bool {
-		true
-	}
 }
 
 fn slot_to_tick(t: impl Into<Slot>) -> Tick {
@@ -263,7 +253,8 @@ where
 		_relay_vrf_story: polkadot_node_primitives::approval::v1::RelayVRFStory,
 		_assignment: &polkadot_node_primitives::approval::v2::AssignmentCertV2,
 		_backing_groups: Vec<polkadot_primitives::GroupIndex>,
-	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment> {
+	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment>
+	{
 		self.1(validator_index)
 	}
 }
