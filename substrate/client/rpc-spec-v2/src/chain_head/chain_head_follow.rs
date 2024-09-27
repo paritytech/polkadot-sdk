@@ -491,12 +491,21 @@ where
 			return Err(SubscriptionManagementError::BlockHeaderAbsent)
 		};
 
+		if self.announced_blocks.get(first_header.parent_hash()).is_none() {
+			return Err(SubscriptionManagementError::Custom(
+				"Parent block was not reported for a finalized block".into(),
+			));
+		}
+
 		let parents =
 			std::iter::once(first_header.parent_hash()).chain(finalized_block_hashes.iter());
 		for (i, (hash, parent)) in finalized_block_hashes.iter().zip(parents).enumerate() {
-			// Check if the block was already reported and thus, is already pinned.
-			if !self.sub_handle.pin_block(&self.sub_id, *hash)? {
-				continue
+			// Ensure the block is pinned before generating the events.
+			self.sub_handle.pin_block(&self.sub_id, *hash)?;
+
+			// Check if the block was already reported.
+			if self.announced_blocks.get(hash).is_some() {
+				continue;
 			}
 
 			// Generate `NewBlock` events for all blocks beside the last block in the list
@@ -504,6 +513,7 @@ where
 			if !is_last {
 				// Generate only the `NewBlock` event for this block.
 				events.extend(self.generate_import_events(*hash, *parent, false));
+				self.announced_blocks.insert(*hash, BlockType::NewBlock);
 				continue;
 			}
 
@@ -526,7 +536,8 @@ where
 			}
 
 			// Let's generate the `NewBlock` and `NewBestBlock` events for the block.
-			events.extend(self.generate_import_events(*hash, *parent, true))
+			events.extend(self.generate_import_events(*hash, *parent, true));
+			self.announced_blocks.insert(*hash, BlockType::NewBlock);
 		}
 
 		Ok(events)
