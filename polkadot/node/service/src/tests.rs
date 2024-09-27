@@ -63,9 +63,6 @@ struct TestHarness {
 	finality_target_rx: Receiver<Option<Hash>>,
 }
 
-#[derive(Default)]
-struct HarnessConfig;
-
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	case_vars: CaseVars,
 	test: impl FnOnce(TestHarness) -> T,
