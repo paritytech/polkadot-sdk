@@ -599,6 +599,10 @@ where
 		let pruned_block_hashes =
 			self.get_pruned_hashes(&notification.stale_heads, last_finalized)?;
 
+		for finalized in &finalized_block_hashes {
+			self.announced_blocks.insert(*finalized, BlockType::FinalizedBlock);
+		}
+
 		let finalized_event = FollowEvent::Finalized(Finalized {
 			finalized_block_hashes,
 			pruned_block_hashes: pruned_block_hashes.clone(),
