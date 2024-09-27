@@ -17,7 +17,7 @@
 use super::*;
 use crate::{inclusion, ParaId};
 use alloc::collections::btree_map::BTreeMap;
-use core::cmp::min;
+use core::cmp::{max, min};
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 
@@ -107,7 +107,7 @@ benchmarks! {
 	// of a single backed candidate.
 	enter_backed_candidates_variable {
 		let v in (BenchBuilder::<T>::fallback_min_backing_votes())
-			..(BenchBuilder::<T>::fallback_max_validators_per_core());
+			.. max(BenchBuilder::<T>::fallback_min_backing_votes() + 1, BenchBuilder::<T>::fallback_max_validators_per_core());
 
 		let cores_with_backed: BTreeMap<_, _>
 			= vec![(0, v)] // The backed candidate will have `v` validity votes.

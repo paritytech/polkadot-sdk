@@ -16,10 +16,13 @@
 
 //! Genesis configs presets for the Rococo runtime
 
-use crate::{SessionKeys, BABE_GENESIS_EPOCH_CONFIG};
+use crate::{
+	BabeConfig, BalancesConfig, ConfigurationConfig, RegistrarConfig, RuntimeGenesisConfig,
+	SessionConfig, SessionKeys, SudoConfig, BABE_GENESIS_EPOCH_CONFIG,
+};
 #[cfg(not(feature = "std"))]
 use alloc::format;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use polkadot_primitives::{AccountId, AccountPublic, AssignmentId, SchedulerParams, ValidatorId};
 use rococo_runtime_constants::currency::UNITS as ROC;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -27,6 +30,7 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
+use sp_genesis_builder::PresetId;
 use sp_runtime::traits::IdentifyAccount;
 
 /// Helper function to generate a crypto pair from seed
@@ -178,12 +182,12 @@ fn rococo_testnet_genesis(
 
 	const ENDOWMENT: u128 = 1_000_000 * ROC;
 
-	serde_json::json!({
-		"balances": {
-			"balances": endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
+	let config = RuntimeGenesisConfig {
+		balances: BalancesConfig {
+			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
 		},
-		"session": {
-			"keys": initial_authorities
+		session: SessionConfig {
+			keys: initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -200,13 +204,12 @@ fn rococo_testnet_genesis(
 					)
 				})
 				.collect::<Vec<_>>(),
+			..Default::default()
 		},
-		"babe": {
-			"epochConfig": Some(BABE_GENESIS_EPOCH_CONFIG),
-		},
-		"sudo": { "key": Some(root_key.clone()) },
-		"configuration": {
-			"config": polkadot_runtime_parachains::configuration::HostConfiguration {
+		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG, ..Default::default() },
+		sudo: SudoConfig { key: Some(root_key.clone()) },
+		configuration: ConfigurationConfig {
+			config: polkadot_runtime_parachains::configuration::HostConfiguration {
 				scheduler_params: SchedulerParams {
 					max_validators_per_core: Some(1),
 					..default_parachains_host_configuration().scheduler_params
@@ -214,10 +217,14 @@ fn rococo_testnet_genesis(
 				..default_parachains_host_configuration()
 			},
 		},
-		"registrar": {
-			"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
-		}
-	})
+		registrar: RegistrarConfig {
+			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
+			..Default::default()
+		},
+		..Default::default()
+	};
+
+	serde_json::to_value(config).expect("Could not build genesis config.")
 }
 
 // staging_testnet
@@ -439,44 +446,32 @@ fn rococo_staging_testnet_config_genesis() -> serde_json::Value {
 	const ENDOWMENT: u128 = 1_000_000 * ROC;
 	const STASH: u128 = 100 * ROC;
 
-	serde_json::json!({
-		"balances": {
-			"balances": endowed_accounts
+	let config = RuntimeGenesisConfig {
+		balances: BalancesConfig {
+			balances: endowed_accounts
 				.iter()
 				.map(|k: &AccountId| (k.clone(), ENDOWMENT))
 				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
 				.collect::<Vec<_>>(),
 		},
-		"session": {
-			"keys": initial_authorities
+		session: SessionConfig {
+			keys: initial_authorities
 				.into_iter()
-				.map(|x| {
-					(
-						x.0.clone(),
-						x.0,
-						rococo_session_keys(
-							x.2,
-							x.3,
-							x.4,
-							x.5,
-							x.6,
-							x.7,
-						),
-					)
-				})
+				.map(|x| (x.0.clone(), x.0, rococo_session_keys(x.2, x.3, x.4, x.5, x.6, x.7)))
 				.collect::<Vec<_>>(),
+			..Default::default()
 		},
-		"babe": {
-			"epochConfig": Some(BABE_GENESIS_EPOCH_CONFIG),
+		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG, ..Default::default() },
+		sudo: SudoConfig { key: Some(endowed_accounts[0].clone()) },
+		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
+		registrar: RegistrarConfig {
+			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
+			..Default::default()
 		},
-		"sudo": { "key": Some(endowed_accounts[0].clone()) },
-		"configuration": {
-			"config": default_parachains_host_configuration(),
-		},
-		"registrar": {
-			"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
-		},
-	})
+		..Default::default()
+	};
+
+	serde_json::to_value(config).expect("Could not build genesis config.")
 }
 
 //development
@@ -512,28 +507,12 @@ fn versi_local_testnet_genesis() -> serde_json::Value {
 	)
 }
 
-/// Wococo is a temporary testnet that uses almost the same runtime as rococo.
-//wococo_local_testnet
-fn wococo_local_testnet_genesis() -> serde_json::Value {
-	rococo_testnet_genesis(
-		Vec::from([
-			get_authority_keys_from_seed("Alice"),
-			get_authority_keys_from_seed("Bob"),
-			get_authority_keys_from_seed("Charlie"),
-			get_authority_keys_from_seed("Dave"),
-		]),
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		None,
-	)
-}
-
 /// Provides the JSON representation of predefined genesis config for given `id`.
-pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<alloc::vec::Vec<u8>> {
+pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let patch = match id.as_ref() {
-		"local_testnet" => rococo_local_testnet_genesis(),
-		"development" => rococo_development_config_genesis(),
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => rococo_local_testnet_genesis(),
+		sp_genesis_builder::DEV_RUNTIME_PRESET => rococo_development_config_genesis(),
 		"staging_testnet" => rococo_staging_testnet_config_genesis(),
-		"wococo_local_testnet" => wococo_local_testnet_genesis(),
 		"versi_local_testnet" => versi_local_testnet_genesis(),
 		_ => return None,
 	};
@@ -542,4 +521,14 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<alloc::vec::Vec<u
 			.expect("serialization to json is expected to work. qed.")
 			.into_bytes(),
 	)
+}
+
+/// List of supported presets.
+pub fn preset_names() -> Vec<PresetId> {
+	vec![
+		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
+		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
+		PresetId::from("staging_testnet"),
+		PresetId::from("versi_local_testnet"),
+	]
 }

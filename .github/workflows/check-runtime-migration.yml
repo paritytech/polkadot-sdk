@@ -17,38 +17,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  set-image:
-    # GitHub Actions allows using 'env' in a container context.
-    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
-    # This workaround sets the container image for each job using 'set-image' job output.
-    runs-on: ubuntu-latest
-    outputs:
-      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - id: set_image
-        run: cat .github/env >> $GITHUB_OUTPUT
-      # By default we use spot machines that can be terminated at any time.
-      # Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
-      - id: set_runner
-        run: |
-          # Run merge queues on persistent runners
-          if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
-          else
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
-          fi
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
   # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
   check-runtime-migration:
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     # We need to set this to rather long to allow the snapshot to be created, but the average time
     # should be much lower.
     timeout-minutes: 60
-    needs: [set-image]
+    needs: [preflight]
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     strategy:
       fail-fast: false
       matrix:

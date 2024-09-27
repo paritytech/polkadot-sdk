@@ -5,8 +5,8 @@ title: Add support for deprecation metadata in `RuntimeMetadataIr` entries.
 
 doc:
   - audience: 
-      - Runtime dev
-      - Runtime user
+      - Runtime Dev
+      - Runtime User
     description: |
       Changes introduced are listed below.
       Adds `DeprecationStatusIR` enum to sp_metadata_ir.
