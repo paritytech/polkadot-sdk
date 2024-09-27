@@ -702,11 +702,11 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 					None => return,
 					Some(command) => match command {
 						NetworkServiceCommand::GetValue{ key } => {
-							let query_id = self.discovery.get_value(key.clone().to_vec().into()).await;
+							let query_id = self.discovery.get_value(key.to_vec().into()).await;
 							self.pending_get_values.insert(query_id, (key.to_vec().into(), Instant::now()));
 						}
 						NetworkServiceCommand::PutValue { key, value } => {
-							let query_id = self.discovery.put_value(key.clone().to_vec().into(), value).await;
+							let query_id = self.discovery.put_value(key.to_vec().into(), value).await;
 							self.pending_put_values.insert(query_id, (key.to_vec().into(), Instant::now()));
 						}
 						NetworkServiceCommand::PutValueTo { record, peers, update_local_storage} => {

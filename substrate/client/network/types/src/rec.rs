@@ -2,16 +2,10 @@
 
 use std::{
     borrow::Borrow,
-	collections::{hash_map::Entry, HashMap},
-	io, iter,
-	ops::Deref,
-	pin::Pin,
-	sync::Arc,
-	task::{Context, Poll},
-	time::{Duration, Instant},
+	time:: Instant,
 };
 use bytes::Bytes;
-use crate::{PeerId, multihash::Multihash, multiaddr::Multiaddr};
+use crate::{PeerId, multihash::Multihash};
 
 /// The (opaque) key of a record.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -92,7 +86,6 @@ impl From<libp2p_kad::Record> for Record {
         let vec: Vec<u8> = out.key.to_vec();
         let key: Key = vec.into();
         let mut publisher: Option<PeerId> = None;
-        let mut expires: Option<Instant> = None;
         if let Some(x) = out.publisher{
             publisher = Some(x.into());
         }
@@ -127,7 +120,7 @@ impl From<libp2p_kad::PeerRecord> for PeerRecord {
             peer = Some(x.into());            
         }
         let record = out.record.into();
-        PeerRecord {peer: peer, record}
+        PeerRecord {peer, record}
 
         
     }
