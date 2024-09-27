@@ -2398,7 +2398,8 @@ mod tests {
 	}
 
 	fn development_notifs(
-	) -> (Notifications, ProtocolController, Box<dyn crate::service::traits::NotificationService>) {
+	) -> (Notifications, ProtocolController, Box<dyn crate::service::traits::NotificationService>)
+	{
 		let (protocol_handle_pair, notif_service) =
 			crate::protocol::notifications::service::notification_service("/proto/1".into());
 		let (to_notifications, from_controller) =

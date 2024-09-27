@@ -601,9 +601,10 @@ fn project_enabled_features(
 			// We don't want to enable the `std`/`default` feature for the wasm build and
 			// we need to check if the feature is enabled by checking the env variable.
 			*f != "std" &&
-				*f != "default" && env::var(format!("CARGO_FEATURE_{feature_env}"))
-				.map(|v| v == "1")
-				.unwrap_or_default()
+				*f != "default" &&
+				env::var(format!("CARGO_FEATURE_{feature_env}"))
+					.map(|v| v == "1")
+					.unwrap_or_default()
 		})
 		.map(|d| d.0.clone())
 		.collect::<Vec<_>>();
