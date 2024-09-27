@@ -344,6 +344,10 @@ where
 		let finalized_block_hash = startup_point.finalized_hash;
 		let finalized_block_runtime = self.generate_runtime_event(finalized_block_hash, None);
 
+		for finalized in &finalized_block_hashes {
+			self.announced_blocks.insert(*finalized, BlockType::FinalizedBlock);
+		}
+
 		let initialized_event = FollowEvent::Initialized(Initialized {
 			finalized_block_hashes: finalized_block_hashes.into(),
 			finalized_block_runtime,
@@ -354,6 +358,13 @@ where
 
 		finalized_block_descendants.push(initialized_event);
 		for (child, parent) in initial_blocks.into_iter() {
+			// If the parent was not announced we have a gap currently.
+			// This can happen during a WarpSync.
+			if self.announced_blocks.get(&parent).is_none() {
+				return Err(SubscriptionManagementError::BlockHeaderAbsent);
+			}
+			self.announced_blocks.insert(child, BlockType::NewBlock);
+
 			let new_runtime = self.generate_runtime_event(child, Some(parent));
 
 			let event = FollowEvent::NewBlock(NewBlock {
@@ -369,6 +380,11 @@ where
 		// Generate a new best block event.
 		let best_block_hash = startup_point.best_hash;
 		if best_block_hash != finalized_block_hash {
+			if self.announced_blocks.get(&best_block_hash).is_none() {
+				return Err(SubscriptionManagementError::BlockHeaderAbsent);
+			}
+			self.announced_blocks.insert(best_block_hash, BlockType::BestBlock);
+
 			let best_block = FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
 			self.current_best_block = Some(best_block_hash);
 			finalized_block_descendants.push(best_block);
