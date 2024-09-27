@@ -582,9 +582,10 @@ where
 		self.metrics
 			.report(|metrics| metrics.submitted_transactions.inc_by(to_be_submitted.len() as _));
 
+		let mempool = self.mempool.clone();
 		async move {
 			let results_map = view_store.submit(source, to_be_submitted.into_iter()).await;
-			let mut submission_result = reduce_multiview_result(results_map).into_iter();
+			let mut submission_results = reduce_multiview_result(results_map).into_iter();
 
 			//todo [#5494]:
 			//ImmediatelyDropped errors from view submission shall be ignored. If transaction got into the mempool,
@@ -595,10 +596,22 @@ where
 			Ok(mempool_result
 				.into_iter()
 				.map(|result| {
-					result.and_then(|_|
-						submission_result
+					result.and_then(|xt_hash| {
+						let result = submission_results
 							.next()
-							.expect("The number of Ok results in mempool is exactly the same as the size of to-views-submission result. qed."))
+							.expect("The number of Ok results in mempool is exactly the same as the size of to-views-submission result. qed.");
+						result.or_else(|error| {
+							let error = error.into_pool_error();
+							match error {
+								Ok(Error::ImmediatelyDropped) => Ok(xt_hash),
+								Ok(e) => {
+									mempool.remove(xt_hash);
+									Err(e.into())
+								},
+								Err(e) => Err(e),
+							}
+						})
+					})
 				})
 				.collect::<Vec<_>>())
 		}
@@ -640,13 +653,31 @@ where
 		//todo: should send to view first, and check if not Dropped [#5494]
 		log::trace!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.active_views_count());
 		let xt = Arc::from(xt);
-		if let Err(e) = self.mempool.push_watched(source, xt.clone()) {
-			return future::ready(Err(e)).boxed();
-		}
+		let xt_hash = match self.mempool.push_watched(source, xt.clone()) {
+			Ok(xt_hash) => xt_hash,
+			Err(e) => return future::ready(Err(e)).boxed(),
+		};
+
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
 		let view_store = self.view_store.clone();
-		async move { view_store.submit_and_watch(at, source, xt).await }.boxed()
+		let mempool = self.mempool.clone();
+		async move {
+			let result = view_store.submit_and_watch(at, source, xt).await;
+			let result = result.or_else(|(e, maybe_watcher)| {
+				let error = e.into_pool_error();
+				match (error, maybe_watcher) {
+					(Ok(Error::ImmediatelyDropped), Some(watcher)) => Ok(watcher),
+					(Ok(e), _) => {
+						mempool.remove(xt_hash);
+						Err(e.into())
+					},
+					(Err(e), _) => Err(e),
+				}
+			});
+			result
+		}
+		.boxed()
 	}
 
 	/// Intended to remove transactions identified by the given hashes, and any dependent
@@ -999,7 +1030,7 @@ where
 						submitted_count.fetch_add(1, Ordering::Relaxed);
 						view.submit_and_watch(tx.source(), tx.tx()).await
 					};
-					let result = result.map_or_else(
+					let result = result.or_else(
 						|error| {
 							let error = error.into_pool_error();
 							log::trace!(
@@ -1016,7 +1047,7 @@ where
 								Ok(
 									Error::InvalidTransaction(InvalidTransaction::Stale)
 								) => Ok(view.create_watcher(tx_hash)),
-								Ok(_) => Err((error.expect("already in Ok arm. qed."), tx_hash, tx.tx())),
+								Ok(e) => Err((e, tx_hash, tx.tx())),
 								_ => {
 									log::debug!(target: LOG_TARGET, "[{:?}] txpool: update_view: something went wrong: {error:?}", tx_hash);
 									Err((
@@ -1026,8 +1057,7 @@ where
 									))
 								},
 							}
-						},
-						|watcher| Ok(watcher),
+						}
 					);
 
 					if let Ok(watcher) = result {
@@ -1064,7 +1094,7 @@ where
 				match result {
 					Err((_, tx_hash, _)) => {
 						self.view_store.listener.invalidate_transactions(vec![tx_hash]);
-						self.mempool.remove_watched(tx_hash);
+						self.mempool.remove(tx_hash);
 					},
 					Ok(_) => {},
 				}

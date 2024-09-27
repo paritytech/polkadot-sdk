@@ -786,7 +786,7 @@ fn fatp_fork_do_resubmit_same_tx() {
 }
 
 #[test]
-fn fatp_fork_stale_switch_to_future() {
+fn fatp_fork_stale_rejected() {
 	sp_tracing::try_init_simple();
 
 	// note: there are no xts in blocks on fork 0!
@@ -798,6 +798,21 @@ fn fatp_fork_stale_switch_to_future() {
 
 	let f03 = forks[0][3].hash();
 	let f13 = forks[1][3].hash();
+
+	//     n:201   n:202   n:203    <-- alice nonce
+	//     F01   - F02   - F03      <-- xt2 is stale
+	//    /
+	// F00
+	//    \
+	//     F11[t0] - F12[t1] - F13[t2]
+	//     n:201     n:202    n:203    <-- bob nonce
+	//
+	//   t0 = uxt(Bob,200)
+	//   t1 = uxt(Bob,201)
+	//   t2 = uxt(Bob,201)
+	//  xt0 = uxt(Bob, 203)
+	//  xt1 = uxt(Bob, 204)
+	//  xt2 = uxt(Alice, 201);
 
 	let event = new_best_block_event(&pool, None, f03);
 	block_on(pool.maintain(event));
@@ -824,11 +839,15 @@ fn fatp_fork_stale_switch_to_future() {
 	block_on(pool.maintain(event));
 
 	assert_pool_status!(f03, &pool, 0, 2);
-	assert_pool_status!(f13, &pool, 2, 1);
+
+	//xt2 was removed from the pool, it is not becoming future:
+	//note: theoretically we could keep xt2 in the pool, even if it was reported as stale. But it
+	//seems to be an unnecessary complication.
+	assert_pool_status!(f13, &pool, 2, 0);
 
 	let futures_f13 = pool.futures();
 	let ready_f13 = pool.ready().collect::<Vec<_>>();
-	assert!(futures_f13.iter().any(|v| *v.data == xt2));
+	assert!(futures_f13.iter().next().is_none());
 	assert!(futures_f03.iter().any(|v| *v.data == xt0));
 	assert!(futures_f03.iter().any(|v| *v.data == xt1));
 	assert!(ready_f13.iter().any(|v| *v.data == xt0));

@@ -170,6 +170,7 @@ where
 		Self { api, listener, transactions: Default::default(), metrics, max_transactions_count }
 	}
 
+	/// Creates a new `TxMemPool` instance for testing purposes.
 	#[allow(dead_code)]
 	fn new_test(api: Arc<ChainApi>, max_transactions_count: usize) -> Self {
 		Self {
@@ -248,7 +249,7 @@ where
 		&self,
 		source: TransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<(), ChainApi::Error> {
+	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
 		let mut transactions = self.transactions.write();
 		let hash = self.api.hash_and_length(&xt).0;
 		self.try_insert(
@@ -257,7 +258,6 @@ where
 			hash,
 			TxInMemPool::new_watched(source, xt.clone()),
 		)
-		.map(drop)
 	}
 
 	/// Removes transactions from the memory pool which are specified by the given list of hashes
@@ -299,8 +299,8 @@ where
 			.collect::<HashMap<_, _>>()
 	}
 
-	/// Removes a watched transaction from the memory pool based on a given raw extrinsic.
-	pub(super) fn remove_watched(&self, hash: ExtrinsicHash<ChainApi>) {
+	/// Removes a transaction from the memory pool based on a given hash.
+	pub(super) fn remove(&self, hash: ExtrinsicHash<ChainApi>) {
 		let _ = self.transactions.write().remove(&hash);
 	}
 
