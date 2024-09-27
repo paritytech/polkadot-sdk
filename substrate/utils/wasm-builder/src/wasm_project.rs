@@ -870,7 +870,14 @@ fn build_bloaty_blob(
 
 	let cargo_args = env::var(crate::WASM_BUILD_CARGO_ARGS).unwrap_or_default();
 	if !cargo_args.is_empty() {
-		build_cmd.args(cargo_args.split(" "));
+		let Some(args) = shlex::split(&cargo_args) else {
+			build_helper::warning(format!(
+				"the {} environment variable is not a valid shell string",
+				crate::WASM_BUILD_CARGO_ARGS
+			));
+			std::process::exit(1);
+		};
+		build_cmd.args(args);
 	}
 
 	#[cfg(feature = "metadata-hash")]
