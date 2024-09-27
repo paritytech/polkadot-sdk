@@ -672,6 +672,16 @@ pub mod pallet {
 					.hash()
 					.len() as u32;
 
+			let max_immutable_key_size = T::AccountId::max_encoded_len() as u32;
+			let max_immutable_size: u32 = ((max_block_ref_time
+				/ (<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetImmutableData(
+					limits::IMMUTABLE_BYTES,
+				))
+				.ref_time()))
+			.saturating_mul(limits::IMMUTABLE_BYTES.saturating_add(max_immutable_key_size) as u64))
+			.try_into()
+			.expect("Immutable data size too big");
+
 			// We can use storage to store items using the available block ref_time with the
 			// `set_storage` host function.
 			let max_storage_size: u32 = ((max_block_ref_time
@@ -681,6 +691,7 @@ pub mod pallet {
 				})
 				.ref_time()))
 			.saturating_mul(max_payload_size.saturating_add(max_key_size) as u64))
+			.saturating_add(max_immutable_size.into())
 			.try_into()
 			.expect("Storage size too big");
 
