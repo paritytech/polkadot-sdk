@@ -24,7 +24,6 @@ use bytes::Bytes;
 use crate::{PeerId, multihash::Multihash};
 
 /// The (opaque) key of a record.
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Key(Bytes);
 
