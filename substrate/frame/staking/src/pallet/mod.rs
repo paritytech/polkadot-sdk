@@ -744,7 +744,8 @@ pub mod pallet {
 
 	/// Parameters for the unbonding queue mechanism.
 	#[pallet::storage]
-	pub(crate) type UnbondingQueueParams<T: Config> = StorageValue<_, UnbondingQueue, ValueQuery>;
+	pub(crate) type UnbondingQueueParams<T: Config> =
+		StorageValue<_, UnbondingQueue<T>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]

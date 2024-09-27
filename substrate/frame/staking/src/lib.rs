@@ -316,6 +316,7 @@ use frame_support::{
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	curve::PiecewiseLinear,
@@ -383,7 +384,8 @@ pub struct ActiveEraInfo {
 
 /// Parameters of the unbonding queue mechanism.
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct UnbondingQueue {
+#[scale_info(skip_type_params(T))]
+pub struct UnbondingQueue<T: Config> {
 	/// The share of stake backing the lowest 1/3 of validators that is slashable at any point in
 	/// time. It offers a trade-off between security and unbonding time.
 	pub min_slashable_share: Perbill,
@@ -391,14 +393,17 @@ pub struct UnbondingQueue {
 	pub unbond_period_lower_bound: EraIndex,
 	/// The maximum possible unbonding time for an active stake.
 	pub unbond_period_upper_bound: EraIndex,
+	/// The block number when all the existing unbonders have unbonded.
+	back_of_unbonding_queue_block_number: BlockNumberFor<T>,
 }
 
-impl Default for UnbondingQueue {
+impl<T: Config> Default for UnbondingQueue<T> {
 	fn default() -> Self {
 		Self {
 			min_slashable_share: Perbill::from_percent(50),
 			unbond_period_lower_bound: 2,
 			unbond_period_upper_bound: 28,
+			back_of_unbonding_queue_block_number: Zero::zero(),
 		}
 	}
 }
