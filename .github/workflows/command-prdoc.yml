@@ -28,7 +28,7 @@ on:
           - "Runtime Dev"
           - "Runtime User"
           - "Node Dev"
-          - "Node User"
+          - "Node Operator"
       overwrite:
         type: choice
         description: Overwrite existing PrDoc
