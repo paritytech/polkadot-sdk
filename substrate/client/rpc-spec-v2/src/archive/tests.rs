@@ -38,7 +38,7 @@ use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
-use sp_core::{testing::TaskExecutor, Blake2Hasher, Hasher};
+use sp_core::{Blake2Hasher, Hasher};
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT},
 	SaturatedConversion,
@@ -79,7 +79,6 @@ fn setup_api(
 		backend,
 		CHAIN_GENESIS,
 		ArchiveConfig { max_descendant_responses, max_queried_items },
-		Arc::new(TaskExecutor::new()),
 	)
 	.into_rpc();
 

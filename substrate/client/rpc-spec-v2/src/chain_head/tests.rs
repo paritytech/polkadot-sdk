@@ -34,11 +34,11 @@ use jsonrpsee::{
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
 use sc_service::client::new_in_mem;
+use sc_rpc::testing::TokioTestExecutor;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use sp_core::{
 	storage::well_known_keys::{self, CODE},
-	testing::TaskExecutor,
 	Blake2Hasher, Hasher,
 };
 use sp_runtime::traits::Block as BlockT;
@@ -79,7 +79,7 @@ pub async fn run_server() -> std::net::SocketAddr {
 	let api = ChainHead::new(
 		client,
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -140,7 +140,7 @@ async fn setup_api() -> (
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -247,7 +247,7 @@ async fn follow_subscription_produces_blocks() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -316,7 +316,7 @@ async fn follow_with_runtime() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -624,7 +624,7 @@ async fn call_runtime_without_flag() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1283,7 +1283,7 @@ async fn separate_operation_ids_for_subscriptions() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1369,7 +1369,7 @@ async fn follow_generates_initial_blocks() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1525,7 +1525,7 @@ async fn follow_exceeding_pinned_blocks() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: 2,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1602,7 +1602,7 @@ async fn follow_with_unpin() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: 2,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1708,7 +1708,7 @@ async fn unpin_duplicate_hashes() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: 3,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1811,7 +1811,7 @@ async fn follow_with_multiple_unpin_hashes() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1956,7 +1956,7 @@ async fn follow_prune_best_block() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2142,7 +2142,7 @@ async fn follow_forks_pruned_block() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2302,7 +2302,7 @@ async fn follow_report_multiple_pruned_block() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2539,7 +2539,7 @@ async fn pin_block_references() {
 			genesis_block_builder,
 			None,
 			None,
-			Box::new(TaskExecutor::new()),
+			Box::new(TokioTestExecutor::default()),
 			client_config,
 		)
 		.unwrap(),
@@ -2548,7 +2548,7 @@ async fn pin_block_references() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend.clone(),
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: 3,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2683,7 +2683,7 @@ async fn follow_finalized_before_new_block() {
 	let api = ChainHead::new(
 		client_mock.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2798,7 +2798,7 @@ async fn ensure_operation_limits_works() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2903,7 +2903,7 @@ async fn storage_is_backpressured() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -3040,7 +3040,7 @@ async fn stop_storage_operation() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -3337,7 +3337,7 @@ async fn chain_head_stop_all_subscriptions() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -3550,7 +3550,7 @@ async fn chain_head_limit_reached() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -3590,7 +3590,7 @@ async fn follow_unique_pruned_blocks() {
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -3759,7 +3759,7 @@ async fn follow_report_best_block_of_a_known_block() {
 	let api = ChainHead::new(
 		client_mock.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),

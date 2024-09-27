@@ -55,7 +55,9 @@ sp-externalities = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-service = { features = ["test-helpers"], workspace = true, default-features = true }
+sc-rpc = { workspace = true, default-features = true, features = ["test-helpers"] }
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
 sc-transaction-pool = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
+#tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
