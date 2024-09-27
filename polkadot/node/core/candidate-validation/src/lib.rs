@@ -1276,5 +1276,11 @@ fn pvf_exec_deadline(
 	exec_timeout: Duration,
 	validation_request_ttl: Option<Duration>,
 ) -> Option<Instant> {
-	validation_request_ttl.map(|ttl| Instant::now() + ttl - exec_timeout)
+	validation_request_ttl.and_then(|ttl| {
+		if ttl <= exec_timeout {
+			None // Job dropping should be turned off
+		} else {
+			Some(Instant::now() + ttl - exec_timeout)
+		}
+	})
 }
