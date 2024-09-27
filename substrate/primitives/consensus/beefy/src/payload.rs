@@ -56,11 +56,24 @@ impl Payload {
 		Some(&self.0[index].1)
 	}
 
+	/// Returns all the raw payloads under given `id`.
+	pub fn get_all_raw(&self, id: &BeefyPayloadId) -> Vec<&Vec<u8>> {
+		self.0
+			.iter()
+			.filter_map(|probe| if &probe.0 != id { return None } else { Some(&probe.1) })
+			.collect()
+	}
+
 	/// Returns a decoded payload value under given `id`.
 	///
 	/// In case the value is not there, or it cannot be decoded `None` is returned.
 	pub fn get_decoded<T: Decode>(&self, id: &BeefyPayloadId) -> Option<T> {
 		self.get_raw(id).and_then(|raw| T::decode(&mut &raw[..]).ok())
+	}
+
+	/// Returns all decoded payload values under given `id`.
+	pub fn get_all_decoded<T: Decode>(&self, id: &BeefyPayloadId) -> Vec<Option<T>> {
+		self.get_all_raw(id).iter().map(|raw| T::decode(&mut &raw[..]).ok()).collect()
 	}
 
 	/// Push a `Vec<u8>` with a given id into the payload vec.
