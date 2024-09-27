@@ -145,7 +145,9 @@ pub type ProposalIndex = u32;
 /// A spending proposal.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
-pub struct Proposal<AccountId, Balance> {
+pub struct Proposal<BodyId, AccountId, Balance> {
+	/// The treasury body proposal is for
+	body: BodyId,
 	/// The account proposing it.
 	proposer: AccountId,
 	/// The (total) amount that should be paid if the proposal is accepted.
@@ -204,6 +206,9 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
+		/// Different bodies in treasury
+		type BodyId: Copy + Clone + Eq + Ord + Default + codec::FullCodec + MaxEncodedLen + TypeInfo;
+
 		/// The staking balance.
 		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 
@@ -244,7 +249,10 @@ pub mod pallet {
 		/// The origin required for approving spends from the treasury outside of the proposal
 		/// process. The `Success` value is the maximum amount in a native asset that this origin
 		/// is allowed to spend at a time.
-		type SpendOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = BalanceOf<Self, I>>;
+		type SpendOrigin: EnsureOrigin<
+			Self::RuntimeOrigin,
+			Success = (BalanceOf<Self, I>, Self::BodyId),
+		>;
 
 		/// Type parameter representing the asset kinds to be spent from the treasury.
 		type AssetKind: Parameter + MaxEncodedLen;
@@ -286,7 +294,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		ProposalIndex,
-		Proposal<T::AccountId, BalanceOf<T, I>>,
+		Proposal<T::BodyId, T::AccountId, BalanceOf<T, I>>,
 		OptionQuery,
 	>;
 
@@ -444,8 +452,8 @@ pub mod pallet {
 	}
 
 	#[derive(Default)]
-	struct SpendContext<Balance> {
-		spend_in_context: BTreeMap<Balance, Balance>,
+	struct SpendContext<BodyId, Balance> {
+		spend_in_context: BTreeMap<(BodyId, Balance), Balance>,
 	}
 
 	#[pallet::call]
@@ -474,17 +482,17 @@ pub mod pallet {
 			#[pallet::compact] amount: BalanceOf<T, I>,
 			beneficiary: AccountIdLookupOf<T>,
 		) -> DispatchResult {
-			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
+			let (max_amount, body) = T::SpendOrigin::ensure_origin(origin)?;
 			ensure!(amount <= max_amount, Error::<T, I>::InsufficientPermission);
 
-			with_context::<SpendContext<BalanceOf<T, I>>, _>(|v| {
+			with_context::<SpendContext<T::BodyId, BalanceOf<T, I>>, _>(|v| {
 				let context = v.or_default();
 
 				// We group based on `max_amount`, to distinguish between different kind of
 				// origins. (assumes that all origins have different `max_amount`)
 				//
 				// Worst case is that we reject some "valid" request.
-				let spend = context.spend_in_context.entry(max_amount).or_default();
+				let spend = context.spend_in_context.entry((body, max_amount)).or_default();
 
 				// Ensure that we don't overflow nor use more than `max_amount`
 				if spend.checked_add(&amount).map(|s| s > max_amount).unwrap_or(true) {
@@ -502,6 +510,7 @@ pub mod pallet {
 			Approvals::<T, I>::try_append(proposal_index)
 				.map_err(|_| Error::<T, I>::TooManyApprovals)?;
 			let proposal = Proposal {
+				body,
 				proposer: beneficiary.clone(),
 				value: amount,
 				beneficiary: beneficiary.clone(),
@@ -590,7 +599,7 @@ pub mod pallet {
 			beneficiary: Box<BeneficiaryLookupOf<T, I>>,
 			valid_from: Option<BlockNumberFor<T>>,
 		) -> DispatchResult {
-			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
+			let (max_amount, body) = T::SpendOrigin::ensure_origin(origin)?;
 			let beneficiary = T::BeneficiaryLookup::lookup(*beneficiary)?;
 
 			let now = frame_system::Pallet::<T>::block_number();
@@ -604,13 +613,13 @@ pub mod pallet {
 
 			ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
 
-			with_context::<SpendContext<BalanceOf<T, I>>, _>(|v| {
+			with_context::<SpendContext<T::BodyId, BalanceOf<T, I>>, _>(|v| {
 				let context = v.or_default();
 				// We group based on `max_amount`, to distinguish between different kind of
 				// origins. (assumes that all origins have different `max_amount`)
 				//
 				// Worst case is that we reject some "valid" request.
-				let spend = context.spend_in_context.entry(max_amount).or_default();
+				let spend = context.spend_in_context.entry((body, max_amount)).or_default();
 
 				// Ensure that we don't overflow nor use more than `max_amount`
 				if spend.checked_add(&native_amount).map(|s| s > max_amount).unwrap_or(true) {
@@ -797,7 +806,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Public function to proposals storage.
-	pub fn proposals(index: ProposalIndex) -> Option<Proposal<T::AccountId, BalanceOf<T, I>>> {
+	pub fn proposals(
+		index: ProposalIndex,
+	) -> Option<Proposal<T::BodyId, T::AccountId, BalanceOf<T, I>>> {
 		Proposals::<T, I>::get(index)
 	}
 
