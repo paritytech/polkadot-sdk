@@ -1530,12 +1530,9 @@ pub mod env {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
-		let data = core::mem::take(self.ext.get_immutable_data()?);
+		let data = self.ext.get_immutable_data()?;
 		self.charge_gas(RuntimeCosts::GetImmutableData(data.len() as u32))?;
-		let write_outcome =
-			self.write_sandbox_output(memory, out_ptr, out_len_ptr, &data, false, already_charged);
-		*self.ext.get_immutable_data().expect("bailed out earlier; qed") = data;
-		write_outcome?;
+		self.write_sandbox_output(memory, out_ptr, out_len_ptr, &data, false, already_charged)?;
 		Ok(())
 	}
 

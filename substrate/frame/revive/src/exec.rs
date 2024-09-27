@@ -56,7 +56,6 @@ use sp_runtime::{
 	traits::{BadOrigin, Convert, Dispatchable, Saturating, Zero},
 	DispatchError, SaturatedConversion,
 };
-use sp_std::collections::btree_map::BTreeMap;
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
@@ -300,7 +299,7 @@ pub trait Ext: sealing::Sealed {
 	/// Returns the immutable data of the current contract.
 	///
 	/// Returns `Err(InvalidImmutableAccess)` if called from a constructor.
-	fn get_immutable_data(&mut self) -> Result<&mut ImmutableData, DispatchError>;
+	fn get_immutable_data(&mut self) -> Result<ImmutableData, DispatchError>;
 
 	/// Set the the immutable data of the current contract.
 	///
@@ -535,8 +534,6 @@ pub struct Stack<'a, T: Config, E> {
 	debug_message: Option<&'a mut DebugBuffer>,
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
-	/// Contract immutable data is kept for the duration of a transaction.
-	immutable_data: BTreeMap<T::AccountId, ImmutableData>,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -856,7 +853,6 @@ where
 			frames: Default::default(),
 			debug_message,
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
-			immutable_data: Default::default(),
 			_phantom: Default::default(),
 		};
 
@@ -1556,17 +1552,13 @@ where
 		self.caller_is_origin() && self.origin == Origin::Root
 	}
 
-	fn get_immutable_data(&mut self) -> Result<&mut ImmutableData, DispatchError> {
+	fn get_immutable_data(&mut self) -> Result<ImmutableData, DispatchError> {
 		if self.top_frame().entry_point == ExportedFunction::Constructor {
 			return Err(Error::<T>::InvalidImmutableAccess.into());
 		}
 
-		let account_id = self.account_id().clone();
-		let address = T::AddressMapper::to_address(&account_id);
-		Ok(self
-			.immutable_data
-			.entry(account_id)
-			.or_insert_with(move || <ImmutableDataOf<T>>::get(address).unwrap_or_default()))
+		let address = T::AddressMapper::to_address(self.account_id());
+		Ok(<ImmutableDataOf<T>>::get(address).ok_or_else(|| Error::<T>::InvalidImmutableAccess)?)
 	}
 
 	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError> {
@@ -1575,10 +1567,8 @@ where
 		}
 
 		let account_id = self.account_id().clone();
-		let address = T::AddressMapper::to_address(&account_id);
-
 		self.top_frame_mut().contract_info.get(&account_id).immutable_bytes = data.len() as u32;
-		<ImmutableDataOf<T>>::insert(address, &data);
+		<ImmutableDataOf<T>>::insert(T::AddressMapper::to_address(&account_id), &data);
 
 		Ok(())
 	}

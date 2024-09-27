@@ -1281,7 +1281,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 7_711_000 picoseconds.
 		Weight::from_parts(10_350_000, 0)
 			.saturating_add(Weight::from_parts(0, 7766))
-			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(RocksDbWeight::get().reads(1))
 	}
 	/// Storage: `Revive::ImmutableDataOf` (r:0 w:1)
 	/// Proof: `Revive::ImmutableDataOf` (`max_values`: None, `max_size`: Some(4118), added: 6593, mode: `Measured`)
@@ -1293,7 +1293,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 2_780_000 picoseconds.
 		Weight::from_parts(7_790_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			.saturating_add(T::DbWeight::get().writes(1))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	fn seal_value_transferred() -> Weight {
 		// Proof Size summary in bytes:
