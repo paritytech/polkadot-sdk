@@ -21,6 +21,9 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_core::Hasher;
 
+// Re-export the `proving_trie` types and traits.
+pub use sp_runtime::proving_trie::*;
+
 /// Something that can verify the existence of some data in a given proof.
 pub trait VerifyExistenceProof {
 	/// The proof type.
@@ -95,7 +98,10 @@ impl<H: Hasher> VerifyExistenceProof for SixteenPatriciaMerkleTreeProver<H> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_runtime::{proving_trie::BasicProvingTrie, traits::BlakeTwo256};
+	use sp_runtime::{
+		proving_trie::{base16::BasicProvingTrie, ProvingTrie},
+		traits::BlakeTwo256,
+	};
 
 	#[test]
 	fn verify_binary_merkle_tree_prover_works() {
@@ -113,23 +119,24 @@ mod tests {
 
 	#[test]
 	fn verify_sixteen_patricia_merkle_tree_prover_works() {
-		let trie = BasicProvingTrie::<BlakeTwo256, u32, &[u8]>::generate_for(vec![
-			(0u32, &b"hey"[..]),
-			(1u32, &b"yes"[..]),
+		let trie = BasicProvingTrie::<BlakeTwo256, u32, _>::generate_for(vec![
+			(0u32, String::from("hey")),
+			(1u32, String::from("yes")),
 		])
 		.unwrap();
-		let proof = trie.create_single_value_proof(1u32).unwrap();
+		let proof = trie.create_proof(&1u32).unwrap();
+		let structured_proof: Vec<Vec<u8>> = Decode::decode(&mut &proof[..]).unwrap();
 		let root = *trie.root();
 
 		let proof = SixteenPatriciaMerkleTreeExistenceProof {
 			key: 1u32.encode(),
-			value: b"yes"[..].encode(),
-			proof,
+			value: String::from("yes").encode(),
+			proof: structured_proof,
 		};
 
 		assert_eq!(
 			SixteenPatriciaMerkleTreeProver::<BlakeTwo256>::verify_proof(proof, &root).unwrap(),
-			b"yes"[..].encode()
+			String::from("yes").encode()
 		);
 	}
 }
