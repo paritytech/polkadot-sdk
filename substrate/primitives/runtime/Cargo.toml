@@ -54,6 +54,7 @@ runtime-benchmarks = []
 try-runtime = []
 default = ["std"]
 std = [
+	"binary-merkle-tree/std",
 	"codec/std",
 	"either/use_std",
 	"hash256-std-hasher/std",
@@ -74,7 +75,6 @@ std = [
 	"sp-trie/std",
 	"sp-weights/std",
 	"tracing/std",
-	"binary-merkle-tree/std",
 ]
 
 # Serde support without relying on std features.
