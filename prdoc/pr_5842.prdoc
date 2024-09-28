@@ -4,8 +4,7 @@
 title: Get rid of libp2p dependency in sc-authority-discovery
 
 doc:
-  - audience:
-    - Node Dev
+  - audience: Node Dev
     description: |
       Removes `libp2p` types in authority-discovery, and replace them with network backend agnostic types from `sc-network-types`.
       The `sc-network` interface is therefore updated accordingly.
@@ -13,5 +12,5 @@ doc:
 crates:
   - name: sc-network
     bump: patch
-  - name: sc-authority-discovery
+  - name: sc-authority
     bump: patch
