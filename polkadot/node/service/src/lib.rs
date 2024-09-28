@@ -660,6 +660,8 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	#[allow(dead_code)]
 	pub malus_finality_delay: Option<u32>,
 	pub hwbench: Option<sc_sysinfo::HwBench>,
+	/// Enable approval voting processing in parallel.
+	pub enable_approval_voting_parallel: bool,
 }
 
 #[cfg(feature = "full-node")]
@@ -753,6 +755,7 @@ pub fn new_full<
 		execute_workers_max_num,
 		prepare_workers_soft_max_num,
 		prepare_workers_hard_max_num,
+		enable_approval_voting_parallel,
 	}: NewFullParams<OverseerGenerator>,
 ) -> Result<NewFull, Error> {
 	use polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
@@ -784,6 +787,14 @@ pub fn new_full<
 		Some(backoff)
 	};
 
+	// Running approval voting in parallel is enabled by default on all networks except Polkadot and
+	// Kusama, unless explicitly enabled by the commandline option.
+	// This is meant to be temporary until we have enough confidence in the new system to enable it
+	// by default on all networks.
+	let enable_approval_voting_parallel = (!config.chain_spec.is_kusama() &&
+		!config.chain_spec.is_polkadot()) ||
+		enable_approval_voting_parallel;
+
 	let disable_grandpa = config.disable_grandpa;
 	let name = config.network.node_name.clone();
 
@@ -806,6 +817,7 @@ pub fn new_full<
 			overseer_handle.clone(),
 			metrics,
 			Some(basics.task_manager.spawn_handle()),
+			enable_approval_voting_parallel,
 		)
 	} else {
 		SelectRelayChain::new_longest_chain(basics.backend.clone())
@@ -1016,6 +1028,7 @@ pub fn new_full<
 			dispute_coordinator_config,
 			chain_selection_config,
 			fetch_chunks_threshold,
+			enable_approval_voting_parallel,
 		})
 	};
 
