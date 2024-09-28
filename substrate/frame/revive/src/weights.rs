@@ -836,12 +836,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// The range of component `r` is `[0, 5000]`.
-	fn instr(_r: u32, ) -> Weight {
+	fn instr(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 12_204_000 picoseconds.
-		Weight::from_parts(12_986_633, 0)
+		Weight::from_parts(12_986_633, 0).saturating_mul(r.into())
 	}
 }
 
@@ -1562,11 +1562,11 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// The range of component `r` is `[0, 5000]`.
-	fn instr(_r: u32, ) -> Weight {
+	fn instr(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 12_204_000 picoseconds.
-		Weight::from_parts(12_986_633, 0)
+		Weight::from_parts(12_986_633, 0).saturating_mul(r.into())
 	}
 }
