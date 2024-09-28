@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{AccountId, BalancesConfig, RuntimeGenesisConfig, SudoConfig, Vec};
+use crate::{vec, AccountId, BalancesConfig, RuntimeGenesisConfig, SudoConfig, Vec};
 use polkadot_sdk::{
 	sp_genesis_builder::{self, PresetId},
 	sp_keyring::AccountKeyring,
@@ -36,13 +36,9 @@ fn testnet_genesis(endowed_accounts: Vec<AccountId>, root: AccountId) -> Value {
 fn development_config_genesis() -> Value {
 	testnet_genesis(
 		AccountKeyring::iter()
-			.filter_map(|v| {
-				if v != AccountKeyring::One && v != AccountKeyring::Two {
-					Some(v.to_account_id())
-				} else {
-					None
-				}
-			})
+			.filter(|v| v != &AccountKeyring::One)
+			.filter(|v| v != &AccountKeyring::Two)
+			.map(|v| v.to_account_id())
 			.collect(),
 		AccountKeyring::Alice.to_account_id(),
 	)
@@ -54,8 +50,6 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => development_config_genesis(),
 		_ => return None,
 	};
-
-    let x = 
 	Some(
 		serde_json::to_string(&patch)
 			.expect("serialization to json is expected to work. qed.")
