@@ -12,3 +12,5 @@ doc:
 crates:
   - name: sp-runtime
     bump: major
+  - name: frame-support
+    bump: major
