@@ -267,7 +267,7 @@ pub mod pallet {
 			let projects = WhiteListedProjectAccounts::<T>::get();
 			for project in projects {
 				if let Some(infos) = Votes::<T>::get(&project, &voter) {
-    				voter_holds.saturating_add(infos.amount);				
+					voter_holds.saturating_add(infos.amount);
 				}
 			}
 
