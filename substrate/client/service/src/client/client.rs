@@ -685,7 +685,9 @@ where
 							&storage,
 							&self.executor,
 						)?;
-						let state_root = operation.op.reset_storage(storage, state_version)?;
+						// TODO: local fast sync test.
+						// let state_root = operation.op.reset_storage(storage, state_version)?;
+						let state_root = self.backend.commit_trie_changes(parent_hash, storage, state_version)?;
 						if state_root != *import_headers.post().state_root() {
 							// State root mismatch when importing state. This should not happen in
 							// safe fast sync mode, but may happen in unsafe mode.
