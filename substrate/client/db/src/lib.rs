@@ -37,6 +37,7 @@ mod parity_db;
 mod pinned_blocks_cache;
 mod record_stats_state;
 mod stats;
+mod trie_committer;
 #[cfg(any(feature = "rocksdb", test))]
 mod upgrade;
 mod utils;
