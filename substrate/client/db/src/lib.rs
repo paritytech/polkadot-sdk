@@ -93,7 +93,9 @@ use sp_state_machine::{
 	OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator, StorageKey,
 	StorageValue, UsageInfo as StateUsageInfo,
 };
-use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB, TrieError};
+use sp_trie::{
+	cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB, TrieError,
+};
 use utils::BLOCK_GAP_CURRENT_VERSION;
 
 // Re-export the Database trait so that one can pass an implementation of it.
@@ -599,10 +601,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 		)? {
 			Some(justifications) => match Decode::decode(&mut &justifications[..]) {
 				Ok(justifications) => Ok(Some(justifications)),
-				Err(err) =>
+				Err(err) => {
 					return Err(sp_blockchain::Error::Backend(format!(
 						"Error decoding justifications: {err}"
-					))),
+					)))
+				},
 			},
 			None => Ok(None),
 		}
@@ -615,8 +618,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 			// Plain body
 			match Decode::decode(&mut &body[..]) {
 				Ok(body) => return Ok(Some(body)),
-				Err(err) =>
-					return Err(sp_blockchain::Error::Backend(format!("Error decoding body: {err}"))),
+				Err(err) => {
+					return Err(sp_blockchain::Error::Backend(format!(
+						"Error decoding body: {err}"
+					)))
+				},
 			}
 		}
 
@@ -645,10 +651,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 										)?;
 										body.push(ex);
 									},
-									None =>
+									None => {
 										return Err(sp_blockchain::Error::Backend(format!(
 											"Missing indexed transaction {hash:?}"
-										))),
+										)))
+									},
 								};
 							},
 							DbExtrinsic::Full(ex) => {
@@ -658,10 +665,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 					}
 					return Ok(Some(body));
 				},
-				Err(err) =>
+				Err(err) => {
 					return Err(sp_blockchain::Error::Backend(format!(
 						"Error decoding body list: {err}",
-					))),
+					)))
+				},
 			}
 		}
 		Ok(None)
@@ -776,17 +784,19 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 					if let DbExtrinsic::Indexed { hash, .. } = ex {
 						match self.db.get(columns::TRANSACTION, hash.as_ref()) {
 							Some(t) => transactions.push(t),
-							None =>
+							None => {
 								return Err(sp_blockchain::Error::Backend(format!(
 									"Missing indexed transaction {hash:?}",
-								))),
+								)))
+							},
 						}
 					}
 				}
 				Ok(Some(transactions))
 			},
-			Err(err) =>
-				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}"))),
+			Err(err) => {
+				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}")))
+			},
 		}
 	}
 }
@@ -850,8 +860,9 @@ impl<Block: BlockT> BlockImportOperation<Block> {
 			count += 1;
 			let key = crate::offchain::concatenate_prefix_and_key(&prefix, &key);
 			match value_operation {
-				OffchainOverlayedChange::SetValue(val) =>
-					transaction.set_from_vec(columns::OFFCHAIN, &key, val),
+				OffchainOverlayedChange::SetValue(val) => {
+					transaction.set_from_vec(columns::OFFCHAIN, &key, val)
+				},
 				OffchainOverlayedChange::Remove => transaction.remove(columns::OFFCHAIN, &key),
 			}
 		}
@@ -1185,7 +1196,7 @@ impl<Block: BlockT> Backend<Block> {
 	/// The second argument is the Column that stores the State.
 	///
 	/// Should only be needed for benchmarking.
-	#[cfg(any(feature = "runtime-benchmarks"))]
+	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub fn expose_db(&self) -> (Arc<dyn sp_database::Database<DbHash>>, sp_database::ColumnId) {
 		(self.storage.db.clone(), columns::STATE)
 	}
@@ -1193,7 +1204,7 @@ impl<Block: BlockT> Backend<Block> {
 	/// Expose the Storage that is used by this backend.
 	///
 	/// Should only be needed for benchmarking.
-	#[cfg(any(feature = "runtime-benchmarks"))]
+	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub fn expose_storage(&self) -> Arc<dyn sp_state_machine::Storage<HashingFor<Block>>> {
 		self.storage.clone()
 	}
@@ -1247,9 +1258,9 @@ impl<Block: BlockT> Backend<Block> {
 
 		// Older DB versions have no last state key. Check if the state is available and set it.
 		let info = backend.blockchain.info();
-		if info.finalized_state.is_none() &&
-			info.finalized_hash != Default::default() &&
-			sc_client_api::Backend::have_state_at(
+		if info.finalized_state.is_none()
+			&& info.finalized_hash != Default::default()
+			&& sc_client_api::Backend::have_state_at(
 				&backend,
 				info.finalized_hash,
 				info.finalized_number,
@@ -1288,8 +1299,8 @@ impl<Block: BlockT> Backend<Block> {
 
 		let meta = self.blockchain.meta.read();
 
-		if meta.best_number.saturating_sub(best_number).saturated_into::<u64>() >
-			self.canonicalization_delay
+		if meta.best_number.saturating_sub(best_number).saturated_into::<u64>()
+			> self.canonicalization_delay
 		{
 			return Err(sp_blockchain::Error::SetHeadTooOld);
 		}
@@ -1348,8 +1359,8 @@ impl<Block: BlockT> Backend<Block> {
 	) -> ClientResult<()> {
 		let last_finalized =
 			last_finalized.unwrap_or_else(|| self.blockchain.meta.read().finalized_hash);
-		if last_finalized != self.blockchain.meta.read().genesis_hash &&
-			*header.parent_hash() != last_finalized
+		if last_finalized != self.blockchain.meta.read().genesis_hash
+			&& *header.parent_hash() != last_finalized
 		{
 			return Err(sp_blockchain::Error::NonSequentialFinalization(format!(
 				"Last finalized {last_finalized:?} not parent of {:?}",
@@ -1619,8 +1630,8 @@ impl<Block: BlockT> Backend<Block> {
 				let finalized = number_u64 == 0 || pending_block.leaf_state.is_final();
 				finalized
 			} else {
-				(number.is_zero() && last_finalized_num.is_zero()) ||
-					pending_block.leaf_state.is_final()
+				(number.is_zero() && last_finalized_num.is_zero())
+					|| pending_block.leaf_state.is_final()
 			};
 
 			let header = &pending_block.header;
@@ -1685,7 +1696,7 @@ impl<Block: BlockT> Backend<Block> {
 
 				if let Some(mut gap) = block_gap {
 					match gap.gap_type {
-						BlockGapType::MissingHeaderAndBody =>
+						BlockGapType::MissingHeaderAndBody => {
 							if number == gap.start {
 								gap.start += One::one();
 								utils::insert_number_to_key_mapping(
@@ -1714,14 +1725,15 @@ impl<Block: BlockT> Backend<Block> {
 									);
 								}
 								block_gap_updated = true;
-							},
+							}
+						},
 						BlockGapType::MissingBody => {
 							unreachable!("Unsupported block gap. TODO: https://github.com/paritytech/polkadot-sdk/issues/5406")
 						},
 					}
-				} else if operation.create_gap &&
-					number > best_num + One::one() &&
-					self.blockchain.header(parent_hash)?.is_none()
+				} else if operation.create_gap
+					&& number > best_num + One::one()
+					&& self.blockchain.header(parent_hash)?.is_none()
 				{
 					let gap = BlockGap {
 						start: best_num + One::one(),
@@ -1925,16 +1937,18 @@ impl<Block: BlockT> Backend<Block> {
 				id,
 			)?;
 			match Vec::<DbExtrinsic<Block>>::decode(&mut &index[..]) {
-				Ok(index) =>
+				Ok(index) => {
 					for ex in index {
 						if let DbExtrinsic::Indexed { hash, .. } = ex {
 							transaction.release(columns::TRANSACTION, hash);
 						}
-					},
-				Err(err) =>
+					}
+				},
+				Err(err) => {
 					return Err(sp_blockchain::Error::Backend(format!(
 						"Error decoding body list: {err}",
-					))),
+					)))
+				},
 			}
 		}
 		Ok(())
@@ -2159,8 +2173,8 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		let last_finalized = self.blockchain.last_finalized()?;
 
 		// We can do a quick check first, before doing a proper but more expensive check
-		if number > self.blockchain.info().finalized_number ||
-			(hash != last_finalized && !is_descendent_of(&hash, &last_finalized)?)
+		if number > self.blockchain.info().finalized_number
+			|| (hash != last_finalized && !is_descendent_of(&hash, &last_finalized)?)
 		{
 			return Err(ClientError::NotInFinalizedChain);
 		}
@@ -2295,11 +2309,10 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 							reverted_finalized.insert(removed_hash);
 							if let Some((hash, _)) = self.blockchain.info().finalized_state {
 								if hash == hash_to_revert {
-									if !number_to_revert.is_zero() &&
-										self.have_state_at(
-											prev_hash,
-											number_to_revert - One::one(),
-										) {
+									if !number_to_revert.is_zero()
+										&& self
+											.have_state_at(prev_hash, number_to_revert - One::one())
+									{
 										let lookup_key = utils::number_and_hash_to_lookup_key(
 											number_to_revert - One::one(),
 											prev_hash,
@@ -4749,5 +4762,176 @@ pub(crate) mod tests {
 		assert!(bc.body(fork_hash_3).unwrap().is_some());
 		backend.unpin_block(fork_hash_3);
 		assert!(bc.body(fork_hash_3).unwrap().is_none());
+	}
+
+	#[test]
+	fn test_commit_trie_changes() {
+		use sp_runtime::traits::BlakeTwo256;
+
+		let state_version = StateVersion::default();
+		let backend = Backend::<Block>::new_test(10, 10);
+
+		// Build a block using `Ephemeral`.
+		let build_block = |number, parent_hash, changes: Vec<(Vec<u8>, Vec<u8>)>| {
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, parent_hash).unwrap();
+			let mut header = Header {
+				number,
+				parent_hash,
+				state_root: Default::default(),
+				digest: Default::default(),
+				extrinsics_root: Default::default(),
+			};
+
+			header.state_root = op
+				.old_state
+				.storage_root(changes.iter().map(|(x, y)| (&x[..], Some(&y[..]))), state_version)
+				.0
+				.into();
+			let state_root = header.state_root;
+			let hash = header.hash();
+
+			let state_root_after_reset_storage = op
+				.reset_storage(
+					Storage {
+						top: changes.into_iter().collect(),
+						children_default: Default::default(),
+					},
+					state_version,
+				)
+				.unwrap();
+
+			assert_eq!(state_root, state_root_after_reset_storage);
+
+			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best)
+				.unwrap();
+
+			backend.commit_operation(op).unwrap();
+
+			(hash, state_root)
+		};
+
+		let changes = vec![(b"k1".to_vec(), b"v1".to_vec()), (b"k2".to_vec(), b"v2".to_vec())];
+		let (hash0, state_root0) = build_block(0, Default::default(), changes);
+
+		// Data collected from a local fast-sync run.
+		let storage_block_1 = vec![(
+			hex::decode("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac")
+				.unwrap(),
+			hex::decode("0c0b0000").unwrap(),
+		)];
+		let (hash1, state_root1) = build_block(1, hash0, storage_block_1.clone());
+
+		// Revert block #1 and then rebuild it using `TrieCommitter`.
+		backend.revert(1, true).unwrap();
+
+		let build_block_1_with_trie_committer = || {
+			let mut op = backend.begin_operation().unwrap();
+
+			let parent_hash = hash0;
+
+			println!("\n================== [trie_committer] Start building block#1");
+
+			backend.begin_state_operation(&mut op, parent_hash).unwrap();
+
+			let mut header = Header {
+				number: 1,
+				parent_hash: hash0,
+				state_root: Default::default(),
+				digest: Default::default(),
+				extrinsics_root: Default::default(),
+			};
+
+			// Update the trie by applying the items in delta sequentially.
+			let update_trie_incrementally = || {
+				let backend_storage = backend.expose_storage();
+				let (db, _state_col) = backend.expose_db();
+
+				let delta = storage_block_1
+					.clone()
+					.into_iter()
+					.map(|(k, v)| (k, Some(v)))
+					.collect::<Vec<_>>();
+
+				let mut trie_committer = TrieCommitter::new(&backend_storage, db);
+				let mut prev_root = state_root0;
+
+				for (_index, item) in delta.clone().into_iter().rev().enumerate() {
+					let transient_root =
+						match state_version {
+							StateVersion::V0 => {
+								sp_trie::delta_trie_root::<
+									sp_trie::LayoutV0<BlakeTwo256>,
+									_,
+									_,
+									_,
+									_,
+									_,
+								>(&mut trie_committer, prev_root, vec![item], None, None)
+								.unwrap()
+							},
+							StateVersion::V1 => {
+								sp_trie::delta_trie_root::<
+									sp_trie::LayoutV1<BlakeTwo256>,
+									_,
+									_,
+									_,
+									_,
+									_,
+								>(&mut trie_committer, prev_root, vec![item], None, None)
+								.unwrap()
+							},
+						};
+
+					prev_root = transient_root;
+				}
+
+				prev_root
+			};
+
+			// Update the trie with the entire delta directly.
+			let update_trie_with_delta = || {
+				backend
+					.commit_trie_changes(
+						parent_hash,
+						sp_runtime::Storage {
+							top: storage_block_1.clone().into_iter().collect(),
+							children_default: Default::default(),
+						},
+						state_version,
+					)
+					.unwrap()
+			};
+
+			// TODO: Delta will be applied incrementally during persistent state sync.
+			// header.state_root = update_trie_incrementally();
+			header.state_root = update_trie_with_delta();
+
+			let main_sc =
+				storage_block_1.into_iter().map(|(k, v)| (k, Some(v))).collect::<Vec<_>>();
+
+			// No db_updates.
+			// Unlike `reset_storage`, no db_updates here as the DB changes has already been
+			// written to the database within `TrieCommitter`.
+			op.update_storage(main_sc, Vec::new()).expect("Update storage");
+
+			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best)
+				.unwrap();
+
+			backend.commit_operation(op).unwrap();
+
+			(header.hash(), header.state_root)
+		};
+
+		let (hash1_trie_committer, state_root1_trie_committer) =
+			build_block_1_with_trie_committer();
+
+		assert_eq!(hash1, hash1_trie_committer);
+
+		let (state_storage_root, _) =
+			backend.state_at(hash1).unwrap().storage_root(vec![].into_iter(), state_version);
+		assert_eq!(state_storage_root, state_root1);
+
+		assert_eq!(state_root1, state_root1_trie_committer);
 	}
 }

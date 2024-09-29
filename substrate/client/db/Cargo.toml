@@ -40,6 +40,7 @@ sp-trie = { workspace = true, default-features = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
+hex = { workspace = true }
 kvdb-rocksdb = { workspace = true }
 rand = { workspace = true, default-features = true }
 tempfile = { workspace = true }
