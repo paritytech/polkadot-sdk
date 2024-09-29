@@ -192,7 +192,7 @@ impl<Block: BlockT> Blockchain<Block> {
 	pub fn equals_to(&self, other: &Self) -> bool {
 		// Check ptr equality first to avoid double read locks.
 		if ptr::eq(self, other) {
-			return true
+			return true;
 		}
 		self.canon_equals_to(other) && self.storage.read().blocks == other.storage.read().blocks
 	}
@@ -201,14 +201,14 @@ impl<Block: BlockT> Blockchain<Block> {
 	pub fn canon_equals_to(&self, other: &Self) -> bool {
 		// Check ptr equality first to avoid double read locks.
 		if ptr::eq(self, other) {
-			return true
+			return true;
 		}
 		let this = self.storage.read();
 		let other = other.storage.read();
-		this.hashes == other.hashes &&
-			this.best_hash == other.best_hash &&
-			this.best_number == other.best_number &&
-			this.genesis_hash == other.genesis_hash
+		this.hashes == other.hashes
+			&& this.best_hash == other.best_hash
+			&& this.best_number == other.best_number
+			&& this.genesis_hash == other.genesis_hash
 	}
 
 	/// Insert header CHT root.
@@ -307,7 +307,7 @@ impl<Block: BlockT> Blockchain<Block> {
 			if !stored_justifications.append(justification) {
 				return Err(sp_blockchain::Error::BadJustification(
 					"Duplicate consensus engine ID".into(),
-				))
+				));
 			}
 		} else {
 			*block_justifications = Some(Justifications::from(justification));
@@ -736,7 +736,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 
 	fn state_at(&self, hash: Block::Hash) -> sp_blockchain::Result<Self::State> {
 		if hash == Default::default() {
-			return Ok(Self::State::default())
+			return Ok(Self::State::default());
 		}
 
 		self.states
@@ -744,6 +744,15 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 			.get(&hash)
 			.cloned()
 			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{}", hash)))
+	}
+
+	fn commit_trie_changes(
+		&self,
+		at: Block::Hash,
+		storage: sp_runtime::Storage,
+		state_version: sp_runtime::StateVersion,
+	) -> sp_blockchain::Result<Block::Hash> {
+		todo!()
 	}
 
 	fn revert(
@@ -783,7 +792,7 @@ impl<Block: BlockT> backend::LocalBackend<Block> for Backend<Block> {}
 /// Check that genesis storage is valid.
 pub fn check_genesis_storage(storage: &Storage) -> sp_blockchain::Result<()> {
 	if storage.top.iter().any(|(k, _)| well_known_keys::is_child_storage_key(k)) {
-		return Err(sp_blockchain::Error::InvalidState)
+		return Err(sp_blockchain::Error::InvalidState);
 	}
 
 	if storage
@@ -791,7 +800,7 @@ pub fn check_genesis_storage(storage: &Storage) -> sp_blockchain::Result<()> {
 		.keys()
 		.any(|child_key| !well_known_keys::is_child_storage_key(child_key))
 	{
-		return Err(sp_blockchain::Error::InvalidState)
+		return Err(sp_blockchain::Error::InvalidState);
 	}
 
 	Ok(())

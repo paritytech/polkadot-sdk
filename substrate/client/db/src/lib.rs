@@ -56,6 +56,7 @@ use crate::{
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
 	stats::StateUsageStats,
+	trie_committer::TrieCommitter,
 	utils::{meta_keys, read_db, read_meta, DatabaseType, Meta},
 };
 use codec::{Decode, Encode};
@@ -92,7 +93,7 @@ use sp_state_machine::{
 	OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator, StorageKey,
 	StorageValue, UsageInfo as StateUsageInfo,
 };
-use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB};
+use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB, TrieError};
 use utils::BLOCK_GAP_CURRENT_VERSION;
 
 // Re-export the Database trait so that one can pass an implementation of it.
@@ -115,6 +116,9 @@ const DB_HASH_LEN: usize = 32;
 
 /// Hash type that this backend uses for the database.
 pub type DbHash = sp_core::H256;
+
+type LayoutV0<Block> = sp_trie::LayoutV0<HashingFor<Block>>;
+type LayoutV1<Block> = sp_trie::LayoutV1<HashingFor<Block>>;
 
 /// An extrinsic entry in the database.
 #[derive(Debug, Encode, Decode)]
@@ -2499,6 +2503,45 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 				},
 			}
 		}
+	}
+
+	fn commit_trie_changes(
+		&self,
+		at: Block::Hash,
+		storage: sp_runtime::Storage,
+		state_version: sp_runtime::StateVersion,
+	) -> sp_blockchain::Result<Block::Hash> {
+		assert!(storage.children_default.is_empty(), "TODO: handle child storage properly");
+
+		let root = self.blockchain.header_metadata(at).map(|header| header.state_root)?;
+		let delta = storage.top.into_iter().map(|(k, v)| (k, Some(v)));
+
+		let storage: Arc<dyn sp_state_machine::Storage<HashingFor<Block>>> = self.storage.clone();
+		let mut trie_committer = TrieCommitter::new(&storage, self.storage.db.clone());
+
+		let trie_err =
+			|err: Box<TrieError<LayoutV0<Block>>>| sp_blockchain::Error::Application(err);
+
+		let state_root = match state_version {
+			StateVersion::V0 => sp_trie::delta_trie_root::<LayoutV0<Block>, _, _, _, _, _>(
+				&mut trie_committer,
+				root,
+				delta,
+				None,
+				None,
+			)
+			.map_err(trie_err)?,
+			StateVersion::V1 => sp_trie::delta_trie_root::<LayoutV1<Block>, _, _, _, _, _>(
+				&mut trie_committer,
+				root,
+				delta,
+				None,
+				None,
+			)
+			.map_err(trie_err)?,
+		};
+
+		Ok(state_root)
 	}
 
 	fn get_import_lock(&self) -> &RwLock<()> {
