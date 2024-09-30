@@ -258,17 +258,14 @@ where
 				},
 			};
 
+		let mut found_commitment_root = false;
 		let commitment_roots = commitment
 			.payload
 			.get_all_decoded::<MerkleRootOf<T>>(&known_payloads::MMR_ROOT_ID);
-		if commitment_roots.is_empty() {
-			// If the commitment doesn't contain any MMR root, while the proof is valid,
-			// the commitment is invalid
-			return true;
-		}
 		for maybe_commitment_root in commitment_roots {
 			match maybe_commitment_root {
 				Some(commitment_root) => {
+					found_commitment_root = true;
 					if canonical_prev_root != commitment_root {
 						// If the commitment contains an MMR root, that is not equal to
 						// `canonical_prev_root`, the commitment is invalid
@@ -280,6 +277,11 @@ where
 					return true;
 				},
 			}
+		}
+		if !found_commitment_root {
+			// If the commitment doesn't contain any MMR root, while the proof is valid,
+			// the commitment is invalid
+			return true;
 		}
 
 		false
