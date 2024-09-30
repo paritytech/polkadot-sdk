@@ -59,7 +59,6 @@ lookup in the `UsernameOf` map for any given account.
 - `accept_username` - Accept a username issued by a username authority.
 - `remove_expired_approval` - Remove a username that was issued but never accepted.
 - `set_primary_username` - Set a given username as an account's primary.
-- `remove_dangling_username` - Remove a username that maps to an account without a primary username.
 - `remove_username` - Remove a username after its grace period has ended.
 
 ##### For General Users with Sub-Identities
