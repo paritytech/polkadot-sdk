@@ -26,7 +26,7 @@ mod schema_v2 {
 
 use super::*;
 use codec::Encode;
-use libp2p::identity::Keypair;
+use sc_network_types::ed25519::Keypair;
 use prost::Message;
 use sc_network::{Multiaddr, PeerId};
 

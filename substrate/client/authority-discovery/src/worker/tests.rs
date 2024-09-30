@@ -30,7 +30,7 @@ use futures::{
 	sink::SinkExt,
 	task::LocalSpawn,
 };
-use sc_network_types::rec{SigningError, Key as KademliaKey, }
+use sc_network_types::rec::{SigningError, Key as KademliaKey, }
 use prometheus_endpoint::prometheus::default_registry;
 
 use sc_client_api::HeaderBackend;
