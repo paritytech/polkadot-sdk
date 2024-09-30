@@ -100,6 +100,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					execute_workers_max_num: None,
 					prepare_workers_hard_max_num: None,
 					prepare_workers_soft_max_num: None,
+					enable_approval_voting_parallel: false,
 				},
 			),
 		sc_network::config::NetworkBackendType::Litep2p =>
@@ -121,6 +122,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					execute_workers_max_num: None,
 					prepare_workers_hard_max_num: None,
 					prepare_workers_soft_max_num: None,
+					enable_approval_voting_parallel: false,
 				},
 			),
 	}

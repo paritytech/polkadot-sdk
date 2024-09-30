@@ -15,12 +15,9 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::cli::{Cli, Subcommand, NODE_VERSION};
-pub use crate::error::Error;
 use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
 use futures::future::TryFutureExt;
 use log::info;
-#[cfg(feature = "hostperfcheck")]
-pub use polkadot_performance_test::PerfCheckError;
 use polkadot_service::{
 	self,
 	benchmarking::{benchmark_inherent_data, RemarkBuilder, TransferKeepAliveBuilder},
@@ -31,6 +28,8 @@ use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use sc_cli::SubstrateCli;
 use sp_core::crypto::Ss58AddressFormatRegistry;
 use sp_keyring::Sr25519Keyring;
+
+pub use crate::error::Error;
 #[cfg(feature = "pyroscope")]
 use std::net::ToSocketAddrs;
 
@@ -231,6 +230,7 @@ where
 				execute_workers_max_num: cli.run.execute_workers_max_num,
 				prepare_workers_hard_max_num: cli.run.prepare_workers_hard_max_num,
 				prepare_workers_soft_max_num: cli.run.prepare_workers_soft_max_num,
+				enable_approval_voting_parallel: cli.run.enable_approval_voting_parallel,
 			},
 		)
 		.map(|full| full.task_manager)?;

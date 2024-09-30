@@ -4325,4 +4325,33 @@ mod run_tests {
 			assert_eq!(received.result.data, chain_id.encode());
 		});
 	}
+
+	#[test]
+	fn return_data_api_works() {
+		let (code_return_data_api, _) = compile_module("return_data_api").unwrap();
+		let (code_return_with_data, hash_return_with_data) =
+			compile_module("return_with_data").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Upload the io echoing fixture for later use
+			assert_ok!(Contracts::upload_code(
+				RuntimeOrigin::signed(ALICE),
+				code_return_with_data,
+				deposit_limit::<Test>(),
+			));
+
+			// Create fixture: Constructor does nothing
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code_return_data_api))
+					.build_and_unwrap_contract();
+
+			// Call the contract: It will issue calls and deploys, asserting on
+			assert_ok!(builder::call(addr)
+				.value(10 * 1024)
+				.data(hash_return_with_data.encode())
+				.build());
+		});
+	}
 }

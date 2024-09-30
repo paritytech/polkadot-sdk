@@ -378,6 +378,7 @@ fn build_polkadot_full_node(
 			execute_workers_max_num: None,
 			prepare_workers_hard_max_num: None,
 			prepare_workers_soft_max_num: None,
+			enable_approval_voting_parallel: false,
 		},
 	)?;
 

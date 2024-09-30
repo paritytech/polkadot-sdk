@@ -47,7 +47,6 @@ assert_matches = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
 log = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
-lazy_static = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 kvdb-shared-tests = { workspace = true }
 tempfile = { workspace = true }

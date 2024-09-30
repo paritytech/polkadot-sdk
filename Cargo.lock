@@ -4353,7 +4353,6 @@ dependencies = [
  "futures",
  "hex-literal",
  "impl-trait-for-tuples",
- "lazy_static",
  "log",
  "pallet-message-queue",
  "parity-scale-codec",
@@ -6210,7 +6209,6 @@ dependencies = [
  "gethostname",
  "handlebars",
  "itertools 0.11.0",
- "lazy_static",
  "linked-hash-map",
  "log",
  "parity-scale-codec",
@@ -10102,7 +10100,6 @@ dependencies = [
  "kitchensink-runtime",
  "kvdb",
  "kvdb-rocksdb",
- "lazy_static",
  "log",
  "node-primitives",
  "node-testing",
@@ -11814,6 +11811,7 @@ dependencies = [
 name = "pallet-migrations"
 version = "1.0.0"
 dependencies = [
+ "cfg-if",
  "docify",
  "frame-benchmarking",
  "frame-executive",
@@ -14077,7 +14075,6 @@ dependencies = [
  "futures",
  "futures-timer",
  "indexmap 2.2.3",
- "lazy_static",
  "parity-scale-codec",
  "polkadot-erasure-coding",
  "polkadot-node-network-protocol",
@@ -14121,7 +14118,6 @@ dependencies = [
  "async-trait",
  "futures",
  "futures-timer",
- "lazy_static",
  "parking_lot 0.12.3",
  "polkadot-node-network-protocol",
  "polkadot-node-subsystem",
@@ -14225,6 +14221,48 @@ dependencies = [
  "rand_core 0.6.4",
  "sc-keystore",
  "schnellru",
+ "schnorrkel 0.11.4",
+ "sp-application-crypto 30.0.0",
+ "sp-consensus",
+ "sp-consensus-babe",
+ "sp-consensus-slots",
+ "sp-core 28.0.0",
+ "sp-keyring",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0",
+ "thiserror",
+ "tracing-gum",
+]
+
+[[package]]
+name = "polkadot-node-core-approval-voting-parallel"
+version = "7.0.0"
+dependencies = [
+ "assert_matches",
+ "async-trait",
+ "futures",
+ "futures-timer",
+ "itertools 0.11.0",
+ "kvdb-memorydb",
+ "log",
+ "parking_lot 0.12.3",
+ "polkadot-approval-distribution",
+ "polkadot-node-core-approval-voting",
+ "polkadot-node-metrics",
+ "polkadot-node-network-protocol",
+ "polkadot-node-primitives",
+ "polkadot-node-subsystem",
+ "polkadot-node-subsystem-test-helpers",
+ "polkadot-node-subsystem-util",
+ "polkadot-overseer",
+ "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
+ "polkadot-subsystem-bench",
+ "rand",
+ "rand_chacha",
+ "rand_core 0.6.4",
+ "sc-keystore",
  "schnorrkel 0.11.4",
  "sp-application-crypto 30.0.0",
  "sp-consensus",
@@ -14771,7 +14809,6 @@ dependencies = [
  "kvdb",
  "kvdb-memorydb",
  "kvdb-shared-tests",
- "lazy_static",
  "log",
  "parity-db",
  "parity-scale-codec",
@@ -15345,6 +15382,7 @@ dependencies = [
  "polkadot-network-bridge",
  "polkadot-node-collation-generation",
  "polkadot-node-core-approval-voting",
+ "polkadot-node-core-approval-voting-parallel",
  "polkadot-node-core-av-store",
  "polkadot-node-core-backing",
  "polkadot-node-core-bitfield-signing",
@@ -15683,6 +15721,7 @@ dependencies = [
  "polkadot-network-bridge",
  "polkadot-node-collation-generation",
  "polkadot-node-core-approval-voting",
+ "polkadot-node-core-approval-voting-parallel",
  "polkadot-node-core-av-store",
  "polkadot-node-core-backing",
  "polkadot-node-core-bitfield-signing",
@@ -15839,6 +15878,7 @@ dependencies = [
  "polkadot-availability-recovery",
  "polkadot-erasure-coding",
  "polkadot-node-core-approval-voting",
+ "polkadot-node-core-approval-voting-parallel",
  "polkadot-node-core-av-store",
  "polkadot-node-core-chain-api",
  "polkadot-node-metrics",
@@ -19335,7 +19375,6 @@ dependencies = [
  "futures-timer",
  "hyper 0.14.29",
  "hyper-rustls 0.24.2",
- "lazy_static",
  "log",
  "num_cpus",
  "once_cell",
@@ -19718,7 +19757,6 @@ dependencies = [
  "console",
  "criterion",
  "is-terminal",
- "lazy_static",
  "libc",
  "log",
  "parity-scale-codec",
@@ -19807,7 +19845,6 @@ dependencies = [
  "async-channel 1.9.0",
  "futures",
  "futures-timer",
- "lazy_static",
  "log",
  "parking_lot 0.12.3",
  "prometheus",
@@ -21655,7 +21692,6 @@ name = "sp-consensus-beefy"
 version = "13.0.0"
 dependencies = [
  "array-bytes",
- "lazy_static",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -21741,7 +21777,6 @@ dependencies = [
  "impl-serde",
  "itertools 0.11.0",
  "k256",
- "lazy_static",
  "libsecp256k1",
  "log",
  "merlin",
@@ -21917,7 +21952,6 @@ dependencies = [
 name = "sp-core-fuzz"
 version = "0.0.0"
 dependencies = [
- "lazy_static",
  "libfuzzer-sys",
  "regex",
  "sp-core 28.0.0",
@@ -22397,7 +22431,6 @@ name = "sp-panic-handler"
 version = "13.0.0"
 dependencies = [
  "backtrace",
- "lazy_static",
  "regex",
 ]
 
@@ -22426,6 +22459,7 @@ dependencies = [
 name = "sp-runtime"
 version = "31.0.1"
 dependencies = [
+ "binary-merkle-tree",
  "docify",
  "either",
  "hash256-std-hasher",
@@ -22988,7 +23022,6 @@ dependencies = [
  "array-bytes",
  "criterion",
  "hash-db",
- "lazy_static",
  "memory-db",
  "nohash-hasher",
  "parity-scale-codec",
@@ -23993,6 +24026,7 @@ dependencies = [
  "parity-wasm",
  "polkavm-linker 0.9.2",
  "sc-executor 0.32.0",
+ "shlex",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-maybe-compressed-blob 11.0.0",
@@ -26908,7 +26942,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
- "lazy_static",
  "log",
  "pallet-balances",
  "pallet-message-queue",
@@ -27158,7 +27191,6 @@ name = "zombienet-backchannel"
 version = "1.0.0"
 dependencies = [
  "futures-util",
- "lazy_static",
  "parity-scale-codec",
  "reqwest 0.11.20",
  "serde",

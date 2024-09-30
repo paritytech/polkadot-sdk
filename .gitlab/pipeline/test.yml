@@ -110,6 +110,31 @@ test-linux-stable-codecov:
         codecovcli -v do-upload -f target/coverage/result/report-${CI_NODE_INDEX}.lcov --disable-search -t ${CODECOV_TOKEN} -r paritytech/polkadot-sdk --commit-sha ${CI_COMMIT_SHA} --fail-on-error --git-service github;
       fi
 
+# some tests do not run with `try-runtime` feature enabled
+# https://github.com/paritytech/polkadot-sdk/pull/4251#discussion_r1624282143
+# Move to github after https://github.com/paritytech/ci_cd/issues/1056 is fixed
+test-linux-stable-no-try-runtime:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .pipeline-stopper-artifacts
+  variables:
+    RUST_TOOLCHAIN: stable
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+  script:
+    - >
+      time cargo nextest run \
+        --workspace \
+        --locked \
+        --release \
+        --no-fail-fast \
+        --cargo-quiet \
+        --features experimental,riscv,ci-only-tests
+
 test-doc:
   stage: test
   extends:

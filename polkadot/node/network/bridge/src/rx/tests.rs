@@ -528,6 +528,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		validation_service,
 		collation_service,
 		notification_sinks,
+		approval_voting_parallel_enabled: false,
 	};
 
 	let network_bridge = run_network_in(bridge, context)
