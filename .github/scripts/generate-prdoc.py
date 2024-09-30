@@ -67,7 +67,6 @@ def create_prdoc(pr, audience, title, description, patch, bump, force):
 		# Go up until we find a Cargo.toml
 		p = os.path.join(workspace.path, p)
 		while not os.path.exists(os.path.join(p, "Cargo.toml")):
-			print(f"Could not find Cargo.toml in {p}")
 			if p == '/':
 				exit(1)
 			p = os.path.dirname(p)
@@ -76,7 +75,6 @@ def create_prdoc(pr, audience, title, description, patch, bump, force):
 			manifest = toml.load(f)
 		
 		if not "package" in manifest:
-			print(f"File was not in any crate: {p}")
 			continue
 		
 		crate_name = manifest["package"]["name"]
@@ -84,8 +82,6 @@ def create_prdoc(pr, audience, title, description, patch, bump, force):
 			modified_crates[crate_name] = True
 		else:
 			print(f"Skipping unpublished crate: {crate_name}")
-
-	print(f"Modified crates: {modified_crates.keys()}")
 
 	for crate_name in modified_crates.keys():
 		entry = { "name": crate_name }
