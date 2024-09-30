@@ -16,14 +16,11 @@ env:
   ARTIFACTS_NAME: frame-omni-bencher-artifacts
 
 jobs:
-
   preflight:
-    # TODO: remove once migration is complete or this workflow is fully stable
-    if: contains(github.event.label.name, 'GHA-migration')
     uses: ./.github/workflows/reusable-preflight.yml
 
   quick-benchmarks-omni:
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on: parity-benchmark
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
     env:
@@ -61,8 +58,8 @@ jobs:
           echo "runtime=$RUNTIMES" >> $GITHUB_OUTPUT
 
   run-frame-omni-bencher:
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    needs: [preflight] # , build-frame-omni-bencher ]
+    runs-on: parity-benchmark
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 30
     strategy:
