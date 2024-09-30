@@ -2124,7 +2124,9 @@ impl<Block: BlockT> Backend<Block> {
 				};
 			}
 		}
-		if let PruningMode::Constrained(sc_state_db::Constraints { max_blocks }) = self.state_pruning {
+		if let PruningMode::Constrained(sc_state_db::Constraints { max_blocks }) =
+			self.state_pruning
+		{
 			// Always keep the last finalized block
 			let keep = std::cmp::max(max_blocks.unwrap_or_default(), 1);
 			if finalized_number >= keep.into() {

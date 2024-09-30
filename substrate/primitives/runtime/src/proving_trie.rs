@@ -260,7 +260,7 @@ mod tests {
 
 	// The expected root hash for an empty trie.
 	fn empty_root() -> H256 {
-		sp_trie::empty_trie_root::<LayoutV1<BlakeTwo256>>()
+		sp_trie::empty_trie_root::<LayoutV1<BlakeTwo256, ()>>()
 	}
 
 	fn create_balance_trie() -> BalanceTrie {
