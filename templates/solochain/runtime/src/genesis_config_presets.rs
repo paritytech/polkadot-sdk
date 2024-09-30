@@ -40,8 +40,7 @@ fn testnet_genesis(endowed_accounts: Vec<AccountId>, root: AccountId) -> Value {
 fn development_config_genesis() -> Value {
 	testnet_genesis(
 		sp_keyring::AccountKeyring::iter()
-			.filter(|v| v != &AccountKeyring::One)
-			.filter(|v| v != &AccountKeyring::Two)
+			.filter(|v| v != &AccountKeyring::One && v != &AccountKeyring::Two)
 			.map(|v| v.to_account_id())
 			.collect(),
 		sp_keyring::AccountKeyring::Alice.to_account_id(),

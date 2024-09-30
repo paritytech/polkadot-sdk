@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{vec, AccountId, BalancesConfig, RuntimeGenesisConfig, SudoConfig, Vec};
+use crate::{interface::AccountId, vec, BalancesConfig, RuntimeGenesisConfig, SudoConfig, Vec};
 use polkadot_sdk::{
 	sp_genesis_builder::{self, PresetId},
 	sp_keyring::AccountKeyring,
@@ -25,7 +25,7 @@ use serde_json::Value;
 fn testnet_genesis(endowed_accounts: Vec<AccountId>, root: AccountId) -> Value {
 	let config = RuntimeGenesisConfig {
 		balances: BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
+			balances: endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 30)).collect::<Vec<_>>(),
 		},
 		sudo: SudoConfig { key: Some(root) },
 		..Default::default()
@@ -37,8 +37,7 @@ fn testnet_genesis(endowed_accounts: Vec<AccountId>, root: AccountId) -> Value {
 fn development_config_genesis() -> Value {
 	testnet_genesis(
 		AccountKeyring::iter()
-			.filter(|v| v != &AccountKeyring::One)
-			.filter(|v| v != &AccountKeyring::Two)
+			.filter(|v| v != &AccountKeyring::One && v != &AccountKeyring::Two)
 			.map(|v| v.to_account_id())
 			.collect(),
 		AccountKeyring::Alice.to_account_id(),
