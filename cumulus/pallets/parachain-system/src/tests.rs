@@ -27,7 +27,7 @@ use hex_literal::hex;
 use rand::Rng;
 use relay_chain::HrmpChannelId;
 use sp_core::H256;
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
 #[test]
 #[should_panic]
@@ -755,27 +755,27 @@ fn message_queue_chain() {
 #[test]
 #[cfg(not(feature = "runtime-benchmarks"))]
 fn receive_dmp() {
-	static MSG: OnceLock<InboundDownwardMessage> = OnceLock::new();
-	MSG.get_or_init(|| InboundDownwardMessage { sent_at: 1, msg: b"down".to_vec() });
+	static MSG: LazyLock<InboundDownwardMessage> =
+		LazyLock::new(|| InboundDownwardMessage { sent_at: 1, msg: b"down".to_vec() });
 
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
 			1 => {
 				sproof.dmq_mqc_head =
-					Some(MessageQueueChain::default().extend_downward(MSG.get().unwrap()).head());
+					Some(MessageQueueChain::default().extend_downward(&MSG).head());
 			},
 			_ => unreachable!(),
 		})
 		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
 			1 => {
-				data.downward_messages.push(MSG.get().unwrap().clone());
+				data.downward_messages.push((*MSG).clone());
 			},
 			_ => unreachable!(),
 		})
 		.add(1, || {
 			HANDLED_DMP_MESSAGES.with(|m| {
 				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(MSG.get().unwrap().msg.clone())]);
+				assert_eq!(&*m, &[(*MSG).msg.clone()]);
 				m.clear();
 			});
 		});

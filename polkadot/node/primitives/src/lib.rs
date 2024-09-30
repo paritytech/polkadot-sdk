@@ -105,7 +105,7 @@ pub const MAX_FINALITY_LAG: u32 = 500;
 /// Type of a session window size.
 ///
 /// We are not using `NonZeroU32` here because `expect` and `unwrap` are not yet const, so global
-/// constants of `SessionWindowSize` would require `LazyLock` or `OnceLock` in that case.
+/// constants of `SessionWindowSize` would require `LazyLock` in that case.
 ///
 /// See: <https://github.com/rust-lang/rust/issues/67441>
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
