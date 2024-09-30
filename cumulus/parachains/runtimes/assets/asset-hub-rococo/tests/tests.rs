@@ -55,7 +55,7 @@ use testnet_parachains_constants::rococo::{consensus::*, currency::UNITS, fee::W
 use xcm::latest::prelude::{Assets as XcmAssets, *};
 use xcm_builder::WithLatestLocationConverter;
 use xcm_executor::traits::{JustTry, WeightTrader};
-use xcm_runtime_apis::conversions::{Error, LocationToAccountHelper};
+use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
