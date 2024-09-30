@@ -775,7 +775,7 @@ fn receive_dmp() {
 		.add(1, || {
 			HANDLED_DMP_MESSAGES.with(|m| {
 				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(*MSG).msg.clone()]);
+				assert_eq!(&*m, &[MSG.msg.clone()]);
 				m.clear();
 			});
 		});
