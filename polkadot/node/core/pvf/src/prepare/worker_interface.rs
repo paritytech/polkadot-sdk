@@ -81,7 +81,6 @@ pub enum Outcome {
 	/// final destination location.
 	RenameTmpFile {
 		worker: IdleWorker,
-		result: PrepareWorkerResult,
 		err: String,
 		// Unfortunately `PathBuf` doesn't implement `Encode`/`Decode`, so we do a fallible
 		// conversion to `Option<String>`.
@@ -287,7 +286,6 @@ async fn handle_response(
 			);
 			Outcome::RenameTmpFile {
 				worker,
-				result,
 				err: format!("{:?}", err),
 				src: tmp_file.to_str().map(String::from),
 				dest: artifact_path.to_str().map(String::from),
