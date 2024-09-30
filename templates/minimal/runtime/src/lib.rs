@@ -25,7 +25,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 extern crate alloc;
 
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_sdk::{
 	polkadot_sdk_frame::{
@@ -36,8 +36,59 @@ use polkadot_sdk::{
 	*,
 };
 
-// Provides helpers for genesis configuration presets setup.
-mod genesis_config_presets;
+/// Provides getters for genesis configuration presets.
+pub mod genesis_config_presets {
+	use crate::{
+		interface::{AccountId, Balance, MinimumBalance},
+		sp_genesis_builder::PresetId,
+		sp_keyring::AccountKeyring,
+		BalancesConfig, RuntimeGenesisConfig, SudoConfig,
+	};
+
+	use alloc::{vec, vec::Vec};
+	use polkadot_sdk::{sp_core::Get, sp_genesis_builder};
+	use serde_json::Value;
+
+	// Returns a genesis config preset populated with given parameters.
+	fn testnet_genesis(endowed_accounts: Vec<(AccountId, u64)>, root: AccountId) -> Value {
+		let config = RuntimeGenesisConfig {
+			balances: BalancesConfig { balances: endowed_accounts },
+			sudo: SudoConfig { key: Some(root) },
+			..Default::default()
+		};
+
+		serde_json::to_value(config).expect("Could not build genesis config.")
+	}
+
+	/// Returns a development genesis config preset.
+	pub fn development_config_genesis() -> Value {
+		let endowment = <MinimumBalance as Get<Balance>>::get().max(1) * 1000;
+		testnet_genesis(
+			AccountKeyring::iter()
+				.map(|a| (a.to_account_id(), endowment))
+				.collect::<Vec<_>>(),
+			AccountKeyring::Alice.to_account_id(),
+		)
+	}
+
+	/// Get the set of the available genesis config presets.
+	pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
+		let patch = match id.try_into() {
+			Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => development_config_genesis(),
+			_ => return None,
+		};
+		Some(
+			serde_json::to_string(&patch)
+				.expect("serialization to json is expected to work. qed.")
+				.into_bytes(),
+		)
+	}
+
+	/// List of supported presets.
+	pub fn preset_names() -> Vec<PresetId> {
+		vec![PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET)]
+	}
+}
 
 /// The runtime version.
 #[runtime_version]
@@ -275,11 +326,11 @@ impl_runtime_apis! {
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, crate::genesis_config_presets::get_preset)
+			get_preset::<RuntimeGenesisConfig>(id, self::genesis_config_presets::get_preset)
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			crate::genesis_config_presets::preset_names()
+			self::genesis_config_presets::preset_names()
 		}
 	}
 }

@@ -16,12 +16,20 @@
 // limitations under the License.
 
 use crate::{AccountId, BalancesConfig, RuntimeGenesisConfig, SudoConfig};
-use alloc::{vec, vec::Vec};
+use alloc::{format, vec, vec::Vec};
 use serde_json::Value;
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_consensus_grandpa::AuthorityId as GrandpaId;
+use sp_core::{Pair, Public};
 use sp_genesis_builder::{self, PresetId};
 use sp_keyring::AccountKeyring;
 
-fn testnet_genesis(endowed_accounts: Vec<AccountId>, root: AccountId) -> Value {
+// Returns the genesis config presets populated with given parameters.
+fn testnet_genesis(
+	initial_authorities: Vec<(AuraId, GrandpaId)>,
+	endowed_accounts: Vec<AccountId>,
+	root: AccountId,
+) -> Value {
 	let config = RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts
@@ -30,6 +38,13 @@ fn testnet_genesis(endowed_accounts: Vec<AccountId>, root: AccountId) -> Value {
 				.map(|k| (k, 1u128 << 60))
 				.collect::<Vec<_>>(),
 		},
+		aura: pallet_aura::GenesisConfig {
+			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect::<Vec<_>>(),
+		},
+		grandpa: pallet_grandpa::GenesisConfig {
+			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect::<Vec<_>>(),
+			..Default::default()
+		},
 		sudo: SudoConfig { key: Some(root) },
 		..Default::default()
 	};
@@ -37,13 +52,47 @@ fn testnet_genesis(endowed_accounts: Vec<AccountId>, root: AccountId) -> Value {
 	serde_json::to_value(config).expect("Could not build genesis config.")
 }
 
-fn development_config_genesis() -> Value {
+// Generate a crypto pair from seed.
+fn get_from_seed<TPublic>(seed: &str) -> <TPublic::Pair as Pair>::Public
+where
+	TPublic: Public,
+{
+	TPublic::Pair::from_string(&format!("//{}", seed), None)
+		.expect("static values are valid; qed")
+		.public()
+}
+
+// Generate authority keys to be passed to the genesis config presets.
+fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
+	(get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+}
+
+/// Return the development genesis config.
+pub fn development_config_genesis() -> Value {
 	testnet_genesis(
-		sp_keyring::AccountKeyring::iter()
+		vec![authority_keys_from_seed(&AccountKeyring::Alice.to_seed())],
+		vec![
+			AccountKeyring::Alice.to_account_id(),
+			AccountKeyring::Bob.to_account_id(),
+			AccountKeyring::AliceStash.to_account_id(),
+			AccountKeyring::BobStash.to_account_id(),
+		],
+		sp_keyring::AccountKeyring::Alice.to_account_id(),
+	)
+}
+
+/// Return the local genesis config preset.
+pub fn local_config_genesis() -> Value {
+	testnet_genesis(
+		vec![
+			authority_keys_from_seed(&AccountKeyring::Alice.to_seed()),
+			authority_keys_from_seed(&AccountKeyring::Bob.to_seed()),
+		],
+		AccountKeyring::iter()
 			.filter(|v| v != &AccountKeyring::One && v != &AccountKeyring::Two)
 			.map(|v| v.to_account_id())
-			.collect(),
-		sp_keyring::AccountKeyring::Alice.to_account_id(),
+			.collect::<Vec<_>>(),
+		AccountKeyring::Alice.to_account_id(),
 	)
 }
 
@@ -51,6 +100,7 @@ fn development_config_genesis() -> Value {
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let patch = match id.try_into() {
 		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => development_config_genesis(),
+		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => local_config_genesis(),
 		_ => return None,
 	};
 	Some(
@@ -62,5 +112,8 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 
 /// List of supported presets.
 pub fn preset_names() -> Vec<PresetId> {
-	vec![PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET)]
+	vec![
+		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
+		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
+	]
 }
