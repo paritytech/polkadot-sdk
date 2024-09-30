@@ -84,6 +84,7 @@
     "path": "cumulus/parachains/runtimes/contracts/contracts-rococo",
     "header": "cumulus/file_header.txt",
     "bench_features": "runtime-benchmarks",
+    "bench_flags": "--genesis-builder-policy=none",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-contracts-rpc.polkadot.io:443",
     "is_relay": false
@@ -94,7 +95,7 @@
     "path": "cumulus/parachains/runtimes/coretime/coretime-rococo",
     "header": "cumulus/file_header.txt",
     "bench_features": "runtime-benchmarks",
-    "bench_flags": "--exclude-pallets=pallet_xcm,pallet_xcm_benchmarks --genesis-builder-policy=none",
+    "bench_flags": "--exclude-pallets=pallet_xcm,pallet_xcm_benchmarks::fungible,pallet_xcm_benchmarks::generic --genesis-builder-policy=none",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-coretime-rpc.polkadot.io:443",
     "is_relay": false
@@ -115,6 +116,7 @@
     "path": "cumulus/parachains/runtimes/gluttons/glutton-westend",
     "header": "cumulus/file_header.txt",
     "bench_features": "runtime-benchmarks",
+    "bench_flags": "--genesis-builder-policy=none",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": null,
     "is_relay": false
@@ -125,6 +127,7 @@
     "path": "cumulus/parachains/runtimes/people/people-rococo",
     "header": "cumulus/file_header.txt",
     "bench_features": "runtime-benchmarks",
+    "bench_flags": "--genesis-builder-policy=none",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-people-rpc.polkadot.io:443",
     "is_relay": false
@@ -135,6 +138,7 @@
     "path": "cumulus/parachains/runtimes/people/people-westend",
     "header": "cumulus/file_header.txt",
     "bench_features": "runtime-benchmarks",
+    "bench_flags": "--genesis-builder-policy=none",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://westend-people-rpc.polkadot.io:443",
     "is_relay": false
