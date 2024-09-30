@@ -36,7 +36,7 @@ use sp_core::{
 		testing::{TestOffchainExt, TestTransactionPoolExt},
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
-	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt},
+	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt, WrappedRuntimeCode},
 	Hasher,
 };
 use sp_externalities::Extensions;
@@ -47,6 +47,7 @@ use sp_storage::{well_known_keys::CODE, Storage};
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::Recorder};
 use sp_wasm_interface::HostFunctions;
 use std::{
+	borrow::Cow,
 	collections::{BTreeMap, BTreeSet, HashMap},
 	fmt::Debug,
 	fs,
@@ -566,8 +567,7 @@ impl PalletCmd {
 		chain_spec: &Option<Box<dyn ChainSpec>>,
 	) -> Result<sp_storage::Storage> {
 		Ok(match (self.genesis_builder, self.runtime.as_ref()) {
-			(Some(GenesisBuilderPolicy::None), Some(_)) => return Err("Cannot use `--genesis-builder=none` with `--runtime` since the runtime would be ignored.".into()),
-			(Some(GenesisBuilderPolicy::None), None) => Storage::default(),
+			(Some(GenesisBuilderPolicy::None), _) => Storage::default(),
 			(Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::Spec), Some(_)) =>
 					return Err("Cannot use `--genesis-builder=spec-genesis` with `--runtime` since the runtime would be ignored.".into()),
 			(Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::Spec), None) | (None, None) => {
@@ -690,10 +690,19 @@ impl PalletCmd {
 		&self,
 		state: &'a BenchmarkingState<H>,
 	) -> Result<FetchedCode<'a, BenchmarkingState<H>, H>> {
-		log::info!("Loading WASM from state");
-		let state = sp_state_machine::backend::BackendRuntimeCode::new(state);
+		if let Some(runtime) = self.runtime.as_ref() {
+			log::info!("Loading WASM from file");
+			let code = fs::read(runtime)?;
+			let hash = sp_core::blake2_256(&code).to_vec();
+			let wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
 
-		Ok(FetchedCode { state })
+			Ok(FetchedCode::FromFile { wrapped_code, heap_pages: self.heap_pages, hash })
+		} else {
+			log::info!("Loading WASM from state");
+			let state = sp_state_machine::backend::BackendRuntimeCode::new(state);
+
+			Ok(FetchedCode::FromGenesis { state })
+		}
 	}
 
 	/// Allocation strategy for pallet benchmarking.
