@@ -28,6 +28,7 @@ jobs:
       RUST_BACKTRACE: "full"
       WASM_BUILD_NO_COLOR: 1
       WASM_BUILD_RUSTFLAGS: "-C debug-assertions"
+      RUST_LOG: "frame_omni_bencher=info,polkadot_sdk_frame=info"
     timeout-minutes: 30
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -73,7 +74,7 @@ jobs:
     env:
       PACKAGE_NAME: ${{ matrix.runtime.package }}
       FLAGS: ${{ matrix.runtime.bench_flags }}
-      RUST_LOG: "frame_omni_bencher=info,polkadot_sdk_frame=info,error"
+      RUST_LOG: "frame_omni_bencher=info,polkadot_sdk_frame=info"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -82,7 +83,7 @@ jobs:
         run: |
           RUNTIME_BLOB_NAME=$(echo $PACKAGE_NAME | sed 's/-/_/g').compact.compressed.wasm
           RUNTIME_BLOB_PATH=./target/release/wbuild/$PACKAGE_NAME/$RUNTIME_BLOB_NAME
-          forklift cargo build --release --locked -p $PACKAGE_NAME -p frame-omni-bencher --features runtime-benchmarks
+          forklift cargo build --release --locked -p $PACKAGE_NAME -p frame-omni-bencher --features runtime-benchmarks --quiet
           echo "Running short benchmarking for PACKAGE_NAME=$PACKAGE_NAME and RUNTIME_BLOB_PATH=$RUNTIME_BLOB_PATH"
           ls -lrt $RUNTIME_BLOB_PATH
           
