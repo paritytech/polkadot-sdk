@@ -79,6 +79,16 @@ spec.loader.exec_module(generate_prdoc)
 parser_prdoc = subparsers.add_parser('prdoc', help='Generates PR documentation')
 generate_prdoc.setup_parser(parser_prdoc)
 
+def install_dependencies(runtime):
+    # temp fix for AH and BH
+    if '-hub-' in runtime:
+        os.system(f"cargo install --path substrate/utils/frame/omni-bencher --locked")
+        print(f'Installed frame-omni-bencher from local substrate/utils/frame/omni-bencher')
+    else:
+        os.system(f"cargo install frame-omni-bencher --locked")
+        print(f'Installed frame-omni-bencher from crates.io')
+
+
 def main():
     global args, unknown, runtimesMatrix
     args, unknown = parser.parse_known_args()
@@ -100,6 +110,7 @@ def main():
 
         # loop over remaining runtimes to collect available pallets
         for runtime in runtimesMatrix.values():
+            install_dependencies(runtime['name'])
             os.system(f"forklift cargo build -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}")
             print(f'-- listing pallets for benchmark for {runtime["name"]}')
             wasm_file = f"target/{profile}/wbuild/{runtime['package']}/{runtime['package'].replace('-', '_')}.wasm"
@@ -170,13 +181,7 @@ def main():
                         template = config['template']
                         output_path = xcm_path
 
-                # temp fix for AH and BH
-                if '-hub-' in runtime:
-                    os.system(f"cargo install --path substrate/utils/frame/omni-bencher --locked")
-                    print(f'Installed frame-omni-bencher from local substrate/utils/frame/omni-bencher')
-                else:
-                    os.system(f"cargo install frame-omni-bencher --locked")
-                    print(f'Installed frame-omni-bencher from crates.io')
+                install_dependencies(runtime)
 
                 print(f'-- benchmarking {pallet} in {runtime} into {output_path}')
                 cmd = f"frame-omni-bencher v1 benchmark pallet " \
