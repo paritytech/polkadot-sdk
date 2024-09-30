@@ -23,9 +23,10 @@ use polkadot_sdk::{
 use serde_json::Value;
 
 fn testnet_genesis(endowed_accounts: Vec<AccountId>, root: AccountId) -> Value {
-	let balances = endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>();
 	let config = RuntimeGenesisConfig {
-		balances: BalancesConfig { balances },
+		balances: BalancesConfig {
+			balances: endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
+		},
 		sudo: SudoConfig { key: Some(root) },
 		..Default::default()
 	};
