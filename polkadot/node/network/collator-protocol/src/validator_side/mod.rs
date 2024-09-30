@@ -461,7 +461,10 @@ where
 		return Ok(GroupAssignments { current: Vec::new() })
 	};
 
-	let paras_now = match fetch_claim_queue(sender, relay_parent).await.map_err(Error::Runtime)? {
+	let assigned_paras = match fetch_claim_queue(sender, relay_parent)
+		.await
+		.map_err(Error::Runtime)?
+	{
 		// Runtime supports claim queue - use it
 		Some(mut claim_queue) => claim_queue.0.remove(&core_now),
 		// Should never happen since claim queue is released everywhere.
@@ -480,9 +483,9 @@ where
 			})
 		},
 	};
-	let paras_now = paras_now.unwrap_or_else(|| VecDeque::new());
+	let assigned_paras = assigned_paras.unwrap_or_else(|| VecDeque::new());
 
-	for para_id in paras_now.iter() {
+	for para_id in assigned_paras.iter() {
 		let entry = current_assignments.entry(*para_id).or_default();
 		*entry += 1;
 		if *entry == 1 {
@@ -495,7 +498,7 @@ where
 		}
 	}
 
-	Ok(GroupAssignments { current: paras_now.into_iter().collect::<Vec<ParaId>>() })
+	Ok(GroupAssignments { current: assigned_paras.into_iter().collect::<Vec<ParaId>>() })
 }
 
 fn remove_outgoing(
