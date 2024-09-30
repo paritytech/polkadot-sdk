@@ -119,10 +119,9 @@ where
 		let new_bytes = val.size();
 		self.bytes.fetch_add(new_bytes as isize, AtomicOrdering::Relaxed);
 		self.length.fetch_add(1, AtomicOrdering::Relaxed);
-		self.inner_guard.insert(key, val).map(|old_val| {
+		self.inner_guard.insert(key, val).inspect(|old_val| {
 			self.bytes.fetch_sub(old_val.size() as isize, AtomicOrdering::Relaxed);
 			self.length.fetch_sub(1, AtomicOrdering::Relaxed);
-			old_val
 		})
 	}
 
