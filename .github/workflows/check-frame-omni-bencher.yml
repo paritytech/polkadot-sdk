@@ -56,6 +56,7 @@ jobs:
           RUNTIMES=$(jq '[.[] | select(.package != null)]' .github/workflows/runtimes-matrix.json)
 
           RUNTIMES=$(echo $RUNTIMES | jq -c .)
+          echo "runtime=$RUNTIMES"
           echo "runtime=$RUNTIMES" >> $GITHUB_OUTPUT
 
   run-frame-omni-bencher:
