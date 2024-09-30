@@ -4,6 +4,7 @@
     "package": "kitchensink-runtime",
     "path": "substrate/frame",
     "header": "substrate/HEADER-APACHE2",
+    "bench_flags": "--genesis-builder-policy=none --exclude-pallets=pallet_xcm,pallet_xcm_benchmarks::fungible,pallet_xcm_benchmarks::generic",
     "template": "substrate/.maintain/frame-weight-template.hbs",
     "bench_features": "runtime-benchmarks,riscv",
     "uri": null,
@@ -84,7 +85,7 @@
     "path": "cumulus/parachains/runtimes/contracts/contracts-rococo",
     "header": "cumulus/file_header.txt",
     "bench_features": "runtime-benchmarks",
-    "bench_flags": "--genesis-builder-policy=none",
+    "bench_flags": "--genesis-builder-policy=none --exclude-pallets=pallet_xcm,pallet_contracts",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-contracts-rpc.polkadot.io:443",
     "is_relay": false
@@ -95,7 +96,7 @@
     "path": "cumulus/parachains/runtimes/coretime/coretime-rococo",
     "header": "cumulus/file_header.txt",
     "bench_features": "runtime-benchmarks",
-    "bench_flags": "--exclude-pallets=pallet_xcm,pallet_xcm_benchmarks::fungible,pallet_xcm_benchmarks::generic --genesis-builder-policy=none",
+    "bench_flags": "--genesis-builder-policy=none --exclude-pallets=pallet_xcm,pallet_xcm_benchmarks::fungible,pallet_xcm_benchmarks::generic",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-coretime-rpc.polkadot.io:443",
     "is_relay": false
@@ -106,6 +107,7 @@
     "path": "cumulus/parachains/runtimes/coretime/coretime-westend",
     "header": "cumulus/file_header.txt",
     "bench_features": "runtime-benchmarks",
+    "bench_flags": "--genesis-builder-policy=none --exclude-pallets=pallet_xcm,pallet_xcm_benchmarks::fungible,pallet_xcm_benchmarks::generic",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://westend-coretime-rpc.polkadot.io:443",
     "is_relay": false
@@ -127,7 +129,7 @@
     "path": "cumulus/parachains/runtimes/people/people-rococo",
     "header": "cumulus/file_header.txt",
     "bench_features": "runtime-benchmarks",
-    "bench_flags": "--genesis-builder-policy=none",
+    "bench_flags": "--genesis-builder-policy=none --exclude-pallets=pallet_xcm,pallet_xcm_benchmarks::fungible,pallet_xcm_benchmarks::generic",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-people-rpc.polkadot.io:443",
     "is_relay": false
@@ -138,7 +140,7 @@
     "path": "cumulus/parachains/runtimes/people/people-westend",
     "header": "cumulus/file_header.txt",
     "bench_features": "runtime-benchmarks",
-    "bench_flags": "--genesis-builder-policy=none",
+    "bench_flags": "--genesis-builder-policy=none --exclude-pallets=pallet_xcm,pallet_xcm_benchmarks::fungible,pallet_xcm_benchmarks::generic",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://westend-people-rpc.polkadot.io:443",
     "is_relay": false
