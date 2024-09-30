@@ -173,7 +173,9 @@ pub enum PaymentState<Id> {
 /// Info regarding an approved treasury spend.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
-pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, PaymentId> {
+pub struct SpendStatus<BodyId, AssetKind, AssetBalance, Beneficiary, BlockNumber, PaymentId> {
+	/// The treasury body proposal is for
+	body: BodyId,
 	// The kind of asset to be spent.
 	asset_kind: AssetKind,
 	/// The asset amount of the spend.
@@ -320,6 +322,7 @@ pub mod pallet {
 		Twox64Concat,
 		SpendIndex,
 		SpendStatus<
+			T::BodyId,
 			T::AssetKind,
 			AssetBalanceOf<T, I>,
 			T::Beneficiary,
@@ -635,6 +638,7 @@ pub mod pallet {
 			Spends::<T, I>::insert(
 				index,
 				SpendStatus {
+					body,
 					asset_kind: *asset_kind.clone(),
 					amount,
 					beneficiary: beneficiary.clone(),

@@ -571,6 +571,7 @@ fn spend_works() {
 		assert_eq!(
 			Spends::<Test, _>::get(0).unwrap(),
 			SpendStatus {
+				body: (),
 				asset_kind: 1,
 				amount: 2,
 				beneficiary: 6,
