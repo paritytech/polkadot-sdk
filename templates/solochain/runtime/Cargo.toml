@@ -117,6 +117,8 @@ std = [
 	"sp-version/std",
 
 	"substrate-wasm-builder",
+	"sp-keyring/std",
+	"serde_json/std"
 ]
 
 runtime-benchmarks = [
