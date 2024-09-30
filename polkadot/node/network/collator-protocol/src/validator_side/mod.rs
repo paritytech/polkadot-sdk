@@ -1780,7 +1780,6 @@ async fn kick_off_seconding<Context>(
 
 				(pvd, maybe_parent_head_data, Some(parent_head_data_hash))
 			},
-			// Support V2 collators without async backing enabled.
 			(CollationVersion::V1, _) => {
 				let pvd = request_persisted_validation_data(
 					ctx.sender(),
