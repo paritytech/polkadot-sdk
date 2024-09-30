@@ -35,7 +35,7 @@ sp-consensus-aura = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-consensus-grandpa = { workspace = true, default-features = true }
 sp-consensus-grandpa = { workspace = true, default-features = true }
-sp-genesis-builder = { workspace = true }
+sp-genesis-builder = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-basic-authorship = { workspace = true, default-features = true }
 
