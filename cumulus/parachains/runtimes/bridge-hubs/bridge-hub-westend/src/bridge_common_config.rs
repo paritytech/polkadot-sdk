@@ -22,6 +22,7 @@
 //! GRANDPA tracking pallet only needs to be aware of one chain.
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
+use bp_messages::LegacyLaneId;
 use frame_support::parameter_types;
 
 parameter_types! {
@@ -33,11 +34,15 @@ parameter_types! {
 }
 
 /// Allows collect and claim rewards for relayers
-impl pallet_bridge_relayers::Config for Runtime {
+pub type RelayersForLegacyLaneIdsMessagesInstance = ();
+impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = Balance;
-	type PaymentProcedure =
-		bp_relayers::PayRewardFromAccount<pallet_balances::Pallet<Runtime>, AccountId>;
+	type PaymentProcedure = bp_relayers::PayRewardFromAccount<
+		pallet_balances::Pallet<Runtime>,
+		AccountId,
+		Self::LaneId,
+	>;
 	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 		AccountId,
 		BlockNumber,
@@ -47,4 +52,5 @@ impl pallet_bridge_relayers::Config for Runtime {
 		RelayerStakeLease,
 	>;
 	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
+	type LaneId = LegacyLaneId;
 }
