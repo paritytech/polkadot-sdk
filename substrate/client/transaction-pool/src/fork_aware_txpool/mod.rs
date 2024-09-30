@@ -133,7 +133,7 @@
 //! size limits), it is also [submitted][`submit`] into every view in [`active_views`].
 //!
 //! When the newly created view does not contain this transaction yet, it is
-//! [re-submitted][ForkAwareTxPool::update_view] from [`TxMemPool`] into this view.
+//! [re-submitted][ForkAwareTxPool::update_view_with_mempool] from [`TxMemPool`] into this view.
 //!
 //! ### Transaction route: [`submit_and_watch`][`api_submit_and_watch`]
 //!
@@ -165,7 +165,8 @@
 //! executed:
 //! - [find][find_best_view] the best view and clone it to [create a new
 //! view][crate::ForkAwareTxPool::build_new_view],
-//! - [update the view][ForkAwareTxPool::update_view] with the transactions from the *mempool*
+//! - [update the view][ForkAwareTxPool::update_view_with_mempool] with the transactions from the
+//!   *mempool*
 //! 	- all transactions from the *mempool* (with some obvious filtering applied) are submitted to
 //!    the view,
 //! 	- for all watched transactions from the *mempool* the watcher is registered in the new view,

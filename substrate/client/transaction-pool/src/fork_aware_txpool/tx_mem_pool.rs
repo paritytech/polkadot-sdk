@@ -75,6 +75,14 @@ where
 	source: TransactionSource,
 	/// When the transaction was revalidated, used to periodically revalidate the mem pool buffer.
 	validated_at: AtomicU64,
+	//todo: we need to add future / ready status at finalized block.
+	//If future transactions are stuck in tx_mem_pool (due to limits being hit), we need a means
+	// to replace them somehow with newly coming transactions.
+	// For sure priority is one of them, but some additional criteria maybe required.
+	//
+	// The other maybe simple solution for this could be just obeying 10% limit for future in
+	// tx_mem_pool. Oldest future transaction could be just dropped. *(Status at finalized would
+	// also be needed). Probably is_future_at_finalized:Option<bool> flag will be enought
 }
 
 impl<ChainApi, Block> TxInMemPool<ChainApi, Block>

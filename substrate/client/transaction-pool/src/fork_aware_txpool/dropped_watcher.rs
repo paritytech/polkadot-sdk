@@ -146,8 +146,10 @@ where
 						return Some(tx_hash)
 					}
 				} else {
-					debug!("[{:?}] dropped_watcher: removing non tracked tx", tx_hash);
-					return Some(tx_hash)
+					// the transaction was never included into any view, so it is being dropped
+					// because all views are currently full.
+					// we shall give it a chance.
+					debug!("[{:?}] dropped_watcher: skipping non tracked tx", tx_hash);
 				}
 			},
 			_ => {},

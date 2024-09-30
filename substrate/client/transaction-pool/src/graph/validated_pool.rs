@@ -297,7 +297,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 		match tx {
 			ValidatedTransaction::Valid(tx) => {
 				let hash = self.api.hash_and_length(&tx.data).0;
-				let watcher = self.listener.write().create_watcher(hash);
+				let watcher = self.create_watcher(hash);
 				self.submit(std::iter::once(ValidatedTransaction::Valid(tx)))
 					.pop()
 					.expect("One extrinsic passed; one result returned; qed")

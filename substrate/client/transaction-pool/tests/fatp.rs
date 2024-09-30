@@ -19,7 +19,7 @@
 //! Tests for fork-aware transaction pool.
 
 use futures::{executor::block_on, task::Poll, FutureExt, StreamExt};
-use sc_transaction_pool::ChainApi;
+use sc_transaction_pool::{ChainApi, PoolLimit};
 use sc_transaction_pool_api::{
 	error::{Error as TxPoolError, IntoPoolError},
 	ChainEvent, MaintainedTransactionPool, TransactionPool, TransactionStatus,
@@ -33,7 +33,7 @@ use substrate_test_runtime_client::{
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
 const LOG_TARGET: &str = "txpool";
 
-use sc_transaction_pool::{ForkAwareTxPool, ForkAwareTxPoolTask};
+use sc_transaction_pool::ForkAwareTxPool;
 
 fn invalid_hash() -> Hash {
 	Default::default()
@@ -68,35 +68,119 @@ fn finalized_block_event(
 	ChainEvent::Finalized { hash: to, tree_route: Arc::from(&e[0..e.len() - 1]) }
 }
 
-fn create_basic_pool_with_genesis(
-	test_api: Arc<TestApi>,
-) -> (ForkAwareTxPool<TestApi, Block>, ForkAwareTxPoolTask) {
-	let genesis_hash = test_api
-		.chain()
-		.read()
-		.block_by_number
-		.get(&0)
-		.map(|blocks| blocks[0].0.header.hash())
-		.expect("there is block 0. qed");
-
-	ForkAwareTxPool::new_test(test_api, genesis_hash, genesis_hash)
+struct TestPoolBuilder {
+	api: Option<Arc<TestApi>>,
+	use_default_limits: bool,
+	ready_limits: sc_transaction_pool::PoolLimit,
+	future_limits: sc_transaction_pool::PoolLimit,
+	mempool_max_transactions_count: usize,
 }
 
-fn create_basic_pool(
+impl Default for TestPoolBuilder {
+	fn default() -> Self {
+		Self {
+			api: None,
+			use_default_limits: true,
+			ready_limits: PoolLimit { count: 8192, total_bytes: 20 * 1024 * 1024 },
+			future_limits: PoolLimit { count: 512, total_bytes: 1 * 1024 * 1024 },
+			mempool_max_transactions_count: usize::MAX,
+		}
+	}
+}
+
+impl TestPoolBuilder {
+	fn new() -> Self {
+		Self::default()
+	}
+
+	fn with_api(mut self, api: Arc<TestApi>) -> Self {
+		self.api = Some(api);
+		self
+	}
+
+	fn with_mempool_count_limit(mut self, mempool_count_limit: usize) -> Self {
+		self.mempool_max_transactions_count = mempool_count_limit;
+		self.use_default_limits = false;
+		self
+	}
+
+	#[allow(dead_code)]
+	fn with_ready_count(mut self, ready_count: usize) -> Self {
+		self.ready_limits.count = ready_count;
+		self.use_default_limits = false;
+		self
+	}
+
+	#[allow(dead_code)]
+	fn with_ready_bytes_size(mut self, ready_bytes_size: usize) -> Self {
+		self.ready_limits.total_bytes = ready_bytes_size;
+		self.use_default_limits = false;
+		self
+	}
+
+	#[allow(dead_code)]
+	fn with_future_count(mut self, future_count: usize) -> Self {
+		self.future_limits.count = future_count;
+		self.use_default_limits = false;
+		self
+	}
+
+	#[allow(dead_code)]
+	fn with_future_bytes_size(mut self, future_bytes_size: usize) -> Self {
+		self.future_limits.total_bytes = future_bytes_size;
+		self.use_default_limits = false;
+		self
+	}
+
+	fn build(
+		self,
+	) -> (ForkAwareTxPool<TestApi, Block>, Arc<TestApi>, futures::executor::ThreadPool) {
+		let api = self
+			.api
+			.unwrap_or(Arc::from(TestApi::with_alice_nonce(200).enable_stale_check()));
+
+		let genesis_hash = api
+			.chain()
+			.read()
+			.block_by_number
+			.get(&0)
+			.map(|blocks| blocks[0].0.header.hash())
+			.expect("there is block 0. qed");
+
+		let (pool, txpool_task) = if self.use_default_limits {
+			ForkAwareTxPool::new_test(api.clone(), genesis_hash, genesis_hash)
+		} else {
+			ForkAwareTxPool::new_test_with_limits(
+				api.clone(),
+				genesis_hash,
+				genesis_hash,
+				self.ready_limits,
+				self.future_limits,
+				self.mempool_max_transactions_count,
+			)
+		};
+
+		let thread_pool = futures::executor::ThreadPool::new().unwrap();
+		thread_pool.spawn_ok(txpool_task);
+
+		(pool, api, thread_pool)
+	}
+}
+
+fn pool_with_api(
 	test_api: Arc<TestApi>,
 ) -> (ForkAwareTxPool<TestApi, Block>, futures::executor::ThreadPool) {
-	let (pool, txpool_task) = create_basic_pool_with_genesis(test_api);
-	let thread_pool = futures::executor::ThreadPool::new().unwrap();
-	thread_pool.spawn_ok(txpool_task);
-	(pool, thread_pool)
+	let builder = TestPoolBuilder::new();
+	let (pool, _, threadpool) = builder.with_api(test_api).build();
+	(pool, threadpool)
 }
 
 fn pool() -> (ForkAwareTxPool<TestApi, Block>, Arc<TestApi>, futures::executor::ThreadPool) {
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, thread_pool) = create_basic_pool(api.clone());
-	(pool, api, thread_pool)
+	let builder = TestPoolBuilder::new();
+	builder.build()
 }
 
+#[macro_export]
 macro_rules! assert_pool_status {
 	($hash:expr, $pool:expr, $ready:expr, $future:expr) => {
 		{
@@ -271,8 +355,7 @@ mod test_chain_with_forks {
 fn fatp_no_view_future_and_ready_submit_one_works() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header = api.push_block(1, vec![], true);
 
@@ -293,8 +376,7 @@ fn fatp_no_view_future_and_ready_submit_one_works() {
 fn fatp_no_view_future_and_ready_submit_works() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header = api.push_block(1, vec![], true);
 
@@ -317,8 +399,7 @@ fn fatp_no_view_future_and_ready_submit_works() {
 fn fatp_no_view_submit_already_imported_reports_error() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header = api.push_block(1, vec![], true);
 
@@ -342,8 +423,7 @@ fn fatp_no_view_submit_already_imported_reports_error() {
 fn fatp_one_view_future_and_ready_submit_one_works() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header = api.push_block(1, vec![], true);
 	// let header01b = api.push_block(1, vec![], true);
@@ -368,8 +448,7 @@ fn fatp_one_view_future_and_ready_submit_one_works() {
 fn fatp_one_view_future_and_ready_submit_many_works() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header = api.push_block(1, vec![], true);
 	// let header01b = api.push_block(1, vec![], true);
@@ -396,8 +475,7 @@ fn fatp_one_view_future_and_ready_submit_many_works() {
 fn fatp_one_view_stale_submit_one_fails() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header = api.push_block(1, vec![], true);
 
@@ -421,8 +499,7 @@ fn fatp_one_view_stale_submit_one_fails() {
 fn fatp_one_view_stale_submit_many_fails() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header = api.push_block(1, vec![], true);
 
@@ -532,8 +609,7 @@ fn fatp_one_view_ready_turns_to_stale_works() {
 fn fatp_two_views_future_and_ready_submit_one() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let genesis = api.genesis_hash();
 	let header01a = api.push_block(1, vec![], true);
@@ -565,8 +641,7 @@ fn fatp_two_views_future_and_ready_submit_one() {
 fn fatp_two_views_future_and_ready_submit_many() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header01a = api.push_block(1, vec![], true);
 	let header01b = api.push_block(1, vec![], true);
@@ -601,8 +676,7 @@ fn fatp_two_views_future_and_ready_submit_many() {
 fn fatp_two_views_submit_many_variations() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let xt0 = uxt(Alice, 206);
 	let xt1 = uxt(Alice, 206);
@@ -652,7 +726,7 @@ fn fatp_linear_progress() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, _) = pool_with_api(api.clone());
 
 	let f11 = forks[1][1].hash();
 	let f13 = forks[1][3].hash();
@@ -678,8 +752,7 @@ fn fatp_linear_progress() {
 fn fatp_linear_old_ready_becoming_stale() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	// Our initial transactions
 	let xts = vec![uxt(Alice, 300), uxt(Alice, 301), uxt(Alice, 302)];
@@ -717,7 +790,7 @@ fn fatp_fork_reorg() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, _) = pool_with_api(api.clone());
 
 	let f03 = forks[0][3].hash();
 	let f13 = forks[1][3].hash();
@@ -794,7 +867,7 @@ fn fatp_fork_stale_rejected() {
 		(0, _) => false,
 		_ => true,
 	}));
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, _) = pool_with_api(api.clone());
 
 	let f03 = forks[0][3].hash();
 	let f13 = forks[1][3].hash();
@@ -862,7 +935,7 @@ fn fatp_fork_no_xts_ready_switch_to_future() {
 
 	// note: there are no xts in blocks!
 	let (api, forks) = test_chain_with_forks::chain(Some(&|_, _| false));
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, _) = pool_with_api(api.clone());
 
 	let f03 = forks[0][3].hash();
 	let f12 = forks[1][2].hash();
@@ -909,7 +982,7 @@ fn fatp_ready_at_does_not_trigger() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, _) = pool_with_api(api.clone());
 
 	let f03 = forks[0][3].hash();
 	let f13 = forks[1][3].hash();
@@ -923,7 +996,7 @@ fn fatp_ready_at_does_not_trigger_after_submit() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, _) = pool_with_api(api.clone());
 
 	let xt0 = uxt(Alice, 200);
 	let _ = block_on(pool.submit_one(invalid_hash(), SOURCE, xt0));
@@ -941,7 +1014,7 @@ fn fatp_ready_at_triggered_by_maintain() {
 	//future) could occur e.g. when runtime was updated on fork1.
 	sp_tracing::try_init_simple();
 	let (api, forks) = test_chain_with_forks::chain(Some(&|_, _| false));
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, _) = pool_with_api(api.clone());
 
 	let f03 = forks[0][3].hash();
 	let f13 = forks[1][3].hash();
@@ -969,8 +1042,7 @@ fn fatp_ready_at_triggered_by_maintain() {
 fn fatp_ready_at_triggered_by_maintain2() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1013,7 +1085,7 @@ fn fatp_linear_progress_finalization() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, _) = pool_with_api(api.clone());
 
 	let f00 = forks[0][0].hash();
 	let f12 = forks[1][2].hash();
@@ -1047,7 +1119,7 @@ fn fatp_fork_finalization_removes_stale_views() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, _) = pool_with_api(api.clone());
 
 	let f00 = forks[0][0].hash();
 	let f12 = forks[1][2].hash();
@@ -1088,8 +1160,7 @@ fn fatp_fork_finalization_removes_stale_views() {
 fn fatp_watcher_invalid_fails_on_submission() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1112,8 +1183,7 @@ fn fatp_watcher_invalid_fails_on_submission() {
 fn fatp_watcher_invalid_single_revalidation() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header01 = api.push_block(1, vec![], true);
 	let event = new_best_block_event(&pool, Some(api.genesis_hash()), header01.hash());
@@ -1146,8 +1216,7 @@ fn fatp_watcher_invalid_single_revalidation() {
 fn fatp_watcher_invalid_single_revalidation2() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let xt0 = uxt(Alice, 200);
 	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
@@ -1168,8 +1237,7 @@ fn fatp_watcher_invalid_single_revalidation2() {
 fn fatp_watcher_invalid_single_revalidation3() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let xt0 = uxt(Alice, 150);
 	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
@@ -1198,8 +1266,7 @@ fn fatp_watcher_invalid_single_revalidation3() {
 fn fatp_watcher_future() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1228,8 +1295,7 @@ fn fatp_watcher_future() {
 fn fatp_watcher_ready() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1258,8 +1324,7 @@ fn fatp_watcher_ready() {
 fn fatp_watcher_finalized() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1296,8 +1361,7 @@ fn fatp_watcher_finalized() {
 fn fatp_watcher_in_block() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1324,8 +1388,7 @@ fn fatp_watcher_in_block() {
 fn fatp_watcher_future_and_finalized() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1373,8 +1436,7 @@ fn fatp_watcher_future_and_finalized() {
 fn fatp_watcher_two_finalized_in_different_block() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Dave.into(), 200);
 
@@ -1450,8 +1512,7 @@ fn fatp_watcher_two_finalized_in_different_block() {
 fn fatp_no_view_pool_watcher_two_finalized_in_different_block() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Dave.into(), 200);
 
@@ -1491,6 +1552,7 @@ fn fatp_no_view_pool_watcher_two_finalized_in_different_block() {
 	assert_eq!(
 		xt1_status,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header03.hash(), 0)),
 			TransactionStatus::Finalized((header03.hash(), 0))
 		]
@@ -1503,6 +1565,7 @@ fn fatp_no_view_pool_watcher_two_finalized_in_different_block() {
 	assert_eq!(
 		xt0_status,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header02.hash(), 2)),
 			TransactionStatus::Finalized((header02.hash(), 2))
 		]
@@ -1514,6 +1577,7 @@ fn fatp_no_view_pool_watcher_two_finalized_in_different_block() {
 	assert_eq!(
 		xt2_status,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header02.hash(), 1)),
 			TransactionStatus::Finalized((header02.hash(), 1))
 		]
@@ -1524,8 +1588,7 @@ fn fatp_no_view_pool_watcher_two_finalized_in_different_block() {
 fn fatp_watcher_in_block_across_many_blocks() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1569,8 +1632,7 @@ fn fatp_watcher_in_block_across_many_blocks() {
 fn fatp_watcher_in_block_across_many_blocks2() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1621,8 +1683,7 @@ fn fatp_watcher_in_block_across_many_blocks2() {
 fn fatp_watcher_dropping_listener_should_work() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1644,8 +1705,7 @@ fn fatp_watcher_dropping_listener_should_work() {
 fn fatp_watcher_fork_retract_and_finalize() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header01 = api.push_block(1, vec![], true);
 
@@ -1688,9 +1748,8 @@ fn fatp_watcher_fork_retract_and_finalize() {
 fn fatp_retract_all_forks() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, api, _) = pool();
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
-	let (pool, _) = create_basic_pool(api.clone());
 	let genesis = api.genesis_hash();
 
 	let xt0 = uxt(Alice, 200);
@@ -1717,8 +1776,7 @@ fn fatp_retract_all_forks() {
 fn fatp_watcher_finalizing_forks() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
@@ -1822,8 +1880,7 @@ fn fatp_watcher_finalizing_forks() {
 fn fatp_watcher_best_block_after_finalized() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 	let header01 = api.push_block(1, vec![], true);
 	let event = finalized_block_event(&pool, api.genesis_hash(), header01.hash());
 	block_on(pool.maintain(event));
@@ -1856,12 +1913,10 @@ fn fatp_watcher_best_block_after_finalized() {
 fn fatp_watcher_best_block_after_finalized2() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let xt0 = uxt(Alice, 200);
 	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
-	// assert_pool_status!(header01.hash(), &pool, 1, 0);
 
 	let header01 = api.push_block(1, vec![xt0.clone()], true);
 
@@ -1885,8 +1940,7 @@ fn fatp_watcher_best_block_after_finalized2() {
 fn fatp_watcher_switching_fork_multiple_times_works() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 
@@ -1936,8 +1990,7 @@ fn fatp_watcher_switching_fork_multiple_times_works() {
 fn fatp_watcher_two_blocks_delayed_finalization_works() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
@@ -2007,8 +2060,7 @@ fn fatp_watcher_two_blocks_delayed_finalization_works() {
 fn fatp_watcher_delayed_finalization_does_not_retract() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
@@ -2055,8 +2107,7 @@ fn fatp_watcher_delayed_finalization_does_not_retract() {
 fn fatp_watcher_best_block_after_finalization_does_not_retract() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
@@ -2104,8 +2155,7 @@ fn fatp_watcher_best_block_after_finalization_does_not_retract() {
 fn fatp_watcher_invalid_many_revalidation() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let header01 = api.push_block(1, vec![], true);
 	block_on(pool.maintain(new_best_block_event(&pool, None, header01.hash())));
@@ -2199,8 +2249,7 @@ fn fatp_watcher_invalid_many_revalidation() {
 fn should_not_retain_invalid_hashes_from_retracted() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 	let xt = uxt(Alice, 200);
 
 	let header01 = api.push_block(1, vec![], true);
@@ -2242,8 +2291,7 @@ fn should_not_retain_invalid_hashes_from_retracted() {
 fn should_revalidate_during_maintenance() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 	let xt1 = uxt(Alice, 200);
 	let xt2 = uxt(Alice, 201);
 
@@ -2281,8 +2329,7 @@ fn should_revalidate_during_maintenance() {
 fn fatp_transactions_purging_stale_on_finalization_works() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let xt1 = uxt(Alice, 200);
 	let xt2 = uxt(Alice, 201);
@@ -2330,8 +2377,7 @@ fn fatp_transactions_purging_stale_on_finalization_works() {
 fn fatp_transactions_purging_invalid_on_finalization_works() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let xt1 = uxt(Alice, 200);
 	let xt2 = uxt(Alice, 201);
@@ -2378,8 +2424,7 @@ fn fatp_transactions_purging_invalid_on_finalization_works() {
 fn import_sink_works() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let genesis = api.genesis_hash();
 	let header01a = api.push_block(1, vec![], true);
@@ -2419,8 +2464,7 @@ fn import_sink_works() {
 fn import_sink_works2() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let genesis = api.genesis_hash();
 	let header01a = api.push_block(1, vec![], true);
@@ -2458,8 +2502,7 @@ fn import_sink_works2() {
 fn import_sink_works3() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let import_stream = pool.import_notification_stream();
 	let genesis = api.genesis_hash();
@@ -2499,8 +2542,7 @@ fn import_sink_works3() {
 fn fatp_avoid_stuck_transaction() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let xt0 = uxt(Alice, 200);
 	let xt1 = uxt(Alice, 201);
@@ -2561,8 +2603,7 @@ fn fatp_avoid_stuck_transaction() {
 fn fatp_future_is_pruned_by_conflicting_tags() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let xt0 = uxt(Alice, 200);
 	let xt1 = uxt(Alice, 201);
@@ -2594,8 +2635,7 @@ fn fatp_future_is_pruned_by_conflicting_tags() {
 fn fatp_dangling_ready_gets_revalidated() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let xt2 = uxt(Alice, 202);
 	log::debug!("xt2: {:#?}", api.hash_and_length(&xt2).0);
@@ -2633,8 +2673,7 @@ fn fatp_ready_txs_are_provided_in_valid_order() {
 	// this test checks if recently_pruned tags are cleared for views cloned from retracted path
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
-	let (pool, _) = create_basic_pool(api.clone());
+	let (pool, api, _) = pool();
 
 	let xt0 = uxt(Alice, 200);
 	let xt1 = uxt(Alice, 201);
@@ -2680,9 +2719,8 @@ fn fatp_ready_txs_are_provided_in_valid_order() {
 fn fatp_ready_light_empty_on_unmaintained_fork() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, api, _) = pool();
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
-	let (pool, _) = create_basic_pool(api.clone());
 	let genesis = api.genesis_hash();
 
 	let xt0 = uxt(Alice, 200);
@@ -2703,10 +2741,9 @@ fn fatp_ready_light_empty_on_unmaintained_fork() {
 fn fatp_ready_light_misc_scenarios_works() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, api, _) = pool();
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
-	let (pool, _) = create_basic_pool(api.clone());
 	let genesis = api.genesis_hash();
 
 	let xt0 = uxt(Alice, 200);
@@ -2769,13 +2806,12 @@ fn fatp_ready_light_misc_scenarios_works() {
 fn fatp_ready_light_long_fork_works() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, api, _) = pool();
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
 	api.set_nonce(api.genesis_hash(), Dave.into(), 200);
 	api.set_nonce(api.genesis_hash(), Eve.into(), 200);
 
-	let (pool, _) = create_basic_pool(api.clone());
 	let genesis = api.genesis_hash();
 
 	let xt0 = uxt(Alice, 200);
@@ -2790,7 +2826,7 @@ fn fatp_ready_light_long_fork_works() {
 		vec![xt0.clone(), xt1.clone(), xt2.clone(), xt3.clone(), xt4.clone()],
 	)];
 	let results = block_on(futures::future::join_all(submissions));
-	assert!(results.iter().all(|r| { r.is_ok() }));
+	assert!(results.iter().all(Result::is_ok));
 
 	let header01 = api.push_block_with_parent(genesis, vec![xt0.clone()], true);
 	let event = new_best_block_event(&pool, Some(genesis), header01.hash());
@@ -2810,13 +2846,12 @@ fn fatp_ready_light_long_fork_works() {
 fn fatp_ready_light_long_fork_retracted_works() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, api, _) = pool();
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
 	api.set_nonce(api.genesis_hash(), Dave.into(), 200);
 	api.set_nonce(api.genesis_hash(), Eve.into(), 200);
 
-	let (pool, _) = create_basic_pool(api.clone());
 	let genesis = api.genesis_hash();
 
 	let xt0 = uxt(Alice, 200);
@@ -2859,10 +2894,9 @@ fn fatp_ready_light_long_fork_retracted_works() {
 fn fatp_ready_at_with_timeout_works_for_misc_scenarios() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let (pool, api, _) = pool();
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
-	let (pool, _) = create_basic_pool(api.clone());
 	let genesis = api.genesis_hash();
 
 	let xt0 = uxt(Alice, 200);
@@ -2901,4 +2935,116 @@ fn fatp_ready_at_with_timeout_works_for_misc_scenarios() {
 	let mut ready_at2 = block_on(pool.ready_at_with_timeout(header02a.hash(), Duration::ZERO));
 	assert_eq!(ready_at2.next().unwrap().hash, api.hash_and_length(&xt2).0);
 	assert!(ready_at2.next().is_none());
+}
+
+#[test]
+fn fatp_limits_no_views_mempool_count() {
+	sp_tracing::try_init_simple();
+
+	let builder = TestPoolBuilder::new();
+	let (pool, api, _) = builder.with_mempool_count_limit(2).build();
+
+	let header = api.push_block(1, vec![], true);
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 202);
+	let xt2 = uxt(Alice, 202);
+
+	let submissions = vec![
+		pool.submit_one(header.hash(), SOURCE, xt0.clone()),
+		pool.submit_one(header.hash(), SOURCE, xt1.clone()),
+		pool.submit_one(header.hash(), SOURCE, xt2.clone()),
+	];
+
+	let results = block_on(futures::future::join_all(submissions));
+	let mut results = results.iter();
+
+	assert!(results.next().unwrap().is_ok());
+	assert!(results.next().unwrap().is_ok());
+	assert!(matches!(
+		results.next().unwrap().as_ref().unwrap_err().0,
+		TxPoolError::ImmediatelyDropped
+	));
+}
+
+#[test]
+fn fatp_limits_ready_count_works() {
+	sp_tracing::try_init_simple();
+
+	let builder = TestPoolBuilder::new();
+	let (pool, api, _) = builder.with_mempool_count_limit(3).with_ready_count(2).build();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 500);
+
+	let header01 = api.push_block(1, vec![], true);
+
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	//note: we need Charlie to be first as the oldest is removed.
+	//For 3x alice, all tree would be removed.
+	//(alice,bob,charlie would work too)
+	let xt0 = uxt(Charlie, 500);
+	let xt1 = uxt(Alice, 200);
+	let xt2 = uxt(Alice, 201);
+
+	let submissions = vec![
+		pool.submit_one(header01.hash(), SOURCE, xt0.clone()),
+		pool.submit_one(header01.hash(), SOURCE, xt1.clone()),
+		pool.submit_one(header01.hash(), SOURCE, xt2.clone()),
+	];
+
+	let results = block_on(futures::future::join_all(submissions));
+	assert!(results.iter().all(Result::is_ok));
+	//charlie was not included into view:
+	assert_pool_status!(header01.hash(), &pool, 2, 0);
+
+	let header02 = api.push_block(2, vec![xt0, xt1], true);
+	let event = new_best_block_event(&pool, Some(header01.hash()), header02.hash());
+	block_on(pool.maintain(event));
+	assert_eq!(pool.mempool_len().0, 3);
+	//charlie was resubmitted from mmepool into the view:
+	assert_pool_status!(header02.hash(), &pool, 1, 0);
+}
+
+#[test]
+fn fatp_limits_future_count_works() {
+	sp_tracing::try_init_simple();
+
+	let builder = TestPoolBuilder::new();
+	//todo: we want 3 or 4:
+	let (pool, api, _) = builder.with_mempool_count_limit(3).with_future_count(2).build();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 500);
+
+	let header01 = api.push_block(1, vec![], true);
+
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Alice, 200);
+
+	let xt1 = uxt(Charlie, 501);
+	let xt2 = uxt(Alice, 201);
+	let xt3 = uxt(Alice, 202);
+
+	let submissions = vec![
+		pool.submit_one(header01.hash(), SOURCE, xt1.clone()),
+		pool.submit_one(header01.hash(), SOURCE, xt2.clone()),
+		pool.submit_one(header01.hash(), SOURCE, xt3.clone()),
+	];
+
+	let results = block_on(futures::future::join_all(submissions));
+	assert!(results.iter().all(Result::is_ok));
+	//charlie was not included into view due to limits:
+	assert_pool_status!(header01.hash(), &pool, 0, 2);
+
+	let header02 = api.push_block(2, vec![xt0], true);
+	api.set_nonce(header02.hash(), Alice.into(), 201); //redundant
+	let event = new_best_block_event(&pool, Some(header01.hash()), header02.hash());
+	block_on(pool.maintain(event));
+
+	//charlie was resubmitted from mmepool into the view:
+	assert_pool_status!(header02.hash(), &pool, 2, 1);
+	assert_eq!(pool.mempool_len().0, 3);
 }

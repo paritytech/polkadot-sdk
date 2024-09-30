@@ -147,6 +147,8 @@ struct ExternalWatcherContext<ChainApi: graph::ChainApi> {
 	in_block: HashSet<BlockHash<ChainApi>>,
 	/// A hash set of block hashes from views that consider the transaction valid.
 	views_keeping_tx_valid: HashSet<BlockHash<ChainApi>>,
+	/// The pending events to be sent.
+	pending_events: Vec<TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>>,
 }
 
 impl<ChainApi: graph::ChainApi> ExternalWatcherContext<ChainApi>
@@ -169,6 +171,7 @@ where
 			ready_seen: false,
 			views_keeping_tx_valid: Default::default(),
 			in_block: Default::default(),
+			pending_events: Default::default(),
 		}
 	}
 
@@ -180,9 +183,9 @@ where
 	/// skipped.
 	fn handle(
 		&mut self,
-		status: &TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
+		status: TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
 		hash: BlockHash<ChainApi>,
-	) -> bool {
+	) -> Option<TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>> {
 		trace!(
 			target: LOG_TARGET, "[{:?}] handle event from {hash:?}: {status:?} views:{:#?}", self.tx_hash,
 			self.status_stream_map.keys().collect::<Vec<_>>()
@@ -191,36 +194,45 @@ where
 			TransactionStatus::Future => {
 				self.views_keeping_tx_valid.insert(hash);
 				if self.ready_seen || self.future_seen {
-					false
+					None
 				} else {
 					self.future_seen = true;
-					true
+					Some(status)
 				}
 			},
 			TransactionStatus::Ready => {
 				self.views_keeping_tx_valid.insert(hash);
 				if self.ready_seen {
-					false
+					None
 				} else {
 					self.ready_seen = true;
-					true
+					Some(status)
 				}
 			},
-			TransactionStatus::Broadcast(_) => false,
-			TransactionStatus::InBlock((block, _)) => self.in_block.insert(*block),
+			TransactionStatus::Broadcast(_) => None,
+			TransactionStatus::InBlock((block, _)) =>
+				if !(self.ready_seen || self.future_seen) {
+					self.ready_seen = true;
+					self.in_block.insert(block);
+					self.pending_events.push(status);
+					Some(TransactionStatus::Ready)
+				} else {
+					self.in_block.insert(block);
+					Some(status)
+				},
 			TransactionStatus::Retracted(_) => {
 				//todo remove panic / handle event [#5479]
 				panic!("retracted? shall not happen");
 				// false
 			},
-			TransactionStatus::FinalityTimeout(_) => true,
+			TransactionStatus::FinalityTimeout(_) => Some(status),
 			TransactionStatus::Finalized(_) => {
 				self.terminate = true;
-				true
+				Some(status)
 			},
 			TransactionStatus::Usurped(_) |
 			TransactionStatus::Dropped |
-			TransactionStatus::Invalid => false,
+			TransactionStatus::Invalid => None,
 		}
 	}
 
@@ -295,7 +307,7 @@ where
 	) -> Option<TxStatusStream<ChainApi>> {
 		let mut controllers = self.controllers.write();
 		if controllers.contains_key(&tx_hash) {
-			return None;
+			return None
 		}
 
 		trace!(target: LOG_TARGET, "[{:?}] create_external_watcher_for_tx", tx_hash);
@@ -307,6 +319,9 @@ where
 
 		Some(
 			futures::stream::unfold(ctx, |mut ctx| async move {
+				if let Some(pending_status) = ctx.pending_events.pop() {
+					return Some((pending_status, ctx))
+				}
 				if ctx.terminate {
 					return None
 				}
@@ -316,9 +331,9 @@ where
 					Some((view_hash, status)) =  next_event(&mut ctx.status_stream_map) => {
 						log::trace!(target: LOG_TARGET, "[{:?}] select::map views:{:?}", ctx.tx_hash, ctx.status_stream_map.keys().collect::<Vec<_>>());
 
-						if ctx.handle(&status, view_hash) {
-							log::trace!(target: LOG_TARGET, "[{:?}] sending out: {status:?}", ctx.tx_hash);
-							return Some((status, ctx));
+						if let Some(new_status) = ctx.handle(status, view_hash) {
+							log::trace!(target: LOG_TARGET, "[{:?}] sending out: {new_status:?}", ctx.tx_hash);
+							return Some((new_status, ctx))
 						}
 					},
 					cmd = ctx.command_receiver.next() => {
