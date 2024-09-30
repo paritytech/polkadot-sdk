@@ -209,7 +209,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// Different bodies in treasury
-		type BodyId: Copy + Clone + Eq + Ord + Default + codec::FullCodec + MaxEncodedLen + TypeInfo;
+		type BodyId: Copy + Clone + Eq + Ord + codec::FullCodec + MaxEncodedLen + TypeInfo;
 
 		/// The staking balance.
 		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
@@ -454,9 +454,16 @@ pub mod pallet {
 		}
 	}
 
-	#[derive(Default)]
 	struct SpendContext<BodyId, Balance> {
 		spend_in_context: BTreeMap<(BodyId, Balance), Balance>,
+	}
+
+	// derive default requires BodyId to have default trait
+	// which is unreasonable
+	impl<BodyId, Balance> Default for SpendContext<BodyId, Balance> {
+		fn default() -> Self {
+			Self { spend_in_context: Default::default() }
+		}
 	}
 
 	#[pallet::call]
