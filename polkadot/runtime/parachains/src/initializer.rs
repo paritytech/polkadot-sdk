@@ -87,10 +87,10 @@ impl<BlockNumber: Default + From<u32>> Default for SessionChangeNotification<Blo
 }
 
 #[derive(Encode, Decode, TypeInfo)]
-struct BufferedSessionChange {
-	validators: Vec<ValidatorId>,
-	queued: Vec<ValidatorId>,
-	session_index: SessionIndex,
+pub(crate) struct BufferedSessionChange {
+	pub validators: Vec<ValidatorId>,
+	pub queued: Vec<ValidatorId>,
+	pub session_index: SessionIndex,
 }
 
 pub trait WeightInfo {
@@ -149,7 +149,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type HasInitialized<T: Config> = StorageValue<_, ()>;
 
-	/// Buffered session changes along with the block number at which they should be applied.
+	/// Buffered session changes.
 	///
 	/// Typically this will be empty or one element long. Apart from that this item never hits
 	/// the storage.
@@ -157,7 +157,7 @@ pub mod pallet {
 	/// However this is a `Vec` regardless to handle various edge cases that may occur at runtime
 	/// upgrade boundaries or if governance intervenes.
 	#[pallet::storage]
-	pub(super) type BufferedSessionChanges<T: Config> =
+	pub(crate) type BufferedSessionChanges<T: Config> =
 		StorageValue<_, Vec<BufferedSessionChange>, ValueQuery>;
 
 	#[pallet::hooks]

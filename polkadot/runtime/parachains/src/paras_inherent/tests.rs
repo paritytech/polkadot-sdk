@@ -49,6 +49,7 @@ mod enter {
 
 	use crate::{
 		builder::{junk_collator, junk_collator_signature, Bench, BenchBuilder, CandidateModifier},
+		initializer::BufferedSessionChange,
 		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, RuntimeOrigin, Test},
 		scheduler::common::{Assignment, AssignmentProvider},
 		session_info,
@@ -516,6 +517,101 @@ mod enter {
 			expected_heads.into_iter().enumerate().for_each(|(id, head)| {
 				assert_eq!(paras::Heads::<Test>::get(ParaId::from(id as u32)).unwrap(), head);
 			});
+		});
+	}
+
+	#[test]
+	// Test that no new candidates are backed if there's an upcoming session change scheduled at the
+	// end of the block. Claim queue will also not be advanced.
+	fn session_change() {
+		let config = MockGenesisConfig::default();
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
+
+		new_test_ext(config).execute_with(|| {
+			let dispute_statements = BTreeMap::new();
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements,
+				dispute_sessions: vec![], // No disputes
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				v2_descriptor: false,
+				candidate_modifier: None,
+			});
+
+			let prev_claim_queue = scheduler::ClaimQueue::<Test>::get();
+
+			assert_eq!(inclusion::PendingAvailability::<Test>::iter().count(), 2);
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(0)).unwrap().len(),
+				1
+			);
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(1)).unwrap().len(),
+				1
+			);
+
+			// We expect the scenario to have cores 0 & 1 with pending availability. The backed
+			// candidates are also created for cores 0 & 1. The pending available candidates will
+			// become available but the new candidates will not be backed since there is an upcoming
+			// session change.
+			let mut expected_para_inherent_data = scenario.data.clone();
+			expected_para_inherent_data.backed_candidates.clear();
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (2 validators)
+			assert_eq!(expected_para_inherent_data.bitfields.len(), 2);
+			// * 0 disputes.
+			assert_eq!(expected_para_inherent_data.disputes.len(), 0);
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
+				.unwrap();
+			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
+
+			// Simulate a session change scheduled to happen at the end of the block.
+			initializer::BufferedSessionChanges::<Test>::put(vec![BufferedSessionChange {
+				validators: vec![],
+				queued: vec![],
+				session_index: 3,
+			}]);
+
+			// Only backed candidates are filtered out.
+			assert_eq!(
+				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap(),
+				expected_para_inherent_data
+			);
+
+			assert_eq!(
+				// No candidates backed.
+				OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
+				0
+			);
+
+			assert_eq!(
+				// The session of the on chain votes should equal the current session, which is 2
+				OnChainVotes::<Test>::get().unwrap().session,
+				2
+			);
+
+			// No pending availability candidates.
+			assert_eq!(inclusion::PendingAvailability::<Test>::iter().count(), 2);
+			assert!(inclusion::PendingAvailability::<Test>::get(ParaId::from(0))
+				.unwrap()
+				.is_empty());
+			assert!(inclusion::PendingAvailability::<Test>::get(ParaId::from(1))
+				.unwrap()
+				.is_empty());
+
+			// The claim queue should not have been advanced.
+			assert_eq!(prev_claim_queue, scheduler::ClaimQueue::<Test>::get());
 		});
 	}
 
