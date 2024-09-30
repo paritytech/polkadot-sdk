@@ -24,8 +24,9 @@
 //! Proofs are created with latest substrate trie format (`LayoutV1`), and are not compatible with
 //! proofs using `LayoutV0`.
 
-use super::TrieError;
+use super::{ProofToHashes, ProvingTrie, TrieError};
 use crate::{Decode, DispatchError, Encode};
+use codec::MaxEncodedLen;
 use sp_std::vec::Vec;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1},
@@ -48,10 +49,31 @@ impl<Hashing, Key, Value> BasicProvingTrie<Hashing, Key, Value>
 where
 	Hashing: sp_core::Hasher,
 	Key: Encode,
-	Value: Encode,
+{
+	/// Create a compact merkle proof needed to prove all `keys` and their values are in the trie.
+	///
+	/// When verifying the proof created by this function, you must include all of the keys and
+	/// values of the proof, else the verifier will complain that extra nodes are provided in the
+	/// proof that are not needed.
+	pub fn create_multi_proof(&self, keys: &[Key]) -> Result<Vec<u8>, DispatchError> {
+		sp_trie::generate_trie_proof::<LayoutV1<Hashing>, _, _, _>(
+			&self.db,
+			self.root,
+			&keys.into_iter().map(|k| k.encode()).collect::<Vec<Vec<u8>>>(),
+		)
+		.map_err(|err| TrieError::from(*err).into())
+		.map(|structured_proof| structured_proof.encode())
+	}
+}
+
+impl<Hashing, Key, Value> ProvingTrie<Hashing, Key, Value> for BasicProvingTrie<Hashing, Key, Value>
+where
+	Hashing: sp_core::Hasher,
+	Key: Encode,
+	Value: Encode + Decode,
 {
 	/// Create a new instance of a `ProvingTrie` using an iterator of key/value pairs.
-	pub fn generate_for<I>(items: I) -> Result<Self, DispatchError>
+	fn generate_for<I>(items: I) -> Result<Self, DispatchError>
 	where
 		I: IntoIterator<Item = (Key, Value)>,
 	{
@@ -70,57 +92,64 @@ where
 	}
 
 	/// Access the underlying trie root.
-	pub fn root(&self) -> &Hashing::Out {
+	fn root(&self) -> &Hashing::Out {
 		&self.root
 	}
 
 	/// Query a value contained within the current trie. Returns `None` if the
 	/// nodes within the current `MemoryDB` are insufficient to query the item.
-	pub fn query(&self, key: Key) -> Option<Value>
-	where
-		Value: Decode,
-	{
+	fn query(&self, key: &Key) -> Option<Value> {
 		let trie = TrieDBBuilder::new(&self.db, &self.root).build();
 		key.using_encoded(|s| trie.get(s))
 			.ok()?
 			.and_then(|raw| Value::decode(&mut &*raw).ok())
 	}
 
-	/// Create a compact merkle proof needed to prove all `keys` and their values are in the trie.
-	///
-	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
-	/// compatible with `LayoutV0`.
-	///
-	/// When verifying the proof created by this function, you must include all of the keys and
-	/// values of the proof, else the verifier will complain that extra nodes are provided in the
-	/// proof that are not needed.
-	pub fn create_proof(&self, keys: &[Key]) -> Result<Vec<u8>, DispatchError> {
+	/// Create a compact merkle proof needed to prove a single key and its value are in the trie.
+	fn create_proof(&self, key: &Key) -> Result<Vec<u8>, DispatchError> {
 		sp_trie::generate_trie_proof::<LayoutV1<Hashing>, _, _, _>(
 			&self.db,
 			self.root,
-			&keys.into_iter().map(|k| k.encode()).collect::<Vec<Vec<u8>>>(),
+			&[key.encode()],
 		)
 		.map_err(|err| TrieError::from(*err).into())
 		.map(|structured_proof| structured_proof.encode())
 	}
 
-	/// Create a compact merkle proof needed to prove a single key and its value are in the trie.
-	///
-	/// This function makes a proof with latest substrate trie format (`LayoutV1`), and is not
-	/// compatible with `LayoutV0`.
-	pub fn create_single_value_proof(&self, key: Key) -> Result<Vec<u8>, DispatchError> {
-		self.create_proof(&[key])
+	/// Verify the existence of `key` and `value` in a given trie root and proof.
+	fn verify_proof(
+		root: &Hashing::Out,
+		proof: &[u8],
+		key: &Key,
+		value: &Value,
+	) -> Result<(), DispatchError> {
+		verify_proof::<Hashing, Key, Value>(root, proof, key, value)
 	}
 }
 
-/// Verify the existence or non-existence of `key` and `value` in a given trie root and proof.
-///
-/// Proofs must be created with latest substrate trie format (`LayoutV1`).
-pub fn verify_single_value_proof<Hashing, Key, Value>(
-	root: Hashing::Out,
+impl<Hashing, Key, Value> ProofToHashes for BasicProvingTrie<Hashing, Key, Value>
+where
+	Hashing: sp_core::Hasher,
+	Hashing::Out: MaxEncodedLen,
+{
+	// Our proof is just raw bytes.
+	type Proof = [u8];
+	// This base 16 trie uses a raw proof of `Vec<Vec<u8>`, where the length of the first `Vec`
+	// is the depth of the trie. We can use this to predict the number of hashes.
+	fn proof_to_hashes(proof: &[u8]) -> Result<u32, DispatchError> {
+		use codec::DecodeLength;
+		let depth =
+			<Vec<Vec<u8>> as DecodeLength>::len(proof).map_err(|_| TrieError::DecodeError)?;
+		Ok(depth as u32)
+	}
+}
+
+/// Verify the existence of `key` and `value` in a given trie root and proof.
+pub fn verify_proof<Hashing, Key, Value>(
+	root: &Hashing::Out,
 	proof: &[u8],
-	key: Key,
-	maybe_value: Option<Value>,
+	key: &Key,
+	value: &Value,
 ) -> Result<(), DispatchError>
 where
 	Hashing: sp_core::Hasher,
@@ -132,18 +161,16 @@ where
 	sp_trie::verify_trie_proof::<LayoutV1<Hashing>, _, _, _>(
 		&root,
 		&structured_proof,
-		&[(key.encode(), maybe_value.map(|value| value.encode()))],
+		&[(key.encode(), Some(value.encode()))],
 	)
 	.map_err(|err| TrieError::from(err).into())
 }
 
-/// Verify the existence or non-existence of multiple `items` in a given trie root and proof.
-///
-/// Proofs must be created with latest substrate trie format (`LayoutV1`).
-pub fn verify_proof<Hashing, Key, Value>(
-	root: Hashing::Out,
+/// Verify the existence of multiple `items` in a given trie root and proof.
+pub fn verify_multi_proof<Hashing, Key, Value>(
+	root: &Hashing::Out,
 	proof: &[u8],
-	items: &[(Key, Option<Value>)],
+	items: &[(Key, Value)],
 ) -> Result<(), DispatchError>
 where
 	Hashing: sp_core::Hasher,
@@ -154,7 +181,7 @@ where
 		Decode::decode(&mut &proof[..]).map_err(|_| TrieError::DecodeError)?;
 	let items_encoded = items
 		.into_iter()
-		.map(|(key, maybe_value)| (key.encode(), maybe_value.as_ref().map(|value| value.encode())))
+		.map(|(key, value)| (key.encode(), Some(value.encode())))
 		.collect::<Vec<(Vec<u8>, Option<Vec<u8>>)>>();
 
 	sp_trie::verify_trie_proof::<LayoutV1<Hashing>, _, _, _>(
@@ -195,11 +222,11 @@ mod tests {
 		assert!(root != empty_root());
 
 		// Assert valid keys are queryable.
-		assert_eq!(balance_trie.query(6u32), Some(6u128));
-		assert_eq!(balance_trie.query(9u32), Some(9u128));
-		assert_eq!(balance_trie.query(69u32), Some(69u128));
+		assert_eq!(balance_trie.query(&6u32), Some(6u128));
+		assert_eq!(balance_trie.query(&9u32), Some(9u128));
+		assert_eq!(balance_trie.query(&69u32), Some(69u128));
 		// Invalid key returns none.
-		assert_eq!(balance_trie.query(6969u32), None);
+		assert_eq!(balance_trie.query(&6969u32), None);
 
 		balance_trie
 	}
@@ -216,59 +243,38 @@ mod tests {
 		let root = *balance_trie.root();
 
 		// Create a proof for a valid key.
-		let proof = balance_trie.create_single_value_proof(6u32).unwrap();
+		let proof = balance_trie.create_proof(&6u32).unwrap();
 
 		// Assert key is provable, all other keys are invalid.
 		for i in 0..200u32 {
 			if i == 6 {
 				assert_eq!(
-					verify_single_value_proof::<BlakeTwo256, _, _>(
-						root,
-						&proof,
-						i,
-						Some(u128::from(i))
-					),
+					verify_proof::<BlakeTwo256, _, _>(&root, &proof, &i, &u128::from(i)),
 					Ok(())
 				);
 				// Wrong value is invalid.
 				assert_eq!(
-					verify_single_value_proof::<BlakeTwo256, _, _>(
-						root,
-						&proof,
-						i,
-						Some(u128::from(i + 1))
-					),
+					verify_proof::<BlakeTwo256, _, _>(&root, &proof, &i, &u128::from(i + 1)),
 					Err(TrieError::RootMismatch.into())
 				);
 			} else {
-				assert!(verify_single_value_proof::<BlakeTwo256, _, _>(
-					root,
-					&proof,
-					i,
-					Some(u128::from(i))
-				)
-				.is_err());
-				assert!(verify_single_value_proof::<BlakeTwo256, _, _>(
-					root,
-					&proof,
-					i,
-					None::<u128>
-				)
-				.is_err());
+				assert!(
+					verify_proof::<BlakeTwo256, _, _>(&root, &proof, &i, &u128::from(i)).is_err()
+				);
 			}
 		}
 	}
 
 	#[test]
-	fn basic_end_to_end_multi_value() {
+	fn basic_end_to_end_multi() {
 		let balance_trie = create_balance_trie();
 		let root = *balance_trie.root();
 
 		// Create a proof for a valid and invalid key.
-		let proof = balance_trie.create_proof(&[6u32, 69u32, 6969u32]).unwrap();
-		let items = [(6u32, Some(6u128)), (69u32, Some(69u128)), (6969u32, None)];
+		let proof = balance_trie.create_multi_proof(&[6u32, 9u32, 69u32]).unwrap();
+		let items = [(6u32, 6u128), (9u32, 9u128), (69u32, 69u128)];
 
-		assert_eq!(verify_proof::<BlakeTwo256, _, _>(root, &proof, &items), Ok(()));
+		assert_eq!(verify_multi_proof::<BlakeTwo256, _, _>(&root, &proof, &items), Ok(()));
 	}
 
 	#[test]
@@ -277,32 +283,45 @@ mod tests {
 		let root = *balance_trie.root();
 
 		// Create a proof for a valid key.
-		let proof = balance_trie.create_single_value_proof(6u32).unwrap();
+		let proof = balance_trie.create_proof(&6u32).unwrap();
 
 		// Correct data verifies successfully
-		assert_eq!(
-			verify_single_value_proof::<BlakeTwo256, _, _>(root, &proof, 6u32, Some(6u128)),
-			Ok(())
-		);
+		assert_eq!(verify_proof::<BlakeTwo256, _, _>(&root, &proof, &6u32, &6u128), Ok(()));
 
 		// Fail to verify proof with wrong root
 		assert_eq!(
-			verify_single_value_proof::<BlakeTwo256, _, _>(
-				Default::default(),
-				&proof,
-				6u32,
-				Some(6u128)
-			),
+			verify_proof::<BlakeTwo256, _, _>(&Default::default(), &proof, &6u32, &6u128),
 			Err(TrieError::RootMismatch.into())
 		);
 
 		// Crete a bad proof.
-		let bad_proof = balance_trie.create_single_value_proof(99u32).unwrap();
+		let bad_proof = balance_trie.create_proof(&99u32).unwrap();
 
 		// Fail to verify data with the wrong proof
 		assert_eq!(
-			verify_single_value_proof::<BlakeTwo256, _, _>(root, &bad_proof, 6u32, Some(6u128)),
+			verify_proof::<BlakeTwo256, _, _>(&root, &bad_proof, &6u32, &6u128),
 			Err(TrieError::ExtraneousHashReference.into())
 		);
+	}
+
+	#[test]
+	fn proof_to_hashes() {
+		let mut i: u32 = 1;
+		// Compute log base 16 and round up
+		let log16 = |x: u32| -> u32 {
+			let x_f64 = x as f64;
+			let log16_x = (x_f64.ln() / 16_f64.ln()).ceil();
+			log16_x as u32
+		};
+
+		while i < 10_000_000 {
+			let trie = BalanceTrie::generate_for((0..i).map(|i| (i, u128::from(i)))).unwrap();
+			let proof = trie.create_proof(&0).unwrap();
+			let hashes = BalanceTrie::proof_to_hashes(&proof).unwrap();
+			let log16 = log16(i).max(1);
+
+			assert_eq!(hashes, log16);
+			i = i * 10;
+		}
 	}
 }

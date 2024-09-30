@@ -54,6 +54,7 @@ runtime-benchmarks = []
 try-runtime = []
 default = ["std"]
 std = [
+	"binary-merkle-tree/std",
 	"codec/std",
 	"either/use_std",
 	"hash256-std-hasher/std",
