@@ -32,7 +32,7 @@ use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8}
 use parachains_common::{AccountId, AuraId, Balance};
 use snowbridge_core::ChannelId;
 use sp_consensus_aura::SlotDuration;
-use sp_core::H160;
+use sp_core::{crypto::Ss58Codec, H160};
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
@@ -40,6 +40,7 @@ use sp_runtime::{
 };
 use testnet_parachains_constants::rococo::{consensus::*, fee::WeightToFee};
 use xcm::latest::prelude::*;
+use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 parameter_types! {
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
