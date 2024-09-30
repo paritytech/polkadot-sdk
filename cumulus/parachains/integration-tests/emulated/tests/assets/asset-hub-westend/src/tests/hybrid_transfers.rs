@@ -18,6 +18,7 @@ use crate::{
 	imports::*,
 	tests::teleport::do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using_xt,
 };
+use xcm::latest::AssetTransferFilter;
 
 fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
@@ -818,4 +819,71 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 	// `delivery_fees` might be paid from transfer or JIT, also `bought_execution` is unknown but
 	// should be non-zero
 	assert!(receiver_assets_after < receiver_assets_before + amount_to_send);
+}
+
+// ==============================================================================================
+// ==== Bidirectional Transfer - Native + Teleportable Foreign Assets - Parachain<->AssetHub ====
+// ==============================================================================================
+/// Transfers of native asset plus teleportable foreign asset from Parachain to AssetHub and back
+/// with fees paid using native asset.
+#[test]
+fn poc_new_instructions_test() {
+	fn execute_xcm_penpal_to_asset_hub(t: ParaToSystemParaTest) -> DispatchResult {
+		// let transport_fees: Asset = (Parent, 40_000_000_000u128).into();
+		let all_assets = t.args.assets.clone().into_inner();
+		let mut assets = all_assets.clone();
+		let fees = assets.remove(t.args.fee_asset_item as usize);
+		// xcm to be executed at dest
+		let xcm_on_dest =
+			Xcm(vec![DepositAsset { assets: Wild(All), beneficiary: t.args.beneficiary }]);
+		let xcm = Xcm::<()>(vec![
+			// WithdrawAsset(transport_fees.into()),
+			WithdrawAsset(all_assets.into()),
+			// TODO: replace this with `PayFees` when available
+			SetFeesMode { jit_withdraw: true },
+			InitiateTransfer {
+				destination: t.args.dest,
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(fees.into())),
+				assets: vec![AssetTransferFilter::Teleport(assets.into())],
+				remote_xcm: xcm_on_dest,
+			},
+		]);
+		<PenpalA as PenpalAPallet>::PolkadotXcm::execute(
+			t.signed_origin,
+			bx!(xcm::VersionedXcm::V5(xcm.into())),
+			Weight::MAX,
+		)
+		.unwrap();
+		Ok(())
+	}
+	fn execute_xcm_asset_hub_to_penpal(t: SystemParaToParaTest) -> DispatchResult {
+		let all_assets = t.args.assets.clone().into_inner();
+		let mut assets = all_assets.clone();
+		let fees = assets.remove(t.args.fee_asset_item as usize);
+		// xcm to be executed at dest
+		let xcm_on_dest =
+			Xcm(vec![DepositAsset { assets: Wild(All), beneficiary: t.args.beneficiary }]);
+		let xcm = Xcm::<()>(vec![
+			WithdrawAsset(all_assets.into()),
+			// TODO: replace this with `PayFees` when available
+			SetFeesMode { jit_withdraw: true },
+			InitiateTransfer {
+				destination: t.args.dest,
+				remote_fees: Some(AssetTransferFilter::ReserveDeposit(fees.into())),
+				assets: vec![AssetTransferFilter::Teleport(assets.into())],
+				remote_xcm: xcm_on_dest,
+			},
+		]);
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
+			t.signed_origin,
+			bx!(xcm::VersionedXcm::V5(xcm.into())),
+			Weight::MAX,
+		)
+		.unwrap();
+		Ok(())
+	}
+	do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using_xt(
+		execute_xcm_penpal_to_asset_hub,
+		execute_xcm_asset_hub_to_penpal,
+	);
 }

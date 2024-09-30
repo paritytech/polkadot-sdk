@@ -20,7 +20,8 @@ use sp_core::{sr25519, storage::Storage};
 // Cumulus
 use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, get_account_id_from_seed,
-	PenpalSiblingSovereignAccount, PenpalTeleportableAssetLocation, RESERVABLE_ASSET_ID,
+	PenpalASiblingSovereignAccount, PenpalATeleportableAssetLocation,
+	PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID,
 	SAFE_XCM_VERSION, USDT_ID,
 };
 use parachains_common::{AccountId, Balance};
@@ -77,10 +78,17 @@ pub fn genesis() -> Storage {
 		},
 		foreign_assets: asset_hub_rococo_runtime::ForeignAssetsConfig {
 			assets: vec![
-				// Penpal's teleportable asset representation
+				// PenpalA's teleportable asset representation
 				(
-					PenpalTeleportableAssetLocation::get(),
-					PenpalSiblingSovereignAccount::get(),
+					PenpalATeleportableAssetLocation::get(),
+					PenpalASiblingSovereignAccount::get(),
+					false,
+					ED,
+				),
+				// PenpalB's teleportable asset representation
+				(
+					PenpalBTeleportableAssetLocation::get(),
+					PenpalBSiblingSovereignAccount::get(),
 					false,
 					ED,
 				),

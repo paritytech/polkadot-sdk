@@ -1,6 +1,7 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
+use xcm::latest::AssetTransferFilter;
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -553,4 +554,300 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 	// Receiver's balance is increased by no more than "amount"
 	assert!(receiver_rocs_after > receiver_rocs_before);
 	assert!(receiver_rocs_after <= receiver_rocs_before + amount);
+}
+
+fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
+	wnds: (Location, u128),
+	pens: (Location, u128),
+) {
+	let (wnds_id, wnds_amount) = wnds;
+	let (pens_id, pens_amount) = pens;
+	let destination = asset_hub_rococo_location();
+	let local_asset_hub: Location = PenpalB::sibling_location_of(AssetHubWestend::para_id());
+	let sov_penpal_on_ahw = AssetHubWestend::sovereign_account_id_of(
+		AssetHubWestend::sibling_location_of(PenpalB::para_id()),
+	);
+	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
+		Rococo,
+		AssetHubRococo::para_id(),
+	);
+
+	// fund the AHW's SA on BHW for paying bridge transport fees
+	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), 10_000_000_000_000u128);
+
+	// set XCM versions
+	PenpalB::force_xcm_version(local_asset_hub.clone(), XCM_VERSION);
+	AssetHubWestend::force_xcm_version(destination.clone(), XCM_VERSION);
+	BridgeHubWestend::force_xcm_version(bridge_hub_rococo_location(), XCM_VERSION);
+
+	// open bridge
+	open_bridge_between_asset_hub_rococo_and_asset_hub_westend();
+
+	// send message over bridge
+	assert_ok!(PenpalB::execute_with(|| {
+		let signed_origin = <PenpalB as Chain>::RuntimeOrigin::signed(PenpalBSender::get());
+		let beneficiary: Location =
+			AccountId32Junction { network: None, id: AssetHubRococoReceiver::get().into() }.into();
+		let wnds: Asset = (wnds_id.clone(), wnds_amount).into();
+		let pens: Asset = (pens_id, pens_amount).into();
+		let assets: Assets = vec![wnds.clone(), pens.clone()].into();
+
+		// XCM to be executed at dest (Rococo Asset Hub)
+		let xcm_on_dest =
+			Xcm(vec![DepositAsset { assets: Wild(All), beneficiary: beneficiary.clone() }]);
+
+		// XCM to be executed at (intermediary) Westend Asset Hub
+		let context = PenpalUniversalLocation::get();
+		let reanchored_dest = destination.clone().reanchored(&local_asset_hub, &context).unwrap();
+		let reanchored_pens = pens.clone().reanchored(&local_asset_hub, &context).unwrap();
+		let mut onward_wnds = wnds.clone().reanchored(&local_asset_hub, &context).unwrap();
+		// reserve 100_000_000_000 WNDs in fees on AHW
+		// (exec fees: 3_593_000_000, transpo fees: 69_021_561_290 = 72_614_561_290)
+		// TODO: make this exact once we have PayFees + bridge dry-running
+		onward_wnds.fun = Fungible(wnds_amount - 100_000_000_000);
+		let xcm_on_ahw = Xcm(vec![
+			// both WNDs and PENs are local-reserve transferred to Rococo Asset Hub
+			InitiateTransfer {
+				destination: reanchored_dest,
+				remote_fees: Some(AssetTransferFilter::ReserveDeposit(onward_wnds.into())),
+				assets: vec![AssetTransferFilter::ReserveDeposit(reanchored_pens.into())],
+				remote_xcm: xcm_on_dest,
+			},
+		]);
+
+		// XCM to be executed locally
+		let xcm = Xcm::<()>(vec![
+			// Withdraw both WNDs and PENs from origin account
+			WithdrawAsset(assets.into()),
+			// TODO: replace this with `PayFees` when available
+			SetFeesMode { jit_withdraw: true },
+			// Execute the transfers while paying remote fees with WNDs
+			InitiateTransfer {
+				destination: local_asset_hub,
+				// WNDs are reserve-withdrawn at AHW
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(wnds.into())),
+				// PENs are teleported to AHW
+				assets: vec![AssetTransferFilter::Teleport(pens.into())],
+				remote_xcm: xcm_on_ahw,
+			},
+		]);
+
+		println!("💰💘🤑 PenpalB execute {xcm:?}");
+
+		<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
+			signed_origin,
+			bx!(xcm::VersionedXcm::V5(xcm.into())),
+			Weight::MAX,
+		)
+	}));
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				// Amount to reserve transfer is withdrawn from Penpal's sovereign account
+				RuntimeEvent::Balances(
+					pallet_balances::Event::Burned { who, amount }
+				) => {
+					who: *who == sov_penpal_on_ahw.clone().into(),
+					amount: *amount == wnds_amount,
+				},
+				// Amount deposited in AHR's sovereign account
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
+					who: *who == sov_ahr_on_ahw.clone().into(),
+				},
+				RuntimeEvent::XcmpQueue(
+					cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }
+				) => {},
+			]
+		);
+	});
+	assert_bridge_hub_westend_message_accepted(true);
+	assert_bridge_hub_rococo_message_received();
+}
+
+/// Transfer "PEN"s plus "WND"s from PenpalWestend to AssetHubWestend, over bridge to
+/// AssetHubRococo. PENs need to be teleported to AHW, while WNDs reserve-withdrawn, then both
+/// reserve transferred further to AHR. (transfer 2 different assets with different transfer types
+/// across 3 different chains)
+#[test]
+fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
+	let penpal_check_account = <PenpalB as PenpalBPallet>::PolkadotXcm::check_account();
+	let owner: AccountId = AssetHubRococo::account_id_of(ALICE);
+	let sender = PenpalBSender::get();
+	let amount = ASSET_HUB_WESTEND_ED * 10_000_000;
+
+	let (wnd_at_westend_parachains, wnd_at_rococo_parachains) =
+		set_up_wnds_for_penpal_westend_through_ahw_to_ahr(&sender, amount);
+
+	let pens_location_on_penpal =
+		Location::try_from(PenpalLocalTeleportableToAssetHub::get()).unwrap();
+	let pens_id_on_penpal = match pens_location_on_penpal.last() {
+		Some(Junction::GeneralIndex(id)) => *id as u32,
+		_ => unreachable!(),
+	};
+
+	let penpal_parachain_junction = Junction::Parachain(PenpalB::para_id().into());
+	let pens_at_ahw = Location::new(
+		1,
+		pens_location_on_penpal
+			.interior()
+			.clone()
+			.pushed_front_with(penpal_parachain_junction.clone())
+			.unwrap(),
+	);
+	println!("🤡 pens_at_ahw {pens_at_ahw:?}");
+	let pens_at_rococo_parachains = Location::new(
+		2,
+		pens_at_ahw
+			.interior()
+			.clone()
+			.pushed_front_with(Junction::GlobalConsensus(NetworkId::Westend))
+			.unwrap(),
+	);
+	println!("🤡 pens_at_rococo_parachains {pens_at_rococo_parachains:?}");
+	let wnds_to_send = amount;
+	let pens_to_send = amount;
+
+	// ---------- Set up Penpal Westend ----------
+	// Fund Penpal's sender account. No need to create the asset (only mint), it exists in genesis.
+	PenpalB::mint_asset(
+		<PenpalB as Chain>::RuntimeOrigin::signed(owner.clone()),
+		pens_id_on_penpal,
+		sender.clone(),
+		pens_to_send * 2,
+	);
+	// fund Penpal's check account to be able to teleport
+	PenpalB::fund_accounts(vec![(penpal_check_account.clone().into(), pens_to_send * 2)]);
+
+	// ---------- Set up Asset Hub Rococo ----------
+	println!("🤡 try create PEN {pens_at_rococo_parachains:?} at AHW");
+	// create PEN at AHR
+	AssetHubRococo::force_create_foreign_asset(
+		pens_at_rococo_parachains.clone(),
+		owner.clone(),
+		false,
+		ASSET_MIN_BALANCE,
+		vec![],
+	);
+
+	// account balances before
+	let sender_wnds_before = PenpalB::execute_with(|| {
+		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(
+			wnd_at_westend_parachains.clone().into(),
+			&PenpalBSender::get(),
+		)
+	});
+	let sender_pens_before = PenpalB::execute_with(|| {
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(pens_id_on_penpal, &PenpalBSender::get())
+	});
+	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
+		Rococo,
+		AssetHubRococo::para_id(),
+	);
+	let wnds_in_reserve_on_ahw_before =
+		<AssetHubWestend as Chain>::account_data_of(sov_ahr_on_ahw.clone()).free;
+	let pens_in_reserve_on_ahw_before = AssetHubWestend::execute_with(|| {
+		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(pens_at_ahw.clone(), &sov_ahr_on_ahw)
+	});
+	let receiver_wnds_before = AssetHubRococo::execute_with(|| {
+		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
+		<Assets as Inspect<_>>::balance(
+			wnd_at_rococo_parachains.clone(),
+			&AssetHubRococoReceiver::get(),
+		)
+	});
+	let receiver_pens_before = AssetHubRococo::execute_with(|| {
+		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
+		<Assets as Inspect<_>>::balance(
+			pens_at_rococo_parachains.clone(),
+			&AssetHubRococoReceiver::get(),
+		)
+	});
+
+	// transfer assets
+	do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
+		(wnd_at_westend_parachains.clone(), wnds_to_send),
+		(pens_location_on_penpal.try_into().unwrap(), pens_to_send),
+	);
+
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				// issue WNDs on AHR
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == wnd_at_westend_parachains.clone().try_into().unwrap(),
+					owner: *owner == AssetHubRococoReceiver::get(),
+				},
+				// message processed successfully
+				RuntimeEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+			]
+		);
+	});
+
+	// account balances after
+	let sender_wnds_after = PenpalB::execute_with(|| {
+		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(
+			wnd_at_westend_parachains.into(),
+			&PenpalBSender::get(),
+		)
+	});
+	let sender_pens_after = PenpalB::execute_with(|| {
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(pens_id_on_penpal, &PenpalBSender::get())
+	});
+	let wnds_in_reserve_on_ahw_after =
+		<AssetHubWestend as Chain>::account_data_of(sov_ahr_on_ahw.clone()).free;
+	let pens_in_reserve_on_ahw_after = AssetHubWestend::execute_with(|| {
+		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(pens_at_ahw, &sov_ahr_on_ahw)
+	});
+	let receiver_wnds_after = AssetHubRococo::execute_with(|| {
+		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
+		<Assets as Inspect<_>>::balance(
+			wnd_at_rococo_parachains.clone(),
+			&AssetHubRococoReceiver::get(),
+		)
+	});
+	let receiver_pens_after = AssetHubRococo::execute_with(|| {
+		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
+		<Assets as Inspect<_>>::balance(pens_at_rococo_parachains, &AssetHubRococoReceiver::get())
+	});
+
+	println!("🤡 sender wnds before {:?} after {:?}", sender_wnds_before, sender_wnds_after);
+	println!(
+		"🤡 in AHW reserve wnds before {:?} after {:?}",
+		wnds_in_reserve_on_ahw_before, wnds_in_reserve_on_ahw_after
+	);
+	println!("🤡 receiver wnds before {:?} after {:?}", receiver_wnds_before, receiver_wnds_after);
+
+	println!("🤡 sender pens before {:?} after {:?}", sender_pens_before, sender_pens_after);
+	println!(
+		"🤡 in AHW reserve pens before {:?} after {:?}",
+		pens_in_reserve_on_ahw_before, pens_in_reserve_on_ahw_after
+	);
+	println!("🤡 receiver pens before {:?} after {:?}", receiver_pens_before, receiver_pens_after);
+
+	// Sender's balance is reduced
+	assert!(sender_wnds_after < sender_wnds_before);
+	// Receiver's balance is increased
+	assert!(receiver_wnds_after > receiver_wnds_before);
+	// Reserve balance is increased by sent amount (less fess)
+	assert!(wnds_in_reserve_on_ahw_after > wnds_in_reserve_on_ahw_before);
+	assert!(wnds_in_reserve_on_ahw_after <= wnds_in_reserve_on_ahw_before + wnds_to_send);
+
+	// Sender's balance is reduced by sent amount
+	assert_eq!(sender_pens_after, sender_pens_before - pens_to_send);
+	// Reserve balance is increased by sent amount
+	assert_eq!(pens_in_reserve_on_ahw_after, pens_in_reserve_on_ahw_before + pens_to_send);
+	// Receiver's balance is increased by sent amount
+	assert_eq!(receiver_pens_after, receiver_pens_before + pens_to_send);
 }
