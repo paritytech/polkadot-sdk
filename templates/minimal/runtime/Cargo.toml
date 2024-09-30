@@ -38,5 +38,5 @@ std = [
 	"pallet-minimal-template/std",
 	"polkadot-sdk/std",
 	"scale-info/std",
-	"serde_json/std"
+	"serde_json/std",
 ]

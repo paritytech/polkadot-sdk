@@ -116,9 +116,9 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 
-	"substrate-wasm-builder",
+	"serde_json/std",
 	"sp-keyring/std",
-	"serde_json/std"
+	"substrate-wasm-builder",
 ]
 
 runtime-benchmarks = [
