@@ -938,3 +938,41 @@ fn try_state_spends_invariant_3_works() {
 		);
 	});
 }
+
+#[test]
+fn spend_status_without_body_is_noop_encoding() {
+	let spend_status_a: SpendStatus<(), (), (), (), (), ()> = SpendStatus {
+		body: (),
+		asset_kind: (),
+		amount: (),
+		beneficiary: (),
+		valid_from: (),
+		expire_at: (),
+		status: PaymentState::Pending,
+	};
+	let spend_status_b: SpendStatus<u32, (), (), (), (), ()> = SpendStatus {
+		body: 0,
+		asset_kind: (),
+		amount: (),
+		beneficiary: (),
+		valid_from: (),
+		expire_at: (),
+		status: PaymentState::Pending,
+	};
+	assert_eq!(
+		codec::Encode::encoded_size(&spend_status_a),
+		codec::Encode::encoded_size(&spend_status_b) - codec::Encode::encoded_size(&0u32),
+	);
+}
+
+#[test]
+fn proposal_without_body_is_noop_encoding() {
+	let proposal_a: Proposal<(), (), ()> =
+		Proposal { body: (), proposer: (), value: (), beneficiary: (), bond: () };
+	let proposal_b: Proposal<u32, (), ()> =
+		Proposal { body: 0, proposer: (), value: (), beneficiary: (), bond: () };
+	assert_eq!(
+		codec::Encode::encoded_size(&proposal_a),
+		codec::Encode::encoded_size(&proposal_b) - codec::Encode::encoded_size(&0u32),
+	);
+}
