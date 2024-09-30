@@ -51,8 +51,7 @@ jobs:
       - uses: actions/checkout@v4
       - id: runtime
         run: |
-          # Filter out runtimes that don't have a URI
-          RUNTIMES=$(jq '[.[] | select(.uri != null)]' .github/workflows/runtimes-matrix.json)
+          RUNTIMES=$(jq '[.[] | select(.package != null)]' .github/workflows/runtimes-matrix.json)
 
           RUNTIMES=$(echo $RUNTIMES | jq -c .)
           echo "runtime=$RUNTIMES" >> $GITHUB_OUTPUT
@@ -69,8 +68,9 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
-      PACKAGE_NAME: ${{ matrix.runtime }}
+      PACKAGE_NAME: ${{ matrix.package }}
       FLAGS: ${{ matrix.bench_flags }}
+      RUST_LOG: "frame_omni_bencher=info,polkadot_sdk_frame=info,error"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
