@@ -484,8 +484,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		ensure!(active, Error::<T, I>::DistributionEnded);
 
-		let leaf = T::VerifyExistenceProof::verify_proof(proof, &merkle_root)
-			.map_err(|()| Error::<T, I>::BadProof)?;
+		let leaf = T::VerifyExistenceProof::verify_proof(proof, &merkle_root)?;
 		let (beneficiary, amount) =
 			codec::Decode::decode(&mut &leaf[..]).map_err(|_| Error::<T, I>::CannotDecodeLeaf)?;
 
