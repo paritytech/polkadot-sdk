@@ -567,6 +567,11 @@ pub mod pallet {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			Self::begin_block(n)
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::call]
@@ -1170,6 +1175,7 @@ pub mod pallet {
 	}
 }
 
+
 pub trait EncodeInto: Encode {
 	fn encode_into<T: AsMut<[u8]> + Default, H: sp_core::Hasher>(&self) -> T {
 		let mut t = T::default();
@@ -1189,6 +1195,16 @@ pub trait EncodeInto: Encode {
 	}
 }
 impl<T: Encode> EncodeInto for T {}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Ok(())
+	}
+}
 
 impl<T: Config> Pallet<T> {
 	// exposed immutables.

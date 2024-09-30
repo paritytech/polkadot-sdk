@@ -21,7 +21,7 @@ use super::*;
 
 #[test]
 fn cancel_referendum_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = Democracy::inject_referendum(
 			2,
 			set_balance_proposal(2),
@@ -44,7 +44,7 @@ fn cancel_referendum_should_work() {
 
 #[test]
 fn emergency_cancel_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		let r = Democracy::inject_referendum(
 			2,

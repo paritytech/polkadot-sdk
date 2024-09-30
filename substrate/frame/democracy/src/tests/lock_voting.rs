@@ -39,7 +39,7 @@ fn the_lock(amount: u64) -> BalanceLock<u64> {
 
 #[test]
 fn lock_voting_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		let r = Democracy::inject_referendum(
 			2,
@@ -122,7 +122,7 @@ fn lock_voting_should_work() {
 
 #[test]
 fn no_locks_without_conviction_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		let r = Democracy::inject_referendum(
 			2,
@@ -143,7 +143,7 @@ fn no_locks_without_conviction_should_work() {
 
 #[test]
 fn lock_voting_should_work_with_delegation() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = Democracy::inject_referendum(
 			2,
 			set_balance_proposal(2),
@@ -186,7 +186,7 @@ fn setup_three_referenda() -> (u32, u32, u32) {
 
 #[test]
 fn prior_lockvotes_should_be_enforced() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = setup_three_referenda();
 		// r.0 locked 10 until 2 + 8 * 3 = #26
 		// r.1 locked 20 until 2 + 4 * 3 = #14
@@ -230,7 +230,7 @@ fn prior_lockvotes_should_be_enforced() {
 
 #[test]
 fn single_consolidation_of_lockvotes_should_work_as_before() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = setup_three_referenda();
 		// r.0 locked 10 until 2 + 8 * 3 = #26
 		// r.1 locked 20 until 2 + 4 * 3 = #14
@@ -264,7 +264,7 @@ fn single_consolidation_of_lockvotes_should_work_as_before() {
 
 #[test]
 fn multi_consolidation_of_lockvotes_should_be_conservative() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = setup_three_referenda();
 		// r.0 locked 10 until 2 + 8 * 3 = #26
 		// r.1 locked 20 until 2 + 4 * 3 = #14
@@ -290,7 +290,7 @@ fn multi_consolidation_of_lockvotes_should_be_conservative() {
 
 #[test]
 fn locks_should_persist_from_voting_to_delegation() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		let r = Democracy::inject_referendum(
 			2,
@@ -330,7 +330,7 @@ fn locks_should_persist_from_voting_to_delegation() {
 
 #[test]
 fn locks_should_persist_from_delegation_to_voting() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		assert_ok!(Democracy::delegate(RuntimeOrigin::signed(5), 1, Conviction::Locked5x, 5));
 		assert_ok!(Democracy::undelegate(RuntimeOrigin::signed(5)));

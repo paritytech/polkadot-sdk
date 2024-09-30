@@ -21,7 +21,7 @@ use super::*;
 
 #[test]
 fn set_external_metadata_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// invalid preimage hash.
 		let invalid_hash: <Test as frame_system::Config>::Hash = [1u8; 32].into();
 		// metadata owner is an external proposal.
@@ -56,7 +56,7 @@ fn set_external_metadata_works() {
 
 #[test]
 fn clear_metadata_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// metadata owner is an external proposal.
 		let owner = MetadataOwner::External;
 		// create an external proposal.
@@ -81,7 +81,7 @@ fn clear_metadata_works() {
 
 #[test]
 fn set_proposal_metadata_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// invalid preimage hash.
 		let invalid_hash: <Test as frame_system::Config>::Hash = [1u8; 32].into();
 		// create an external proposal.
@@ -111,7 +111,7 @@ fn set_proposal_metadata_works() {
 
 #[test]
 fn clear_proposal_metadata_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// create an external proposal.
 		assert_ok!(propose_set_balance(1, 2, 5));
 		// metadata owner is a public proposal.
@@ -135,7 +135,7 @@ fn clear_proposal_metadata_works() {
 
 #[test]
 fn set_referendum_metadata_by_root() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let index = Democracy::inject_referendum(
 			2,
 			set_balance_proposal(2),
@@ -173,7 +173,7 @@ fn set_referendum_metadata_by_root() {
 
 #[test]
 fn clear_referendum_metadata_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// create a referendum.
 		let index = Democracy::inject_referendum(
 			2,
