@@ -170,6 +170,14 @@ def main():
                         template = config['template']
                         output_path = xcm_path
 
+                # temp fix for AH and BH
+                if '-hub-' in runtime:
+                    os.system(f"cargo install --path substrate/utils/frame/omni-bencher --locked")
+                    print(f'Installed frame-omni-bencher from local substrate/utils/frame/omni-bencher')
+                else:
+                    os.system(f"cargo install frame-omni-bencher --locked")
+                    print(f'Installed frame-omni-bencher from crates.io')
+
                 print(f'-- benchmarking {pallet} in {runtime} into {output_path}')
                 cmd = f"frame-omni-bencher v1 benchmark pallet " \
                     f"--extrinsic=* " \
