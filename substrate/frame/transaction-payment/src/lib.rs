@@ -873,8 +873,8 @@ pub enum Pre<T: Config> {
 		imbalance: <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
 	},
 	NoCharge {
-		// weight used by the extension
-		weight: Weight,
+		// weight initially estimated by the extension, to be refunded
+		refund: Weight,
 	},
 }
 
@@ -885,7 +885,7 @@ impl<T: Config> core::fmt::Debug for Pre<T> {
 			Pre::Charge { tip, who, imbalance: _ } => {
 				write!(f, "Charge {{ tip: {:?}, who: {:?}, imbalance: <stripped> }}", tip, who)
 			},
-			Pre::NoCharge { weight } => write!(f, "NoCharge {{ weight: {:?} }}", weight),
+			Pre::NoCharge { refund } => write!(f, "NoCharge {{ refund: {:?} }}", refund),
 		}
 	}
 
@@ -949,7 +949,7 @@ where
 				let (_final_fee, imbalance) = self.withdraw_fee(&who, call, info, fee)?;
 				Ok(Pre::Charge { tip, who, imbalance })
 			},
-			Val::NoCharge => Ok(Pre::NoCharge { weight: self.weight(call) }),
+			Val::NoCharge => Ok(Pre::NoCharge { refund: self.weight(call) }),
 		}
 	}
 
@@ -962,9 +962,9 @@ where
 	) -> Result<Weight, TransactionValidityError> {
 		let (tip, who, imbalance) = match pre {
 			Pre::Charge { tip, who, imbalance } => (tip, who, imbalance),
-			Pre::NoCharge { weight } => {
+			Pre::NoCharge { refund } => {
 				// No-op: Refund everything
-				return Ok(weight)
+				return Ok(refund)
 			},
 		};
 		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, &post_info, tip);

@@ -289,8 +289,8 @@ pub enum Pre<T: Config> {
 		weight: Weight,
 	},
 	NoCharge {
-		// weight used by the extension
-		weight: Weight,
+		// weight initially estimated by the extension, to be refunded
+		refund: Weight,
 	},
 }
 
@@ -361,7 +361,7 @@ where
 					weight: self.weight(call),
 				})
 			},
-			Val::NoCharge => Ok(Pre::NoCharge { weight: self.weight(call) }),
+			Val::NoCharge => Ok(Pre::NoCharge { refund: self.weight(call) }),
 		}
 	}
 
@@ -375,9 +375,9 @@ where
 		let (tip, who, initial_payment, asset_id, extension_weight) = match pre {
 			Pre::Charge { tip, who, initial_payment, asset_id, weight } =>
 				(tip, who, initial_payment, asset_id, weight),
-			Pre::NoCharge { weight } => {
+			Pre::NoCharge { refund } => {
 				// No-op: Refund everything
-				return Ok(weight)
+				return Ok(refund)
 			},
 		};
 
