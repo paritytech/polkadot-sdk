@@ -333,7 +333,7 @@ impl<T: Config> Pallet<T> {
 
 		// Before anything else, update the allowed relay-parents.
 		{
-			let parent_number = now - One::one();
+			let parent_number = parent_header.number();
 			let parent_storage_root = *parent_header.state_root();
 
 			shared::AllowedRelayParents::<T>::mutate(|tracker| {
@@ -346,7 +346,7 @@ impl<T: Config> Pallet<T> {
 							(core_index, paras.into_iter().map(|e| e.para_id()).collect())
 						})
 						.collect(),
-					parent_number,
+					*parent_number,
 					config.async_backing_params.allowed_ancestry_len,
 				);
 			});
