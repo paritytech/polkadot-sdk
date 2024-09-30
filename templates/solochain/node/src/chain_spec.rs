@@ -15,9 +15,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 	.with_name("Development")
 	.with_id("dev")
 	.with_chain_type(ChainType::Development)
-	.with_genesis_config_patch(
-		solochain_template_runtime::genesis_config_presets::development_config_genesis(),
-	)
+	.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
 	.build())
 }
 
@@ -29,8 +27,6 @@ pub fn local_config() -> Result<ChainSpec, String> {
 	.with_name("Local Testnet")
 	.with_id("local_testnet")
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_patch(
-		solochain_template_runtime::genesis_config_presets::local_config_genesis(),
-	)
+	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 	.build())
 }

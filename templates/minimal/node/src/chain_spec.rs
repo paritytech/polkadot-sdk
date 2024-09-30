@@ -36,9 +36,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 		.with_name("Development")
 		.with_id("dev")
 		.with_chain_type(ChainType::Development)
-		.with_genesis_config_patch(
-			minimal_template_runtime::genesis_config_presets::development_config_genesis(),
-		)
+		.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
 		.with_properties(props())
 		.build())
 }
