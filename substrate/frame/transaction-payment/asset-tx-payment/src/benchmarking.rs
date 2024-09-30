@@ -28,7 +28,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::{
-	AsTransactionAuthorizedOrigin, AsSystemOriginSigner, DispatchTransaction, Dispatchable,
+	AsSystemOriginSigner, AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable,
 };
 
 #[benchmarks(where
