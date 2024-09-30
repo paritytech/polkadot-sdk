@@ -151,8 +151,9 @@ pub struct SigningError {
 }
 
 /// An error during encoding of key material.
+#[allow(dead_code)]
 impl SigningError {
-    #[cfg(all(not(target_arch = "wasm32")))]
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn new<S: ToString>(msg: S) -> Self {
         Self {
             msg: msg.to_string(),
@@ -160,7 +161,7 @@ impl SigningError {
         }
     }
 
-    #[cfg(all(not(target_arch = "wasm32")))]
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn source(self, source: impl Error + Send + Sync + 'static) -> Self {
         Self {
             source: Some(Box::new(source)),
