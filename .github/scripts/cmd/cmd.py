@@ -79,16 +79,6 @@ spec.loader.exec_module(generate_prdoc)
 parser_prdoc = subparsers.add_parser('prdoc', help='Generates PR documentation')
 generate_prdoc.setup_parser(parser_prdoc)
 
-def install_dependencies(runtime):
-    # temp fix for AH and BH
-    if '-hub-' in runtime:
-        os.system(f"cargo install --path substrate/utils/frame/omni-bencher --locked")
-        print(f'Installed frame-omni-bencher from local substrate/utils/frame/omni-bencher')
-    else:
-        os.system(f"cargo install frame-omni-bencher --locked")
-        print(f'Installed frame-omni-bencher from crates.io')
-
-
 def main():
     global args, unknown, runtimesMatrix
     args, unknown = parser.parse_known_args()
@@ -110,12 +100,11 @@ def main():
 
         # loop over remaining runtimes to collect available pallets
         for runtime in runtimesMatrix.values():
-            install_dependencies(runtime['name'])
             os.system(f"forklift cargo build -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}")
             print(f'-- listing pallets for benchmark for {runtime["name"]}')
             wasm_file = f"target/{profile}/wbuild/{runtime['package']}/{runtime['package'].replace('-', '_')}.wasm"
             output = os.popen(
-                f"frame-omni-bencher v1 benchmark pallet --no-csv-header --no-storage-info --no-min-squares --no-median-slopes --all --list --runtime={wasm_file}").read()
+                f"frame-omni-bencher v1 benchmark pallet --no-csv-header --no-storage-info --no-min-squares --no-median-slopes --all --list --runtime={wasm_file} --genesis-builder-preset={runtime['genesis_builder_preset']}").read()
             raw_pallets = output.strip().split('\n')
 
             all_pallets = set()
@@ -181,8 +170,6 @@ def main():
                         template = config['template']
                         output_path = xcm_path
 
-                install_dependencies(runtime)
-
                 print(f'-- benchmarking {pallet} in {runtime} into {output_path}')
                 cmd = f"frame-omni-bencher v1 benchmark pallet " \
                     f"--extrinsic=* " \
@@ -195,7 +182,8 @@ def main():
                     f"--repeat=20 " \
                     f"--heap-pages=4096 " \
                     f"{f'--template={template} ' if template else ''}" \
-                    f"--no-storage-info --no-min-squares --no-median-slopes"
+                    f"--no-storage-info --no-min-squares --no-median-slopes" \
+                    f"--genesis-builder-preset={config['genesis_builder_preset']}"
                 print(f'-- Running: {cmd} \n')
                 status = os.system(cmd)
                 if status != 0 and not args.continue_on_fail:
