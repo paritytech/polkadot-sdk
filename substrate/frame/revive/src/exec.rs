@@ -890,7 +890,11 @@ where
 				let address = if let Some(salt) = salt {
 					address::create2(&deployer, executable.code(), input_data, salt)
 				} else {
-					address::create1(&deployer, account_nonce.saturated_into())
+					use sp_runtime::Saturating;
+					address::create1(
+						&deployer,
+						account_nonce.saturating_sub(1u32.into()).saturated_into(),
+					)
 				};
 				let contract = ContractInfo::new(
 					&address,
@@ -4153,7 +4157,14 @@ mod tests {
 				// Successful instantiation should set the output
 				let address = ctx
 					.ext
-					.instantiate(Weight::zero(), U256::zero(), ok_ch, value, vec![], None)
+					.instantiate(
+						Weight::zero(),
+						U256::zero(),
+						ok_ch,
+						value,
+						vec![],
+						Some(&[0u8; 32]),
+					)
 					.unwrap();
 				assert_eq!(
 					ctx.ext.last_frame_output(),
@@ -4169,7 +4180,14 @@ mod tests {
 
 				// Reverted instantiation should set the output
 				ctx.ext
-					.instantiate(Weight::zero(), U256::zero(), revert_ch, value, vec![], None)
+					.instantiate(
+						Weight::zero(),
+						U256::zero(),
+						revert_ch,
+						value,
+						vec![],
+						Some(&[1u8; 32]),
+					)
 					.unwrap();
 				assert_eq!(
 					ctx.ext.last_frame_output(),
@@ -4178,7 +4196,14 @@ mod tests {
 
 				// Trapped instantiation should clear the output
 				ctx.ext
-					.instantiate(Weight::zero(), U256::zero(), trap_ch, value, vec![], None)
+					.instantiate(
+						Weight::zero(),
+						U256::zero(),
+						trap_ch,
+						value,
+						vec![],
+						Some(&[2u8; 32]),
+					)
 					.unwrap_err();
 				assert_eq!(
 					ctx.ext.last_frame_output(),

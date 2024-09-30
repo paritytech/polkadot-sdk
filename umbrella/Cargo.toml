@@ -492,7 +492,6 @@ serde = [
 	"pallet-parameters?/serde",
 	"pallet-referenda?/serde",
 	"pallet-remark?/serde",
-	"pallet-revive?/serde",
 	"pallet-state-trie-migration?/serde",
 	"pallet-tips?/serde",
 	"pallet-transaction-payment?/serde",

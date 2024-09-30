@@ -76,19 +76,25 @@ pub struct ContractResult<R, Balance, EventRecord> {
 	/// RPC calls.
 	pub debug_message: Vec<u8>,
 	/// The execution result of the wasm code.
-	pub result: R,
+	pub result: Result<R, DispatchError>,
 	/// The events that were emitted during execution. It is an option as event collection is
 	/// optional.
 	pub events: Option<Vec<EventRecord>>,
 }
 
-/// Result type of a `bare_call` call as well as `ContractsApi::call`.
-pub type ContractExecResult<Balance, EventRecord> =
-	ContractResult<Result<ExecReturnValue, DispatchError>, Balance, EventRecord>;
-
-/// Result type of a `bare_instantiate` call as well as `ContractsApi::instantiate`.
-pub type ContractInstantiateResult<Balance, EventRecord> =
-	ContractResult<Result<InstantiateReturnValue, DispatchError>, Balance, EventRecord>;
+impl<R, Balance, EventRecord> ContractResult<R, Balance, EventRecord> {
+	/// Maps the result of a contract execution, using the provided function.
+	pub fn map<V>(self, f: impl FnOnce(R) -> V) -> ContractResult<V, Balance, EventRecord> {
+		ContractResult {
+			gas_consumed: self.gas_consumed,
+			gas_required: self.gas_required,
+			storage_deposit: self.storage_deposit,
+			debug_message: self.debug_message,
+			result: self.result.map(f),
+			events: self.events,
+		}
+	}
+}
 
 /// Result type of a `bare_code_upload` call.
 pub type CodeUploadResult<Balance> = Result<CodeUploadReturnValue<Balance>, DispatchError>;
@@ -121,6 +127,29 @@ impl ExecReturnValue {
 	}
 }
 
+/// Describes the type of an [`crate::Call::eth_transact`] call.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub enum EthTransactKind {
+	/// A Call to an existing contract.
+	Call,
+	/// The instantiation of a new contract.
+	InstantiateWithCode {
+		#[codec(compact)]
+		code_len: u32,
+		#[codec(compact)]
+		data_len: u32,
+	},
+}
+
+/// The result of a successful eth_transact call
+#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct EthTransactReturnValue {
+	/// The kind of transaction that was executed.
+	pub kind: EthTransactKind,
+	/// The output of the called constructor.
+	pub result: ExecReturnValue,
+}
+
 /// The result of a successful contract instantiation.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct InstantiateReturnValue {
@@ -146,6 +175,15 @@ pub enum Code {
 	Upload(Vec<u8>),
 	/// The code hash of an on-chain wasm blob.
 	Existing(sp_core::H256),
+}
+
+/// A type used to encode the `input` field of an Ethereum transaction
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct EthInstantiateInput {
+	/// The bytecode of the contract.
+	pub code: Vec<u8>,
+	/// The data to pass to the constructor.
+	pub data: Vec<u8>,
 }
 
 /// The amount of balance that was either charged or refunded in order to pay for storage.

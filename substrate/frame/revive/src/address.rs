@@ -17,6 +17,7 @@
 
 //! Functions that deal contract addresses.
 
+use crate::LOG_TARGET;
 use alloc::vec::Vec;
 use sp_core::H160;
 use sp_io::hashing::keccak_256;
@@ -34,7 +35,7 @@ use sp_runtime::AccountId32;
 /// case for all existing runtimes as of right now. Reasing is that this will allow
 /// us to reverse an address -> account_id mapping by just stripping the prefix.
 pub trait AddressMapper<T>: private::Sealed {
-	/// Convert an account id to an ethereum adress.
+	/// Convert an account id to an ethereum address.
 	///
 	/// This mapping is **not** required to be reversible.
 	fn to_address(account_id: &T) -> H160;
@@ -77,6 +78,7 @@ impl AddressMapper<AccountId32> for DefaultAddressMapper {
 
 /// Determine the address of a contract using CREATE semantics.
 pub fn create1(deployer: &H160, nonce: u64) -> H160 {
+	log::debug!(target: LOG_TARGET, "create1: deployer={deployer:?}, nonce={nonce}");
 	let mut list = rlp::RlpStream::new_list(2);
 	list.append(&deployer.as_bytes());
 	list.append(&nonce);
