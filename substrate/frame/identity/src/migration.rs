@@ -15,12 +15,16 @@
 
 //! Storage migrations for the Identity pallet.
 
+extern crate alloc;
+
 use super::*;
 use frame_support::{
 	migrations::VersionedMigration, pallet_prelude::*, storage_alias,
 	traits::UncheckedOnRuntimeUpgrade, IterableStorageMap,
 };
 
+#[cfg(feature = "try-runtime")]
+use alloc::collections::BTreeMap;
 #[cfg(feature = "try-runtime")]
 use codec::{Decode, Encode};
 #[cfg(feature = "try-runtime")]
@@ -93,6 +97,16 @@ mod types_v1 {
 		Blake2_128Concat,
 		Username<T>,
 		<T as frame_system::Config>::AccountId,
+		OptionQuery,
+	>;
+
+	#[cfg(feature = "try-runtime")]
+	#[storage_alias]
+	pub type PendingUsernames<T: Config> = StorageMap<
+		Pallet<T>,
+		Blake2_128Concat,
+		Username<T>,
+		(<T as frame_system::Config>::AccountId, BlockNumberFor<T>),
 		OptionQuery,
 	>;
 }
@@ -199,6 +213,23 @@ pub mod v2 {
 		Finished,
 	}
 
+	#[cfg(feature = "try-runtime")]
+	#[derive(Encode, Decode)]
+	struct TryRuntimeState<T: Config> {
+		authorities: BTreeMap<Suffix<T>, (T::AccountId, u32)>,
+		identities: BTreeMap<
+			T::AccountId,
+			Registration<
+				BalanceOf<T>,
+				<T as Config>::MaxRegistrars,
+				<T as Config>::IdentityInformation,
+			>,
+		>,
+		primary_usernames: BTreeMap<T::AccountId, Username<T>>,
+		usernames: BTreeMap<Username<T>, T::AccountId>,
+		pending_usernames: BTreeMap<Username<T>, (T::AccountId, BlockNumberFor<T>)>,
+	}
+
 	pub struct LazyMigrationV1ToV2<T: Config>(PhantomData<T>);
 	impl<T: Config> SteppedMigration for LazyMigrationV1ToV2<T> {
 		type Cursor = MigrationState<T::AccountId, Username<T>, Suffix<T>>;
@@ -292,6 +323,102 @@ pub mod v2 {
 			}
 
 			Ok(cursor)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let authorities: BTreeMap<Suffix<T>, (T::AccountId, u32)> =
+				types_v1::UsernameAuthorities::<T>::iter()
+					.map(|(account, authority_properties)| {
+						(
+							authority_properties.account_id,
+							(account, authority_properties.allocation),
+						)
+					})
+					.collect();
+			let mut primary_usernames: BTreeMap<_, _> = Default::default();
+			let identities = types_v1::IdentityOf::<T>::iter()
+				.map(|(account, (identity, maybe_username))| {
+					if let Some(username) = maybe_username {
+						primary_usernames.insert(account.clone(), username);
+					}
+					(account, identity)
+				})
+				.collect::<BTreeMap<_, _>>();
+			let usernames = types_v1::AccountOfUsername::<T>::iter().collect::<BTreeMap<_, _>>();
+			let pending_usernames: BTreeMap<Username<T>, (T::AccountId, BlockNumberFor<T>)> =
+				types_v1::PendingUsernames::<T>::iter().collect();
+			let state: TryRuntimeState<T> = TryRuntimeState {
+				authorities,
+				identities,
+				primary_usernames,
+				usernames,
+				pending_usernames,
+			};
+
+			Ok(state.encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let mut prev_state: TryRuntimeState<T> = TryRuntimeState::<T>::decode(&mut &state[..])
+				.expect("Failed to decode the previous storage state");
+
+			for (suffix, authority_properties) in AuthorityOf::<T>::iter() {
+				let (prev_account, prev_allocation) = prev_state
+					.authorities
+					.remove(&suffix)
+					.expect("should have authority in previous state");
+				assert_eq!(prev_account, authority_properties.account_id);
+				assert_eq!(prev_allocation, authority_properties.allocation);
+			}
+			assert!(prev_state.authorities.is_empty());
+
+			for (account, identity) in IdentityOf::<T>::iter() {
+				assert!(identity.deposit > 0u32.into());
+				let prev_identity = prev_state
+					.identities
+					.remove(&account)
+					.expect("should have identity in previous state");
+				assert_eq!(identity, prev_identity);
+			}
+
+			for (account, free_identity) in prev_state.identities.iter() {
+				assert_eq!(free_identity.deposit, 0u32.into());
+				assert!(UsernameOf::<T>::contains_key(&account));
+			}
+			prev_state.identities.clear();
+
+			for (account, primary_username) in UsernameOf::<T>::iter() {
+				let prev_primary_username = prev_state
+					.primary_usernames
+					.remove(&account)
+					.expect("should have primary username in previous state");
+				assert_eq!(prev_primary_username, primary_username);
+			}
+
+			for (username, username_info) in UsernameInfoOf::<T>::iter() {
+				let prev_account = prev_state
+					.usernames
+					.remove(&username)
+					.expect("should have username info in previous state");
+				assert_eq!(prev_account, username_info.owner);
+				assert_eq!(username_info.provider, Provider::Allocation);
+			}
+			assert!(prev_state.usernames.is_empty());
+
+			for (username, (account, expiration, provider)) in PendingUsernames::<T>::iter() {
+				let (prev_account, prev_expiration) = prev_state
+					.pending_usernames
+					.remove(&username)
+					.expect("should have pending username in previous state");
+				assert_eq!(prev_account, account);
+				assert_eq!(prev_expiration, expiration);
+				assert_eq!(provider, Provider::Allocation);
+			}
+			assert!(prev_state.pending_usernames.is_empty());
+
+			Ok(())
 		}
 	}
 
