@@ -27,7 +27,6 @@ use hex_literal::hex;
 use rand::Rng;
 use relay_chain::HrmpChannelId;
 use sp_core::H256;
-use std::sync::LazyLock;
 
 #[test]
 #[should_panic]
@@ -755,8 +754,8 @@ fn message_queue_chain() {
 #[test]
 #[cfg(not(feature = "runtime-benchmarks"))]
 fn receive_dmp() {
-	static MSG: LazyLock<InboundDownwardMessage> =
-		LazyLock::new(|| InboundDownwardMessage { sent_at: 1, msg: b"down".to_vec() });
+	static MSG: std::sync::LazyLock<InboundDownwardMessage> =
+		std::sync::LazyLock::new(|| InboundDownwardMessage { sent_at: 1, msg: b"down".to_vec() });
 
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
