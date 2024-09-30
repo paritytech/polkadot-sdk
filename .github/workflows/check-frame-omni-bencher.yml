@@ -40,8 +40,8 @@ jobs:
           forklift cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.compact.compressed.wasm --all --steps 2 --repeat 1 --quiet
 
   runtime-matrix:
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    needs: [preflight] # , build-frame-omni-bencher ]
+    runs-on: parity-benchmark
+    needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 30
     container:
