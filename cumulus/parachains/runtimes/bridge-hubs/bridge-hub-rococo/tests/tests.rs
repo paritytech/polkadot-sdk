@@ -504,8 +504,6 @@ mod bridge_hub_bulletin_tests {
 		RococoBulletinGlobalConsensusNetwork, RococoBulletinGlobalConsensusNetworkLocation,
 		WithRococoBulletinMessagesInstance, XcmOverPolkadotBulletinInstance,
 	};
-	use sp_core::crypto::Ss58Codec;
-	use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 	// Random para id of sibling chain used in tests.
 	pub const SIBLING_PEOPLE_PARACHAIN_ID: u32 =
