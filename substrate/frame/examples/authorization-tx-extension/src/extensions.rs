@@ -41,7 +41,7 @@ pub struct AuthCredentials<Signer, Signature> {
 /// Extension that, if activated by providing a pair of signers and signatures, will authorize a
 /// coowner origin of the two signers. Both signers have to construct their signatures on all of the
 /// data that follows this extension in the `TransactionExtension` pipeline, their implications and
-/// the call. Essentially resign the transaction from this point onwards in the pipeline by using
+/// the call. Essentially re-sign the transaction from this point onwards in the pipeline by using
 /// the `inherited_implication`, as shown below.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 #[scale_info(skip_type_params(T))]
