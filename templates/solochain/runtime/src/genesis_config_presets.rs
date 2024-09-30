@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{AccountId, BalancesConfig, RuntimeGenesisConfig, SudoConfig, Vec};
-use alloc::vec;
+use crate::{AccountId, BalancesConfig, RuntimeGenesisConfig, SudoConfig};
+use alloc::{vec, vec::Vec};
 use serde_json::Value;
 use sp_genesis_builder::{self, PresetId};
 use sp_keyring::AccountKeyring;
