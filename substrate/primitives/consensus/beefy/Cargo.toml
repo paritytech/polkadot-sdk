@@ -28,7 +28,6 @@ sp-runtime = { workspace = true }
 sp-keystore = { workspace = true }
 sp-weights = { workspace = true }
 strum = { features = ["derive"], workspace = true }
-lazy_static = { optional = true, workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -38,7 +37,6 @@ w3f-bls = { features = ["std"], workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
-	"dep:lazy_static",
 	"scale-info/std",
 	"serde/std",
 	"sp-api/std",
