@@ -70,7 +70,7 @@ pub mod v16 {
 		fn on_runtime_upgrade() -> Weight {
 			// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, PerBill)>`.
 			// Using max severity (PerBill) for the migration which effectively makes it so
-			// offenders before the migration will never be re-enabled.
+			// offenders before the migration will not be re-enabled this era.
 			let max_perbill = Perbill::from_percent(100);
 			// Inject severity
 			let migrated = v15::DisabledValidators::<T>::take()
@@ -85,7 +85,7 @@ pub mod v16 {
 		}
 	}
 
-	pub type MigrateV14ToV15<T> = VersionedMigration<
+	pub type MigrateV15ToV16<T> = VersionedMigration<
 		15,
 		16,
 		VersionUncheckedMigrateV15ToV16<T>,
