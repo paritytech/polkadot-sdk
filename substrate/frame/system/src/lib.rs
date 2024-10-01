@@ -960,7 +960,7 @@ pub mod pallet {
 	#[pallet::whitelist_storage]
 	#[pallet::disable_try_decode_storage]
 	#[pallet::unbounded]
-	pub(super) type Events<T: Config> =
+	pub type Events<T: Config> =
 		StorageValue<_, Vec<Box<EventRecord<T::RuntimeEvent, T::Hash>>>, ValueQuery>;
 
 	/// The number of events in the `Events<T>` list.
