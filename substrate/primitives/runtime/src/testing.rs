@@ -29,9 +29,7 @@ use crate::{
 	ApplyExtrinsicResultWithInfo, KeyTypeId,
 };
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
-use sp_core::{
-	crypto::{key_types, ByteArray, CryptoType, Dummy},
-};
+use sp_core::crypto::{key_types, ByteArray, CryptoType, Dummy};
 pub use sp_core::{sr25519, H256};
 use std::{
 	cell::RefCell,
