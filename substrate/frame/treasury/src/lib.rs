@@ -86,7 +86,10 @@ extern crate alloc;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
-use alloc::{boxed::Box, collections::btree_map::BTreeMap};
+use alloc::{
+	boxed::Box,
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+};
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
 	Permill, RuntimeDebug,
@@ -379,6 +382,12 @@ pub mod pallet {
 		/// A spend was processed and removed from the storage. It might have been successfully
 		/// paid or it may have expired.
 		SpendProcessed { index: SpendIndex },
+		/// An approved spend was voided.
+		ProposalBondReleased {
+			proposal_index: ProposalIndex,
+			amount: BalanceOf<T, I>,
+			account: T::AccountId,
+		},
 	}
 
 	/// Error for the treasury pallet.
@@ -407,6 +416,8 @@ pub mod pallet {
 		NotAttempted,
 		/// The payment has neither failed nor succeeded yet.
 		Inconclusive,
+		/// No proposals were released
+		NoProposalsReleased,
 	}
 
 	#[pallet::hooks]
@@ -777,6 +788,48 @@ pub mod pallet {
 			Self::deposit_event(Event::<T, I>::AssetSpendVoided { index });
 			Ok(())
 		}
+
+		/// ## Dispatch Origin
+		///
+		/// Any user with account
+		///
+		/// ## Details
+		///
+		/// Releases any proposals that didn't make it into Approval yet
+		///
+		/// ## Events
+		///
+		/// Emits [`Event::ProposalBondReleased`] if successful.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::release_proposal_bonds())]
+		pub fn release_proposal_bonds(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			let _who = ensure_signed(origin)?;
+
+			let mut approval_index = BTreeSet::new();
+			for approval in Approvals::<T, I>::get().iter() {
+				approval_index.insert(*approval);
+			}
+
+			let mut proposals_released = 0;
+			for (proposal_index, p) in Proposals::<T, I>::iter() {
+				if !approval_index.contains(&proposal_index) {
+					let err_amount = T::Currency::unreserve(&p.proposer, p.bond);
+					debug_assert!(err_amount.is_zero());
+					Proposals::<T, I>::remove(proposal_index);
+					proposals_released += 1;
+					Self::deposit_event(Event::<T, I>::ProposalBondReleased {
+						proposal_index,
+						amount: p.bond,
+						account: p.proposer,
+					});
+				}
+			}
+
+			// we don't want people spamming this function if it doesn't do any work
+			ensure!(proposals_released > 0, Error::<T, I>::NoProposalsReleased);
+
+			Ok(frame_support::dispatch::Pays::No.into())
+		}
 	}
 }
 
@@ -794,11 +847,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Public function to proposal_count storage.
 	pub fn proposal_count() -> ProposalIndex {
 		ProposalCount::<T, I>::get()
-	}
-
-	/// Public function to proposals storage.
-	pub fn proposals(index: ProposalIndex) -> Option<Proposal<T::AccountId, BalanceOf<T, I>>> {
-		Proposals::<T, I>::get(index)
 	}
 
 	/// Public function to approvals storage.
