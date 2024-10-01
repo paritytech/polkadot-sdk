@@ -692,7 +692,7 @@ cumulus-client-consensus-relay-chain = { path = "cumulus/client/consensus/relay-
 cumulus-client-network = { path = "cumulus/client/network", default-features = false, version = "0.18.0" }
 cumulus-client-parachain-inherent = { path = "cumulus/client/parachain-inherent", default-features = false, version = "0.12.0" }
 cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-features = false, version = "0.18.0" }
-cumulus-client-service = { path = "cumulus/client/service", default-features = false, version = "0.18.0" }
+cumulus-client-service = { path = "cumulus/client/service", default-features = false, version = "0.19.0" }
 cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false, version = "0.17.0" }
 cumulus-pallet-dmp-queue = { default-features = false, path = "cumulus/pallets/dmp-queue" }
 cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", default-features = false, version = "0.17.0" }
@@ -709,9 +709,9 @@ cumulus-primitives-proof-size-hostfunction = { path = "cumulus/primitives/proof-
 cumulus-primitives-storage-weight-reclaim = { path = "cumulus/primitives/storage-weight-reclaim", default-features = false, version = "8.0.0" }
 cumulus-primitives-timestamp = { path = "cumulus/primitives/timestamp", default-features = false, version = "0.16.0" }
 cumulus-primitives-utility = { path = "cumulus/primitives/utility", default-features = false, version = "0.17.0" }
-cumulus-relay-chain-inprocess-interface = { path = "cumulus/client/relay-chain-inprocess-interface", default-features = false, version = "0.18.0" }
+cumulus-relay-chain-inprocess-interface = { path = "cumulus/client/relay-chain-inprocess-interface", default-features = false, version = "0.19.0" }
 cumulus-relay-chain-interface = { path = "cumulus/client/relay-chain-interface", default-features = false, version = "0.18.0" }
-cumulus-relay-chain-minimal-node = { path = "cumulus/client/relay-chain-minimal-node", default-features = false, version = "0.18.0" }
+cumulus-relay-chain-minimal-node = { path = "cumulus/client/relay-chain-minimal-node", default-features = false, version = "0.19.0" }
 cumulus-relay-chain-rpc-interface = { path = "cumulus/client/relay-chain-rpc-interface", default-features = false, version = "0.18.0" }
 cumulus-test-client = { path = "cumulus/test/client" }
 cumulus-test-relay-sproof-builder = { path = "cumulus/test/relay-sproof-builder", default-features = false, version = "0.16.0" }
@@ -847,7 +847,7 @@ minimal-template-runtime = { path = "templates/minimal/runtime", version = "0.1.
 mixnet = { version = "0.7.0" }
 mmr-gadget = { path = "substrate/client/merkle-mountain-range", default-features = false, version = "40.0.0" }
 mmr-lib = { version = "0.5.2", package = "ckb-merkle-mountain-range" }
-mmr-rpc = { path = "substrate/client/merkle-mountain-range/rpc", default-features = false, version = "37.0.0" }
+mmr-rpc = { path = "substrate/client/merkle-mountain-range/rpc", default-features = false, version = "38.0.0" }
 mockall = { version = "0.11.3" }
 multiaddr = { version = "0.18.1" }
 multihash = { version = "0.19.1", default-features = false }
@@ -1018,7 +1018,7 @@ polkadot-approval-distribution = { path = "polkadot/node/network/approval-distri
 polkadot-availability-bitfield-distribution = { path = "polkadot/node/network/bitfield-distribution", default-features = false, version = "18.0.0" }
 polkadot-availability-distribution = { path = "polkadot/node/network/availability-distribution", default-features = false, version = "18.0.0" }
 polkadot-availability-recovery = { path = "polkadot/node/network/availability-recovery", default-features = false, version = "18.0.0" }
-polkadot-cli = { path = "polkadot/cli", default-features = false, version = "18.0.0" }
+polkadot-cli = { path = "polkadot/cli", default-features = false, version = "19.0.0" }
 polkadot-collator-protocol = { path = "polkadot/node/network/collator-protocol", default-features = false, version = "18.0.0" }
 polkadot-core-primitives = { path = "polkadot/core-primitives", default-features = false, version = "15.0.0" }
 polkadot-dispute-distribution = { path = "polkadot/node/network/dispute-distribution", default-features = false, version = "18.0.0" }
@@ -1052,17 +1052,17 @@ polkadot-node-subsystem-test-helpers = { path = "polkadot/node/subsystem-test-he
 polkadot-node-subsystem-types = { path = "polkadot/node/subsystem-types", default-features = false, version = "18.0.0" }
 polkadot-node-subsystem-util = { path = "polkadot/node/subsystem-util", default-features = false, version = "18.0.0" }
 polkadot-overseer = { path = "polkadot/node/overseer", default-features = false, version = "18.0.0" }
-polkadot-parachain-lib = { path = "cumulus/polkadot-parachain/polkadot-parachain-lib", default-features = false, version = "0.2.0" }
+polkadot-parachain-lib = { path = "cumulus/polkadot-parachain/polkadot-parachain-lib", default-features = false, version = "0.3.0" }
 polkadot-parachain-primitives = { path = "polkadot/parachain", default-features = false, version = "14.0.0" }
 polkadot-primitives = { path = "polkadot/primitives", default-features = false, version = "16.0.0" }
 polkadot-primitives-test-helpers = { path = "polkadot/primitives/test-helpers", version = "0.1.0" }
-polkadot-rpc = { path = "polkadot/rpc", default-features = false, version = "18.0.0" }
+polkadot-rpc = { path = "polkadot/rpc", default-features = false, version = "19.0.0" }
 polkadot-runtime-common = { path = "polkadot/runtime/common", default-features = false, version = "17.0.0" }
 polkadot-runtime-metrics = { path = "polkadot/runtime/metrics", default-features = false, version = "17.0.0" }
 polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false, version = "17.0.0" }
-polkadot-sdk = { path = "umbrella", default-features = false, version = "0.6.0" }
+polkadot-sdk = { path = "umbrella", default-features = false, version = "0.7.0" }
 polkadot-sdk-docs = { path = "docs/sdk" }
-polkadot-service = { path = "polkadot/node/service", default-features = false, version = "18.0.0" }
+polkadot-service = { path = "polkadot/node/service", default-features = false, version = "19.0.0" }
 polkadot-statement-distribution = { path = "polkadot/node/network/statement-distribution", default-features = false, version = "18.0.0" }
 polkadot-statement-table = { path = "polkadot/statement-table", default-features = false, version = "16.0.0" }
 polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
@@ -1125,7 +1125,7 @@ sc-chain-spec = { path = "substrate/client/chain-spec", default-features = false
 sc-chain-spec-derive = { path = "substrate/client/chain-spec/derive", default-features = false, version = "12.0.0" }
 sc-cli = { path = "substrate/client/cli", default-features = false, version = "0.47.0" }
 sc-client-api = { path = "substrate/client/api", default-features = false, version = "37.0.0" }
-sc-client-db = { path = "substrate/client/db", default-features = false, version = "0.44.0" }
+sc-client-db = { path = "substrate/client/db", default-features = false, version = "0.44.1" }
 sc-consensus = { path = "substrate/client/consensus/common", default-features = false, version = "0.44.0" }
 sc-consensus-aura = { path = "substrate/client/consensus/aura", default-features = false, version = "0.45.0" }
 sc-consensus-babe = { path = "substrate/client/consensus/babe", default-features = false, version = "0.45.0" }

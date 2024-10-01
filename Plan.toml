@@ -1078,7 +1078,7 @@ reason = "changed"
 # substrate/client/db
 name = "sc-client-db"
 from = "0.44.0"
-to = "0.44.0"
+to = "0.44.1"
 
 [[crate]]
 # substrate/client/consensus/common

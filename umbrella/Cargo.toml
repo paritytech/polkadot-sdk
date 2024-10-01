@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-sdk"
-version = "0.6.0"
+version = "0.7.0"
 description = "Polkadot SDK umbrella crate."
 license = "Apache-2.0"
 
@@ -2060,13 +2060,13 @@ version = "0.18.0"
 path = "../cumulus/client/service"
 default-features = false
 optional = true
-version = "0.18.0"
+version = "0.19.0"
 
 [dependencies.cumulus-relay-chain-inprocess-interface]
 path = "../cumulus/client/relay-chain-inprocess-interface"
 default-features = false
 optional = true
-version = "0.18.0"
+version = "0.19.0"
 
 [dependencies.cumulus-relay-chain-interface]
 path = "../cumulus/client/relay-chain-interface"
@@ -2078,7 +2078,7 @@ version = "0.18.0"
 path = "../cumulus/client/relay-chain-minimal-node"
 default-features = false
 optional = true
-version = "0.18.0"
+version = "0.19.0"
 
 [dependencies.cumulus-relay-chain-rpc-interface]
 path = "../cumulus/client/relay-chain-rpc-interface"
@@ -2138,7 +2138,7 @@ version = "40.0.0"
 path = "../substrate/client/merkle-mountain-range/rpc"
 default-features = false
 optional = true
-version = "37.0.0"
+version = "38.0.0"
 
 [dependencies.pallet-contracts-mock-network]
 path = "../substrate/frame/contracts/mock-network"
@@ -2192,7 +2192,7 @@ version = "18.0.0"
 path = "../polkadot/cli"
 default-features = false
 optional = true
-version = "18.0.0"
+version = "19.0.0"
 
 [dependencies.polkadot-collator-protocol]
 path = "../polkadot/node/network/collator-protocol"
@@ -2384,19 +2384,19 @@ version = "18.0.0"
 path = "../cumulus/polkadot-parachain/polkadot-parachain-lib"
 default-features = false
 optional = true
-version = "0.2.0"
+version = "0.3.0"
 
 [dependencies.polkadot-rpc]
 path = "../polkadot/rpc"
 default-features = false
 optional = true
-version = "18.0.0"
+version = "19.0.0"
 
 [dependencies.polkadot-service]
 path = "../polkadot/node/service"
 default-features = false
 optional = true
-version = "18.0.0"
+version = "19.0.0"
 
 [dependencies.polkadot-statement-distribution]
 path = "../polkadot/node/network/statement-distribution"
@@ -2456,7 +2456,7 @@ version = "37.0.0"
 path = "../substrate/client/db"
 default-features = false
 optional = true
-version = "0.44.0"
+version = "0.44.1"
 
 [dependencies.sc-consensus]
 path = "../substrate/client/consensus/common"

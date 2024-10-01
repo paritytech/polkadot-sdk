@@ -1,11 +1,12 @@
 [package]
 name = "polkadot-parachain-bin"
-version = "6.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
 description = "Runs a polkadot parachain node"
 license = "Apache-2.0"
+publish = false
 
 [lints]
 workspace = true

@@ -3980,7 +3980,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-service"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -4298,7 +4298,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-inprocess-interface"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -4344,7 +4344,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-minimal-node"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "array-bytes",
  "async-trait",
@@ -8766,7 +8766,7 @@ dependencies = [
 
 [[package]]
 name = "mmr-rpc"
-version = "37.0.0"
+version = "38.0.0"
 dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
@@ -12869,7 +12869,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot"
-version = "17.0.0"
+version = "18.0.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -13021,7 +13021,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-cli"
-version = "18.0.0"
+version = "19.0.0"
 dependencies = [
  "cfg-if",
  "clap 4.5.11",
@@ -13875,7 +13875,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-parachain-bin"
-version = "6.0.0"
+version = "7.0.0"
 dependencies = [
  "asset-hub-rococo-runtime",
  "asset-hub-westend-runtime",
@@ -13913,7 +13913,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-parachain-lib"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "assert_cmd",
  "async-trait",
@@ -14037,7 +14037,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-rpc"
-version = "18.0.0"
+version = "19.0.0"
 dependencies = [
  "jsonrpsee",
  "mmr-rpc",
@@ -14197,7 +14197,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -14699,7 +14699,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-service"
-version = "18.0.0"
+version = "19.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
