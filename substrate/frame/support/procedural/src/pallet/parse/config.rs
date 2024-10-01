@@ -370,7 +370,7 @@ impl ConfigDef {
 		index: usize,
 		item: &mut syn::Item,
 		enable_default: bool,
-		enable_associated_metadata: bool,
+		disable_associated_metadata: bool,
 	) -> syn::Result<Self> {
 		let syn::Item::Trait(item) = item else {
 			let msg = "Invalid pallet::config, expected trait definition";
@@ -516,7 +516,7 @@ impl ConfigDef {
 			} else {
 				// Metadata of associated types is collected by default, if the associated type
 				// implements `TypeInfo`, or a similar trait that requires the `TypeInfo` bound.
-				if enable_associated_metadata && !is_event && !already_constant {
+				if !disable_associated_metadata && !is_event && !already_constant {
 					if let syn::TraitItem::Type(ref ty) = trait_item {
 						// Collect the metadata of the associated type if it implements `TypeInfo`.
 						if contains_type_info_bound(ty) {
