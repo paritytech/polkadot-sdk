@@ -59,7 +59,7 @@ mod imports {
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_westend_emulated_chain::bridge_hub_westend_runtime::xcm_config::{
-			self as bhw_xcm_config, XcmConfig as BridgeHubWestendXcmConfig,
+			self as bhw_xcm_config,
 		},
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		penpal_emulated_chain::{
@@ -101,8 +101,6 @@ mod imports {
 	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Westend>;
 	pub type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubWestend>;
 	pub type RelayToParaThroughAHTest = Test<Westend, PenpalA, AssetHubWestend>;
-	pub type BridgeHubToAssetHubTest = Test<BridgeHubWestend, AssetHubWestend>;
-	pub type AssetHubToBridgeHubTest = Test<AssetHubWestend, BridgeHubWestend>;
 }
 
 #[cfg(test)]

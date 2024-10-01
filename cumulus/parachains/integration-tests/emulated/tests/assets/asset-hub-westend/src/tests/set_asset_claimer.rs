@@ -29,7 +29,7 @@ use xcm_executor::traits::ConvertLocation;
 
 #[test]
 fn test_set_asset_claimer_within_a_chain() {
-	let (alice_account, alice_location) = account_and_location(ALICE);
+	let (alice_account, _) = account_and_location(ALICE);
 	let (bob_account, bob_location) = account_and_location(BOB);
 
 	let trap_amount = 16_000_000_000_000;
