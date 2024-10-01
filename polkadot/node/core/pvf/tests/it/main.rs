@@ -107,6 +107,7 @@ impl TestHost {
 		pvd: PersistedValidationData,
 		pov: PoV,
 		executor_params: ExecutorParams,
+		exec_deadline: Option<std::time::Instant>,
 	) -> Result<ValidationResult, ValidationError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
 
@@ -121,7 +122,7 @@ impl TestHost {
 					PrepareJobKind::Compilation,
 				),
 				TEST_EXECUTION_TIMEOUT,
-				None,
+				exec_deadline,
 				Arc::new(pvd),
 				Arc::new(pov),
 				polkadot_node_core_pvf::Priority::Normal,
@@ -171,7 +172,13 @@ async fn execute_job_terminates_on_timeout() {
 
 	let start = std::time::Instant::now();
 	let result = host
-		.validate_candidate(test_parachain_halt::wasm_binary_unwrap(), pvd, pov, Default::default())
+		.validate_candidate(
+			test_parachain_halt::wasm_binary_unwrap(),
+			pvd,
+			pov,
+			Default::default(),
+			None,
+		)
 		.await;
 
 	match result {
@@ -182,6 +189,38 @@ async fn execute_job_terminates_on_timeout() {
 	let duration = std::time::Instant::now().duration_since(start);
 	assert!(duration >= TEST_EXECUTION_TIMEOUT);
 	assert!(duration < TEST_EXECUTION_TIMEOUT * JOB_TIMEOUT_WALL_CLOCK_FACTOR);
+}
+
+#[tokio::test]
+async fn execute_job_terminates_on_execution_deadline() {
+	let host = TestHost::new().await;
+	let pvd = PersistedValidationData {
+		parent_head: Default::default(),
+		relay_parent_number: 1u32,
+		relay_parent_storage_root: H256::default(),
+		max_pov_size: 4096 * 1024,
+	};
+	let pov = PoV { block_data: BlockData(Vec::new()) };
+	let exec_deadline = Some(std::time::Instant::now());
+
+	let start = std::time::Instant::now();
+	let result = host
+		.validate_candidate(
+			test_parachain_halt::wasm_binary_unwrap(),
+			pvd,
+			pov,
+			Default::default(),
+			exec_deadline,
+		)
+		.await;
+
+	match result {
+		Err(ValidationError::ExecutionDeadline) => {},
+		r => panic!("{:?}", r),
+	}
+
+	let duration = std::time::Instant::now().duration_since(start);
+	assert!(duration < TEST_EXECUTION_TIMEOUT);
 }
 
 #[cfg(feature = "ci-only-tests")]
@@ -254,6 +293,7 @@ async fn execute_queue_doesnt_stall_if_workers_died() {
 			pvd.clone(),
 			pov.clone(),
 			Default::default(),
+			None,
 		)
 	}))
 	.await;
@@ -359,7 +399,13 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 
 	// Try to validate, artifact should get recreated.
 	let result = host
-		.validate_candidate(test_parachain_halt::wasm_binary_unwrap(), pvd, pov, Default::default())
+		.validate_candidate(
+			test_parachain_halt::wasm_binary_unwrap(),
+			pvd,
+			pov,
+			Default::default(),
+			None,
+		)
 		.await;
 
 	assert_matches!(result, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)));
@@ -410,7 +456,13 @@ async fn corrupted_prepared_artifact_does_not_dispute() {
 
 	// Try to validate, artifact should get removed because of the corruption.
 	let result = host
-		.validate_candidate(test_parachain_halt::wasm_binary_unwrap(), pvd, pov, Default::default())
+		.validate_candidate(
+			test_parachain_halt::wasm_binary_unwrap(),
+			pvd,
+			pov,
+			Default::default(),
+			None,
+		)
 		.await;
 
 	assert_matches!(
@@ -683,7 +735,9 @@ async fn invalid_compressed_code_fails_validation() {
 	let validation_code =
 		sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT + 1).unwrap();
 
-	let result = host.validate_candidate(&validation_code, pvd, pov, Default::default()).await;
+	let result = host
+		.validate_candidate(&validation_code, pvd, pov, Default::default(), None)
+		.await;
 
 	assert_matches!(
 		result,
@@ -707,7 +761,13 @@ async fn invalid_compressed_pov_fails_validation() {
 	let pov = PoV { block_data: BlockData(block_data) };
 
 	let result = host
-		.validate_candidate(test_parachain_halt::wasm_binary_unwrap(), pvd, pov, Default::default())
+		.validate_candidate(
+			test_parachain_halt::wasm_binary_unwrap(),
+			pvd,
+			pov,
+			Default::default(),
+			None,
+		)
 		.await;
 
 	assert_matches!(
