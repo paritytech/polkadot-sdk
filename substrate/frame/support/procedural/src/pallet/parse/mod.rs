@@ -43,7 +43,7 @@ pub mod tests;
 use composite::{keyword::CompositeKeyword, CompositeDef};
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use quote::ToTokens;
-use std::collections::HashSet;
+use std::collections::HashMap;
 use syn::spanned::Spanned;
 
 /// Parsed definition of a pallet.
@@ -698,18 +698,26 @@ impl syn::parse::Parse for PalletAttr {
 					inside_config.parse_terminated(ConfigValue::parse, syn::Token![,])?;
 				let config_values = fields.iter().collect::<Vec<_>>();
 
-				let with_default =
-					config_values.iter().any(|v| matches!(v, ConfigValue::WithDefault(_)));
+				let frequencies = config_values.iter().fold(HashMap::new(), |mut map, val| {
+					let string_name = match val {
+						ConfigValue::WithDefault(_) => "with_default",
+						ConfigValue::WithoutMetadata(_) => "without_metadata",
+					}
+					.to_string();
+					map.entry(string_name).and_modify(|frq| *frq += 1).or_insert(1);
+					map
+				});
+				let with_default = frequencies.get("with_default").copied().unwrap_or(0) > 0;
 				let without_metadata =
-					config_values.iter().any(|v| matches!(v, ConfigValue::WithoutMetadata(_)));
+					frequencies.get("without_metadata").copied().unwrap_or(0) > 0;
 
-				// Check for duplicated attributes.
-				let config_set = config_values.iter().collect::<HashSet<_>>();
-				if config_set.len() != config_values.len() {
-					return Err(syn::Error::new(
-						span,
-						"Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates.",
-					));
+				let duplicates = frequencies
+					.into_iter()
+					.filter_map(|(name, frq)| if frq > 1 { Some(name) } else { None })
+					.collect::<Vec<_>>();
+				if !duplicates.is_empty() {
+					let msg = format!("Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates: {}.", duplicates.join(", "));
+					return Err(syn::Error::new(span, msg));
 				}
 
 				Ok(PalletAttr::Config { span, with_default, without_metadata })

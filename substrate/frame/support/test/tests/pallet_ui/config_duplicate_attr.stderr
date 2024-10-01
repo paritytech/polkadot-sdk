@@ -1,4 +1,4 @@
-error: Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates.
+error: Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates: without_metadata.
   --> tests/pallet_ui/config_duplicate_attr.rs:23:12
    |
 23 |     #[pallet::config(with_default, without_metadata, without_metadata)]
