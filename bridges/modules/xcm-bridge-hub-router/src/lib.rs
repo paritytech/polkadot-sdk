@@ -408,6 +408,10 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> InspectMessageQueues for Pallet<T, I> {
+	fn clear_messages() {
+		ViaBridgeHubExporter::<T, I>::clear_messages()
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		ViaBridgeHubExporter::<T, I>::get_messages()
 	}

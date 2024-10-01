@@ -18,13 +18,12 @@
 
 use codec::Encode;
 use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
-use polkadot_service::chain_spec::get_account_id_from_seed;
 use polkadot_test_client::{
 	BlockBuilderExt, ClientBlockImportExt, DefaultTestClientBuilderExt, InitPolkadotBlockBuilder,
 	TestClientBuilder, TestClientBuilderExt,
 };
 use polkadot_test_runtime::{pallet_test_notifier, xcm_config::XcmConfig};
-use polkadot_test_service::construct_extrinsic;
+use polkadot_test_service::{chain_spec::get_account_id_from_seed, construct_extrinsic};
 use sp_core::sr25519;
 use sp_runtime::traits::Block;
 use sp_state_machine::InspectState;

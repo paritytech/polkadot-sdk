@@ -5,9 +5,8 @@ on:
     branches:
       - master
   pull_request:
-    types: [ opened, synchronize, reopened, ready_for_review ]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
-
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -17,34 +16,16 @@ permissions:
   contents: read
 
 jobs:
-  set-image:
-    # GitHub Actions allows using 'env' in a container context.
-    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
-    # This workaround sets the container image for each job using 'set-image' job output.
-    runs-on: ubuntu-latest
-    outputs:
-      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - id: set_image
-        run: cat .github/env >> $GITHUB_OUTPUT
-      - id: set_runner
-        run: |
-          # Run merge queues on persistent runners
-          if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
-          else
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
-          fi
+
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
 
   build-runtimes-polkavm:
     timeout-minutes: 20
-    needs: [ set-image ]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -65,10 +46,10 @@ jobs:
 
   build-subkey:
     timeout-minutes: 20
-    needs: [ set-image ]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -89,10 +70,15 @@ jobs:
     runs-on: ubuntu-latest
     name: All build misc jobs passed
     # If any new job gets added, be sure to add it to this array
-    needs:
-      [
-        build-runtimes-polkavm,
-        build-subkey
-      ]
+    needs: [build-runtimes-polkavm, build-subkey]
+    if: always() && !cancelled()
     steps:
-      - run: echo '### Good job! All the build misc tests passed 🚀' >> $GITHUB_STEP_SUMMARY
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi
