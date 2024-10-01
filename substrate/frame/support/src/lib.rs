@@ -1566,8 +1566,7 @@ pub mod pallet_macros {
 	/// ## Optional: `without_metadata`
 	///
 	/// By default, the associated types of the `Config` trait that require the `TypeInfo` or
-	/// `Parameter` bounds are included in the metadata of the pallet. Please note that the
-	/// `RuntimeEvent` and constants are already included in the metadata.
+	/// `Parameter` bounds are included in the metadata of the pallet.
 	///
 	/// The optional `without_metadata` argument can be used to exclude these associated types
 	/// from the metadata collection.
