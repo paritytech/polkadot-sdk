@@ -116,7 +116,7 @@ where
 					},
 
 					Some(event) = next_event(&mut ctx.stream_map) => {
-						trace!(target: LOG_TARGET, "select_next_some -> {:#?}", event);
+						trace!(target: LOG_TARGET, "import_notification_sink: select_next_some -> {:#?}", event);
 						return Some((event.1, ctx));
 					}
 				}
