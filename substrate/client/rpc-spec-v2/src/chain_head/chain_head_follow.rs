@@ -69,7 +69,7 @@ pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	current_best_block: Option<Block::Hash>,
 	/// LRU cache of pruned blocks.
 	pruned_blocks: LruMap<Block::Hash, ()>,
-	/// LRU cache of pruned blocks.
+	/// LRU cache of announced blocks.
 	announced_blocks: LruMap<Block::Hash, ()>,
 	/// Stop all subscriptions if the distance between the leaves and the current finalized
 	/// block is larger than this value.
