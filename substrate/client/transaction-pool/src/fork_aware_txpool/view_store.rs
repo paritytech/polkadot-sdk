@@ -90,6 +90,7 @@ where
 		&self,
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = ExtrinsicFor<ChainApi>> + Clone,
+		xts_hashes: impl IntoIterator<Item = ExtrinsicHash<ChainApi>> + Clone,
 	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>>> {
 		let submit_futures = {
 			let active_views = self.active_views.read();
@@ -98,7 +99,9 @@ where
 				.map(|(_, view)| {
 					let view = view.clone();
 					let xts = xts.clone();
-					async move { (view.at.hash, view.submit_many(source, xts).await) }
+					self.dropped_stream_controller
+						.add_initial_views(xts_hashes.clone(), view.at.hash);
+					async move { (view.at.hash, view.submit_many(source, xts.clone()).await) }
 				})
 				.collect::<Vec<_>>()
 		};
@@ -131,7 +134,8 @@ where
 				.map(|(_, view)| {
 					let view = view.clone();
 					let xt = xt.clone();
-
+					self.dropped_stream_controller
+						.add_initial_views(std::iter::once(tx_hash), view.at.hash);
 					async move {
 						match view.submit_and_watch(source, xt).await {
 							Ok(watcher) => {
@@ -317,35 +321,27 @@ where
 		view: Arc<View<ChainApi>>,
 		tree_route: &TreeRoute<Block>,
 	) {
-		let mut views_to_be_removed = {
+		let views_to_be_removed = {
 			std::iter::once(tree_route.common_block())
 				.chain(tree_route.enacted().iter())
 				.map(|block| block.hash)
 				.collect::<Vec<_>>()
 		};
 		//todo: refactor this: maybe single object with one mutex?
-		let views_to_be_removed = {
+		{
 			let mut most_recent_view_lock = self.most_recent_view.write();
 			let mut active_views = self.active_views.write();
 			let mut inactive_views = self.inactive_views.write();
-			views_to_be_removed.retain(|hash| {
-				let view = active_views.remove(hash);
-				if let Some(view) = view {
+			views_to_be_removed.iter().for_each(|hash| {
+				active_views.remove(hash).map(|view| {
 					inactive_views.insert(*hash, view);
-					true
-				} else {
-					false
-				}
+				});
 			});
 			active_views.insert(view.at.hash, view.clone());
 			most_recent_view_lock.replace(view.at.hash);
-			views_to_be_removed
 		};
 		{
 			log::trace!(target:LOG_TARGET,"insert_new_view: inactive_views: {:?}", self.inactive_views.read().keys());
-		}
-		for hash in &views_to_be_removed {
-			self.dropped_stream_controller.remove_view(*hash);
 		}
 	}
 
@@ -370,6 +366,47 @@ where
 		None
 	}
 
+	/// The pre-finalization event handle for the view store.
+	///
+	/// This function removes the references to the views that will be removed during finalization
+	/// from the dropped stream controller. This will allow for correct dispatching of `Dropped`
+	/// events.
+	pub(crate) async fn handle_pre_finalized(&self, finalized_hash: Block::Hash) {
+		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
+		let mut removed_views = vec![];
+
+		{
+			self.active_views
+				.read()
+				.iter()
+				.filter(|(hash, v)| !match finalized_number {
+					Err(_) | Ok(None) => **hash == finalized_hash,
+					Ok(Some(n)) if v.at.number == n => **hash == finalized_hash,
+					Ok(Some(n)) => v.at.number > n,
+				})
+				.map(|(_, v)| removed_views.push(v.at.hash))
+				.for_each(drop);
+		}
+
+		{
+			self.inactive_views
+				.read()
+				.iter()
+				.filter(|(_, v)| !match finalized_number {
+					Err(_) | Ok(None) => false,
+					Ok(Some(n)) => v.at.number >= n,
+				})
+				.map(|(_, v)| removed_views.push(v.at.hash))
+				.for_each(drop);
+		}
+
+		log::trace!(target:LOG_TARGET,"handle_pre_finalized: removed_views: {:?}", removed_views);
+
+		removed_views.iter().for_each(|view| {
+			self.dropped_stream_controller.remove_view(*view);
+		});
+	}
+
 	/// The finalization event handle for the view store.
 	///
 	/// Views that have associated block number less than finalized block number are removed from
@@ -389,7 +426,6 @@ where
 		tree_route: &[Block::Hash],
 	) -> Vec<ExtrinsicHash<ChainApi>> {
 		let finalized_xts = self.finalize_route(finalized_hash, tree_route).await;
-
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
 
 		//clean up older then finalized
@@ -414,6 +450,7 @@ where
 
 		self.listener.remove_view(finalized_hash);
 		self.listener.remove_stale_controllers();
+		self.dropped_stream_controller.remove_finalized_txs(finalized_xts.clone());
 
 		finalized_xts
 	}

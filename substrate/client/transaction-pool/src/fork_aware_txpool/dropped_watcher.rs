@@ -24,7 +24,7 @@
 use crate::{
 	fork_aware_txpool::stream_map_util::next_event,
 	graph::{BlockHash, ChainApi, ExtrinsicHash},
-	LOG_TARGET,
+	log_xt_trace, LOG_TARGET,
 };
 use futures::stream::StreamExt;
 use log::{debug, trace};
@@ -67,6 +67,18 @@ where
 	AddView(BlockHash<C>, ViewStream<C>),
 	/// Removes an existing view's stream associated with a specific block hash.
 	RemoveView(BlockHash<C>),
+	/// Adds initial views for given extrinsics hashes.
+	///
+	/// This message should be sent when the external submission of a transaction occures. It
+	/// provides the list of initial views for given extrinsics hashes.
+	/// The dropped notification is not sent if it comes from the initial views. It allows to keep
+	/// transaction in the mempool, even if all the views are full at the time of submitting
+	/// transaction to the pool.
+	AddInitialViews(Vec<ExtrinsicHash<C>>, BlockHash<C>),
+	/// Removes all initial views for given extrinsic hashes.
+	///
+	/// Intended to ba called on finalization.
+	RemoveFinalizedTxs(Vec<ExtrinsicHash<C>>),
 }
 
 impl<C> Debug for Command<C>
@@ -77,6 +89,8 @@ where
 		match self {
 			Command::AddView(..) => write!(f, "AddView"),
 			Command::RemoveView(..) => write!(f, "RemoveView"),
+			Command::AddInitialViews(..) => write!(f, "AddInitialViews"),
+			Command::RemoveFinalizedTxs(..) => write!(f, "RemoveFinalizedTxs"),
 		}
 	}
 }
@@ -100,8 +114,16 @@ where
 
 	/// For each transaction hash we keep the set of hashes representing the views that see this
 	/// transaction as ready or future.
+	///
 	/// Once transaction is dropped, dropping view is removed from the set.
 	transaction_states: HashMap<ExtrinsicHash<C>, HashSet<BlockHash<C>>>,
+
+	/// The list of initial view for every extrinsic.
+	///
+	/// Dropped notifications from initial views will be silenced. This allows to accept the
+	/// transaction into the mempool, even if all the views are full at the time of submitting new
+	/// transaction.
+	initial_views: HashMap<ExtrinsicHash<C>, HashSet<BlockHash<C>>>,
 }
 
 impl<C> MultiViewDropWatcherContext<C>
@@ -142,13 +164,17 @@ where
 							.iter()
 							.all(|h| !self.stream_map.contains_key(h))
 					{
-						debug!("[{:?}] dropped_watcher: removing tx", tx_hash);
-						return Some(tx_hash)
+						return self
+							.initial_views
+							.get(&tx_hash)
+							.map(|list| !list.contains(&block_hash))
+							.unwrap_or(true)
+							.then(|| {
+								debug!("[{:?}] dropped_watcher: removing tx", tx_hash);
+								tx_hash
+							})
 					}
 				} else {
-					// the transaction was never included into any view, so it is being dropped
-					// because all views are currently full.
-					// we shall give it a chance.
 					debug!("[{:?}] dropped_watcher: skipping non tracked tx", tx_hash);
 				}
 			},
@@ -174,6 +200,7 @@ where
 			stream_map: StreamMap::new(),
 			command_receiver,
 			transaction_states: Default::default(),
+			initial_views: Default::default(),
 		};
 
 		let stream_map = futures::stream::unfold(ctx, |mut ctx| async move {
@@ -189,6 +216,19 @@ where
 							Command::RemoveView(key) => {
 								trace!(target: LOG_TARGET,"dropped_watcher: Command::RemoveView {key:?} {:#?}",ctx.stream_map.keys().collect::<Vec<_>>());
 								ctx.stream_map.remove(&key);
+							},
+							Command::AddInitialViews(xts,block_hash) => {
+								log_xt_trace!(target: LOG_TARGET, xts.clone(), "[{:?}] dropped_watcher xt initial view added {block_hash:?}");
+								xts.into_iter().for_each(|xt| {
+									ctx.initial_views.entry(xt).or_default().insert(block_hash);
+								});
+							},
+							Command::RemoveFinalizedTxs(xts) => {
+								log_xt_trace!(target: LOG_TARGET, xts.clone(), "[{:?}] dropped_watcher xt unmuted");
+								xts.iter().for_each(|xt| {
+									ctx.initial_views.remove(xt);
+								});
+
 							},
 						}
 					},
@@ -213,10 +253,15 @@ where
 ///
 /// This struct provides methods to add and remove streams associated with views to and from the
 /// stream.
-#[derive(Clone)]
 pub struct MultiViewDroppedWatcherController<C: ChainApi> {
 	/// A controller allowing to update the state of the associated [`StreamOfDropped`].
 	controller: Controller<Command<C>>,
+}
+
+impl<C: ChainApi> Clone for MultiViewDroppedWatcherController<C> {
+	fn clone(&self) -> Self {
+		Self { controller: self.controller.clone() }
+	}
 }
 
 impl<C> MultiViewDroppedWatcherController<C>
@@ -243,6 +288,37 @@ where
 		let _ = self.controller.unbounded_send(Command::RemoveView(key)).map_err(|e| {
 			trace!(target: LOG_TARGET, "dropped_watcher: remove_view {key:?} send message failed: {e}");
 		});
+	}
+
+	/// Adds the initial view for the given transactions hashes.
+	///
+	/// This message should be called when the external submission of a transaction occures. It
+	/// provides the list of initial views for given extrinsics hashes.
+	///
+	/// The dropped notification is not sent if it comes from the initial views. It allows to keep
+	/// transaction in the mempool, even if all the views are full at the time of submitting
+	/// transaction to the pool.
+	pub fn add_initial_views(
+		&self,
+		xts: impl IntoIterator<Item = ExtrinsicHash<C>> + Clone,
+		block_hash: BlockHash<C>,
+	) {
+		let _ = self
+			.controller
+			.unbounded_send(Command::AddInitialViews(xts.into_iter().collect(), block_hash))
+			.map_err(|e| {
+				trace!(target: LOG_TARGET, "dropped_watcher: add_initial_views_ send message failed: {e}");
+			});
+	}
+
+	/// Removes all initial views for finalized transactions.
+	pub fn remove_finalized_txs(&self, xts: impl IntoIterator<Item = ExtrinsicHash<C>> + Clone) {
+		let _ = self
+			.controller
+			.unbounded_send(Command::RemoveFinalizedTxs(xts.into_iter().collect()))
+			.map_err(|e| {
+				trace!(target: LOG_TARGET, "dropped_watcher: remove_initial_views send message failed: {e}");
+			});
 	}
 }
 

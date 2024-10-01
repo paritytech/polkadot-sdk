@@ -53,15 +53,12 @@ use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Extrinsic, NumberFor},
-	transaction_validity::{InvalidTransaction, UnknownTransaction},
+	transaction_validity::InvalidTransaction,
 };
 use std::{
 	collections::{HashMap, HashSet},
 	pin::Pin,
-	sync::{
-		atomic::{AtomicUsize, Ordering},
-		Arc,
-	},
+	sync::Arc,
 	time::Instant,
 };
 use tokio::select;
@@ -595,18 +592,19 @@ where
 			return future::ready(Ok(mempool_result)).boxed()
 		}
 
-		let to_be_submitted = mempool_result
-			.iter()
-			.zip(xts)
-			.filter_map(|(result, xt)| result.is_ok().then(|| xt))
-			.collect::<Vec<_>>();
+		let (hashes, to_be_submitted): (Vec<TxHash<Self>>, Vec<ExtrinsicFor<ChainApi>>) =
+			mempool_result
+				.iter()
+				.zip(xts)
+				.filter_map(|(result, xt)| result.as_ref().ok().map(|xt_hash| (xt_hash, xt)))
+				.unzip();
 
 		self.metrics
 			.report(|metrics| metrics.submitted_transactions.inc_by(to_be_submitted.len() as _));
 
 		let mempool = self.mempool.clone();
 		async move {
-			let results_map = view_store.submit(source, to_be_submitted.into_iter()).await;
+			let results_map = view_store.submit(source, to_be_submitted.into_iter(), hashes).await;
 			let mut submission_results = reduce_multiview_result(results_map).into_iter();
 
 			//todo [#5494]:
@@ -1023,7 +1021,6 @@ where
 			.map(|(tx_hash, tx)| {
 				let view = view.clone();
 				async move {
-					//todo: we need to install listener only for transactions in this very block
 					let watcher = view.create_watcher(tx_hash);
 					log::trace!(target: LOG_TARGET, "[{:?}] adding watcher {:?}", tx_hash, view.at.hash);
 					self.view_store.listener.add_view_watcher_for_tx(
@@ -1341,8 +1338,12 @@ where
 				// 	}
 				// }
 			},
-			Ok(EnactmentAction::HandleEnactment(tree_route)) =>
-				self.handle_new_block(&tree_route).await,
+			Ok(EnactmentAction::HandleEnactment(tree_route)) => {
+				if matches!(event, ChainEvent::Finalized { .. }) {
+					self.view_store.handle_pre_finalized(event.hash()).await;
+				};
+				self.handle_new_block(&tree_route).await;
+			},
 		};
 
 		match event {
