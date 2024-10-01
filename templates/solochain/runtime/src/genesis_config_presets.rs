@@ -16,11 +16,10 @@
 // limitations under the License.
 
 use crate::{AccountId, BalancesConfig, RuntimeGenesisConfig, SudoConfig};
-use alloc::{format, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 use serde_json::Value;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{Pair, Public};
 use sp_genesis_builder::{self, PresetId};
 use sp_keyring::AccountKeyring;
 
@@ -52,25 +51,13 @@ fn testnet_genesis(
 	serde_json::to_value(config).expect("Could not build genesis config.")
 }
 
-// Generate a crypto pair from seed.
-fn get_from_seed<TPublic>(seed: &str) -> <TPublic::Pair as Pair>::Public
-where
-	TPublic: Public,
-{
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
-}
-
-// Generate authority keys to be passed to the genesis config presets.
-fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
-	(get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
-}
-
 /// Return the development genesis config.
 pub fn development_config_genesis() -> Value {
 	testnet_genesis(
-		vec![authority_keys_from_seed(&AccountKeyring::Alice.to_seed())],
+		vec![(
+			sp_keyring::Sr25519Keyring::Alice.public().into(),
+			sp_keyring::Ed25519Keyring::Alice.public().into(),
+		)],
 		vec![
 			AccountKeyring::Alice.to_account_id(),
 			AccountKeyring::Bob.to_account_id(),
@@ -85,8 +72,14 @@ pub fn development_config_genesis() -> Value {
 pub fn local_config_genesis() -> Value {
 	testnet_genesis(
 		vec![
-			authority_keys_from_seed(&AccountKeyring::Alice.to_seed()),
-			authority_keys_from_seed(&AccountKeyring::Bob.to_seed()),
+			(
+				sp_keyring::Sr25519Keyring::Alice.public().into(),
+				sp_keyring::Ed25519Keyring::Alice.public().into(),
+			),
+			(
+				sp_keyring::Sr25519Keyring::Bob.public().into(),
+				sp_keyring::Ed25519Keyring::Bob.public().into(),
+			),
 		],
 		AccountKeyring::iter()
 			.filter(|v| v != &AccountKeyring::One && v != &AccountKeyring::Two)
