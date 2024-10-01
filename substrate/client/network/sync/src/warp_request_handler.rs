@@ -33,7 +33,7 @@ use sp_runtime::traits::Block as BlockT;
 
 use std::{sync::Arc, time::Duration};
 
-const MAX_RESPONSE_SIZE: u64 = 16 * 1024 * 1024;
+const MAX_RESPONSE_SIZE: u64 = 32 * 1024 * 1024;
 
 /// Incoming warp requests bounded queue size.
 const MAX_WARP_REQUEST_QUEUE: usize = 20;
