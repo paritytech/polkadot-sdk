@@ -574,10 +574,12 @@ enum ConfigValue {
 
 impl syn::parse::Parse for ConfigValue {
 	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-		if input.peek(keyword::with_default) {
-			Ok(ConfigValue::WithDefault(input.parse()?))
+		let lookahead = input.lookahead1();
+
+		if lookahead.peek(keyword::with_default) {
+			input.parse().map(ConfigValue::WithDefault)
 		} else if input.peek(keyword::without_metadata) {
-			Ok(ConfigValue::WithoutMetadata(input.parse()?))
+			input.parse().map(ConfigValue::WithoutMetadata)
 		} else {
 			Err(input.error("expected `with_default` or `without_metadata`"))
 		}
