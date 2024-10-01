@@ -577,7 +577,7 @@ fn teleport_to_untrusted_chain_fails() {
 		]);
 		let result = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
 			signed_origin,
-			bx!(xcm::VersionedXcm::V4(xcm)),
+			bx!(xcm::VersionedXcm::from(xcm)),
 			Weight::MAX,
 		);
 		assert!(result.is_err());

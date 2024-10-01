@@ -335,14 +335,14 @@ pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	crate::AssetConversion,
 	crate::NativeAndAssets,
 	(
-		TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance, xcm::v4::Location>,
+		TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance, xcm::v5::Location>,
 		ForeignAssetsConvertedConcreteId,
 		// `ForeignAssetsConvertedConcreteId` excludes the relay token, so we add it back here.
 		MatchedConvertedConcreteId<
-			xcm::v4::Location,
+			xcm::v5::Location,
 			Balance,
 			Equals<ParentLocation>,
-			WithLatestLocationConverter<xcm::v4::Location>,
+			WithLatestLocationConverter<xcm::v5::Location>,
 			TryConvertInto,
 		>,
 	),
