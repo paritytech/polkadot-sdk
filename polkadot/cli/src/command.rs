@@ -378,8 +378,7 @@ pub fn run() -> Result<()> {
 					.into()),
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|mut config| {
-					let (client, backend, _, _) =
-						polkadot_service::new_chain_ops(&mut config, None)?;
+					let (client, backend, _, _) = polkadot_service::new_chain_ops(&mut config)?;
 					let db = backend.expose_db();
 					let storage = backend.expose_storage();
 
