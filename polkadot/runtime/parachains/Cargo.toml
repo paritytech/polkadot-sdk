@@ -19,8 +19,6 @@ serde = { features = ["alloc", "derive"], workspace = true }
 derive_more = { workspace = true, default-features = true }
 bitflags = { workspace = true }
 
-sc-network = { workspace = true }
-
 sp-api = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
