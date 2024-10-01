@@ -33,8 +33,7 @@ impl TransactionLegacyUnsigned {
 }
 
 impl TransactionLegacySigned {
-	/// Create a signed transaction from an [`TransactionLegacyUnsigned`] and a
-	/// [`RecoverableSignature`].
+	/// Create a signed transaction from an [`TransactionLegacyUnsigned`] and a signature.
 	pub fn from(
 		transaction_legacy_unsigned: TransactionLegacyUnsigned,
 		signature: &[u8; 65],
