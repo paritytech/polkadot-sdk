@@ -315,7 +315,6 @@ impl OverseerGen for SuggestGarbageCandidates {
 			FakeCandidateValidation::BackingAndApprovalValid,
 			FakeCandidateValidationError::InvalidOutputs,
 			fake_valid_probability,
-			SpawnGlue(args.spawner.clone()),
 		);
 
 		validator_overseer_builder(
