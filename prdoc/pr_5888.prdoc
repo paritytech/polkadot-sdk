@@ -1,12 +1,14 @@
 title: 'parachain-system: send core selector ump signal'
-doc:
-- audience: TODO
-  description: |-
-    Runtime side of https://github.com/paritytech/polkadot-sdk/issues/5048
 
-    Send the core selector ump signal in cumulus. Guarded by a compile time feature until nodes are upgraded to a version that includes https://github.com/paritytech/polkadot-sdk/pull/5423 for gracefully handling ump signals.
+doc:
+  - audience: Runtime Dev
+    description: |
+      Send the core selector ump signal in cumulus. Guarded by a compile time feature called `experimental-ump-signals`
+      until nodes are upgraded to a version that includes https://github.com/paritytech/polkadot-sdk/pull/5423 for
+      gracefully handling ump signals.
+
 crates:
-- name: cumulus-client-consensus-aura
-  bump: TODO
-- name: cumulus-pallet-parachain-system
-  bump: TODO
+  - name: cumulus-client-consensus-aura
+    bump: minor
+  - name: cumulus-pallet-parachain-system
+    bump: major
