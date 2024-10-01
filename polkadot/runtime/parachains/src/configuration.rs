@@ -377,7 +377,7 @@ where
 			})
 		}
 
-		if self.max_pov_size > sc_network::MAX_RESPONSE_SIZE {
+		if self.max_pov_size as u64 > sc_network::MAX_RESPONSE_SIZE {
 			return Err(MaxPovSizeExceedHardLimit { max_pov_size: self.max_pov_size })
 		}
 
