@@ -194,15 +194,14 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          release="${{ needs.validate-inputs.outputs.VERSION }}" && \
+          release="${{ needs.validate-inputs.outputs.stable_tag }}" && \
           echo "release=${release}" >> $GITHUB_OUTPUT
 
           commit=$(git rev-parse --short HEAD) && \
           echo "commit=${commit}" >> $GITHUB_OUTPUT
 
-          tag=$(git name-rev --tags --name-only $(git rev-parse HEAD)) && \
-          [ "${tag}" != "undefined" ] && echo "tag=${tag}" >> $GITHUB_OUTPUT || \
-          echo "No tag, doing without"
+          tag="${{ needs.validate-inputs.outputs.version }}" && \
+          echo "tag=${tag}" >> $GITHUB_OUTPUT
 
       - name: Fetch release tags
         working-directory: release-artifacts
