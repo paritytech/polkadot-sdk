@@ -6,7 +6,6 @@
     "header": "substrate/HEADER-APACHE2",
     "template": "substrate/.maintain/frame-weight-template.hbs",
     "bench_features": "runtime-benchmarks,riscv",
-    "genesis_builder_preset": "none",
     "uri": null,
     "is_relay": false
   },
@@ -18,7 +17,6 @@
     "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs",
     "uri": "wss://try-runtime-westend.polkadot.io:443",
     "bench_features": "runtime-benchmarks",
-    "genesis_builder_preset": "development",
     "is_relay": true
   },
   {
@@ -29,7 +27,6 @@
     "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs",
     "uri": "wss://try-runtime-rococo.polkadot.io:443",
     "bench_features": "runtime-benchmarks",
-    "genesis_builder_preset": "development",
     "is_relay": true
   },
   {
@@ -40,7 +37,6 @@
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "bench_features": "runtime-benchmarks",
     "uri": "wss://westend-asset-hub-rpc.polkadot.io:443",
-    "genesis_builder_preset": "development",
     "is_relay": false
   },
   {
@@ -51,7 +47,6 @@
     "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-asset-hub-rpc.polkadot.io:443",
-    "genesis_builder_preset": "development",
     "is_relay": false
   },
   {
@@ -62,7 +57,6 @@
     "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-bridge-hub-rpc.polkadot.io:443",
-    "genesis_builder_preset": "development",
     "is_relay": false
   },
   {
@@ -73,7 +67,6 @@
     "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://westend-bridge-hub-rpc.polkadot.io:443",
-    "genesis_builder_preset": "development",
     "is_relay": false
   },
   {
@@ -83,9 +76,7 @@
     "header": "cumulus/file_header.txt",
     "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
-    "uri": "wss://westend-collectives-rpc.polkadot.io:443",
-    "genesis_builder_preset": "development",
-    "is_relay": false
+    "uri": "wss://westend-collectives-rpc.polkadot.io:443"
   },
   {
     "name": "contracts-rococo",
@@ -95,7 +86,6 @@
     "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-contracts-rpc.polkadot.io:443",
-    "genesis_builder_preset": "none",
     "is_relay": false
   },
   {
@@ -106,7 +96,6 @@
     "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-coretime-rpc.polkadot.io:443",
-    "genesis_builder_preset": "none",
     "is_relay": false
   },
   {
@@ -117,7 +106,6 @@
     "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://westend-coretime-rpc.polkadot.io:443",
-    "genesis_builder_preset": "none",
     "is_relay": false
   },
   {
@@ -128,7 +116,6 @@
     "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": null,
-    "genesis_builder_preset": "none",
     "is_relay": false
   },
   {
@@ -139,7 +126,6 @@
     "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://rococo-people-rpc.polkadot.io:443",
-    "genesis_builder_preset": "none",
     "is_relay": false
   },
   {
@@ -150,7 +136,6 @@
     "bench_features": "runtime-benchmarks",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "uri": "wss://westend-people-rpc.polkadot.io:443",
-    "genesis_builder_preset": "none",
     "is_relay": false
   }
 ]

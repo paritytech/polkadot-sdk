@@ -104,7 +104,7 @@ def main():
             print(f'-- listing pallets for benchmark for {runtime["name"]}')
             wasm_file = f"target/{profile}/wbuild/{runtime['package']}/{runtime['package'].replace('-', '_')}.wasm"
             output = os.popen(
-                f"frame-omni-bencher v1 benchmark pallet --no-csv-header --no-storage-info --no-min-squares --no-median-slopes --all --list --runtime={wasm_file} --genesis-builder-preset={runtime['genesis_builder_preset']}").read()
+                f"frame-omni-bencher v1 benchmark pallet --no-csv-header --no-storage-info --no-min-squares --no-median-slopes --all --list --runtime={wasm_file}").read()
             raw_pallets = output.strip().split('\n')
 
             all_pallets = set()
@@ -182,8 +182,7 @@ def main():
                     f"--repeat=20 " \
                     f"--heap-pages=4096 " \
                     f"{f'--template={template} ' if template else ''}" \
-                    f"--no-storage-info --no-min-squares --no-median-slopes" \
-                    f"--genesis-builder-preset={config['genesis_builder_preset']}"
+                    f"--no-storage-info --no-min-squares --no-median-slopes"
                 print(f'-- Running: {cmd} \n')
                 status = os.system(cmd)
                 if status != 0 and not args.continue_on_fail:
