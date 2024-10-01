@@ -89,7 +89,7 @@ pub fn new_test_ext_with_pairs(
 	with_ring_context: bool,
 ) -> (Vec<AuthorityPair>, sp_io::TestExternalities) {
 	let pairs = (0..authorities_len)
-		.map(|i| AuthorityPair::from_seed(&U256::from(i).into()))
+		.map(|i| AuthorityPair::from_seed(&U256::from(i).to_little_endian()))
 		.collect::<Vec<_>>();
 
 	let authorities: Vec<_> = pairs.iter().map(|p| p.public()).collect();

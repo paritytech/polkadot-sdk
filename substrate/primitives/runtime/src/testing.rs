@@ -31,7 +31,6 @@ use crate::{
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
 use sp_core::{
 	crypto::{key_types, ByteArray, CryptoType, Dummy},
-	U256,
 };
 pub use sp_core::{sr25519, H256};
 use std::{
@@ -79,7 +78,8 @@ impl From<UintAuthorityId> for u64 {
 impl UintAuthorityId {
 	/// Convert this authority ID into a public key.
 	pub fn to_public_key<T: ByteArray>(&self) -> T {
-		let bytes: [u8; 32] = U256::from(self.0).into();
+		let mut bytes = [0u8; 32];
+		bytes[0..8].copy_from_slice(&self.0.to_le_bytes());
 		T::from_slice(&bytes).unwrap()
 	}
 }
