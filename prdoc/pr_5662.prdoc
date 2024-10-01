@@ -1,0 +1,11 @@
+title: "pallet-revive-fixtures: update build flags and add envvar knobs"
+doc:
+  - audience: Runtime Dev
+    description: |-
+      This PR updates the build flags for pallet revive fixtures (the symbol export hack thingy is not necessary anymore since a long time ago) and adds a few knobs to customize the build:
+      `PALLET_REVIVE_FIXTURES_RUSTUP_TOOLCHAIN` - to force a particular toolchain to be used
+      `PALLET_REVIVE_FIXTURES_STRIP` - whether the program blobs should be stripped
+      `PALLET_REVIVE_FIXTURES_OPTIMIZE` - whether the program blobs should be optimized
+crates:
+  - name: pallet-revive-fixtures
+    bump: patch

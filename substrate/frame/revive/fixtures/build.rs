@@ -32,6 +32,10 @@ mod build {
 		process::Command,
 	};
 
+	const OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_RUSTUP_TOOLCHAIN";
+	const OVERRIDE_STRIP_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_STRIP";
+	const OVERRIDE_OPTIMIZE_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_OPTIMIZE";
+
 	/// A contract entry.
 	struct Entry {
 		/// The path to the contract source file.
@@ -115,18 +119,23 @@ mod build {
 
 	fn invoke_build(current_dir: &Path) -> Result<()> {
 		let encoded_rustflags = [
+			"-Ctarget-feature=+lui-addi-fusion",
 			"-Crelocation-model=pie",
 			"-Clink-arg=--emit-relocs",
-			"-Clink-arg=--export-dynamic-symbol=__polkavm_symbol_export_hack__*",
+			"-Clink-arg=--unique",
 		]
 		.join("\x1f");
+
+		let toolchain = std::env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR)
+			.ok()
+			.unwrap_or(String::from("rve-nightly"));
 
 		let build_res = Command::new(env::var("CARGO")?)
 			.current_dir(current_dir)
 			.env_clear()
 			.env("PATH", env::var("PATH").unwrap_or_default())
 			.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
-			.env("RUSTUP_TOOLCHAIN", "rve-nightly")
+			.env("RUSTUP_TOOLCHAIN", &toolchain)
 			.env("RUSTC_BOOTSTRAP", "1")
 			.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap_or_default())
 			.args([
@@ -157,9 +166,12 @@ mod build {
 
 	/// Post-process the compiled code.
 	fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
+		let strip = std::env::var(OVERRIDE_STRIP_ENV_VAR).map_or(true, |value| value == "1");
+		let optimize = std::env::var(OVERRIDE_OPTIMIZE_ENV_VAR).map_or(false, |value| value == "1");
+
 		let mut config = polkavm_linker::Config::default();
-		config.set_strip(true);
-		config.set_optimize(false);
+		config.set_strip(strip);
+		config.set_optimize(optimize);
 		let orig =
 			fs::read(input_path).with_context(|| format!("Failed to read {:?}", input_path))?;
 		let linked = polkavm_linker::program_from_elf(config, orig.as_ref())
@@ -184,6 +196,10 @@ mod build {
 		let contracts_dir = fixtures_dir.join("contracts");
 		let uapi_dir = fixtures_dir.parent().expect("uapi dir exits; qed").join("uapi");
 		let out_dir: PathBuf = env::var("OUT_DIR")?.into();
+
+		println!("cargo::rerun-if-env-changed={OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR}");
+		println!("cargo::rerun-if-env-changed={OVERRIDE_STRIP_ENV_VAR}");
+		println!("cargo::rerun-if-env-changed={OVERRIDE_OPTIMIZE_ENV_VAR}");
 
 		// the fixtures have a dependency on the uapi crate
 		println!("cargo::rerun-if-changed={}", fixtures_dir.display());
