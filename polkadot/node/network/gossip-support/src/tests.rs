@@ -16,12 +16,11 @@
 
 //! Unit tests for Gossip Support Subsystem.
 
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashSet, sync::LazyLock, time::Duration};
 
 use assert_matches::assert_matches;
 use async_trait::async_trait;
 use futures::{executor, future, Future};
-use lazy_static::lazy_static;
 use quickcheck::quickcheck;
 use rand::seq::SliceRandom as _;
 
@@ -56,39 +55,29 @@ const AUTHORITY_KEYRINGS: &[Sr25519Keyring] = &[
 	Sr25519Keyring::Ferdie,
 ];
 
-lazy_static! {
-	static ref AUTHORITIES: Vec<AuthorityDiscoveryId> =
-		AUTHORITY_KEYRINGS.iter().map(|k| k.public().into()).collect();
+static AUTHORITIES: LazyLock<Vec<AuthorityDiscoveryId>> =
+	LazyLock::new(|| AUTHORITY_KEYRINGS.iter().map(|k| k.public().into()).collect());
 
-	static ref AUTHORITIES_WITHOUT_US: Vec<AuthorityDiscoveryId> = {
-		let mut a = AUTHORITIES.clone();
-		a.pop(); // remove FERDIE.
-		a
-	};
+static AUTHORITIES_WITHOUT_US: LazyLock<Vec<AuthorityDiscoveryId>> = LazyLock::new(|| {
+	let mut a = AUTHORITIES.clone();
+	a.pop(); // remove FERDIE.
+	a
+});
 
-	static ref PAST_PRESENT_FUTURE_AUTHORITIES: Vec<AuthorityDiscoveryId> = {
-		(0..50)
-			.map(|_| AuthorityDiscoveryPair::generate().0.public())
-			.chain(AUTHORITIES.clone())
-			.collect()
-	};
+static PAST_PRESENT_FUTURE_AUTHORITIES: LazyLock<Vec<AuthorityDiscoveryId>> = LazyLock::new(|| {
+	(0..50)
+		.map(|_| AuthorityDiscoveryPair::generate().0.public())
+		.chain(AUTHORITIES.clone())
+		.collect()
+});
 
-	// [2 6]
-	// [4 5]
-	// [1 3]
-	// [0  ]
+static EXPECTED_SHUFFLING: LazyLock<Vec<usize>> = LazyLock::new(|| vec![6, 4, 0, 5, 2, 3, 1]);
 
-	static ref EXPECTED_SHUFFLING: Vec<usize> = vec![6, 4, 0, 5, 2, 3, 1];
+static ROW_NEIGHBORS: LazyLock<Vec<ValidatorIndex>> =
+	LazyLock::new(|| vec![ValidatorIndex::from(2)]);
 
-	static ref ROW_NEIGHBORS: Vec<ValidatorIndex> = vec![
-		ValidatorIndex::from(2),
-	];
-
-	static ref COLUMN_NEIGHBORS: Vec<ValidatorIndex> = vec![
-		ValidatorIndex::from(3),
-		ValidatorIndex::from(5),
-	];
-}
+static COLUMN_NEIGHBORS: LazyLock<Vec<ValidatorIndex>> =
+	LazyLock::new(|| vec![ValidatorIndex::from(3), ValidatorIndex::from(5)]);
 
 type VirtualOverseer =
 	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<GossipSupportMessage>;
