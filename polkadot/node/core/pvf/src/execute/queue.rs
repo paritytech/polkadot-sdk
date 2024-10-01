@@ -292,7 +292,7 @@ impl Queue {
 					?deadline,
 					"Job exceeded its deadline and was dropped without execution",
 				);
-				return
+				return self.try_assign_next_job(finished_worker);
 			}
 		}
 
