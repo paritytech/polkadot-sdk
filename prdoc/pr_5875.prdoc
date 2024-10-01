@@ -42,4 +42,4 @@ crates:
   - name: cumulus-relay-chain-inprocess-interface
     bump: minor
   - name: polkadot-cli
-    bump: minor  
+    bump: minor
