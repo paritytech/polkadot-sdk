@@ -1301,7 +1301,7 @@ substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
 subxt = { version = "0.37", default-features = false }
 subxt-signer = { version = "0.37" }
-syn = { version = "2.0.77" }
+syn = { version = "2.0.79" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }
