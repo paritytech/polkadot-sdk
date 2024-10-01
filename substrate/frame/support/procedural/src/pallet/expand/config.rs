@@ -112,7 +112,7 @@ pub fn expand_config_metadata(def: &Def) -> proc_macro2::TokenStream {
 
 	let types = def.config.associated_types_metadata.iter().map(|metadata| {
 		let ident = &metadata.ident;
-		let ident_str = format!("{}", ident);
+		let ident_str = ident.to_string();
 		let cfgs = &metadata.cfg;
 
 		let no_docs = vec![];
