@@ -92,6 +92,9 @@ mod sync_verifier {
 			let msp = crate::Pallet::<T>::msp();
 			assert!(msp == <T as crate::Config>::Pages::get() - 1 && msp == 2);
 
+			// run to snapshot phase to reset `RemainingUnsignedPages`.
+			roll_to_phase(Phase::Snapshot(crate::Pallet::<T>::lsp()));
+
 			// msp page is the next missing.
 			assert_eq!(<VerifierPallet as Verifier>::next_missing_solution_page(), Some(msp));
 

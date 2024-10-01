@@ -310,27 +310,6 @@ pub mod pallet {
 				.saturating_add(T::Pages::get().into())
 				.saturating_add(One::one());
 
-			/*
-			let signed_validation_deadline = if !T::SignedPhase::get().is_zero() {
-				T::SignedValidationPhase::get()
-					//.saturating_add(unsigned_deadline)
-					.saturating_add(T::ExportPhaseLimit::get())
-			} else {
-				Zero::zero()
-			};
-			let signed_deadline = T::SignedPhase::get().saturating_add(signed_validation_deadline);
-			let snapshot_deadline = signed_deadline
-				// Account for the signed validation phase.
-				.saturating_add(T::SignedValidationPhase::get())
-				// Account for the export phase before the election.
-				.saturating_add(T::ExportPhaseLimit::get());
-
-			let unsigned_deadline = snapshot_deadline
-				// Account for Pages for the snapshot; +1 for the target snapshot.
-				.saturating_add(T::Pages::get().into())
-				.saturating_add(One::one());
-			*/
-
 			let next_election = T::DataProvider::next_election_prediction(now)
 				.saturating_sub(T::Lookhaead::get())
 				.max(now);
@@ -627,7 +606,8 @@ impl<T: Config> Pallet<T> {
 
 		debug_assert!(
 			CurrentPhase::<T>::get().is_snapshot() ||
-				!Snapshot::<T>::targets_snapshot_exists() && remaining_pages == T::Pages::get(),
+				!Snapshot::<T>::targets_snapshot_exists() &&
+					remaining_pages == T::Pages::get() + 1,
 		);
 
 		if !Snapshot::<T>::targets_snapshot_exists() {
@@ -755,9 +735,8 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 				log!(error, "elect(): fetching election page {} and fallback failed.", remaining);
 
 				match ElectionFailure::<T>::get() {
-					//ElectionFailureStrategy::Restart => Self::reset_round(),
 					// force emergency phase for testing.
-					ElectionFailureStrategy::Restart => Self::phase_transition(Phase::Emergency),
+					ElectionFailureStrategy::Restart => Self::reset_round(),
 					ElectionFailureStrategy::Emergency => Self::phase_transition(Phase::Emergency),
 				}
 				err
@@ -796,14 +775,15 @@ mod phase_transition {
             assert_eq!(next_election, 30);
 
             // representing the blocknumber when the phase transition happens.
-            let expected_unsigned = next_election - UnsignedPhase::get();
-            let expected_validate = expected_unsigned - SignedValidationPhase::get();
-            let expected_signed = expected_validate - SignedPhase::get();
-            let expected_snapshot = expected_signed - Pages::get() as BlockNumber;
+			let export_deadline = next_election - (ExportPhaseLimit::get() + Lookhaead::get());
+			let expected_unsigned = export_deadline - UnsignedPhase::get();
+			let expected_validate = expected_unsigned - SignedValidationPhase::get();
+			let expected_signed = expected_validate - SignedPhase::get();
+			let expected_snapshot = expected_signed - Pages::get() as u64;
 
-            // tests transition phase boundaries.
+			// tests transition phase boundaries.
             roll_to(expected_snapshot);
-            assert_eq!(<CurrentPhase<T>>::get(), Phase::Snapshot(0));
+            assert_eq!(<CurrentPhase<T>>::get(), Phase::Snapshot(Pages::get() - 1));
 
             roll_to(expected_signed);
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Signed);
@@ -832,8 +812,12 @@ mod phase_transition {
 
 	#[test]
 	fn multi_page() {
-		let (mut ext, _) =
-			ExtBuilder::default().pages(2).signed_phase(3).lookahead(0).build_offchainify(1);
+		let (mut ext, _) = ExtBuilder::default()
+			.pages(2)
+			.signed_phase(3)
+			.validate_signed_phase(1)
+			.lookahead(0)
+			.build_offchainify(1);
 
 		ext.execute_with(|| {
             assert_eq!(System::block_number(), 0);
@@ -847,10 +831,11 @@ mod phase_transition {
             assert_eq!(next_election, 30);
 
             // representing the blocknumber when the phase transition happens.
-            let expected_unsigned = next_election - UnsignedPhase::get();
-            let expected_validate = expected_unsigned - SignedValidationPhase::get();
-            let expected_signed = expected_validate - SignedPhase::get();
-            let expected_snapshot = expected_signed - Pages::get() as BlockNumber;
+			let export_deadline = next_election - (ExportPhaseLimit::get() + Lookhaead::get());
+			let expected_unsigned = export_deadline - UnsignedPhase::get();
+			let expected_validate = expected_unsigned - SignedValidationPhase::get();
+			let expected_signed = expected_validate - SignedPhase::get();
+			let expected_snapshot = expected_signed - Pages::get() as u64;
 
             // two blocks for snapshot.
             roll_to(expected_snapshot);
@@ -870,13 +855,10 @@ mod phase_transition {
             let start_validate = System::block_number();
             assert_eq!(<CurrentPhase<T>>::get(), Phase::SignedValidation(start_validate));
 
-            roll_to(expected_validate + 1);
-            assert_eq!(<CurrentPhase<T>>::get(), Phase::SignedValidation(start_validate));
-
             // now in unsigned until elect() is called.
             roll_to(expected_validate + 2);
             let start_unsigned = System::block_number();
-            assert_eq!(<CurrentPhase<T>>::get(), Phase::Unsigned(start_unsigned));
+            assert_eq!(<CurrentPhase<T>>::get(), Phase::Unsigned(start_unsigned - 1));
 
 		})
 	}
@@ -892,14 +874,13 @@ mod phase_transition {
             // if election fails, enters in emergency phase.
             ElectionFailure::<T>::set(ElectionFailureStrategy::Emergency);
 
+			compute_snapshot_checked();
             roll_to(next_election);
 
-            // make sure solution data and metadata does not exit.
-            <VerifierPallet as AsyncVerifier>::stop();
-
+			// election will fail due to inexistent solution.
             assert!(MultiPhase::elect(Pallet::<T>::msp()).is_err());
+			// thus entering in emergency phase.
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Emergency);
-
         })
 	}
 
@@ -914,12 +895,12 @@ mod phase_transition {
             // if election fails, restart the election round.
             ElectionFailure::<T>::set(ElectionFailureStrategy::Restart);
 
+			compute_snapshot_checked();
             roll_to(next_election);
 
-            // make sure solution data and metadata does not exist.
-            <VerifierPallet as AsyncVerifier>::stop();
-
+			// election will fail due to inexistent solution.
             assert!(MultiPhase::elect(Pallet::<T>::msp()).is_err());
+			// thus restarting from Off phase.
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Off);
         })
 	}

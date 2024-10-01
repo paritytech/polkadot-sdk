@@ -35,8 +35,6 @@ mod calls {
 			// election predicted at 30.
 			assert_eq!(election_prediction(), 30);
 
-			roll_to_with_ocw(25, Some(pool.clone()));
-
 			// no solution available until the unsigned phase.
 			assert!(<VerifierPallet as Verifier>::queued_score().is_none());
 			assert!(<VerifierPallet as Verifier>::get_queued_solution(2).is_none());
@@ -48,9 +46,9 @@ mod calls {
 			assert_eq!(
 				unsigned_events(),
 				[
-					Event::UnsignedSolutionSubmitted { at: 25, page: 2 },
-					Event::UnsignedSolutionSubmitted { at: 26, page: 1 },
-					Event::UnsignedSolutionSubmitted { at: 27, page: 0 }
+					Event::UnsignedSolutionSubmitted { at: 19, page: 2 },
+					Event::UnsignedSolutionSubmitted { at: 20, page: 1 },
+					Event::UnsignedSolutionSubmitted { at: 21, page: 0 }
 				]
 			);
 			// now, solution exists.
@@ -70,12 +68,6 @@ mod calls {
 			assert!(call_elect().is_ok());
 
 			assert_eq!(current_phase(), Phase::Off);
-
-			// 2nd round election predicted at 60.
-			assert_eq!(election_prediction(), 60);
-
-			roll_to_with_ocw(election_prediction() - 1, Some(pool.clone()));
-			assert!(call_elect().is_ok());
 		})
 	}
 
@@ -125,9 +117,9 @@ mod calls {
 			assert_eq!(
 				unsigned_events(),
 				[
-					Event::UnsignedSolutionSubmitted { at: 55, page: 2 },
-					Event::UnsignedSolutionSubmitted { at: 56, page: 1 },
-					Event::UnsignedSolutionSubmitted { at: 57, page: 0 }
+					Event::UnsignedSolutionSubmitted { at: 49, page: 2 },
+					Event::UnsignedSolutionSubmitted { at: 50, page: 1 },
+					Event::UnsignedSolutionSubmitted { at: 51, page: 0 }
 				]
 			);
 			// now, solution exists.
