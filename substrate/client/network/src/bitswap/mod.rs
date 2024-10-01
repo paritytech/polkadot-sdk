@@ -37,7 +37,7 @@ use schema::bitswap::{
 	Message as BitswapMessage,
 };
 use sp_runtime::traits::Block as BlockT;
-use std::{io, sync::Arc, time::Duration};
+use std::{io, pin::Pin, sync::Arc, time::Duration};
 use unsigned_varint::encode as varint_encode;
 
 mod schema;
@@ -95,7 +95,7 @@ impl Prefix {
 /// Bitswap request handler
 pub struct BitswapRequestHandler<B> {
 	client: Arc<dyn BlockBackend<B> + Send + Sync>,
-	request_receiver: async_channel::Receiver<IncomingRequest>,
+	request_receiver: Pin<Box<async_channel::Receiver<IncomingRequest>>>,
 }
 
 impl<B: BlockT> BitswapRequestHandler<B> {
@@ -112,7 +112,7 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 			inbound_queue: Some(tx),
 		};
 
-		(Self { client, request_receiver }, config)
+		(Self { client, request_receiver: Box::pin(request_receiver) }, config)
 	}
 
 	/// Run [`BitswapRequestHandler`].

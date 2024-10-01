@@ -612,7 +612,7 @@ asset-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-test
 asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend" }
 asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", default-features = false }
 assets-common = { path = "cumulus/parachains/runtimes/assets/common", default-features = false }
-async-channel = { version = "1.8.0" }
+async-channel = { version = "2.3.1" }
 async-std = { version = "1.9.0" }
 async-trait = { version = "0.1.79" }
 asynchronous-codec = { version = "0.6" }

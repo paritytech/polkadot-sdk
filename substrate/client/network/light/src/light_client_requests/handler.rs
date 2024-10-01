@@ -39,7 +39,7 @@ use sp_core::{
 	storage::{ChildInfo, ChildType, PrefixedStorageKey},
 };
 use sp_runtime::traits::Block;
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, pin::Pin, sync::Arc};
 
 const LOG_TARGET: &str = "light-client-request-handler";
 
@@ -49,7 +49,7 @@ const MAX_LIGHT_REQUEST_QUEUE: usize = 20;
 
 /// Handler for incoming light client requests from a remote peer.
 pub struct LightClientRequestHandler<B, Client> {
-	request_receiver: async_channel::Receiver<IncomingRequest>,
+	request_receiver: Pin<Box<async_channel::Receiver<IncomingRequest>>>,
 	/// Blockchain client.
 	client: Arc<Client>,
 	_block: PhantomData<B>,
@@ -79,7 +79,14 @@ where
 			tx,
 		);
 
-		(Self { client, request_receiver, _block: PhantomData::default() }, protocol_config)
+		(
+			Self {
+				client,
+				request_receiver: Box::pin(request_receiver),
+				_block: PhantomData::default(),
+			},
+			protocol_config,
+		)
 	}
 
 	/// Run [`LightClientRequestHandler`].

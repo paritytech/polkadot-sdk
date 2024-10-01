@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::marker::PhantomData;
+use std::{marker::PhantomData, pin::Pin};
 
 use futures::{channel::oneshot, StreamExt};
 
@@ -58,7 +58,7 @@ where
 		req_protocol_names: &ReqProtocolNames,
 	) -> (IncomingRequestReceiver<Req>, N::RequestResponseProtocolConfig) {
 		let (raw, cfg) = Req::PROTOCOL.get_config::<B, N>(req_protocol_names);
-		(IncomingRequestReceiver { raw, phantom: PhantomData {} }, cfg)
+		(IncomingRequestReceiver { raw: Box::pin(raw), phantom: PhantomData {} }, cfg)
 	}
 
 	/// Create new `IncomingRequest`.
@@ -206,7 +206,7 @@ pub struct OutgoingResponse<Response> {
 ///
 /// Takes care of decoding and handling of invalid encoded requests.
 pub struct IncomingRequestReceiver<Req> {
-	raw: async_channel::Receiver<netconfig::IncomingRequest>,
+	raw: Pin<Box<async_channel::Receiver<netconfig::IncomingRequest>>>,
 	phantom: PhantomData<Req>,
 }
 

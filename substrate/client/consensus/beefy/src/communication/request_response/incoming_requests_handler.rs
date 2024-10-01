@@ -27,7 +27,7 @@ use sc_network::{
 use sc_network_types::PeerId;
 use sp_consensus_beefy::BEEFY_ENGINE_ID;
 use sp_runtime::traits::Block;
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, pin::Pin, sync::Arc};
 
 use crate::{
 	communication::{
@@ -100,12 +100,12 @@ impl<B: Block> IncomingRequest<B> {
 ///
 /// Takes care of decoding and handling of invalid encoded requests.
 pub(crate) struct IncomingRequestReceiver {
-	raw: async_channel::Receiver<netconfig::IncomingRequest>,
+	raw: Pin<Box<async_channel::Receiver<netconfig::IncomingRequest>>>,
 }
 
 impl IncomingRequestReceiver {
 	pub fn new(inner: async_channel::Receiver<netconfig::IncomingRequest>) -> Self {
-		Self { raw: inner }
+		Self { raw: Box::pin(inner) }
 	}
 
 	/// Try to receive the next incoming request.

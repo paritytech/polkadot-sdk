@@ -61,7 +61,7 @@ pub fn channel(name: &'static str, queue_size_warning: usize) -> (Sender, Receiv
 		creation_backtrace: Backtrace::force_capture(),
 		metrics: None,
 	};
-	let rx = Receiver { inner: rx, name, metrics: None };
+	let rx = Receiver { inner: Box::pin(rx), name, metrics: None };
 	(tx, rx)
 }
 
@@ -115,7 +115,7 @@ impl Drop for Sender {
 
 /// Receiving side of a channel.
 pub struct Receiver {
-	inner: async_channel::Receiver<Event>,
+	inner: Pin<Box<async_channel::Receiver<Event>>>,
 	name: &'static str,
 	/// Initially contains `None`, and will be set to a value once the corresponding [`Sender`]
 	/// is assigned to an instance of [`OutChannels`].
@@ -126,7 +126,7 @@ impl Stream for Receiver {
 	type Item = Event;
 
 	fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Event>> {
-		if let Some(ev) = ready!(Pin::new(&mut self.inner).poll_next(cx)) {
+		if let Some(ev) = ready!(self.inner.poll_next_unpin(cx)) {
 			if let Some(metrics) = &self.metrics {
 				metrics.event_out(&ev, self.name);
 			}

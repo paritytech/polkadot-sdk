@@ -1134,12 +1134,11 @@ dependencies = [
 
 [[package]]
 name = "async-channel"
-version = "2.3.0"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f2776ead772134d55b62dd45e59a79e21612d85d0af729b8b7d3967d601a62a"
+checksum = "89b47800b0be77592da0afd425cc03468052844aff33b84e33cc696f64e77b6a"
 dependencies = [
  "concurrent-queue",
- "event-listener 5.2.0",
  "event-listener-strategy",
  "futures-core",
  "pin-project-lite",
@@ -1303,7 +1302,7 @@ version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63255f1dc2381611000436537bbedfe83183faa303a5a0edaf191edef06526bb"
 dependencies = [
- "async-channel 2.3.0",
+ "async-channel 2.3.1",
  "async-io 2.3.3",
  "async-lock 3.4.0",
  "async-signal",
@@ -3322,9 +3321,9 @@ dependencies = [
 
 [[package]]
 name = "concurrent-queue"
-version = "2.2.0"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62ec6771ecfa0762d24683ee5a32ad78487a3d3afdc0fb8cae19d2c5deb50b7c"
+checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -14094,7 +14093,7 @@ name = "polkadot-dispute-distribution"
 version = "7.0.0"
 dependencies = [
  "assert_matches",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "async-trait",
  "derive_more",
  "fatality",
@@ -14736,7 +14735,7 @@ dependencies = [
 name = "polkadot-node-network-protocol"
 version = "7.0.0"
 dependencies = [
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "async-trait",
  "bitvec",
  "derive_more",
@@ -15861,7 +15860,7 @@ version = "7.0.0"
 dependencies = [
  "arrayvec 0.7.4",
  "assert_matches",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "bitvec",
  "fatality",
  "futures",
@@ -18719,7 +18718,7 @@ name = "sc-consensus-beefy"
 version = "13.0.0"
 dependencies = [
  "array-bytes",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "async-trait",
  "fnv",
  "futures",
@@ -19169,7 +19168,7 @@ version = "0.34.0"
 dependencies = [
  "array-bytes",
  "assert_matches",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "async-trait",
  "asynchronous-codec",
  "bytes",
@@ -19273,7 +19272,7 @@ name = "sc-network-light"
 version = "0.33.0"
 dependencies = [
  "array-bytes",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "futures",
  "log",
  "parity-scale-codec",
@@ -19293,7 +19292,7 @@ name = "sc-network-statement"
 version = "0.16.0"
 dependencies = [
  "array-bytes",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "futures",
  "log",
  "parity-scale-codec",
@@ -19312,7 +19311,7 @@ name = "sc-network-sync"
 version = "0.33.0"
 dependencies = [
  "array-bytes",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "async-trait",
  "fork-tree",
  "futures",
@@ -19668,7 +19667,7 @@ name = "sc-service-test"
 version = "2.0.0"
 dependencies = [
  "array-bytes",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "fdlimit",
  "futures",
  "log",
@@ -19892,7 +19891,7 @@ dependencies = [
 name = "sc-utils"
 version = "14.0.0"
 dependencies = [
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "futures",
  "futures-timer",
  "log",
@@ -20738,7 +20737,7 @@ version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a33bd3e260892199c3ccfc487c88b2da2265080acb316cd920da72fdfd7c599f"
 dependencies = [
- "async-channel 2.3.0",
+ "async-channel 2.3.1",
  "async-executor",
  "async-fs 2.1.2",
  "async-io 2.3.3",
@@ -20909,7 +20908,7 @@ version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5496f2d116b7019a526b1039ec2247dd172b8670633b1a64a614c9ea12c9d8c7"
 dependencies = [
- "async-channel 2.3.0",
+ "async-channel 2.3.1",
  "async-lock 3.4.0",
  "base64 0.21.7",
  "blake2-rfc",
