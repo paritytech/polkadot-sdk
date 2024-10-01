@@ -46,6 +46,10 @@ use polkadot_primitives::SchedulerParams;
 
 const LOG_TARGET: &str = "runtime::configuration";
 
+// This value is derived from network layer limits. See `sc_network::MAX_RESPONSE_SIZE` and
+// `polkadot_node_network_protocol::POV_RESPONSE_SIZE`.
+const POV_SIZE_HARD_LIMIT: u32 = 16 * 1024 * 1024;
+
 /// All configuration of the runtime with respect to paras.
 #[derive(
 	Clone,
@@ -377,7 +381,7 @@ where
 			})
 		}
 
-		if self.max_pov_size as u64 > sc_network::MAX_RESPONSE_SIZE {
+		if self.max_pov_size > POV_SIZE_HARD_LIMIT {
 			return Err(MaxPovSizeExceedHardLimit { max_pov_size: self.max_pov_size })
 		}
 
