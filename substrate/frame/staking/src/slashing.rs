@@ -50,7 +50,7 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	log, BalanceOf, Config, DisabledValidators, DisablingStrategy, Error, Exposure,
+	BalanceOf, Config, DisabledValidators, DisablingStrategy, Error, Exposure,
 	NegativeImbalanceOf, NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash,
 	UnappliedSlash, ValidatorSlashInEra,
 };
