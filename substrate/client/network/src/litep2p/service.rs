@@ -32,16 +32,15 @@ use crate::{
 	RequestFailure, Signature,
 };
 
-use sc_network_types::rec::Record;
 use codec::DecodeAll;
 use futures::{channel::oneshot, stream::BoxStream};
-use libp2p::{identity::SigningError};
-use sc_network_types::rec::Key as KademliaKey;
+use libp2p::identity::SigningError;
 use litep2p::{
 	addresses::PublicAddresses, crypto::ed25519::Keypair,
 	types::multiaddr::Multiaddr as LiteP2pMultiaddr,
 };
 use parking_lot::RwLock;
+use sc_network_types::rec::{Key as KademliaKey, Record};
 
 use sc_network_common::{
 	role::{ObservedRole, Roles},
@@ -267,12 +266,7 @@ impl NetworkDHTProvider for Litep2pNetworkService {
 		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::PutValue { key, value });
 	}
 
-	fn put_record_to(
-		&self,
-		record: Record,
-		peers: HashSet<PeerId>,
-		update_local_storage: bool,
-	) {
+	fn put_record_to(&self, record: Record, peers: HashSet<PeerId>, update_local_storage: bool) {
 		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::PutValueTo {
 			record: Record {
 				key: record.key.to_vec().into(),
