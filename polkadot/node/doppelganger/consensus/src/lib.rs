@@ -143,7 +143,11 @@ fn get_overrides() -> HashMap<Vec<u8>, Vec<u8>> {
 			hex!("02").into()
 		)
 
-		// Stakin Invulnerables
+		// Staking Invulnerables
+		(
+			hex!("5f3e4907f716ac89b6347d15ececedca5579297f4dfb9609e7e4c2ebab9ce40a").into(),
+			hex!("08be5ddb1579b72e84524fc29e78609e3caf42e85aa118ebfe0b0ad404b5bdd25ffe65717dad0447d715f660a0a58411de509b42e6efb8375f562f58a554d5860e")
+		)
 
 		// System Accounts?
 	]);
