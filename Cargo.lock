@@ -15833,6 +15833,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "polkadot-subsystem-bench",
  "rand_chacha",
+ "rstest",
  "sc-keystore",
  "sc-network",
  "sp-application-crypto 30.0.0",

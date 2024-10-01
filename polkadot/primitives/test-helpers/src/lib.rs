@@ -23,13 +23,13 @@
 //! Note that `dummy_` prefixed values are meant to be fillers, that should not matter, and will
 //! contain randomness based data.
 use polkadot_primitives::{
-	vstaging::{CandidateDescriptorV2, CandidateReceiptV2, CommittedCandidateReceiptV2},
+	vstaging::{CandidateDescriptorV2, CandidateReceiptV2, CommittedCandidateReceiptV2, MutateDescriptorV2},
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, CollatorId, CollatorSignature,
 	CommittedCandidateReceipt, CoreIndex, Hash, HeadData, Id as ParaId, PersistedValidationData,
 	SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
 };
 pub use rand;
-use sp_application_crypto::sr25519;
+use sp_application_crypto::{sr25519, ByteArray};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::generic::Digest;
 
@@ -199,9 +199,11 @@ pub fn dummy_collator() -> CollatorId {
 	CollatorId::from(sr25519::Public::default())
 }
 
-/// Create a meaningless collator signature.
+/// Create a meaningless collator signature. It is important to not be 0, as we'd confuse
+/// v1 and v2 descriptors.
 pub fn dummy_collator_signature() -> CollatorSignature {
-	CollatorSignature::from(sr25519::Signature::default())
+	CollatorSignature::from_slice(&mut (0..64).into_iter().collect::<Vec<_>>().as_slice())
+		.expect("64 bytes; qed")
 }
 
 /// Create a meaningless persisted validation data.
@@ -246,6 +248,37 @@ pub fn make_candidate(
 	candidate.descriptor.validation_code_hash = validation_code_hash;
 	let candidate =
 		CommittedCandidateReceiptV2 { descriptor: candidate.descriptor.into(), commitments };
+
+	(candidate, pvd)
+}
+
+
+/// Create a meaningless v2 candidate, returning its receipt and PVD.
+pub fn make_candidate_v2(
+	relay_parent_hash: Hash,
+	relay_parent_number: u32,
+	para_id: ParaId,
+	parent_head: HeadData,
+	head_data: HeadData,
+	validation_code_hash: ValidationCodeHash,
+) -> (CommittedCandidateReceiptV2, PersistedValidationData) {
+	let pvd = dummy_pvd(parent_head, relay_parent_number);
+	let commitments = CandidateCommitments {
+		head_data,
+		horizontal_messages: Default::default(),
+		upward_messages: Default::default(),
+		new_validation_code: None,
+		processed_downward_messages: 0,
+		hrmp_watermark: relay_parent_number,
+	};
+
+	let mut descriptor =
+		dummy_candidate_descriptor_v2(relay_parent_hash);
+	descriptor.set_para_id(para_id);
+	descriptor.set_persisted_validation_data_hash(pvd.hash());
+	// descriptor.set_validation_code_hash(validation_code_hash);
+	let candidate =
+		CommittedCandidateReceiptV2 { descriptor, commitments };
 
 	(candidate, pvd)
 }

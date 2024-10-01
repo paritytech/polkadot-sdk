@@ -21,13 +21,18 @@ use codec::{Decode, Encode};
 use polkadot_node_network_protocol::{
 	request_response::v2 as request_v2, v2::BackedCandidateManifest,
 };
-use polkadot_primitives_test_helpers::make_candidate;
+use polkadot_primitives_test_helpers::{make_candidate, make_candidate_v2};
 use sc_network::config::{
 	IncomingRequest as RawIncomingRequest, OutgoingResponse as RawOutgoingResponse,
 };
 
-#[test]
-fn cluster_peer_allowed_to_send_incomplete_statements() {
+use polkadot_primitives::vstaging::MutateDescriptorV2;
+use rstest::rstest;
+
+#[rstest]
+#[case(false)]
+#[case(true)]
+fn cluster_peer_allowed_to_send_incomplete_statements(#[case] v2_descriptor: bool) {
 	let group_size = 3;
 	let config = TestConfig {
 		validator_count: 20,
@@ -48,14 +53,29 @@ fn cluster_peer_allowed_to_send_incomplete_statements() {
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
-		let (candidate, pvd) = make_candidate(
-			relay_parent,
-			1,
-			local_para,
-			test_leaf.para_data(local_para).head_data.clone(),
-			vec![4, 5, 6].into(),
-			Hash::repeat_byte(42).into(),
-		);
+		let (mut candidate, pvd) =
+		if v2_descriptor {
+			let (mut candidate, pvd) = make_candidate_v2(
+				relay_parent,
+				1,
+				local_para,
+				test_leaf.para_data(local_para).head_data.clone(),
+				vec![4, 5, 6].into(),
+				Hash::repeat_byte(42).into(),
+			);
+			candidate.descriptor.set_core_index(CoreIndex(local_group_index.0));
+			(candidate, pvd)
+		} else {
+			make_candidate(
+				relay_parent,
+				1,
+				local_para,
+				test_leaf.para_data(local_para).head_data.clone(),
+				vec![4, 5, 6].into(),
+				Hash::repeat_byte(42).into(),
+			)
+		};
+
 		let candidate_hash = candidate.hash();
 
 		let other_group_validators = state.group_validators(local_group_index, true);
@@ -916,6 +936,140 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
 					if p == peer_a && r == BENEFIT_VALID_RESPONSE.into() => { }
+			);
+
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
+		}
+
+		overseer
+	});
+}
+
+
+#[test]
+fn peer_reported_for_statements_with_invalid_core_index() {
+	let group_size = 3;
+	let config = TestConfig {
+		validator_count: 20,
+		group_size,
+		local_validator: LocalRole::Validator,
+		async_backing_params: None,
+	};
+
+	let relay_parent = Hash::repeat_byte(1);
+	let peer_a = PeerId::random();
+	let peer_b = PeerId::random();
+	let peer_c = PeerId::random();
+
+	test_harness(config, |state, mut overseer| async move {
+		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
+
+		let test_leaf = state.make_dummy_leaf(relay_parent);
+
+		let (mut candidate, pvd) = make_candidate_v2(
+			relay_parent,
+			1,
+			local_para,
+			test_leaf.para_data(local_para).head_data.clone(),
+			vec![4, 5, 6].into(),
+			Hash::repeat_byte(42).into(),
+		);
+		
+		candidate.descriptor.set_core_index(CoreIndex(100));
+		
+		let candidate_hash = candidate.hash();
+
+		let other_group_validators = state.group_validators(local_group_index, true);
+		let v_a = other_group_validators[0];
+		let v_b = other_group_validators[1];
+
+		// peer A is in group, has relay parent in view.
+		// peer B is in group, has no relay parent in view.
+		// peer C is not in group, has relay parent in view.
+		{
+			connect_peer(
+				&mut overseer,
+				peer_a.clone(),
+				Some(vec![state.discovery_id(other_group_validators[0])].into_iter().collect()),
+			)
+			.await;
+
+			connect_peer(
+				&mut overseer,
+				peer_b.clone(),
+				Some(vec![state.discovery_id(other_group_validators[1])].into_iter().collect()),
+			)
+			.await;
+
+			connect_peer(&mut overseer, peer_c.clone(), None).await;
+
+			send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
+			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
+		}
+
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
+
+		// Peer in cluster sends a statement, triggering a request.
+		{
+			let a_seconded = state
+				.sign_statement(
+					v_a,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+
+			send_peer_message(
+				&mut overseer,
+				peer_a.clone(),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_STATEMENT_FIRST.into() => { }
+			);
+		}
+
+		// Send a request to peer and mock its response to include invalid statements.
+		{
+			// Sign statement with wrong signing context, leading to bad signature.
+			let b_seconded_invalid = state
+				.sign_statement(
+					v_b,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+			let statements = vec![b_seconded_invalid.clone()];
+
+			handle_sent_request(
+				&mut overseer,
+				peer_a,
+				candidate_hash,
+				StatementFilter::blank(group_size),
+				candidate.clone(),
+				pvd.clone(),
+				statements,
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_RESPONSE.into() => { }
+			);
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == COST_INVALID_CORE_INDEX.into() => { }
 			);
 
 			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
