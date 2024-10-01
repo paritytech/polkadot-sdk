@@ -23,6 +23,7 @@ use std::{
 	time:: Instant,
 };
 use bytes::Bytes;
+use litep2p::protocol::libp2p::kademlia::{RecordKey, Record as LiteRecord};
 use crate::{PeerId, multihash::Multihash};
 
 /// The (opaque) key of a record.
@@ -109,6 +110,19 @@ impl From<libp2p_kad::Record> for Record {
         Record {key, value: out.value, publisher, expires: out.expires}
     }
 }
+
+impl Into<LiteRecord> for Record {
+    fn into(self) -> LiteRecord {
+        let vec: Vec<u8> = self.key.to_vec();
+        let key: RecordKey = vec.into();
+        let mut publisher: Option<litep2p::PeerId> = None;
+        if let Some(x) = self.publisher{
+            publisher = Some(x.into());
+        }
+        LiteRecord {key, value: self.value, publisher, expires: self.expires}
+    }
+}
+
 impl From<Record> for libp2p_kad::Record {
     fn from(a:Record) -> libp2p_kad::Record {
         //let key: KademliaKey = a.key.to_vec().into();
@@ -119,6 +133,10 @@ impl From<Record> for libp2p_kad::Record {
         libp2p_kad::Record {key: a.key.to_vec().into(), value: a.value, publisher: peer, expires: a.expires}
     }
 }
+
+/*impl From<libp2p_identity::SigningError> for SigningError {
+    fn from(a: )
+}*/
 
 /// A record either received by the given peer or retrieved from the local
 /// record store.

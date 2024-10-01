@@ -1130,7 +1130,7 @@ mod tests {
 		// the first swarm via `with_permanent_addresses`.
 		let mut swarms = (0..25)
 			.map(|i| {
-				let keypair = Keypair::generate_ed25519();
+				let keypair = Keypair::generate();
 
 				let transport = MemoryTransport::new()
 					.upgrade(upgrade::Version::V1)
@@ -1263,7 +1263,7 @@ mod tests {
 		let unsupported_protocol_id = ProtocolId::from("b");
 
 		let mut discovery = {
-			let keypair = Keypair::generate_ed25519();
+			let keypair = Keypair::generate();
 			let mut config = DiscoveryConfig::new(keypair.public().to_peer_id());
 			config
 				.allow_private_ip(true)

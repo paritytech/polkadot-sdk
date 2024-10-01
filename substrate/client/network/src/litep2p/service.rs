@@ -32,7 +32,7 @@ use crate::{
 	RequestFailure, Signature,
 };
 
-use crate::litep2p::Record;
+use sc_network_types::rec::Record;
 use codec::DecodeAll;
 use futures::{channel::oneshot, stream::BoxStream};
 use libp2p::{identity::SigningError};
@@ -269,7 +269,7 @@ impl NetworkDHTProvider for Litep2pNetworkService {
 
 	fn put_record_to(
 		&self,
-		record: libp2p::kad::Record,
+		record: Record,
 		peers: HashSet<PeerId>,
 		update_local_storage: bool,
 	) {

@@ -32,12 +32,11 @@ use crate::{
 };
 
 use futures::{channel::oneshot, Stream};
-use libp2p::kad::Record;
 use prometheus_endpoint::Registry;
 
 use sc_client_api::BlockBackend;
 use sc_network_common::{role::ObservedRole, ExHashT};
-pub use sc_network_types::{multiaddr::Multiaddr, PeerId, rec::Key as KademliaKey};
+pub use sc_network_types::{multiaddr::Multiaddr, PeerId, rec::{Record, Key as KademliaKey}};
 use sp_runtime::traits::Block as BlockT;
 
 use std::{

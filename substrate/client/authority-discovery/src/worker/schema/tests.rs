@@ -61,7 +61,7 @@ fn v2_decodes_v1() {
 
 #[test]
 fn v1_decodes_v2() {
-	let peer_secret = Keypair::generate_ed25519();
+	let peer_secret = Keypair::generate();
 	let peer_public = peer_secret.public();
 	let peer_id = peer_public.to_peer_id();
 	let multiaddress: Multiaddr =
@@ -73,7 +73,7 @@ fn v1_decodes_v2() {
 	let record_v2 = schema_v2::AuthorityRecord { addresses: vec_addresses.clone() };
 	let mut vec_record_v2 = vec![];
 	record_v2.encode(&mut vec_record_v2).unwrap();
-	let vec_peer_public = peer_public.encode_protobuf();
+	let vec_peer_public = peer_public.to_bytes().to_vec();
 	let peer_signature_v2 =
 		PeerSignature { public_key: vec_peer_public, signature: vec_peer_signature };
 	let signed_record_v2 = SignedAuthorityRecord {
@@ -97,7 +97,7 @@ fn v1_decodes_v2() {
 
 #[test]
 fn v1_decodes_v3() {
-	let peer_secret = Keypair::generate_ed25519();
+	let peer_secret = Keypair::generate();
 	let peer_public = peer_secret.public();
 	let peer_id = peer_public.to_peer_id();
 	let multiaddress: Multiaddr =
@@ -112,7 +112,7 @@ fn v1_decodes_v3() {
 	};
 	let mut vec_record_v3 = vec![];
 	record_v3.encode(&mut vec_record_v3).unwrap();
-	let vec_peer_public = peer_public.encode_protobuf();
+	let vec_peer_public = peer_public.to_bytes().to_vec();
 	let peer_signature_v3 =
 		PeerSignature { public_key: vec_peer_public, signature: vec_peer_signature };
 	let signed_record_v3 = SignedAuthorityRecord {
@@ -136,7 +136,7 @@ fn v1_decodes_v3() {
 
 #[test]
 fn v3_decodes_v2() {
-	let peer_secret = Keypair::generate_ed25519();
+	let peer_secret = Keypair::generate();
 	let peer_public = peer_secret.public();
 	let peer_id = peer_public.to_peer_id();
 	let multiaddress: Multiaddr =
@@ -148,7 +148,7 @@ fn v3_decodes_v2() {
 	let record_v2 = schema_v2::AuthorityRecord { addresses: vec_addresses.clone() };
 	let mut vec_record_v2 = vec![];
 	record_v2.encode(&mut vec_record_v2).unwrap();
-	let vec_peer_public = peer_public.encode_protobuf();
+	let vec_peer_public = peer_public.to_bytes().to_vec();
 	let peer_signature_v2 =
 		schema_v2::PeerSignature { public_key: vec_peer_public, signature: vec_peer_signature };
 	let signed_record_v2 = schema_v2::SignedAuthorityRecord {
