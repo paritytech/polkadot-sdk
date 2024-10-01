@@ -108,6 +108,15 @@ impl<Block: BlockT, B: Backend<Block>, E: RuntimeVersionOf> GenesisBlockBuilder<
 	) -> sp_blockchain::Result<Self> {
 		let genesis_storage =
 			build_genesis_storage.build_storage().map_err(sp_blockchain::Error::Storage)?;
+		Self::new_with_storage(genesis_storage, commit_genesis_state, backend, executor)
+	}
+
+	pub fn new_with_storage(
+		genesis_storage: Storage,
+		commit_genesis_state: bool,
+		backend: Arc<B>,
+		executor: E,
+	) -> sp_blockchain::Result<Self> {
 		Ok(Self {
 			genesis_storage,
 			commit_genesis_state,

@@ -49,6 +49,7 @@ sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
+sp-genesis-builder = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }

@@ -21,25 +21,6 @@ use sc_cli::Result;
 use sp_core::traits::RuntimeCode;
 use sp_runtime::traits::Hash;
 
-/// How the genesis state for benchmarking should be build.
-#[derive(clap::ValueEnum, Debug, Eq, PartialEq, Clone, Copy)]
-#[clap(rename_all = "kebab-case")]
-pub enum GenesisBuilderPolicy {
-	/// Do not provide any genesis state.
-	///
-	/// Benchmarks are advised to function with this, since they should setup their own required
-	/// state. However, to keep backwards compatibility, this is not the default.
-	None,
-	/// Let the runtime build the genesis state through its `BuildGenesisConfig` runtime API.
-	Runtime,
-	// Use the runtime from the Spec file to build the genesis state.
-	SpecRuntime,
-	/// Use the spec file to build the genesis state. This fails when there is no spec.
-	SpecGenesis,
-	/// Same as `SpecGenesis` - only here for backwards compatibility.
-	Spec,
-}
-
 /// A runtime blob that was either fetched from genesis storage or loaded from a file.
 // NOTE: This enum is only needed for the annoying lifetime bounds on `RuntimeCode`. Otherwise we
 // could just directly return the blob.

@@ -18,4 +18,6 @@
 pub mod cmd;
 pub mod template;
 
-pub use cmd::OverheadCmd;
+pub use cmd::{OpaqueBlock, OverheadCmd};
+mod fake_runtime_api;
+pub mod remark_builders;

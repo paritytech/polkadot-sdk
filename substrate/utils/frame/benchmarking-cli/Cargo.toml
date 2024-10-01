@@ -52,13 +52,25 @@ sp-externalities = { workspace = true, default-features = true }
 sp-genesis-builder = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
+sp-block-builder = { workspace = true, default-features = true }
+sp-transaction-pool = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-wasm-interface = { workspace = true, default-features = true }
+subxt = { workspace = true, features = ["substrate-compat", "native"] }
+subxt-signer = { workspace = true, features = ["unstable-eth"] }
+cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
+cumulus-client-parachain-inherent = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
 gethostname = { workspace = true }
+hex = "0.4.3"
 
 [features]
 default = ["rocksdb"]
@@ -69,5 +81,7 @@ runtime-benchmarks = [
 	"sc-client-db/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks"
 ]
 rocksdb = ["sc-cli/rocksdb", "sc-client-db/rocksdb"]

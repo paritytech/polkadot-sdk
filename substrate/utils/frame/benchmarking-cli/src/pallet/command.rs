@@ -19,7 +19,10 @@ use super::{
 	types::{ComponentRange, ComponentRangeMap},
 	writer, ListOutput, PalletCmd,
 };
-use crate::pallet::{types::FetchedCode, GenesisBuilderPolicy};
+use crate::{
+	pallet::types::FetchedCode,
+	shared::genesis_state::{genesis_storage, get_code_bytes},
+};
 use codec::{Decode, Encode};
 use frame_benchmarking::{
 	Analysis, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList, BenchmarkParameter,
@@ -27,7 +30,6 @@ use frame_benchmarking::{
 };
 use frame_support::traits::StorageInfo;
 use linked_hash_map::LinkedHashMap;
-use sc_chain_spec::GenesisConfigBuilderRuntimeCaller;
 use sc_cli::{execution_method_from_cli, ChainSpec, CliConfiguration, Result, SharedParams};
 use sc_client_db::BenchmarkingState;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
@@ -43,7 +45,6 @@ use sp_externalities::Extensions;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::traits::Hash;
 use sp_state_machine::StateMachine;
-use sp_storage::{well_known_keys::CODE, Storage};
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::Recorder};
 use sp_wasm_interface::HostFunctions;
 use std::{
@@ -57,6 +58,11 @@ use std::{
 /// Logging target
 const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::pallet";
 
+type SubstrateAndExtraHF<T> = (
+	sp_io::SubstrateHostFunctions,
+	frame_benchmarking::benchmarking::HostFunctions,
+	T,
+);
 /// How the PoV size of a storage item should be estimated.
 #[derive(clap::ValueEnum, Debug, Eq, PartialEq, Clone, Copy)]
 pub enum PovEstimationMode {
@@ -149,18 +155,6 @@ This could mean that you either did not build the node correctly with the \
 `--features runtime-benchmarks` flag, or the chain spec that you are using was \
 not created by a node that was compiled with the flag";
 
-/// When the runtime could not build the genesis storage.
-const ERROR_CANNOT_BUILD_GENESIS: &str = "The runtime returned \
-an error when trying to build the genesis storage. Please ensure that all pallets \
-define a genesis config that can be built. This can be tested with: \
-https://github.com/paritytech/polkadot-sdk/pull/3412";
-
-/// Warn when using the chain spec to generate the genesis state.
-const WARN_SPEC_GENESIS_CTOR: &'static str = "Using the chain spec instead of the runtime to \
-generate the genesis state is deprecated. Please remove the `--chain`/`--dev`/`--local` argument, \
-point `--runtime` to your runtime blob and set `--genesis-builder=runtime`. This warning may \
-become a hard error any time after December 2024.";
-
 impl PalletCmd {
 	/// Runs the command and benchmarks a pallet.
 	#[deprecated(
@@ -210,7 +204,15 @@ impl PalletCmd {
 			return self.output_from_results(&batches)
 		}
 
-		let genesis_storage = self.genesis_storage::<ExtraHostFunctions>(&chain_spec)?;
+		let code_bytes = get_code_bytes(&chain_spec, &self.runtime)?;
+		let genesis_storage = genesis_storage::<SubstrateAndExtraHF<ExtraHostFunctions>>(
+			self.genesis_builder,
+			&self.runtime,
+			Some(&code_bytes),
+			&self.genesis_builder_preset,
+			&chain_spec,
+			None
+		)?;
 
 		let cache_size = Some(self.database_cache_size as usize);
 		let state_with_tracking = BenchmarkingState::<Hasher>::new(
@@ -239,11 +241,7 @@ impl PalletCmd {
 		let runtime_code = runtime.code()?;
 		let alloc_strategy = self.alloc_strategy(runtime_code.heap_pages);
 
-		let executor = WasmExecutor::<(
-			sp_io::SubstrateHostFunctions,
-			frame_benchmarking::benchmarking::HostFunctions,
-			ExtraHostFunctions,
-		)>::builder()
+		let executor = WasmExecutor::<SubstrateAndExtraHF<ExtraHostFunctions>>::builder()
 		.with_execution_method(method)
 		.with_allow_missing_host_functions(self.allow_missing_host_functions)
 		.with_onchain_heap_alloc_strategy(alloc_strategy)
@@ -556,97 +554,6 @@ impl PalletCmd {
 		}
 
 		Ok(benchmarks_to_run)
-	}
-
-	/// Build the genesis storage by either the Genesis Builder API, chain spec or nothing.
-	///
-	/// Behaviour can be controlled by the `--genesis-builder` flag.
-	fn genesis_storage<F: HostFunctions>(
-		&self,
-		chain_spec: &Option<Box<dyn ChainSpec>>,
-	) -> Result<sp_storage::Storage> {
-		Ok(match (self.genesis_builder, self.runtime.as_ref()) {
-			(Some(GenesisBuilderPolicy::None), Some(_)) => return Err("Cannot use `--genesis-builder=none` with `--runtime` since the runtime would be ignored.".into()),
-			(Some(GenesisBuilderPolicy::None), None) => Storage::default(),
-			(Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::Spec), Some(_)) =>
-					return Err("Cannot use `--genesis-builder=spec-genesis` with `--runtime` since the runtime would be ignored.".into()),
-			(Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::Spec), None) | (None, None) => {
-				log::warn!("{WARN_SPEC_GENESIS_CTOR}");
-				let Some(chain_spec) = chain_spec else {
-					return Err("No chain spec specified to generate the genesis state".into());
-				};
-
-				let storage = chain_spec
-					.build_storage()
-					.map_err(|e| format!("{ERROR_CANNOT_BUILD_GENESIS}\nError: {e}"))?;
-
-				storage
-			},
-			(Some(GenesisBuilderPolicy::SpecRuntime), Some(_)) =>
-				return Err("Cannot use `--genesis-builder=spec` with `--runtime` since the runtime would be ignored.".into()),
-			(Some(GenesisBuilderPolicy::SpecRuntime), None) => {
-				let Some(chain_spec) = chain_spec else {
-					return Err("No chain spec specified to generate the genesis state".into());
-				};
-
-				self.genesis_from_spec_runtime::<F>(chain_spec.as_ref())?
-			},
-			(Some(GenesisBuilderPolicy::Runtime), None) => return Err("Cannot use `--genesis-builder=runtime` without `--runtime`".into()),
-			(Some(GenesisBuilderPolicy::Runtime), Some(runtime)) | (None, Some(runtime)) => {
-				log::info!("Loading WASM from {}", runtime.display());
-
-				let code = fs::read(&runtime).map_err(|e| {
-					format!(
-						"Could not load runtime file from path: {}, error: {}",
-						runtime.display(),
-						e
-					)
-				})?;
-
-				self.genesis_from_code::<F>(&code)?
-			}
-		})
-	}
-
-	/// Setup the genesis state by calling the runtime APIs of the chain-specs genesis runtime.
-	fn genesis_from_spec_runtime<EHF: HostFunctions>(
-		&self,
-		chain_spec: &dyn ChainSpec,
-	) -> Result<Storage> {
-		log::info!("Building genesis state from chain spec runtime");
-		let storage = chain_spec
-			.build_storage()
-			.map_err(|e| format!("{ERROR_CANNOT_BUILD_GENESIS}\nError: {e}"))?;
-
-		let code: &Vec<u8> =
-			storage.top.get(CODE).ok_or("No runtime code in the genesis storage")?;
-
-		self.genesis_from_code::<EHF>(code)
-	}
-
-	fn genesis_from_code<EHF: HostFunctions>(&self, code: &[u8]) -> Result<Storage> {
-		let genesis_config_caller = GenesisConfigBuilderRuntimeCaller::<(
-			sp_io::SubstrateHostFunctions,
-			frame_benchmarking::benchmarking::HostFunctions,
-			EHF,
-		)>::new(code);
-		let preset = Some(&self.genesis_builder_preset);
-
-		let mut storage =
-			genesis_config_caller.get_storage_for_named_preset(preset).inspect_err(|e| {
-				let presets = genesis_config_caller.preset_names().unwrap_or_default();
-				log::error!(
-					"Please pick one of the available presets with \
-			`--genesis-builder-preset=<PRESET>`. Available presets ({}): {:?}. Error: {:?}",
-					presets.len(),
-					presets,
-					e
-				);
-			})?;
-
-		storage.top.insert(CODE.into(), code.into());
-
-		Ok(storage)
 	}
 
 	/// Execute a state machine and decode its return value as `R`.

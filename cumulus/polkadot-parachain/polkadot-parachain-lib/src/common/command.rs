@@ -16,9 +16,9 @@
 
 use crate::common::spec::NodeSpec;
 use cumulus_client_cli::ExportGenesisHeadCommand;
-use frame_benchmarking_cli::BlockCmd;
 #[cfg(any(feature = "runtime-benchmarks"))]
 use frame_benchmarking_cli::StorageCmd;
+use frame_benchmarking_cli::{BlockCmd, ExtrinsicBuilder, OverheadCmd};
 use sc_cli::{CheckBlockCmd, ExportBlocksCmd, ExportStateCmd, ImportBlocksCmd, RevertCmd};
 use sc_service::{Configuration, TaskManager};
 use std::{future::Future, pin::Pin};
@@ -76,6 +76,12 @@ pub trait NodeCommandRunner {
 		self: Box<Self>,
 		config: Configuration,
 		cmd: &StorageCmd,
+	) -> SyncCmdResult;
+
+	fn run_benchmark_overhead_cmd(
+		self: Box<Self>,
+		cmd: &OverheadCmd,
+		ext_builder: Option<Box<dyn ExtrinsicBuilder>>,
 	) -> SyncCmdResult;
 }
 
@@ -157,5 +163,13 @@ where
 		let storage = partial.backend.expose_storage();
 
 		cmd.run(config, partial.client, db, storage)
+	}
+
+	fn run_benchmark_overhead_cmd(
+		self: Box<Self>,
+		cmd: &OverheadCmd,
+		ext_builder: Option<Box<dyn ExtrinsicBuilder>>,
+	) -> SyncCmdResult {
+		cmd.run_with_extrinsic_builder::<<Self as NodeSpec>::Block, ()>(ext_builder)
 	}
 }

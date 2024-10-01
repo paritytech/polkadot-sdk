@@ -11,6 +11,7 @@ workspace = true
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+serde_json = { workspace = true }
 
 # Substrate
 frame-executive = { workspace = true }
@@ -38,6 +39,7 @@ sp-session = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
+sp-keyring = { workspace = true }
 
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true }
@@ -89,6 +91,8 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"serde_json/std",
+	"sp-keyring/std"
 ]
 increment-spec-version = []
 elastic-scaling = []

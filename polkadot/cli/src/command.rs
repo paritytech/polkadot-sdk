@@ -15,12 +15,14 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::cli::{Cli, Subcommand, NODE_VERSION};
-use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
+use frame_benchmarking_cli::{
+	BenchmarkCmd, ExtrinsicFactory, SubstrateRemarkBuilder, SUBSTRATE_REFERENCE_HARDWARE,
+};
 use futures::future::TryFutureExt;
 use log::info;
 use polkadot_service::{
 	self,
-	benchmarking::{benchmark_inherent_data, RemarkBuilder, TransferKeepAliveBuilder},
+	benchmarking::{benchmark_inherent_data, TransferKeepAliveBuilder},
 	HeaderBackend, IdentifyVariant,
 };
 use sc_cli::SubstrateCli;
@@ -404,44 +406,30 @@ pub fn run() -> Result<()> {
 
 					cmd.run(client.clone()).map_err(Error::SubstrateCli)
 				}),
+				BenchmarkCmd::Overhead(cmd) => cmd
+					.run_with_extrinsic_builder::<polkadot_service::Block, ()>(None)
+					.map_err(Error::SubstrateCli),
 				// These commands are very similar and can be handled in nearly the same way.
-				BenchmarkCmd::Extrinsic(_) | BenchmarkCmd::Overhead(_) =>
-					runner.sync_run(|mut config| {
-						let (client, _, _, _) = polkadot_service::new_chain_ops(&mut config, None)?;
-						let header = client.header(client.info().genesis_hash).unwrap().unwrap();
-						let inherent_data = benchmark_inherent_data(header)
-							.map_err(|e| format!("generating inherent data: {:?}", e))?;
-						let remark_builder =
-							RemarkBuilder::new(client.clone(), config.chain_spec.identify_chain());
+				BenchmarkCmd::Extrinsic(cmd) => runner.sync_run(|mut config| {
+					let (client, _, _, _) = polkadot_service::new_chain_ops(&mut config, None)?;
+					let header = client.header(client.info().genesis_hash).unwrap().unwrap();
+					let inherent_data = benchmark_inherent_data(header)
+						.map_err(|e| format!("generating inherent data: {:?}", e))?;
 
-						match cmd {
-							BenchmarkCmd::Extrinsic(cmd) => {
-								let tka_builder = TransferKeepAliveBuilder::new(
-									client.clone(),
-									Sr25519Keyring::Alice.to_account_id(),
-									config.chain_spec.identify_chain(),
-								);
+					let remark_builder = SubstrateRemarkBuilder::new_from_client(client.clone())?;
 
-								let ext_factory = ExtrinsicFactory(vec![
-									Box::new(remark_builder),
-									Box::new(tka_builder),
-								]);
+					let tka_builder = TransferKeepAliveBuilder::new(
+						client.clone(),
+						Sr25519Keyring::Alice.to_account_id(),
+						config.chain_spec.identify_chain(),
+					);
 
-								cmd.run(client.clone(), inherent_data, Vec::new(), &ext_factory)
-									.map_err(Error::SubstrateCli)
-							},
-							BenchmarkCmd::Overhead(cmd) => cmd
-								.run(
-									config,
-									client.clone(),
-									inherent_data,
-									Vec::new(),
-									&remark_builder,
-								)
-								.map_err(Error::SubstrateCli),
-							_ => unreachable!("Ensured by the outside match; qed"),
-						}
-					}),
+					let ext_factory =
+						ExtrinsicFactory(vec![Box::new(remark_builder), Box::new(tka_builder)]);
+
+					cmd.run(client.clone(), inherent_data, Vec::new(), &ext_factory)
+						.map_err(Error::SubstrateCli)
+				}),
 				BenchmarkCmd::Pallet(cmd) => {
 					set_default_ss58_version(chain_spec);
 

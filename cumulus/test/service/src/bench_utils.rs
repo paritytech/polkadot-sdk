@@ -41,7 +41,7 @@ use sp_core::{sr25519, Pair};
 use sp_keyring::Sr25519Keyring::Alice;
 use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	AccountId32, FixedU64, OpaqueExtrinsic,
+	AccountId32, FixedU64, MultiAddress, OpaqueExtrinsic,
 };
 
 /// Accounts to use for transfer transactions. Enough for 5000 transactions.
@@ -153,7 +153,10 @@ pub fn create_benchmarking_transfer_extrinsics(
 	for (src, dst) in src_accounts.iter().zip(dst_accounts.iter()) {
 		let extrinsic: UncheckedExtrinsic = construct_extrinsic(
 			client,
-			BalancesCall::transfer_keep_alive { dest: AccountId::from(dst.public()), value: 10000 },
+			BalancesCall::transfer_keep_alive {
+				dest: MultiAddress::Id(AccountId::from(dst.public())),
+				value: 10000,
+			},
 			src.clone(),
 			Some(0),
 		);

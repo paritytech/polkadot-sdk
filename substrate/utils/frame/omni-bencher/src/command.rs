@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use clap::Parser;
-use frame_benchmarking_cli::BenchmarkCmd;
+use frame_benchmarking_cli::{BenchmarkCmd, OpaqueBlock};
 use sc_cli::Result;
 use sp_runtime::traits::BlakeTwo256;
 
@@ -129,27 +129,29 @@ impl Command {
 		}
 	}
 }
-
+//
 impl V1SubCommand {
 	pub fn run(self) -> Result<()> {
-		let pallet = match self {
+		match self {
 			V1SubCommand::Benchmark(V1BenchmarkCommand { sub }) => match sub {
-				BenchmarkCmd::Pallet(pallet) => pallet,
+				BenchmarkCmd::Pallet(pallet) => {
+					if let Some(spec) = pallet.shared_params.chain {
+						return Err(format!(
+							"Chain specs are not supported. Please remove `--chain={spec}` and use \
+				`--runtime=<PATH>` instead"
+						)
+						.into());
+					}
+
+					pallet.run_with_spec::<BlakeTwo256, HostFunctions>(None)
+				},
+				BenchmarkCmd::Overhead(overhead_cmd) =>
+					overhead_cmd.run_with_extrinsic_builder::<OpaqueBlock, HostFunctions>(None),
 				_ =>
 					return Err(
 						"Only the `v1 benchmark pallet` command is currently supported".into()
 					),
 			},
-		};
-
-		if let Some(spec) = pallet.shared_params.chain {
-			return Err(format!(
-				"Chain specs are not supported. Please remove `--chain={spec}` and use \
-				`--runtime=<PATH>` instead"
-			)
-			.into())
 		}
-
-		pallet.run_with_spec::<BlakeTwo256, HostFunctions>(None)
 	}
 }
