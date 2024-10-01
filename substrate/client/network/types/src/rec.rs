@@ -111,15 +111,15 @@ impl From<libp2p_kad::Record> for Record {
     }
 }
 
-impl Into<LiteRecord> for Record {
-    fn into(self) -> LiteRecord {
-        let vec: Vec<u8> = self.key.to_vec();
+impl From<Record> for LiteRecord {
+    fn from(val: Record) -> Self {
+        let vec: Vec<u8> = val.key.to_vec();
         let key: RecordKey = vec.into();
         let mut publisher: Option<litep2p::PeerId> = None;
-        if let Some(x) = self.publisher{
+        if let Some(x) = val.publisher{
             publisher = Some(x.into());
         }
-        LiteRecord {key, value: self.value, publisher, expires: self.expires}
+        LiteRecord {key, value: val.value, publisher, expires: val.expires}
     }
 }
 
