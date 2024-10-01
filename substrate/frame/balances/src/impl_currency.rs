@@ -326,14 +326,14 @@ where
 	}
 
 	// Transfer some free balance from `transactor` to `dest`, respecting existence requirements.
-	// Is a no-op if value to be transferred is zero or the `transactor` is the same as `dest`.
+	// Is a no-op if value to be transferred is zero.
 	fn transfer(
 		transactor: &T::AccountId,
 		dest: &T::AccountId,
 		value: Self::Balance,
 		existence_requirement: ExistenceRequirement,
 	) -> DispatchResult {
-		if value.is_zero() || transactor == dest {
+		if value.is_zero() {
 			return Ok(())
 		}
 		let keep_alive = match existence_requirement {

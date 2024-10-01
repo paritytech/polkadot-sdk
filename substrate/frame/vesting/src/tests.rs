@@ -1191,3 +1191,89 @@ fn remove_vesting_schedule() {
 		);
 	});
 }
+
+#[test]
+fn force_vested_transfer_to_self_with_insufficient_funds_should_fail() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let user_id = 100; // User acting as both sender and receiver.
+		let initial_funds = 500; // Initial funds less than the vesting amount.
+
+		let _ = Balances::deposit_creating(&user_id, initial_funds);
+
+		// Check that the initial funds are as expected.
+		assert_eq!(Balances::free_balance(&user_id), initial_funds);
+
+		// Define the vesting schedule parameters.
+		let vesting_schedule = VestingInfo::new(
+			1000, // Total amount to be vested, more than the initial funds.
+			64,   // Vesting frequency.
+			10,   // Starting block.
+		);
+
+		// Attempt to initiate a forced vested transfer from the user to themselves.
+		assert_noop!(
+			Vesting::force_vested_transfer(
+				RawOrigin::Root.into(),
+				user_id,
+				user_id,
+				vesting_schedule
+			),
+			TokenError::FundsUnavailable /* Expected error due to insufficient initial funds for
+			                              * the total vesting amount. */
+		);
+	});
+}
+
+#[test]
+fn vested_transfer_to_self_with_insufficient_funds_should_fail() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let user_id = 100; // User acting as both sender and receiver.
+		let initial_funds = 500; // Initial funds less than the vesting amount.
+
+		let _ = Balances::deposit_creating(&user_id, initial_funds);
+
+		// Check that the initial funds are as expected.
+		assert_eq!(Balances::free_balance(&user_id), initial_funds);
+
+		// Define the vesting schedule parameters.
+		let vesting_schedule = VestingInfo::new(
+			1000, // Total amount to be vested, more than the initial funds.
+			64,   // Vesting frequency.
+			10,   // Starting block.
+		);
+
+		// Attempt to initiate a vested transfer from the user to themselves.
+		assert_noop!(
+			Vesting::vested_transfer(Some(user_id).into(), user_id, vesting_schedule),
+			TokenError::FundsUnavailable /* Expected error due to insufficient initial funds for
+			                              * the total vesting amount. */
+		);
+	});
+}
+
+#[test]
+fn do_vested_transfer_to_self_with_insufficient_funds_should_fail() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let user_id = 100; // User acting as both sender and receiver.
+		let initial_funds = 500; // Initial funds less than the vesting amount.
+
+		let _ = Balances::deposit_creating(&user_id, initial_funds);
+
+		// Check that the initial funds are as expected.
+		assert_eq!(Balances::free_balance(&user_id), initial_funds);
+
+		// Define the vesting schedule parameters.
+		let vesting_schedule = VestingInfo::new(
+			1000, // Total amount to be vested, more than the initial funds.
+			64,   // Vesting frequency.
+			10,   // Starting block.
+		);
+
+		// Attempt to initiate a do vested transfer from the user to themselves.
+		assert_noop!(
+			Vesting::do_vested_transfer(user_id, user_id, vesting_schedule),
+			TokenError::FundsUnavailable /* Expected error due to insufficient initial funds for
+			                              * the total vesting amount. */
+		);
+	});
+}
