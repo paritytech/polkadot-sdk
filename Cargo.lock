@@ -14174,6 +14174,7 @@ dependencies = [
  "rand_chacha",
  "rstest",
  "sc-keystore",
+ "sc-network",
  "scale-info",
  "serde",
  "serde_json",
