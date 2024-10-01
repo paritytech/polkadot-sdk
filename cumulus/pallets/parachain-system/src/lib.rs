@@ -1440,7 +1440,6 @@ impl<T: Config> Pallet<T> {
 			// Send the core selector signal.
 			let core_selector = T::SelectCore::select_core();
 			up.push(UMPSignal::SelectCore(core_selector.0, core_selector.1).encode());
-			s
 		});
 	}
 
