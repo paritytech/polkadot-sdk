@@ -59,6 +59,10 @@ array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
+secp256k1 = { workspace = true, features = ["recovery"] }
+serde_json.workspace = true
+hex-literal.workspace = true
+subxt-signer.workspace = true
 
 # Polkadot SDK Dependencies
 pallet-balances = { workspace = true, default-features = true }
@@ -70,9 +74,6 @@ pallet-proxy = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 xcm-builder = { workspace = true, default-features = true }
-secp256k1 = { workspace = true, features = ["recovery"] }
-serde_json.workspace = true
-hex-literal.workspace = true
 
 [features]
 default = ["std"]

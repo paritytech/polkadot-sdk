@@ -12416,6 +12416,7 @@ dependencies = [
  "sp-weights 27.0.0",
  "staging-xcm",
  "staging-xcm-builder",
+ "subxt-signer",
 ]
 
 [[package]]

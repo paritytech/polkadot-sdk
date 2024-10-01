@@ -271,9 +271,10 @@ pub trait EthExtra {
 			gas_price.saturating_mul(gas).try_into().map_err(|_| InvalidTransaction::Call)?;
 
 		// Make sure that that the fee computed from the signed payload is no more than 5% greater
-		// than the actual fee computed with the injected transaction parameters.
-		if Percent::from_rational(eth_fee, call_fee) > Percent::from_percent(105) {
-			log::debug!(target: LOG_TARGET, "Expected fees {eth_fee:?} to be within 5% of calculated fees {call_fee:?}");
+		if call_fee > eth_fee &&
+			Percent::from_rational(call_fee - eth_fee, eth_fee) > Percent::from_percent(5)
+		{
+			log::debug!(target: LOG_TARGET, "Eth fees {eth_fee:?} should be no more than 5% higher than injected ees {call_fee:?}");
 			return Err(InvalidTransaction::Call.into())
 		}
 
@@ -281,5 +282,288 @@ pub trait EthExtra {
 			signed: Some((signer.into(), Self::get_eth_transact_extra(nonce))),
 			function: call.into(),
 		})
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use crate::{
+		evm::*,
+		test_utils::*,
+		tests::{builder, ExtBuilder, RuntimeCall, Test},
+	};
+	use frame_support::{error::LookupError, traits::fungible::Mutate};
+	use pallet_revive_fixtures::compile_module;
+	use rlp::Encodable;
+	use secp256k1::{Message, PublicKey, Secp256k1, SecretKey};
+	use sp_core::keccak_256;
+	use sp_runtime::traits::{Checkable, IdentityLookup};
+
+	/// A simple account that can sign transactions
+	pub struct Account {
+		/// The secret key of the account
+		sk: SecretKey,
+	}
+
+	impl Default for Account {
+		fn default() -> Self {
+			Account::from_keypair(&subxt_signer::ecdsa::dev::alice())
+		}
+	}
+
+	impl Account {
+		/// Create an account from a keypair.
+		pub fn from_keypair(pair: &subxt_signer::ecdsa::Keypair) -> Self {
+			let sb = pair.0.secret_key().secret_bytes();
+			Account { sk: SecretKey::from_slice(&sb).unwrap() }
+		}
+
+		pub fn account_id(&self) -> AccountId {
+			let address = self.address();
+			<Test as crate::Config>::AddressMapper::to_account_id_contract(&address)
+		}
+
+		/// Get the [`H160`] address of the account.
+		pub fn address(&self) -> H160 {
+			let pub_key =
+				PublicKey::from_secret_key(&Secp256k1::new(), &self.sk).serialize_uncompressed();
+			let hash = keccak_256(&pub_key[1..]);
+			H160::from_slice(&hash[12..])
+		}
+
+		/// Sign a transaction.
+		pub fn sign_transaction(&self, tx: TransactionLegacyUnsigned) -> TransactionLegacySigned {
+			let rlp_encoded = tx.rlp_bytes();
+			let tx_hash = keccak_256(&rlp_encoded);
+			let secp = Secp256k1::new();
+			let msg = Message::from_digest(tx_hash);
+			let sig = secp.sign_ecdsa_recoverable(&msg, &self.sk);
+			let (recovery_id, sig) = sig.serialize_compact();
+			let sig = sig.into_iter().chain([recovery_id.to_i32() as u8]).collect::<Vec<_>>();
+			TransactionLegacySigned::from(tx, &sig.try_into().unwrap())
+		}
+	}
+
+	#[derive(Clone, PartialEq, Eq, Debug)]
+	pub struct Extra;
+
+	impl EthExtra for Extra {
+		type Config = Test;
+		type Extra = frame_system::CheckNonce<Test>;
+
+		fn get_eth_transact_extra(nonce: U256) -> Self::Extra {
+			frame_system::CheckNonce::from(nonce.as_u32())
+		}
+	}
+
+	type Ex = UncheckedExtrinsic<RuntimeCall, Extra>;
+	struct TestContext;
+
+	impl traits::Lookup for TestContext {
+		type Source = MultiAddress;
+		type Target = AccountId;
+		fn lookup(&self, s: Self::Source) -> Result<Self::Target, LookupError> {
+			match s {
+				MultiAddress::Id(id) => Ok(id),
+				_ => Err(LookupError),
+			}
+		}
+	}
+
+	#[derive(Clone)]
+	struct UncheckedExtrinsicBuilder {
+		tx: TransactionLegacyUnsigned,
+		gas_limit: Weight,
+		storage_deposit_limit: BalanceOf<Test>,
+		transact_kind: EthTransactKind,
+	}
+
+	impl UncheckedExtrinsicBuilder {
+		fn new() -> Self {
+			Self {
+				tx: TransactionLegacyUnsigned {
+					chain_id: Some(<Test as crate::Config>::ChainId::get().into()),
+					gas: U256::from(21000),
+					nonce: U256::from(0),
+					gas_price: U256::from(100_000),
+					to: None,
+					value: U256::from(0),
+					input: Bytes(vec![]),
+					r#type: Type0,
+				},
+				gas_limit: Weight::zero(),
+				storage_deposit_limit: 0,
+				transact_kind: EthTransactKind::Call,
+			}
+		}
+
+		fn call_with(dest: H160) -> Self {
+			let mut builder = Self::new();
+			builder.tx.to = Some(dest);
+			builder.transact_kind = EthTransactKind::Call;
+			builder
+		}
+
+		fn instantiate_with(code: Vec<u8>, data: Vec<u8>) -> Self {
+			let mut builder = Self::new();
+			builder.transact_kind = EthTransactKind::InstantiateWithCode {
+				code_len: code.len() as u32,
+				data_len: data.len() as u32,
+			};
+			builder.tx.input = Bytes(EthInstantiateInput { code, data }.encode());
+			builder
+		}
+
+		fn update(mut self, f: impl FnOnce(&mut TransactionLegacyUnsigned) -> ()) -> Self {
+			f(&mut self.tx);
+			self
+		}
+
+		fn transact_kind(mut self, kind: EthTransactKind) -> Self {
+			self.transact_kind = kind;
+			self
+		}
+
+		fn check(&self) -> Result<RuntimeCall, TransactionValidityError> {
+			let UncheckedExtrinsicBuilder { tx, gas_limit, storage_deposit_limit, transact_kind } =
+				self.clone();
+			let payload = Account::default().sign_transaction(tx).rlp_bytes().to_vec();
+			let call = RuntimeCall::Contracts(crate::Call::eth_transact {
+				payload,
+				gas_limit,
+				storage_deposit_limit,
+				transact_kind,
+			});
+			Ex::new(call, None).unwrap().check(&TestContext {}).map(|x| x.function)
+		}
+	}
+
+	#[test]
+	fn check_eth_transact_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Check a regular transfer call
+			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
+			assert_eq!(
+				builder.check().unwrap(),
+				crate::Call::call::<Test> {
+					dest: builder.tx.to.unwrap(),
+					value: builder.tx.value.as_u64(),
+					gas_limit: builder.gas_limit,
+					storage_deposit_limit: builder.storage_deposit_limit,
+					data: builder.tx.input.0
+				}
+				.into()
+			);
+
+			// Check an instantiate call
+			let code = vec![];
+			let data = vec![];
+			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
+			assert_eq!(
+				builder.check().unwrap(),
+				crate::Call::instantiate_with_code::<Test> {
+					value: builder.tx.value.as_u64(),
+					gas_limit: builder.gas_limit,
+					storage_deposit_limit: builder.storage_deposit_limit,
+					code,
+					data,
+					salt: None
+				}
+				.into()
+			);
+		});
+	}
+
+	#[test]
+	fn check_eth_transact_nonce_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
+				.update(|tx| tx.nonce = 1u32.into());
+
+			assert_eq!(
+				builder.check(),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Future))
+			);
+
+			<crate::System<Test>>::inc_account_nonce(Account::default().account_id());
+
+			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
+			assert_eq!(
+				builder.check(),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale))
+			);
+		});
+	}
+
+	#[test]
+	fn check_eth_transact_chain_id_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
+				.update(|tx| tx.chain_id = Some(42.into()));
+
+			assert_eq!(
+				builder.check(),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+			);
+		});
+	}
+
+	#[test]
+	fn check_instantiate_data() {
+		ExtBuilder::default().build().execute_with(|| {
+			let code = vec![1, 2, 3];
+			let data = vec![1];
+			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
+
+			// Fail because the tx input should decode as an `EthInstantiateInput`
+			assert_eq!(
+				builder.clone().update(|tx| tx.input = Bytes(vec![1, 2, 3])).check(),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+			);
+
+			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
+				.transact_kind(EthTransactKind::InstantiateWithCode {
+					code_len: 0,
+					data_len: data.len() as u32,
+				});
+
+			// Fail because we are passing the wrong code length
+			assert_eq!(
+				builder
+					.clone()
+					.transact_kind(EthTransactKind::InstantiateWithCode {
+						code_len: 0,
+						data_len: data.len() as u32
+					})
+					.check(),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+			);
+
+			// Fail because we are passing the wrong data length
+			assert_eq!(
+				builder
+					.clone()
+					.transact_kind(EthTransactKind::InstantiateWithCode {
+						code_len: code.len() as u32,
+						data_len: 0
+					})
+					.check(),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+			);
+		});
+	}
+
+	#[test]
+	fn check_injected_weight() {
+		ExtBuilder::default().build().execute_with(|| {
+			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
+				.update(|tx| tx.gas_price = U256::from(1));
+
+			assert_eq!(
+				builder.check(),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+			);
+		});
 	}
 }

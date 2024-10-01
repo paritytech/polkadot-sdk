@@ -166,7 +166,7 @@ pub mod test_utils {
 	}
 }
 
-mod builder {
+pub mod builder {
 	use super::Test;
 	use crate::{
 		test_utils::{builder::*, ALICE},
@@ -498,6 +498,16 @@ impl Config for Test {
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Debug = TestDebug;
 	type ChainId = ChainId;
+}
+
+impl TryInto<crate::Call<Test>> for RuntimeCall {
+	type Error = ();
+	fn try_into(self) -> Result<crate::Call<Test>, Self::Error> {
+		match self {
+			RuntimeCall::Contracts(call) => Ok(call),
+			_ => Err(()),
+		}
+	}
 }
 
 pub struct ExtBuilder {
