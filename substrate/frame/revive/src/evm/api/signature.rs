@@ -24,11 +24,9 @@ impl TransactionLegacyUnsigned {
 	/// Recover the Ethereum address, from an RLP encoded transaction and a 65 bytes signature.
 	pub fn recover_eth_address(rlp_encoded: &[u8], signature: &[u8; 65]) -> Result<H160, ()> {
 		let hash = keccak_256(rlp_encoded);
-
 		let mut addr = H160::default();
-		addr.assign_from_slice(
-			&keccak_256(&secp256k1_ecdsa_recover(&signature, &hash).ok().unwrap()[..])[12..],
-		);
+		let pk = secp256k1_ecdsa_recover(&signature, &hash).map_err(|_| ())?;
+		addr.assign_from_slice(&keccak_256(&pk[..])[12..]);
 
 		Ok(addr)
 	}
