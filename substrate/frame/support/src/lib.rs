@@ -1609,9 +1609,6 @@ pub mod pallet_macros {
 	/// 	}
 	/// }
 	/// ```
-	///
-	/// For more information, see:
-	/// * [`#[pallet::include_metadata]`](`include_metadata`)
 	pub use frame_support_procedural::config;
 
 	/// Allows defining an enum that gets composed as an aggregate enum by `construct_runtime`.
