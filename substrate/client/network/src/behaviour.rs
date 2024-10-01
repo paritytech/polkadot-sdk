@@ -382,7 +382,12 @@ impl From<DiscoveryOut> for BehaviourOut {
 				BehaviourOut::Dht(DhtEvent::ValuePut(key.to_vec().into()), Some(duration)),
 			DiscoveryOut::PutRecordRequest(record_key, record_value, publisher, expires) =>
 				BehaviourOut::Dht(
-					DhtEvent::PutRecordRequest(record_key.to_vec().into(), record_value, publisher, expires),
+					DhtEvent::PutRecordRequest(
+						record_key.to_vec().into(),
+						record_value,
+						publisher,
+						expires,
+					),
 					None,
 				),
 			DiscoveryOut::ValuePutFailed(key, duration) =>

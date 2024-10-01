@@ -30,13 +30,15 @@ use futures::{
 	sink::SinkExt,
 	task::LocalSpawn,
 };
-use sc_network_types::rec:: Key as KademliaKey;
 use prometheus_endpoint::prometheus::default_registry;
-use sc_network::service::signature::SigningError;
 use sc_client_api::HeaderBackend;
-use sc_network::{PublicKey, service::signature::Keypair, Signature};
+use sc_network::{
+	service::signature::{Keypair, SigningError},
+	PublicKey, Signature,
+};
 use sc_network_types::{
 	multiaddr::{Multiaddr, Protocol},
+	rec::Key as KademliaKey,
 	PeerId,
 };
 use sp_api::{ApiRef, ProvideRuntimeApi};
@@ -178,8 +180,8 @@ impl NetworkSigner for TestNetwork {
 		signature: &Vec<u8>,
 		message: &Vec<u8>,
 	) -> std::result::Result<bool, String> {
-		let public_key = PublicKey::try_decode_protobuf(&public_key)
-			.map_err(|error| error.to_string())?;
+		let public_key =
+			PublicKey::try_decode_protobuf(&public_key).map_err(|error| error.to_string())?;
 		let peer_id: PeerId = peer_id.into();
 		let remote: PeerId = public_key.to_peer_id().into();
 

@@ -75,11 +75,11 @@ use libp2p::{
 	},
 	PeerId,
 };
-use sc_network_types::rec::{Record, Key as KademliaKey};
 use log::{debug, error, info, trace, warn};
 use metrics::{Histogram, MetricSources, Metrics};
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry;
+use sc_network_types::rec::{Key as KademliaKey, Record};
 
 use sc_client_api::BlockBackend;
 use sc_network_common::{

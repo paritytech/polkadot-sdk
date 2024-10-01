@@ -34,8 +34,8 @@ use futures::{channel::mpsc, future, stream::Fuse, FutureExt, Stream, StreamExt}
 use addr_cache::AddrCache;
 use codec::{Decode, Encode};
 use ip_network::IpNetwork;
-use sc_network_types::rec::{PeerRecord, Record, Key};
 use linked_hash_set::LinkedHashSet;
+use sc_network_types::rec::{Key, PeerRecord, Record};
 
 use log::{debug, error, trace};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
@@ -677,8 +677,10 @@ where
 			self.authorities_queried_at = Some(best_hash);
 		}
 
-		let authority_id =
-			self.known_authorities.get::<KademliaKey>(&record_key.to_vec().into()).ok_or(Error::UnknownAuthority)?;
+		let authority_id = self
+			.known_authorities
+			.get::<KademliaKey>(&record_key.to_vec().into())
+			.ok_or(Error::UnknownAuthority)?;
 		let signed_record =
 			Self::check_record_signed_with_authority_id(record_value.as_slice(), authority_id)?;
 		self.check_record_signed_with_network_key(
@@ -697,7 +699,8 @@ where
 				})
 				.unwrap_or_default(); // 0 is a sane default for records that do not have creation time present.
 
-		let current_record_info = self.last_known_records.get::<KademliaKey>(&record_key.to_vec().into());
+		let current_record_info =
+			self.last_known_records.get::<KademliaKey>(&record_key.to_vec().into());
 		// If record creation time is older than the current record creation time,
 		// we don't store it since we want to give higher priority to newer records.
 		if let Some(current_record_info) = current_record_info {
@@ -712,7 +715,12 @@ where
 			}
 		}
 
-		self.network.store_record(record_key.to_vec().into(), record_value, Some(publisher), expires);
+		self.network.store_record(
+			record_key.to_vec().into(),
+			record_value,
+			Some(publisher),
+			expires,
+		);
 		Ok(())
 	}
 
@@ -766,15 +774,19 @@ where
 		// Ensure `values` is not empty and all its keys equal.
 		let remote_key = peer_record.record.key.clone();
 
-		let authority_id: AuthorityId =
-			if let Some(authority_id) = self.in_flight_lookups.remove::<KademliaKey>(&remote_key.to_vec().into()) {
-				self.known_lookups.insert(remote_key.clone().to_vec().into(), authority_id.clone());
-				authority_id
-			} else if let Some(authority_id) = self.known_lookups.get::<KademliaKey>(&remote_key.to_vec().into()) {
-				authority_id.clone()
-			} else {
-				return Err(Error::ReceivingUnexpectedRecord);
-			};
+		let authority_id: AuthorityId = if let Some(authority_id) =
+			self.in_flight_lookups.remove::<KademliaKey>(&remote_key.to_vec().into())
+		{
+			self.known_lookups
+				.insert(remote_key.clone().to_vec().into(), authority_id.clone());
+			authority_id
+		} else if let Some(authority_id) =
+			self.known_lookups.get::<KademliaKey>(&remote_key.to_vec().into())
+		{
+			authority_id.clone()
+		} else {
+			return Err(Error::ReceivingUnexpectedRecord);
+		};
 
 		let local_peer_id = self.network.local_peer_id();
 
