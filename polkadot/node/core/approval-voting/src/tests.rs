@@ -17,6 +17,7 @@
 use self::test_helpers::mock::new_leaf;
 use super::*;
 use crate::backend::V1ReadBackend;
+use itertools::Itertools;
 use overseer::prometheus::{
 	prometheus::{IntCounter, IntCounterVec},
 	Histogram, HistogramOpts, HistogramVec, Opts,
@@ -39,7 +40,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
-use polkadot_overseer::{HeadSupportsParachains, SpawnGlue};
+use polkadot_overseer::SpawnGlue;
 use polkadot_primitives::{
 	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, DisputeStatement, GroupIndex,
 	Header, Id as ParaId, IndexedVec, NodeFeatures, ValidDisputeStatementKind, ValidationCode,
@@ -48,7 +49,6 @@ use polkadot_primitives::{
 use std::{cmp::max, time::Duration};
 
 use assert_matches::assert_matches;
-use async_trait::async_trait;
 use parking_lot::Mutex;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 use sp_keystore::Keystore;
@@ -129,15 +129,6 @@ pub mod test_constants {
 	pub(crate) const NUM_COLUMNS: u32 = 1;
 
 	pub(crate) const TEST_CONFIG: DatabaseConfig = DatabaseConfig { col_approval_data: DATA_COL };
-}
-
-struct MockSupportsParachains;
-
-#[async_trait]
-impl HeadSupportsParachains for MockSupportsParachains {
-	async fn head_supports_parachains(&self, _head: &Hash) -> bool {
-		true
-	}
 }
 
 fn slot_to_tick(t: impl Into<Slot>) -> Tick {
@@ -4932,7 +4923,6 @@ fn test_gathering_assignments_statements() {
 		slot_duration_millis: 6_000,
 		clock: Arc::new(MockClock::default()),
 		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
-		spans: HashMap::new(),
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),
@@ -5027,7 +5017,6 @@ fn test_observe_assignment_gathering_status() {
 		slot_duration_millis: 6_000,
 		clock: Arc::new(MockClock::default()),
 		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
-		spans: HashMap::new(),
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),

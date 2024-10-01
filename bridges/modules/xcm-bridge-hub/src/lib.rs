@@ -415,7 +415,7 @@ pub mod pallet {
 				bridge.deposit,
 				Precision::BestEffort,
 			)
-			.map_err(|e| {
+			.inspect_err(|e| {
 				// we can't do anything here - looks like funds have been (partially) unreserved
 				// before by someone else. Let's not fail, though - it'll be worse for the caller
 				log::error!(
@@ -423,7 +423,6 @@ pub mod pallet {
 					"Failed to unreserve during the bridge {:?} closure with error: {e:?}",
 					locations.bridge_id(),
 				);
-				e
 			})
 			.ok()
 			.unwrap_or(BalanceOf::<ThisChainOf<T, I>>::zero());

@@ -1,0 +1,55 @@
+[package]
+name = "polkadot-node-core-approval-voting-parallel"
+version = "7.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Approval Voting Subsystem running approval work in parallel"
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+gum = { workspace = true }
+itertools = { workspace = true }
+thiserror = { workspace = true }
+
+polkadot-node-core-approval-voting = { workspace = true, default-features = true }
+polkadot-approval-distribution = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-overseer = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-node-jaeger = { workspace = true, default-features = true }
+polkadot-node-network-protocol = { workspace = true, default-features = true }
+polkadot-node-metrics = { workspace = true, default-features = true }
+
+sc-keystore = { workspace = true, default-features = false }
+sp-consensus = { workspace = true, default-features = false }
+sp-consensus-slots = { workspace = true, default-features = false }
+sp-application-crypto = { workspace = true, default-features = false, features = ["full_crypto"] }
+sp-runtime = { workspace = true, default-features = false }
+
+rand = { workspace = true }
+rand_core = { workspace = true }
+rand_chacha = { workspace = true }
+
+[dev-dependencies]
+async-trait = { workspace = true }
+parking_lot = { workspace = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-tracing = { workspace = true }
+polkadot-node-subsystem-test-helpers = { workspace = true, default-features = true }
+assert_matches = { workspace = true }
+kvdb-memorydb = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true, default-features = true }
+log = { workspace = true, default-features = true }
+polkadot-subsystem-bench = { workspace = true, default-features = true }
+schnorrkel = { workspace = true, default-features = true }

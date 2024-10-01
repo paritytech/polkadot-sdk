@@ -1040,7 +1040,7 @@ pub mod pallet {
 				}
 				if did_provide && !does_provide {
 					// This could reap the account so must go last.
-					frame_system::Pallet::<T>::dec_providers(who).map_err(|r| {
+					frame_system::Pallet::<T>::dec_providers(who).inspect_err(|_| {
 						// best-effort revert consumer change.
 						if did_consume && !does_consume {
 							let _ = frame_system::Pallet::<T>::inc_consumers(who).defensive();
@@ -1048,7 +1048,6 @@ pub mod pallet {
 						if !did_consume && does_consume {
 							let _ = frame_system::Pallet::<T>::dec_consumers(who);
 						}
-						r
 					})?;
 				}
 
