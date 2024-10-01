@@ -39,7 +39,6 @@ use sc_cli::{Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
-use std::panic::{RefUnwindSafe, UnwindSafe};
 
 /// Structure that can be used in order to provide customizers for different functionalities of the
 /// node binary that is being built using this library.
@@ -55,8 +54,7 @@ pub fn new_aura_node_spec<Block>(
 	extra_args: &NodeExtraArgs,
 ) -> Box<dyn DynNodeSpec>
 where
-	Block: NodeBlock + UnwindSafe + RefUnwindSafe,
-	Block::BoundedHeader: UnwindSafe + RefUnwindSafe,
+	Block: NodeBlock,
 {
 	match aura_id {
 		AuraConsensusId::Sr25519 => crate::service::new_aura_node_spec::<
@@ -258,7 +256,10 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				let hwbench = (!cli.no_hardware_benchmarks)
 					.then_some(config.database.path().map(|database_path| {
 						let _ = std::fs::create_dir_all(database_path);
-						sc_sysinfo::gather_hwbench(Some(database_path))
+						sc_sysinfo::gather_hwbench(
+							Some(database_path),
+							&SUBSTRATE_REFERENCE_HARDWARE,
+						)
 					}))
 					.flatten();
 

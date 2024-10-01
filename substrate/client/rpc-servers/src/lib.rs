@@ -23,14 +23,15 @@
 pub mod middleware;
 pub mod utils;
 
-use std::{error::Error as StdError, time::Duration};
+use std::{error::Error as StdError, net::SocketAddr, time::Duration};
 
 use jsonrpsee::{
 	core::BoxError,
-	server::{serve_with_graceful_shutdown, stop_channel, ws, PingConfig, StopHandle},
+	server::{
+		serve_with_graceful_shutdown, stop_channel, ws, PingConfig, ServerHandle, StopHandle,
+	},
 	Methods, RpcModule,
 };
-use middleware::NodeHealthProxyLayer;
 use tower::Service;
 use utils::{
 	build_rpc_api, deny_unsafe, format_listen_addrs, get_proxy_ip, ListenAddrError, RpcSettings,
@@ -41,13 +42,43 @@ pub use jsonrpsee::{
 	core::id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 	server::{middleware::rpc::RpcServiceBuilder, BatchRequestConfig},
 };
-pub use middleware::{Metrics, MiddlewareLayer, RpcMetrics};
+pub use middleware::{Metrics, MiddlewareLayer, NodeHealthProxyLayer, RpcMetrics};
 pub use utils::{RpcEndpoint, RpcMethods};
 
 const MEGABYTE: u32 = 1024 * 1024;
 
-/// Type alias for the JSON-RPC server.
-pub type Server = jsonrpsee::server::ServerHandle;
+/// Type to encapsulate the server handle and listening address.
+pub struct Server {
+	/// Handle to the rpc server
+	handle: ServerHandle,
+	/// Listening address of the server
+	listen_addrs: Vec<SocketAddr>,
+}
+
+impl Server {
+	/// Creates a new Server.
+	pub fn new(handle: ServerHandle, listen_addrs: Vec<SocketAddr>) -> Server {
+		Server { handle, listen_addrs }
+	}
+
+	/// Returns the `jsonrpsee::server::ServerHandle` for this Server. Can be used to stop the
+	/// server.
+	pub fn handle(&self) -> &ServerHandle {
+		&self.handle
+	}
+
+	/// The listen address for the running RPC service.
+	pub fn listen_addrs(&self) -> &[SocketAddr] {
+		&self.listen_addrs
+	}
+}
+
+impl Drop for Server {
+	fn drop(&mut self) {
+		// This doesn't not wait for the server to be stopped but fires the signal.
+		let _ = self.handle.stop();
+	}
+}
 
 /// Trait for providing subscription IDs that can be cloned.
 pub trait SubscriptionIdProvider:
@@ -273,5 +304,5 @@ where
 	// This is to make it work with old scripts/utils that parse the logs.
 	log::info!("Running JSON-RPC server: addr={}", format_listen_addrs(&local_addrs));
 
-	Ok(server_handle)
+	Ok(Server::new(server_handle, local_addrs))
 }

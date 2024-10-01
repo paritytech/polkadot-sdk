@@ -33,7 +33,7 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use cumulus_primitives_core::AggregateMessageOrigin;
+use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -144,11 +144,11 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("contracts-rococo"),
 	impl_name: create_runtime_str!("contracts-rococo"),
 	authoring_version: 1,
-	spec_version: 1_015_000,
+	spec_version: 1_016_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 7,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// The version information used to identify this runtime when compiled natively.
@@ -293,6 +293,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
+	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -650,6 +651,12 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
 			ParachainSystem::collect_collation_info(header)
+		}
+	}
+
+	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
+		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+			ParachainSystem::core_selector()
 		}
 	}
 

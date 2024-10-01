@@ -71,7 +71,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 1,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 1,
+	system_version: 1,
 };
 
 mod block_times {
@@ -220,5 +220,5 @@ mod runtime {
 
 	// Include the custom logic from the pallet-template in the runtime.
 	#[runtime::pallet_index(7)]
-	pub type TemplateModule = pallet_template;
+	pub type Template = pallet_template;
 }
