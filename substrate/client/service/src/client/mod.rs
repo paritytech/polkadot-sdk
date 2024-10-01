@@ -52,12 +52,11 @@ mod notification_pinning;
 mod wasm_override;
 mod wasm_substitutes;
 
-pub use code_provider::CodeProvider;
 pub use wasm_override::WasmOverride;
 pub use wasm_substitutes::WasmSubstitutes;
 pub use call_executor::LocalCallExecutor;
 pub use client::{Client, ClientConfig};
-pub(crate) use code_provider::CodeProvider;
+pub use code_provider::CodeProvider;
 
 #[cfg(feature = "test-helpers")]
 pub use self::client::{new_in_mem, new_with_backend};
