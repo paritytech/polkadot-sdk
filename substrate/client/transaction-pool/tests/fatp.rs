@@ -2947,7 +2947,7 @@ fn fatp_limits_no_views_mempool_count() {
 	let header = api.push_block(1, vec![], true);
 
 	let xt0 = uxt(Alice, 200);
-	let xt1 = uxt(Alice, 202);
+	let xt1 = uxt(Alice, 201);
 	let xt2 = uxt(Alice, 202);
 
 	let submissions = vec![
@@ -2999,12 +2999,31 @@ fn fatp_limits_ready_count_works() {
 	//charlie was not included into view:
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
 
-	let header02 = api.push_block(2, vec![xt0, xt1], true);
-	let event = new_best_block_event(&pool, Some(header01.hash()), header02.hash());
+	let mut ready_iterator = pool.ready_at(header01.hash()).now_or_never().unwrap();
+	assert_eq!(ready_iterator.next().unwrap().hash, api.hash_and_length(&xt1).0);
+	assert_eq!(ready_iterator.next().unwrap().hash, api.hash_and_length(&xt2).0);
+	assert!(ready_iterator.next().is_none());
+
+	//branch with alice transactions:
+	let header02b = api.push_block(2, vec![xt1.clone(), xt2.clone()], true);
+	let event = new_best_block_event(&pool, Some(header01.hash()), header02b.hash());
 	block_on(pool.maintain(event));
 	assert_eq!(pool.mempool_len().0, 3);
 	//charlie was resubmitted from mmepool into the view:
-	assert_pool_status!(header02.hash(), &pool, 1, 0);
+	assert_pool_status!(header02b.hash(), &pool, 1, 0);
+	let mut ready_iterator = pool.ready_at(header02b.hash()).now_or_never().unwrap();
+	assert_eq!(ready_iterator.next().unwrap().hash, api.hash_and_length(&xt0).0);
+	assert!(ready_iterator.next().is_none());
+
+	//branch with alice/charlie transactions shall also work:
+	let header02a = api.push_block(2, vec![xt0.clone(), xt1.clone()], true);
+	let event = new_best_block_event(&pool, Some(header02b.hash()), header02a.hash());
+	block_on(pool.maintain(event));
+	assert_eq!(pool.mempool_len().0, 3);
+	assert_pool_status!(header02a.hash(), &pool, 1, 0);
+	let mut ready_iterator = pool.ready_at(header02a.hash()).now_or_never().unwrap();
+	assert_eq!(ready_iterator.next().unwrap().hash, api.hash_and_length(&xt2).0);
+	assert!(ready_iterator.next().is_none());
 }
 
 #[test]
@@ -3012,7 +3031,6 @@ fn fatp_limits_future_count_works() {
 	sp_tracing::try_init_simple();
 
 	let builder = TestPoolBuilder::new();
-	//todo: we want 3 or 4:
 	let (pool, api, _) = builder.with_mempool_count_limit(3).with_future_count(2).build();
 	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
 	api.set_nonce(api.genesis_hash(), Charlie.into(), 500);
@@ -3047,4 +3065,48 @@ fn fatp_limits_future_count_works() {
 	//charlie was resubmitted from mmepool into the view:
 	assert_pool_status!(header02.hash(), &pool, 2, 1);
 	assert_eq!(pool.mempool_len().0, 3);
+}
+
+#[test]
+fn fatp_limits_watcher_xxx() {
+	sp_tracing::try_init_simple();
+
+	let builder = TestPoolBuilder::new();
+	let (pool, api, _) = builder.with_ready_count(2).build();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 300);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 400);
+
+	let header01 = api.push_block(1, vec![], true);
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Charlie, 400);
+	let xt1 = uxt(Bob, 300);
+	let xt2 = uxt(Alice, 200);
+
+	let submissions = vec![
+		pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone()),
+		pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone()),
+		pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone()),
+	];
+	let mut submissions = block_on(futures::future::join_all(submissions));
+	let xt2_watcher = submissions.remove(2).unwrap();
+	let xt1_watcher = submissions.remove(1).unwrap();
+	let xt0_watcher = submissions.remove(0).unwrap();
+
+	assert_pool_status!(header01.hash(), &pool, 2, 0);
+
+	let xt0_status = futures::executor::block_on_stream(xt0_watcher).take(1).collect::<Vec<_>>();
+
+	log::debug!("xt0_status: {:#?}", xt0_status);
+
+	assert_eq!(xt0_status, vec![TransactionStatus::Ready]);
+	let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(1).collect::<Vec<_>>();
+
+	assert_eq!(xt1_status, vec![TransactionStatus::Ready]);
+
+	let xt2_status = futures::executor::block_on_stream(xt2_watcher).take(1).collect::<Vec<_>>();
+	log::debug!("xt2_status: {:#?}", xt2_status);
+
+	assert_eq!(xt2_status, vec![TransactionStatus::Ready,]);
 }
