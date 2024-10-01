@@ -869,6 +869,18 @@ fn build_bloaty_blob(
 		// We don't want to call ourselves recursively
 		.env(crate::SKIP_BUILD_ENV, "");
 
+	let cargo_args = env::var(crate::WASM_BUILD_CARGO_ARGS).unwrap_or_default();
+	if !cargo_args.is_empty() {
+		let Some(args) = shlex::split(&cargo_args) else {
+			build_helper::warning(format!(
+				"the {} environment variable is not a valid shell string",
+				crate::WASM_BUILD_CARGO_ARGS
+			));
+			std::process::exit(1);
+		};
+		build_cmd.args(args);
+	}
+
 	#[cfg(feature = "metadata-hash")]
 	if let Some(hash) = metadata_hash {
 		build_cmd.env("RUNTIME_METADATA_HASH", array_bytes::bytes2hex("0x", &hash));
@@ -1140,6 +1152,7 @@ fn generate_rerun_if_changed_instructions(
 	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_TOOLCHAIN);
 	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_STD);
 	println!("cargo:rerun-if-env-changed={}", crate::RUNTIME_TARGET);
+	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_CARGO_ARGS);
 }
 
 /// Track files and paths related to the given package to rerun `build.rs` on any relevant change.
