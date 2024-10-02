@@ -202,8 +202,6 @@ impl LoadSpec for ChainSpecLoader {
 #[derive(Debug, PartialEq)]
 enum LegacyRuntime {
 	Omni,
-	Shell,
-	Seedling,
 	AssetHubPolkadot,
 	AssetHub,
 	Penpal,
@@ -218,11 +216,7 @@ impl LegacyRuntime {
 	fn from_id(id: &str) -> LegacyRuntime {
 		let id = id.replace('_', "-");
 
-		if id.starts_with("shell") {
-			LegacyRuntime::Shell
-		} else if id.starts_with("seedling") {
-			LegacyRuntime::Seedling
-		} else if id.starts_with("asset-hub-polkadot") | id.starts_with("statemint") {
+		if id.starts_with("asset-hub-polkadot") | id.starts_with("statemint") {
 			LegacyRuntime::AssetHubPolkadot
 		} else if id.starts_with("asset-hub-kusama") |
 			id.starts_with("statemine") |
@@ -277,7 +271,6 @@ impl RuntimeResolverT for RuntimeResolver {
 			LegacyRuntime::Penpal |
 			LegacyRuntime::Omni =>
 				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)),
-			LegacyRuntime::Shell | LegacyRuntime::Seedling => Runtime::Shell,
 		})
 	}
 }
@@ -336,15 +329,6 @@ mod tests {
 
 	#[test]
 	fn test_legacy_runtime_for_different_chain_specs() {
-		let chain_spec = create_default_with_extensions("shell-1", Extensions1::default());
-		assert_eq!(LegacyRuntime::Shell, LegacyRuntime::from_id(chain_spec.id()));
-
-		let chain_spec = create_default_with_extensions("shell-2", Extensions2::default());
-		assert_eq!(LegacyRuntime::Shell, LegacyRuntime::from_id(chain_spec.id()));
-
-		let chain_spec = create_default_with_extensions("seedling", Extensions2::default());
-		assert_eq!(LegacyRuntime::Seedling, LegacyRuntime::from_id(chain_spec.id()));
-
 		let chain_spec =
 			create_default_with_extensions("penpal-rococo-1000", Extensions2::default());
 		assert_eq!(LegacyRuntime::Penpal, LegacyRuntime::from_id(chain_spec.id()));
