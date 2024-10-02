@@ -698,17 +698,20 @@ fn second_multiple_candidates_per_relay_parent() {
 
 		let pair = CollatorPair::generate().0;
 
-		// Grandparent of head `a`.
+		let head_a = Hash::from_low_u64_be(130);
+		let head_a_num: u32 = 0;
+
 		let head_b = Hash::from_low_u64_be(128);
 		let head_b_num: u32 = 2;
 
-		// Grandparent of head `b`.
-		// Group rotation frequency is 1 by default, at `c` we're assigned
-		// to the first para.
-		let head_c = Hash::from_low_u64_be(130);
-
-		// Activated leaf is `b`, but the collation will be based on `c`.
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		// Activated leaf is `a` and `b`.The collation will be based on `b`.
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(head_a, head_a_num), (head_b, head_b_num)],
+			2,
+		)
+		.await;
 
 		let peer_a = PeerId::random();
 
@@ -726,8 +729,8 @@ fn second_multiple_candidates_per_relay_parent() {
 			submit_second_and_assert(
 				&mut virtual_overseer,
 				keystore.clone(),
-				ParaId::from(TestState::CHAIN_IDS[0]),
-				head_c,
+				test_state.chain_ids[0],
+				head_a,
 				peer_a,
 				HeadData(vec![i as u8]),
 			)
@@ -739,7 +742,7 @@ fn second_multiple_candidates_per_relay_parent() {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_a,
-			head_c,
+			head_a,
 			Some((candidate_hash, Hash::zero())),
 		)
 		.await;
@@ -765,7 +768,7 @@ fn second_multiple_candidates_per_relay_parent() {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_b,
-			head_c,
+			head_a,
 			Some((candidate_hash, Hash::zero())),
 		)
 		.await;
