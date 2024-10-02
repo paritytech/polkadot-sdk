@@ -1937,7 +1937,7 @@ pub mod pallet {
 		///
 		/// Weight: `O(N)` where `N` is the maximum number of elements that can be removed at once.
 		#[pallet::call_index(36)]
-		#[pallet::weight(T::WeightInfo::destroy_distribution(100u32))] // TODO
+		#[pallet::weight(T::WeightInfo::destroy_distribution(T::RemoveItemsLimit::get()))] // TODO
 		pub fn destroy_distribution(
 			origin: OriginFor<T>,
 			distribution_id: DistributionCounter,
