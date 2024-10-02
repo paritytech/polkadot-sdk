@@ -42,7 +42,6 @@ snowbridge-pallet-inbound-queue-fixtures = { optional = true, workspace = true }
 
 [dev-dependencies]
 frame-benchmarking = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
 snowbridge-pallet-ethereum-client = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 

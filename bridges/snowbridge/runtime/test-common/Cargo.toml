@@ -23,7 +23,6 @@ pallet-timestamp = { workspace = true }
 pallet-utility = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
-sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 
 # Polkadot
@@ -67,7 +66,6 @@ std = [
 	"snowbridge-pallet-system/std",
 	"sp-core/std",
 	"sp-io/std",
-	"sp-keyring/std",
 	"sp-runtime/std",
 	"xcm-executor/std",
 	"xcm/std",

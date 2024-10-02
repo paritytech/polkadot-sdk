@@ -113,6 +113,7 @@ pub use self::{
 		StorageMap, StorageNMap, StoragePrefixedMap, StorageValue,
 	},
 };
+pub use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
 pub use sp_runtime::{
 	self, print, traits::Printable, ConsensusEngineId, MAX_MODULE_ERROR_ENCODED_SIZE,
 };

@@ -5,6 +5,7 @@ use codec::Encode;
 use frame_support::{
 	assert_err, assert_ok,
 	traits::{fungible::Mutate, OnFinalize, OnInitialize},
+	Sr25519Keyring::*,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_runtimes_test_utils::{
@@ -13,7 +14,6 @@ use parachains_runtimes_test_utils::{
 use snowbridge_core::{ChannelId, ParaId};
 use snowbridge_pallet_ethereum_client_fixtures::*;
 use sp_core::{Get, H160, U256};
-use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::Header, AccountId32, DigestItem, SaturatedConversion, Saturating};
 use xcm::{
 	latest::prelude::*,
@@ -434,7 +434,7 @@ pub fn ethereum_extrinsic<Runtime>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	construct_and_apply_extrinsic: fn(
-		sp_keyring::AccountKeyring,
+		frame_support::Sr25519Keyring,
 		<Runtime as frame_system::Config>::RuntimeCall,
 	) -> sp_runtime::DispatchOutcome,
 ) where
@@ -570,7 +570,7 @@ pub fn ethereum_to_polkadot_message_extrinsics_work<Runtime>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	construct_and_apply_extrinsic: fn(
-		sp_keyring::AccountKeyring,
+		frame_support::Sr25519Keyring,
 		<Runtime as frame_system::Config>::RuntimeCall,
 	) -> sp_runtime::DispatchOutcome,
 ) where

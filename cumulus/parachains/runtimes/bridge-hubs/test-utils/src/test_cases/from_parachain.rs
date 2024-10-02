@@ -29,14 +29,16 @@ use bp_polkadot_core::parachains::ParaHash;
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::{Chain, Parachain};
 use bp_xcm_bridge_hub::XcmAsPlainPayload;
-use frame_support::traits::{OnFinalize, OnInitialize};
+use frame_support::{
+	traits::{OnFinalize, OnInitialize},
+	Sr25519Keyring::*,
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_messages::{BridgedChainOf, LaneIdOf, ThisChainOf};
 use parachains_runtimes_test_utils::{
 	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
 };
 use sp_core::Get;
-use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::Header as HeaderT, AccountId32};
 use xcm::latest::prelude::*;
 
@@ -112,7 +114,7 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 	local_relay_chain_id: NetworkId,
 	prepare_configuration: impl Fn() -> LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 	construct_and_apply_extrinsic: fn(
-		sp_keyring::AccountKeyring,
+		frame_support::Sr25519Keyring,
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
 	) -> sp_runtime::DispatchOutcome,
 	expect_rewards: bool,
@@ -246,7 +248,7 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 	local_relay_chain_id: NetworkId,
 	prepare_configuration: impl Fn() -> LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 	construct_and_apply_extrinsic: fn(
-		sp_keyring::AccountKeyring,
+		frame_support::Sr25519Keyring,
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
 	) -> sp_runtime::DispatchOutcome,
 	expect_rewards: bool,
@@ -414,7 +416,7 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 	local_relay_chain_id: NetworkId,
 	prepare_configuration: impl Fn() -> LaneIdOf<RuntimeHelper::Runtime, RuntimeHelper::MPI>,
 	construct_and_apply_extrinsic: fn(
-		sp_keyring::AccountKeyring,
+		frame_support::Sr25519Keyring,
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
 	) -> sp_runtime::DispatchOutcome,
 ) where
