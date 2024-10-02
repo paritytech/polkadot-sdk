@@ -264,14 +264,14 @@ impl Collations {
 	/// particular parachain in the claim queue.
 	///
 	/// To achieve this each seconded collation is mapped to an entry from the claim queue. The next
-	/// fetch is the first unsatisfied entry from the claim queue for which there is an
+	/// fetch is the first unfulfilled entry from the claim queue for which there is an
 	/// advertisement.
 	///
-	/// `claim_queue_state` represents the claim queue and a boolean flag indicating if the claim
-	/// queue entry is fulfilled or not.
+	/// `unfulfilled_claim_queue_entries` represents all claim queue entries which are still not
+	/// fulfilled.
 	pub(super) fn pick_a_collation_to_fetch(
 		&mut self,
-		claim_queue_state: Vec<(bool, ParaId)>,
+		unfulfilled_claim_queue_entries: Vec<ParaId>,
 	) -> Option<(PendingCollation, CollatorId)> {
 		gum::trace!(
 			target: LOG_TARGET,
@@ -280,18 +280,15 @@ impl Collations {
 			"Pick a collation to fetch."
 		);
 
-		for (fulfilled, assignment) in claim_queue_state {
-			// if this assignment has been already fulfilled - move on
-			if fulfilled {
-				continue
-			}
-
-			// we have found and unfulfilled assignment - try to fulfill it
-			if let Some(collations) = self.waiting_queue.get_mut(&assignment) {
-				if let Some(collation) = collations.pop_front() {
-					// we don't mark the entry as fulfilled because it is considered pending
-					return Some(collation)
-				}
+		for assignment in unfulfilled_claim_queue_entries {
+			// if there is an unfulfilled assignment - return it
+			if let Some(collation) = self
+				.waiting_queue
+				.get_mut(&assignment)
+				.map(|collations| collations.pop_front())
+				.flatten()
+			{
+				return Some(collation)
 			}
 		}
 

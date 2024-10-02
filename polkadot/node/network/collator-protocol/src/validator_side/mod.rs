@@ -2058,13 +2058,14 @@ fn seconded_and_pending_for_para_in_view(
 		.unwrap_or(0)
 }
 
-// Returns the claim queue with a boolean attached to each entry indicating if the position in the
-// claim queue has got a corresponding pending fetch or seconded candidate.
-fn claim_queue_state(
+// Returns the claim queue with out fetched or pending advertisement. The resulting `Vec` keeps the
+// order in the claim queue so the earlier an element is located in the `Vec` the higher its
+// priority is.
+fn unfulfilled_claim_queue_entries(
 	relay_parent: &Hash,
 	per_relay_parent: &HashMap<Hash, PerRelayParent>,
 	implicit_view: &ImplicitView,
-) -> Option<Vec<(bool, ParaId)>> {
+) -> Option<Vec<ParaId>> {
 	let relay_parent_state = per_relay_parent.get(relay_parent)?;
 	let scheduled_paras = relay_parent_state.assignment.current.iter().collect::<HashSet<_>>();
 	let mut claims_per_para = scheduled_paras
@@ -2085,12 +2086,12 @@ fn claim_queue_state(
 		.assignment
 		.current
 		.iter()
-		.map(|para_id| match claims_per_para.entry(*para_id) {
+		.filter_map(|para_id| match claims_per_para.entry(*para_id) {
 			Entry::Occupied(mut entry) if *entry.get() > 0 => {
 				*entry.get_mut() -= 1;
-				(true, *para_id)
+				None
 			},
-			_ => (false, *para_id),
+			_ => Some(*para_id),
 		})
 		.collect::<Vec<_>>();
 	Some(claim_queue_state)
@@ -2103,8 +2104,11 @@ fn get_next_collation_to_fetch(
 	relay_parent: Hash,
 	state: &mut State,
 ) -> Option<(PendingCollation, CollatorId)> {
-	let claim_queue_state =
-		claim_queue_state(&relay_parent, &state.per_relay_parent, &state.implicit_view)?;
+	let unfulfilled_entries = unfulfilled_claim_queue_entries(
+		&relay_parent,
+		&state.per_relay_parent,
+		&state.implicit_view,
+	)?;
 	let rp_state = state.per_relay_parent.get_mut(&relay_parent)?;
 
 	// If finished one does not match waiting_collation, then we already dequeued another fetch
@@ -2124,5 +2128,5 @@ fn get_next_collation_to_fetch(
 		}
 	}
 	rp_state.collations.status = CollationStatus::Waiting;
-	rp_state.collations.pick_a_collation_to_fetch(claim_queue_state)
+	rp_state.collations.pick_a_collation_to_fetch(unfulfilled_entries)
 }
