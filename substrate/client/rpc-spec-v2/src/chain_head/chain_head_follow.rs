@@ -70,10 +70,46 @@ pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	/// LRU cache of pruned blocks.
 	pruned_blocks: LruMap<Block::Hash, ()>,
 	/// LRU cache of announced blocks.
-	announced_blocks: LruMap<Block::Hash, ()>,
+	announced_blocks: AnnouncedBlocks<Block>,
 	/// Stop all subscriptions if the distance between the leaves and the current finalized
 	/// block is larger than this value.
 	max_lagging_distance: usize,
+}
+
+struct AnnouncedBlocks<Block: BlockT> {
+	/// Unfinalized blocks.
+	blocks: LruMap<Block::Hash, ()>,
+	/// Finalized blocks.
+	finalized: LruMap<Block::Hash, ()>,
+}
+
+impl<Block: BlockT> AnnouncedBlocks<Block> {
+	/// Creates a new `AnnouncedBlocks`.
+	fn new() -> Self {
+		Self {
+			blocks: LruMap::new(ByLength::new((MAX_PINNED_BLOCKS - MAX_FINALIZED_BLOCKS) as u32)),
+			finalized: LruMap::new(ByLength::new(MAX_FINALIZED_BLOCKS as u32)),
+		}
+	}
+
+	/// Insert the block into the announced blocks.
+	fn insert(&mut self, block: Block::Hash, finalized: bool) {
+		if finalized {
+			// When a block is declared as finalized, it is removed from the unfinalized blocks.
+			//
+			// Given that the finalized blocks are bounded to `MAX_FINALIZED_BLOCKS`,
+			// this ensures we keep the minimum number of blocks in memory.
+			self.blocks.remove(&block);
+			self.finalized.insert(block, ());
+		} else {
+			self.blocks.insert(block, ());
+		}
+	}
+
+	/// Check if the block was previously announced.
+	fn was_announced(&mut self, block: &Block::Hash) -> bool {
+		self.blocks.get(block).is_some() || self.finalized.get(block).is_some()
+	}
 }
 
 impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Client> {
@@ -96,9 +132,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 			pruned_blocks: LruMap::new(ByLength::new(
 				MAX_PINNED_BLOCKS.try_into().unwrap_or(u32::MAX),
 			)),
-			announced_blocks: LruMap::new(ByLength::new(
-				MAX_PINNED_BLOCKS.try_into().unwrap_or(u32::MAX),
-			)),
+			announced_blocks: AnnouncedBlocks::new(),
 			max_lagging_distance,
 		}
 	}
@@ -330,7 +364,7 @@ where
 		let finalized_block_runtime = self.generate_runtime_event(finalized_block_hash, None);
 
 		for finalized in &finalized_block_hashes {
-			self.announced_blocks.insert(*finalized, ());
+			self.announced_blocks.insert(*finalized, true);
 		}
 
 		let initialized_event = FollowEvent::Initialized(Initialized {
@@ -345,10 +379,10 @@ where
 		for (child, parent) in initial_blocks.into_iter() {
 			// If the parent was not announced we have a gap currently.
 			// This can happen during a WarpSync.
-			if self.announced_blocks.get(&parent).is_none() {
+			if !self.announced_blocks.was_announced(&parent) {
 				return Err(SubscriptionManagementError::BlockHeaderAbsent);
 			}
-			self.announced_blocks.insert(child, ());
+			self.announced_blocks.insert(child, false);
 
 			let new_runtime = self.generate_runtime_event(child, Some(parent));
 
@@ -365,10 +399,10 @@ where
 		// Generate a new best block event.
 		let best_block_hash = startup_point.best_hash;
 		if best_block_hash != finalized_block_hash {
-			if self.announced_blocks.get(&best_block_hash).is_none() {
+			if !self.announced_blocks.was_announced(&best_block_hash) {
 				return Err(SubscriptionManagementError::BlockHeaderAbsent);
 			}
-			self.announced_blocks.insert(best_block_hash, ());
+			self.announced_blocks.insert(best_block_hash, true);
 
 			let best_block = FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
 			self.current_best_block = Some(best_block_hash);
@@ -437,19 +471,19 @@ where
 			return Ok(Default::default())
 		}
 
-		if self.announced_blocks.get(&block_hash).is_some() {
+		if self.announced_blocks.was_announced(&block_hash) {
 			// Block was already reported by the finalized branch.
 			return Ok(Default::default())
 		}
 
 		// Double check the parent hash. If the parent hash is not reported, we have a gap.
 		let parent_block_hash = *notification.header.parent_hash();
-		if self.announced_blocks.get(&parent_block_hash).is_none() {
+		if !self.announced_blocks.was_announced(&parent_block_hash) {
 			// The parent block was not reported, we have a gap.
 			return Err(SubscriptionManagementError::Custom("Parent block was not reported".into()))
 		}
 
-		self.announced_blocks.insert(block_hash, ());
+		self.announced_blocks.insert(block_hash, false);
 		Ok(self.generate_import_events(block_hash, parent_block_hash, notification.is_new_best))
 	}
 
@@ -476,7 +510,7 @@ where
 			return Err(SubscriptionManagementError::BlockHeaderAbsent)
 		};
 
-		if self.announced_blocks.get(first_header.parent_hash()).is_none() {
+		if !self.announced_blocks.was_announced(first_header.parent_hash()) {
 			return Err(SubscriptionManagementError::Custom(
 				"Parent block was not reported for a finalized block".into(),
 			));
@@ -489,7 +523,7 @@ where
 			self.sub_handle.pin_block(&self.sub_id, *hash)?;
 
 			// Check if the block was already reported.
-			if self.announced_blocks.get(hash).is_some() {
+			if self.announced_blocks.was_announced(hash) {
 				continue;
 			}
 
@@ -498,7 +532,7 @@ where
 			if !is_last {
 				// Generate only the `NewBlock` event for this block.
 				events.extend(self.generate_import_events(*hash, *parent, false));
-				self.announced_blocks.insert(*hash, ());
+				self.announced_blocks.insert(*hash, true);
 				continue;
 			}
 
@@ -522,7 +556,7 @@ where
 
 			// Let's generate the `NewBlock` and `NewBestBlock` events for the block.
 			events.extend(self.generate_import_events(*hash, *parent, true));
-			self.announced_blocks.insert(*hash, ());
+			self.announced_blocks.insert(*hash, true);
 		}
 
 		Ok(events)
@@ -585,7 +619,7 @@ where
 			self.get_pruned_hashes(&notification.stale_heads, last_finalized)?;
 
 		for finalized in &finalized_block_hashes {
-			self.announced_blocks.insert(*finalized, ());
+			self.announced_blocks.insert(*finalized, true);
 		}
 
 		let finalized_event = FollowEvent::Finalized(Finalized {
