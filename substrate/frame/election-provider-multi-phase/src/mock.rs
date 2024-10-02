@@ -438,7 +438,7 @@ where
 	}
 }
 
-pub type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
+pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
 
 parameter_types! {
 	pub MaxNominations: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;

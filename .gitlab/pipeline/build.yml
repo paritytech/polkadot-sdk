@@ -83,6 +83,23 @@ build-malus:
     - echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
     - cp -r ./docker/* ./artifacts
 
+build-templates-node:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .collect-artifacts
+  script:
+    - time cargo build --locked --package parachain-template-node --release
+    - time cargo build --locked --package minimal-template-node --release
+    - time cargo build --locked --package solochain-template-node --release
+    # pack artifacts
+    - mkdir -p ./artifacts
+    - mv ./target/release/parachain-template-node ./artifacts/.
+    - mv ./target/release/minimal-template-node ./artifacts/.
+    - mv ./target/release/solochain-template-node ./artifacts/.
+
 build-rustdoc:
   stage: build
   extends:
@@ -155,6 +172,25 @@ build-short-benchmark:
     - mkdir -p artifacts
     - target/release/polkadot --version
     - cp ./target/release/polkadot ./artifacts/
+
+build-polkadot-zombienet-tests:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .collect-artifacts
+  needs:
+    - job: build-linux-stable
+      artifacts: true
+    - job: build-linux-stable-cumulus
+      artifacts: true
+
+  script:
+    - cargo nextest --manifest-path polkadot/zombienet-sdk-tests/Cargo.toml archive --features zombie-metadata --archive-file polkadot-zombienet-tests.tar.zst
+    - mkdir -p artifacts
+    - cp polkadot-zombienet-tests.tar.zst ./artifacts
+
 
 # build jobs from cumulus
 
@@ -313,7 +349,7 @@ build-linux-substrate:
     # tldr: we need to checkout the branch HEAD explicitly because of our dynamic versioning approach while building the substrate binary
     # see https://github.com/paritytech/ci_cd/issues/682#issuecomment-1340953589
     - git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA"
-    - !reference [.forklift-cache, before_script]
+    - !reference [ .forklift-cache, before_script ]
   script:
     - time WASM_BUILD_NO_COLOR=1 cargo build --locked --release -p staging-node-cli
     - mv $CARGO_TARGET_DIR/release/substrate-node ./artifacts/substrate/substrate
@@ -328,73 +364,6 @@ build-linux-substrate:
     - cp -r ./docker/dockerfiles/substrate_injected.Dockerfile ./artifacts/substrate/
     # - printf '\n# building node-template\n\n'
     # - ./scripts/ci/node-template-release.sh ./artifacts/substrate/substrate-node-template.tar.gz
-
-build-runtimes-polkavm:
-  stage: build
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-  script:
-    - SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p minimal-template-runtime
-    - SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p westend-runtime
-    - SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p rococo-runtime
-    - SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p polkadot-test-runtime
-
-.build-subkey:
-  stage: build
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    # - .collect-artifact
-  variables:
-    # this variable gets overridden by "rusty-cachier environment inject", use the value as default
-    CARGO_TARGET_DIR: "$CI_PROJECT_DIR/target"
-  before_script:
-    - mkdir -p ./artifacts/subkey
-    - !reference [.forklift-cache, before_script]
-  script:
-    - cd ./substrate/bin/utils/subkey
-    - time SKIP_WASM_BUILD=1 cargo build --locked --release
-    # - cd -
-    # - mv $CARGO_TARGET_DIR/release/subkey ./artifacts/subkey/.
-    # - echo -n "Subkey version = "
-    # - ./artifacts/subkey/subkey --version |
-    #   sed -n -E 's/^subkey ([0-9.]+.*)/\1/p' |
-    #   tee ./artifacts/subkey/VERSION;
-    # - sha256sum ./artifacts/subkey/subkey | tee ./artifacts/subkey/subkey.sha256
-    # - cp -r ./scripts/ci/docker/subkey.Dockerfile ./artifacts/subkey/
-
-build-subkey-linux:
-  extends: .build-subkey
-  # DAG
-  needs:
-    - job: build-malus
-      artifacts: false
-# tbd
-# build-subkey-macos:
-#   extends: .build-subkey
-#   # duplicating before_script & script sections from .build-subkey hidden job
-#   # to overwrite rusty-cachier integration as it doesn't work on macos
-#   before_script:
-#     # skip timestamp script, the osx bash doesn't support printf %()T
-#     - !reference [.job-switcher, before_script]
-#     - mkdir -p ./artifacts/subkey
-#   script:
-#     - cd ./bin/utils/subkey
-#     - SKIP_WASM_BUILD=1 time cargo build --locked --release
-#     - cd -
-#     - mv ./target/release/subkey ./artifacts/subkey/.
-#     - echo -n "Subkey version = "
-#     - ./artifacts/subkey/subkey --version |
-#       sed -n -E 's/^subkey ([0-9.]+.*)/\1/p' |
-#       tee ./artifacts/subkey/VERSION;
-#     - sha256sum ./artifacts/subkey/subkey | tee ./artifacts/subkey/subkey.sha256
-#     - cp -r ./scripts/ci/docker/subkey.Dockerfile ./artifacts/subkey/
-#   after_script: [""]
-#   tags:
-#     - osx
 
 # bridges
 

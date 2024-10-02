@@ -31,10 +31,7 @@ use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{
-		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
-		TransactionExtensionBase,
-	},
+	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension},
 	transaction_validity::TransactionValidityError,
 	DispatchResult,
 };
@@ -143,17 +140,12 @@ impl<T: Config + Send + Sync> core::fmt::Debug for StorageWeightReclaim<T> {
 	}
 }
 
-#[allow(deprecated)]
-impl<T: Config + Send + Sync> TransactionExtensionBase for StorageWeightReclaim<T> {
-	const IDENTIFIER: &'static str = "StorageWeightReclaim";
-	type Implicit = ();
-}
-
-#[allow(deprecated)]
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for StorageWeightReclaim<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
+	const IDENTIFIER: &'static str = "StorageWeightReclaim";
+	type Implicit = ();
 	type Val = ();
 	type Pre = Option<u64>;
 
@@ -174,9 +166,9 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
-	) -> Result<Option<Weight>, TransactionValidityError> {
+	) -> Result<Weight, TransactionValidityError> {
 		let Some(pre_dispatch_proof_size) = pre else {
-			return Ok(None);
+			return Ok(Weight::zero());
 		};
 
 		let Some(post_dispatch_proof_size) = get_proof_size() else {
@@ -184,17 +176,19 @@ where
 				target: LOG_TARGET,
 				"Proof recording enabled during pre-dispatch, now disabled. This should not happen."
 			);
-			return Ok(None)
+			return Ok(Weight::zero())
 		};
-		let benchmarked_weight = info.total_weight().proof_size();
-		let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
-
 		// Unspent weight according to the `actual_weight` from `PostDispatchInfo`
 		// This unspent weight will be refunded by the `CheckWeight` extension, so we need to
 		// account for that.
 		let unspent = post_info.calc_unspent(info).proof_size();
-		let storage_size_diff =
-			benchmarked_weight.saturating_sub(unspent).abs_diff(consumed_weight as u64);
+		let benchmarked_weight = info.total_weight().proof_size().saturating_sub(unspent);
+		let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
+
+		let storage_size_diff = benchmarked_weight.abs_diff(consumed_weight as u64);
+
+		let extrinsic_len = frame_system::AllExtrinsicsLen::<T>::get().unwrap_or(0);
+		let node_side_pov_size = post_dispatch_proof_size.saturating_add(extrinsic_len.into());
 
 		// This value will be reclaimed by [`frame_system::CheckWeight`], so we need to calculate
 		// that in.
@@ -202,18 +196,33 @@ where
 			if consumed_weight > benchmarked_weight {
 				log::error!(
 					target: LOG_TARGET,
-					"Benchmarked storage weight smaller than consumed storage weight. benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}"
+					"Benchmarked storage weight smaller than consumed storage weight. extrinsic: {} benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}",
+					frame_system::Pallet::<T>::extrinsic_index().unwrap_or(0)
 				);
 				current.accrue(Weight::from_parts(0, storage_size_diff), info.class)
 			} else {
 				log::trace!(
 					target: LOG_TARGET,
-					"Reclaiming storage weight. benchmarked: {benchmarked_weight}, consumed: {consumed_weight} unspent: {unspent}"
+					"Reclaiming storage weight. extrinsic: {} benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}",
+					frame_system::Pallet::<T>::extrinsic_index().unwrap_or(0)
 				);
 				current.reduce(Weight::from_parts(0, storage_size_diff), info.class)
 			}
+
+			// If we encounter a situation where the node-side proof size is already higher than
+			// what we have in the runtime bookkeeping, we add the difference to the `BlockWeight`.
+			// This prevents that the proof size grows faster than the runtime proof size.
+			let block_weight_proof_size = current.total().proof_size();
+			let missing_from_node = node_side_pov_size.saturating_sub(block_weight_proof_size);
+			if missing_from_node > 0 {
+				log::warn!(
+					target: LOG_TARGET,
+					"Node-side PoV size higher than runtime proof size weight. node-side: {node_side_pov_size} extrinsic_len: {extrinsic_len} runtime: {block_weight_proof_size}, missing: {missing_from_node}. Setting to node-side proof size."
+				);
+				current.accrue(Weight::from_parts(0, missing_from_node), info.class);
+			}
 		});
-		Ok(None)
+		Ok(Weight::zero())
 	}
 
 	impl_tx_ext_default!(T::RuntimeCall; validate);

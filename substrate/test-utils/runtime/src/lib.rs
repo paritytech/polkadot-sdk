@@ -121,7 +121,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 1,
+	system_version: 1,
 };
 
 fn version() -> RuntimeVersion {
@@ -260,12 +260,7 @@ impl sp_runtime::traits::RefundWeight for CheckSubstrateCall {
 impl sp_runtime::traits::ExtensionPostDispatchWeightHandler<CheckSubstrateCall>
 	for CheckSubstrateCall
 {
-	fn set_extension_weight(
-		&mut self,
-		_info: &CheckSubstrateCall,
-		_weight: frame_support::weights::Weight,
-	) {
-	}
+	fn set_extension_weight(&mut self, _info: &CheckSubstrateCall) {}
 }
 
 impl sp_runtime::traits::Dispatchable for CheckSubstrateCall {
@@ -282,11 +277,9 @@ impl sp_runtime::traits::Dispatchable for CheckSubstrateCall {
 	}
 }
 
-impl sp_runtime::traits::TransactionExtensionBase for CheckSubstrateCall {
+impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCall {
 	const IDENTIFIER: &'static str = "CheckSubstrateCall";
 	type Implicit = ();
-}
-impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCall {
 	type Pre = ();
 	type Val = ();
 	impl_tx_ext_default!(RuntimeCall; prepare);
@@ -1070,7 +1063,7 @@ mod tests {
 		// This tests that the on-chain `HEAP_PAGES` parameter is respected.
 
 		// Create a client devoting only 8 pages of wasm memory. This gives us ~512k of heap memory.
-		let mut client = TestClientBuilder::new().set_heap_pages(8).build();
+		let client = TestClientBuilder::new().set_heap_pages(8).build();
 		let best_hash = client.chain_info().best_hash;
 
 		// Try to allocate 1024k of memory on heap. This is going to fail since it is twice larger

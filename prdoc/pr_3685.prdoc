@@ -95,11 +95,11 @@ crates:
     bump: major
   - name: staging-xcm-builder
     bump: major
-  - name: minimal-runtime
+  - name: minimal-template-runtime
     bump: major
-  - name: node-template
+  - name: minimal-template-node
     bump: major
-  - name: node-template-runtime
+  - name: solochain-template-runtime
     bump: major
   - name: staging-node-cli
     bump: major
@@ -117,7 +117,7 @@ crates:
     bump: minor
   - name: sc-transaction-pool
     bump: minor
-  - name: frame
+  - name: polkadot-sdk-frame
     bump: major
   - name: pallet-babe
     bump: minor
@@ -152,7 +152,7 @@ crates:
   - name: pallet-sudo
     bump: major
   - name: frame-support-procedural
-    bump: minor
+    bump: major
   - name: frame-support
     bump: major
   - name: frame-system

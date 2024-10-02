@@ -48,6 +48,10 @@ impl VariantCount for () {
 	const VARIANT_COUNT: u32 = 0;
 }
 
+impl VariantCount for u8 {
+	const VARIANT_COUNT: u32 = 256;
+}
+
 /// Adapter for `Get<u32>` to access `VARIANT_COUNT` from `trait pub trait VariantCount {`.
 pub struct VariantCountOf<T: VariantCount>(core::marker::PhantomData<T>);
 impl<T: VariantCount> Get<u32> for VariantCountOf<T> {
@@ -484,7 +488,7 @@ pub trait DefensiveMin<T> {
 	/// assert_eq!(4, 4_u32.defensive_min(4_u32));
 	/// ```
 	///
-	/// ```#[cfg_attr(debug_assertions, should_panic)]
+	/// ```should_panic
 	/// use frame_support::traits::DefensiveMin;
 	/// // min(4, 3) panics.
 	/// 4_u32.defensive_min(3_u32);
@@ -501,7 +505,7 @@ pub trait DefensiveMin<T> {
 	/// assert_eq!(3, 3_u32.defensive_strict_min(4_u32));
 	/// ```
 	///
-	/// ```#[cfg_attr(debug_assertions, should_panic)]
+	/// ```should_panic
 	/// use frame_support::traits::DefensiveMin;
 	/// // min(4, 4) panics.
 	/// 4_u32.defensive_strict_min(4_u32);
@@ -548,7 +552,7 @@ pub trait DefensiveMax<T> {
 	/// assert_eq!(4, 4_u32.defensive_max(4_u32));
 	/// ```
 	///
-	/// ```#[cfg_attr(debug_assertions, should_panic)]
+	/// ```should_panic
 	/// use frame_support::traits::DefensiveMax;
 	/// // max(4, 5) panics.
 	/// 4_u32.defensive_max(5_u32);
@@ -565,7 +569,7 @@ pub trait DefensiveMax<T> {
 	/// assert_eq!(4, 4_u32.defensive_strict_max(3_u32));
 	/// ```
 	///
-	/// ```#[cfg_attr(debug_assertions, should_panic)]
+	/// ```should_panic
 	/// use frame_support::traits::DefensiveMax;
 	/// // max(4, 4) panics.
 	/// 4_u32.defensive_strict_max(4_u32);
@@ -937,7 +941,9 @@ where
 	}
 }
 
+/// Interface for types capable of constructing an inherent extrinsic.
 pub trait InherentBuilder: ExtrinsicCall {
+	/// Create a new inherent from a given call.
 	fn new_inherent(call: Self::Call) -> Self;
 }
 
@@ -954,11 +960,14 @@ where
 	}
 }
 
+/// Interface for types capable of constructing a signed transaction.
 pub trait SignedTransactionBuilder: ExtrinsicCall {
 	type Address;
 	type Signature;
 	type Extension;
 
+	/// Create a new signed transaction from a given call and extension using the provided signature
+	/// data.
 	fn new_signed_transaction(
 		call: Self::Call,
 		signed: Self::Address,

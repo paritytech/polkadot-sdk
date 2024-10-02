@@ -25,20 +25,19 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64, KeyOwnerProofSystem, OnInitialize},
+	traits::{ConstU128, ConstU32, ConstU64, OnInitialize},
 };
 use pallet_session::historical as pallet_session_historical;
 use sp_consensus_babe::{AuthorityId, AuthorityPair, Randomness, Slot, VrfSignature};
 use sp_core::{
-	crypto::{KeyTypeId, Pair, VrfSecret},
+	crypto::{Pair, VrfSecret},
 	U256,
 };
 use sp_io;
 use sp_runtime::{
 	curve::PiecewiseLinear,
-	generic::UncheckedExtrinsic,
 	impl_opaque_keys,
-	testing::{Digest, DigestItem, Header},
+	testing::{Digest, DigestItem, Header, TestXt},
 	traits::{Header as _, OpaqueKeys},
 	BuildStorage, Perbill,
 };
@@ -74,7 +73,7 @@ where
 	RuntimeCall: From<C>,
 {
 	type RuntimeCall = RuntimeCall;
-	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
+	type Extrinsic = TestXt<RuntimeCall, ()>;
 }
 
 impl<C> frame_system::offchain::CreateInherent<C> for Test
@@ -82,7 +81,7 @@ where
 	RuntimeCall: From<C>,
 {
 	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
-		UncheckedExtrinsic::new_bare(call)
+		TestXt::new_bare(call)
 	}
 }
 
@@ -192,7 +191,7 @@ impl Config for Test {
 	type WeightInfo = ();
 	type MaxAuthorities = ConstU32<10>;
 	type MaxNominators = ConstU32<100>;
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, AuthorityId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		super::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }

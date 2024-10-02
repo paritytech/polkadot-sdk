@@ -361,10 +361,7 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config> Pallet<T>
-where
-	T:,
-{
+impl<T: Config> Pallet<T> {
 	/// Returns the phase of the current session.
 	fn session_phase() -> SessionPhase {
 		let block_in_phase = frame_system::Pallet::<T>::block_number()

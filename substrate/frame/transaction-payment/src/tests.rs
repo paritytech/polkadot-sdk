@@ -30,7 +30,7 @@ use sp_runtime::{
 use frame_support::{
 	assert_ok,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
-	traits::Currency,
+	traits::{Currency, OriginTrait},
 	weights::Weight,
 };
 use frame_system as system;
@@ -141,15 +141,15 @@ fn transaction_extension_transaction_payment_work() {
 		.build()
 		.execute_with(|| {
 			let mut info = info_from_weight(Weight::from_parts(5, 0));
-			let ext_weight = ChargeTransactionPayment::<Runtime>::weight();
+			let ext = Ext::from(0);
+			let ext_weight = ext.weight(CALL);
 			info.extension_weight = ext_weight;
-			Ext::from(0)
-				.test_run(Some(1).into(), CALL, &info, 10, |_| {
-					assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10 - 10);
-					Ok(default_post_info())
-				})
-				.unwrap()
-				.unwrap();
+			ext.test_run(Some(1).into(), CALL, &info, 10, |_| {
+				assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10 - 10);
+				Ok(default_post_info())
+			})
+			.unwrap()
+			.unwrap();
 			assert_eq!(Balances::free_balance(1), 100 - 5 - 5 - 10 - 10);
 			assert_eq!(FeeUnbalancedAmount::get(), 5 + 5 + 10 + 10);
 			assert_eq!(TipUnbalancedAmount::get(), 0);
@@ -183,17 +183,17 @@ fn transaction_extension_transaction_payment_multiplied_refund_works() {
 			let len = 10;
 			let origin = Some(2).into();
 			let mut info = info_from_weight(Weight::from_parts(100, 0));
-			let ext_weight = ChargeTransactionPayment::<Runtime>::weight();
+			let ext = Ext::from(5 /* tipped */);
+			let ext_weight = ext.weight(CALL);
 			info.extension_weight = ext_weight;
-			Ext::from(5 /* tipped */)
-				.test_run(origin, CALL, &info, len, |_| {
-					// 5 base fee, 10 byte fee, 3/2 * (100 call weight fee + 10 ext weight fee), 5
-					// tip
-					assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 165 - 5);
-					Ok(post_info_from_weight(Weight::from_parts(50, 0)))
-				})
-				.unwrap()
-				.unwrap();
+			ext.test_run(origin, CALL, &info, len, |_| {
+				// 5 base fee, 10 byte fee, 3/2 * (100 call weight fee + 10 ext weight fee), 5
+				// tip
+				assert_eq!(Balances::free_balance(2), 200 - 5 - 10 - 165 - 5);
+				Ok(post_info_from_weight(Weight::from_parts(50, 0)))
+			})
+			.unwrap()
+			.unwrap();
 
 			// 75 (3/2 of the returned 50 units of call weight, 0 returned of ext weight) is
 			// refunded
@@ -261,8 +261,8 @@ fn transaction_ext_length_fee_is_also_updated_per_congestion() {
 			// all fees should be x1.5
 			NextFeeMultiplier::<Runtime>::put(Multiplier::saturating_from_rational(3, 2));
 			let len = 10;
-			let info = &info_from_weight(Weight::from_parts(3, 0));
-			assert_ok!(Ext::from(10).validate_and_prepare(Some(1).into(), CALL, info, len));
+			let info = info_from_weight(Weight::from_parts(3, 0));
+			assert_ok!(Ext::from(10).validate_and_prepare(Some(1).into(), CALL, &info, len));
 			assert_eq!(
 				Balances::free_balance(1),
 				100 // original
@@ -615,23 +615,24 @@ fn refund_consistent_with_actual_weight() {
 		.build()
 		.execute_with(|| {
 			let mut info = info_from_weight(Weight::from_parts(100, 0));
-			let ext_weight = ChargeTransactionPayment::<Runtime>::weight();
+			let tip = 5;
+			let ext = Ext::from(tip);
+			let ext_weight = ext.weight(CALL);
 			info.extension_weight = ext_weight;
 			let mut post_info = post_info_from_weight(Weight::from_parts(33, 0));
 			let prev_balance = Balances::free_balance(2);
 			let len = 10;
-			let tip = 5;
 
 			NextFeeMultiplier::<Runtime>::put(Multiplier::saturating_from_rational(5, 4));
 
-			let actual_post_info = Ext::from(tip)
+			let actual_post_info = ext
 				.test_run(Some(2).into(), CALL, &info, len, |_| Ok(post_info))
 				.unwrap()
 				.unwrap();
 			post_info
 				.actual_weight
 				.as_mut()
-				.map(|w| w.saturating_accrue(ChargeTransactionPayment::<Runtime>::weight()));
+				.map(|w| w.saturating_accrue(Ext::from(tip).weight(CALL)));
 			assert_eq!(post_info, actual_post_info);
 
 			let refund_based_fee = prev_balance - Balances::free_balance(2);
@@ -803,4 +804,41 @@ fn genesis_default_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_eq!(NextFeeMultiplier::<Runtime>::get(), Multiplier::saturating_from_integer(1));
 	});
+}
+
+#[test]
+fn no_fee_and_no_weight_for_other_origins() {
+	ExtBuilder::default().build().execute_with(|| {
+		let ext = Ext::from(0);
+
+		let mut info = CALL.get_dispatch_info();
+		info.extension_weight = ext.weight(CALL);
+
+		// Ensure we test the refund.
+		assert!(info.extension_weight != Weight::zero());
+
+		let len = CALL.encoded_size();
+
+		let origin = frame_system::RawOrigin::Root.into();
+		let (pre, origin) = ext.validate_and_prepare(origin, CALL, &info, len).unwrap();
+
+		assert!(origin.as_system_ref().unwrap().is_root());
+
+		let pd_res = Ok(());
+		let mut post_info = frame_support::dispatch::PostDispatchInfo {
+			actual_weight: Some(info.total_weight()),
+			pays_fee: Default::default(),
+		};
+
+		<Ext as TransactionExtension<RuntimeCall>>::post_dispatch(
+			pre,
+			&info,
+			&mut post_info,
+			len,
+			&pd_res,
+		)
+		.unwrap();
+
+		assert_eq!(post_info.actual_weight, Some(info.call_weight));
+	})
 }

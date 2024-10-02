@@ -100,18 +100,11 @@ pub struct CacheSizes {
 	pub availability_meta: usize,
 	/// Cache used by approval data.
 	pub approval_data: usize,
-	/// Cache used by session window data
-	pub session_data: usize,
 }
 
 impl Default for CacheSizes {
 	fn default() -> Self {
-		CacheSizes {
-			availability_data: 25,
-			availability_meta: 1,
-			approval_data: 5,
-			session_data: 1,
-		}
+		CacheSizes { availability_data: 25, availability_meta: 1, approval_data: 5 }
 	}
 }
 

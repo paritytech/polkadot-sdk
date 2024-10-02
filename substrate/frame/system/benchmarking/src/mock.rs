@@ -38,7 +38,11 @@ impl frame_system::ExtensionsWeightInfo for MockWeights {
 		Weight::from_parts(10, 0)
 	}
 
-	fn check_mortality() -> Weight {
+	fn check_mortality_mortal_transaction() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+
+	fn check_mortality_immortal_transaction() -> Weight {
 		Weight::from_parts(10, 0)
 	}
 

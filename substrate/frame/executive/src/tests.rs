@@ -24,7 +24,7 @@ use sp_core::H256;
 use sp_runtime::{
 	generic::{DigestItem, Era},
 	testing::{Block, Digest, Header},
-	traits::{Block as BlockT, Header as HeaderT, TransactionExtensionBase},
+	traits::{Block as BlockT, Header as HeaderT, TransactionExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidityError, UnknownTransaction, ValidTransaction,
 	},
@@ -314,7 +314,10 @@ impl frame_system::ExtensionsWeightInfo for MockExtensionsWeights {
 	fn check_genesis() -> Weight {
 		Weight::zero()
 	}
-	fn check_mortality() -> Weight {
+	fn check_mortality_mortal_transaction() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+	fn check_mortality_immortal_transaction() -> Weight {
 		Weight::from_parts(10, 0)
 	}
 	fn check_non_zero_sender() -> Weight {
@@ -439,32 +442,6 @@ impl frame_support::traits::Get<sp_version::RuntimeVersion> for RuntimeVersion {
 	}
 }
 
-#[derive(Clone, Debug, Encode, codec::Decode, PartialEq, Eq, scale_info::TypeInfo)]
-pub struct AccountU64(u64);
-impl sp_runtime::traits::IdentifyAccount for AccountU64 {
-	type AccountId = u64;
-	fn into_account(self) -> u64 {
-		self.0
-	}
-}
-
-impl sp_runtime::traits::Verify for AccountU64 {
-	type Signer = AccountU64;
-	fn verify<L: sp_runtime::traits::Lazy<[u8]>>(
-		&self,
-		_msg: L,
-		_signer: &<Self::Signer as sp_runtime::traits::IdentifyAccount>::AccountId,
-	) -> bool {
-		true
-	}
-}
-
-impl From<u64> for AccountU64 {
-	fn from(value: u64) -> Self {
-		Self(value)
-	}
-}
-
 parameter_types! {
 	pub static RuntimeVersionTestValues: sp_version::RuntimeVersion =
 		Default::default();
@@ -476,8 +453,12 @@ type TxExtension = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
-type UncheckedXt =
-	sp_runtime::generic::UncheckedExtrinsic<u64, RuntimeCall, AccountU64, TxExtension>;
+type UncheckedXt = sp_runtime::generic::UncheckedExtrinsic<
+	u64,
+	RuntimeCall,
+	sp_runtime::testing::UintAuthorityId,
+	TxExtension,
+>;
 type TestBlock = Block<UncheckedXt>;
 
 // Will contain `true` when the custom runtime logic was called.
@@ -720,7 +701,8 @@ fn block_weight_limit_enforced() {
 	let mut t = new_test_ext(10000);
 	let transfer_weight =
 			<<Runtime as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::transfer_allow_death();
-	let extension_weight = TxExtension::weight();
+	let extension_weight = tx_ext(0u32.into(), 0)
+		.weight(&RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }));
 	// on_initialize weight + base block execution weight
 	let block_weights = <Runtime as frame_system::Config>::BlockWeights::get();
 	let base_block_weight = Weight::from_parts(175, 0) + block_weights.base_block;
@@ -791,6 +773,7 @@ fn block_weight_and_size_is_stored_per_tx() {
 		tx_ext(2, 0),
 	);
 	let len = xt.clone().encode().len() as u32;
+	let extension_weight = xt.extension_weight();
 	let transfer_weight = <<Runtime as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::transfer_allow_death();
 	let mut t = new_test_ext(2);
 	t.execute_with(|| {
@@ -808,7 +791,7 @@ fn block_weight_and_size_is_stored_per_tx() {
 		assert!(Executive::apply_extrinsic(x2.clone()).unwrap().is_ok());
 
 		let extrinsic_weight = transfer_weight +
-			TxExtension::weight() +
+			extension_weight +
 			<Runtime as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Normal)
 				.base_extrinsic;

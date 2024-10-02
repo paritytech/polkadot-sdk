@@ -30,7 +30,7 @@ use sp_core::{
 
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
 use sp_runtime::{
-	generic::UncheckedExtrinsic,
+	testing::TestXt,
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	RuntimeAppPublic,
 };
@@ -72,7 +72,7 @@ impl frame_system::Config for Test {
 	type MaxConsumers = ConstU32<16>;
 }
 
-type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
+type Extrinsic = TestXt<RuntimeCall, ()>;
 type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 impl frame_system::offchain::SigningTypes for Test {
@@ -103,8 +103,6 @@ impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for T
 where
 	RuntimeCall: From<LocalCall>,
 {
-	type SignaturePayload = (u64, (), ());
-
 	fn create_signed_transaction<
 		C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
 	>(
@@ -299,11 +297,12 @@ fn should_submit_unsigned_transaction_on_chain_for_any_account() {
 		{
 			assert_eq!(body, price_payload);
 
-			let signature_valid =
-				<PricePayload<
-					<Test as SigningTypes>::Public,
-					frame_system::pallet_prelude::BlockNumberFor<Test>,
-				> as SignedPayload<Test>>::verify::<crypto::TestAuthId>(&price_payload, signature);
+			let signature_valid = <PricePayload<
+				<Test as SigningTypes>::Public,
+				frame_system::pallet_prelude::BlockNumberFor<Test>,
+			> as SignedPayload<Test>>::verify::<crypto::TestAuthId>(
+				&price_payload, signature
+			);
 
 			assert!(signature_valid);
 		}
@@ -353,11 +352,12 @@ fn should_submit_unsigned_transaction_on_chain_for_all_accounts() {
 		{
 			assert_eq!(body, price_payload);
 
-			let signature_valid =
-				<PricePayload<
-					<Test as SigningTypes>::Public,
-					frame_system::pallet_prelude::BlockNumberFor<Test>,
-				> as SignedPayload<Test>>::verify::<crypto::TestAuthId>(&price_payload, signature);
+			let signature_valid = <PricePayload<
+				<Test as SigningTypes>::Public,
+				frame_system::pallet_prelude::BlockNumberFor<Test>,
+			> as SignedPayload<Test>>::verify::<crypto::TestAuthId>(
+				&price_payload, signature
+			);
 
 			assert!(signature_valid);
 		}

@@ -24,8 +24,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
-		TransactionExtensionBase, ValidateResult,
+		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension, ValidateResult,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 	DispatchResult,
@@ -106,7 +105,7 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> Result<(ValidTransaction, u32), TransactionValidityError> {
-		// ignore the next length. If they return `Ok`, then it is below the limit.
+		// If they return `Ok`, then it is below the limit.
 		let next_len = Self::check_block_length(info, len)?;
 		// during validation we skip block limit check. Since the `validate_transaction`
 		// call runs on an empty block anyway, by this we prevent `on_initialize` weight
@@ -208,20 +207,18 @@ where
 	Ok(all_weight)
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckWeight<T> {
-	const IDENTIFIER: &'static str = "CheckWeight";
-	type Implicit = ();
-
-	fn weight() -> Weight {
-		<T::ExtensionsWeightInfo as super::WeightInfo>::check_weight()
-	}
-}
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckWeight<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
+	const IDENTIFIER: &'static str = "CheckWeight";
+	type Implicit = ();
 	type Pre = ();
 	type Val = u32; /* next block length */
+
+	fn weight(&self, _: &T::RuntimeCall) -> Weight {
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_weight()
+	}
 
 	fn validate(
 		&self,
@@ -253,7 +250,7 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
-	) -> Result<Option<Weight>, TransactionValidityError> {
+	) -> Result<Weight, TransactionValidityError> {
 		let unspent = post_info.calc_unspent(info);
 		if unspent.any_gt(Weight::zero()) {
 			crate::BlockWeight::<T>::mutate(|current_weight| {
@@ -273,7 +270,7 @@ where
 			Pallet::<T>::all_extrinsics_len(),
 		);
 
-		Ok(None)
+		Ok(Weight::zero())
 	}
 }
 

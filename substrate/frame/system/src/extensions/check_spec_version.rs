@@ -19,8 +19,7 @@ use crate::{Config, Pallet};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{transaction_extension::TransactionExtensionBase, TransactionExtension},
+	impl_tx_ext_default, traits::TransactionExtension,
 	transaction_validity::TransactionValidityError,
 };
 
@@ -53,20 +52,18 @@ impl<T: Config + Send + Sync> CheckSpecVersion<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckSpecVersion<T> {
+impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
+	for CheckSpecVersion<T>
+{
 	const IDENTIFIER: &'static str = "CheckSpecVersion";
 	type Implicit = u32;
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(<Pallet<T>>::runtime_version().spec_version)
 	}
-	fn weight() -> sp_weights::Weight {
-		<T::ExtensionsWeightInfo as super::WeightInfo>::check_spec_version()
-	}
-}
-impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
-	for CheckSpecVersion<T>
-{
 	type Val = ();
 	type Pre = ();
+	fn weight(&self, _: &<T as Config>::RuntimeCall) -> sp_weights::Weight {
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_spec_version()
+	}
 	impl_tx_ext_default!(<T as Config>::RuntimeCall; validate prepare);
 }

@@ -22,7 +22,6 @@ use codec::Encode;
 use core::iter::Peekable;
 use log::{debug, trace};
 use sp_core::offchain::StorageKind;
-use sp_io::offchain_index;
 use sp_mmr_primitives::{mmr_lib, mmr_lib::helper, utils::NodesUtils};
 
 use crate::{
@@ -46,6 +45,26 @@ pub struct RuntimeStorage;
 /// MMR nodes are assumed to be stored in the Off-Chain DB. Note this storage type
 /// DOES NOT support adding new items to the MMR.
 pub struct OffchainStorage;
+
+impl OffchainStorage {
+	fn get(key: &[u8]) -> Option<Vec<u8>> {
+		sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &key)
+	}
+
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	fn set<T: Config<I>, I: 'static>(key: &[u8], value: &[u8]) {
+		sp_io::offchain_index::set(key, value);
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set<T: Config<I>, I: 'static>(key: &[u8], value: &[u8]) {
+		if crate::pallet::UseLocalStorage::<T, I>::get() {
+			sp_io::offchain::local_storage_set(StorageKind::PERSISTENT, key, value);
+		} else {
+			sp_io::offchain_index::set(key, value);
+		}
+	}
+}
 
 /// A storage layer for MMR.
 ///
@@ -78,7 +97,7 @@ where
 			pos, ancestor_leaf_idx, key
 		);
 		// Try to retrieve the element from Off-chain DB.
-		if let Some(elem) = sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &key) {
+		if let Some(elem) = OffchainStorage::get(&key) {
 			return Ok(codec::Decode::decode(&mut &*elem).ok())
 		}
 
@@ -93,8 +112,7 @@ where
 			pos, ancestor_leaf_idx, ancestor_parent_hash, temp_key
 		);
 		// Retrieve the element from Off-chain DB.
-		Ok(sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &temp_key)
-			.and_then(|v| codec::Decode::decode(&mut &*v).ok()))
+		Ok(OffchainStorage::get(&temp_key).and_then(|v| codec::Decode::decode(&mut &*v).ok()))
 	}
 }
 
@@ -203,8 +221,7 @@ where
 			target: "runtime::mmr::offchain", "offchain db set: pos {} parent_hash {:?} key {:?}",
 			pos, parent_hash, temp_key
 		);
-		// Indexing API is used to store the full node content.
-		offchain_index::set(&temp_key, &encoded_node);
+		OffchainStorage::set::<T, I>(&temp_key, &encoded_node);
 	}
 }
 

@@ -45,8 +45,9 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::ReputationAggregator,
-	runtime::{request_min_backing_votes, ProspectiveParachainsMode},
-	vstaging::{fetch_claim_queue, ClaimQueueSnapshot},
+	runtime::{
+		fetch_claim_queue, request_min_backing_votes, ClaimQueueSnapshot, ProspectiveParachainsMode,
+	},
 };
 use polkadot_primitives::{
 	AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex, CoreState, GroupIndex,
@@ -570,7 +571,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 
 	for new_relay_parent in new_relay_parents.iter().cloned() {
 		let disabled_validators: HashSet<_> =
-			polkadot_node_subsystem_util::vstaging::get_disabled_validators_with_fallback(
+			polkadot_node_subsystem_util::runtime::get_disabled_validators_with_fallback(
 				ctx.sender(),
 				new_relay_parent,
 			)
@@ -2237,7 +2238,9 @@ async fn fragment_chain_update_inner<Context>(
 	// 2. find out which are in the frontier
 	gum::debug!(
 		target: LOG_TARGET,
-		"Calling getHypotheticalMembership from statement distribution"
+		active_leaf_hash = ?active_leaf_hash,
+		"Calling getHypotheticalMembership from statement distribution for candidates: {:?}",
+		&hypotheticals.iter().map(|hypo| hypo.candidate_hash()).collect::<Vec<_>>()
 	);
 	let candidate_memberships = {
 		let (tx, rx) = oneshot::channel();

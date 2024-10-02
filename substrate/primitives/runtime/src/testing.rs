@@ -19,7 +19,7 @@
 
 use crate::{
 	codec::{Codec, Decode, Encode, MaxEncodedLen},
-	generic,
+	generic::{self, UncheckedExtrinsic},
 	scale_info::TypeInfo,
 	traits::{self, BlakeTwo256, Dispatchable, OpaqueKeys},
 	DispatchResultWithInfo, KeyTypeId,
@@ -74,6 +74,11 @@ impl UintAuthorityId {
 		let bytes: [u8; 32] = U256::from(self.0).into();
 		T::from_slice(&bytes).unwrap()
 	}
+
+	/// Set the list of keys returned by the runtime call for all keys of that type.
+	pub fn set_all_keys<T: Into<UintAuthorityId>>(keys: impl IntoIterator<Item = T>) {
+		ALL_KEYS.with(|l| *l.borrow_mut() = keys.into_iter().map(Into::into).collect())
+	}
 }
 
 impl CryptoType for UintAuthorityId {
@@ -96,13 +101,6 @@ impl AsRef<[u8]> for UintAuthorityId {
 thread_local! {
 	/// A list of all UintAuthorityId keys returned to the runtime.
 	static ALL_KEYS: RefCell<Vec<UintAuthorityId>> = RefCell::new(vec![]);
-}
-
-impl UintAuthorityId {
-	/// Set the list of keys returned by the runtime call for all keys of that type.
-	pub fn set_all_keys<T: Into<UintAuthorityId>>(keys: impl IntoIterator<Item = T>) {
-		ALL_KEYS.with(|l| *l.borrow_mut() = keys.into_iter().map(Into::into).collect())
-	}
 }
 
 impl sp_application_crypto::RuntimeAppPublic for UintAuthorityId {
@@ -153,6 +151,18 @@ impl traits::IdentifyAccount for UintAuthorityId {
 
 	fn into_account(self) -> Self::AccountId {
 		self.0
+	}
+}
+
+impl traits::Verify for UintAuthorityId {
+	type Signer = Self;
+
+	fn verify<L: traits::Lazy<[u8]>>(
+		&self,
+		_msg: L,
+		signer: &<Self::Signer as traits::IdentifyAccount>::AccountId,
+	) -> bool {
+		self.0 == *signer
 	}
 }
 
@@ -247,6 +257,9 @@ where
 			.map_err(|e| DeError::custom(format!("Invalid value passed into decode: {}", e)))
 	}
 }
+
+/// Extrinsic type with `u64` accounts and mocked signatures, used in testing.
+pub type TestXt<Call, Extra> = UncheckedExtrinsic<u64, Call, (), Extra>;
 
 /// Wrapper over a `u64` that can be used as a `RuntimeCall`.
 #[derive(PartialEq, Eq, Debug, Clone, Encode, Decode, TypeInfo)]

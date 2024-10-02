@@ -21,9 +21,11 @@ use super::*;
 use crate::Pallet;
 use alloc::{boxed::Box, vec};
 use frame_benchmarking::v2::*;
-use frame_support::dispatch::DispatchInfo;
+use frame_support::dispatch::{DispatchInfo, GetDispatchInfo};
 use frame_system::RawOrigin;
-use sp_runtime::traits::{AsSystemOriginSigner, DispatchTransaction, Dispatchable};
+use sp_runtime::traits::{
+	AsSystemOriginSigner, AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable,
+};
 
 fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
 	let re: <T as Config>::RuntimeEvent = generic_event.into();
@@ -33,10 +35,10 @@ fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
 #[benchmarks(where
 	T: Send + Sync,
 	<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
-	<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
-	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::PostInfo: From<()>,
+	<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
+	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::PostInfo: Default,
 	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
-		AsSystemOriginSigner<T::AccountId> + Clone,
+		AsSystemOriginSigner<T::AccountId> + AsTransactionAuthorizedOrigin + Clone,
 )]
 mod benchmarks {
 	use super::*;
@@ -100,14 +102,17 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		Key::<T>::put(&caller);
 
-		let call = frame_system::Call::remark { remark: vec![] }.into();
-		let info = DispatchInfo { ..Default::default() };
+		let call: <T as frame_system::Config>::RuntimeCall =
+			frame_system::Call::remark { remark: vec![] }.into();
+		let info = call.get_dispatch_info();
 		let ext = CheckOnlySudoAccount::<T>::new();
 
 		#[block]
 		{
 			assert!(ext
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, 0, |_| Ok(().into()))
+				.test_run(RawOrigin::Signed(caller).into(), &call, &info, 0, |_| Ok(
+					Default::default()
+				))
 				.unwrap()
 				.is_ok());
 		}

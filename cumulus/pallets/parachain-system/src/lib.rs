@@ -31,12 +31,16 @@ extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode};
-use core::cmp;
+use core::{cmp, marker::PhantomData};
 use cumulus_primitives_core::{
-	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
-	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
+	relay_chain::{
+		self,
+		vstaging::{ClaimQueueOffset, CoreSelector},
+	},
+	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, GetChannelInfo,
+	InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
-	XcmpMessageHandler, XcmpMessageSource,
+	XcmpMessageHandler, XcmpMessageSource, DEFAULT_CLAIM_QUEUE_OFFSET,
 };
 use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
 use frame_support::{
@@ -51,11 +55,9 @@ use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
+use sp_core::U256;
 use sp_runtime::{
-	traits::{Block as BlockT, BlockNumberProvider, Hash},
-	transaction_validity::{
-		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
-	},
+	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
@@ -189,11 +191,27 @@ pub mod ump_constants {
 	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 }
 
+/// Trait for selecting the next core to build the candidate for.
+pub trait SelectCore {
+	fn select_core_for_child() -> (CoreSelector, ClaimQueueOffset);
+}
+
+/// The default core selection policy.
+pub struct DefaultCoreSelector<T>(PhantomData<T>);
+
+impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
+	fn select_core_for_child() -> (CoreSelector, ClaimQueueOffset) {
+		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
+
+		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_system::{pallet_prelude::*, WeightInfo as SystemWeightInfo};
+	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(migration::STORAGE_VERSION)]
@@ -249,6 +267,9 @@ pub mod pallet {
 		/// that collators aren't expected to have node versions that supply the included block
 		/// in the relay-chain state proof.
 		type ConsensusHook: ConsensusHook;
+
+		/// Select core.
+		type SelectCore: SelectCore;
 	}
 
 	#[pallet::hooks]
@@ -369,7 +390,8 @@ pub mod pallet {
 
 			let maximum_channels = host_config
 				.hrmp_max_message_num_per_candidate
-				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take()) as usize;
+				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take())
+				as usize;
 
 			// Note: this internally calls the `GetChannelInfo` implementation for this
 			// pallet, which draws on the `RelevantMessagingState`. That in turn has
@@ -653,52 +675,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
-		/// later.
-		///
-		/// The `check_version` parameter sets a boolean flag for whether or not the runtime's spec
-		/// version and name should be verified on upgrade. Since the authorization only has a hash,
-		/// it cannot actually perform the verification.
-		///
-		/// This call requires Root origin.
-		#[pallet::call_index(2)]
-		#[pallet::weight(<T as frame_system::Config>::SystemWeightInfo::authorize_upgrade())]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "To be removed after June 2024. Migrate to `frame_system::authorize_upgrade`."
-		)]
-		pub fn authorize_upgrade(
-			origin: OriginFor<T>,
-			code_hash: T::Hash,
-			check_version: bool,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			frame_system::Pallet::<T>::do_authorize_upgrade(code_hash, check_version);
-			Ok(())
-		}
-
-		/// Provide the preimage (runtime binary) `code` for an upgrade that has been authorized.
-		///
-		/// If the authorization required a version check, this call will ensure the spec name
-		/// remains unchanged and that the spec version has increased.
-		///
-		/// Note that this function will not apply the new `code`, but only attempt to schedule the
-		/// upgrade with the Relay Chain.
-		///
-		/// All origins are allowed.
-		#[pallet::call_index(3)]
-		#[pallet::weight(<T as frame_system::Config>::SystemWeightInfo::apply_authorized_upgrade())]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "To be removed after June 2024. Migrate to `frame_system::apply_authorized_upgrade`."
-		)]
-		pub fn enact_authorized_upgrade(
-			_: OriginFor<T>,
-			code: Vec<u8>,
-		) -> DispatchResultWithPostInfo {
-			let post = frame_system::Pallet::<T>::do_apply_authorize_upgrade(code)?;
-			Ok(post)
-		}
+		// WARNING: call indices 2 and 3 were used in a former version of this pallet. Using them
+		// again will require to bump the transaction version of runtimes using this pallet.
 	}
 
 	#[pallet::event]
@@ -949,30 +927,6 @@ pub mod pallet {
 		fn build(&self) {
 			// TODO: Remove after https://github.com/paritytech/cumulus/issues/479
 			sp_io::storage::set(b":c", &[]);
-		}
-	}
-
-	#[pallet::validate_unsigned]
-	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if let Call::enact_authorized_upgrade { ref code } = call {
-				if let Ok(hash) = frame_system::Pallet::<T>::validate_authorized_upgrade(&code[..])
-				{
-					return Ok(ValidTransaction {
-						priority: 100,
-						requires: Vec::new(),
-						provides: vec![hash.as_ref().to_vec()],
-						longevity: TransactionLongevity::max_value(),
-						propagate: true,
-					})
-				}
-			}
-			if let Call::set_validation_data { .. } = call {
-				return Ok(Default::default())
-			}
-			Err(InvalidTransaction::Call.into())
 		}
 	}
 }
@@ -1443,6 +1397,11 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Returns the core selector.
+	pub fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+		T::SelectCore::select_core_for_child()
+	}
+
 	/// Set a custom head data that should be returned as result of `validate_block`.
 	///
 	/// This will overwrite the head data that is returned as result of `validate_block` while
@@ -1611,6 +1570,10 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 }
 
 impl<T: Config> InspectMessageQueues for Pallet<T> {
+	fn clear_messages() {
+		PendingUpwardMessages::<T>::kill();
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		use xcm::prelude::*;
 

@@ -17,9 +17,9 @@ use super::*;
 
 use frame_support::{
 	assert_ok,
-	dispatch::{DispatchInfo, PostDispatchInfo},
+	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
-	traits::fungibles::Mutate,
+	traits::{fungibles::Mutate, OriginTrait},
 	weights::Weight,
 };
 use frame_system as system;
@@ -120,12 +120,11 @@ fn transaction_payment_in_native_possible() {
 		.execute_with(|| {
 			let len = 10;
 			let mut info = info_from_weight(Weight::from_parts(5, 0));
-			info.extension_weight = ChargeAssetTxPayment::<Runtime>::weight();
-			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, None)
-				.validate_and_prepare(Some(1).into(), CALL, &info, len)
-				.unwrap();
+			let ext = ChargeAssetTxPayment::<Runtime>::from(0, None);
+			info.extension_weight = ext.weight(CALL);
+			let (pre, _) = ext.validate_and_prepare(Some(1).into(), CALL, &info, len).unwrap();
 			let initial_balance = 10 * balance_factor;
-			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 20 - 10);
+			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 15 - 10);
 
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
@@ -134,21 +133,20 @@ fn transaction_payment_in_native_possible() {
 				len,
 				&Ok(()),
 			));
-			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 20 - 10);
+			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 15 - 10);
 
 			let mut info = info_from_weight(Weight::from_parts(100, 0));
-			info.extension_weight = ChargeAssetTxPayment::<Runtime>::weight();
-			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(5 /* tipped */, None)
-				.validate_and_prepare(Some(2).into(), CALL, &info, len)
-				.unwrap();
+			let ext = ChargeAssetTxPayment::<Runtime>::from(5 /* tipped */, None);
+			info.extension_weight = ext.weight(CALL);
+			let (pre, _) = ext.validate_and_prepare(Some(2).into(), CALL, &info, len).unwrap();
 			let initial_balance_for_2 = 20 * balance_factor;
-			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 100 - 20 - 5);
+			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 100 - 15 - 5);
 
 			let call_actual_weight = Weight::from_parts(50, 0);
 			// The extension weight refund should be taken into account in `post_dispatch`.
-			let post_info = post_info_from_weight(
-				call_actual_weight.saturating_add(ChargeAssetTxPayment::<Runtime>::weight()),
-			);
+			let post_info = post_info_from_weight(call_actual_weight.saturating_add(
+				ChargeAssetTxPayment::<Runtime>::from(5 /* tipped */, None).weight(CALL),
+			));
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info,
@@ -159,7 +157,8 @@ fn transaction_payment_in_native_possible() {
 			assert_eq!(
 				post_info.actual_weight,
 				Some(
-					call_actual_weight.saturating_add(MockWeights::charge_asset_tx_payment_asset())
+					call_actual_weight
+						.saturating_add(MockWeights::charge_asset_tx_payment_native())
 				)
 			);
 			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 50 - 15 - 5);
@@ -325,8 +324,9 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 			let weight = 100;
-			let ext_weight = ChargeAssetTxPayment::<Runtime>::weight();
 			let tip = 5;
+			let ext = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id));
+			let ext_weight = ext.weight(CALL);
 			let len = 10;
 			// we convert the from weight to fee based on the ratio between asset min balance and
 			// existential deposit
@@ -334,9 +334,7 @@ fn asset_transaction_payment_with_tip_and_refund() {
 				min_balance / ExistentialDeposit::get();
 			let mut info = info_from_weight(Weight::from_parts(weight, 0));
 			info.extension_weight = ext_weight;
-			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id))
-				.validate_and_prepare(Some(caller).into(), CALL, &info, len)
-				.unwrap();
+			let (pre, _) = ext.validate_and_prepare(Some(caller).into(), CALL, &info, len).unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_with_tip);
 
 			System::assert_has_event(RuntimeEvent::Assets(pallet_assets::Event::Withdrawn {
@@ -579,7 +577,9 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 				.unwrap();
 			// `Pays::No` implies no pre-dispatch fees
 			assert_eq!(Assets::balance(asset_id, caller), balance);
-			let (_tip, _who, initial_payment, _asset_id) = &pre;
+			let Pre::Charge { initial_payment, .. } = &pre else {
+				panic!("Expected Charge");
+			};
 			let not_paying = match initial_payment {
 				&InitialPayment::Nothing => true,
 				_ => false,
@@ -597,4 +597,41 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 			));
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 		});
+}
+
+#[test]
+fn no_fee_and_no_weight_for_other_origins() {
+	ExtBuilder::default().build().execute_with(|| {
+		let ext = ChargeAssetTxPayment::<Runtime>::from(0, None);
+
+		let mut info = CALL.get_dispatch_info();
+		info.extension_weight = ext.weight(CALL);
+
+		// Ensure we test the refund.
+		assert!(info.extension_weight != Weight::zero());
+
+		let len = CALL.encoded_size();
+
+		let origin = frame_system::RawOrigin::Root.into();
+		let (pre, origin) = ext.validate_and_prepare(origin, CALL, &info, len).unwrap();
+
+		assert!(origin.as_system_ref().unwrap().is_root());
+
+		let pd_res = Ok(());
+		let mut post_info = frame_support::dispatch::PostDispatchInfo {
+			actual_weight: Some(info.total_weight()),
+			pays_fee: Default::default(),
+		};
+
+		<ChargeAssetTxPayment<Runtime> as TransactionExtension<RuntimeCall>>::post_dispatch(
+			pre,
+			&info,
+			&mut post_info,
+			len,
+			&pd_res,
+		)
+		.unwrap();
+
+		assert_eq!(post_info.actual_weight, Some(info.call_weight));
+	})
 }

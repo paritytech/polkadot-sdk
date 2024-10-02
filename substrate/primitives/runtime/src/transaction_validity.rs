@@ -84,6 +84,8 @@ pub enum InvalidTransaction {
 	BadSigner,
 	/// The implicit data was unable to be calculated.
 	IndeterminateImplicit,
+	/// The transaction extension did not authorize any origin.
+	UnknownOrigin,
 }
 
 impl InvalidTransaction {
@@ -117,6 +119,8 @@ impl From<InvalidTransaction> for &'static str {
 			InvalidTransaction::BadSigner => "Invalid signing address",
 			InvalidTransaction::IndeterminateImplicit =>
 				"The implicit data was unable to be calculated",
+			InvalidTransaction::UnknownOrigin =>
+				"The transaction extension did not authorize any origin",
 		}
 	}
 }

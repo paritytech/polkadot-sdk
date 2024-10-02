@@ -47,7 +47,10 @@ impl<SE: SignedExtension> From<SE> for AsTransactionExtension<SE> {
 	}
 }
 
-impl<SE: SignedExtension> TransactionExtensionBase for AsTransactionExtension<SE> {
+impl<SE: SignedExtension> TransactionExtension<SE::Call> for AsTransactionExtension<SE>
+where
+	<SE::Call as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<SE::AccountId> + Clone,
+{
 	const IDENTIFIER: &'static str = SE::IDENTIFIER;
 	type Implicit = SE::AdditionalSigned;
 
@@ -57,12 +60,6 @@ impl<SE: SignedExtension> TransactionExtensionBase for AsTransactionExtension<SE
 	fn metadata() -> Vec<TransactionExtensionMetadata> {
 		SE::metadata()
 	}
-}
-
-impl<SE: SignedExtension> TransactionExtension<SE::Call> for AsTransactionExtension<SE>
-where
-	<SE::Call as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<SE::AccountId> + Clone,
-{
 	type Val = ();
 	type Pre = SE::Pre;
 
@@ -98,9 +95,9 @@ where
 		post_info: &PostDispatchInfoOf<SE::Call>,
 		len: usize,
 		result: &DispatchResult,
-	) -> Result<Option<Weight>, TransactionValidityError> {
+	) -> Result<Weight, TransactionValidityError> {
 		SE::post_dispatch(Some(pre), info, post_info, len, result)?;
-		Ok(None)
+		Ok(Weight::zero())
 	}
 
 	fn validate_bare_compat(

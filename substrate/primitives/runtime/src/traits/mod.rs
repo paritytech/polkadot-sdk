@@ -54,8 +54,7 @@ use std::str::FromStr;
 
 pub mod transaction_extension;
 pub use transaction_extension::{
-	DispatchTransaction, TransactionExtension, TransactionExtensionBase,
-	TransactionExtensionMetadata, ValidateResult,
+	DispatchTransaction, TransactionExtension, TransactionExtensionMetadata, ValidateResult,
 };
 
 /// A lazy value.
@@ -232,8 +231,14 @@ pub trait StaticLookup {
 }
 
 /// A lookup implementation returning the input value.
-#[derive(Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct IdentityLookup<T>(PhantomData<T>);
+impl<T> Default for IdentityLookup<T> {
+	fn default() -> Self {
+		Self(PhantomData::<T>::default())
+	}
+}
+
 impl<T: Codec + Clone + PartialEq + Debug + TypeInfo> StaticLookup for IdentityLookup<T> {
 	type Source = T;
 	type Target = T;
@@ -1336,21 +1341,13 @@ pub trait Extrinsic: Sized {
 
 	/// Returns `true` if this `Extrinsic` is bare.
 	fn is_bare(&self) -> bool {
-		!self
-			.is_signed()
-			.expect("`is_signed` must return `Some` on production extrinsics; qed")
+		!self.is_signed().unwrap_or(true)
 	}
 
 	/// Create a new old-school extrinsic, either a bare extrinsic if `_signed_data` is `None` or
 	/// a signed transaction is it is `Some`.
 	fn new(_call: Self::Call, _signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
 		None
-	}
-
-	/// Create a new inherent extrinsic.
-	fn new_inherent(function: Self::Call) -> Self {
-		#[allow(deprecated)]
-		Self::new(function, None).expect("Extrinsic must provide inherents; qed")
 	}
 }
 
@@ -1492,7 +1489,7 @@ pub trait RefundWeight {
 /// after dispatch.
 pub trait ExtensionPostDispatchWeightHandler<DispatchInfo>: RefundWeight {
 	/// Accrue some weight pertaining to the extension.
-	fn set_extension_weight(&mut self, info: &DispatchInfo, weight: sp_weights::Weight);
+	fn set_extension_weight(&mut self, info: &DispatchInfo);
 }
 
 impl RefundWeight for () {
@@ -1500,7 +1497,7 @@ impl RefundWeight for () {
 }
 
 impl ExtensionPostDispatchWeightHandler<()> for () {
-	fn set_extension_weight(&mut self, _info: &(), _weight: sp_weights::Weight) {}
+	fn set_extension_weight(&mut self, _info: &()) {}
 }
 
 /// A lazy call (module function and argument values) that can be executed via its `dispatch`
@@ -1531,8 +1528,8 @@ pub trait Dispatchable {
 		-> crate::DispatchResultWithInfo<Self::PostInfo>;
 }
 
-/// Shortcut to reference the `Origin` type of a `Dispatchable`.
-pub type OriginOf<T> = <T as Dispatchable>::RuntimeOrigin;
+/// Shortcut to reference the `RuntimeOrigin` type of a `Dispatchable`.
+pub type DispatchOriginOf<T> = <T as Dispatchable>::RuntimeOrigin;
 /// Shortcut to reference the `Info` type of a `Dispatchable`.
 pub type DispatchInfoOf<T> = <T as Dispatchable>::Info;
 /// Shortcut to reference the `PostInfo` type of a `Dispatchable`.
@@ -1589,6 +1586,32 @@ pub trait AsSystemOriginSigner<AccountId> {
 	/// Extract a reference of the inner value of the System `Origin::Signed` variant, if self has
 	/// that variant.
 	fn as_system_origin_signer(&self) -> Option<&AccountId>;
+}
+
+/// Interface to differentiate between Runtime Origins authorized to include a transaction into the
+/// block and dispatch it, and those who aren't.
+///
+/// This trait targets transactions, by which we mean extrinsics which are validated through a
+/// [`TransactionExtension`]. This excludes bare extrinsics (i.e. inherents), which have their call,
+/// not their origin, validated and authorized.
+///
+/// Typically, upon validation or application of a transaction, the origin resulting from the
+/// transaction extension (see [`TransactionExtension`]) is checked for authorization. The
+/// transaction is then rejected or applied.
+///
+/// In FRAME, an authorized origin is either an `Origin::Signed` System origin or a custom origin
+/// authorized in a [`TransactionExtension`].
+pub trait AsTransactionAuthorizedOrigin {
+	/// Whether the origin is authorized to include a transaction in a block.
+	///
+	/// In typical FRAME chains, this function returns `false` if the origin is a System
+	/// `Origin::None` variant, `true` otherwise, meaning only signed or custom origin resulting
+	/// from the transaction extension pipeline are authorized.
+	///
+	/// NOTE: This function should not be used in the context of bare extrinsics (i.e. inherents),
+	/// as bare extrinsics do not authorize the origin but rather the call itself, and are not
+	/// validated through the [`TransactionExtension`] pipeline.
+	fn is_transaction_authorized(&self) -> bool;
 }
 
 /// Means by which a transaction may be extended. This type embodies both the data and the logic
@@ -1688,7 +1711,7 @@ pub trait SignedExtension:
 		sp_std::vec![TransactionExtensionMetadata {
 			identifier: Self::IDENTIFIER,
 			ty: scale_info::meta_type::<Self>(),
-			additional_signed: scale_info::meta_type::<Self::AdditionalSigned>()
+			implicit: scale_info::meta_type::<Self::AdditionalSigned>()
 		}]
 	}
 
@@ -1729,11 +1752,23 @@ pub trait SignedExtension:
 ///
 /// Also provides information on to whom this information is attributable and an index that allows
 /// each piece of attributable information to be disambiguated.
+///
+/// IMPORTANT: After validation, in both [validate](Applyable::validate) and
+/// [apply](Applyable::apply), all transactions should have *some* authorized origin, except for
+/// inherents. This is necessary in order to protect the chain against spam. If no extension in the
+/// transaction extension pipeline authorized the transaction with an origin, either a system signed
+/// origin or a custom origin, then the transaction must be rejected, as the extensions provided in
+/// substrate which protect the chain, such as `CheckNonce`, `ChargeTransactionPayment` etc., rely
+/// on the assumption that the system handles system signed transactions, and the pallets handle the
+/// custom origin that they authorized.
 pub trait Applyable: Sized + Send + Sync {
 	/// Type by which we can dispatch. Restricts the `UnsignedValidator` type.
 	type Call: Dispatchable;
 
 	/// Checks to see if this is a valid *transaction*. It returns information on it if so.
+	///
+	/// IMPORTANT: Ensure that *some* origin has been authorized after validating the transaction.
+	/// If no origin was authorized, the transaction must be rejected.
 	fn validate<V: ValidateUnsigned<Call = Self::Call>>(
 		&self,
 		source: TransactionSource,
@@ -1743,6 +1778,9 @@ pub trait Applyable: Sized + Send + Sync {
 
 	/// Executes all necessary logic needed prior to dispatch and deconstructs into function call,
 	/// index and sender.
+	///
+	/// IMPORTANT: Ensure that *some* origin has been authorized after validating the
+	/// transaction. If no origin was authorized, the transaction must be rejected.
 	fn apply<V: ValidateUnsigned<Call = Self::Call>>(
 		self,
 		info: &DispatchInfoOf<Self::Call>,
@@ -2349,8 +2387,6 @@ impl BlockNumberProvider for () {
 mod tests {
 	use super::*;
 	use crate::codec::{Decode, Encode, Input};
-	#[cfg(feature = "bls-experimental")]
-	use sp_core::{bls377, bls381};
 	use sp_core::{
 		crypto::{Pair, UncheckedFrom},
 		ecdsa, ed25519, sr25519,
@@ -2492,15 +2528,5 @@ mod tests {
 	#[test]
 	fn ecdsa_verify_works() {
 		signature_verify_test!(ecdsa);
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	fn bls377_verify_works() {
-		signature_verify_test!(bls377)
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	fn bls381_verify_works() {
-		signature_verify_test!(bls381)
 	}
 }

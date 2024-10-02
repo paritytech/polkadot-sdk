@@ -39,8 +39,8 @@
 ///
 /// # Usage
 ///
-/// It's expected that the users of this module will be building up chains of
-/// [`Fragment`]s and consistently pruning and adding to the chains.
+/// It's expected that the users of this module will be building up chains or trees of
+/// [`Fragment`]s and consistently pruning and adding to them.
 ///
 /// ## Operating Constraints
 ///
@@ -56,54 +56,18 @@
 ///
 /// ## Fragment Chains
 ///
-/// For simplicity and practicality, we expect that collators of the same parachain are
-/// cooperating and don't create parachain forks or cycles on the same relay chain active leaf.
-/// Therefore, higher-level code should maintain one fragment chain for each active leaf (not a
-/// fragment tree). If parachains do create forks, their performance in regards to async
-/// backing and elastic scaling will suffer, because different validators will have different
-/// predictions of the future.
+/// For the sake of this module, we don't care how higher-level code is managing parachain
+/// fragments, whether or not they're kept as a chain or tree. In reality,
+/// prospective-parachains is maintaining for every active leaf, a chain of the "best" backable
+/// candidates and a storage of potential candidates which may be added to this chain in the
+/// future.
 ///
 /// As the relay-chain grows, some predictions come true and others come false.
-/// And new predictions get made. These three changes correspond distinctly to the
-/// 3 primary operations on fragment chains.
+/// And new predictions get made. Higher-level code is responsible for adding and pruning the
+/// fragments chains.
 ///
 /// Avoiding fragment-chain blowup is beyond the scope of this module. Higher-level must ensure
 /// proper spam protection.
-///
-/// ### Pruning Fragment Chains
-///
-/// When the relay-chain advances, we want to compare the new constraints of that relay-parent
-/// to the root of the fragment chain we have. There are 3 cases:
-///
-/// 1. The root fragment is still valid under the new constraints. In this case, we do nothing.
-///    This is the "prediction still uncertain" case. (Corresponds to some candidates still
-///    being pending availability).
-///
-/// 2. The root fragment (potentially along with a number of descendants) is invalid under the
-///    new constraints because it has been included by the relay-chain. In this case, we can
-///    discard the included chain and split & re-root the chain under its descendants and
-///    compare to the new constraints again. This is the "prediction came true" case.
-///
-/// 3. The root fragment becomes invalid under the new constraints for any reason (if for
-///    example the parachain produced a fork and the block producer picked a different
-///    candidate to back). In this case we can discard the entire fragment chain. This is the
-///    "prediction came false" case.
-///
-/// This is all a bit of a simplification because it assumes that the relay-chain advances
-/// without forks and is finalized instantly. In practice, the set of fragment-chains needs to
-/// be observable from the perspective of a few different possible forks of the relay-chain and
-/// not pruned too eagerly.
-///
-/// Note that the fragments themselves don't need to change and the only thing we care about
-/// is whether the predictions they represent are still valid.
-///
-/// ### Extending Fragment Chains
-///
-/// As predictions fade into the past, new ones should be stacked on top.
-///
-/// Every new relay-chain block is an opportunity to make a new prediction about the future.
-/// Higher-level logic should decide whether to build upon an existing chain or whether
-/// to create a new fragment-chain.
 ///
 /// ### Code Upgrades
 ///
@@ -116,9 +80,11 @@
 ///
 /// That means a few blocks of execution time lost, which is not a big deal for code upgrades
 /// in practice at most once every few weeks.
+use polkadot_node_subsystem::messages::HypotheticalCandidate;
 use polkadot_primitives::{
-	async_backing::Constraints as PrimitiveConstraints, BlockNumber, CandidateCommitments, Hash,
-	HeadData, Id as ParaId, PersistedValidationData, UpgradeRestriction, ValidationCodeHash,
+	async_backing::Constraints as PrimitiveConstraints, BlockNumber, CandidateCommitments,
+	CandidateHash, Hash, HeadData, Id as ParaId, PersistedValidationData, UpgradeRestriction,
+	ValidationCodeHash,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -702,6 +668,11 @@ impl Fragment {
 		&self.candidate
 	}
 
+	/// Get a cheap ref-counted copy of the underlying prospective candidate.
+	pub fn candidate_clone(&self) -> Arc<ProspectiveCandidate> {
+		self.candidate.clone()
+	}
+
 	/// Modifications to constraints based on the outputs of the candidate.
 	pub fn constraint_modifications(&self) -> &ConstraintModifications {
 		&self.modifications
@@ -789,6 +760,55 @@ fn validate_against_constraints(
 	constraints
 		.check_modifications(&modifications)
 		.map_err(FragmentValidityError::OutputsInvalid)
+}
+
+/// Trait for a hypothetical or concrete candidate, as needed when assessing the validity of a
+/// potential candidate.
+pub trait HypotheticalOrConcreteCandidate {
+	/// Return a reference to the candidate commitments, if present.
+	fn commitments(&self) -> Option<&CandidateCommitments>;
+	/// Return a reference to the persisted validation data, if present.
+	fn persisted_validation_data(&self) -> Option<&PersistedValidationData>;
+	/// Return a reference to the validation code hash, if present.
+	fn validation_code_hash(&self) -> Option<&ValidationCodeHash>;
+	/// Return the parent head hash.
+	fn parent_head_data_hash(&self) -> Hash;
+	/// Return the output head hash, if present.
+	fn output_head_data_hash(&self) -> Option<Hash>;
+	/// Return the relay parent hash.
+	fn relay_parent(&self) -> Hash;
+	/// Return the candidate hash.
+	fn candidate_hash(&self) -> CandidateHash;
+}
+
+impl HypotheticalOrConcreteCandidate for HypotheticalCandidate {
+	fn commitments(&self) -> Option<&CandidateCommitments> {
+		self.commitments()
+	}
+
+	fn persisted_validation_data(&self) -> Option<&PersistedValidationData> {
+		self.persisted_validation_data()
+	}
+
+	fn validation_code_hash(&self) -> Option<&ValidationCodeHash> {
+		self.validation_code_hash()
+	}
+
+	fn parent_head_data_hash(&self) -> Hash {
+		self.parent_head_data_hash()
+	}
+
+	fn output_head_data_hash(&self) -> Option<Hash> {
+		self.output_head_data_hash()
+	}
+
+	fn relay_parent(&self) -> Hash {
+		self.relay_parent()
+	}
+
+	fn candidate_hash(&self) -> CandidateHash {
+		self.candidate_hash()
+	}
 }
 
 #[cfg(test)]

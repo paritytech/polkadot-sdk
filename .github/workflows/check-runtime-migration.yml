@@ -6,6 +6,9 @@ on:
       - master
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  # Take a snapshot at 5am when most SDK devs are not working.
+  schedule:
+    - cron: "0 5 * * *"
   merge_group:
   workflow_dispatch:
 
@@ -14,33 +17,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  set-image:
-    # GitHub Actions allows using 'env' in a container context.
-    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
-    # This workaround sets the container image for each job using 'set-image' job output.
-    runs-on: ubuntu-latest
-    outputs:
-      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - id: set_image
-        run: cat .github/env >> $GITHUB_OUTPUT
-  # rococo and westend are disabled for now (no access to parity-chains.parity.io)
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
+  # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
   check-runtime-migration:
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     # We need to set this to rather long to allow the snapshot to be created, but the average time
     # should be much lower.
     timeout-minutes: 60
-    needs: [set-image]
+    needs: [preflight]
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     strategy:
       fail-fast: false
       matrix:
-        network: [
-            # westend,
-            # rococo,
+        network:
+          [
+            westend,
+            rococo,
             asset-hub-westend,
             asset-hub-rococo,
             bridge-hub-westend,
@@ -50,18 +46,18 @@ jobs:
             coretime-rococo,
           ]
         include:
-          # - network: westend
-          #   package: westend-runtime
-          #   wasm: westend_runtime.compact.compressed.wasm
-          #   uri: "wss://westend-try-runtime-node.parity-chains.parity.io:443"
-          #   subcommand_extra_args: "--no-weight-warnings"
-          #   command_extra_args: ""
-          # - network: rococo
-          #   package: rococo-runtime
-          #   wasm: rococo_runtime.compact.compressed.wasm
-          #   uri: "wss://rococo-try-runtime-node.parity-chains.parity.io:443"
-          #   subcommand_extra_args: "--no-weight-warnings"
-          #   command_extra_args: ""
+          - network: westend
+            package: westend-runtime
+            wasm: westend_runtime.compact.compressed.wasm
+            uri: "wss://try-runtime-westend.polkadot.io:443"
+            subcommand_extra_args: "--no-weight-warnings"
+            command_extra_args: ""
+          - network: rococo
+            package: rococo-runtime
+            wasm: rococo_runtime.compact.compressed.wasm
+            uri: "wss://try-runtime-rococo.polkadot.io:443"
+            subcommand_extra_args: "--no-weight-warnings"
+            command_extra_args: ""
           - network: asset-hub-westend
             package: asset-hub-westend-runtime
             wasm: asset_hub_westend_runtime.compact.compressed.wasm
@@ -140,3 +136,21 @@ jobs:
               --runtime ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }} \
               on-runtime-upgrade --disable-spec-version-check --checks=all ${{ matrix.subcommand_extra_args }} snap -p snapshot.raw
           sleep 5
+  # name of this job must be unique across all workflows
+  # otherwise GitHub will mark all these jobs as required
+  confirm-required-checks-passed:
+    runs-on: ubuntu-latest
+    name: All runtime migrations passed
+    # If any new job gets added, be sure to add it to this array
+    needs: [check-runtime-migration]
+    if: always() && !cancelled()
+    steps:
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi

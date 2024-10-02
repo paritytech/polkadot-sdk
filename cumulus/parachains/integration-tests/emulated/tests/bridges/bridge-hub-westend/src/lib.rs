@@ -16,6 +16,7 @@
 #[cfg(test)]
 mod imports {
 	// Substrate
+	pub use codec::Encode;
 	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult};
 	pub use sp_runtime::DispatchError;
 
@@ -23,8 +24,7 @@ mod imports {
 	pub use xcm::{
 		latest::ParentThen,
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v3,
-		v4::NetworkId::Rococo as RococoId,
+		v4::{self, NetworkId::Rococo as RococoId},
 	};
 	pub use xcm_executor::traits::TransferType;
 
@@ -32,7 +32,8 @@ mod imports {
 	pub use emulated_integration_tests_common::{
 		accounts::ALICE,
 		impls::Inspect,
-		test_parachain_is_trusted_teleporter,
+		test_parachain_is_trusted_teleporter, test_parachain_is_trusted_teleporter_for_relay,
+		test_relay_is_trusted_teleporter,
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, TestExt,
 		},
@@ -52,17 +53,25 @@ mod imports {
 			BridgeHubWestendParaPallet as BridgeHubWestendPallet, BridgeHubWestendXcmConfig,
 		},
 		penpal_emulated_chain::{
-			penpal_runtime::xcm_config::UniversalLocation as PenpalUniversalLocation,
+			penpal_runtime::xcm_config::{
+				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+				UniversalLocation as PenpalUniversalLocation,
+			},
 			PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet,
 		},
-		westend_emulated_chain::WestendRelayPallet as WestendPallet,
+		westend_emulated_chain::{
+			genesis::ED as WESTEND_ED, westend_runtime::xcm_config::XcmConfig as WestendXcmConfig,
+			WestendRelayPallet as WestendPallet,
+		},
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,
 		AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 		AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubRococoPara as BridgeHubRococo,
 		BridgeHubWestendPara as BridgeHubWestend,
+		BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
 		BridgeHubWestendParaSender as BridgeHubWestendSender, PenpalBPara as PenpalB,
 		PenpalBParaSender as PenpalBSender, WestendRelay as Westend,
+		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
 
 	pub const ASSET_MIN_BALANCE: u128 = 1000;

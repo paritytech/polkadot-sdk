@@ -21,10 +21,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	generic::Era,
 	impl_tx_ext_default,
-	traits::{
-		DispatchInfoOf, SaturatedConversion, TransactionExtension, TransactionExtensionBase,
-		ValidateResult,
-	},
+	traits::{DispatchInfoOf, SaturatedConversion, TransactionExtension, ValidateResult},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
 
@@ -59,7 +56,7 @@ impl<T: Config + Send + Sync> core::fmt::Debug for CheckMortality<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckMortality<T> {
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMortality<T> {
 	const IDENTIFIER: &'static str = "CheckMortality";
 	type Implicit = T::Hash;
 
@@ -72,13 +69,16 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckMortality<T> {
 			Ok(<Pallet<T>>::block_hash(n))
 		}
 	}
-	fn weight() -> sp_weights::Weight {
-		<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality()
-	}
-}
-impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMortality<T> {
 	type Pre = ();
 	type Val = ();
+
+	fn weight(&self, _: &T::RuntimeCall) -> sp_weights::Weight {
+		if self.0.is_immortal() {
+			<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality_immortal_transaction()
+		} else {
+			<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality_mortal_transaction()
+		}
+	}
 
 	fn validate(
 		&self,

@@ -433,11 +433,8 @@ async fn handle_new_best_parachain_head<Block, P>(
 	}
 }
 
-async fn import_block_as_new_best<Block, P>(
-	hash: Block::Hash,
-	header: Block::Header,
-	mut parachain: &P,
-) where
+async fn import_block_as_new_best<Block, P>(hash: Block::Hash, header: Block::Header, parachain: &P)
+where
 	Block: BlockT,
 	P: UsageProvider<Block> + Send + Sync + BlockBackend<Block>,
 	for<'a> &'a P: BlockImport<Block>,
