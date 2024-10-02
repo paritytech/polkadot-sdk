@@ -882,12 +882,11 @@ async fn validate_candidate_exhaustive(
 				)
 				.await
 		},
-		PvfExecPriority::Approval | PvfExecPriority::Dispute => {
-			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
+		PvfExecPriority::Approval | PvfExecPriority::Dispute =>
 			validation_backend
 				.validate_candidate_with_retry(
 					validation_code.0,
-					exec_timeout,
+					pvf_exec_timeout(&executor_params, exec_kind.into()),
 					request_ttl,
 					persisted_validation_data.clone(),
 					pov,
@@ -896,8 +895,7 @@ async fn validate_candidate_exhaustive(
 					exec_kind.into(),
 					exec_kind,
 				)
-				.await
-		},
+				.await,
 	};
 
 	if let Err(ref error) = result {
