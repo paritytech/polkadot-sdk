@@ -299,6 +299,7 @@ pub mod pallet {
 			type Extra = ();
 			type CallbackHandle = ();
 			type WeightInfo = ();
+			type VerifyExistenceProof = NoTrie<sp_core::H256>;
 			#[cfg(feature = "runtime-benchmarks")]
 			type BenchmarkHelper = ();
 		}
@@ -407,7 +408,7 @@ pub mod pallet {
 		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId>;
 
 		/// A type used to verify merkle proofs used for distributions.
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type VerifyExistenceProof: VerifyExistenceProof<Hash = Self::Hash>
 			+ ProofToHashes<Proof = DistributionProofOf<Self, I>>;
 
