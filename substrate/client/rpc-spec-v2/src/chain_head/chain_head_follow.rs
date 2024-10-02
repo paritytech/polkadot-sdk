@@ -87,7 +87,11 @@ impl<Block: BlockT> AnnouncedBlocks<Block> {
 	/// Creates a new `AnnouncedBlocks`.
 	fn new() -> Self {
 		Self {
+			// The total number of pinned blocks is `MAX_PINNED_BLOCKS`, ensure we don't
+			// exceed the limit.
 			blocks: LruMap::new(ByLength::new((MAX_PINNED_BLOCKS - MAX_FINALIZED_BLOCKS) as u32)),
+			// We are keeping a smaller number of announced finalized blocks in memory.
+			// This is because the `Finalized` event might be triggered before the `NewBlock` event.
 			finalized: LruMap::new(ByLength::new(MAX_FINALIZED_BLOCKS as u32)),
 		}
 	}
@@ -466,9 +470,6 @@ where
 	) -> Result<Vec<FollowEvent<Block::Hash>>, SubscriptionManagementError> {
 		let block_hash = notification.hash;
 
-		// Ensure the block is pinned before generating the events.
-		self.sub_handle.pin_block(&self.sub_id, block_hash)?;
-
 		// Ensure we are only reporting blocks after the starting point.
 		if *notification.header.number() < startup_point.finalized_number {
 			return Ok(Default::default())
@@ -484,6 +485,20 @@ where
 		if !self.announced_blocks.was_announced(&parent_block_hash) {
 			// The parent block was not reported, we have a gap.
 			return Err(SubscriptionManagementError::Custom("Parent block was not reported".into()))
+		}
+
+		// Ensure the block can be pinned before generating the events.
+		if !self.sub_handle.pin_block(&self.sub_id, block_hash)? {
+			// The block is already pinned, this is similar to the check above.
+			//
+			// The `SubscriptionManagement` ensures the block is tracked until (short lived):
+			// - 2 calls to `pin_block` are made (from `Finalized` and `NewBlock` branches).
+			// - the block is unpinned by the user
+			//
+			// This is rather a sanity checks for edge-cases (in theory), where
+			// [`MAX_FINALIZED_BLOCKS` + 1] finalized events are triggered before the `NewBlock`
+			// event of the first `Finalized` event.
+			return Ok(Default::default())
 		}
 
 		self.announced_blocks.insert(block_hash, false);
