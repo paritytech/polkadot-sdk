@@ -827,20 +827,22 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 /// Transfers of native asset plus teleportable foreign asset from Parachain to AssetHub and back
 /// with fees paid using native asset.
 #[test]
-fn poc_new_instructions_test() {
+fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 	fn execute_xcm_penpal_to_asset_hub(t: ParaToSystemParaTest) -> DispatchResult {
 		// let transport_fees: Asset = (Parent, 40_000_000_000u128).into();
 		let all_assets = t.args.assets.clone().into_inner();
 		let mut assets = all_assets.clone();
-		let fees = assets.remove(t.args.fee_asset_item as usize);
+		let mut fees = assets.remove(t.args.fee_asset_item as usize);
+		// TODO: dry-run to get exact fees, for now just use half the fees locally, half on dest
+		if let Fungible(fees_amount) = fees.fun {
+			fees.fun = Fungible(fees_amount / 2);
+		}
 		// xcm to be executed at dest
 		let xcm_on_dest =
 			Xcm(vec![DepositAsset { assets: Wild(All), beneficiary: t.args.beneficiary }]);
 		let xcm = Xcm::<()>(vec![
-			// WithdrawAsset(transport_fees.into()),
 			WithdrawAsset(all_assets.into()),
-			// TODO: replace this with `PayFees` when available
-			SetFeesMode { jit_withdraw: true },
+			PayFees { asset: fees.clone() },
 			InitiateTransfer {
 				destination: t.args.dest,
 				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(fees.into())),
@@ -859,14 +861,17 @@ fn poc_new_instructions_test() {
 	fn execute_xcm_asset_hub_to_penpal(t: SystemParaToParaTest) -> DispatchResult {
 		let all_assets = t.args.assets.clone().into_inner();
 		let mut assets = all_assets.clone();
-		let fees = assets.remove(t.args.fee_asset_item as usize);
+		let mut fees = assets.remove(t.args.fee_asset_item as usize);
+		// TODO: dry-run to get exact fees, for now just use half the fees locally, half on dest
+		if let Fungible(fees_amount) = fees.fun {
+			fees.fun = Fungible(fees_amount / 2);
+		}
 		// xcm to be executed at dest
 		let xcm_on_dest =
 			Xcm(vec![DepositAsset { assets: Wild(All), beneficiary: t.args.beneficiary }]);
 		let xcm = Xcm::<()>(vec![
 			WithdrawAsset(all_assets.into()),
-			// TODO: replace this with `PayFees` when available
-			SetFeesMode { jit_withdraw: true },
+			PayFees { asset: fees.clone() },
 			InitiateTransfer {
 				destination: t.args.dest,
 				remote_fees: Some(AssetTransferFilter::ReserveDeposit(fees.into())),

@@ -592,6 +592,13 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 		let pens: Asset = (pens_id, pens_amount).into();
 		let assets: Assets = vec![wnds.clone(), pens.clone()].into();
 
+		// TODO: dry-run to get exact fees, for now just some static value 100_000_000_000
+		let penpal_fees_amount = 100_000_000_000;
+		// use 100_000_000_000 WNDs in fees on AHW
+		// (exec fees: 3_593_000_000, transpo fees: 69_021_561_290 = 72_614_561_290)
+		// TODO: make this exact once we have bridge dry-running
+		let ahw_fee_amount = 100_000_000_000;
+
 		// XCM to be executed at dest (Rococo Asset Hub)
 		let xcm_on_dest =
 			Xcm(vec![DepositAsset { assets: Wild(All), beneficiary: beneficiary.clone() }]);
@@ -601,10 +608,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 		let reanchored_dest = destination.clone().reanchored(&local_asset_hub, &context).unwrap();
 		let reanchored_pens = pens.clone().reanchored(&local_asset_hub, &context).unwrap();
 		let mut onward_wnds = wnds.clone().reanchored(&local_asset_hub, &context).unwrap();
-		// reserve 100_000_000_000 WNDs in fees on AHW
-		// (exec fees: 3_593_000_000, transpo fees: 69_021_561_290 = 72_614_561_290)
-		// TODO: make this exact once we have PayFees + bridge dry-running
-		onward_wnds.fun = Fungible(wnds_amount - 100_000_000_000);
+		onward_wnds.fun = Fungible(wnds_amount - ahw_fee_amount - penpal_fees_amount);
 		let xcm_on_ahw = Xcm(vec![
 			// both WNDs and PENs are local-reserve transferred to Rococo Asset Hub
 			InitiateTransfer {
@@ -615,19 +619,25 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 			},
 		]);
 
+		let penpal_fees = (wnds.id.clone(), Fungible(penpal_fees_amount));
+		let ahw_fees: Asset = (wnds.id.clone(), Fungible(ahw_fee_amount)).into();
+		let ahw_non_fees_wnds: Asset =
+			(wnds.id.clone(), Fungible(wnds_amount - ahw_fee_amount - penpal_fees_amount)).into();
 		// XCM to be executed locally
 		let xcm = Xcm::<()>(vec![
 			// Withdraw both WNDs and PENs from origin account
 			WithdrawAsset(assets.into()),
-			// TODO: replace this with `PayFees` when available
-			SetFeesMode { jit_withdraw: true },
+			PayFees { asset: penpal_fees.into() },
 			// Execute the transfers while paying remote fees with WNDs
 			InitiateTransfer {
 				destination: local_asset_hub,
 				// WNDs are reserve-withdrawn at AHW
-				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(wnds.into())),
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(ahw_fees.into())),
 				// PENs are teleported to AHW
-				assets: vec![AssetTransferFilter::Teleport(pens.into())],
+				assets: vec![
+					AssetTransferFilter::Teleport(pens.into()),
+					AssetTransferFilter::ReserveWithdraw(ahw_non_fees_wnds.into()),
+				],
 				remote_xcm: xcm_on_ahw,
 			},
 		]);
@@ -640,6 +650,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 			Weight::MAX,
 		)
 	}));
+	println!("💘 on ahw -------------------- ");
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		assert_expected_events!(
@@ -662,8 +673,11 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 			]
 		);
 	});
+	println!("💘 on bhw -------------------- ");
 	assert_bridge_hub_westend_message_accepted(true);
+	println!("💘 on bhr -------------------- ");
 	assert_bridge_hub_rococo_message_received();
+	println!("💘 on ahr -------------------- ");
 }
 
 /// Transfer "PEN"s plus "WND"s from PenpalWestend to AssetHubWestend, over bridge to
