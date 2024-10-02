@@ -29,7 +29,10 @@ pub use block::BlockCmd;
 pub use extrinsic::{ExtrinsicBuilder, ExtrinsicCmd, ExtrinsicFactory};
 pub use machine::{MachineCmd, SUBSTRATE_REFERENCE_HARDWARE};
 pub use overhead::{
-	remark_builders::{DynamicRemarkBuilder, SubstrateRemarkBuilder},
+	remark_builders::{
+		fetch_latest_metadata_from_blob, fetch_relevant_runtime_data, fetch_version,
+		DynamicRemarkBuilder, SubstrateRemarkBuilder,
+	},
 	OpaqueBlock, OverheadCmd,
 };
 pub use pallet::PalletCmd;

@@ -49,7 +49,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use sp_api::{ApiExt, CallApiAt, Core, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
-use sp_core::crypto::AccountId32;
+use sp_core::{crypto::AccountId32, H256};
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_runtime::{
 	generic,
@@ -58,7 +58,7 @@ use sp_runtime::{
 };
 use sp_wasm_interface::HostFunctions;
 use std::{fmt::Debug, path::PathBuf, sync::Arc};
-use subxt::{ext::futures, utils::H256, Metadata};
+use subxt::{ext::futures, Metadata};
 use subxt_signer::{eth::Keypair as EthKeypair, DeriveJunction};
 
 const DEFAULT_PARA_ID: u32 = 100;
@@ -344,7 +344,15 @@ impl OverheadCmd {
 	/// Run the benchmark overhead command.
 	pub fn run_with_extrinsic_builder<Block, ExtraHF>(
 		&self,
-		ext_builder: Option<Box<dyn ExtrinsicBuilder>>,
+		ext_builder_provider: Option<
+			Box<
+				dyn FnOnce(
+					subxt::Metadata,
+					H256,
+					subxt::client::RuntimeVersion,
+				) -> Box<dyn ExtrinsicBuilder>,
+			>,
+		>,
 	) -> Result<()>
 	where
 		Block: BlockT<Extrinsic = OpaqueExtrinsic, Hash = H256>,
@@ -371,15 +379,20 @@ impl OverheadCmd {
 
 		let inherent_data = create_inherent_data(&client, &chain_type);
 
-		let ext_builder = ext_builder.unwrap_or_else(|| {
+		let ext_builder = {
 			let genesis = client.usage_info().chain.best_hash;
 			let version = client.runtime_api().version(genesis).unwrap();
 			let runtime_version = subxt::client::RuntimeVersion {
 				spec_version: version.spec_version,
 				transaction_version: version.transaction_version,
 			};
-			Box::new(SubstrateRemarkBuilder::new(metadata, genesis, runtime_version))
-		});
+
+			match ext_builder_provider {
+				Some(provider) => provider(metadata, genesis, runtime_version),
+				None => Box::new(SubstrateRemarkBuilder::new(metadata, genesis, runtime_version))
+					as Box<_>,
+			}
+		};
 
 		self.run(
 			"Overhead Benchmark".to_string(),

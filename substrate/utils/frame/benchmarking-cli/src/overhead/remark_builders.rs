@@ -9,11 +9,12 @@ use sp_core::{
 };
 use sp_runtime::{traits::Block as BlockT, OpaqueExtrinsic};
 use sp_state_machine::BasicExternalities;
+use sp_version::RuntimeVersion;
 use sp_wasm_interface::HostFunctions;
 use std::{borrow::Cow, sync::Arc};
 use subxt::{
-	client::RuntimeVersion, config::substrate::SubstrateExtrinsicParamsBuilder, Config,
-	OfflineClient, SubstrateConfig,
+	client::RuntimeVersion as SubxtRuntimeVersion,
+	config::substrate::SubstrateExtrinsicParamsBuilder, Config, OfflineClient, SubstrateConfig,
 };
 
 pub type SubstrateRemarkBuilder = DynamicRemarkBuilder<SubstrateConfig>;
@@ -36,7 +37,7 @@ impl<C: Config> DynamicRemarkBuilder<C> {
 			.pop()
 			.ok_or("No runtime version supported".to_string())?;
 		let version = api.version(genesis).unwrap();
-		let runtime_version = RuntimeVersion {
+		let runtime_version = SubxtRuntimeVersion {
 			spec_version: version.spec_version,
 			transaction_version: version.transaction_version,
 		};
@@ -54,7 +55,7 @@ impl<C: Config> DynamicRemarkBuilder<C> {
 	pub fn new(
 		metadata: subxt::Metadata,
 		genesis_hash: C::Hash,
-		runtime_version: RuntimeVersion,
+		runtime_version: SubxtRuntimeVersion,
 	) -> Self {
 		Self { offline_client: OfflineClient::new(genesis_hash, runtime_version, metadata) }
 	}
@@ -101,6 +102,33 @@ impl<'a> BasicCodeFetcher<'a> {
 			hash: sp_crypto_hashing::blake2_256(&self.0).to_vec(),
 		}
 	}
+}
+
+pub fn fetch_relevant_runtime_data<HF: HostFunctions>(
+	code_bytes: &Vec<u8>,
+) -> Result<(SubxtRuntimeVersion, subxt::Metadata), String> {
+	let executor = WasmExecutor::<HF>::builder().with_allow_missing_host_functions(true).build();
+	let version = fetch_version(&executor, code_bytes).unwrap();
+	let opaque_metadata = fetch_latest_metadata_from_blob(&executor, code_bytes).unwrap();
+	let metadata = subxt::Metadata::decode(&mut (*opaque_metadata).as_slice()).unwrap();
+	Ok((version, metadata))
+}
+
+pub fn fetch_version<HF: HostFunctions>(
+	executor: &WasmExecutor<HF>,
+	code_bytes: &Vec<u8>,
+) -> sc_cli::Result<SubxtRuntimeVersion> {
+	let mut ext = BasicExternalities::default();
+	let fetcher = BasicCodeFetcher(code_bytes.into());
+	let version_result = executor
+		.call(&mut ext, &fetcher.runtime_code(), "Core_version", &[], CallContext::Offchain)
+		.0
+		.map_err(|e| format!("Unable to fetch version from blob: {e}"))?;
+	let version = RuntimeVersion::decode(&mut version_result.as_slice())?;
+	Ok(SubxtRuntimeVersion {
+		spec_version: version.spec_version,
+		transaction_version: version.transaction_version,
+	})
 }
 
 pub fn fetch_latest_metadata_from_blob<HF: HostFunctions>(
