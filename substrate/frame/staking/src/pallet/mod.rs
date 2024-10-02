@@ -1165,10 +1165,6 @@ pub mod pallet {
 				let current_block = <frame_system::Pallet<T>>::block_number();
 				let session_length = T::NextNewSession::average_session_length();
 
-				let new_back_of_unbonding_queue_block_number = current_block
-					.max(unbonding_queue_params.back_of_unbonding_queue_block_number) +
-					unbonding_time_delta;
-
 				let lower_bound_block = session_length.defensive_saturating_mul(
 					unbonding_queue_params.unbond_period_lower_bound.into(),
 				);
@@ -1176,6 +1172,11 @@ pub mod pallet {
 				let upper_bound_block = session_length.defensive_saturating_mul(
 					unbonding_queue_params.unbond_period_upper_bound.into(),
 				);
+
+				let new_back_of_unbonding_queue_block_number = (current_block
+					.max(unbonding_queue_params.back_of_unbonding_queue_block_number) +
+					unbonding_time_delta)
+					.min(upper_bound_block);
 
 				// TODO: Either use this or calculate era based on block number.
 				let unbonding_block_number = upper_bound_block.min(
