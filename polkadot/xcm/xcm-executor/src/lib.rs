@@ -466,7 +466,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			self.holding
 				.try_take(fee.into())
 				.map_err(|e| {
-					log::error!(target: "xcm::xcm_executor::take_fee", "Failed to take payable fees: {:?}", e);
+					log::error!(target: "xcm::xcm_executor::take_fee", "Failed to take fees {:?} from holding. {:?}", fee, e);
 					XcmError::NotHoldingFees
 				})?
 				.into()
@@ -484,7 +484,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			None => None,
 			Some(q) => Some(
 				q.reanchored(&destination, &Config::UniversalLocation::get()).map_err(|e| {
-					log::error!(target: "xcm::xcm_executor::to_querier", "Failed to re-anchorn local_querier: {:?}", e);
+					log::error!(target: "xcm::xcm_executor::to_querier", "Failed to re-anchor local_querier: {:?}", e);
 					XcmError::ReanchorFailed
 				})?,
 			),
@@ -814,7 +814,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				.ok_or(XcmError::BadOrigin)?
 				.append_with(who)
 				.map_err(|e| {
-					log::error!(target: "xcm::process_instruction::descend_origin", "Failed to append Location: {:?}", e);
+					log::error!(target: "xcm::process_instruction::descend_origin", "Failed to append to Location: {:?}", e);
 					XcmError::LocationFull
 				}),
 			ClearOrigin => {
@@ -959,7 +959,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				// pay for `weight` using up to `fees` of the holding register.
 				let max_fee =
 					self.holding.try_take(fees.into()).map_err(|e| {
-						log::error!(target: "xcm::process_instruction::buy_execution", "Failed to take payable fees from holding: {:?}", e);
+						log::error!(target: "xcm::process_instruction::buy_execution", "Failed to take fees {:?} from holding. {:?}", fees, e);
 						XcmError::NotHoldingFees
 					})?;
 				let result = || -> Result<(), XcmError> {
