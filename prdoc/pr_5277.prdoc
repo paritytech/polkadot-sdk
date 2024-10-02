@@ -1,0 +1,11 @@
+title: Improve weight for `CheckMetadataHash` transaction extension
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR improves the weight for the `CheckMetadataHash` transaction extension.
+      The compilation now panics if the optional compile-time environment variable `RUNTIME_METADATA_HASH` contains an invalid value.
+
+crates:
+- name: frame-metadata-hash-extension
+  bump: minor
