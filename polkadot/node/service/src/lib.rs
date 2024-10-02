@@ -290,9 +290,6 @@ pub trait IdentifyVariant {
 	/// Returns if this is a configuration for the `Rococo` network.
 	fn is_rococo(&self) -> bool;
 
-	/// Returns if this is a configuration for the `Wococo` test network.
-	fn is_wococo(&self) -> bool;
-
 	/// Returns if this is a configuration for the `Versi` test network.
 	fn is_versi(&self) -> bool;
 
@@ -316,9 +313,6 @@ impl IdentifyVariant for Box<dyn ChainSpec> {
 	fn is_rococo(&self) -> bool {
 		self.id().starts_with("rococo") || self.id().starts_with("rco")
 	}
-	fn is_wococo(&self) -> bool {
-		self.id().starts_with("wococo") || self.id().starts_with("wco")
-	}
 	fn is_versi(&self) -> bool {
 		self.id().starts_with("versi") || self.id().starts_with("vrs")
 	}
@@ -332,7 +326,7 @@ impl IdentifyVariant for Box<dyn ChainSpec> {
 			Chain::Kusama
 		} else if self.is_westend() {
 			Chain::Westend
-		} else if self.is_rococo() || self.is_versi() || self.is_wococo() {
+		} else if self.is_rococo() || self.is_versi() {
 			Chain::Rococo
 		} else {
 			Chain::Unknown
@@ -666,6 +660,8 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	#[allow(dead_code)]
 	pub malus_finality_delay: Option<u32>,
 	pub hwbench: Option<sc_sysinfo::HwBench>,
+	/// Enable approval voting processing in parallel.
+	pub enable_approval_voting_parallel: bool,
 }
 
 #[cfg(feature = "full-node")]
@@ -759,6 +755,7 @@ pub fn new_full<
 		execute_workers_max_num,
 		prepare_workers_soft_max_num,
 		prepare_workers_hard_max_num,
+		enable_approval_voting_parallel,
 	}: NewFullParams<OverseerGenerator>,
 ) -> Result<NewFull, Error> {
 	use polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
@@ -778,7 +775,6 @@ pub fn new_full<
 		let mut backoff = sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default();
 
 		if config.chain_spec.is_rococo() ||
-			config.chain_spec.is_wococo() ||
 			config.chain_spec.is_versi() ||
 			config.chain_spec.is_dev()
 		{
@@ -791,6 +787,14 @@ pub fn new_full<
 		Some(backoff)
 	};
 
+	// Running approval voting in parallel is enabled by default on all networks except Polkadot and
+	// Kusama, unless explicitly enabled by the commandline option.
+	// This is meant to be temporary until we have enough confidence in the new system to enable it
+	// by default on all networks.
+	let enable_approval_voting_parallel = (!config.chain_spec.is_kusama() &&
+		!config.chain_spec.is_polkadot()) ||
+		enable_approval_voting_parallel;
+
 	let disable_grandpa = config.disable_grandpa;
 	let name = config.network.node_name.clone();
 
@@ -800,8 +804,6 @@ pub fn new_full<
 
 	let overseer_connector = OverseerConnector::default();
 	let overseer_handle = Handle::new(overseer_connector.handle());
-
-	let chain_spec = config.chain_spec.cloned_box();
 
 	let keystore = basics.keystore_container.local_keystore();
 	let auth_or_collator = role.is_authority() || is_parachain_node.is_collator();
@@ -815,6 +817,7 @@ pub fn new_full<
 			overseer_handle.clone(),
 			metrics,
 			Some(basics.task_manager.spawn_handle()),
+			enable_approval_voting_parallel,
 		)
 	} else {
 		SelectRelayChain::new_longest_chain(basics.backend.clone())
@@ -1025,6 +1028,7 @@ pub fn new_full<
 			dispute_coordinator_config,
 			chain_selection_config,
 			fetch_chunks_threshold,
+			enable_approval_voting_parallel,
 		})
 	};
 
@@ -1327,7 +1331,7 @@ pub fn new_full<
 			runtime: client.clone(),
 			key_store: keystore_opt.clone(),
 			network_params,
-			min_block_delta: if chain_spec.is_wococo() { 4 } else { 8 },
+			min_block_delta: 8,
 			prometheus_registry: prometheus_registry.clone(),
 			links: beefy_links,
 			on_demand_justifications_handler: beefy_on_demand_justifications_handler,
@@ -1458,10 +1462,7 @@ pub fn new_chain_ops(
 {
 	config.keystore = sc_service::config::KeystoreConfig::InMemory;
 
-	if config.chain_spec.is_rococo() ||
-		config.chain_spec.is_wococo() ||
-		config.chain_spec.is_versi()
-	{
+	if config.chain_spec.is_rococo() || config.chain_spec.is_versi() {
 		chain_ops!(config, jaeger_agent, None)
 	} else if config.chain_spec.is_kusama() {
 		chain_ops!(config, jaeger_agent, None)

@@ -27,6 +27,7 @@ use sp_core::{
 	traits::{CallContext, CodeExecutor, Externalities, FetchRuntimeCode, RuntimeCode},
 };
 use sp_genesis_builder::{PresetId, Result as BuildResult};
+pub use sp_genesis_builder::{DEV_RUNTIME_PRESET, LOCAL_TESTNET_RUNTIME_PRESET};
 use sp_state_machine::BasicExternalities;
 use std::borrow::Cow;
 

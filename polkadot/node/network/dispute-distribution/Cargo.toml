@@ -38,5 +38,4 @@ sp-tracing = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
 assert_matches = { workspace = true }
-lazy_static = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }

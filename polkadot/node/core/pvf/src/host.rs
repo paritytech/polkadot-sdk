@@ -813,12 +813,8 @@ async fn handle_prepare_done(
 	}
 
 	*state = match result {
-		Ok(PrepareSuccess { path, stats: prepare_stats, size }) => ArtifactState::Prepared {
-			path,
-			last_time_needed: SystemTime::now(),
-			size,
-			prepare_stats,
-		},
+		Ok(PrepareSuccess { path, size, .. }) =>
+			ArtifactState::Prepared { path, last_time_needed: SystemTime::now(), size },
 		Err(error) => {
 			let last_time_failed = SystemTime::now();
 			let num_failures = *num_failures + 1;
@@ -976,7 +972,6 @@ pub(crate) mod tests {
 	use crate::{artifacts::generate_artifact_path, testing::artifact_id, PossiblyInvalidError};
 	use assert_matches::assert_matches;
 	use futures::future::BoxFuture;
-	use polkadot_node_core_pvf_common::prepare::PrepareStats;
 	use polkadot_node_primitives::BlockData;
 	use sp_core::H256;
 
@@ -1196,20 +1191,8 @@ pub(crate) mod tests {
 		builder.cleanup_config = ArtifactsCleanupConfig::new(1024, Duration::from_secs(0));
 		let path1 = generate_artifact_path(cache_path);
 		let path2 = generate_artifact_path(cache_path);
-		builder.artifacts.insert_prepared(
-			artifact_id(1),
-			path1.clone(),
-			mock_now,
-			1024,
-			PrepareStats::default(),
-		);
-		builder.artifacts.insert_prepared(
-			artifact_id(2),
-			path2.clone(),
-			mock_now,
-			1024,
-			PrepareStats::default(),
-		);
+		builder.artifacts.insert_prepared(artifact_id(1), path1.clone(), mock_now, 1024);
+		builder.artifacts.insert_prepared(artifact_id(2), path2.clone(), mock_now, 1024);
 		let mut test = builder.build();
 		let mut host = test.host_handle();
 
