@@ -26,6 +26,7 @@
 
 extern crate alloc;
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use cumulus_primitives_storage_weight_reclaim::get_proof_size;
 use derivative::Derivative;
 use frame_support::{
@@ -74,13 +75,14 @@ pub mod pallet {
 /// This extension checks the size of the node-side storage proof
 /// before and after executing a given extrinsic. The difference between
 /// benchmarked and spent weight can be reclaimed.
-#[derive(Encode, Decode, Derivative)]
+#[derive(Encode, Decode, TypeInfo, Derivative)]
 #[derivative(
 	Clone(bound = "S: Clone"),
 	Eq(bound = "S: Eq"),
 	PartialEq(bound = "S: PartialEq"),
 	Default(bound = "S: Default")
 )]
+#[scale_info(skip_type_params(T))]
 pub struct StorageWeightReclaim<T, S>(pub S, core::marker::PhantomData<T>);
 
 impl<T, S> StorageWeightReclaim<T, S> {
@@ -102,20 +104,12 @@ impl<T, S: core::fmt::Debug> core::fmt::Debug for StorageWeightReclaim<T, S> {
 	}
 }
 
-// Make this extension "invisible" from the outside (ie metadata type information)
-impl<T, S: scale_info::StaticTypeInfo> scale_info::TypeInfo for StorageWeightReclaim<T, S> {
-	type Identity = S;
-	fn type_info() -> scale_info::Type {
-		S::type_info()
-	}
-}
-
 impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
 	TransactionExtension<T::RuntimeCall> for StorageWeightReclaim<T, S>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	const IDENTIFIER: &'static str = S::IDENTIFIER;
+	const IDENTIFIER: &'static str = "StorageWeightReclaim<Use `metadata()`!>";
 	type Implicit = S::Implicit;
 	type Val = (Option<u64>, S::Val);
 	type Pre = (Option<u64>, S::Pre);
