@@ -107,7 +107,7 @@ impl TestHost {
 		pvd: PersistedValidationData,
 		pov: PoV,
 		executor_params: ExecutorParams,
-		exec_deadline: Option<std::time::Instant>,
+		exec_ttl: Option<std::time::Instant>,
 	) -> Result<ValidationResult, ValidationError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
 
@@ -122,7 +122,7 @@ impl TestHost {
 					PrepareJobKind::Compilation,
 				),
 				TEST_EXECUTION_TIMEOUT,
-				exec_deadline,
+				exec_ttl,
 				Arc::new(pvd),
 				Arc::new(pov),
 				polkadot_node_core_pvf::Priority::Normal,
@@ -201,7 +201,7 @@ async fn execute_job_terminates_on_execution_deadline() {
 		max_pov_size: 4096 * 1024,
 	};
 	let pov = PoV { block_data: BlockData(Vec::new()) };
-	let exec_deadline = Some(std::time::Instant::now());
+	let exec_ttl = Some(std::time::Instant::now());
 
 	let start = std::time::Instant::now();
 	let result = host
@@ -210,7 +210,7 @@ async fn execute_job_terminates_on_execution_deadline() {
 			pvd,
 			pov,
 			Default::default(),
-			exec_deadline,
+			exec_ttl,
 		)
 		.await;
 

@@ -56,7 +56,7 @@ use polkadot_statement_table::v2::Misbehavior;
 use std::{
 	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	sync::Arc,
-	time::Duration,
+	time::Instant,
 };
 
 /// Network events as transmitted to other subsystems, wrapped in their message types.
@@ -192,7 +192,7 @@ pub enum CandidateValidationMessage {
 		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
 		/// The time within which the validation should be completed.
 		/// Important for time-sensitive tasks such as backing.
-		ttl: Option<Duration>,
+		ttl: Option<Instant>,
 	},
 	/// Try to compile the given validation code and send back
 	/// the outcome.

@@ -111,7 +111,7 @@ impl ValidationHost {
 		&mut self,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
-		exec_deadline: Option<Instant>,
+		exec_ttl: Option<Instant>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		priority: Priority,
@@ -122,7 +122,7 @@ impl ValidationHost {
 			.send(ToHost::ExecutePvf(ExecutePvfInputs {
 				pvf,
 				exec_timeout,
-				exec_deadline,
+				exec_ttl,
 				pvd,
 				pov,
 				priority,
@@ -156,7 +156,7 @@ enum ToHost {
 struct ExecutePvfInputs {
 	pvf: PvfPrepData,
 	exec_timeout: Duration,
-	exec_deadline: Option<Instant>,
+	exec_ttl: Option<Instant>,
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	priority: Priority,
@@ -554,7 +554,7 @@ async fn handle_execute_pvf(
 	let ExecutePvfInputs {
 		pvf,
 		exec_timeout,
-		exec_deadline,
+		exec_ttl,
 		pvd,
 		pov,
 		priority,
@@ -579,7 +579,7 @@ async fn handle_execute_pvf(
 							artifact: ArtifactPathId::new(artifact_id, path),
 							pending_execution_request: PendingExecutionRequest {
 								exec_timeout,
-								exec_deadline,
+								exec_ttl,
 								pvd,
 								pov,
 								executor_params,
@@ -611,7 +611,7 @@ async fn handle_execute_pvf(
 						artifact_id,
 						PendingExecutionRequest {
 							exec_timeout,
-							exec_deadline,
+							exec_ttl,
 							pvd,
 							pov,
 							executor_params,
@@ -627,7 +627,7 @@ async fn handle_execute_pvf(
 					artifact_id,
 					PendingExecutionRequest {
 						exec_timeout,
-						exec_deadline,
+						exec_ttl,
 						pvd,
 						pov,
 						executor_params,
@@ -662,7 +662,7 @@ async fn handle_execute_pvf(
 						artifact_id,
 						PendingExecutionRequest {
 							exec_timeout,
-							exec_deadline,
+							exec_ttl,
 							pvd,
 							pov,
 							executor_params,
@@ -688,7 +688,7 @@ async fn handle_execute_pvf(
 			artifact_id,
 			PendingExecutionRequest {
 				exec_timeout,
-				exec_deadline,
+				exec_ttl,
 				pvd,
 				pov,
 				executor_params,
@@ -818,7 +818,7 @@ async fn handle_prepare_done(
 	let pending_requests = awaiting_prepare.take(&artifact_id);
 	for PendingExecutionRequest {
 		exec_timeout,
-		exec_deadline,
+		exec_ttl,
 		pvd,
 		pov,
 		executor_params,
@@ -846,7 +846,7 @@ async fn handle_prepare_done(
 				artifact: ArtifactPathId::new(artifact_id.clone(), &path),
 				pending_execution_request: PendingExecutionRequest {
 					exec_timeout,
-					exec_deadline,
+					exec_ttl,
 					pvd,
 					pov,
 					executor_params,

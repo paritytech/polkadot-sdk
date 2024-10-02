@@ -72,7 +72,7 @@ pub enum FromQueue {
 #[derive(Debug)]
 pub struct PendingExecutionRequest {
 	pub exec_timeout: Duration,
-	pub exec_deadline: Option<Instant>,
+	pub exec_ttl: Option<Instant>,
 	pub pvd: Arc<PersistedValidationData>,
 	pub pov: Arc<PoV>,
 	pub executor_params: ExecutorParams,
@@ -83,7 +83,7 @@ pub struct PendingExecutionRequest {
 struct ExecuteJob {
 	artifact: ArtifactPathId,
 	exec_timeout: Duration,
-	exec_deadline: Option<Instant>,
+	exec_ttl: Option<Instant>,
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
@@ -174,6 +174,8 @@ struct Queue {
 	unscheduled: Unscheduled,
 	workers: Workers,
 	mux: Mux,
+	/// Minimal observed execution time
+	min_exec_time: Option<Duration>,
 }
 
 impl Queue {
@@ -204,6 +206,7 @@ impl Queue {
 				spawn_inflight: 0,
 				capacity: worker_capacity,
 			},
+			min_exec_time: None,
 		}
 	}
 
@@ -280,8 +283,17 @@ impl Queue {
 		}
 
 		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
+		let exec_deadline = job.exec_ttl.and_then(|ttl| {
+			// Because we observe the execution of different jobs, their execution time can exceed
+			// the current job's execution timeout.
+			let min_exec_time = self.min_exec_time.unwrap_or_default().min(job.exec_timeout);
+			// There is a high possibility that the current execution time will be less than the
+			// execution timeout but more than the minimum observed execution time. Therefore, we
+			// subtract it from the TTL to avoid exceeding the deadline.
+			ttl.checked_sub(min_exec_time)
+		});
 
-		if let Some(deadline) = job.exec_deadline {
+		if let Some(deadline) = exec_deadline {
 			let now = Instant::now();
 			gum::debug!(target: LOG_TARGET, ?priority, ?deadline, ?now, "Job has a deadline");
 			if now > deadline {
@@ -325,7 +337,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 	let ToQueue::Enqueue { artifact, pending_execution_request } = to_queue;
 	let PendingExecutionRequest {
 		exec_timeout,
-		exec_deadline,
+		exec_ttl,
 		pvd,
 		pov,
 		executor_params,
@@ -342,7 +354,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 	let job = ExecuteJob {
 		artifact,
 		exec_timeout,
-		exec_deadline,
+		exec_ttl,
 		pvd,
 		pov,
 		executor_params,
@@ -499,6 +511,12 @@ async fn handle_job_finish(
 			err
 		);
 	} else {
+		if let Some(dur) = duration {
+			queue.min_exec_time = queue
+				.min_exec_time
+				.map(|min_time| if dur < min_time { dur } else { min_time })
+				.or(Some(dur));
+		}
 		gum::trace!(
 			target: LOG_TARGET,
 			?artifact_id,
@@ -835,7 +853,7 @@ mod tests {
 		ExecuteJob {
 			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
 			exec_timeout: Duration::from_secs(10),
-			exec_deadline: None,
+			exec_ttl: None,
 			pvd,
 			pov,
 			executor_params: ExecutorParams::default(),

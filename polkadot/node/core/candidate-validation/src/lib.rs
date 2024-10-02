@@ -832,7 +832,7 @@ async fn validate_candidate_exhaustive(
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
 	exec_kind: PvfExecPriority,
-	request_ttl: Option<Duration>,
+	request_ttl: Option<Instant>,
 	metrics: &Metrics,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
@@ -863,7 +863,6 @@ async fn validate_candidate_exhaustive(
 		PvfExecPriority::Backing | PvfExecPriority::BackingSystemParas => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
-			let exec_deadline = pvf_exec_deadline(exec_timeout, request_ttl);
 			let pvf = PvfPrepData::from_code(
 				validation_code.0,
 				executor_params,
@@ -875,7 +874,7 @@ async fn validate_candidate_exhaustive(
 				.validate_candidate(
 					pvf,
 					exec_timeout,
-					exec_deadline,
+					request_ttl,
 					persisted_validation_data.clone(),
 					pov,
 					exec_kind.into(),
@@ -885,12 +884,11 @@ async fn validate_candidate_exhaustive(
 		},
 		PvfExecPriority::Approval | PvfExecPriority::Dispute => {
 			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
-			let exec_deadline = pvf_exec_deadline(exec_timeout, request_ttl);
 			validation_backend
 				.validate_candidate_with_retry(
 					validation_code.0,
 					exec_timeout,
-					exec_deadline,
+					request_ttl,
 					persisted_validation_data.clone(),
 					pov,
 					executor_params,
@@ -990,7 +988,7 @@ trait ValidationBackend {
 		&mut self,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
-		exec_deadline: Option<Instant>,
+		exec_ttl: Option<Instant>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
@@ -1011,7 +1009,7 @@ trait ValidationBackend {
 		&mut self,
 		code: Vec<u8>,
 		exec_timeout: Duration,
-		exec_deadline: Option<Instant>,
+		exec_ttl: Option<Instant>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		executor_params: ExecutorParams,
@@ -1038,7 +1036,7 @@ trait ValidationBackend {
 			.validate_candidate(
 				pvf.clone(),
 				exec_timeout,
-				exec_deadline,
+				exec_ttl,
 				pvd.clone(),
 				pov.clone(),
 				prepare_priority,
@@ -1125,7 +1123,7 @@ trait ValidationBackend {
 					.validate_candidate(
 						pvf.clone(),
 						new_timeout,
-						exec_deadline,
+						exec_ttl,
 						pvd.clone(),
 						pov.clone(),
 						prepare_priority,
@@ -1150,7 +1148,7 @@ impl ValidationBackend for ValidationHost {
 		&mut self,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
-		exec_deadline: Option<Instant>,
+		exec_ttl: Option<Instant>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
@@ -1163,7 +1161,7 @@ impl ValidationBackend for ValidationHost {
 			.execute_pvf(
 				pvf,
 				exec_timeout,
-				exec_deadline,
+				exec_ttl,
 				pvd,
 				pov,
 				prepare_priority,
@@ -1270,17 +1268,4 @@ fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: PvfExecKind) -> Dura
 		PvfExecKind::Backing => DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		PvfExecKind::Approval => DEFAULT_APPROVAL_EXECUTION_TIMEOUT,
 	}
-}
-
-fn pvf_exec_deadline(
-	exec_timeout: Duration,
-	validation_request_ttl: Option<Duration>,
-) -> Option<Instant> {
-	validation_request_ttl.and_then(|ttl| {
-		if ttl <= exec_timeout {
-			None // Job dropping should be turned off
-		} else {
-			Some(Instant::now() + ttl - exec_timeout)
-		}
-	})
 }
