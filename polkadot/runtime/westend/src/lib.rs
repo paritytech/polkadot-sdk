@@ -1767,7 +1767,6 @@ parameter_types! {
 /// upgrades in case governance decides to do so. THE ORDER IS IMPORTANT.
 pub type Migrations = migrations::Unreleased;
 
-
 /// The runtime migrations per release.
 #[allow(deprecated, missing_docs)]
 pub mod migrations {

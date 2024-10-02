@@ -8711,25 +8711,23 @@ mod migration_tests {
 
 	#[test]
 	fn migrate_v15_to_v16_with_try_runtime() {
-		ExtBuilder::default()
-			.validator_count(7)
-			.build_and_execute(|| {
-				// Initial setup: Create old `DisabledValidators` in the form of `Vec<u32>`
-				let old_disabled_validators = vec![1u32, 2u32];
-				v15::DisabledValidators::<Test>::put(old_disabled_validators.clone());
+		ExtBuilder::default().validator_count(7).build_and_execute(|| {
+			// Initial setup: Create old `DisabledValidators` in the form of `Vec<u32>`
+			let old_disabled_validators = vec![1u32, 2u32];
+			v15::DisabledValidators::<Test>::put(old_disabled_validators.clone());
 
-				// Run pre-upgrade checks
-				let pre_upgrade_result = v16::VersionUncheckedMigrateV15ToV16::<Test>::pre_upgrade();
-				assert!(pre_upgrade_result.is_ok());
-				let pre_upgrade_state = pre_upgrade_result.unwrap();
+			// Run pre-upgrade checks
+			let pre_upgrade_result = v16::VersionUncheckedMigrateV15ToV16::<Test>::pre_upgrade();
+			assert!(pre_upgrade_result.is_ok());
+			let pre_upgrade_state = pre_upgrade_result.unwrap();
 
-				// Run the migration
-				v16::VersionUncheckedMigrateV15ToV16::<Test>::on_runtime_upgrade();
+			// Run the migration
+			v16::VersionUncheckedMigrateV15ToV16::<Test>::on_runtime_upgrade();
 
-				// Run post-upgrade checks
-				let post_upgrade_result =
-					v16::VersionUncheckedMigrateV15ToV16::<Test>::post_upgrade(pre_upgrade_state);
-				assert!(post_upgrade_result.is_ok());
-			});
+			// Run post-upgrade checks
+			let post_upgrade_result =
+				v16::VersionUncheckedMigrateV15ToV16::<Test>::post_upgrade(pre_upgrade_state);
+			assert!(post_upgrade_result.is_ok());
+		});
 	}
 }
