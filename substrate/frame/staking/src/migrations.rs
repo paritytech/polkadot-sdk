@@ -67,6 +67,13 @@ pub mod v16 {
 
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let old_disabled_validators = v15::DisabledValidators::<T>::get();
+			Ok(old_disabled_validators.encode())
+		}
+
 		fn on_runtime_upgrade() -> Weight {
 			// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, PerBill)>`.
 			// Using max severity (PerBill) for the migration which effectively makes it so
@@ -82,6 +89,38 @@ pub mod v16 {
 
 			log!(info, "v16 applied successfully.");
 			T::DbWeight::get().reads_writes(1, 1)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			// Decode state to get old_disabled_validators in a format of Vec<u32>
+			let old_disabled_validators = Vec::<u32>::decode(&mut state.as_slice()).expect("Failed to decode state");
+			let new_disabled_validators = DisabledValidators::<T>::get();
+
+			// Compare lengths
+			frame_support::ensure!(
+				old_disabled_validators.len() == new_disabled_validators.len(),
+				"DisabledValidators length mismatch"
+			);
+
+			// Compare contents
+			let new_disabled_validators = new_disabled_validators.into_iter().map(|(v, _)| v).collect::<Vec<_>>();
+			frame_support::ensure!(
+				old_disabled_validators == new_disabled_validators,
+				"DisabledValidator ids mismatch"
+			);
+
+			// Verify severity
+			let max_perbill = Perbill::from_percent(100);
+			let new_disabled_validators = DisabledValidators::<T>::get();
+			for (_, severity) in new_disabled_validators {
+				frame_support::ensure!(
+					severity == max_perbill,
+					"Severity mismatch"
+				);
+			}
+
+			Ok(())
 		}
 	}
 
