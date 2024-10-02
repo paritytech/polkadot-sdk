@@ -85,6 +85,7 @@ pub trait WeightInfo {
 	fn block() -> Weight;
 	fn transfer_all() -> Weight;
 	fn mint_distribution() -> Weight;
+	fn trie_hash(_h: u32) -> Weight;
 	fn claim_distribution() -> Weight;
 	fn end_distribution() -> Weight;
 	fn destroy_distribution(n: u32) -> Weight;
@@ -551,6 +552,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 
 	fn claim_distribution() -> Weight {
+		Weight::default()
+	}
+
+	fn trie_hash(_h: u32) -> Weight {
 		Weight::default()
 	}
 
@@ -1024,6 +1029,10 @@ impl WeightInfo for () {
 	}
 
 	fn claim_distribution() -> Weight {
+		Weight::default()
+	}
+
+	fn trie_hash(_h: u32) -> Weight {
 		Weight::default()
 	}
 

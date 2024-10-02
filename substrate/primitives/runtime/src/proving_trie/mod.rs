@@ -156,6 +156,14 @@ pub trait ProofToHashes {
 	fn proof_to_hashes(proof: &Self::Proof) -> Result<u32, DispatchError>;
 }
 
+impl ProofToHashes for () {
+	type Proof = ();
+
+	fn proof_to_hashes(_proof: &Self::Proof) -> Result<u32, DispatchError> {
+		Err(DispatchError::Unavailable)
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

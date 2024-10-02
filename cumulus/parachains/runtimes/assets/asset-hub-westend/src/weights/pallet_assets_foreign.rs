@@ -556,6 +556,10 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 		Weight::default()
 	}
 
+	fn trie_hash(_h: u32) -> Weight {
+		Weight::default()
+	}
+
 	fn end_distribution() -> Weight {
 		Weight::default()
 	}

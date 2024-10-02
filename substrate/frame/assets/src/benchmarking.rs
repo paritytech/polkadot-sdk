@@ -27,6 +27,7 @@ use frame_benchmarking::v1::{
 use frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable};
 use frame_system::RawOrigin as SystemOrigin;
 use sp_runtime::traits::Bounded;
+use sp_runtime::traits::Hash;
 
 use crate::Pallet as Assets;
 
@@ -596,6 +597,21 @@ benchmarks_instance_pallet! {
 		let count = MerklizedDistribution::<T, I>::count();
 		assert_eq!(count, before_count + 1);
 		assert_last_event::<T, I>(Event::DistributionIssued { distribution_id: before_count, asset_id: asset_id.into(), merkle_root: DistributionHashOf::<T, I>::default() }.into());
+	}
+
+	// Calculate the cost of `h` hashes.
+	trie_hash {
+		let h in 0 .. 1_000;
+		let mut hash = T::Hash::default();
+	}: {
+		for _ in 0..h {
+			// Our hashes will be composed of two sub-hashes.
+			hash = T::Hashing::hash_of(&(hash, hash))
+		}
+	} verify {
+		if h > 0 {
+			assert!(hash != T::Hash::default());
+		}
 	}
 
 	// This function is O(1), so ending any distribution should work.

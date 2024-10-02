@@ -324,6 +324,8 @@ pub type DistributionProofOf<T, I> =
 pub type DistributionHashOf<T, I> =
 	<<T as Config<I>>::VerifyExistenceProof as VerifyExistenceProof>::Hash;
 
+pub type HashOf<T> = <T as frame_system::Config>::Hash;
+
 #[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct DistributionInfo<AssetId, Hash> {
 	// The asset id we are distributing.
@@ -332,4 +334,25 @@ pub struct DistributionInfo<AssetId, Hash> {
 	pub merkle_root: Hash,
 	// Whether the distribution is still active.
 	pub active: bool,
+}
+
+pub struct NoTrie<Hash> {
+	_phantom: PhantomData<Hash>,
+}
+
+impl<Hash> VerifyExistenceProof for NoTrie<Hash> {
+	type Proof = ();
+	type Hash = Hash;
+
+	fn verify_proof(_proof: Self::Proof, _root: &Self::Hash) -> Result<Vec<u8>, DispatchError> {
+		Err(DispatchError::Unavailable)
+	}
+}
+
+impl<Hash> ProofToHashes for NoTrie<Hash> {
+	type Proof = ();
+
+	fn proof_to_hashes(_proof: &Self::Proof) -> Result<u32, DispatchError> {
+		Err(DispatchError::Unavailable)
+	}
 }

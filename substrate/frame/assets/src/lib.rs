@@ -188,7 +188,7 @@ use frame_support::{
 			Preservation::{Expendable, Preserve},
 			WithdrawConsequence,
 		},
-		BalanceStatus::Reserved,
+		BalanceStatus::Reserved, ProofToHashes,
 		Currency, EnsureOriginWithArg, Incrementable, ReservableCurrency, StoredMap,
 		VerifyExistenceProof,
 	},
@@ -299,7 +299,7 @@ pub mod pallet {
 			type Extra = ();
 			type CallbackHandle = ();
 			type WeightInfo = ();
-			type VerifyExistenceProof = ();
+			type VerifyExistenceProof = NoTrie<sp_core::H256>;
 			#[cfg(feature = "runtime-benchmarks")]
 			type BenchmarkHelper = ();
 		}
@@ -408,7 +408,7 @@ pub mod pallet {
 		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId>;
 
 		/// A type used to verify merkle proofs used for distributions.
-		type VerifyExistenceProof: VerifyExistenceProof<Hash: Parameter + MaxEncodedLen + Default>;
+		type VerifyExistenceProof: VerifyExistenceProof<Hash = <Self as frame_system::Config>::Hash> + ProofToHashes<Proof = DistributionProofOf<Self, I>>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -1884,6 +1884,10 @@ pub mod pallet {
 		///
 		/// Weight: `O(P)` where `P` is the size of the merkle proof.
 		#[pallet::call_index(34)]
+		#[pallet::weight({
+			let hashes = T::VerifyExistenceProof::proof_to_hashes(merkle_proof);
+			T::WeightInfo::trie_hash(hashes)
+		})]
 		pub fn claim_distribution(
 			origin: OriginFor<T>,
 			distribution_id: DistributionCounter,
