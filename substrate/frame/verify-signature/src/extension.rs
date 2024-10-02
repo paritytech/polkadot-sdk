@@ -99,9 +99,7 @@ where
 	fn weight(&self, _call: &T::RuntimeCall) -> Weight {
 		match &self {
 			// The benchmarked weight of the payload construction and signature checking.
-			Self::Signed { .. } => {
-				T::WeightInfo::verify_signature()
-			},
+			Self::Signed { .. } => T::WeightInfo::verify_signature(),
 			// When the extension is passthrough, it consumes no weight.
 			Self::Disabled => Weight::zero(),
 		}

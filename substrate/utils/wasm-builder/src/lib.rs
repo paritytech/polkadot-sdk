@@ -84,6 +84,9 @@
 //! - `WASM_BUILD_STD` - Sets whether the Rust's standard library crates will also be built. This is
 //!   necessary to make sure the standard library crates only use the exact WASM feature set that
 //!   our executor supports. Enabled by default.
+//! - `WASM_BUILD_CARGO_ARGS` - This can take a string as space separated list of `cargo` arguments.
+//!   It was added specifically for the use case of enabling JSON diagnostic messages during the
+//!   build phase, to be used by IDEs that parse them, but it might be useful for other cases too.
 //! - `CARGO_NET_OFFLINE` - If `true`, `--offline` will be passed to all processes launched to
 //!   prevent network access. Useful in offline environments.
 //!
@@ -160,6 +163,10 @@ const WASM_BUILD_WORKSPACE_HINT: &str = "WASM_BUILD_WORKSPACE_HINT";
 
 /// Environment variable to set whether we'll build `core`/`std`.
 const WASM_BUILD_STD: &str = "WASM_BUILD_STD";
+
+/// Environment variable to set additional cargo arguments that might be useful
+/// during the build phase.
+const WASM_BUILD_CARGO_ARGS: &str = "WASM_BUILD_CARGO_ARGS";
 
 /// The target to use for the runtime. Valid values are `wasm` (default) or `riscv`.
 const RUNTIME_TARGET: &str = "SUBSTRATE_RUNTIME_TARGET";

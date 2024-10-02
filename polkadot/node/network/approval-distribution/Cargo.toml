@@ -16,7 +16,6 @@ polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
-polkadot-node-jaeger = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 itertools = { workspace = true }
 

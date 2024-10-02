@@ -357,7 +357,7 @@ where
 		_info: &DispatchInfoOf<R::RuntimeCall>,
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		Ok(val.map(|data| {
+		Ok(val.inspect(|data| {
 			log::trace!(
 				target: LOG_TARGET,
 				"{}.{:?}: parsed bridge transaction in prepare: {:?}",
@@ -365,7 +365,6 @@ where
 				data.call_info.messages_call_info().lane_id(),
 				data.call_info,
 			);
-			data
 		}))
 	}
 

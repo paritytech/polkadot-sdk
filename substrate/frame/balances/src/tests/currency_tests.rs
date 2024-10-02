@@ -1018,7 +1018,7 @@ fn slash_consumed_slash_full_works() {
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
 		Balances::make_free_balance_be(&1, 1_000);
 		assert_ok!(System::inc_consumers(&1)); // <-- Reference counter added here is enough for all tests
-									   // Slashed completed in full
+										 // Slashed completed in full
 		assert_eq!(Balances::slash(&1, 900), (NegativeImbalance::new(900), 0));
 		// Account is still alive
 		assert!(System::account_exists(&1));
@@ -1030,7 +1030,7 @@ fn slash_consumed_slash_over_works() {
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
 		Balances::make_free_balance_be(&1, 1_000);
 		assert_ok!(System::inc_consumers(&1)); // <-- Reference counter added here is enough for all tests
-									   // Slashed completed in full
+										 // Slashed completed in full
 		assert_eq!(Balances::slash(&1, 1_000), (NegativeImbalance::new(900), 100));
 		// Account is still alive
 		assert!(System::account_exists(&1));
@@ -1042,7 +1042,7 @@ fn slash_consumed_slash_partial_works() {
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
 		Balances::make_free_balance_be(&1, 1_000);
 		assert_ok!(System::inc_consumers(&1)); // <-- Reference counter added here is enough for all tests
-									   // Slashed completed in full
+										 // Slashed completed in full
 		assert_eq!(Balances::slash(&1, 800), (NegativeImbalance::new(800), 0));
 		// Account is still alive
 		assert!(System::account_exists(&1));

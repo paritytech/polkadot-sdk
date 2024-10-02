@@ -261,8 +261,8 @@ fn transaction_ext_length_fee_is_also_updated_per_congestion() {
 			// all fees should be x1.5
 			NextFeeMultiplier::<Runtime>::put(Multiplier::saturating_from_rational(3, 2));
 			let len = 10;
-			let info = &info_from_weight(Weight::from_parts(3, 0));
-			assert_ok!(Ext::from(10).validate_and_prepare(Some(1).into(), CALL, info, len));
+			let info = info_from_weight(Weight::from_parts(3, 0));
+			assert_ok!(Ext::from(10).validate_and_prepare(Some(1).into(), CALL, &info, len));
 			assert_eq!(
 				Balances::free_balance(1),
 				100 // original
