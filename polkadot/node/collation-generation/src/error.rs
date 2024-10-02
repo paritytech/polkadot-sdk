@@ -32,6 +32,10 @@ pub enum Error {
 	Erasure(#[from] polkadot_erasure_coding::Error),
 	#[error("Parachain backing state not available in runtime.")]
 	MissingParaBackingState,
+	#[error("Collation submitted before initialization")]
+	SubmittedBeforeInit,
+	#[error("Claim queue runtime API not available")]
+	ClaimQueueNotAvailable,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

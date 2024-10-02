@@ -21,6 +21,7 @@ sp-core = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 codec = { features = ["bit-vec", "derive"], workspace = true }
+schnellru = { workspace = true }
 
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { workspace = true }

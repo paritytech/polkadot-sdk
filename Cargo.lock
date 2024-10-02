@@ -14209,6 +14209,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "rstest",
+ "schnellru",
  "sp-core 28.0.0",
  "sp-keyring",
  "sp-maybe-compressed-blob 11.0.0",
