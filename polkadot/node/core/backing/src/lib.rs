@@ -68,7 +68,7 @@
 use std::{
 	collections::{HashMap, HashSet},
 	sync::Arc,
-	time::Duration,
+	time::Instant,
 };
 
 use bitvec::vec::BitVec;
@@ -644,7 +644,7 @@ async fn request_candidate_validation(
 				PvfExecPriority::Backing
 			},
 			response_sender: tx,
-			ttl: Some(validation_request_ttl(mode)),
+			ttl: validation_request_ttl(mode),
 		})
 		.await;
 
@@ -2227,12 +2227,16 @@ fn handle_get_backable_candidates_message(
 	Ok(())
 }
 
-fn validation_request_ttl(mode: ProspectiveParachainsMode) -> Duration {
+fn validation_request_ttl(mode: ProspectiveParachainsMode) -> Option<Instant> {
 	const MILLISECS_PER_BLOCK: u64 = 6000;
 	let ttl_in_blocks = match mode {
 		ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. } => allowed_ancestry_len,
 		_ => 1,
 	} as u64;
 
-	Duration::from_millis(MILLISECS_PER_BLOCK * ttl_in_blocks)
+	if ttl_in_blocks < 1 {
+		None
+	} else {
+		Instant::now() + Duration::from_millis(MILLISECS_PER_BLOCK * ttl_in_blocks)
+	}
 }
