@@ -192,6 +192,23 @@ macro_rules! assert_pool_status {
 	}
 }
 
+#[macro_export]
+macro_rules! assert_ready_iterator {
+	($hash:expr, $pool:expr, [$( $xt:expr ),+]) => {{
+		let ready_iterator = $pool.ready_at($hash).now_or_never().unwrap();
+		let expected = vec![ $($pool.api().hash_and_length(&$xt).0),+];
+		let output: Vec<_> = ready_iterator.collect();
+		log::debug!(target:LOG_TARGET, "expected: {:#?}", expected);
+		log::debug!(target:LOG_TARGET, "output: {:#?}", output);
+		assert_eq!(expected.len(), output.len());
+		assert!(
+			output.iter().zip(expected.iter()).all(|(o,e)| {
+				o.hash == *e
+			})
+		);
+	}};
+}
+
 pub const SOURCE: TransactionSource = TransactionSource::External;
 
 #[cfg(test)]
