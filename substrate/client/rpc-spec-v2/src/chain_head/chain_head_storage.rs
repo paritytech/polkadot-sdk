@@ -51,8 +51,8 @@ impl<Client, Block, BE> ChainHeadStorage<Client, Block, BE> {
 
 impl<Client, Block, BE> ChainHeadStorage<Client, Block, BE>
 where
-	Block: BlockT + Send + 'static,
-	BE: Backend<Block> + Send + 'static,
+	Block: BlockT + 'static,
+	BE: Backend<Block> + 'static,
 	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
 {
 	/// Generate the block events for the `chainHead_storage` method.
