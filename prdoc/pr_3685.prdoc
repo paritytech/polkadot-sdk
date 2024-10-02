@@ -7,8 +7,8 @@ doc:
   - audience: Runtime User
     description: |
       Reintroduces the changes in #2280 which were later reverted. In addition to that, this PR
-      bumps the extrinsic format version to 5, as per RFC#84. For a full list of changes, please
-      see the PrDoc for #2280.
+      bumps the extrinsic format version to 5, as per RFC#84, and adds benchmarked weights for
+      extensions. For a full list of changes, please see the PrDoc for #2280. 
 
 crates:
   - name: bridge-runtime-common
