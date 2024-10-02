@@ -1677,6 +1677,9 @@ pub mod migrations {
         // permanent
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
         parachains_inclusion::migration::MigrateToV1<Runtime>,
+
+        // Release bonds stuck in proposals
+        pallet_treasury::migration::MigrateV0ToV1<Runtime, ()>,
     );
 }
 
