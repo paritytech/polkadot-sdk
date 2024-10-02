@@ -124,6 +124,10 @@ where
 		self.0.implicit()
 	}
 
+	fn metadata() -> Vec<sp_runtime::traits::TransactionExtensionMetadata> {
+		S::metadata()
+	}
+
 	fn weight(&self, call: &T::RuntimeCall) -> Weight {
 		T::WeightInfo::storage_weight_reclaim().saturating_add(self.0.weight(call))
 	}
