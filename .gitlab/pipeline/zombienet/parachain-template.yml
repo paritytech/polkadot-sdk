@@ -28,7 +28,9 @@
   after_script:
     - mkdir -p ./zombienet-logs
     - cp /tmp/zombie*/*/*.log ./zombienet-logs/
-  retry: 2
+  retry:
+    max: 1
+    when: runner_system_failure
   timeout: 20m
   tags:
     - linux-docker
