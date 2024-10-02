@@ -119,7 +119,11 @@ pub struct Cli<Config: CliConfig> {
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
-	/// Dev option for producing a block each `dev_block_time` ms.
+	/// Start a dev node that produces a block each `dev_block_time` ms.
+	///
+	/// This is a dev option, and it won't result in starting or connecting to a parachain network.
+	/// The resulting node will work on its own, running the wasm blob and artificially producing
+	/// a block each `dev_block_time` ms, as if it was part of a parachain.
 	#[arg(long)]
 	pub dev_block_time: Option<u64>,
 

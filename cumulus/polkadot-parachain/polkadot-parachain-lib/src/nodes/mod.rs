@@ -23,6 +23,10 @@ use cumulus_primitives_core::ParaId;
 use manual_seal::ManualSealNode;
 use sc_service::{Configuration, TaskManager};
 
+/// Trait that extends the `DynNodeSpec` trait with manual seal related logic.
+///
+/// We need it in order to be able to access both the `DynNodeSpec` and the manual seal logic
+/// through dynamic dispatch.
 pub trait DynNodeSpecExt: DynNodeSpec {
 	fn start_manual_seal_node(
 		&self,
