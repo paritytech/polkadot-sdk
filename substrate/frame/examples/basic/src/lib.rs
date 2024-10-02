@@ -70,8 +70,8 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
-		Bounded, DispatchInfoOf, OriginOf, SaturatedConversion, Saturating, TransactionExtension,
-		TransactionExtensionBase, ValidateResult,
+		Bounded, DispatchInfoOf, DispatchOriginOf, SaturatedConversion, Saturating,
+		TransactionExtension, ValidateResult,
 	},
 	transaction_validity::{InvalidTransaction, ValidTransaction},
 };
@@ -489,21 +489,19 @@ impl<T: Config + Send + Sync> core::fmt::Debug for WatchDummy<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for WatchDummy<T> {
-	const IDENTIFIER: &'static str = "WatchDummy";
-	type Implicit = ();
-}
 impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::RuntimeCall>
 	for WatchDummy<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
+	const IDENTIFIER: &'static str = "WatchDummy";
+	type Implicit = ();
 	type Pre = ();
 	type Val = ();
 
 	fn validate(
 		&self,
-		origin: OriginOf<<T as frame_system::Config>::RuntimeCall>,
+		origin: DispatchOriginOf<<T as frame_system::Config>::RuntimeCall>,
 		call: &<T as frame_system::Config>::RuntimeCall,
 		_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,

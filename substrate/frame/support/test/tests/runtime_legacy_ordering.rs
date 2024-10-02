@@ -25,7 +25,10 @@ use codec::MaxEncodedLen;
 use frame_support::{
 	derive_impl, parameter_types, traits::PalletInfo as _, weights::RuntimeDbWeight,
 };
-use frame_system::limits::{BlockLength, BlockWeights};
+use frame_system::{
+	limits::{BlockLength, BlockWeights},
+	DispatchEventInfo,
+};
 use scale_info::TypeInfo;
 use sp_core::sr25519;
 use sp_runtime::{
@@ -534,9 +537,11 @@ fn event_codec() {
 	use codec::Encode;
 
 	let event = frame_system::Event::<Runtime>::ExtrinsicSuccess {
-		weight: Default::default(),
-		class: Default::default(),
-		pays: Default::default(),
+		dispatch_info: DispatchEventInfo {
+			weight: Default::default(),
+			class: Default::default(),
+			pays_fee: Default::default(),
+		},
 	};
 	assert_eq!(RuntimeEvent::from(event).encode()[0], 30);
 

@@ -1,9 +1,9 @@
 //! Transaction extensions are, briefly, a means for different chains to extend the "basic"
 //! extrinsic format with custom data that can be checked by the runtime.
 //!
-//! # FRAME provided signed extensions
+//! # FRAME provided transaction extensions
 //!
-//! FRAME by default already provides the following signed extensions:
+//! FRAME by default already provides the following transaction extensions:
 //!
 //! - [`CheckGenesis`](frame_system::CheckGenesis): Ensures that a transaction was sent for the same
 //!   network. Determined based on genesis.
@@ -48,12 +48,12 @@
 //!   Ledger application and other similar offline wallets.
 //!
 //! - [`StorageWeightReclaim`](cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim): A
-//!   signed extension for parachains that reclaims unused storage weight after executing a
+//!   transaction extension for parachains that reclaims unused storage weight after executing a
 //!   transaction.
 //!
 //! For more information about these extensions, follow the link to the type documentation.
 //!
-//! # Building a custom signed extension
+//! # Building a custom transaction extension
 //!
 //! Defining a couple of very simple transaction extensions looks like the following:
 #![doc = docify::embed!("./src/reference_docs/transaction_extensions.rs", transaction_extensions_example)]
@@ -64,7 +64,7 @@ pub mod transaction_extensions_example {
 	use scale_info::TypeInfo;
 	use sp_runtime::{
 		impl_tx_ext_default,
-		traits::{Dispatchable, TransactionExtension, TransactionExtensionBase},
+		traits::{Dispatchable, TransactionExtension},
 		transaction_validity::TransactionValidityError,
 	};
 
@@ -73,12 +73,9 @@ pub mod transaction_extensions_example {
 	#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 	pub struct AddToPayload(pub u32);
 
-	impl TransactionExtensionBase for AddToPayload {
+	impl<Call: Dispatchable> TransactionExtension<Call> for AddToPayload {
 		const IDENTIFIER: &'static str = "AddToPayload";
 		type Implicit = ();
-	}
-
-	impl<Call: Dispatchable> TransactionExtension<Call> for AddToPayload {
 		type Pre = ();
 		type Val = ();
 
@@ -91,16 +88,13 @@ pub mod transaction_extensions_example {
 	#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 	pub struct AddToSignaturePayload;
 
-	impl TransactionExtensionBase for AddToSignaturePayload {
+	impl<Call: Dispatchable> TransactionExtension<Call> for AddToSignaturePayload {
 		const IDENTIFIER: &'static str = "AddToSignaturePayload";
 		type Implicit = u32;
 
 		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 			Ok(1234)
 		}
-	}
-
-	impl<Call: Dispatchable> TransactionExtension<Call> for AddToSignaturePayload {
 		type Pre = ();
 		type Val = ();
 

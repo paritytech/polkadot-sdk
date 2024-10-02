@@ -941,7 +941,9 @@ where
 	}
 }
 
+/// Interface for types capable of constructing an inherent extrinsic.
 pub trait InherentBuilder: ExtrinsicCall {
+	/// Create a new inherent from a given call.
 	fn new_inherent(call: Self::Call) -> Self;
 }
 
@@ -958,11 +960,14 @@ where
 	}
 }
 
+/// Interface for types capable of constructing a signed transaction.
 pub trait SignedTransactionBuilder: ExtrinsicCall {
 	type Address;
 	type Signature;
 	type Extension;
 
+	/// Create a new signed transaction from a given call and extension using the provided signature
+	/// data.
 	fn new_signed_transaction(
 		call: Self::Call,
 		signed: Self::Address,

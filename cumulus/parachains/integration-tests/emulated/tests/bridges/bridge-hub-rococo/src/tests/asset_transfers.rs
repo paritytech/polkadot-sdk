@@ -25,6 +25,9 @@ fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
 	AssetHubRococo::force_xcm_version(asset_hub_westend_location(), XCM_VERSION);
 	BridgeHubRococo::force_xcm_version(bridge_hub_westend_location(), XCM_VERSION);
 
+	// open bridge
+	open_bridge_between_asset_hub_rococo_and_asset_hub_westend();
+
 	// send message over bridge
 	send_fn();
 
@@ -429,6 +432,16 @@ fn send_back_wnds_from_penpal_rococo_through_asset_hub_rococo_to_asset_hub_weste
 		ASSET_MIN_BALANCE,
 		vec![(sender.clone(), amount * 2)],
 	);
+	// Configure source Penpal chain to trust local AH as reserve of bridged WND
+	PenpalA::execute_with(|| {
+		assert_ok!(<PenpalA as Chain>::System::set_storage(
+			<PenpalA as Chain>::RuntimeOrigin::root(),
+			vec![(
+				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
+				wnd_at_rococo_parachains.encode(),
+			)],
+		));
+	});
 
 	// fund the AHR's SA on AHW with the WND tokens held in reserve
 	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(

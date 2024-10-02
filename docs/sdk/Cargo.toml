@@ -31,7 +31,7 @@ simple-mermaid = "0.1.1"
 docify = { workspace = true }
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
-polkadot-sdk = { features = ["runtime"], workspace = true, default-features = true }
+polkadot-sdk = { features = ["runtime-full"], workspace = true, default-features = true }
 node-cli = { workspace = true }
 kitchensink-runtime = { workspace = true }
 chain-spec-builder = { workspace = true, default-features = true }
@@ -39,6 +39,7 @@ subkey = { workspace = true, default-features = true }
 frame-system = { workspace = true }
 frame-support = { workspace = true }
 frame-executive = { workspace = true }
+pallet-example-authorization-tx-extension = { workspace = true, default-features = true }
 pallet-example-single-block-migrations = { workspace = true, default-features = true }
 frame-metadata-hash-extension = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }

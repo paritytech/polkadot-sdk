@@ -17,9 +17,11 @@
 
 //! The [DispatchTransaction] trait.
 
+use crate::{traits::AsTransactionAuthorizedOrigin, transaction_validity::InvalidTransaction};
+
 use super::*;
 
-/// Single-function utility trait with a blanket impl over [TransactionExtension] in order to
+/// Single-function utility trait with a blanket impl over [`TransactionExtension`] in order to
 /// provide transaction dispatching functionality. We avoid implementing this directly on the trait
 /// since we never want it to be overriden by the trait implementation.
 pub trait DispatchTransaction<Call: Dispatchable> {
@@ -75,7 +77,10 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 	) -> Self::Result;
 }
 
-impl<T: TransactionExtension<Call>, Call: Dispatchable + Encode> DispatchTransaction<Call> for T {
+impl<T: TransactionExtension<Call>, Call: Dispatchable + Encode> DispatchTransaction<Call> for T
+where
+	<Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
+{
 	type Origin = <Call as Dispatchable>::RuntimeOrigin;
 	type Info = DispatchInfoOf<Call>;
 	type Result = crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>>;
@@ -89,7 +94,12 @@ impl<T: TransactionExtension<Call>, Call: Dispatchable + Encode> DispatchTransac
 		info: &DispatchInfoOf<Call>,
 		len: usize,
 	) -> Result<(ValidTransaction, T::Val, Self::Origin), TransactionValidityError> {
-		self.validate(origin, call, info, len, self.implicit()?, call)
+		match self.validate(origin, call, info, len, self.implicit()?, call) {
+			// After validation, some origin must have been authorized.
+			Ok((_, _, origin)) if !origin.is_transaction_authorized() =>
+				Err(InvalidTransaction::UnknownOrigin.into()),
+			res => res,
+		}
 	}
 	fn validate_and_prepare(
 		self,

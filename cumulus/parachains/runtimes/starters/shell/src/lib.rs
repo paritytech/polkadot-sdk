@@ -36,7 +36,7 @@ extern crate alloc;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use cumulus_primitives_core::AggregateMessageOrigin;
+use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector};
 use scale_info::TypeInfo;
 use sp_api::impl_runtime_apis;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -44,8 +44,8 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, OriginOf,
-		TransactionExtension, TransactionExtensionBase, ValidateResult,
+		AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, DispatchOriginOf,
+		TransactionExtension, ValidateResult,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
@@ -93,7 +93,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 0,
+	system_version: 1,
 };
 
 /// The version information used to identify this runtime when compiled natively.
@@ -210,6 +210,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		BLOCK_PROCESSING_VELOCITY,
 		UNINCLUDED_SEGMENT_CAPACITY,
 	>;
+	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -275,21 +276,18 @@ construct_runtime! {
 	}
 }
 
-/// Simple implementation which fails any transaction which is signed.
+/// Simple implementation which fails any transaction which is signed or general.
 #[derive(Eq, PartialEq, Clone, Default, sp_core::RuntimeDebug, Encode, Decode, TypeInfo)]
 pub struct DisallowSigned;
 
-impl TransactionExtensionBase for DisallowSigned {
+impl TransactionExtension<RuntimeCall> for DisallowSigned {
 	const IDENTIFIER: &'static str = "DisallowSigned";
 	type Implicit = ();
-}
-
-impl TransactionExtension<RuntimeCall> for DisallowSigned {
 	type Val = ();
 	type Pre = ();
 	fn validate(
 		&self,
-		_origin: OriginOf<RuntimeCall>,
+		_origin: DispatchOriginOf<RuntimeCall>,
 		_call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
@@ -301,7 +299,7 @@ impl TransactionExtension<RuntimeCall> for DisallowSigned {
 	fn prepare(
 		self,
 		_val: Self::Val,
-		_origin: &OriginOf<RuntimeCall>,
+		_origin: &DispatchOriginOf<RuntimeCall>,
 		_call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
@@ -430,6 +428,12 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
 			ParachainSystem::collect_collation_info(header)
+		}
+	}
+
+	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
+		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+			ParachainSystem::core_selector()
 		}
 	}
 

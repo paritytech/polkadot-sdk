@@ -18,8 +18,9 @@ use crate::imports::*;
 mod asset_transfers;
 mod claim_assets;
 mod send_xcm;
-mod snowbridge;
 mod teleport;
+
+mod snowbridge;
 
 pub(crate) fn asset_hub_rococo_location() -> Location {
 	Location::new(2, [GlobalConsensus(Rococo), Parachain(AssetHubRococo::para_id().into())])
@@ -37,7 +38,10 @@ pub(crate) fn bridged_wnd_at_ah_rococo() -> Location {
 	Location::new(2, [GlobalConsensus(Westend)])
 }
 
-// wROC
+// ROC and wROC
+pub(crate) fn roc_at_ah_rococo() -> Location {
+	Parent.into()
+}
 pub(crate) fn bridged_roc_at_ah_westend() -> Location {
 	Location::new(2, [GlobalConsensus(Rococo)])
 }
@@ -223,4 +227,36 @@ pub(crate) fn assert_bridge_hub_rococo_message_received() {
 			]
 		);
 	})
+}
+
+pub(crate) fn open_bridge_between_asset_hub_rococo_and_asset_hub_westend() {
+	use testnet_parachains_constants::{
+		rococo::currency::UNITS as ROC, westend::currency::UNITS as WND,
+	};
+
+	// open AHR -> AHW
+	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), ROC * 5);
+	AssetHubRococo::open_bridge(
+		AssetHubRococo::sibling_location_of(BridgeHubRococo::para_id()),
+		[GlobalConsensus(Westend), Parachain(AssetHubWestend::para_id().into())].into(),
+		Some((
+			(roc_at_ah_rococo(), ROC * 1).into(),
+			BridgeHubRococo::sovereign_account_id_of(BridgeHubRococo::sibling_location_of(
+				AssetHubRococo::para_id(),
+			)),
+		)),
+	);
+
+	// open AHW -> AHR
+	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), WND * 5);
+	AssetHubWestend::open_bridge(
+		AssetHubWestend::sibling_location_of(BridgeHubWestend::para_id()),
+		[GlobalConsensus(Rococo), Parachain(AssetHubRococo::para_id().into())].into(),
+		Some((
+			(wnd_at_ah_westend(), WND * 1).into(),
+			BridgeHubWestend::sovereign_account_id_of(BridgeHubWestend::sibling_location_of(
+				AssetHubWestend::para_id(),
+			)),
+		)),
+	);
 }

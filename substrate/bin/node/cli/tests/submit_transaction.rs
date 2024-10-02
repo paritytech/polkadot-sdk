@@ -131,7 +131,7 @@ fn should_submit_signed_twice_from_the_same_account() {
 		let s = state.read();
 		fn nonce(tx: UncheckedExtrinsic) -> frame_system::CheckNonce<Runtime> {
 			let extra = tx.preamble.to_signed().unwrap().2;
-			(extra.0).5
+			extra.5
 		}
 		let nonce1 = nonce(UncheckedExtrinsic::decode(&mut &*s.transactions[0]).unwrap());
 		let nonce2 = nonce(UncheckedExtrinsic::decode(&mut &*s.transactions[1]).unwrap());
@@ -180,7 +180,7 @@ fn should_submit_signed_twice_from_all_accounts() {
 		let s = state.read();
 		fn nonce(tx: UncheckedExtrinsic) -> frame_system::CheckNonce<Runtime> {
 			let extra = tx.preamble.to_signed().unwrap().2;
-			(extra.0).5
+			extra.5
 		}
 		let nonce1 = nonce(UncheckedExtrinsic::decode(&mut &*s.transactions[0]).unwrap());
 		let nonce2 = nonce(UncheckedExtrinsic::decode(&mut &*s.transactions[1]).unwrap());

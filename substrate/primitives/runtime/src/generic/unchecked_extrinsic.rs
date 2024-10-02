@@ -20,9 +20,8 @@
 use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, transaction_extension::TransactionExtensionBase, Checkable, Dispatchable,
-		ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
-		TransactionExtension,
+		self, transaction_extension::TransactionExtension, Checkable, Dispatchable, ExtrinsicLike,
+		ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -78,7 +77,9 @@ pub enum Preamble<Address, Signature, Extension> {
 	Bare(ExtrinsicVersion),
 	/// An old-school transaction extrinsic which includes a signature of some hard-coded crypto.
 	Signed(Address, Signature, ExtensionVersion, Extension, ExtrinsicVersion),
-	/// A new-school transaction extrinsic which does not include a signature.
+	/// A new-school transaction extrinsic which does not include a signature by default. The
+	/// origin authorization, through signatures or other means, is performed by the transaction
+	/// extension in this extrinsic.
 	General(ExtensionVersion, Extension),
 }
 
@@ -143,22 +144,27 @@ where
 		match &self {
 			Preamble::Bare(_) => EXTRINSIC_FORMAT_VERSION.size_hint(),
 			Preamble::Signed(address, signature, ext_version, ext, EXTRINSIC_FORMAT_VERSION) =>
-				EXTRINSIC_FORMAT_VERSION.size_hint() +
-					address.size_hint() + signature.size_hint() +
-					ext_version.size_hint() +
-					ext.size_hint(),
+				EXTRINSIC_FORMAT_VERSION
+					.size_hint()
+					.saturating_add(address.size_hint())
+					.saturating_add(signature.size_hint())
+					.saturating_add(ext_version.size_hint())
+					.saturating_add(ext.size_hint()),
 			Preamble::Signed(
 				address,
 				signature,
 				_,
 				ext,
 				LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION,
-			) =>
-				LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION.size_hint() +
-					address.size_hint() + signature.size_hint() +
-					ext.size_hint(),
-			Preamble::General(ext_version, ext) =>
-				EXTRINSIC_FORMAT_VERSION.size_hint() + ext_version.size_hint() + ext.size_hint(),
+			) => LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION
+				.size_hint()
+				.saturating_add(address.size_hint())
+				.saturating_add(signature.size_hint())
+				.saturating_add(ext.size_hint()),
+			Preamble::General(ext_version, ext) => EXTRINSIC_FORMAT_VERSION
+				.size_hint()
+				.saturating_add(ext_version.size_hint())
+				.saturating_add(ext.size_hint()),
 			_ => {
 				// unreachable, versions are checked in the constructor
 				0
@@ -384,6 +390,10 @@ impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo
 	}
 }
 
+// TODO: Migrate existing extension pipelines to support current `Signed` transactions as `General`
+// transactions by adding an extension to validate signatures, as they are currently validated in
+// the `Checkable` implementation for `Signed` transactions.
+
 impl<LookupSource, AccountId, Call, Signature, Extension, Lookup> Checkable<Lookup>
 	for UncheckedExtrinsic<LookupSource, Call, Signature, Extension>
 where
@@ -403,7 +413,7 @@ where
 				let signed = lookup.lookup(signed)?;
 				// The `Implicit` is "implicitly" included in the payload.
 				let raw_payload = match tx_version {
-					0..=LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION =>
+					LOWEST_SUPPORTED_EXTRINSIC_FORMAT_VERSION =>
 						SignedPayload::new_legacy(self.function, tx_ext)?,
 					EXTRINSIC_FORMAT_VERSION => SignedPayload::new(self.function, tx_ext)?,
 					_ => return Err(InvalidTransaction::Future.into()),
@@ -564,7 +574,7 @@ impl<'a, Address: Decode, Signature: Decode, Call: Decode, Extension: Decode> se
 /// Note that the payload that we sign to produce unchecked extrinsic signature
 /// is going to be different than the `SignaturePayload` - so the thing the extrinsic
 /// actually contains.
-pub struct SignedPayload<Call: Dispatchable, Extension: TransactionExtensionBase>(
+pub struct SignedPayload<Call: Dispatchable, Extension: TransactionExtension<Call>>(
 	(Call, Extension, Extension::Implicit),
 	ExtrinsicVersion,
 );
@@ -572,7 +582,7 @@ pub struct SignedPayload<Call: Dispatchable, Extension: TransactionExtensionBase
 impl<Call, Extension> SignedPayload<Call, Extension>
 where
 	Call: Encode + Dispatchable,
-	Extension: TransactionExtensionBase,
+	Extension: TransactionExtension<Call>,
 {
 	/// Create new `SignedPayload`.
 	///
@@ -606,7 +616,7 @@ where
 impl<Call, Extension> Encode for SignedPayload<Call, Extension>
 where
 	Call: Encode + Dispatchable,
-	Extension: TransactionExtensionBase,
+	Extension: TransactionExtension<Call>,
 {
 	/// Get an encoded version of this `blake2_256`-hashed payload.
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
@@ -627,7 +637,7 @@ where
 impl<Call, Extension> EncodeLike for SignedPayload<Call, Extension>
 where
 	Call: Encode + Dispatchable,
-	Extension: TransactionExtensionBase,
+	Extension: TransactionExtension<Call>,
 {
 }
 
@@ -815,11 +825,9 @@ mod tests {
 	// NOTE: this is demonstration. One can simply use `()` for testing.
 	#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, Ord, PartialOrd, TypeInfo)]
 	struct DummyExtension;
-	impl TransactionExtensionBase for DummyExtension {
+	impl TransactionExtension<TestCall> for DummyExtension {
 		const IDENTIFIER: &'static str = "DummyExtension";
 		type Implicit = ();
-	}
-	impl TransactionExtension<TestCall> for DummyExtension {
 		type Val = ();
 		type Pre = ();
 		impl_tx_ext_default!(TestCall; validate prepare);
@@ -969,13 +977,15 @@ mod tests {
 
 	#[test]
 	fn legacy_short_signed_encode_decode() {
-		let call: TestCall = vec![0u8; 0].into();
+		let call: TestCall = vec![0u8; 4].into();
 		let signed = TEST_ACCOUNT;
-		let payload = vec![0u8; 0];
-		let old_signature = TestSig(TEST_ACCOUNT, (payload.clone(), DummyExtension).encode());
-		let new_signature =
-			TestSig(TEST_ACCOUNT, blake2_256(&(&payload, DummyExtension).encode()[..]).to_vec());
 		let extension = DummyExtension;
+		let implicit = extension.implicit().unwrap();
+		let old_signature = TestSig(TEST_ACCOUNT, (&call, &extension, &implicit).encode());
+		let new_signature = TestSig(
+			TEST_ACCOUNT,
+			blake2_256(&(&call, &extension, &implicit).encode()[..]).to_vec(),
+		);
 
 		let old_ux =
 			UncheckedExtrinsicV4::<TestAccountId, TestCall, TestSig, DummyExtension>::new_signed(
@@ -1004,12 +1014,14 @@ mod tests {
 
 	#[test]
 	fn legacy_long_signed_encode_decode() {
-		let call: TestCall = vec![0u8; 256].into();
+		let call: TestCall = vec![0u8; 257].into();
 		let signed = TEST_ACCOUNT;
-		let payload = vec![0u8; 256];
-		let signature =
-			TestSig(TEST_ACCOUNT, blake2_256(&(&payload, DummyExtension).encode()[..]).to_vec());
 		let extension = DummyExtension;
+		let implicit = extension.implicit().unwrap();
+		let signature = TestSig(
+			TEST_ACCOUNT,
+			blake2_256(&(&call, DummyExtension, &implicit).encode()[..]).to_vec(),
+		);
 
 		let old_ux =
 			UncheckedExtrinsicV4::<TestAccountId, TestCall, TestSig, DummyExtension>::new_signed(

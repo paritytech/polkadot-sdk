@@ -136,7 +136,7 @@ where
 		loop {
 			previous_key = Self::translate_next(previous_key, &mut f);
 			if previous_key.is_none() {
-				break
+				break;
 			}
 		}
 	}
@@ -158,7 +158,7 @@ where
 					"Invalid translation: failed to decode old value for key",
 					array_bytes::bytes2hex("0x", &current_key)
 				);
-				return Some(current_key)
+				return Some(current_key);
 			},
 		};
 
@@ -170,7 +170,7 @@ where
 					"Invalid translation: failed to decode key",
 					array_bytes::bytes2hex("0x", &current_key)
 				);
-				return Some(current_key)
+				return Some(current_key);
 			},
 		};
 

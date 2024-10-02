@@ -314,7 +314,10 @@ impl frame_system::ExtensionsWeightInfo for MockExtensionsWeights {
 	fn check_genesis() -> Weight {
 		Weight::zero()
 	}
-	fn check_mortality() -> Weight {
+	fn check_mortality_mortal_transaction() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+	fn check_mortality_immortal_transaction() -> Weight {
 		Weight::from_parts(10, 0)
 	}
 	fn check_non_zero_sender() -> Weight {
@@ -439,32 +442,6 @@ impl frame_support::traits::Get<sp_version::RuntimeVersion> for RuntimeVersion {
 	}
 }
 
-#[derive(Clone, Debug, Encode, codec::Decode, PartialEq, Eq, scale_info::TypeInfo)]
-pub struct AccountU64(u64);
-impl sp_runtime::traits::IdentifyAccount for AccountU64 {
-	type AccountId = u64;
-	fn into_account(self) -> u64 {
-		self.0
-	}
-}
-
-impl sp_runtime::traits::Verify for AccountU64 {
-	type Signer = AccountU64;
-	fn verify<L: sp_runtime::traits::Lazy<[u8]>>(
-		&self,
-		_msg: L,
-		_signer: &<Self::Signer as sp_runtime::traits::IdentifyAccount>::AccountId,
-	) -> bool {
-		true
-	}
-}
-
-impl From<u64> for AccountU64 {
-	fn from(value: u64) -> Self {
-		Self(value)
-	}
-}
-
 parameter_types! {
 	pub static RuntimeVersionTestValues: sp_version::RuntimeVersion =
 		Default::default();
@@ -476,8 +453,12 @@ type TxExtension = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
-type UncheckedXt =
-	sp_runtime::generic::UncheckedExtrinsic<u64, RuntimeCall, AccountU64, TxExtension>;
+type UncheckedXt = sp_runtime::generic::UncheckedExtrinsic<
+	u64,
+	RuntimeCall,
+	sp_runtime::testing::UintAuthorityId,
+	TxExtension,
+>;
 type TestBlock = Block<UncheckedXt>;
 
 // Will contain `true` when the custom runtime logic was called.

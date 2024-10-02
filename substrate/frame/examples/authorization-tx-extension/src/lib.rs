@@ -19,7 +19,7 @@
 //!
 //! **This pallet serves as an example and is not meant to be used in production.**
 //!
-//! FRAME Transaction Extension reference implemenmtation, origin mutation, origin authorization and
+//! FRAME Transaction Extension reference implementation, origin mutation, origin authorization and
 //! integration in a `TransactionExtension` pipeline.
 //!
 //! The [TransactionExtension](sp_runtime::traits::TransactionExtension) used in this example is
@@ -44,7 +44,10 @@
 //! origins (a single account) or coowner origins, authorized through the
 //! [CoownerOrigin](pallet_assets::Config::CoownerOrigin) type.
 //!
-//! ### Example
+//! ### Example runtime setup
+#![doc = docify::embed!("src/mock.rs", example_runtime)]
+//!
+//! ### Example usage
 #![doc = docify::embed!("src/tests.rs", create_coowned_asset_works)]
 //!
 //! This example does not focus on any pallet logic or syntax, but rather on `TransactionExtension`
@@ -85,7 +88,7 @@ pub mod pallet_coownership {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	/// Origin that this pallet can auhtorize. For the purposes of this example, it's just two
+	/// Origin that this pallet can authorize. For the purposes of this example, it's just two
 	/// accounts that own something together.
 	#[pallet::origin]
 	#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]

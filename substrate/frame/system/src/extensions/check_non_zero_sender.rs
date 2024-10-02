@@ -22,9 +22,7 @@ use frame_support::{traits::OriginTrait, DefaultNoBound};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{
-		transaction_extension::TransactionExtensionBase, DispatchInfoOf, TransactionExtension,
-	},
+	traits::{DispatchInfoOf, TransactionExtension},
 	transaction_validity::InvalidTransaction,
 };
 
@@ -52,11 +50,9 @@ impl<T: Config + Send + Sync> CheckNonZeroSender<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckNonZeroSender<T> {
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZeroSender<T> {
 	const IDENTIFIER: &'static str = "CheckNonZeroSender";
 	type Implicit = ();
-}
-impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZeroSender<T> {
 	type Val = ();
 	type Pre = ();
 
@@ -88,7 +84,10 @@ mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test, CALL};
 	use frame_support::{assert_ok, dispatch::DispatchInfo};
-	use sp_runtime::{traits::DispatchTransaction, transaction_validity::TransactionValidityError};
+	use sp_runtime::{
+		traits::{AsTransactionAuthorizedOrigin, DispatchTransaction},
+		transaction_validity::TransactionValidityError,
+	};
 
 	#[test]
 	fn zero_account_ban_works() {
@@ -115,12 +114,10 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
-			assert_ok!(CheckNonZeroSender::<Test>::new().validate_only(
-				None.into(),
-				CALL,
-				&info,
-				len
-			));
+			let (_, _, origin) = CheckNonZeroSender::<Test>::new()
+				.validate(None.into(), CALL, &info, len, (), CALL)
+				.unwrap();
+			assert!(!origin.is_transaction_authorized());
 		})
 	}
 }

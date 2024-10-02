@@ -33,13 +33,11 @@ use pallet_transaction_payment::FungibleAdapter;
 use polkadot_runtime_parachains::{
 	assigner_parachains as parachains_assigner_parachains,
 	configuration as parachains_configuration,
-	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
-	disputes as parachains_disputes,
-	disputes::slashing as parachains_slashing,
-	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
-	initializer as parachains_initializer, origin as parachains_origin, paras as parachains_paras,
-	paras_inherent as parachains_paras_inherent,
-	runtime_api_impl::{v10 as runtime_impl, vstaging as vstaging_parachains_runtime_api_impl},
+	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio, disputes as parachains_disputes,
+	disputes::slashing as parachains_slashing, dmp as parachains_dmp, hrmp as parachains_hrmp,
+	inclusion as parachains_inclusion, initializer as parachains_initializer,
+	origin as parachains_origin, paras as parachains_paras,
+	paras_inherent as parachains_paras_inherent, runtime_api_impl::v11 as runtime_impl,
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
@@ -59,10 +57,14 @@ use pallet_session::historical as session_historical;
 use pallet_timestamp::Now;
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_primitives::{
-	slashing, AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, Hash as HashT, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
+	slashing,
+	vstaging::{
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		ScrapedOnChainVotes,
+	},
+	AccountId, AccountIndex, Balance, BlockNumber, CandidateHash, CoreIndex, DisputeState,
+	ExecutorParams, GroupRotationInfo, Hash as HashT, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData,
 	SessionInfo as SessionInfoData, Signature, ValidationCode, ValidationCodeHash, ValidatorId,
 	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
@@ -121,7 +123,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// The BABE epoch configuration at genesis.
@@ -413,8 +415,6 @@ impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for R
 where
 	RuntimeCall: From<LocalCall>,
 {
-	type SignaturePayload = UncheckedSignaturePayload;
-
 	fn create_signed_transaction<
 		C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
 	>(
@@ -1008,7 +1008,7 @@ sp_api::impl_runtime_apis! {
 			runtime_impl::minimum_backing_votes::<Runtime>()
 		}
 
-		fn para_backing_state(para_id: ParaId) -> Option<polkadot_primitives::async_backing::BackingState> {
+		fn para_backing_state(para_id: ParaId) -> Option<polkadot_primitives::vstaging::async_backing::BackingState> {
 			runtime_impl::backing_state::<Runtime>(para_id)
 		}
 
@@ -1029,11 +1029,11 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-			vstaging_parachains_runtime_api_impl::claim_queue::<Runtime>()
+			runtime_impl::claim_queue::<Runtime>()
 		}
 
 		fn candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt<Hash>> {
-			vstaging_parachains_runtime_api_impl::candidates_pending_availability::<Runtime>(para_id)
+			runtime_impl::candidates_pending_availability::<Runtime>(para_id)
 		}
 	}
 

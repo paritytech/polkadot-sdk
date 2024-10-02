@@ -55,7 +55,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
 		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, RefundWeight,
-		TransactionExtension, TransactionExtensionBase, ValidateResult, Zero,
+		TransactionExtension, ValidateResult, Zero,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
@@ -250,14 +250,34 @@ impl<T: Config> core::fmt::Debug for ChargeAssetTxPayment<T> {
 	}
 }
 
-impl<T: Config> TransactionExtensionBase for ChargeAssetTxPayment<T>
-where
-	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-	BalanceOf<T>: Send + Sync + From<u64>,
-	T::AssetId: Send + Sync,
-{
-	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
-	type Implicit = ();
+/// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
+pub enum Val<T: Config> {
+	Charge {
+		tip: BalanceOf<T>,
+		// who paid the fee
+		who: T::AccountId,
+		// transaction fee
+		fee: BalanceOf<T>,
+	},
+	NoCharge,
+}
+
+/// The info passed between the prepare and post-dispatch steps for the `ChargeAssetTxPayment`
+/// extension.
+pub enum Pre<T: Config> {
+	Charge {
+		tip: BalanceOf<T>,
+		// who paid the fee
+		who: T::AccountId,
+		// imbalance resulting from withdrawing the fee
+		initial_payment: InitialPayment<T>,
+		// weight used by the extension
+		weight: Weight,
+	},
+	NoCharge {
+		// weight used by the extension
+		weight: Weight,
+	},
 }
 
 impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeAssetTxPayment<T>
@@ -267,24 +287,10 @@ where
 	T::AssetId: Send + Sync,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {
-	type Val = (
-		// tip
-		BalanceOf<T>,
-		// who paid the fee
-		T::AccountId,
-		// transaction fee
-		BalanceOf<T>,
-	);
-	type Pre = (
-		// tip
-		BalanceOf<T>,
-		// who paid the fee
-		T::AccountId,
-		// imbalance resulting from withdrawing the fee
-		InitialPayment<T>,
-		// weight used by the extension
-		Weight,
-	);
+	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
+	type Implicit = ();
+	type Val = Val<T>;
+	type Pre = Pre<T>;
 
 	fn weight(&self, _: &T::RuntimeCall) -> Weight {
 		if self.asset_id.is_some() {
@@ -303,13 +309,15 @@ where
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
-		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
+		let Some(who) = origin.as_system_origin_signer() else {
+			return Ok((ValidTransaction::default(), Val::NoCharge, origin))
+		};
 		// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
 		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
 		self.can_withdraw_fee(&who, call, info, fee)?;
 		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
 		let validity = ValidTransaction { priority, ..Default::default() };
-		let val = (self.tip, who.clone(), fee);
+		let val = Val::Charge { tip: self.tip, who: who.clone(), fee };
 		Ok((validity, val, origin))
 	}
 
@@ -321,10 +329,14 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let (_tip, who, fee) = val;
-		// Mutating call of `withdraw_fee` to actually charge for the transaction.
-		let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, fee)?;
-		Ok((self.tip, who.clone(), initial_payment, self.weight(call)))
+		match val {
+			Val::Charge { tip, who, fee } => {
+				// Mutating call of `withdraw_fee` to actually charge for the transaction.
+				let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, fee)?;
+				Ok(Pre::Charge { tip, who, initial_payment, weight: self.weight(call) })
+			},
+			Val::NoCharge => Ok(Pre::NoCharge { weight: self.weight(call) }),
+		}
 	}
 
 	fn post_dispatch_details(
@@ -334,7 +346,15 @@ where
 		len: usize,
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		let (tip, who, initial_payment, extension_weight) = pre;
+		let (tip, who, initial_payment, extension_weight) = match pre {
+			Pre::Charge { tip, who, initial_payment, weight } =>
+				(tip, who, initial_payment, weight),
+			Pre::NoCharge { weight } => {
+				// No-op: Refund everything
+				return Ok(weight)
+			},
+		};
+
 		match initial_payment {
 			InitialPayment::Native(already_withdrawn) => {
 				// Take into account the weight used by this extension before calculating the

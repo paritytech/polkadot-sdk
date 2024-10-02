@@ -28,7 +28,6 @@ use sp_runtime::{
 	generic::{CheckedExtrinsic, UncheckedExtrinsic},
 	traits::{
 		Dispatchable, ExtensionPostDispatchWeightHandler, RefundWeight, TransactionExtension,
-		TransactionExtensionBase,
 	},
 	DispatchError, RuntimeDebug,
 };
@@ -385,7 +384,6 @@ impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Cal
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 where
 	Call: GetDispatchInfo + Dispatchable,
-	Extension: TransactionExtensionBase,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		let mut info = self.function.get_dispatch_info();
@@ -399,7 +397,6 @@ impl<AccountId, Call: Dispatchable, Extension: TransactionExtension<Call>> GetDi
 	for CheckedExtrinsic<AccountId, Call, Extension>
 where
 	Call: GetDispatchInfo,
-	Extension: TransactionExtensionBase,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		let mut info = self.function.get_dispatch_info();
@@ -724,23 +721,6 @@ mod weight_tests {
 			type RuntimeTask;
 			type PalletInfo: crate::traits::PalletInfo;
 			type DbWeight: Get<crate::weights::RuntimeDbWeight>;
-		}
-
-		#[pallet::genesis_config]
-		pub struct GenesisConfig<T: Config> {
-			#[serde(skip)]
-			pub _config: core::marker::PhantomData<T>,
-		}
-
-		impl<T: Config> Default for GenesisConfig<T> {
-			fn default() -> Self {
-				Self { _config: Default::default() }
-			}
-		}
-
-		#[pallet::genesis_build]
-		impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-			fn build(&self) {}
 		}
 
 		#[pallet::error]
@@ -1204,8 +1184,8 @@ mod test_extensions {
 	use sp_runtime::{
 		impl_tx_ext_default,
 		traits::{
-			DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf, TransactionExtension,
-			TransactionExtensionBase,
+			DispatchInfoOf, DispatchOriginOf, Dispatchable, PostDispatchInfoOf,
+			TransactionExtension,
 		},
 		transaction_validity::TransactionValidityError,
 	};
@@ -1217,11 +1197,9 @@ mod test_extensions {
 	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 	pub struct HalfCostIf(pub bool);
 
-	impl TransactionExtensionBase for HalfCostIf {
+	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for HalfCostIf {
 		const IDENTIFIER: &'static str = "HalfCostIf";
 		type Implicit = ();
-	}
-	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for HalfCostIf {
 		type Val = ();
 		type Pre = bool;
 
@@ -1232,7 +1210,7 @@ mod test_extensions {
 		fn prepare(
 			self,
 			_val: Self::Val,
-			_origin: &OriginOf<RuntimeCall>,
+			_origin: &DispatchOriginOf<RuntimeCall>,
 			_call: &RuntimeCall,
 			_info: &DispatchInfoOf<RuntimeCall>,
 			_len: usize,
@@ -1261,14 +1239,12 @@ mod test_extensions {
 	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 	pub struct FreeIfUnder(pub u64);
 
-	impl TransactionExtensionBase for FreeIfUnder {
-		const IDENTIFIER: &'static str = "FreeIfUnder";
-		type Implicit = ();
-	}
 	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for FreeIfUnder
 	where
 		RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo>,
 	{
+		const IDENTIFIER: &'static str = "FreeIfUnder";
+		type Implicit = ();
 		type Val = ();
 		type Pre = u64;
 
@@ -1279,7 +1255,7 @@ mod test_extensions {
 		fn prepare(
 			self,
 			_val: Self::Val,
-			_origin: &OriginOf<RuntimeCall>,
+			_origin: &DispatchOriginOf<RuntimeCall>,
 			_call: &RuntimeCall,
 			_info: &DispatchInfoOf<RuntimeCall>,
 			_len: usize,
@@ -1309,11 +1285,9 @@ mod test_extensions {
 	#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 	pub struct ActualWeightIs(pub u64);
 
-	impl TransactionExtensionBase for ActualWeightIs {
+	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for ActualWeightIs {
 		const IDENTIFIER: &'static str = "ActualWeightIs";
 		type Implicit = ();
-	}
-	impl<RuntimeCall: Dispatchable> TransactionExtension<RuntimeCall> for ActualWeightIs {
 		type Val = ();
 		type Pre = u64;
 
@@ -1324,7 +1298,7 @@ mod test_extensions {
 		fn prepare(
 			self,
 			_val: Self::Val,
-			_origin: &OriginOf<RuntimeCall>,
+			_origin: &DispatchOriginOf<RuntimeCall>,
 			_call: &RuntimeCall,
 			_info: &DispatchInfoOf<RuntimeCall>,
 			_len: usize,
@@ -1356,7 +1330,6 @@ mod extension_weight_tests {
 	use sp_runtime::{
 		generic::{self, ExtrinsicFormat},
 		traits::{Applyable, BlakeTwo256, DispatchTransaction, TransactionExtension},
-		BuildStorage,
 	};
 	use sp_weights::RuntimeDbWeight;
 	use test_extensions::{ActualWeightIs, FreeIfUnder, HalfCostIf};
@@ -1407,8 +1380,7 @@ mod extension_weight_tests {
 
 	impl ExtBuilder {
 		pub fn build(self) -> sp_io::TestExternalities {
-			let t = frame_system::GenesisConfig::<ExtRuntime>::default().build_storage().unwrap();
-			let mut ext = sp_io::TestExternalities::new(t);
+			let mut ext = sp_io::TestExternalities::new(Default::default());
 			ext.execute_with(|| {});
 			ext
 		}

@@ -38,9 +38,7 @@ use frame_support::{
 use frame_system::limits;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{Dispatchable, TransactionExtensionBase},
-	transaction_validity::TransactionValidityError,
+	impl_tx_ext_default, traits::Dispatchable, transaction_validity::TransactionValidityError,
 	Perbill, StateVersion,
 };
 
@@ -96,19 +94,19 @@ pub type TransactionExtensionSchema = GenericTransactionExtension<(
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub struct TransactionExtension(TransactionExtensionSchema);
 
-impl TransactionExtensionBase for TransactionExtension {
-	const IDENTIFIER: &'static str = "Not needed.";
-	type Implicit = <TransactionExtensionSchema as TransactionExtensionBase>::Implicit;
-
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-		<TransactionExtensionSchema as TransactionExtensionBase>::implicit(&self.0)
-	}
-}
-
 impl<C> sp_runtime::traits::TransactionExtension<C> for TransactionExtension
 where
 	C: Dispatchable,
 {
+	const IDENTIFIER: &'static str = "Not needed.";
+	type Implicit =
+		<TransactionExtensionSchema as sp_runtime::traits::TransactionExtension<C>>::Implicit;
+
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		<TransactionExtensionSchema as sp_runtime::traits::TransactionExtension<C>>::implicit(
+			&self.0,
+		)
+	}
 	type Pre = ();
 	type Val = ();
 
@@ -227,4 +225,4 @@ impl ChainWithMessages for PolkadotBulletin {
 }
 
 decl_bridge_finality_runtime_apis!(polkadot_bulletin, grandpa);
-decl_bridge_messages_runtime_apis!(polkadot_bulletin);
+decl_bridge_messages_runtime_apis!(polkadot_bulletin, bp_messages::HashedLaneId);

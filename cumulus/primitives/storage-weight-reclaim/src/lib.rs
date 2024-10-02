@@ -31,10 +31,7 @@ use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{
-		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
-		TransactionExtensionBase,
-	},
+	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension},
 	transaction_validity::TransactionValidityError,
 	DispatchResult,
 };
@@ -126,15 +123,12 @@ impl<T: Config + Send + Sync> core::fmt::Debug for StorageWeightReclaim<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for StorageWeightReclaim<T> {
-	const IDENTIFIER: &'static str = "StorageWeightReclaim";
-	type Implicit = ();
-}
-
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for StorageWeightReclaim<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
+	const IDENTIFIER: &'static str = "StorageWeightReclaim";
+	type Implicit = ();
 	type Val = ();
 	type Pre = Option<u64>;
 
@@ -185,13 +179,15 @@ where
 			if consumed_weight > benchmarked_weight {
 				log::error!(
 					target: LOG_TARGET,
-					"Benchmarked storage weight smaller than consumed storage weight. benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}"
+					"Benchmarked storage weight smaller than consumed storage weight. extrinsic: {} benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}",
+					frame_system::Pallet::<T>::extrinsic_index().unwrap_or(0)
 				);
 				current.accrue(Weight::from_parts(0, storage_size_diff), info.class)
 			} else {
 				log::trace!(
 					target: LOG_TARGET,
-					"Reclaiming storage weight. benchmarked: {benchmarked_weight}, consumed: {consumed_weight} unspent: {unspent}"
+					"Reclaiming storage weight. extrinsic: {} benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}",
+					frame_system::Pallet::<T>::extrinsic_index().unwrap_or(0)
 				);
 				current.reduce(Weight::from_parts(0, storage_size_diff), info.class)
 			}

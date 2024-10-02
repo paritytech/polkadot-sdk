@@ -24,8 +24,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
-		TransactionExtensionBase, ValidateResult,
+		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension, ValidateResult,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 	DispatchResult,
@@ -106,7 +105,7 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> Result<(ValidTransaction, u32), TransactionValidityError> {
-		// ignore the next length. If they return `Ok`, then it is below the limit.
+		// If they return `Ok`, then it is below the limit.
 		let next_len = Self::check_block_length(info, len)?;
 		// during validation we skip block limit check. Since the `validate_transaction`
 		// call runs on an empty block anyway, by this we prevent `on_initialize` weight
@@ -208,14 +207,12 @@ where
 	Ok(all_weight)
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckWeight<T> {
-	const IDENTIFIER: &'static str = "CheckWeight";
-	type Implicit = ();
-}
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckWeight<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
+	const IDENTIFIER: &'static str = "CheckWeight";
+	type Implicit = ();
 	type Pre = ();
 	type Val = u32; /* next block length */
 

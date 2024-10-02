@@ -21,7 +21,7 @@ use frame_support::{
 	traits::Currency,
 	weights::Weight,
 };
-use frame_system::{self, AccountInfo, EventRecord, Phase};
+use frame_system::{self, AccountInfo, DispatchEventInfo, EventRecord, Phase};
 use polkadot_sdk::*;
 use sp_core::{storage::well_known_keys, traits::Externalities};
 use sp_runtime::{
@@ -352,9 +352,11 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(0),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					weight: timestamp_weight,
-					class: DispatchClass::Mandatory,
-					pays: Default::default(),
+					dispatch_info: DispatchEventInfo {
+						weight: timestamp_weight,
+						class: DispatchClass::Mandatory,
+						pays_fee: Default::default(),
+					},
 				}),
 				topics: vec![],
 			},
@@ -411,10 +413,11 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					weight: transfer_weight
-						.saturating_add(extension_weight.saturating_sub(weight_refund)),
-					class: Default::default(),
-					pays: Default::default(),
+					dispatch_info: DispatchEventInfo {
+						weight: transfer_weight
+							.saturating_add(extension_weight.saturating_sub(weight_refund)),
+						..Default::default()
+					},
 				}),
 				topics: vec![],
 			},
@@ -448,9 +451,11 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(0),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					weight: timestamp_weight,
-					class: DispatchClass::Mandatory,
-					pays: Default::default(),
+					dispatch_info: DispatchEventInfo {
+						weight: timestamp_weight,
+						class: DispatchClass::Mandatory,
+						pays_fee: Default::default(),
+					},
 				}),
 				topics: vec![],
 			},
@@ -507,10 +512,11 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					weight: transfer_weight
-						.saturating_add(extension_weight.saturating_sub(weight_refund)),
-					class: Default::default(),
-					pays: Default::default(),
+					dispatch_info: DispatchEventInfo {
+						weight: transfer_weight
+							.saturating_add(extension_weight.saturating_sub(weight_refund)),
+						..Default::default()
+					},
 				}),
 				topics: vec![],
 			},
@@ -567,10 +573,11 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					weight: transfer_weight
-						.saturating_add(extension_weight.saturating_sub(weight_refund)),
-					class: Default::default(),
-					pays: Default::default(),
+					dispatch_info: DispatchEventInfo {
+						weight: transfer_weight
+							.saturating_add(extension_weight.saturating_sub(weight_refund)),
+						..Default::default()
+					},
 				}),
 				topics: vec![],
 			},

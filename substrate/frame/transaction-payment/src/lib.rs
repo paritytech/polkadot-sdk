@@ -56,17 +56,16 @@ use frame_support::{
 	},
 	traits::{Defensive, EstimateCallFee, Get},
 	weights::{Weight, WeightToFee},
+	RuntimeDebugNoBound,
 };
 pub use pallet::*;
 pub use payment::*;
 use sp_runtime::{
 	traits::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
-		Saturating, TransactionExtension, TransactionExtensionBase, Zero,
+		Saturating, TransactionExtension, Zero,
 	},
-	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionValidityError, ValidTransaction,
-	},
+	transaction_validity::{TransactionPriority, TransactionValidityError, ValidTransaction},
 	FixedPointNumber, FixedU128, Perbill, Perquintill, RuntimeDebug,
 };
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
@@ -850,32 +849,60 @@ impl<T: Config> core::fmt::Debug for ChargeTransactionPayment<T> {
 	}
 }
 
-impl<T: Config> TransactionExtensionBase for ChargeTransactionPayment<T> {
-	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
-	type Implicit = ();
+/// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
+#[derive(RuntimeDebugNoBound)]
+pub enum Val<T: Config> {
+	Charge {
+		tip: BalanceOf<T>,
+		// who paid the fee
+		who: T::AccountId,
+		// transaction fee
+		fee: BalanceOf<T>,
+	},
+	NoCharge,
+}
+
+/// The info passed between the prepare and post-dispatch steps for the `ChargeAssetTxPayment`
+/// extension.
+pub enum Pre<T: Config> {
+	Charge {
+		tip: BalanceOf<T>,
+		// who paid the fee
+		who: T::AccountId,
+		// imbalance resulting from withdrawing the fee
+		imbalance: <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+	},
+	NoCharge {
+		// weight used by the extension
+		weight: Weight,
+	},
+}
+
+impl<T: Config> core::fmt::Debug for Pre<T> {
+	#[cfg(feature = "std")]
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		match self {
+			Pre::Charge { tip, who, imbalance: _ } => {
+				write!(f, "Charge {{ tip: {:?}, who: {:?}, imbalance: <stripped> }}", tip, who)
+			},
+			Pre::NoCharge { weight } => write!(f, "NoCharge {{ weight: {:?} }}", weight),
+		}
+	}
+
+	#[cfg(not(feature = "std"))]
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		f.write_str("<wasm:stripped>")
+	}
 }
 
 impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPayment<T>
 where
-	BalanceOf<T>: Send + Sync + From<u64>,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	type Val = (
-		// tip
-		BalanceOf<T>,
-		// who paid the fee
-		T::AccountId,
-		// computed fee
-		BalanceOf<T>,
-	);
-	type Pre = (
-		// tip
-		BalanceOf<T>,
-		// who paid the fee
-		T::AccountId,
-		// imbalance resulting from withdrawing the fee
-		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
-	);
+	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
+	type Implicit = ();
+	type Val = Val<T>;
+	type Pre = Pre<T>;
 
 	fn weight(&self, _: &T::RuntimeCall) -> Weight {
 		T::WeightInfo::charge_transaction_payment()
@@ -893,8 +920,9 @@ where
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
-		let who = frame_system::ensure_signed(origin.clone())
-			.map_err(|_| InvalidTransaction::BadSigner)?;
+		let Ok(who) = frame_system::ensure_signed(origin.clone()) else {
+			return Ok((ValidTransaction::default(), Val::NoCharge, origin));
+		};
 		let final_fee = self.can_withdraw_fee(&who, call, info, len)?;
 		let tip = self.0;
 		Ok((
@@ -902,7 +930,7 @@ where
 				priority: Self::get_priority(info, len, tip, final_fee),
 				..Default::default()
 			},
-			(self.0, who, final_fee),
+			Val::Charge { tip: self.0, who, fee: final_fee },
 			origin,
 		))
 	}
@@ -915,19 +943,30 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let (tip, who, fee) = val;
-		// Mutating call to `withdraw_fee` to actually charge for the transaction.
-		let (_final_fee, imbalance) = self.withdraw_fee(&who, call, info, fee)?;
-		Ok((tip, who, imbalance))
+		match val {
+			Val::Charge { tip, who, fee } => {
+				// Mutating call to `withdraw_fee` to actually charge for the transaction.
+				let (_final_fee, imbalance) = self.withdraw_fee(&who, call, info, fee)?;
+				Ok(Pre::Charge { tip, who, imbalance })
+			},
+			Val::NoCharge => Ok(Pre::NoCharge { weight: self.weight(call) }),
+		}
 	}
 
 	fn post_dispatch_details(
-		(tip, who, imbalance): Self::Pre,
+		pre: Self::Pre,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
+		let (tip, who, imbalance) = match pre {
+			Pre::Charge { tip, who, imbalance } => (tip, who, imbalance),
+			Pre::NoCharge { weight } => {
+				// No-op: Refund everything
+				return Ok(weight)
+			},
+		};
 		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, &post_info, tip);
 		T::OnChargeTransaction::correct_and_deposit_fee(
 			&who, info, &post_info, actual_fee, tip, imbalance,

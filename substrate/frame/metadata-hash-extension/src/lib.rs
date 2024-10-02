@@ -44,7 +44,7 @@ use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{TransactionExtension, TransactionExtensionBase},
+	traits::TransactionExtension,
 	transaction_validity::{TransactionValidityError, UnknownTransaction},
 };
 
@@ -142,7 +142,7 @@ impl<T> CheckMetadataHash<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckMetadataHash<T> {
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMetadataHash<T> {
 	const IDENTIFIER: &'static str = "CheckMetadataHash";
 	type Implicit = Option<[u8; 32]>;
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
@@ -162,8 +162,6 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckMetadataHash<T> 
 
 		Ok(signed)
 	}
-}
-impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMetadataHash<T> {
 	type Val = ();
 	type Pre = ();
 

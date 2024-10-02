@@ -18,13 +18,13 @@
 use core::{fmt, marker::PhantomData};
 
 use codec::{Decode, Encode};
-use frame_support::traits::OriginTrait;
+use frame_support::{traits::OriginTrait, Parameter};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
-		DispatchInfoOf, IdentifyAccount, OriginOf, TransactionExtension, TransactionExtensionBase,
-		ValidateResult, Verify,
+		DispatchInfoOf, DispatchOriginOf, IdentifyAccount, TransactionExtension, ValidateResult,
+		Verify,
 	},
 	transaction_validity::{InvalidTransaction, ValidTransaction},
 };
@@ -44,8 +44,8 @@ pub struct AuthCredentials<Signer, Signature> {
 /// the call. Essentially resign the transaction from this point onwards in the pipeline by using
 /// the `inherited_implication`, as shown below.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
-#[scale_info(skip_type_params(T, Signer, Signature))]
-pub struct AuthorizeCoownership<T: Config, Signer, Signature> {
+#[scale_info(skip_type_params(T))]
+pub struct AuthorizeCoownership<T, Signer, Signature> {
 	inner: Option<AuthCredentials<Signer, Signature>>,
 	_phantom: PhantomData<T>,
 }
@@ -75,55 +75,20 @@ impl<T: Config, Signer, Signature> fmt::Debug for AuthorizeCoownership<T, Signer
 	}
 }
 
-impl<T: Config + Send + Sync, Signer, Signature> TransactionExtensionBase
-	for AuthorizeCoownership<T, Signer, Signature>
-where
-	Signer: Clone + Eq + PartialEq + Encode + Decode + TypeInfo + Send + Sync + 'static,
-	Signature: Verify<Signer = Signer>
-		+ Clone
-		+ Eq
-		+ PartialEq
-		+ Encode
-		+ Decode
-		+ TypeInfo
-		+ Send
-		+ Sync
-		+ 'static,
-{
-	const IDENTIFIER: &'static str = "AuthorizeCoownership";
-	type Implicit = ();
-}
-
 impl<T: Config + Send + Sync, Signer, Signature> TransactionExtension<T::RuntimeCall>
 	for AuthorizeCoownership<T, Signer, Signature>
 where
-	Signer: IdentifyAccount<AccountId = T::AccountId>
-		+ Clone
-		+ Eq
-		+ PartialEq
-		+ Encode
-		+ Decode
-		+ TypeInfo
-		+ Send
-		+ Sync
-		+ 'static,
-	Signature: Verify<Signer = Signer>
-		+ Clone
-		+ Eq
-		+ PartialEq
-		+ Encode
-		+ Decode
-		+ TypeInfo
-		+ Send
-		+ Sync
-		+ 'static,
+	Signer: IdentifyAccount<AccountId = T::AccountId> + Parameter + Send + Sync + 'static,
+	Signature: Verify<Signer = Signer> + Parameter + Send + Sync + 'static,
 {
+	const IDENTIFIER: &'static str = "AuthorizeCoownership";
+	type Implicit = ();
 	type Val = ();
 	type Pre = ();
 
 	fn validate(
 		&self,
-		origin: OriginOf<T::RuntimeCall>,
+		mut origin: DispatchOriginOf<T::RuntimeCall>,
 		_call: &T::RuntimeCall,
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
@@ -152,11 +117,15 @@ where
 		}
 		// Construct a `pallet_coownership::Origin`.
 		let local_origin = Origin::Coowners(first_account, second_account);
-		// Mutate the origin to a `pallet_coownership::Origin`, keep the filter.
-		let mut origin = <T as Config>::RuntimeOrigin::from(origin);
-		origin.set_caller_from(<T as Config>::PalletsOrigin::from(local_origin));
+		// Turn it into a local `PalletsOrigin`.
+		let local_origin = <T as Config>::PalletsOrigin::from(local_origin);
+		// Then finally into a pallet `RuntimeOrigin`.
+		let local_origin = <T as Config>::RuntimeOrigin::from(local_origin);
+		// Which the `set_caller_from` function will convert into the overarching `RuntimeOrigin`
+		// created by `construct_runtime!`.
+		origin.set_caller_from(local_origin);
 		// Make sure to return the new origin.
-		Ok((ValidTransaction::default(), (), origin.into()))
+		Ok((ValidTransaction::default(), (), origin))
 	}
 	// We're not doing any special logic in `TransactionExtension::prepare`, so just impl a default.
 	impl_tx_ext_default!(T::RuntimeCall; prepare);

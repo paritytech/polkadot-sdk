@@ -315,6 +315,12 @@ pub fn expand_outer_origin(
 			}
 		}
 
+		impl #scrate::__private::AsTransactionAuthorizedOrigin for RuntimeOrigin {
+			fn is_transaction_authorized(&self) -> bool {
+				!matches!(&self.caller, OriginCaller::system(#system_path::Origin::<#runtime>::None))
+			}
+		}
+
 		#pallet_conversions
 	})
 }

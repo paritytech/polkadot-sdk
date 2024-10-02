@@ -44,10 +44,7 @@ use frame_support::{
 };
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
-	traits::{
-		DispatchInfoOf, OriginOf, PostDispatchInfoOf, TransactionExtension,
-		TransactionExtensionBase, ValidateResult,
-	},
+	traits::{DispatchInfoOf, DispatchOriginOf, PostDispatchInfoOf, TransactionExtension, ValidateResult},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -116,8 +113,10 @@ pub enum Intermediate<T, O> {
 }
 use Intermediate::*;
 
-impl<T: Config + Send + Sync, S: TransactionExtensionBase> TransactionExtensionBase
-	for SkipCheckIfFeeless<T, S>
+impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
+	TransactionExtension<T::RuntimeCall> for SkipCheckIfFeeless<T, S>
+where
+	T::RuntimeCall: CheckIfFeeless<Origin = frame_system::pallet_prelude::OriginFor<T>>,
 {
 	// From the outside this extension should be "invisible", because it just extends the wrapped
 	// extension with an extra check in `pre_dispatch` and `post_dispatch`. Thus, we should forward
@@ -129,15 +128,8 @@ impl<T: Config + Send + Sync, S: TransactionExtensionBase> TransactionExtensionB
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		self.0.implicit()
 	}
-}
-
-impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
-	TransactionExtension<T::RuntimeCall> for SkipCheckIfFeeless<T, S>
-where
-	T::RuntimeCall: CheckIfFeeless<Origin = frame_system::pallet_prelude::OriginFor<T>>,
-{
-	type Val = Intermediate<S::Val, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
-	type Pre = Intermediate<S::Pre, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
+	type Val = Intermediate<S::Val, <DispatchOriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
+	type Pre = Intermediate<S::Pre, <DispatchOriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
 
 	fn weight(&self, call: &T::RuntimeCall) -> frame_support::weights::Weight {
 		self.0.weight(call)
@@ -145,7 +137,7 @@ where
 
 	fn validate(
 		&self,
-		origin: OriginOf<T::RuntimeCall>,
+		origin: DispatchOriginOf<T::RuntimeCall>,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
@@ -164,7 +156,7 @@ where
 	fn prepare(
 		self,
 		val: Self::Val,
-		origin: &OriginOf<T::RuntimeCall>,
+		origin: &DispatchOriginOf<T::RuntimeCall>,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,

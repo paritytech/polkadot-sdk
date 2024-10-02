@@ -37,7 +37,8 @@
     "/dns/ibp-boot-kusama.luckyfriday.io/tcp/30333/p2p/12D3KooW9vu1GWHBuxyhm7rZgD3fhGZpNajPXFexadvhujWMgwfT",
     "/dns/boot-kusama.luckyfriday.io/tcp/443/wss/p2p/12D3KooWS1Lu6DmK8YHSvkErpxpcXmk14vG6y4KVEFEkd9g62PP8",
     "/dns/ibp-boot-kusama.luckyfriday.io/tcp/30334/wss/p2p/12D3KooW9vu1GWHBuxyhm7rZgD3fhGZpNajPXFexadvhujWMgwfT",
-    "/dns4/kusama-0.boot.onfinality.io/tcp/27682/ws/p2p/12D3KooWFrwFo7ry3dEuFwhehGSSN96a5Xdzxot7SWfXeSbhELAe"
+    "/dns4/kusama-0.boot.onfinality.io/tcp/27682/ws/p2p/12D3KooWFrwFo7ry3dEuFwhehGSSN96a5Xdzxot7SWfXeSbhELAe",
+    "/dns/kusama.bootnode.stkd.io/tcp/30633/wss/p2p/12D3KooWJHhnF64TXSmyxNkhPkXAHtYNRy86LuvGQu1LTi5vrJCL"
   ],
   "telemetryEndpoints": [
     [

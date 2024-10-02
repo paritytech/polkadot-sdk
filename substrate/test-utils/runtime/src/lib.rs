@@ -121,7 +121,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 1,
+	system_version: 1,
 };
 
 fn version() -> RuntimeVersion {
@@ -277,11 +277,9 @@ impl sp_runtime::traits::Dispatchable for CheckSubstrateCall {
 	}
 }
 
-impl sp_runtime::traits::TransactionExtensionBase for CheckSubstrateCall {
+impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCall {
 	const IDENTIFIER: &'static str = "CheckSubstrateCall";
 	type Implicit = ();
-}
-impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCall {
 	type Pre = ();
 	type Val = ();
 	impl_tx_ext_default!(RuntimeCall; prepare);

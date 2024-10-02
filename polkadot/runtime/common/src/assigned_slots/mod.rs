@@ -186,6 +186,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub max_temporary_slots: u32,
 		pub max_permanent_slots: u32,
+		#[serde(skip)]
 		pub _config: PhantomData<T>,
 	}
 

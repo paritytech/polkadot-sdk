@@ -1939,6 +1939,10 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
 		let value = (origin, vec![fees.clone()]);
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
+		ensure!(
+			<T::XcmExecutor as XcmAssetTransfers>::IsReserve::contains(&fees, &dest),
+			Error::<T>::InvalidAssetUnsupportedReserve
+		);
 
 		let context = T::UniversalLocation::get();
 		let reanchored_fees = fees
@@ -1973,6 +1977,12 @@ impl<T: Config> Pallet<T> {
 		let value = (origin, assets);
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
 		let (_, assets) = value;
+		for asset in assets.iter() {
+			ensure!(
+				<T::XcmExecutor as XcmAssetTransfers>::IsReserve::contains(&asset, &dest),
+				Error::<T>::InvalidAssetUnsupportedReserve
+			);
+		}
 
 		// max assets is `assets` (+ potentially separately handled fee)
 		let max_assets =
@@ -2079,6 +2089,10 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
 		let value = (origin, vec![fees.clone()]);
 		ensure!(T::XcmTeleportFilter::contains(&value), Error::<T>::Filtered);
+		ensure!(
+			<T::XcmExecutor as XcmAssetTransfers>::IsTeleporter::contains(&fees, &dest),
+			Error::<T>::Filtered
+		);
 
 		let context = T::UniversalLocation::get();
 		let reanchored_fees = fees
@@ -2134,6 +2148,12 @@ impl<T: Config> Pallet<T> {
 		let value = (origin, assets);
 		ensure!(T::XcmTeleportFilter::contains(&value), Error::<T>::Filtered);
 		let (_, assets) = value;
+		for asset in assets.iter() {
+			ensure!(
+				<T::XcmExecutor as XcmAssetTransfers>::IsTeleporter::contains(&asset, &dest),
+				Error::<T>::Filtered
+			);
+		}
 
 		// max assets is `assets` (+ potentially separately handled fee)
 		let max_assets =
@@ -2457,10 +2477,14 @@ impl<T: Config> Pallet<T> {
 		<RuntimeCall as Dispatchable>::RuntimeOrigin: From<OriginCaller>,
 	{
 		crate::Pallet::<Runtime>::set_record_xcm(true);
-		frame_system::Pallet::<Runtime>::reset_events(); // To make sure we only record events from current call.
+		// Clear other messages in queues...
+		Router::clear_messages();
+		// ...and reset events to make sure we only record events from current call.
+		frame_system::Pallet::<Runtime>::reset_events();
 		let result = call.dispatch(origin.into());
 		crate::Pallet::<Runtime>::set_record_xcm(false);
 		let local_xcm = crate::Pallet::<Runtime>::recorded_xcm();
+		// Should only get messages from this call since we cleared previous ones.
 		let forwarded_xcms = Router::get_messages();
 		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
 			frame_system::Pallet::<Runtime>::read_events_no_consensus()

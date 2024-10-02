@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -28,10 +28,7 @@ use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_minimal_node::{
 	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
 };
-use futures::{
-	channel::{mpsc, oneshot},
-	FutureExt, StreamExt,
-};
+use futures::{channel::mpsc, StreamExt};
 use polkadot_primitives::{CollatorPair, OccupiedCoreAssumption};
 use sc_client_api::{
 	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, ProofProvider, UsageProvider,
@@ -43,7 +40,10 @@ use sc_consensus::{
 use sc_network::{config::SyncMode, service::traits::NetworkService, NetworkBackend};
 use sc_network_sync::SyncingService;
 use sc_network_transactions::TransactionsHandlerController;
-use sc_service::{Configuration, NetworkStarter, SpawnTaskHandle, TaskManager, WarpSyncParams};
+use sc_service::{
+	build_polkadot_syncing_strategy, Configuration, NetworkStarter, SpawnTaskHandle, TaskManager,
+	WarpSyncConfig,
+};
 use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::ProvideRuntimeApi;
@@ -373,6 +373,7 @@ pub async fn build_relay_chain_interface(
 		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
 			build_minimal_relay_chain_node_with_rpc(
 				relay_chain_config,
+				parachain_config.prometheus_registry(),
 				task_manager,
 				rpc_target_urls,
 			)
@@ -428,7 +429,7 @@ pub struct BuildNetworkParams<
 pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 	BuildNetworkParams {
 		parachain_config,
-		net_config,
+		mut net_config,
 		client,
 		transaction_pool,
 		para_id,
@@ -465,14 +466,21 @@ where
 	IQ: ImportQueue<Block> + 'static,
 	Network: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
-	let warp_sync_params = match parachain_config.network.sync_mode {
+	let warp_sync_config = match parachain_config.network.sync_mode {
 		SyncMode::Warp => {
-			let target_block = warp_sync_get::<Block, RCInterface>(
-				para_id,
-				relay_chain_interface.clone(),
-				spawn_handle.clone(),
-			);
-			Some(WarpSyncParams::WaitForTarget(target_block))
+			log::debug!(target: LOG_TARGET_SYNC, "waiting for announce block...");
+
+			let target_block =
+				wait_for_finalized_para_head::<Block, _>(para_id, relay_chain_interface.clone())
+					.await
+					.inspect_err(|e| {
+						log::error!(
+							target: LOG_TARGET_SYNC,
+							"Unable to determine parachain target block {:?}",
+							e
+						);
+					})?;
+			Some(WarpSyncConfig::WithTarget(target_block))
 		},
 		_ => None,
 	};
@@ -489,8 +497,18 @@ where
 		},
 	};
 	let metrics = Network::register_notification_metrics(
-		parachain_config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
+		parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 	);
+
+	let syncing_strategy = build_polkadot_syncing_strategy(
+		parachain_config.protocol_id(),
+		parachain_config.chain_spec.fork_id(),
+		&mut net_config,
+		warp_sync_config,
+		client.clone(),
+		&spawn_handle,
+		parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
+	)?;
 
 	sc_service::build_network(sc_service::BuildNetworkParams {
 		config: parachain_config,
@@ -500,67 +518,37 @@ where
 		spawn_handle,
 		import_queue,
 		block_announce_validator_builder: Some(Box::new(move |_| block_announce_validator)),
-		warp_sync_params,
+		syncing_strategy,
 		block_relay: None,
 		metrics,
 	})
 }
 
-/// Creates a new background task to wait for the relay chain to sync up and retrieve the parachain
-/// header
-fn warp_sync_get<B, RCInterface>(
-	para_id: ParaId,
-	relay_chain_interface: RCInterface,
-	spawner: SpawnTaskHandle,
-) -> oneshot::Receiver<<B as BlockT>::Header>
-where
-	B: BlockT + 'static,
-	RCInterface: RelayChainInterface + 'static,
-{
-	let (sender, receiver) = oneshot::channel::<B::Header>();
-	spawner.spawn(
-		"cumulus-parachain-wait-for-target-block",
-		None,
-		async move {
-			log::debug!(
-				target: LOG_TARGET_SYNC,
-				"waiting for announce block in a background task...",
-			);
-
-			let _ = wait_for_finalized_para_head::<B, _>(sender, para_id, relay_chain_interface)
-				.await
-				.map_err(|e| {
-					log::error!(
-						target: LOG_TARGET_SYNC,
-						"Unable to determine parachain target block {:?}",
-						e
-					)
-				});
-		}
-		.boxed(),
-	);
-
-	receiver
-}
-
 /// Waits for the relay chain to have finished syncing and then gets the parachain header that
 /// corresponds to the last finalized relay chain block.
 async fn wait_for_finalized_para_head<B, RCInterface>(
-	sender: oneshot::Sender<<B as BlockT>::Header>,
 	para_id: ParaId,
 	relay_chain_interface: RCInterface,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+) -> sc_service::error::Result<<B as BlockT>::Header>
 where
 	B: BlockT + 'static,
 	RCInterface: RelayChainInterface + Send + 'static,
 {
-	let mut imported_blocks = relay_chain_interface.import_notification_stream().await?.fuse();
-	while imported_blocks.next().await.is_some() {
-		let is_syncing = relay_chain_interface.is_major_syncing().await.map_err(|e| {
-			Box::<dyn std::error::Error + Send + Sync>::from(format!(
-				"Unable to determine sync status. {e}"
+	let mut imported_blocks = relay_chain_interface
+		.import_notification_stream()
+		.await
+		.map_err(|error| {
+			sc_service::Error::Other(format!(
+				"Relay chain import notification stream error when waiting for parachain head: \
+				{error}"
 			))
-		})?;
+		})?
+		.fuse();
+	while imported_blocks.next().await.is_some() {
+		let is_syncing = relay_chain_interface
+			.is_major_syncing()
+			.await
+			.map_err(|e| format!("Unable to determine sync status: {e}"))?;
 
 		if !is_syncing {
 			let relay_chain_best_hash = relay_chain_interface
@@ -586,8 +574,7 @@ where
 				finalized_header.number(),
 				finalized_header.hash()
 			);
-			let _ = sender.send(finalized_header);
-			return Ok(())
+			return Ok(finalized_header)
 		}
 	}
 
