@@ -1025,9 +1025,8 @@ impl<T: Config> Pallet<T> {
 			.take_while(|message| !message.is_empty())
 			.filter_map(|d| {
 				BoundedSlice::try_from(&d[..])
-					.map_err(|e| {
+					.inspect_err(|_| {
 						defensive!("Accepted candidate contains too long msg, len=", d.len());
-						e
 					})
 					.ok()
 			})

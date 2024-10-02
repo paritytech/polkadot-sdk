@@ -14,7 +14,7 @@
 //! A module exporting runtime API implementation functions for all runtime APIs using `v5`
 //! primitives.
 //!
-//! Runtimes implementing the v10 runtime API are recommended to forward directly to these
+//! Runtimes implementing the v11 runtime API are recommended to forward directly to these
 //! functions.
 
 use crate::{
@@ -22,7 +22,11 @@ use crate::{
 	scheduler::{self, CoreOccupied},
 	session_info, shared,
 };
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
+use alloc::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 use frame_support::traits::{GetStorageVersion, StorageVersion};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
@@ -560,4 +564,39 @@ pub fn node_features<T: initializer::Config>() -> NodeFeatures {
 /// Approval voting subsystem configuration parameters
 pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams {
 	configuration::ActiveConfig::<T>::get().approval_voting_params
+}
+
+/// Returns the claimqueue from the scheduler
+pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+	let now = <frame_system::Pallet<T>>::block_number() + One::one();
+
+	// This is needed so that the claim queue always has the right size (equal to
+	// scheduling_lookahead). Otherwise, if a candidate is backed in the same block where the
+	// previous candidate is included, the claim queue will have already pop()-ed the next item
+	// from the queue and the length would be `scheduling_lookahead - 1`.
+	<scheduler::Pallet<T>>::free_cores_and_fill_claim_queue(Vec::new(), now);
+	let config = configuration::ActiveConfig::<T>::get();
+	// Extra sanity, config should already never be smaller than 1:
+	let n_lookahead = config.scheduler_params.lookahead.max(1);
+
+	scheduler::ClaimQueue::<T>::get()
+		.into_iter()
+		.map(|(core_index, entries)| {
+			// on cores timing out internal claim queue size may be temporarily longer than it
+			// should be as the timed out assignment might got pushed back to an already full claim
+			// queue:
+			(
+				core_index,
+				entries.into_iter().map(|e| e.para_id()).take(n_lookahead as usize).collect(),
+			)
+		})
+		.collect()
+}
+
+/// Returns all the candidates that are pending availability for a given `ParaId`.
+/// Deprecates `candidate_pending_availability` in favor of supporting elastic scaling.
+pub fn candidates_pending_availability<T: initializer::Config>(
+	para_id: ParaId,
+) -> Vec<CommittedCandidateReceipt<T::Hash>> {
+	<inclusion::Pallet<T>>::candidates_pending_availability(para_id)
 }
