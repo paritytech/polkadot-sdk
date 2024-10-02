@@ -31,12 +31,18 @@ class TestCmd(unittest.TestCase):
         self.patcher3 = patch('argparse.ArgumentParser.parse_known_args')
         self.patcher4 = patch('os.system', return_value=0)
         self.patcher5 = patch('os.popen')
+        self.patcher6 = patch('importlib.util.spec_from_file_location', return_value=MagicMock())
+        self.patcher7 = patch('importlib.util.module_from_spec', return_value=MagicMock())
+        self.patcher8 = patch('cmd.generate_prdoc.main', return_value=0)
         
         self.mock_open = self.patcher1.start()
         self.mock_json_load = self.patcher2.start()
         self.mock_parse_args = self.patcher3.start()
         self.mock_system = self.patcher4.start()
         self.mock_popen = self.patcher5.start()
+        self.mock_spec_from_file_location = self.patcher6.start()
+        self.mock_module_from_spec = self.patcher7.start()
+        self.mock_generate_prdoc_main = self.patcher8.start()
 
         # Ensure that cmd.py uses the mock_runtimes_matrix
         import cmd
@@ -48,6 +54,9 @@ class TestCmd(unittest.TestCase):
         self.patcher3.stop()
         self.patcher4.stop()
         self.patcher5.stop()
+        self.patcher6.stop()
+        self.patcher7.stop()
+        self.patcher8.stop()
 
     def test_bench_command_normal_execution_all_runtimes(self):
         self.mock_parse_args.return_value = (argparse.Namespace(
@@ -316,6 +325,15 @@ class TestCmd(unittest.TestCase):
             cmd.main()
             mock_exit.assert_not_called()
             mock_system.assert_called_with('sh ./scripts/update-ui-tests.sh')
+
+    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='prdoc', continue_on_fail=False), []))
+    @patch('os.system', return_value=0)
+    def test_prdoc_command(self, mock_system, mock_parse_args):
+        with patch('sys.exit') as mock_exit:
+            import cmd
+            cmd.main()
+            mock_exit.assert_not_called()
+            self.mock_generate_prdoc_main.assert_called_with(mock_parse_args.return_value[0])
 
 if __name__ == '__main__':
     unittest.main()

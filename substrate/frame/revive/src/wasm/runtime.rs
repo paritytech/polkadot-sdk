@@ -314,6 +314,8 @@ pub enum RuntimeCosts {
 	GasLeft,
 	/// Weight of calling `seal_balance`.
 	Balance,
+	/// Weight of calling `seal_balance_of`.
+	BalanceOf,
 	/// Weight of calling `seal_value_transferred`.
 	ValueTransferred,
 	/// Weight of calling `seal_minimum_balance`.
@@ -457,6 +459,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Address => T::WeightInfo::seal_address(),
 			GasLeft => T::WeightInfo::seal_gas_left(),
 			Balance => T::WeightInfo::seal_balance(),
+			BalanceOf => T::WeightInfo::seal_balance_of(),
 			ValueTransferred => T::WeightInfo::seal_value_transferred(),
 			MinimumBalance => T::WeightInfo::seal_minimum_balance(),
 			BlockNumber => T::WeightInfo::seal_block_number(),
@@ -465,22 +468,28 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
 			DebugMessage(len) => T::WeightInfo::seal_debug_message(len),
-			SetStorage { new_bytes, old_bytes } =>
-				cost_storage!(write, seal_set_storage, new_bytes, old_bytes),
+			SetStorage { new_bytes, old_bytes } => {
+				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
+			},
 			ClearStorage(len) => cost_storage!(write, seal_clear_storage, len),
 			ContainsStorage(len) => cost_storage!(read, seal_contains_storage, len),
 			GetStorage(len) => cost_storage!(read, seal_get_storage, len),
 			TakeStorage(len) => cost_storage!(write, seal_take_storage, len),
-			SetTransientStorage { new_bytes, old_bytes } =>
-				cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes),
-			ClearTransientStorage(len) =>
-				cost_storage!(write_transient, seal_clear_transient_storage, len),
-			ContainsTransientStorage(len) =>
-				cost_storage!(read_transient, seal_contains_transient_storage, len),
-			GetTransientStorage(len) =>
-				cost_storage!(read_transient, seal_get_transient_storage, len),
-			TakeTransientStorage(len) =>
-				cost_storage!(write_transient, seal_take_transient_storage, len),
+			SetTransientStorage { new_bytes, old_bytes } => {
+				cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes)
+			},
+			ClearTransientStorage(len) => {
+				cost_storage!(write_transient, seal_clear_transient_storage, len)
+			},
+			ContainsTransientStorage(len) => {
+				cost_storage!(read_transient, seal_contains_transient_storage, len)
+			},
+			GetTransientStorage(len) => {
+				cost_storage!(read_transient, seal_get_transient_storage, len)
+			},
+			TakeTransientStorage(len) => {
+				cost_storage!(write_transient, seal_take_transient_storage, len)
+			},
 			Transfer => T::WeightInfo::seal_transfer(),
 			CallBase => T::WeightInfo::seal_call(0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
@@ -568,7 +577,7 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 			Ok(Step) => None,
 			Ok(Ecalli(idx)) => {
 				let Some(syscall_symbol) = module.imports().get(idx) else {
-					return Some(Err(<Error<E::T>>::InvalidSyscall.into()))
+					return Some(Err(<Error<E::T>>::InvalidSyscall.into()));
 				};
 				match self.handle_ecall(instance, syscall_symbol.as_bytes(), api_version) {
 					Ok(None) => None,
@@ -581,8 +590,7 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 							None => Some(Err(Error::<E::T>::InvalidCallFlags.into())),
 							Some(flags) => Some(Ok(ExecReturnValue { flags, data })),
 						},
-					Err(TrapReason::Termination) =>
-						Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })),
+					Err(TrapReason::Termination) => Some(Ok(Default::default())),
 					Err(TrapReason::SupervisorError(error)) => Some(Err(error.into())),
 				}
 			},
@@ -649,11 +657,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 	/// Write the given buffer and its length to the designated locations in sandbox memory and
 	/// charge gas according to the token returned by `create_token`.
-	//
+	///
 	/// `out_ptr` is the location in sandbox memory where `buf` should be written to.
 	/// `out_len_ptr` is an in-out location in sandbox memory. It is read to determine the
-	/// length of the buffer located at `out_ptr`. If that buffer is large enough the actual
-	/// `buf.len()` is written to this location.
+	/// length of the buffer located at `out_ptr`. If that buffer is smaller than the actual
+	/// `buf.len()`, only what fits into that buffer is written to `out_ptr`.
+	/// The actual amount of bytes copied to `out_ptr` is written to `out_len_ptr`.
 	///
 	/// If `out_ptr` is set to the sentinel value of `SENTINEL` and `allow_skip` is true the
 	/// operation is skipped and `Ok` is returned. This is supposed to help callers to make copying
@@ -676,21 +685,17 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		create_token: impl FnOnce(u32) -> Option<RuntimeCosts>,
 	) -> Result<(), DispatchError> {
 		if allow_skip && out_ptr == SENTINEL {
-			return Ok(())
+			return Ok(());
 		}
 
-		let buf_len = buf.len() as u32;
 		let len = memory.read_u32(out_len_ptr)?;
-
-		if len < buf_len {
-			return Err(Error::<E::T>::OutputBufferTooSmall.into())
-		}
+		let buf_len = len.min(buf.len() as u32);
 
 		if let Some(costs) = create_token(buf_len) {
 			self.charge_gas(costs)?;
 		}
 
-		memory.write(out_ptr, buf)?;
+		memory.write(out_ptr, &buf[..buf_len as usize])?;
 		memory.write(out_len_ptr, &buf_len.encode())
 	}
 
@@ -704,7 +709,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		create_token: impl FnOnce(u32) -> Option<RuntimeCosts>,
 	) -> Result<(), DispatchError> {
 		if allow_skip && out_ptr == SENTINEL {
-			return Ok(())
+			return Ok(());
 		}
 
 		let buf_len = buf.len() as u32;
@@ -821,7 +826,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let max_size = self.ext.max_value_size();
 		let charged = self.charge_gas(costs(value_len, self.ext.max_value_size()))?;
 		if value_len > max_size {
-			return Err(Error::<E::T>::ValueTooLarge.into())
+			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let value = Some(memory.read(value_ptr, value_len)?);
@@ -1023,7 +1028,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			},
 			CallType::DelegateCall { code_hash_ptr } => {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
-					return Err(Error::<E::T>::InvalidCallFlags.into())
+					return Err(Error::<E::T>::InvalidCallFlags.into());
 				}
 
 				let code_hash = memory.read_h256(code_hash_ptr)?;
@@ -1038,7 +1043,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				return Err(TrapReason::Return(ReturnData {
 					flags: return_value.flags.bits(),
 					data: return_value.data,
-				}))
+				}));
 			}
 		}
 
@@ -1516,6 +1521,40 @@ pub mod env {
 		)?)
 	}
 
+	/// Stores the *free* balance of the supplied address into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::balance`].
+	#[api_version(0)]
+	fn balance_of(
+		&mut self,
+		memory: &mut M,
+		addr_ptr: u32,
+		out_ptr: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::BalanceOf)?;
+		let mut address = H160::zero();
+		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&as_bytes(self.ext.balance_of(&address)),
+			false,
+			already_charged,
+		)?)
+	}
+
+	/// Returns the chain ID.
+	/// See [`pallet_revive_uapi::HostFn::chain_id`].
+	#[api_version(0)]
+	fn chain_id(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&as_bytes(U256::from(<E::T as Config>::ChainId::get())),
+			false,
+			|_| Some(RuntimeCosts::CopyToContract(32)),
+		)?)
+	}
+
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::value_transferred`].
 	#[api_version(0)]
@@ -1791,6 +1830,7 @@ pub mod env {
 		&mut self,
 		memory: &mut M,
 		dest_ptr: u32,
+		dest_len: u32,
 		msg_ptr: u32,
 		msg_len: u32,
 		output_ptr: u32,
@@ -1798,10 +1838,12 @@ pub mod env {
 		use xcm::{VersionedLocation, VersionedXcm};
 		use xcm_builder::{SendController, SendControllerWeightInfo};
 
-		self.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
-		let dest: VersionedLocation = memory.read_as(dest_ptr)?;
+		self.charge_gas(RuntimeCosts::CopyFromContract(dest_len))?;
+		let dest: VersionedLocation = memory.read_as_unbounded(dest_ptr, dest_len)?;
 
+		self.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
 		let message: VersionedXcm<()> = memory.read_as_unbounded(msg_ptr, msg_len)?;
+
 		let weight = <<E::T as Config>::Xcm as SendController<_>>::WeightInfo::send();
 		self.charge_gas(RuntimeCosts::CallRuntime(weight))?;
 		let origin = crate::RawOrigin::Signed(self.ext.account_id().clone()).into();
