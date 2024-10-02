@@ -240,12 +240,14 @@ async fn ensure_parallel_execution() {
 		pvd.clone(),
 		pov.clone(),
 		Default::default(),
+		None,
 	);
 	let execute_pvf_future_2 = host.validate_candidate(
 		test_parachain_halt::wasm_binary_unwrap(),
 		pvd,
 		pov,
 		Default::default(),
+		None,
 	);
 
 	let start = std::time::Instant::now();
@@ -343,6 +345,7 @@ async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 				0 => executor_params_1.clone(),
 				_ => executor_params_2.clone(),
 			},
+			None,
 		)
 	}))
 	.await;
