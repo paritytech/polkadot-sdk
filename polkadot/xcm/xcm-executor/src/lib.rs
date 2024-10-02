@@ -464,7 +464,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			fee
 		} else {
 			self.holding
-				.try_take(fee.into())
+				.try_take(fee.clone().into())
 				.map_err(|e| {
 					log::error!(target: "xcm::xcm_executor::take_fee", "Failed to take fees {:?} from holding. {:?}", fee, e);
 					XcmError::NotHoldingFees
@@ -958,7 +958,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let old_holding = self.holding.clone();
 				// pay for `weight` using up to `fees` of the holding register.
 				let max_fee =
-					self.holding.try_take(fees.into()).map_err(|e| {
+					self.holding.try_take(fees.clone().into()).map_err(|e| {
 						log::error!(target: "xcm::process_instruction::buy_execution", "Failed to take fees {:?} from holding. {:?}", fees, e);
 						XcmError::NotHoldingFees
 					})?;
