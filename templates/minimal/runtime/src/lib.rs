@@ -39,7 +39,7 @@ use polkadot_sdk::{
 /// Provides getters for genesis configuration presets.
 pub mod genesis_config_presets {
 	use crate::{
-		interface::{AccountId, Balance, MinimumBalance},
+		interface::{Balance, MinimumBalance},
 		sp_genesis_builder::PresetId,
 		sp_keyring::AccountKeyring,
 		BalancesConfig, RuntimeGenesisConfig, SudoConfig,
@@ -49,26 +49,20 @@ pub mod genesis_config_presets {
 	use polkadot_sdk::{sp_core::Get, sp_genesis_builder};
 	use serde_json::Value;
 
-	// Returns a genesis config preset populated with given parameters.
-	fn testnet_genesis(endowed_accounts: Vec<(AccountId, u64)>, root: AccountId) -> Value {
+	/// Returns a development genesis config preset.
+	pub fn development_config_genesis() -> Value {
+		let endowment = <MinimumBalance as Get<Balance>>::get().max(1) * 1000;
 		let config = RuntimeGenesisConfig {
-			balances: BalancesConfig { balances: endowed_accounts },
-			sudo: SudoConfig { key: Some(root) },
+			balances: BalancesConfig {
+				balances: AccountKeyring::iter()
+					.map(|a| (a.to_account_id(), endowment))
+					.collect::<Vec<_>>(),
+			},
+			sudo: SudoConfig { key: Some(AccountKeyring::Alice.to_account_id()) },
 			..Default::default()
 		};
 
 		serde_json::to_value(config).expect("Could not build genesis config.")
-	}
-
-	/// Returns a development genesis config preset.
-	pub fn development_config_genesis() -> Value {
-		let endowment = <MinimumBalance as Get<Balance>>::get().max(1) * 1000;
-		testnet_genesis(
-			AccountKeyring::iter()
-				.map(|a| (a.to_account_id(), endowment))
-				.collect::<Vec<_>>(),
-			AccountKeyring::Alice.to_account_id(),
-		)
 	}
 
 	/// Get the set of the available genesis config presets.

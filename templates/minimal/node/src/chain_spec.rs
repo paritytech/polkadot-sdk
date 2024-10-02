@@ -31,7 +31,7 @@ fn props() -> Properties {
 	properties
 }
 
-pub fn development_config() -> Result<ChainSpec, String> {
+pub fn development_chain_spec() -> Result<ChainSpec, String> {
 	Ok(ChainSpec::builder(WASM_BINARY.expect("Development wasm not available"), Default::default())
 		.with_name("Development")
 		.with_id("dev")

@@ -21,7 +21,7 @@ polkadot-sdk = { workspace = true, features = [
 	"pallet-transaction-payment-rpc-runtime-api",
 	"runtime",
 ] }
-serde_json = { workspace = true, default-features = false }
+serde_json = { workspace = true, default-features = false, features = ["alloc"] }
 
 # local pallet templates
 pallet-minimal-template = { workspace = true }

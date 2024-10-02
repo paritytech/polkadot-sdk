@@ -20,7 +20,7 @@ scale-info = { features = [
 	"derive",
 	"serde",
 ], workspace = true }
-serde_json = { workspace = true, default-features = false }
+serde_json = { workspace = true, default-features = false, features = ["alloc"] }
 
 # frame
 frame-support = { features = ["experimental"], workspace = true }
