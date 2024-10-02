@@ -108,7 +108,10 @@ impl<Block: BlockT> AnnouncedBlocks<Block> {
 
 	/// Check if the block was previously announced.
 	fn was_announced(&mut self, block: &Block::Hash) -> bool {
-		self.blocks.get(block).is_some() || self.finalized.get(block).is_some()
+		// For the finalized blocks we use `peek` to avoid moving the block counter to the front.
+		// This effectively means that the LRU acts as a FIFO queue. Otherwise, we might
+		// end up with scenarios where the last inserted finalized block is removed.
+		self.blocks.get(block).is_some() || self.finalized.peek(block).is_some()
 	}
 }
 
