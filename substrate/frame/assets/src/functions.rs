@@ -458,8 +458,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			active: true,
 		};
 
-		let distribution_id: u32 = MerklizedDistribution::<T, I>::count();
+		let distribution_id: u32 = CountForMerklizedDistribution::<T, I>::get();
 		MerklizedDistribution::<T, I>::insert(&distribution_id, info);
+		CountForMerklizedDistribution::<T, I>::put(
+			distribution_id.checked_add(1).ok_or(ArithmeticError::Overflow)?,
+		);
 
 		Self::deposit_event(Event::DistributionIssued {
 			distribution_id,

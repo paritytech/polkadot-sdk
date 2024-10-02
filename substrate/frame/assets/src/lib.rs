@@ -466,7 +466,12 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Merklized distribution of an asset.
-	pub(super) type MerklizedDistribution<T: Config<I>, I: 'static = ()> = CountedStorageMap<
+	pub(super) type CountForMerklizedDistribution<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, u32, ValueQuery>;
+
+	#[pallet::storage]
+	/// Merklized distribution of an asset.
+	pub(super) type MerklizedDistribution<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
 		DistributionCounter,

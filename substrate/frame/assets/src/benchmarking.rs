@@ -590,10 +590,10 @@ benchmarks_instance_pallet! {
 	// This function is O(1), so placing any hash as a merkle root should work.
 	mint_distribution {
 		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
-		let before_count = MerklizedDistribution::<T, I>::count();
+		let before_count = CountForMerklizedDistribution::<T, I>::get();
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), DistributionHashOf::<T, I>::default())
 	verify {
-		let count = MerklizedDistribution::<T, I>::count();
+		let count = CountForMerklizedDistribution::<T, I>::get();
 		assert_eq!(count, before_count + 1);
 		assert_last_event::<T, I>(Event::DistributionIssued { distribution_id: before_count, asset_id: asset_id.into(), merkle_root: DistributionHashOf::<T, I>::default() }.into());
 	}
@@ -616,13 +616,13 @@ benchmarks_instance_pallet! {
 	// This function is O(1), so ending any distribution should work.
 	end_distribution {
 		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
-		let before_count = MerklizedDistribution::<T, I>::count();
+		let before_count = CountForMerklizedDistribution::<T, I>::get();
 		Assets::<T, I>::mint_distribution(
 			SystemOrigin::Signed(caller.clone()).into(),
 			asset_id.clone(),
 			DistributionHashOf::<T, I>::default(),
 		)?;
-		let count = MerklizedDistribution::<T, I>::count();
+		let count = CountForMerklizedDistribution::<T, I>::get();
 		assert_eq!(count, before_count + 1);
 		assert_last_event::<T, I>(Event::DistributionIssued { distribution_id: before_count, asset_id: asset_id.into(), merkle_root: DistributionHashOf::<T, I>::default() }.into());
 	}: _(SystemOrigin::Signed(caller.clone()), before_count)
@@ -637,7 +637,7 @@ benchmarks_instance_pallet! {
 	destroy_distribution {
 		let c in 0 .. T::RemoveItemsLimit::get();
 		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
-		let before_count = MerklizedDistribution::<T, I>::count();
+		let before_count = CountForMerklizedDistribution::<T, I>::get();
 		Assets::<T, I>::mint_distribution(
 			SystemOrigin::Signed(caller.clone()).into(),
 			asset_id.clone(),
