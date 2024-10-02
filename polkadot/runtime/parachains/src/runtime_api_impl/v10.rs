@@ -468,9 +468,6 @@ pub fn backing_state<T: initializer::Config>(
 		)
 	};
 
-	shared::AllowedRelayParents::<T>::get()
-		.hypothetical_earliest_block_number(now, config.async_backing_params.allowed_ancestry_len);
-
 	let required_parent = paras::Heads::<T>::get(para_id)?;
 	let validation_code_hash = paras::CurrentCodeHash::<T>::get(para_id)?;
 
