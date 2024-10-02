@@ -55,9 +55,9 @@ impl<Client, Block, BE> ArchiveStorage<Client, Block, BE> {
 
 impl<Client, Block, BE> ArchiveStorage<Client, Block, BE>
 where
-	Block: BlockT + Send + 'static,
-	BE: Backend<Block> + Send + 'static,
-	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
+	Block: BlockT + 'static,
+	BE: Backend<Block> + 'static,
+	Client: StorageProvider<Block, BE> + 'static,
 {
 	/// Generate the response of the `archive_storage` method.
 	pub fn handle_query(

@@ -75,9 +75,9 @@ pub type QueryIterResult = Result<(Vec<StorageResult>, Option<QueryIter>), Strin
 
 impl<Client, Block, BE> Storage<Client, Block, BE>
 where
-	Block: BlockT + Send + 'static,
-	BE: Backend<Block> + Send + 'static,
-	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
+	Block: BlockT + 'static,
+	BE: Backend<Block> + 'static,
+	Client: StorageProvider<Block, BE> + 'static,
 {
 	/// Fetch the value from storage.
 	pub fn query_value(
