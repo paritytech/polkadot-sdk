@@ -68,7 +68,7 @@
 use std::{
 	collections::{HashMap, HashSet},
 	sync::Arc,
-	time::Instant,
+	time::{Duration, Instant},
 };
 
 use bitvec::vec::BitVec;
@@ -2237,6 +2237,6 @@ fn validation_request_ttl(mode: ProspectiveParachainsMode) -> Option<Instant> {
 	if ttl_in_blocks < 1 {
 		None
 	} else {
-		Instant::now() + Duration::from_millis(MILLISECS_PER_BLOCK * ttl_in_blocks)
+		Some(Instant::now() + Duration::from_millis(MILLISECS_PER_BLOCK * ttl_in_blocks))
 	}
 }
