@@ -30,6 +30,7 @@ frame-system = { workspace = true }
 pallet-balances = { workspace = true }
 sp-runtime = { workspace = true }
 sp-core = { optional = true, workspace = true }
+log = { workspace = true }
 
 [dev-dependencies]
 sp-io = { workspace = true, default-features = true }

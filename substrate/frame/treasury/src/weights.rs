@@ -58,7 +58,6 @@ pub trait WeightInfo {
 	fn payout() -> Weight;
 	fn check_status() -> Weight;
 	fn void_spend() -> Weight;
-	fn release_proposal_bonds() -> Weight;
 }
 
 /// Weights for `pallet_treasury` using the Substrate node and recommended hardware.
@@ -169,13 +168,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	fn release_proposal_bonds() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_000_000 picoseconds.
-		Weight::from_parts(2_000_000, 0)
-	}
 }
 
 // For backwards compatibility and tests.
@@ -284,12 +276,5 @@ impl WeightInfo for () {
 		Weight::from_parts(11_427_000, 3538)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	fn release_proposal_bonds() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 1_000_000 picoseconds.
-		Weight::from_parts(2_000_000, 0)
 	}
 }

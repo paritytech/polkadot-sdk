@@ -348,21 +348,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
-	fn release_proposal_bonds() -> Result<(), BenchmarkError> {
-		let (_, _value, _beneficiary_lookup) = setup_proposal::<T, _>(SEED);
-		let origin =
-			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-
-		#[block]
-		{
-			let _ = Treasury::<T, _>::release_proposal_bonds(origin as T::RuntimeOrigin);
-		}
-
-		assert!(Spends::<T, I>::get(0).is_none());
-		Ok(())
-	}
-
 	impl_benchmark_test_suite!(
 		Treasury,
 		crate::tests::ExtBuilder::default().build(),

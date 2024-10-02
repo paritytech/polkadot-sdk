@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add migration to clear unapproved proposals treasury from pallet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      It is no longer possible to create Proposals in this pallet but there
+      are some Proposals whose bonds are stuck.  Purpose of this migration is to
+      clear those and return bonds to the proposers.
+
+crates:
+    - name: pallet-treasury
+      bump: patch

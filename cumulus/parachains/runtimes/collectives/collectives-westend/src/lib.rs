@@ -757,6 +757,8 @@ type Migrations = (
 	pallet_core_fellowship::migration::MigrateV0ToV1<Runtime, FellowshipCoreInstance>,
 	// unreleased
 	pallet_core_fellowship::migration::MigrateV0ToV1<Runtime, AmbassadorCoreInstance>,
+	// unreleased
+	pallet_treasury::migration::MigrateV0ToV1<Runtime, FellowshipCoreInstance>,
 );
 
 /// Executive: handles dispatch to the various modules.
