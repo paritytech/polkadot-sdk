@@ -182,7 +182,7 @@ fn unvested_balance_should_not_transfer() {
 	ExtBuilder::default().existential_deposit(10).build().execute_with(|| {
 		let user1_free_balance = Balances::free_balance(&1);
 		assert_eq!(user1_free_balance, 100); // Account 1 has free balance
-									 // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
+									   // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
 		assert_eq!(Vesting::vesting_balance(&1), Some(45));
 		// Account 1 cannot send more than vested amount...
 		assert_noop!(Balances::transfer_allow_death(Some(1).into(), 2, 56), TokenError::Frozen);
@@ -194,7 +194,7 @@ fn vested_balance_should_transfer() {
 	ExtBuilder::default().existential_deposit(10).build().execute_with(|| {
 		let user1_free_balance = Balances::free_balance(&1);
 		assert_eq!(user1_free_balance, 100); // Account 1 has free balance
-									 // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
+									   // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
 		assert_eq!(Vesting::vesting_balance(&1), Some(45));
 		assert_ok!(Vesting::vest(Some(1).into()));
 		assert_ok!(Balances::transfer_allow_death(Some(1).into(), 2, 55));
@@ -232,7 +232,7 @@ fn vested_balance_should_transfer_using_vest_other() {
 	ExtBuilder::default().existential_deposit(10).build().execute_with(|| {
 		let user1_free_balance = Balances::free_balance(&1);
 		assert_eq!(user1_free_balance, 100); // Account 1 has free balance
-									 // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
+									   // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
 		assert_eq!(Vesting::vesting_balance(&1), Some(45));
 		assert_ok!(Vesting::vest_other(Some(2).into(), 1));
 		assert_ok!(Balances::transfer_allow_death(Some(1).into(), 2, 55));

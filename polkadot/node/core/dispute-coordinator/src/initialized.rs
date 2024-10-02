@@ -34,8 +34,9 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		ApprovalVotingMessage, BlockDescription, ChainSelectionMessage, DisputeCoordinatorMessage,
-		DisputeDistributionMessage, ImportStatementsResult,
+		ApprovalVotingMessage, ApprovalVotingParallelMessage, BlockDescription,
+		ChainSelectionMessage, DisputeCoordinatorMessage, DisputeDistributionMessage,
+		ImportStatementsResult,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError,
 };
@@ -117,6 +118,7 @@ pub(crate) struct Initialized {
 	/// `CHAIN_IMPORT_MAX_BATCH_SIZE` and put the rest here for later processing.
 	chain_import_backlog: VecDeque<ScrapedOnChainVotes>,
 	metrics: Metrics,
+	approval_voting_parallel_enabled: bool,
 }
 
 #[overseer::contextbounds(DisputeCoordinator, prefix = self::overseer)]
@@ -130,7 +132,13 @@ impl Initialized {
 		highest_session_seen: SessionIndex,
 		gaps_in_cache: bool,
 	) -> Self {
-		let DisputeCoordinatorSubsystem { config: _, store: _, keystore, metrics } = subsystem;
+		let DisputeCoordinatorSubsystem {
+			config: _,
+			store: _,
+			keystore,
+			metrics,
+			approval_voting_parallel_enabled,
+		} = subsystem;
 
 		let (participation_sender, participation_receiver) = mpsc::channel(1);
 		let participation = Participation::new(participation_sender, metrics.clone());
@@ -148,6 +156,7 @@ impl Initialized {
 			participation_receiver,
 			chain_import_backlog: VecDeque::new(),
 			metrics,
+			approval_voting_parallel_enabled,
 		}
 	}
 
@@ -1059,9 +1068,21 @@ impl Initialized {
 				// 4. We are waiting (and blocking the whole subsystem) on a response right after -
 				// therefore even with all else failing we will never have more than
 				// one message in flight at any given time.
-				ctx.send_unbounded_message(
-					ApprovalVotingMessage::GetApprovalSignaturesForCandidate(candidate_hash, tx),
-				);
+				if self.approval_voting_parallel_enabled {
+					ctx.send_unbounded_message(
+						ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(
+							candidate_hash,
+							tx,
+						),
+					);
+				} else {
+					ctx.send_unbounded_message(
+						ApprovalVotingMessage::GetApprovalSignaturesForCandidate(
+							candidate_hash,
+							tx,
+						),
+					);
+				}
 				match rx.await {
 					Err(_) => {
 						gum::warn!(
