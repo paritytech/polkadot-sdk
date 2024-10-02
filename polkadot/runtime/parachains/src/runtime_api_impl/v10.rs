@@ -451,7 +451,24 @@ pub fn backing_state<T: initializer::Config>(
 	//
 	// Thus, minimum relay parent is ensured to have asynchronous backing enabled.
 	let now = frame_system::Pallet::<T>::block_number();
-	let min_relay_parent_number = shared::AllowedRelayParents::<T>::get()
+
+	// Use the right storage depending on version to ensure #64 doesn't cause issues with this
+	// migration.
+	let min_relay_parent_number = if shared::Pallet::<T>::on_chain_storage_version() ==
+		StorageVersion::new(0)
+	{
+		shared::migration::v0::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
+			now,
+			config.async_backing_params.allowed_ancestry_len,
+		)
+	} else {
+		shared::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
+			now,
+			config.async_backing_params.allowed_ancestry_len,
+		)
+	};
+
+	shared::AllowedRelayParents::<T>::get()
 		.hypothetical_earliest_block_number(now, config.async_backing_params.allowed_ancestry_len);
 
 	let required_parent = paras::Heads::<T>::get(para_id)?;
