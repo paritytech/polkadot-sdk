@@ -47,13 +47,13 @@ mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			Ok((Proposals::<T, I>::count() as u32).encode())
+			Ok((Proposals::<T, I>::iter_values().count() as u32).encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			let old_count = u32::decode(&mut &state[..]).expect("Known good");
-			let new_count = Regions::<T>::iter_values().count() as u32;
+			let new_count = Proposals::<T, I>::iter_values().count() as u32;
 
 			ensure!(
 				old_count <= new_count,
