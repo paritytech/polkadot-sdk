@@ -1423,7 +1423,7 @@ fn collations_outside_limits_are_not_fetched() {
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
-			ParaId::from(TestState::CHAIN_IDS[0]),
+			ParaId::from(test_state.chain_ids[0]),
 			head_b,
 			peer_a,
 			HeadData(vec![1 as u8]),
@@ -1433,7 +1433,7 @@ fn collations_outside_limits_are_not_fetched() {
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
-			ParaId::from(TestState::CHAIN_IDS[1]),
+			ParaId::from(test_state.chain_ids[1]),
 			head_b,
 			peer_b,
 			HeadData(vec![2 as u8]),
@@ -1443,7 +1443,7 @@ fn collations_outside_limits_are_not_fetched() {
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
-			ParaId::from(TestState::CHAIN_IDS[0]),
+			ParaId::from(test_state.chain_ids[0]),
 			head_b,
 			peer_a,
 			HeadData(vec![3 as u8]),
@@ -1521,7 +1521,7 @@ fn fair_collation_fetches() {
 			submit_second_and_assert(
 				&mut virtual_overseer,
 				keystore.clone(),
-				ParaId::from(TestState::CHAIN_IDS[0]),
+				ParaId::from(test_state.chain_ids[0]),
 				head_b,
 				peer_a,
 				HeadData(vec![i]),
@@ -1545,7 +1545,7 @@ fn fair_collation_fetches() {
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
-			ParaId::from(TestState::CHAIN_IDS[1]),
+			ParaId::from(test_state.chain_ids[1]),
 			head_b,
 			peer_b,
 			HeadData(vec![0 as u8]),
@@ -1643,7 +1643,7 @@ fn collation_fetches_without_claimqueue() {
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
-			ParaId::from(TestState::CHAIN_IDS[0]),
+			ParaId::from(test_state.chain_ids[0]),
 			head_b,
 			peer_a,
 			HeadData(vec![0 as u8]),
