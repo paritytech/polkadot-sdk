@@ -17,7 +17,6 @@
 
 //! Functions that deal contract addresses.
 
-use crate::LOG_TARGET;
 use alloc::vec::Vec;
 use sp_core::H160;
 use sp_io::hashing::keccak_256;
@@ -78,7 +77,6 @@ impl AddressMapper<AccountId32> for DefaultAddressMapper {
 
 /// Determine the address of a contract using CREATE semantics.
 pub fn create1(deployer: &H160, nonce: u64) -> H160 {
-	log::debug!(target: LOG_TARGET, "create1: deployer={deployer:?}, nonce={nonce}");
 	let mut list = rlp::RlpStream::new_list(2);
 	list.append(&deployer.as_bytes());
 	list.append(&nonce);
