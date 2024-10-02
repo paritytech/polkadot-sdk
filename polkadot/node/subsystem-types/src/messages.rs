@@ -142,28 +142,6 @@ pub enum PreCheckOutcome {
 /// or `Ok(ValidationResult::Invalid)`.
 #[derive(Debug)]
 pub enum CandidateValidationMessage {
-	/// Validate a candidate with provided parameters using relay-chain state.
-	///
-	/// This will implicitly attempt to gather the `PersistedValidationData` and `ValidationCode`
-	/// from the runtime API of the chain, based on the `relay_parent`
-	/// of the `CandidateReceipt`.
-	///
-	/// This will also perform checking of validation outputs against the acceptance criteria.
-	///
-	/// If there is no state available which can provide this data or the core for
-	/// the para is not free at the relay-parent, an error is returned.
-	ValidateFromChainState {
-		/// The candidate receipt
-		candidate_receipt: CandidateReceipt,
-		/// The proof-of-validity
-		pov: Arc<PoV>,
-		/// Session's executor parameters
-		executor_params: ExecutorParams,
-		/// Execution kind, used for timeouts and retries (backing/approvals)
-		exec_kind: PvfExecKind,
-		/// The sending side of the response channel
-		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
-	},
 	/// Validate a candidate with provided, exhaustive parameters for validation.
 	///
 	/// Explicitly provide the `PersistedValidationData` and `ValidationCode` so this can do full

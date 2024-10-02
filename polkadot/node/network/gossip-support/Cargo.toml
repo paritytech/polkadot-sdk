@@ -39,5 +39,4 @@ polkadot-node-subsystem-test-helpers = { workspace = true }
 assert_matches = { workspace = true }
 async-trait = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-lazy_static = { workspace = true }
 quickcheck = { workspace = true, default-features = true }
