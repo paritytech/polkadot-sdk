@@ -64,7 +64,7 @@ mod messages_adapter;
 mod parachain_adapter;
 mod priority;
 
-/// Data that is crafted in `pre_dispatch` method and used at `post_dispatch`.
+/// Data that is crafted in `validate`, passed to `prepare` and used at `post_dispatch` method.
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct PreDispatchData<
 	AccountId,
@@ -80,7 +80,7 @@ pub struct PreDispatchData<
 impl<AccountId, RemoteGrandpaChainBlockNumber: Debug, LaneId: Clone + Copy + Debug>
 	PreDispatchData<AccountId, RemoteGrandpaChainBlockNumber, LaneId>
 {
-	/// Returns mutable reference to pre-dispatch `finality_target` sent to the
+	/// Returns mutable reference to `finality_target` sent to the
 	/// `SubmitFinalityProof` call.
 	#[cfg(test)]
 	pub fn submit_finality_proof_info_mut(
@@ -201,7 +201,7 @@ where
 		//
 		// we are not checking if relayer is registered here - it happens during the slash attempt
 		//
-		// there are couple of edge cases here:
+		// there are a couple of edge cases here:
 		//
 		// - when the relayer becomes registered during message dispatch: this is unlikely + relayer
 		//   should be ready for slashing after registration;
@@ -301,22 +301,17 @@ where
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, R::RuntimeCall> {
-		// this is the only relevant line of code for the `pre_dispatch`
-		//
-		// we're not calling `validate` from `pre_dispatch` directly because of performance
-		// reasons, so if you're adding some code that may fail here, please check if it needs
-		// to be added to the `pre_dispatch` as well
+		// Prepare relevant data for `prepare`
 		let parsed_call = match C::parse_and_check_for_obsolete_call(call)? {
 			Some(parsed_call) => parsed_call,
 			None => return Ok((Default::default(), None, origin)),
 		};
-
 		// Those calls are only for signed transactions.
 		let relayer = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 
 		let data = PreDispatchData { relayer: relayer.clone(), call_info: parsed_call };
 
-		// the following code just plays with transaction priority and never returns an error
+		// the following code just plays with transaction priority
 
 		// we only boost priority of presumably correct message delivery transactions
 		let bundled_messages = match Self::bundled_messages_for_priority_boost(&data.call_info) {

@@ -194,10 +194,10 @@ pub trait TransactionExtension<Call: Dispatchable>:
 		}]
 	}
 
-	/// The type that encodes information that can be passed from validate to prepare.
+	/// The type that encodes information that can be passed from `validate` to `prepare`.
 	type Val;
 
-	/// The type that encodes information that can be passed from prepare to post-dispatch.
+	/// The type that encodes information that can be passed from `prepare` to `post_dispatch`.
 	type Pre;
 
 	/// The weight consumed by executing this extension instance fully during transaction dispatch.
