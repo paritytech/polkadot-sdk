@@ -8,6 +8,6 @@ doc:
     - CI: Run the frame-omni-bencher for all runtimes
 crates:
 - name: frame-benchmarking-cli
-  bump: patch
-- name: frame-benchmarking-pallet-pov
+  bump: major
+- name: contracts-rococo-runtime
   bump: patch
