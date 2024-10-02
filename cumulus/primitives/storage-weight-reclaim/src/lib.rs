@@ -140,6 +140,7 @@ impl<T: Config + Send + Sync> core::fmt::Debug for StorageWeightReclaim<T> {
 	}
 }
 
+#[allow(deprecated)]
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for StorageWeightReclaim<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,

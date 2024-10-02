@@ -39,25 +39,22 @@ thread_local! {
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, scale_info::TypeInfo)]
 pub struct MockExtensionWithRefund;
 
-impl TransactionExtensionBase for MockExtensionWithRefund {
+impl TransactionExtension<RuntimeCall> for MockExtensionWithRefund {
 	const IDENTIFIER: &'static str = "mock_extension_with_refund";
 	type Implicit = ();
-	fn weight() -> Weight {
-		MOCK_EXT_WEIGHT.with_borrow(|v| v.clone())
-	}
-}
-
-impl TransactionExtension<RuntimeCall> for MockExtensionWithRefund {
 	type Val = ();
 	type Pre = ();
+	fn weight(&self, _: &RuntimeCall) -> Weight {
+		MOCK_EXT_WEIGHT.with_borrow(|v| v.clone())
+	}
 	fn post_dispatch_details(
 		_pre: Self::Pre,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_post_info: &PostDispatchInfoOf<RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
-	) -> Result<Option<Weight>, TransactionValidityError> {
-		Ok(Some(MOCK_EXT_REFUND.with_borrow(|v| v.clone())))
+	) -> Result<Weight, TransactionValidityError> {
+		Ok(MOCK_EXT_REFUND.with_borrow(|v| v.clone()))
 	}
 
 	sp_runtime::impl_tx_ext_default!(RuntimeCall; validate prepare);
@@ -98,7 +95,10 @@ impl frame_system::ExtensionsWeightInfo for MockWeightInfo {
 	fn check_genesis() -> Weight {
 		Default::default()
 	}
-	fn check_mortality() -> Weight {
+	fn check_mortality_mortal_transaction() -> Weight {
+		Default::default()
+	}
+	fn check_mortality_immortal_transaction() -> Weight {
 		Default::default()
 	}
 	fn check_non_zero_sender() -> Weight {
@@ -494,14 +494,15 @@ fn full_basic_refund() {
 	let actual_used_proof_size = 200;
 	let check_weight = 100;
 	let storage_weight_reclaim = 100;
+	let mock_ext = 142;
 	let mock_ext_refund = 100;
 
 	// Test execution:
 	CHECK_WEIGHT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(1, check_weight));
 	STORAGE_WEIGHT_RECLAIM_WEIGHT
 		.with_borrow_mut(|v| *v = Weight::from_parts(1, storage_weight_reclaim));
-	MOCK_EXT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(36, mock_ext_refund + 42));
-	MOCK_EXT_REFUND.with_borrow_mut(|v| *v = Weight::from_parts(1, mock_ext_refund));
+	MOCK_EXT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(36, mock_ext));
+	MOCK_EXT_REFUND.with_borrow_mut(|v| *v = Weight::from_parts(35, mock_ext_refund));
 
 	let initial_storage_weight = 1212;
 
@@ -517,7 +518,7 @@ fn full_basic_refund() {
 		let post_info = extrinsic.apply::<Test>(&info, LEN).unwrap().unwrap();
 
 		// Assertions:
-		let post_info_tx_proof_size = check_weight + storage_weight_reclaim + mock_ext_refund;
+		let post_info_tx_proof_size = check_weight + storage_weight_reclaim + mock_ext - mock_ext_refund;
 		assert_eq!(
 			post_info.actual_weight,
 			Some(call_info.call_weight + Weight::from_parts(3, post_info_tx_proof_size))
@@ -535,14 +536,15 @@ fn full_accrue() {
 	let actual_used_proof_size = 400;
 	let check_weight = 100;
 	let storage_weight_reclaim = 100;
+	let mock_ext = 142;
 	let mock_ext_refund = 100;
 
 	// Test execution:
 	CHECK_WEIGHT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(1, check_weight));
 	STORAGE_WEIGHT_RECLAIM_WEIGHT
 		.with_borrow_mut(|v| *v = Weight::from_parts(1, storage_weight_reclaim));
-	MOCK_EXT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(36, mock_ext_refund + 42));
-	MOCK_EXT_REFUND.with_borrow_mut(|v| *v = Weight::from_parts(1, mock_ext_refund));
+	MOCK_EXT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(36, mock_ext));
+	MOCK_EXT_REFUND.with_borrow_mut(|v| *v = Weight::from_parts(35, mock_ext_refund));
 
 	let initial_storage_weight = 1212;
 
@@ -558,7 +560,7 @@ fn full_accrue() {
 		let post_info = extrinsic.apply::<Test>(&info, LEN).unwrap().unwrap();
 
 		// Assertions:
-		let post_info_tx_proof_size = check_weight + storage_weight_reclaim + mock_ext_refund;
+		let post_info_tx_proof_size = check_weight + storage_weight_reclaim + mock_ext - mock_ext_refund;
 		assert_eq!(
 			post_info.actual_weight,
 			Some(call_info.call_weight + Weight::from_parts(3, post_info_tx_proof_size))

@@ -35,7 +35,6 @@ use frame_support::{
 use sp_runtime::{
 	traits::{
 		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
-		TransactionExtensionBase,
 	},
 	transaction_validity::{TransactionValidityError, ValidTransaction},
 	DispatchResult,
@@ -111,24 +110,19 @@ impl<T, S: scale_info::StaticTypeInfo> scale_info::TypeInfo for StorageWeightRec
 	}
 }
 
-impl<T: Config + Send + Sync, S: TransactionExtensionBase> TransactionExtensionBase
-	for StorageWeightReclaim<T, S>
-{
-	const IDENTIFIER: &'static str = S::IDENTIFIER;
-	type Implicit = S::Implicit;
-
-	fn weight() -> Weight {
-		T::WeightInfo::storage_weight_reclaim().saturating_add(S::weight())
-	}
-}
-
 impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
 	TransactionExtension<T::RuntimeCall> for StorageWeightReclaim<T, S>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
+	const IDENTIFIER: &'static str = S::IDENTIFIER;
+	type Implicit = S::Implicit;
 	type Val = (Option<u64>, S::Val);
 	type Pre = (Option<u64>, S::Pre);
+
+	fn weight(&self, call: &T::RuntimeCall) -> Weight {
+		T::WeightInfo::storage_weight_reclaim().saturating_add(self.0.weight(call))
+	}
 
 	fn validate(
 		&self,
@@ -166,23 +160,21 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		result: &DispatchResult,
-	) -> Result<Option<Weight>, TransactionValidityError> {
+	) -> Result<Weight, TransactionValidityError> {
 		let (pre_dispatch_proof_size, inner_pre) = pre;
 
 		let mut post_info_with_inner = *post_info;
 		S::post_dispatch(inner_pre, info, &mut post_info_with_inner, len, result)?;
 
-		let post_dispatch_weight = post_info_with_inner.actual_weight.map(|post_info_with_inner| {
-			let weight_reduced_by_inner = post_info
-				.actual_weight
-				.unwrap_or_else(|| info.total_weight())
-				.saturating_sub(post_info_with_inner);
-			Self::weight().saturating_sub(weight_reduced_by_inner)
-		});
+		let inner_refund = if let (Some(before_weight), Some(after_weight)) = (post_info.actual_weight, post_info_with_inner.actual_weight) {
+			before_weight.saturating_sub(after_weight)
+		} else {
+			Weight::zero()
+		};
 
 		let Some(pre_dispatch_proof_size) = pre_dispatch_proof_size else {
 			// We have no proof size information, there is nothing we can do.
-			return Ok(post_dispatch_weight);
+			return Ok(inner_refund);
 		};
 
 		let Some(post_dispatch_proof_size) = get_proof_size() else {
@@ -190,7 +182,7 @@ where
 				target: LOG_TARGET,
 				"Proof recording enabled during prepare, now disabled. This should not happen."
 			);
-			return Ok(post_dispatch_weight)
+			return Ok(inner_refund)
 		};
 
 		// Unspent weight according to the `actual_weight` from `PostDispatchInfo`
@@ -228,6 +220,6 @@ where
 			}
 		});
 
-		Ok(post_dispatch_weight)
+		Ok(inner_refund)
 	}
 }
