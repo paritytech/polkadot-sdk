@@ -50,9 +50,9 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	BalanceOf, Config, DisabledValidators, DisablingStrategy, Error, Exposure, NegativeImbalanceOf,
-	NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash, UnappliedSlash,
-	ValidatorSlashInEra,
+	BalanceOf, Config, DisabledValidators, DisablingStrategy, Error, Exposure,
+	NegativeImbalanceOf, NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash,
+	UnappliedSlash, ValidatorSlashInEra,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -321,17 +321,48 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 }
 
 /// Inform the [`DisablingStrategy`] implementation about the new offender and disable the list of
-/// validators provided by [`make_disabling_decision`].
+/// validators provided by [`decision`].
 fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 	DisabledValidators::<T>::mutate(|disabled| {
-		if let Some(offender) =
-			T::DisablingStrategy::decision(params.stash, params.slash_era, &disabled)
-		{
-			// Add the validator to `DisabledValidators` and disable it. Do nothing if it is
-			// already disabled.
-			if let Err(index) = disabled.binary_search_by_key(&offender, |index| *index) {
-				disabled.insert(index, offender);
-				T::SessionInterface::disable_validator(offender);
+		let decision =
+			T::DisablingStrategy::decision(params.stash, params.slash, params.slash_era, &disabled);
+
+		if let Some(offender_idx) = decision.disable {
+			// Check if the offender is already disabled
+			match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
+				// Offender is already disabled, update severity if the new one is higher
+				Ok(index) => {
+					let (_, old_severity) = &mut disabled[index];
+					if params.slash > *old_severity {
+						*old_severity = params.slash;
+					}
+				},
+				Err(index) => {
+					// Offender is not disabled, add to `DisabledValidators` and disable it
+					let severity = params.slash;
+					disabled.insert(index, (offender_idx, severity));
+					// Propagate disablement to session level
+					T::SessionInterface::disable_validator(offender_idx);
+					// Emit event that a validator got disabled
+					<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorDisabled {
+						stash: params.stash.clone(),
+					});
+				},
+			}
+		}
+
+		if let Some(reenable_idx) = decision.reenable {
+			// Remove the validator from `DisabledValidators` and re-enable it.
+			if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index) {
+				disabled.remove(index);
+				// Propagate re-enablement to session level
+				T::SessionInterface::enable_validator(reenable_idx);
+				// Emit event that a validator got re-enabled
+				let reenabled_stash =
+					T::SessionInterface::validators()[reenable_idx as usize].clone();
+				<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorReenabled {
+					stash: reenabled_stash,
+				});
 			}
 		}
 	});

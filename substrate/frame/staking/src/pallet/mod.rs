@@ -69,7 +69,7 @@ pub mod pallet {
 	use super::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(15);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(16);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -727,7 +727,7 @@ pub mod pallet {
 	/// offended using binary search.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type DisabledValidators<T: Config> = StorageValue<_, Vec<u32>, ValueQuery>;
+	pub type DisabledValidators<T: Config> = StorageValue<_, Vec<(u32, Perbill)>, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
@@ -863,6 +863,10 @@ pub mod pallet {
 		ForceEra { mode: Forcing },
 		/// Report of a controller batch deprecation.
 		ControllerBatchDeprecated { failures: u32 },
+		/// Validator has been disabled.
+		ValidatorDisabled { stash: T::AccountId },
+		/// Validator has been re-enabled.
+		ValidatorReenabled { stash: T::AccountId },
 	}
 
 	#[pallet::error]

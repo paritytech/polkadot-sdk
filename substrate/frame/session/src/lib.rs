@@ -735,6 +735,23 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
+	/// Re-enable the validator of index `i`, returns `false` if the validator was already enabled.
+	pub fn enable_index(i: u32) -> bool {
+		if i >= Validators::<T>::decode_len().unwrap_or(0) as u32 {
+			return false
+		}
+
+		// If the validator is not disabled, return false.
+		DisabledValidators::<T>::mutate(|disabled| {
+			if let Ok(index) = disabled.binary_search(&i) {
+				disabled.remove(index);
+				true
+			} else {
+				false
+			}
+		})
+	}
+
 	/// Disable the validator identified by `c`. (If using with the staking pallet,
 	/// this would be their *stash* account.)
 	///
