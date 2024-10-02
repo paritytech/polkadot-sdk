@@ -141,9 +141,9 @@ where
 		block_hash: BlockHash<C>,
 		event: ViewStreamEvent<C>,
 	) -> Option<ExtrinsicHash<C>> {
-		debug!(
+		trace!(
 			target: LOG_TARGET,
-			"dropped_watcher: got event: views:{:#?}, event: {:?} states: {:?}",
+			"dropped_watcher: got event: views:{:?}, event: {:?} states: {:?}",
 			self.stream_map.keys().collect::<Vec<_>>(),
 			event,
 			self.transaction_states
@@ -218,15 +218,16 @@ where
 								ctx.stream_map.remove(&key);
 							},
 							Command::AddInitialViews(xts,block_hash) => {
-								log_xt_trace!(target: LOG_TARGET, xts.clone(), "[{:?}] dropped_watcher xt initial view added {block_hash:?}");
+								log_xt_trace!(target: LOG_TARGET, xts.clone(), "[{:?}] dropped_watcher: xt initial view added {block_hash:?}");
 								xts.into_iter().for_each(|xt| {
 									ctx.initial_views.entry(xt).or_default().insert(block_hash);
 								});
 							},
 							Command::RemoveFinalizedTxs(xts) => {
-								log_xt_trace!(target: LOG_TARGET, xts.clone(), "[{:?}] dropped_watcher xt unmuted");
+								log_xt_trace!(target: LOG_TARGET, xts.clone(), "[{:?}] dropped_watcher: finalized xt removed");
 								xts.iter().for_each(|xt| {
 									ctx.initial_views.remove(xt);
+									ctx.transaction_states.remove(xt);
 								});
 
 							},
@@ -234,7 +235,7 @@ where
 					},
 
 					Some(event) = next_event(&mut ctx.stream_map) => {
-						debug!(target: LOG_TARGET, "dropped_watcher: select_next_some -> {:#?} {:#?}", event, ctx.stream_map.keys().collect::<Vec<_>>());
+						debug!(target: LOG_TARGET, "dropped_watcher: next_event -> {:?} {:?}", event, ctx.stream_map.keys().collect::<Vec<_>>());
 						if let Some(dropped) = ctx.handle_event(event.0, event.1) {
 							debug!("dropped_watcher: sending out: {dropped:?}");
 							return Some((dropped, ctx));
@@ -467,6 +468,65 @@ mod dropped_watcher_tests {
 		.boxed();
 		let block_hash2 = H256::repeat_byte(0x03);
 		watcher.add_view(block_hash2, view_stream2);
+		let handle = tokio::spawn(async move { output_stream.take(1).collect::<Vec<_>>().await });
+		assert_eq!(handle.await.unwrap(), vec![tx_hash]);
+	}
+
+	#[tokio::test]
+	async fn test06() {
+		sp_tracing::try_init_simple();
+		let (watcher, mut output_stream) = MultiViewDroppedWatcher::new();
+		assert!(output_stream.next().now_or_never().is_none());
+
+		let block_hash0 = H256::repeat_byte(0x01);
+		let block_hash1 = H256::repeat_byte(0x02);
+		let tx_hash = H256::repeat_byte(0x0b);
+
+		let view_stream0 = futures::stream::iter(vec![
+			(tx_hash, TransactionStatus::Future),
+			(tx_hash, TransactionStatus::InBlock((block_hash1, 0))),
+		])
+		.boxed();
+		watcher.add_view(block_hash0, view_stream0);
+		assert!(output_stream.next().now_or_never().is_none());
+
+		let view_stream1 = futures::stream::iter(vec![
+			(tx_hash, TransactionStatus::Ready),
+			(tx_hash, TransactionStatus::Dropped),
+		])
+		.boxed();
+
+		watcher.add_view(block_hash1, view_stream1);
+		watcher.add_initial_views(vec![tx_hash], block_hash1);
+		assert!(output_stream.next().now_or_never().is_none());
+	}
+
+	#[tokio::test]
+	async fn test07() {
+		sp_tracing::try_init_simple();
+		let (watcher, mut output_stream) = MultiViewDroppedWatcher::new();
+		assert!(output_stream.next().now_or_never().is_none());
+
+		let block_hash0 = H256::repeat_byte(0x01);
+		let block_hash1 = H256::repeat_byte(0x02);
+		let tx_hash = H256::repeat_byte(0x0b);
+
+		let view_stream0 = futures::stream::iter(vec![
+			(tx_hash, TransactionStatus::Future),
+			(tx_hash, TransactionStatus::InBlock((block_hash1, 0))),
+		])
+		.boxed();
+		watcher.add_view(block_hash0, view_stream0);
+		watcher.add_initial_views(vec![tx_hash], block_hash0);
+		assert!(output_stream.next().now_or_never().is_none());
+
+		let view_stream1 = futures::stream::iter(vec![
+			(tx_hash, TransactionStatus::Ready),
+			(tx_hash, TransactionStatus::Dropped),
+		])
+		.boxed();
+		watcher.add_view(block_hash1, view_stream1);
+
 		let handle = tokio::spawn(async move { output_stream.take(1).collect::<Vec<_>>().await });
 		assert_eq!(handle.await.unwrap(), vec![tx_hash]);
 	}
