@@ -475,18 +475,6 @@ where
 			return Ok(Default::default())
 		}
 
-		if self.announced_blocks.was_announced(&block_hash) {
-			// Block was already reported by the finalized branch.
-			return Ok(Default::default())
-		}
-
-		// Double check the parent hash. If the parent hash is not reported, we have a gap.
-		let parent_block_hash = *notification.header.parent_hash();
-		if !self.announced_blocks.was_announced(&parent_block_hash) {
-			// The parent block was not reported, we have a gap.
-			return Err(SubscriptionManagementError::Custom("Parent block was not reported".into()))
-		}
-
 		// Ensure the block can be pinned before generating the events.
 		if !self.sub_handle.pin_block(&self.sub_id, block_hash)? {
 			// The block is already pinned, this is similar to the check above.
@@ -499,6 +487,18 @@ where
 			// [`MAX_FINALIZED_BLOCKS` + 1] finalized events are triggered before the `NewBlock`
 			// event of the first `Finalized` event.
 			return Ok(Default::default())
+		}
+
+		if self.announced_blocks.was_announced(&block_hash) {
+			// Block was already reported by the finalized branch.
+			return Ok(Default::default())
+		}
+
+		// Double check the parent hash. If the parent hash is not reported, we have a gap.
+		let parent_block_hash = *notification.header.parent_hash();
+		if !self.announced_blocks.was_announced(&parent_block_hash) {
+			// The parent block was not reported, we have a gap.
+			return Err(SubscriptionManagementError::Custom("Parent block was not reported".into()))
 		}
 
 		self.announced_blocks.insert(block_hash, false);
