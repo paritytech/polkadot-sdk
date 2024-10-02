@@ -26,8 +26,7 @@ use frame_benchmarking::v1::{
 };
 use frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable};
 use frame_system::RawOrigin as SystemOrigin;
-use sp_runtime::traits::Bounded;
-use sp_runtime::traits::Hash;
+use sp_runtime::traits::{Bounded, Hash};
 
 use crate::Pallet as Assets;
 

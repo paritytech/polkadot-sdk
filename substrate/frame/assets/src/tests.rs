@@ -1963,24 +1963,42 @@ fn merklized_distribution_works() {
 			_,
 		>(flat_distribution, 6);
 
+		let hashes =
+			<Test as crate::Config>::VerifyExistenceProof::proof_to_hashes(&proof_for_1).unwrap();
+
 		// Use this trie root for the distribution
 		assert_ok!(Assets::mint_distribution(RuntimeOrigin::signed(1), 0, root));
 
 		// Now users claim their distributions permissionlessly with a proof.
-		assert_ok!(Assets::claim_distribution(RuntimeOrigin::signed(1), 0, proof_for_1.encode()));
+		assert_ok!(Assets::claim_distribution(
+			RuntimeOrigin::signed(1),
+			0,
+			proof_for_1.encode(),
+			hashes
+		));
 		assert_eq!(Assets::balance(0, 1), 1337);
 
 		// Other users can claim their tokens.
-		assert_ok!(Assets::claim_distribution(RuntimeOrigin::signed(55), 0, proof_for_69.encode()));
+		assert_ok!(Assets::claim_distribution(
+			RuntimeOrigin::signed(55),
+			0,
+			proof_for_69.encode(),
+			hashes
+		));
 		assert_eq!(Assets::balance(0, 69), 69);
 
 		// Owner (or anyone) can also distribute on behalf of the other users.
-		assert_ok!(Assets::claim_distribution(RuntimeOrigin::signed(1), 0, proof_for_6.encode()));
+		assert_ok!(Assets::claim_distribution(
+			RuntimeOrigin::signed(1),
+			0,
+			proof_for_6.encode(),
+			hashes
+		));
 		assert_eq!(Assets::balance(0, 6), 6);
 
 		// You cannot double claim.
 		assert_noop!(
-			Assets::claim_distribution(RuntimeOrigin::signed(6), 0, proof_for_6.encode()),
+			Assets::claim_distribution(RuntimeOrigin::signed(6), 0, proof_for_6.encode(), hashes),
 			Error::<Test>::AlreadyClaimed
 		);
 	});

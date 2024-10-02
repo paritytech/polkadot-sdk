@@ -475,9 +475,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub(super) fn do_claim_distribution(
 		distribution_id: DistributionCounter,
 		merkle_proof: Vec<u8>,
+		hashes: u32,
 	) -> DispatchResult {
 		let proof =
 			codec::Decode::decode(&mut &merkle_proof[..]).map_err(|_| Error::<T, I>::BadProof)?;
+
+		let expected_hashes = T::VerifyExistenceProof::proof_to_hashes(&proof)
+			.map_err(|_| Error::<T, I>::BadProof)?;
+
+		ensure!(hashes >= expected_hashes, Error::<T, I>::TooManyHashes);
 
 		let DistributionInfo { asset_id, merkle_root, active } =
 			MerklizedDistribution::<T, I>::get(distribution_id).ok_or(Error::<T, I>::Unknown)?;

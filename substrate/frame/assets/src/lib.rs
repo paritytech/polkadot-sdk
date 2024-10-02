@@ -188,8 +188,8 @@ use frame_support::{
 			Preservation::{Expendable, Preserve},
 			WithdrawConsequence,
 		},
-		BalanceStatus::Reserved, ProofToHashes,
-		Currency, EnsureOriginWithArg, Incrementable, ReservableCurrency, StoredMap,
+		BalanceStatus::Reserved,
+		Currency, EnsureOriginWithArg, Incrementable, ProofToHashes, ReservableCurrency, StoredMap,
 		VerifyExistenceProof,
 	},
 };
@@ -299,7 +299,6 @@ pub mod pallet {
 			type Extra = ();
 			type CallbackHandle = ();
 			type WeightInfo = ();
-			type VerifyExistenceProof = NoTrie<sp_core::H256>;
 			#[cfg(feature = "runtime-benchmarks")]
 			type BenchmarkHelper = ();
 		}
@@ -408,7 +407,9 @@ pub mod pallet {
 		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId>;
 
 		/// A type used to verify merkle proofs used for distributions.
-		type VerifyExistenceProof: VerifyExistenceProof<Hash = <Self as frame_system::Config>::Hash> + ProofToHashes<Proof = DistributionProofOf<Self, I>>;
+		#[pallet::no_default]
+		type VerifyExistenceProof: VerifyExistenceProof<Hash = Self::Hash>
+			+ ProofToHashes<Proof = DistributionProofOf<Self, I>>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -736,8 +737,10 @@ pub mod pallet {
 		DistributionActive,
 		/// The proof provided could not be verified.
 		BadProof,
-		/// The a leaf node was extracted from the proof, but it did not match the expected format.
+		/// The leaf node was extracted from the proof, but it did not match the expected format.
 		CannotDecodeLeaf,
+		/// The proof will require more hashes than expected.
+		TooManyHashes,
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -1884,17 +1887,15 @@ pub mod pallet {
 		///
 		/// Weight: `O(P)` where `P` is the size of the merkle proof.
 		#[pallet::call_index(34)]
-		#[pallet::weight({
-			let hashes = T::VerifyExistenceProof::proof_to_hashes(merkle_proof);
-			T::WeightInfo::trie_hash(hashes)
-		})]
+		#[pallet::weight(T::WeightInfo::trie_hash(*hashes))]
 		pub fn claim_distribution(
 			origin: OriginFor<T>,
 			distribution_id: DistributionCounter,
 			merkle_proof: Vec<u8>,
+			hashes: u32,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
-			Self::do_claim_distribution(distribution_id, merkle_proof)?;
+			Self::do_claim_distribution(distribution_id, merkle_proof, hashes)?;
 			Ok(())
 		}
 

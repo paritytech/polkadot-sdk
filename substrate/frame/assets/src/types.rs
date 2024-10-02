@@ -324,8 +324,6 @@ pub type DistributionProofOf<T, I> =
 pub type DistributionHashOf<T, I> =
 	<<T as Config<I>>::VerifyExistenceProof as VerifyExistenceProof>::Hash;
 
-pub type HashOf<T> = <T as frame_system::Config>::Hash;
-
 #[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct DistributionInfo<AssetId, Hash> {
 	// The asset id we are distributing.
