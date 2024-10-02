@@ -22,6 +22,7 @@ use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, SAFE_XCM_VERSION,
 };
 use parachains_common::Balance;
+use xcm::latest::prelude::*;
 
 pub const PARA_ID: u32 = 1002;
 pub const ASSETHUB_PARA_ID: u32 = 1000;
@@ -65,6 +66,17 @@ pub fn genesis() -> Storage {
 		},
 		bridge_rococo_messages: bridge_hub_westend_runtime::BridgeRococoMessagesConfig {
 			owner: Some(Keyring::Bob.to_account_id()),
+			..Default::default()
+		},
+		xcm_over_bridge_hub_rococo: bridge_hub_westend_runtime::XcmOverBridgeHubRococoConfig {
+			opened_bridges: vec![
+				// open AHW -> AHR bridge
+				(
+					Location::new(1, [Parachain(1000)]),
+					Junctions::from([Rococo.into(), Parachain(1000)]),
+					Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
+				),
+			],
 			..Default::default()
 		},
 		ethereum_system: bridge_hub_westend_runtime::EthereumSystemConfig {

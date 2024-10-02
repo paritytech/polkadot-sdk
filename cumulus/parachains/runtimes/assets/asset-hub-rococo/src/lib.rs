@@ -38,7 +38,7 @@ use assets_common::{
 	AssetIdForTrustBackedAssetsConvert,
 };
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use cumulus_primitives_core::AggregateMessageOrigin;
+use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -123,7 +123,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("statemine"),
 	impl_name: create_runtime_str!("statemine"),
 	authoring_version: 1,
-	spec_version: 1_015_000,
+	spec_version: 1_016_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -545,7 +545,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Utility { .. } |
 						RuntimeCall::Multisig { .. } |
 						RuntimeCall::NftFractionalization { .. } |
-						RuntimeCall::Nfts { .. } | RuntimeCall::Uniques { .. }
+						RuntimeCall::Nfts { .. } |
+						RuntimeCall::Uniques { .. }
 				)
 			},
 			ProxyType::AssetOwner => matches!(
@@ -666,6 +667,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
+	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -865,7 +867,7 @@ impl pallet_nft_fractionalization::Config for Runtime {
 	type Assets = Assets;
 	type Nfts = Nfts;
 	type PalletId = NftFractionalizationPalletId;
-	type WeightInfo = pallet_nft_fractionalization::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_nft_fractionalization::WeightInfo<Runtime>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
@@ -1386,6 +1388,12 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
 			ParachainSystem::collect_collation_info(header)
+		}
+	}
+
+	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
+		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+			ParachainSystem::core_selector()
 		}
 	}
 

@@ -67,7 +67,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -126,7 +126,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("collectives-westend"),
 	impl_name: create_runtime_str!("collectives-westend"),
 	authoring_version: 1,
-	spec_version: 1_015_000,
+	spec_version: 1_016_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -398,6 +398,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
+	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -1005,6 +1006,12 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
 			ParachainSystem::collect_collation_info(header)
+		}
+	}
+
+	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
+		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+			ParachainSystem::core_selector()
 		}
 	}
 

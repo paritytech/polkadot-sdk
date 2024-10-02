@@ -796,6 +796,10 @@ pub use polkadot_node_collation_generation;
 #[cfg(feature = "polkadot-node-core-approval-voting")]
 pub use polkadot_node_core_approval_voting;
 
+/// Approval Voting Subsystem running approval work in parallel.
+#[cfg(feature = "polkadot-node-core-approval-voting-parallel")]
+pub use polkadot_node_core_approval_voting_parallel;
+
 /// The Availability Store subsystem. Wrapper over the DB that stores availability data and
 /// chunks.
 #[cfg(feature = "polkadot-node-core-av-store")]

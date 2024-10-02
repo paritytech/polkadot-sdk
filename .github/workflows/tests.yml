@@ -5,21 +5,20 @@ on:
     branches:
       - master
   pull_request:
-    types: [ opened, synchronize, reopened, ready_for_review ]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-
   preflight:
     uses: ./.github/workflows/reusable-preflight.yml
 
   # This job runs all benchmarks defined in the `/bin/node/runtime` once to check that there are no errors.
   quick-benchmarks:
-    needs: [ preflight ]
-    # if: ${{ needs.preflight.outputs.changes_rust }}
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -33,12 +32,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: forklift cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet
+        run: forklift cargo run --locked --release -p staging-node-cli --bin substrate-node --features runtime-benchmarks --quiet -- benchmark pallet --chain dev --pallet "*" --extrinsic "*" --steps 2 --repeat 1 --quiet
 
   # cf https://github.com/paritytech/polkadot-sdk/issues/1652
   test-syscalls:
-    needs: [ preflight ]
-    # if: ${{ needs.preflight.outputs.changes_rust }}
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -52,7 +51,7 @@ jobs:
       - name: script
         id: test
         run: |
-          forklift cargo build --locked --profile production --target x86_64-unknown-linux-musl --bin polkadot-execute-worker --bin polkadot-prepare-worker
+          forklift cargo build --locked --profile production --target x86_64-unknown-linux-musl --bin polkadot-execute-worker --bin polkadot-prepare-worker --quiet
           cd polkadot/scripts/list-syscalls
           ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-execute-worker --only-used-syscalls | diff -u execute-worker-syscalls -
           ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls | diff -u prepare-worker-syscalls -
@@ -61,10 +60,9 @@ jobs:
         run: |
           echo "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed." >> $GITHUB_STEP_SUMMARY
 
-
   cargo-check-all-benches:
-    needs: [ preflight ]
-    # if: ${{ needs.preflight.outputs.changes_rust }}
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -75,4 +73,4 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: forklift cargo check --all --benches
+        run: forklift cargo check --all --benches --quiet

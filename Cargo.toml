@@ -158,6 +158,7 @@ members = [
 	"polkadot/erasure-coding/fuzzer",
 	"polkadot/node/collation-generation",
 	"polkadot/node/core/approval-voting",
+	"polkadot/node/core/approval-voting-parallel",
 	"polkadot/node/core/av-store",
 	"polkadot/node/core/backing",
 	"polkadot/node/core/bitfield-signing",
@@ -551,7 +552,7 @@ default-members = [
 [workspace.lints.rust]
 suspicious_double_ref_op = { level = "allow", priority = 2 }
 # `substrate_runtime` is a common `cfg` condition name used in the repo.
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(substrate_runtime)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(build_opt_level, values("3"))', 'cfg(build_profile, values("debug", "release"))', 'cfg(enable_alloc_error_handler)', 'cfg(fuzzing)', 'cfg(substrate_runtime)'] }
 
 [workspace.lints.clippy]
 all = { level = "allow", priority = 0 }
@@ -737,6 +738,7 @@ either = { version = "1.8.1", default-features = false }
 emulated-integration-tests-common = { path = "cumulus/parachains/integration-tests/emulated/common", default-features = false }
 enumflags2 = { version = "0.7.7" }
 enumn = { version = "0.1.13" }
+env_logger = { version = "0.11.2" }
 environmental = { version = "1.1.4", default-features = false }
 equivocation-detector = { path = "bridges/relays/equivocation" }
 ethabi = { version = "1.0.0", default-features = false, package = "ethabi-decode" }
@@ -817,14 +819,13 @@ jobserver = { version = "0.1.26" }
 jsonpath_lib = { version = "0.3" }
 jsonrpsee = { version = "0.24.3" }
 jsonrpsee-core = { version = "0.24.3" }
-k256 = { version = "0.13.3", default-features = false }
+k256 = { version = "0.13.4", default-features = false }
 kitchensink-runtime = { path = "substrate/bin/node/runtime" }
 kvdb = { version = "0.13.0" }
 kvdb-memorydb = { version = "0.13.0" }
 kvdb-rocksdb = { version = "0.19.0" }
 kvdb-shared-tests = { version = "0.11.0" }
 landlock = { version = "0.3.0" }
-lazy_static = { version = "1.5.0" }
 libc = { version = "0.2.155" }
 libfuzzer-sys = { version = "0.4" }
 libp2p = { version = "0.52.4" }
@@ -1031,6 +1032,7 @@ polkadot-gossip-support = { path = "polkadot/node/network/gossip-support", defau
 polkadot-network-bridge = { path = "polkadot/node/network/bridge", default-features = false }
 polkadot-node-collation-generation = { path = "polkadot/node/collation-generation", default-features = false }
 polkadot-node-core-approval-voting = { path = "polkadot/node/core/approval-voting", default-features = false }
+polkadot-node-core-approval-voting-parallel = { path = "polkadot/node/core/approval-voting-parallel", default-features = false }
 polkadot-node-core-av-store = { path = "polkadot/node/core/av-store", default-features = false }
 polkadot-node-core-backing = { path = "polkadot/node/core/backing", default-features = false }
 polkadot-node-core-bitfield-signing = { path = "polkadot/node/core/bitfield-signing", default-features = false }
@@ -1197,6 +1199,7 @@ sha1 = { version = "0.10.6" }
 sha2 = { version = "0.10.7", default-features = false }
 sha3 = { version = "0.10.0", default-features = false }
 shell-runtime = { path = "cumulus/parachains/runtimes/starters/shell" }
+shlex = { version = "1.3.0" }
 slot-range-helper = { path = "polkadot/runtime/common/slot_range_helper", default-features = false }
 slotmap = { version = "1.0" }
 smallvec = { version = "1.11.0", default-features = false }
@@ -1299,7 +1302,9 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-syn = { version = "2.0.77" }
+subxt = { version = "0.37", default-features = false }
+subxt-signer = { version = "0.37" }
+syn = { version = "2.0.79" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }
@@ -1368,6 +1373,7 @@ xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
+zombienet-sdk = { version = "0.2.13" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]

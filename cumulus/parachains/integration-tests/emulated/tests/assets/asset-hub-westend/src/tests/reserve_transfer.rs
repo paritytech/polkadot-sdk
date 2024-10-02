@@ -1558,3 +1558,58 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	// Receiver's balance is increased
 	assert!(receiver_assets_after > receiver_assets_before);
 }
+
+/// Reserve Withdraw Native Asset from AssetHub to Parachain fails.
+#[test]
+fn reserve_withdraw_from_untrusted_reserve_fails() {
+	// Init values for Parachain Origin
+	let destination = AssetHubWestend::sibling_location_of(PenpalA::para_id());
+	let signed_origin =
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get().into());
+	let roc_to_send: Balance = WESTEND_ED * 10000;
+	let roc_location = RelayLocation::get();
+
+	// Assets to send
+	let assets: Vec<Asset> = vec![(roc_location.clone(), roc_to_send).into()];
+	let fee_id: AssetId = roc_location.into();
+
+	// this should fail
+	AssetHubWestend::execute_with(|| {
+		let result = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
+			signed_origin.clone(),
+			bx!(destination.clone().into()),
+			bx!(assets.clone().into()),
+			bx!(TransferType::DestinationReserve),
+			bx!(fee_id.into()),
+			bx!(TransferType::DestinationReserve),
+			bx!(VersionedXcm::from(Xcm::<()>::new())),
+			Unlimited,
+		);
+		assert_err!(
+			result,
+			DispatchError::Module(sp_runtime::ModuleError {
+				index: 31,
+				error: [22, 0, 0, 0],
+				message: Some("InvalidAssetUnsupportedReserve")
+			})
+		);
+	});
+
+	// this should also fail
+	AssetHubWestend::execute_with(|| {
+		let xcm: Xcm<asset_hub_westend_runtime::RuntimeCall> = Xcm(vec![
+			WithdrawAsset(assets.into()),
+			InitiateReserveWithdraw {
+				assets: Wild(All),
+				reserve: destination,
+				xcm: Xcm::<()>::new(),
+			},
+		]);
+		let result = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
+			signed_origin,
+			bx!(xcm::VersionedXcm::V4(xcm)),
+			Weight::MAX,
+		);
+		assert!(result.is_err());
+	});
+}

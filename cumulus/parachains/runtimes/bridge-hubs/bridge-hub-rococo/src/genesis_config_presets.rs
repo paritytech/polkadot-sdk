@@ -31,6 +31,7 @@ fn bridge_hub_rococo_genesis(
 	id: ParaId,
 	bridges_pallet_owner: Option<AccountId>,
 	asset_hub_para_id: ParaId,
+	opened_bridges: Vec<(Location, InteriorLocation, Option<bp_messages::LegacyLaneId>)>,
 ) -> serde_json::Value {
 	let config = RuntimeGenesisConfig {
 		balances: BalancesConfig {
@@ -71,6 +72,10 @@ fn bridge_hub_rococo_genesis(
 			owner: bridges_pallet_owner.clone(),
 			..Default::default()
 		},
+		xcm_over_bridge_hub_westend: XcmOverBridgeHubWestendConfig {
+			opened_bridges,
+			..Default::default()
+		},
 		ethereum_system: EthereumSystemConfig {
 			para_id: id,
 			asset_hub_para_id,
@@ -95,6 +100,11 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<
 			1013.into(),
 			Some(Sr25519Keyring::Bob.to_account_id()),
 			rococo_runtime_constants::system_parachain::ASSET_HUB_ID.into(),
+			vec![(
+				Location::new(1, [Parachain(1000)]),
+				Junctions::from([Westend.into(), Parachain(1000)]),
+				Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
+			)],
 		),
 		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => bridge_hub_rococo_genesis(
 			// initial collators.
@@ -106,6 +116,7 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<
 			1013.into(),
 			Some(Sr25519Keyring::Bob.to_account_id()),
 			rococo_runtime_constants::system_parachain::ASSET_HUB_ID.into(),
+			vec![],
 		),
 		_ => return None,
 	};
