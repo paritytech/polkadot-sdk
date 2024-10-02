@@ -48,7 +48,9 @@ rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 
 # The Polkadot-SDK:
-polkadot-sdk = { features = ["node"], workspace = true, default-features = true }
+polkadot-sdk = { features = [
+	"node",
+], workspace = true, default-features = true }
 
 # Shared code between the staging node and kitchensink runtime:
 kitchensink-runtime = { workspace = true }
@@ -64,13 +66,23 @@ nix = { features = ["signal"], workspace = true }
 regex = { workspace = true }
 platforms = { workspace = true }
 soketto = { workspace = true }
-criterion = { features = ["async_tokio"], workspace = true, default-features = true }
-tokio = { features = ["macros", "parking_lot", "time"], workspace = true, default-features = true }
+criterion = { features = [
+	"async_tokio",
+], workspace = true, default-features = true }
+tokio = { features = [
+	"macros",
+	"parking_lot",
+	"time",
+], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }
 wait-timeout = { workspace = true }
 wat = { workspace = true }
 serde_json = { workspace = true, default-features = true }
-scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
+scale-info = { features = [
+	"derive",
+	"serde",
+], workspace = true, default-features = true }
+sp-keyring = { workspace = true }
 pretty_assertions.workspace = true
 
 # These testing-only dependencies are not exported by the Polkadot-SDK crate:
@@ -84,16 +96,16 @@ clap_complete = { optional = true, workspace = true }
 
 node-inspect = { optional = true, workspace = true, default-features = true }
 
-polkadot-sdk = { features = ["frame-benchmarking-cli", "sc-cli", "sc-storage-monitor", "substrate-build-script-utils"], optional = true, workspace = true, default-features = true }
+polkadot-sdk = { features = [
+	"frame-benchmarking-cli",
+	"sc-cli",
+	"sc-storage-monitor",
+	"substrate-build-script-utils",
+], optional = true, workspace = true, default-features = true }
 
 [features]
 default = ["cli"]
-cli = [
-	"clap",
-	"clap_complete",
-	"node-inspect",
-	"polkadot-sdk",
-]
+cli = ["clap", "clap_complete", "node-inspect", "polkadot-sdk"]
 runtime-benchmarks = [
 	"kitchensink-runtime/runtime-benchmarks",
 	"node-inspect?/runtime-benchmarks",
@@ -104,10 +116,7 @@ try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
 ]
-riscv = [
-	"kitchensink-runtime/riscv",
-	"polkadot-sdk/riscv",
-]
+riscv = ["kitchensink-runtime/riscv", "polkadot-sdk/riscv"]
 
 [[bench]]
 name = "transaction_pool"

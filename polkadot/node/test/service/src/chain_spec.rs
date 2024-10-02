@@ -75,8 +75,8 @@ pub fn polkadot_local_testnet_genesis() -> serde_json::Value {
 fn get_authority_keys_from_seed(
 	seed: &str,
 ) -> (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
-	let sr25519_keyring = Sr25519Keyring::from_str(seed).expect("Parse keyring error");
-	let ed25519_keyring = Ed25519Keyring::from_str(seed).expect("Parse keyring error");
+	let sr25519_keyring = Sr25519Keyring::from_str(seed).expect("should parse str seed to keyring");
+	let ed25519_keyring = Ed25519Keyring::from_str(seed).expect("should parse str seed to keyring");
 	(
 		sr25519_keyring.to_account_id(),
 		sr25519_keyring.to_account_id(),

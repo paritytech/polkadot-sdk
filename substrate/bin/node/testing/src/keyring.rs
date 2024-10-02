@@ -20,52 +20,64 @@
 
 use codec::Encode;
 use kitchensink_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
-use node_cli::chain_spec::get_from_seed;
 use node_primitives::{AccountId, Balance, Nonce};
 use sp_core::{ecdsa, ed25519, sr25519};
 use sp_crypto_hashing::blake2_256;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::generic::Era;
+use std::str::FromStr;
 
 /// Alice's account id.
 pub fn alice() -> AccountId {
-	AccountKeyring::Alice.into()
+	Sr25519Keyring::Alice.into()
 }
 
 /// Bob's account id.
 pub fn bob() -> AccountId {
-	AccountKeyring::Bob.into()
+	Sr25519Keyring::Bob.into()
 }
 
 /// Charlie's account id.
 pub fn charlie() -> AccountId {
-	AccountKeyring::Charlie.into()
+	Sr25519Keyring::Charlie.into()
 }
 
 /// Dave's account id.
 pub fn dave() -> AccountId {
-	AccountKeyring::Dave.into()
+	Sr25519Keyring::Dave.into()
 }
 
 /// Eve's account id.
 pub fn eve() -> AccountId {
-	AccountKeyring::Eve.into()
+	Sr25519Keyring::Eve.into()
 }
 
 /// Ferdie's account id.
 pub fn ferdie() -> AccountId {
-	AccountKeyring::Ferdie.into()
+	Sr25519Keyring::Ferdie.into()
 }
 
 /// Convert keyrings into `SessionKeys`.
 pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 	SessionKeys {
-		grandpa: get_from_seed::<ed25519::Public>(seed).into(),
-		babe: get_from_seed::<sr25519::Public>(seed).into(),
-		im_online: get_from_seed::<sr25519::Public>(seed).into(),
-		authority_discovery: get_from_seed::<sr25519::Public>(seed).into(),
-		mixnet: get_from_seed::<sr25519::Public>(seed).into(),
-		beefy: get_from_seed::<ecdsa::Public>(seed).into(),
+		grandpa: ed25519::Public::from_str(seed)
+			.expect("should parse str seed to sr25519 public")
+			.into(),
+		babe: sr25519::Public::from_str(seed)
+			.expect("should parse str seed to sr25519 public")
+			.into(),
+		im_online: sr25519::Public::from_str(seed)
+			.expect("should parse str seed to sr25519 public")
+			.into(),
+		authority_discovery: sr25519::Public::from_str(seed)
+			.expect("should parse str seed to sr25519 public")
+			.into(),
+		mixnet: sr25519::Public::from_str(seed)
+			.expect("should parse str seed to sr25519 public")
+			.into(),
+		beefy: ecdsa::Public::from_str(seed)
+			.expect("should parse str seed to ecdsa public")
+			.into(),
 	}
 }
 
@@ -105,7 +117,7 @@ pub fn sign(
 				genesis_hash,
 				metadata_hash,
 			);
-			let key = AccountKeyring::from_account_id(&signed).unwrap();
+			let key = Sr25519Keyring::from_account_id(&signed).unwrap();
 			let signature =
 				payload
 					.using_encoded(|b| {

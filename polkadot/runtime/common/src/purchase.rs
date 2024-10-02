@@ -489,10 +489,9 @@ mod tests {
 		traits::{Currency, WithdrawReasons},
 	};
 	use sp_runtime::{
-		traits::{BlakeTwo256, Dispatchable, Identity, IdentityLookup, Verify},
+		traits::{BlakeTwo256, Dispatchable, Identity, IdentityLookup},
 		ArithmeticError, BuildStorage,
 		DispatchError::BadOrigin,
-		MultiSignature,
 	};
 
 	type Block = frame_system::mocking::MockBlock<Test>;

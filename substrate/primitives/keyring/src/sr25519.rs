@@ -165,8 +165,12 @@ impl FromStr for Keyring {
 			"Dave" => Ok(Keyring::Dave),
 			"Eve" => Ok(Keyring::Eve),
 			"Ferdie" => Ok(Keyring::Ferdie),
-			"One" => Ok(Keyring::One),
-			"Two" => Ok(Keyring::Two),
+			"Alice//stash" => Ok(Keyring::AliceStash),
+			"Bob//stash" => Ok(Keyring::BobStash),
+			"Charlie//stash" => Ok(Keyring::CharlieStash),
+			"Dave//stash" => Ok(Keyring::DaveStash),
+			"Eve//stash" => Ok(Keyring::EveStash),
+			"Ferdie//stash" => Ok(Keyring::FerdieStash),
 			_ => Err(ParseKeyringError),
 		}
 	}

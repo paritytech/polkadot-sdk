@@ -2390,6 +2390,8 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core 28.0.0",
+ "sp-keyring",
+ "staging-xcm",
  "testnet-parachains-constants",
 ]
 
@@ -13158,6 +13160,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-genesis-builder",
  "sp-inherents",
+ "sp-keyring",
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
@@ -23444,6 +23447,7 @@ dependencies = [
  "serde",
  "serde_json",
  "soketto 0.8.0",
+ "sp-keyring",
  "staging-node-inspect",
  "substrate-cli-test-utils",
  "tempfile",
@@ -27027,6 +27031,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
+ "sp-keyring",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
