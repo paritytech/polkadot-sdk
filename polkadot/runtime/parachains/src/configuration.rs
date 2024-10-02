@@ -314,7 +314,7 @@ pub enum InconsistentError<BlockNumber> {
 	MaxCodeSizeExceedHardLimit { max_code_size: u32 },
 	/// `max_head_data_size` exceeds the hard limit of `MAX_HEAD_DATA_SIZE`.
 	MaxHeadDataSizeExceedHardLimit { max_head_data_size: u32 },
-	/// `max_pov_size` exceeds the hard limit of `MAX_POV_SIZE`.
+	/// `max_pov_size` exceeds the hard limit of `POV_SIZE_HARD_LIMIT`.
 	MaxPovSizeExceedHardLimit { max_pov_size: u32 },
 	/// `minimum_validation_upgrade_delay` is less than `paras_availability_period`.
 	MinimumValidationUpgradeDelayLessThanChainAvailabilityPeriod {
