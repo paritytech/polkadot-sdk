@@ -82,7 +82,7 @@ pub enum Error {
 	FetchValidatorGroups(RuntimeApiError),
 
 	#[error("Fetching claim queue failed {0:?}")]
-	FetchClaimQueue(runtime::Error),
+	FetchClaimQueue(RuntimeApiError),
 
 	#[error("Attempted to share statement when not a validator or not assigned")]
 	InvalidShare,

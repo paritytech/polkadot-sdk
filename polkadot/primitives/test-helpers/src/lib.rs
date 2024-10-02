@@ -260,7 +260,7 @@ pub fn make_candidate_v2(
 	para_id: ParaId,
 	parent_head: HeadData,
 	head_data: HeadData,
-	validation_code_hash: ValidationCodeHash,
+	_validation_code_hash: ValidationCodeHash,
 ) -> (CommittedCandidateReceiptV2, PersistedValidationData) {
 	let pvd = dummy_pvd(parent_head, relay_parent_number);
 	let commitments = CandidateCommitments {

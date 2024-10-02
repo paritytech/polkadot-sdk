@@ -53,7 +53,7 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] v2_descriptor: boo
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
-		let (mut candidate, pvd) =
+		let (candidate, pvd) =
 		if v2_descriptor {
 			let (mut candidate, pvd) = make_candidate_v2(
 				relay_parent,
@@ -1060,6 +1060,15 @@ fn peer_reported_for_statements_with_invalid_core_index() {
 			)
 			.await;
 
+			let recv = overseer.recv().await;
+			println!("recvd {:?}", recv);
+
+			assert_matches!(
+				recv,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_STATEMENT.into() => { }
+			);
+
 			assert_matches!(
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
@@ -1071,8 +1080,6 @@ fn peer_reported_for_statements_with_invalid_core_index() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
 					if p == peer_a && r == COST_INVALID_CORE_INDEX.into() => { }
 			);
-
-			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
 
 		overseer

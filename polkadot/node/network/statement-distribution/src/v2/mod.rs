@@ -46,7 +46,7 @@ use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::ReputationAggregator,
 	runtime::{
-		fetch_claim_queue, request_min_backing_votes, request_node_features, ClaimQueueSnapshot,
+		request_min_backing_votes, request_node_features, ClaimQueueSnapshot,
 		ProspectiveParachainsMode,
 	},
 };
@@ -703,12 +703,11 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				.map_err(JfyiError::FetchValidatorGroups)?
 				.1;
 
-		let maybe_claim_queue = fetch_claim_queue(ctx.sender(), new_relay_parent)
-		.await
-		.unwrap_or_else(|err| {
-				gum::debug!(target: LOG_TARGET, ?new_relay_parent, ?err, "handle_active_leaves_update: `claim_queue` API not available");
-				None
-			});
+		let claim_queue = ClaimQueueSnapshot(polkadot_node_subsystem_util::request_claim_queue(new_relay_parent, ctx.sender())
+			.await
+			.await
+			.map_err(JfyiError::RuntimeApiUnavailable)?
+			.map_err(JfyiError::FetchClaimQueue)?);
 
 		let local_validator = per_session.local_validator.and_then(|v| {
 			if let LocalValidatorIndex::Active(idx) = v {
@@ -717,9 +716,8 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 					&per_session.groups,
 					&availability_cores,
 					&group_rotation_info,
-					&maybe_claim_queue,
+					&claim_queue,
 					seconding_limit,
-					max_candidate_depth,
 				)
 			} else {
 				Some(LocalValidatorState { grid_tracker: GridTracker::default(), active: None })
@@ -729,14 +727,11 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 		let groups_per_para = determine_groups_per_para(
 			availability_cores,
 			group_rotation_info,
-			&maybe_claim_queue,
-			max_candidate_depth,
+			&claim_queue,
 		)
 		.await;
 
-		// TODO: CQ should always be available. We need to error here and stop working
-		// on this RP.
-		let transposed_cq = transpose_claim_queue(maybe_claim_queue.unwrap_or_default().0);
+		let transposed_cq = transpose_claim_queue(claim_queue.0);
 
 		state.per_relay_parent.insert(
 			new_relay_parent,
@@ -789,9 +784,8 @@ fn find_active_validator_state(
 	groups: &Groups,
 	availability_cores: &[CoreState],
 	group_rotation_info: &GroupRotationInfo,
-	maybe_claim_queue: &Option<ClaimQueueSnapshot>,
+	claim_queue: &ClaimQueueSnapshot,
 	seconding_limit: usize,
-	max_candidate_depth: usize,
 ) -> Option<LocalValidatorState> {
 	if groups.all().is_empty() {
 		return None
@@ -800,22 +794,7 @@ fn find_active_validator_state(
 	let our_group = groups.by_validator_index(validator_index)?;
 
 	let core_index = group_rotation_info.core_for_group(our_group, availability_cores.len());
-	let paras_assigned_to_core = if let Some(claim_queue) = maybe_claim_queue {
-		claim_queue.iter_claims_for_core(&core_index).copied().collect()
-	} else {
-		availability_cores
-			.get(core_index.0 as usize)
-			.and_then(|core_state| match core_state {
-				CoreState::Scheduled(scheduled_core) => Some(scheduled_core.para_id),
-				CoreState::Occupied(occupied_core) if max_candidate_depth >= 1 => occupied_core
-					.next_up_on_available
-					.as_ref()
-					.map(|scheduled_core| scheduled_core.para_id),
-				CoreState::Free | CoreState::Occupied(_) => None,
-			})
-			.into_iter()
-			.collect()
-	};
+	let paras_assigned_to_core = claim_queue.iter_claims_for_core(&core_index).copied().collect();
 	let group_validators = groups.get(our_group)?.to_owned();
 
 	Some(LocalValidatorState {
@@ -2222,37 +2201,18 @@ async fn provide_candidate_to_grid<Context>(
 async fn determine_groups_per_para(
 	availability_cores: Vec<CoreState>,
 	group_rotation_info: GroupRotationInfo,
-	maybe_claim_queue: &Option<ClaimQueueSnapshot>,
-	max_candidate_depth: usize,
+	claim_queue: &ClaimQueueSnapshot,
 ) -> HashMap<ParaId, Vec<GroupIndex>> {
 	let n_cores = availability_cores.len();
 
 	// Determine the core indices occupied by each para at the current relay parent. To support
 	// on-demand parachains we also consider the core indices at next blocks.
-	let schedule: HashMap<CoreIndex, Vec<ParaId>> = if let Some(claim_queue) = maybe_claim_queue {
+	let schedule: HashMap<CoreIndex, Vec<ParaId>> = 
 		claim_queue
 			.iter_all_claims()
 			.map(|(core_index, paras)| (*core_index, paras.iter().copied().collect()))
-			.collect()
-	} else {
-		availability_cores
-			.into_iter()
-			.enumerate()
-			.filter_map(|(index, core)| match core {
-				CoreState::Scheduled(scheduled_core) =>
-					Some((CoreIndex(index as u32), vec![scheduled_core.para_id])),
-				CoreState::Occupied(occupied_core) =>
-					if max_candidate_depth >= 1 {
-						occupied_core.next_up_on_available.map(|scheduled_core| {
-							(CoreIndex(index as u32), vec![scheduled_core.para_id])
-						})
-					} else {
-						None
-					},
-				CoreState::Free => None,
-			})
-			.collect()
-	};
+			.collect();
+	
 
 	let mut groups_per_para = HashMap::new();
 	// Map from `CoreIndex` to `GroupIndex` and collect as `HashMap`.
