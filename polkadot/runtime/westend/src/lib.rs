@@ -162,7 +162,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("westend"),
 	impl_name: create_runtime_str!("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_015_000,
+	spec_version: 1_016_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 26,
@@ -1767,6 +1767,7 @@ parameter_types! {
 /// upgrades in case governance decides to do so. THE ORDER IS IMPORTANT.
 pub type Migrations = migrations::Unreleased;
 
+
 /// The runtime migrations per release.
 #[allow(deprecated, missing_docs)]
 pub mod migrations {
@@ -1799,6 +1800,7 @@ pub mod migrations {
 			MaxPoolsToMigrate,
 		>,
 		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
+		pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
 	);
 }
 
