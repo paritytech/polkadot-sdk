@@ -120,6 +120,10 @@ where
 	type Val = (Option<u64>, S::Val);
 	type Pre = (Option<u64>, S::Pre);
 
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		self.0.implicit()
+	}
+
 	fn weight(&self, call: &T::RuntimeCall) -> Weight {
 		T::WeightInfo::storage_weight_reclaim().saturating_add(self.0.weight(call))
 	}
