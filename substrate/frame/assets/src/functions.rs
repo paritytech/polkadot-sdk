@@ -558,6 +558,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		if all_refunded {
+			MerklizedDistribution::<T, I>::remove(&distribution_id);
 			Self::deposit_event(Event::<T, I>::DistributionCleaned { distribution_id });
 			// Refund weight only the amount we actually used.
 			Ok(Some(T::WeightInfo::destroy_distribution(refund_count)).into())
