@@ -46,8 +46,8 @@ use polkadot_primitives::{
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
 	AuthorityDiscoveryId, CandidateCommitments, CandidateDescriptor, CandidateEvent,
-	CandidateReceipt, ExecutorParams, Hash, OccupiedCoreAssumption, PersistedValidationData,
-	PvfExecKind, PvfPrepKind, SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
+	CandidateReceipt, ExecutorParams, Hash, PersistedValidationData, PvfExecKind, PvfPrepKind,
+	SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
 };
 use sp_application_crypto::{AppCrypto, ByteArray};
 use sp_keystore::KeystorePtr;
@@ -83,8 +83,7 @@ const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_secs(3);
 const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(200);
 
 // The task queue size is chosen to be somewhat bigger than the PVF host incoming queue size
-// to allow exhaustive validation messages to fall through in case the tasks are clogged with
-// `ValidateFromChainState` messages awaiting data from the runtime
+// to allow exhaustive validation messages to fall through in case the tasks are clogged
 const TASK_LIMIT: usize = 30;
 
 /// Configuration for the candidate validation subsystem
@@ -155,30 +154,6 @@ where
 	S: SubsystemSender<RuntimeApiMessage>,
 {
 	match msg {
-		CandidateValidationMessage::ValidateFromChainState {
-			candidate_receipt,
-			pov,
-			executor_params,
-			exec_kind,
-			response_sender,
-			..
-		} => async move {
-			let _timer = metrics.time_validate_from_chain_state();
-			let res = validate_from_chain_state(
-				&mut sender,
-				validation_host,
-				candidate_receipt,
-				pov,
-				executor_params,
-				exec_kind,
-				&metrics,
-			)
-			.await;
-
-			metrics.on_validation_event(&res);
-			let _ = response_sender.send(res);
-		}
-		.boxed(),
 		CandidateValidationMessage::ValidateFromExhaustive {
 			validation_data,
 			validation_code,
@@ -655,170 +630,6 @@ where
 				PreCheckOutcome::Failed
 			},
 	}
-}
-
-#[derive(Debug)]
-enum AssumptionCheckOutcome {
-	Matches(PersistedValidationData, ValidationCode),
-	DoesNotMatch,
-	BadRequest,
-}
-
-async fn check_assumption_validation_data<Sender>(
-	sender: &mut Sender,
-	descriptor: &CandidateDescriptor,
-	assumption: OccupiedCoreAssumption,
-) -> AssumptionCheckOutcome
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	let validation_data = {
-		let (tx, rx) = oneshot::channel();
-		let d = runtime_api_request(
-			sender,
-			descriptor.relay_parent,
-			RuntimeApiRequest::PersistedValidationData(descriptor.para_id, assumption, tx),
-			rx,
-		)
-		.await;
-
-		match d {
-			Ok(None) | Err(RuntimeRequestFailed) => return AssumptionCheckOutcome::BadRequest,
-			Ok(Some(d)) => d,
-		}
-	};
-
-	let persisted_validation_data_hash = validation_data.hash();
-
-	if descriptor.persisted_validation_data_hash == persisted_validation_data_hash {
-		let (code_tx, code_rx) = oneshot::channel();
-		let validation_code = runtime_api_request(
-			sender,
-			descriptor.relay_parent,
-			RuntimeApiRequest::ValidationCode(descriptor.para_id, assumption, code_tx),
-			code_rx,
-		)
-		.await;
-
-		match validation_code {
-			Ok(None) | Err(RuntimeRequestFailed) => AssumptionCheckOutcome::BadRequest,
-			Ok(Some(v)) => AssumptionCheckOutcome::Matches(validation_data, v),
-		}
-	} else {
-		AssumptionCheckOutcome::DoesNotMatch
-	}
-}
-
-async fn find_assumed_validation_data<Sender>(
-	sender: &mut Sender,
-	descriptor: &CandidateDescriptor,
-) -> AssumptionCheckOutcome
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	// The candidate descriptor has a `persisted_validation_data_hash` which corresponds to
-	// one of up to two possible values that we can derive from the state of the
-	// relay-parent. We can fetch these values by getting the persisted validation data
-	// based on the different `OccupiedCoreAssumption`s.
-
-	const ASSUMPTIONS: &[OccupiedCoreAssumption] = &[
-		OccupiedCoreAssumption::Included,
-		OccupiedCoreAssumption::TimedOut,
-		// `TimedOut` and `Free` both don't perform any speculation and therefore should be the
-		// same for our purposes here. In other words, if `TimedOut` matched then the `Free` must
-		// be matched as well.
-	];
-
-	// Consider running these checks in parallel to reduce validation latency.
-	for assumption in ASSUMPTIONS {
-		let outcome = check_assumption_validation_data(sender, descriptor, *assumption).await;
-
-		match outcome {
-			AssumptionCheckOutcome::Matches(_, _) => return outcome,
-			AssumptionCheckOutcome::BadRequest => return outcome,
-			AssumptionCheckOutcome::DoesNotMatch => continue,
-		}
-	}
-
-	AssumptionCheckOutcome::DoesNotMatch
-}
-
-/// Returns validation data for a given candidate.
-pub async fn find_validation_data<Sender>(
-	sender: &mut Sender,
-	descriptor: &CandidateDescriptor,
-) -> Result<Option<(PersistedValidationData, ValidationCode)>, ValidationFailed>
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	match find_assumed_validation_data(sender, &descriptor).await {
-		AssumptionCheckOutcome::Matches(validation_data, validation_code) =>
-			Ok(Some((validation_data, validation_code))),
-		AssumptionCheckOutcome::DoesNotMatch => {
-			// If neither the assumption of the occupied core having the para included or the
-			// assumption of the occupied core timing out are valid, then the
-			// persisted_validation_data_hash in the descriptor is not based on the relay parent and
-			// is thus invalid.
-			Ok(None)
-		},
-		AssumptionCheckOutcome::BadRequest =>
-			Err(ValidationFailed("Assumption Check: Bad request".into())),
-	}
-}
-
-async fn validate_from_chain_state<Sender>(
-	sender: &mut Sender,
-	validation_host: ValidationHost,
-	candidate_receipt: CandidateReceipt,
-	pov: Arc<PoV>,
-	executor_params: ExecutorParams,
-	exec_kind: PvfExecKind,
-	metrics: &Metrics,
-) -> Result<ValidationResult, ValidationFailed>
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	let mut new_sender = sender.clone();
-	let (validation_data, validation_code) =
-		match find_validation_data(&mut new_sender, &candidate_receipt.descriptor).await? {
-			Some((validation_data, validation_code)) => (validation_data, validation_code),
-			None => return Ok(ValidationResult::Invalid(InvalidCandidate::BadParent)),
-		};
-
-	let validation_result = validate_candidate_exhaustive(
-		validation_host,
-		validation_data,
-		validation_code,
-		candidate_receipt.clone(),
-		pov,
-		executor_params,
-		exec_kind,
-		metrics,
-	)
-	.await;
-
-	if let Ok(ValidationResult::Valid(ref outputs, _)) = validation_result {
-		let (tx, rx) = oneshot::channel();
-		match runtime_api_request(
-			sender,
-			candidate_receipt.descriptor.relay_parent,
-			RuntimeApiRequest::CheckValidationOutputs(
-				candidate_receipt.descriptor.para_id,
-				outputs.clone(),
-				tx,
-			),
-			rx,
-		)
-		.await
-		{
-			Ok(true) => {},
-			Ok(false) => return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidOutputs)),
-			Err(RuntimeRequestFailed) =>
-				return Err(ValidationFailed("Check Validation Outputs: Bad request".into())),
-		}
-	}
-
-	validation_result
 }
 
 async fn validate_candidate_exhaustive(
