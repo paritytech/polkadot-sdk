@@ -193,21 +193,23 @@ pub mod ump_constants {
 
 /// Trait for selecting the next core to build the candidate for.
 pub trait SelectCore {
-	fn select_core() -> (CoreSelector, ClaimQueueOffset);
-	fn select_core_for_child() -> (CoreSelector, ClaimQueueOffset);
+	/// Core selector information for the current block.
+	fn selected_core() -> (CoreSelector, ClaimQueueOffset);
+	/// Core selector information for the next block.
+	fn select_next_core() -> (CoreSelector, ClaimQueueOffset);
 }
 
 /// The default core selection policy.
 pub struct DefaultCoreSelector<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
-	fn select_core() -> (CoreSelector, ClaimQueueOffset) {
+	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
 		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
 
 		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
 	}
 
-	fn select_core_for_child() -> (CoreSelector, ClaimQueueOffset) {
+	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
 		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
 
 		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
@@ -402,7 +404,8 @@ pub mod pallet {
 
 			let maximum_channels = host_config
 				.hrmp_max_message_num_per_candidate
-				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take()) as usize;
+				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take())
+				as usize;
 
 			// Note: this internally calls the `GetChannelInfo` implementation for this
 			// pallet, which draws on the `RelevantMessagingState`. That in turn has
@@ -1410,7 +1413,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns the core selector for the next block.
 	pub fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
-		T::SelectCore::select_core_for_child()
+		T::SelectCore::select_next_core()
 	}
 
 	/// Set a custom head data that should be returned as result of `validate_block`.
@@ -1438,7 +1441,7 @@ impl<T: Config> Pallet<T> {
 			up.push(UMP_SEPARATOR);
 
 			// Send the core selector signal.
-			let core_selector = T::SelectCore::select_core();
+			let core_selector = T::SelectCore::selected_core();
 			up.push(UMPSignal::SelectCore(core_selector.0, core_selector.1).encode());
 		});
 	}
