@@ -604,7 +604,7 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id, records }));
 			},
-			Poll::Ready(Some(KademliaEvent::PutRecordSucess { query_id, key: _ })) =>
+			Poll::Ready(Some(KademliaEvent::PutRecordSuccess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
 			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) => {
 				if let Some(instant) = this.find_node_queries.remove(&query_id) {
