@@ -136,7 +136,7 @@ pub fn generate_extrinsic_with_pair(
 		BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
 	let tip = 0;
 	let tx_ext: TxExtension =
-		cumulus_pallet_weight_reclaim::StorageWeightReclaim::<Runtime>::new((
+		cumulus_pallet_weight_reclaim::StorageWeightReclaim::<Runtime, _>::new((
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckGenesis::<Runtime>::new(),
@@ -151,7 +151,7 @@ pub fn generate_extrinsic_with_pair(
 	let raw_payload = SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
-		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
+		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| origin.sign(e));
 
