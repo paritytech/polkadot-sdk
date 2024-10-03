@@ -17,6 +17,7 @@
 use self::test_helpers::mock::new_leaf;
 use super::*;
 use crate::backend::V1ReadBackend;
+use itertools::Itertools;
 use overseer::prometheus::{
 	prometheus::{IntCounter, IntCounterVec},
 	Histogram, HistogramOpts, HistogramVec, Opts,
@@ -4922,7 +4923,6 @@ fn test_gathering_assignments_statements() {
 		slot_duration_millis: 6_000,
 		clock: Arc::new(MockClock::default()),
 		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
-		spans: HashMap::new(),
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),
@@ -5017,7 +5017,6 @@ fn test_observe_assignment_gathering_status() {
 		slot_duration_millis: 6_000,
 		clock: Arc::new(MockClock::default()),
 		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
-		spans: HashMap::new(),
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),
