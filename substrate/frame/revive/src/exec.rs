@@ -53,7 +53,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Convert, Dispatchable, Saturating, Zero},
+	traits::{BadOrigin, Convert, Dispatchable, Zero},
 	DispatchError, SaturatedConversion,
 };
 
@@ -1070,21 +1070,11 @@ where
 						return Err(Error::<T>::TerminatedInConstructor.into());
 					}
 
-					let frame = self.top_frame_mut();
-					let contract = frame.contract_info.as_contract().inspect(|info| {
-						// Charge for immutable data stored during constructor execution.
-						if info.immutable_bytes() == 0 {
-							return;
-						};
-						let amount = StorageDeposit::Charge(
-							T::DepositPerByte::get().saturating_mul(info.immutable_bytes().into()),
-						);
-						frame.nested_storage.charge_deposit(frame.account_id.clone(), amount);
-					});
-
 					// If a special limit was set for the sub-call, we enforce it here.
 					// This is needed because contract constructor might write to storage.
 					// The sub-call will be rolled back in case the limit is exhausted.
+					let frame = self.top_frame_mut();
+					let contract = frame.contract_info.as_contract();
 					frame.nested_storage.enforce_subcall_limit(contract)?;
 
 					let caller = T::AddressMapper::to_address(self.caller().account_id()?);
@@ -1566,7 +1556,10 @@ where
 		}
 
 		let account_id = self.account_id().clone();
-		self.top_frame_mut().contract_info.get(&account_id).set_immutable_bytes(data.len() as u32);
+		let bytes = data.len() as u32;
+		let amount = self.top_frame_mut().contract_info().set_immutable_bytes(bytes);
+		self.top_frame_mut().nested_storage.charge_deposit(account_id.clone(), amount);
+
 		<ImmutableDataOf<T>>::insert(T::AddressMapper::to_address(&account_id), &data);
 
 		Ok(())

@@ -26,7 +26,7 @@ use crate::{
 	storage::meter::Diff,
 	weights::WeightInfo,
 	BalanceOf, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter, Error,
-	TrieId, SENTINEL,
+	StorageDeposit, TrieId, SENTINEL,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -36,6 +36,7 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 	CloneNoBound, DefaultNoBound,
 };
+use meter::DepositOf;
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, Get, H160};
 use sp_io::KillStorageResult;
@@ -205,12 +206,13 @@ impl<T: Config> ContractInfo<T> {
 		if let Some(storage_meter) = storage_meter {
 			let mut diff = meter::Diff::default();
 			match (old_len, new_value.as_ref().map(|v| v.len() as u32)) {
-				(Some(old_len), Some(new_len)) =>
+				(Some(old_len), Some(new_len)) => {
 					if new_len > old_len {
 						diff.bytes_added = new_len - old_len;
 					} else {
 						diff.bytes_removed = old_len - new_len;
-					},
+					}
+				},
 				(None, Some(new_len)) => {
 					diff.bytes_added = new_len;
 					diff.items_added = 1;
@@ -303,8 +305,8 @@ impl<T: Config> ContractInfo<T> {
 	/// of those keys can be deleted from the deletion queue given the supplied weight limit.
 	pub fn deletion_budget(meter: &WeightMeter) -> (Weight, u32) {
 		let base_weight = T::WeightInfo::on_process_deletion_queue_batch();
-		let weight_per_key = T::WeightInfo::on_initialize_per_trie_key(1) -
-			T::WeightInfo::on_initialize_per_trie_key(0);
+		let weight_per_key = T::WeightInfo::on_initialize_per_trie_key(1)
+			- T::WeightInfo::on_initialize_per_trie_key(0);
 
 		// `weight_per_key` being zero makes no sense and would constitute a failure to
 		// benchmark properly. We opt for not removing any keys at all in this case.
@@ -368,10 +370,19 @@ impl<T: Config> ContractInfo<T> {
 
 	/// Set the number of immutable bytes of this contract.
 	///
-	/// Note: Changing the immutable bytes of a contract requires updating
-	/// the base deposit during the same transaction!
-	pub fn set_immutable_bytes(&mut self, immutable_bytes: u32) {
-		self.immutable_bytes = immutable_bytes
+	/// Returns the storage deposit to be charged.
+	pub fn set_immutable_bytes(&mut self, immutable_bytes: u32) -> DepositOf<T> {
+		let diff = self.immutable_bytes.abs_diff(immutable_bytes);
+		let amount = T::DepositPerByte::get().saturating_mul(diff.into());
+		let deposit = if immutable_bytes >= self.immutable_bytes {
+			StorageDeposit::Charge(amount)
+		} else {
+			StorageDeposit::Refund(amount)
+		};
+
+		self.immutable_bytes = immutable_bytes;
+
+		deposit
 	}
 }
 

@@ -139,14 +139,17 @@ pub mod test_utils {
 	}
 	pub fn contract_info_storage_deposit(addr: &H160) -> BalanceOf<Test> {
 		let contract_info = self::get_contract(&addr);
+
 		let info_size = contract_info.encoded_size() as u64;
-		let immutable_size = contract_info.immutable_bytes() as u64;
 		let info_deposit = DepositPerByte::get()
 			.saturating_mul(info_size)
 			.saturating_add(DepositPerItem::get());
+
+		let immutable_size = contract_info.immutable_bytes() as u64;
 		let immutable_deposit = DepositPerByte::get()
 			.saturating_mul(immutable_size)
 			.saturating_add(DepositPerItem::get());
+
 		info_deposit.saturating_add(immutable_deposit)
 	}
 	pub fn expected_deposit(code_len: usize) -> u64 {
@@ -4377,6 +4380,15 @@ mod run_tests {
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
 				.data(data.to_vec())
 				.build_and_unwrap_contract();
+
+			// Storing immmutable data charges storage deposit; verify it explicitly.
+			assert_eq!(
+				test_utils::get_balance_on_hold(
+					&HoldReason::StorageDepositReserve.into(),
+					&<Test as Config>::AddressMapper::to_account_id(&addr)
+				),
+				test_utils::contract_info_storage_deposit(&addr)
+			);
 
 			// Call the contract: Asserts the input to equal the immutable data
 			assert_ok!(builder::call(addr).data(data.to_vec()).build());
