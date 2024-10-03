@@ -45,7 +45,7 @@ impl TransactionExtension<RuntimeCall> for MockExtensionWithRefund {
 	type Val = ();
 	type Pre = ();
 	fn weight(&self, _: &RuntimeCall) -> Weight {
-		MOCK_EXT_WEIGHT.with_borrow(|v| v.clone())
+		MOCK_EXT_WEIGHT.with_borrow(|v| *v)
 	}
 	fn post_dispatch_details(
 		_pre: Self::Pre,
@@ -54,7 +54,7 @@ impl TransactionExtension<RuntimeCall> for MockExtensionWithRefund {
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		Ok(MOCK_EXT_REFUND.with_borrow(|v| v.clone()))
+		Ok(MOCK_EXT_REFUND.with_borrow(|v| *v))
 	}
 
 	sp_runtime::impl_tx_ext_default!(RuntimeCall; validate prepare);
@@ -114,13 +114,13 @@ impl frame_system::ExtensionsWeightInfo for MockWeightInfo {
 		Default::default()
 	}
 	fn check_weight() -> Weight {
-		CHECK_WEIGHT_WEIGHT.with_borrow(|v| v.clone())
+		CHECK_WEIGHT_WEIGHT.with_borrow(|v| *v)
 	}
 }
 
 impl crate::WeightInfo for MockWeightInfo {
 	fn storage_weight_reclaim() -> Weight {
-		STORAGE_WEIGHT_RECLAIM_WEIGHT.with_borrow(|v| v.clone())
+		STORAGE_WEIGHT_RECLAIM_WEIGHT.with_borrow(|v| *v)
 	}
 }
 
@@ -177,7 +177,7 @@ fn set_current_storage_weight(new_weight: u64) {
 }
 
 fn get_storage_weight() -> Weight {
-	frame_system::BlockWeight::<Test>::get().get(DispatchClass::Normal).clone()
+	*frame_system::BlockWeight::<Test>::get().get(DispatchClass::Normal)
 }
 
 const CALL: &<Test as frame_system::Config>::RuntimeCall =

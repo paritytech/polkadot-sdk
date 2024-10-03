@@ -25,7 +25,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
-use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use cumulus_primitives_storage_weight_reclaim::get_proof_size;
@@ -41,6 +40,8 @@ use sp_runtime::{
 	transaction_validity::{TransactionValidityError, ValidTransaction},
 	DispatchResult,
 };
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarks;
