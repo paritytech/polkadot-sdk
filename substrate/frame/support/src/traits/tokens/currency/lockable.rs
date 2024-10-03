@@ -146,10 +146,14 @@ pub trait VestedTransfer<AccountId> {
 }
 
 // An no-op implementation of `VestedTransfer` for pallets that require this trait, but users may
-// not want to implement this functionality.
-impl<AccountId> VestedTransfer<AccountId> for () {
+// not want to implement this functionality
+pub struct NoVestedTransfers<C> {
+	phantom: core::marker::PhantomData<C>,
+}
+
+impl<AccountId, C: Currency<AccountId>> VestedTransfer<AccountId> for NoVestedTransfers<C> {
 	type Moment = ();
-	type Currency = ();
+	type Currency = C;
 
 	fn vested_transfer(
 		_source: &AccountId,
