@@ -35,8 +35,6 @@ sp-version.workspace = true
 sp-version.default-features = true
 sc-client-api.workspace = true
 sc-client-api.default-features = true
-sc-utils.workspace = true
-sc-utils.default-features = true
 sc-rpc.workspace = true
 sc-rpc.default-features = true
 codec = { workspace = true, default-features = true }
@@ -68,3 +66,5 @@ sc-service = { features = ["test-helpers"], default-features = true, path = "../
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
 sc-transaction-pool = { default-features = true, path = "../transaction-pool" }
+sc-utils = { workspace = true }
+sc-rpc = { workspace = true, features = ["test-helpers"] }
