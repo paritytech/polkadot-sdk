@@ -756,29 +756,27 @@ impl<T: Config> Pallet<T> {
 	/// Removes the stale entry from `EraLowestThirdTotalStake` if it exists.
 	fn calculate_lowest_third_total_stake(
 		new_planned_era: EraIndex,
-		mut exposures_total_stake: Vec<(T::AccountId, BalanceOf<T>)>,
+		mut exposures: Vec<(T::AccountId, BalanceOf<T>)>,
 	) {
-		let unbonding_queue_params = <UnbondingQueueParams<T>>::get();
-		let undonding_period_upper_bound = unbonding_queue_params.unbond_period_upper_bound;
+		let undonding_period_upper_bound =
+			<UnbondingQueueParams<T>>::get().unbond_period_upper_bound;
 
 		// Determine the total stake from lowest third of validators and persist for the era.
-		let total_unbonding_eras_to_check: EraIndex =
-			Perbill::from_percent(33) * undonding_period_upper_bound;
+		let eras_to_check: EraIndex = Perbill::from_percent(33) * undonding_period_upper_bound;
 
 		// Sort exposure total stake by lowest first, and truncate to lowest third.
-		exposures_total_stake.sort_by(|(_, a), (_, b)| b.cmp(&a));
-		exposures_total_stake
-			.truncate(total_unbonding_eras_to_check.try_into().unwrap_or(Default::default()));
+		exposures.sort_by(|(_, a), (_, b)| b.cmp(&a));
+		exposures.truncate(eras_to_check.try_into().unwrap_or(Default::default()));
 
 		// Calculate the total stake of the lowest third validators.
-		let lowest_third_total_stake: BalanceOf<T> = exposures_total_stake
+		let total_stake: BalanceOf<T> = exposures
 			.into_iter()
 			.map(|(_, a)| a)
 			.reduce(|a, b| a.saturating_add(b))
 			.unwrap_or(Default::default());
 
 		// Store the total stake of the lowest third validators for the planned era.
-		EraLowestThirdTotalStake::<T>::insert(new_planned_era, lowest_third_total_stake);
+		EraLowestThirdTotalStake::<T>::insert(new_planned_era, total_stake);
 
 		// Remove stale entry from `EraLowestThirdTotalStake`.
 		<EraLowestThirdTotalStake<T>>::remove(
