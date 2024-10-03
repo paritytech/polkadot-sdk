@@ -1,0 +1,37 @@
+title: Accurate `StorageWeightReclaim` transaction extension
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `StorageWeightReclaim` in `cumulus-primitives-storage-weight-reclaim` is deprecated.
+      Since the introduction of transaction extension, the transaction extension weight is no longer part of base extrinsic weight. As a consequence some weight of transaction extensions are missed when calculating the actual used proof size in `StorageWeightReclaim`.
+      So a new `StorageWeightReclaim` in `cumulus-pallet-weight-reclaim` is introduced.
+      This transaction extension is meant to be used as a wrapping of the whole transaction extension pipeline, and will take into account all proof size accurately.
+
+      The new wrapping transaction extension is used like this:
+      ```rust
+      /// The TransactionExtension to the basic transaction logic.
+      pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+             Runtime,
+             (
+                     frame_system::CheckNonZeroSender<Runtime>,
+                     frame_system::CheckSpecVersion<Runtime>,
+                     frame_system::CheckTxVersion<Runtime>,
+                     frame_system::CheckGenesis<Runtime>,
+                     frame_system::CheckEra<Runtime>,
+                     frame_system::CheckNonce<Runtime>,
+                     frame_system::CheckWeight<Runtime>,
+                     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+                     BridgeRejectObsoleteHeadersAndMessages,
+                     (bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages,),
+                     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+             ),
+      >;
+      ```
+
+
+crates:
+- name: cumulus-pallet-weight-reclaim
+  bump: major
+- name: cumulus-primitives-storage-weight-reclaim
+  bump: major
