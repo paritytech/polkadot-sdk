@@ -80,9 +80,9 @@ pub enum Val<T: Config> {
 /// extension.
 #[derive(RuntimeDebugNoBound)]
 pub enum Pre {
-	/// The transaction extension weight should not be refund:
+	/// The transaction extension weight should not be refunded.
 	NonceChecked,
-	/// The transaction extension weight should be refund.
+	/// The transaction extension weight should be refunded.
 	Refund(Weight),
 }
 

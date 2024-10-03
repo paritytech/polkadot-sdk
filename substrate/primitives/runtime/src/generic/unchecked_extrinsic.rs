@@ -51,7 +51,7 @@ pub const EXTRINSIC_FORMAT_VERSION: ExtrinsicVersion = 5;
 ///
 /// This version needs to be bumped if there are breaking changes to the extension used in the
 /// [UncheckedExtrinsic] implementation.
-pub const EXTENSION_VERSION: ExtensionVersion = 0;
+const EXTENSION_VERSION: ExtensionVersion = 0;
 
 /// The `SignaturePayload` of `UncheckedExtrinsic`.
 pub type UncheckedSignaturePayload<Address, Signature, Extension> = (Address, Signature, Extension);
@@ -201,8 +201,9 @@ where
 				ext_version.encode_to(dest);
 				ext.encode_to(dest);
 			},
-			_ => {
-				// unreachable, versions are checked in the constructor
+			Preamble::Signed(_, _, _, _, extrinsic_version) => {
+				// Unreachable, versions are checked in the constructor.
+				log::error!(target: "unchecked-extrinsic", "unknown extrinsic version {}", extrinsic_version);
 			},
 		}
 	}
