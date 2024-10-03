@@ -52,7 +52,7 @@ use std::{
 	collections::{HashMap, HashSet, VecDeque},
 	num::NonZeroUsize,
 	pin::Pin,
-	sync::Arc,
+	sync::{atomic::AtomicUsize, Arc},
 	task::{Context, Poll},
 	time::{Duration, Instant},
 };
@@ -62,6 +62,18 @@ const LOG_TARGET: &str = "sub-libp2p::discovery";
 
 /// Kademlia query interval.
 const KADEMLIA_QUERY_INTERVAL: Duration = Duration::from_secs(5);
+
+/// The convergence time between 2 `FIND_NODE` queries.
+///
+/// The time is exponentially increased after each query until it reaches 120 seconds.
+/// The time is reset to `KADEMLIA_QUERY_INTERVAL` after a failed query.
+const CONVERGENCE_QUERY_INTERVAL: Duration = Duration::from_secs(120);
+
+/// Ensure at least one discovery query is issued periodically.
+///
+/// This has a low impact on the networking backend, while keeping a healthy
+/// subset of the network discovered.
+const MANDATORY_QUERY_INTERVAL: Duration = Duration::from_secs(30 * 60);
 
 /// mDNS query interval.
 const MDNS_QUERY_INTERVAL: Duration = Duration::from_secs(30);
@@ -77,6 +89,9 @@ const MAX_EXTERNAL_ADDRESSES: u32 = 32;
 /// Note: all addresses are confirmed by libp2p on the first encounter. This aims to make
 /// addresses a bit more robust.
 const MIN_ADDRESS_CONFIRMATIONS: usize = 2;
+
+/// Maximum number of in-flight `FIND_NODE` queries.
+const MAX_INFLIGHT_FIND_NODE_QUERIES: usize = 16;
 
 /// Discovery events.
 #[derive(Debug)]
@@ -173,8 +188,8 @@ pub struct Discovery {
 	/// If `None`, there is currently a query pending.
 	next_kad_query: Option<Delay>,
 
-	/// Active `FIND_NODE` query if it exists.
-	find_node_query_id: Option<QueryId>,
+	/// Active `FIND_NODE` queries.
+	find_node_queries: HashMap<QueryId, std::time::Instant>,
 
 	/// Pending events.
 	pending_events: VecDeque<DiscoveryEvent>,
@@ -196,6 +211,15 @@ pub struct Discovery {
 
 	/// Delay to next `FIND_NODE` query.
 	duration_to_next_find_query: Duration,
+
+	/// Delay to next mandatory `FIND_NODE` query.
+	next_mandatory_kad_query: Option<Delay>,
+
+	/// Number of connected peers as reported by the blocks announcement protocol.
+	num_connected_peers: Arc<AtomicUsize>,
+
+	/// Number of active connections over which we interrupt the discovery process.
+	discovery_only_if_under_num: usize,
 }
 
 /// Legacy (fallback) Kademlia protocol name based on `protocol_id`.
@@ -230,6 +254,8 @@ impl Discovery {
 		protocol_id: &ProtocolId,
 		known_peers: HashMap<PeerId, Vec<Multiaddr>>,
 		listen_addresses: Arc<RwLock<HashSet<Multiaddr>>>,
+		num_connected_peers: Arc<AtomicUsize>,
+		discovery_only_if_under_num: usize,
 		_peerstore_handle: Arc<dyn PeerStoreProvider>,
 	) -> (Self, PingConfig, IdentifyConfig, KademliaConfig, Option<MdnsConfig>) {
 		let (ping_config, ping_event_stream) = PingConfig::default();
@@ -270,9 +296,10 @@ impl Discovery {
 				kademlia_handle,
 				_peerstore_handle,
 				listen_addresses,
-				find_node_query_id: None,
+				find_node_queries: HashMap::new(),
 				pending_events: VecDeque::new(),
 				duration_to_next_find_query: Duration::from_secs(1),
+				next_mandatory_kad_query: Some(Delay::new(MANDATORY_QUERY_INTERVAL)),
 				address_confirmations: LruMap::new(ByLength::new(MAX_EXTERNAL_ADDRESSES)),
 				allow_non_global_addresses: config.allow_non_globals_in_dht,
 				public_addresses: config.public_addresses.iter().cloned().map(Into::into).collect(),
@@ -281,12 +308,19 @@ impl Discovery {
 					genesis_hash,
 					fork_id,
 				)]),
+				num_connected_peers,
+				discovery_only_if_under_num,
 			},
 			ping_config,
 			identify_config,
 			kademlia_config,
 			mdns_config,
 		)
+	}
+
+	/// Get number of connected peers.
+	fn num_connected_peers(&self) -> usize {
+		self.num_connected_peers.load(std::sync::atomic::Ordering::Relaxed)
 	}
 
 	/// Add known peer to `Kademlia`.
@@ -464,30 +498,75 @@ impl Stream for Discovery {
 			return Poll::Ready(Some(event))
 		}
 
+		// Mandatory kad random queries issued periodically.
+		if let Some(mut delay) = this.next_mandatory_kad_query.take() {
+			match delay.poll_unpin(cx) {
+				Poll::Ready(()) => {
+					if this.find_node_queries.len() < MAX_INFLIGHT_FIND_NODE_QUERIES {
+						let peer = PeerId::random();
+						log::debug!(target: LOG_TARGET, "start next mandatory kademlia query for {peer:?}");
+
+						if let Ok(query_id) = this.kademlia_handle.try_find_node(peer) {
+							this.find_node_queries.insert(query_id, std::time::Instant::now());
+
+							this.next_mandatory_kad_query =
+								Some(Delay::new(MANDATORY_QUERY_INTERVAL));
+
+							return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
+						} else {
+							log::error!(target: LOG_TARGET, "Kademlia mandatory query cannot be started: handler channel is full");
+						}
+					} else {
+						log::debug!(target: LOG_TARGET, "discovery is paused: too many in-flight queries");
+					}
+				},
+				Poll::Pending => {
+					this.next_mandatory_kad_query = Some(delay);
+				},
+			}
+		}
+
+		// Exponential timer that checks more frequently if the node is under a number
+		// of healthy connected peers reported by the sync protocol.
 		if let Some(mut delay) = this.next_kad_query.take() {
 			match delay.poll_unpin(cx) {
-				Poll::Pending => {
-					this.next_kad_query = Some(delay);
-				},
 				Poll::Ready(()) => {
-					let peer = PeerId::random();
+					let num_peers = this.num_connected_peers();
+					if num_peers < 2 * this.discovery_only_if_under_num &&
+						this.find_node_queries.len() < MAX_INFLIGHT_FIND_NODE_QUERIES
+					{
+						let peer = PeerId::random();
+						log::debug!(target: LOG_TARGET, "start next kademlia query for {peer:?} {num_peers}/2x{} connected peers", this.discovery_only_if_under_num,);
 
-					log::trace!(target: LOG_TARGET, "start next kademlia query for {peer:?}");
+						if let Ok(query_id) = this.kademlia_handle.try_find_node(peer) {
+							this.find_node_queries.insert(query_id, std::time::Instant::now());
 
-					match this.kademlia_handle.try_find_node(peer) {
-						Ok(query_id) => {
-							this.find_node_query_id = Some(query_id);
-							return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
-						},
-						Err(()) => {
 							this.duration_to_next_find_query = cmp::min(
 								this.duration_to_next_find_query * 2,
-								Duration::from_secs(60),
+								CONVERGENCE_QUERY_INTERVAL,
 							);
 							this.next_kad_query =
 								Some(Delay::new(this.duration_to_next_find_query));
-						},
+
+							return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
+						} else {
+							log::error!(target: LOG_TARGET, "Kademlia mandatory query cannot be started: handler channel is full");
+						}
+					} else {
+						log::debug!(
+							target: LOG_TARGET,
+							"discovery is paused: {num_peers}/2x{} connected peers and in flight queries: {}/{MAX_INFLIGHT_FIND_NODE_QUERIES}",
+							this.discovery_only_if_under_num,
+							this.find_node_queries.len(),
+						);
 					}
+
+					this.duration_to_next_find_query =
+						cmp::min(this.duration_to_next_find_query * 2, CONVERGENCE_QUERY_INTERVAL);
+					this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
+				},
+				Poll::Pending => {
+					this.next_kad_query = Some(delay);
 				},
 			}
 		}
@@ -495,13 +574,16 @@ impl Stream for Discovery {
 		match Pin::new(&mut this.kademlia_handle).poll_next(cx) {
 			Poll::Pending => {},
 			Poll::Ready(None) => return Poll::Ready(None),
-			Poll::Ready(Some(KademliaEvent::FindNodeSuccess { peers, .. })) => {
+			Poll::Ready(Some(KademliaEvent::FindNodeSuccess { peers, query_id, .. })) => {
 				// the addresses are already inserted into the DHT and in `TransportManager` so
 				// there is no need to add them again. The found peers must be registered to
 				// `Peerstore` so other protocols are aware of them through `Peerset`.
-				log::trace!(target: LOG_TARGET, "dht random walk yielded {} peers", peers.len());
 
-				this.next_kad_query = Some(Delay::new(KADEMLIA_QUERY_INTERVAL));
+				if let Some(instant) = this.find_node_queries.remove(&query_id) {
+					log::trace!(target: LOG_TARGET, "dht random walk yielded {} peers for {query_id:?} in {:?}", peers.len(), instant.elapsed());
+				} else {
+					log::trace!(target: LOG_TARGET, "dht random walk yielded {} peers for {query_id:?}", peers.len());
+				}
 
 				return Poll::Ready(Some(DiscoveryEvent::RoutingTableUpdate {
 					peers: peers.into_iter().map(|(peer, _)| peer).collect(),
@@ -525,15 +607,14 @@ impl Stream for Discovery {
 			Poll::Ready(Some(KademliaEvent::PutRecordSucess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
 			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) => {
-				match this.find_node_query_id == Some(query_id) {
-					true => {
-						this.find_node_query_id = None;
-						this.duration_to_next_find_query =
-							cmp::min(this.duration_to_next_find_query * 2, Duration::from_secs(60));
-						this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
-					},
-					false => return Poll::Ready(Some(DiscoveryEvent::QueryFailed { query_id })),
+				if let Some(instant) = this.find_node_queries.remove(&query_id) {
+					this.duration_to_next_find_query = KADEMLIA_QUERY_INTERVAL;
+					this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
+
+					log::debug!(target: LOG_TARGET, "dht random walk failed for {query_id:?} in {:?}", instant.elapsed());
 				}
+
+				return Poll::Ready(Some(DiscoveryEvent::QueryFailed { query_id }));
 			},
 			Poll::Ready(Some(KademliaEvent::IncomingRecord { record })) => {
 				log::trace!(

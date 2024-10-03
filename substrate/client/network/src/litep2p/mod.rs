@@ -166,8 +166,10 @@ pub struct Litep2pNetworkBackend {
 	/// Discovery.
 	discovery: Discovery,
 
-	/// Number of connected peers.
-	num_connected: Arc<AtomicUsize>,
+	/// Number of uniquely connected peers.
+	///
+	/// This is used to instruct the discovery about the number of connected peers.
+	num_uniquely_connected: Arc<AtomicUsize>,
 
 	/// Connected peers.
 	peers: HashMap<litep2p::PeerId, ConnectionContext>,
@@ -436,6 +438,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		let peer_store_handle = params.network_config.peer_store_handle();
 		let executor = Arc::new(Litep2pExecutor { executor: params.executor });
 
+		let limit_discovery_under =
+			params.network_config.network_config.default_peers_set.out_peers as usize + 15;
+
 		let FullNetworkConfiguration {
 			notification_protocols,
 			request_response_protocols,
@@ -449,6 +454,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		// to the protocol's `Peerset` together with the protocol name to allow other subsystems
 		// of Polkadot SDK to control connectivity of the notification protocol
 		let block_announce_protocol = params.block_announce_config.protocol_name().clone();
+		let num_sync_connected = params.block_announce_config.handle.connected_peers.clone();
 		let mut notif_protocols = HashMap::from_iter([(
 			params.block_announce_config.protocol_name().clone(),
 			params.block_announce_config.handle,
@@ -538,6 +544,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 		// enable ipfs ping, identify and kademlia, and potentially mdns if user enabled it
 		let listen_addresses = Arc::new(Default::default());
+		let num_uniquely_connected = Arc::new(Default::default());
+
 		let (discovery, ping_config, identify_config, kademlia_config, maybe_mdns_config) =
 			Discovery::new(
 				&network_config,
@@ -546,6 +554,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				&params.protocol_id,
 				known_addresses.clone(),
 				Arc::clone(&listen_addresses),
+				Arc::clone(&num_uniquely_connected),
+				limit_discovery_under,
 				Arc::clone(&peer_store_handle),
 			);
 
@@ -599,12 +609,11 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		));
 
 		// register rest of the metrics now that `Litep2p` has been created
-		let num_connected = Arc::new(Default::default());
 		let bandwidth: Arc<dyn BandwidthSink> =
 			Arc::new(Litep2pBandwidthSink { sink: litep2p.bandwidth_sink() });
 
 		if let Some(registry) = &params.metrics_registry {
-			MetricSources::register(registry, bandwidth, Arc::clone(&num_connected))?;
+			MetricSources::register(registry, bandwidth, Arc::clone(&num_sync_connected))?;
 		}
 
 		Ok(Self {
@@ -612,7 +621,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			cmd_rx,
 			metrics,
 			peerset_handles: notif_protocols,
-			num_connected,
+			num_uniquely_connected,
 			discovery,
 			pending_put_values: HashMap::new(),
 			pending_get_values: HashMap::new(),
@@ -691,11 +700,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		log::debug!(target: LOG_TARGET, "starting litep2p network backend");
 
 		loop {
-			let num_connected_peers = self
-				.peerset_handles
-				.get(&self.block_announce_protocol)
-				.map_or(0usize, |handle| handle.connected_peers.load(Ordering::Relaxed));
-			self.num_connected.store(num_connected_peers, Ordering::Relaxed);
+			self.num_uniquely_connected.store(self.peers.len(), Ordering::Relaxed);
 
 			tokio::select! {
 				command = self.cmd_rx.next() => match command {
@@ -722,11 +727,13 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.event_streams.push(tx);
 						}
 						NetworkServiceCommand::Status { tx } => {
+							let num_connected_peers = self
+								.peerset_handles
+								.get(&self.block_announce_protocol)
+								.map_or(0usize, |handle| handle.connected_peers.load(Ordering::Relaxed));
+
 							let _ = tx.send(NetworkStatus {
-								num_connected_peers: self
-									.peerset_handles
-									.get(&self.block_announce_protocol)
-									.map_or(0usize, |handle| handle.connected_peers.load(Ordering::Relaxed)),
+								num_connected_peers,
 								total_bytes_inbound: self.litep2p.bandwidth_sink().inbound() as u64,
 								total_bytes_outbound: self.litep2p.bandwidth_sink().outbound() as u64,
 							});
