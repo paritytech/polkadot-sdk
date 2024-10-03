@@ -216,6 +216,7 @@ impl PeerData {
 		candidate_hash: Option<CandidateHash>,
 		implicit_view: &ImplicitView,
 		active_leaves: &HashMap<Hash, AsyncBackingParams>,
+		per_relay_parent: &PerRelayParent,
 	) -> std::result::Result<(CollatorId, ParaId), InsertAdvertisementError> {
 		match self.state {
 			PeerState::Connected(_) => Err(InsertAdvertisementError::UndeclaredCollator),
@@ -240,6 +241,12 @@ impl PeerData {
 
 					let candidates = state.advertisements.entry(on_relay_parent).or_default();
 
+					// Current assignments is equal to the length of the claim queue. No honest
+					// collator should send that much advertisements.
+					if candidates.len() > per_relay_parent.assignment.current.len() {
+						return Err(InsertAdvertisementError::PeerLimitReached)
+					}
+
 					candidates.insert(candidate_hash);
 				} else {
 					if self.version != CollationVersion::V1 {
@@ -253,6 +260,7 @@ impl PeerData {
 					if state.advertisements.contains_key(&on_relay_parent) {
 						return Err(InsertAdvertisementError::Duplicate)
 					}
+
 					state
 						.advertisements
 						.insert(on_relay_parent, HashSet::from_iter(candidate_hash));
@@ -1061,6 +1069,7 @@ where
 			candidate_hash,
 			&state.implicit_view,
 			&state.active_leaves,
+			&per_relay_parent,
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
