@@ -25,6 +25,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use cumulus_primitives_storage_weight_reclaim::get_proof_size;
