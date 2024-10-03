@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -18,9 +18,9 @@
 //! This API can be used to simulate XCMs and, for example, find the fees
 //! that need to be paid.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::{DispatchResultWithPostInfo, TypeInfo};
-use sp_std::vec::Vec;
 use xcm::prelude::*;
 
 /// Effects of dry-running an extrinsic.
@@ -57,7 +57,12 @@ sp_api::decl_runtime_apis! {
 	/// Calls or XCMs might fail when executed, this doesn't mean the result of these calls will be an `Err`.
 	/// In those cases, there might still be a valid result, with the execution error inside it.
 	/// The only reasons why these calls might return an error are listed in the [`Error`] enum.
-	pub trait DryRunApi<Call: Encode, Event: Decode, OriginCaller: Encode> {
+	pub trait DryRunApi<Call, Event, OriginCaller>
+	where
+		Call: Encode,
+		Event: Decode,
+		OriginCaller: Encode
+	{
 		/// Dry run call.
 		fn dry_run_call(origin: OriginCaller, call: Call) -> Result<CallDryRunEffects<Event>, Error>;
 

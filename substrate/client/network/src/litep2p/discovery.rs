@@ -50,6 +50,7 @@ use schnellru::{ByLength, LruMap};
 use std::{
 	cmp,
 	collections::{HashMap, HashSet, VecDeque},
+	num::NonZeroUsize,
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
@@ -65,8 +66,17 @@ const KADEMLIA_QUERY_INTERVAL: Duration = Duration::from_secs(5);
 /// mDNS query interval.
 const MDNS_QUERY_INTERVAL: Duration = Duration::from_secs(30);
 
+/// The minimum number of peers we expect an answer before we terminate the request.
+const GET_RECORD_REDUNDANCY_FACTOR: usize = 4;
+
+/// The maximum number of tracked external addresses we allow.
+const MAX_EXTERNAL_ADDRESSES: u32 = 32;
+
 /// Minimum number of confirmations received before an address is verified.
-const MIN_ADDRESS_CONFIRMATIONS: usize = 5;
+///
+/// Note: all addresses are confirmed by libp2p on the first encounter. This aims to make
+/// addresses a bit more robust.
+const MIN_ADDRESS_CONFIRMATIONS: usize = 2;
 
 /// Discovery events.
 #[derive(Debug)]
@@ -84,15 +94,6 @@ pub enum DiscoveryEvent {
 	Identified {
 		/// Peer ID.
 		peer: PeerId,
-
-		/// Identify protocol version.
-		protocol_version: Option<String>,
-
-		/// Identify user agent version.
-		user_agent: Option<String>,
-
-		/// Observed address.
-		observed_address: Multiaddr,
 
 		/// Listen addresses.
 		listen_addresses: Vec<Multiaddr>,
@@ -191,7 +192,7 @@ pub struct Discovery {
 	listen_addresses: Arc<RwLock<HashSet<Multiaddr>>>,
 
 	/// External address confirmations.
-	address_confirmations: LruMap<Multiaddr, usize>,
+	address_confirmations: LruMap<Multiaddr, HashSet<PeerId>>,
 
 	/// Delay to next `FIND_NODE` query.
 	duration_to_next_find_query: Duration,
@@ -233,11 +234,9 @@ impl Discovery {
 	) -> (Self, PingConfig, IdentifyConfig, KademliaConfig, Option<MdnsConfig>) {
 		let (ping_config, ping_event_stream) = PingConfig::default();
 		let user_agent = format!("{} ({})", config.client_version, config.node_name);
-		let (identify_config, identify_event_stream) = IdentifyConfig::new(
-			"/substrate/1.0".to_string(),
-			Some(user_agent),
-			config.public_addresses.clone().into_iter().map(Into::into).collect(),
-		);
+
+		let (identify_config, identify_event_stream) =
+			IdentifyConfig::new("/substrate/1.0".to_string(), Some(user_agent));
 
 		let (mdns_config, mdns_event_stream) = match config.transport {
 			crate::config::TransportConfig::Normal { enable_mdns, .. } => match enable_mdns {
@@ -274,7 +273,7 @@ impl Discovery {
 				find_node_query_id: None,
 				pending_events: VecDeque::new(),
 				duration_to_next_find_query: Duration::from_secs(1),
-				address_confirmations: LruMap::new(ByLength::new(8)),
+				address_confirmations: LruMap::new(ByLength::new(MAX_EXTERNAL_ADDRESSES)),
 				allow_non_global_addresses: config.allow_non_globals_in_dht,
 				public_addresses: config.public_addresses.iter().cloned().map(Into::into).collect(),
 				next_kad_query: Some(Delay::new(KADEMLIA_QUERY_INTERVAL)),
@@ -340,7 +339,10 @@ impl Discovery {
 	/// Start Kademlia `GET_VALUE` query for `key`.
 	pub async fn get_value(&mut self, key: KademliaKey) -> QueryId {
 		self.kademlia_handle
-			.get_record(RecordKey::new(&key.to_vec()), Quorum::One)
+			.get_record(
+				RecordKey::new(&key.to_vec()),
+				Quorum::N(NonZeroUsize::new(GET_RECORD_REDUNDANCY_FACTOR).unwrap()),
+			)
 			.await
 	}
 
@@ -348,6 +350,22 @@ impl Discovery {
 	pub async fn put_value(&mut self, key: KademliaKey, value: Vec<u8>) -> QueryId {
 		self.kademlia_handle
 			.put_record(Record::new(RecordKey::new(&key.to_vec()), value))
+			.await
+	}
+
+	/// Put record to given peers.
+	pub async fn put_value_to_peers(
+		&mut self,
+		record: Record,
+		peers: Vec<sc_network_types::PeerId>,
+		update_local_storage: bool,
+	) -> QueryId {
+		self.kademlia_handle
+			.put_record_to_peers(
+				record,
+				peers.into_iter().map(|peer| peer.into()).collect(),
+				update_local_storage,
+			)
 			.await
 	}
 
@@ -405,7 +423,7 @@ impl Discovery {
 	}
 
 	/// Check if `address` can be considered a new external address.
-	fn is_new_external_address(&mut self, address: &Multiaddr) -> bool {
+	fn is_new_external_address(&mut self, address: &Multiaddr, peer: PeerId) -> bool {
 		log::trace!(target: LOG_TARGET, "verify new external address: {address}");
 
 		// is the address one of our known addresses
@@ -421,14 +439,14 @@ impl Discovery {
 
 		match self.address_confirmations.get(address) {
 			Some(confirmations) => {
-				*confirmations += 1usize;
+				confirmations.insert(peer);
 
-				if *confirmations >= MIN_ADDRESS_CONFIRMATIONS {
+				if confirmations.len() >= MIN_ADDRESS_CONFIRMATIONS {
 					return true
 				}
 			},
 			None => {
-				self.address_confirmations.insert(address.clone(), 1usize);
+				self.address_confirmations.insert(address.clone(), Default::default());
 			},
 		}
 
@@ -534,13 +552,12 @@ impl Stream for Discovery {
 			Poll::Ready(None) => return Poll::Ready(None),
 			Poll::Ready(Some(IdentifyEvent::PeerIdentified {
 				peer,
-				protocol_version,
-				user_agent,
 				listen_addresses,
 				supported_protocols,
 				observed_address,
+				..
 			})) => {
-				if this.is_new_external_address(&observed_address) {
+				if this.is_new_external_address(&observed_address, peer) {
 					this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
 						address: observed_address.clone(),
 					});
@@ -548,10 +565,7 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::Identified {
 					peer,
-					protocol_version,
-					user_agent,
 					listen_addresses,
-					observed_address,
 					supported_protocols,
 				}));
 			},

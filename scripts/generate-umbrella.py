@@ -5,10 +5,10 @@ Creates the Polkadot-SDK umbrella crate that re-exports all other crates.
 This re-creates the `umbrella/` folder. Ensure that it does not contain any changes you want to keep.
 
 Usage:
-    python3 polkadot-sdk-umbrella-crate.py --sdk <path> --version <version>
+    python3 generate-umbrella.py --sdk <path> --version <version>
 
 Example:
-	python3 polkadot-sdk-umbrella-crate.py --sdk ../polkadot-sdk --version 1.11.0
+	python3 generate-umbrella.py --sdk .. --version 1.11.0
 """
 
 import argparse
@@ -24,12 +24,13 @@ Crate names that should be excluded from the umbrella crate.
 """
 def exclude(crate):
 	name = crate.name
-	if crate.metadata.get("polkadot-sdk.skip-umbrella", False):
+	if crate.metadata.get("polkadot-sdk.exclude-from-umbrella", False):
 		return True
 
 	# No fuzzers or examples:
 	if "example" in name or name.endswith("fuzzer"):
 		return True
+
 	# No runtime crates:
 	if name.endswith("-runtime"):
 		# Note: this is a bit hacky. We should use custom crate metadata instead.
@@ -63,7 +64,7 @@ def main(path, version):
 				if manifest['lib']['proc-macro']:
 					nostd_crates.append((crate, path))
 					continue
-		
+
 		# Crates without a lib.rs cannot be no_std
 		if not os.path.exists(lib_path):
 			print(f"Skipping {crate.name} as it does not have a 'src/lib.rs'")
@@ -85,16 +86,18 @@ def main(path, version):
 	# Sort by name
 	std_crates.sort(key=lambda x: x[0].name)
 	nostd_crates.sort(key=lambda x: x[0].name)
+
+	runtime_crates = [crate for crate in nostd_crates if 'frame' in crate[0].name or crate[0].name.startswith('sp-')]
 	all_crates = std_crates + nostd_crates
 	all_crates.sort(key=lambda x: x[0].name)
 	dependencies = {}
 
 	for (crate, path) in nostd_crates:
 		dependencies[crate.name] = {"path": f"../{path}", "default-features": False, "optional": True}
-	
+
 	for (crate, path) in std_crates:
 		dependencies[crate.name] = {"path": f"../{path}", "default-features": False, "optional": True}
-	
+
 	# The empty features are filled by Zepter
 	features = {
 		"default": [ "std" ],
@@ -104,9 +107,11 @@ def main(path, version):
 		"serde": [],
 		"experimental": [],
 		"with-tracing": [],
-		"runtime": list([f"{d.name}" for d, _ in nostd_crates]),
+		"runtime-full": list([f"{d.name}" for d, _ in nostd_crates]),
+		"runtime": list([f"{d.name}" for d, _ in runtime_crates]),
 		"node": ["std"] + list([f"{d.name}" for d, _ in std_crates]),
 		"tuples-96": [],
+		"riscv": [],
 	}
 
 	manifest = {
@@ -118,7 +123,7 @@ def main(path, version):
 			"description": "Polkadot SDK umbrella crate.",
 			"license": "Apache-2.0",
 			"metadata": { "docs": { "rs": {
-				"features": ["runtime", "node"],
+				"features": ["runtime-full", "node"],
 				"targets": ["x86_64-unknown-linux-gnu"]
 			}}}
 		},
@@ -158,9 +163,9 @@ def main(path, version):
 			f.write(f'\n/// {desc}')
 			f.write(f'\n#[cfg(feature = "{crate.name}")]\n')
 			f.write(f"pub use {use};\n")
-		
+
 		print(f"Wrote {lib_path}")
-	
+
 	add_to_workspace(workspace.path)
 
 """
@@ -187,7 +192,7 @@ def add_to_workspace(path):
 	manifest = re.sub(r'^members = \[', 'members = [\n        "umbrella",', manifest, flags=re.M)
 	with open(os.path.join(path, "Cargo.toml"), "w") as f:
 		f.write(manifest)
-	
+
 	os.chdir(path) # hack
 	os.system("cargo metadata --format-version 1 > /dev/null") # update the lockfile
 	os.system(f"zepter") # enable the features
@@ -202,3 +207,4 @@ def parse_args():
 if __name__ == "__main__":
 	args = parse_args()
 	main(args.sdk, args.version)
+

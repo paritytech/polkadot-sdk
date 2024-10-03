@@ -14,6 +14,7 @@ codec = { features = ["derive", "max-encoded-len"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+serde_json = { features = ["alloc"], workspace = true }
 
 # Substrate
 frame-benchmarking = { optional = true, workspace = true }
@@ -219,6 +220,7 @@ std = [
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
 	"scale-info/std",
+	"serde_json/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-block-builder/std",
@@ -245,4 +247,4 @@ std = [
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
-on-chain-release-build = ["sp-api/disable-logging"]
+on-chain-release-build = []

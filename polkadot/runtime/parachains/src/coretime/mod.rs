@@ -18,6 +18,8 @@
 //!
 //! <https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md>
 
+use alloc::{vec, vec::Vec};
+use core::result;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{defensive_prelude::*, Currency},
@@ -28,7 +30,6 @@ use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use polkadot_primitives::{Balance, BlockNumber, CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_runtime::traits::TryConvert;
-use sp_std::{prelude::*, result};
 use xcm::{
 	prelude::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm},
 	v4::{
@@ -47,8 +48,8 @@ use xcm_executor::traits::TransactAsset;
 
 use crate::{
 	assigner_coretime::{self, PartsOf57600},
-	assigner_on_demand,
 	initializer::{OnNewSession, SessionChangeNotification},
+	on_demand,
 	origin::{ensure_parachain, Origin},
 };
 
@@ -115,6 +116,7 @@ enum CoretimeCalls {
 
 #[frame_support::pallet]
 pub mod pallet {
+
 	use crate::configuration;
 	use sp_runtime::traits::TryConvert;
 	use xcm::v4::InteriorLocation;
@@ -127,9 +129,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config:
-		frame_system::Config + assigner_coretime::Config + assigner_on_demand::Config
-	{
+	pub trait Config: frame_system::Config + assigner_coretime::Config + on_demand::Config {
 		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<result::Result<Origin, <Self as Config>::RuntimeOrigin>>;
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -307,7 +307,7 @@ impl<T: Config> Pallet<T> {
 		// When cannot be in the future.
 		ensure!(until_bnf <= now, Error::<T>::RequestedFutureRevenue);
 
-		let amount = <assigner_on_demand::Pallet<T>>::claim_revenue_until(until_bnf);
+		let amount = <on_demand::Pallet<T>>::claim_revenue_until(until_bnf);
 		log::debug!(target: LOG_TARGET, "Revenue info requested: {:?}", amount);
 
 		let raw_revenue: Balance = amount.try_into().map_err(|_| {
@@ -358,20 +358,24 @@ fn mk_coretime_call<T: Config>(call: crate::coretime::CoretimeCalls) -> Instruct
 
 fn do_notify_revenue<T: Config>(when: BlockNumber, raw_revenue: Balance) -> Result<(), XcmError> {
 	let dest = Junction::Parachain(T::BrokerId::get()).into_location();
-	let mut message = Vec::new();
+	let mut message = vec![Instruction::UnpaidExecution {
+		weight_limit: WeightLimit::Unlimited,
+		check_origin: None,
+	}];
 	let asset = Asset { id: AssetId(Location::here()), fun: Fungible(raw_revenue) };
 	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
 
 	if raw_revenue > 0 {
 		let on_demand_pot =
-			T::AccountToLocation::try_convert(&<assigner_on_demand::Pallet<T>>::account_id())
-				.map_err(|err| {
+			T::AccountToLocation::try_convert(&<on_demand::Pallet<T>>::account_id()).map_err(
+				|err| {
 					log::error!(
 						target: LOG_TARGET,
 						"Failed to convert on-demand pot account to XCM location: {err:?}",
 					);
 					XcmError::InvalidLocation
-				})?;
+				},
+			)?;
 
 		let withdrawn = T::AssetTransactor::withdraw_asset(&asset, &on_demand_pot, None)?;
 
@@ -383,10 +387,6 @@ fn do_notify_revenue<T: Config>(when: BlockNumber, raw_revenue: Balance) -> Resu
 
 		message.extend(
 			[
-				Instruction::UnpaidExecution {
-					weight_limit: WeightLimit::Unlimited,
-					check_origin: None,
-				},
 				ReceiveTeleportedAsset(assets_reanchored),
 				DepositAsset {
 					assets: Wild(AllCounted(1)),

@@ -4,7 +4,7 @@ version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME Timestamp Module"
 documentation = "https://docs.rs/pallet-timestamp"
@@ -26,7 +26,6 @@ frame-system = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { optional = true, workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 sp-storage = { workspace = true }
 sp-timestamp = { workspace = true }
 
@@ -49,7 +48,6 @@ std = [
 	"sp-inherents/std",
 	"sp-io?/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-storage/std",
 	"sp-timestamp/std",
 ]

@@ -60,6 +60,7 @@
 // unused dependencies can not work for test and examples at the same time
 // yielding false positives
 #![warn(missing_docs)]
+#![allow(dead_code)] // TODO https://github.com/paritytech/polkadot-sdk/issues/5793
 
 use std::{
 	collections::{hash_map, HashMap},
@@ -76,13 +77,13 @@ use sc_client_api::{BlockImportNotification, BlockchainEvents, FinalityNotificat
 
 use self::messages::{BitfieldSigningMessage, PvfCheckerMessage};
 use polkadot_node_subsystem_types::messages::{
-	ApprovalDistributionMessage, ApprovalVotingMessage, AvailabilityDistributionMessage,
-	AvailabilityRecoveryMessage, AvailabilityStoreMessage, BitfieldDistributionMessage,
-	CandidateBackingMessage, CandidateValidationMessage, ChainApiMessage, ChainSelectionMessage,
-	CollationGenerationMessage, CollatorProtocolMessage, DisputeCoordinatorMessage,
-	DisputeDistributionMessage, GossipSupportMessage, NetworkBridgeRxMessage,
-	NetworkBridgeTxMessage, ProspectiveParachainsMessage, ProvisionerMessage, RuntimeApiMessage,
-	StatementDistributionMessage,
+	ApprovalDistributionMessage, ApprovalVotingMessage, ApprovalVotingParallelMessage,
+	AvailabilityDistributionMessage, AvailabilityRecoveryMessage, AvailabilityStoreMessage,
+	BitfieldDistributionMessage, CandidateBackingMessage, CandidateValidationMessage,
+	ChainApiMessage, ChainSelectionMessage, CollationGenerationMessage, CollatorProtocolMessage,
+	DisputeCoordinatorMessage, DisputeDistributionMessage, GossipSupportMessage,
+	NetworkBridgeRxMessage, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
+	ProvisionerMessage, RuntimeApiMessage, StatementDistributionMessage,
 };
 
 pub use polkadot_node_subsystem_types::{
@@ -105,10 +106,11 @@ pub use polkadot_node_metrics::{
 
 pub use orchestra as gen;
 pub use orchestra::{
-	contextbounds, orchestra, subsystem, FromOrchestra, MapSubsystem, MessagePacket,
-	OrchestraError as OverseerError, SignalsReceived, Spawner, Subsystem, SubsystemContext,
-	SubsystemIncomingMessages, SubsystemInstance, SubsystemMeterReadouts, SubsystemMeters,
-	SubsystemSender, TimeoutExt, ToOrchestra, TrySendError,
+	contextbounds, orchestra, subsystem, FromOrchestra, HighPriority, MapSubsystem, MessagePacket,
+	NormalPriority, OrchestraError as OverseerError, Priority, PriorityLevel, SignalsReceived,
+	Spawner, Subsystem, SubsystemContext, SubsystemIncomingMessages, SubsystemInstance,
+	SubsystemMeterReadouts, SubsystemMeters, SubsystemSender, TimeoutExt, ToOrchestra,
+	TrySendError,
 };
 
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
@@ -465,7 +467,7 @@ pub async fn forward_events<P: BlockchainEvents<Block>>(client: Arc<P>, mut hand
 	message_capacity=2048,
 )]
 pub struct Overseer<SupportsParachains> {
-	#[subsystem(blocking, CandidateValidationMessage, sends: [
+	#[subsystem(CandidateValidationMessage, sends: [
 		RuntimeApiMessage,
 	])]
 	candidate_validation: CandidateValidation,
@@ -495,7 +497,7 @@ pub struct Overseer<SupportsParachains> {
 		RuntimeApiMessage,
 		ProspectiveParachainsMessage,
 		ChainApiMessage,
-	])]
+	], can_receive_priority_messages)]
 	statement_distribution: StatementDistribution,
 
 	#[subsystem(AvailabilityDistributionMessage, sends: [
@@ -520,11 +522,11 @@ pub struct Overseer<SupportsParachains> {
 	])]
 	bitfield_signing: BitfieldSigning,
 
-	#[subsystem(BitfieldDistributionMessage, sends: [
+	#[subsystem(blocking, message_capacity: 8192, BitfieldDistributionMessage, sends: [
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
 		ProvisionerMessage,
-	])]
+	], can_receive_priority_messages)]
 	bitfield_distribution: BitfieldDistribution,
 
 	#[subsystem(ProvisionerMessage, sends: [
@@ -549,6 +551,7 @@ pub struct Overseer<SupportsParachains> {
 		BitfieldDistributionMessage,
 		StatementDistributionMessage,
 		ApprovalDistributionMessage,
+		ApprovalVotingParallelMessage,
 		GossipSupportMessage,
 		DisputeDistributionMessage,
 		CollationGenerationMessage,
@@ -580,7 +583,8 @@ pub struct Overseer<SupportsParachains> {
 	#[subsystem(blocking, message_capacity: 64000, ApprovalDistributionMessage, sends: [
 		NetworkBridgeTxMessage,
 		ApprovalVotingMessage,
-	])]
+		RuntimeApiMessage,
+	], can_receive_priority_messages)]
 	approval_distribution: ApprovalDistribution,
 
 	#[subsystem(blocking, ApprovalVotingMessage, sends: [
@@ -593,13 +597,25 @@ pub struct Overseer<SupportsParachains> {
 		RuntimeApiMessage,
 	])]
 	approval_voting: ApprovalVoting,
-
+	#[subsystem(blocking, message_capacity: 64000, ApprovalVotingParallelMessage, sends: [
+		AvailabilityRecoveryMessage,
+		CandidateValidationMessage,
+		ChainApiMessage,
+		ChainSelectionMessage,
+		DisputeCoordinatorMessage,
+		RuntimeApiMessage,
+		NetworkBridgeTxMessage,
+		ApprovalVotingMessage,
+		ApprovalDistributionMessage,
+		ApprovalVotingParallelMessage,
+	])]
+	approval_voting_parallel: ApprovalVotingParallel,
 	#[subsystem(GossipSupportMessage, sends: [
 		NetworkBridgeTxMessage,
 		NetworkBridgeRxMessage, // TODO <https://github.com/paritytech/polkadot/issues/5626>
 		RuntimeApiMessage,
 		ChainSelectionMessage,
-	])]
+	], can_receive_priority_messages)]
 	gossip_support: GossipSupport,
 
 	#[subsystem(blocking, message_capacity: 32000, DisputeCoordinatorMessage, sends: [
@@ -611,6 +627,7 @@ pub struct Overseer<SupportsParachains> {
 		AvailabilityStoreMessage,
 		AvailabilityRecoveryMessage,
 		ChainSelectionMessage,
+		ApprovalVotingParallelMessage,
 	])]
 	dispute_coordinator: DisputeCoordinator,
 

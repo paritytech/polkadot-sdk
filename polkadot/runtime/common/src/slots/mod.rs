@@ -25,6 +25,7 @@
 pub mod migration;
 
 use crate::traits::{LeaseError, Leaser, Registrar};
+use alloc::{vec, vec::Vec};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, ReservableCurrency},
@@ -34,7 +35,6 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::{CheckedConversion, CheckedSub, Saturating, Zero};
-use sp_std::prelude::*;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -309,7 +309,7 @@ impl<T: Config> Pallet<T> {
 	// Useful when trying to clean up a parachain leases, as this would tell
 	// you all the balances you need to unreserve.
 	fn all_deposits_held(para: ParaId) -> Vec<(T::AccountId, BalanceOf<T>)> {
-		let mut tracker = sp_std::collections::btree_map::BTreeMap::new();
+		let mut tracker = alloc::collections::btree_map::BTreeMap::new();
 		Leases::<T>::get(para).into_iter().for_each(|lease| match lease {
 			Some((who, amount)) => match tracker.get(&who) {
 				Some(prev_amount) =>
@@ -329,7 +329,7 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> crate::traits::OnSwap for Pallet<T> {
 	fn on_swap(one: ParaId, other: ParaId) {
-		Leases::<T>::mutate(one, |x| Leases::<T>::mutate(other, |y| sp_std::mem::swap(x, y)))
+		Leases::<T>::mutate(one, |x| Leases::<T>::mutate(other, |y| core::mem::swap(x, y)))
 	}
 }
 

@@ -14,10 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Config, GrandpaPalletOf, Pallet, RelayBlockHash, RelayBlockNumber};
+use crate::{Config, GrandpaPalletOf, Pallet, RelayBlockNumber};
 use bp_header_chain::HeaderChain;
-use bp_parachains::BestParaHeadHash;
-use bp_polkadot_core::parachains::{ParaHash, ParaId};
+use bp_parachains::{BestParaHeadHash, SubmitParachainHeadsInfo};
 use bp_runtime::{HeaderId, OwnedBridgeModule};
 use frame_support::{
 	dispatch::CallableCallFor,
@@ -29,21 +28,6 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	RuntimeDebug,
 };
-
-/// Info about a `SubmitParachainHeads` call which tries to update a single parachain.
-#[derive(PartialEq, RuntimeDebug)]
-pub struct SubmitParachainHeadsInfo {
-	/// Number and hash of the finalized relay block that has been used to prove parachain
-	/// finality.
-	pub at_relay_block: HeaderId<RelayBlockHash, RelayBlockNumber>,
-	/// Parachain identifier.
-	pub para_id: ParaId,
-	/// Hash of the bundled parachain head.
-	pub para_head_hash: ParaHash,
-	/// If `true`, then the call must be free (assuming that everything else is valid) to
-	/// be treated as valid.
-	pub is_free_execution_expected: bool,
-}
 
 /// Verified `SubmitParachainHeadsInfo`.
 #[derive(PartialEq, RuntimeDebug)]
@@ -289,7 +273,7 @@ mod tests {
 		RuntimeCall::Parachains(crate::Call::<TestRuntime, ()>::submit_parachain_heads_ex {
 			at_relay_block: (num, [num as u8; 32].into()),
 			parachains,
-			parachain_heads_proof: ParaHeadsProof { storage_proof: Vec::new() },
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 			is_free_execution_expected: false,
 		})
 		.check_obsolete_submit_parachain_heads()
@@ -303,7 +287,7 @@ mod tests {
 		RuntimeCall::Parachains(crate::Call::<TestRuntime, ()>::submit_parachain_heads_ex {
 			at_relay_block: (num, [num as u8; 32].into()),
 			parachains,
-			parachain_heads_proof: ParaHeadsProof { storage_proof: Vec::new() },
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Default::default() },
 			is_free_execution_expected: true,
 		})
 		.check_obsolete_submit_parachain_heads()

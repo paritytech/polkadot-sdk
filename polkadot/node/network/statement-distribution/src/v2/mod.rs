@@ -45,8 +45,9 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::ReputationAggregator,
-	runtime::{request_min_backing_votes, ProspectiveParachainsMode},
-	vstaging::{fetch_claim_queue, ClaimQueueSnapshot},
+	runtime::{
+		fetch_claim_queue, request_min_backing_votes, ClaimQueueSnapshot, ProspectiveParachainsMode,
+	},
 };
 use polkadot_primitives::{
 	AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex, CoreState, GroupIndex,
@@ -400,6 +401,7 @@ pub(crate) async fn handle_network_update<Context>(
 	state: &mut State,
 	update: NetworkBridgeEvent<net_protocol::StatementDistributionMessage>,
 	reputation: &mut ReputationAggregator,
+	metrics: &Metrics,
 ) {
 	match update {
 		NetworkBridgeEvent::PeerConnected(peer_id, role, protocol_version, mut authority_ids) => {
@@ -483,23 +485,33 @@ pub(crate) async fn handle_network_update<Context>(
 			net_protocol::StatementDistributionMessage::V3(
 				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			) =>
-				handle_incoming_statement(ctx, state, peer_id, relay_parent, statement, reputation)
-					.await,
+				handle_incoming_statement(
+					ctx,
+					state,
+					peer_id,
+					relay_parent,
+					statement,
+					reputation,
+					metrics,
+				)
+				.await,
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(inner),
 			) |
 			net_protocol::StatementDistributionMessage::V3(
 				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(inner),
-			) => handle_incoming_manifest(ctx, state, peer_id, inner, reputation).await,
+			) => handle_incoming_manifest(ctx, state, peer_id, inner, reputation, metrics).await,
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::BackedCandidateKnown(inner),
 			) |
 			net_protocol::StatementDistributionMessage::V3(
 				protocol_v3::StatementDistributionMessage::BackedCandidateKnown(inner),
-			) => handle_incoming_acknowledgement(ctx, state, peer_id, inner, reputation).await,
+			) =>
+				handle_incoming_acknowledgement(ctx, state, peer_id, inner, reputation, metrics)
+					.await,
 		},
 		NetworkBridgeEvent::PeerViewChange(peer_id, view) =>
-			handle_peer_view_update(ctx, state, peer_id, view).await,
+			handle_peer_view_update(ctx, state, peer_id, view, metrics).await,
 		NetworkBridgeEvent::OurViewChange(_view) => {
 			// handled by `handle_activated_leaf`
 		},
@@ -539,6 +551,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 	state: &mut State,
 	activated: &ActivatedLeaf,
 	leaf_mode: ProspectiveParachainsMode,
+	metrics: &Metrics,
 ) -> JfyiErrorResult<()> {
 	let max_candidate_depth = match leaf_mode {
 		ProspectiveParachainsMode::Disabled => return Ok(()),
@@ -558,7 +571,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 
 	for new_relay_parent in new_relay_parents.iter().cloned() {
 		let disabled_validators: HashSet<_> =
-			polkadot_node_subsystem_util::vstaging::get_disabled_validators_with_fallback(
+			polkadot_node_subsystem_util::runtime::get_disabled_validators_with_fallback(
 				ctx.sender(),
 				new_relay_parent,
 			)
@@ -714,7 +727,8 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 
 		for (peer, fresh) in update_peers {
 			for fresh_relay_parent in fresh {
-				send_peer_messages_for_relay_parent(ctx, state, peer, fresh_relay_parent).await;
+				send_peer_messages_for_relay_parent(ctx, state, peer, fresh_relay_parent, metrics)
+					.await;
 			}
 		}
 	}
@@ -815,6 +829,7 @@ async fn handle_peer_view_update<Context>(
 	state: &mut State,
 	peer: PeerId,
 	new_view: View,
+	metrics: &Metrics,
 ) {
 	let fresh_implicit = {
 		let peer_data = match state.peers.get_mut(&peer) {
@@ -826,7 +841,7 @@ async fn handle_peer_view_update<Context>(
 	};
 
 	for new_relay_parent in fresh_implicit {
-		send_peer_messages_for_relay_parent(ctx, state, peer, new_relay_parent).await;
+		send_peer_messages_for_relay_parent(ctx, state, peer, new_relay_parent, metrics).await;
 	}
 }
 
@@ -857,6 +872,7 @@ async fn send_peer_messages_for_relay_parent<Context>(
 	state: &mut State,
 	peer: PeerId,
 	relay_parent: Hash,
+	metrics: &Metrics,
 ) {
 	let peer_data = match state.peers.get_mut(&peer) {
 		None => return,
@@ -889,6 +905,7 @@ async fn send_peer_messages_for_relay_parent<Context>(
 				&mut active.cluster_tracker,
 				&state.candidates,
 				&relay_parent_state.statement_store,
+				metrics,
 			)
 			.await;
 		}
@@ -901,6 +918,7 @@ async fn send_peer_messages_for_relay_parent<Context>(
 			&per_session_state.groups,
 			relay_parent_state,
 			&state.candidates,
+			metrics,
 		)
 		.await;
 	}
@@ -949,6 +967,7 @@ async fn send_pending_cluster_statements<Context>(
 	cluster_tracker: &mut ClusterTracker,
 	candidates: &Candidates,
 	statement_store: &StatementStore,
+	metrics: &Metrics,
 ) {
 	let pending_statements = cluster_tracker.pending_statements_for(peer_validator_id);
 	let network_messages = pending_statements
@@ -974,12 +993,12 @@ async fn send_pending_cluster_statements<Context>(
 		})
 		.collect::<Vec<_>>();
 
-	if network_messages.is_empty() {
-		return
+	if !network_messages.is_empty() {
+		let count = network_messages.len();
+		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(network_messages))
+			.await;
+		metrics.on_statements_distributed(count);
 	}
-
-	ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(network_messages))
-		.await;
 }
 
 /// Send a peer all pending grid messages / acknowledgements / follow up statements
@@ -993,6 +1012,7 @@ async fn send_pending_grid_messages<Context>(
 	groups: &Groups,
 	relay_parent_state: &mut PerRelayParentState,
 	candidates: &Candidates,
+	metrics: &Metrics,
 ) {
 	let pending_manifests = {
 		let local_validator = match relay_parent_state.local_validator.as_mut() {
@@ -1005,6 +1025,7 @@ async fn send_pending_grid_messages<Context>(
 	};
 
 	let mut messages: Vec<(Vec<PeerId>, net_protocol::VersionedValidationProtocol)> = Vec::new();
+	let mut statements_count = 0;
 	for (candidate_hash, kind) in pending_manifests {
 		let confirmed_candidate = match candidates.get_confirmed(&candidate_hash) {
 			None => continue, // sanity
@@ -1079,7 +1100,7 @@ async fn send_pending_grid_messages<Context>(
 				};
 			},
 			grid::ManifestKind::Acknowledgement => {
-				messages.extend(acknowledgement_and_statement_messages(
+				let (m, c) = acknowledgement_and_statement_messages(
 					peer_id,
 					peer_validator_id,
 					groups,
@@ -1088,7 +1109,9 @@ async fn send_pending_grid_messages<Context>(
 					group_index,
 					candidate_hash,
 					local_knowledge,
-				));
+				);
+				messages.extend(m);
+				statements_count += c;
 			},
 		}
 	}
@@ -1107,8 +1130,9 @@ async fn send_pending_grid_messages<Context>(
 
 		let pending_statements = grid_tracker.all_pending_statements_for(peer_validator_id);
 
-		let extra_statements =
-			pending_statements.into_iter().filter_map(|(originator, compact)| {
+		let extra_statements = pending_statements
+			.into_iter()
+			.filter_map(|(originator, compact)| {
 				let res = pending_statement_network_message(
 					&relay_parent_state.statement_store,
 					relay_parent,
@@ -1128,15 +1152,17 @@ async fn send_pending_grid_messages<Context>(
 				}
 
 				res
-			});
+			})
+			.collect::<Vec<_>>();
 
+		statements_count += extra_statements.len();
 		messages.extend(extra_statements);
 	}
 
-	if messages.is_empty() {
-		return
+	if !messages.is_empty() {
+		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(messages)).await;
+		metrics.on_statements_distributed(statements_count);
 	}
-	ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(messages)).await;
 }
 
 // Imports a locally originating statement and distributes it to peers.
@@ -1147,6 +1173,7 @@ pub(crate) async fn share_local_statement<Context>(
 	relay_parent: Hash,
 	statement: SignedFullStatementWithPVD,
 	reputation: &mut ReputationAggregator,
+	metrics: &Metrics,
 ) -> JfyiErrorResult<()> {
 	let per_relay_parent = match state.per_relay_parent.get_mut(&relay_parent) {
 		None => return Err(JfyiError::InvalidShare),
@@ -1269,11 +1296,12 @@ pub(crate) async fn share_local_statement<Context>(
 		&state.authorities,
 		&state.peers,
 		compact_statement,
+		metrics,
 	)
 	.await;
 
 	if let Some(post_confirmation) = post_confirmation {
-		apply_post_confirmation(ctx, state, post_confirmation, reputation).await;
+		apply_post_confirmation(ctx, state, post_confirmation, reputation, metrics).await;
 	}
 
 	Ok(())
@@ -1310,6 +1338,7 @@ async fn circulate_statement<Context>(
 	authorities: &HashMap<AuthorityDiscoveryId, PeerId>,
 	peers: &HashMap<PeerId, PeerState>,
 	statement: SignedStatement,
+	metrics: &Metrics,
 ) {
 	let session_info = &per_session.session_info;
 
@@ -1446,6 +1475,7 @@ async fn circulate_statement<Context>(
 			.into(),
 		))
 		.await;
+		metrics.on_statement_distributed();
 	}
 
 	if !statement_to_v3_peers.is_empty() {
@@ -1465,6 +1495,7 @@ async fn circulate_statement<Context>(
 			.into(),
 		))
 		.await;
+		metrics.on_statement_distributed();
 	}
 }
 /// Check a statement signature under this parent hash.
@@ -1511,6 +1542,7 @@ async fn handle_incoming_statement<Context>(
 	relay_parent: Hash,
 	statement: UncheckedSignedStatement,
 	reputation: &mut ReputationAggregator,
+	metrics: &Metrics,
 ) {
 	let peer_state = match state.peers.get(&peer) {
 		None => {
@@ -1787,6 +1819,7 @@ async fn handle_incoming_statement<Context>(
 			&state.authorities,
 			&state.peers,
 			checked_statement,
+			metrics,
 		)
 		.await;
 	} else {
@@ -1944,6 +1977,7 @@ async fn provide_candidate_to_grid<Context>(
 	per_session: &PerSessionState,
 	authorities: &HashMap<AuthorityDiscoveryId, PeerId>,
 	peers: &HashMap<PeerId, PeerState>,
+	metrics: &Metrics,
 ) {
 	let local_validator = match relay_parent_state.local_validator {
 		Some(ref mut v) => v,
@@ -2131,8 +2165,10 @@ async fn provide_candidate_to_grid<Context>(
 		.await;
 	}
 	if !post_statements.is_empty() {
+		let count = post_statements.len();
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(post_statements))
 			.await;
+		metrics.on_statements_distributed(count);
 	}
 }
 
@@ -2202,7 +2238,9 @@ async fn fragment_chain_update_inner<Context>(
 	// 2. find out which are in the frontier
 	gum::debug!(
 		target: LOG_TARGET,
-		"Calling getHypotheticalMembership from statement distribution"
+		active_leaf_hash = ?active_leaf_hash,
+		"Calling getHypotheticalMembership from statement distribution for candidates: {:?}",
+		&hypotheticals.iter().map(|hypo| hypo.candidate_hash()).collect::<Vec<_>>()
 	);
 	let candidate_memberships = {
 		let (tx, rx) = oneshot::channel();
@@ -2532,6 +2570,7 @@ async fn handle_incoming_manifest<Context>(
 	peer: PeerId,
 	manifest: net_protocol::v2::BackedCandidateManifest,
 	reputation: &mut ReputationAggregator,
+	metrics: &Metrics,
 ) {
 	gum::debug!(
 		target: LOG_TARGET,
@@ -2588,7 +2627,7 @@ async fn handle_incoming_manifest<Context>(
 			)
 		};
 
-		let messages = acknowledgement_and_statement_messages(
+		let (messages, statements_count) = acknowledgement_and_statement_messages(
 			&(
 				peer,
 				state
@@ -2609,6 +2648,7 @@ async fn handle_incoming_manifest<Context>(
 
 		if !messages.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(messages)).await;
+			metrics.on_statements_distributed(statements_count);
 		}
 	} else if !state.candidates.is_confirmed(&manifest.candidate_hash) {
 		// 5. if unconfirmed, add request entry
@@ -2636,9 +2676,9 @@ fn acknowledgement_and_statement_messages(
 	group_index: GroupIndex,
 	candidate_hash: CandidateHash,
 	local_knowledge: StatementFilter,
-) -> Vec<(Vec<PeerId>, net_protocol::VersionedValidationProtocol)> {
+) -> (Vec<(Vec<PeerId>, net_protocol::VersionedValidationProtocol)>, usize) {
 	let local_validator = match relay_parent_state.local_validator.as_mut() {
-		None => return Vec::new(),
+		None => return (Vec::new(), 0),
 		Some(l) => l,
 	};
 
@@ -2666,7 +2706,7 @@ fn acknowledgement_and_statement_messages(
 				"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
 				legacy should have handled this"
 			);
-			return Vec::new()
+			return (Vec::new(), 0)
 		},
 	};
 
@@ -2687,10 +2727,11 @@ fn acknowledgement_and_statement_messages(
 		candidate_hash,
 		peer,
 	);
+	let statements_count = statement_messages.len();
 
 	messages.extend(statement_messages.into_iter().map(|m| (vec![peer.0], m)));
 
-	messages
+	(messages, statements_count)
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
@@ -2700,6 +2741,7 @@ async fn handle_incoming_acknowledgement<Context>(
 	peer: PeerId,
 	acknowledgement: net_protocol::v2::BackedCandidateAcknowledgement,
 	reputation: &mut ReputationAggregator,
+	metrics: &Metrics,
 ) {
 	// The key difference between acknowledgments and full manifests is that only
 	// the candidate hash is included alongside the bitfields, so the candidate
@@ -2780,10 +2822,12 @@ async fn handle_incoming_acknowledgement<Context>(
 	);
 
 	if !messages.is_empty() {
+		let count = messages.len();
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(
 			messages.into_iter().map(|m| (vec![peer], m)).collect(),
 		))
 		.await;
+		metrics.on_statements_distributed(count);
 	}
 }
 
@@ -2793,6 +2837,7 @@ pub(crate) async fn handle_backed_candidate_message<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	candidate_hash: CandidateHash,
+	metrics: &Metrics,
 ) {
 	// If the candidate is unknown or unconfirmed, it's a race (pruned before receiving message)
 	// or a bug. Ignore if so
@@ -2834,6 +2879,7 @@ pub(crate) async fn handle_backed_candidate_message<Context>(
 		per_session,
 		&state.authorities,
 		&state.peers,
+		metrics,
 	)
 	.await;
 
@@ -2855,6 +2901,7 @@ async fn send_cluster_candidate_statements<Context>(
 	state: &mut State,
 	candidate_hash: CandidateHash,
 	relay_parent: Hash,
+	metrics: &Metrics,
 ) {
 	let relay_parent_state = match state.per_relay_parent.get_mut(&relay_parent) {
 		None => return,
@@ -2897,6 +2944,7 @@ async fn send_cluster_candidate_statements<Context>(
 			&state.authorities,
 			&state.peers,
 			statement,
+			metrics,
 		)
 		.await;
 	}
@@ -2914,6 +2962,7 @@ async fn apply_post_confirmation<Context>(
 	state: &mut State,
 	post_confirmation: PostConfirmation,
 	reputation: &mut ReputationAggregator,
+	metrics: &Metrics,
 ) {
 	for peer in post_confirmation.reckoning.incorrect {
 		modify_reputation(reputation, ctx.sender(), peer, COST_INACCURATE_ADVERTISEMENT).await;
@@ -2927,6 +2976,7 @@ async fn apply_post_confirmation<Context>(
 		state,
 		candidate_hash,
 		post_confirmation.hypothetical.relay_parent(),
+		metrics,
 	)
 	.await;
 	new_confirmed_candidate_fragment_chain_updates(ctx, state, post_confirmation.hypothetical)
@@ -3052,6 +3102,7 @@ pub(crate) async fn handle_response<Context>(
 	state: &mut State,
 	response: UnhandledResponse,
 	reputation: &mut ReputationAggregator,
+	metrics: &Metrics,
 ) {
 	let &requests::CandidateIdentifier { relay_parent, candidate_hash, group_index } =
 		response.candidate_identifier();
@@ -3151,7 +3202,7 @@ pub(crate) async fn handle_response<Context>(
 	};
 
 	// Note that this implicitly circulates all statements via the cluster.
-	apply_post_confirmation(ctx, state, post_confirmation, reputation).await;
+	apply_post_confirmation(ctx, state, post_confirmation, reputation, metrics).await;
 
 	let confirmed = state.candidates.get_confirmed(&candidate_hash).expect("just confirmed; qed");
 

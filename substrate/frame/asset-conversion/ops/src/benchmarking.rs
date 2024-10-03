@@ -28,7 +28,6 @@ use frame_system::RawOrigin as SystemOrigin;
 use pallet_asset_conversion::{BenchmarkHelper, Pallet as AssetConversion};
 use sp_core::Get;
 use sp_runtime::traits::One;
-use sp_std::prelude::*;
 
 /// Provides a pair of amounts expected to serve as sufficient initial liquidity for a pool.
 fn valid_liquidity_amount<T: Config>(ed1: T::Balance, ed2: T::Balance) -> (T::Balance, T::Balance)

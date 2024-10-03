@@ -20,7 +20,9 @@
 
 use super::*;
 
+use alloc::collections::vec_deque::VecDeque;
 use codec::Encode;
+use core::num::NonZeroU32;
 use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, AggregateMessageOrigin, InboundDownwardMessage,
 	InboundHrmpMessage, PersistedValidationData,
@@ -37,7 +39,6 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_runtime::{traits::BlakeTwo256, BuildStorage};
-use sp_std::{collections::vec_deque::VecDeque, num::NonZeroU32};
 use sp_version::RuntimeVersion;
 use std::cell::RefCell;
 
@@ -48,9 +49,9 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test {
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		ParachainSystem: parachain_system::{Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned},
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		ParachainSystem: parachain_system,
+		MessageQueue: pallet_message_queue,
 	}
 );
 
@@ -63,7 +64,7 @@ parameter_types! {
 		impl_version: 1,
 		apis: sp_version::create_apis_vec!([]),
 		transaction_version: 1,
-		state_version: 1,
+		system_version: 1,
 	};
 	pub const ParachainId: ParaId = ParaId::new(200);
 	pub const ReservedXcmpWeight: Weight = Weight::zero();
@@ -93,6 +94,7 @@ impl Config for Test {
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = TestConsensusHook;
 	type WeightInfo = ();
+	type SelectCore = DefaultCoreSelector<Test>;
 }
 
 std::thread_local! {

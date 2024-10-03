@@ -21,7 +21,6 @@ bitflags = { workspace = true }
 
 sp-api = { workspace = true }
 sp-inherents = { workspace = true }
-sp-std = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-session = { workspace = true }
@@ -31,6 +30,7 @@ sp-keystore = { optional = true, workspace = true }
 sp-application-crypto = { optional = true, workspace = true }
 sp-tracing = { optional = true, workspace = true }
 sp-arithmetic = { workspace = true }
+sp-std = { workspace = true, optional = true }
 
 pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
@@ -38,6 +38,7 @@ pallet-balances = { workspace = true }
 pallet-babe = { workspace = true }
 pallet-broker = { workspace = true }
 pallet-message-queue = { workspace = true }
+pallet-mmr = { workspace = true, optional = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-timestamp = { workspace = true }
@@ -58,6 +59,8 @@ polkadot-runtime-metrics = { workspace = true }
 polkadot-core-primitives = { workspace = true }
 
 [dev-dependencies]
+polkadot-primitives = { workspace = true, features = ["test"] }
+
 futures = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
@@ -87,6 +90,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-broker/std",
 	"pallet-message-queue/std",
+	"pallet-mmr?/std",
 	"pallet-session/std",
 	"pallet-staking/std",
 	"pallet-timestamp/std",
@@ -110,7 +114,7 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
-	"sp-std/std",
+	"sp-std?/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
@@ -122,6 +126,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-broker/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-mmr/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
@@ -130,6 +135,7 @@ runtime-benchmarks = [
 	"sp-application-crypto",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"sp-std",
 	"static_assertions",
 	"xcm-executor/runtime-benchmarks",
 ]
@@ -143,6 +149,7 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-broker/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-mmr/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",

@@ -26,7 +26,7 @@ use super::{
 	ChildStateBackend, StateBackend,
 };
 use crate::{
-	utils::{pipe_from_stream, spawn_subscription_task},
+	utils::{spawn_subscription_task, BoundedVecDeque, PendingSubscription},
 	DenyUnsafe, SubscriptionTaskExecutor,
 };
 
@@ -405,7 +405,10 @@ where
 			});
 
 		let stream = futures::stream::once(future::ready(initial)).chain(version_stream);
-		spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
+		spawn_subscription_task(
+			&self.executor,
+			PendingSubscription::from(pending).pipe_from_stream(stream, BoundedVecDeque::default()),
+		);
 	}
 
 	fn subscribe_storage(
@@ -457,7 +460,10 @@ where
 			.chain(storage_stream)
 			.filter(|storage| future::ready(!storage.changes.is_empty()));
 
-		spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
+		spawn_subscription_task(
+			&self.executor,
+			PendingSubscription::from(pending).pipe_from_stream(stream, BoundedVecDeque::default()),
+		);
 	}
 
 	fn trace_block(

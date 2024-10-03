@@ -18,7 +18,6 @@
 
 use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
-	bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages,
 	bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
 	xcm_config::XcmConfig, AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages,
 	Executive, MessageQueueServiceWeight, Runtime, RuntimeCall, RuntimeEvent, SessionKeys,
@@ -183,11 +182,9 @@ fn construct_extrinsic(
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
-		(
-			OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
-			OnBridgeHubRococoRefundRococoBulletinMessages::default(),
-		),
+		(OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),),
 		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
+		frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 	);
 	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));

@@ -27,7 +27,11 @@ mod tests;
 
 pub mod migration;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+use core::{marker::PhantomData, result::Result};
 use frame_support::{
 	dispatch::{
 		DispatchErrorWithPostInfo, GetDispatchInfo, PostDispatchInfo, WithPostDispatchInfo,
@@ -49,7 +53,6 @@ use sp_runtime::{
 	},
 	Either, RuntimeDebug,
 };
-use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::{
 	ExecuteController, ExecuteControllerWeightInfo, InspectMessageQueues, QueryController,
@@ -792,7 +795,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 		/// The default version to encode outgoing XCM messages with.
 		pub safe_xcm_version: Option<XcmVersion>,
 	}
@@ -1438,8 +1441,8 @@ enum FeesHandling<T: Config> {
 	Separate { local_xcm: Xcm<<T as Config>::RuntimeCall>, remote_xcm: Xcm<()> },
 }
 
-impl<T: Config> sp_std::fmt::Debug for FeesHandling<T> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl<T: Config> core::fmt::Debug for FeesHandling<T> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		match self {
 			Self::Batched { fees } => write!(f, "FeesHandling::Batched({:?})", fees),
 			Self::Separate { local_xcm, remote_xcm } => write!(
@@ -1843,8 +1846,8 @@ impl<T: Config> Pallet<T> {
 			FeesHandling::Separate { local_xcm: mut local_fees, remote_xcm: mut remote_fees } => {
 				// fees are handled by separate XCM instructions, prepend fees instructions (for
 				// remote XCM they have to be prepended instead of appended to pass barriers).
-				sp_std::mem::swap(local, &mut local_fees);
-				sp_std::mem::swap(remote, &mut remote_fees);
+				core::mem::swap(local, &mut local_fees);
+				core::mem::swap(remote, &mut remote_fees);
 				// these are now swapped so fees actually go first
 				local.inner_mut().append(&mut local_fees.into_inner());
 				remote.inner_mut().append(&mut remote_fees.into_inner());
@@ -1942,6 +1945,10 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
 		let value = (origin, vec![fees.clone()]);
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
+		ensure!(
+			<T::XcmExecutor as XcmAssetTransfers>::IsReserve::contains(&fees, &dest),
+			Error::<T>::InvalidAssetUnsupportedReserve
+		);
 
 		let context = T::UniversalLocation::get();
 		let reanchored_fees = fees
@@ -1979,6 +1986,12 @@ impl<T: Config> Pallet<T> {
 		let value = (origin, assets);
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
 		let (_, assets) = value;
+		for asset in assets.iter() {
+			ensure!(
+				<T::XcmExecutor as XcmAssetTransfers>::IsReserve::contains(&asset, &dest),
+				Error::<T>::InvalidAssetUnsupportedReserve
+			);
+		}
 
 		// max assets is `assets` (+ potentially separately handled fee)
 		let max_assets =
@@ -2097,6 +2110,10 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
 		let value = (origin, vec![fees.clone()]);
 		ensure!(T::XcmTeleportFilter::contains(&value), Error::<T>::Filtered);
+		ensure!(
+			<T::XcmExecutor as XcmAssetTransfers>::IsTeleporter::contains(&fees, &dest),
+			Error::<T>::Filtered
+		);
 
 		let context = T::UniversalLocation::get();
 		let reanchored_fees = fees
@@ -2158,6 +2175,12 @@ impl<T: Config> Pallet<T> {
 		let value = (origin, assets);
 		ensure!(T::XcmTeleportFilter::contains(&value), Error::<T>::Filtered);
 		let (_, assets) = value;
+		for asset in assets.iter() {
+			ensure!(
+				<T::XcmExecutor as XcmAssetTransfers>::IsTeleporter::contains(&asset, &dest),
+				Error::<T>::Filtered
+			);
+		}
 
 		// max assets is `assets` (+ potentially separately handled fee)
 		let max_assets =
@@ -2490,10 +2513,14 @@ impl<T: Config> Pallet<T> {
 		<RuntimeCall as Dispatchable>::RuntimeOrigin: From<OriginCaller>,
 	{
 		crate::Pallet::<Runtime>::set_record_xcm(true);
-		frame_system::Pallet::<Runtime>::reset_events(); // To make sure we only record events from current call.
+		// Clear other messages in queues...
+		Router::clear_messages();
+		// ...and reset events to make sure we only record events from current call.
+		frame_system::Pallet::<Runtime>::reset_events();
 		let result = call.dispatch(origin.into());
 		crate::Pallet::<Runtime>::set_record_xcm(false);
 		let local_xcm = crate::Pallet::<Runtime>::recorded_xcm();
+		// Should only get messages from this call since we cleared previous ones.
 		let forwarded_xcms = Router::get_messages();
 		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
 			frame_system::Pallet::<Runtime>::read_events_no_consensus()

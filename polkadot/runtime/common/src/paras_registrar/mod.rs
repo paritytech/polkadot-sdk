@@ -19,6 +19,8 @@
 
 pub mod migration;
 
+use alloc::{vec, vec::Vec};
+use core::result;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -34,7 +36,6 @@ use polkadot_runtime_parachains::{
 	paras::{self, ParaGenesisArgs, UpgradeStrategy},
 	Origin, ParaLifecycle,
 };
-use sp_std::{prelude::*, result};
 
 use crate::traits::{OnSwap, Registrar};
 use codec::{Decode, Encode};
@@ -210,7 +211,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 		pub next_free_para_id: ParaId,
 	}
 
@@ -717,10 +718,9 @@ mod tests {
 	use crate::{
 		mock::conclude_pvf_checking, paras_registrar, traits::Registrar as RegistrarTrait,
 	};
+	use alloc::collections::btree_map::BTreeMap;
 	use frame_support::{
-		assert_noop, assert_ok, derive_impl,
-		error::BadOrigin,
-		parameter_types,
+		assert_noop, assert_ok, derive_impl, parameter_types,
 		traits::{OnFinalize, OnInitialize},
 	};
 	use frame_system::limits;
@@ -731,11 +731,10 @@ mod tests {
 	use sp_io::TestExternalities;
 	use sp_keyring::Sr25519Keyring;
 	use sp_runtime::{
-		traits::{BlakeTwo256, IdentityLookup},
+		traits::{BadOrigin, BlakeTwo256, IdentityLookup},
 		transaction_validity::TransactionPriority,
 		BuildStorage, Perbill,
 	};
-	use sp_std::collections::btree_map::BTreeMap;
 
 	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 	type Block = frame_system::mocking::MockBlockU32<Test>;

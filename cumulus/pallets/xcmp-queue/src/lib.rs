@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -50,6 +50,9 @@ pub mod bridging;
 pub mod weights;
 pub use weights::WeightInfo;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use bounded_collections::BoundedBTreeSet;
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
@@ -69,7 +72,6 @@ use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
 use sp_runtime::{FixedU128, RuntimeDebug, Saturating, WeakBoundedVec};
-use sp_std::prelude::*;
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 use xcm_executor::traits::ConvertOrigin;
@@ -1006,6 +1008,11 @@ impl<T: Config> SendXcm for Pallet<T> {
 }
 
 impl<T: Config> InspectMessageQueues for Pallet<T> {
+	fn clear_messages() {
+		// Best effort.
+		let _ = OutboundXcmpMessages::<T>::clear(u32::MAX, None);
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		use xcm::prelude::*;
 

@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -18,6 +18,7 @@
 //! Implements both runtime APIs for fee estimation and getting the messages for transfers.
 
 use codec::Encode;
+use core::{cell::RefCell, marker::PhantomData};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types, sp_runtime,
 	sp_runtime::{
@@ -32,7 +33,6 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, RawOrigin as SystemRawOrigin};
 use pallet_xcm::TestWeightInfo;
-use sp_std::{cell::RefCell, marker::PhantomData};
 use xcm::{prelude::*, Version as XcmVersion};
 use xcm_builder::{
 	AllowTopLevelPaidExecutionFrom, ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible,

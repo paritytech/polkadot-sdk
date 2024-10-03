@@ -29,7 +29,7 @@ use std::{collections::BTreeMap, fmt::Debug, future::Future, ops::RangeInclusive
 use async_trait::async_trait;
 use futures::{channel::mpsc::unbounded, future::FutureExt, stream::StreamExt};
 
-use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState, Weight};
+use bp_messages::{MessageNonce, UnrewardedRelayersState, Weight};
 use relay_utils::{
 	interval, metrics::MetricsParams, process_future_result, relay_loop::Client as RelayClient,
 	retry_backoff, FailedClient, TransactionTracker,
@@ -39,12 +39,12 @@ use crate::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
 	message_race_delivery::run as run_message_delivery_race,
 	message_race_receiving::run as run_message_receiving_race,
-	metrics::MessageLaneLoopMetrics,
+	metrics::{Labeled, MessageLaneLoopMetrics},
 };
 
 /// Message lane loop configuration params.
 #[derive(Debug, Clone)]
-pub struct Params {
+pub struct Params<LaneId> {
 	/// Id of lane this loop is servicing.
 	pub lane: LaneId,
 	/// Interval at which we ask target node about its updates.
@@ -275,13 +275,13 @@ pub struct ClientsState<P: MessageLane> {
 
 /// Return prefix that will be used by default to expose Prometheus metrics of the finality proofs
 /// sync loop.
-pub fn metrics_prefix<P: MessageLane>(lane: &LaneId) -> String {
-	format!("{}_to_{}_MessageLane_{}", P::SOURCE_NAME, P::TARGET_NAME, hex::encode(lane))
+pub fn metrics_prefix<P: MessageLane>(lane: &P::LaneId) -> String {
+	format!("{}_to_{}_MessageLane_{}", P::SOURCE_NAME, P::TARGET_NAME, lane.label())
 }
 
 /// Run message lane service loop.
 pub async fn run<P: MessageLane>(
-	params: Params,
+	params: Params<P::LaneId>,
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
 	metrics_params: MetricsParams,
@@ -309,7 +309,7 @@ pub async fn run<P: MessageLane>(
 /// Run one-way message delivery loop until connection with target or source node is lost, or exit
 /// signal is received.
 async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: TargetClient<P>>(
-	params: Params,
+	params: Params<P::LaneId>,
 	source_client: SC,
 	target_client: TC,
 	metrics_msg: Option<MessageLaneLoopMetrics>,
@@ -471,9 +471,9 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 pub(crate) mod tests {
 	use std::sync::Arc;
 
+	use bp_messages::{HashedLaneId, LaneIdType, LegacyLaneId};
 	use futures::stream::StreamExt;
 	use parking_lot::Mutex;
-
 	use relay_utils::{HeaderId, MaybeConnectionError, TrackedTransactionStatus};
 
 	use super::*;
@@ -504,6 +504,9 @@ pub(crate) mod tests {
 		}
 	}
 
+	/// Lane identifier type used for tests.
+	pub type TestLaneIdType = HashedLaneId;
+
 	#[derive(Clone)]
 	pub struct TestMessageLane;
 
@@ -520,6 +523,8 @@ pub(crate) mod tests {
 
 		type TargetHeaderNumber = TestTargetHeaderNumber;
 		type TargetHeaderHash = TestTargetHeaderHash;
+
+		type LaneId = TestLaneIdType;
 	}
 
 	#[derive(Clone, Debug)]
@@ -957,7 +962,7 @@ pub(crate) mod tests {
 			};
 			let _ = run(
 				Params {
-					lane: LaneId([0, 0, 0, 0]),
+					lane: TestLaneIdType::try_new(1, 2).unwrap(),
 					source_tick: Duration::from_millis(100),
 					target_tick: Duration::from_millis(100),
 					reconnect_delay: Duration::from_millis(0),
@@ -1273,5 +1278,37 @@ pub(crate) mod tests {
 		// check that we have at least once required new source->target or target->source headers
 		assert!(!result.target_to_source_header_requirements.is_empty());
 		assert!(!result.source_to_target_header_requirements.is_empty());
+	}
+
+	#[test]
+	fn metrics_prefix_is_valid() {
+		assert!(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<TestMessageLane>(
+			&HashedLaneId::try_new(1, 2).unwrap()
+		)))
+		.is_ok());
+
+		// with LegacyLaneId
+		#[derive(Clone)]
+		pub struct LegacyTestMessageLane;
+		impl MessageLane for LegacyTestMessageLane {
+			const SOURCE_NAME: &'static str = "LegacyTestSource";
+			const TARGET_NAME: &'static str = "LegacyTestTarget";
+
+			type MessagesProof = TestMessagesProof;
+			type MessagesReceivingProof = TestMessagesReceivingProof;
+
+			type SourceChainBalance = TestSourceChainBalance;
+			type SourceHeaderNumber = TestSourceHeaderNumber;
+			type SourceHeaderHash = TestSourceHeaderHash;
+
+			type TargetHeaderNumber = TestTargetHeaderNumber;
+			type TargetHeaderHash = TestTargetHeaderHash;
+
+			type LaneId = LegacyLaneId;
+		}
+		assert!(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<LegacyTestMessageLane>(
+			&LegacyLaneId([0, 0, 0, 1])
+		)))
+		.is_ok());
 	}
 }

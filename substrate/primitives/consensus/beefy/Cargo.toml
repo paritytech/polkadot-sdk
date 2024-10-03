@@ -4,7 +4,7 @@ version = "13.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Primitives for BEEFY protocol."
 
@@ -26,8 +26,8 @@ sp-io = { workspace = true }
 sp-mmr-primitives = { workspace = true }
 sp-runtime = { workspace = true }
 sp-keystore = { workspace = true }
+sp-weights = { workspace = true }
 strum = { features = ["derive"], workspace = true }
-lazy_static = { optional = true, workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -37,7 +37,6 @@ w3f-bls = { features = ["std"], workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
-	"dep:lazy_static",
 	"scale-info/std",
 	"serde/std",
 	"sp-api/std",
@@ -48,6 +47,7 @@ std = [
 	"sp-keystore/std",
 	"sp-mmr-primitives/std",
 	"sp-runtime/std",
+	"sp-weights/std",
 	"strum/std",
 ]
 

@@ -32,8 +32,9 @@ use polkadot_node_core_pvf_common::{
 	execute::{Handshake, WorkerError, WorkerResponse},
 	worker_dir, SecurityStatus,
 };
-use polkadot_primitives::ExecutorParams;
-use std::{path::Path, time::Duration};
+use polkadot_node_primitives::PoV;
+use polkadot_primitives::{ExecutorParams, PersistedValidationData};
+use std::{path::Path, sync::Arc, time::Duration};
 use tokio::{io, net::UnixStream};
 
 /// Spawns a new worker with the given program path that acts as the worker and the spawn timeout.
@@ -123,7 +124,8 @@ pub async fn start_work(
 	worker: IdleWorker,
 	artifact: ArtifactPathId,
 	execution_timeout: Duration,
-	validation_params: Vec<u8>,
+	pvd: Arc<PersistedValidationData>,
+	pov: Arc<PoV>,
 ) -> Result<Response, Error> {
 	let IdleWorker { mut stream, pid, worker_dir } = worker;
 
@@ -137,18 +139,16 @@ pub async fn start_work(
 	);
 
 	with_worker_dir_setup(worker_dir, pid, &artifact.path, |worker_dir| async move {
-		send_request(&mut stream, &validation_params, execution_timeout).await.map_err(
-			|error| {
-				gum::warn!(
-					target: LOG_TARGET,
-					worker_pid = %pid,
-					validation_code_hash = ?artifact.id.code_hash,
-					"failed to send an execute request: {}",
-					error,
-				);
-				Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
-			},
-		)?;
+		send_request(&mut stream, pvd, pov, execution_timeout).await.map_err(|error| {
+			gum::warn!(
+				target: LOG_TARGET,
+				worker_pid = %pid,
+				validation_code_hash = ?artifact.id.code_hash,
+				"failed to send an execute request: {}",
+				error,
+			);
+			Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
+		})?;
 
 		// We use a generous timeout here. This is in addition to the one in the child process, in
 		// case the child stalls. We have a wall clock timeout here in the host, but a CPU timeout
@@ -288,10 +288,12 @@ async fn send_execute_handshake(stream: &mut UnixStream, handshake: Handshake) -
 
 async fn send_request(
 	stream: &mut UnixStream,
-	validation_params: &[u8],
+	pvd: Arc<PersistedValidationData>,
+	pov: Arc<PoV>,
 	execution_timeout: Duration,
 ) -> io::Result<()> {
-	framed_send(stream, validation_params).await?;
+	framed_send(stream, &pvd.encode()).await?;
+	framed_send(stream, &pov.encode()).await?;
 	framed_send(stream, &execution_timeout.encode()).await
 }
 

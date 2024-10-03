@@ -18,7 +18,7 @@
 use crate::{
 	common::API_VERSION_ATTRIBUTE,
 	utils::{
-		extract_all_signature_types, extract_block_type_from_trait_path, extract_impl_trait,
+		extract_block_type_from_trait_path, extract_impl_trait,
 		extract_parameter_names_types_and_borrows, generate_crate_access,
 		generate_runtime_mod_name_for_trait, parse_runtime_api_version, prefix_function_with_trait,
 		versioned_trait_name, AllowSelfRefInParameters, RequireQualifiedTraitPath,
@@ -471,7 +471,7 @@ fn extend_with_api_version(mut trait_: Path, version: Option<u64>) -> Path {
 		v
 	} else {
 		// nothing to do
-		return trait_
+		return trait_;
 	};
 
 	let trait_name = &mut trait_
@@ -632,11 +632,6 @@ impl<'a> Fold for ApiRuntimeImplToApiRuntimeApiImpl<'a> {
 	}
 
 	fn fold_item_impl(&mut self, mut input: ItemImpl) -> ItemImpl {
-		// All this `UnwindSafe` magic below here is required for this rust bug:
-		// https://github.com/rust-lang/rust/issues/24159
-		// Before we directly had the final block type and rust could determine that it is unwind
-		// safe, but now we just have a generic parameter `Block`.
-
 		let crate_ = generate_crate_access();
 
 		// Implement the trait for the `RuntimeApiImpl`
@@ -644,9 +639,9 @@ impl<'a> Fold for ApiRuntimeImplToApiRuntimeApiImpl<'a> {
 			Box::new(parse_quote!( RuntimeApiImpl<__SrApiBlock__, RuntimeApiImplCall> ));
 
 		input.generics.params.push(parse_quote!(
-			__SrApiBlock__: #crate_::BlockT + std::panic::UnwindSafe +
-				std::panic::RefUnwindSafe
+			__SrApiBlock__: #crate_::BlockT
 		));
+
 		input
 			.generics
 			.params
@@ -660,17 +655,6 @@ impl<'a> Fold for ApiRuntimeImplToApiRuntimeApiImpl<'a> {
 		});
 
 		where_clause.predicates.push(parse_quote! { &'static RuntimeApiImplCall: Send });
-
-		// Require that all types used in the function signatures are unwind safe.
-		extract_all_signature_types(&input.items).iter().for_each(|i| {
-			where_clause.predicates.push(parse_quote! {
-				#i: std::panic::UnwindSafe + std::panic::RefUnwindSafe
-			});
-		});
-
-		where_clause.predicates.push(parse_quote! {
-			__SrApiBlock__::Header: std::panic::UnwindSafe + std::panic::RefUnwindSafe
-		});
 
 		input.attrs = filter_cfg_attrs(&input.attrs);
 
@@ -762,7 +746,7 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 
 			error.combine(Error::new(other_span, "First trait implementation."));
 
-			return Err(error)
+			return Err(error);
 		}
 
 		let id: Path = parse_quote!( #path ID );
@@ -892,7 +876,7 @@ fn extract_cfg_api_version(attrs: &Vec<Attribute>, span: Span) -> Result<Option<
 			err.combine(Error::new(attr_span, format!("`{}` found here", API_VERSION_ATTRIBUTE)));
 		}
 
-		return Err(err)
+		return Err(err);
 	}
 
 	Ok(cfg_api_version_attr
@@ -929,7 +913,7 @@ fn extract_api_version(attrs: &Vec<Attribute>, span: Span) -> Result<ApiVersion>
 				Each runtime API can have only one version.",
 				API_VERSION_ATTRIBUTE
 			),
-		))
+		));
 	}
 
 	// Parse the runtime version if there exists one.
