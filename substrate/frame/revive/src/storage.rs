@@ -241,8 +241,9 @@ impl<T: Config> ContractInfo<T> {
 	/// The base deposit is updated when the `code_hash` of the contract changes, as it depends on
 	/// the deposit paid to upload the contract's code.
 	pub fn update_base_deposit(&mut self, code_info: &CodeInfo<T>) -> BalanceOf<T> {
+		// The 2 items added are code info and immutable data
 		let info_deposit =
-			Diff { bytes_added: self.encoded_size() as u32, items_added: 1, ..Default::default() }
+			Diff { bytes_added: self.encoded_size() as u32, items_added: 2, ..Default::default() }
 				.update_contract::<T>(None)
 				.charge_or_zero();
 
@@ -251,13 +252,7 @@ impl<T: Config> ContractInfo<T> {
 		// to prevent abuse.
 		let upload_deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_info.deposit());
 
-		// Immutable data is unique per contract and part of the base deposit.
-		let immutable_data_deposit =
-			T::DepositPerByte::get().saturating_mul(self.immutable_bytes.into());
-
-		let deposit = info_deposit
-			.saturating_add(upload_deposit)
-			.saturating_add(immutable_data_deposit);
+		let deposit = info_deposit.saturating_add(upload_deposit);
 		self.storage_base_deposit = deposit;
 		deposit
 	}

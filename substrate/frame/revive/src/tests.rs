@@ -140,17 +140,22 @@ pub mod test_utils {
 	pub fn contract_info_storage_deposit(addr: &H160) -> BalanceOf<Test> {
 		let contract_info = self::get_contract(&addr);
 		let info_size = contract_info.encoded_size() as u64;
-		DepositPerByte::get()
+		let immutable_size = contract_info.immutable_bytes() as u64;
+		let info_deposit = DepositPerByte::get()
 			.saturating_mul(info_size)
-			.saturating_add(DepositPerItem::get())
+			.saturating_add(DepositPerItem::get());
+		let immutable_deposit = DepositPerByte::get()
+			.saturating_mul(immutable_size)
+			.saturating_add(DepositPerItem::get());
+		info_deposit.saturating_add(immutable_deposit)
 	}
 	pub fn expected_deposit(code_len: usize) -> u64 {
 		// For code_info, the deposit for max_encoded_len is taken.
 		let code_info_len = CodeInfo::<Test>::max_encoded_len() as u64;
 		// Calculate deposit to be reserved.
 		// We add 2 storage items: one for code, other for code_info
-		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len) +
-			DepositPerItem::get().saturating_mul(2)
+		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len)
+			+ DepositPerItem::get().saturating_mul(2)
 	}
 	pub fn ensure_stored(code_hash: sp_core::H256) -> usize {
 		// Assert that code_info is stored
@@ -3530,8 +3535,11 @@ mod run_tests {
 			// Set enough deposit limit for the child instantiate. This should succeed.
 			let result = builder::bare_call(addr_caller)
 				.origin(RuntimeOrigin::signed(BOB))
-				.storage_deposit_limit(callee_info_len + 2 + ED + 4)
-				.data((1u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 3)).encode())
+				.storage_deposit_limit(callee_info_len + 2 + ED + 4 + 2)
+				.data(
+					(1u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 3 + 2))
+						.encode(),
+				)
 				.build();
 
 			let returned = result.result.unwrap();
@@ -3548,12 +3556,13 @@ mod run_tests {
 			//  - callee instantiation deposit = (callee_info_len + 2)
 			//  - callee account ED
 			//  - for writing an item of 1 byte to storage = 3 Balance
+			//  - Immutable data storage item deposit
 			assert_eq!(
 				<Test as Config>::Currency::free_balance(&BOB),
-				1_000_000 - (callee_info_len + 2 + ED + 3)
+				1_000_000 - (callee_info_len + 2 + ED + 3 + 2)
 			);
 			// Check that deposit due to be charged still includes these 3 Balance
-			assert_eq!(result.storage_deposit.charge_or_zero(), (callee_info_len + 2 + ED + 3))
+			assert_eq!(result.storage_deposit.charge_or_zero(), (callee_info_len + 2 + ED + 3 + 2))
 		});
 	}
 
