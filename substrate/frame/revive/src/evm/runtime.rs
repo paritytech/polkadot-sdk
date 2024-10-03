@@ -24,10 +24,11 @@ use crate::{
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{
-	dispatch::{DispatchInfo, GetDispatchInfo},
+	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	traits::ExtrinsicCall,
-	CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
+	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
+use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_arithmetic::Percent;
 use sp_core::{ecdsa, ed25519, sr25519, Get, H160, U256};
@@ -96,7 +97,7 @@ impl<Call, E, Lookup> Checkable<Lookup> for UncheckedExtrinsic<Call, E>
 where
 	Call: Encode + Member,
 	E: EthExtra,
-	<E::Config as frame_system::Config>::Nonce: Into<U256>,
+	<E::Config as frame_system::Config>::Nonce: TryFrom<U256>,
 	BalanceOf<E::Config>: Into<U256> + TryFrom<U256>,
 	MomentOf<E::Config>: Into<U256>,
 
@@ -169,16 +170,98 @@ impl<'a, Call: Decode, E: EthExtra> serde::Deserialize<'a> for UncheckedExtrinsi
 	}
 }
 
+/// A [`SignedExtension`] that performs pre-dispatch checks on the Ethereum transaction's fees.
+#[derive(DebugNoBound, DefaultNoBound, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct CheckEthTransact<T: Config> {
+	/// The gas fee, computed from the signed Ethereum transaction.
+	/// This is only set by the custom `Checkable` impl of [`UncheckedExtrinsic`], Thus this is
+	/// marked as `#[codec(skip)]` as it should not be encoded by the client.
+	#[codec(skip)]
+	eth_fee: Option<BalanceOf<T>>,
+	_phantom: core::marker::PhantomData<T>,
+}
+
+impl<T: Config> CheckEthTransact<T> {
+	/// Create a new `CheckEthTransact` with the given eth_fee.
+	pub fn from(eth_fee: BalanceOf<T>) -> Self {
+		Self { eth_fee: Some(eth_fee), _phantom: Default::default() }
+	}
+}
+
+impl<T: Send + Sync> SignedExtension for CheckEthTransact<T>
+where
+	T: Config + pallet_transaction_payment::Config,
+	<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+	<<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance: Into<BalanceOf<T>>,
+{
+	const IDENTIFIER: &'static str = "CheckEthTransact";
+	type AccountId = T::AccountId;
+	type Call = <T as frame_system::Config>::RuntimeCall;
+	type AdditionalSigned = ();
+	type Pre = ();
+
+	fn additional_signed(
+		&self,
+	) -> Result<Self::AdditionalSigned, sp_runtime::transaction_validity::TransactionValidityError>
+	{
+		Ok(())
+	}
+
+	fn pre_dispatch(
+		self,
+		_who: &Self::AccountId,
+		call: &Self::Call,
+		info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
+		let Some(eth_fee) = self.eth_fee else {
+			return Ok(())
+		};
+
+		let tip = Default::default();
+
+		let actual_fee: BalanceOf<T> =
+			pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, tip).into();
+
+		// Make sure that that the fee are not more than 5% higher than the eth_fee
+		if actual_fee > eth_fee &&
+			Percent::from_rational(actual_fee - eth_fee, eth_fee) > Percent::from_percent(5)
+		{
+			log::debug!(target: LOG_TARGET, "Eth fees {eth_fee:?} should be no more than 5% higher
+		 than injected fees {actual_fee:?}"); 	return Err(InvalidTransaction::Call.into())
+		} else if actual_fee > eth_fee {
+			let ratio = Percent::from_rational(actual_fee - eth_fee, eth_fee);
+			log::debug!(target: LOG_TARGET, "Eth fees {eth_fee:?} is greater {ratio:?} than injected
+		 fees {actual_fee:?}");
+		} else {
+			let ratio = Percent::from_rational(eth_fee - actual_fee, eth_fee);
+			log::debug!(target: LOG_TARGET, "Eth fees {eth_fee:?} are less {ratio:?} than injected
+		 fees {actual_fee:?}");
+		}
+
+		Ok(())
+	}
+}
+
 /// EthExtra convert an unsigned [`crate::Call::eth_transact`] into a [`CheckedExtrinsic`].
 pub trait EthExtra {
 	/// The Runtime configuration.
 	type Config: crate::Config;
 
 	/// The Runtime's signed extension.
+	/// It should include at least:
+	/// [`CheckNonce`] to ensure that the nonce from the Ethereum transaction is correct.
+	/// [`CheckEthTransact`] to ensure that the fees from the Ethereum transaction correspond to
+	/// injected gas limit and storage deposit limit from the extrinsic.
 	type Extra: SignedExtension<AccountId = AccountId32>;
 
 	/// Get the signed extensions to apply to an unsigned [`crate::Call::eth_transact`] extrinsic.
-	fn get_eth_transact_extra(nonce: U256) -> Self::Extra;
+	fn get_eth_transact_extra(
+		nonce: <Self::Config as frame_system::Config>::Nonce,
+		gas_fee: BalanceOf<Self::Config>,
+	) -> Self::Extra;
 
 	/// Convert the unsigned [`crate::Call::eth_transact`] into a [`CheckedExtrinsic`].
 	fn try_into_checked_extrinsic<Call>(
@@ -188,7 +271,7 @@ pub trait EthExtra {
 		transact_kind: EthTransactKind,
 	) -> Result<CheckedExtrinsic<AccountId32, Call, Self::Extra>, InvalidTransaction>
 	where
-		<Self::Config as frame_system::Config>::Nonce: Into<U256>,
+		<Self::Config as frame_system::Config>::Nonce: TryFrom<U256>,
 		BalanceOf<Self::Config>: Into<U256> + TryFrom<U256>,
 		MomentOf<Self::Config>: Into<U256>,
 		AccountIdOf<Self::Config>: Into<AccountId32>,
@@ -212,15 +295,6 @@ pub trait EthExtra {
 		if chain_id.unwrap_or_default() != <Self::Config as crate::Config>::ChainId::get().into() {
 			log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
 			return Err(InvalidTransaction::Call);
-		}
-
-		let account_nonce: U256 = <crate::System<Self::Config>>::account_nonce(&signer).into();
-		if nonce > account_nonce {
-			log::debug!(target: LOG_TARGET, "Invalid nonce: expected {account_nonce}, got {nonce}");
-			return Err(InvalidTransaction::Future);
-		} else if nonce < account_nonce {
-			log::debug!(target: LOG_TARGET, "Invalid nonce: expected {account_nonce}, got {nonce}");
-			return Err(InvalidTransaction::Stale);
 		}
 
 		let call = if let Some(dest) = to {
@@ -263,23 +337,12 @@ pub trait EthExtra {
 			}
 		};
 
-		let dispatch_info = call.get_dispatch_info();
-		let call_fee = <Self::Config as crate::Config>::WeightPrice::convert(dispatch_info.weight)
-			.saturating_add(storage_deposit_limit);
-
+		let nonce = nonce.try_into().map_err(|_| InvalidTransaction::Call)?;
 		let eth_fee =
 			gas_price.saturating_mul(gas).try_into().map_err(|_| InvalidTransaction::Call)?;
 
-		// Make sure that that the fee computed from the signed payload is no more than 5% greater
-		if call_fee > eth_fee &&
-			Percent::from_rational(call_fee - eth_fee, eth_fee) > Percent::from_percent(5)
-		{
-			log::debug!(target: LOG_TARGET, "Eth fees {eth_fee:?} should be no more than 5% higher than injected ees {call_fee:?}");
-			return Err(InvalidTransaction::Call.into())
-		}
-
 		Ok(CheckedExtrinsic {
-			signed: Some((signer.into(), Self::get_eth_transact_extra(nonce))),
+			signed: Some((signer.into(), Self::get_eth_transact_extra(nonce, eth_fee))),
 			function: call.into(),
 		})
 	}

@@ -1137,50 +1137,99 @@ where
 		storage_deposit_limit: BalanceOf<T>,
 		debug: DebugInfo,
 		collect_events: CollectEvents,
-	) -> ContractResult<EthTransactReturnValue, BalanceOf<T>, EventRecordOf<T>> {
+	) -> EthContractResultDetails<BalanceOf<T>>
+	where
+		<T as Config>::RuntimeCall: From<crate::Call<T>>,
+		<T as Config>::RuntimeCall: Encode,
+	{
 		if let Some(dest) = dest {
-			crate::Pallet::<T>::bare_call(
+			let result = crate::Pallet::<T>::bare_call(
 				origin,
 				dest,
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				input,
+				input.clone(),
 				debug,
 				collect_events,
-			)
-			.map(|result| EthTransactReturnValue { kind: EthTransactKind::Call, result })
+			);
+
+			let dispatch_call = crate::Call::<T>::call {
+				dest,
+				value,
+				gas_limit: result.gas_required,
+				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
+				data: input.clone(),
+			};
+
+			let dispatch_call: <T as Config>::RuntimeCall = dispatch_call.into();
+			//let weight = dispatch_call.get_dispatch_info().weight;
+			//let fees = T::WeightPrice::convert(weight);
+			//log::debug!(target: LOG_TARGET, "Dry-running weight: {weight:?} fees: {fees:?}");
+
+			EthContractResultDetails {
+				kind: EthTransactKind::Call,
+				dispatch_info: dispatch_call.get_dispatch_info(),
+				len: dispatch_call.encode().len() as u32,
+				gas_limit: result.gas_required,
+				storage_deposit: result.storage_deposit.charge_or_zero(),
+				result: result.result.map(|v| v.data),
+			}
 		} else {
 			let Ok(EthInstantiateInput { code, data }) =
 				EthInstantiateInput::decode(&mut &input[..])
 			else {
-				return ContractResult {
-					result: Err(<Error<T>>::DecodingFailed.into()),
-					gas_consumed: Default::default(),
-					gas_required: Default::default(),
+				let dispatch_call = crate::Call::<T>::instantiate_with_code {
+					value,
+					gas_limit: Default::default(),
+					storage_deposit_limit: 0u32.into(),
+					code: input,
+					data: Default::default(),
+					salt: None,
+				};
+				return EthContractResultDetails {
+					kind: EthTransactKind::Call,
+					dispatch_info: dispatch_call.get_dispatch_info(),
+					gas_limit: Default::default(),
 					storage_deposit: Default::default(),
-					debug_message: Default::default(),
-					events: Default::default(),
+					len: dispatch_call.encode().len() as u32,
+					result: Err(<Error<T>>::DecodingFailed.into()),
 				}
 			};
 
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
-			crate::Pallet::<T>::bare_instantiate(
+			let result = crate::Pallet::<T>::bare_instantiate(
 				origin,
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				Code::Upload(code),
-				data,
+				Code::Upload(code.clone()),
+				data.clone(),
 				None,
 				DebugInfo::Skip,
 				CollectEvents::Skip,
-			)
-			.map(|r| EthTransactReturnValue {
+			);
+
+			let dispatch_call = crate::Call::<T>::instantiate_with_code {
+				value,
+				gas_limit: result.gas_required,
+				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
+				code,
+				data,
+				salt: None,
+			};
+
+			let dispatch_call: <T as Config>::RuntimeCall = dispatch_call.into();
+
+			EthContractResultDetails {
 				kind: EthTransactKind::InstantiateWithCode { code_len, data_len },
-				result: r.result,
-			})
+				dispatch_info: dispatch_call.get_dispatch_info(),
+				len: dispatch_call.encode().len() as u32,
+				gas_limit: result.gas_required,
+				storage_deposit: result.storage_deposit.charge_or_zero(),
+				result: result.result.map(|v| v.result.data),
+			}
 		}
 	}
 
@@ -1298,7 +1347,7 @@ sp_api::decl_runtime_apis! {
 			input: Vec<u8>,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
-		) -> ContractResult<EthTransactReturnValue, Balance, EventRecord>;
+		) -> EthContractResult<Balance>;
 
 		/// Upload new code without instantiating a contract from it.
 		///

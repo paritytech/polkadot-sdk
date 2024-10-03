@@ -82,18 +82,35 @@ pub struct ContractResult<R, Balance, EventRecord> {
 	pub events: Option<Vec<EventRecord>>,
 }
 
-impl<R, Balance, EventRecord> ContractResult<R, Balance, EventRecord> {
-	/// Maps the result of a contract execution, using the provided function.
-	pub fn map<V>(self, f: impl FnOnce(R) -> V) -> ContractResult<V, Balance, EventRecord> {
-		ContractResult {
-			gas_consumed: self.gas_consumed,
-			gas_required: self.gas_required,
-			storage_deposit: self.storage_deposit,
-			debug_message: self.debug_message,
-			result: self.result.map(f),
-			events: self.events,
-		}
-	}
+/// The result of the execution of a `eth_transact` call.
+pub struct EthContractResultDetails<Balance> {
+	/// The kind of transaction that was executed.
+	pub kind: EthTransactKind,
+	/// The call's dispatch info.
+	pub dispatch_info: frame_support::dispatch::DispatchInfo,
+	/// Length of the encoded call.
+	pub len: u32,
+	/// Gas limit of the transaction.
+	pub gas_limit: Weight,
+	/// Storage deposit charged.
+	pub storage_deposit: Balance,
+	/// The execution result.
+	pub result: Result<Vec<u8>, DispatchError>,
+}
+
+/// Similar to `EthContractResultDetails` but with the fee instead of dispatch info and len.
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct EthContractResult<Balance> {
+	/// The kind of transaction that was executed.
+	pub kind: EthTransactKind,
+	/// The fee charged for the execution.
+	pub fee: Balance,
+	/// Gas limit of the transaction.
+	pub gas_limit: Weight,
+	/// Storage deposit charged.
+	pub storage_deposit: Balance,
+	/// The execution result.
+	pub result: Result<Vec<u8>, DispatchError>,
 }
 
 /// Result type of a `bare_code_upload` call.
