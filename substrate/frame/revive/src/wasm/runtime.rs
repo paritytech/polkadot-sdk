@@ -310,8 +310,8 @@ pub enum RuntimeCosts {
 	CallerIsRoot,
 	/// Weight of calling `seal_address`.
 	Address,
-	/// Weight of calling `seal_gas_left`.
-	GasLeft,
+	/// Weight of calling `seal_weight_left`.
+	WeightLeft,
 	/// Weight of calling `seal_balance`.
 	Balance,
 	/// Weight of calling `seal_balance_of`.
@@ -457,7 +457,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallerIsOrigin => T::WeightInfo::seal_caller_is_origin(),
 			CallerIsRoot => T::WeightInfo::seal_caller_is_root(),
 			Address => T::WeightInfo::seal_address(),
-			GasLeft => T::WeightInfo::seal_gas_left(),
+			WeightLeft => T::WeightInfo::seal_weight_left(),
 			Balance => T::WeightInfo::seal_balance(),
 			BalanceOf => T::WeightInfo::seal_balance_of(),
 			ValueTransferred => T::WeightInfo::seal_value_transferred(),
@@ -1501,7 +1501,7 @@ pub mod env {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::GasLeft)?;
+		self.charge_gas(RuntimeCosts::WeightLeft)?;
 		let gas_left = &self.ext.gas_meter().gas_left().encode();
 		Ok(self.write_sandbox_output(
 			memory,
