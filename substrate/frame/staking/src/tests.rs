@@ -4167,11 +4167,25 @@ fn unbond_with_chill_works() {
 		let res = Staking::unbond(RuntimeOrigin::signed(11), 1000);
 		assert!(res.is_ok());
 
-		assert_eq!(*staking_events().last().unwrap(), Event::Unbonded { stash: 11, amount: 1000 });
-		assert_eq!(
-			*staking_events().get(staking_events().len() - 2).unwrap(),
-			Event::Chilled { stash: 11 }
-		);
+		assert!(matches!(
+			staking_events_since_last_call().as_slice(),
+			&[
+				Event::StakersElected,
+				Event::EraPaid {
+        			era_index: 0,
+        			validator_payout: 11075,
+        			remainder: 33225,
+    			},
+				Event::StakersElected,
+				Event::EraPaid {
+        			era_index: 1,
+        			validator_payout: 11075,
+        			remainder: 33225,
+				},
+				Event::Chilled { stash: 11 },
+				Event::Unbonded { stash: 11, amount:1000}
+			]
+		));
 	})
 }
 

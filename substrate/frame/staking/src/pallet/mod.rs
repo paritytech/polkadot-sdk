@@ -1087,7 +1087,7 @@ pub mod pallet {
 		/// See also [`Call::withdraw_unbonded`].
 		#[pallet::call_index(2)]
 		#[pallet::weight(
-            T::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(T::WeightInfo::unbond()))
+            T::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(T::WeightInfo::unbond()).saturating_add(T::WeightInfo::chill()))
         ]
 		pub fn unbond(
 			origin: OriginFor<T>,
@@ -1101,7 +1101,7 @@ pub mod pallet {
 
 			if value >= ledger.total {
 				Self::chill_stash(&ledger.stash);
-				total_weight = total_weight.saturating_add(T::WeightInfo::chill());
+				total_weight.saturating_accrue(T::WeightInfo::chill());
 			}
 
 			if let Some(withdraw_weight) = Self::do_unbond(controller, value)? {
