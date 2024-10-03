@@ -4171,19 +4171,11 @@ fn unbond_with_chill_works() {
 			staking_events_since_last_call().as_slice(),
 			&[
 				Event::StakersElected,
-				Event::EraPaid {
-        			era_index: 0,
-        			validator_payout: 11075,
-        			remainder: 33225,
-    			},
+				Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 				Event::StakersElected,
-				Event::EraPaid {
-        			era_index: 1,
-        			validator_payout: 11075,
-        			remainder: 33225,
-				},
+				Event::EraPaid { era_index: 1, validator_payout: 11075, remainder: 33225 },
 				Event::Chilled { stash: 11 },
-				Event::Unbonded { stash: 11, amount:1000}
+				Event::Unbonded { stash: 11, amount: 1000 }
 			]
 		));
 	})
@@ -8051,7 +8043,7 @@ mod ledger_recovery {
 			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before); // OK
 			assert_eq!(Bonded::<Test>::get(&333), Some(444)); // OK
 			assert!(Payee::<Test>::get(&333).is_some()); // OK
-											 // however, ledger associated with its controller was killed.
+												// however, ledger associated with its controller was killed.
 			assert!(Ledger::<Test>::get(&444).is_none()); // NOK
 
 			// side effects on 444 - ledger, bonded, payee, lock should be completely removed.
