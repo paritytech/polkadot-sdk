@@ -169,7 +169,7 @@ where
 				};
 
 				if key == &key_new {
-					continue;
+					continue
 				}
 				child::put_raw(&child_trie_info, &key_new, &value);
 			}

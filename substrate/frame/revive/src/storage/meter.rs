@@ -167,7 +167,7 @@ impl Diff {
 		} else {
 			debug_assert_eq!(self.bytes_removed, 0);
 			debug_assert_eq!(self.items_removed, 0);
-			return bytes_deposit.saturating_add(&items_deposit);
+			return bytes_deposit.saturating_add(&items_deposit)
 		};
 
 		// Refunds are calculated pro rata based on the accumulated storage within the contract
@@ -370,7 +370,7 @@ where
 				let limit = E::check_limit(o, limit, min_leftover)?;
 				Ok(Self { limit, ..Default::default() })
 			},
-		};
+		}
 	}
 
 	/// The total amount of deposit that should change hands as result of the execution

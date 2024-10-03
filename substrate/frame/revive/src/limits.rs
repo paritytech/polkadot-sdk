@@ -68,6 +68,7 @@ pub const PAGE_SIZE: u32 = 4 * 1024;
 /// The maximum amount of immutable bytes a single contract can store.
 ///
 /// The current limit of 4kb allows storing up 16 U256 immutable variables.
+/// Which should always be enough because Solidity allows for 16 local (stack) variables.
 pub const IMMUTABLE_BYTES: u32 = 4 * 1024;
 
 /// Limits that are only enforced on code upload.
