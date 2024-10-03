@@ -1837,7 +1837,7 @@ impl<T: Config> Pallet<T> {
 				// BuyExecution happens after receiving all `assets`
 				let reanchored_fees =
 					fees.reanchored(&dest, &context).map_err(|e| {
-						log::error!(target: "xcm::pallet_xcm::add_fees_to_xcm", "Failed to re-anchor fees: {:?} for dest: {:?} and context {:?}", e, dest, context);
+						log::error!(target: "xcm::pallet_xcm::add_fees_to_xcm", "Failed to re-anchor fees: {e:?} for dest: {dest:?} and context {context:?}");
 						Error::<T>::CannotReanchor
 					})?;
 				// buy execution using `fees` batched together with above `reanchored_assets`
