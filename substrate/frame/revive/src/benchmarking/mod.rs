@@ -1727,11 +1727,9 @@ mod benchmarks {
 	// Benchmark the execution of instructions.
 	#[benchmark(pov_mode = Ignored)]
 	fn instr(r: Linear<0, INSTR_BENCHMARK_RUNS>) {
-		// (round, start, div, mult, add)
-		let input = (r, 1_000u32, 2u32, 3u32, 100u32).encode();
 		let mut setup = CallSetup::<T>::new(WasmModule::instr());
 		let (mut ext, module) = setup.ext();
-		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, input);
+		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode());
 		#[block]
 		{
 			prepared.call().unwrap();
