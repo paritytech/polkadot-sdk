@@ -80,7 +80,25 @@ struct AnnouncedBlocks<Block: BlockT> {
 	/// Unfinalized blocks.
 	blocks: LruMap<Block::Hash, ()>,
 	/// Finalized blocks.
-	finalized: LruMap<Block::Hash, ()>,
+	finalized: MostRecentFinalizedBlocks<Block>,
+}
+
+/// Wrapper over LRU to efficiently lookup hashes and remove elements as FIFO queue.
+struct MostRecentFinalizedBlocks<Block: BlockT>(LruMap<Block::Hash, ()>);
+
+impl<Block: BlockT> MostRecentFinalizedBlocks<Block> {
+	/// Insert the finalized block hash into the LRU cache.
+	fn insert(&mut self, block: Block::Hash) {
+		self.0.insert(block, ());
+	}
+
+	/// Check if the block is contained in the LRU cache.
+	fn contains(&mut self, block: &Block::Hash) -> Option<&()> {
+		// For the finalized blocks we use `peek` to avoid moving the block counter to the front.
+		// This effectively means that the LRU acts as a FIFO queue. Otherwise, we might
+		// end up with scenarios where the last inserted finalized block is removed.
+		self.0.peek(block)
+	}
 }
 
 impl<Block: BlockT> AnnouncedBlocks<Block> {
@@ -92,7 +110,9 @@ impl<Block: BlockT> AnnouncedBlocks<Block> {
 			blocks: LruMap::new(ByLength::new((MAX_PINNED_BLOCKS - MAX_FINALIZED_BLOCKS) as u32)),
 			// We are keeping a smaller number of announced finalized blocks in memory.
 			// This is because the `Finalized` event might be triggered before the `NewBlock` event.
-			finalized: LruMap::new(ByLength::new(MAX_FINALIZED_BLOCKS as u32)),
+			finalized: MostRecentFinalizedBlocks(LruMap::new(ByLength::new(
+				MAX_FINALIZED_BLOCKS as u32,
+			))),
 		}
 	}
 
@@ -104,7 +124,7 @@ impl<Block: BlockT> AnnouncedBlocks<Block> {
 			// Given that the finalized blocks are bounded to `MAX_FINALIZED_BLOCKS`,
 			// this ensures we keep the minimum number of blocks in memory.
 			self.blocks.remove(&block);
-			self.finalized.insert(block, ());
+			self.finalized.insert(block);
 		} else {
 			self.blocks.insert(block, ());
 		}
@@ -112,10 +132,7 @@ impl<Block: BlockT> AnnouncedBlocks<Block> {
 
 	/// Check if the block was previously announced.
 	fn was_announced(&mut self, block: &Block::Hash) -> bool {
-		// For the finalized blocks we use `peek` to avoid moving the block counter to the front.
-		// This effectively means that the LRU acts as a FIFO queue. Otherwise, we might
-		// end up with scenarios where the last inserted finalized block is removed.
-		self.blocks.get(block).is_some() || self.finalized.peek(block).is_some()
+		self.blocks.get(block).is_some() || self.finalized.contains(block).is_some()
 	}
 }
 
