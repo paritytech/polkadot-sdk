@@ -23882,7 +23882,6 @@ dependencies = [
  "rbtag",
  "relay-substrate-client",
  "relay-utils",
- "rustc-hex",
  "scale-info",
  "sp-consensus-grandpa",
  "sp-core 28.0.0",
