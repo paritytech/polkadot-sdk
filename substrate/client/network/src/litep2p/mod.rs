@@ -377,6 +377,7 @@ impl Litep2pNetworkBackend {
 				nodelay: true,
 				..Default::default()
 			})
+			.with_keep_alive_timeout(std::time::Duration::from_secs(30))
 	}
 }
 
