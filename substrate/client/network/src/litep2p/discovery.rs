@@ -626,6 +626,11 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::IncomingRecord { record }))
 			},
+			Poll::Ready(Some(KademliaEvent::GetProvidersSuccess { .. })) |
+			Poll::Ready(Some(KademliaEvent::IncomingProvider { .. })) => {
+				// Uncovered events since we don't implement providers API.
+				// This is part of the bootnodes on DHT work.
+			},
 		}
 
 		match Pin::new(&mut this.identify_event_stream).poll_next(cx) {
