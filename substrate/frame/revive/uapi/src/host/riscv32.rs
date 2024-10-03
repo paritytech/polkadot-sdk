@@ -506,9 +506,7 @@ impl HostFn for HostFnImpl {
 
 	fn get_immutable_data(output: &mut &mut [u8]) {
 		let mut output_len = output.len() as u32;
-		{
-			unsafe { sys::get_immutable_data(output.as_mut_ptr(), &mut output_len) };
-		}
+		unsafe { sys::get_immutable_data(output.as_mut_ptr(), &mut output_len) };
 		extract_from_slice(output, output_len as usize);
 	}
 
