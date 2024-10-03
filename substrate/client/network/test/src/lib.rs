@@ -66,8 +66,12 @@ use sc_network_sync::{
 	block_request_handler::BlockRequestHandler,
 	service::{network::NetworkServiceProvider, syncing_service::SyncingService},
 	state_request_handler::StateRequestHandler,
-	strategy::warp::{
-		AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncConfig, WarpSyncProvider,
+	strategy::{
+		warp::{
+			AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncConfig,
+			WarpSyncProvider,
+		},
+		PolkadotSyncingStrategy, SyncingConfig,
 	},
 	warp_request_handler,
 };
@@ -266,7 +270,7 @@ where
 
 	/// Returns the number of peers we're connected to.
 	pub async fn num_peers(&self) -> usize {
-		self.sync_service.status().await.unwrap().num_connected_peers as usize
+		self.sync_service.num_connected_peers()
 	}
 
 	/// Returns the number of downloaded blocks.
@@ -624,9 +628,8 @@ struct VerifierAdapter<B: BlockT> {
 impl<B: BlockT> Verifier<B> for VerifierAdapter<B> {
 	async fn verify(&self, block: BlockImportParams<B>) -> Result<BlockImportParams<B>, String> {
 		let hash = block.header.hash();
-		self.verifier.lock().await.verify(block).await.map_err(|e| {
+		self.verifier.lock().await.verify(block).await.inspect_err(|e| {
 			self.failed_verifications.lock().insert(hash, e.clone());
-			e
 		})
 	}
 }
@@ -905,6 +908,24 @@ pub trait TestNetFactory: Default + Sized + Send {
 			<Block as BlockT>::Hash,
 		>>::register_notification_metrics(None);
 
+		let syncing_config = SyncingConfig {
+			mode: network_config.sync_mode,
+			max_parallel_downloads: network_config.max_parallel_downloads,
+			max_blocks_per_request: network_config.max_blocks_per_request,
+			metrics_registry: None,
+			state_request_protocol_name: state_request_protocol_config.name.clone(),
+		};
+		// Initialize syncing strategy.
+		let syncing_strategy = Box::new(
+			PolkadotSyncingStrategy::new(
+				syncing_config,
+				client.clone(),
+				Some(warp_sync_config),
+				Some(warp_protocol_config.name.clone()),
+			)
+			.unwrap(),
+		);
+
 		let (engine, sync_service, block_announce_config) =
 			sc_network_sync::engine::SyncingEngine::new(
 				Roles::from(if config.is_authority { &Role::Authority } else { &Role::Full }),
@@ -915,12 +936,10 @@ pub trait TestNetFactory: Default + Sized + Send {
 				protocol_id.clone(),
 				&fork_id,
 				block_announce_validator,
-				Some(warp_sync_config),
+				syncing_strategy,
 				chain_sync_network_handle,
 				import_queue.service(),
 				block_relay_params.downloader,
-				state_request_protocol_config.name.clone(),
-				Some(warp_protocol_config.name.clone()),
 				peer_store_handle.clone(),
 			)
 			.unwrap();
@@ -1016,7 +1035,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		for peer in peers {
 			if peer.sync_service.is_major_syncing() ||
-				peer.sync_service.num_queued_blocks().await.unwrap() != 0
+				peer.sync_service.status().await.unwrap().queued_blocks != 0
 			{
 				return false
 			}
@@ -1036,7 +1055,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 	async fn is_idle(&mut self) -> bool {
 		let peers = self.peers_mut();
 		for peer in peers {
-			if peer.sync_service.num_queued_blocks().await.unwrap() != 0 {
+			if peer.sync_service.status().await.unwrap().queued_blocks != 0 {
 				return false
 			}
 			if peer.sync_service.num_sync_requests().await.unwrap() != 0 {
@@ -1094,9 +1113,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		'outer: loop {
 			for sync_service in &sync_services {
-				if sync_service.status().await.unwrap().num_connected_peers as usize !=
-					num_peers - 1
-				{
+				if sync_service.num_connected_peers() != num_peers - 1 {
 					futures::future::poll_fn::<(), _>(|cx| {
 						self.poll(cx);
 						Poll::Ready(())

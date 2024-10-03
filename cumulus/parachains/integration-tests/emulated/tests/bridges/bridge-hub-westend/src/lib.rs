@@ -16,6 +16,7 @@
 #[cfg(test)]
 mod imports {
 	// Substrate
+	pub use codec::Encode;
 	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult};
 	pub use sp_runtime::DispatchError;
 
@@ -53,7 +54,10 @@ mod imports {
 			BridgeHubWestendParaPallet as BridgeHubWestendPallet, BridgeHubWestendXcmConfig,
 		},
 		penpal_emulated_chain::{
-			penpal_runtime::xcm_config::UniversalLocation as PenpalUniversalLocation,
+			penpal_runtime::xcm_config::{
+				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+				UniversalLocation as PenpalUniversalLocation,
+			},
 			PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet,
 		},
 		westend_emulated_chain::{

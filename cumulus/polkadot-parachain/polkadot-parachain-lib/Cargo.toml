@@ -38,6 +38,7 @@ sc-consensus = { workspace = true, default-features = true }
 frame-support = { optional = true, workspace = true, default-features = true }
 sc-cli = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
+sc-client-db = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
@@ -60,6 +61,7 @@ pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-feature
 sp-inherents = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
+sc-consensus-manual-seal = { workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 substrate-frame-rpc-system = { workspace = true, default-features = true }
@@ -82,6 +84,7 @@ cumulus-client-service = { workspace = true, default-features = true }
 cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
+futures-timer = "3.0.3"
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
@@ -105,6 +108,7 @@ runtime-benchmarks = [
 	"parachains-common/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
+	"sc-client-db/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]

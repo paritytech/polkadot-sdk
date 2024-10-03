@@ -40,12 +40,10 @@ pub enum HostFnImpl {}
 pub trait HostFn: private::Sealed {
 	/// Stores the address of the current contract into the supplied buffer.
 	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
-	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the address.
-	fn address(output: &mut &mut [u8]);
+	fn address(output: &mut [u8; 20]);
 
 	/// Lock a new delegate dependency to the contract.
 	///
@@ -56,25 +54,32 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
-	fn lock_delegate_dependency(code_hash: &[u8]);
+	fn lock_delegate_dependency(code_hash: &[u8; 32]);
 
-	/// Stores the *free* balance of the current account into the supplied buffer.
-	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
+	/// Stores the **reducible** balance of the current account into the supplied buffer.
 	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the balance.
-	fn balance(output: &mut &mut [u8]);
+	fn balance(output: &mut [u8; 32]);
+
+	/// Stores the **reducible** balance of the supplied address into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `addr`: The target address of which to retreive the free balance.
+	/// - `output`: A reference to the output data buffer to write the balance.
+	fn balance_of(addr: &[u8; 20], output: &mut [u8; 32]);
+
+	/// Returns the [EIP-155](https://eips.ethereum.org/EIPS/eip-155) chain ID.
+	fn chain_id(output: &mut [u8; 32]);
 
 	/// Stores the current block number of the current contract into the supplied buffer.
-	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
 	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the block number.
-	fn block_number(output: &mut &mut [u8]);
+	fn block_number(output: &mut [u8; 32]);
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	///
@@ -85,11 +90,10 @@ pub trait HostFn: private::Sealed {
 	///   otherwise.
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
 	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
-	/// - `deposit`: The storage deposit limit for instantiation. Should be decodable as a
-	///   `Option<T::Balance>`. Traps otherwise. Passing `None` means setting no specific limit for
-	///   the call, which implies storage usage up to the limit of the parent call.
-	/// - `value`: The value to transfer into the contract. Should be decodable as a `T::Balance`.
-	///   Traps otherwise.
+	/// - `deposit`: The storage deposit limit for instantiation. Passing `None` means setting no
+	///   specific limit for the call, which implies storage usage up to the limit of the parent
+	///   call.
+	/// - `value`: The value to transfer into the contract.
 	/// - `input`: The input data buffer used to call the contract.
 	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
 	///   is provided then the output buffer is not copied.
@@ -105,11 +109,11 @@ pub trait HostFn: private::Sealed {
 	/// - [NotCallable][`crate::ReturnErrorCode::NotCallable]
 	fn call(
 		flags: CallFlags,
-		callee: &[u8],
+		callee: &[u8; 20],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit: Option<&[u8]>,
-		value: &[u8],
+		deposit: Option<&[u8; 32]>,
+		value: &[u8; 32],
 		input_data: &[u8],
 		output: Option<&mut &mut [u8]>,
 	) -> Result;
@@ -166,8 +170,6 @@ pub trait HostFn: private::Sealed {
 
 	/// Stores the address of the caller into the supplied buffer.
 	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
-	///
 	/// If this is a top-level call (i.e. initiated by an extrinsic) the origin address of the
 	/// extrinsic will be returned. Otherwise, if this call is initiated by another contract then
 	/// the address of the contract will be returned.
@@ -178,7 +180,7 @@ pub trait HostFn: private::Sealed {
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the caller address.
-	fn caller(output: &mut &mut [u8]);
+	fn caller(output: &mut [u8; 20]);
 
 	/// Checks whether the caller of the current contract is the origin of the whole call stack.
 	///
@@ -216,15 +218,13 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Parameters
 	///
-	/// - `account_id`: The address of the contract.Should be decodable as an `T::AccountId`. Traps
-	///   otherwise.
+	/// - `addr`: The address of the contract.
 	/// - `output`: A reference to the output data buffer to write the code hash.
-	///
 	///
 	/// # Errors
 	///
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
-	fn code_hash(account_id: &[u8], output: &mut [u8]) -> Result;
+	fn code_hash(addr: &[u8; 20], output: &mut [u8; 32]) -> Result;
 
 	/// Checks whether there is a value stored under the given key.
 	///
@@ -281,7 +281,7 @@ pub trait HostFn: private::Sealed {
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
 	fn delegate_call(
 		flags: CallFlags,
-		code_hash: &[u8],
+		code_hash: &[u8; 32],
 		input_data: &[u8],
 		output: Option<&mut &mut [u8]>,
 	) -> Result;
@@ -293,8 +293,8 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Parameters
 	///
-	/// - `topics`: The topics list encoded as `Vec<T::Hash>`. It can't contain duplicates.
-	fn deposit_event(topics: &[u8], data: &[u8]);
+	/// - `topics`: The topics list. It can't contain duplicates.
+	fn deposit_event(topics: &[[u8; 32]], data: &[u8]);
 
 	/// Recovers the ECDSA public key from the given message hash and signature.
 	///
@@ -380,11 +380,10 @@ pub trait HostFn: private::Sealed {
 	/// - `code_hash`: The hash of the code to be instantiated.
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
 	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
-	/// - `deposit`: The storage deposit limit for instantiation. Should be decodable as a
-	///   `Option<T::Balance>`. Traps otherwise. Passing `None` means setting no specific limit for
-	///   the call, which implies storage usage up to the limit of the parent call.
-	/// - `value`: The value to transfer into the contract. Should be decodable as a `T::Balance`.
-	///   Traps otherwise.
+	/// - `deposit`: The storage deposit limit for instantiation. Passing `None` means setting no
+	///   specific limit for the call, which implies storage usage up to the limit of the parent
+	///   call.
+	/// - `value`: The value to transfer into the contract.
 	/// - `input`: The input data buffer.
 	/// - `address`: A reference to the address buffer to write the address of the contract. If
 	///   `None` is provided then the output buffer is not copied.
@@ -405,54 +404,48 @@ pub trait HostFn: private::Sealed {
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
 	fn instantiate(
-		code_hash: &[u8],
+		code_hash: &[u8; 32],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit: Option<&[u8]>,
-		value: &[u8],
+		deposit: Option<&[u8; 32]>,
+		value: &[u8; 32],
 		input: &[u8],
-		address: Option<&mut &mut [u8]>,
+		address: Option<&mut [u8; 20]>,
 		output: Option<&mut &mut [u8]>,
-		salt: &[u8],
+		salt: Option<&[u8; 32]>,
 	) -> Result;
 
 	/// Checks whether a specified address belongs to a contract.
 	///
 	/// # Parameters
 	///
-	/// - `account_id`: The address to check. Should be decodable as an `T::AccountId`. Traps
-	///   otherwise.
+	/// - `address`: The address to check
 	///
 	/// # Return
 	///
 	/// Returns `true` if the address belongs to a contract.
-	fn is_contract(account_id: &[u8]) -> bool;
+	fn is_contract(address: &[u8; 20]) -> bool;
 
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
-	/// The data is encoded as `T::Balance`.
-	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
 	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the minimum balance.
-	fn minimum_balance(output: &mut &mut [u8]);
+	fn minimum_balance(output: &mut [u8; 32]);
 
 	/// Retrieve the code hash of the currently executing contract.
 	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the code hash.
-	fn own_code_hash(output: &mut [u8]);
+	fn own_code_hash(output: &mut [u8; 32]);
 
 	/// Load the latest block timestamp into the supplied buffer
-	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
 	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the timestamp.
-	fn now(output: &mut &mut [u8]);
+	fn now(output: &mut [u8; 32]);
 
 	/// Removes the delegate dependency from the contract.
 	///
@@ -462,7 +455,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
-	fn unlock_delegate_dependency(code_hash: &[u8]);
+	fn unlock_delegate_dependency(code_hash: &[u8; 32]);
 
 	/// Cease contract execution and save a data buffer as a result of the execution.
 	///
@@ -510,7 +503,7 @@ pub trait HostFn: private::Sealed {
 	/// # Errors
 	///
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
-	fn set_code_hash(code_hash: &[u8]) -> Result;
+	fn set_code_hash(code_hash: &[u8; 32]) -> Result;
 
 	/// Set the value at the given key in the contract storage.
 	///
@@ -554,14 +547,13 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Parameters
 	///
-	/// - `account_id`: The address of the account to transfer funds to. Should be decodable as an
-	///   `T::AccountId`. Traps otherwise.
-	/// - `value`: The value to transfer. Should be decodable as a `T::Balance`. Traps otherwise.
+	/// - `address`: The address of the account to transfer funds to.
+	/// - `value`: The U256 value to transfer.
 	///
 	/// # Errors
 	///
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
-	fn transfer(account_id: &[u8], value: &[u8]) -> Result;
+	fn transfer(address: &[u8; 20], value: &[u8; 32]) -> Result;
 
 	/// Remove the calling account and transfer remaining **free** balance.
 	///
@@ -571,37 +563,30 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Parameters
 	///
-	/// - `beneficiary`: The address of the beneficiary account, Should be decodable as an
-	/// `T::AccountId`.
+	/// - `beneficiary`: The address of the beneficiary account
 	///
 	/// # Traps
 	///
 	/// - The contract is live i.e is already on the call stack.
 	/// - Failed to send the balance to the beneficiary.
 	/// - The deletion queue is full.
-	fn terminate(beneficiary: &[u8]) -> !;
+	fn terminate(beneficiary: &[u8; 20]) -> !;
 
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
-	/// The data is encoded as `T::Balance`.
-	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
 	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the transferred value.
-	fn value_transferred(output: &mut &mut [u8]);
+	fn value_transferred(output: &mut [u8; 32]);
 
 	/// Stores the price for the specified amount of gas into the supplied buffer.
-	/// The data is encoded as `T::Balance`.
-	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
 	///
 	/// # Parameters
 	///
 	/// - `ref_time_limit`: The *ref_time* Weight limit to query the price for.
 	/// - `proof_size_limit`: The *proof_size* Weight limit to query the price for.
 	/// - `output`: A reference to the output data buffer to write the price.
-	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut &mut [u8]);
+	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]);
 
 	/// Execute an XCM program locally, using the contract's address as the origin.
 	/// This is equivalent to dispatching `pallet_xcm::execute` through call_runtime, except that
@@ -635,6 +620,20 @@ pub trait HostFn: private::Sealed {
 	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
 	/// execution fails, `ReturnErrorCode::XcmSendFailed` is returned.
 	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result;
+
+	/// Stores the size of the returned data of the last contract call or instantiation.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output buffer to write the size.
+	fn return_data_size(output: &mut [u8; 32]);
+
+	/// Stores the returned data of the last contract call or contract instantiation.
+	///
+	/// # Parameters
+	/// - `output`: A reference to the output buffer to write the data.
+	/// - `offset`: Byte offset into the returned data
+	fn return_data_copy(output: &mut &mut [u8], offset: u32);
 }
 
 mod private {

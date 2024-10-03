@@ -125,18 +125,16 @@ impl FetchSystematicChunks {
 				// Attempt post-recovery check.
 				do_post_recovery_check(common_params, data)
 					.await
-					.map_err(|e| {
+					.inspect_err(|_| {
 						recovery_duration.map(|rd| rd.stop_and_discard());
-						e
 					})
-					.map(|data| {
+					.inspect(|_| {
 						gum::trace!(
 							target: LOG_TARGET,
 							candidate_hash = ?common_params.candidate_hash,
 							erasure_root = ?common_params.erasure_root,
 							"Data recovery from systematic chunks complete",
 						);
-						data
 					})
 			},
 			Err(err) => {

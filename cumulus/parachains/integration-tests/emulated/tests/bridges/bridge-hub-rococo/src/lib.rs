@@ -16,6 +16,7 @@
 #[cfg(test)]
 mod imports {
 	// Substrate
+	pub use codec::Encode;
 	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult};
 	pub use sp_runtime::DispatchError;
 
@@ -55,9 +56,12 @@ mod imports {
 			BridgeHubRococoXcmConfig, EthereumBeaconClient, EthereumInboundQueue,
 		},
 		penpal_emulated_chain::{
-			penpal_runtime::xcm_config::{
-				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
-				UniversalLocation as PenpalUniversalLocation,
+			penpal_runtime::{
+				self,
+				xcm_config::{
+					CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+					UniversalLocation as PenpalUniversalLocation,
+				},
 			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
 		},
@@ -72,9 +76,8 @@ mod imports {
 		BridgeHubRococoParaReceiver as BridgeHubRococoReceiver,
 		BridgeHubRococoParaSender as BridgeHubRococoSender,
 		BridgeHubWestendPara as BridgeHubWestend, PenpalAPara as PenpalA,
-		PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
-		RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
-		RococoRelaySender as RococoSender,
+		PenpalAParaSender as PenpalASender, RococoRelay as Rococo,
+		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 	};
 
 	pub const ASSET_ID: u32 = 1;

@@ -1,6 +1,6 @@
 use super::GlobalConsensusEthereumConvertsFor;
 use crate::inbound::CallIndex;
-use frame_support::parameter_types;
+use frame_support::{assert_ok, parameter_types};
 use hex_literal::hex;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
@@ -37,4 +37,33 @@ fn test_contract_location_with_incorrect_location_fails_convert() {
 		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&contract_location),
 		None,
 	);
+}
+
+#[test]
+fn test_reanchor_all_assets() {
+	let ethereum_context: InteriorLocation = [GlobalConsensus(Ethereum { chain_id: 1 })].into();
+	let ethereum = Location::new(2, ethereum_context.clone());
+	let ah_context: InteriorLocation = [GlobalConsensus(Polkadot), Parachain(1000)].into();
+	let global_ah = Location::new(1, ah_context.clone());
+	let assets = vec![
+		// DOT
+		Location::new(1, []),
+		// GLMR (Some Polkadot parachain currency)
+		Location::new(1, [Parachain(2004)]),
+		// AH asset
+		Location::new(0, [PalletInstance(50), GeneralIndex(42)]),
+		// KSM
+		Location::new(2, [GlobalConsensus(Kusama)]),
+		// KAR (Some Kusama parachain currency)
+		Location::new(2, [GlobalConsensus(Kusama), Parachain(2000)]),
+	];
+	for asset in assets.iter() {
+		// reanchor logic in pallet_xcm on AH
+		let mut reanchored_asset = asset.clone();
+		assert_ok!(reanchored_asset.reanchor(&ethereum, &ah_context));
+		// reanchor back to original location in context of Ethereum
+		let mut reanchored_asset_with_ethereum_context = reanchored_asset.clone();
+		assert_ok!(reanchored_asset_with_ethereum_context.reanchor(&global_ah, &ethereum_context));
+		assert_eq!(reanchored_asset_with_ethereum_context, asset.clone());
+	}
 }

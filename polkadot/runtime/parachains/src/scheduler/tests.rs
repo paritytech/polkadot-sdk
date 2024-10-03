@@ -19,7 +19,7 @@ use super::*;
 use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 use frame_support::assert_ok;
 use polkadot_primitives::{
-	vstaging::SchedulerParams, BlockNumber, SessionIndex, ValidationCode, ValidatorId,
+	BlockNumber, SchedulerParams, SessionIndex, ValidationCode, ValidatorId,
 };
 use sp_keyring::Sr25519Keyring;
 

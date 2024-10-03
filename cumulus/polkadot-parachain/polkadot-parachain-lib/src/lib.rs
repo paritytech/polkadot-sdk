@@ -39,12 +39,13 @@
 //!
 //! For an example, see the `polkadot-parachain-bin` crate.
 
+#![deny(missing_docs)]
+
 mod cli;
 mod command;
 mod common;
 mod fake_runtime_api;
-mod rpc;
-mod service;
+mod nodes;
 
 pub use cli::CliConfig;
 pub use command::{run, RunConfig};

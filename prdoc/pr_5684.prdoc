@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet-revive]"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Update xcm runtime api, and fix pallet-revive xcm tests
+
+crates:
+  - name: pallet-revive
+    bump: patch
+  - name: pallet-revive-fixtures
+    bump: patch
+  - name: pallet-revive-mock-network
+    bump: patch
+  - name: polkadot-sdk
+    bump: patch

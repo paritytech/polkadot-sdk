@@ -29,7 +29,7 @@ use polkadot_parachain_primitives::primitives::{
 use polkadot_primitives::{
 	ApprovalVotingParams, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
 	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
-	MAX_POV_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
+	ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill, Percent};
 
@@ -42,9 +42,13 @@ mod benchmarking;
 pub mod migration;
 
 pub use pallet::*;
-use polkadot_primitives::vstaging::SchedulerParams;
+use polkadot_primitives::SchedulerParams;
 
 const LOG_TARGET: &str = "runtime::configuration";
+
+// This value is derived from network layer limits. See `sc_network::MAX_RESPONSE_SIZE` and
+// `polkadot_node_network_protocol::POV_RESPONSE_SIZE`.
+const POV_SIZE_HARD_LIMIT: u32 = 16 * 1024 * 1024;
 
 /// All configuration of the runtime with respect to paras.
 #[derive(
@@ -310,7 +314,7 @@ pub enum InconsistentError<BlockNumber> {
 	MaxCodeSizeExceedHardLimit { max_code_size: u32 },
 	/// `max_head_data_size` exceeds the hard limit of `MAX_HEAD_DATA_SIZE`.
 	MaxHeadDataSizeExceedHardLimit { max_head_data_size: u32 },
-	/// `max_pov_size` exceeds the hard limit of `MAX_POV_SIZE`.
+	/// `max_pov_size` exceeds the hard limit of `POV_SIZE_HARD_LIMIT`.
 	MaxPovSizeExceedHardLimit { max_pov_size: u32 },
 	/// `minimum_validation_upgrade_delay` is less than `paras_availability_period`.
 	MinimumValidationUpgradeDelayLessThanChainAvailabilityPeriod {
@@ -377,7 +381,7 @@ where
 			})
 		}
 
-		if self.max_pov_size > MAX_POV_SIZE {
+		if self.max_pov_size > POV_SIZE_HARD_LIMIT {
 			return Err(MaxPovSizeExceedHardLimit { max_pov_size: self.max_pov_size })
 		}
 
@@ -557,7 +561,7 @@ pub mod pallet {
 	/// The list is sorted ascending by session index. Also, this list can only contain at most
 	/// 2 items: for the next session and for the `scheduled_session`.
 	#[pallet::storage]
-	pub(crate) type PendingConfigs<T: Config> =
+	pub type PendingConfigs<T: Config> =
 		StorageValue<_, Vec<(SessionIndex, HostConfiguration<BlockNumberFor<T>>)>, ValueQuery>;
 
 	/// If this is set, then the configuration setters will bypass the consistency checks. This

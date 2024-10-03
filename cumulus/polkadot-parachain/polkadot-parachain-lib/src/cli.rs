@@ -25,10 +25,10 @@ use clap::{Command, CommandFactory, FromArgMatches};
 use sc_chain_spec::ChainSpec;
 use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
-	SharedParams, SubstrateCli,
+	RpcEndpoint, SharedParams, SubstrateCli,
 };
 use sc_service::{config::PrometheusConfig, BasePath};
-use std::{fmt::Debug, marker::PhantomData, net::SocketAddr, path::PathBuf};
+use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
 /// Trait that can be used to customize some of the customer-facing info related to the node binary
 /// that is being built using this library.
@@ -36,8 +36,10 @@ use std::{fmt::Debug, marker::PhantomData, net::SocketAddr, path::PathBuf};
 /// The related info is shown to the customer as part of logs or help messages.
 /// It does not impact functionality.
 pub trait CliConfig {
+	/// The version of the resulting node binary.
 	fn impl_version() -> String;
 
+	/// The description of the resulting node binary.
 	fn description(executable_name: String) -> String {
 		format!(
 			"The command-line arguments provided first will be passed to the parachain node, \n\
@@ -50,10 +52,13 @@ pub trait CliConfig {
 		)
 	}
 
+	/// The author of the resulting node binary.
 	fn author() -> String;
 
+	/// The support URL for the resulting node binary.
 	fn support_url() -> String;
 
+	/// The starting copyright year of the resulting node binary.
 	fn copyright_start_year() -> u16;
 }
 
@@ -113,6 +118,14 @@ pub struct Cli<Config: CliConfig> {
 
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
+
+	/// Start a dev node that produces a block each `dev_block_time` ms.
+	///
+	/// This is a dev option, and it won't result in starting or connecting to a parachain network.
+	/// The resulting node will work on its own, running the wasm blob and artificially producing
+	/// a block each `dev_block_time` ms, as if it was part of a parachain.
+	#[arg(long)]
+	pub dev_block_time: Option<u64>,
 
 	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
 	///
@@ -300,7 +313,7 @@ impl<Config: CliConfig> CliConfiguration<Self> for RelayChainCli<Config> {
 			.or_else(|| self.base_path.clone().map(Into::into)))
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> sc_cli::Result<Option<SocketAddr>> {
+	fn rpc_addr(&self, default_listen_port: u16) -> sc_cli::Result<Option<Vec<RpcEndpoint>>> {
 		self.base.base.rpc_addr(default_listen_port)
 	}
 
@@ -317,10 +330,9 @@ impl<Config: CliConfig> CliConfiguration<Self> for RelayChainCli<Config> {
 		_support_url: &String,
 		_impl_version: &String,
 		_logger_hook: F,
-		_config: &sc_service::Configuration,
 	) -> sc_cli::Result<()>
 	where
-		F: FnOnce(&mut sc_cli::LoggerBuilder, &sc_service::Configuration),
+		F: FnOnce(&mut sc_cli::LoggerBuilder),
 	{
 		unreachable!("PolkadotCli is never initialized; qed");
 	}
