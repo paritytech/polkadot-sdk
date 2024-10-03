@@ -76,7 +76,7 @@ pub struct ContractInfo<T: Config> {
 	/// calls.
 	delegate_dependencies: DelegateDependencyMap<T>,
 	/// The size of the immutable data of this contract.
-	pub immutable_bytes: u32,
+	immutable_bytes: u32,
 }
 
 impl<T: Config> ContractInfo<T> {
@@ -364,6 +364,19 @@ impl<T: Config> ContractInfo<T> {
 	/// Returns the code hash of the contract specified by `account` ID.
 	pub fn load_code_hash(account: &AccountIdOf<T>) -> Option<sp_core::H256> {
 		<ContractInfoOf<T>>::get(&T::AddressMapper::to_address(account)).map(|i| i.code_hash)
+	}
+
+	/// Returns the amount of immutable bytes of this contract.
+	pub fn immutable_bytes(&self) -> u32 {
+		self.immutable_bytes
+	}
+
+	/// Set the number of immutable bytes of this contract.
+	///
+	/// Note: Changing the immutable bytes of a contract requires updating
+	/// the base deposit during the same transaction!
+	pub fn set_immutable_bytes(&mut self, immutable_bytes: u32) {
+		self.immutable_bytes = immutable_bytes
 	}
 }
 

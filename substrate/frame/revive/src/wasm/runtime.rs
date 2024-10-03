@@ -1965,6 +1965,9 @@ pub mod env {
 
 	/// Replace the contract code at the specified address with new code.
 	/// See [`pallet_revive_uapi::HostFn::set_code_hash`].
+	///
+	/// Disabled until the internal implementation takes care of collecting
+	/// the immutable data of the new code hash.
 	#[mutating]
 	fn set_code_hash(
 		&mut self,

@@ -1073,11 +1073,11 @@ where
 					let frame = self.top_frame_mut();
 					let contract = frame.contract_info.as_contract().inspect(|info| {
 						// Charge for immutable data stored during constructor execution.
-						if info.immutable_bytes == 0 {
+						if info.immutable_bytes() == 0 {
 							return;
 						};
 						let amount = StorageDeposit::Charge(
-							T::DepositPerByte::get().saturating_mul(info.immutable_bytes.into()),
+							T::DepositPerByte::get().saturating_mul(info.immutable_bytes().into()),
 						);
 						frame.nested_storage.charge_deposit(frame.account_id.clone(), amount);
 					});
@@ -1566,7 +1566,7 @@ where
 		}
 
 		let account_id = self.account_id().clone();
-		self.top_frame_mut().contract_info.get(&account_id).immutable_bytes = data.len() as u32;
+		self.top_frame_mut().contract_info.get(&account_id).set_immutable_bytes(data.len() as u32);
 		<ImmutableDataOf<T>>::insert(T::AddressMapper::to_address(&account_id), &data);
 
 		Ok(())
@@ -1691,6 +1691,8 @@ where
 	///
 	/// After running the constructor, the new immutable data is already stored in
 	/// `self.immutable_data` at the address of the (reverted) contract instantiation.
+	///
+	/// The `set_code_hash` contract API stays disabled until this change is implemented.
 	fn set_code_hash(&mut self, hash: H256) -> DispatchResult {
 		let frame = top_frame_mut!(self);
 
