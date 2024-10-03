@@ -1301,7 +1301,7 @@ where
 
 	/// Certain APIs, e.g. `{set,get}_immutable_data` behave differently depending
 	/// on the configured entry point. Thus, we allow setting the export manually.
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
 	pub(crate) fn override_export(&mut self, export: ExportedFunction) {
 		self.top_frame_mut().entry_point = export;
 	}
