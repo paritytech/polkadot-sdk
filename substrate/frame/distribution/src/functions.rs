@@ -60,7 +60,7 @@ impl<T: Config> Pallet<T> {
 	// funds for created `SpendInfos`. the function will be use in a hook.
 
 	pub fn begin_block(now: BlockNumberFor<T>) -> Weight {
-		let max_block_weight = T::BlockWeights::get().max_block/10;
+		let max_block_weight = T::BlockWeights::get().max_block / 10;
 		let epoch = T::EpochDurationBlocks::get();
 
 		//We reach the check period

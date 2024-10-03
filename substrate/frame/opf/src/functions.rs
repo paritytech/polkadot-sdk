@@ -265,7 +265,7 @@ impl<T: Config> Pallet<T> {
 	// To be executed in a hook, on_initialize
 	pub fn on_idle_function(now: BlockNumberFor<T>, limit: Weight) -> Weight {
 		let mut meter = WeightMeter::with_limit(limit);
-		let max_block_weight = T::BlockWeights::get().max_block/10;
+		let max_block_weight = T::BlockWeights::get().max_block / 10;
 
 		if meter.try_consume(max_block_weight).is_err() {
 			return meter.consumed();
