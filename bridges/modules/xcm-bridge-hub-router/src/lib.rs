@@ -99,7 +99,7 @@ pub mod pallet {
 		type DestinationVersion: GetVersion;
 
 		/// Actual message sender (`HRMP` or `DMP`) to the sibling bridge hub location.
-		type ToBridgeHubSender: SendXcm + InspectMessageQueues;
+		type ToBridgeHubSender: SendXcm;
 		/// Local XCM channel manager.
 		type LocalXcmChannelManager: XcmChannelStatusProvider;
 
@@ -408,12 +408,10 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> InspectMessageQueues for Pallet<T, I> {
-	fn clear_messages() {
-		ViaBridgeHubExporter::<T, I>::clear_messages()
-	}
+	fn clear_messages() {}
 
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
-		ViaBridgeHubExporter::<T, I>::get_messages()
+		Vec::new()
 	}
 }
 
