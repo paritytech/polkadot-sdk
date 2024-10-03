@@ -109,34 +109,29 @@ impl<
 	> ContainsPair<L, L> for RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>
 {
 	fn contains(asset: &L, origin: &L) -> bool {
-		let latest_asset: Location = if let Ok(location) = asset.clone().try_into() {
-			location
-		} else {
+		let Ok(asset) = asset.clone().try_into() else {
 			return false;
 		};
-		let latest_origin: Location = if let Ok(location) = origin.clone().try_into() {
-			location
-		} else {
+		let Ok(origin) = origin.clone().try_into() else {
 			return false;
 		};
 		let expected_origin = OriginLocation::get();
 		// ensure `origin` is expected `OriginLocation`
-		if !expected_origin.eq(&latest_origin) {
+		if !expected_origin.eq(&origin) {
 			log::trace!(
 				target: "xcm::contains",
-				"RemoteAssetFromLocation asset: {:?}, origin: {:?} is not from expected {:?}",
-				latest_asset, latest_origin, expected_origin,
+				"RemoteAssetFromLocation asset: {asset:?}, origin: {origin:?} is not from expected {expected_origin:?}"
 			);
 			return false;
 		} else {
 			log::trace!(
 				target: "xcm::contains",
-				"RemoteAssetFromLocation asset: {latest_asset:?}, origin: {latest_origin:?}",
+				"RemoteAssetFromLocation asset: {asset:?}, origin: {origin:?}",
 			);
 		}
 
 		// ensure `asset` is from remote consensus listed in `AssetsAllowedNetworks`
-		AssetsAllowedNetworks::contains(&latest_asset)
+		AssetsAllowedNetworks::contains(&asset)
 	}
 }
 impl<AssetsAllowedNetworks: Contains<Location>, OriginLocation: Get<Location>>
