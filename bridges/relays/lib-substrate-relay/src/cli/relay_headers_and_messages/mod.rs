@@ -320,7 +320,9 @@ where
 				_,
 				Self::Right,
 				MessagesLaneIdOf<Self::L2R>,
-			>(common.left.client.clone(), &common.metrics_params, &common.left.accounts, &lanes_l2r)
+			>(
+				common.left.client.clone(), &common.metrics_params, &common.left.accounts, &lanes_l2r
+			)
 			.await?;
 			crate::messages::metrics::add_relay_balances_metrics::<
 				_,
