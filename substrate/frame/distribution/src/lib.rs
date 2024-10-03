@@ -190,6 +190,7 @@ pub mod pallet {
 		/// Emits [`Event::<T>::RewardClaimed`] if successful for a positive approval.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::claim_reward_for(T::MaxProjects::get()))]
+		#[transactional]
 		pub fn claim_reward_for(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
 			let pot = Self::pot_account();

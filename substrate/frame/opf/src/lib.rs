@@ -248,6 +248,7 @@ pub mod pallet {
 		/// ## Events
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::vote(T::MaxWhitelistedProjects::get()))]
+		#[transactional]
 		pub fn vote(
 			origin: OriginFor<T>,
 			project_id: ProjectId<T>,
@@ -305,6 +306,7 @@ pub mod pallet {
 		/// ## Events
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::remove_vote(T::MaxWhitelistedProjects::get()))]
+		#[transactional]
 		pub fn remove_vote(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let voter = ensure_signed(origin)?;
 			// Get current voting round & check if we are in voting period or not
@@ -338,6 +340,7 @@ pub mod pallet {
 		/// ## Events
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::unlock_funds(T::MaxWhitelistedProjects::get()))]
+		#[transactional]
 		pub fn unlock_funds(origin: OriginFor<T>, project: ProjectId<T>) -> DispatchResult {
 			let voter = ensure_signed(origin)?;
 			let infos = Votes::<T>::get(&project, &voter).ok_or(Error::<T>::NoVoteData)?;

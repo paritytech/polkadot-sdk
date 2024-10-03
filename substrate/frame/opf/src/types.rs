@@ -26,6 +26,7 @@ pub use frame_support::{
 		tokens::{Precision, Preservation},
 		DefensiveOption, EnsureOrigin,
 	},
+	transactional,
 	weights::WeightMeter,
 	PalletId, Serialize,
 };

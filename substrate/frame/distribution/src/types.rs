@@ -28,7 +28,7 @@ pub use frame_support::{
 		tokens::{Precision, Preservation},
 		DefensiveOption, EnsureOrigin,
 	},
-	PalletId, Serialize,
+	transactional, PalletId, Serialize,
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
 pub use scale_info::prelude::vec::Vec;
