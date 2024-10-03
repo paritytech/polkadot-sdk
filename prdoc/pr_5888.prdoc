@@ -12,3 +12,5 @@ crates:
     bump: minor
   - name: cumulus-pallet-parachain-system
     bump: major
+  - name: cumulus-primitives-core
+    bump: minor
