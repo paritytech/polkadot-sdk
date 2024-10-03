@@ -27,7 +27,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 mod contracts;
 mod weights;
-mod xcm_config;
+pub mod xcm_config;
 
 extern crate alloc;
 
