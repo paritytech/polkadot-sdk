@@ -396,6 +396,9 @@ pub struct UnbondingQueue {
 	pub back_of_unbonding_queue_era: EraIndex,
 }
 
+/// Default implementation for `UnbondingQueue`, providing sensible defaults for slashable share and
+/// lower and upper bound eras. `back_of_unbonding_queue_era` can be set to zero, and will update
+/// upon the first unlock request by a staker.
 impl Default for UnbondingQueue {
 	fn default() -> Self {
 		Self {

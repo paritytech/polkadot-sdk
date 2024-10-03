@@ -761,9 +761,6 @@ pub mod pallet {
 		pub min_validator_bond: BalanceOf<T>,
 		pub max_validator_count: Option<u32>,
 		pub max_nominator_count: Option<u32>,
-		pub min_slashable_share: Perbill,
-		pub unbond_period_lower_bound: EraIndex,
-		pub unbond_period_upper_bound: EraIndex,
 	}
 
 	#[pallet::genesis_build]

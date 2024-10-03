@@ -327,9 +327,6 @@ pub struct ExtBuilder {
 	status: BTreeMap<AccountId, StakerStatus<AccountId>>,
 	stakes: BTreeMap<AccountId, Balance>,
 	stakers: Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
-	min_slashable_share: Perbill,
-	unbond_period_upper_bound: EraIndex,
-	unbond_period_lower_bound: EraIndex,
 }
 
 impl Default for ExtBuilder {
@@ -347,9 +344,6 @@ impl Default for ExtBuilder {
 			status: Default::default(),
 			stakes: Default::default(),
 			stakers: Default::default(),
-			min_slashable_share: Perbill::from_percent(50),
-			unbond_period_lower_bound: 2,
-			unbond_period_upper_bound: 28,
 		}
 	}
 }
@@ -524,9 +518,6 @@ impl ExtBuilder {
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: self.min_nominator_bond,
 			min_validator_bond: self.min_validator_bond,
-			min_slashable_share: self.min_slashable_share,
-			unbond_period_lower_bound: self.unbond_period_lower_bound,
-			unbond_period_upper_bound: self.unbond_period_upper_bound,
 			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
