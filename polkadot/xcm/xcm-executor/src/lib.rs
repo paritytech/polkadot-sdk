@@ -1208,8 +1208,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						ensure!(reanchored_fees.len() == 1, XcmError::TooManyAssets);
 						let fees =
 							reanchored_fees.into_inner().pop().ok_or(XcmError::NotHoldingFees)?;
-						// buy execution
-						message.push(BuyExecution { fees, weight_limit: Unlimited });
+						// move these assets to the fees register for covering execution and paying
+						// any subsequent fees
+						message.push(PayFees { asset: fees });
 					} else {
 						// unpaid execution
 						message

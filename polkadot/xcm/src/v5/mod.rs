@@ -1052,33 +1052,40 @@ pub enum Instruction<Call> {
 	/// they are then transferred based on their specified transfer type:
 	///
 	/// - teleport: burn local assets and append a `ReceiveTeleportedAsset` XCM instruction to the
-	///   XCM program to be sent onward to the `dest` location,
+	///   XCM program to be sent onward to the `destination` location,
 	///
-	/// - reserve deposit: place assets under the ownership of `dest` within this consensus system
-	///   (i.e. its sovereign account), and append a `ReserveAssetDeposited` XCM instruction to the
-	///   XCM program to be sent onward to the `dest` location,
+	/// - reserve deposit: place assets under the ownership of `destination` within this consensus
+	///   system (i.e. its sovereign account), and append a `ReserveAssetDeposited` XCM instruction
+	///   to the XCM program to be sent onward to the `destination` location,
 	///
 	/// - reserve withdraw: burn local assets and append a `WithdrawAsset` XCM instruction to the
-	///   XCM program to be sent onward to the `dest` location,
+	///   XCM program to be sent onward to the `destination` location,
 	///
 	/// The onward XCM is then appended a `ClearOrigin` to allow safe execution of any following
 	/// custom XCM instructions provided in `remote_xcm`.
 	///
-	/// The onward XCM also contains either a `BuyExecution` or `UnpaidExecution` instruction based
+	/// The onward XCM also contains either a `PayFees` or `UnpaidExecution` instruction based
 	/// on the presence of the `remote_fees` parameter (see below).
 	///
 	/// If an XCM program requires going through multiple hops, it can compose this instruction to
 	/// be used at every chain along the path, describing that specific leg of the flow.
 	///
 	/// Parameters:
-	/// - `dest`: The location of the program next hop.
+	/// - `destination`: The location of the program next hop.
 	/// - `remote_fees`: If set to `Some(asset_xfer_filter)`, the single asset matching
 	///   `asset_xfer_filter` in the holding register will be transferred first in the remote XCM
-	///   program, followed by a `BuyExecution(fee)`, then rest of transfers follow. This
-	///   guarantees `remote_xcm` will successfully pass a `AllowTopLevelPaidExecutionFrom`
-	///   barrier. If set to `None`, a `UnpaidExecution` instruction is appended instead.
-	/// - `remote_xcm`: Custom instructions that will be executed on the `dest` chain. Note that
-	///   these instructions will be executed after a `ClearOrigin` so their origin will be `None`.
+	///   program, followed by a `PayFees(fee)`, then rest of transfers follow. This guarantees
+	///   `remote_xcm` will successfully pass a `AllowTopLevelPaidExecutionFrom` barrier. If set to
+	///   `None`, a `UnpaidExecution` instruction is appended instead. Please note that these
+	///   assets are **reserved** for fees, they are sent to the fees register rather than holding.
+	///   Best practice is to only add here enough to cover fees, and transfer the rest through the
+	///   `assets` parameter.
+	/// - `assets`: List of asset filters matched against existing assets in holding. These are
+	///   transferred over to `destination` using the specified transfer type, and deposited to
+	///   holding on `destination`.
+	/// - `remote_xcm`: Custom instructions that will be executed on the `destination` chain. Note
+	///   that these instructions will be executed after a `ClearOrigin` so their origin will be
+	///   `None`.
 	///
 	/// Safety: No concerns.
 	///

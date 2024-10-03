@@ -600,8 +600,14 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 		let ahw_fee_amount = 100_000_000_000;
 
 		// XCM to be executed at dest (Rococo Asset Hub)
-		let xcm_on_dest =
-			Xcm(vec![DepositAsset { assets: Wild(All), beneficiary: beneficiary.clone() }]);
+		let xcm_on_dest = Xcm(vec![
+			// since this is the last hop, we don't need to further use any assets previously
+			// reserved for fees (there are no further hops to cover transport fees for); we
+			// RefundSurplus to get back any unspent fees
+			RefundSurplus,
+			// deposit everything to final beneficiary
+			DepositAsset { assets: Wild(All), beneficiary: beneficiary.clone() },
+		]);
 
 		// XCM to be executed at (intermediary) Westend Asset Hub
 		let context = PenpalUniversalLocation::get();
@@ -611,6 +617,9 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 		onward_wnds.fun = Fungible(wnds_amount - ahw_fee_amount - penpal_fees_amount);
 		let xcm_on_ahw = Xcm(vec![
 			// both WNDs and PENs are local-reserve transferred to Rococo Asset Hub
+			// initially, all WNDs are reserved for fees on destination, but at the end of the
+			// program we RefundSurplus to get back any unspent and deposit them to final
+			// beneficiary
 			InitiateTransfer {
 				destination: reanchored_dest,
 				remote_fees: Some(AssetTransferFilter::ReserveDeposit(onward_wnds.into())),
@@ -631,9 +640,9 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 			// Execute the transfers while paying remote fees with WNDs
 			InitiateTransfer {
 				destination: local_asset_hub,
-				// WNDs are reserve-withdrawn at AHW
+				// WNDs for fees are reserve-withdrawn at AHW and reserved for fees
 				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(ahw_fees.into())),
-				// PENs are teleported to AHW
+				// PENs are teleported to AHW, rest of non-fee WNDs are reserve-withdrawn at AHW
 				assets: vec![
 					AssetTransferFilter::Teleport(pens.into()),
 					AssetTransferFilter::ReserveWithdraw(ahw_non_fees_wnds.into()),
