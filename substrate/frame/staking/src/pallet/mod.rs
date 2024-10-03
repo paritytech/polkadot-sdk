@@ -744,8 +744,7 @@ pub mod pallet {
 
 	/// Parameters for the unbonding queue mechanism.
 	#[pallet::storage]
-	pub(crate) type UnbondingQueueParams<T: Config> =
-		StorageValue<_, UnbondingQueue<T>, ValueQuery>;
+	pub(crate) type UnbondingQueueParams<T: Config> = StorageValue<_, UnbondingQueue, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -784,7 +783,7 @@ pub mod pallet {
 			if let Some(x) = self.max_nominator_count {
 				MaxNominatorsCount::<T>::put(x);
 			}
-			UnbondingQueueParams::<T>::set(UnbondingQueue::default());
+			UnbondingQueueParams::<T>::set(Default::default());
 
 			for &(ref stash, _, balance, ref status) in &self.stakers {
 				crate::log!(
@@ -1157,44 +1156,32 @@ pub mod pallet {
 				// If a user runs into this error, they should chill first.
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
-				// Calculate unbond block based on unbond queue.
-				// TODO: Abstract into function(s).
-				let unbonding_time_delta = Self::get_unbond_time_delta(value);
 				let unbonding_queue_params = <UnbondingQueueParams<T>>::get();
 
-				let current_block = <frame_system::Pallet<T>>::block_number();
-				let session_length = T::NextNewSession::average_session_length();
+				// Note: in case there is no current era it is fine to bond one era more.
+				let era = Self::current_era().unwrap_or(0);
 
-				let lower_bound_block = session_length.defensive_saturating_mul(
-					unbonding_queue_params.unbond_period_lower_bound.into(),
-				);
+				// Calculate unbonding era based on unbonding queue mechanism.
+				let unbonding_eras_delta: EraIndex = Self::get_unbond_eras_delta(value);
 
-				let upper_bound_block = session_length.defensive_saturating_mul(
-					unbonding_queue_params.unbond_period_upper_bound.into(),
-				);
+				let new_back_of_unbonding_queue_era: EraIndex = (era
+					.max(unbonding_queue_params.back_of_unbonding_queue_era) +
+					unbonding_eras_delta)
+					.min(unbonding_queue_params.unbond_period_upper_bound);
 
-				let new_back_of_unbonding_queue_block_number = (current_block
-					.max(unbonding_queue_params.back_of_unbonding_queue_block_number) +
-					unbonding_time_delta)
-					.min(upper_bound_block);
+				let unbonding_era: EraIndex = unbonding_queue_params.unbond_period_upper_bound.min(
+					new_back_of_unbonding_queue_era
+						.defensive_saturating_sub(era)
+						.max(unbonding_queue_params.unbond_period_lower_bound),
+				) + era;
 
-				// TODO: Either use this or calculate era based on block number.
-				let unbonding_block_number = upper_bound_block.min(
-					new_back_of_unbonding_queue_block_number
-						.defensive_saturating_sub(current_block)
-						.max(lower_bound_block),
-				) + current_block;
-
-				// Update unbonding queue params with new `back_of_unbonding_queue_block_number`.
+				// Update unbonding queue params with new `new_back_of_unbonding_queue_era`.
 				<UnbondingQueueParams<T>>::set(UnbondingQueue {
-					back_of_unbonding_queue_block_number: new_back_of_unbonding_queue_block_number,
+					back_of_unbonding_queue_era: new_back_of_unbonding_queue_era,
 					..unbonding_queue_params
 				});
 
-				// Note: in case there is no current era it is fine to bond one era more.
-				let era = Self::current_era()
-					.unwrap_or(0)
-					.defensive_saturating_add(T::BondingDuration::get());
+				// Update chunks with the new unbonding era.
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
 					// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
@@ -1203,7 +1190,7 @@ pub mod pallet {
 				} else {
 					ledger
 						.unlocking
-						.try_push(UnlockChunk { value, era })
+						.try_push(UnlockChunk { value, era: unbonding_era })
 						.map_err(|_| Error::<T>::NoMoreChunks)?;
 				};
 				// NOTE: ledger must be updated prior to calling `Self::weight_of`.

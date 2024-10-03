@@ -856,33 +856,20 @@ impl<T: Config> Pallet<T> {
 			Self::get_min_lowest_third_stake(from_era)
 	}
 
-	// Get the unbonding time (in blocks) for quick unbond for an unbond request.
+	// Get the unbonding time, in eras, for quick unbond for an unbond request.
 	//
 	// We implement the calculation `unbonding_time_delta = new_unbonding_stake / max_unstake *
 	// upper bound period in blocks.
-	pub(crate) fn get_unbond_time_delta(unbond_stake: BalanceOf<T>) -> BlockNumberFor<T> {
-		let unbonding_queue_params = <UnbondingQueueParams<T>>::get();
-		let undonding_period_upper_bound = unbonding_queue_params.unbond_period_upper_bound;
-
-		// Conversions are made to `u128` to allow the calculation to be made between block number
-		// and balance types.
-		let session_length_as_u128: u128 =
-			T::NextNewSession::average_session_length().saturated_into();
-		let max_unstake_as_u128: u128 =
+	pub(crate) fn get_unbond_eras_delta(unbond_stake: BalanceOf<T>) -> EraIndex {
+		let upper_bound_usize: usize =
+			<UnbondingQueueParams<T>>::get().unbond_period_upper_bound.saturated_into();
+		let unbond_stake_usize: usize = unbond_stake.saturated_into();
+		let max_unstake_as_usize: usize =
 			Self::get_quick_unbond_max_unstake(CurrentEra::<T>::get().unwrap_or(0))
 				.saturated_into();
-		let unbond_stake_as_u128: u128 = unbond_stake.saturated_into();
-		let upper_bound_as_u128: u128 = undonding_period_upper_bound.saturated_into();
 
-		// Worst case unbond time is maximum eras multiplied by average session length, in blocks.
-		let max_unbond_blocks = upper_bound_as_u128 * session_length_as_u128;
-
-		let denominator = max_unstake_as_u128 * max_unbond_blocks;
-		// To prevent division errors, return the max unbond time.
-		if denominator == 0 {
-			return (session_length_as_u128 * upper_bound_as_u128).saturated_into();
-		}
-		unbond_stake_as_u128.saturating_div(denominator).saturated_into()
+		(unbond_stake_usize.saturating_div(max_unstake_as_usize) * upper_bound_usize)
+			.saturated_into()
 	}
 
 	/// Remove all associated data of a stash account from the staking system.
