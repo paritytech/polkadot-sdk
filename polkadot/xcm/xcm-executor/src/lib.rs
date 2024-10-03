@@ -664,6 +664,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		reserve: &Location,
 		remote_xcm: &mut Vec<Instruction<()>>,
 	) -> Result<Assets, XcmError> {
+		// Must ensure that we recognise the assets as being managed by the destination.
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		for asset in assets.assets_iter() {
+			ensure!(
+				Config::IsReserve::contains(&asset, &reserve),
+				XcmError::UntrustedReserveLocation
+			);
+		}
 		// Note that here we are able to place any assets which could not be
 		// reanchored back into Holding.
 		let reanchored_assets = Self::reanchored(assets, reserve, Some(failed_bin));
@@ -679,11 +687,19 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		context: &XcmContext,
 	) -> Result<Assets, XcmError> {
 		for asset in assets.assets_iter() {
+			// Must ensure that we have teleport trust with destination for these assets.
+			#[cfg(not(feature = "runtime-benchmarks"))]
+			ensure!(
+				Config::IsTeleporter::contains(&asset, &dest),
+				XcmError::UntrustedTeleportLocation
+			);
 			// We should check that the asset can actually be teleported out (for
 			// this to be in error, there would need to be an accounting violation
 			// by ourselves, so it's unlikely, but we don't want to allow that kind
 			// of bug to leak into a trusted chain.
 			Config::AssetTransactor::can_check_out(dest, &asset, context)?;
+		}
+		for asset in assets.assets_iter() {
 			Config::AssetTransactor::check_out(dest, &asset, context);
 		}
 		// Note that we pass `None` as `maybe_failed_bin` and drop any assets which
@@ -1104,14 +1120,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
 					let assets = self.holding.saturating_take(assets);
-					// Must ensure that we recognise the assets as being managed by the destination.
-					#[cfg(not(feature = "runtime-benchmarks"))]
-					for asset in assets.assets_iter() {
-						ensure!(
-							Config::IsReserve::contains(&asset, &reserve),
-							XcmError::UntrustedReserveLocation
-						);
-					}
 					let mut message = Vec::with_capacity(xcm.len() + 2);
 					Self::do_reserve_withdraw_assets(
 						assets,
@@ -1135,14 +1143,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
 					let assets = self.holding.saturating_take(assets);
-					// Must ensure that we have teleport trust with destination for these assets.
-					#[cfg(not(feature = "runtime-benchmarks"))]
-					for asset in assets.assets_iter() {
-						ensure!(
-							Config::IsTeleporter::contains(&asset, &dest),
-							XcmError::UntrustedTeleportLocation
-						);
-					}
 					let mut message = Vec::with_capacity(xcm.len() + 2);
 					Self::do_teleport_assets(assets, &dest, &mut message, &self.context)?;
 					// clear origin for subsequent custom instructions
