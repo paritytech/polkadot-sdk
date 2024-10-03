@@ -148,7 +148,7 @@ fn exporter_validate_without_universal_source_yields_missing_argument() {
 }
 
 #[test]
-fn exporter_validate_without_global_universal_location_yields_unroutable() {
+fn exporter_validate_without_global_universal_location_yields_not_applicable() {
 	let network = BridgedNetwork::get();
 	let channel: u32 = 0;
 	let mut universal_source: Option<InteriorLocation> = Here.into();
@@ -163,7 +163,7 @@ fn exporter_validate_without_global_universal_location_yields_unroutable() {
 			AgentIdOf,
 			MockTokenIdConvert,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
-	assert_eq!(result, Err(XcmSendError::Unroutable));
+	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
 
 #[test]
@@ -206,7 +206,7 @@ fn exporter_validate_with_remote_universal_source_yields_not_applicable() {
 }
 
 #[test]
-fn exporter_validate_without_para_id_in_source_yields_missing_argument() {
+fn exporter_validate_without_para_id_in_source_yields_not_applicable() {
 	let network = BridgedNetwork::get();
 	let channel: u32 = 0;
 	let mut universal_source: Option<InteriorLocation> = Some(GlobalConsensus(Polkadot).into());
@@ -221,11 +221,11 @@ fn exporter_validate_without_para_id_in_source_yields_missing_argument() {
 			AgentIdOf,
 			MockTokenIdConvert,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
-	assert_eq!(result, Err(XcmSendError::MissingArgument));
+	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
 
 #[test]
-fn exporter_validate_complex_para_id_in_source_yields_missing_argument() {
+fn exporter_validate_complex_para_id_in_source_yields_not_applicable() {
 	let network = BridgedNetwork::get();
 	let channel: u32 = 0;
 	let mut universal_source: Option<InteriorLocation> =
@@ -241,7 +241,7 @@ fn exporter_validate_complex_para_id_in_source_yields_missing_argument() {
 			AgentIdOf,
 			MockTokenIdConvert,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
-	assert_eq!(result, Err(XcmSendError::MissingArgument));
+	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
 
 #[test]

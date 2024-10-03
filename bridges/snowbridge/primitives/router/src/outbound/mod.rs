@@ -86,7 +86,7 @@ where
 			.split_global()
 			.map_err(|()| {
 				log::error!(target: "xcm::ethereum_blob_exporter", "could not get global consensus from universal source '{universal_source:?}'.");
-				SendError::Unroutable
+				SendError::NotApplicable
 			})?;
 
 		if Ok(local_net) != universal_location.global_consensus() {
@@ -98,14 +98,9 @@ where
 			[Parachain(para_id)] => *para_id,
 			_ => {
 				log::error!(target: "xcm::ethereum_blob_exporter", "could not get parachain id from universal source '{local_sub:?}'.");
-				return Err(SendError::MissingArgument)
+				return Err(SendError::NotApplicable)
 			},
 		};
-
-		let message = message.take().ok_or_else(|| {
-			log::error!(target: "xcm::ethereum_blob_exporter", "xcm message not provided.");
-			SendError::MissingArgument
-		})?;
 
 		let source_location = Location::new(1, local_sub.clone());
 
@@ -113,9 +108,14 @@ where
 			Some(id) => id,
 			None => {
 				log::error!(target: "xcm::ethereum_blob_exporter", "unroutable due to not being able to create agent id. '{source_location:?}'");
-				return Err(SendError::Unroutable)
+				return Err(SendError::NotApplicable)
 			},
 		};
+
+		let message = message.take().ok_or_else(|| {
+			log::error!(target: "xcm::ethereum_blob_exporter", "xcm message not provided.");
+			SendError::MissingArgument
+		})?;
 
 		let mut converter =
 			XcmConverter::<ConvertAssetId, ()>::new(&message, expected_network, agent_id);
