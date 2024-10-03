@@ -96,7 +96,9 @@ impl<Block: BlockT> MostRecentFinalizedBlocks<Block> {
 	fn contains(&mut self, block: &Block::Hash) -> Option<&()> {
 		// For the finalized blocks we use `peek` to avoid moving the block counter to the front.
 		// This effectively means that the LRU acts as a FIFO queue. Otherwise, we might
-		// end up with scenarios where the last inserted finalized block is removed.
+		// end up with scenarios where the "finalized block" in the end of LRU is overwritten which
+		// may not necessarily be the oldest finalized block i.e, possible that "get" promotes an
+		// older finalized block because it was accessed more recently.
 		self.0.peek(block)
 	}
 }
