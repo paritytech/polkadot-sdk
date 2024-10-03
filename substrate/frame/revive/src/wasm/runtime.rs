@@ -1528,8 +1528,9 @@ pub mod env {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
+		let charged = self.charge_gas(RuntimeCosts::GetImmutableData(limits::IMMUTABLE_BYTES))?;
 		let data = self.ext.get_immutable_data()?;
-		self.charge_gas(RuntimeCosts::GetImmutableData(data.len() as u32))?;
+		self.adjust_gas(charged, RuntimeCosts::GetImmutableData(data.len() as u32));
 		self.write_sandbox_output(memory, out_ptr, out_len_ptr, &data, false, already_charged)?;
 		Ok(())
 	}
