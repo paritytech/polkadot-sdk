@@ -21,20 +21,22 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{ConstU16, ConstU32, ConstU64, Everything},
 };
 use sp_core::{sr25519, H256};
 use sp_runtime::{
-	create_runtime_str, generic,
+	generic,
 	traits::{BlakeTwo256, IdentityLookup, Verify},
 };
 use sp_version::RuntimeVersion;
 
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("frame-support-test-compile-pass"),
-	impl_name: create_runtime_str!("substrate-frame-support-test-compile-pass-runtime"),
+	spec_name: alloc::borrow::Cow::Borrowed("frame-support-test-compile-pass"),
+	impl_name: alloc::borrow::Cow::Borrowed("substrate-frame-support-test-compile-pass-runtime"),
 	authoring_version: 0,
 	spec_version: 0,
 	impl_version: 0,

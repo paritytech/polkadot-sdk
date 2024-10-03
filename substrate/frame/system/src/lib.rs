@@ -99,7 +99,7 @@
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, vec, vec::Vec};
 use core::{fmt::Debug, marker::PhantomData};
 use pallet_prelude::{BlockNumberFor, HeaderFor};
 #[cfg(feature = "std")]
@@ -1137,24 +1137,24 @@ pub struct AccountInfo<Nonce, AccountData> {
 
 /// Stores the `spec_version` and `spec_name` of when the last runtime upgrade
 /// happened.
-#[derive(sp_runtime::RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(RuntimeDebug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct LastRuntimeUpgradeInfo {
 	pub spec_version: codec::Compact<u32>,
-	pub spec_name: sp_runtime::RuntimeString,
+	pub spec_name: Cow<'static, str>,
 }
 
 impl LastRuntimeUpgradeInfo {
 	/// Returns if the runtime was upgraded in comparison of `self` and `current`.
 	///
 	/// Checks if either the `spec_version` increased or the `spec_name` changed.
-	pub fn was_upgraded(&self, current: &sp_version::RuntimeVersion) -> bool {
+	pub fn was_upgraded(&self, current: &RuntimeVersion) -> bool {
 		current.spec_version > self.spec_version.0 || current.spec_name != self.spec_name
 	}
 }
 
-impl From<sp_version::RuntimeVersion> for LastRuntimeUpgradeInfo {
-	fn from(version: sp_version::RuntimeVersion) -> Self {
+impl From<RuntimeVersion> for LastRuntimeUpgradeInfo {
+	fn from(version: RuntimeVersion) -> Self {
 		Self { spec_version: version.spec_version.into(), spec_name: version.spec_name }
 	}
 }

@@ -123,12 +123,12 @@ fn preset_invalid() -> Value {
 /// If no preset with given `id` exits `None` is returned.
 #[docify::export]
 pub fn get_builtin_preset(id: &sp_genesis_builder::PresetId) -> Option<alloc::vec::Vec<u8>> {
-	let preset = match id.try_into() {
-		Ok(PRESET_1) => preset_1(),
-		Ok(PRESET_2) => preset_2(),
-		Ok(PRESET_3) => preset_3(),
-		Ok(PRESET_4) => preset_4(),
-		Ok(PRESET_INVALID) => preset_invalid(),
+	let preset = match id.as_ref() {
+		PRESET_1 => preset_1(),
+		PRESET_2 => preset_2(),
+		PRESET_3 => preset_3(),
+		PRESET_4 => preset_4(),
+		PRESET_INVALID => preset_invalid(),
 		_ => return None,
 	};
 

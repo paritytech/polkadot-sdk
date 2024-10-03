@@ -54,13 +54,13 @@
 //! which is the foundation for genesis block.
 
 extern crate alloc;
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 
 /// The result type alias, used in build methods. `Err` contains formatted error message.
-pub type Result = core::result::Result<(), sp_runtime::RuntimeString>;
+pub type Result = core::result::Result<(), String>;
 
 /// The type representing preset ID.
-pub type PresetId = sp_runtime::RuntimeString;
+pub type PresetId = String;
 
 /// The default `development` preset used to communicate with the runtime via
 /// [`GenesisBuilder`] interface.

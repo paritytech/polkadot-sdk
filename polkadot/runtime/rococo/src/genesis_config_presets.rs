@@ -509,11 +509,11 @@ fn versi_local_testnet_genesis() -> serde_json::Value {
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-	let patch = match id.try_into() {
-		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => rococo_local_testnet_genesis(),
-		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => rococo_development_config_genesis(),
-		Ok("staging_testnet") => rococo_staging_testnet_config_genesis(),
-		Ok("versi_local_testnet") => versi_local_testnet_genesis(),
+	let patch = match id.as_ref() {
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => rococo_local_testnet_genesis(),
+		sp_genesis_builder::DEV_RUNTIME_PRESET => rococo_development_config_genesis(),
+		"staging_testnet" => rococo_staging_testnet_config_genesis(),
+		"versi_local_testnet" => versi_local_testnet_genesis(),
 		_ => return None,
 	};
 	Some(

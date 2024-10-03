@@ -75,8 +75,8 @@ mod preset_names {
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	use preset_names::*;
-	let patch = match id.try_into() {
-		Ok(PRESET_GENESIS) => asset_hub_westend_genesis(
+	let patch = match id.as_ref() {
+		PRESET_GENESIS => asset_hub_westend_genesis(
 			// initial collators.
 			vec![
 				(
@@ -104,7 +104,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			ASSET_HUB_WESTEND_ED * 4096,
 			1000.into(),
 		),
-		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => asset_hub_westend_genesis(
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => asset_hub_westend_genesis(
 			// initial collators.
 			vec![
 				(
@@ -133,7 +133,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			WND * 1_000_000,
 			1000.into(),
 		),
-		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => asset_hub_westend_genesis(
+		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_westend_genesis(
 			// initial collators.
 			vec![(
 				get_account_id_from_seed::<sr25519::Public>("Alice"),

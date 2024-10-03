@@ -57,8 +57,8 @@ frame_support::construct_runtime!(
 
 parameter_types! {
 	pub Version: RuntimeVersion = RuntimeVersion {
-		spec_name: sp_version::create_runtime_str!("test"),
-		impl_name: sp_version::create_runtime_str!("system-test"),
+		spec_name: alloc::borrow::Cow::Borrowed("test"),
+		impl_name: alloc::borrow::Cow::Borrowed("system-test"),
 		authoring_version: 1,
 		spec_version: 1,
 		impl_version: 1,
