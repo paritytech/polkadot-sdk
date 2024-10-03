@@ -508,7 +508,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			let assets_taken_from_holding_to_pay_delivery_fees = self
 				.holding
 				.try_take(asset_to_pay_for_fees.clone().into())
-				.map_err(|_| XcmError::NotHoldingFees)?;
+				.map_err(|e| {
+					log::error!(target: "xcm::xcm_executor::take_fee", "Failed to take fees {:?} from holding. {:?}", fee, e);
+					XcmError::NotHoldingFees
+				})?;
 			tracing::trace!(target: "xcm::fees", ?assets_taken_from_holding_to_pay_delivery_fees);
 			let mut iter = assets_taken_from_holding_to_pay_delivery_fees.fungible_assets_iter();
 			let asset = iter.next().ok_or(XcmError::NotHoldingFees)?;
