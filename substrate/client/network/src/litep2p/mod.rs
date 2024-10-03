@@ -306,15 +306,20 @@ impl Litep2pNetworkBackend {
 		};
 
 		let yamux_config = {
-			let mut yamux_config = litep2p::yamux::Config::default();
+			let yamux_config = litep2p::yamux::Config::default();
 			// Enable proper flow-control: window updates are only sent when
 			// buffered data has been consumed.
-			yamux_config.set_window_update_mode(litep2p::yamux::WindowUpdateMode::OnRead);
-			yamux_config.set_max_buffer_size(yamux_maximum_buffer_size);
 
-			if let Some(yamux_window_size) = config.network_config.yamux_window_size {
-				yamux_config.set_receive_window(yamux_window_size);
-			}
+			// Ideally, we'd set
+			// yamux_config.set_max_connection_receive_window(yamux_maximum_buffer_size)
+			// however we have window autotuning enabled by default.
+
+			// Old config:
+			// yamux_config.set_window_update_mode(litep2p::yamux::WindowUpdateMode::OnRead);
+			// yamux_config.set_max_buffer_size(yamux_maximum_buffer_size);
+			// if let Some(yamux_window_size) = config.network_config.yamux_window_size {
+			// 	yamux_config.set_receive_window(yamux_window_size);
+			// }
 
 			yamux_config
 		};
