@@ -34,8 +34,6 @@ pub mod glutton;
 pub mod penpal;
 pub mod people;
 pub mod rococo_parachain;
-pub mod seedling;
-pub mod shell;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
@@ -74,10 +72,6 @@ impl LoadSpec for ChainSpecLoader {
 			"track" => Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/track.json")[..],
 			)?),
-
-			// -- Starters
-			"shell" => Box::new(shell::get_shell_chain_spec()),
-			"seedling" => Box::new(seedling::get_seedling_chain_spec()),
 
 			// -- Asset Hub Polkadot
 			"asset-hub-polkadot" | "statemint" => Box::new(GenericChainSpec::from_json_bytes(
