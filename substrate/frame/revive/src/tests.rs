@@ -4389,6 +4389,7 @@ mod run_tests {
 				),
 				test_utils::contract_info_storage_deposit(&addr)
 			);
+			assert_eq!(test_utils::get_contract(&addr).immutable_bytes(), data.len() as u32);
 
 			// Call the contract: Asserts the input to equal the immutable data
 			assert_ok!(builder::call(addr).data(data.to_vec()).build());
