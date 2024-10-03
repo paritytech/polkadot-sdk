@@ -27,7 +27,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 mod contracts;
 mod weights;
-mod xcm_config;
+pub mod xcm_config;
 
 extern crate alloc;
 
@@ -144,7 +144,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("contracts-rococo"),
 	impl_name: create_runtime_str!("contracts-rococo"),
 	authoring_version: 1,
-	spec_version: 1_015_000,
+	spec_version: 1_016_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 7,
