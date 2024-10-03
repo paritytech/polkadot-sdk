@@ -339,7 +339,7 @@ where
 
 		// Need 2x capacity since we consider both directions for each lane
 		let mut message_relays =
-			Vec::with_capacity(lanes_l2r.len().saturating_add(lanes_r2l.len()) * 2);
+			Vec::with_capacity(lanes_l2r.len().saturating_add(lanes_r2l.len()));
 		for lane in lanes_l2r {
 			let left_to_right_messages =
 				crate::messages::run::<<Self::L2R as MessagesCliBridge>::MessagesLane, _, _>(
