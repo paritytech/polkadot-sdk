@@ -1,7 +1,7 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: Add migration to clear unapproved proposals treasury from pallet
+title: Add migration to clean unapproved proposals treasury from pallet
 
 doc:
   - audience: Runtime Dev

@@ -1679,7 +1679,7 @@ pub mod migrations {
         parachains_inclusion::migration::MigrateToV1<Runtime>,
 
         // Release bonds stuck in proposals
-        pallet_treasury::migration::ReleaseHeldProposals<Runtime, ()>,
+        pallet_treasury::migration::CleanupProposals<Runtime, ()>,
     );
 }
 

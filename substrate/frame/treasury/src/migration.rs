@@ -26,10 +26,10 @@ use pallet_balances::WeightInfo;
 /// The log target for this pallet.
 const LOG_TARGET: &str = "runtime::treasury";
 
-pub struct ReleaseHeldProposals<T, I>(PhantomData<(T, I)>);
+pub struct CleanupProposals<T, I>(PhantomData<(T, I)>);
 
 impl<T: Config<I> + pallet_balances::Config, I: 'static> OnRuntimeUpgrade
-	for ReleaseHeldProposals<T, I>
+	for CleanupProposals<T, I>
 {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		let mut approval_index = BTreeSet::new();
