@@ -11,7 +11,7 @@ for another project with a conviction of 1x in round_1:
 
 ```
 |----------Voting_Round_0-----------|----------Voting_Round_1-----------|
-|----user_votes----|--funds0_locked-|----user_votes----|--funds1_locked-|--funds1_locked-|
+|----user_votes----|--funds0_locked-|----user_votes----|--funds1_locked-|--funds1_unlocked-|
 |------------------|--Distribution--|------------------|--Distribution--|
 
 ```
