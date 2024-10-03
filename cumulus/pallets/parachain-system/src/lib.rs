@@ -216,6 +216,23 @@ impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
 	}
 }
 
+/// Core selection policy that builds on claim queue offset 1.
+pub struct LookaheadCoreSelector<T>(PhantomData<T>);
+
+impl<T: frame_system::Config> SelectCore for LookaheadCoreSelector<T> {
+	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
+		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
+
+		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
+	}
+
+	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
+		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
+
+		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
