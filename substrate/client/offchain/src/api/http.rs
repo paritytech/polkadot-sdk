@@ -27,19 +27,23 @@
 //! (i.e.: the socket should continue being processed) in the background even if the runtime isn't
 //! actively calling any function.
 
-use hyperv14 as hyper;
-
 use crate::api::timestamp;
 use bytes::buf::{Buf, Reader};
 use fnv::FnvHashMap;
 use futures::{channel::mpsc, future, prelude::*};
-use hyper::{client, Body, Client as HyperClient};
+use http_body_util::{combinators::BoxBody, StreamBody};
+use hyper::body::Body as _;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
+use hyper_util::{
+	client::legacy::{self as client, Client as HyperClient},
+	rt::TokioExecutor,
+};
 use once_cell::sync::Lazy;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_core::offchain::{HttpError, HttpRequestId, HttpRequestStatus, Timestamp};
 use std::{
 	fmt,
+	future::poll_fn,
 	io::Read as _,
 	pin::Pin,
 	sync::Arc,
@@ -48,20 +52,28 @@ use std::{
 
 const LOG_TARGET: &str = "offchain-worker::http";
 
+pub type Body = BoxBody<hyper::body::Bytes, hyper::Error>;
+
+type Sender = mpsc::Sender<Result<hyper::body::Frame<hyper::body::Bytes>, hyper::Error>>;
+type Receiver = mpsc::Receiver<Result<hyper::body::Frame<hyper::body::Bytes>, hyper::Error>>;
+
 /// Wrapper struct used for keeping the hyper_rustls client running.
 #[derive(Clone)]
-pub struct SharedClient(Arc<Lazy<HyperClient<HttpsConnector<client::HttpConnector>, Body>>>);
+pub struct SharedClient(
+	Arc<Lazy<HyperClient<HttpsConnector<client::connect::HttpConnector>, Body>>>,
+);
 
 impl SharedClient {
 	pub fn new() -> Self {
 		Self(Arc::new(Lazy::new(|| {
 			let connector = HttpsConnectorBuilder::new()
 				.with_native_roots()
+				.expect("Failed to build HttpsConnector with native roots")
 				.https_or_http()
 				.enable_http1()
 				.enable_http2()
 				.build();
-			HyperClient::builder().build(connector)
+			HyperClient::builder(TokioExecutor::new()).build(connector)
 		})))
 	}
 }
@@ -105,23 +117,23 @@ pub struct HttpApi {
 /// One active request within `HttpApi`.
 enum HttpApiRequest {
 	/// The request object is being constructed locally and not started yet.
-	NotDispatched(hyper::Request<hyper::Body>, hyper::body::Sender),
+	NotDispatched(hyper::Request<Body>, Sender),
 	/// The request has been dispatched and we're in the process of sending out the body (if the
 	/// field is `Some`) or waiting for a response (if the field is `None`).
-	Dispatched(Option<hyper::body::Sender>),
+	Dispatched(Option<Sender>),
 	/// Received a response.
 	Response(HttpApiRequestRp),
 	/// A request has been dispatched but the worker notified us of an error. We report this
 	/// failure to the user as an `IoError` and remove the request from the list as soon as
 	/// possible.
-	Fail(hyper::Error),
+	Fail(client::Error),
 }
 
 /// A request within `HttpApi` that has received a response.
 struct HttpApiRequestRp {
 	/// We might still be writing the request's body when the response comes.
 	/// This field allows to continue writing that body.
-	sending_body: Option<hyper::body::Sender>,
+	sending_body: Option<Sender>,
 	/// Status code of the response.
 	status_code: hyper::StatusCode,
 	/// Headers of the response.
@@ -132,7 +144,7 @@ struct HttpApiRequestRp {
 	/// Elements extracted from the channel are first put into `current_read_chunk`.
 	/// If the channel produces an error, then that is translated into an `IoError` and the request
 	/// is removed from the list.
-	body: stream::Fuse<mpsc::Receiver<Result<hyper::body::Bytes, hyper::Error>>>,
+	body: stream::Fuse<Receiver>,
 	/// Chunk that has been extracted from the channel and that is currently being read.
 	/// Reading data from the response should read from this field in priority.
 	current_read_chunk: Option<Reader<hyper::body::Bytes>>,
@@ -144,7 +156,9 @@ impl HttpApi {
 		// Start by building the prototype of the request.
 		// We do this first so that we don't touch anything in `self` if building the prototype
 		// fails.
-		let (body_sender, body) = hyper::Body::channel();
+		let (body_sender, receiver) = mpsc::channel(0);
+		let body = StreamBody::new(receiver);
+		let body = BoxBody::new(body);
 		let mut request = hyper::Request::new(body);
 		*request.method_mut() = hyper::Method::from_bytes(method.as_bytes()).map_err(|_| ())?;
 		*request.uri_mut() = hyper::Uri::from_maybe_shared(uri.to_owned()).map_err(|_| ())?;
@@ -158,7 +172,7 @@ impl HttpApi {
 					target: LOG_TARGET,
 					"Overflow in offchain worker HTTP request ID assignment"
 				);
-				return Err(())
+				return Err(());
 			},
 		};
 		self.requests
@@ -213,20 +227,23 @@ impl HttpApi {
 		// Closure that writes data to a sender, taking the deadline into account. Can return `Ok`
 		// (if the body has been written), or `DeadlineReached`, or `IoError`.
 		// If `IoError` is returned, don't forget to remove the request from the list.
-		let mut poll_sender = move |sender: &mut hyper::body::Sender| -> Result<(), HttpError> {
-			let mut when_ready = future::maybe_done(future::poll_fn(|cx| sender.poll_ready(cx)));
+		let mut poll_sender = move |sender: &mut Sender| -> Result<(), HttpError> {
+			let mut when_ready = future::maybe_done(poll_fn(|cx| sender.poll_ready(cx)));
 			futures::executor::block_on(future::select(&mut when_ready, &mut deadline));
 			match when_ready {
 				future::MaybeDone::Done(Ok(())) => {},
 				future::MaybeDone::Done(Err(_)) => return Err(HttpError::IoError),
 				future::MaybeDone::Future(_) | future::MaybeDone::Gone => {
 					debug_assert!(matches!(deadline, future::MaybeDone::Done(..)));
-					return Err(HttpError::DeadlineReached)
+					return Err(HttpError::DeadlineReached);
 				},
 			};
 
 			futures::executor::block_on(
-				sender.send_data(hyper::body::Bytes::from(chunk.to_owned())),
+				async {
+					poll_fn(|cx|  sender.poll_ready(cx)).await?;
+					sender.start_send(Ok(hyper::body::Frame::data(hyper::body::Bytes::from(chunk.to_owned()))))
+				}
 			)
 			.map_err(|_| {
 				tracing::error!(target: "offchain-worker::http", "HTTP sender refused data despite being ready");
@@ -250,13 +267,13 @@ impl HttpApi {
 						match poll_sender(&mut sender) {
 							Err(HttpError::IoError) => {
 								tracing::debug!(target: LOG_TARGET, id = %request_id.0, "Encountered io error while trying to add new chunk to body");
-								return Err(HttpError::IoError)
+								return Err(HttpError::IoError);
 							},
 							other => {
 								tracing::debug!(target: LOG_TARGET, id = %request_id.0, res = ?other, "Added chunk to body");
 								self.requests
 									.insert(request_id, HttpApiRequest::Dispatched(Some(sender)));
-								return other
+								return other;
 							},
 						}
 					} else {
@@ -265,7 +282,7 @@ impl HttpApi {
 						// Writing an empty body is a hint that we should stop writing. Dropping
 						// the sender.
 						self.requests.insert(request_id, HttpApiRequest::Dispatched(None));
-						return Ok(())
+						return Ok(());
 					}
 				},
 
@@ -281,13 +298,13 @@ impl HttpApi {
 						) {
 							Err(HttpError::IoError) => {
 								tracing::debug!(target: LOG_TARGET, id = %request_id.0, "Encountered io error while trying to add new chunk to body");
-								return Err(HttpError::IoError)
+								return Err(HttpError::IoError);
 							},
 							other => {
 								tracing::debug!(target: LOG_TARGET, id = %request_id.0, res = ?other, "Added chunk to body");
 								self.requests
 									.insert(request_id, HttpApiRequest::Response(response));
-								return other
+								return other;
 							},
 						}
 					} else {
@@ -302,7 +319,7 @@ impl HttpApi {
 								..response
 							}),
 						);
-						return Ok(())
+						return Ok(());
 					}
 				},
 
@@ -311,16 +328,16 @@ impl HttpApi {
 
 					// If the request has already failed, return without putting back the request
 					// in the list.
-					return Err(HttpError::IoError)
+					return Err(HttpError::IoError);
 				},
 
-				v @ HttpApiRequest::Dispatched(None) |
-				v @ HttpApiRequest::Response(HttpApiRequestRp { sending_body: None, .. }) => {
+				v @ HttpApiRequest::Dispatched(None)
+				| v @ HttpApiRequest::Response(HttpApiRequestRp { sending_body: None, .. }) => {
 					tracing::debug!(target: LOG_TARGET, id = %request_id.0, "Body sending already finished");
 
 					// We have already finished sending this body.
 					self.requests.insert(request_id, v);
-					return Err(HttpError::Invalid)
+					return Err(HttpError::Invalid);
 				},
 			}
 		}
@@ -337,10 +354,10 @@ impl HttpApi {
 		for id in ids {
 			match self.requests.get_mut(id) {
 				Some(HttpApiRequest::NotDispatched(_, _)) => {},
-				Some(HttpApiRequest::Dispatched(sending_body)) |
-				Some(HttpApiRequest::Response(HttpApiRequestRp { sending_body, .. })) => {
+				Some(HttpApiRequest::Dispatched(sending_body))
+				| Some(HttpApiRequest::Response(HttpApiRequestRp { sending_body, .. })) => {
 					let _ = sending_body.take();
-					continue
+					continue;
 				},
 				_ => continue,
 			};
@@ -405,7 +422,7 @@ impl HttpApi {
 							},
 						}
 					}
-					return output
+					return output;
 				}
 			}
 
@@ -418,7 +435,7 @@ impl HttpApi {
 					msg
 				} else {
 					debug_assert!(matches!(deadline, future::MaybeDone::Done(..)));
-					continue
+					continue;
 				}
 			};
 
@@ -458,7 +475,7 @@ impl HttpApi {
 
 				None => {
 					tracing::error!(target: "offchain-worker::http", "Worker has crashed");
-					return ids.iter().map(|_| HttpRequestStatus::IoError).collect()
+					return ids.iter().map(|_| HttpRequestStatus::IoError).collect();
 				},
 			}
 		}
@@ -498,14 +515,14 @@ impl HttpApi {
 			// and we still haven't received a response.
 			Some(rq @ HttpApiRequest::Dispatched(_)) => {
 				self.requests.insert(request_id, rq);
-				return Err(HttpError::DeadlineReached)
+				return Err(HttpError::DeadlineReached);
 			},
 			// The request has failed.
 			Some(HttpApiRequest::Fail { .. }) => return Err(HttpError::IoError),
 			// Request hasn't been dispatched yet; reading the body is invalid.
 			Some(rq @ HttpApiRequest::NotDispatched(_, _)) => {
 				self.requests.insert(request_id, rq);
-				return Err(HttpError::Invalid)
+				return Err(HttpError::Invalid);
 			},
 			None => return Err(HttpError::Invalid),
 		};
@@ -526,12 +543,12 @@ impl HttpApi {
 								..response
 							}),
 						);
-						return Ok(n)
+						return Ok(n);
 					},
 					Err(err) => {
 						// This code should never be reached unless there's a logic error somewhere.
 						tracing::error!(target: "offchain-worker::http", "Failed to read from current read chunk: {:?}", err);
-						return Err(HttpError::IoError)
+						return Err(HttpError::IoError);
 					},
 				}
 			}
@@ -544,7 +561,11 @@ impl HttpApi {
 
 			if let future::MaybeDone::Done(next_body) = next_body {
 				match next_body {
-					Some(Ok(chunk)) => response.current_read_chunk = Some(chunk.reader()),
+					Some(Ok(chunk)) => {
+						if let Ok(chunk) = chunk.into_data() {
+							response.current_read_chunk = Some(chunk.reader());
+						}
+					},
 					Some(Err(_)) => return Err(HttpError::IoError),
 					None => return Ok(0), // eof
 				}
@@ -552,7 +573,7 @@ impl HttpApi {
 
 			if let future::MaybeDone::Done(_) = deadline {
 				self.requests.insert(request_id, HttpApiRequest::Response(response));
-				return Err(HttpError::DeadlineReached)
+				return Err(HttpError::DeadlineReached);
 			}
 		}
 	}
@@ -567,8 +588,9 @@ impl fmt::Debug for HttpApi {
 impl fmt::Debug for HttpApiRequest {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			HttpApiRequest::NotDispatched(_, _) =>
-				f.debug_tuple("HttpApiRequest::NotDispatched").finish(),
+			HttpApiRequest::NotDispatched(_, _) => {
+				f.debug_tuple("HttpApiRequest::NotDispatched").finish()
+			},
 			HttpApiRequest::Dispatched(_) => f.debug_tuple("HttpApiRequest::Dispatched").finish(),
 			HttpApiRequest::Response(HttpApiRequestRp { status_code, headers, .. }) => f
 				.debug_tuple("HttpApiRequest::Response")
@@ -587,7 +609,7 @@ enum ApiToWorker {
 		/// ID to send back when the response comes back.
 		id: HttpRequestId,
 		/// Request to start executing.
-		request: hyper::Request<hyper::Body>,
+		request: hyper::Request<Body>,
 	},
 }
 
@@ -608,14 +630,14 @@ enum WorkerToApi {
 		/// the next item.
 		/// Can also be used to send an error, in case an error happened on the HTTP socket. After
 		/// an error is sent, the channel will close.
-		body: mpsc::Receiver<Result<hyper::body::Bytes, hyper::Error>>,
+		body: Receiver,
 	},
 	/// A request has failed because of an error. The request is then no longer valid.
 	Fail {
 		/// The ID that was passed to the worker.
 		id: HttpRequestId,
 		/// Error that happened.
-		error: hyper::Error,
+		error: client::Error,
 	},
 }
 
@@ -626,7 +648,7 @@ pub struct HttpWorker {
 	/// Used to receive messages from the `HttpApi`.
 	from_api: TracingUnboundedReceiver<ApiToWorker>,
 	/// The engine that runs HTTP requests.
-	http_client: Arc<Lazy<HyperClient<HttpsConnector<client::HttpConnector>, Body>>>,
+	http_client: Arc<Lazy<HyperClient<HttpsConnector<client::connect::HttpConnector>, Body>>>,
 	/// HTTP requests that are being worked on by the engine.
 	requests: Vec<(HttpRequestId, HttpWorkerRequest)>,
 }
@@ -634,13 +656,13 @@ pub struct HttpWorker {
 /// HTTP request being processed by the worker.
 enum HttpWorkerRequest {
 	/// Request has been dispatched and is waiting for a response from the Internet.
-	Dispatched(hyper::client::ResponseFuture),
+	Dispatched(client::ResponseFuture),
 	/// Progressively reading the body of the response and sending it to the channel.
 	ReadBody {
 		/// Body to read `Chunk`s from. Only used if the channel is ready to accept data.
-		body: hyper::Body,
+		body: Body,
 		/// Channel to the [`HttpApi`] where we send the chunks to.
-		tx: mpsc::Sender<Result<hyper::body::Bytes, hyper::Error>>,
+		tx: Sender,
 	},
 }
 
@@ -663,12 +685,12 @@ impl Future for HttpWorker {
 					let response = match Future::poll(Pin::new(&mut future), cx) {
 						Poll::Pending => {
 							me.requests.push((id, HttpWorkerRequest::Dispatched(future)));
-							continue
+							continue;
 						},
 						Poll::Ready(Ok(response)) => response,
 						Poll::Ready(Err(error)) => {
 							let _ = me.to_api.unbounded_send(WorkerToApi::Fail { id, error });
-							continue // don't insert the request back
+							continue; // don't insert the request back
 						},
 					};
 
@@ -684,9 +706,12 @@ impl Future for HttpWorker {
 						body: body_rx,
 					});
 
-					me.requests.push((id, HttpWorkerRequest::ReadBody { body, tx: body_tx }));
+					me.requests.push((
+						id,
+						HttpWorkerRequest::ReadBody { body: Body::new(body), tx: body_tx },
+					));
 					cx.waker().wake_by_ref(); // reschedule in order to poll the new future
-					continue
+					continue;
 				},
 
 				HttpWorkerRequest::ReadBody { mut body, mut tx } => {
@@ -697,12 +722,11 @@ impl Future for HttpWorker {
 						Poll::Ready(Err(_)) => continue, // don't insert the request back
 						Poll::Pending => {
 							me.requests.push((id, HttpWorkerRequest::ReadBody { body, tx }));
-							continue
+							continue;
 						},
 					}
 
-					// `tx` is ready. Read a chunk from the socket and send it to the channel.
-					match Stream::poll_next(Pin::new(&mut body), cx) {
+					match Pin::new(&mut body).poll_frame(cx) {
 						Poll::Ready(Some(Ok(chunk))) => {
 							let _ = tx.start_send(Ok(chunk));
 							me.requests.push((id, HttpWorkerRequest::ReadBody { body, tx }));
@@ -746,10 +770,12 @@ impl fmt::Debug for HttpWorker {
 impl fmt::Debug for HttpWorkerRequest {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			HttpWorkerRequest::Dispatched(_) =>
-				f.debug_tuple("HttpWorkerRequest::Dispatched").finish(),
-			HttpWorkerRequest::ReadBody { .. } =>
-				f.debug_tuple("HttpWorkerRequest::Response").finish(),
+			HttpWorkerRequest::Dispatched(_) => {
+				f.debug_tuple("HttpWorkerRequest::Dispatched").finish()
+			},
+			HttpWorkerRequest::ReadBody { .. } => {
+				f.debug_tuple("HttpWorkerRequest::Response").finish()
+			},
 		}
 	}
 }
@@ -762,7 +788,8 @@ mod tests {
 	};
 	use crate::api::timestamp;
 	use core::convert::Infallible;
-	use futures::{future, StreamExt};
+	use futures::future;
+	use http_body_util::BodyExt;
 	use sp_core::offchain::{Duration, Externalities, HttpError, HttpRequestId, HttpRequestStatus};
 	use std::sync::LazyLock;
 
@@ -774,7 +801,9 @@ mod tests {
 	// server that runs in the background as well.
 	macro_rules! build_api_server {
 		() => {
-			build_api_server!(hyper::Response::new(hyper::Body::from("Hello World!")))
+			build_api_server!(hyper::Response::new(http_body_util::Full::new(
+				hyper::body::Bytes::from("Hello World!")
+			)))
 		};
 		( $response:expr ) => {{
 			let hyper_client = SHARED_CLIENT.clone();
@@ -785,21 +814,32 @@ mod tests {
 				let rt = tokio::runtime::Runtime::new().unwrap();
 				let worker = rt.spawn(worker);
 				let server = rt.spawn(async move {
-					let server = hyper::Server::bind(&"127.0.0.1:0".parse().unwrap()).serve(
-						hyper::service::make_service_fn(|_| async move {
-							Ok::<_, Infallible>(hyper::service::service_fn(
-								move |req: hyper::Request<hyper::Body>| async move {
-									// Wait until the complete request was received and processed,
-									// otherwise the tests are flaky.
-									let _ = req.into_body().collect::<Vec<_>>().await;
+					let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 0));
+					let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+					let _ = addr_tx.send(listener.local_addr().unwrap());
+					loop {
+						let (stream, _) = listener.accept().await.unwrap();
+						let io = hyper_util::rt::TokioIo::new(stream);
+						tokio::task::spawn(async move {
+							if let Err(err) = hyper::server::conn::http1::Builder::new()
+								.serve_connection(
+									io,
+									hyper::service::service_fn(
+										move |req: hyper::Request<hyper::body::Incoming>| async move {
+											// Wait until the complete request was received and processed,
+											// otherwise the tests are flaky.
+											let _ = req.into_body().collect().await;
 
-									Ok::<_, Infallible>($response)
-								},
-							))
-						}),
-					);
-					let _ = addr_tx.send(server.local_addr());
-					server.await.map_err(drop)
+											Ok::<_, Infallible>($response)
+										},
+									),
+								)
+								.await
+							{
+								eprintln!("Error serving connection: {:?}", err);
+							}
+						});
+					}
 				});
 				let _ = rt.block_on(future::join(worker, server));
 			});
@@ -839,7 +879,7 @@ mod tests {
 
 		let (mut api, addr) = build_api_server!(hyper::Response::builder()
 			.version(hyper::Version::HTTP_2)
-			.body(hyper::Body::from("Hello World!"))
+			.body(http_body_util::Full::new(hyper::body::Bytes::from("Hello World!")))
 			.unwrap());
 
 		let id = api.request_start("POST", &format!("http://{}", addr)).unwrap();
