@@ -46,6 +46,8 @@ use std::{
 
 type VirtualOverseer = TestSubsystemContextHandle<CollationGenerationMessage>;
 
+const RUNTIME_VERSION: u32 = RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT;
+
 fn test_harness<T: Future<Output = VirtualOverseer>>(test: impl FnOnce(VirtualOverseer) -> T) {
 	let pool = sp_core::testing::TaskExecutor::new();
 	let (context, virtual_overseer) =
@@ -98,7 +100,6 @@ fn test_validation_data() -> PersistedValidationData {
 	persisted_validation_data
 }
 
-// Box<dyn Future<Output = Collation> + Unpin + Send
 struct TestCollator;
 
 impl Future for TestCollator {
@@ -176,10 +177,8 @@ fn dummy_backing_state(pending_availability: Vec<CandidatePendingAvailability>) 
 	BackingState { constraints, pending_availability }
 }
 
-#[rstest]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn requests_availability_per_relay_parent(#[case] runtime_version: u32) {
+#[test]
+fn requests_availability_per_relay_parent() {
 	let activated_hashes: Vec<Hash> =
 		vec![[1; 32].into(), [4; 32].into(), [9; 32].into(), [16; 32].into()];
 
@@ -209,12 +208,12 @@ fn requests_availability_per_relay_parent(#[case] runtime_version: u32) {
 					_hash,
 					RuntimeApiRequest::Version(tx),
 				))) => {
-					tx.send(Ok(runtime_version)).unwrap();
+					tx.send(Ok(RUNTIME_VERSION)).unwrap();
 				},
 				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_hash,
 					RuntimeApiRequest::ClaimQueue(tx),
-				))) if runtime_version >= RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT => {
+				))) => {
 					tx.send(Ok(BTreeMap::new())).unwrap();
 				},
 				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -248,10 +247,8 @@ fn requests_availability_per_relay_parent(#[case] runtime_version: u32) {
 	assert_eq!(requested_availability_cores, activated_hashes);
 }
 
-#[rstest]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn requests_validation_data_for_scheduled_matches(#[case] runtime_version: u32) {
+#[test]
+fn requests_validation_data_for_scheduled_matches() {
 	let activated_hashes: Vec<Hash> = vec![
 		Hash::repeat_byte(1),
 		Hash::repeat_byte(4),
@@ -312,12 +309,12 @@ fn requests_validation_data_for_scheduled_matches(#[case] runtime_version: u32) 
 					_hash,
 					RuntimeApiRequest::Version(tx),
 				))) => {
-					tx.send(Ok(runtime_version)).unwrap();
+					tx.send(Ok(RUNTIME_VERSION)).unwrap();
 				},
 				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_hash,
 					RuntimeApiRequest::ClaimQueue(tx),
-				))) if runtime_version >= RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT => {
+				))) => {
 					tx.send(Ok(BTreeMap::new())).unwrap();
 				},
 				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -355,10 +352,8 @@ fn requests_validation_data_for_scheduled_matches(#[case] runtime_version: u32) 
 	assert_eq!(requested_validation_data, vec![[4; 32].into()]);
 }
 
-#[rstest]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn sends_distribute_collation_message(#[case] runtime_version: u32) {
+#[test]
+fn sends_distribute_collation_message() {
 	let activated_hashes: Vec<Hash> = vec![
 		Hash::repeat_byte(1),
 		Hash::repeat_byte(4),
@@ -429,12 +424,12 @@ fn sends_distribute_collation_message(#[case] runtime_version: u32) {
 					_hash,
 					RuntimeApiRequest::Version(tx),
 				))) => {
-					tx.send(Ok(runtime_version)).unwrap();
+					tx.send(Ok(RUNTIME_VERSION)).unwrap();
 				},
 				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_hash,
 					RuntimeApiRequest::ClaimQueue(tx),
-				))) if runtime_version >= RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT => {
+				))) => {
 					tx.send(Ok(BTreeMap::new())).unwrap();
 				},
 				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -522,143 +517,6 @@ fn sends_distribute_collation_message(#[case] runtime_version: u32) {
 				expect_descriptor.into()
 			};
 			assert_eq!(descriptor, expect_descriptor);
-		},
-		_ => panic!("received wrong message type"),
-	}
-}
-
-#[rstest]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn fallback_when_no_validation_code_hash_api(#[case] runtime_version: u32) {
-	// This is a variant of the above test, but with the validation code hash API disabled.
-
-	let activated_hashes: Vec<Hash> = vec![
-		Hash::repeat_byte(1),
-		Hash::repeat_byte(4),
-		Hash::repeat_byte(9),
-		Hash::repeat_byte(16),
-	];
-
-	// empty vec doesn't allocate on the heap, so it's ok we throw it away
-	let to_collator_protocol = Arc::new(Mutex::new(Vec::new()));
-	let inner_to_collator_protocol = to_collator_protocol.clone();
-
-	let overseer = |mut handle: TestSubsystemContextHandle<CollationGenerationMessage>| async move {
-		loop {
-			match handle.try_recv().await {
-				None => break,
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					hash,
-					RuntimeApiRequest::AvailabilityCores(tx),
-				))) => {
-					tx.send(Ok(vec![
-						CoreState::Free,
-						CoreState::Scheduled(scheduled_core_for(
-							(hash.as_fixed_bytes()[0] * 4) as u32,
-						)),
-						CoreState::Scheduled(scheduled_core_for(
-							(hash.as_fixed_bytes()[0] * 5) as u32,
-						)),
-					]))
-					.unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::PersistedValidationData(
-						_para_id,
-						_occupied_core_assumption,
-						tx,
-					),
-				))) => {
-					tx.send(Ok(Some(test_validation_data()))).unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::Validators(tx),
-				))) => {
-					tx.send(Ok(vec![dummy_validator(); 3])).unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::ValidationCodeHash(
-						_para_id,
-						OccupiedCoreAssumption::Free,
-						tx,
-					),
-				))) => {
-					tx.send(Err(RuntimeApiError::NotSupported {
-						runtime_api_name: "validation_code_hash",
-					}))
-					.unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::ValidationCode(_para_id, OccupiedCoreAssumption::Free, tx),
-				))) => {
-					tx.send(Ok(Some(ValidationCode(vec![1, 2, 3])))).unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::AsyncBackingParams(tx),
-				))) => {
-					tx.send(Err(RuntimeApiError::NotSupported {
-						runtime_api_name: "doesnt_matter",
-					}))
-					.unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::Version(tx),
-				))) => {
-					tx.send(Ok(runtime_version)).unwrap();
-				},
-				Some(msg @ AllMessages::CollatorProtocol(_)) => {
-					inner_to_collator_protocol.lock().await.push(msg);
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::ClaimQueue(tx),
-				))) if runtime_version >= RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT => {
-					tx.send(Ok(Default::default())).unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::ParaBackingState(_para_id, tx),
-				))) => {
-					tx.send(Ok(Some(dummy_backing_state(vec![])))).unwrap();
-				},
-				Some(msg) => {
-					panic!("didn't expect any other overseer requests; got {:?}", msg)
-				},
-			}
-		}
-	};
-
-	let config = Arc::new(test_config(16u32));
-	let subsystem_config = config.clone();
-
-	// empty vec doesn't allocate on the heap, so it's ok we throw it away
-	subsystem_test_harness(overseer, |mut ctx| async move {
-		handle_new_activations(subsystem_config, activated_hashes, &mut ctx, Metrics(None))
-			.await
-			.unwrap();
-	});
-
-	let to_collator_protocol = Arc::try_unwrap(to_collator_protocol)
-		.expect("subsystem should have shut down by now")
-		.into_inner();
-
-	let expect_validation_code_hash = ValidationCode(vec![1, 2, 3]).hash();
-
-	assert_eq!(to_collator_protocol.len(), 1);
-	match &to_collator_protocol[0] {
-		AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation {
-			candidate_receipt,
-			..
-		}) => {
-			let CandidateReceipt { descriptor, .. } = candidate_receipt;
-			assert_eq!(expect_validation_code_hash, descriptor.validation_code_hash());
 		},
 		_ => panic!("received wrong message type"),
 	}
@@ -764,10 +622,8 @@ fn submit_collation_leads_to_distribution() {
 
 // There is one core in `Occupied` state and async backing is enabled. On new head activation
 // `CollationGeneration` should produce and distribute a new collation.
-#[rstest]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn distribute_collation_for_occupied_core_with_async_backing_enabled(#[case] runtime_version: u32) {
+#[test]
+fn distribute_collation_for_occupied_core_with_async_backing_enabled() {
 	let activated_hash: Hash = [1; 32].into();
 	let para_id = ParaId::from(5);
 
@@ -796,7 +652,6 @@ fn distribute_collation_for_occupied_core_with_async_backing_enabled(#[case] run
 			activated_hash,
 			AsyncBackingParams { max_candidate_depth: 1, allowed_ancestry_len: 1 },
 			cores,
-			runtime_version,
 			claim_queue,
 		)
 		.await;
@@ -808,7 +663,6 @@ fn distribute_collation_for_occupied_core_with_async_backing_enabled(#[case] run
 			OccupiedCoreAssumption::Included,
 			1,
 			pending_availability,
-			runtime_version,
 		)
 		.await;
 
@@ -816,69 +670,18 @@ fn distribute_collation_for_occupied_core_with_async_backing_enabled(#[case] run
 	});
 }
 
-#[test]
-fn distribute_collation_for_occupied_core_pre_async_backing() {
-	let activated_hash: Hash = [1; 32].into();
-	let para_id = ParaId::from(5);
-	let total_cores = 3;
-
-	// Use runtime version before async backing
-	let runtime_version = RuntimeApiRequest::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT - 1;
-
-	let cores = (0..total_cores)
-		.into_iter()
-		.map(|_idx| CoreState::Scheduled(ScheduledCore { para_id, collator: None }))
-		.collect::<Vec<_>>();
-
-	let claim_queue = cores
-		.iter()
-		.enumerate()
-		.map(|(idx, _core)| (CoreIndex::from(idx as u32), VecDeque::from([para_id])))
-		.collect::<BTreeMap<_, _>>();
-
-	test_harness(|mut virtual_overseer| async move {
-		helpers::initialize_collator(&mut virtual_overseer, para_id).await;
-		helpers::activate_new_head(&mut virtual_overseer, activated_hash).await;
-		helpers::handle_runtime_calls_on_new_head_activation(
-			&mut virtual_overseer,
-			activated_hash,
-			AsyncBackingParams { max_candidate_depth: 1, allowed_ancestry_len: 1 },
-			cores,
-			runtime_version,
-			claim_queue,
-		)
-		.await;
-
-		helpers::handle_cores_processing_for_a_leaf(
-			&mut virtual_overseer,
-			activated_hash,
-			para_id,
-			// `CoreState` is `Free` => `OccupiedCoreAssumption` is `Free`
-			OccupiedCoreAssumption::Free,
-			total_cores,
-			vec![],
-			runtime_version,
-		)
-		.await;
-
-		virtual_overseer
-	});
-}
-
-// There are variable number of cores of cores in `Occupied` state and async backing is enabled.
+// There are variable number of cores in `Occupied` state and async backing is enabled.
 // On new head activation `CollationGeneration` should produce and distribute a new collation
 // with proper assumption about the para candidate chain availability at next block.
 #[rstest]
 #[case(0)]
 #[case(1)]
 #[case(2)]
-fn distribute_collation_for_occupied_cores_with_async_backing_enabled_and_elastic_scaling(
+fn distribute_collation_for_occupied_cores_with_elastic_scaling(
 	#[case] candidates_pending_avail: u32,
 ) {
 	let activated_hash: Hash = [1; 32].into();
 	let para_id = ParaId::from(5);
-	// Using latest runtime with the fancy claim queue exposed.
-	let runtime_version = RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT;
 
 	let cores = (0..3)
 		.into_iter()
@@ -916,7 +719,6 @@ fn distribute_collation_for_occupied_cores_with_async_backing_enabled_and_elasti
 			activated_hash,
 			AsyncBackingParams { max_candidate_depth: 1, allowed_ancestry_len: 1 },
 			cores,
-			runtime_version,
 			claim_queue,
 		)
 		.await;
@@ -934,7 +736,6 @@ fn distribute_collation_for_occupied_cores_with_async_backing_enabled_and_elasti
 			},
 			total_cores,
 			pending_availability,
-			runtime_version,
 		)
 		.await;
 
@@ -954,8 +755,6 @@ fn distribute_collation_for_free_cores_with_async_backing_enabled_and_elastic_sc
 ) {
 	let activated_hash: Hash = [1; 32].into();
 	let para_id = ParaId::from(5);
-	// Using latest runtime with the fancy claim queue exposed.
-	let runtime_version = RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT;
 
 	let cores = (0..total_cores)
 		.into_iter()
@@ -976,7 +775,6 @@ fn distribute_collation_for_free_cores_with_async_backing_enabled_and_elastic_sc
 			activated_hash,
 			AsyncBackingParams { max_candidate_depth: 1, allowed_ancestry_len: 1 },
 			cores,
-			runtime_version,
 			claim_queue,
 		)
 		.await;
@@ -989,7 +787,6 @@ fn distribute_collation_for_free_cores_with_async_backing_enabled_and_elastic_sc
 			OccupiedCoreAssumption::Free,
 			total_cores,
 			vec![],
-			runtime_version,
 		)
 		.await;
 
@@ -999,12 +796,8 @@ fn distribute_collation_for_free_cores_with_async_backing_enabled_and_elastic_sc
 
 // There is one core in `Occupied` state and async backing is disabled. On new head activation
 // no new collation should be generated.
-#[rstest]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT - 1)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn no_collation_is_distributed_for_occupied_core_with_async_backing_disabled(
-	#[case] runtime_version: u32,
-) {
+#[test]
+fn no_collation_is_distributed_for_occupied_core_with_async_backing_disabled() {
 	let activated_hash: Hash = [1; 32].into();
 	let para_id = ParaId::from(5);
 
@@ -1031,7 +824,6 @@ fn no_collation_is_distributed_for_occupied_core_with_async_backing_disabled(
 			activated_hash,
 			AsyncBackingParams { max_candidate_depth: 0, allowed_ancestry_len: 0 },
 			cores,
-			runtime_version,
 			claim_queue,
 		)
 		.await;
@@ -1099,15 +891,12 @@ mod helpers {
 			.await;
 	}
 
-	// Handle all runtime calls performed in `handle_new_activations`. Conditionally expects a
-	// `CLAIM_QUEUE_RUNTIME_REQUIREMENT` call if the passed `runtime_version` is greater or equal to
-	// `CLAIM_QUEUE_RUNTIME_REQUIREMENT`
+	// Handle all runtime calls performed in `handle_new_activations`.
 	pub async fn handle_runtime_calls_on_new_head_activation(
 		virtual_overseer: &mut VirtualOverseer,
 		activated_hash: Hash,
 		async_backing_params: AsyncBackingParams,
 		cores: Vec<CoreState>,
-		runtime_version: u32,
 		claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	) {
 		assert_matches!(
@@ -1130,13 +919,6 @@ mod helpers {
 			}
 		);
 
-		let async_backing_response =
-			if runtime_version >= RuntimeApiRequest::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT {
-				Ok(async_backing_params)
-			} else {
-				Err(RuntimeApiError::NotSupported { runtime_api_name: "async_backing_params" })
-			};
-
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -1146,7 +928,7 @@ mod helpers {
 								),
 							)) => {
 				assert_eq!(hash, activated_hash);
-				let _ = tx.send(async_backing_response);
+				let _ = tx.send(Ok(async_backing_params));
 			}
 		);
 
@@ -1157,22 +939,20 @@ mod helpers {
 								RuntimeApiRequest::Version(tx),
 							)) => {
 				assert_eq!(hash, activated_hash);
-				let _ = tx.send(Ok(runtime_version));
+				let _ = tx.send(Ok(RUNTIME_VERSION));
 			}
 		);
 
-		if runtime_version == RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT {
-			assert_matches!(
-				overseer_recv(virtual_overseer).await,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-									hash,
-									RuntimeApiRequest::ClaimQueue(tx),
-								)) => {
-					assert_eq!(hash, activated_hash);
-					let _ = tx.send(Ok(claim_queue.into()));
-				}
-			);
-		}
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+								hash,
+								RuntimeApiRequest::ClaimQueue(tx),
+							)) => {
+				assert_eq!(hash, activated_hash);
+				let _ = tx.send(Ok(claim_queue.into()));
+			}
+		);
 	}
 
 	// Handles all runtime requests performed in `handle_new_activations` for the case when a
@@ -1184,7 +964,6 @@ mod helpers {
 		expected_occupied_core_assumption: OccupiedCoreAssumption,
 		cores_assigned: usize,
 		pending_availability: Vec<CandidatePendingAvailability>,
-		runtime_version: u32,
 	) {
 		// Expect no messages if no cores is assigned to the para
 		if cores_assigned == 0 {
@@ -1202,16 +981,14 @@ mod helpers {
 			max_pov_size: 1024,
 		};
 
-		if runtime_version >= RuntimeApiRequest::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT {
-			assert_matches!(
-				overseer_recv(virtual_overseer).await,
-				AllMessages::RuntimeApi(
-					RuntimeApiMessage::Request(parent, RuntimeApiRequest::ParaBackingState(p_id, tx))
-				) if parent == activated_hash && p_id == para_id => {
-					tx.send(Ok(Some(dummy_backing_state(pending_availability)))).unwrap();
-				}
-			);
-		}
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::ParaBackingState(p_id, tx))
+			) if parent == activated_hash && p_id == para_id => {
+				tx.send(Ok(Some(dummy_backing_state(pending_availability)))).unwrap();
+			}
+		);
 
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
