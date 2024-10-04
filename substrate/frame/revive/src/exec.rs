@@ -4474,13 +4474,24 @@ mod tests {
 			);
 			exec_success()
 		});
+		let instantiator_ch = MockLoader::insert(Call, {
+			move |ctx, _| {
+				let value = <Test as Config>::Currency::minimum_balance().into();
+				ctx.ext
+					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.unwrap();
+
+				exec_success()
+			}
+		});
 		ExtBuilder::default()
 			.with_code_hashes(MockLoader::code_hashes())
 			.existential_deposit(15)
 			.build()
 			.execute_with(|| {
 				set_balance(&ALICE, 1000);
-				place_contract(&BOB, dummy_ch);
+				set_balance(&BOB_CONTRACT_ID, 100);
+				place_contract(&BOB, instantiator_ch);
 				let origin = Origin::from_account_id(ALICE);
 				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
 
@@ -4507,13 +4518,24 @@ mod tests {
 			);
 			exec_success()
 		});
+		let instantiator_ch = MockLoader::insert(Call, {
+			move |ctx, _| {
+				let value = <Test as Config>::Currency::minimum_balance().into();
+				ctx.ext
+					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.unwrap();
+
+				exec_success()
+			}
+		});
 		ExtBuilder::default()
 			.with_code_hashes(MockLoader::code_hashes())
 			.existential_deposit(15)
 			.build()
 			.execute_with(|| {
 				set_balance(&ALICE, 1000);
-				place_contract(&BOB, dummy_ch);
+				set_balance(&BOB_CONTRACT_ID, 100);
+				place_contract(&BOB, instantiator_ch);
 				let origin = Origin::from_account_id(ALICE);
 				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
 
