@@ -139,10 +139,21 @@ impl_hex!(Bytes, Vec<u8>, vec![]);
 impl_hex!(Bytes256, [u8; 256], [0u8; 256]);
 
 #[test]
-fn serialize_byte() {
+fn serialize_works() {
 	let a = Byte(42);
 	let s = serde_json::to_string(&a).unwrap();
 	assert_eq!(s, "\"0x2a\"");
 	let b = serde_json::from_str::<Byte>(&s).unwrap();
+	assert_eq!(a, b);
+
+	let a = Bytes(b"bello world".to_vec());
+	let s = serde_json::to_string(&a).unwrap();
+	assert_eq!(s, "\"0x62656c6c6f20776f726c64\"");
+	let b = serde_json::from_str::<Bytes>(&s).unwrap();
+	assert_eq!(a, b);
+
+	let a = Bytes256([42u8; 256]);
+	let s = serde_json::to_string(&a).unwrap();
+	let b = serde_json::from_str::<Bytes256>(&s).unwrap();
 	assert_eq!(a, b);
 }
