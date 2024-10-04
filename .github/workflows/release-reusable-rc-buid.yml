@@ -155,12 +155,15 @@ jobs:
 
     - name: Debug
       working-directory: target/production/${{ inputs.package }}
-      run: ls -la
+      run: |
+        pwd
+        ls -la
 
     - name: Build polkadot deb package
       working-directory: target/production/${{ inputs.package }}
       shell: bash
       run: |
+        pwd
         . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }}
 
     - name: Upload ${{inputs.package }} artifacts
