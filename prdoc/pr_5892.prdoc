@@ -1,7 +1,7 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: Treasury: add migration to clean up unapproved deprecated proposals
+title: "Treasury: add migration to clean up unapproved deprecated proposals"
 
 doc:
   - audience: Runtime Dev
