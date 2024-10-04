@@ -60,7 +60,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// Traps if:
 	/// - Called from within the deploy export.
-	/// - Called by contracts that didn't set immutable data by calling [`set_immutable_data`]
+	/// - Called by contracts that didn't set immutable data by calling `set_immutable_data`
 	///   during their constructor execution.
 	///
 	/// # Parameters
