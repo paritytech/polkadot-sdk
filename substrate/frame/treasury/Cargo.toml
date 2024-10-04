@@ -51,6 +51,7 @@ std = [
 	"sp-core?/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"log/std",
 ]
 runtime-benchmarks = [
 	"dep:sp-core",
