@@ -31,9 +31,11 @@ pub mod cleanup_proposals {
 	use super::*;
 
 	/// Migration to cleanup unapproved proposals to return the bonds back to the proposers.
-	/// Proposals can no longer be created and the `Proposal` storage item will be removed in the future.
+	/// Proposals can no longer be created and the `Proposal` storage item will be removed in the
+	/// future.
 	///
-	/// `UnreserveWeight` returns `Weight` of `unreserve_balance` operation which is perfomed during this migration.
+	/// `UnreserveWeight` returns `Weight` of `unreserve_balance` operation which is perfomed during
+	/// this migration.
 	pub struct Migration<T, I, UnreserveWeight>(PhantomData<(T, I, UnreserveWeight)>);
 
 	impl<T: Config<I> + pallet_balances::Config, I: 'static, UnreserveWeight: Get<Weight>>
