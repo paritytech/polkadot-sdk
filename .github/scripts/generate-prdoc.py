@@ -110,11 +110,12 @@ def setup_yaml():
 	yaml.add_representer(str, yaml_multiline_string_presenter)
 
 # parse_args is also used by cmd/cmd.py
-def setup_parser(parser=None):
+# if pr_required is False, then --pr is optional, as it can be derived from the PR comment body
+def setup_parser(parser=None, pr_required=True):
 	allowed_audiences = ["runtime_dev", "runtime_user", "node_dev", "node_operator"]
 	if parser is None:
 		parser = argparse.ArgumentParser()
-	parser.add_argument("--pr", type=int, required=True, help="The PR number to generate the PrDoc for.")
+	parser.add_argument("--pr", type=int, required=pr_required, help="The PR number to generate the PrDoc for.")
 	parser.add_argument("--audience", type=str, nargs='*', choices=allowed_audiences, default=["todo"], help="The audience of whom the changes may concern. Example: --audience runtime_dev node_dev")
 	parser.add_argument("--bump", type=str, default="major", choices=["patch", "minor", "major", "silent", "ignore", "no_change"], help="A default bump level for all crates. Example: --bump patch")
 	parser.add_argument("--force", action="store_true", help="Whether to overwrite any existing PrDoc.")
