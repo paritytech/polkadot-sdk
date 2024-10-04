@@ -509,7 +509,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				.holding
 				.try_take(asset_to_pay_for_fees.clone().into())
 				.map_err(|e| {
-					log::error!(target: "xcm::xcm_executor::take_fee", "Failed to take fees {:?} from holding. {:?}", fee, e);
+					log::error!(target: "xcm::fees", "Failed to take asset_to_pay_for_fees: {asset_to_pay_for_fees:?} (based on fee: {fee:?}) from holding with error: {e:?}");
 					XcmError::NotHoldingFees
 				})?;
 			tracing::trace!(target: "xcm::fees", ?assets_taken_from_holding_to_pay_delivery_fees);
