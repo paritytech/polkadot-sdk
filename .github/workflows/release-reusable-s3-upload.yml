@@ -31,7 +31,7 @@ jobs:
 
       steps:
         - name: Checkout
-          uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+          uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
         - name: Download artifacts
           uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
