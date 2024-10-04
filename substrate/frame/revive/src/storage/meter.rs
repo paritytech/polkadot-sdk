@@ -479,7 +479,7 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 		}
 		if let Deposit::Charge(amount) = total_deposit {
 			if amount > self.limit {
-				return Err(<Error<T>>::StorageDepositLimitExhausted.into());
+				return Err(<Error<T>>::StorageDepositLimitExhausted.into())
 			}
 		}
 		Ok(())
