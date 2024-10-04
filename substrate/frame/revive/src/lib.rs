@@ -551,7 +551,8 @@ pub mod pallet {
 		ExecutionFailed,
 		/// Failed to convert a U256 to a Balance.
 		BalanceConversionFailed,
-		/// Immutable data can only be during deploys and only be read during calls.
+		/// Immutable data can only be set during deploys and only be read during calls.
+		/// Additionally, it is only valid to set the data once and it must not be empty.
 		InvalidImmutableAccess,
 	}
 
