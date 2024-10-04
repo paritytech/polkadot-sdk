@@ -1163,9 +1163,6 @@ where
 			};
 
 			let dispatch_call: <T as Config>::RuntimeCall = dispatch_call.into();
-			//let weight = dispatch_call.get_dispatch_info().weight;
-			//let fees = T::WeightPrice::convert(weight);
-			//log::debug!(target: LOG_TARGET, "Dry-running weight: {weight:?} fees: {fees:?}");
 
 			EthContractResultDetails {
 				kind: EthTransactKind::Call,

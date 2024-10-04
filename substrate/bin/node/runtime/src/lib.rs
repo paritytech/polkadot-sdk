@@ -3013,7 +3013,7 @@ impl_runtime_apis! {
 			input: Vec<u8>,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
-		) -> pallet_revive::ContractResult<pallet_revive::EthTransactReturnValue, Balance, EventRecord>
+		) -> pallet_revive::EthContractResult<Balance>
 		{
 			use pallet_revive::AddressMapper;
 			let blockweights: BlockWeights = <Runtime as frame_system::Config>::BlockWeights::get();
@@ -3027,7 +3027,7 @@ impl_runtime_apis! {
 				storage_deposit_limit.unwrap_or(u128::MAX),
 				pallet_revive::DebugInfo::UnsafeDebug,
 				pallet_revive::CollectEvents::UnsafeCollect,
-			)
+			).map(pallet_transaction_payment::Pallet::<Runtime>::compute_fee)
 		}
 
 		fn call(
