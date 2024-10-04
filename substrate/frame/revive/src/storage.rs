@@ -371,11 +371,9 @@ impl<T: Config> ContractInfo<T> {
 	/// On success, returns the storage deposit to be charged.
 	///
 	/// Returns `Err(InvalidImmutableAccess)` if:
-	/// - The immutable bytes of this contract are not 0.
-	///   This indicates that the immutable data have already been set;
-	///   it is only valid to set the immutable data exactly once.
-	/// - The provided `immutable_bytes` value was 0;
-	///   it is invalid to set empty immutable data.
+	/// - The immutable bytes of this contract are not 0. This indicates that the immutable data
+	///   have already been set; it is only valid to set the immutable data exactly once.
+	/// - The provided `immutable_bytes` value was 0; it is invalid to set empty immutable data.
 	pub fn set_immutable_bytes(
 		&mut self,
 		immutable_bytes: u32,
