@@ -3975,7 +3975,7 @@ async fn follow_event_with_unknown_parent() {
 	let client_mock = Arc::new(ChainHeadMockClient::new(client.clone()));
 
 	let api = ChainHead::new(
-		client.clone(),
+		client_mock.clone(),
 		backend,
 		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
