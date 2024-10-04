@@ -1955,7 +1955,7 @@ impl<T: Config> Pallet<T> {
 			.clone()
 			.reanchored(&dest, &context)
 			.map_err(|e| {
-				log::error!(target: "xcm::pallet_xcm::destination_reserve_fees_instructions", "Failed to re-anchor fees: {:?}", e);
+				log::error!(target: "xcm::pallet_xcm::destination_reserve_fees_instructions", "Failed to re-anchor fees: {e:?} for dest: {dest:?} and context {context:?}");
 				Error::<T>::CannotReanchor
 			})?;
 		let fees: Assets = fees.into();
