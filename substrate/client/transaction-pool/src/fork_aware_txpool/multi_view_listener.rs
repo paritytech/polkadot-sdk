@@ -187,7 +187,7 @@ where
 		hash: BlockHash<ChainApi>,
 	) -> Option<TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>> {
 		trace!(
-			target: LOG_TARGET, "[{:?}] mvl handle event from {hash:?}: {status:?} views:{:#?}", self.tx_hash,
+			target: LOG_TARGET, "[{:?}] mvl handle event from {hash:?}: {status:?} views:{:?}", self.tx_hash,
 			self.status_stream_map.keys().collect::<Vec<_>>()
 		);
 		match status {
@@ -248,7 +248,7 @@ where
 		);
 		trace!(
 			target: LOG_TARGET,
-			"[{:?}] got invalidate_transaction: views:{:#?}", self.tx_hash,
+			"[{:?}] got invalidate_transaction: views:{:?}", self.tx_hash,
 			self.status_stream_map.keys().collect::<Vec<_>>()
 		);
 		if self.views_keeping_tx_valid.is_disjoint(&keys) {
@@ -329,8 +329,6 @@ where
 					tokio::select! {
 					biased;
 					Some((view_hash, status)) =  next_event(&mut ctx.status_stream_map) => {
-						log::trace!(target: LOG_TARGET, "[{:?}] mvl select::map views:{:?}", ctx.tx_hash, ctx.status_stream_map.keys().collect::<Vec<_>>());
-
 						if let Some(new_status) = ctx.handle(status, view_hash) {
 							log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: {new_status:?}", ctx.tx_hash);
 							return Some((new_status, ctx))
