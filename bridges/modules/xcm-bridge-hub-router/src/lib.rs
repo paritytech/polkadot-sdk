@@ -410,6 +410,8 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 impl<T: Config<I>, I: 'static> InspectMessageQueues for Pallet<T, I> {
 	fn clear_messages() {}
 
+	/// This router needs to implement `InspectMessageQueues` but doesn't have to
+	/// return any messages, since it just reuses the `XcmpQueue` router.
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		Vec::new()
 	}

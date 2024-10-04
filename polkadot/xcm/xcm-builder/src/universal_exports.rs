@@ -342,6 +342,8 @@ impl<Bridges, Router, UniversalLocation> InspectMessageQueues
 {
 	fn clear_messages() {}
 
+	/// This router needs to implement `InspectMessageQueues` but doesn't have to
+	/// return any messages, since it just reuses the `XcmpQueue` router.
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		Vec::new()
 	}
