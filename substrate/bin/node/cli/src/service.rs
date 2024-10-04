@@ -138,6 +138,8 @@ pub fn create_extrinsic(
 				>::from(tip, None),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			pallet_revive::evm::runtime::CheckEthTransact::<kitchensink_runtime::Runtime>::default(
+			),
 		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
@@ -153,16 +155,18 @@ pub fn create_extrinsic(
 			(),
 			(),
 			None,
+			(),
 		),
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
 
-	kitchensink_runtime::UncheckedExtrinsic::new_signed(
+	generic::UncheckedExtrinsic::new_signed(
 		function,
 		sp_runtime::AccountId32::from(sender.public()).into(),
 		kitchensink_runtime::Signature::Sr25519(signature),
 		extra,
 	)
+	.into()
 }
 
 /// Creates a new partial node.
