@@ -139,7 +139,7 @@ pub mod xcm_config;
 
 // Implemented types.
 mod impls;
-use impls::ToParachainIdentityReaper;
+use impls::{BalanceUnreserveWeight, ToParachainIdentityReaper};
 
 // Governance and configurations.
 pub mod governance;
@@ -1783,6 +1783,12 @@ pub mod migrations {
 		pallet_delegated_staking::migration::unversioned::ProxyDelegatorMigration<
 			Runtime,
 			MaxAgentsToMigrate,
+		>,
+		// cleanup stuck proposals
+		pallet_treasury::migration::cleanup_proposals::Migration<
+			Runtime,
+			(),
+			BalanceUnreserveWeight<Runtime>,
 		>,
 	);
 }

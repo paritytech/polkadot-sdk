@@ -22,6 +22,7 @@ use frame_support::pallet_prelude::DispatchResult;
 use frame_system::RawOrigin;
 use polkadot_primitives::Balance;
 use polkadot_runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
+use sp_core::Get;
 use westend_runtime_constants::currency::*;
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
@@ -77,6 +78,17 @@ impl<Runtime, AccountId> ToParachainIdentityReaper<Runtime, AccountId> {
 		id_deposit
 			.saturating_add(subs_deposit)
 			.saturating_add(para_existential_deposit.saturating_mul(2))
+	}
+}
+
+/// Balance unreserve weight
+pub struct BalanceUnreserveWeight<T>(PhantomData<T>);
+
+impl<T: pallet_balances::Config> Get<Weight> for BalanceUnreserveWeight<T> {
+	fn get() -> Weight {
+		use pallet_balances::WeightInfo;
+
+		T::WeightInfo::force_unreserve()
 	}
 }
 
