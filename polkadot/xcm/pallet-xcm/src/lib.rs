@@ -2635,7 +2635,7 @@ impl<T: Config> Pallet<T> {
 		VersionedAssets::from(fees)
 			.into_version(result_version)
 			.map_err(|e| {
-				log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Failed to convert fees into version: {:?}", e);
+				log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Failed to convert fees into version: {result_version:?} with error: {e:?}");
 				XcmPaymentApiError::VersionedConversionFailed
 			})
 	}
