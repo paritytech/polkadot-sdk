@@ -298,7 +298,7 @@ jobs:
         id: pr-arg
         run: |
           CMD="${{ steps.get-pr-comment.outputs.group2 }}"
-          if echo "$CMD" | grep -q "prdoc" && ! echo "$CMD" | grep -qE "--pr[[:space:]=][0-9]+"; then
+          if echo "$CMD" | grep -q "prdoc" && ! echo "$CMD" | grep -qE "\-\-pr[[:space:]=][0-9]+"; then
             echo "arg=--pr ${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
           else
             echo "arg=" >> $GITHUB_OUTPUT
