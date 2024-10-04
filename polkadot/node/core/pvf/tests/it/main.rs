@@ -192,7 +192,7 @@ async fn execute_job_terminates_on_timeout() {
 }
 
 #[tokio::test]
-async fn execute_job_terminates_on_execution_deadline() {
+async fn execute_job_terminates_on_execution_ttl() {
 	let host = TestHost::new().await;
 	let pvd = PersistedValidationData {
 		parent_head: Default::default(),

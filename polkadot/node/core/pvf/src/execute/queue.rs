@@ -284,12 +284,11 @@ impl Queue {
 
 		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
 		let exec_deadline = job.exec_ttl.and_then(|ttl| {
-			// Because we observe the execution of different jobs, their execution time can exceed
-			// the current job's execution timeout.
+			// Because we observe the execution of all jobs with different timeouts, their minimum
+			// execution time can exceed the current job's execution timeout.
 			let min_exec_time = self.min_exec_time.unwrap_or_default().min(job.exec_timeout);
-			// There is a high possibility that the current execution time will be less than the
-			// execution timeout but more than the minimum observed execution time. Therefore, we
-			// subtract it from the TTL to avoid exceeding the deadline.
+			// We subtract the observed minimum execution time from the TTL to minimize cases where
+			// a job starts execution close to its deadline but finishes later, with useless result
 			ttl.checked_sub(min_exec_time)
 		});
 
