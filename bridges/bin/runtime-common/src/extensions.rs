@@ -287,6 +287,10 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 			)>;
 			type Pre = Self::Val;
 
+			fn weight(&self, _: &$call) -> frame_support::pallet_prelude::Weight {
+				frame_support::pallet_prelude::Weight::zero()
+			}
+
 			fn validate(
 				&self,
 				origin: <$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,

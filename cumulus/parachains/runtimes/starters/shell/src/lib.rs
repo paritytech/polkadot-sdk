@@ -281,6 +281,9 @@ impl TransactionExtension<RuntimeCall> for DisallowSigned {
 	type Implicit = ();
 	type Val = ();
 	type Pre = ();
+	fn weight(&self, _call: &RuntimeCall) -> Weight {
+		Weight::zero()
+	}
 	fn validate(
 		&self,
 		_origin: DispatchOriginOf<RuntimeCall>,

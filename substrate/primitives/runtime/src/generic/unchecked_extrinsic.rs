@@ -831,7 +831,7 @@ mod tests {
 		type Implicit = ();
 		type Val = ();
 		type Pre = ();
-		impl_tx_ext_default!(TestCall; validate prepare);
+		impl_tx_ext_default!(TestCall; weight validate prepare);
 	}
 
 	type Ex = UncheckedExtrinsic<TestAccountId, TestCall, TestSig, DummyExtension>;

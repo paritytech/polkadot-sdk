@@ -60,6 +60,9 @@ where
 	fn metadata() -> Vec<TransactionExtensionMetadata> {
 		SE::metadata()
 	}
+	fn weight(&self, _call: &SE::Call) -> Weight {
+		Weight::zero()
+	}
 	type Val = ();
 	type Pre = SE::Pre;
 

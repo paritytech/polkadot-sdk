@@ -88,7 +88,10 @@ pub type ValidateResult<Val, Call> =
 /// However, a macro is provided [impl_tx_ext_default](crate::impl_tx_ext_default) which is capable
 /// of generating default implementations for both of these functions. If you do not wish to
 /// introduce additional logic into the transaction pipeline, then it is recommended that you use
-/// this macro to implement these functions.
+/// this macro to implement these functions. Additionally, [weight](TransactionExtension::weight)
+/// can return a default value, which would mean the extension is weightless, but it is not
+/// implemented by default. Instead, implementers can explicitly choose to implement this default
+/// behavior through the same [impl_tx_ext_default](crate::impl_tx_ext_default) macro.
 ///
 /// If your extension does any post-flight logic, then the functionality must be implemented in
 /// [post_dispatch_details](TransactionExtension::post_dispatch_details). This function can return
@@ -201,9 +204,7 @@ pub trait TransactionExtension<Call: Dispatchable>:
 	type Pre;
 
 	/// The weight consumed by executing this extension instance fully during transaction dispatch.
-	fn weight(&self, _call: &Call) -> Weight {
-		Weight::zero()
-	}
+	fn weight(&self, call: &Call) -> Weight;
 
 	/// Validate a transaction for the transaction queue.
 	///
@@ -382,12 +383,12 @@ pub trait TransactionExtension<Call: Dispatchable>:
 }
 
 /// Helper macro to be used in a `impl TransactionExtension` block to add default implementations of
-/// `validate` and/or `prepare`
+/// `weight`, `validate`, `prepare` or any combinations of the them.
 ///
 /// The macro is to be used with 2 parameters, separated by ";":
 /// - the `Call` type;
 /// - the functions for which a default implementation should be generated, separated by " ";
-///   available options are `validate` and `prepare`.
+///   available options are `weight`, `validate` and `prepare`.
 ///
 /// Example usage:
 /// ```nocompile
@@ -395,12 +396,16 @@ pub trait TransactionExtension<Call: Dispatchable>:
 /// 	type Val = ();
 /// 	type Pre = ();
 ///
-/// 	impl_tx_ext_default!(FirstCall; validate prepare);
+/// 	impl_tx_ext_default!(FirstCall; weight validate prepare);
 /// }
 ///
 /// impl TransactionExtension<SecondCall> for SimpleExtension {
 /// 	type Val = u32;
 /// 	type Pre = ();
+///
+/// 	fn weight(&self, _: &SecondCall) -> Weight {
+/// 		Weight::zero()
+/// 	}
 ///
 /// 	fn validate(
 /// 			&self,
@@ -446,6 +451,12 @@ macro_rules! impl_tx_ext_default {
 			_len: usize,
 		) -> Result<Self::Pre, $crate::transaction_validity::TransactionValidityError> {
 			Ok(Default::default())
+		}
+		impl_tx_ext_default!{$call ; $( $rest )*}
+	};
+	($call:ty ; weight $( $rest:tt )*) => {
+		fn weight(&self, _call: &$call) -> $crate::Weight {
+			$crate::Weight::zero()
 		}
 		impl_tx_ext_default!{$call ; $( $rest )*}
 	};

@@ -292,6 +292,10 @@ where
 	type Pre = Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber, LaneId>>;
 	type Val = Self::Pre;
 
+	fn weight(&self, _call: &R::RuntimeCall) -> Weight {
+		Weight::zero()
+	}
+
 	fn validate(
 		&self,
 		origin: <R::RuntimeCall as Dispatchable>::RuntimeOrigin,

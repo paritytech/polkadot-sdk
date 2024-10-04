@@ -79,7 +79,7 @@ pub mod transaction_extensions_example {
 		type Pre = ();
 		type Val = ();
 
-		impl_tx_ext_default!(Call; validate prepare);
+		impl_tx_ext_default!(Call; weight validate prepare);
 	}
 
 	// This is the opposite; nothing will be added to the extrinsic payload,
@@ -98,6 +98,6 @@ pub mod transaction_extensions_example {
 		type Pre = ();
 		type Val = ();
 
-		impl_tx_ext_default!(Call; validate prepare);
+		impl_tx_ext_default!(Call; weight validate prepare);
 	}
 }

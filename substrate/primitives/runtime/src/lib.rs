@@ -131,6 +131,8 @@ pub use sp_arithmetic::{
 	FixedPointOperand, FixedU128, FixedU64, InnerOf, PerThing, PerU16, Perbill, Percent, Permill,
 	Perquintill, Rational128, Rounding, UpperOf,
 };
+/// Re-export this since it's part of the API of this crate.
+pub use sp_weights::Weight;
 
 pub use either::Either;
 
