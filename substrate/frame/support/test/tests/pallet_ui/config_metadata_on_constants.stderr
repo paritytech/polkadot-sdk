@@ -1,5 +1,5 @@
 error: Invalid #[pallet::include_metadata] in #[pallet::constant], expected type item. Pallet constant's metadata is already collected.
   --> tests/pallet_ui/config_metadata_on_constants.rs:26:10
    |
-26 |         #[pallet::include_metadata]
-   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+26 |            #[pallet::include_metadata]
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^
