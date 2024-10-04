@@ -2137,7 +2137,7 @@ impl<T: Config> Pallet<T> {
 			&dummy_context,
 		)
 		.map_err(|e| {
-			log::error!(target: "xcm::pallet_xcm::teleport_fees_instructions", "Failed to teleport fees: {:?}", e);
+			log::error!(target: "xcm::pallet_xcm::teleport_fees_instructions", "Failed can_check_out fees: {fees:?} for dest: {dest:?} with error: {e:?}");
 			Error::<T>::CannotCheckOutTeleport
 		})?;
 		// safe to do this here, we're in a transactional call that will be reverted on any
