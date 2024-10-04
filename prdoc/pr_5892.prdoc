@@ -13,3 +13,7 @@ doc:
 crates:
     - name: pallet-treasury
       bump: patch
+    - name: rococo-runtime
+      bump: patch
+    - name: westend-runtime
+      bump: patch
