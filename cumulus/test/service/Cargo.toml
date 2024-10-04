@@ -87,7 +87,6 @@ cumulus-relay-chain-minimal-node = { workspace = true, default-features = true }
 cumulus-client-pov-recovery = { workspace = true, default-features = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 cumulus-pallet-parachain-system = { workspace = true }
-cumulus-primitives-storage-weight-reclaim = { workspace = true, default-features = true }
 cumulus-pallet-weight-reclaim = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 
