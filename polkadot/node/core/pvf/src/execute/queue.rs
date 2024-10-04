@@ -990,4 +990,47 @@ mod tests {
 
 		assert_eq!(&priorities[..4], &[Approval, Backing, Approval, Approval]);
 	}
+
+	#[tokio::test]
+	async fn test_try_assign_next_job_restarts_on_exceeded_ttl() {
+		// Set up a queue, but without a real worker, we won't execute any jobs.
+		let (_, to_queue_rx) = mpsc::channel(1);
+		let (from_queue_tx, _) = mpsc::unbounded();
+		let mut queue = Queue::new(
+			Metrics::default(),
+			PathBuf::new(),
+			PathBuf::new(),
+			1,
+			Duration::from_secs(1),
+			None,
+			SecurityStatus::default(),
+			to_queue_rx,
+			from_queue_tx,
+		);
+		let mut result_rxs = vec![];
+		for _ in 0..10 {
+			let (result_tx, result_rx) = oneshot::channel();
+			// Job's TTL has already expired.
+			let expired_job = ExecuteJob {
+				artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+				exec_timeout: Duration::from_secs(1),
+				exec_ttl: Some(Instant::now() - Duration::from_secs(1)),
+				pvd: Arc::new(PersistedValidationData::default()),
+				pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
+				executor_params: ExecutorParams::default(),
+				result_tx,
+				waiting_since: Instant::now(),
+			};
+			queue.unscheduled.add(expired_job, PvfExecPriority::Backing);
+			result_rxs.push(result_rx);
+		}
+
+		// We're trying to assign the next job only once.
+		queue.try_assign_next_job(None);
+
+		// But it recursively processes all jobs and drops them with an `ExecutionDeadline` error.
+		for rx in result_rxs {
+			assert!(matches!(rx.await, Ok(Err(ValidationError::ExecutionDeadline))));
+		}
+	}
 }
