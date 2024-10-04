@@ -123,6 +123,7 @@ pub use pallet_timestamp::Call as TimestampCall;
 use sp_runtime::traits::Get;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
+use pallet_balances::WeightInfo;
 
 /// Constant values used within the runtime.
 use westend_runtime_constants::{
@@ -139,7 +140,7 @@ pub mod xcm_config;
 
 // Implemented types.
 mod impls;
-use impls::{BalanceUnreserveWeight, ToParachainIdentityReaper};
+use impls::ToParachainIdentityReaper;
 
 // Governance and configurations.
 pub mod governance;
@@ -1764,6 +1765,8 @@ pub type SignedExtra = (
 parameter_types! {
 	/// Bounding number of agent pot accounts to be migrated in a single block.
 	pub const MaxAgentsToMigrate: u32 = 300;
+	/// Weight for balance unreservations
+	pub BalanceUnreserveWeight: Weight = weights::pallet_balances::WeightInfo::<Runtime>::force_unreserve();
 }
 
 /// All migrations that will run on the next runtime upgrade.
@@ -1788,7 +1791,7 @@ pub mod migrations {
 		pallet_treasury::migration::cleanup_proposals::Migration<
 			Runtime,
 			(),
-			BalanceUnreserveWeight<Runtime>,
+			BalanceUnreserveWeight,
 		>,
 	);
 }

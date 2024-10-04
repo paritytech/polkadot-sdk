@@ -23,7 +23,6 @@ use frame_system::RawOrigin;
 use polkadot_primitives::Balance;
 use polkadot_runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
 use rococo_runtime_constants::currency::*;
-use sp_core::Get;
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
 
@@ -41,17 +40,6 @@ enum PeopleRuntimePallets<AccountId: Encode> {
 enum IdentityMigratorCalls<AccountId: Encode> {
 	#[codec(index = 1)]
 	PokeDeposit(AccountId),
-}
-
-/// Balance unreserve weight
-pub struct BalanceUnreserveWeight<T>(PhantomData<T>);
-
-impl<T: pallet_balances::Config> Get<Weight> for BalanceUnreserveWeight<T> {
-	fn get() -> Weight {
-		use pallet_balances::WeightInfo;
-
-		T::WeightInfo::force_unreserve()
-	}
 }
 
 /// Type that implements `OnReapIdentity` that will send the deposit needed to store the same
