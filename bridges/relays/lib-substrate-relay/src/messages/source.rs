@@ -65,8 +65,10 @@ type MessagesToRefine<'a> = Vec<(MessagePayload, &'a mut OutboundMessageDetails)
 
 /// Outbound lane data - for backwards compatibility with `bp_messages::OutboundLaneData` which has
 /// additional `lane_state` attribute.
+///
+/// TODO: remove - https://github.com/paritytech/polkadot-sdk/issues/5923
 #[derive(Decode)]
-struct OutboundLaneDataWrapper {
+struct LegacyOutboundLaneData {
 	#[allow(unused)]
 	oldest_unpruned_nonce: MessageNonce,
 	latest_received_nonce: MessageNonce,
@@ -108,7 +110,7 @@ impl<P: SubstrateMessageLane, SourceClnt: Client<P::SourceChain>, TargetClnt>
 	async fn outbound_lane_data(
 		&self,
 		id: SourceHeaderIdOf<MessageLaneAdapter<P>>,
-	) -> Result<Option<OutboundLaneDataWrapper>, SubstrateError> {
+	) -> Result<Option<LegacyOutboundLaneData>, SubstrateError> {
 		self.source_client
 			.storage_value(
 				id.hash(),
@@ -775,13 +777,13 @@ mod tests {
 		assert_ne!(full.encode(), bytes_without_state);
 
 		// decode from `bytes_with_state`
-		let decoded: OutboundLaneDataWrapper = Decode::decode(&mut &bytes_with_state[..]).unwrap();
+		let decoded: LegacyOutboundLaneData = Decode::decode(&mut &bytes_with_state[..]).unwrap();
 		assert_eq!(full.oldest_unpruned_nonce, decoded.oldest_unpruned_nonce);
 		assert_eq!(full.latest_received_nonce, decoded.latest_received_nonce);
 		assert_eq!(full.latest_generated_nonce, decoded.latest_generated_nonce);
 
 		// decode from `bytes_without_state`
-		let decoded: OutboundLaneDataWrapper =
+		let decoded: LegacyOutboundLaneData =
 			Decode::decode(&mut &bytes_without_state[..]).unwrap();
 		assert_eq!(full.oldest_unpruned_nonce, decoded.oldest_unpruned_nonce);
 		assert_eq!(full.latest_received_nonce, decoded.latest_received_nonce);

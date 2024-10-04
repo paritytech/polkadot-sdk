@@ -57,19 +57,21 @@ pub type SubstrateMessagesDeliveryProof<C, L> =
 
 /// Inbound lane data - for backwards compatibility with `bp_messages::InboundLaneData` which has
 /// additional `lane_state` attribute.
+///
+/// TODO: remove - https://github.com/paritytech/polkadot-sdk/issues/5923
 #[derive(Decode)]
-struct InboundLaneDataWrapper<RelayerId> {
+struct LegacyInboundLaneData<RelayerId> {
 	relayers: VecDeque<UnrewardedRelayer<RelayerId>>,
 	last_confirmed_nonce: MessageNonce,
 }
-impl<RelayerId> Default for InboundLaneDataWrapper<RelayerId> {
+impl<RelayerId> Default for LegacyInboundLaneData<RelayerId> {
 	fn default() -> Self {
 		let full = bp_messages::InboundLaneData::default();
 		Self { relayers: full.relayers, last_confirmed_nonce: full.last_confirmed_nonce }
 	}
 }
 
-impl<RelayerId> InboundLaneDataWrapper<RelayerId> {
+impl<RelayerId> LegacyInboundLaneData<RelayerId> {
 	pub fn last_delivered_nonce(self) -> MessageNonce {
 		bp_messages::InboundLaneData {
 			relayers: self.relayers,
@@ -81,8 +83,8 @@ impl<RelayerId> InboundLaneDataWrapper<RelayerId> {
 	}
 }
 
-impl<RelayerId> From<InboundLaneDataWrapper<RelayerId>> for UnrewardedRelayersState {
-	fn from(value: InboundLaneDataWrapper<RelayerId>) -> Self {
+impl<RelayerId> From<LegacyInboundLaneData<RelayerId>> for UnrewardedRelayersState {
+	fn from(value: LegacyInboundLaneData<RelayerId>) -> Self {
 		(&bp_messages::InboundLaneData {
 			relayers: value.relayers,
 			last_confirmed_nonce: value.last_confirmed_nonce,
@@ -133,7 +135,7 @@ where
 	async fn inbound_lane_data(
 		&self,
 		id: TargetHeaderIdOf<MessageLaneAdapter<P>>,
-	) -> Result<Option<InboundLaneDataWrapper<AccountIdOf<P::SourceChain>>>, SubstrateError> {
+	) -> Result<Option<LegacyInboundLaneData<AccountIdOf<P::SourceChain>>>, SubstrateError> {
 		self.target_client
 			.storage_value(
 				id.hash(),
@@ -256,7 +258,7 @@ where
 	) -> Result<(TargetHeaderIdOf<MessageLaneAdapter<P>>, UnrewardedRelayersState), SubstrateError>
 	{
 		let inbound_lane_data =
-			self.inbound_lane_data(id).await?.unwrap_or(InboundLaneDataWrapper::default());
+			self.inbound_lane_data(id).await?.unwrap_or(LegacyInboundLaneData::default());
 		Ok((id, inbound_lane_data.into()))
 	}
 
@@ -392,14 +394,14 @@ mod tests {
 		assert_ne!(full.encode(), bytes_without_state);
 
 		// decode from `bytes_with_state`
-		let decoded: InboundLaneDataWrapper<u8> =
+		let decoded: LegacyInboundLaneData<u8> =
 			Decode::decode(&mut &bytes_with_state[..]).unwrap();
 		assert_eq!(full.relayers, decoded.relayers);
 		assert_eq!(full.last_confirmed_nonce, decoded.last_confirmed_nonce);
 		assert_eq!(full.last_delivered_nonce(), decoded.last_delivered_nonce());
 
 		// decode from `bytes_without_state`
-		let decoded: InboundLaneDataWrapper<u8> =
+		let decoded: LegacyInboundLaneData<u8> =
 			Decode::decode(&mut &bytes_without_state[..]).unwrap();
 		assert_eq!(full.relayers, decoded.relayers);
 		assert_eq!(full.last_confirmed_nonce, decoded.last_confirmed_nonce);
