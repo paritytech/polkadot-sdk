@@ -25,6 +25,7 @@ use crate::{
 			StorageEntryMetadataBuilder, TupleToEncodedIter,
 		},
 		KeyGenerator, PrefixIterator, StorageAppend, StorageDecodeLength, StoragePrefixedMap,
+		StorageTryAppend,
 	},
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 };
@@ -336,6 +337,19 @@ where
 		Value: StorageAppend<Item>,
 	{
 		<Self as crate::storage::StorageNMap<Key, Value>>::append(key, item)
+	}
+
+	/// Try and append the given item to the value in the storage.
+	///
+	/// Is only available if `Value` of the storage implements [`StorageTryAppend`].
+	pub fn try_append<KArg, Item, EncodeLikeItem>(key: KArg, item: EncodeLikeItem) -> Result<(), ()>
+	where
+		KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter + Clone,
+		Item: Encode,
+		EncodeLikeItem: EncodeLike<Item>,
+		Value: StorageTryAppend<Item>,
+	{
+		<Self as crate::storage::TryAppendNMap<Key, Value, Item>>::try_append(key, item)
 	}
 
 	/// Read the length of the storage value without decoding the entire value under the

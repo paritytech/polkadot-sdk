@@ -26,8 +26,9 @@ pub mod runtime;
 pub mod spec;
 pub mod types;
 
-use cumulus_primitives_core::CollectCollationInfo;
+use cumulus_primitives_core::{CollectCollationInfo, GetCoreSelectorApi};
 use sc_client_db::DbHash;
+use serde::de::DeserializeOwned;
 use sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata};
 use sp_block_builder::BlockBuilder;
 use sp_runtime::{
@@ -39,8 +40,7 @@ use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
 pub trait NodeBlock:
-	BlockT<Extrinsic = OpaqueExtrinsic, Header = Self::BoundedHeader, Hash = DbHash>
-	+ for<'de> serde::Deserialize<'de>
+	BlockT<Extrinsic = OpaqueExtrinsic, Header = Self::BoundedHeader, Hash = DbHash> + DeserializeOwned
 {
 	type BoundedFromStrErr: Debug;
 	type BoundedNumber: FromStr<Err = Self::BoundedFromStrErr> + BlockNumber;
@@ -49,7 +49,7 @@ pub trait NodeBlock:
 
 impl<T> NodeBlock for T
 where
-	T: BlockT<Extrinsic = OpaqueExtrinsic, Hash = DbHash> + for<'de> serde::Deserialize<'de>,
+	T: BlockT<Extrinsic = OpaqueExtrinsic, Hash = DbHash> + DeserializeOwned,
 	<T as BlockT>::Header: Unpin,
 	<NumberFor<T> as FromStr>::Err: Debug,
 {
@@ -66,6 +66,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ BlockBuilder<Block>
 	+ TaggedTransactionQueue<Block>
 	+ CollectCollationInfo<Block>
+	+ GetCoreSelectorApi<Block>
 	+ Sized
 {
 }
@@ -76,6 +77,7 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ SessionKeys<Block>
 		+ BlockBuilder<Block>
 		+ TaggedTransactionQueue<Block>
+		+ GetCoreSelectorApi<Block>
 		+ CollectCollationInfo<Block>
 {
 }

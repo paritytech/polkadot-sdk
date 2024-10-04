@@ -1,22 +1,22 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Cumulus.
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
 use async_trait::async_trait;
-use cumulus_primitives_core::relay_chain::BlockId;
+use cumulus_primitives_core::relay_chain::{BlockId, CoreIndex};
 use cumulus_relay_chain_inprocess_interface::{check_block_in_chain, BlockCheckStatus};
 use cumulus_relay_chain_interface::{
 	OverseerHandle, PHeader, ParaId, RelayChainError, RelayChainResult,
@@ -45,7 +45,11 @@ use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
 use sp_runtime::RuntimeAppPublic;
 use sp_state_machine::StorageValue;
 use sp_version::RuntimeVersion;
-use std::{borrow::Cow, collections::BTreeMap, time::Duration};
+use std::{
+	borrow::Cow,
+	collections::{BTreeMap, VecDeque},
+	time::Duration,
+};
 
 fn check_error(error: crate::BoxedError, check_error: impl Fn(&BlockAnnounceError) -> bool) {
 	let error = *error
@@ -325,6 +329,22 @@ impl RelayChainInterface for DummyRelayChainInterface {
 			transaction_version: 5,
 			system_version: 1,
 		})
+	}
+
+	async fn claim_queue(
+		&self,
+		_: PHash,
+	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+		unimplemented!("Not needed for test");
+	}
+
+	async fn call_runtime_api(
+		&self,
+		_method_name: &'static str,
+		_hash: PHash,
+		_payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		unimplemented!("Not needed for test")
 	}
 }
 

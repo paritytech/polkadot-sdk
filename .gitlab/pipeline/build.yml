@@ -83,6 +83,23 @@ build-malus:
     - echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
     - cp -r ./docker/* ./artifacts
 
+build-templates-node:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .collect-artifacts
+  script:
+    - time cargo build --locked --package parachain-template-node --release
+    - time cargo build --locked --package minimal-template-node --release
+    - time cargo build --locked --package solochain-template-node --release
+    # pack artifacts
+    - mkdir -p ./artifacts
+    - mv ./target/release/parachain-template-node ./artifacts/.
+    - mv ./target/release/minimal-template-node ./artifacts/.
+    - mv ./target/release/solochain-template-node ./artifacts/.
+
 build-rustdoc:
   stage: build
   extends:
@@ -156,6 +173,25 @@ build-short-benchmark:
     - target/release/polkadot --version
     - cp ./target/release/polkadot ./artifacts/
 
+build-polkadot-zombienet-tests:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .collect-artifacts
+  needs:
+    - job: build-linux-stable
+      artifacts: true
+    - job: build-linux-stable-cumulus
+      artifacts: true
+
+  script:
+    - cargo nextest --manifest-path polkadot/zombienet-sdk-tests/Cargo.toml archive --features zombie-metadata --archive-file polkadot-zombienet-tests.tar.zst
+    - mkdir -p artifacts
+    - cp polkadot-zombienet-tests.tar.zst ./artifacts
+
+
 # build jobs from cumulus
 
 build-linux-stable-cumulus:
@@ -220,7 +256,7 @@ build-test-parachain:
 # DAG: build-runtime-assets -> build-runtime-collectives -> build-runtime-bridge-hubs
 # DAG: build-runtime-assets -> build-runtime-collectives -> build-runtime-contracts
 # DAG: build-runtime-assets -> build-runtime-coretime
-# DAG: build-runtime-assets -> build-runtime-starters -> build-runtime-testing
+# DAG: build-runtime-assets -> build-runtime-testing
 build-runtime-assets:
   <<: *build-runtime-template
   variables:
@@ -262,22 +298,13 @@ build-runtime-contracts:
     - job: build-runtime-collectives
       artifacts: false
 
-build-runtime-starters:
-  <<: *build-runtime-template
-  variables:
-    RUNTIME_PATH: "cumulus/parachains/runtimes/starters"
-  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
-  needs:
-    - job: build-runtime-assets
-      artifacts: false
-
 build-runtime-testing:
   <<: *build-runtime-template
   variables:
     RUNTIME_PATH: "cumulus/parachains/runtimes/testing"
   # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
   needs:
-    - job: build-runtime-starters
+    - job: build-runtime-assets
       artifacts: false
 
 build-short-benchmark-cumulus:
