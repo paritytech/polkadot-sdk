@@ -554,3 +554,47 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 	assert!(receiver_rocs_after > receiver_rocs_before);
 	assert!(receiver_rocs_after <= receiver_rocs_before + amount);
 }
+
+#[test]
+fn dry_run_transfer_to_rococo_sends_xcm_to_bridge_hub() {
+	use frame_support::{dispatch::RawOrigin, traits::fungible};
+	use sp_runtime::AccountId32;
+	use xcm::prelude::*;
+	use xcm_runtime_apis::dry_run::runtime_decl_for_dry_run_api::DryRunApiV1;
+
+	let who = AccountId32::new([1u8; 32]);
+	let transfer_amount = 10_000_000_000_000u128;
+	let initial_balance = transfer_amount * 10;
+
+	// Bridge setup.
+	AssetHubWestend::force_xcm_version(asset_hub_rococo_location(), XCM_VERSION);
+	open_bridge_between_asset_hub_rococo_and_asset_hub_westend();
+
+	<AssetHubWestend as TestExt>::execute_with(|| {
+		type Runtime = <AssetHubWestend as Chain>::Runtime;
+		type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
+		type OriginCaller = <AssetHubWestend as Chain>::OriginCaller;
+		type Balances = <AssetHubWestend as AssetHubWestendPallet>::Balances;
+
+		// Give some initial funds.
+		<Balances as fungible::Mutate<_>>::set_balance(&who, initial_balance);
+
+		let call = RuntimeCall::PolkadotXcm(pallet_xcm::Call::limited_reserve_transfer_assets {
+			dest: Box::new(VersionedLocation::from(asset_hub_rococo_location())),
+			beneficiary: Box::new(VersionedLocation::from(Junction::AccountId32 {
+				id: who.clone().into(),
+				network: None,
+			})),
+			assets: Box::new(VersionedAssets::from(vec![
+				(Parent, transfer_amount).into(),
+			])),
+			fee_asset_item: 0,
+			weight_limit: Unlimited,
+		});
+		let result = Runtime::dry_run_call(OriginCaller::system(RawOrigin::Signed(who)), call).unwrap();
+		// We assert the dry run succeeds and sends only one message to the local bridge hub.
+		assert!(result.execution_result.is_ok());
+		assert_eq!(result.forwarded_xcms.len(), 1);
+		assert_eq!(result.forwarded_xcms[0].0, VersionedLocation::from(Location::new(1, [Parachain(BridgeHubWestend::para_id().into())])));
+	});
+}
