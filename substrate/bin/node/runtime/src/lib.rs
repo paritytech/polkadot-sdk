@@ -76,6 +76,7 @@ use pallet_identity::legacy::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
+use pallet_revive::evm::runtime::EthExtra;
 use pallet_session::historical as pallet_session_historical;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
@@ -1471,6 +1472,7 @@ where
 				),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			pallet_revive::evm::runtime::CheckEthTransact::<Runtime>::default(),
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
@@ -2531,6 +2533,16 @@ mod runtime {
 	pub type Revive = pallet_revive::Pallet<Runtime>;
 }
 
+impl TryInto<pallet_revive::Call<Runtime>> for RuntimeCall {
+	type Error = ();
+	fn try_into(self) -> Result<pallet_revive::Call<Runtime>, Self::Error> {
+		match self {
+			RuntimeCall::Revive(call) => Ok(call),
+			_ => Err(()),
+		}
+	}
+}
+
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, AccountIndex>;
 /// Block header type as expected by this runtime.
@@ -2559,11 +2571,36 @@ pub type SignedExtra = (
 		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 	>,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	pallet_revive::evm::runtime::CheckEthTransact<Runtime>,
 );
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct EthSignedExtra;
+
+impl EthExtra for EthSignedExtra {
+	type Config = Runtime;
+	type Extra = SignedExtra;
+
+	fn get_eth_transact_extra(nonce: u32, eth_fee: u128) -> Self::Extra {
+		(
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::from(crate::generic::Era::Immortal),
+			frame_system::CheckNonce::<Runtime>::from(nonce),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None)
+				.into(),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+			pallet_revive::evm::runtime::CheckEthTransact::<Runtime>::from(eth_fee),
+		)
+	}
+}
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+	pallet_revive::evm::runtime::UncheckedExtrinsic<RuntimeCall, EthSignedExtra>;
 
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
