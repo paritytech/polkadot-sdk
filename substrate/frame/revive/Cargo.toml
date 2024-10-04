@@ -19,7 +19,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 environmental = { workspace = true }
 paste = { workspace = true }
-polkavm = { version = "0.11.0", default-features = false }
+polkavm = { version = "0.12.0", default-features = false }
+polkavm-common = { version = "0.12.0", default-features = false }
 bitflags = { workspace = true }
 codec = { features = [
 	"derive",
@@ -84,6 +85,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-utility/std",
 	"polkavm/std",
+	"polkavm-common/std",
 	"rlp/std",
 	"scale-info/std",
 	"serde",

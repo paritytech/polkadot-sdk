@@ -124,7 +124,8 @@ pub mod code {
 		})?;
 
 		// this is O(n) but it allows us to be more precise
-		let num_instructions = program.instructions().count() as u64;
+		use polkavm_common::program::ISA32_V1_NoSbrk as ISA;
+		let num_instructions = program.instructions(ISA).count() as u64;
 
 		// The memory consumptions is the byte size of the whole blob,
 		// minus the RO data payload in the blob,
