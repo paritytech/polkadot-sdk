@@ -130,8 +130,6 @@ members = [
 	"cumulus/parachains/runtimes/glutton/glutton-westend",
 	"cumulus/parachains/runtimes/people/people-rococo",
 	"cumulus/parachains/runtimes/people/people-westend",
-	"cumulus/parachains/runtimes/starters/seedling",
-	"cumulus/parachains/runtimes/starters/shell",
 	"cumulus/parachains/runtimes/test-utils",
 	"cumulus/parachains/runtimes/testing/penpal",
 	"cumulus/parachains/runtimes/testing/rococo-parachain",
@@ -1191,7 +1189,6 @@ schnorrkel = { version = "0.11.4", default-features = false }
 seccompiler = { version = "0.4.0" }
 secp256k1 = { version = "0.28.0", default-features = false }
 secrecy = { version = "0.8.0", default-features = false }
-seedling-runtime = { path = "cumulus/parachains/runtimes/starters/seedling" }
 separator = { version = "0.4.1" }
 serde = { version = "1.0.210", default-features = false }
 serde-big-array = { version = "0.3.2" }
@@ -1202,7 +1199,6 @@ serial_test = { version = "2.0.0" }
 sha1 = { version = "0.10.6" }
 sha2 = { version = "0.10.7", default-features = false }
 sha3 = { version = "0.10.0", default-features = false }
-shell-runtime = { path = "cumulus/parachains/runtimes/starters/shell" }
 shlex = { version = "1.3.0" }
 slot-range-helper = { path = "polkadot/runtime/common/slot_range_helper", default-features = false }
 slotmap = { version = "1.0" }
@@ -1326,7 +1322,7 @@ tikv-jemalloc-ctl = { version = "0.5.0" }
 tikv-jemallocator = { version = "0.5.0" }
 time = { version = "0.3" }
 tiny-keccak = { version = "2.0.2" }
-tokio = { version = "1.37.0", default-features = false }
+tokio = { version = "1.40.0", default-features = false }
 tokio-retry = { version = "0.3.0" }
 tokio-stream = { version = "0.1.14" }
 tokio-test = { version = "0.4.2" }

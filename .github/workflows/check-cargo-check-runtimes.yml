@@ -85,25 +85,11 @@ jobs:
         with:
           root: cumulus/parachains/runtimes/contracts
 
-  check-runtime-starters:
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
-    needs: [check-runtime-assets, preflight]
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Run cargo check
-        uses: ./.github/actions/cargo-check-runtimes
-        with:
-          root: cumulus/parachains/runtimes/starters
-
   check-runtime-testing:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
-    needs: [check-runtime-starters, preflight]
+    needs: [preflight]
     timeout-minutes: 20
     steps:
       - name: Checkout
