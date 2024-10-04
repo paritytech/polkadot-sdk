@@ -16,7 +16,6 @@
 
 pub mod aura;
 mod manual_seal;
-pub mod shell;
 
 use crate::common::spec::{DynNodeSpec, NodeSpec as NodeSpecT};
 use cumulus_primitives_core::ParaId;
