@@ -16,3 +16,5 @@ crates:
     bump: patch
   - name: staging-xcm-builder
     bump: patch
+  - name: emulated-integration-tests-common
+    bump: minor
