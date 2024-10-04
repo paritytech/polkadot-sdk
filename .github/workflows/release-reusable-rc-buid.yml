@@ -159,6 +159,7 @@ jobs:
     - name: Build polkadot deb package
       shell: bash
       run: |
+        git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership"
         . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }}
 
     - name: Upload ${{inputs.package }} artifacts
