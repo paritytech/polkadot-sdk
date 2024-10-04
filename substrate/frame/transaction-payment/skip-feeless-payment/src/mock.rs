@@ -48,6 +48,10 @@ impl TransactionExtension<RuntimeCall> for DummyExtension {
 	type Val = ();
 	type Pre = ();
 
+	fn weight(&self, _: &RuntimeCall) -> Weight {
+		Weight::zero()
+	}
+
 	fn validate(
 		&self,
 		origin: DispatchOriginOf<RuntimeCall>,
