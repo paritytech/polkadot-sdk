@@ -127,9 +127,9 @@ impl CollationGenerationSubsystem {
 				..
 			}))) => {
 				if let Err(err) =
-					self.handle_new_activations(activated.into_iter().map(|v| v.hash), ctx).await
+					self.handle_new_activation(activated.into_iter().map(|v| v.hash), ctx).await
 				{
-					gum::warn!(target: LOG_TARGET, err = ?err, "failed to handle new activations");
+					gum::warn!(target: LOG_TARGET, err = ?err, "failed to handle new activation");
 				}
 
 				false
@@ -231,11 +231,6 @@ impl CollationGenerationSubsystem {
 			session_index,
 		};
 
-		let claim_queue = fetch_claim_queue(ctx.sender(), relay_parent)
-			.await
-			.map_err(Error::UtilRuntime)?
-			.ok_or(Error::ClaimQueueNotAvailable)?;
-
 		construct_and_distribute_receipt(
 			collation,
 			config.key.clone(),
@@ -243,14 +238,13 @@ impl CollationGenerationSubsystem {
 			result_sender,
 			&mut self.metrics,
 			session_info.v2_receipts,
-			&transpose_claim_queue(claim_queue.0),
 		)
-		.await;
+		.await?;
 
 		Ok(())
 	}
 
-	async fn handle_new_activations<Context>(
+	async fn handle_new_activation<Context>(
 		&mut self,
 		activated: impl IntoIterator<Item = Hash>,
 		ctx: &mut Context,
@@ -283,27 +277,20 @@ impl CollationGenerationSubsystem {
 			let availability_cores =
 				request_availability_cores(relay_parent, ctx.sender()).await.await??;
 
-			let claim_queue = fetch_claim_queue(ctx.sender(), relay_parent)
-				.await
-				.map_err(Error::UtilRuntime)?
-				.ok_or(Error::ClaimQueueNotAvailable)?;
-
 			// The loop bellow will fill in cores that the para is allowed to build on.
 			let mut cores_to_build_on = Vec::new();
 
 			for (core_idx, core) in availability_cores.into_iter().enumerate() {
 				let scheduled_core = match core {
 					CoreState::Scheduled(scheduled_core) => scheduled_core,
-					CoreState::Occupied(_) if async_backing_params.max_candidate_depth >= 1 => {
+					CoreState::Occupied(occupied)
+						if async_backing_params.max_candidate_depth >= 1 =>
+					{
 						// maximum candidate depth when building on top of a block
 						// pending availability is necessarily 1 - the depth of the
 						// pending block is 0 so the child has depth 1.
 
-						// read what's in the claim queue for this core at depth 0.
-						match claim_queue
-							.get_claim_for(CoreIndex(core_idx as u32), 0)
-							.map(|para_id| ScheduledCore { para_id, collator: None })
-						{
+						match occupied.next_up_on_available {
 							Some(scheduled_core) => scheduled_core,
 							None => continue,
 						}
@@ -417,8 +404,6 @@ impl CollationGenerationSubsystem {
 			let metrics = self.metrics.clone();
 			let mut task_sender = ctx.sender().clone();
 
-			let transposed_claim_queue = transpose_claim_queue(claim_queue.0);
-
 			ctx.spawn(
 				"chained-collation-builder",
 				Box::pin(async move {
@@ -442,7 +427,7 @@ impl CollationGenerationSubsystem {
 							};
 
 						let parent_head = collation.head_data.clone();
-						construct_and_distribute_receipt(
+						if let Err(err) = construct_and_distribute_receipt(
 							PreparedCollation {
 								collation,
 								para_id,
@@ -458,9 +443,16 @@ impl CollationGenerationSubsystem {
 							result_sender,
 							&metrics,
 							session_info.v2_receipts,
-							&transposed_claim_queue,
 						)
-						.await;
+						.await
+						{
+							gum::error!(
+								target: LOG_TARGET,
+								"Failed to construct and distribute collation: {}",
+								err
+							);
+							return
+						}
 
 						// Chain the collations. All else stays the same as we build the chained
 						// collation on same relay parent.
@@ -556,8 +548,7 @@ async fn construct_and_distribute_receipt(
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 	metrics: &Metrics,
 	v2_receipts: bool,
-	transposed_claim_queue: &TransposedClaimQueue,
-) {
+) -> Result<()> {
 	let PreparedCollation {
 		collation,
 		para_id,
@@ -584,15 +575,7 @@ async fn construct_and_distribute_receipt(
 		// As such, honest collators never produce an uncompressed PoV which starts with
 		// a compression magic number, which would lead validators to reject the collation.
 		if encoded_size > validation_data.max_pov_size as usize {
-			gum::debug!(
-				target: LOG_TARGET,
-				para_id = %para_id,
-				size = encoded_size,
-				max_size = validation_data.max_pov_size,
-				"PoV exceeded maximum size"
-			);
-
-			return
+			return Err(Error::POVSizeExceeded(encoded_size, validation_data.max_pov_size as usize))
 		}
 
 		pov
@@ -608,18 +591,7 @@ async fn construct_and_distribute_receipt(
 		&validation_code_hash,
 	);
 
-	let erasure_root = match erasure_root(n_validators, validation_data, pov.clone()) {
-		Ok(erasure_root) => erasure_root,
-		Err(err) => {
-			gum::error!(
-				target: LOG_TARGET,
-				para_id = %para_id,
-				err = ?err,
-				"failed to calculate erasure root",
-			);
-			return
-		},
-	};
+	let erasure_root = erasure_root(n_validators, validation_data, pov.clone())?;
 
 	let commitments = CandidateCommitments {
 		upward_messages: collation.upward_messages,
@@ -631,6 +603,13 @@ async fn construct_and_distribute_receipt(
 	};
 
 	let receipt = if v2_receipts {
+		let claim_queue = fetch_claim_queue(sender, relay_parent)
+			.await
+			.map_err(Error::UtilRuntime)?
+			.ok_or(Error::ClaimQueueNotAvailable)?;
+
+		let transposed_claim_queue = transpose_claim_queue(claim_queue.0);
+
 		let ccr = CommittedCandidateReceiptV2 {
 			descriptor: CandidateDescriptorV2::new(
 				para_id,
@@ -646,13 +625,8 @@ async fn construct_and_distribute_receipt(
 			commitments,
 		};
 
-		if let Err(error) = ccr.check_core_index(transposed_claim_queue) {
-			gum::error!(
-				target: LOG_TARGET,
-				para_id = %para_id,
-				"V2 core index check failed: {:?}", error,
-			);
-		}
+		ccr.check_core_index(&transposed_claim_queue)
+			.map_err(Error::CandidateReceiptCheck)?;
 
 		ccr.to_plain()
 	} else {
@@ -693,6 +667,8 @@ async fn construct_and_distribute_receipt(
 			core_index,
 		})
 		.await;
+
+	Ok(())
 }
 
 fn erasure_root(

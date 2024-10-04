@@ -15020,6 +15020,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-staking",
  "sp-std 14.0.0",
+ "thiserror",
 ]
 
 [[package]]

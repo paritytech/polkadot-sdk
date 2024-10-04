@@ -16,6 +16,7 @@ codec = { features = ["bit-vec", "derive"], workspace = true }
 scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
 log = { workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
+thiserror = { workspace = true }
 
 sp-application-crypto = { features = ["serde"], workspace = true }
 sp-inherents = { workspace = true }

@@ -36,6 +36,7 @@ use sp_application_crypto::ByteArray;
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::Header as HeaderT;
 use sp_staking::SessionIndex;
+use thiserror::Error;
 /// Async backing primitives
 pub mod async_backing;
 
@@ -452,20 +453,26 @@ impl CandidateCommitments {
 }
 
 /// CandidateReceipt construction errors.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug, Error)]
 pub enum CandidateReceiptError {
 	/// The specified core index is invalid.
+	#[error("The specified core index is invalid")]
 	InvalidCoreIndex,
 	/// The core index in commitments doesn't match the one in descriptor
+	#[error("The core index in commitments doesn't match the one in descriptor")]
 	CoreIndexMismatch,
 	/// The core selector or claim queue offset is invalid.
+	#[error("The core selector or claim queue offset is invalid")]
 	InvalidSelectedCore,
 	/// The parachain is not assigned to any core at specified claim queue offset.
+	#[error("The parachain is not assigned to any core at specified claim queue offset")]
 	NoAssignment,
 	/// No core was selected. The `SelectCore` commitment is mandatory for
 	/// v2 receipts if parachains has multiple cores assigned.
+	#[error("Core selector not present")]
 	NoCoreSelected,
 	/// Unknown version.
+	#[error("Unknown internal version")]
 	UnknownVersion(InternalVersion),
 }
 

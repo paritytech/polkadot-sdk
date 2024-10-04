@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use polkadot_primitives::vstaging::CandidateReceiptError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -36,6 +37,10 @@ pub enum Error {
 	SubmittedBeforeInit,
 	#[error("Claim queue runtime API not available")]
 	ClaimQueueNotAvailable,
+	#[error("V2 core index check failed: {0}")]
+	CandidateReceiptCheck(CandidateReceiptError),
+	#[error("PoV size {0} exceeded maximum size of {1}")]
+	POVSizeExceeded(usize, usize),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
