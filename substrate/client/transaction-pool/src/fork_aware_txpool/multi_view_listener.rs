@@ -474,15 +474,14 @@ where
 
 		debug!(target: LOG_TARGET, "mvl::transactions_dropped: {:?}", dropped);
 		for tx_hash in dropped {
-			if let Some(tx) = controllers.get(&tx_hash) {
+			if let Some(tx) = controllers.remove(&tx_hash) {
 				debug!(target: LOG_TARGET, "[{:?}] transaction_dropped", tx_hash);
 				match tx.unbounded_send(ControllerCommand::TransactionDropped) {
 					Err(e) => {
 						trace!(target: LOG_TARGET, "[{:?}] transactions_dropped: send message failed: {:?}", tx_hash, e);
-						controllers.remove(&tx_hash);
 					},
 					Ok(_) => {},
-				}
+				};
 			}
 		}
 	}
@@ -498,7 +497,7 @@ where
 	) {
 		let mut controllers = self.controllers.write();
 
-		if let Some(tx) = controllers.get(&tx_hash) {
+		if let Some(tx) = controllers.remove(&tx_hash) {
 			trace!(target: LOG_TARGET, "[{:?}] finalize_transaction", tx_hash);
 			let result = tx.unbounded_send(ControllerCommand::FinalizeTransaction(block, idx));
 			if let Err(e) = result {
