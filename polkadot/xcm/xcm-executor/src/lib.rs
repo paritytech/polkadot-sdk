@@ -1287,7 +1287,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let lock_ticket =
 						Config::AssetLocker::prepare_lock(unlocker.clone(), asset, origin.clone())?;
 					let owner = origin.reanchored(&unlocker, &context).map_err(|e| {
-						log::error!(target: "xcm::xcm_executor::process_instruction", "Failed to re-anchor for unlocker: {unlocker:?} and context: {context:?}");
+						log::error!(target: "xcm::xcm_executor::process_instruction", "Failed to re-anchor origin: {origin:?} for unlocker: {unlocker:?} and context: {context:?}");
 						XcmError::ReanchorFailed
 					})?;
 					let msg = Xcm::<()>(vec![NoteUnlockable { asset: remote_asset, owner }]);
