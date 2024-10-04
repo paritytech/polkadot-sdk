@@ -31,7 +31,7 @@ pub mod cleanup_proposals {
 	use super::*;
 
 	/// Migration to cleanup unapproved proposals to return the bonds back to the proposers.
-	/// Proposals storage item can no longer be created and will be removed in the future.
+	/// Proposals can no longer be created and the `Proposal` storage item will be removed in the future.
 	///
 	/// ``
 	///
