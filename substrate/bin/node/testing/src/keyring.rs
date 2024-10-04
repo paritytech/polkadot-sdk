@@ -25,7 +25,7 @@ use node_primitives::{AccountId, Balance, Nonce};
 use sp_core::{ecdsa, ed25519, sr25519};
 use sp_crypto_hashing::blake2_256;
 use sp_keyring::AccountKeyring;
-use sp_runtime::generic::{Era, ExtrinsicFormat, EXTENSION_VERSION, EXTRINSIC_FORMAT_VERSION};
+use sp_runtime::generic::{Era, ExtrinsicFormat, EXTRINSIC_FORMAT_VERSION};
 
 /// Alice's account id.
 pub fn alice() -> AccountId {
@@ -111,7 +111,7 @@ pub fn sign(
 				preamble: sp_runtime::generic::Preamble::Signed(
 					sp_runtime::MultiAddress::Id(signed),
 					signature,
-					EXTENSION_VERSION,
+					0,
 					tx_ext,
 					EXTRINSIC_FORMAT_VERSION,
 				),
@@ -123,7 +123,7 @@ pub fn sign(
 			function: xt.function,
 		},
 		ExtrinsicFormat::General(tx_ext) => UncheckedExtrinsic {
-			preamble: sp_runtime::generic::Preamble::General(EXTENSION_VERSION, tx_ext),
+			preamble: sp_runtime::generic::Preamble::General(0, tx_ext),
 			function: xt.function,
 		},
 	}
