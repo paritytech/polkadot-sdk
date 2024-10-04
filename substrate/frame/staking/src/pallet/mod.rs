@@ -977,6 +977,13 @@ pub mod pallet {
 				"As per documentation, slash defer duration ({}) should be less than bonding duration ({}).",
 				T::SlashDeferDuration::get(),
 				T::BondingDuration::get(),
+			);
+
+			assert!(
+				T::SlashDeferDuration::get() < T::HistoryDepth::get(),
+				"Offence report can come until SlashDeferDuration ({}), and we need to keep HistoryDepth ({}) for at least that long",
+				T::SlashDeferDuration::get(),
+				T::HistoryDepth::get(),
 			)
 		}
 
