@@ -49,8 +49,6 @@ pub enum Runtime {
 	/// None of the system-chain runtimes, rather the node will act agnostic to the runtime ie. be
 	/// an omni-node, and simply run a node with the given consensus algorithm.
 	Omni(BlockNumber, Consensus),
-	/// Shell
-	Shell,
 }
 
 /// Helper trait used for extracting the Runtime variant from the chain spec ID.
