@@ -4,11 +4,56 @@
 title: FRAME Reintroduce `TransactionExtension` as a replacement for `SignedExtension`
 
 doc:
-  - audience: Runtime User
+  - audience: [Runtime Dev, Runtime User, Node Operator, Node Dev]
     description: |
-      Reintroduces the changes in #2280 which were later reverted. In addition to that, this PR
-      bumps the extrinsic format version to 5, as per RFC#84. For a full list of changes, please
-      see the PrDoc for #2280.
+      Introduces a new trait `TransactionExtension` to replace `SignedExtension`. Introduce the
+      idea of transactions which obey the runtime's extensions and have according Extension data
+      (né Extra data) yet do not have hard-coded signatures.
+
+      Deprecate the terminology of "Unsigned" when used for transactions/extrinsics owing to there
+      now being "proper" unsigned transactions which obey the extension framework and "old-style"
+      unsigned which do not. Instead we have `General` for the former and `Bare` for the latter.
+      Unsigned will be phased out as a type of transaction, and `Bare` will only be used for
+      Inherents.
+
+      Types of extrinsic are now therefore
+        - Bare (no hardcoded signature, no Extra data; used to be known as "Unsigned")
+            - Bare transactions (deprecated) - Gossiped, validated with `ValidateUnsigned`
+              (deprecated) and the `_bare_compat` bits of `TransactionExtension` (deprecated).
+            - Inherents - Not gossiped, validated with `ProvideInherent`.
+        - Extended (Extra data) - Gossiped, validated via `TransactionExtension`.
+            - Signed transactions (with a hardcoded signature).
+            - General transactions (without a hardcoded signature).
+
+      Notable information on `TransactionExtension` and the differences from `SignedExtension`
+        - `AdditionalSigned`/`additional_signed` is renamed to `Implicit`/`implicit`. It is encoded
+          for the entire transaction and passed in to each extension as a new argument to validate.
+        - `pre_dispatch` is renamed to `prepare`.
+        - `validate` runs transaction validation logic both off-chain and on-chain, and is
+          non-mutating.
+        - `prepare` runs on-chain pre-execution logic using information extracted during validation
+          and is mutating.
+        - `validate` and `prepare` are now passed an `Origin` rather than an `AccountId`. If the
+          extension logic presumes an `AccountId`, consider using the trait function
+          `AsSystemOriginSigner::as_system_origin_signer`.
+        - A signature on the underlying transaction may validly not be present.
+        - The origin may be altered during validation.
+        - Validation functionality present in `validate` should not be repeated in `prepare`.
+          Useful information obtained during `validate` should now be passed in to `prepare` using
+          the new user-specifiable type `Val`.
+        - Unsigned logic should be temporarily migrated from the old `*_unsigned` functions into the
+          regular versions of the new functions where the `Origin` is `None`, until the deprecation
+          of `ValidateUnsigned` in phase 2 of Extrinsic Horizon.
+        - The `Call` type defining the runtime call is now a type parameter.
+        - Extensions now track the weight they consume during validation, preparation and
+          post-dispatch through the `TransactionExtensionBase::weight` function.
+        - `TestXt` was removed and its usage in tests was replaced with `UncheckedExtrinsic`
+          instances.
+
+      To fix the build issues introduced by this change, use the `AsTransactionExtension` adapter
+      to wrap existing `SignedExtension`s by converting them using the `From<SignedExtension>`
+      generic implementation for `AsTransactionExtension`. More details on migrating existing
+      `SignedExtension` implementations to `TransactionExtension` in the PR description.
 
 crates:
   - name: bridge-runtime-common
