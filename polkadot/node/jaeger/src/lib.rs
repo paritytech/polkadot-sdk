@@ -61,11 +61,12 @@ use self::spans::TraceIdentifier;
 use sp_core::traits::SpawnNamed;
 
 use parking_lot::RwLock;
-use std::{result, sync::Arc};
+use std::{
+	result,
+	sync::{Arc, LazyLock},
+};
 
-lazy_static::lazy_static! {
-	static ref INSTANCE: RwLock<Jaeger> = RwLock::new(Jaeger::None);
-}
+static INSTANCE: LazyLock<RwLock<Jaeger>> = LazyLock::new(|| RwLock::new(Jaeger::None));
 
 /// Stateful convenience wrapper around [`mick_jaeger`].
 pub enum Jaeger {
