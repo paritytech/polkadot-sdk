@@ -14,7 +14,7 @@ on:
         required: true
         options:
           - "TODO"
-          - "no change"
+          - "no_change"
           - "patch"
           - "minor"
           - "major"

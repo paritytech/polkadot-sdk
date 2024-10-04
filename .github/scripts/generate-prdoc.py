@@ -7,7 +7,7 @@ It downloads and parses the patch from the GitHub API to opulate the prdoc with 
 This will delete any prdoc that already exists for the PR if `--force` is passed.
 
 Usage:
-	python generate-prdoc.py --pr 1234 --audience "Node Dev" --bump "patch"
+	python generate-prdoc.py --pr 1234 --audience node_dev --bump patch
 """
 
 import argparse
@@ -116,7 +116,7 @@ def setup_parser(parser=None):
 		parser = argparse.ArgumentParser()
 	parser.add_argument("--pr", type=int, required=True, help="The PR number to generate the PrDoc for.")
 	parser.add_argument("--audience", type=str, nargs='*', choices=allowed_audiences, default=["todo"], help="The audience of whom the changes may concern. Example: --audience runtime_dev node_dev")
-	parser.add_argument("--bump", type=str, default="major", choices=["patch", "minor", "major", "silent", "ignore", "no change"], help="A default bump level for all crates. Example: --bump \"patch\"")
+	parser.add_argument("--bump", type=str, default="major", choices=["patch", "minor", "major", "silent", "ignore", "no_change"], help="A default bump level for all crates. Example: --bump patch")
 	parser.add_argument("--force", action="store_true", help="Whether to overwrite any existing PrDoc.")
 	return parser
 
