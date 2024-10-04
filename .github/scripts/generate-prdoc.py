@@ -111,25 +111,31 @@ def setup_yaml():
 
 # parse_args is also used by cmd/cmd.py
 def setup_parser(parser=None):
-	allowed_audiences = ["Runtime Dev", "Runtime User", "Node Dev", "Node Operator"]
+	allowed_audiences = ["runtime_dev", "runtime_user", "node_dev", "node_operator"]
 	if parser is None:
 		parser = argparse.ArgumentParser()
-	parser.add_argument("--pr", type=int, required=True, help="The PR number to generate the PrDoc for."	)
-	parser.add_argument("--audience", type=str, nargs='*', choices=allowed_audiences, default=["TODO"], help="The audience of whom the changes may concern. Example: --audience \"Runtime Dev\" \"Node Dev\"")
+	parser.add_argument("--pr", type=int, required=True, help="The PR number to generate the PrDoc for.")
+	parser.add_argument("--audience", type=str, nargs='*', choices=allowed_audiences, default=["todo"], help="The audience of whom the changes may concern. Example: --audience runtime_dev node_dev")
 	parser.add_argument("--bump", type=str, default="major", choices=["patch", "minor", "major", "silent", "ignore", "no change"], help="A default bump level for all crates. Example: --bump \"patch\"")
 	parser.add_argument("--force", action="store_true", help="Whether to overwrite any existing PrDoc.")
 	return parser
+
+def snake_to_title(s):
+    return ' '.join(word.capitalize() for word in s.split('_'))
 
 def main(args):
 	print(f"Args: {args}, force: {args.force}")
 	setup_yaml()
 	try:
-		from_pr_number(args.pr, args.audience, args.bump, args.force)
+		# Convert snake_case audience arguments to title case
+		mapped_audiences = [snake_to_title(a) for a in args.audience]
+		from_pr_number(args.pr, mapped_audiences, args.bump, args.force)
 		return 0
 	except Exception as e:
 		print(f"Error generating prdoc: {e}")
 		return 1
 
 if __name__ == "__main__":
-	args = setup_parser().parse_args()
+	parser = setup_parser()
+	args = parser.parse_args()
 	main(args)
