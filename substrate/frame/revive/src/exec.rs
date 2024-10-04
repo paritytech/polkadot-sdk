@@ -1556,8 +1556,8 @@ where
 		}
 
 		let account_id = self.account_id().clone();
-		let bytes = data.len() as u32;
-		let amount = self.top_frame_mut().contract_info().set_immutable_bytes(bytes)?;
+		let len = data.len() as u32;
+		let amount = self.top_frame_mut().contract_info().set_immutable_data_len(len)?;
 		self.top_frame_mut().nested_storage.charge_deposit(account_id.clone(), amount);
 
 		<ImmutableDataOf<T>>::insert(T::AddressMapper::to_address(&account_id), &data);

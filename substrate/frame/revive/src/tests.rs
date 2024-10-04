@@ -143,7 +143,7 @@ pub mod test_utils {
 		let info_deposit = DepositPerByte::get()
 			.saturating_mul(info_size)
 			.saturating_add(DepositPerItem::get());
-		let immutable_size = contract_info.immutable_bytes() as u64;
+		let immutable_size = contract_info.immutable_data_len() as u64;
 		if immutable_size > 0 {
 			let immutable_deposit = DepositPerByte::get()
 				.saturating_mul(immutable_size)
@@ -4390,7 +4390,7 @@ mod run_tests {
 				),
 				test_utils::contract_info_storage_deposit(&addr)
 			);
-			assert_eq!(test_utils::get_contract(&addr).immutable_bytes(), data.len() as u32);
+			assert_eq!(test_utils::get_contract(&addr).immutable_data_len(), data.len() as u32);
 
 			// Call the contract: Asserts the input to equal the immutable data
 			assert_ok!(builder::call(addr).data(data.to_vec()).build());

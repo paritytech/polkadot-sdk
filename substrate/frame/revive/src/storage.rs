@@ -77,7 +77,7 @@ pub struct ContractInfo<T: Config> {
 	/// calls.
 	delegate_dependencies: DelegateDependencyMap<T>,
 	/// The size of the immutable data of this contract.
-	immutable_bytes: u32,
+	immutable_data_len: u32,
 }
 
 impl<T: Config> ContractInfo<T> {
@@ -111,7 +111,7 @@ impl<T: Config> ContractInfo<T> {
 			storage_item_deposit: Zero::zero(),
 			storage_base_deposit: Zero::zero(),
 			delegate_dependencies: Default::default(),
-			immutable_bytes: 0,
+			immutable_data_len: 0,
 		};
 
 		Ok(contract)
@@ -362,8 +362,8 @@ impl<T: Config> ContractInfo<T> {
 	}
 
 	/// Returns the amount of immutable bytes of this contract.
-	pub fn immutable_bytes(&self) -> u32 {
-		self.immutable_bytes
+	pub fn immutable_data_len(&self) -> u32 {
+		self.immutable_data_len
 	}
 
 	/// Set the number of immutable bytes of this contract.
@@ -373,19 +373,19 @@ impl<T: Config> ContractInfo<T> {
 	/// Returns `Err(InvalidImmutableAccess)` if:
 	/// - The immutable bytes of this contract are not 0. This indicates that the immutable data
 	///   have already been set; it is only valid to set the immutable data exactly once.
-	/// - The provided `immutable_bytes` value was 0; it is invalid to set empty immutable data.
-	pub fn set_immutable_bytes(
+	/// - The provided `immutable_data_len` value was 0; it is invalid to set empty immutable data.
+	pub fn set_immutable_data_len(
 		&mut self,
-		immutable_bytes: u32,
+		immutable_data_len: u32,
 	) -> Result<DepositOf<T>, DispatchError> {
-		if self.immutable_bytes != 0 || immutable_bytes == 0 {
+		if self.immutable_data_len != 0 || immutable_data_len == 0 {
 			return Err(Error::<T>::InvalidImmutableAccess.into());
 		}
 
-		self.immutable_bytes = immutable_bytes;
+		self.immutable_data_len = immutable_data_len;
 
 		let amount = T::DepositPerByte::get()
-			.saturating_mul(immutable_bytes.into())
+			.saturating_mul(immutable_data_len.into())
 			.saturating_add(T::DepositPerItem::get());
 		Ok(StorageDeposit::Charge(amount))
 	}
