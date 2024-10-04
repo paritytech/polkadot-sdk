@@ -33,7 +33,7 @@ mod imports {
 		accounts::ALICE,
 		impls::Inspect,
 		test_parachain_is_trusted_teleporter, test_parachain_is_trusted_teleporter_for_relay,
-		test_relay_is_trusted_teleporter,
+		test_relay_is_trusted_teleporter, test_dry_run_transfer_across_pk_bridge,
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, TestExt,
 		},
