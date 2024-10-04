@@ -84,6 +84,12 @@ struct AnnouncedBlocks<Block: BlockT> {
 }
 
 /// Wrapper over LRU to efficiently lookup hashes and remove elements as FIFO queue.
+///
+/// For the finalized blocks we use `peek` to avoid moving the block counter to the front.
+/// This effectively means that the LRU acts as a FIFO queue. Otherwise, we might
+/// end up with scenarios where the "finalized block" in the end of LRU is overwritten which
+/// may not necessarily be the oldest finalized block i.e, possible that "get" promotes an
+/// older finalized block because it was accessed more recently.
 struct MostRecentFinalizedBlocks<Block: BlockT>(LruMap<Block::Hash, ()>);
 
 impl<Block: BlockT> MostRecentFinalizedBlocks<Block> {
@@ -94,11 +100,6 @@ impl<Block: BlockT> MostRecentFinalizedBlocks<Block> {
 
 	/// Check if the block is contained in the LRU cache.
 	fn contains(&mut self, block: &Block::Hash) -> Option<&()> {
-		// For the finalized blocks we use `peek` to avoid moving the block counter to the front.
-		// This effectively means that the LRU acts as a FIFO queue. Otherwise, we might
-		// end up with scenarios where the "finalized block" in the end of LRU is overwritten which
-		// may not necessarily be the oldest finalized block i.e, possible that "get" promotes an
-		// older finalized block because it was accessed more recently.
 		self.0.peek(block)
 	}
 }
