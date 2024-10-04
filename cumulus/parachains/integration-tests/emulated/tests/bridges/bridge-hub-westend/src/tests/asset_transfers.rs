@@ -579,7 +579,7 @@ fn dry_run_transfer_to_rococo_sends_xcm_to_bridge_hub() {
 		// Give some initial funds.
 		<Balances as fungible::Mutate<_>>::set_balance(&who, initial_balance);
 
-		let call = RuntimeCall::PolkadotXcm(pallet_xcm::Call::limited_reserve_transfer_assets {
+		let call = RuntimeCall::PolkadotXcm(pallet_xcm::Call::transfer_assets {
 			dest: Box::new(VersionedLocation::from(asset_hub_rococo_location())),
 			beneficiary: Box::new(VersionedLocation::from(Junction::AccountId32 {
 				id: who.clone().into(),

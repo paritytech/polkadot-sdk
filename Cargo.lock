@@ -2229,6 +2229,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "testnet-parachains-constants",
+ "xcm-runtime-apis",
 ]
 
 [[package]]
