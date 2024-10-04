@@ -4,8 +4,7 @@
 title: "XCM paid execution barrier supports more origin altering instructions"
 
 doc:
-  - audience:
-    - Runtime Dev
+  - audience: Runtime Dev
     description: |
       Updates the `AllowTopLevelPaidExecutionFrom` barrier to also support messages that
       use `DescendOrigin` or `AliasOrigin` for altering the computed origin during execution.
