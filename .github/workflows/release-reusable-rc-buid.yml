@@ -160,9 +160,14 @@ jobs:
         ls -la
 
     - name: Build polkadot deb package
-      working-directory: target/production/${{ inputs.package }}
+      #working-directory: target/production/${{ inputs.package }}
       shell: bash
       run: |
+        echo "What is in working directory: "
+        ls -la
+
+        echo "What is in the target: "
+        ls -la target/production/${{ inputs.package }}
         pwd
         . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }}
 
