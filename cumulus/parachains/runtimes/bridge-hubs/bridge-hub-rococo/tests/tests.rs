@@ -823,9 +823,10 @@ fn location_conversion_works() {
 		let expected =
 			AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
 
-		let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
-			tc.location.into(),
-		)
+		let got = LocationToAccountHelper::<
+			AccountId,
+			bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
+		>::convert_location(tc.location.into())
 		.unwrap();
 
 		assert_eq!(got, expected, "{}", tc.description);
