@@ -361,6 +361,7 @@ pub trait EthExtra {
 		let eth_fee =
 			gas_price.saturating_mul(gas).try_into().map_err(|_| InvalidTransaction::Call)?;
 
+		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce {nonce:?}");
 		Ok(CheckedExtrinsic {
 			signed: Some((signer.into(), Self::get_eth_transact_extra(nonce, eth_fee))),
 			function: call.into(),
@@ -384,24 +385,15 @@ mod test {
 	use sp_runtime::traits::{Checkable, IdentityLookup};
 
 	/// A simple account that can sign transactions
-	pub struct Account {
-		/// The secret key of the account
-		sk: SecretKey,
-	}
+	pub struct Account(subxt_signer::eth::Keypair);
 
 	impl Default for Account {
 		fn default() -> Self {
-			Account::from_keypair(&subxt_signer::ecdsa::dev::alice())
+			Self(subxt_signer::eth::dev::alith())
 		}
 	}
 
 	impl Account {
-		/// Create an account from a keypair.
-		pub fn from_keypair(pair: &subxt_signer::ecdsa::Keypair) -> Self {
-			let sb = pair.0.secret_key().secret_bytes();
-			Account { sk: SecretKey::from_slice(&sb).unwrap() }
-		}
-
 		/// Get the [`AccountId`] of the account.
 		pub fn account_id(&self) -> AccountId {
 			let address = self.address();
@@ -410,22 +402,14 @@ mod test {
 
 		/// Get the [`H160`] address of the account.
 		pub fn address(&self) -> H160 {
-			let pub_key =
-				PublicKey::from_secret_key(&Secp256k1::new(), &self.sk).serialize_uncompressed();
-			let hash = keccak_256(&pub_key[1..]);
-			H160::from_slice(&hash[12..])
+			H160::from_slice(&self.0.account_id().as_ref())
 		}
 
 		/// Sign a transaction.
 		pub fn sign_transaction(&self, tx: TransactionLegacyUnsigned) -> TransactionLegacySigned {
 			let rlp_encoded = tx.rlp_bytes();
-			let tx_hash = keccak_256(&rlp_encoded);
-			let secp = Secp256k1::new();
-			let msg = Message::from_digest(tx_hash);
-			let sig = secp.sign_ecdsa_recoverable(&msg, &self.sk);
-			let (recovery_id, sig) = sig.serialize_compact();
-			let sig = sig.into_iter().chain([recovery_id.to_i32() as u8]).collect::<Vec<_>>();
-			TransactionLegacySigned::from(tx, &sig.try_into().unwrap())
+			let signature = self.0.sign(&rlp_encoded);
+			TransactionLegacySigned::from(tx, signature.as_ref())
 		}
 	}
 
