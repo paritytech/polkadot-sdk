@@ -1905,7 +1905,7 @@ impl<T: Config> Pallet<T> {
 		reanchored_assets
 			.reanchor(&dest, &context)
 			.map_err(|e| {
-				log::error!(target: "xcm::pallet_xcm::local_reserve_transfer_programs", "Failed to re-anchor assets: {:?}", e);
+				log::error!(target: "xcm::pallet_xcm::local_reserve_transfer_programs", "Failed to re-anchor assets: {e:?} for dest: {dest:?} and context {context:?}");
 				Error::<T>::CannotReanchor
 			})?;
 
