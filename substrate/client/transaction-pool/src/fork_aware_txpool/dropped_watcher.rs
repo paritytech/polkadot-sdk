@@ -143,10 +143,9 @@ where
 	) -> Option<ExtrinsicHash<C>> {
 		trace!(
 			target: LOG_TARGET,
-			"dropped_watcher: got event: views:{:?}, event: {:?} states: {:?}",
-			self.stream_map.keys().collect::<Vec<_>>(),
+			"dropped_watcher: handle_event: event:{:?} views:{:?}, ",
 			event,
-			self.transaction_states
+			self.stream_map.keys().collect::<Vec<_>>(),
 		);
 		let (tx_hash, status) = event;
 		match status {
@@ -210,11 +209,11 @@ where
 					cmd = ctx.command_receiver.next() => {
 						match cmd? {
 							Command::AddView(key,stream) => {
-								trace!(target: LOG_TARGET,"dropped_watcher: Command::AddView {key:?} {:#?}",ctx.stream_map.keys().collect::<Vec<_>>());
+								trace!(target: LOG_TARGET,"dropped_watcher: Command::AddView {key:?} views:{:?}",ctx.stream_map.keys().collect::<Vec<_>>());
 								ctx.stream_map.insert(key,stream);
 							},
 							Command::RemoveView(key) => {
-								trace!(target: LOG_TARGET,"dropped_watcher: Command::RemoveView {key:?} {:#?}",ctx.stream_map.keys().collect::<Vec<_>>());
+								trace!(target: LOG_TARGET,"dropped_watcher: Command::RemoveView {key:?} views:{:?}",ctx.stream_map.keys().collect::<Vec<_>>());
 								ctx.stream_map.remove(&key);
 							},
 							Command::AddInitialViews(xts,block_hash) => {
@@ -235,7 +234,6 @@ where
 					},
 
 					Some(event) = next_event(&mut ctx.stream_map) => {
-						debug!(target: LOG_TARGET, "dropped_watcher: next_event -> {:?} {:?}", event, ctx.stream_map.keys().collect::<Vec<_>>());
 						if let Some(dropped) = ctx.handle_event(event.0, event.1) {
 							debug!("dropped_watcher: sending out: {dropped:?}");
 							return Some((dropped, ctx));
