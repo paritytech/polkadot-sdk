@@ -2209,7 +2209,7 @@ impl<T: Config> Pallet<T> {
 				&dummy_context,
 			)
 			.map_err(|e| {
-				log::error!(target: "xcm::pallet_xcm::teleport_assets_program", "Failed to teleport asset: {:?}", e);
+				log::error!(target: "xcm::pallet_xcm::teleport_assets_program", "Failed can_check_out asset: {asset:?} for dest: {dest:?} with error: {e:?}");
 				Error::<T>::CannotCheckOutTeleport
 			})?;
 		}
