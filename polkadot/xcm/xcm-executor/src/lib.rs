@@ -929,7 +929,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				.ok_or(XcmError::BadOrigin)?
 				.append_with(who)
 				.map_err(|e| {
-					log::error!(target: "xcm::process_instruction::descend_origin", "Failed to append to Location: {:?}", e);
+					log::error!(target: "xcm::process_instruction::descend_origin", "Failed to append junctions: {e:?}");
 					XcmError::LocationFull
 				}),
 			ClearOrigin => {
@@ -1096,7 +1096,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				// pay for `weight` using up to `fees` of the holding register.
 				let max_fee =
 					self.holding.try_take(fees.clone().into()).map_err(|e| {
-						log::error!(target: "xcm::process_instruction::buy_execution", "Failed to take fees {:?} from holding. {:?}", fees, e);
+						log::error!(target: "xcm::process_instruction::buy_execution", "Failed to take fees {fees:?} from holding with error: {e:?}");
 						XcmError::NotHoldingFees
 					})?;
 				let result = || -> Result<(), XcmError> {
@@ -1162,7 +1162,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			ExpectAsset(assets) =>
 				self.holding.ensure_contains(&assets).map_err(|e| {
-					log::error!(target: "xcm::process_instruction::expect_asset", "Holding contains no asset: {:?}", e);
+					log::error!(target: "xcm::process_instruction::expect_asset", "Failed ensure_contains for assets: {assets:?} with error: {e:?}");
 					XcmError::ExpectationFalse
 				}),
 			ExpectOrigin(origin) => {
@@ -1287,7 +1287,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let lock_ticket =
 						Config::AssetLocker::prepare_lock(unlocker.clone(), asset, origin.clone())?;
 					let owner = origin.reanchored(&unlocker, &context).map_err(|e| {
-						log::error!(target: "xcm::xcm_executor::process_instruction", "Failed to re-anchor: {:?}", e);
+						log::error!(target: "xcm::xcm_executor::process_instruction", "Failed to re-anchor for unlocker: {unlocker:?} and context: {context:?}");
 						XcmError::ReanchorFailed
 					})?;
 					let msg = Xcm::<()>(vec![NoteUnlockable { asset: remote_asset, owner }]);
