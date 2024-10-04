@@ -13,7 +13,7 @@ on:
           - all
 
       release_tag:
-        description: Tag matching the actual release candidate with the format vX.XX.X-rcX or stableYYMM
+        description: Tag matching the actual release candidate with the format stableYYMM-rcX or stableYYMM
         type: string
 
 jobs:
