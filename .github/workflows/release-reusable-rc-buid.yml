@@ -1,23 +1,6 @@
 name: RC Build
 
 on:
-  # workflow_dispatch:
-    # inputs:
-    #   binary:
-    #     description: Binary to be build for the release
-    #     required: true
-    #     default: polkadot
-    #     type: choice
-    #     options:
-    #       - polkadot
-    #       - polkadot-parachain
-    #       - all
-
-    #   release_tag:
-    #     description: Tag matching the actual release candidate with the format vX.XX.X-rcX or stableYYMM
-    #     required: true
-    #     type: string
-
   workflow_call:
     inputs:
       binary:
@@ -184,36 +167,29 @@ jobs:
         name: ${{ inputs.package }}
         path: target/production/${{ inputs.package }}
 
-  upload-artifacts-to-s3:
+  upload-polkadot-artifacts-to-s3:
+    if: ${{ inputs.package == 'polkadot' }}
+    needs: [build-polkadot-deb-package]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: ${{ inputs.package }}
+      release_tag: ${{ inputs.release_tag }}
+    secrets:
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+
+
+  upload-polkadot-parachain-artifacts-to-s3:
+    if: ${{ inputs.package == 'polkadot-parachain-bin' }}
     needs: [build-rc]
-    runs-on: ubuntu-latest
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-    # strategy:
-    #   matrix:
-    #     binaries: ${{ fromJson(inputs.binary) }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
-
-      - name: Download artifacts
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-        with:
-          path: artifacts/${{ inputs.package }}
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
-        with:
-          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Upload ${{ inputs.package }} artifacts to s3
-        run: |
-          . ./.github/scripts/release/release_lib.sh
-          upload_s3_release ${{ inputs.package }} ${{ inputs.release_tag }}
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: ${{ inputs.package }}
+      release_tag: ${{ inputs.release_tag }}
+    secrets:
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
 
 # - name: Upload artifacts to github release
