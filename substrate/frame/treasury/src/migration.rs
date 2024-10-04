@@ -33,8 +33,6 @@ pub mod cleanup_proposals {
 	/// Migration to cleanup unapproved proposals to return the bonds back to the proposers.
 	/// Proposals can no longer be created and the `Proposal` storage item will be removed in the future.
 	///
-	/// ``
-	///
 	/// Example to provide weight info for migration using [`pallet_balances::Config`]:
 	/// ```
 	/// pub struct BalanceUnreserveWeight<T>(PhantomData<T>);
