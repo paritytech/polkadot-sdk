@@ -603,6 +603,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 				InitiateTransfer {
 					destination: reanchored_dest,
 					remote_fees: Some(AssetTransferFilter::ReserveDeposit(onward_wnds.into())),
+					preserve_origin: false,
 					assets: vec![AssetTransferFilter::ReserveDeposit(reanchored_pens.into())],
 					remote_xcm: xcm_on_dest,
 				},
@@ -623,6 +624,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 					destination: local_asset_hub,
 					// WNDs for fees are reserve-withdrawn at AHW and reserved for fees
 					remote_fees: Some(AssetTransferFilter::ReserveWithdraw(ahw_fees.into())),
+					preserve_origin: false,
 					// PENs are teleported to AHW, rest of non-fee WNDs are reserve-withdrawn at AHW
 					assets: vec![
 						AssetTransferFilter::Teleport(pens.into()),
