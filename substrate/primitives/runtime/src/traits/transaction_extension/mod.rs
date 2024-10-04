@@ -56,13 +56,13 @@ pub type ValidateResult<Val, Call> =
 /// Transaction extensions are capable of altering certain associated semantics:
 ///
 /// - They may define the origin with which the transaction's call should be dispatched.
-/// - They may define various parameters used by the transction queue to determine under what
+/// - They may define various parameters used by the transaction queue to determine under what
 ///   conditions the transaction should be retained and introduced on-chain.
 /// - They may define whether this transaction is acceptable for introduction on-chain at all.
 ///
 /// Each of these semantics are defined by the `validate` function.
 ///
-/// **NOTE: Transaction extensions cannot under any circumctances alter the call itself.**
+/// **NOTE: Transaction extensions cannot under any circumstances alter the call itself.**
 ///
 /// Transaction extensions are capable of defining logic which is executed additionally to the
 /// dispatch of the call:
@@ -115,7 +115,7 @@ pub type ValidateResult<Val, Call> =
 /// pipeline is executed in order, and the output of each extension is aggregated and/or relayed as
 /// the input to the next extension in the pipeline.
 ///
-/// This ordered composition happens with all datatypes ([Val](TransactionExtension::Val),
+/// This ordered composition happens with all data types ([Val](TransactionExtension::Val),
 /// [Pre](TransactionExtension::Pre) and [Implicit](TransactionExtension::Implicit)) as well as
 /// all functions. There are important consequences stemming from how the composition affects the
 /// meaning of the `origin` and `implication` parameters as well as the results. Whereas the
@@ -143,7 +143,7 @@ pub type ValidateResult<Val, Call> =
 /// `implication` argument which implements the [Encode] trait. A transaction extension may define
 /// its own implications through its own fields and the
 /// [implicit](TransactionExtension::implicit) function. This is only utilized by extensions
-/// which preceed it in a pipeline or, if the transaction is an old-school signed transaction, the
+/// which precede it in a pipeline or, if the transaction is an old-school signed transaction, the
 /// underlying transaction verification logic.
 ///
 /// **The inherited implication passed as the `implication` parameter to
@@ -156,7 +156,7 @@ pub type ValidateResult<Val, Call> =
 /// [PostDispatchInfo](PostDispatchInfoOf<Call>) of that transaction sequentially with each
 /// [post_dispatch](TransactionExtension::post_dispatch) call. This means that an extension handling
 /// transaction payment and refunds should be at the end of the pipeline in order to capture the
-/// correct amount of weight used during the call. This is because one canot know the actual weight
+/// correct amount of weight used during the call. This is because one cannot know the actual weight
 /// of an extension after post dispatch without running the post dispatch ahead of time.
 pub trait TransactionExtension<Call: Dispatchable>:
 	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
