@@ -44,6 +44,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-balances/std",
 	"pallet-utility/std",
 	"scale-info/std",
@@ -51,7 +52,6 @@ std = [
 	"sp-core?/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"log/std",
 ]
 runtime-benchmarks = [
 	"dep:sp-core",
