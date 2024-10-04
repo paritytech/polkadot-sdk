@@ -78,11 +78,24 @@ pub mod history_depth_reducer {
 	impl<T: Config, OldHistoryDepth: Get<EraIndex>, MaxErasToClear: Get<u32>> OnRuntimeUpgrade for Migrate<T, OldHistoryDepth, MaxErasToClear> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight = Weight::default();
-			for era in OldHistoryDepth::get()..T::HistoryDepth::get() {
+			let mut count: u32 = 0;
+
+			let current_era = CurrentEra::<T>::get().unwrap_or_default();
+			let start_era = current_era.saturating_sub(OldHistoryDepth::get());
+			let end_era = current_era.saturating_sub(T::HistoryDepth::get());
+			for era in start_era..end_era {
+				log!(info, "Checking if era {} exists in history", era);
 				if era_in_history::<T>(era) {
 					Pallet::<T>::clear_era_information(era);
+					count = count + 1;
+					log!(info, "Cleared history for era {}.", era);
+				}
+
+				if count >= MaxErasToClear::get() {
+					break;
 				}
 			}
+			log!(info, "Total cleared eras = {}.", count);
 			weight
 		}
 
@@ -95,7 +108,10 @@ pub mod history_depth_reducer {
 
 			let mut eras_to_remove = vec![];
 
-			for era in OldHistoryDepth::get()..T::HistoryDepth::get() {
+			let current_era = CurrentEra::<T>::get().unwrap_or_default();
+			let start_era = current_era.saturating_sub(OldHistoryDepth::get());
+			let end_era = current_era.saturating_sub(T::HistoryDepth::get());
+			for era in start_era..end_era {
 				if era_in_history::<T>(era) {
 					eras_to_remove.push(era);
 				}
@@ -105,11 +121,11 @@ pub mod history_depth_reducer {
 				}
 			}
 
-			ensure!(
-				!eras_to_remove.is_empty(),
-				"Nothing left to clear. This migration can be removed."
-			);
+			if eras_to_remove.is_empty() {
+				log!(info, "No era to remove. This migration can be removed.");
+			}
 
+			log!(info, "Total eras to remove = {}.", eras_to_remove.len());
 			Ok(eras_to_remove.encode())
 		}
 
