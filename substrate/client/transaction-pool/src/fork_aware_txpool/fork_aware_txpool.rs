@@ -687,7 +687,18 @@ where
 			let result = result.or_else(|(e, maybe_watcher)| {
 				let error = e.into_pool_error();
 				match (error, maybe_watcher) {
-					(Ok(Error::ImmediatelyDropped), Some(watcher)) => Ok(watcher),
+					(
+						Ok(
+							// The transaction is still in mempool it may get included into the view for the next block.
+							Error::ImmediatelyDropped |
+							// These errors indicates that transaction is already known (e.g. it was ready, broadcasted and dropped from
+							// local peer, and then imported in a fork from the other peer). Returning status stream is
+							// better then reporting error in this case.
+							Error::AlreadyImported(..) |
+							Error::TemporarilyBanned,
+						),
+						Some(watcher),
+					) => Ok(watcher),
 					(Ok(e), _) => {
 						mempool.remove(xt_hash);
 						Err(e.into())
@@ -941,13 +952,13 @@ where
 		let start = Instant::now();
 		self.update_view_with_fork(&view, tree_route, at.clone()).await;
 		let duration = start.elapsed();
-		log::debug!(target: LOG_TARGET, "update_view_fork: at {at:?} took {duration:?}");
+		log::debug!(target: LOG_TARGET, "update_view_with_fork: at {at:?} took {duration:?}");
 
 		// 3. Finally, submit transactions from the mempool.
 		let start = Instant::now();
 		self.update_view_with_mempool(&mut view, watched_xts).await;
 		let duration = start.elapsed();
-		log::debug!(target: LOG_TARGET, "update_view_pool: at {at:?} took {duration:?}");
+		log::debug!(target: LOG_TARGET, "update_view_with_mempool: at {at:?} took {duration:?}");
 
 		let view = Arc::from(view);
 		self.view_store.insert_new_view(view.clone(), tree_route).await;
@@ -1003,7 +1014,7 @@ where
 		&self,
 		view: &View<ChainApi>,
 	) -> Vec<(ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>)> {
-		log::trace!(
+		log::debug!(
 			target: LOG_TARGET,
 			"register_listeners: {:?} xts:{:?} v:{}",
 			view.at,
@@ -1054,7 +1065,7 @@ where
 		view: &View<ChainApi>,
 		watched_xts: Vec<(ExtrinsicHash<ChainApi>, Arc<TxInMemPool<ChainApi, Block>>)>,
 	) {
-		log::trace!(
+		log::debug!(
 			target: LOG_TARGET,
 			"update_view_with_mempool: {:?} xts:{:?} v:{}",
 			view.at,
@@ -1081,7 +1092,7 @@ where
 				all_submitted_count += xts.len();
 				let _ = view.submit_many(source, xts).await;
 			}
-			log::debug!(target: LOG_TARGET, "update_view_pool: at {:?} unwatched {}/{}", view.at.hash, all_submitted_count, unwatched_count);
+			log::debug!(target: LOG_TARGET, "update_view_with_mempool: at {:?} unwatched {}/{}", view.at.hash, all_submitted_count, unwatched_count);
 		}
 
 		let watched_submitted_count = watched_xts.len();
@@ -1137,7 +1148,7 @@ where
 			watched_results.extend(results);
 		}
 
-		log::debug!(target: LOG_TARGET, "update_view_pool: at {:?} watched {}/{}", view.at.hash, watched_submitted_count, self.mempool_len().1);
+		log::debug!(target: LOG_TARGET, "update_view_with_mempool: at {:?} watched {}/{}", view.at.hash, watched_submitted_count, self.mempool_len().1);
 
 		all_submitted_count += watched_submitted_count;
 		let _ = all_submitted_count
@@ -1169,7 +1180,7 @@ where
 		tree_route: &TreeRoute<Block>,
 		hash_and_number: HashAndNumber<Block>,
 	) {
-		log::trace!(target: LOG_TARGET, "update_view_with_fork tree_route: {:?} {tree_route:?}", view.at);
+		log::debug!(target: LOG_TARGET, "update_view_with_fork tree_route: {:?} {tree_route:?}", view.at);
 		let api = self.api.clone();
 
 		// We keep track of everything we prune so that later we won't add
