@@ -215,7 +215,7 @@ where
 		tx: TxInMemPool<ChainApi, Block>,
 	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
 		//todo: obey size limits [#5476]
-		match (current_len < self.max_transactions_count, entry) {
+		let result = match (current_len < self.max_transactions_count, entry) {
 			(true, Entry::Vacant(v)) => {
 				v.insert(Arc::from(tx));
 				Ok(hash)
@@ -223,7 +223,10 @@ where
 			(_, Entry::Occupied(_)) =>
 				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash)).into()),
 			(false, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped.into()),
-		}
+		};
+		log::trace!(target: LOG_TARGET, "[{:?}] mempool::try_insert: {:?}", hash, result);
+
+		result
 	}
 
 	/// Adds a new unwatched transactions to the internal buffer not exceeding the limit.
