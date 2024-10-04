@@ -4355,7 +4355,7 @@ mod tests {
 				let value = <Test as Config>::Currency::minimum_balance().into();
 
 				assert_eq!(
-					ctx.ext.set_immutable_data(Default::default()),
+					ctx.ext.set_immutable_data(vec![0, 1, 2, 3].try_into().unwrap()),
 					Err(Error::<Test>::InvalidImmutableAccess.into())
 				);
 
@@ -4448,6 +4448,74 @@ mod tests {
 					CHARLIE_ADDR,
 					vec![2].try_into().unwrap(),
 				);
+
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap()
+			});
+	}
+
+	#[test]
+	fn immutable_data_set_works_only_once() {
+		let dummy_ch = MockLoader::insert(Constructor, move |ctx, _| {
+			// Calling `set_immutable_data` the first time should work
+			assert_ok!(ctx.ext.set_immutable_data(vec![0, 1, 2, 3].try_into().unwrap()));
+			// Calling `set_immutable_data` the second time should error out
+			assert_eq!(
+				ctx.ext.set_immutable_data(vec![0, 1, 2, 3].try_into().unwrap()),
+				Err(Error::<Test>::InvalidImmutableAccess.into())
+			);
+			exec_success()
+		});
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.existential_deposit(15)
+			.build()
+			.execute_with(|| {
+				set_balance(&ALICE, 1000);
+				place_contract(&BOB, dummy_ch);
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap()
+			});
+	}
+
+	#[test]
+	fn immutable_data_set_errors_with_empty_data() {
+		let dummy_ch = MockLoader::insert(Constructor, move |ctx, _| {
+			// Calling `set_immutable_data` with empty data should error out
+			assert_eq!(
+				ctx.ext.set_immutable_data(Default::default()),
+				Err(Error::<Test>::InvalidImmutableAccess.into())
+			);
+			exec_success()
+		});
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.existential_deposit(15)
+			.build()
+			.execute_with(|| {
+				set_balance(&ALICE, 1000);
+				place_contract(&BOB, dummy_ch);
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
 
 				MockStack::run_call(
 					origin,
