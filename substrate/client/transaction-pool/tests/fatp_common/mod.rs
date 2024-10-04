@@ -98,6 +98,7 @@ impl TestPoolBuilder {
 		self
 	}
 
+	#[allow(dead_code)]
 	pub fn with_mempool_count_limit(mut self, mempool_count_limit: usize) -> Self {
 		self.mempool_max_transactions_count = mempool_count_limit;
 		self.use_default_limits = false;
