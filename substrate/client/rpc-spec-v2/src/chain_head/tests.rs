@@ -3975,16 +3975,15 @@ async fn follow_event_with_unknown_parent() {
 	let client_mock = Arc::new(ChainHeadMockClient::new(client.clone()));
 
 	let api = ChainHead::new(
-		client_mock.clone(),
+		client.clone(),
 		backend,
-		Arc::new(TaskExecutor::default()),
+		Arc::new(TokioTestExecutor::default()),
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
