@@ -224,7 +224,7 @@ where
 
 	/// Creates an instance of transaction pool.
 	pub fn build(self) -> TransactionPoolHandle<Block, Client> {
-		log::info!(target:LOG_TARGET, " creating {:?} txpool.", self.options.txpool_type);
+		log::info!(target:LOG_TARGET, " creating {:?} txpool {:?}/{:?}.", self.options.txpool_type, self.options.options.ready, self.options.options.future);
 		TransactionPoolWrapper::<Block, Client>(match self.options.txpool_type {
 			TransactionPoolType::SingleState => Box::new(SingleStateFullPool::new_full(
 				self.options.options,
