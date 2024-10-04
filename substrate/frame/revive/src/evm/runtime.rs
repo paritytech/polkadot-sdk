@@ -64,6 +64,26 @@ pub struct UncheckedExtrinsic<Call, E: EthExtra>(
 	generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>,
 );
 
+impl<Call, E: EthExtra>
+	From<generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>>
+	for UncheckedExtrinsic<Call, E>
+{
+	fn from(
+		utx: generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>,
+	) -> Self {
+		Self(utx)
+	}
+}
+
+impl<Call, E: EthExtra>
+	Into<generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>>
+	for UncheckedExtrinsic<Call, E>
+{
+	fn into(self) -> generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra> {
+		self.0
+	}
+}
+
 impl<Call: TypeInfo, E: EthExtra> Extrinsic for UncheckedExtrinsic<Call, E> {
 	type Call = Call;
 
