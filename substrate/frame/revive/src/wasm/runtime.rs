@@ -1536,7 +1536,7 @@ pub mod env {
 	}
 
 	/// Attaches the supplied immutable data to the currently executing contract.
-	/// See [`pallet_revive_uapi::HostFn::get_immutable_data`].
+	/// See [`pallet_revive_uapi::HostFn::set_immutable_data`].
 	#[api_version(0)]
 	fn set_immutable_data(&mut self, memory: &mut M, ptr: u32, len: u32) -> Result<(), TrapReason> {
 		if len > limits::IMMUTABLE_BYTES {

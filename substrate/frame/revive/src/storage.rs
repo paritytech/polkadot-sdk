@@ -242,9 +242,8 @@ impl<T: Config> ContractInfo<T> {
 	/// The base deposit is updated when the `code_hash` of the contract changes, as it depends on
 	/// the deposit paid to upload the contract's code.
 	pub fn update_base_deposit(&mut self, code_info: &CodeInfo<T>) -> BalanceOf<T> {
-		// The 2 items added are code info and immutable data
 		let info_deposit =
-			Diff { bytes_added: self.encoded_size() as u32, items_added: 2, ..Default::default() }
+			Diff { bytes_added: self.encoded_size() as u32, items_added: 1, ..Default::default() }
 				.update_contract::<T>(None)
 				.charge_or_zero();
 
@@ -369,19 +368,28 @@ impl<T: Config> ContractInfo<T> {
 
 	/// Set the number of immutable bytes of this contract.
 	///
-	/// Returns the storage deposit to be charged.
-	pub fn set_immutable_bytes(&mut self, immutable_bytes: u32) -> DepositOf<T> {
-		let diff = self.immutable_bytes.abs_diff(immutable_bytes);
-		let amount = T::DepositPerByte::get().saturating_mul(diff.into());
-		let deposit = if immutable_bytes >= self.immutable_bytes {
-			StorageDeposit::Charge(amount)
-		} else {
-			StorageDeposit::Refund(amount)
-		};
+	/// On success, returns the storage deposit to be charged.
+	///
+	/// Returns `Err(InvalidImmutableAccess)` if:
+	/// - The immutable bytes of this contract are not 0.
+	///   This indicates that the immutable data have already been set;
+	///   it is only valid to set the immutable data exactly once.
+	/// - The provided `immutable_bytes` value was 0;
+	///   it is invalid to set empty immutable data.
+	pub fn set_immutable_bytes(
+		&mut self,
+		immutable_bytes: u32,
+	) -> Result<DepositOf<T>, DispatchError> {
+		if self.immutable_bytes != 0 || immutable_bytes == 0 {
+			return Err(Error::<T>::InvalidImmutableAccess.into());
+		}
 
 		self.immutable_bytes = immutable_bytes;
 
-		deposit
+		let amount = T::DepositPerByte::get()
+			.saturating_mul(immutable_bytes.into())
+			.saturating_add(T::DepositPerItem::get());
+		Ok(StorageDeposit::Charge(amount))
 	}
 }
 

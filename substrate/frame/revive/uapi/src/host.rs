@@ -58,7 +58,10 @@ pub trait HostFn: private::Sealed {
 
 	/// Get the contract immutable data.
 	///
-	/// Traps if called from within the deploy export.
+	/// Traps if:
+	/// - Called from within the deploy export.
+	/// - Called by contracts that didn't set immutable data by calling [`set_immutable_data`]
+	///   during their constructor execution.
 	///
 	/// # Parameters
 	/// - `output`: A reference to the output buffer to write the immutable bytes.
@@ -66,7 +69,12 @@ pub trait HostFn: private::Sealed {
 
 	/// Set the contract immutable data.
 	///
-	/// Traps if called from within the call export.
+	/// It is only valid to set non-empty immutable data in the constructor once.
+	///
+	/// Traps if:
+	/// - Called from within the call export.
+	/// - Called more than once.
+	/// - The provided data was empty.
 	///
 	/// # Parameters
 	/// - `data`: A reference to the data to be stored as immutable bytes.

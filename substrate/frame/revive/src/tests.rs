@@ -139,18 +139,19 @@ pub mod test_utils {
 	}
 	pub fn contract_info_storage_deposit(addr: &H160) -> BalanceOf<Test> {
 		let contract_info = self::get_contract(&addr);
-
 		let info_size = contract_info.encoded_size() as u64;
 		let info_deposit = DepositPerByte::get()
 			.saturating_mul(info_size)
 			.saturating_add(DepositPerItem::get());
-
 		let immutable_size = contract_info.immutable_bytes() as u64;
-		let immutable_deposit = DepositPerByte::get()
-			.saturating_mul(immutable_size)
-			.saturating_add(DepositPerItem::get());
-
-		info_deposit.saturating_add(immutable_deposit)
+		if immutable_size > 0 {
+			let immutable_deposit = DepositPerByte::get()
+				.saturating_mul(immutable_size)
+				.saturating_add(DepositPerItem::get());
+			info_deposit.saturating_add(immutable_deposit)
+		} else {
+			info_deposit
+		}
 	}
 	pub fn expected_deposit(code_len: usize) -> u64 {
 		// For code_info, the deposit for max_encoded_len is taken.
@@ -3562,10 +3563,10 @@ mod run_tests {
 			//  - Immutable data storage item deposit
 			assert_eq!(
 				<Test as Config>::Currency::free_balance(&BOB),
-				1_000_000 - (callee_info_len + 2 + ED + 3 + 2)
+				1_000_000 - (callee_info_len + 2 + ED + 3)
 			);
 			// Check that deposit due to be charged still includes these 3 Balance
-			assert_eq!(result.storage_deposit.charge_or_zero(), (callee_info_len + 2 + ED + 3 + 2))
+			assert_eq!(result.storage_deposit.charge_or_zero(), (callee_info_len + 2 + ED + 3))
 		});
 	}
 
