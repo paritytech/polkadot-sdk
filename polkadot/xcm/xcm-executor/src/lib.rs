@@ -591,7 +591,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			None => None,
 			Some(q) => Some(
 				q.reanchored(&destination, &Config::UniversalLocation::get()).map_err(|e| {
-					log::error!(target: "xcm::xcm_executor::to_querier", "Failed to re-anchor local_querier: {:?}", e);
+					log::error!(target: "xcm::xcm_executor::to_querier", "Failed to re-anchor local_querier: {e:?} for destination: {destination:?} and context: {:?}", Config::UniversalLocation::get());
 					XcmError::ReanchorFailed
 				})?,
 			),
