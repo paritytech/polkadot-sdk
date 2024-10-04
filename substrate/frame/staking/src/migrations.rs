@@ -75,7 +75,7 @@ pub mod history_depth_reducer {
 		ErasValidatorReward::<T>::contains_key(era)
 	}
 
-	impl<T: Config, OldHistoryDepth: Get<EraIndex>, MaxErasToClear: Get<u32>> UncheckedOnRuntimeUpgrade for Migrate<T, OldHistoryDepth, MaxErasToClear> {
+	impl<T: Config, OldHistoryDepth: Get<EraIndex>, MaxErasToClear: Get<u32>> OnRuntimeUpgrade for Migrate<T, OldHistoryDepth, MaxErasToClear> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight = Weight::default();
 			for era in OldHistoryDepth::get()..T::HistoryDepth::get() {

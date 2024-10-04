@@ -168,7 +168,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("westend"),
 	impl_name: create_runtime_str!("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_016_001,
+	spec_version: 1_016_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 26,
@@ -749,7 +749,7 @@ impl pallet_staking::Config for Runtime {
 	type TargetList = UseValidatorsMap<Self>;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
-	type HistoryDepth = frame_support::traits::ConstU32<84>;
+	type HistoryDepth = frame_support::traits::ConstU32<28>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
@@ -1764,6 +1764,8 @@ pub type SignedExtra = (
 parameter_types! {
 	/// Bounding number of agent pot accounts to be migrated in a single block.
 	pub const MaxAgentsToMigrate: u32 = 300;
+	pub const OldHistoryDepth: u32 = 84;
+	pub const MaxErasToClear: u32 = 56;
 }
 
 /// All migrations that will run on the next runtime upgrade.
@@ -1783,6 +1785,11 @@ pub mod migrations {
 		pallet_delegated_staking::migration::unversioned::ProxyDelegatorMigration<
 			Runtime,
 			MaxAgentsToMigrate,
+		>,
+		pallet_staking::migrations::history_depth_reducer::Migrate<
+			Runtime,
+			OldHistoryDepth,
+			MaxErasToClear,
 		>,
 	);
 }
