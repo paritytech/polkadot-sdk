@@ -7,7 +7,7 @@ It downloads and parses the patch from the GitHub API to opulate the prdoc with 
 This will delete any prdoc that already exists for the PR if `--force` is passed.
 
 Usage:
-	python generate-prdoc.py --pr 1234 --audience "TODO" --bump "TODO"
+	python generate-prdoc.py --pr 1234 --audience "Node Dev" --bump "patch"
 """
 
 import argparse
@@ -111,21 +111,20 @@ def setup_yaml():
 
 # parse_args is also used by cmd/cmd.py
 def setup_parser(parser=None):
+	allowed_audiences = ["Runtime Dev", "Runtime User", "Node Dev", "Node Operator"]
 	if parser is None:
 		parser = argparse.ArgumentParser()
 	parser.add_argument("--pr", type=int, required=True, help="The PR number to generate the PrDoc for."	)
-	parser.add_argument("--audience", type=str, default="TODO", help="The audience of whom the changes may concern.")
-	parser.add_argument("--bump", type=str, default="TODO", help="A default bump level for all crates.")
-	parser.add_argument("--force", type=str, help="Whether to overwrite any existing PrDoc.")
-	
+	parser.add_argument("--audience", type=str, nargs='*', choices=allowed_audiences, default=["TODO"], help="The audience of whom the changes may concern. Example: --audience \"Runtime Dev\" \"Node Dev\"")
+	parser.add_argument("--bump", type=str, default="major", choices=["patch", "minor", "major", "silent", "ignore", "no change"], help="A default bump level for all crates. Example: --bump \"patch\"")
+	parser.add_argument("--force", action="store_true", help="Whether to overwrite any existing PrDoc.")
 	return parser
 
 def main(args):
-	force = True if (args.force or "false").lower() == "true" else False
-	print(f"Args: {args}, force: {force}")
+	print(f"Args: {args}, force: {args.force}")
 	setup_yaml()
 	try:
-		from_pr_number(args.pr, args.audience, args.bump, force)
+		from_pr_number(args.pr, args.audience, args.bump, args.force)
 		return 0
 	except Exception as e:
 		print(f"Error generating prdoc: {e}")

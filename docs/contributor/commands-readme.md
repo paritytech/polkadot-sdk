@@ -41,7 +41,8 @@ the default branch.
 
 ### Examples
 
-The regex in cmd.yml is: `^(\/cmd )([-\/\s\w.=:]+)$` accepts only alphanumeric, space, "-", "/", "=", ":", "." chars.
+The regex in cmd.yml is: `^(\/cmd )([-\/\s\w.=:'"]+)$` accepts only alphanumeric, space, "-", "/", "=", ":", ".", '"' chars.
 
 `/cmd bench --runtime bridge-hub-westend --pallet=pallet_name`
+`/cmd prdoc --pr 5924 --audience "Node Dev" "Node Operator" --bump "patch"`
 `/cmd update-ui --image=docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v202407161507 --clean`

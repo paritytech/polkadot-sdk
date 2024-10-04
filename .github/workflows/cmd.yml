@@ -152,7 +152,7 @@ jobs:
         id: get-pr-comment
         with:
           text: ${{ github.event.comment.body }}
-          regex: '^(\/cmd )([-\/\s\w.=:]+)$' # see explanation in docs/contributor/commands-readme.md#examples
+          regex: "^(\\/cmd )([-\\/\\s\\w.=:'\"]+)$" # see explanation in docs/contributor/commands-readme.md#examples
 
       - name: Save output of help
         id: help
@@ -291,7 +291,7 @@ jobs:
         id: get-pr-comment
         with:
           text: ${{ github.event.comment.body }}
-          regex: '^(\/cmd )([-\/\s\w.=:]+)$' # see explanation in docs/contributor/commands-readme.md#examples
+          regex: "^(\\/cmd )([-\\/\\s\\w.=:'\"]+)$" # see explanation in docs/contributor/commands-readme.md#examples
 
       - name: Build workflow link
         if: ${{ !contains(github.event.comment.body, '--quiet') }}
