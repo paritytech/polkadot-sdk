@@ -15,5 +15,3 @@ crates:
       bump: patch
     - name: rococo-runtime
       bump: patch
-    - name: westend-runtime
-      bump: patch
