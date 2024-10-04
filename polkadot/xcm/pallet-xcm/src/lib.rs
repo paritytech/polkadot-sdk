@@ -2002,7 +2002,7 @@ impl<T: Config> Pallet<T> {
 		reanchored_assets
 			.reanchor(&dest, &context)
 			.map_err(|e| {
-				log::error!(target: "xcm::pallet_xcm::destination_reserve_transfer_programs", "Failed to re-anchor assets: {:?}", e);
+				log::error!(target: "xcm::pallet_xcm::destination_reserve_transfer_programs", "Failed to re-anchor assets: {e:?} for dest: {dest:?} and context {context:?}");
 				Error::<T>::CannotReanchor
 			})?;
 
@@ -2059,19 +2059,19 @@ impl<T: Config> Pallet<T> {
 		let reserve_fees = fees_half_1
 			.reanchored(&reserve, &context)
 			.map_err(|e| {
-				log::error!(target: "xcm::pallet_xcm::remote_reserve_transfer_program", "Failed to re-anchor reserve_fees: {:?}", e);
+				log::error!(target: "xcm::pallet_xcm::remote_reserve_transfer_program", "Failed to re-anchor reserve_fees: {e:?} for reserve: {reserve:?} and context {context:?}");
 				Error::<T>::CannotReanchor
 			})?;
 		// identifies fee item as seen by `dest` - to be used at destination chain
 		let dest_fees = fees_half_2
 			.reanchored(&dest, &context)
 			.map_err(|e| {
-				log::error!(target: "xcm::pallet_xcm::remote_reserve_transfer_program", "Failed to re-anchor dest_fees: {:?}", e);
+				log::error!(target: "xcm::pallet_xcm::remote_reserve_transfer_program", "Failed to re-anchor dest_fees: {e:?} for dest: {dest:?} and context {context:?}");
 				Error::<T>::CannotReanchor
 			})?;
 		// identifies `dest` as seen by `reserve`
 		let dest = dest.reanchored(&reserve, &context).map_err(|e| {
-			log::error!(target: "xcm::pallet_xcm::remote_reserve_transfer_program", "Failed to re-anchor dest: {:?}", e);
+			log::error!(target: "xcm::pallet_xcm::remote_reserve_transfer_program", "Failed to re-anchor dest: {e:?} for reserve: {reserve:?} and context {context:?}");
 			Error::<T>::CannotReanchor
 		})?;
 		// xcm to be executed at dest
@@ -2120,7 +2120,7 @@ impl<T: Config> Pallet<T> {
 			.clone()
 			.reanchored(&dest, &context)
 			.map_err(|e| {
-				log::error!(target: "xcm::pallet_xcm::teleport_fees_instructions", "Failed to re-anchor fees: {:?}", e);
+				log::error!(target: "xcm::pallet_xcm::teleport_fees_instructions", "Failed to re-anchor fees: {e:?} for dest: {dest:?} and context {context:?}");
 				Error::<T>::CannotReanchor
 			})?;
 
@@ -2191,7 +2191,7 @@ impl<T: Config> Pallet<T> {
 		reanchored_assets
 			.reanchor(&dest, &context)
 			.map_err(|e| {
-				log::error!(target: "xcm::pallet_xcm::teleport_assets_program", "Failed to re-anchor asset: {:?}", e);
+				log::error!(target: "xcm::pallet_xcm::teleport_assets_program", "Failed to re-anchor asset: {e:?} for dest: {dest:?} and context {context:?}");
 				Error::<T>::CannotReanchor
 			})?;
 
