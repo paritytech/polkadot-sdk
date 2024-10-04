@@ -56,7 +56,8 @@ pub type AccountIndex = u32;
 /// The address format for describing accounts.
 pub type MultiAddress = sp_runtime::MultiAddress<AccountId, AccountIndex>;
 
-/// Wraps [`generic::UncheckedExtrinsic`] to support checking [`crate::Call::eth_transact`].
+/// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
+/// [`crate::Call::eth_transact`] extrinsic.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(E))]
 pub struct UncheckedExtrinsic<Call, E: EthExtra>(
@@ -175,8 +176,11 @@ impl<'a, Call: Decode, E: EthExtra> serde::Deserialize<'a> for UncheckedExtrinsi
 #[scale_info(skip_type_params(T))]
 pub struct CheckEthTransact<T: Config> {
 	/// The gas fee, computed from the signed Ethereum transaction.
-	/// This is only set by the custom `Checkable` impl of [`UncheckedExtrinsic`], Thus this is
-	/// marked as `#[codec(skip)]` as it should not be encoded by the client.
+	///
+	/// # Note
+	///
+	/// This is marked as `#[codec(skip)]` as this extracted from the Ethereum transaction and not
+	/// encoded as additional signed data.
 	#[codec(skip)]
 	eth_fee: Option<BalanceOf<T>>,
 	_phantom: core::marker::PhantomData<T>,
@@ -246,10 +250,14 @@ pub trait EthExtra {
 	/// It should include at least:
 	/// [`CheckNonce`] to ensure that the nonce from the Ethereum transaction is correct.
 	/// [`CheckEthTransact`] to ensure that the fees from the Ethereum transaction correspond to
-	/// injected gas limit and storage deposit limit from the extrinsic.
+	/// the pre-dispatch fees computed from the extrinsic.
 	type Extra: SignedExtension<AccountId = AccountId32>;
 
 	/// Get the signed extensions to apply to an unsigned [`crate::Call::eth_transact`] extrinsic.
+	///
+	/// # Parameters
+	/// - `nonce`: The nonce from the Ethereum transaction.
+	/// - `gas_fee`: The gas fee from the Ethereum transaction.
 	fn get_eth_transact_extra(
 		nonce: <Self::Config as frame_system::Config>::Nonce,
 		gas_fee: BalanceOf<Self::Config>,
@@ -374,6 +382,7 @@ mod test {
 			Account { sk: SecretKey::from_slice(&sb).unwrap() }
 		}
 
+		/// Get the [`AccountId`] of the account.
 		pub fn account_id(&self) -> AccountId {
 			let address = self.address();
 			<Test as crate::Config>::AddressMapper::to_account_id_contract(&address)
@@ -426,6 +435,7 @@ mod test {
 		}
 	}
 
+	/// A builder for creating an unchecked extrinsic, and test that the check function works.
 	#[derive(Clone)]
 	struct UncheckedExtrinsicBuilder {
 		tx: TransactionLegacyUnsigned,
@@ -435,6 +445,7 @@ mod test {
 	}
 
 	impl UncheckedExtrinsicBuilder {
+		/// Create a new builder with default values.
 		fn new() -> Self {
 			Self {
 				tx: TransactionLegacyUnsigned {
@@ -453,6 +464,7 @@ mod test {
 			}
 		}
 
+		/// Create a new builder with a call to the given address.
 		fn call_with(dest: H160) -> Self {
 			let mut builder = Self::new();
 			builder.tx.to = Some(dest);
@@ -460,6 +472,7 @@ mod test {
 			builder
 		}
 
+		/// Create a new builder with an instantiate call.
 		fn instantiate_with(code: Vec<u8>, data: Vec<u8>) -> Self {
 			let mut builder = Self::new();
 			builder.transact_kind = EthTransactKind::InstantiateWithCode {
@@ -470,21 +483,25 @@ mod test {
 			builder
 		}
 
+		/// Update the transaction with the given function.
 		fn update(mut self, f: impl FnOnce(&mut TransactionLegacyUnsigned) -> ()) -> Self {
 			f(&mut self.tx);
 			self
 		}
 
+		/// Set the transact kind
 		fn transact_kind(mut self, kind: EthTransactKind) -> Self {
 			self.transact_kind = kind;
 			self
 		}
 
+		/// Call `check` on the unchecked extrinsic, and `pre_dispatch` on the signed extension.
 		fn check(&self) -> Result<RuntimeCall, TransactionValidityError> {
 			let UncheckedExtrinsicBuilder { tx, gas_limit, storage_deposit_limit, transact_kind } =
 				self.clone();
-			let account = Account::default();
 
+			// Fund the account.
+			let account = Account::default();
 			let _ = <Test as Config>::Currency::set_balance(&account.account_id(), 100_000_000);
 
 			let payload = account.sign_transaction(tx).rlp_bytes().to_vec();
@@ -498,6 +515,7 @@ mod test {
 			let encoded_len = call.encode().len();
 			let result = Ex::new(call, None).unwrap().check(&TestContext {})?;
 			let (account_id, extra) = result.signed.unwrap();
+
 			extra.pre_dispatch(
 				&account_id,
 				&result.function,
@@ -510,9 +528,8 @@ mod test {
 	}
 
 	#[test]
-	fn check_eth_transact_works() {
+	fn check_eth_transact_call_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			// Check a regular transfer call
 			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
 			assert_eq!(
 				builder.check().unwrap(),
@@ -525,12 +542,15 @@ mod test {
 				}
 				.into()
 			);
+		});
+	}
 
-			// Check an instantiate call
+	#[test]
+	fn check_eth_transact_instantiate_works() {
+		ExtBuilder::default().build().execute_with(|| {
 			let code = vec![];
 			let data = vec![];
-			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
-				.update(|tx| tx.nonce = 1u32.into());
+			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
 			assert_eq!(
 				builder.check().unwrap(),
@@ -629,7 +649,7 @@ mod test {
 	#[test]
 	fn check_injected_weight() {
 		ExtBuilder::default().build().execute_with(|| {
-			/// Lower the gas_price to make the tx fees lower than the actual fees
+			// Lower the gas_price to make the tx fees lower than the actual fees
 			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
 				.update(|tx| tx.gas_price = U256::from(1));
 
