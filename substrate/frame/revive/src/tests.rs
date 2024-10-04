@@ -58,16 +58,17 @@ use frame_support::{
 		tokens::Preservation,
 		ConstU32, ConstU64, Contains, OnIdle, OnInitialize, StorageVersion,
 	},
-	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightMeter},
+	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight, WeightMeter},
 };
 use frame_system::{EventRecord, Phase};
 use pallet_revive_fixtures::{bench::dummy_unique, compile_module};
 use pallet_revive_uapi::ReturnErrorCode as RuntimeReturnCode;
+use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 use sp_io::hashing::blake2_256;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	testing::H256,
-	traits::{BlakeTwo256, Convert, IdentityLookup},
+	traits::{BlakeTwo256, Convert, IdentityLookup, One},
 	AccountId32, BuildStorage, DispatchError, Perbill, TokenError,
 };
 
@@ -82,6 +83,7 @@ frame_support::construct_runtime!(
 		Utility: pallet_utility,
 		Contracts: pallet_revive,
 		Proxy: pallet_proxy,
+		TransactionPayment: pallet_transaction_payment,
 		Dummy: pallet_dummy
 	}
 );
@@ -404,6 +406,18 @@ impl pallet_proxy::Config for Test {
 	type CallHasher = BlakeTwo256;
 	type AnnouncementDepositBase = ConstU64<1>;
 	type AnnouncementDepositFactor = ConstU64<1>;
+}
+
+parameter_types! {
+	pub FeeMultiplier: Multiplier = Multiplier::one();
+}
+
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
+impl pallet_transaction_payment::Config for Test {
+	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
+	type WeightToFee = IdentityFee<<Self as pallet_balances::Config>::Balance>;
+	type LengthToFee = FixedFee<100, <Self as pallet_balances::Config>::Balance>;
+	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
 
 impl pallet_dummy::Config for Test {}

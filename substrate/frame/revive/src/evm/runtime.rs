@@ -229,16 +229,8 @@ where
 		if actual_fee > eth_fee &&
 			Percent::from_rational(actual_fee - eth_fee, eth_fee) > Percent::from_percent(5)
 		{
-			log::debug!(target: LOG_TARGET, "Eth fees {eth_fee:?} should be no more than 5% higher
-		 than injected fees {actual_fee:?}"); 	return Err(InvalidTransaction::Call.into())
-		} else if actual_fee > eth_fee {
-			let ratio = Percent::from_rational(actual_fee - eth_fee, eth_fee);
-			log::debug!(target: LOG_TARGET, "Eth fees {eth_fee:?} is greater {ratio:?} than injected
-		 fees {actual_fee:?}");
-		} else {
-			let ratio = Percent::from_rational(eth_fee - actual_fee, eth_fee);
-			log::debug!(target: LOG_TARGET, "Eth fees {eth_fee:?} are less {ratio:?} than injected
-		 fees {actual_fee:?}");
+			log::debug!(target: LOG_TARGET, "fees {actual_fee:?} should be no more than 5% higher than fees calculated from the Ethereum transaction {eth_fee:?}");
+			return Err(InvalidTransaction::Call.into())
 		}
 
 		Ok(())
@@ -413,10 +405,10 @@ mod test {
 
 	impl EthExtra for Extra {
 		type Config = Test;
-		type Extra = frame_system::CheckNonce<Test>;
+		type Extra = (frame_system::CheckNonce<Test>, CheckEthTransact<Test>);
 
-		fn get_eth_transact_extra(nonce: U256) -> Self::Extra {
-			frame_system::CheckNonce::from(nonce.as_u32())
+		fn get_eth_transact_extra(nonce: u32, eth_fee: u64) -> Self::Extra {
+			(frame_system::CheckNonce::from(nonce), CheckEthTransact::from(eth_fee))
 		}
 	}
 
@@ -491,14 +483,29 @@ mod test {
 		fn check(&self) -> Result<RuntimeCall, TransactionValidityError> {
 			let UncheckedExtrinsicBuilder { tx, gas_limit, storage_deposit_limit, transact_kind } =
 				self.clone();
-			let payload = Account::default().sign_transaction(tx).rlp_bytes().to_vec();
+			let account = Account::default();
+
+			let _ = <Test as Config>::Currency::set_balance(&account.account_id(), 100_000_000);
+
+			let payload = account.sign_transaction(tx).rlp_bytes().to_vec();
 			let call = RuntimeCall::Contracts(crate::Call::eth_transact {
 				payload,
 				gas_limit,
 				storage_deposit_limit,
 				transact_kind,
 			});
-			Ex::new(call, None).unwrap().check(&TestContext {}).map(|x| x.function)
+
+			let encoded_len = call.encode().len();
+			let result = Ex::new(call, None).unwrap().check(&TestContext {})?;
+			let (account_id, extra) = result.signed.unwrap();
+			extra.pre_dispatch(
+				&account_id,
+				&result.function,
+				&result.function.get_dispatch_info(),
+				encoded_len,
+			)?;
+
+			Ok(result.function)
 		}
 	}
 
@@ -522,7 +529,9 @@ mod test {
 			// Check an instantiate call
 			let code = vec![];
 			let data = vec![];
-			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
+			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
+				.update(|tx| tx.nonce = 1u32.into());
+
 			assert_eq!(
 				builder.check().unwrap(),
 				crate::Call::instantiate_with_code::<Test> {
@@ -620,6 +629,7 @@ mod test {
 	#[test]
 	fn check_injected_weight() {
 		ExtBuilder::default().build().execute_with(|| {
+			/// Lower the gas_price to make the tx fees lower than the actual fees
 			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
 				.update(|tx| tx.gas_price = U256::from(1));
 
