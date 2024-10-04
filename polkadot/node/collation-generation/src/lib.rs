@@ -40,12 +40,12 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiMessage},
-	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError, SpawnedSubsystem,
+	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemContext, SubsystemError, SubsystemResult, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
 	request_async_backing_params, request_availability_cores, request_para_backing_state,
-	request_persisted_validation_data, request_session_index_for_child, request_validation_code,
+	request_persisted_validation_data, request_session_index_for_child,
 	request_validation_code_hash, request_validators,
 	runtime::{fetch_claim_queue, request_node_features},
 };
@@ -392,13 +392,14 @@ impl CollationGenerationSubsystem {
 				},
 			};
 
-			let validation_code_hash = match obtain_validation_code_hash_with_assumption(
+			let validation_code_hash = match request_validation_code_hash(
 				relay_parent,
 				para_id,
 				para_assumption,
 				ctx.sender(),
 			)
-			.await?
+			.await
+			.await??
 			{
 				Some(v) => v,
 				None => {
@@ -692,33 +693,6 @@ async fn construct_and_distribute_receipt(
 			core_index,
 		})
 		.await;
-}
-
-async fn obtain_validation_code_hash_with_assumption(
-	relay_parent: Hash,
-	para_id: ParaId,
-	assumption: OccupiedCoreAssumption,
-	sender: &mut impl overseer::CollationGenerationSenderTrait,
-) -> Result<Option<ValidationCodeHash>> {
-	match request_validation_code_hash(relay_parent, para_id, assumption, sender)
-		.await
-		.await?
-	{
-		Ok(Some(v)) => Ok(Some(v)),
-		Ok(None) => Ok(None),
-		Err(RuntimeApiError::NotSupported { .. }) => {
-			match request_validation_code(relay_parent, para_id, assumption, sender).await.await? {
-				Ok(Some(v)) => Ok(Some(v.hash())),
-				Ok(None) => Ok(None),
-				Err(e) => {
-					// We assume that the `validation_code` API is always available, so any error
-					// is unexpected.
-					Err(e.into())
-				},
-			}
-		},
-		Err(e @ RuntimeApiError::Execution { .. }) => Err(e.into()),
-	}
 }
 
 fn erasure_root(
