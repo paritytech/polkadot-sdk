@@ -179,15 +179,6 @@ pub enum EthTransactKind {
 	},
 }
 
-/// The result of a successful eth_transact call
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct EthTransactReturnValue {
-	/// The kind of transaction that was executed.
-	pub kind: EthTransactKind,
-	/// The output of the called constructor.
-	pub result: ExecReturnValue,
-}
-
 /// The result of a successful contract instantiation.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct InstantiateReturnValue {
