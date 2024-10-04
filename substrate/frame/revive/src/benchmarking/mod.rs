@@ -629,7 +629,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_get_immutable_data(n: Linear<0, { limits::IMMUTABLE_BYTES }>) {
+	fn seal_get_immutable_data(n: Linear<1, { limits::IMMUTABLE_BYTES }>) {
 		let len = n as usize;
 		let immutable_data = vec![1u8; len];
 
@@ -652,7 +652,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_set_immutable_data(n: Linear<0, { limits::IMMUTABLE_BYTES }>) {
+	fn seal_set_immutable_data(n: Linear<1, { limits::IMMUTABLE_BYTES }>) {
 		let len = n as usize;
 		let mut memory = vec![1u8; len];
 		let mut setup = CallSetup::<T>::default();
