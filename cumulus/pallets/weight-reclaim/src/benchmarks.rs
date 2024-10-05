@@ -20,11 +20,13 @@ use super::*;
 use frame_support::pallet_prelude::{DispatchClass, Pays};
 use frame_system::RawOrigin;
 use sp_runtime::traits::DispatchTransaction;
+use sp_runtime::traits::AsTransactionAuthorizedOrigin;
 
 #[frame_benchmarking::v2::benchmarks(
 	where T: Send + Sync,
 		<T as frame_system::Config>::RuntimeCall:
 			Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+		<T as frame_system::Config>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 )]
 mod bench {
 	use super::*;
@@ -34,7 +36,8 @@ mod bench {
 	fn storage_weight_reclaim() -> Result<(), frame_benchmarking::BenchmarkError> {
 		let ext = StorageWeightReclaim::<T, ()>::new(());
 
-		let origin = RawOrigin::None.into();
+
+		let origin = RawOrigin::Root.into();
 		let call = T::RuntimeCall::from(frame_system::Call::remark { remark: alloc::vec![] });
 
 		let info = DispatchInfo {
@@ -60,11 +63,7 @@ mod bench {
 
 		#[block]
 		{
-			frame_support::dispatch_context::run_in_context(|| {
-				assert!(ext.test_run(origin, &call, &info, 0, |_| Ok(post_info)).unwrap().is_ok());
-
-				()
-			})
+			assert!(ext.test_run(origin, &call, &info, 0, |_| Ok(post_info)).unwrap().is_ok());
 		}
 
 		let final_block_proof_size =
