@@ -7,7 +7,6 @@ license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
 description = "pallet and transaction extensions for accurate proof size reclaim"
-readme = "README.md"
 
 [lints]
 workspace = true
