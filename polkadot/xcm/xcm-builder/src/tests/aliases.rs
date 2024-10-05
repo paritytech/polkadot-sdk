@@ -88,3 +88,67 @@ fn alias_origin_should_work() {
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 }
+
+#[test]
+fn alias_child_location() {
+	// parents differ
+	assert!(!AliasChildLocation::contains(
+		&Location::new(0, Parachain(1)),
+		&Location::new(1, Parachain(1)),
+	));
+	assert!(!AliasChildLocation::contains(
+		&Location::new(0, Here),
+		&Location::new(1, Parachain(1)),
+	));
+	assert!(!AliasChildLocation::contains(&Location::new(1, Here), &Location::new(2, Here),));
+
+	// interiors differ
+	assert!(!AliasChildLocation::contains(
+		&Location::new(1, Parachain(1)),
+		&Location::new(1, OnlyChild),
+	));
+	assert!(!AliasChildLocation::contains(
+		&Location::new(1, Parachain(1)),
+		&Location::new(1, Parachain(12)),
+	));
+	assert!(!AliasChildLocation::contains(
+		&Location::new(1, [Parachain(1), AccountId32 { network: None, id: [0; 32] }]),
+		&Location::new(1, [Parachain(1), AccountId32 { network: None, id: [1; 32] }]),
+	));
+	assert!(!AliasChildLocation::contains(
+		&Location::new(1, [Parachain(1), AccountId32 { network: None, id: [0; 32] }]),
+		&Location::new(1, [Parachain(1), AccountId32 { network: None, id: [1; 32] }]),
+	));
+
+	// child to parent not allowed
+	assert!(!AliasChildLocation::contains(
+		&Location::new(1, [Parachain(1), AccountId32 { network: None, id: [0; 32] }]),
+		&Location::new(1, [Parachain(1)]),
+	));
+	assert!(!AliasChildLocation::contains(
+		&Location::new(1, [Parachain(1), AccountId32 { network: None, id: [0; 32] }]),
+		&Location::new(1, Here),
+	));
+
+	// parent to child should work
+	assert!(AliasChildLocation::contains(
+		&Location::new(1, Here),
+		&Location::new(1, [Parachain(1), AccountId32 { network: None, id: [1; 32] }]),
+	));
+	assert!(
+		AliasChildLocation::contains(&Location::new(1, Here), &Location::new(1, Parachain(1)),)
+	);
+	assert!(AliasChildLocation::contains(
+		&Location::new(0, Here),
+		&Location::new(0, PalletInstance(42)),
+	));
+	assert!(AliasChildLocation::contains(
+		&Location::new(2, GlobalConsensus(Kusama)),
+		&Location::new(2, [GlobalConsensus(Kusama), Parachain(42), GeneralIndex(12)]),
+	));
+}
+
+#[test]
+fn alias_trusted_root_location() {
+	// TODO
+}
