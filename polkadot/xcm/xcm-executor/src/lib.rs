@@ -509,7 +509,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				.holding
 				.try_take(asset_to_pay_for_fees.clone().into())
 				.map_err(|e| {
-					log::error!(target: "xcm::fees", "Failed to take asset_to_pay_for_fees: {asset_to_pay_for_fees:?} (based on fee: {fee:?}) from holding with error: {e:?}");
+					tracing::error!(target: "xcm::fees", "Failed to take asset_to_pay_for_fees: {asset_to_pay_for_fees:?} (based on fee: {fee:?}) from holding with error: {e:?}");
 					XcmError::NotHoldingFees
 				})?;
 			tracing::trace!(target: "xcm::fees", ?assets_taken_from_holding_to_pay_delivery_fees);
@@ -528,8 +528,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			.map_err(|given_assets| {
 				tracing::error!(
 					target: "xcm::fees",
-					?given_assets,
-					"Swap was deemed necessary but couldn't be done",
+					"Swap was deemed necessary but couldn't be done: {given_assets:?} for withdrawn_fee_asset: {withdrawn_fee_asset:?} and asset_needed_for_fees: {asset_needed_for_fees:?}",
 				);
 				XcmError::FeesNotMet
 			})?
@@ -591,7 +590,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			None => None,
 			Some(q) => Some(
 				q.reanchored(&destination, &Config::UniversalLocation::get()).map_err(|e| {
-					log::error!(target: "xcm::xcm_executor::to_querier", "Failed to re-anchor local_querier: {e:?} for destination: {destination:?} and context: {:?}", Config::UniversalLocation::get());
+					tracing::error!(target: "xcm::xcm_executor::to_querier", "Failed to re-anchor local_querier: {e:?} for destination: {destination:?} and context: {:?}", Config::UniversalLocation::get());
 					XcmError::ReanchorFailed
 				})?,
 			),
@@ -622,7 +621,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		let reanchor_context = Config::UniversalLocation::get();
 		let reanchored =
 			reanchorable.reanchored(&destination, &reanchor_context).map_err(|error| {
-				tracing::error!(target: "xcm::reanchor", ?error, "Failed reanchoring with error");
+				tracing::error!(target: "xcm::reanchor", "Failed reanchoring with error: {error:?} for destination: {destination:?} and context: {context:?}");
 				XcmError::ReanchorFailed
 			})?;
 		Ok((reanchored, reanchor_context))
@@ -929,7 +928,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				.ok_or(XcmError::BadOrigin)?
 				.append_with(who)
 				.map_err(|e| {
-					log::error!(target: "xcm::process_instruction::descend_origin", "Failed to append junctions: {e:?}");
+					tracing::error!(target: "xcm::process_instruction::descend_origin", "Failed to append junctions: {e:?} with who: {who:?}");
 					XcmError::LocationFull
 				}),
 			ClearOrigin => {
@@ -1096,7 +1095,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				// pay for `weight` using up to `fees` of the holding register.
 				let max_fee =
 					self.holding.try_take(fees.clone().into()).map_err(|e| {
-						log::error!(target: "xcm::process_instruction::buy_execution", "Failed to take fees {fees:?} from holding with error: {e:?}");
+						tracing::error!(target: "xcm::process_instruction::buy_execution", "Failed to take fees {fees:?} from holding with error: {e:?}");
 						XcmError::NotHoldingFees
 					})?;
 				let result = || -> Result<(), XcmError> {
@@ -1162,7 +1161,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			ExpectAsset(assets) =>
 				self.holding.ensure_contains(&assets).map_err(|e| {
-					log::error!(target: "xcm::process_instruction::expect_asset", "Failed ensure_contains for assets: {assets:?} with error: {e:?}");
+					tracing::error!(target: "xcm::process_instruction::expect_asset", "Failed ensure_contains for assets: {assets:?} with error: {e:?}");
 					XcmError::ExpectationFalse
 				}),
 			ExpectOrigin(origin) => {
@@ -1287,7 +1286,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let lock_ticket =
 						Config::AssetLocker::prepare_lock(unlocker.clone(), asset, origin.clone())?;
 					let owner = origin.reanchored(&unlocker, &context).map_err(|e| {
-						log::error!(target: "xcm::xcm_executor::process_instruction", "Failed to re-anchor origin: {origin:?} for unlocker: {unlocker:?} and context: {context:?}");
+						tracing::error!(target: "xcm::xcm_executor::process_instruction", "Failed to re-anchor origin: {origin:?} for unlocker: {unlocker:?} and context: {context:?}");
 						XcmError::ReanchorFailed
 					})?;
 					let msg = Xcm::<()>(vec![NoteUnlockable { asset: remote_asset, owner }]);
