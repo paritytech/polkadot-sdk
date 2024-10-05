@@ -23,7 +23,7 @@ use frame_support::{assert_noop, assert_ok, traits::Currency};
 use mock::*;
 use pallet_nomination_pools::{
 	BondExtra, BondedPools, Error as PoolsError, Event as PoolsEvent, LastPoolId, PoolMember,
-	PoolMembers, PoolState,
+	PoolMembers, PoolState, TotalValueLocked,
 };
 use pallet_staking::{
 	CurrentEra, Error as StakingError, Event as StakingEvent, Payee, RewardDestination,
@@ -909,4 +909,105 @@ fn pool_slash_non_proportional_bonded_pool_and_chunks() {
 			]
 		);
 	});
+}
+
+#[test]
+fn reap_member_transfer() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::minimum_balance(), 5);
+		assert_eq!(Staking::current_era(), None);
+
+		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 15, 10, 10, 10));
+		assert_eq!(LastPoolId::<Runtime>::get(), 1);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Bonded { stash: POOL1_BONDED, amount: 15 }]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Created { depositor: 10, pool_id: 1 },
+				PoolsEvent::Bonded { member: 10, pool_id: 1, bonded: 15, joined: true },
+			]
+		);
+
+		assert_eq!(
+			Payee::<Runtime>::get(POOL1_BONDED),
+			Some(RewardDestination::Account(POOL1_REWARD))
+		);
+
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10, 1));
+		assert_ok!(Pools::join(RuntimeOrigin::signed(21), 5, 1));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 5 },
+			]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Bonded { member: 20, pool_id: 1, bonded: 10, joined: true },
+				PoolsEvent::Bonded { member: 21, pool_id: 1, bonded: 5, joined: true },
+			]
+		);
+
+		assert_eq!(TotalValueLocked::<Runtime>::get(), 30);
+
+		CurrentEra::<Runtime>::set(Some(1));
+
+		// slash era 1
+		pallet_staking::slashing::do_slash::<Runtime>(
+			&POOL1_BONDED,
+			15,
+			&mut Default::default(),
+			&mut Default::default(),
+			1,
+		);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Slashed { staker: POOL1_BONDED, amount: 15 }],
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![PoolsEvent::PoolSlashed { pool_id: 1, balance: 15 }],
+		);
+
+		CurrentEra::<Runtime>::set(Some(5));
+
+		let tvl = TotalValueLocked::<Runtime>::get();
+
+		// FIXME is it appropriate to make `active_balance()` public too?
+		// >ED after slash
+		assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().total_balance(), 7);
+		// =ED after slash
+		assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().total_balance(), 5);
+		// <ED after slash, will be reaped
+		assert_eq!(PoolMembers::<Runtime>::get(21).unwrap().total_balance(), 2);
+
+		assert_ok!(Pools::reap_member(RuntimeOrigin::signed(21), 10, 0));
+		assert_ok!(Pools::reap_member(RuntimeOrigin::signed(21), 20, 0));
+		assert_ok!(Pools::reap_member(RuntimeOrigin::signed(21), 21, 0));
+
+		// balance of reaped member is subtracted from TVL
+		assert_eq!(tvl - TotalValueLocked::<Runtime>::get(), 2);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Burnt { stash: POOL1_BONDED, amount: 2 },],
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![PoolsEvent::MemberRemoved { pool_id: 1, member: 21, released_balance: 0 }],
+		);
+
+		assert_noop!(
+			Pools::reap_member(RuntimeOrigin::signed(21), 21, 0),
+			PoolsError::<Runtime>::PoolMemberNotFound
+		);
+	})
 }
