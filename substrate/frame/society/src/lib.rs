@@ -1387,18 +1387,6 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	{}
 }
 
-struct InputFromRng<'a, T>(&'a mut T);
-impl<'a, T: RngCore> codec::Input for InputFromRng<'a, T> {
-	fn remaining_len(&mut self) -> Result<Option<usize>, codec::Error> {
-		return Ok(None)
-	}
-
-	fn read(&mut self, into: &mut [u8]) -> Result<(), codec::Error> {
-		self.0.fill_bytes(into);
-		Ok(())
-	}
-}
-
 pub enum Period<BlockNumber> {
 	Voting { elapsed: BlockNumber, more: BlockNumber },
 	Claim { elapsed: BlockNumber, more: BlockNumber },

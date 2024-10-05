@@ -21,8 +21,7 @@ error[E0050]: method `test` has 2 parameters but the declaration in trait `Api::
 29 | / sp_api::mock_impl_runtime_apis! {
 30 | |     impl Api<Block> for MockApi {
 31 | |         fn test(self, data: u64) {}
-32 | |
-33 | |         fn test2(&mut self, data: u64) {}
+...  |
 34 | |     }
 35 | | }
    | |_^ expected 3 parameters, found 2
@@ -41,8 +40,7 @@ error[E0050]: method `test2` has 2 parameters but the declaration in trait `Api:
 29 | / sp_api::mock_impl_runtime_apis! {
 30 | |     impl Api<Block> for MockApi {
 31 | |         fn test(self, data: u64) {}
-32 | |
-33 | |         fn test2(&mut self, data: u64) {}
+...  |
 34 | |     }
 35 | | }
    | |_^ expected 3 parameters, found 2
