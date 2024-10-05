@@ -796,6 +796,10 @@ pub use polkadot_node_collation_generation;
 #[cfg(feature = "polkadot-node-core-approval-voting")]
 pub use polkadot_node_core_approval_voting;
 
+/// Approval Voting Subsystem running approval work in parallel.
+#[cfg(feature = "polkadot-node-core-approval-voting-parallel")]
+pub use polkadot_node_core_approval_voting_parallel;
+
 /// The Availability Store subsystem. Wrapper over the DB that stores availability data and
 /// chunks.
 #[cfg(feature = "polkadot-node-core-av-store")]
@@ -869,10 +873,6 @@ pub use polkadot_node_core_pvf_prepare_worker;
 /// Wrapper around the parachain-related runtime APIs.
 #[cfg(feature = "polkadot-node-core-runtime-api")]
 pub use polkadot_node_core_runtime_api;
-
-/// Polkadot Jaeger primitives, but equally useful for Grafana/Tempo.
-#[cfg(feature = "polkadot-node-jaeger")]
-pub use polkadot_node_jaeger;
 
 /// Subsystem metric helpers.
 #[cfg(feature = "polkadot-node-metrics")]
