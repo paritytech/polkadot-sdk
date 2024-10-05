@@ -25,23 +25,21 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use scale_info::TypeInfo;
 use cumulus_primitives_storage_weight_reclaim::get_proof_size;
 use derivative::Derivative;
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::Weight,
 };
+use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{
-		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension,
-	},
+	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension},
 	transaction_validity::{TransactionValidityError, ValidTransaction},
 	DispatchResult,
 };
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarks;
@@ -170,7 +168,9 @@ where
 		let mut post_info_with_inner = *post_info;
 		S::post_dispatch(inner_pre, info, &mut post_info_with_inner, len, result)?;
 
-		let inner_refund = if let (Some(before_weight), Some(after_weight)) = (post_info.actual_weight, post_info_with_inner.actual_weight) {
+		let inner_refund = if let (Some(before_weight), Some(after_weight)) =
+			(post_info.actual_weight, post_info_with_inner.actual_weight)
+		{
 			before_weight.saturating_sub(after_weight)
 		} else {
 			Weight::zero()

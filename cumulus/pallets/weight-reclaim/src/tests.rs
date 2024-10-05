@@ -518,7 +518,8 @@ fn full_basic_refund() {
 		let post_info = extrinsic.apply::<Test>(&info, LEN).unwrap().unwrap();
 
 		// Assertions:
-		let post_info_tx_proof_size = check_weight + storage_weight_reclaim + mock_ext - mock_ext_refund;
+		let post_info_tx_proof_size =
+			check_weight + storage_weight_reclaim + mock_ext - mock_ext_refund;
 		assert_eq!(
 			post_info.actual_weight,
 			Some(call_info.call_weight + Weight::from_parts(3, post_info_tx_proof_size))
@@ -560,7 +561,8 @@ fn full_accrue() {
 		let post_info = extrinsic.apply::<Test>(&info, LEN).unwrap().unwrap();
 
 		// Assertions:
-		let post_info_tx_proof_size = check_weight + storage_weight_reclaim + mock_ext - mock_ext_refund;
+		let post_info_tx_proof_size =
+			check_weight + storage_weight_reclaim + mock_ext - mock_ext_refund;
 		assert_eq!(
 			post_info.actual_weight,
 			Some(call_info.call_weight + Weight::from_parts(3, post_info_tx_proof_size))
