@@ -330,7 +330,7 @@ pub mod pallet {
 			Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
 			let weight_used = outcome.weight_used();
 			outcome.ensure_complete().map_err(|error| {
-				log::error!(target: "xcm::pallet_xcm::execute", "XCM execution failed with error {:?}", error);
+				log::error!(target: "xcm::pallet_xcm::execute", "XCM execution failed with error: {error:?}");
 				Error::<T>::LocalExecutionIncomplete.with_weight(
 					weight_used.saturating_add(
 						<Self::WeightInfo as ExecuteControllerWeightInfo>::execute(),
@@ -1330,7 +1330,7 @@ pub mod pallet {
 				weight,
 			);
 			outcome.ensure_complete().map_err(|error| {
-				log::error!(target: "xcm::pallet_xcm::claim_assets", "XCM execution failed with error: {:?}", error);
+				log::error!(target: "xcm::pallet_xcm::claim_assets", "XCM execution failed with error: {error:?}");
 				Error::<T>::LocalExecutionIncomplete
 			})?;
 			Ok(())
@@ -1798,7 +1798,7 @@ impl<T: Config> Pallet<T> {
 		outcome.ensure_complete().map_err(|error| {
 			log::error!(
 				target: "xcm::pallet_xcm::execute_xcm_transfer",
-				"XCM execution failed with error {:?}", error
+				"XCM execution failed with error: {error:?} for outcome: {outcome:?}",
 			);
 			Error::<T>::LocalExecutionIncomplete
 		})?;
@@ -1810,7 +1810,7 @@ impl<T: Config> Pallet<T> {
 				Self::charge_fees(origin.clone(), price).map_err(|error| {
 					log::error!(
 						target: "xcm::pallet_xcm::execute_xcm_transfer",
-						"Unable to charge fee with error {:?}", error
+						"Unable to charge fee with error {error:?} for price: {price:?} on origin {origin:?}",
 					);
 					Error::<T>::FeesNotMet
 				})?;
@@ -2485,7 +2485,7 @@ impl<T: Config> Pallet<T> {
 		let (ticket, price) = validate_send::<T::XcmRouter>(dest, message)?;
 		if let Some(fee_payer) = maybe_fee_payer {
 			Self::charge_fees(fee_payer, price).map_err(|e| {
-				log::error!(target: "xcm::pallet_xcm::send_xcm", "Charging fees failed: {:?}", e);
+				log::error!(target: "xcm::pallet_xcm::send_xcm", "Charging fees failed with error: {e:?} for price: {price:?} and fee_payer {fee_payer:?}");
 				SendError::Fees
 			})?;
 		}
@@ -2550,16 +2550,14 @@ impl<T: Config> Pallet<T> {
 		let origin_location: Location = origin_location.try_into().map_err(|error| {
 			log::error!(
 				target: "xcm::DryRunApi::dry_run_xcm",
-				"Location version conversion failed with error: {:?}",
-				error,
+				"Location version conversion failed with error: {error:?}"
 			);
 			XcmDryRunApiError::VersionedConversionFailed
 		})?;
 		let xcm: Xcm<RuntimeCall> = xcm.try_into().map_err(|error| {
 			log::error!(
 				target: "xcm::DryRunApi::dry_run_xcm",
-				"Xcm version conversion failed with error {:?}",
-				error,
+				"Xcm version conversion failed with error {error:?}"
 			);
 			XcmDryRunApiError::VersionedConversionFailed
 		})?;
@@ -2598,7 +2596,7 @@ impl<T: Config> Pallet<T> {
 	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
 		let message = Xcm::<()>::try_from(message)
 			.map_err(|e| {
-				log::error!(target: "xcm::pallet_xcm::query_xcm_weight", "Failed to convert versioned `message`: {:?}", e);
+				log::error!(target: "xcm::pallet_xcm::query_xcm_weight", "Failed to convert versioned message: {message:?} with error: {e:?}");
 				XcmPaymentApiError::VersionedConversionFailed
 			})?;
 
@@ -2617,18 +2615,18 @@ impl<T: Config> Pallet<T> {
 		let destination = destination
 			.try_into()
 			.map_err(|e| {
-				log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Failed to convert versioned `destination`: {:?}", e);
+				log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Failed to convert versioned destination: {destination:?} with error: {e:?}");
 				XcmPaymentApiError::VersionedConversionFailed
 			})?;
 
 		let message =
 			message.try_into().map_err(|e| {
-				log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Failed to convert versioned `message`: {:?}", e);
+				log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Failed to convert versioned message: {message:?} with error {e:?}");
 				XcmPaymentApiError::VersionedConversionFailed
 			})?;
 
 		let (_, fees) = validate_send::<T::XcmRouter>(destination, message).map_err(|error| {
-			log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Error when querying delivery fees: {:?}", error);
+			log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Failed to validate send to destination: {destination:?} with message: {message:?} with error: {error:?}");
 			XcmPaymentApiError::Unroutable
 		})?;
 
