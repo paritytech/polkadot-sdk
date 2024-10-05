@@ -226,5 +226,5 @@ where
 		Ok(Weight::zero())
 	}
 
-	impl_tx_ext_default!(T::RuntimeCall; validate);
+	impl_tx_ext_default!(T::RuntimeCall; weight validate);
 }

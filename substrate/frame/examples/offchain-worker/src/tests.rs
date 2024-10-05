@@ -245,7 +245,7 @@ fn should_submit_signed_transaction_on_chain() {
 			sp_runtime::generic::Preamble::Signed(
 				0,
 				(),
-				sp_runtime::generic::EXTENSION_VERSION,
+				0,
 				(),
 				sp_runtime::generic::EXTRINSIC_FORMAT_VERSION
 			)

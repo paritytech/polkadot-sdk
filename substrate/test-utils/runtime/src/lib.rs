@@ -282,7 +282,7 @@ impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCal
 	type Implicit = ();
 	type Pre = ();
 	type Val = ();
-	impl_tx_ext_default!(RuntimeCall; prepare);
+	impl_tx_ext_default!(RuntimeCall; weight prepare);
 
 	fn validate(
 		&self,

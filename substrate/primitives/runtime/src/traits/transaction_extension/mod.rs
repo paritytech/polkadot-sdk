@@ -56,13 +56,13 @@ pub type ValidateResult<Val, Call> =
 /// Transaction extensions are capable of altering certain associated semantics:
 ///
 /// - They may define the origin with which the transaction's call should be dispatched.
-/// - They may define various parameters used by the transction queue to determine under what
+/// - They may define various parameters used by the transaction queue to determine under what
 ///   conditions the transaction should be retained and introduced on-chain.
 /// - They may define whether this transaction is acceptable for introduction on-chain at all.
 ///
 /// Each of these semantics are defined by the `validate` function.
 ///
-/// **NOTE: Transaction extensions cannot under any circumctances alter the call itself.**
+/// **NOTE: Transaction extensions cannot under any circumstances alter the call itself.**
 ///
 /// Transaction extensions are capable of defining logic which is executed additionally to the
 /// dispatch of the call:
@@ -88,7 +88,10 @@ pub type ValidateResult<Val, Call> =
 /// However, a macro is provided [impl_tx_ext_default](crate::impl_tx_ext_default) which is capable
 /// of generating default implementations for both of these functions. If you do not wish to
 /// introduce additional logic into the transaction pipeline, then it is recommended that you use
-/// this macro to implement these functions.
+/// this macro to implement these functions. Additionally, [weight](TransactionExtension::weight)
+/// can return a default value, which would mean the extension is weightless, but it is not
+/// implemented by default. Instead, implementers can explicitly choose to implement this default
+/// behavior through the same [impl_tx_ext_default](crate::impl_tx_ext_default) macro.
 ///
 /// If your extension does any post-flight logic, then the functionality must be implemented in
 /// [post_dispatch_details](TransactionExtension::post_dispatch_details). This function can return
@@ -112,7 +115,7 @@ pub type ValidateResult<Val, Call> =
 /// pipeline is executed in order, and the output of each extension is aggregated and/or relayed as
 /// the input to the next extension in the pipeline.
 ///
-/// This ordered composition happens with all datatypes ([Val](TransactionExtension::Val),
+/// This ordered composition happens with all data types ([Val](TransactionExtension::Val),
 /// [Pre](TransactionExtension::Pre) and [Implicit](TransactionExtension::Implicit)) as well as
 /// all functions. There are important consequences stemming from how the composition affects the
 /// meaning of the `origin` and `implication` parameters as well as the results. Whereas the
@@ -140,7 +143,7 @@ pub type ValidateResult<Val, Call> =
 /// `implication` argument which implements the [Encode] trait. A transaction extension may define
 /// its own implications through its own fields and the
 /// [implicit](TransactionExtension::implicit) function. This is only utilized by extensions
-/// which preceed it in a pipeline or, if the transaction is an old-school signed transaction, the
+/// which precede it in a pipeline or, if the transaction is an old-school signed transaction, the
 /// underlying transaction verification logic.
 ///
 /// **The inherited implication passed as the `implication` parameter to
@@ -153,7 +156,7 @@ pub type ValidateResult<Val, Call> =
 /// [PostDispatchInfo](PostDispatchInfoOf<Call>) of that transaction sequentially with each
 /// [post_dispatch](TransactionExtension::post_dispatch) call. This means that an extension handling
 /// transaction payment and refunds should be at the end of the pipeline in order to capture the
-/// correct amount of weight used during the call. This is because one canot know the actual weight
+/// correct amount of weight used during the call. This is because one cannot know the actual weight
 /// of an extension after post dispatch without running the post dispatch ahead of time.
 pub trait TransactionExtension<Call: Dispatchable>:
 	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
@@ -194,16 +197,14 @@ pub trait TransactionExtension<Call: Dispatchable>:
 		}]
 	}
 
-	/// The type that encodes information that can be passed from validate to prepare.
+	/// The type that encodes information that can be passed from `validate` to `prepare`.
 	type Val;
 
-	/// The type that encodes information that can be passed from prepare to post-dispatch.
+	/// The type that encodes information that can be passed from `prepare` to `post_dispatch`.
 	type Pre;
 
 	/// The weight consumed by executing this extension instance fully during transaction dispatch.
-	fn weight(&self, _call: &Call) -> Weight {
-		Weight::zero()
-	}
+	fn weight(&self, call: &Call) -> Weight;
 
 	/// Validate a transaction for the transaction queue.
 	///
@@ -382,12 +383,12 @@ pub trait TransactionExtension<Call: Dispatchable>:
 }
 
 /// Helper macro to be used in a `impl TransactionExtension` block to add default implementations of
-/// `validate` and/or `prepare`
+/// `weight`, `validate`, `prepare` or any combinations of the them.
 ///
 /// The macro is to be used with 2 parameters, separated by ";":
 /// - the `Call` type;
 /// - the functions for which a default implementation should be generated, separated by " ";
-///   available options are `validate` and `prepare`.
+///   available options are `weight`, `validate` and `prepare`.
 ///
 /// Example usage:
 /// ```nocompile
@@ -395,12 +396,16 @@ pub trait TransactionExtension<Call: Dispatchable>:
 /// 	type Val = ();
 /// 	type Pre = ();
 ///
-/// 	impl_tx_ext_default!(FirstCall; validate prepare);
+/// 	impl_tx_ext_default!(FirstCall; weight validate prepare);
 /// }
 ///
 /// impl TransactionExtension<SecondCall> for SimpleExtension {
 /// 	type Val = u32;
 /// 	type Pre = ();
+///
+/// 	fn weight(&self, _: &SecondCall) -> Weight {
+/// 		Weight::zero()
+/// 	}
 ///
 /// 	fn validate(
 /// 			&self,
@@ -448,6 +453,12 @@ macro_rules! impl_tx_ext_default {
 			Ok(Default::default())
 		}
 		$crate::impl_tx_ext_default!{$call ; $( $rest )*}
+	};
+	($call:ty ; weight $( $rest:tt )*) => {
+		fn weight(&self, _call: &$call) -> $crate::Weight {
+			$crate::Weight::zero()
+		}
+		impl_tx_ext_default!{$call ; $( $rest )*}
 	};
 	($call:ty ;) => {};
 }

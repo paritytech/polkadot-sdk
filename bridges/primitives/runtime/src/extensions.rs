@@ -146,5 +146,5 @@ where
 	type Pre = ();
 	type Val = ();
 
-	impl_tx_ext_default!(C; validate prepare);
+	impl_tx_ext_default!(C; weight validate prepare);
 }

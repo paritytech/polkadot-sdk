@@ -118,8 +118,9 @@ where
 		TransactionValidityError,
 	> {
 		// If the extension is disabled, return early.
-		let Self::Signed { signature, account } = &self else {
-			return Ok((Default::default(), (), origin))
+		let (signature, account) = match &self {
+			Self::Signed { signature, account } => (signature, account),
+			Self::Disabled => return Ok((Default::default(), (), origin)),
 		};
 
 		// This extension must receive an unauthorized origin as it is meant to headline the

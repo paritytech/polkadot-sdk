@@ -526,5 +526,5 @@ where
 		};
 		Ok((validity, (), origin))
 	}
-	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; prepare);
+	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; weight prepare);
 }

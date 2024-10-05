@@ -155,5 +155,5 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMeta
 	type Val = ();
 	type Pre = ();
 
-	impl_tx_ext_default!(T::RuntimeCall; validate prepare);
+	impl_tx_ext_default!(T::RuntimeCall; weight validate prepare);
 }

@@ -128,5 +128,5 @@ where
 		Ok((ValidTransaction::default(), (), origin))
 	}
 	// We're not doing any special logic in `TransactionExtension::prepare`, so just impl a default.
-	impl_tx_ext_default!(T::RuntimeCall; prepare);
+	impl_tx_ext_default!(T::RuntimeCall; weight prepare);
 }
