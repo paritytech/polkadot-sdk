@@ -13,6 +13,7 @@ workspace = true
 path = "src/lib.rs"
 
 [dependencies]
+anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
@@ -26,6 +27,7 @@ docify = { workspace = true }
 # Local
 jsonrpsee = { features = ["server"], workspace = true }
 parachains-common = { workspace = true, default-features = true }
+frame-metadata = { workspace = true, default-features = true }
 
 # Substrate
 frame-benchmarking = { optional = true, workspace = true, default-features = true }
@@ -94,12 +96,8 @@ wait-timeout = { workspace = true }
 
 [features]
 default = []
-rococo-native = [
-	"polkadot-cli/rococo-native",
-]
-westend-native = [
-	"polkadot-cli/westend-native",
-]
+rococo-native = ["polkadot-cli/rococo-native"]
+westend-native = ["polkadot-cli/westend-native"]
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",

@@ -14,14 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::common::{
-	command::NodeCommandRunner,
-	rpc::BuildRpcExtensions,
-	types::{
-		ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
-		ParachainService,
+use crate::{
+	common::{
+		command::NodeCommandRunner,
+		rpc::BuildRpcExtensions,
+		types::{
+			ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
+			ParachainService,
+		},
+		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
+	runtime::metadata::parachain_system_pallet_exists,
 };
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
@@ -41,6 +44,7 @@ use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
+use sp_api::{Metadata, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
@@ -214,10 +218,18 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 				let params = Self::new_partial(&parachain_config)?;
 				let (block_import, mut telemetry, telemetry_worker_handle) = params.other;
-
+				// Do metadata checks.
 				let client = params.client.clone();
-				let backend = params.backend.clone();
+				let best_block = client.chain_info().finalized_hash;
+				let metadata = client
+					.runtime_api()
+					.metadata(best_block)
+					.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+				if !parachain_system_pallet_exists(metadata.as_slice())? {
+					return Err(sc_service::Error::Application(anyhow::anyhow!("Parachain system pallet doesn't exist in runtime's metadata. Omni node supports only parachains.").into()));
+				}
 
+				let backend = params.backend.clone();
 				let mut task_manager = params.task_manager;
 				let (relay_chain_interface, collator_key) = build_relay_chain_interface(
 					polkadot_config,
