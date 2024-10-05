@@ -94,6 +94,7 @@ type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
 type EventRecordOf<T> =
 	EventRecord<<T as frame_system::Config>::RuntimeEvent, <T as frame_system::Config>::Hash>;
 type DebugBuffer = BoundedVec<u8, ConstU32<{ limits::DEBUG_BUFFER_BYTES }>>;
+type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 
 /// Used as a sentinel value when reading and writing contract memory.
 ///
@@ -550,6 +551,9 @@ pub mod pallet {
 		ExecutionFailed,
 		/// Failed to convert a U256 to a Balance.
 		BalanceConversionFailed,
+		/// Immutable data can only be set during deploys and only be read during calls.
+		/// Additionally, it is only valid to set the data once and it must not be empty.
+		InvalidImmutableAccess,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
@@ -572,6 +576,10 @@ pub mod pallet {
 	/// The code associated with a given account.
 	#[pallet::storage]
 	pub(crate) type ContractInfoOf<T: Config> = StorageMap<_, Identity, H160, ContractInfo<T>>;
+
+	/// The immutable data associated with a given account.
+	#[pallet::storage]
+	pub(crate) type ImmutableDataOf<T: Config> = StorageMap<_, Identity, H160, ImmutableData>;
 
 	/// Evicted contracts that await child trie deletion.
 	///
@@ -665,6 +673,16 @@ pub mod pallet {
 					.hash()
 					.len() as u32;
 
+			let max_immutable_key_size = T::AccountId::max_encoded_len() as u32;
+			let max_immutable_size: u32 = ((max_block_ref_time /
+				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetImmutableData(
+					limits::IMMUTABLE_BYTES,
+				))
+				.ref_time()))
+			.saturating_mul(limits::IMMUTABLE_BYTES.saturating_add(max_immutable_key_size) as u64))
+			.try_into()
+			.expect("Immutable data size too big");
+
 			// We can use storage to store items using the available block ref_time with the
 			// `set_storage` host function.
 			let max_storage_size: u32 = ((max_block_ref_time /
@@ -674,6 +692,7 @@ pub mod pallet {
 				})
 				.ref_time()))
 			.saturating_mul(max_payload_size.saturating_add(max_key_size) as u64))
+			.saturating_add(max_immutable_size.into())
 			.try_into()
 			.expect("Storage size too big");
 

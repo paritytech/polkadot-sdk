@@ -629,6 +629,53 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_get_immutable_data(n: Linear<1, { limits::IMMUTABLE_BYTES }>) {
+		let len = n as usize;
+		let immutable_data = vec![1u8; len];
+
+		build_runtime!(runtime, contract, memory: [(len as u32).encode(), vec![0u8; len],]);
+
+		<ImmutableDataOf<T>>::insert::<_, BoundedVec<_, _>>(
+			contract.address(),
+			immutable_data.clone().try_into().unwrap(),
+		);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_get_immutable_data(memory.as_mut_slice(), 4, 0 as u32);
+		}
+
+		assert_ok!(result);
+		assert_eq!(&memory[0..4], (len as u32).encode());
+		assert_eq!(&memory[4..len + 4], &immutable_data);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_set_immutable_data(n: Linear<1, { limits::IMMUTABLE_BYTES }>) {
+		let len = n as usize;
+		let mut memory = vec![1u8; len];
+		let mut setup = CallSetup::<T>::default();
+		let input = setup.data();
+		let (mut ext, _) = setup.ext();
+		ext.override_export(crate::debug::ExportedFunction::Constructor);
+
+		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, input);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_set_immutable_data(memory.as_mut_slice(), 0, n);
+		}
+
+		assert_ok!(result);
+		assert_eq!(
+			&memory[..],
+			&<ImmutableDataOf<T>>::get(setup.contract().address()).unwrap()[..]
+		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_value_transferred() {
 		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;
