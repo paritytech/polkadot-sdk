@@ -115,6 +115,7 @@ mod build {
 
 	fn invoke_build(current_dir: &Path) -> Result<()> {
 		let encoded_rustflags = [
+			"-Dwarnings",
 			"-Crelocation-model=pie",
 			"-Clink-arg=--emit-relocs",
 			"-Clink-arg=--export-dynamic-symbol=__polkavm_symbol_export_hack__*",
