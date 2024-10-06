@@ -38,7 +38,7 @@ pub mod cleanup_proposals {
 	/// this migration.
 	pub struct Migration<T, I, UnreserveWeight>(PhantomData<(T, I, UnreserveWeight)>);
 
-	impl<T: Config<I> + pallet_balances::Config, I: 'static, UnreserveWeight: Get<Weight>>
+	impl<T: Config<I>, I: 'static, UnreserveWeight: Get<Weight>>
 		OnRuntimeUpgrade for Migration<T, I, UnreserveWeight>
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
