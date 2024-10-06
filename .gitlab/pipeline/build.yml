@@ -256,7 +256,7 @@ build-test-parachain:
 # DAG: build-runtime-assets -> build-runtime-collectives -> build-runtime-bridge-hubs
 # DAG: build-runtime-assets -> build-runtime-collectives -> build-runtime-contracts
 # DAG: build-runtime-assets -> build-runtime-coretime
-# DAG: build-runtime-assets -> build-runtime-starters -> build-runtime-testing
+# DAG: build-runtime-assets -> build-runtime-testing
 build-runtime-assets:
   <<: *build-runtime-template
   variables:
@@ -298,22 +298,13 @@ build-runtime-contracts:
     - job: build-runtime-collectives
       artifacts: false
 
-build-runtime-starters:
-  <<: *build-runtime-template
-  variables:
-    RUNTIME_PATH: "cumulus/parachains/runtimes/starters"
-  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
-  needs:
-    - job: build-runtime-assets
-      artifacts: false
-
 build-runtime-testing:
   <<: *build-runtime-template
   variables:
     RUNTIME_PATH: "cumulus/parachains/runtimes/testing"
   # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
   needs:
-    - job: build-runtime-starters
+    - job: build-runtime-assets
       artifacts: false
 
 build-short-benchmark-cumulus:
