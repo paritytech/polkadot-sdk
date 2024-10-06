@@ -9592,6 +9592,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",
+ "serde_json",
 ]
 
 [[package]]
@@ -21294,6 +21295,7 @@ dependencies = [
  "sp-consensus-aura",
  "sp-consensus-grandpa",
  "sp-core 28.0.0",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io 30.0.0",
  "sp-keyring",
@@ -21325,6 +21327,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
  "scale-info",
+ "serde_json",
  "sp-api 26.0.0",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -21332,6 +21335,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-genesis-builder",
  "sp-inherents",
+ "sp-keyring",
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",

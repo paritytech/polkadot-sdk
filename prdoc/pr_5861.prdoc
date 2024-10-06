@@ -1,0 +1,37 @@
+title: "[pallet-revive] immutable data storage"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces the concept of immutable storage data, used for
+      [Solidity immutable variables](https://docs.soliditylang.org/en/latest/contracts.html#immutable).
+      
+      This is a minimal implementation. Immutable data is attached to a contract; to 
+      `ContractInfo` fixed in size, we only store the length there, and store the immutable
+      data in a dedicated storage map instead. Which comes at the cost of requiring an
+      storage read (costly) for contracts using this feature.
+      
+      We discussed more optimal solutions not requiring any additional storage accesses
+      internally, but they turned out to be non-trivial to implement. Another optimization
+      benefiting multiple calls to the same contract in a single call stack would be to cache
+      the immutable data in `Stack`. However, this potential creates a DOS vulnerability (the
+      attack vector is to call into as many contracts in a single stack as possible, where
+      they all have maximum immutable data to fill the cache as efficiently as possible). So
+      this either has to be guaranteed to be a non-issue by limits, or, more likely, to have
+      some logic to bound the cache. Eventually, we should think about introducing the concept
+      of warm and cold storage reads (akin to EVM). Since immutable variables are commonly
+      used in contracts, this change is blocking our initial launch and we should only
+      optimize it properly in follow-ups.
+      
+      This PR also disables the `set_code_hash` API (which isn't usable for Solidity contracts
+      without pre-compiles anyways). With immutable storage attached to contracts, we now want
+      to run the constructor of the new code hash to collect the immutable data during
+      `set_code_hash`. This will be implemented in a follow up PR.
+
+crates:
+  - name: pallet-revive
+    bump: major
+  - name: pallet-revive-fixtures
+    bump: patch
+  - name: pallet-revive-uapi
+    bump: minor
