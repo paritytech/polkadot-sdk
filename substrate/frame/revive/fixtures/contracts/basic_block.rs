@@ -15,19 +15,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Uses the sbrk instruction in order to test that it is rejected.
+//! Create a basic block that is larger than we allow.
 
 #![no_std]
 #![no_main]
 
 extern crate common;
 
+use core::arch::asm;
+
 // Export that is never called. We can put code here that should be in the binary
 // but is never supposed to be run.
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call_never() {
-	polkavm_derive::sbrk(4);
+	// Stores cannot be optimized away because the optimizer cannot
+	// know whether they have side effects.
+	let value: u32 = 42;
+	unsafe {
+		asm!(".rept 201", "sw {x}, 0(sp)", ".endr", x = in(reg) value);
+	}
 }
 
 #[no_mangle]
