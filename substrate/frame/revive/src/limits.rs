@@ -167,7 +167,9 @@ pub mod code {
 			.saturating_add(round_page(program.rw_data_size()))
 			.saturating_sub(program.rw_data().len() as u64)
 			.saturating_add(round_page(program.stack_size()))
-			.saturating_add(u64::from(num_instructions).saturating_mul(BYTES_PER_INSTRUCTION.into()))
+			.saturating_add(
+				u64::from(num_instructions).saturating_mul(BYTES_PER_INSTRUCTION.into()),
+			)
 			.saturating_add(
 				(program.code().len() as u64).saturating_mul(EXTRA_OVERHEAD_PER_CODE_BYTE.into()),
 			);
