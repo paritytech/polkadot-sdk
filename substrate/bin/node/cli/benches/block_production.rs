@@ -121,11 +121,12 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 }
 
 fn extrinsic_set_time(now: u64) -> OpaqueExtrinsic {
-	generic::UncheckedExtrinsic {
+	let utx: kitchensink_runtime::UncheckedExtrinsic = generic::UncheckedExtrinsic {
 		signature: None,
 		function: kitchensink_runtime::RuntimeCall::Timestamp(pallet_timestamp::Call::set { now }),
 	}
-	.into()
+	.into();
+	utx.0.into()
 }
 
 fn import_block(client: &FullClient, built: BuiltBlock<node_primitives::Block>) {
