@@ -397,7 +397,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Push some assignments back to the provider.
 	fn push_back_to_assignment_provider(
-		assignments: impl Iterator<Item = Assignment> + core::iter::DoubleEndedIterator,
+		assignments: impl core::iter::DoubleEndedIterator<Item = Assignment>,
 	) {
 		// Push back in reverse order so that when we pop from the provider again,
 		// the entries in the claim queue are in the same order as they are right
