@@ -902,11 +902,9 @@ where
 				let address = if let Some(salt) = salt {
 					address::create2(&deployer, executable.code(), input_data, salt)
 				} else {
-					use sp_runtime::Saturating;
-					address::create1(
-						&deployer,
-						account_nonce.saturating_sub(1u32.into()).saturated_into(),
-					)
+					// TODO: Fix this the nonce is bumped on pre-dispatch, so when this is called by
+					// origin it will be off by one.
+					address::create1(&deployer, account_nonce.saturated_into())
 				};
 				let contract = ContractInfo::new(
 					&address,
@@ -1024,6 +1022,7 @@ where
 					frame.contract_info.get(&frame.account_id),
 					executable.code_info(),
 				)?;
+
 				// Needs to be incremented before calling into the code so that it is visible
 				// in case of recursion.
 				<System<T>>::inc_account_nonce(caller.account_id()?);
