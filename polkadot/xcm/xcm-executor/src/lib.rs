@@ -1242,8 +1242,16 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					if preserve_origin {
 						// preserve current origin for subsequent user-controlled instructions on
 						// remote chain
-						let original_origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
-						message.push(AliasOrigin(original_origin.clone()));
+						let original_origin = self
+							.origin_ref()
+							.cloned()
+							.and_then(|origin| {
+								Self::try_reanchor(origin, &destination)
+									.map(|(reanchored, _)| reanchored)
+									.ok()
+							})
+							.ok_or(XcmError::BadOrigin)?;
+						message.push(AliasOrigin(original_origin));
 					} else {
 						// clear origin for subsequent user-controlled instructions on remote chain
 						message.push(ClearOrigin);
