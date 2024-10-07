@@ -204,6 +204,7 @@ where
 			Preamble::Signed(_, _, _, _, extrinsic_version) => {
 				// Unreachable, versions are checked in the constructor.
 				log::error!(target: "unchecked-extrinsic", "unknown extrinsic version {}", extrinsic_version);
+				debug_assert!(false, "unknown extrinsic version {}", extrinsic_version);
 			},
 		}
 	}
