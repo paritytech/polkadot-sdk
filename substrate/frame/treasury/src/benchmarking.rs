@@ -26,7 +26,7 @@ use frame_benchmarking::{
 	v2::*,
 };
 use frame_support::{
-	ensure,
+	assert_err, assert_ok, ensure,
 	traits::{
 		tokens::{ConversionFromAssetBalance, PaymentStatus},
 		EnsureOrigin, OnInitialize,
@@ -126,16 +126,31 @@ mod benchmarks {
 
 	#[benchmark]
 	fn remove_approval() -> Result<(), BenchmarkError> {
-		let origin =
-			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let (_, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
-		Treasury::<T, _>::spend_local(origin, value, beneficiary_lookup)?;
-		let proposal_id = Treasury::<T, _>::proposal_count() - 1;
+		let (spend_exists, proposal_id) =
+			if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
+				let (_, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
+				Treasury::<T, _>::spend_local(origin, value, beneficiary_lookup)?;
+				let proposal_id = Treasury::<T, _>::proposal_count() - 1;
+
+				(true, proposal_id)
+			} else {
+				(false, 0)
+			};
+
 		let reject_origin =
 			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
-		#[extrinsic_call]
-		_(reject_origin as T::RuntimeOrigin, proposal_id);
+		#[block]
+		{
+			let res =
+				Treasury::<T, _>::remove_approval(reject_origin as T::RuntimeOrigin, proposal_id);
+
+			if spend_exists {
+				assert_ok!(res);
+			} else {
+				assert_err!(res, Error::<T, _>::ProposalNotApproved);
+			}
+		}
 
 		Ok(())
 	}
