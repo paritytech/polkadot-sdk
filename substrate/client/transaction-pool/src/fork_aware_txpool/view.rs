@@ -213,7 +213,7 @@ where
 			revalidation_result_tx,
 		} = finish_revalidation_worker_channels;
 
-		log::trace!(target:LOG_TARGET, "view::revalidate_later: at {} starting", self.at.hash);
+		log::trace!(target:LOG_TARGET, "view::revalidate: at {} starting", self.at.hash);
 		let start = Instant::now();
 		let validated_pool = self.pool.validated_pool();
 		let api = validated_pool.api();
@@ -234,7 +234,7 @@ where
 			let mut should_break = false;
 			tokio::select! {
 				_ = finish_revalidation_request_rx.recv() => {
-					log::trace!(target: LOG_TARGET, "view::revalidate_later: finish revalidation request received at {}.", self.at.hash);
+					log::trace!(target: LOG_TARGET, "view::revalidate: finish revalidation request received at {}.", self.at.hash);
 					break
 				}
 				_ = async {
@@ -261,13 +261,13 @@ where
 		});
 		log::debug!(
 			target:LOG_TARGET,
-			"view::revalidate_later: at {:?} count: {}/{} took {:?}",
+			"view::revalidate: at {:?} count: {}/{} took {:?}",
 			self.at.hash,
 			validation_results.len(),
 			batch_len,
 			revalidation_duration
 		);
-		log_xt_trace!(data:tuple, target:LOG_TARGET, validation_results.iter().map(|x| (x.1, &x.0)), "[{:?}] view::revalidate_later result: {:?}");
+		log_xt_trace!(data:tuple, target:LOG_TARGET, validation_results.iter().map(|x| (x.1, &x.0)), "[{:?}] view::revalidateresult: {:?}");
 
 		for (validation_result, tx_hash, tx) in validation_results {
 			match validation_result {
@@ -303,12 +303,12 @@ where
 			}
 		}
 
-		log::trace!(target:LOG_TARGET, "view::revalidate_later: sending revalidation result at {}", self.at.hash);
+		log::trace!(target:LOG_TARGET, "view::revalidate: sending revalidation result at {}", self.at.hash);
 		if let Err(e) = revalidation_result_tx
 			.send(RevalidationResult { invalid_hashes, revalidated })
 			.await
 		{
-			log::trace!(target:LOG_TARGET, "view::revalidate_later: sending revalidation_result at {} failed {:?}", self.at.hash, e);
+			log::trace!(target:LOG_TARGET, "view::revalidate: sending revalidation_result at {} failed {:?}", self.at.hash, e);
 		}
 	}
 
