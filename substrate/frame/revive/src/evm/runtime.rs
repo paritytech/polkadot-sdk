@@ -268,9 +268,10 @@ pub trait EthExtra {
 
 	/// The Runtime's signed extension.
 	/// It should include at least:
-	/// [`CheckNonce`] to ensure that the nonce from the Ethereum transaction is correct.
-	/// [`CheckEthTransact`] to ensure that the fees from the Ethereum transaction correspond to
-	/// the pre-dispatch fees computed from the extrinsic.
+	/// - [`frame_system::CheckNonce`] to ensure that the nonce from the Ethereum transaction is
+	///   correct.
+	/// - [`CheckEthTransact`] to ensure that the fees from the Ethereum transaction
+	/// correspond to the pre-dispatch fees computed from the extrinsic.
 	type Extra: SignedExtension<AccountId = AccountId32>;
 
 	/// Get the signed extensions to apply to an unsigned [`crate::Call::eth_transact`] extrinsic.
