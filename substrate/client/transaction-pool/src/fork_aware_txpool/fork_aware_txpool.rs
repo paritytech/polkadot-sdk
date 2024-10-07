@@ -623,7 +623,15 @@ where
 						result.or_else(|error| {
 							let error = error.into_pool_error();
 							match error {
-								Ok(Error::ImmediatelyDropped) => Ok(xt_hash),
+								Ok(
+									// The transaction is still in mempool it may get included into the view for the next block.
+									Error::ImmediatelyDropped|
+									// These errors indicates that transaction is already known (e.g. it was ready, broadcasted and dropped from
+									// local peer, and then imported in a fork from the other peer). Returning status stream is
+									// better then reporting error in this case.
+									Error::AlreadyImported(..) |
+									Error::TemporarilyBanned,
+								) => Ok(xt_hash),
 								Ok(e) => {
 									mempool.remove(xt_hash);
 									Err(e.into())
