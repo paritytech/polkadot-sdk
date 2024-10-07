@@ -621,7 +621,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		let reanchor_context = Config::UniversalLocation::get();
 		let reanchored =
 			reanchorable.reanchored(&destination, &reanchor_context).map_err(|error| {
-				tracing::error!(target: "xcm::reanchor", "Failed reanchoring with error: {error:?} for destination: {destination:?} and context: {context:?}");
+				tracing::error!(target: "xcm::reanchor", ?error, ?destination, ?context, "Failed reanchoring with error.");
 				XcmError::ReanchorFailed
 			})?;
 		Ok((reanchored, reanchor_context))
