@@ -19,98 +19,58 @@
 
 use crate as pallet_assets_holder;
 pub use crate::*;
-use codec::{Compact, Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	derive_impl,
-	traits::{AsEnsureOriginWithArg, ConstU64},
-};
+use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::{derive_impl, traits::AsEnsureOriginWithArg};
 use scale_info::TypeInfo;
-use sp_core::{ConstU32, H256};
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use sp_runtime::BuildStorage;
 
-pub type AccountId = u64;
-pub type Balance = u64;
-pub type AssetId = u32;
+pub type AccountId = <Test as frame_system::Config>::AccountId;
+pub type Balance = <Test as pallet_balances::Config>::Balance;
+pub type AssetId = <Test as pallet_assets::Config>::AssetId;
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
-	pub enum Test
-	{
-		System: frame_system,
-		Assets: pallet_assets,
-		AssetsHolder: pallet_assets_holder,
-		Balances: pallet_balances,
-	}
-);
+#[frame_support::runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeTask,
+		RuntimeHoldReason,
+		RuntimeFreezeReason
+	)]
+	pub struct Test;
+
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
+	#[runtime::pallet_index(10)]
+	pub type Balances = pallet_balances;
+	#[runtime::pallet_index(20)]
+	pub type Assets = pallet_assets;
+	#[runtime::pallet_index(21)]
+	pub type AssetsHolder = pallet_assets_holder;
+}
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = Balance;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
+#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig as pallet_assets::DefaultConfig)]
 impl pallet_assets::Config for Test {
-	type AssetId = AssetId;
-	type AssetIdParameter = Compact<AssetId>;
-	type AssetDeposit = ConstU64<1>;
-	type Balance = Balance;
-	type AssetAccountDeposit = ConstU64<1>;
-	type MetadataDepositBase = ();
-	type MetadataDepositPerByte = ();
-	type ApprovalDeposit = ();
+	// type AssetAccountDeposit = ConstU64<1>;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
-	type StringLimit = ConstU32<32>;
-	type Extra = ();
-	type RemoveItemsLimit = ConstU32<10>;
-	type CallbackHandle = ();
 	type Currency = Balances;
 	type Holder = AssetsHolder;
-	type Freezer = ();
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
 }
 
 #[derive(
