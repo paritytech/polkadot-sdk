@@ -129,10 +129,6 @@ impl From<Record> for libp2p_kad::Record {
 	}
 }
 
-/*impl From<libp2p_identity::SigningError> for SigningError {
-	fn from(a: )
-}*/
-
 /// A record either received by the given peer or retrieved from the local
 /// record store.
 #[derive(Debug, Clone, PartialEq, Eq)]
