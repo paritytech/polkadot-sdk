@@ -25,7 +25,7 @@ use crate::{
 	storage::{self, meter::Diff, WriteOutcome},
 	transient_storage::TransientStorage,
 	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DebugBuffer, Error,
-	Event, Pallet as Contracts, LOG_TARGET,
+	Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -296,6 +296,18 @@ pub trait Ext: sealing::Sealed {
 		<Self::T as Config>::AddressMapper::to_address(self.account_id())
 	}
 
+	/// Returns the immutable data of the current contract.
+	///
+	/// Returns `Err(InvalidImmutableAccess)` if called from a constructor.
+	fn get_immutable_data(&mut self) -> Result<ImmutableData, DispatchError>;
+
+	/// Set the the immutable data of the current contract.
+	///
+	/// Returns `Err(InvalidImmutableAccess)` if not called from a constructor.
+	///
+	/// Note: Requires &mut self to access the contract info.
+	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError>;
+
 	/// Returns the balance of the current contract.
 	///
 	/// The `value_transferred` is already added.
@@ -373,7 +385,7 @@ pub trait Ext: sealing::Sealed {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn transient_storage(&mut self) -> &mut TransientStorage<Self::T>;
 
-	/// Sets new code hash for existing contract.
+	/// Sets new code hash and immutable data for an existing contract.
 	fn set_code_hash(&mut self, hash: H256) -> DispatchResult;
 
 	/// Returns the number of times the specified contract exists on the call stack. Delegated calls
@@ -1286,6 +1298,13 @@ where
 	fn account_balance(&self, who: &T::AccountId) -> U256 {
 		T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite).into()
 	}
+
+	/// Certain APIs, e.g. `{set,get}_immutable_data` behave differently depending
+	/// on the configured entry point. Thus, we allow setting the export manually.
+	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
+	pub(crate) fn override_export(&mut self, export: ExportedFunction) {
+		self.top_frame_mut().entry_point = export;
+	}
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -1418,6 +1437,7 @@ where
 		info.queue_trie_for_deletion();
 		let account_address = T::AddressMapper::to_address(&frame.account_id);
 		ContractInfoOf::<T>::remove(&account_address);
+		ImmutableDataOf::<T>::remove(&account_address);
 		Self::decrement_refcount(info.code_hash);
 
 		for (code_hash, deposit) in info.delegate_dependencies() {
@@ -1519,6 +1539,30 @@ where
 	fn caller_is_root(&self) -> bool {
 		// if the caller isn't origin, then it can't be root.
 		self.caller_is_origin() && self.origin == Origin::Root
+	}
+
+	fn get_immutable_data(&mut self) -> Result<ImmutableData, DispatchError> {
+		if self.top_frame().entry_point == ExportedFunction::Constructor {
+			return Err(Error::<T>::InvalidImmutableAccess.into());
+		}
+
+		let address = T::AddressMapper::to_address(self.account_id());
+		Ok(<ImmutableDataOf<T>>::get(address).ok_or_else(|| Error::<T>::InvalidImmutableAccess)?)
+	}
+
+	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError> {
+		if self.top_frame().entry_point == ExportedFunction::Call {
+			return Err(Error::<T>::InvalidImmutableAccess.into());
+		}
+
+		let account_id = self.account_id().clone();
+		let len = data.len() as u32;
+		let amount = self.top_frame_mut().contract_info().set_immutable_data_len(len)?;
+		self.top_frame_mut().nested_storage.charge_deposit(account_id.clone(), amount);
+
+		<ImmutableDataOf<T>>::insert(T::AddressMapper::to_address(&account_id), &data);
+
+		Ok(())
 	}
 
 	fn balance(&self) -> U256 {
@@ -1627,6 +1671,21 @@ where
 		&mut self.transient_storage
 	}
 
+	/// TODO: This should be changed to run the constructor of the supplied `hash`.
+	///
+	/// Because the immutable data is attached to a contract and not a code,
+	/// we need to update the immutable data too.
+	///
+	/// Otherwise we open a massive footgun:
+	/// If the immutables changed in the new code, the contract will brick.
+	///
+	/// A possible implementation strategy is to add a flag to `FrameArgs::Instantiate`,
+	/// so that `fn run()` will roll back any changes if this flag is set.
+	///
+	/// After running the constructor, the new immutable data is already stored in
+	/// `self.immutable_data` at the address of the (reverted) contract instantiation.
+	///
+	/// The `set_code_hash` contract API stays disabled until this change is implemented.
 	fn set_code_hash(&mut self, hash: H256) -> DispatchResult {
 		let frame = top_frame_mut!(self);
 
@@ -4279,5 +4338,217 @@ mod tests {
 			);
 			assert_matches!(result, Ok(_));
 		});
+	}
+
+	#[test]
+	fn immutable_data_access_checks_work() {
+		let dummy_ch = MockLoader::insert(Constructor, move |ctx, _| {
+			// Calls can not store immutable data
+			assert_eq!(
+				ctx.ext.get_immutable_data(),
+				Err(Error::<Test>::InvalidImmutableAccess.into())
+			);
+			exec_success()
+		});
+		let instantiator_ch = MockLoader::insert(Call, {
+			move |ctx, _| {
+				let value = <Test as Config>::Currency::minimum_balance().into();
+
+				assert_eq!(
+					ctx.ext.set_immutable_data(vec![0, 1, 2, 3].try_into().unwrap()),
+					Err(Error::<Test>::InvalidImmutableAccess.into())
+				);
+
+				// Constructors can not access the immutable data
+				ctx.ext
+					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.unwrap();
+
+				exec_success()
+			}
+		});
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.existential_deposit(15)
+			.build()
+			.execute_with(|| {
+				set_balance(&ALICE, 1000);
+				set_balance(&BOB_CONTRACT_ID, 100);
+				place_contract(&BOB, instantiator_ch);
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap()
+			});
+	}
+
+	#[test]
+	fn correct_immutable_data_in_delegate_call() {
+		let charlie_ch = MockLoader::insert(Call, |ctx, _| {
+			Ok(ExecReturnValue {
+				flags: ReturnFlags::empty(),
+				data: ctx.ext.get_immutable_data()?.to_vec(),
+			})
+		});
+		let bob_ch = MockLoader::insert(Call, move |ctx, _| {
+			// In a regular call, we should witness the callee immutable data
+			assert_eq!(
+				ctx.ext
+					.call(
+						Weight::zero(),
+						U256::zero(),
+						&CHARLIE_ADDR,
+						U256::zero(),
+						vec![],
+						true,
+						false,
+					)
+					.map(|_| ctx.ext.last_frame_output().data.clone()),
+				Ok(vec![2]),
+			);
+
+			// In a delegate call, we should witness the caller immutable data
+			assert_eq!(
+				ctx.ext.delegate_call(charlie_ch, Vec::new()).map(|_| ctx
+					.ext
+					.last_frame_output()
+					.data
+					.clone()),
+				Ok(vec![1])
+			);
+
+			exec_success()
+		});
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.existential_deposit(15)
+			.build()
+			.execute_with(|| {
+				place_contract(&BOB, bob_ch);
+				place_contract(&CHARLIE, charlie_ch);
+
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+
+				// Place unique immutable data for each contract
+				<ImmutableDataOf<Test>>::insert::<_, ImmutableData>(
+					BOB_ADDR,
+					vec![1].try_into().unwrap(),
+				);
+				<ImmutableDataOf<Test>>::insert::<_, ImmutableData>(
+					CHARLIE_ADDR,
+					vec![2].try_into().unwrap(),
+				);
+
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap()
+			});
+	}
+
+	#[test]
+	fn immutable_data_set_works_only_once() {
+		let dummy_ch = MockLoader::insert(Constructor, move |ctx, _| {
+			// Calling `set_immutable_data` the first time should work
+			assert_ok!(ctx.ext.set_immutable_data(vec![0, 1, 2, 3].try_into().unwrap()));
+			// Calling `set_immutable_data` the second time should error out
+			assert_eq!(
+				ctx.ext.set_immutable_data(vec![0, 1, 2, 3].try_into().unwrap()),
+				Err(Error::<Test>::InvalidImmutableAccess.into())
+			);
+			exec_success()
+		});
+		let instantiator_ch = MockLoader::insert(Call, {
+			move |ctx, _| {
+				let value = <Test as Config>::Currency::minimum_balance().into();
+				ctx.ext
+					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.unwrap();
+
+				exec_success()
+			}
+		});
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.existential_deposit(15)
+			.build()
+			.execute_with(|| {
+				set_balance(&ALICE, 1000);
+				set_balance(&BOB_CONTRACT_ID, 100);
+				place_contract(&BOB, instantiator_ch);
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap()
+			});
+	}
+
+	#[test]
+	fn immutable_data_set_errors_with_empty_data() {
+		let dummy_ch = MockLoader::insert(Constructor, move |ctx, _| {
+			// Calling `set_immutable_data` with empty data should error out
+			assert_eq!(
+				ctx.ext.set_immutable_data(Default::default()),
+				Err(Error::<Test>::InvalidImmutableAccess.into())
+			);
+			exec_success()
+		});
+		let instantiator_ch = MockLoader::insert(Call, {
+			move |ctx, _| {
+				let value = <Test as Config>::Currency::minimum_balance().into();
+				ctx.ext
+					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.unwrap();
+
+				exec_success()
+			}
+		});
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.existential_deposit(15)
+			.build()
+			.execute_with(|| {
+				set_balance(&ALICE, 1000);
+				set_balance(&BOB_CONTRACT_ID, 100);
+				place_contract(&BOB, instantiator_ch);
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap()
+			});
 	}
 }
