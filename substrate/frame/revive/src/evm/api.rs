@@ -29,9 +29,4 @@ mod rpc_types;
 mod rpc_types_gen;
 pub use rpc_types_gen::*;
 
-#[cfg(feature = "std")]
-pub mod rpc_methods_gen;
-#[cfg(feature = "std")]
-pub use rpc_methods_gen::*;
-
 mod signature;
