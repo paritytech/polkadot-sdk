@@ -30,6 +30,10 @@ impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> hash_db::HashDB<H, DBValue>
 	for TrieCommitter<'a, S, H>
 {
 	fn get(&self, key: &H::Out, prefix: Prefix) -> Option<DBValue> {
+		if prefix == sp_trie::EMPTY_PREFIX {
+			return Some([0u8].to_vec());
+		}
+
 		let db_key = sp_trie::prefixed_key::<H>(key, prefix);
 
 		self.trie_database.get(columns::STATE, &db_key).or_else(|| {
