@@ -3965,3 +3965,71 @@ async fn follow_report_best_block_of_a_known_block() {
 	});
 	assert_eq!(event, expected);
 }
+
+#[tokio::test]
+async fn follow_event_with_unknown_parent() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let client = Arc::new(builder.build());
+
+	let client_mock = Arc::new(ChainHeadMockClient::new(client.clone()));
+
+	let api = ChainHead::new(
+		client_mock.clone(),
+		backend,
+		Arc::new(TokioTestExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
+		},
+	)
+	.into_rpc();
+
+	let finalized_hash = client.info().finalized_hash;
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
+	// Initialized must always be reported first.
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::Initialized(Initialized {
+		finalized_block_hashes: vec![format!("{:?}", finalized_hash)],
+		finalized_block_runtime: None,
+		with_runtime: false,
+	});
+	assert_eq!(event, expected);
+
+	// Block tree:
+	//
+	// finalized -> (gap: block 1) -> block 2
+	//
+	// Block 1 is not announced yet. ChainHead should report the stop
+	// event when encountering an unknown parent of block 2.
+
+	// Note: `client` is used just for constructing the blocks.
+	// The blocks are imported to chainHead using the `client_mock`.
+	let block_1 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_1_hash = block_1.hash();
+	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
+
+	let block_2 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_1_hash)
+		.with_parent_block_number(1)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	client.import(BlockOrigin::Own, block_2.clone()).await.unwrap();
+
+	run_with_timeout(client_mock.trigger_import_stream(block_2.header)).await;
+	// When importing the block 2, chainHead detects a gap in our blocks and stops.
+	assert_matches!(get_next_event::<FollowEvent<String>>(&mut sub).await, FollowEvent::Stop);
+}

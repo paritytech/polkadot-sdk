@@ -2797,7 +2797,7 @@ fn participation_with_onchain_disabling_confirmed() {
 				})
 				.await;
 
-			handle_disabled_validators_queries(&mut virtual_overseer, vec![]).await;
+			handle_disabled_validators_queries(&mut virtual_overseer, vec![disabled_index]).await;
 			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash, HashMap::new())
 				.await;
 			assert_eq!(confirmation_rx.await, Ok(ImportStatementsResult::ValidImport));
