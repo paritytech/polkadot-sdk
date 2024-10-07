@@ -26,7 +26,7 @@ use crate::{
 		NodeBlock, NodeExtraArgs,
 	},
 	fake_runtime_api,
-	nodes::{shell::ShellNode, DynNodeSpecExt},
+	nodes::DynNodeSpecExt,
 	runtime::BlockNumber,
 };
 #[cfg(feature = "runtime-benchmarks")]
@@ -77,7 +77,6 @@ fn new_node_spec(
 	let runtime = runtime_resolver.runtime(config.chain_spec.as_ref())?;
 
 	Ok(match runtime {
-		Runtime::Shell => Box::new(ShellNode),
 		Runtime::Omni(block_number, consensus) => match (block_number, consensus) {
 			(BlockNumber::U32, Consensus::Aura(aura_id)) =>
 				new_aura_node_spec::<Block<u32>>(aura_id, extra_args),
