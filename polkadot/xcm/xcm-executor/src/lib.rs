@@ -527,13 +527,20 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		} else {
 			// This condition exists to support `BuyExecution` while the ecosystem
 			// transitions to `PayFees`.
-			let assets_taken_from_holding_to_pay_delivery_fees: AssetsInHolding = if self.fees.is_empty() {
-				// Means `BuyExecution` was used, we'll find the fees in the `holding` register.
-				self.holding.try_take(asset_to_pay_for_fees.clone().into()).map_err(|_| XcmError::NotHoldingFees)?.into()
-			} else {
-				// Means `PayFees` was used, we'll find the fees in the `fees` register.
-				self.fees.try_take(asset_to_pay_for_fees.clone().into()).map_err(|_| XcmError::NotHoldingFees)?.into()
-			};
+			let assets_taken_from_holding_to_pay_delivery_fees: AssetsInHolding =
+				if self.fees.is_empty() {
+					// Means `BuyExecution` was used, we'll find the fees in the `holding` register.
+					self.holding
+						.try_take(asset_to_pay_for_fees.clone().into())
+						.map_err(|_| XcmError::NotHoldingFees)?
+						.into()
+				} else {
+					// Means `PayFees` was used, we'll find the fees in the `fees` register.
+					self.fees
+						.try_take(asset_to_pay_for_fees.clone().into())
+						.map_err(|_| XcmError::NotHoldingFees)?
+						.into()
+				};
 			tracing::trace!(target: "xcm::fees", ?assets_taken_from_holding_to_pay_delivery_fees);
 			let mut iter = assets_taken_from_holding_to_pay_delivery_fees.fungible_assets_iter();
 			let asset = iter.next().ok_or(XcmError::NotHoldingFees)?;
@@ -984,7 +991,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
 					let maybe_delivery_fee_from_holding = if self.fees.is_empty() {
-						let maybe_delivery_fee = self.get_delivery_fee_from_holding(&assets, &dest, &xcm)?;
+						let maybe_delivery_fee =
+							self.get_delivery_fee_from_holding(&assets, &dest, &xcm)?;
 						Some(maybe_delivery_fee)
 					} else {
 						None
@@ -1464,34 +1472,41 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		Ok(())
 	}
 
-	/// Gets the necessary delivery fee to send a reserve transfer message to `destination` from holding.
+	/// Gets the necessary delivery fee to send a reserve transfer message to `destination` from
+	/// holding.
 	///
 	/// Will be removed once the transition from `BuyExecution` to `PayFees` is complete.
-	fn get_delivery_fee_from_holding(&mut self, assets: &AssetFilter, destination: &Location, xcm: &Xcm<()>) -> Result<AssetsInHolding, XcmError> {
+	fn get_delivery_fee_from_holding(
+		&mut self,
+		assets: &AssetFilter,
+		destination: &Location,
+		xcm: &Xcm<()>,
+	) -> Result<AssetsInHolding, XcmError> {
 		// we need to do this take/put cycle to solve wildcards and get exact assets to
 		// be weighed
 		let to_weigh = self.holding.saturating_take(assets.clone());
 		self.holding.subsume_assets(to_weigh.clone());
 		let to_weigh_reanchored = Self::reanchored(to_weigh, &destination, None);
-		let mut message_to_weigh =
-			vec![ReserveAssetDeposited(to_weigh_reanchored), ClearOrigin];
+		let mut message_to_weigh = vec![ReserveAssetDeposited(to_weigh_reanchored), ClearOrigin];
 		message_to_weigh.extend(xcm.0.clone().into_iter());
 		let (_, fee) =
 			validate_send::<Config::XcmSender>(destination.clone(), Xcm(message_to_weigh))?;
-		let delivery_fee = fee.get(0).map(|asset_needed_for_fees| {
-			tracing::trace!(
-				target: "xcm::DepositReserveAsset",
-				"Asset provided to pay for fees {:?}, asset required for delivery fees: {:?}",
-				self.asset_used_for_fees, asset_needed_for_fees,
-			);
-			let asset_to_pay_for_fees =
-				self.calculate_asset_for_delivery_fees(asset_needed_for_fees.clone());
-			// set aside fee to be charged by XcmSender
-			let delivery_fee =
-				self.holding.saturating_take(asset_to_pay_for_fees.into());
-			tracing::trace!(target: "xcm::DepositReserveAsset", ?delivery_fee);
-			delivery_fee
-		}).ok_or(XcmError::NotHoldingFees)?;
+		let delivery_fee = fee
+			.get(0)
+			.map(|asset_needed_for_fees| {
+				tracing::trace!(
+					target: "xcm::DepositReserveAsset",
+					"Asset provided to pay for fees {:?}, asset required for delivery fees: {:?}",
+					self.asset_used_for_fees, asset_needed_for_fees,
+				);
+				let asset_to_pay_for_fees =
+					self.calculate_asset_for_delivery_fees(asset_needed_for_fees.clone());
+				// set aside fee to be charged by XcmSender
+				let delivery_fee = self.holding.saturating_take(asset_to_pay_for_fees.into());
+				tracing::trace!(target: "xcm::DepositReserveAsset", ?delivery_fee);
+				delivery_fee
+			})
+			.ok_or(XcmError::NotHoldingFees)?;
 		Ok(delivery_fee)
 	}
 }
