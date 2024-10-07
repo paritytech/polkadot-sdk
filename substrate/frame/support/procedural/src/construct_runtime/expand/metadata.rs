@@ -123,7 +123,7 @@ pub fn expand_runtime_metadata(
 						extensions: <
 								<
 									#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata
-								>::SignedExtensions
+								>::TransactionExtensions
 								as
 								#scrate::sp_runtime::traits::TransactionExtension::<
 									<#runtime as #system_path::Config>::RuntimeCall

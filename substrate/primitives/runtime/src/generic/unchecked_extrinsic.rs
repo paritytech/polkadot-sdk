@@ -461,7 +461,7 @@ impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Cal
 	ExtrinsicMetadata for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
 	const VERSION: u8 = EXTRINSIC_FORMAT_VERSION;
-	type SignedExtensions = Extension;
+	type TransactionExtensions = Extension;
 }
 
 impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call>>

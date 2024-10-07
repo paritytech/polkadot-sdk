@@ -1414,8 +1414,8 @@ pub trait ExtrinsicMetadata {
 	/// By format is meant the encoded representation of the `Extrinsic`.
 	const VERSION: u8;
 
-	/// Signed extensions attached to this `Extrinsic`.
-	type SignedExtensions;
+	/// Transaction extensions attached to this `Extrinsic`.
+	type TransactionExtensions;
 }
 
 /// Extract the hashing type for a block.
