@@ -150,7 +150,8 @@ fn create_account_extrinsics(
 						),
 					},
 					Some(start_nonce + (i as u32) * 2),
-				),
+				)
+				.0,
 				// Give back funds
 				create_extrinsic(
 					client,
@@ -165,10 +166,11 @@ fn create_account_extrinsics(
 						),
 					},
 					Some(start_nonce + (i as u32) * 2 + 1),
-				),
+				)
+				.0,
 			]
 		})
-		.map(|utx| OpaqueExtrinsic::from(utx.into()))
+		.map(OpaqueExtrinsic::from)
 		.collect()
 }
 
@@ -192,7 +194,7 @@ fn create_benchmark_extrinsics(
 				)
 			})
 		})
-		.map(|utx| OpaqueExtrinsic::from(utx.into()))
+		.map(OpaqueExtrinsic::from)
 		.collect()
 }
 
