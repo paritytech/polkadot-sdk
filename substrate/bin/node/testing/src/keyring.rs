@@ -25,7 +25,7 @@ use node_primitives::{AccountId, Balance, Nonce};
 use sp_core::{ecdsa, ed25519, sr25519};
 use sp_crypto_hashing::blake2_256;
 use sp_keyring::AccountKeyring;
-use sp_runtime::generic::Era;
+use sp_runtime::{generic, generic::Era};
 
 /// Alice's account id.
 pub fn alice() -> AccountId {
@@ -116,11 +116,12 @@ pub fn sign(
 						}
 					})
 					.into();
-			UncheckedExtrinsic {
+			generic::UncheckedExtrinsic {
 				signature: Some((sp_runtime::MultiAddress::Id(signed), signature, extra)),
 				function: payload.0,
 			}
+			.into()
 		},
-		None => UncheckedExtrinsic { signature: None, function: xt.function },
+		None => generic::UncheckedExtrinsic { signature: None, function: xt.function }.into(),
 	}
 }
