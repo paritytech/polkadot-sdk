@@ -32,6 +32,7 @@ use crate::{
 		chain_schema::*,
 		DefaultClient, PrometheusParams,
 	},
+	finality::SubstrateFinalitySyncPipeline,
 	parachains::{source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter},
 	TransactionParams,
 };
@@ -103,6 +104,9 @@ where
 		let metrics_params: relay_utils::metrics::MetricsParams =
 			data.prometheus_params.into_metrics_params()?;
 		GlobalMetrics::new()?.register_and_spawn(&metrics_params.registry)?;
+
+		Self::RelayFinality::start_relay_guards(target_client.target_client(), target_client.target_client().can_start_version_guard())
+			.await?;
 
 		parachains_relay::parachains_loop::run(
 			source_client,
