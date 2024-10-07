@@ -26,7 +26,7 @@ use frame_benchmarking::{
 	v2::*,
 };
 use frame_support::{
-	ensure,
+	assert_err, assert_ok, ensure,
 	traits::{
 		tokens::{ConversionFromAssetBalance, PaymentStatus},
 		EnsureOrigin, OnInitialize,
@@ -126,25 +126,17 @@ mod benchmarks {
 
 	#[benchmark]
 	fn remove_approval() -> Result<(), BenchmarkError> {
-<<<<<<< HEAD
-		let origin =
-			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let (_, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
-		Treasury::<T, _>::spend_local(origin, value, beneficiary_lookup)?;
-		let proposal_id = Treasury::<T, _>::proposal_count() - 1;
-=======
 		let (spend_exists, proposal_id) =
 			if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
 				let (_, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
 				Treasury::<T, _>::spend_local(origin, value, beneficiary_lookup)?;
-				let proposal_id = ProposalCount::<T, _>::get() - 1;
+				let proposal_id = Treasury::<T, _>::proposal_count() - 1;
 
 				(true, proposal_id)
 			} else {
 				(false, 0)
 			};
 
->>>>>>> 9cdbdc5 (pallet-treasury: Improve `remove_approval` benchmark (#5713))
 		let reject_origin =
 			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
