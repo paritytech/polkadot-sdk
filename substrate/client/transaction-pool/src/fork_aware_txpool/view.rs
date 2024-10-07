@@ -68,7 +68,7 @@ pub(super) struct FinishRevalidationLocalChannels<ChainApi: graph::ChainApi> {
 
 impl<ChainApi: graph::ChainApi> FinishRevalidationLocalChannels<ChainApi> {
 	/// Creates a new instance of endpoints for channels used on View side
-	fn new(
+	pub fn new(
 		finish_revalidation_request_tx: FinishRevalidationRequestSender,
 		revalidation_result_rx: RevalidationResultReceiver<ChainApi>,
 	) -> Self {
@@ -97,7 +97,7 @@ pub(super) struct FinishRevalidationWorkerChannels<ChainApi: graph::ChainApi> {
 
 impl<ChainApi: graph::ChainApi> FinishRevalidationWorkerChannels<ChainApi> {
 	/// Creates a new instance of endpoints for channels used on `RevalidationWorker` side
-	fn new(
+	pub fn new(
 		finish_revalidation_request_rx: FinishRevalidationRequestReceiver,
 		revalidation_result_tx: RevalidationResultSender<ChainApi>,
 	) -> Self {

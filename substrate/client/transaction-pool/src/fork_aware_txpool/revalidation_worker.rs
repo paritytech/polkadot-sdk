@@ -180,85 +180,62 @@ where
 }
 
 #[cfg(test)]
-//todo: add tests [#5480]
+//todo: add more tests [#5480]
 mod tests {
-	// use super::*;
-	// use crate::{
-	// 	common::tests::{uxt, TestApi},
-	// 	graph::Pool,
-	// };
-	// use futures::executor::block_on;
-	// use sc_transaction_pool_api::TransactionSource;
-	// use substrate_test_runtime::{AccountId, Transfer, H256};
-	// use substrate_test_runtime_client::AccountKeyring::{Alice, Bob};
+	use super::*;
+	use crate::{
+		common::tests::{uxt, TestApi},
+		fork_aware_txpool::view::FinishRevalidationLocalChannels,
+		graph::Pool,
+	};
+	use futures::executor::block_on;
+	use sc_transaction_pool_api::TransactionSource;
+	use substrate_test_runtime::{AccountId, Transfer, H256};
+	use substrate_test_runtime_client::AccountKeyring::{Alice, Bob};
+	#[test]
+	fn revalidation_queue_works() {
+		let api = Arc::new(TestApi::default());
+		let block0 = api.expect_hash_and_number(0);
 
-	// #[test]
-	// fn revalidation_queue_works() {
-	// 	let api = Arc::new(TestApi::default());
-	// 	let block0 = api.expect_hash_and_number(0);
-	//
-	// 	let view = Arc::new(View::new(api.clone(), block0));
-	// 	let queue = Arc::new(RevalidationQueue::new());
-	//
-	// 	let uxt = uxt(Transfer {
-	// 		from: Alice.into(),
-	// 		to: AccountId::from_h256(H256::from_low_u64_be(2)),
-	// 		amount: 5,
-	// 		nonce: 0,
-	// 	});
-	//
-	// 	let uxt_hash = block_on(view.submit_one(TransactionSource::External, uxt.clone()))
-	// 		.expect("Should be valid");
-	// 	assert_eq!(api.validation_requests().len(), 1);
-	//
-	// 	block_on(queue.revalidate_later(view.clone()));
-	//
-	// 	assert_eq!(api.validation_requests().len(), 2);
-	// 	// number of ready
-	// 	assert_eq!(view.status().ready, 1);
-	// }
+		let view = Arc::new(View::new(
+			api.clone(),
+			block0,
+			Default::default(),
+			Default::default(),
+			false.into(),
+		));
+		let queue = Arc::new(RevalidationQueue::new());
 
-	// #[test]
-	// fn revalidation_queue_skips_revalidation_for_unknown_block_hash() {
-	// 	let api = Arc::new(TestApi::default());
-	// 	let pool = Arc::new(Pool::new(Default::default(), true.into(), api.clone()));
-	// 	let queue = Arc::new(RevalidationQueue::new(api.clone(), pool.clone()));
-	//
-	// 	let uxt0 = uxt(Transfer {
-	// 		from: Alice.into(),
-	// 		to: AccountId::from_h256(H256::from_low_u64_be(2)),
-	// 		amount: 5,
-	// 		nonce: 0,
-	// 	});
-	// 	let uxt1 = uxt(Transfer {
-	// 		from: Bob.into(),
-	// 		to: AccountId::from_h256(H256::from_low_u64_be(2)),
-	// 		amount: 4,
-	// 		nonce: 1,
-	// 	});
-	//
-	// 	let han_of_block0 = api.expect_hash_and_number(0);
-	// 	let unknown_block = H256::repeat_byte(0x13);
-	//
-	// 	let uxt_hashes =
-	// 		block_on(pool.submit_at(&han_of_block0, TransactionSource::External, vec![uxt0, uxt1]))
-	// 			.into_iter()
-	// 			.map(|r| r.expect("Should be valid"))
-	// 			.collect::<Vec<_>>();
-	//
-	// 	assert_eq!(api.validation_requests().len(), 2);
-	// 	assert_eq!(pool.validated_pool().status().ready, 2);
-	//
-	// 	// revalidation works fine for block 0:
-	// 	block_on(queue.revalidate_later(han_of_block0.hash, uxt_hashes.clone()));
-	// 	assert_eq!(api.validation_requests().len(), 4);
-	// 	assert_eq!(pool.validated_pool().status().ready, 2);
-	//
-	// 	// revalidation shall be skipped for unknown block:
-	// 	block_on(queue.revalidate_later(unknown_block, uxt_hashes));
-	// 	// no revalidation shall be done
-	// 	assert_eq!(api.validation_requests().len(), 4);
-	// 	// number of ready shall not change
-	// 	assert_eq!(pool.validated_pool().status().ready, 2);
-	// }
+		let uxt = uxt(Transfer {
+			from: Alice.into(),
+			to: AccountId::from_h256(H256::from_low_u64_be(2)),
+			amount: 5,
+			nonce: 0,
+		});
+
+		let uxt_hash = block_on(
+			view.submit_many(TransactionSource::External, std::iter::once(uxt.clone().into())),
+		);
+		assert_eq!(api.validation_requests().len(), 1);
+
+		let (finish_revalidation_request_tx, finish_revalidation_request_rx) =
+			tokio::sync::mpsc::channel(1);
+		let (revalidation_result_tx, revalidation_result_rx) = tokio::sync::mpsc::channel(1);
+
+		let finish_revalidation_worker_channels = FinishRevalidationWorkerChannels::new(
+			finish_revalidation_request_rx,
+			revalidation_result_tx,
+		);
+
+		let finish_revalidation_local_channels = FinishRevalidationLocalChannels::new(
+			finish_revalidation_request_tx,
+			revalidation_result_rx,
+		);
+
+		block_on(queue.revalidate_view(view.clone(), finish_revalidation_worker_channels));
+
+		assert_eq!(api.validation_requests().len(), 2);
+		// number of ready
+		assert_eq!(view.status().ready, 1);
+	}
 }
