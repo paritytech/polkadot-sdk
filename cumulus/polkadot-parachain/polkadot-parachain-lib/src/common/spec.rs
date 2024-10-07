@@ -187,7 +187,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	type BuildRpcExtensions: BuildRpcExtensions<
 		ParachainClient<Self::Block, Self::RuntimeApi>,
 		ParachainBackend<Self::Block>,
-		FullPool<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
+		TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
 	>;
 
 	type StartConsensus: StartConsensus<Self::Block, Self::RuntimeApi>;
