@@ -32,8 +32,8 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{crypto::UncheckedInto, Pair};
-use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
+use sp_core::{crypto::UncheckedInto, ed25519, sr25519, Pair};
+use sp_keyring::Sr25519Keyring;
 use sp_mixnet::types::AuthorityId as MixnetId;
 use sp_runtime::Perbill;
 
@@ -248,38 +248,22 @@ pub fn authority_keys_from_seed(
 ) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId, BeefyId)
 {
 	use core::str::FromStr;
+	let sr25519_seed = sr25519::Pair::from_string(&format!("//{}", seed), None)
+		.expect("should generate key from seed")
+		.public();
+	let ed25519_seed = ed25519::Pair::from_string(&format!("//{}", seed), None)
+		.expect("should generate key from seed")
+		.public();
 	(
 		Sr25519Keyring::from_str(&format!("{}//stash", seed))
 			.expect("should parse str seed to keyring")
 			.to_account_id(),
-		Sr25519Keyring::from_str(seed)
-			.expect("should parse str seed to keyring")
-			.to_account_id(),
-		GrandpaId::from(
-			Ed25519Keyring::from_str(seed)
-				.expect("should parse str seed to keyring")
-				.public(),
-		),
-		BabeId::from(
-			Sr25519Keyring::from_str(seed)
-				.expect("should parse str seed to keyring")
-				.public(),
-		),
-		ImOnlineId::from(
-			Sr25519Keyring::from_str(seed)
-				.expect("should parse str seed to keyring")
-				.public(),
-		),
-		AuthorityDiscoveryId::from(
-			Sr25519Keyring::from_str(seed)
-				.expect("should parse str seed to keyring")
-				.public(),
-		),
-		MixnetId::from(
-			Sr25519Keyring::from_str(seed)
-				.expect("should parse str seed to keyring")
-				.public(),
-		),
+		sr25519_seed.into(),
+		GrandpaId::from(ed25519_seed),
+		BabeId::from(sr25519_seed),
+		ImOnlineId::from(sr25519_seed),
+		AuthorityDiscoveryId::from(sr25519_seed),
+		MixnetId::from(sr25519_seed),
 		BeefyId::from(
 			sp_consensus_beefy::ecdsa_crypto::Pair::from_string(&format!("//{}", seed), None)
 				.expect("should parse str seed to keyring")

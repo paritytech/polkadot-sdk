@@ -29,9 +29,9 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::Pair;
+use sp_core::{ed25519, sr25519, Pair};
 use sp_genesis_builder::PresetId;
-use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
+use sp_keyring::Sr25519Keyring;
 
 /// Helper function to generate stash, controller and session key from seed
 fn get_authority_keys_from_seed(
@@ -68,38 +68,22 @@ fn get_authority_keys_from_seed_no_beefy(
 	seed: &str,
 ) -> (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
 	use core::str::FromStr;
+	let sr25519_seed = sr25519::Pair::from_string(&format!("//{}", seed), None)
+		.expect("should generate key from seed")
+		.public();
+	let ed25519_seed = ed25519::Pair::from_string(&format!("//{}", seed), None)
+		.expect("should generate key from seed")
+		.public();
 	(
 		Sr25519Keyring::from_str(&format!("{}//stash", seed))
 			.expect("should parse str seed to keyring")
 			.to_account_id(),
-		Sr25519Keyring::from_str(seed)
-			.expect("should parse str seed to keyring")
-			.to_account_id(),
-		BabeId::from(
-			Sr25519Keyring::from_str(seed)
-				.expect("should parse str seed to keyring")
-				.public(),
-		),
-		GrandpaId::from(
-			Ed25519Keyring::from_str(seed)
-				.expect("should parse str seed to keyring")
-				.public(),
-		),
-		ValidatorId::from(
-			Sr25519Keyring::from_str(seed)
-				.expect("should parse str seed to keyring")
-				.public(),
-		),
-		AssignmentId::from(
-			Sr25519Keyring::from_str(seed)
-				.expect("should parse str seed to keyring")
-				.public(),
-		),
-		AuthorityDiscoveryId::from(
-			Sr25519Keyring::from_str(seed)
-				.expect("should parse str seed to keyring")
-				.public(),
-		),
+		sr25519_seed.into(),
+		BabeId::from(sr25519_seed),
+		GrandpaId::from(ed25519_seed),
+		ValidatorId::from(sr25519_seed),
+		AssignmentId::from(sr25519_seed),
+		AuthorityDiscoveryId::from(sr25519_seed),
 	)
 }
 

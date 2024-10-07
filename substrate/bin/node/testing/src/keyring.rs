@@ -21,11 +21,10 @@
 use codec::Encode;
 use kitchensink_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
 use node_primitives::{AccountId, Balance, Nonce};
-use sp_core::{ecdsa, ed25519, sr25519};
+use sp_core::{ecdsa, ed25519, sr25519, Pair};
 use sp_crypto_hashing::blake2_256;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::generic::Era;
-use std::str::FromStr;
 
 /// Alice's account id.
 pub fn alice() -> AccountId {
@@ -59,24 +58,22 @@ pub fn ferdie() -> AccountId {
 
 /// Convert keyrings into `SessionKeys`.
 pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
+	// use std::str::FromStr;
+	let sr25519_seed = sr25519::Pair::from_string(&format!("//{}", seed), None)
+		.expect("should parse str seed to sr25519 public")
+		.public();
 	SessionKeys {
-		grandpa: ed25519::Public::from_str(seed)
+		grandpa: ed25519::Pair::from_string(&format!("//{}", seed), None)
 			.expect("should parse str seed to sr25519 public")
+			.public()
 			.into(),
-		babe: sr25519::Public::from_str(seed)
-			.expect("should parse str seed to sr25519 public")
-			.into(),
-		im_online: sr25519::Public::from_str(seed)
-			.expect("should parse str seed to sr25519 public")
-			.into(),
-		authority_discovery: sr25519::Public::from_str(seed)
-			.expect("should parse str seed to sr25519 public")
-			.into(),
-		mixnet: sr25519::Public::from_str(seed)
-			.expect("should parse str seed to sr25519 public")
-			.into(),
-		beefy: ecdsa::Public::from_str(seed)
+		babe: sr25519_seed.into(),
+		im_online: sr25519_seed.into(),
+		authority_discovery: sr25519_seed.into(),
+		mixnet: sr25519_seed.into(),
+		beefy: ecdsa::Pair::from_string(&format!("//{}", seed), None)
 			.expect("should parse str seed to ecdsa public")
+			.public()
 			.into(),
 	}
 }
