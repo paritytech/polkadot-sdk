@@ -54,6 +54,7 @@ pub trait WeightInfo {
 	fn propose_bounty(d: u32, ) -> Weight;
 	fn approve_bounty() -> Weight;
 	fn propose_curator() -> Weight;
+	fn approve_bounty_with_curator() -> Weight;
 	fn unassign_curator() -> Weight;
 	fn accept_curator() -> Weight;
 	fn award_bounty() -> Weight;
@@ -110,6 +111,19 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(12_769_000, 3642)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Bounties::Bounties` (r:1 w:1)
+	/// Proof: `Bounties::Bounties` (`max_values`: None, `max_size`: Some(177), added: 2652, mode: `MaxEncodedLen`)
+	/// Storage: `Bounties::BountyApprovals` (r:1 w:1)
+	/// Proof: `Bounties::BountyApprovals` (`max_values`: Some(1), `max_size`: Some(402), added: 897, mode: `MaxEncodedLen`)
+	fn approve_bounty_with_curator() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `421`
+		//  Estimated: `3642`
+		// Minimum execution time: 11_000_000 picoseconds.
+		Weight::from_parts(12_000_000, 3642)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Bounties::Bounties` (r:1 w:1)
 	/// Proof: `Bounties::Bounties` (`max_values`: None, `max_size`: Some(177), added: 2652, mode: `MaxEncodedLen`)
@@ -280,6 +294,19 @@ impl WeightInfo for () {
 		Weight::from_parts(12_769_000, 3642)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Bounties::Bounties` (r:1 w:1)
+	/// Proof: `Bounties::Bounties` (`max_values`: None, `max_size`: Some(177), added: 2652, mode: `MaxEncodedLen`)
+	/// Storage: `Bounties::BountyApprovals` (r:1 w:1)
+	/// Proof: `Bounties::BountyApprovals` (`max_values`: Some(1), `max_size`: Some(402), added: 897, mode: `MaxEncodedLen`)
+	fn approve_bounty_with_curator() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `421`
+		//  Estimated: `3642`
+		// Minimum execution time: 11_000_000 picoseconds.
+		Weight::from_parts(12_000_000, 3642)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Bounties::Bounties` (r:1 w:1)
 	/// Proof: `Bounties::Bounties` (`max_values`: None, `max_size`: Some(177), added: 2652, mode: `MaxEncodedLen`)

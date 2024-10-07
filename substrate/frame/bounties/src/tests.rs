@@ -199,13 +199,25 @@ impl ExtBuilder {
 	}
 }
 
-fn last_event() -> BountiesEvent<Test> {
-	System::events()
+fn last_events(n: usize) -> Vec<BountiesEvent<Test>> {
+	let mut res = System::events()
 		.into_iter()
-		.map(|r| r.event)
-		.filter_map(|e| if let RuntimeEvent::Bounties(inner) = e { Some(inner) } else { None })
-		.last()
-		.unwrap()
+		.rev()
+		.filter_map(
+			|e| if let RuntimeEvent::Bounties(inner) = e.event { Some(inner) } else { None },
+		)
+		.take(n)
+		.collect::<Vec<_>>();
+	res.reverse();
+	res
+}
+
+fn last_event() -> BountiesEvent<Test> {
+	last_events(1).into_iter().next().unwrap()
+}
+
+fn expect_events(e: Vec<BountiesEvent<Test>>) {
+	assert_eq!(last_events(e.len()), e);
 }
 
 #[test]
@@ -1213,5 +1225,214 @@ fn propose_curator_instance1_insufficient_spend_limit_errors() {
 			Bounties1::propose_curator(RuntimeOrigin::root(), 0, 0, 0),
 			TreasuryError1::InsufficientPermission
 		);
+	});
+}
+
+#[test]
+fn approve_bounty_with_curator_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		let fee = 10;
+		let curator = 4;
+		System::set_block_number(1);
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+
+		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_noop!(
+			Bounties::approve_bounty_with_curator(RuntimeOrigin::signed(1), 0, curator, 10),
+			BadOrigin
+		);
+
+		SpendLimit::set(1);
+		assert_noop!(
+			Bounties::approve_bounty_with_curator(RuntimeOrigin::root(), 0, curator, 10),
+			TreasuryError::InsufficientPermission
+		);
+		SpendLimit::set(u64::MAX);
+
+		assert_noop!(
+			Bounties::approve_bounty_with_curator(RuntimeOrigin::root(), 0, curator, 51),
+			Error::<Test>::InvalidFee
+		);
+
+		assert_eq!(pallet_bounties::BountyApprovals::<Test>::get().len(), 0);
+		assert_ok!(Bounties::approve_bounty_with_curator(RuntimeOrigin::root(), 0, curator, 10));
+		assert_eq!(pallet_bounties::BountyApprovals::<Test>::get().len(), 1);
+
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			Bounty {
+				proposer: 0,
+				fee,
+				curator_deposit: 0,
+				value: 50,
+				bond: 85,
+				status: BountyStatus::ApprovedWithCurator { curator },
+			}
+		);
+
+		expect_events(vec![
+			BountiesEvent::BountyApproved { index: 0 },
+			BountiesEvent::CuratorProposed { bounty_id: 0, curator },
+		]);
+
+		assert_noop!(
+			Bounties::approve_bounty_with_curator(RuntimeOrigin::root(), 0, curator, 10),
+			Error::<Test>::UnexpectedStatus
+		);
+
+		System::set_block_number(2);
+		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		assert_eq!(pallet_bounties::BountyApprovals::<Test>::get().len(), 0);
+
+		expect_events(vec![BountiesEvent::BountyBecameActive { index: 0 }]);
+
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			Bounty {
+				proposer: 0,
+				fee,
+				curator_deposit: 0,
+				value: 50,
+				bond: 85,
+				status: BountyStatus::CuratorProposed { curator },
+			}
+		);
+
+		assert_noop!(
+			Bounties::accept_curator(RuntimeOrigin::signed(curator), 0),
+			pallet_balances::Error::<Test, _>::InsufficientBalance
+		);
+		Balances::make_free_balance_be(&curator, 6);
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(curator), 0));
+
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			Bounty {
+				proposer: 0,
+				fee,
+				curator_deposit: 5,
+				value: 50,
+				bond: 85,
+				status: BountyStatus::Active { curator, update_due: 22 },
+			}
+		);
+
+		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(curator), 0, 5));
+		System::set_block_number(5);
+		<Treasury as OnInitialize<u64>>::on_initialize(5);
+		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(curator), 0));
+		assert_eq!(
+			last_event(),
+			BountiesEvent::BountyClaimed { index: 0, payout: 40, beneficiary: 5 }
+		);
+		assert_eq!(Balances::free_balance(5), 40); // 50 - 10
+	});
+}
+
+#[test]
+fn approve_bounty_with_curator_early_unassign_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		let fee = 10;
+		let curator = 4;
+		System::set_block_number(1);
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+
+		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::approve_bounty_with_curator(RuntimeOrigin::root(), 0, curator, 10));
+
+		// unassign curator while bounty is not yet funded
+		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::root(), 0));
+
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			Bounty {
+				proposer: 0,
+				fee,
+				curator_deposit: 0,
+				value: 50,
+				bond: 85,
+				status: BountyStatus::Approved,
+			}
+		);
+
+		assert_eq!(last_event(), BountiesEvent::CuratorUnassigned { bounty_id: 0 });
+
+		System::set_block_number(2);
+		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		assert_eq!(last_event(), BountiesEvent::BountyBecameActive { index: 0 });
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			Bounty {
+				proposer: 0,
+				fee,
+				curator_deposit: 0,
+				value: 50,
+				bond: 85,
+				status: BountyStatus::Funded,
+			}
+		);
+
+		// assign curator again through separate process
+		let new_fee = 15;
+		let new_curator = 5;
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, new_curator, new_fee));
+
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			Bounty {
+				proposer: 0,
+				fee: new_fee,
+				curator_deposit: 0,
+				value: 50,
+				bond: 85,
+				status: BountyStatus::CuratorProposed { curator: new_curator },
+			}
+		);
+		assert_eq!(
+			last_event(),
+			BountiesEvent::CuratorProposed { bounty_id: 0, curator: new_curator }
+		);
+	});
+}
+
+#[test]
+fn approve_bounty_with_curator_proposed_unassign_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		let fee = 10;
+		let curator = 4;
+		System::set_block_number(1);
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+
+		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::approve_bounty_with_curator(RuntimeOrigin::root(), 0, curator, 10));
+
+		System::set_block_number(2);
+		<Treasury as OnInitialize<u64>>::on_initialize(2);
+
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			Bounty {
+				proposer: 0,
+				fee,
+				curator_deposit: 0,
+				value: 50,
+				bond: 85,
+				status: BountyStatus::CuratorProposed { curator },
+			}
+		);
+
+		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::signed(curator), 0));
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			Bounty {
+				proposer: 0,
+				fee,
+				curator_deposit: 0,
+				value: 50,
+				bond: 85,
+				status: BountyStatus::Funded,
+			}
+		);
+		assert_eq!(last_event(), BountiesEvent::CuratorUnassigned { bounty_id: 0 });
 	});
 }
