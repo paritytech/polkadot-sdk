@@ -1,0 +1,40 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Refactor get_account_id_from_seed / get_from_seed to one common place
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `get_account_id_from_seed / get_from_seed` are copied all over the place, causing code being bloated.
+      `Keyring::iter()` give the same so it replace all these functions.
+
+crates: 
+  - name: polkadot-runtime-common
+    bump: patch
+  - name: polkadot-service
+    bump: patch
+  - name: sp-keyring
+    bump: minor
+  - name: rococo-runtime
+    bump: patch
+  - name: westend-runtime
+    bump: patch
+  - name: parachains-common
+    bump: patch
+  - name: emulated-integration-tests-common
+    bump: patch
+  - name: xcm-emulator
+    bump: patch
+  - name: asset-hub-rococo-runtime
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch
+  - name: bridge-hub-rococo-runtime
+    bump: patch
+  - name: bridge-hub-westend-runtime
+    bump: patch
+  - name: collectives-westend-runtime
+    bump: patch
+  - name: polkadot-parachain-bin
+    bump: patch

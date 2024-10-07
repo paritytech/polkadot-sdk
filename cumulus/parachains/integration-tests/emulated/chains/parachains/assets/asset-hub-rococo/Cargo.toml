@@ -24,7 +24,7 @@ emulated-integration-tests-common = { workspace = true }
 asset-hub-rococo-runtime = { workspace = true, default-features = true }
 rococo-emulated-chain = { workspace = true }
 testnet-parachains-constants = { features = [
-    "rococo",
+	"rococo",
 ], workspace = true, default-features = true }
 
 # Polkadot

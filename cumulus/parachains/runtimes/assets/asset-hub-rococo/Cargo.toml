@@ -251,6 +251,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"sp-weights/std",
+	"sp-keyring/std",
 	"substrate-wasm-builder",
 	"testnet-parachains-constants/std",
 	"xcm-builder/std",

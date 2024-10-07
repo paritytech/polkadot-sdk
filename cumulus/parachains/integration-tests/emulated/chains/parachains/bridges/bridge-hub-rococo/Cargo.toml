@@ -29,5 +29,5 @@ emulated-integration-tests-common = { workspace = true }
 bridge-hub-rococo-runtime = { workspace = true, default-features = true }
 bridge-hub-common = { workspace = true }
 testnet-parachains-constants = { features = [
-    "rococo",
+	"rococo",
 ], workspace = true, default-features = true }

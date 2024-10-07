@@ -254,6 +254,7 @@ std = [
 	"sp-storage/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
+	"sp-keyring/std",
 	"substrate-wasm-builder",
 	"testnet-parachains-constants/std",
 	"westend-runtime-constants/std",

@@ -24,7 +24,7 @@ emulated-integration-tests-common = { workspace = true }
 asset-hub-westend-runtime = { workspace = true }
 westend-emulated-chain = { workspace = true, default-features = true }
 testnet-parachains-constants = { features = [
-    "westend",
+	"westend",
 ], workspace = true, default-features = true }
 
 # Polkadot

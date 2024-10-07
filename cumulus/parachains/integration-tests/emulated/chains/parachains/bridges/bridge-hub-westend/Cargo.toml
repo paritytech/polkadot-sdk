@@ -29,5 +29,5 @@ emulated-integration-tests-common = { workspace = true }
 bridge-hub-westend-runtime = { workspace = true, default-features = true }
 bridge-hub-common = { workspace = true }
 testnet-parachains-constants = { features = [
-    "westend",
+	"westend",
 ], workspace = true, default-features = true }
