@@ -29,7 +29,7 @@ jobs:
         env:
           SKIP_WASM_BUILD: 1
   test-doc:
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     needs: [preflight]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}

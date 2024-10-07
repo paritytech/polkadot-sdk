@@ -231,9 +231,9 @@ jobs:
           fi
 
           if [[ $BODY == "/cmd bench"* ]]; then
-              echo "RUNNER=arc-runners-polkadot-sdk-benchmark" >> $GITHUB_OUTPUT
+              echo "RUNNER=parity-weights" >> $GITHUB_OUTPUT
           elif [[ $BODY == "/cmd update-ui"* ]]; then
-              echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
+              echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
           else
               echo "RUNNER=ubuntu-latest" >> $GITHUB_OUTPUT
           fi
