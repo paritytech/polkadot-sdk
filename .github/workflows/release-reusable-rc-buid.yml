@@ -35,6 +35,11 @@ on:
       AWS_RELEASE_SECRET_ACCESS_KEY:
         required: true
 
+permissions:
+  id-token: write
+  contents: read
+  attestations: write
+
 jobs:
 
   set-image:
@@ -97,6 +102,11 @@ jobs:
 
           git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
           ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }}
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
+        with:
+          subject-path: /artifacts/${{ matrix.binaries }}/${{ matrix.binaries }}
 
       - name: Sign artifacts
         working-directory: /artifacts/${{ matrix.binaries }}
@@ -170,6 +180,11 @@ jobs:
         ls -la target/production
         pwd
         . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }}
+
+    - name: Generate artifact attestation
+      uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
+      with:
+        subject-path: target/production/*.deb
 
     - name: Upload ${{inputs.package }} artifacts
       uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
