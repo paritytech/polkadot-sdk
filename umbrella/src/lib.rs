@@ -878,10 +878,6 @@ pub use polkadot_node_core_pvf_prepare_worker;
 #[cfg(feature = "polkadot-node-core-runtime-api")]
 pub use polkadot_node_core_runtime_api;
 
-/// Polkadot Jaeger primitives, but equally useful for Grafana/Tempo.
-#[cfg(feature = "polkadot-node-jaeger")]
-pub use polkadot_node_jaeger;
-
 /// Subsystem metric helpers.
 #[cfg(feature = "polkadot-node-metrics")]
 pub use polkadot_node_metrics;

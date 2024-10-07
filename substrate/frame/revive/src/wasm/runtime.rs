@@ -390,6 +390,10 @@ pub enum RuntimeCosts {
 	LockDelegateDependency,
 	/// Weight of calling `unlock_delegate_dependency`
 	UnlockDelegateDependency,
+	/// Weight of calling `get_immutable_dependency`
+	GetImmutableData(u32),
+	/// Weight of calling `set_immutable_dependency`
+	SetImmutableData(u32),
 }
 
 /// For functions that modify storage, benchmarks are performed with one item in the
@@ -507,6 +511,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
 			LockDelegateDependency => T::WeightInfo::lock_delegate_dependency(),
 			UnlockDelegateDependency => T::WeightInfo::unlock_delegate_dependency(),
+			GetImmutableData(len) => T::WeightInfo::seal_get_immutable_data(len),
+			SetImmutableData(len) => T::WeightInfo::seal_set_immutable_data(len),
 		}
 	}
 }
@@ -1513,6 +1519,36 @@ pub mod env {
 		)?)
 	}
 
+	/// Stores the immutable data into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::get_immutable_data`].
+	#[api_version(0)]
+	fn get_immutable_data(
+		&mut self,
+		memory: &mut M,
+		out_ptr: u32,
+		out_len_ptr: u32,
+	) -> Result<(), TrapReason> {
+		let charged = self.charge_gas(RuntimeCosts::GetImmutableData(limits::IMMUTABLE_BYTES))?;
+		let data = self.ext.get_immutable_data()?;
+		self.adjust_gas(charged, RuntimeCosts::GetImmutableData(data.len() as u32));
+		self.write_sandbox_output(memory, out_ptr, out_len_ptr, &data, false, already_charged)?;
+		Ok(())
+	}
+
+	/// Attaches the supplied immutable data to the currently executing contract.
+	/// See [`pallet_revive_uapi::HostFn::set_immutable_data`].
+	#[api_version(0)]
+	fn set_immutable_data(&mut self, memory: &mut M, ptr: u32, len: u32) -> Result<(), TrapReason> {
+		if len > limits::IMMUTABLE_BYTES {
+			return Err(Error::<E::T>::OutOfBounds.into());
+		}
+		self.charge_gas(RuntimeCosts::SetImmutableData(len))?;
+		let buf = memory.read(ptr, len)?;
+		let data = buf.try_into().expect("bailed out earlier; qed");
+		self.ext.set_immutable_data(data)?;
+		Ok(())
+	}
+
 	/// Stores the *free* balance of the current account into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::balance`].
 	#[api_version(0)]
@@ -1930,7 +1966,9 @@ pub mod env {
 
 	/// Replace the contract code at the specified address with new code.
 	/// See [`pallet_revive_uapi::HostFn::set_code_hash`].
-	#[api_version(0)]
+	///
+	/// Disabled until the internal implementation takes care of collecting
+	/// the immutable data of the new code hash.
 	#[mutating]
 	fn set_code_hash(
 		&mut self,

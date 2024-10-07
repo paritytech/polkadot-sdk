@@ -175,7 +175,6 @@ members = [
 	"polkadot/node/core/runtime-api",
 	"polkadot/node/gum",
 	"polkadot/node/gum/proc-macro",
-	"polkadot/node/jaeger",
 	"polkadot/node/malus",
 	"polkadot/node/metrics",
 	"polkadot/node/network/approval-distribution",
@@ -845,7 +844,6 @@ merkleized-metadata = { version = "0.1.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
 metered = { version = "0.6.1", default-features = false, package = "prioritized-metered-channel" }
-mick-jaeger = { version = "0.1.8" }
 milagro-bls = { version = "1.5.4", default-features = false, package = "snowbridge-milagro-bls" }
 minimal-template-node = { path = "templates/minimal/node" }
 minimal-template-runtime = { path = "templates/minimal/runtime" }
@@ -1051,7 +1049,6 @@ polkadot-node-core-pvf-common = { path = "polkadot/node/core/pvf/common", defaul
 polkadot-node-core-pvf-execute-worker = { path = "polkadot/node/core/pvf/execute-worker", default-features = false }
 polkadot-node-core-pvf-prepare-worker = { path = "polkadot/node/core/pvf/prepare-worker", default-features = false }
 polkadot-node-core-runtime-api = { path = "polkadot/node/core/runtime-api", default-features = false }
-polkadot-node-jaeger = { path = "polkadot/node/jaeger", default-features = false }
 polkadot-node-metrics = { path = "polkadot/node/metrics", default-features = false }
 polkadot-node-network-protocol = { path = "polkadot/node/network/protocol", default-features = false }
 polkadot-node-primitives = { path = "polkadot/node/primitives", default-features = false }

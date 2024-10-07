@@ -20,6 +20,7 @@ scale-info = { features = [
 	"derive",
 	"serde",
 ], workspace = true }
+serde_json = { workspace = true, default-features = false, features = ["alloc"] }
 
 # frame
 frame-support = { features = ["experimental"], workspace = true }
@@ -45,6 +46,7 @@ sp-consensus-aura = { features = [
 sp-consensus-grandpa = { features = [
 	"serde",
 ], workspace = true }
+sp-keyring = { workspace = true }
 sp-core = { features = [
 	"serde",
 ], workspace = true }
@@ -96,6 +98,7 @@ std = [
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"scale-info/std",
+	"serde_json/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -103,6 +106,7 @@ std = [
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
+	"sp-keyring/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
