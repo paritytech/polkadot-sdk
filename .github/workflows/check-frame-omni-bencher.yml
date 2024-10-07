@@ -20,7 +20,7 @@ jobs:
     uses: ./.github/workflows/reusable-preflight.yml
 
   quick-benchmarks-omni:
-    runs-on: parity-benchmark
+    runs-on: ${{ needs.preflight.outputs.RUNNER_BENCHMARK }}
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
     env:
@@ -61,7 +61,7 @@ jobs:
           echo "runtime=$RUNTIMES" >> $GITHUB_OUTPUT
 
   run-frame-omni-bencher:
-    runs-on: parity-benchmark
+    runs-on: ${{ needs.preflight.outputs.RUNNER_BENCHMARK }}
     needs: [preflight, runtime-matrix]
     if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 30
@@ -83,7 +83,7 @@ jobs:
         run: |
           RUNTIME_BLOB_NAME=$(echo $PACKAGE_NAME | sed 's/-/_/g').compact.compressed.wasm
           RUNTIME_BLOB_PATH=./target/release/wbuild/$PACKAGE_NAME/$RUNTIME_BLOB_NAME
-          forklift cargo build --release --locked -p $PACKAGE_NAME -p frame-omni-bencher --features runtime-benchmarks --quiet
+          forklift cargo build --release --locked -p $PACKAGE_NAME -p frame-omni-bencher --features=${{ matrix.runtime.bench_features }} --quiet
           echo "Running short benchmarking for PACKAGE_NAME=$PACKAGE_NAME and RUNTIME_BLOB_PATH=$RUNTIME_BLOB_PATH"
           ls -lrt $RUNTIME_BLOB_PATH
           
