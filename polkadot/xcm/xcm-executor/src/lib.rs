@@ -573,8 +573,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		Ok(())
 	}
 
-	/// Calculates the amount of `self.asset_used_in_buy_execution` required to swap for
-	/// `asset_needed_for_fees`.
+	/// Calculates the amount of asset used in `PayFees` or `BuyExecution` that would be
+	/// charged for swapping to `asset_needed_for_fees`.
 	///
 	/// The calculation is done by `Config::AssetExchanger`.
 	/// If `self.asset_used_in_buy_execution` is not set, it will just return
