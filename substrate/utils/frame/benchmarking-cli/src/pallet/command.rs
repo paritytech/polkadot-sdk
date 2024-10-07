@@ -369,12 +369,12 @@ impl PalletCmd {
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							log::error!("Error executing and verifying runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Error executing and verifying runtime benchmark: {}", e);
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
 						Ok(Err(e)) => {
-							log::error!("Error executing and verifying runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Error executing and verifying runtime benchmark: {}", e);
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
@@ -409,12 +409,12 @@ impl PalletCmd {
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							log::error!("Error executing runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Error executing runtime benchmark: {}", e);
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
 						Ok(Err(e)) => {
-							log::error!("Benchmark {pallet}::{extrinsic} failed: {e}",);
+							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}",);
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
@@ -576,7 +576,7 @@ impl PalletCmd {
 			(Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::Spec), Some(_)) =>
 					return Err("Cannot use `--genesis-builder=spec-genesis` with `--runtime` since the runtime would be ignored.".into()),
 			(Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::Spec), None) | (None, None) => {
-				log::warn!("{WARN_SPEC_GENESIS_CTOR}");
+				log::warn!(target: LOG_TARGET, "{WARN_SPEC_GENESIS_CTOR}");
 				let Some(chain_spec) = chain_spec else {
 					return Err("No chain spec specified to generate the genesis state".into());
 				};
@@ -598,7 +598,7 @@ impl PalletCmd {
 			},
 			(Some(GenesisBuilderPolicy::Runtime), None) => return Err("Cannot use `--genesis-builder=runtime` without `--runtime`".into()),
 			(Some(GenesisBuilderPolicy::Runtime), Some(runtime)) | (None, Some(runtime)) => {
-				log::info!("Loading WASM from {}", runtime.display());
+				log::info!(target: LOG_TARGET, "Loading WASM from {}", runtime.display());
 
 				let code = fs::read(&runtime).map_err(|e| {
 					format!(
@@ -618,7 +618,7 @@ impl PalletCmd {
 		&self,
 		chain_spec: &dyn ChainSpec,
 	) -> Result<Storage> {
-		log::info!("Building genesis state from chain spec runtime");
+		log::info!(target: LOG_TARGET, "Building genesis state from chain spec runtime");
 		let storage = chain_spec
 			.build_storage()
 			.map_err(|e| format!("{ERROR_CANNOT_BUILD_GENESIS}\nError: {e}"))?;
@@ -641,8 +641,9 @@ impl PalletCmd {
 			genesis_config_caller.get_storage_for_named_preset(preset).inspect_err(|e| {
 				let presets = genesis_config_caller.preset_names().unwrap_or_default();
 				log::error!(
+					target: LOG_TARGET,
 					"Please pick one of the available presets with \
-			`--genesis-builder-preset=<PRESET>`. Available presets ({}): {:?}. Error: {:?}",
+			`--genesis-builder-preset=<PRESET>` or use a different `--genesis-builder-policy`. Available presets ({}): {:?}. Error: {:?}",
 					presets.len(),
 					presets,
 					e
@@ -696,14 +697,20 @@ impl PalletCmd {
 		state: &'a BenchmarkingState<H>,
 	) -> Result<FetchedCode<'a, BenchmarkingState<H>, H>> {
 		if let Some(runtime) = self.runtime.as_ref() {
-			log::info!("Loading WASM from file");
-			let code = fs::read(runtime)?;
+			log::info!(target: LOG_TARGET, "Loading WASM from file");
+			let code = fs::read(runtime).map_error(|e| {
+				format!(
+					"Could not load runtime file from path: {}, error: {}",
+					runtime.display(),
+					e
+				)
+			})?;
 			let hash = sp_core::blake2_256(&code).to_vec();
 			let wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
 
 			Ok(FetchedCode::FromFile { wrapped_code, heap_pages: self.heap_pages, hash })
 		} else {
-			log::info!("Loading WASM from state");
+			log::info!(target: LOG_TARGET, "Loading WASM from state");
 			let state = sp_state_machine::backend::BackendRuntimeCode::new(state);
 
 			Ok(FetchedCode::FromGenesis { state })
