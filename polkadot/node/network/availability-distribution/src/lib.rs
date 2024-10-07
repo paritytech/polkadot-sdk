@@ -22,11 +22,9 @@ use polkadot_node_network_protocol::request_response::{
 	v1, v2, IncomingRequestReceiver, ReqProtocolNames,
 };
 use polkadot_node_subsystem::{
-	jaeger, messages::AvailabilityDistributionMessage, overseer, FromOrchestra, OverseerSignal,
+	messages::AvailabilityDistributionMessage, overseer, FromOrchestra, OverseerSignal,
 	SpawnedSubsystem, SubsystemError,
 };
-use polkadot_primitives::{BlockNumber, Hash};
-use std::collections::HashMap;
 
 /// Error and [`Result`] type for this subsystem.
 mod error;
@@ -104,7 +102,6 @@ impl AvailabilityDistributionSubsystem {
 	/// Start processing work as passed on from the Overseer.
 	async fn run<Context>(self, mut ctx: Context) -> std::result::Result<(), FatalError> {
 		let Self { mut runtime, recvs, metrics, req_protocol_names } = self;
-		let mut spans: HashMap<Hash, (BlockNumber, jaeger::PerLeafSpan)> = HashMap::new();
 
 		let IncomingRequestReceivers {
 			pov_req_receiver,
@@ -156,24 +153,16 @@ impl AvailabilityDistributionSubsystem {
 			};
 			match message {
 				FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
-					let cloned_leaf = match update.activated.clone() {
-						Some(activated) => activated,
-						None => continue,
-					};
-					let span =
-						jaeger::PerLeafSpan::new(cloned_leaf.span, "availability-distribution");
-					spans.insert(cloned_leaf.hash, (cloned_leaf.number, span));
 					log_error(
 						requester
 							.get_mut()
-							.update_fetching_heads(&mut ctx, &mut runtime, update, &spans)
+							.update_fetching_heads(&mut ctx, &mut runtime, update)
 							.await,
 						"Error in Requester::update_fetching_heads",
 						&mut warn_freq,
 					)?;
 				},
-				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, finalized_number)) => {
-					spans.retain(|_hash, (block_number, _span)| *block_number > finalized_number);
+				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, _finalized_number)) => {
 				},
 				FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 				FromOrchestra::Communication {
@@ -187,15 +176,6 @@ impl AvailabilityDistributionSubsystem {
 							tx,
 						},
 				} => {
-					let span = spans
-						.get(&relay_parent)
-						.map(|(_, span)| span.child("fetch-pov"))
-						.unwrap_or_else(|| jaeger::Span::new(&relay_parent, "fetch-pov"))
-						.with_trace_id(candidate_hash)
-						.with_candidate(candidate_hash)
-						.with_relay_parent(relay_parent)
-						.with_stage(jaeger::Stage::AvailabilityDistribution);
-
 					log_error(
 						pov_requester::fetch_pov(
 							&mut ctx,
@@ -207,7 +187,6 @@ impl AvailabilityDistributionSubsystem {
 							pov_hash,
 							tx,
 							metrics.clone(),
-							&span,
 						)
 						.await,
 						"pov_requester::fetch_pov",
