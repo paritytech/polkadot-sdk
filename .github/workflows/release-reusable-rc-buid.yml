@@ -151,24 +151,23 @@ jobs:
     - name: Download artifacts
       uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
       with:
-        path: target/production/${{ inputs.package }}
+        path: target/production
         merge-multiple: true
 
     - name: Debug
-      working-directory: target/production/${{ inputs.package }}
+      working-directory: target/production
       run: |
         pwd
         ls -la
 
     - name: Build polkadot deb package
-      #working-directory: target/production/${{ inputs.package }}
       shell: bash
       run: |
         echo "What is in working directory: "
         ls -la
 
         echo "What is in the target: "
-        ls -la target/production/${{ inputs.package }}
+        ls -la target/production
         pwd
         . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }}
 
@@ -176,7 +175,7 @@ jobs:
       uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
       with:
         name: ${{ inputs.package }}
-        path: target/production/${{ inputs.package }}
+        path: target/production
 
   upload-polkadot-artifacts-to-s3:
     if: ${{ inputs.package == 'polkadot' }}
