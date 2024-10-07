@@ -137,22 +137,23 @@ fn testnet_genesis(
 	root: AccountId,
 	id: ParaId,
 ) -> serde_json::Value {
-    // current numbers (setup AA.)
-    let validators = 1_000;
-    let nominators = 36_000;
-    let edges = 16;
-    let validators_count = 400;
-    let max_validators_count = 4_000;
+	// current numbers (setup AA.) (modified for staking-miner tests)
+	let validators = 1_000;
+	//let nominators = 36_000;
+	let nominators = 3_000;
+	let edges = 16;
+	let validators_count = 400;
+	let max_validators_count = 4_000;
 
-    /*
-    // for remaining setups
+	/*
+	// for remaining setups
 	let validators = 4_000;
 	let nominators = 50_000;
 	let edges = 24;
 	//let validators_count = 1_000;
 	let validators_count = 3_000;
 	let max_validators_count = 4_000;
-    */
+	*/
 
 	let staking_gen = staking_genesis::generate(
 		validators,

@@ -212,7 +212,7 @@ mod solution_data_provider {
 	use super::*;
 
 	#[test]
-	fn score_works() {
+	fn higher_score_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_phase(Phase::Signed);
 
@@ -230,7 +230,10 @@ mod solution_data_provider {
 
 	#[test]
 	fn get_page_works() {
-		ExtBuilder::default().build_and_execute(|| {})
+		ExtBuilder::default().build_and_execute(|| {
+			roll_to_phase(Phase::Signed);
+			assert_eq!(<SignedPallet as SolutionDataProvider>::get_score(), None);
+		})
 	}
 }
 

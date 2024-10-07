@@ -21162,6 +21162,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-election-provider-multi-block",
+ "pallet-election-provider-multi-phase",
  "pallet-fast-unstake",
  "pallet-message-queue",
  "pallet-nomination-pools",

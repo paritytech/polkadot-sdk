@@ -431,20 +431,21 @@ parameter_types! {
 	pub MaxVoters: u32 = VoterSnapshotPerBlock::get() * Pages::get();
 
 	// SETUPS
-    // see results at https://hackmd.io/KpU6KVL-QOiwRxWPY9FDdQ/view
-    
-    // AAA.
-    // current numbers.
+	// see results at https://hackmd.io/KpU6KVL-QOiwRxWPY9FDdQ/view
+
+	// AAA. (modified for staking-miner tests)
+	// current numbers.
 	// let validators_count = 1_500; in chainspec
-    pub const Period: u32 = 10 * MINUTES;
+	pub const Period: u32 = 5 * MINUTES;
 	pub const MaxExposurePageSize: u32 = 512;
 	pub const MaxValidatorSet: u32 = 1_000;
-	pub UnsignedPhase: u32 = 45;
-	pub Pages: PageIndex = 20;
+	pub SignedPhase: u32 = 20;
+	pub UnsignedPhase: u32 = 0;
+	pub Pages: PageIndex = 5;
 	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get();
 	pub MaxBackersPerWinner: u32 = 5_000;
-	pub VoterSnapshotPerBlock: VoterIndex = 1_800;
-	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap(); 
+	pub VoterSnapshotPerBlock: VoterIndex = 500;
+	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
 
 	/*
 	// A1.
@@ -530,9 +531,9 @@ parameter_types! {
 	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
 	*/
 
-    /*
+	/*
 	// A3. at full page verification:
-    //  ⚠️  ⚠️   PoV STORAGE PROOF OVER LIMIT (5571.548828125kb > 5120.0kb, ie. 108% overflow)
+	//  ⚠️  ⚠️   PoV STORAGE PROOF OVER LIMIT (5571.548828125kb > 5120.0kb, ie. 108% overflow)
 	// let validators_count = 4_000; in chainspec
 	pub const Period: u32 = 20 * MINUTES;
 	pub const MaxExposurePageSize: u32 = 64;
@@ -543,9 +544,9 @@ parameter_types! {
 	pub MaxBackersPerWinner: u32 = 30_000;
 	pub VoterSnapshotPerBlock: VoterIndex = 2_000;
 	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
-    */
+	*/
 
-    /*
+	/*
 	// B3. OK
 	// let validators_count = 3_000; in chainspec
 	pub const Period: u32 = 20 * MINUTES;
@@ -557,10 +558,10 @@ parameter_types! {
 	pub MaxBackersPerWinner: u32 = 30_000;
 	pub VoterSnapshotPerBlock: VoterIndex = 2_000;
 	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
-    */
+	*/
 
 	// phase boundaries.
-	pub SignedPhase: u32 = 0; // (1 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
+	//pub SignedPhase: u32 = 0; // (1 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
 	//pub UnsignedPhase: u32 = 60; // (5 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
 	pub SignedValidationPhase: BlockNumber = 0; // Pages::get() * SignedMaxSubmissions::get();
 	pub Lookhaead: BlockNumber = 5;

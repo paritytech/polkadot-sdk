@@ -140,6 +140,9 @@ use crate::{
 
 const LOG_TARGET: &'static str = "runtime::multiblock-election";
 
+/// Page configured for the election.
+pub type PagesOf<T> = <T as crate::Config>::Pages;
+
 /// Trait defining the benchmarking configs.
 pub trait BenchmarkingConfig {
 	/// Range of voters registerd in the system.

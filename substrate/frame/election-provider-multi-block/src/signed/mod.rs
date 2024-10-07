@@ -18,7 +18,7 @@
 //! # Signed sub-pallet
 //!
 //! The main goal of the signed sub-pallet is to keep and manage a list of sorted score commitments
-//! and correponding paged solutions at the [`crate::Phase::Signed`].
+//! and correponding paged solutions during the [`crate::Phase::Signed`].
 //!
 //! Accounts may submit up to [`Config::MaxSubmissions`] score commitments per election round and
 //! this pallet ensures that the scores are stored under the map `SortedScores` are sorted and keyed
@@ -51,12 +51,11 @@ pub mod benchmarking;
 #[cfg(test)]
 mod tests;
 
-// TODO(gpestana): clean imports.
 use crate::{
 	signed::pallet::Submissions,
 	types::AccountIdOf,
 	verifier::{AsyncVerifier, SolutionDataProvider, VerificationResult},
-	PageIndex,
+	PageIndex, PagesOf,
 };
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -81,9 +80,9 @@ pub use pallet::{
 	__substrate_event_check, tt_default_parts, tt_default_parts_v2, tt_error_token,
 };
 
-// Alias for the pallet's balance type.
+/// Alias for the pallet's balance type.
 type BalanceOf<T> = <<T as Config>::Currency as FnInspect<AccountIdOf<T>>>::Balance;
-// Alias for the pallet's hold credit type.
+/// Alias for the pallet's hold credit type.
 pub type CreditOf<T> = Credit<AccountIdOf<T>, <T as Config>::Currency>;
 
 /// Metadata of a registered submission.
@@ -95,7 +94,7 @@ pub struct SubmissionMetadata<T: Config> {
 	/// The score that this submission is proposing.
 	claimed_score: ElectionScore,
 	/// A bit-wise bounded vec representing the submitted pages thus far.
-	pages: BoundedVec<bool, T::Pages>,
+	pages: BoundedVec<bool, PagesOf<T>>,
 	/// The amount held for this submission.
 	deposit: BalanceOf<T>,
 }

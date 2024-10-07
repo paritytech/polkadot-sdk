@@ -56,3 +56,14 @@ impl pallet_election_provider_multi_block::BenchmarkingConfig for EPMBenchmarkin
 	const VOTERS_PER_PAGE: [u32; 2] = [32, 1024];
 	const TARGETS_PER_PAGE: [u32; 2] = [512, 2048];
 }
+
+// TODO(remove)
+impl pallet_election_provider_multi_phase::BenchmarkingConfig for EPMBenchmarkingConfig {
+	const SNAPSHOT_MAXIMUM_VOTERS: u32 = 42;
+	const MINER_MAXIMUM_VOTERS: u32 = 42;
+	const MAXIMUM_TARGETS: u32 = 42;
+	const VOTERS: [u32; 2] = [0, 0];
+	const TARGETS: [u32; 2] = [0, 0];
+	const ACTIVE_VOTERS: [u32; 2] = [0, 0];
+	const DESIRED_TARGETS: [u32; 2] = [0, 0];
+}

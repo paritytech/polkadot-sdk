@@ -61,6 +61,8 @@ pallet-bags-list = { workspace = true }
 sp-npos-elections = { workspace = true }
 pallet-nomination-pools = { workspace = true }
 pallet-fast-unstake = { workspace = true }
+# TODO(remove): once staking-miner does not have any more dependencies with multi-phase.
+pallet-election-provider-multi-phase = { workspace = true }
 
 # Substrate	Primitives
 sp-api = { workspace = true }
