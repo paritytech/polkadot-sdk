@@ -113,7 +113,7 @@ pub mod code {
 	/// We need to limit the size of basic blocks because the interpreters lazy compilation
 	/// compiles one basic block at a time. A malicious program could trigger the compilation
 	/// of the whole program by creating one giant basic block otherwise.
-	const BASIC_BLOCK_SIZE: u32 = 200;
+	const BASIC_BLOCK_SIZE: u32 = 1000;
 
 	/// Make sure that the various program parts are within the defined limits.
 	pub fn enforce<T: Config>(blob: Vec<u8>) -> Result<CodeVec, DispatchError> {
@@ -139,8 +139,8 @@ pub mod code {
 		for inst in program.instructions(ISA) {
 			num_instructions += 1;
 			basic_block_size += 1;
-			max_basic_block_size = max_basic_block_size.max(basic_block_size);
 			if inst.kind.opcode().starts_new_basic_block() {
+				max_basic_block_size = max_basic_block_size.max(basic_block_size);
 				basic_block_size = 0;
 			}
 			if matches!(inst.kind, polkavm::program::Instruction::invalid) {

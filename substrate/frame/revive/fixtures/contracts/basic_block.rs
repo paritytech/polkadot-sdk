@@ -33,8 +33,8 @@ pub extern "C" fn call_never() {
 	// know whether they have side effects.
 	let value: u32 = 42;
 	unsafe {
-	    // Repeat 201 times to intentionally exceed the allowed basic block limit (200)
-		asm!(".rept 201", "sw {x}, 0(sp)", ".endr", x = in(reg) value);
+		// Repeat 1001 times to intentionally exceed the allowed basic block limit (1000)
+		asm!(".rept 1001", "sw {x}, 0(sp)", ".endr", x = in(reg) value);
 	}
 }
 
