@@ -168,7 +168,7 @@ fn create_account_extrinsics(
 				),
 			]
 		})
-		.map(OpaqueExtrinsic::from)
+		.map(|utx| OpaqueExtrinsic::from(utx.into()))
 		.collect()
 }
 
@@ -192,7 +192,7 @@ fn create_benchmark_extrinsics(
 				)
 			})
 		})
-		.map(OpaqueExtrinsic::from)
+		.map(|utx| OpaqueExtrinsic::from(utx.into()))
 		.collect()
 }
 
