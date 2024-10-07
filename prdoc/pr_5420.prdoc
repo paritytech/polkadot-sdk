@@ -29,7 +29,7 @@ crates:
   - name: staging-xcm-builder
     bump: minor
   - name: staging-xcm
-    bump: minor
+    bump: major
   - name: rococo-runtime
     bump: minor
   - name: westend-runtime
@@ -53,4 +53,8 @@ crates:
   - name: asset-hub-rococo-runtime
     bump: minor
   - name: emulated-integration-tests-common
+    bump: minor
+  - name: xcm-procedural
+    bump: minor
+  - name: pallet-xcm-benchmarks
     bump: minor
