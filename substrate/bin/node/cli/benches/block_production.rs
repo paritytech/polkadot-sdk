@@ -166,6 +166,7 @@ fn prepare_benchmark(client: &FullClient) -> (usize, Vec<OpaqueExtrinsic>) {
 			BalancesCall::transfer_allow_death { dest: dst.clone(), value: 1 * DOLLARS },
 			Some(nonce),
 		)
+		.0
 		.into();
 
 		match block_builder.push(extrinsic.clone()) {
