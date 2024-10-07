@@ -18,13 +18,13 @@
 //! Various types used by this crate.
 
 use sc_cli::Result;
-use sp_core::traits::{RuntimeCode, WrappedRuntimeCode};
+use sp_core::traits::RuntimeCode;
 use sp_runtime::traits::Hash;
 
 /// How the genesis state for benchmarking should be build.
 #[derive(clap::ValueEnum, Debug, Eq, PartialEq, Clone, Copy)]
 #[clap(rename_all = "kebab-case")]
-pub enum GenesisBuilder {
+pub enum GenesisBuilderPolicy {
 	/// Do not provide any genesis state.
 	///
 	/// Benchmarks are advised to function with this, since they should setup their own required
@@ -32,16 +32,19 @@ pub enum GenesisBuilder {
 	None,
 	/// Let the runtime build the genesis state through its `BuildGenesisConfig` runtime API.
 	Runtime,
+	// Use the runtime from the Spec file to build the genesis state.
+	SpecRuntime,
 	/// Use the spec file to build the genesis state. This fails when there is no spec.
+	SpecGenesis,
+	/// Same as `SpecGenesis` - only here for backwards compatibility.
 	Spec,
 }
 
 /// A runtime blob that was either fetched from genesis storage or loaded from a file.
 // NOTE: This enum is only needed for the annoying lifetime bounds on `RuntimeCode`. Otherwise we
 // could just directly return the blob.
-pub enum FetchedCode<'a, B, H> {
-	FromGenesis { state: sp_state_machine::backend::BackendRuntimeCode<'a, B, H> },
-	FromFile { wrapped_code: WrappedRuntimeCode<'a>, heap_pages: Option<u64>, hash: Vec<u8> },
+pub struct FetchedCode<'a, B, H> {
+	pub state: sp_state_machine::backend::BackendRuntimeCode<'a, B, H>,
 }
 
 impl<'a, B, H> FetchedCode<'a, B, H>
@@ -51,14 +54,7 @@ where
 {
 	/// The runtime blob.
 	pub fn code(&'a self) -> Result<RuntimeCode<'a>> {
-		match self {
-			Self::FromGenesis { state } => state.runtime_code().map_err(Into::into),
-			Self::FromFile { wrapped_code, heap_pages, hash } => Ok(RuntimeCode {
-				code_fetcher: wrapped_code,
-				heap_pages: *heap_pages,
-				hash: hash.clone(),
-			}),
-		}
+		self.state.runtime_code().map_err(Into::into)
 	}
 }
 

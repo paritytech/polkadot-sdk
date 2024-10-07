@@ -15,20 +15,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::cli::Consensus;
 use futures::FutureExt;
 use minimal_template_runtime::{interface::OpaqueBlock as Block, RuntimeApi};
 use polkadot_sdk::{
 	sc_client_api::backend::Backend,
 	sc_executor::WasmExecutor,
-	sc_service::{error::Error as ServiceError, Configuration, TaskManager},
+	sc_service::{
+		build_polkadot_syncing_strategy, error::Error as ServiceError, Configuration, TaskManager,
+	},
 	sc_telemetry::{Telemetry, TelemetryWorker},
 	sc_transaction_pool_api::OffchainTransactionPoolFactory,
 	sp_runtime::traits::Block as BlockT,
 	*,
 };
 use std::sync::Arc;
-
-use crate::cli::Consensus;
 
 type HostFunctions = sp_io::SubstrateHostFunctions;
 
@@ -123,7 +124,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		other: mut telemetry,
 	} = new_partial(&config)?;
 
-	let net_config = sc_network::config::FullNetworkConfiguration::<
+	let mut net_config = sc_network::config::FullNetworkConfiguration::<
 		Block,
 		<Block as BlockT>::Hash,
 		Network,
@@ -135,6 +136,16 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
 	);
 
+	let syncing_strategy = build_polkadot_syncing_strategy(
+		config.protocol_id(),
+		config.chain_spec.fork_id(),
+		&mut net_config,
+		None,
+		client.clone(),
+		&task_manager.spawn_handle(),
+		config.prometheus_config.as_ref().map(|config| &config.registry),
+	)?;
+
 	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
@@ -144,7 +155,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 			import_queue,
 			net_config,
 			block_announce_validator_builder: None,
-			warp_sync_config: None,
+			syncing_strategy,
 			block_relay: None,
 			metrics,
 		})?;

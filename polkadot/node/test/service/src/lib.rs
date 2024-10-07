@@ -88,7 +88,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					is_parachain_node,
 					enable_beefy: true,
 					force_authoring_backoff: false,
-					jaeger_agent: None,
 					telemetry_worker_handle: None,
 					node_version: None,
 					secure_validator_mode: false,
@@ -101,6 +100,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					execute_workers_max_num: None,
 					prepare_workers_hard_max_num: None,
 					prepare_workers_soft_max_num: None,
+					enable_approval_voting_parallel: false,
 				},
 			),
 		sc_network::config::NetworkBackendType::Litep2p =>
@@ -110,7 +110,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					is_parachain_node,
 					enable_beefy: true,
 					force_authoring_backoff: false,
-					jaeger_agent: None,
 					telemetry_worker_handle: None,
 					node_version: None,
 					secure_validator_mode: false,
@@ -123,6 +122,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					execute_workers_max_num: None,
 					prepare_workers_hard_max_num: None,
 					prepare_workers_soft_max_num: None,
+					enable_approval_voting_parallel: false,
 				},
 			),
 	}

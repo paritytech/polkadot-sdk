@@ -32,6 +32,7 @@ use cumulus_client_consensus_aura::{
 	ImportQueueParams,
 };
 use cumulus_client_consensus_proposer::Proposer;
+use prometheus::Registry;
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sp_consensus_aura::sr25519::AuthorityPair;
@@ -267,11 +268,12 @@ pub fn new_partial(
 
 async fn build_relay_chain_interface(
 	relay_chain_config: Configuration,
+	parachain_prometheus_registry: Option<&Registry>,
 	collator_key: Option<CollatorPair>,
 	collator_options: CollatorOptions,
 	task_manager: &mut TaskManager,
 ) -> RelayChainResult<Arc<dyn RelayChainInterface + 'static>> {
-	let relay_chain_full_node = match collator_options.relay_chain_mode {
+	let relay_chain_node = match collator_options.relay_chain_mode {
 		cumulus_client_cli::RelayChainMode::Embedded => polkadot_test_service::new_full(
 			relay_chain_config,
 			if let Some(ref key) = collator_key {
@@ -286,6 +288,7 @@ async fn build_relay_chain_interface(
 		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
 			return build_minimal_relay_chain_node_with_rpc(
 				relay_chain_config,
+				parachain_prometheus_registry,
 				task_manager,
 				rpc_target_urls,
 			)
@@ -297,13 +300,13 @@ async fn build_relay_chain_interface(
 				.map(|r| r.0),
 	};
 
-	task_manager.add_child(relay_chain_full_node.task_manager);
+	task_manager.add_child(relay_chain_node.task_manager);
 	tracing::info!("Using inprocess node.");
 	Ok(Arc::new(RelayChainInProcessInterface::new(
-		relay_chain_full_node.client.clone(),
-		relay_chain_full_node.backend.clone(),
-		relay_chain_full_node.sync_service.clone(),
-		relay_chain_full_node.overseer_handle.ok_or(RelayChainError::GenericError(
+		relay_chain_node.client.clone(),
+		relay_chain_node.backend.clone(),
+		relay_chain_node.sync_service.clone(),
+		relay_chain_node.overseer_handle.ok_or(RelayChainError::GenericError(
 			"Overseer should be running in full node.".to_string(),
 		))?,
 	)))
@@ -347,9 +350,9 @@ where
 	let backend = params.backend.clone();
 
 	let block_import = params.other;
-
 	let relay_chain_interface = build_relay_chain_interface(
 		relay_chain_config,
+		parachain_config.prometheus_registry(),
 		collator_key.clone(),
 		collator_options.clone(),
 		&mut task_manager,
@@ -489,7 +492,6 @@ where
 					keystore,
 					collator_key,
 					para_id,
-					relay_chain_slot_duration,
 					proposer,
 					collator_service,
 					authoring_duration: Duration::from_millis(2000),
@@ -497,7 +499,7 @@ where
 					slot_drift: Duration::from_secs(1),
 				};
 
-				let (collation_future, block_builer_future) =
+				let (collation_future, block_builder_future) =
 					slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
 				task_manager.spawn_essential_handle().spawn(
 					"collation-task",
@@ -507,7 +509,7 @@ where
 				task_manager.spawn_essential_handle().spawn(
 					"block-builder-task",
 					None,
-					block_builer_future,
+					block_builder_future,
 				);
 			} else {
 				tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");

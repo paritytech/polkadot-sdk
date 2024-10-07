@@ -28,7 +28,7 @@ jobs:
       runs-on: ubuntu-latest
       steps:
         - name: Checkout
-          uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.0.0
+          uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.0.0
           with:
             fetch-depth: 0
 
@@ -69,7 +69,7 @@ jobs:
       matrix: ${{ fromJSON(needs.find-runtimes.outputs.runtime) }}
 
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.0.0
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.0.0
         with:
           fetch-depth: 0
 

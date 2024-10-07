@@ -22,13 +22,12 @@ use crate::{
 			AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
 			RuntimeResolver,
 		},
-		spec::DynNodeSpec,
 		types::Block,
 		NodeBlock, NodeExtraArgs,
 	},
 	fake_runtime_api,
+	nodes::DynNodeSpecExt,
 	runtime::BlockNumber,
-	service::ShellNode,
 };
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
@@ -39,7 +38,6 @@ use sc_cli::{Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
-use std::panic::{RefUnwindSafe, UnwindSafe};
 
 /// Structure that can be used in order to provide customizers for different functionalities of the
 /// node binary that is being built using this library.
@@ -53,18 +51,17 @@ pub struct RunConfig {
 pub fn new_aura_node_spec<Block>(
 	aura_id: AuraConsensusId,
 	extra_args: &NodeExtraArgs,
-) -> Box<dyn DynNodeSpec>
+) -> Box<dyn DynNodeSpecExt>
 where
-	Block: NodeBlock + UnwindSafe + RefUnwindSafe,
-	Block::BoundedHeader: UnwindSafe + RefUnwindSafe,
+	Block: NodeBlock,
 {
 	match aura_id {
-		AuraConsensusId::Sr25519 => crate::service::new_aura_node_spec::<
+		AuraConsensusId::Sr25519 => crate::nodes::aura::new_aura_node_spec::<
 			Block,
 			fake_runtime_api::aura_sr25519::RuntimeApi,
 			sp_consensus_aura::sr25519::AuthorityId,
 		>(extra_args),
-		AuraConsensusId::Ed25519 => crate::service::new_aura_node_spec::<
+		AuraConsensusId::Ed25519 => crate::nodes::aura::new_aura_node_spec::<
 			Block,
 			fake_runtime_api::aura_ed25519::RuntimeApi,
 			sp_consensus_aura::ed25519::AuthorityId,
@@ -76,11 +73,10 @@ fn new_node_spec(
 	config: &sc_service::Configuration,
 	runtime_resolver: &Box<dyn RuntimeResolverT>,
 	extra_args: &NodeExtraArgs,
-) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
+) -> std::result::Result<Box<dyn DynNodeSpecExt>, sc_cli::Error> {
 	let runtime = runtime_resolver.runtime(config.chain_spec.as_ref())?;
 
 	Ok(match runtime {
-		Runtime::Shell => Box::new(ShellNode),
 		Runtime::Omni(block_number, consensus) => match (block_number, consensus) {
 			(BlockNumber::U32, Consensus::Aura(aura_id)) =>
 				new_aura_node_spec::<Block<u32>>(aura_id, extra_args),
@@ -216,6 +212,20 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 			let collator_options = cli.run.collator_options();
 
 			runner.run_node_until_exit(|config| async move {
+				let node_spec =
+					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
+				let para_id = ParaId::from(
+					Extensions::try_get(&*config.chain_spec)
+						.map(|e| e.para_id)
+						.ok_or("Could not find parachain extension in chain-spec.")?,
+				);
+
+				if let Some(dev_block_time) = cli.dev_block_time {
+					return node_spec
+						.start_manual_seal_node(config, para_id, dev_block_time)
+						.map_err(Into::into)
+				}
+
 				// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the
 				// asset-hub chain spec, then rename the base path to the new chain ID. In the case
 				// that both file paths exist, the node will exit, as the user must decide (by
@@ -258,19 +268,16 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				let hwbench = (!cli.no_hardware_benchmarks)
 					.then_some(config.database.path().map(|database_path| {
 						let _ = std::fs::create_dir_all(database_path);
-						sc_sysinfo::gather_hwbench(Some(database_path))
+						sc_sysinfo::gather_hwbench(
+							Some(database_path),
+							&SUBSTRATE_REFERENCE_HARDWARE,
+						)
 					}))
 					.flatten();
 
-				let para_id = Extensions::try_get(&*config.chain_spec)
-					.map(|e| e.para_id)
-					.ok_or("Could not find parachain extension in chain-spec.")?;
-
-				let id = ParaId::from(para_id);
-
 				let parachain_account =
 					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
-						&id,
+						&para_id,
 					);
 
 				let tokio_handle = config.tokio_handle.clone();
@@ -278,38 +285,22 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
 						.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
-				info!("🪪 Parachain id: {:?}", id);
+				info!("🪪 Parachain id: {:?}", para_id);
 				info!("🧾 Parachain Account: {}", parachain_account);
 				info!("✍️ Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
-				start_node(
-					config,
-					&cmd_config.runtime_resolver,
-					polkadot_config,
-					collator_options,
-					id,
-					cli.node_extra_args(),
-					hwbench,
-				)
-				.await
+				node_spec
+					.start_node(
+						config,
+						polkadot_config,
+						collator_options,
+						para_id,
+						hwbench,
+						cli.node_extra_args(),
+					)
+					.await
+					.map_err(Into::into)
 			})
 		},
 	}
-}
-
-#[sc_tracing::logging::prefix_logs_with("Parachain")]
-async fn start_node(
-	config: sc_service::Configuration,
-	runtime_resolver: &Box<dyn RuntimeResolverT>,
-	polkadot_config: sc_service::Configuration,
-	collator_options: cumulus_client_cli::CollatorOptions,
-	id: ParaId,
-	extra_args: NodeExtraArgs,
-	hwbench: Option<sc_sysinfo::HwBench>,
-) -> Result<sc_service::TaskManager> {
-	let node_spec = new_node_spec(&config, runtime_resolver, &extra_args)?;
-	node_spec
-		.start_node(config, polkadot_config, collator_options, id, hwbench, extra_args)
-		.await
-		.map_err(Into::into)
 }

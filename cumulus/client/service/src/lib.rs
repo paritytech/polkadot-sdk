@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -40,7 +40,10 @@ use sc_consensus::{
 use sc_network::{config::SyncMode, service::traits::NetworkService, NetworkBackend};
 use sc_network_sync::SyncingService;
 use sc_network_transactions::TransactionsHandlerController;
-use sc_service::{Configuration, NetworkStarter, SpawnTaskHandle, TaskManager, WarpSyncConfig};
+use sc_service::{
+	build_polkadot_syncing_strategy, Configuration, NetworkStarter, SpawnTaskHandle, TaskManager,
+	WarpSyncConfig,
+};
 use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::ProvideRuntimeApi;
@@ -370,6 +373,7 @@ pub async fn build_relay_chain_interface(
 		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
 			build_minimal_relay_chain_node_with_rpc(
 				relay_chain_config,
+				parachain_config.prometheus_registry(),
 				task_manager,
 				rpc_target_urls,
 			)
@@ -425,7 +429,7 @@ pub struct BuildNetworkParams<
 pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 	BuildNetworkParams {
 		parachain_config,
-		net_config,
+		mut net_config,
 		client,
 		transaction_pool,
 		para_id,
@@ -462,7 +466,7 @@ where
 	IQ: ImportQueue<Block> + 'static,
 	Network: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
-	let warp_sync_params = match parachain_config.network.sync_mode {
+	let warp_sync_config = match parachain_config.network.sync_mode {
 		SyncMode::Warp => {
 			log::debug!(target: LOG_TARGET_SYNC, "waiting for announce block...");
 
@@ -493,8 +497,18 @@ where
 		},
 	};
 	let metrics = Network::register_notification_metrics(
-		parachain_config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
+		parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 	);
+
+	let syncing_strategy = build_polkadot_syncing_strategy(
+		parachain_config.protocol_id(),
+		parachain_config.chain_spec.fork_id(),
+		&mut net_config,
+		warp_sync_config,
+		client.clone(),
+		&spawn_handle,
+		parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
+	)?;
 
 	sc_service::build_network(sc_service::BuildNetworkParams {
 		config: parachain_config,
@@ -504,7 +518,7 @@ where
 		spawn_handle,
 		import_queue,
 		block_announce_validator_builder: Some(Box::new(move |_| block_announce_validator)),
-		warp_sync_config: warp_sync_params,
+		syncing_strategy,
 		block_relay: None,
 		metrics,
 	})

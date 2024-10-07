@@ -76,9 +76,7 @@ impl<T: Config> EngineMeter<T> {
 		// We execute 6 different instructions therefore we have to divide the actual
 		// computed gas costs by 6 to have a rough estimate as to how expensive each
 		// single executed instruction is going to be.
-		let instr_cost = T::WeightInfo::instr_i64_load_store(1)
-			.saturating_sub(T::WeightInfo::instr_i64_load_store(0))
-			.ref_time();
+		let instr_cost = T::WeightInfo::instr(1).saturating_sub(T::WeightInfo::instr(0)).ref_time();
 		instr_cost / 6
 	}
 }

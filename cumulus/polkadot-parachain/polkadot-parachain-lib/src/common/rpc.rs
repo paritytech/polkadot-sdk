@@ -40,29 +40,6 @@ pub(crate) trait BuildRpcExtensions<Client, Backend, Pool> {
 	) -> sc_service::error::Result<RpcExtension>;
 }
 
-pub(crate) struct BuildEmptyRpcExtensions<Block, RuntimeApi>(PhantomData<(Block, RuntimeApi)>);
-
-impl<Block: BlockT, RuntimeApi>
-	BuildRpcExtensions<
-		ParachainClient<Block, RuntimeApi>,
-		ParachainBackend<Block>,
-		sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
-	> for BuildEmptyRpcExtensions<Block, RuntimeApi>
-where
-	RuntimeApi:
-		ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>> + Send + Sync + 'static,
-{
-	fn build_rpc_extensions(
-		_client: Arc<ParachainClient<Block, RuntimeApi>>,
-		_backend: Arc<ParachainBackend<Block>>,
-		_pool: Arc<
-			sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
-		>,
-	) -> sc_service::error::Result<RpcExtension> {
-		Ok(RpcExtension::new(()))
-	}
-}
-
 pub(crate) struct BuildParachainRpcExtensions<Block, RuntimeApi>(PhantomData<(Block, RuntimeApi)>);
 
 impl<Block: BlockT, RuntimeApi>

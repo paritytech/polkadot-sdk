@@ -19,7 +19,7 @@
 use crate::{
 	build_network_future, build_system_rpc_future,
 	client::{Client, ClientConfig},
-	config::{Configuration, ExecutorConfiguration, KeystoreConfig, PrometheusConfig},
+	config::{Configuration, ExecutorConfiguration, KeystoreConfig, Multiaddr, PrometheusConfig},
 	error::Error,
 	metrics::MetricsService,
 	start_rpc_servers, BuildGenesisBlock, GenesisBlockBuilder, RpcHandlers, SpawnTaskHandle,
@@ -42,7 +42,8 @@ use sc_executor::{
 };
 use sc_keystore::LocalKeystore;
 use sc_network::{
-	config::{FullNetworkConfiguration, SyncMode},
+	config::{FullNetworkConfiguration, ProtocolId, SyncMode},
+	multiaddr::Protocol,
 	service::{
 		traits::{PeerStore, RequestResponseConfig},
 		NotificationMetrics,
@@ -52,10 +53,14 @@ use sc_network::{
 use sc_network_common::role::Roles;
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 use sc_network_sync::{
-	block_relay_protocol::BlockRelayParams, block_request_handler::BlockRequestHandler,
-	engine::SyncingEngine, service::network::NetworkServiceProvider,
+	block_relay_protocol::BlockRelayParams,
+	block_request_handler::BlockRequestHandler,
+	engine::SyncingEngine,
+	service::network::NetworkServiceProvider,
 	state_request_handler::StateRequestHandler,
-	warp_request_handler::RequestHandler as WarpSyncRequestHandler, SyncingService, WarpSyncConfig,
+	strategy::{PolkadotSyncingStrategy, SyncingConfig, SyncingStrategy},
+	warp_request_handler::RequestHandler as WarpSyncRequestHandler,
+	SyncingService, WarpSyncConfig,
 };
 use sc_rpc::{
 	author::AuthorApiServer,
@@ -527,13 +532,24 @@ where
 		gen_rpc_module,
 		rpc_id_provider,
 	)?;
+
+	let listen_addrs = rpc_server_handle
+		.listen_addrs()
+		.into_iter()
+		.map(|socket_addr| {
+			let mut multiaddr: Multiaddr = socket_addr.ip().into();
+			multiaddr.push(Protocol::Tcp(socket_addr.port()));
+			multiaddr
+		})
+		.collect();
+
 	let in_memory_rpc = {
 		let mut module = gen_rpc_module()?;
 		module.extensions_mut().insert(DenyUnsafe::No);
 		module
 	};
 
-	let in_memory_rpc_handle = RpcHandlers::new(Arc::new(in_memory_rpc));
+	let in_memory_rpc_handle = RpcHandlers::new(Arc::new(in_memory_rpc), listen_addrs);
 
 	// Spawn informant task
 	spawn_handle.spawn(
@@ -766,65 +782,63 @@ where
 }
 
 /// Parameters to pass into `build_network`.
-pub struct BuildNetworkParams<
-	'a,
-	TBl: BlockT,
-	TNet: NetworkBackend<TBl, <TBl as BlockT>::Hash>,
-	TExPool,
-	TImpQu,
-	TCl,
-> {
+pub struct BuildNetworkParams<'a, Block, Net, TxPool, IQ, Client>
+where
+	Block: BlockT,
+	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
+{
 	/// The service configuration.
 	pub config: &'a Configuration,
 	/// Full network configuration.
-	pub net_config: FullNetworkConfiguration<TBl, <TBl as BlockT>::Hash, TNet>,
+	pub net_config: FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Net>,
 	/// A shared client returned by `new_full_parts`.
-	pub client: Arc<TCl>,
+	pub client: Arc<Client>,
 	/// A shared transaction pool.
-	pub transaction_pool: Arc<TExPool>,
+	pub transaction_pool: Arc<TxPool>,
 	/// A handle for spawning tasks.
 	pub spawn_handle: SpawnTaskHandle,
 	/// An import queue.
-	pub import_queue: TImpQu,
+	pub import_queue: IQ,
 	/// A block announce validator builder.
-	pub block_announce_validator_builder:
-		Option<Box<dyn FnOnce(Arc<TCl>) -> Box<dyn BlockAnnounceValidator<TBl> + Send> + Send>>,
-	/// Optional warp sync config.
-	pub warp_sync_config: Option<WarpSyncConfig<TBl>>,
+	pub block_announce_validator_builder: Option<
+		Box<dyn FnOnce(Arc<Client>) -> Box<dyn BlockAnnounceValidator<Block> + Send> + Send>,
+	>,
+	/// Syncing strategy to use in syncing engine.
+	pub syncing_strategy: Box<dyn SyncingStrategy<Block>>,
 	/// User specified block relay params. If not specified, the default
 	/// block request handler will be used.
-	pub block_relay: Option<BlockRelayParams<TBl, TNet>>,
+	pub block_relay: Option<BlockRelayParams<Block, Net>>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
-pub fn build_network<TBl, TNet, TExPool, TImpQu, TCl>(
-	params: BuildNetworkParams<TBl, TNet, TExPool, TImpQu, TCl>,
+pub fn build_network<Block, Net, TxPool, IQ, Client>(
+	params: BuildNetworkParams<Block, Net, TxPool, IQ, Client>,
 ) -> Result<
 	(
 		Arc<dyn sc_network::service::traits::NetworkService>,
-		TracingUnboundedSender<sc_rpc::system::Request<TBl>>,
-		sc_network_transactions::TransactionsHandlerController<<TBl as BlockT>::Hash>,
+		TracingUnboundedSender<sc_rpc::system::Request<Block>>,
+		sc_network_transactions::TransactionsHandlerController<<Block as BlockT>::Hash>,
 		NetworkStarter,
-		Arc<SyncingService<TBl>>,
+		Arc<SyncingService<Block>>,
 	),
 	Error,
 >
 where
-	TBl: BlockT,
-	TCl: ProvideRuntimeApi<TBl>
-		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
-		+ Chain<TBl>
-		+ BlockBackend<TBl>
-		+ BlockIdTo<TBl, Error = sp_blockchain::Error>
-		+ ProofProvider<TBl>
-		+ HeaderBackend<TBl>
-		+ BlockchainEvents<TBl>
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ Chain<Block>
+		+ BlockBackend<Block>
+		+ BlockIdTo<Block, Error = sp_blockchain::Error>
+		+ ProofProvider<Block>
+		+ HeaderBackend<Block>
+		+ BlockchainEvents<Block>
 		+ 'static,
-	TExPool: TransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
-	TImpQu: ImportQueue<TBl> + 'static,
-	TNet: NetworkBackend<TBl, <TBl as BlockT>::Hash>,
+	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + 'static,
+	IQ: ImportQueue<Block> + 'static,
+	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
 	let BuildNetworkParams {
 		config,
@@ -834,30 +848,13 @@ where
 		spawn_handle,
 		import_queue,
 		block_announce_validator_builder,
-		warp_sync_config,
+		syncing_strategy,
 		block_relay,
 		metrics,
 	} = params;
 
-	if warp_sync_config.is_none() && config.network.sync_mode.is_warp() {
-		return Err("Warp sync enabled, but no warp sync provider configured.".into())
-	}
-
-	if client.requires_full_sync() {
-		match config.network.sync_mode {
-			SyncMode::LightState { .. } =>
-				return Err("Fast sync doesn't work for archive nodes".into()),
-			SyncMode::Warp => return Err("Warp sync doesn't work for archive nodes".into()),
-			SyncMode::Full => {},
-		}
-	}
-
 	let protocol_id = config.protocol_id();
-	let genesis_hash = client
-		.block_hash(0u32.into())
-		.ok()
-		.flatten()
-		.expect("Genesis block exists; qed");
+	let genesis_hash = client.info().genesis_hash;
 
 	let block_announce_validator = if let Some(f) = block_announce_validator_builder {
 		f(client.clone())
@@ -871,7 +868,7 @@ where
 		None => {
 			// Custom protocol was not specified, use the default block handler.
 			// Allow both outgoing and incoming requests.
-			let params = BlockRequestHandler::new::<TNet>(
+			let params = BlockRequestHandler::new::<Net>(
 				chain_sync_network_handle.clone(),
 				&protocol_id,
 				config.chain_spec.fork_id(),
@@ -886,42 +883,9 @@ where
 		block_server.run().await;
 	});
 
-	let (state_request_protocol_config, state_request_protocol_name) = {
-		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize +
-			net_config.network_config.default_peers_set.reserved_nodes.len();
-		// Allow both outgoing and incoming requests.
-		let (handler, protocol_config) = StateRequestHandler::new::<TNet>(
-			&protocol_id,
-			config.chain_spec.fork_id(),
-			client.clone(),
-			num_peer_hint,
-		);
-		let config_name = protocol_config.protocol_name().clone();
-
-		spawn_handle.spawn("state-request-handler", Some("networking"), handler.run());
-		(protocol_config, config_name)
-	};
-
-	let (warp_sync_protocol_config, warp_request_protocol_name) = match warp_sync_config.as_ref() {
-		Some(WarpSyncConfig::WithProvider(warp_with_provider)) => {
-			// Allow both outgoing and incoming requests.
-			let (handler, protocol_config) = WarpSyncRequestHandler::new::<_, TNet>(
-				protocol_id.clone(),
-				genesis_hash,
-				config.chain_spec.fork_id(),
-				warp_with_provider.clone(),
-			);
-			let config_name = protocol_config.protocol_name().clone();
-
-			spawn_handle.spawn("warp-sync-request-handler", Some("networking"), handler.run());
-			(Some(protocol_config), Some(config_name))
-		},
-		_ => (None, None),
-	};
-
 	let light_client_request_protocol_config = {
 		// Allow both outgoing and incoming requests.
-		let (handler, protocol_config) = LightClientRequestHandler::new::<TNet>(
+		let (handler, protocol_config) = LightClientRequestHandler::new::<Net>(
 			&protocol_id,
 			config.chain_spec.fork_id(),
 			client.clone(),
@@ -932,15 +896,10 @@ where
 
 	// install request handlers to `FullNetworkConfiguration`
 	net_config.add_request_response_protocol(block_request_protocol_config);
-	net_config.add_request_response_protocol(state_request_protocol_config);
 	net_config.add_request_response_protocol(light_client_request_protocol_config);
 
-	if let Some(config) = warp_sync_protocol_config {
-		net_config.add_request_response_protocol(config);
-	}
-
 	let bitswap_config = config.network.ipfs_server.then(|| {
-		let (handler, config) = TNet::bitswap_server(client.clone());
+		let (handler, config) = Net::bitswap_server(client.clone());
 		spawn_handle.spawn("bitswap-request-handler", Some("networking"), handler);
 
 		config
@@ -949,7 +908,7 @@ where
 	// create transactions protocol and add it to the list of supported protocols of
 	let peer_store_handle = net_config.peer_store_handle();
 	let (transactions_handler_proto, transactions_config) =
-		sc_network_transactions::TransactionsHandlerPrototype::new::<_, TBl, TNet>(
+		sc_network_transactions::TransactionsHandlerPrototype::new::<_, Block, Net>(
 			protocol_id.clone(),
 			genesis_hash,
 			config.chain_spec.fork_id(),
@@ -972,19 +931,16 @@ where
 		protocol_id.clone(),
 		&config.chain_spec.fork_id().map(ToOwned::to_owned),
 		block_announce_validator,
-		warp_sync_config,
+		syncing_strategy,
 		chain_sync_network_handle,
 		import_queue.service(),
 		block_downloader,
-		state_request_protocol_name,
-		warp_request_protocol_name,
 		Arc::clone(&peer_store_handle),
 	)?;
 	let sync_service_import_queue = sync_service.clone();
 	let sync_service = Arc::new(sync_service);
 
-	let genesis_hash = client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
-	let network_params = sc_network::config::Params::<TBl, <TBl as BlockT>::Hash, TNet> {
+	let network_params = sc_network::config::Params::<Block, <Block as BlockT>::Hash, Net> {
 		role: config.role,
 		executor: {
 			let spawn_handle = Clone::clone(&spawn_handle);
@@ -994,7 +950,7 @@ where
 		},
 		network_config: net_config,
 		genesis_hash,
-		protocol_id: protocol_id.clone(),
+		protocol_id,
 		fork_id: config.chain_spec.fork_id().map(ToOwned::to_owned),
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
@@ -1003,7 +959,7 @@ where
 	};
 
 	let has_bootnodes = !network_params.network_config.network_config.boot_nodes.is_empty();
-	let network_mut = TNet::new(network_params)?;
+	let network_mut = Net::new(network_params)?;
 	let network = network_mut.network_service().clone();
 
 	let (tx_handler, tx_handler_controller) = transactions_handler_proto.build(
@@ -1030,7 +986,7 @@ where
 	spawn_handle.spawn(
 		"system-rpc-handler",
 		Some("networking"),
-		build_system_rpc_future::<_, _, <TBl as BlockT>::Hash>(
+		build_system_rpc_future::<_, _, <Block as BlockT>::Hash>(
 			config.role,
 			network_mut.network_service(),
 			sync_service.clone(),
@@ -1040,7 +996,7 @@ where
 		),
 	);
 
-	let future = build_network_future::<_, _, <TBl as BlockT>::Hash, _>(
+	let future = build_network_future::<_, _, <Block as BlockT>::Hash, _>(
 		network_mut,
 		client,
 		sync_service.clone(),
@@ -1090,6 +1046,91 @@ where
 		NetworkStarter(network_start_tx),
 		sync_service.clone(),
 	))
+}
+
+/// Build standard polkadot syncing strategy
+pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
+	protocol_id: ProtocolId,
+	fork_id: Option<&str>,
+	net_config: &mut FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Net>,
+	warp_sync_config: Option<WarpSyncConfig<Block>>,
+	client: Arc<Client>,
+	spawn_handle: &SpawnTaskHandle,
+	metrics_registry: Option<&Registry>,
+) -> Result<Box<dyn SyncingStrategy<Block>>, Error>
+where
+	Block: BlockT,
+	Client: HeaderBackend<Block>
+		+ BlockBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ ProofProvider<Block>
+		+ Send
+		+ Sync
+		+ 'static,
+
+	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
+{
+	if warp_sync_config.is_none() && net_config.network_config.sync_mode.is_warp() {
+		return Err("Warp sync enabled, but no warp sync provider configured.".into())
+	}
+
+	if client.requires_full_sync() {
+		match net_config.network_config.sync_mode {
+			SyncMode::LightState { .. } =>
+				return Err("Fast sync doesn't work for archive nodes".into()),
+			SyncMode::Warp => return Err("Warp sync doesn't work for archive nodes".into()),
+			SyncMode::Full => {},
+		}
+	}
+
+	let genesis_hash = client.info().genesis_hash;
+
+	let (state_request_protocol_config, state_request_protocol_name) = {
+		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize +
+			net_config.network_config.default_peers_set.reserved_nodes.len();
+		// Allow both outgoing and incoming requests.
+		let (handler, protocol_config) =
+			StateRequestHandler::new::<Net>(&protocol_id, fork_id, client.clone(), num_peer_hint);
+		let config_name = protocol_config.protocol_name().clone();
+
+		spawn_handle.spawn("state-request-handler", Some("networking"), handler.run());
+		(protocol_config, config_name)
+	};
+	net_config.add_request_response_protocol(state_request_protocol_config);
+
+	let (warp_sync_protocol_config, warp_sync_protocol_name) = match warp_sync_config.as_ref() {
+		Some(WarpSyncConfig::WithProvider(warp_with_provider)) => {
+			// Allow both outgoing and incoming requests.
+			let (handler, protocol_config) = WarpSyncRequestHandler::new::<_, Net>(
+				protocol_id,
+				genesis_hash,
+				fork_id,
+				warp_with_provider.clone(),
+			);
+			let config_name = protocol_config.protocol_name().clone();
+
+			spawn_handle.spawn("warp-sync-request-handler", Some("networking"), handler.run());
+			(Some(protocol_config), Some(config_name))
+		},
+		_ => (None, None),
+	};
+	if let Some(config) = warp_sync_protocol_config {
+		net_config.add_request_response_protocol(config);
+	}
+
+	let syncing_config = SyncingConfig {
+		mode: net_config.network_config.sync_mode,
+		max_parallel_downloads: net_config.network_config.max_parallel_downloads,
+		max_blocks_per_request: net_config.network_config.max_blocks_per_request,
+		metrics_registry: metrics_registry.cloned(),
+		state_request_protocol_name,
+	};
+	Ok(Box::new(PolkadotSyncingStrategy::new(
+		syncing_config,
+		client,
+		warp_sync_config,
+		warp_sync_protocol_name,
+	)?))
 }
 
 /// Object used to start the network.

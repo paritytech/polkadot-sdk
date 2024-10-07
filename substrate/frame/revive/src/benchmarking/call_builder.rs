@@ -16,17 +16,17 @@
 // limitations under the License.
 
 use crate::{
+	address::AddressMapper,
 	benchmarking::{default_deposit_limit, Contract, WasmModule},
 	exec::{ExportedFunction, Ext, Key, Stack},
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
 	wasm::{ApiVersion, PreparedCall, Runtime},
-	BalanceOf, Config, DebugBuffer, Error, GasMeter, Origin, TypeInfo, WasmBlob, Weight,
+	BalanceOf, Config, DebugBuffer, Error, GasMeter, MomentOf, Origin, WasmBlob, Weight,
 };
 use alloc::{vec, vec::Vec};
-use codec::{Encode, HasCompact};
-use core::fmt::Debug;
 use frame_benchmarking::benchmarking;
+use sp_core::U256;
 
 type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
 
@@ -46,7 +46,8 @@ pub struct CallSetup<T: Config> {
 impl<T> Default for CallSetup<T>
 where
 	T: Config + pallet_balances::Config,
-	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
 {
 	fn default() -> Self {
 		Self::new(WasmModule::dummy())
@@ -56,10 +57,11 @@ where
 impl<T> CallSetup<T>
 where
 	T: Config + pallet_balances::Config,
-	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
 {
 	/// Setup a new call for the given module.
-	pub fn new(module: WasmModule<T>) -> Self {
+	pub fn new(module: WasmModule) -> Self {
 		let contract = Contract::<T>::new(module.clone(), vec![]).unwrap();
 		let dest = contract.account_id.clone();
 		let origin = Origin::from_account_id(contract.caller.clone());
@@ -74,7 +76,10 @@ where
 		// Whitelist the contract's contractInfo as it is already accounted for in the call
 		// benchmark
 		benchmarking::add_to_whitelist(
-			crate::ContractInfoOf::<T>::hashed_key_for(&contract.account_id).into(),
+			crate::ContractInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
+				&contract.account_id,
+			))
+			.into(),
 		);
 
 		Self {
@@ -138,7 +143,7 @@ where
 	/// Build the call stack.
 	pub fn ext(&mut self) -> (StackExt<'_, T>, WasmBlob<T>) {
 		let mut ext = StackExt::bench_new_call(
-			self.dest.clone(),
+			T::AddressMapper::to_address(&self.dest),
 			self.origin.clone(),
 			&mut self.gas_meter,
 			&mut self.storage_meter,

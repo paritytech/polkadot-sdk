@@ -86,9 +86,10 @@ async fn request_metrics(
 /// Initializes the metrics context, and starts an HTTP server
 /// to serve metrics.
 pub async fn init_prometheus(prometheus_addr: SocketAddr, registry: Registry) -> Result<(), Error> {
-	let listener = tokio::net::TcpListener::bind(&prometheus_addr)
-		.await
-		.map_err(|_| Error::PortInUse(prometheus_addr))?;
+	let listener = tokio::net::TcpListener::bind(&prometheus_addr).await.map_err(|e| {
+		log::error!(target: "prometheus", "Error binding to '{:#?}': {:#?}", prometheus_addr, e);
+		Error::PortInUse(prometheus_addr)
+	})?;
 
 	init_prometheus_with_listener(listener, registry).await
 }

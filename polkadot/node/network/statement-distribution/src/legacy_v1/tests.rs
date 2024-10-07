@@ -121,7 +121,6 @@ fn active_head_accepts_only_2_seconded_per_validator() {
 	let mut head_data = ActiveHeadData::new(
 		IndexedVec::<ValidatorIndex, ValidatorId>::from(validators),
 		session_index,
-		PerLeafSpan::new(Arc::new(jaeger::Span::Disabled), "test"),
 	);
 
 	let keystore: KeystorePtr = Arc::new(LocalKeystore::in_memory());
@@ -467,7 +466,6 @@ fn peer_view_update_sends_messages() {
 		let mut data = ActiveHeadData::new(
 			IndexedVec::<ValidatorIndex, ValidatorId>::from(validators),
 			session_index,
-			PerLeafSpan::new(Arc::new(jaeger::Span::Disabled), "test"),
 		);
 
 		let statement = SignedFullStatement::sign(
