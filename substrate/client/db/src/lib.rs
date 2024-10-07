@@ -601,11 +601,10 @@ impl<Block: BlockT> BlockchainDb<Block> {
 		)? {
 			Some(justifications) => match Decode::decode(&mut &justifications[..]) {
 				Ok(justifications) => Ok(Some(justifications)),
-				Err(err) => {
+				Err(err) =>
 					return Err(sp_blockchain::Error::Backend(format!(
 						"Error decoding justifications: {err}"
-					)))
-				},
+					))),
 			},
 			None => Ok(None),
 		}
@@ -618,11 +617,8 @@ impl<Block: BlockT> BlockchainDb<Block> {
 			// Plain body
 			match Decode::decode(&mut &body[..]) {
 				Ok(body) => return Ok(Some(body)),
-				Err(err) => {
-					return Err(sp_blockchain::Error::Backend(format!(
-						"Error decoding body: {err}"
-					)))
-				},
+				Err(err) =>
+					return Err(sp_blockchain::Error::Backend(format!("Error decoding body: {err}"))),
 			}
 		}
 
@@ -651,11 +647,10 @@ impl<Block: BlockT> BlockchainDb<Block> {
 										)?;
 										body.push(ex);
 									},
-									None => {
+									None =>
 										return Err(sp_blockchain::Error::Backend(format!(
 											"Missing indexed transaction {hash:?}"
-										)))
-									},
+										))),
 								};
 							},
 							DbExtrinsic::Full(ex) => {
@@ -665,11 +660,10 @@ impl<Block: BlockT> BlockchainDb<Block> {
 					}
 					return Ok(Some(body));
 				},
-				Err(err) => {
+				Err(err) =>
 					return Err(sp_blockchain::Error::Backend(format!(
 						"Error decoding body list: {err}",
-					)))
-				},
+					))),
 			}
 		}
 		Ok(None)
@@ -784,19 +778,17 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 					if let DbExtrinsic::Indexed { hash, .. } = ex {
 						match self.db.get(columns::TRANSACTION, hash.as_ref()) {
 							Some(t) => transactions.push(t),
-							None => {
+							None =>
 								return Err(sp_blockchain::Error::Backend(format!(
 									"Missing indexed transaction {hash:?}",
-								)))
-							},
+								))),
 						}
 					}
 				}
 				Ok(Some(transactions))
 			},
-			Err(err) => {
-				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}")))
-			},
+			Err(err) =>
+				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}"))),
 		}
 	}
 }
@@ -860,9 +852,8 @@ impl<Block: BlockT> BlockImportOperation<Block> {
 			count += 1;
 			let key = crate::offchain::concatenate_prefix_and_key(&prefix, &key);
 			match value_operation {
-				OffchainOverlayedChange::SetValue(val) => {
-					transaction.set_from_vec(columns::OFFCHAIN, &key, val)
-				},
+				OffchainOverlayedChange::SetValue(val) =>
+					transaction.set_from_vec(columns::OFFCHAIN, &key, val),
 				OffchainOverlayedChange::Remove => transaction.remove(columns::OFFCHAIN, &key),
 			}
 		}
@@ -1258,9 +1249,9 @@ impl<Block: BlockT> Backend<Block> {
 
 		// Older DB versions have no last state key. Check if the state is available and set it.
 		let info = backend.blockchain.info();
-		if info.finalized_state.is_none()
-			&& info.finalized_hash != Default::default()
-			&& sc_client_api::Backend::have_state_at(
+		if info.finalized_state.is_none() &&
+			info.finalized_hash != Default::default() &&
+			sc_client_api::Backend::have_state_at(
 				&backend,
 				info.finalized_hash,
 				info.finalized_number,
@@ -1299,8 +1290,8 @@ impl<Block: BlockT> Backend<Block> {
 
 		let meta = self.blockchain.meta.read();
 
-		if meta.best_number.saturating_sub(best_number).saturated_into::<u64>()
-			> self.canonicalization_delay
+		if meta.best_number.saturating_sub(best_number).saturated_into::<u64>() >
+			self.canonicalization_delay
 		{
 			return Err(sp_blockchain::Error::SetHeadTooOld);
 		}
@@ -1359,8 +1350,8 @@ impl<Block: BlockT> Backend<Block> {
 	) -> ClientResult<()> {
 		let last_finalized =
 			last_finalized.unwrap_or_else(|| self.blockchain.meta.read().finalized_hash);
-		if last_finalized != self.blockchain.meta.read().genesis_hash
-			&& *header.parent_hash() != last_finalized
+		if last_finalized != self.blockchain.meta.read().genesis_hash &&
+			*header.parent_hash() != last_finalized
 		{
 			return Err(sp_blockchain::Error::NonSequentialFinalization(format!(
 				"Last finalized {last_finalized:?} not parent of {:?}",
@@ -1630,8 +1621,8 @@ impl<Block: BlockT> Backend<Block> {
 				let finalized = number_u64 == 0 || pending_block.leaf_state.is_final();
 				finalized
 			} else {
-				(number.is_zero() && last_finalized_num.is_zero())
-					|| pending_block.leaf_state.is_final()
+				(number.is_zero() && last_finalized_num.is_zero()) ||
+					pending_block.leaf_state.is_final()
 			};
 
 			let header = &pending_block.header;
@@ -1696,7 +1687,7 @@ impl<Block: BlockT> Backend<Block> {
 
 				if let Some(mut gap) = block_gap {
 					match gap.gap_type {
-						BlockGapType::MissingHeaderAndBody => {
+						BlockGapType::MissingHeaderAndBody =>
 							if number == gap.start {
 								gap.start += One::one();
 								utils::insert_number_to_key_mapping(
@@ -1725,15 +1716,14 @@ impl<Block: BlockT> Backend<Block> {
 									);
 								}
 								block_gap_updated = true;
-							}
-						},
+							},
 						BlockGapType::MissingBody => {
 							unreachable!("Unsupported block gap. TODO: https://github.com/paritytech/polkadot-sdk/issues/5406")
 						},
 					}
-				} else if operation.create_gap
-					&& number > best_num + One::one()
-					&& self.blockchain.header(parent_hash)?.is_none()
+				} else if operation.create_gap &&
+					number > best_num + One::one() &&
+					self.blockchain.header(parent_hash)?.is_none()
 				{
 					let gap = BlockGap {
 						start: best_num + One::one(),
@@ -1937,18 +1927,16 @@ impl<Block: BlockT> Backend<Block> {
 				id,
 			)?;
 			match Vec::<DbExtrinsic<Block>>::decode(&mut &index[..]) {
-				Ok(index) => {
+				Ok(index) =>
 					for ex in index {
 						if let DbExtrinsic::Indexed { hash, .. } = ex {
 							transaction.release(columns::TRANSACTION, hash);
 						}
-					}
-				},
-				Err(err) => {
+					},
+				Err(err) =>
 					return Err(sp_blockchain::Error::Backend(format!(
 						"Error decoding body list: {err}",
-					)))
-				},
+					))),
 			}
 		}
 		Ok(())
@@ -2173,8 +2161,8 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		let last_finalized = self.blockchain.last_finalized()?;
 
 		// We can do a quick check first, before doing a proper but more expensive check
-		if number > self.blockchain.info().finalized_number
-			|| (hash != last_finalized && !is_descendent_of(&hash, &last_finalized)?)
+		if number > self.blockchain.info().finalized_number ||
+			(hash != last_finalized && !is_descendent_of(&hash, &last_finalized)?)
 		{
 			return Err(ClientError::NotInFinalizedChain);
 		}
@@ -2309,10 +2297,11 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 							reverted_finalized.insert(removed_hash);
 							if let Some((hash, _)) = self.blockchain.info().finalized_state {
 								if hash == hash_to_revert {
-									if !number_to_revert.is_zero()
-										&& self
-											.have_state_at(prev_hash, number_to_revert - One::one())
-									{
+									if !number_to_revert.is_zero() &&
+										self.have_state_at(
+											prev_hash,
+											number_to_revert - One::one(),
+										) {
 										let lookup_key = utils::number_and_hash_to_lookup_key(
 											number_to_revert - One::one(),
 											prev_hash,
@@ -4859,7 +4848,7 @@ pub(crate) mod tests {
 				for (_index, item) in delta.clone().into_iter().rev().enumerate() {
 					let transient_root =
 						match state_version {
-							StateVersion::V0 => {
+							StateVersion::V0 =>
 								sp_trie::delta_trie_root::<
 									sp_trie::LayoutV0<BlakeTwo256>,
 									_,
@@ -4868,9 +4857,8 @@ pub(crate) mod tests {
 									_,
 									_,
 								>(&mut trie_committer, prev_root, vec![item], None, None)
-								.unwrap()
-							},
-							StateVersion::V1 => {
+								.unwrap(),
+							StateVersion::V1 =>
 								sp_trie::delta_trie_root::<
 									sp_trie::LayoutV1<BlakeTwo256>,
 									_,
@@ -4879,8 +4867,7 @@ pub(crate) mod tests {
 									_,
 									_,
 								>(&mut trie_committer, prev_root, vec![item], None, None)
-								.unwrap()
-							},
+								.unwrap(),
 						};
 
 					prev_root = transient_root;
