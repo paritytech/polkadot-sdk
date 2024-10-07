@@ -22,4 +22,4 @@ chain = "asset-hub-rococo-local"
   validator = true
   image = "{{POLKADOT_PARACHAIN_IMAGE}}"
   command = "polkadot-parachain"
-  args = ["--force-authoring", "-ltxpool=trace"]
+  args = ["--force-authoring", "-ltxpool=trace", "--pool-type=fork-aware"]
