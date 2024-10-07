@@ -45,7 +45,7 @@ mod cli;
 mod command;
 mod common;
 mod fake_runtime_api;
-mod service;
+mod nodes;
 
 pub use cli::CliConfig;
 pub use command::{run, RunConfig};

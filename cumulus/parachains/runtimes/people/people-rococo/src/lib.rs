@@ -137,7 +137,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("people-rococo"),
 	impl_name: create_runtime_str!("people-rococo"),
 	authoring_version: 1,
-	spec_version: 1_015_000,
+	spec_version: 1_016_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -225,6 +225,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<0>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {

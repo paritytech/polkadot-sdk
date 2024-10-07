@@ -39,6 +39,7 @@ use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
 use parachains_common::{AccountId, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
+use sp_core::crypto::Ss58Codec;
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
@@ -46,6 +47,7 @@ use sp_runtime::{
 };
 use testnet_parachains_constants::westend::{consensus::*, fee::WeightToFee};
 use xcm::latest::prelude::*;
+use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 // Random para id of sibling chain used in tests.
 pub const SIBLING_PARACHAIN_ID: u32 = 2053;
@@ -409,4 +411,113 @@ pub fn can_calculate_fee_for_standalone_message_confirmation_transaction() {
 			<Runtime as frame_system::Config>::Version::get()
 		),
 	)
+}
+
+#[test]
+fn location_conversion_works() {
+	// the purpose of hardcoded values is to catch an unintended location conversion logic change.
+	struct TestCase {
+		description: &'static str,
+		location: Location,
+		expected_account_id_str: &'static str,
+	}
+
+	let test_cases = vec![
+		// DescribeTerminus
+		TestCase {
+			description: "DescribeTerminus Parent",
+			location: Location::new(1, Here),
+			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+		},
+		TestCase {
+			description: "DescribeTerminus Sibling",
+			location: Location::new(1, [Parachain(1111)]),
+			expected_account_id_str: "5Eg2fnssmmJnF3z1iZ1NouAuzciDaaDQH7qURAy3w15jULDk",
+		},
+		// DescribePalletTerminal
+		TestCase {
+			description: "DescribePalletTerminal Parent",
+			location: Location::new(1, [PalletInstance(50)]),
+			expected_account_id_str: "5CnwemvaAXkWFVwibiCvf2EjqwiqBi29S5cLLydZLEaEw6jZ",
+		},
+		TestCase {
+			description: "DescribePalletTerminal Sibling",
+			location: Location::new(1, [Parachain(1111), PalletInstance(50)]),
+			expected_account_id_str: "5GFBgPjpEQPdaxEnFirUoa51u5erVx84twYxJVuBRAT2UP2g",
+		},
+		// DescribeAccountId32Terminal
+		TestCase {
+			description: "DescribeAccountId32Terminal Parent",
+			location: Location::new(
+				1,
+				[Junction::AccountId32 { network: None, id: AccountId::from(Alice).into() }],
+			),
+			expected_account_id_str: "5EueAXd4h8u75nSbFdDJbC29cmi4Uo1YJssqEL9idvindxFL",
+		},
+		TestCase {
+			description: "DescribeAccountId32Terminal Sibling",
+			location: Location::new(
+				1,
+				[
+					Parachain(1111),
+					Junction::AccountId32 { network: None, id: AccountId::from(Alice).into() },
+				],
+			),
+			expected_account_id_str: "5Dmbuiq48fU4iW58FKYqoGbbfxFHjbAeGLMtjFg6NNCw3ssr",
+		},
+		// DescribeAccountKey20Terminal
+		TestCase {
+			description: "DescribeAccountKey20Terminal Parent",
+			location: Location::new(1, [AccountKey20 { network: None, key: [0u8; 20] }]),
+			expected_account_id_str: "5F5Ec11567pa919wJkX6VHtv2ZXS5W698YCW35EdEbrg14cg",
+		},
+		TestCase {
+			description: "DescribeAccountKey20Terminal Sibling",
+			location: Location::new(
+				1,
+				[Parachain(1111), AccountKey20 { network: None, key: [0u8; 20] }],
+			),
+			expected_account_id_str: "5CB2FbUds2qvcJNhDiTbRZwiS3trAy6ydFGMSVutmYijpPAg",
+		},
+		// DescribeTreasuryVoiceTerminal
+		TestCase {
+			description: "DescribeTreasuryVoiceTerminal Parent",
+			location: Location::new(1, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]),
+			expected_account_id_str: "5CUjnE2vgcUCuhxPwFoQ5r7p1DkhujgvMNDHaF2bLqRp4D5F",
+		},
+		TestCase {
+			description: "DescribeTreasuryVoiceTerminal Sibling",
+			location: Location::new(
+				1,
+				[Parachain(1111), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }],
+			),
+			expected_account_id_str: "5G6TDwaVgbWmhqRUKjBhRRnH4ry9L9cjRymUEmiRsLbSE4gB",
+		},
+		// DescribeBodyTerminal
+		TestCase {
+			description: "DescribeBodyTerminal Parent",
+			location: Location::new(1, [Plurality { id: BodyId::Unit, part: BodyPart::Voice }]),
+			expected_account_id_str: "5EBRMTBkDisEXsaN283SRbzx9Xf2PXwUxxFCJohSGo4jYe6B",
+		},
+		TestCase {
+			description: "DescribeBodyTerminal Sibling",
+			location: Location::new(
+				1,
+				[Parachain(1111), Plurality { id: BodyId::Unit, part: BodyPart::Voice }],
+			),
+			expected_account_id_str: "5DBoExvojy8tYnHgLL97phNH975CyT45PWTZEeGoBZfAyRMH",
+		},
+	];
+
+	for tc in test_cases {
+		let expected =
+			AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
+
+		let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
+			tc.location.into(),
+		)
+		.unwrap();
+
+		assert_eq!(got, expected, "{}", tc.description);
+	}
 }
