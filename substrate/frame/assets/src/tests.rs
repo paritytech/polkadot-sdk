@@ -1302,6 +1302,118 @@ fn set_metadata_should_work() {
 	});
 }
 
+/// Calling on `dead_account` should be either unreachable, or fail if either a freeze or some
+/// balance on hold exists.
+///
+/// ### Case 1: Sufficient asset
+///
+/// This asserts for `dead_account` on `decrease_balance`, `transfer_and_die` and
+/// `do_destry_accounts`.
+#[test]
+fn calling_dead_account_fails_if_freezes_or_balances_on_hold_exist_1() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 50));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		set_frozen_balance(0, 1, 50);
+		// Cannot transfer out less than max(freezes, ed). This happens in
+		// `prep_debit` under `transfer_and_die`. Would not reach `dead_account`.
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		assert_noop!(
+			Assets::transfer_keep_alive(RuntimeOrigin::signed(1), 0, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		assert_noop!(
+			Assets::force_transfer(RuntimeOrigin::signed(1), 0, 1, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		// Cannot start destroying the asset, because some accounts contain freezes
+		assert_noop!(
+			Assets::start_destroy(RuntimeOrigin::signed(1), 0),
+			Error::<Test>::ContainsFreezes
+		);
+		clear_frozen_balance(0, 1);
+
+		set_balance_on_hold(0, 1, 50);
+		// Cannot transfer out less than max(freezes, ed). This happens in
+		// `prep_debit` under `transfer_and_die`. Would not reach `dead_account`.
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		assert_noop!(
+			Assets::transfer_keep_alive(RuntimeOrigin::signed(1), 0, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		assert_noop!(
+			Assets::force_transfer(RuntimeOrigin::signed(1), 0, 1, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		// Cannot start destroying the asset, because some accounts contain freezes
+		assert_noop!(
+			Assets::start_destroy(RuntimeOrigin::signed(1), 0),
+			Error::<Test>::ContainsHolds
+		);
+	})
+}
+
+/// Calling on `dead_account` should be either unreachable, or fail if either a freeze or some
+/// balance on hold exists.
+///
+/// ### Case 2: Inufficient asset
+///
+/// This asserts for `dead_account` on `do_refund` and `do_refund_other`.
+#[test]
+fn calling_dead_account_fails_if_freezes_or_balances_on_hold_exist_2() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		set_frozen_balance(0, 1, 50);
+		assert_noop!(
+			Assets::refund(RuntimeOrigin::signed(1), 0, true),
+			Error::<Test>::ContainsFreezes
+		);
+		clear_frozen_balance(0, 1);
+
+		set_balance_on_hold(0, 1, 50);
+		assert_noop!(
+			Assets::refund(RuntimeOrigin::signed(1), 0, true),
+			Error::<Test>::ContainsHolds
+		);
+		clear_balance_on_hold(0, 1);
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(1), 0, true));
+	});
+
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::touch_other(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+
+		set_frozen_balance(0, 2, 100);
+		assert_noop!(
+			Assets::refund_other(RuntimeOrigin::signed(1), 0, 2),
+			Error::<Test>::WouldBurn
+		);
+		clear_frozen_balance(0, 2);
+
+		// Note: It's not possible to set balance on hold for the maximum balance,
+		// as it `WouldBurn` because of how setting the balance works on mock.
+		set_balance_on_hold(0, 2, 99);
+		assert_noop!(
+			Assets::refund_other(RuntimeOrigin::signed(1), 0, 2),
+			Error::<Test>::WouldBurn
+		);
+		clear_balance_on_hold(0, 2);
+	})
+}
+
 /// Destroying an asset calls the `FrozenBalance::died` hooks of all accounts.
 #[test]
 fn destroy_accounts_calls_died_hooks() {
