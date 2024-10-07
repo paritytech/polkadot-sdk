@@ -14,14 +14,18 @@
 //! A module exporting runtime API implementation functions for all runtime APIs using `v5`
 //! primitives.
 //!
-//! Runtimes implementing the v10 runtime API are recommended to forward directly to these
+//! Runtimes implementing the v11 runtime API are recommended to forward directly to these
 //! functions.
 
 use crate::{
 	configuration, disputes, dmp, hrmp, inclusion, initializer, paras, paras_inherent, scheduler,
 	session_info, shared,
 };
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
+use alloc::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 use frame_support::traits::{GetStorageVersion, StorageVersion};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
@@ -435,8 +439,22 @@ pub fn backing_state<T: initializer::Config>(
 	//
 	// Thus, minimum relay parent is ensured to have asynchronous backing enabled.
 	let now = frame_system::Pallet::<T>::block_number();
-	let min_relay_parent_number = shared::AllowedRelayParents::<T>::get()
-		.hypothetical_earliest_block_number(now, config.async_backing_params.allowed_ancestry_len);
+
+	// Use the right storage depending on version to ensure #64 doesn't cause issues with this
+	// migration.
+	let min_relay_parent_number = if shared::Pallet::<T>::on_chain_storage_version() ==
+		StorageVersion::new(0)
+	{
+		shared::migration::v0::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
+			now,
+			config.async_backing_params.allowed_ancestry_len,
+		)
+	} else {
+		shared::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
+			now,
+			config.async_backing_params.allowed_ancestry_len,
+		)
+	};
 
 	let required_parent = paras::Heads::<T>::get(para_id)?;
 	let validation_code_hash = paras::CurrentCodeHash::<T>::get(para_id)?;
@@ -530,4 +548,45 @@ pub fn node_features<T: initializer::Config>() -> NodeFeatures {
 /// Approval voting subsystem configuration parameters
 pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams {
 	configuration::ActiveConfig::<T>::get().approval_voting_params
+}
+
+/// Returns the claimqueue from the scheduler
+pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+	let config = configuration::ActiveConfig::<T>::get();
+	// Extra sanity, config should already never be smaller than 1:
+	let n_lookahead = config.scheduler_params.lookahead.max(1);
+	// Workaround for issue #64.
+	if scheduler::Pallet::<T>::on_chain_storage_version() == StorageVersion::new(2) {
+		scheduler::migration::v2::ClaimQueue::<T>::get()
+			.into_iter()
+			.map(|(core_index, entries)| {
+				(
+					core_index,
+					entries
+						.into_iter()
+						.map(|e| e.assignment.para_id())
+						.take(n_lookahead as usize)
+						.collect(),
+				)
+			})
+			.collect()
+	} else {
+		scheduler::ClaimQueue::<T>::get()
+			.into_iter()
+			.map(|(core_index, entries)| {
+				(
+					core_index,
+					entries.into_iter().map(|e| e.para_id()).take(n_lookahead as usize).collect(),
+				)
+			})
+			.collect()
+	}
+}
+
+/// Returns all the candidates that are pending availability for a given `ParaId`.
+/// Deprecates `candidate_pending_availability` in favor of supporting elastic scaling.
+pub fn candidates_pending_availability<T: initializer::Config>(
+	para_id: ParaId,
+) -> Vec<CommittedCandidateReceipt<T::Hash>> {
+	<inclusion::Pallet<T>>::candidates_pending_availability(para_id)
 }

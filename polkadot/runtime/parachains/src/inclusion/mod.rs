@@ -426,7 +426,7 @@ pub(crate) enum UmpAcceptanceCheckErr {
 	/// Currenly only one such message is allowed.
 	TooManyUMPSignals { count: u32 },
 	/// The UMP queue contains an invalid `UMPSignal`
-	InvalidUMPSignal,
+	NoUmpSignal,
 }
 
 impl fmt::Debug for UmpAcceptanceCheckErr {
@@ -456,10 +456,10 @@ impl fmt::Debug for UmpAcceptanceCheckErr {
 				write!(fmt, "upward message rejected because the para is off-boarding")
 			},
 			UmpAcceptanceCheckErr::TooManyUMPSignals { count } => {
-				write!(fmt, "the ump queue has too many `UMPSignal` mesages ({} > 1 )", count)
+				write!(fmt, "the ump queue has too many `UMPSignal` messages ({} > 1 )", count)
 			},
-			UmpAcceptanceCheckErr::InvalidUMPSignal => {
-				write!(fmt, "the ump queue contains an invalid UMP signal")
+			UmpAcceptanceCheckErr::NoUmpSignal => {
+				write!(fmt, "Required UMP signal not found")
 			},
 		}
 	}
@@ -937,7 +937,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), UmpAcceptanceCheckErr> {
 		// Filter any pending UMP signals and the separator.
 		let upward_messages = if let Some(separator_index) =
-			upward_messages.iter().rposition(|message| message.is_empty())
+			upward_messages.iter().position(|message| message.is_empty())
 		{
 			let (upward_messages, ump_signals) = upward_messages.split_at(separator_index);
 
@@ -948,7 +948,7 @@ impl<T: Config> Pallet<T> {
 			}
 
 			if ump_signals.len() == 1 {
-				return Err(UmpAcceptanceCheckErr::InvalidUMPSignal)
+				return Err(UmpAcceptanceCheckErr::NoUmpSignal)
 			}
 
 			upward_messages
@@ -1014,9 +1014,8 @@ impl<T: Config> Pallet<T> {
 			.take_while(|message| !message.is_empty())
 			.filter_map(|d| {
 				BoundedSlice::try_from(&d[..])
-					.map_err(|e| {
+					.inspect_err(|_| {
 						defensive!("Accepted candidate contains too long msg, len=", d.len());
-						e
 					})
 					.ok()
 			})
