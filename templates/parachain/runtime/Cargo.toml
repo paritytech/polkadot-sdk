@@ -27,7 +27,7 @@ scale-info = { features = [
 ], workspace = true }
 smallvec = { workspace = true, default-features = true }
 docify = { workspace = true }
-serde_json = { workspace = true, default-features = false }
+serde_json = { workspace = true, default-features = false, features = ["alloc"] }
 
 # Local
 pallet-parachain-template = { workspace = true }
