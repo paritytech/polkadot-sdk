@@ -22,5 +22,6 @@ mod set_asset_claimer;
 mod set_xcm_versions;
 mod swap;
 mod teleport;
+mod transact;
 mod treasury;
 mod xcm_fee_estimation;
