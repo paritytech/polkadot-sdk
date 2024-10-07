@@ -118,7 +118,7 @@ mod tests {
 	fn tx() -> (Hash, Transaction<Hash, Ex>) {
 		let hash = 5u64;
 		let tx = Transaction {
-			data: ().into(),
+			data: (),
 			bytes: 1,
 			hash,
 			priority: 5,
@@ -184,7 +184,7 @@ mod tests {
 		fn tx_with(i: u64, valid_till: u64) -> Transaction<Hash, Ex> {
 			let hash = i;
 			Transaction {
-				data: ().into(),
+				data: (),
 				bytes: 2,
 				hash,
 				priority: 5,
