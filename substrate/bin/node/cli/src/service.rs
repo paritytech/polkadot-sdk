@@ -883,7 +883,7 @@ mod tests {
 	use sp_keyring::AccountKeyring;
 	use sp_keystore::KeystorePtr;
 	use sp_runtime::{
-		generic::{Digest, Era, SignedPayload},
+		generic::{self, Digest, Era, SignedPayload},
 		key_types::BABE,
 		traits::{Block as BlockT, Header as HeaderT, IdentifyAccount, Verify},
 		RuntimeAppPublic,
@@ -1070,6 +1070,7 @@ mod tests {
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
+				let check_eth_transact = pallet_revive::evm::runtime::CheckEthTransact::default();
 				let extra = (
 					check_non_zero_sender,
 					check_spec_version,
@@ -1080,6 +1081,7 @@ mod tests {
 					check_weight,
 					tx_payment,
 					metadata_hash,
+					check_eth_transact,
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
@@ -1094,13 +1096,21 @@ mod tests {
 						(),
 						(),
 						None,
+						(),
 					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
 				let (function, extra, _) = raw_payload.deconstruct();
 				index += 1;
-				UncheckedExtrinsic::new_signed(function, from.into(), signature.into(), extra)
-					.into()
+				let utx: UncheckedExtrinsic = generic::UncheckedExtrinsic::new_signed(
+					function,
+					from.into(),
+					signature.into(),
+					extra,
+				)
+				.into();
+
+				utx.0.into()
 			},
 		);
 	}

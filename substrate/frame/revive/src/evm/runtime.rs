@@ -61,7 +61,7 @@ pub type MultiAddress = sp_runtime::MultiAddress<AccountId, AccountIndex>;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(E))]
 pub struct UncheckedExtrinsic<Call, E: EthExtra>(
-	generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>,
+	pub generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>,
 );
 
 impl<Call, E: EthExtra>
