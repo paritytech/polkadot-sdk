@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use self::prospective_parachains::update_view;
-
 use super::*;
 use assert_matches::assert_matches;
 use futures::{executor, future, Future};
@@ -30,6 +28,7 @@ use std::{
 	time::Duration,
 };
 
+use self::prospective_parachains::update_view;
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
 	request_response::{Requests, ResponseSender},
