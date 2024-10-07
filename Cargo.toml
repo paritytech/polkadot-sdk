@@ -1001,7 +1001,7 @@ parachains-common = { path = "cumulus/parachains/common", default-features = fal
 parachains-relay = { path = "bridges/relays/parachains" }
 parachains-runtimes-test-utils = { path = "cumulus/parachains/runtimes/test-utils", default-features = false }
 parity-bytes = { version = "0.1.2", default-features = false }
-parity-db = { version = "0.4.13" }
+parity-db = { version = "0.5.0" }
 parity-util-mem = { version = "0.12.0" }
 parity-wasm = { version = "0.45.0" }
 parking_lot = { version = "0.12.1", default-features = false }
@@ -1442,4 +1442,3 @@ zeroize = { opt-level = 3 }
 
 [patch.crates-io]
 subtrie = { git = "https://github.com/cheme/trie.git", branch = "cheme/new-trie" }
-parity-db = { git = "https://github.com/paritytech/parity-db.git", branch = "master" }
