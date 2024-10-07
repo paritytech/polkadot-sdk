@@ -21,17 +21,19 @@ use crate::{ExecutionLimit, HwBench};
 use sc_telemetry::SysInfo;
 use sp_core::{sr25519, Pair};
 use sp_io::crypto::sr25519_verify;
-use sp_std::{fmt, fmt::Formatter, prelude::*};
 
+use core::f64;
 use derive_more::From;
 use rand::{seq::SliceRandom, Rng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
-	fmt::Display,
+	borrow::Cow,
+	fmt::{self, Display, Formatter},
 	fs::File,
 	io::{Seek, SeekFrom, Write},
 	ops::{Deref, DerefMut},
 	path::{Path, PathBuf},
+	sync::{Arc, Barrier},
 	time::{Duration, Instant},
 };
 
@@ -42,6 +44,8 @@ pub enum Metric {
 	Sr25519Verify,
 	/// Blake2-256 hashing algorithm.
 	Blake2256,
+	/// Blake2-256 hashing algorithm executed in parallel
+	Blake2256Parallel { num_cores: usize },
 	/// Copying data in RAM.
 	MemCopy,
 	/// Disk sequential write.
@@ -85,20 +89,22 @@ impl Metric {
 	/// The category of the metric.
 	pub fn category(&self) -> &'static str {
 		match self {
-			Self::Sr25519Verify | Self::Blake2256 => "CPU",
+			Self::Sr25519Verify | Self::Blake2256 | Self::Blake2256Parallel { .. } => "CPU",
 			Self::MemCopy => "Memory",
 			Self::DiskSeqWrite | Self::DiskRndWrite => "Disk",
 		}
 	}
 
 	/// The name of the metric. It is always prefixed by the [`self.category()`].
-	pub fn name(&self) -> &'static str {
+	pub fn name(&self) -> Cow<'static, str> {
 		match self {
-			Self::Sr25519Verify => "SR25519-Verify",
-			Self::Blake2256 => "BLAKE2-256",
-			Self::MemCopy => "Copy",
-			Self::DiskSeqWrite => "Seq Write",
-			Self::DiskRndWrite => "Rnd Write",
+			Self::Sr25519Verify => Cow::Borrowed("SR25519-Verify"),
+			Self::Blake2256 => Cow::Borrowed("BLAKE2-256"),
+			Self::Blake2256Parallel { num_cores } =>
+				Cow::Owned(format!("BLAKE2-256-Parallel-{}", num_cores)),
+			Self::MemCopy => Cow::Borrowed("Copy"),
+			Self::DiskSeqWrite => Cow::Borrowed("Seq Write"),
+			Self::DiskRndWrite => Cow::Borrowed("Rnd Write"),
 		}
 	}
 }
@@ -253,6 +259,10 @@ pub struct Requirement {
 		deserialize_with = "deserialize_throughput"
 	)]
 	pub minimum: Throughput,
+	/// Check this requirement only for relay chain validator nodes.
+	#[serde(default)]
+	#[serde(skip_serializing_if = "core::ops::Not::not")]
+	pub validator_only: bool,
 }
 
 #[inline(always)]
@@ -343,8 +353,18 @@ fn clobber_value<T>(input: &mut T) {
 pub const DEFAULT_CPU_EXECUTION_LIMIT: ExecutionLimit =
 	ExecutionLimit::Both { max_iterations: 4 * 1024, max_duration: Duration::from_millis(100) };
 
-// This benchmarks the CPU speed as measured by calculating BLAKE2b-256 hashes, in bytes per second.
+// This benchmarks the single core CPU speed as measured by calculating BLAKE2b-256 hashes, in bytes
+// per second.
 pub fn benchmark_cpu(limit: ExecutionLimit) -> Throughput {
+	benchmark_cpu_parallelism(limit, 1)
+}
+
+// This benchmarks the entire CPU speed as measured by calculating BLAKE2b-256 hashes, in bytes per
+// second. It spawns multiple threads to measure the throughput of the entire CPU and averages the
+// score obtained by each thread. If we have at least `refhw_num_cores` available then the
+// average throughput should be relatively close to the single core performance as measured by
+// calling this function with refhw_num_cores equal to 1.
+pub fn benchmark_cpu_parallelism(limit: ExecutionLimit, refhw_num_cores: usize) -> Throughput {
 	// In general the results of this benchmark are somewhat sensitive to how much
 	// data we hash at the time. The smaller this is the *less* B/s we can hash,
 	// the bigger this is the *more* B/s we can hash, up until a certain point
@@ -359,20 +379,38 @@ pub fn benchmark_cpu(limit: ExecutionLimit) -> Throughput {
 	// but without hitting its theoretical maximum speed.
 	const SIZE: usize = 32 * 1024;
 
-	let mut buffer = Vec::new();
-	buffer.resize(SIZE, 0x66);
-	let mut hash = Default::default();
+	let ready_to_run_benchmark = Arc::new(Barrier::new(refhw_num_cores));
+	let mut benchmark_threads = Vec::new();
 
-	let run = || -> Result<(), ()> {
-		clobber_slice(&mut buffer);
-		hash = sp_crypto_hashing::blake2_256(&buffer);
-		clobber_slice(&mut hash);
+	// Spawn a thread for each expected core and average the throughput for each of them.
+	for _ in 0..refhw_num_cores {
+		let ready_to_run_benchmark = ready_to_run_benchmark.clone();
 
-		Ok(())
-	};
+		let handle = std::thread::spawn(move || {
+			let mut buffer = Vec::new();
+			buffer.resize(SIZE, 0x66);
+			let mut hash = Default::default();
 
-	benchmark("CPU score", SIZE, limit.max_iterations(), limit.max_duration(), run)
-		.expect("benchmark cannot fail; qed")
+			let run = || -> Result<(), ()> {
+				clobber_slice(&mut buffer);
+				hash = sp_crypto_hashing::blake2_256(&buffer);
+				clobber_slice(&mut hash);
+
+				Ok(())
+			};
+			ready_to_run_benchmark.wait();
+			benchmark("CPU score", SIZE, limit.max_iterations(), limit.max_duration(), run)
+				.expect("benchmark cannot fail; qed")
+		});
+		benchmark_threads.push(handle);
+	}
+
+	let average_score = benchmark_threads
+		.into_iter()
+		.map(|thread| thread.join().map(|throughput| throughput.as_kibs()).unwrap_or(0.0))
+		.sum::<f64>() /
+		refhw_num_cores as f64;
+	Throughput::from_kibs(average_score)
 }
 
 /// A default [`ExecutionLimit`] that can be used to call [`benchmark_memory`].
@@ -624,10 +662,25 @@ pub fn benchmark_sr25519_verify(limit: ExecutionLimit) -> Throughput {
 /// Optionally accepts a path to a `scratch_directory` to use to benchmark the
 /// disk. Also accepts the `requirements` for the hardware benchmark and a
 /// boolean to specify if the node is an authority.
-pub fn gather_hwbench(scratch_directory: Option<&Path>) -> HwBench {
+pub fn gather_hwbench(scratch_directory: Option<&Path>, requirements: &Requirements) -> HwBench {
+	let cpu_hashrate_score = benchmark_cpu(DEFAULT_CPU_EXECUTION_LIMIT);
+	let (parallel_cpu_hashrate_score, parallel_cpu_cores) = requirements
+		.0
+		.iter()
+		.filter_map(|req| {
+			if let Metric::Blake2256Parallel { num_cores } = req.metric {
+				Some((benchmark_cpu_parallelism(DEFAULT_CPU_EXECUTION_LIMIT, num_cores), num_cores))
+			} else {
+				None
+			}
+		})
+		.next()
+		.unwrap_or((cpu_hashrate_score, 1));
 	#[allow(unused_mut)]
 	let mut hwbench = HwBench {
-		cpu_hashrate_score: benchmark_cpu(DEFAULT_CPU_EXECUTION_LIMIT),
+		cpu_hashrate_score,
+		parallel_cpu_hashrate_score,
+		parallel_cpu_cores,
 		memory_memcpy_score: benchmark_memory(DEFAULT_MEMORY_EXECUTION_LIMIT),
 		disk_sequential_write_score: None,
 		disk_random_write_score: None,
@@ -659,9 +712,17 @@ pub fn gather_hwbench(scratch_directory: Option<&Path>) -> HwBench {
 
 impl Requirements {
 	/// Whether the hardware requirements are met by the provided benchmark results.
-	pub fn check_hardware(&self, hwbench: &HwBench) -> Result<(), CheckFailures> {
+	pub fn check_hardware(
+		&self,
+		hwbench: &HwBench,
+		is_rc_authority: bool,
+	) -> Result<(), CheckFailures> {
 		let mut failures = Vec::new();
 		for requirement in self.0.iter() {
+			if requirement.validator_only && !is_rc_authority {
+				continue
+			}
+
 			match requirement.metric {
 				Metric::Blake2256 =>
 					if requirement.minimum > hwbench.cpu_hashrate_score {
@@ -669,6 +730,14 @@ impl Requirements {
 							metric: requirement.metric,
 							expected: requirement.minimum,
 							found: hwbench.cpu_hashrate_score,
+						});
+					},
+				Metric::Blake2256Parallel { .. } =>
+					if requirement.minimum > hwbench.parallel_cpu_hashrate_score {
+						failures.push(CheckFailure {
+							metric: requirement.metric,
+							expected: requirement.minimum,
+							found: hwbench.parallel_cpu_hashrate_score,
 						});
 					},
 				Metric::MemCopy =>
@@ -733,6 +802,13 @@ mod tests {
 	}
 
 	#[test]
+	fn test_benchmark_parallel_cpu() {
+		assert!(
+			benchmark_cpu_parallelism(DEFAULT_CPU_EXECUTION_LIMIT, 8) > Throughput::from_mibs(0.0)
+		);
+	}
+
+	#[test]
 	fn test_benchmark_memory() {
 		assert!(benchmark_memory(DEFAULT_MEMORY_EXECUTION_LIMIT) > Throughput::from_mibs(0.0));
 	}
@@ -781,6 +857,8 @@ mod tests {
 	fn hwbench_serialize_works() {
 		let hwbench = HwBench {
 			cpu_hashrate_score: Throughput::from_gibs(1.32),
+			parallel_cpu_hashrate_score: Throughput::from_gibs(1.32),
+			parallel_cpu_cores: 4,
 			memory_memcpy_score: Throughput::from_kibs(9342.432),
 			disk_sequential_write_score: Some(Throughput::from_kibs(4332.12)),
 			disk_random_write_score: None,
@@ -788,6 +866,6 @@ mod tests {
 
 		let serialized = serde_json::to_string(&hwbench).unwrap();
 		// Throughput from all of the benchmarks should be converted to MiBs.
-		assert_eq!(serialized, "{\"cpu_hashrate_score\":1351,\"memory_memcpy_score\":9,\"disk_sequential_write_score\":4}");
+		assert_eq!(serialized, "{\"cpu_hashrate_score\":1351,\"parallel_cpu_hashrate_score\":1351,\"parallel_cpu_cores\":4,\"memory_memcpy_score\":9,\"disk_sequential_write_score\":4}");
 	}
 }

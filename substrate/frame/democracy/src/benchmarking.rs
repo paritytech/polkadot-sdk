@@ -85,8 +85,8 @@ fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 
 // note a new preimage.
 fn note_preimage<T: Config>() -> T::Hash {
+	use alloc::borrow::Cow;
 	use core::sync::atomic::{AtomicU8, Ordering};
-	use sp_std::borrow::Cow;
 	// note a new preimage on every function invoke.
 	static COUNTER: AtomicU8 = AtomicU8::new(0);
 	let data = Cow::from(vec![COUNTER.fetch_add(1, Ordering::Relaxed)]);

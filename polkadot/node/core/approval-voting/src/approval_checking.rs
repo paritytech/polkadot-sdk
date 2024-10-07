@@ -22,9 +22,9 @@ use polkadot_primitives::ValidatorIndex;
 
 use crate::{
 	persisted_entries::{ApprovalEntry, CandidateEntry, TrancheEntry},
-	time::Tick,
 	MAX_RECORDED_NO_SHOW_VALIDATORS_PER_CANDIDATE,
 };
+use polkadot_node_primitives::approval::time::Tick;
 
 /// Result of counting the necessary tranches needed for approving a block.
 #[derive(Debug, PartialEq, Clone)]
@@ -1195,9 +1195,9 @@ mod tests {
 	struct NoShowTest {
 		assignments: Vec<(ValidatorIndex, Tick)>,
 		approvals: Vec<usize>,
-		clock_drift: crate::time::Tick,
-		no_show_duration: crate::time::Tick,
-		drifted_tick_now: crate::time::Tick,
+		clock_drift: Tick,
+		no_show_duration: Tick,
+		drifted_tick_now: Tick,
 		exp_no_shows: usize,
 		exp_next_no_show: Option<u64>,
 	}

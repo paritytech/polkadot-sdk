@@ -19,6 +19,7 @@
 //! Configuration can change only at session boundaries and is buffered until then.
 
 use crate::{inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND, shared};
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, DefaultNoBound};
 use frame_system::pallet_prelude::*;
@@ -28,10 +29,9 @@ use polkadot_parachain_primitives::primitives::{
 use polkadot_primitives::{
 	ApprovalVotingParams, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
 	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
-	MAX_POV_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
+	ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill, Percent};
-use sp_std::prelude::*;
 
 #[cfg(test)]
 mod tests;
@@ -42,9 +42,13 @@ mod benchmarking;
 pub mod migration;
 
 pub use pallet::*;
-use polkadot_primitives::vstaging::SchedulerParams;
+use polkadot_primitives::SchedulerParams;
 
 const LOG_TARGET: &str = "runtime::configuration";
+
+// This value is derived from network layer limits. See `sc_network::MAX_RESPONSE_SIZE` and
+// `polkadot_node_network_protocol::POV_RESPONSE_SIZE`.
+const POV_SIZE_HARD_LIMIT: u32 = 16 * 1024 * 1024;
 
 /// All configuration of the runtime with respect to paras.
 #[derive(
@@ -310,7 +314,7 @@ pub enum InconsistentError<BlockNumber> {
 	MaxCodeSizeExceedHardLimit { max_code_size: u32 },
 	/// `max_head_data_size` exceeds the hard limit of `MAX_HEAD_DATA_SIZE`.
 	MaxHeadDataSizeExceedHardLimit { max_head_data_size: u32 },
-	/// `max_pov_size` exceeds the hard limit of `MAX_POV_SIZE`.
+	/// `max_pov_size` exceeds the hard limit of `POV_SIZE_HARD_LIMIT`.
 	MaxPovSizeExceedHardLimit { max_pov_size: u32 },
 	/// `minimum_validation_upgrade_delay` is less than `paras_availability_period`.
 	MinimumValidationUpgradeDelayLessThanChainAvailabilityPeriod {
@@ -345,7 +349,7 @@ pub enum InconsistentError<BlockNumber> {
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
 where
-	BlockNumber: Zero + PartialOrd + sp_std::fmt::Debug + Clone + From<u32>,
+	BlockNumber: Zero + PartialOrd + core::fmt::Debug + Clone + From<u32>,
 {
 	/// Checks that this instance is consistent with the requirements on each individual member.
 	///
@@ -377,7 +381,7 @@ where
 			})
 		}
 
-		if self.max_pov_size > MAX_POV_SIZE {
+		if self.max_pov_size > POV_SIZE_HARD_LIMIT {
 			return Err(MaxPovSizeExceedHardLimit { max_pov_size: self.max_pov_size })
 		}
 
@@ -557,7 +561,7 @@ pub mod pallet {
 	/// The list is sorted ascending by session index. Also, this list can only contain at most
 	/// 2 items: for the next session and for the `scheduled_session`.
 	#[pallet::storage]
-	pub(crate) type PendingConfigs<T: Config> =
+	pub type PendingConfigs<T: Config> =
 		StorageValue<_, Vec<(SessionIndex, HostConfiguration<BlockNumberFor<T>>)>, ValueQuery>;
 
 	/// If this is set, then the configuration setters will bypass the consistency checks. This
@@ -1469,7 +1473,7 @@ impl<T: Config> Pallet<T> {
 
 /// The implementation of `Get<(u32, u32)>` which reads `ActiveConfig` and returns `P` percent of
 /// `hrmp_channel_max_message_size` / `hrmp_channel_max_capacity`.
-pub struct ActiveConfigHrmpChannelSizeAndCapacityRatio<T, P>(sp_std::marker::PhantomData<(T, P)>);
+pub struct ActiveConfigHrmpChannelSizeAndCapacityRatio<T, P>(core::marker::PhantomData<(T, P)>);
 impl<T: crate::hrmp::pallet::Config, P: Get<Percent>> Get<(u32, u32)>
 	for ActiveConfigHrmpChannelSizeAndCapacityRatio<T, P>
 {

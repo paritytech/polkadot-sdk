@@ -68,6 +68,11 @@ jemalloc-allocator = [
 	"polkadot-overseer/jemalloc-allocator",
 ]
 
+# Generate the metadata hash needed for CheckMetadataHash
+# in the builtin test runtimes (westend and rococo).
+metadata-hash = [
+	"polkadot-cli/metadata-hash",
+]
 
 # Enables timeout-based tests supposed to be run only in CI environment as they may be flaky
 # when run locally depending on system load

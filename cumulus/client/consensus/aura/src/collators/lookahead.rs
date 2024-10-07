@@ -36,13 +36,16 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
+use cumulus_primitives_core::{ClaimQueueOffset, CollectCollationInfo, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_node_primitives::SubmitCollationParams;
+use polkadot_node_primitives::{PoV, SubmitCollationParams};
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
+use polkadot_primitives::{
+	BlockNumber as RBlockNumber, CollatorPair, Hash as RHash, HeadData, Id as ParaId,
+	OccupiedCoreAssumption,
+};
 
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
@@ -54,10 +57,49 @@ use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
-use std::{sync::Arc, time::Duration};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, NumberFor};
+use std::{
+	fs::{self, File},
+	path::PathBuf,
+	sync::Arc,
+	time::Duration,
+};
 
-use crate::collator::{self as collator_util};
+use crate::{collator as collator_util, LOG_TARGET};
+
+/// Export the given `pov` to the file system at `path`.
+///
+/// The file will be named `block_hash_block_number.pov`.
+///
+/// The `parent_header`, `relay_parent_storage_root` and `relay_parent_number` will also be
+/// stored in the file alongside the `pov`. This enables stateless validation of the `pov`.
+fn export_pov_to_path<Block: BlockT>(
+	path: PathBuf,
+	pov: PoV,
+	block_hash: Block::Hash,
+	block_number: NumberFor<Block>,
+	parent_header: Block::Header,
+	relay_parent_storage_root: RHash,
+	relay_parent_number: RBlockNumber,
+) {
+	if let Err(error) = fs::create_dir_all(&path) {
+		tracing::error!(target: LOG_TARGET, %error, path = %path.display(), "Failed to create PoV export directory");
+		return
+	}
+
+	let mut file = match File::create(path.join(format!("{block_hash:?}_{block_number}.pov"))) {
+		Ok(f) => f,
+		Err(error) => {
+			tracing::error!(target: LOG_TARGET, %error, "Failed to export PoV.");
+			return
+		},
+	};
+
+	pov.encode_to(&mut file);
+	HeadData(parent_header.encode()).encode_to(&mut file);
+	relay_parent_storage_root.encode_to(&mut file);
+	relay_parent_number.encode_to(&mut file);
+}
 
 /// Parameters for [`run`].
 pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
@@ -97,7 +139,58 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 
 /// Run async-backing-friendly Aura.
 pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
-	mut params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
+	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
+) -> impl Future<Output = ()> + Send + 'static
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block>
+		+ BlockOf
+		+ AuxStore
+		+ HeaderBackend<Block>
+		+ BlockBackend<Block>
+		+ Send
+		+ Sync
+		+ 'static,
+	Client::Api:
+		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
+	Backend: sc_client_api::Backend<Block> + 'static,
+	RClient: RelayChainInterface + Clone + 'static,
+	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
+	CIDP::InherentDataProviders: Send,
+	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
+	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
+	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
+	P: Pair,
+	P::Public: AppPublic + Member + Codec,
+	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
+{
+	run_with_export::<_, P, _, _, _, _, _, _, _, _>(ParamsWithExport { params, export_pov: None })
+}
+
+/// Parameters for [`run_with_export`].
+pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
+	/// The parameters.
+	pub params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
+	/// When set, the collator will export every produced `POV` to this folder.
+	pub export_pov: Option<PathBuf>,
+}
+
+/// Run async-backing-friendly Aura.
+///
+/// This is exactly the same as [`run`], but it supports the optional export of each produced `POV`
+/// to the file system.
+pub fn run_with_export<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
+	ParamsWithExport { mut params, export_pov }: ParamsWithExport<
+		BI,
+		CIDP,
+		Client,
+		Backend,
+		RClient,
+		CHP,
+		Proposer,
+		CS,
+	>,
 ) -> impl Future<Output = ()> + Send + 'static
 where
 	Block: BlockT,
@@ -167,6 +260,8 @@ where
 				relay_parent,
 				params.para_id,
 				&mut params.relay_client,
+				// Use depth 0, to preserve behaviour.
+				ClaimQueueOffset(0),
 			)
 			.await
 			.get(0)
@@ -319,6 +414,16 @@ where
 				)
 				.await;
 
+				let allowed_pov_size = if cfg!(feature = "full-pov-size") {
+					validation_data.max_pov_size
+				} else {
+					// Set the block limit to 50% of the maximum PoV size.
+					//
+					// TODO: If we got benchmarking that includes the proof size,
+					// we should be able to use the maximum pov size.
+					validation_data.max_pov_size / 2
+				} as usize;
+
 				match collator
 					.collate(
 						&parent_header,
@@ -326,11 +431,7 @@ where
 						None,
 						(parachain_inherent_data, other_inherent_data),
 						params.authoring_duration,
-						// Set the block limit to 50% of the maximum PoV size.
-						//
-						// TODO: If we got benchmarking that includes the proof size,
-						// we should be able to use the maximum pov size.
-						(validation_data.max_pov_size / 2) as usize,
+						allowed_pov_size,
 					)
 					.await
 				{
@@ -338,6 +439,18 @@ where
 						// Here we are assuming that the import logic protects against equivocations
 						// and provides sybil-resistance, as it should.
 						collator.collator_service().announce_block(new_block_hash, None);
+
+						if let Some(ref export_pov) = export_pov {
+							export_pov_to_path::<Block>(
+								export_pov.clone(),
+								collation.proof_of_validity.clone().into_compressed(),
+								new_block_hash,
+								*block_data.header().number(),
+								parent_header.clone(),
+								*relay_parent_header.state_root(),
+								*relay_parent_header.number(),
+							);
+						}
 
 						// Send a submit-collation message to the collation generation subsystem,
 						// which then distributes this to validators.

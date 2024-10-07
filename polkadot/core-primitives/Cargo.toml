@@ -11,7 +11,6 @@ workspace = true
 
 [dependencies]
 sp-core = { workspace = true }
-sp-std = { workspace = true }
 sp-runtime = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 codec = { features = ["derive"], workspace = true }
@@ -23,5 +22,4 @@ std = [
 	"scale-info/std",
 	"sp-core/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]

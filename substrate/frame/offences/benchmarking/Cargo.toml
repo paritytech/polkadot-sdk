@@ -4,7 +4,7 @@ version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME offences pallet benchmarking"
 readme = "README.md"
@@ -31,7 +31,6 @@ pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
 sp-runtime = { workspace = true }
 sp-staking = { workspace = true }
-sp-std = { workspace = true }
 log = { workspace = true }
 
 [dev-dependencies]
@@ -62,7 +61,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 ]
 
 runtime-benchmarks = [

@@ -4,7 +4,7 @@ version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet staking"
 readme = "README.md"
@@ -24,7 +24,6 @@ scale-info = { features = ["derive", "serde"], workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
-sp-std = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-session = { features = [
@@ -74,7 +73,6 @@ std = [
 	"sp-npos-elections/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 	"sp-tracing/std",
 ]
 runtime-benchmarks = [

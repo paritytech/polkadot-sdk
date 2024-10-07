@@ -22,8 +22,11 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limits.
 #![recursion_limit = "1024"]
 
+extern crate alloc;
+
 use polkadot_sdk::*;
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
@@ -46,8 +49,8 @@ use frame_support::{
 			imbalance::ResolveAssetTo, nonfungibles_v2::Inspect, pay::PayAssetFromAccount,
 			GetSalary, PayFromAccount,
 		},
-		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency,
-		EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance, InsideBoth,
+		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstU64, Contains,
+		Currency, EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance, InsideBoth,
 		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing,
 		OnUnbalanced, VariantCountOf, WithdrawReasons,
 	},
@@ -66,6 +69,7 @@ use frame_system::{
 pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
+use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
@@ -75,6 +79,7 @@ use pallet_nis::WithMaximumOf;
 use pallet_session::historical as pallet_session_historical;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
+use pallet_broker::TaskId;
 #[allow(deprecated)]
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
@@ -86,21 +91,20 @@ use sp_consensus_beefy::{
 	mmr::MmrLeafVersion,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	create_runtime_str,
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		self, AccountIdConversion, BlakeTwo256, Block as BlockT, Bounded, ConvertInto, NumberFor,
-		OpaqueKeys, SaturatedConversion, StaticLookup,
+		self, AccountIdConversion, BlakeTwo256, Block as BlockT, Bounded, ConvertInto,
+		MaybeConvert, NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber, FixedU128, Perbill, Percent, Permill, Perquintill,
 	RuntimeDebug,
 };
-use sp_std::prelude::*;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -121,7 +125,7 @@ pub use sp_runtime::BuildStorage;
 pub mod impls;
 #[cfg(not(feature = "runtime-benchmarks"))]
 use impls::AllianceIdentityVerifier;
-use impls::{AllianceProposalProvider, Author, CreditToBlockAuthor};
+use impls::{AllianceProposalProvider, Author};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -167,7 +171,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// The BABE epoch configuration at genesis.
@@ -187,7 +191,7 @@ type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 
 pub struct DealWithFees;
 impl OnUnbalanced<NegativeImbalance> for DealWithFees {
-	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
+	fn on_unbalanceds(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
 		if let Some(fees) = fees_then_tips.next() {
 			// for fees, 80% to treasury, 20% to author
 			let mut split = fees.ration(80, 20);
@@ -503,8 +507,7 @@ impl pallet_babe::Config for Runtime {
 	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominators;
-	type KeyOwnerProof =
-		<Historical as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -543,6 +546,7 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -572,22 +576,14 @@ impl pallet_transaction_payment::Config for Runtime {
 	>;
 }
 
-impl pallet_asset_tx_payment::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = Assets;
-	type OnChargeAssetTransaction = pallet_asset_tx_payment::FungiblesAdapter<
-		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, Instance1>,
-		CreditToBlockAuthor,
-	>;
-}
-
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = Assets;
-	type OnChargeAssetTransaction = pallet_asset_conversion_tx_payment::AssetConversionAdapter<
-		Balances,
-		AssetConversion,
+	type AssetId = NativeOrWithId<u32>;
+	type OnChargeAssetTransaction = SwapAssetAdapter<
 		Native,
+		NativeAndAssets,
+		AssetConversion,
+		ResolveAssetTo<TreasuryAccount, NativeAndAssets>,
 	>;
 }
 
@@ -857,7 +853,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type SignedDepositWeight = ();
 	type SignedMaxWeight = MinerMaxWeight;
 	type SlashHandler = (); // burn slashes
-	type RewardHandler = (); // nothing to do upon rewards
+	type RewardHandler = (); // rewards are minted from the void
 	type DataProvider = Staking;
 	type Fallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
@@ -1118,6 +1114,9 @@ parameter_types! {
 	pub const CouncilMotionDuration: BlockNumber = 5 * DAYS;
 	pub const CouncilMaxProposals: u32 = 100;
 	pub const CouncilMaxMembers: u32 = 100;
+	pub const ProposalDepositOffset: Balance = ExistentialDeposit::get() + ExistentialDeposit::get();
+	pub const ProposalHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Council(pallet_collective::HoldReason::ProposalSubmission);
 }
 
 type CouncilCollective = pallet_collective::Instance1;
@@ -1132,6 +1131,18 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
+	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
+	type KillOrigin = EnsureRoot<Self::AccountId>;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		ProposalHoldReason,
+		pallet_collective::deposit::Delayed<
+			ConstU32<2>,
+			pallet_collective::deposit::Linear<ConstU32<2>, ProposalDepositOffset>,
+		>,
+		u32,
+	>;
 }
 
 parameter_types! {
@@ -1193,6 +1204,9 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
+	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
+	type KillOrigin = EnsureRoot<Self::AccountId>;
+	type Consideration = ();
 }
 
 type EnsureRootOrHalfCouncil = EitherOfDiverse<
@@ -1371,6 +1385,7 @@ impl pallet_contracts::Config for Runtime {
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
+	type MaxTransientStorageSize = ConstU32<{ 1 * 1024 * 1024 }>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations = ();
@@ -1382,6 +1397,30 @@ impl pallet_contracts::Config for Runtime {
 	type Environment = ();
 	type ApiVersion = ();
 	type Xcm = ();
+}
+
+impl pallet_revive::Config for Runtime {
+	type Time = Timestamp;
+	type Currency = Balances;
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type CallFilter = Nothing;
+	type DepositPerItem = DepositPerItem;
+	type DepositPerByte = DepositPerByte;
+	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
+	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
+	type ChainExtension = ();
+	type AddressMapper = pallet_revive::DefaultAddressMapper;
+	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
+	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
+	type UnsafeUnstableInterface = ConstBool<false>;
+	type UploadOrigin = EnsureSigned<Self::AccountId>;
+	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
+	type Debug = ();
+	type Xcm = ();
+	type ChainId = ConstU64<420_420_420>;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -1491,7 +1530,7 @@ impl pallet_grandpa::Config for Runtime {
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominators;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -1602,6 +1641,8 @@ impl pallet_mmr::Config for Runtime {
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;
 	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Runtime>;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 parameter_types! {
@@ -1613,6 +1654,7 @@ impl pallet_beefy_mmr::Config for Runtime {
 	type BeefyAuthorityToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaToEthereum;
 	type LeafExtra = Vec<u8>;
 	type BeefyDataProvider = ();
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -1700,12 +1742,15 @@ parameter_types! {
 	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
 }
 
+pub type NativeAndAssets =
+	UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = u128;
 	type HigherPrecisionBalance = sp_core::U256;
 	type AssetKind = NativeOrWithId<u32>;
-	type Assets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = Chain<
 		WithFirstAsset<
@@ -1996,6 +2041,9 @@ impl pallet_collective::Config<AllianceCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
+	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
+	type KillOrigin = EnsureRoot<Self::AccountId>;
+	type Consideration = ();
 }
 
 parameter_types! {
@@ -2114,6 +2162,15 @@ impl CoretimeInterface for CoretimeProvider {
 	}
 }
 
+pub struct SovereignAccountOf;
+// Dummy implementation which converts `TaskId` to `AccountId`.
+impl MaybeConvert<TaskId, AccountId> for SovereignAccountOf {
+	fn maybe_convert(task: TaskId) -> Option<AccountId> {
+		let mut account: [u8; 32] = [0; 32];
+		account[..4].copy_from_slice(&task.to_le_bytes());
+		Some(account.into())
+	}
+}
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -2126,6 +2183,8 @@ impl pallet_broker::Config for Runtime {
 	type WeightInfo = ();
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type SovereignAccountOf = SovereignAccountOf;
+	type MaxAutoRenewals = ConstU32<10>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 }
 
@@ -2253,9 +2312,6 @@ mod runtime {
 
 	#[runtime::pallet_index(7)]
 	pub type TransactionPayment = pallet_transaction_payment::Pallet<Runtime>;
-
-	#[runtime::pallet_index(8)]
-	pub type AssetTxPayment = pallet_asset_tx_payment::Pallet<Runtime>;
 
 	#[runtime::pallet_index(9)]
 	pub type AssetConversionTxPayment = pallet_asset_conversion_tx_payment::Pallet<Runtime>;
@@ -2471,6 +2527,9 @@ mod runtime {
 
 	#[runtime::pallet_index(79)]
 	pub type AssetConversionMigration = pallet_asset_conversion_ops::Pallet<Runtime>;
+
+	#[runtime::pallet_index(80)]
+	pub type Revive = pallet_revive::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -2550,7 +2609,7 @@ impl pallet_beefy::Config for Runtime {
 	type OnNewValidatorSet = MmrLeaf;
 	type AncestryHelper = MmrLeaf;
 	type WeightInfo = ();
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		pallet_beefy::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -2575,12 +2634,14 @@ mod benches {
 		[pallet_babe, Babe]
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
+		[pallet_beefy_mmr, MmrLeaf]
 		[pallet_bounties, Bounties]
 		[pallet_broker, Broker]
 		[pallet_child_bounties, ChildBounties]
 		[pallet_collective, Council]
 		[pallet_conviction_voting, ConvictionVoting]
 		[pallet_contracts, Contracts]
+		[pallet_revive, Revive]
 		[pallet_core_fellowship, CoreFellowship]
 		[tasks_example, TasksExample]
 		[pallet_democracy, Democracy]
@@ -2660,7 +2721,7 @@ impl_runtime_apis! {
 			Runtime::metadata_at_version(version)
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
 	}
@@ -2771,6 +2832,14 @@ impl_runtime_apis! {
 
 		fn member_needs_delegate_migration(member: AccountId) -> bool {
 			NominationPools::api_member_needs_delegate_migration(member)
+		}
+
+		fn member_total_balance(member: AccountId) -> Balance {
+			NominationPools::api_member_total_balance(member)
+		}
+
+		fn pool_balance(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+			NominationPools::api_pool_balance(pool_id)
 		}
 	}
 
@@ -2935,6 +3004,75 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl pallet_revive::ReviveApi<Block, AccountId, Balance, BlockNumber, EventRecord> for Runtime
+	{
+		fn call(
+			origin: AccountId,
+			dest: H160,
+			value: Balance,
+			gas_limit: Option<Weight>,
+			storage_deposit_limit: Option<Balance>,
+			input_data: Vec<u8>,
+		) -> pallet_revive::ContractExecResult<Balance, EventRecord> {
+			Revive::bare_call(
+				RuntimeOrigin::signed(origin),
+				dest,
+				value,
+				gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block),
+				storage_deposit_limit.unwrap_or(u128::MAX),
+				input_data,
+				pallet_revive::DebugInfo::UnsafeDebug,
+				pallet_revive::CollectEvents::UnsafeCollect,
+			)
+		}
+
+		fn instantiate(
+			origin: AccountId,
+			value: Balance,
+			gas_limit: Option<Weight>,
+			storage_deposit_limit: Option<Balance>,
+			code: pallet_revive::Code,
+			data: Vec<u8>,
+			salt: Option<[u8; 32]>,
+		) -> pallet_revive::ContractInstantiateResult<Balance, EventRecord>
+		{
+			Revive::bare_instantiate(
+				RuntimeOrigin::signed(origin),
+				value,
+				gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block),
+				storage_deposit_limit.unwrap_or(u128::MAX),
+				code,
+				data,
+				salt,
+				pallet_revive::DebugInfo::UnsafeDebug,
+				pallet_revive::CollectEvents::UnsafeCollect,
+			)
+		}
+
+		fn upload_code(
+			origin: AccountId,
+			code: Vec<u8>,
+			storage_deposit_limit: Option<Balance>,
+		) -> pallet_revive::CodeUploadResult<Balance>
+		{
+			Revive::bare_upload_code(
+				RuntimeOrigin::signed(origin),
+				code,
+				storage_deposit_limit.unwrap_or(u128::MAX),
+			)
+		}
+
+		fn get_storage(
+			address: H160,
+			key: [u8; 32],
+		) -> pallet_revive::GetStorageResult {
+			Revive::get_storage(
+				address,
+				key
+			)
+		}
+	}
+
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
 		Block,
 		Balance,
@@ -3033,7 +3171,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(4)]
+	#[api_version(5)]
 	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			pallet_beefy::GenesisBlock::<Runtime>::get()
@@ -3059,6 +3197,31 @@ impl_runtime_apis! {
 			)
 		}
 
+		fn submit_report_fork_voting_unsigned_extrinsic(
+			equivocation_proof:
+				sp_consensus_beefy::ForkVotingProof<
+					<Block as BlockT>::Header,
+					BeefyId,
+					sp_runtime::OpaqueValue
+				>,
+			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			Beefy::submit_unsigned_fork_voting_report(
+				equivocation_proof.try_into()?,
+				key_owner_proof.decode()?,
+			)
+		}
+
+		fn submit_report_future_block_voting_unsigned_extrinsic(
+			equivocation_proof: sp_consensus_beefy::FutureBlockVotingProof<BlockNumber, BeefyId>,
+			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			Beefy::submit_unsigned_future_block_voting_report(
+				equivocation_proof,
+				key_owner_proof.decode()?,
+			)
+		}
+
 		fn generate_key_ownership_proof(
 			_set_id: sp_consensus_beefy::ValidatorSetId,
 			authority_id: BeefyId,
@@ -3066,6 +3229,17 @@ impl_runtime_apis! {
 			Historical::prove((sp_consensus_beefy::KEY_TYPE, authority_id))
 				.map(|p| p.encode())
 				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
+		}
+
+		fn generate_ancestry_proof(
+			prev_block_number: BlockNumber,
+			best_known_block_number: Option<BlockNumber>,
+		) -> Option<sp_runtime::OpaqueValue> {
+			use sp_consensus_beefy::AncestryHelper;
+
+			MmrLeaf::generate_proof(prev_block_number, best_known_block_number)
+				.map(|p| p.encode())
+				.map(sp_runtime::OpaqueValue::new)
 		}
 	}
 

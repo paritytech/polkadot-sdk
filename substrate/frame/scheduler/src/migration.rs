@@ -305,8 +305,8 @@ pub mod v4 {
 mod test {
 	use super::*;
 	use crate::mock::*;
+	use alloc::borrow::Cow;
 	use frame_support::Hashable;
-	use sp_std::borrow::Cow;
 	use substrate_test_utils::assert_eq_uvec;
 
 	#[test]

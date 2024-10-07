@@ -41,14 +41,17 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::{marker::PhantomData, result};
 use scale_info::TypeInfo;
 use sp_io::storage;
 use sp_runtime::{
 	traits::{Dispatchable, Hash},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{marker::PhantomData, prelude::*, result};
 
 use frame_support::{
 	dispatch::{
@@ -56,8 +59,8 @@ use frame_support::{
 	},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	traits::{
-		Backing, ChangeMembers, EnsureOrigin, EnsureOriginWithArg, Get, GetBacking,
-		InitializeMembers, StorageVersion,
+		Backing, ChangeMembers, Consideration, EnsureOrigin, EnsureOriginWithArg, Get, GetBacking,
+		InitializeMembers, MaybeConsideration, StorageVersion,
 	},
 	weights::Weight,
 };
@@ -170,6 +173,143 @@ pub struct Votes<AccountId, BlockNumber> {
 	end: BlockNumber,
 }
 
+/// Types implementing various cost strategies for a given proposal count.
+///
+/// These types implement [Convert](sp_runtime::traits::Convert) trait and can be used with types
+/// like [HoldConsideration](`frame_support::traits::fungible::HoldConsideration`) implementing
+/// [Consideration](`frame_support::traits::Consideration`) trait.
+///
+/// ### Example:
+///
+/// 1. Linear increasing with helper types.
+#[doc = docify::embed!("src/tests.rs", deposit_types_with_linear_work)]
+///
+/// 2. Geometrically increasing with helper types.
+#[doc = docify::embed!("src/tests.rs", deposit_types_with_geometric_work)]
+///
+/// 3. Geometrically increasing with rounding.
+#[doc = docify::embed!("src/tests.rs", deposit_round_with_geometric_work)]
+pub mod deposit {
+	use core::marker::PhantomData;
+	use sp_core::Get;
+	use sp_runtime::{traits::Convert, FixedPointNumber, FixedU128, Saturating};
+
+	/// Constant deposit amount regardless of current proposal count.
+	/// Returns `None` if configured with zero deposit.
+	pub struct Constant<Deposit>(PhantomData<Deposit>);
+	impl<Deposit, Balance> Convert<u32, Balance> for Constant<Deposit>
+	where
+		Deposit: Get<Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn convert(_: u32) -> Balance {
+			Deposit::get()
+		}
+	}
+
+	/// Linear increasing with some offset.
+	/// f(x) = ax + b, a = `Slope`, x = `proposal_count`, b = `Offset`.
+	pub struct Linear<Slope, Offset>(PhantomData<(Slope, Offset)>);
+	impl<Slope, Offset, Balance> Convert<u32, Balance> for Linear<Slope, Offset>
+	where
+		Slope: Get<u32>,
+		Offset: Get<Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn convert(proposal_count: u32) -> Balance {
+			let base: Balance = Slope::get().saturating_mul(proposal_count).into();
+			Offset::get().saturating_add(base)
+		}
+	}
+
+	/// Geometrically increasing.
+	/// f(x) = a * r^x, a = `Base`, x = `proposal_count`, r = `Ratio`.
+	pub struct Geometric<Ratio, Base>(PhantomData<(Ratio, Base)>);
+	impl<Ratio, Base, Balance> Convert<u32, Balance> for Geometric<Ratio, Base>
+	where
+		Ratio: Get<FixedU128>,
+		Base: Get<Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn convert(proposal_count: u32) -> Balance {
+			Ratio::get()
+				.saturating_pow(proposal_count as usize)
+				.saturating_mul_int(Base::get())
+		}
+	}
+
+	/// Rounds a `Deposit` result with `Precision`.
+	/// Particularly useful for types like [`Geometric`] that might produce deposits with high
+	/// precision.
+	pub struct Round<Precision, Deposit>(PhantomData<(Precision, Deposit)>);
+	impl<Precision, Deposit, Balance> Convert<u32, Balance> for Round<Precision, Deposit>
+	where
+		Precision: Get<u32>,
+		Deposit: Convert<u32, Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn convert(proposal_count: u32) -> Balance {
+			let deposit = Deposit::convert(proposal_count);
+			if !deposit.is_zero() {
+				let factor: Balance =
+					Balance::from(10u32).saturating_pow(Precision::get() as usize);
+				if factor > deposit {
+					deposit
+				} else {
+					(deposit / factor) * factor
+				}
+			} else {
+				deposit
+			}
+		}
+	}
+
+	/// Defines `Period` for supplied `Step` implementing [`Convert`] trait.
+	pub struct Stepped<Period, Step>(PhantomData<(Period, Step)>);
+	impl<Period, Step, Balance> Convert<u32, Balance> for Stepped<Period, Step>
+	where
+		Period: Get<u32>,
+		Step: Convert<u32, Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn convert(proposal_count: u32) -> Balance {
+			let step_num = proposal_count / Period::get();
+			Step::convert(step_num)
+		}
+	}
+
+	/// Defines `Delay` for supplied `Step` implementing [`Convert`] trait.
+	pub struct Delayed<Delay, Deposit>(PhantomData<(Delay, Deposit)>);
+	impl<Delay, Deposit, Balance> Convert<u32, Balance> for Delayed<Delay, Deposit>
+	where
+		Delay: Get<u32>,
+		Deposit: Convert<u32, Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn convert(proposal_count: u32) -> Balance {
+			let delay = Delay::get();
+			if delay > proposal_count {
+				return Balance::zero();
+			}
+			let pos = proposal_count.saturating_sub(delay);
+			Deposit::convert(pos)
+		}
+	}
+
+	/// Defines `Ceil` for supplied `Step` implementing [`Convert`] trait.
+	pub struct WithCeil<Ceil, Deposit>(PhantomData<(Ceil, Deposit)>);
+	impl<Ceil, Deposit, Balance> Convert<u32, Balance> for WithCeil<Ceil, Deposit>
+	where
+		Ceil: Get<Balance>,
+		Deposit: Convert<u32, Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn convert(proposal_count: u32) -> Balance {
+			Deposit::convert(proposal_count).min(Ceil::get())
+		}
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -226,6 +366,27 @@ pub mod pallet {
 		/// The maximum weight of a dispatch call that can be proposed and executed.
 		#[pallet::constant]
 		type MaxProposalWeight: Get<Weight>;
+
+		/// Origin from which a proposal in any status may be disapproved without associated cost
+		/// for a proposer.
+		type DisapproveOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
+
+		/// Origin from which any malicious proposal may be killed with associated cost for a
+		/// proposer.
+		///
+		/// The associated cost is set by [`Config::Consideration`] and can be none.
+		type KillOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
+
+		/// Mechanism to assess the necessity of some cost for publishing and storing a proposal.
+		///
+		/// The footprint is defined as `proposal_count`, which reflects the total number of active
+		/// proposals in the system, excluding the one currently being proposed. The cost may vary
+		/// based on this count.
+		///
+		/// Note: If the resulting deposits are excessively high and cause benchmark failures,
+		/// consider using a constant cost (e.g., [`crate::deposit::Constant`]) equal to the minimum
+		/// balance under the `runtime-benchmarks` feature.
+		type Consideration: MaybeConsideration<Self::AccountId, u32>;
 	}
 
 	#[pallet::genesis_config]
@@ -239,7 +400,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
 		fn build(&self) {
-			use sp_std::collections::btree_set::BTreeSet;
+			use alloc::collections::btree_set::BTreeSet;
 			let members_set: BTreeSet<_> = self.members.iter().collect();
 			assert_eq!(
 				members_set.len(),
@@ -268,6 +429,14 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ProposalOf<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, T::Hash, <T as Config<I>>::Proposal, OptionQuery>;
+
+	/// Consideration cost created for publishing and storing a proposal.
+	///
+	/// Determined by [Config::Consideration] and may be not present for certain proposals (e.g. if
+	/// the proposal count at the time of creation was below threshold N).
+	#[pallet::storage]
+	pub type CostOf<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::Hash, (T::AccountId, T::Consideration), OptionQuery>;
 
 	/// Votes on a given proposal, if it is ongoing.
 	#[pallet::storage]
@@ -317,6 +486,12 @@ pub mod pallet {
 		MemberExecuted { proposal_hash: T::Hash, result: DispatchResult },
 		/// A proposal was closed because its threshold was reached or after its duration was up.
 		Closed { proposal_hash: T::Hash, yes: MemberCount, no: MemberCount },
+		/// A proposal was killed.
+		Killed { proposal_hash: T::Hash },
+		/// Some cost for storing a proposal was burned.
+		ProposalCostBurned { proposal_hash: T::Hash, who: T::AccountId },
+		/// Some cost for storing a proposal was released.
+		ProposalCostReleased { proposal_hash: T::Hash, who: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -343,6 +518,8 @@ pub mod pallet {
 		WrongProposalLength,
 		/// Prime account is not a member
 		PrimeAccountNotMember,
+		/// Proposal is still active.
+		ProposalActive,
 	}
 
 	#[pallet::hooks]
@@ -351,6 +528,14 @@ pub mod pallet {
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state()
 		}
+	}
+
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		/// Funds are held for submitting and storing a proposal.
+		#[codec(index = 0)]
+		ProposalSubmission,
 	}
 
 	// Note that councillor operations are assigned to the operational class.
@@ -590,7 +775,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			proposal_hash: T::Hash,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::DisapproveOrigin::ensure_origin(origin)?;
 			let proposal_count = Self::do_disapprove_proposal(proposal_hash);
 			Ok(Some(T::WeightInfo::disapprove_proposal(proposal_count)).into())
 		}
@@ -644,6 +829,63 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 
 			Self::do_close(proposal_hash, index, proposal_weight_bound, length_bound)
+		}
+
+		/// Disapprove the proposal and burn the cost held for storing this proposal.
+		///
+		/// Parameters:
+		/// - `origin`: must be the `KillOrigin`.
+		/// - `proposal_hash`: The hash of the proposal that should be killed.
+		///
+		/// Emits `Killed` and `ProposalCostBurned` if any cost was held for a given proposal.
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::kill(1, T::MaxProposals::get()))]
+		pub fn kill(origin: OriginFor<T>, proposal_hash: T::Hash) -> DispatchResultWithPostInfo {
+			T::KillOrigin::ensure_origin(origin)?;
+			ensure!(
+				ProposalOf::<T, I>::get(&proposal_hash).is_some(),
+				Error::<T, I>::ProposalMissing
+			);
+			let burned = if let Some((who, cost)) = <CostOf<T, I>>::take(proposal_hash) {
+				cost.burn(&who);
+				Self::deposit_event(Event::ProposalCostBurned { proposal_hash, who });
+				true
+			} else {
+				false
+			};
+			let proposal_count = Self::remove_proposal(proposal_hash);
+
+			Self::deposit_event(Event::Killed { proposal_hash });
+
+			Ok(Some(T::WeightInfo::kill(burned as u32, proposal_count)).into())
+		}
+
+		/// Release the cost held for storing a proposal once the given proposal is completed.
+		///
+		/// If there is no associated cost for the given proposal, this call will have no effect.
+		///
+		/// Parameters:
+		/// - `origin`: must be `Signed` or `Root`.
+		/// - `proposal_hash`: The hash of the proposal.
+		///
+		/// Emits `ProposalCostReleased` if any cost held for a given proposal.
+		#[pallet::call_index(8)]
+		#[pallet::weight(T::WeightInfo::release_proposal_cost())]
+		pub fn release_proposal_cost(
+			origin: OriginFor<T>,
+			proposal_hash: T::Hash,
+		) -> DispatchResult {
+			let _ = ensure_signed_or_root(origin)?;
+			ensure!(
+				ProposalOf::<T, I>::get(&proposal_hash).is_none(),
+				Error::<T, I>::ProposalActive
+			);
+			if let Some((who, cost)) = <CostOf<T, I>>::take(proposal_hash) {
+				let _ = cost.drop(&who)?;
+				Self::deposit_event(Event::ProposalCostReleased { proposal_hash, who });
+			}
+
+			Ok(())
 		}
 	}
 }
@@ -715,7 +957,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Ok(proposals.len())
 			})?;
 
+		let cost = T::Consideration::new(&who, active_proposals as u32 - 1)?;
+		if !cost.is_none() {
+			<CostOf<T, I>>::insert(proposal_hash, (who.clone(), cost));
+		}
+
 		let index = ProposalCount::<T, I>::get();
+
 		<ProposalCount<T, I>>::mutate(|i| *i += 1);
 		<ProposalOf<T, I>>::insert(proposal_hash, proposal);
 		let votes = {

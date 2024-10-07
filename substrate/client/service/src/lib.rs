@@ -34,7 +34,11 @@ mod client;
 mod metrics;
 mod task_manager;
 
-use std::{collections::HashMap, net::SocketAddr};
+use crate::config::Multiaddr;
+use std::{
+	collections::HashMap,
+	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+};
 
 use codec::{Decode, Encode};
 use futures::{pin_mut, FutureExt, StreamExt};
@@ -47,6 +51,7 @@ use sc_network::{
 };
 use sc_network_sync::SyncingService;
 use sc_network_types::PeerId;
+use sc_rpc_server::Server;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_blockchain::HeaderMetadata;
 use sp_consensus::SyncOracle;
@@ -54,14 +59,15 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 pub use self::{
 	builder::{
-		build_network, gen_rpc_module, init_telemetry, new_client, new_db_backend, new_full_client,
-		new_full_parts, new_full_parts_record_import, new_full_parts_with_genesis_builder,
-		new_wasm_executor, propagate_transaction_notifications, spawn_tasks, BuildNetworkParams,
-		KeystoreContainer, NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor,
-		TFullClient,
+		build_network, build_polkadot_syncing_strategy, gen_rpc_module, init_telemetry, new_client,
+		new_db_backend, new_full_client, new_full_parts, new_full_parts_record_import,
+		new_full_parts_with_genesis_builder, new_wasm_executor,
+		propagate_transaction_notifications, spawn_tasks, BuildNetworkParams, KeystoreContainer,
+		NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor, TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
+	metrics::MetricsService,
 };
 #[allow(deprecated)]
 pub use builder::new_native_or_wasm_executor;
@@ -79,28 +85,42 @@ pub use sc_chain_spec::{
 	Properties,
 };
 
+use crate::config::RpcConfiguration;
+use prometheus_endpoint::Registry;
 pub use sc_consensus::ImportQueue;
 pub use sc_executor::NativeExecutionDispatch;
-pub use sc_network_sync::WarpSyncParams;
+pub use sc_network_sync::WarpSyncConfig;
 #[doc(hidden)]
 pub use sc_network_transactions::config::{TransactionImport, TransactionImportFuture};
-pub use sc_rpc::{
-	RandomIntegerSubscriptionId, RandomStringSubscriptionId, RpcSubscriptionIdProvider,
-};
+pub use sc_rpc::{RandomIntegerSubscriptionId, RandomStringSubscriptionId};
 pub use sc_tracing::TracingReceiver;
 pub use sc_transaction_pool::Options as TransactionPoolOptions;
 pub use sc_transaction_pool_api::{error::IntoPoolError, InPoolTransaction, TransactionPool};
 #[doc(hidden)]
 pub use std::{ops::Deref, result::Result, sync::Arc};
 pub use task_manager::{SpawnTaskHandle, Task, TaskManager, TaskRegistry, DEFAULT_GROUP_NAME};
+use tokio::runtime::Handle;
 
 const DEFAULT_PROTOCOL_ID: &str = "sup";
 
-/// RPC handlers that can perform RPC queries.
+/// A running RPC service that can perform in-memory RPC queries.
 #[derive(Clone)]
-pub struct RpcHandlers(Arc<RpcModule<()>>);
+pub struct RpcHandlers {
+	// This is legacy and may be removed at some point, it was for WASM stuff before smoldot was a
+	// thing. https://github.com/paritytech/polkadot-sdk/pull/5038#discussion_r1694971805
+	rpc_module: Arc<RpcModule<()>>,
+
+	// This can be used to introspect the port the RPC server is listening on. SDK consumers are
+	// depending on this and it should be supported even if in-memory query support is removed.
+	listen_addresses: Vec<Multiaddr>,
+}
 
 impl RpcHandlers {
+	/// Create PRC handlers instance.
+	pub fn new(rpc_module: Arc<RpcModule<()>>, listen_addresses: Vec<Multiaddr>) -> Self {
+		Self { rpc_module, listen_addresses }
+	}
+
 	/// Starts an RPC query.
 	///
 	/// The query is passed as a string and must be valid JSON-RPC request object.
@@ -120,12 +140,17 @@ impl RpcHandlers {
 		// This limit is used to prevent panics and is large enough.
 		const TOKIO_MPSC_MAX_SIZE: usize = tokio::sync::Semaphore::MAX_PERMITS;
 
-		self.0.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE).await
+		self.rpc_module.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE).await
 	}
 
 	/// Provides access to the underlying `RpcModule`
 	pub fn handle(&self) -> Arc<RpcModule<()>> {
-		self.0.clone()
+		self.rpc_module.clone()
+	}
+
+	/// Provides access to listen addresses
+	pub fn listen_addresses(&self) -> &[Multiaddr] {
+		&self.listen_addresses[..]
 	}
 }
 
@@ -137,7 +162,7 @@ pub struct PartialComponents<Client, Backend, SelectChain, ImportQueue, Transact
 	pub backend: Arc<Backend>,
 	/// The chain task manager.
 	pub task_manager: TaskManager,
-	/// A keystore container instance..
+	/// A keystore container instance.
 	pub keystore_container: KeystoreContainer,
 	/// A chain selection algorithm instance.
 	pub select_chain: SelectChain,
@@ -335,7 +360,7 @@ pub async fn build_system_rpc_future<
 			sc_rpc::system::Request::SyncState(sender) => {
 				use sc_rpc::system::SyncState;
 
-				match sync_service.best_seen_block().await {
+				match sync_service.status().await.map(|status| status.best_seen_block) {
 					Ok(best_seen_block) => {
 						let best_number = client.info().best_number;
 						let _ = sender.send(SyncState {
@@ -353,63 +378,71 @@ pub async fn build_system_rpc_future<
 	debug!("`NetworkWorker` has terminated, shutting down the system RPC future.");
 }
 
-// Wrapper for HTTP and WS servers that makes sure they are properly shut down.
-mod waiting {
-	pub struct Server(pub Option<sc_rpc_server::Server>);
-
-	impl Drop for Server {
-		fn drop(&mut self) {
-			if let Some(server) = self.0.take() {
-				// This doesn't not wait for the server to be stopped but fires the signal.
-				let _ = server.stop();
-			}
-		}
-	}
-}
-
 /// Starts RPC servers.
 pub fn start_rpc_servers<R>(
-	config: &Configuration,
+	rpc_configuration: &RpcConfiguration,
+	registry: Option<&Registry>,
+	tokio_handle: &Handle,
 	gen_rpc_module: R,
-	rpc_id_provider: Option<Box<dyn RpcSubscriptionIdProvider>>,
-) -> Result<Box<dyn std::any::Any + Send + Sync>, error::Error>
+	rpc_id_provider: Option<Box<dyn sc_rpc_server::SubscriptionIdProvider>>,
+) -> Result<Server, error::Error>
 where
-	R: Fn(sc_rpc::DenyUnsafe) -> Result<RpcModule<()>, Error>,
+	R: Fn() -> Result<RpcModule<()>, Error>,
 {
-	fn deny_unsafe(addr: SocketAddr, methods: &RpcMethods) -> sc_rpc::DenyUnsafe {
-		let is_exposed_addr = !addr.ip().is_loopback();
-		match (is_exposed_addr, methods) {
-			| (_, RpcMethods::Unsafe) | (false, RpcMethods::Auto) => sc_rpc::DenyUnsafe::No,
-			_ => sc_rpc::DenyUnsafe::Yes,
-		}
-	}
+	let endpoints: Vec<sc_rpc_server::RpcEndpoint> = if let Some(endpoints) =
+		rpc_configuration.addr.as_ref()
+	{
+		endpoints.clone()
+	} else {
+		let ipv6 =
+			SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::LOCALHOST, rpc_configuration.port, 0, 0));
+		let ipv4 = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, rpc_configuration.port));
 
-	// if binding the specified port failed then a random port is assigned by the OS.
-	let backup_port = |mut addr: SocketAddr| {
-		addr.set_port(0);
-		addr
+		vec![
+			sc_rpc_server::RpcEndpoint {
+				batch_config: rpc_configuration.batch_config,
+				cors: rpc_configuration.cors.clone(),
+				listen_addr: ipv4,
+				max_buffer_capacity_per_connection: rpc_configuration.message_buffer_capacity,
+				max_connections: rpc_configuration.max_connections,
+				max_payload_in_mb: rpc_configuration.max_request_size,
+				max_payload_out_mb: rpc_configuration.max_response_size,
+				max_subscriptions_per_connection: rpc_configuration.max_subs_per_conn,
+				rpc_methods: rpc_configuration.methods.into(),
+				rate_limit: rpc_configuration.rate_limit,
+				rate_limit_trust_proxy_headers: rpc_configuration.rate_limit_trust_proxy_headers,
+				rate_limit_whitelisted_ips: rpc_configuration.rate_limit_whitelisted_ips.clone(),
+				retry_random_port: true,
+				is_optional: false,
+			},
+			sc_rpc_server::RpcEndpoint {
+				batch_config: rpc_configuration.batch_config,
+				cors: rpc_configuration.cors.clone(),
+				listen_addr: ipv6,
+				max_buffer_capacity_per_connection: rpc_configuration.message_buffer_capacity,
+				max_connections: rpc_configuration.max_connections,
+				max_payload_in_mb: rpc_configuration.max_request_size,
+				max_payload_out_mb: rpc_configuration.max_response_size,
+				max_subscriptions_per_connection: rpc_configuration.max_subs_per_conn,
+				rpc_methods: rpc_configuration.methods.into(),
+				rate_limit: rpc_configuration.rate_limit,
+				rate_limit_trust_proxy_headers: rpc_configuration.rate_limit_trust_proxy_headers,
+				rate_limit_whitelisted_ips: rpc_configuration.rate_limit_whitelisted_ips.clone(),
+				retry_random_port: true,
+				is_optional: true,
+			},
+		]
 	};
 
-	let addr = config.rpc_addr.unwrap_or_else(|| ([127, 0, 0, 1], config.rpc_port).into());
-	let backup_addr = backup_port(addr);
-	let metrics = sc_rpc_server::RpcMetrics::new(config.prometheus_registry())?;
+	let metrics = sc_rpc_server::RpcMetrics::new(registry)?;
+	let rpc_api = gen_rpc_module()?;
 
 	let server_config = sc_rpc_server::Config {
-		addrs: [addr, backup_addr],
-		batch_config: config.rpc_batch_config,
-		max_connections: config.rpc_max_connections,
-		max_payload_in_mb: config.rpc_max_request_size,
-		max_payload_out_mb: config.rpc_max_response_size,
-		max_subs_per_conn: config.rpc_max_subs_per_conn,
-		message_buffer_capacity: config.rpc_message_buffer_capacity,
-		rpc_api: gen_rpc_module(deny_unsafe(addr, &config.rpc_methods))?,
+		endpoints,
+		rpc_api,
 		metrics,
 		id_provider: rpc_id_provider,
-		cors: config.rpc_cors.as_ref(),
-		tokio_handle: config.tokio_handle.clone(),
-		rate_limit: config.rpc_rate_limit,
-		rate_limit_whitelisted_ips: config.rpc_rate_limit_whitelisted_ips.clone(),
-		rate_limit_trust_proxy_headers: config.rpc_rate_limit_trust_proxy_headers,
+		tokio_handle: tokio_handle.clone(),
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773
@@ -417,9 +450,9 @@ where
 	// `block_in_place` is a hack to allow callers to call `block_on` prior to
 	// calling `start_rpc_servers`.
 	match tokio::task::block_in_place(|| {
-		config.tokio_handle.block_on(sc_rpc_server::start_server(server_config))
+		tokio_handle.block_on(sc_rpc_server::start_server(server_config))
 	}) {
-		Ok(server) => Ok(Box::new(waiting::Server(Some(server)))),
+		Ok(server) => Ok(server),
 		Err(e) => Err(Error::Application(e)),
 	}
 }

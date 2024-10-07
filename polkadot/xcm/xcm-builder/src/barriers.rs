@@ -17,12 +17,12 @@
 //! Various implementations for `ShouldExecute`.
 
 use crate::{CreateMatcher, MatchXcm};
+use core::{cell::Cell, marker::PhantomData, ops::ControlFlow, result::Result};
 use frame_support::{
 	ensure,
 	traits::{Contains, Get, ProcessMessageError},
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
-use sp_std::{cell::Cell, marker::PhantomData, ops::ControlFlow, result::Result};
 use xcm::prelude::*;
 use xcm_executor::traits::{CheckSuspension, OnResponse, Properties, ShouldExecute};
 
@@ -57,8 +57,9 @@ const MAX_ASSETS_FOR_BUY_EXECUTION: usize = 2;
 /// Allows execution from `origin` if it is contained in `T` (i.e. `T::Contains(origin)`) taking
 /// payments into account.
 ///
-/// Only allows for `TeleportAsset`, `WithdrawAsset`, `ClaimAsset` and `ReserveAssetDeposit` XCMs
-/// because they are the only ones that place assets in the Holding Register to pay for execution.
+/// Only allows for `WithdrawAsset`, `ReceiveTeleportedAsset`, `ReserveAssetDeposited` and
+/// `ClaimAsset` XCMs because they are the only ones that place assets in the Holding Register to
+/// pay for execution.
 pub struct AllowTopLevelPaidExecutionFrom<T>(PhantomData<T>);
 impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> {
 	fn should_execute<RuntimeCall>(
@@ -81,9 +82,9 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 		instructions[..end]
 			.matcher()
 			.match_next_inst(|inst| match inst {
+				WithdrawAsset(ref assets) |
 				ReceiveTeleportedAsset(ref assets) |
 				ReserveAssetDeposited(ref assets) |
-				WithdrawAsset(ref assets) |
 				ClaimAsset { ref assets, .. } =>
 					if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION {
 						Ok(())
@@ -92,7 +93,10 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 					},
 				_ => Err(ProcessMessageError::BadFormat),
 			})?
-			.skip_inst_while(|inst| matches!(inst, ClearOrigin))?
+			.skip_inst_while(|inst| {
+				matches!(inst, ClearOrigin | AliasOrigin(..)) ||
+					matches!(inst, DescendOrigin(child) if child != &Here)
+			})?
 			.match_next_inst(|inst| match inst {
 				BuyExecution { weight_limit: Limited(ref mut weight), .. }
 					if weight.all_gte(max_weight) =>

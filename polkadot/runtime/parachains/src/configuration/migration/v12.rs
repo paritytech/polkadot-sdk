@@ -17,16 +17,16 @@
 //! A module that is responsible for migration of storage.
 
 use crate::configuration::{self, migration::v11::V11HostConfiguration, Config, Pallet};
+use alloc::vec::Vec;
 use frame_support::{
 	migrations::VersionedMigration,
 	pallet_prelude::*,
 	traits::{Defensive, UncheckedOnRuntimeUpgrade},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::vstaging::SchedulerParams;
+use polkadot_primitives::SchedulerParams;
 use sp_core::Get;
 use sp_staking::SessionIndex;
-use sp_std::vec::Vec;
 
 type V12HostConfiguration<BlockNumber> = configuration::HostConfiguration<BlockNumber>;
 
@@ -68,7 +68,7 @@ pub type MigrateToV12<T> = VersionedMigration<
 	<T as frame_system::Config>::DbWeight,
 >;
 
-pub struct UncheckedMigrateToV12<T>(sp_std::marker::PhantomData<T>);
+pub struct UncheckedMigrateToV12<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV12<T> {
 	#[cfg(feature = "try-runtime")]

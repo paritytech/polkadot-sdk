@@ -52,6 +52,9 @@ pub enum InvalidCandidate {
 	/// PVF execution (compilation is not included) took more time than was allotted.
 	#[error("invalid: hard timeout")]
 	HardTimeout,
+	/// Proof-of-validity failed to decompress correctly
+	#[error("invalid: PoV failed to decompress")]
+	PoVDecompressionFailure,
 }
 
 /// Possibly transient issue that may resolve after retries.

@@ -16,6 +16,7 @@
 use crate::imports::*;
 
 mod asset_transfers;
+mod claim_assets;
 mod send_xcm;
 mod snowbridge;
 mod teleport;
@@ -35,7 +36,10 @@ pub(crate) fn bridged_roc_at_ah_westend() -> Location {
 	Location::new(2, [GlobalConsensus(Rococo)])
 }
 
-// wWND
+// WND and wWND
+pub(crate) fn wnd_at_ah_westend() -> Location {
+	Parent.into()
+}
 pub(crate) fn bridged_wnd_at_ah_rococo() -> Location {
 	Location::new(2, [GlobalConsensus(Westend)])
 }
@@ -68,7 +72,7 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 }
 
 pub(crate) fn create_foreign_on_ah_rococo(
-	id: v3::Location,
+	id: v4::Location,
 	sufficient: bool,
 	prefund_accounts: Vec<(AccountId, u128)>,
 ) {
@@ -77,18 +81,18 @@ pub(crate) fn create_foreign_on_ah_rococo(
 	AssetHubRococo::force_create_foreign_asset(id, owner, sufficient, min, prefund_accounts);
 }
 
-pub(crate) fn create_foreign_on_ah_westend(id: v3::Location, sufficient: bool) {
+pub(crate) fn create_foreign_on_ah_westend(id: v4::Location, sufficient: bool) {
 	let owner = AssetHubWestend::account_id_of(ALICE);
 	AssetHubWestend::force_create_foreign_asset(id, owner, sufficient, ASSET_MIN_BALANCE, vec![]);
 }
 
-pub(crate) fn foreign_balance_on_ah_rococo(id: v3::Location, who: &AccountId) -> u128 {
+pub(crate) fn foreign_balance_on_ah_rococo(id: v4::Location, who: &AccountId) -> u128 {
 	AssetHubRococo::execute_with(|| {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(id, who)
 	})
 }
-pub(crate) fn foreign_balance_on_ah_westend(id: v3::Location, who: &AccountId) -> u128 {
+pub(crate) fn foreign_balance_on_ah_westend(id: v4::Location, who: &AccountId) -> u128 {
 	AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(id, who)
@@ -96,8 +100,8 @@ pub(crate) fn foreign_balance_on_ah_westend(id: v3::Location, who: &AccountId) -
 }
 
 // set up pool
-pub(crate) fn set_up_pool_with_wnd_on_ah_westend(foreign_asset: v3::Location) {
-	let wnd: v3::Location = v3::Parent.into();
+pub(crate) fn set_up_pool_with_wnd_on_ah_westend(foreign_asset: v4::Location) {
+	let wnd: v4::Location = v4::Parent.into();
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		let owner = AssetHubWestendSender::get();
@@ -105,14 +109,14 @@ pub(crate) fn set_up_pool_with_wnd_on_ah_westend(foreign_asset: v3::Location) {
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
 			signed_owner.clone(),
-			foreign_asset.into(),
+			foreign_asset.clone().into(),
 			owner.clone().into(),
 			3_000_000_000_000,
 		));
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
 			signed_owner.clone(),
-			Box::new(wnd),
-			Box::new(foreign_asset),
+			Box::new(wnd.clone()),
+			Box::new(foreign_asset.clone()),
 		));
 		assert_expected_events!(
 			AssetHubWestend,
@@ -208,4 +212,36 @@ pub(crate) fn assert_bridge_hub_westend_message_received() {
 			]
 		);
 	})
+}
+
+pub(crate) fn open_bridge_between_asset_hub_rococo_and_asset_hub_westend() {
+	use testnet_parachains_constants::{
+		rococo::currency::UNITS as ROC, westend::currency::UNITS as WND,
+	};
+
+	// open AHR -> AHW
+	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), ROC * 5);
+	AssetHubRococo::open_bridge(
+		AssetHubRococo::sibling_location_of(BridgeHubRococo::para_id()),
+		[GlobalConsensus(Westend), Parachain(AssetHubWestend::para_id().into())].into(),
+		Some((
+			(roc_at_ah_rococo(), ROC * 1).into(),
+			BridgeHubRococo::sovereign_account_id_of(BridgeHubRococo::sibling_location_of(
+				AssetHubRococo::para_id(),
+			)),
+		)),
+	);
+
+	// open AHW -> AHR
+	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), WND * 5);
+	AssetHubWestend::open_bridge(
+		AssetHubWestend::sibling_location_of(BridgeHubWestend::para_id()),
+		[GlobalConsensus(Rococo), Parachain(AssetHubRococo::para_id().into())].into(),
+		Some((
+			(wnd_at_ah_westend(), WND * 1).into(),
+			BridgeHubWestend::sovereign_account_id_of(BridgeHubWestend::sibling_location_of(
+				AssetHubWestend::para_id(),
+			)),
+		)),
+	);
 }

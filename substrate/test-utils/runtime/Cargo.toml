@@ -5,7 +5,7 @@ authors.workspace = true
 edition.workspace = true
 build = "build.rs"
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 publish = false
 
@@ -53,7 +53,7 @@ sp-externalities = { workspace = true }
 array-bytes = { optional = true, workspace = true, default-features = true }
 serde_json = { workspace = true, features = ["alloc"] }
 log = { workspace = true }
-hex-literal = { workspace = true, default-features = true }
+tracing = { workspace = true, default-features = false }
 
 [dev-dependencies]
 futures = { workspace = true }
@@ -112,6 +112,7 @@ std = [
 	"sp-trie/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"tracing/std",
 	"trie-db/std",
 ]
 

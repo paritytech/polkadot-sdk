@@ -30,7 +30,7 @@ fn params_should_work() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(ReferendumCount::<Test>::get(), 0);
 		assert_eq!(Balances::free_balance(42), 0);
-		assert_eq!(Balances::total_issuance(), 600);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 600);
 	});
 }
 

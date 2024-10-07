@@ -17,6 +17,7 @@ impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
+sp-runtime = { workspace = true }
 sp-weights = { features = ["serde"], workspace = true }
 serde = { features = ["alloc", "derive", "rc"], workspace = true }
 schemars = { default-features = true, optional = true, workspace = true }
@@ -38,6 +39,11 @@ std = [
 	"log/std",
 	"scale-info/std",
 	"serde/std",
+	"sp-runtime/std",
 	"sp-weights/std",
 ]
-json-schema = ["bounded-collections/json-schema", "dep:schemars", "sp-weights/json-schema"]
+json-schema = [
+	"bounded-collections/json-schema",
+	"dep:schemars",
+	"sp-weights/json-schema",
+]

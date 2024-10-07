@@ -34,6 +34,7 @@
 //! that the `ValidateUnsigned` for the BEEFY pallet is used in the runtime
 //! definition.
 
+use alloc::{vec, vec::Vec};
 use codec::{self as codec, Decode, Encode};
 use frame_support::traits::{Get, KeyOwnerProofSystem};
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
@@ -54,7 +55,6 @@ use sp_staking::{
 	offence::{Kind, Offence, OffenceReportSystem, ReportOffence},
 	SessionIndex,
 };
-use sp_std::prelude::*;
 
 use super::{Call, Config, Error, Pallet, LOG_TARGET};
 
@@ -122,7 +122,7 @@ where
 /// - On-chain validity checks and processing are mostly delegated to the user provided generic
 ///   types implementing `KeyOwnerProofSystem` and `ReportOffence` traits.
 /// - Offence reporter for unsigned transactions is fetched via the authorship pallet.
-pub struct EquivocationReportSystem<T, R, P, L>(sp_std::marker::PhantomData<(T, R, P, L)>);
+pub struct EquivocationReportSystem<T, R, P, L>(core::marker::PhantomData<(T, R, P, L)>);
 
 /// Equivocation evidence convenience alias.
 pub enum EquivocationEvidenceFor<T: Config> {

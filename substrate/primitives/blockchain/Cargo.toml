@@ -4,7 +4,7 @@ version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Substrate blockchain traits and primitives."
 documentation = "https://docs.rs/sp-blockchain"
@@ -19,7 +19,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 futures = { workspace = true }
-log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 thiserror = { workspace = true }
@@ -29,3 +28,4 @@ sp-consensus = { workspace = true, default-features = true }
 sp-database = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
+tracing = { workspace = true, default-features = true }

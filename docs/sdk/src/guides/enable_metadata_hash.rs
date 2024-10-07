@@ -16,15 +16,15 @@
 //! the metadata for one or more networks. The next problem is that the offline wallet/user can not
 //! trust the metadata to be correct. It is very important for the metadata to be correct or
 //! otherwise an attacker could change them in a way that the offline wallet decodes a transaction
-//! in a different way than what it will be decoded to on chain. So, the user may signs an incorrect
-//! transaction leading to unexpecting behavior.
+//! in a different way than what it will be decoded to on chain. So, the user may sign an incorrect
+//! transaction leading to unexpected behavior.
 //!
 //! The metadata hash verification circumvents the issues of the huge metadata and the need to trust
 //! some metadata blob to be correct. To generate a hash for the metadata, the metadata is chunked,
 //! these chunks are put into a merkle tree and then the root of this merkle tree is the "metadata
 //! hash". For a more technical explanation on how it works, see
 //! [RFC78](https://polkadot-fellows.github.io/RFCs/approved/0078-merkleized-metadata.html). At compile
-//! time the metadata hash is generated and "backed" into the runtime. This makes it extremely cheap
+//! time the metadata hash is generated and "baked" into the runtime. This makes it extremely cheap
 //! for the runtime to verify on chain that the metadata hash is correct. By having the runtime
 //! verify the hash on chain, the user also doesn't need to trust the offchain metadata. If the
 //! metadata hash doesn't match the on chain metadata hash the transaction will be rejected. The

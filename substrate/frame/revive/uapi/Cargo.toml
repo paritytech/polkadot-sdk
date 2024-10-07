@@ -1,0 +1,31 @@
+[package]
+name = "pallet-revive-uapi"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "Exposes all the host functions that a contract can import."
+
+[lints]
+workspace = true
+
+[dependencies]
+paste = { workspace = true }
+bitflags = { workspace = true }
+scale-info = { features = ["derive"], optional = true, workspace = true }
+codec = { features = [
+	"derive",
+	"max-encoded-len",
+], optional = true, workspace = true }
+
+[target.'cfg(target_arch = "riscv32")'.dependencies]
+polkavm-derive = { version = "0.11.0" }
+
+[package.metadata.docs.rs]
+default-target = ["wasm32-unknown-unknown"]
+
+[features]
+default = ["scale"]
+scale = ["dep:codec", "scale-info"]
