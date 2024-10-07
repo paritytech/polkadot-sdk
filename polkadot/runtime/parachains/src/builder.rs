@@ -378,15 +378,17 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		candidate_descriptor_v2: bool,
 	) -> inclusion::CandidatePendingAvailability<T::Hash, BlockNumberFor<T>> {
 		inclusion::CandidatePendingAvailability::<T::Hash, BlockNumberFor<T>>::new(
-			core_idx,
-			candidate_hash,
-			Self::candidate_descriptor_mock(para_id, candidate_descriptor_v2),
-			commitments,
-			availability_votes,
+			core_idx,                                                          // core
+			candidate_hash,                                                    // hash
+			Self::candidate_descriptor_mock(para_id, candidate_descriptor_v2), /* candidate descriptor */
+			commitments,                                                       // commitments
+			availability_votes,                                                /* availability
+			                                                                    * votes */
 			Default::default(), // backers
 			Zero::zero(),       // relay parent
-			One::one(),         /* relay chain block this * was backed in */
-			group_idx,          // backing group
+			One::one(),         /* relay chain block this
+			                     * was backed in */
+			group_idx, // backing group
 		)
 	}
 

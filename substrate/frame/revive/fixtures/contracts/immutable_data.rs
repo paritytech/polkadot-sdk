@@ -1,3 +1,5 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -13,14 +15,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "std")]
-fn main() {
-	substrate_wasm_builder::WasmBuilder::new()
-		.with_current_project()
-		.export_heap_base()
-		.import_memory()
-		.build()
+//! Tests that the `get_immutable_data` and `set_immutable_data` APIs work.
+
+#![no_std]
+#![no_main]
+
+use common::input;
+use uapi::{HostFn, HostFnImpl as api};
+
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn deploy() {
+	input!(data: &[u8; 8],);
+
+	api::set_immutable_data(data);
 }
 
-#[cfg(not(feature = "std"))]
-fn main() {}
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn call() {
+	input!(data: &[u8; 8],);
+
+	let mut buf = [0; 8];
+	api::get_immutable_data(&mut &mut buf[..]);
+
+	assert_eq!(data, &buf);
+}

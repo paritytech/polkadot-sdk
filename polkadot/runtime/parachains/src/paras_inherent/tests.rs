@@ -133,6 +133,7 @@ mod enter {
 	#[case(false)]
 	// Validate that if we create 2 backed candidates which are assigned to 2 cores that will be
 	// freed via becoming fully available, the backed candidates will not be filtered out in
+	// `create_inherent` and will not cause `enter` to early.
 	fn include_backed_candidates(#[case] v2_descriptor: bool) {
 		let config = MockGenesisConfig::default();
 		assert!(config.configuration.config.scheduler_params.lookahead > 0);
