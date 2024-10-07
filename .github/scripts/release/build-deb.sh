@@ -12,4 +12,4 @@ cargo deb --profile $PROFILE --no-strip --no-build -p $PRODUCT
 
 deb=target/debian/$PRODUCT_*_amd64.deb
 
-cp $deb target/production/$PRODUCT/
+cp $deb target/production/
