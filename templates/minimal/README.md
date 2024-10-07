@@ -47,13 +47,20 @@ cd minimal-template
 
 ### Build
 
-🔨 Use the following command to build the node without launching it:
+🔨 Use the following command to build just the runtime:
 
 ```sh
 cargo build --release
 ```
 
-🐳 Alternatively, build the docker image:
+⚙️  Use the following command to build the node as well without launching it:
+
+```sh
+cargo build --workspace --release
+```
+
+🐳 Alternatively, build the docker image which builds all the workspace members,
+and has as entry point the node binary:
 
 ```sh
 docker build . -t polkadot-sdk-minimal-template

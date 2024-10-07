@@ -83,6 +83,11 @@ jobs:
           homepage = "https://paritytech.github.io/polkadot-sdk/"
 
           [workspace]
+          default-members = [
+            "pallets/template",
+            "runtime"
+          ]
+          # add `--workspace` to the build command to build all members
           members = [
               "node",
               "pallets/template",

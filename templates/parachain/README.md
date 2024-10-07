@@ -49,18 +49,24 @@ cd parachain-template
 
 ### Build
 
-🔨 Use the following command to build the node without launching it:
+🔨 Use the following command to build just the runtime:
 
 ```sh
 cargo build --release
 ```
 
-🐳 Alternatively, build the docker image:
+⚙️  Use the following command to build the node as well without launching it:
 
 ```sh
-docker build . -t polkadot-sdk-parachain-template
+cargo build --workspace --release
 ```
 
+🐳 Alternatively, build the docker image which builds all the workspace members,
+and has as entry point the node binary:
+
+```sh
+docker build . -t polkadot-sdk-minimal-template
+```
 ### Local Development Chain
 
 🧟 This project uses [Zombienet](https://github.com/paritytech/zombienet) to orchestrate the relaychain and parachain nodes.
