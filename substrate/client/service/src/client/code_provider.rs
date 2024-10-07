@@ -77,7 +77,7 @@ where
 
 	/// Returns the `:code` for the given `block`.
 	///
-	/// This takes into account potential overrides/substitutes.
+	/// This takes into account potential substitutes, but ignores overrides.
 	pub fn code_at_ignoring_overrides(&self, block: Block::Hash) -> sp_blockchain::Result<Vec<u8>> {
 		let state = self.backend.state_at(block)?;
 
