@@ -93,10 +93,7 @@ impl From<libp2p_kad::Record> for Record {
 	fn from(out: libp2p_kad::Record) -> Self {
 		let vec: Vec<u8> = out.key.to_vec();
 		let key: Key = vec.into();
-		let mut publisher: Option<PeerId> = None;
-		if let Some(x) = out.publisher {
-			publisher = Some(x.into());
-		}
+		let publisher = out.publisher.map(Into::into);
 		Record { key, value: out.value, publisher, expires: out.expires }
 	}
 }
@@ -105,21 +102,14 @@ impl From<Record> for LiteRecord {
 	fn from(val: Record) -> Self {
 		let vec: Vec<u8> = val.key.to_vec();
 		let key: RecordKey = vec.into();
-		let mut publisher: Option<litep2p::PeerId> = None;
-		if let Some(x) = val.publisher {
-			publisher = Some(x.into());
-		}
+		let publisher = val.publisher.map(Into::into);
 		LiteRecord { key, value: val.value, publisher, expires: val.expires }
 	}
 }
 
 impl From<Record> for libp2p_kad::Record {
 	fn from(a: Record) -> libp2p_kad::Record {
-		//let key: KademliaKey = a.key.to_vec().into();
-		let mut peer: Option<libp2p_identity::PeerId> = None;
-		if let Some(x) = a.publisher {
-			peer = Some(x.into());
-		}
+		let peer = a.publisher.map(Into::into);
 		libp2p_kad::Record {
 			key: a.key.to_vec().into(),
 			value: a.value,
@@ -141,10 +131,7 @@ pub struct PeerRecord {
 
 impl From<libp2p_kad::PeerRecord> for PeerRecord {
 	fn from(out: libp2p_kad::PeerRecord) -> Self {
-		let mut peer: Option<PeerId> = None;
-		if let Some(x) = out.peer {
-			peer = Some(x.into());
-		}
+		let peer = out.peer.map(Into::into);
 		let record = out.record.into();
 		PeerRecord { peer, record }
 	}
