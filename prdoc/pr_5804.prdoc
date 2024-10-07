@@ -13,19 +13,19 @@ crates:
   - name: polkadot-runtime-common
     bump: patch
   - name: polkadot-service
-    bump: patch
+    bump: major
   - name: sp-keyring
-    bump: minor
+    bump: patch
   - name: rococo-runtime
     bump: patch
   - name: westend-runtime
     bump: patch
   - name: parachains-common
-    bump: patch
+    bump: major
   - name: emulated-integration-tests-common
-    bump: patch
+    bump: major
   - name: xcm-emulator
-    bump: patch
+    bump: major
   - name: asset-hub-rococo-runtime
     bump: patch
   - name: asset-hub-westend-runtime
