@@ -748,11 +748,11 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 
 	fn commit_trie_changes(
 		&self,
-		at: Block::Hash,
-		storage: sp_runtime::Storage,
-		state_version: sp_runtime::StateVersion,
+		_at: Block::Hash,
+		_storage: sp_runtime::Storage,
+		_state_version: sp_runtime::StateVersion,
 	) -> sp_blockchain::Result<Block::Hash> {
-		todo!()
+		unimplemented!("Not needed for in-mem backend")
 	}
 
 	fn revert(
