@@ -43,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
 	let CliCommand { url, node_url } = CliCommand::parse();
 	init_tracing();
 
-	let client = Client::from_url(&node_url).await.unwrap();
+	let client = Client::from_url(&node_url).await?;
 	let mut updates = client.updates.clone();
 
 	let server_addr = run_server(client, &url).await?;

@@ -20,6 +20,7 @@
 
 use polkadot_sdk::*;
 
+use crate::chain_spec::sc_service::Properties;
 use kitchensink_runtime::{
 	constants::currency::*, wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
 };
@@ -447,12 +448,19 @@ fn development_config_genesis_json() -> serde_json::Value {
 	)
 }
 
+fn props() -> Properties {
+	let mut properties = Properties::new();
+	properties.insert("tokenDecimals".to_string(), "12".into());
+	properties
+}
+
 /// Development config (single validator Alice).
 pub fn development_config() -> ChainSpec {
 	ChainSpec::builder(wasm_binary_unwrap(), Default::default())
 		.with_name("Development")
 		.with_id("dev")
 		.with_chain_type(ChainType::Development)
+		.with_properties(props())
 		.with_genesis_config_patch(development_config_genesis_json())
 		.build()
 }

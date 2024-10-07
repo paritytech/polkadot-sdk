@@ -15,8 +15,8 @@ metadata:
 ifndef CHAIN
 	$(error CHAIN is not defined. Please specify it when running make, e.g., make metadata CHAIN=<chain_name>)
 endif
-	@subxt explore  --url ws://localhost:9944 pallet Revive constants chainId > /dev/null
-	subxt metadata  --url ws://localhost:9944 -o $(CHAIN).scale
+	@subxt explore --url ws://localhost:9944 pallet Revive constants chainId > /dev/null
+	subxt metadata --url ws://localhost:9944 -o $(CHAIN).scale
 	touch src/subxt_client.rs
 
 SALT ?= 0
