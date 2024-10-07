@@ -83,7 +83,6 @@ pub fn signed_extra(nonce: Nonce, extra_fee: Balance) -> SignedExtra {
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None),
 		),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
-		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 		pallet_revive::evm::runtime::CheckEthTransact::default(),
 	)
 }
