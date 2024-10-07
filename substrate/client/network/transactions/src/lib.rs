@@ -498,7 +498,7 @@ where
 				for hash in hashes {
 					propagated_to.entry(hash).or_default().push(who.to_base58());
 				}
-				debug!(target: "sync", "Sending {} transactions to {}", to_send.len(), who);
+				trace!(target: "sync", "Sending {} transactions to {}", to_send.len(), who);
 				// Historically, the format of a notification of the transactions protocol
 				// consisted in a (SCALE-encoded) `Vec<Transaction>`.
 				// After RFC 56, the format was modified in a backwards-compatible way to be
