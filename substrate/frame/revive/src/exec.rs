@@ -838,6 +838,7 @@ where
 			storage_meter,
 			BalanceOf::<T>::zero(),
 			false,
+			true,
 		)?
 		else {
 			return Ok(None);
@@ -871,6 +872,7 @@ where
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
+		origin_is_caller: bool,
 	) -> Result<Option<(Frame<T>, E)>, ExecError> {
 		let (account_id, contract_info, executable, delegate_caller, entry_point) = match frame_args
 		{
@@ -902,9 +904,17 @@ where
 				let address = if let Some(salt) = salt {
 					address::create2(&deployer, executable.code(), input_data, salt)
 				} else {
-					// TODO: Fix this the nonce is bumped on pre-dispatch, so when this is called by
-					// origin it will be off by one.
-					address::create1(&deployer, account_nonce.saturated_into())
+					use sp_runtime::Saturating;
+					address::create1(
+						&deployer,
+						// the Nonce from the origin has been incremented pre-dispatch, so we need
+						// to subtract 1 to get the nonce at the time of the call.
+						if origin_is_caller {
+							account_nonce.saturating_sub(1u32.into()).saturated_into()
+						} else {
+							account_nonce.saturated_into()
+						},
+					)
 				};
 				let contract = ContractInfo::new(
 					&address,
@@ -975,6 +985,7 @@ where
 			nested_storage,
 			deposit_limit,
 			read_only,
+			false,
 		)? {
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))

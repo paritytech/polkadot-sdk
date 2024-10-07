@@ -751,15 +751,16 @@ mod run_tests {
 			));
 
 			assert_eq!(System::account_nonce(&ALICE), 0);
+			System::inc_account_nonce(&ALICE);
 
-			for nonce in 0..3 {
+			for nonce in 1..3 {
 				let Contract { addr, .. } = builder::bare_instantiate(Code::Existing(code_hash))
 					.salt(None)
 					.build_and_unwrap_contract();
 				assert!(ContractInfoOf::<Test>::contains_key(&addr));
 				assert_eq!(
 					addr,
-					create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce)
+					create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce - 1)
 				);
 			}
 			assert_eq!(System::account_nonce(&ALICE), 3);
@@ -771,7 +772,7 @@ mod run_tests {
 				assert!(ContractInfoOf::<Test>::contains_key(&addr));
 				assert_eq!(
 					addr,
-					create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce)
+					create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce - 1)
 				);
 			}
 			assert_eq!(System::account_nonce(&ALICE), 6);
