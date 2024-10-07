@@ -52,7 +52,8 @@ sp-runtime = { workspace = true, default-features = true }
 tower.workspace = true
 tower-http = { workspace = true, features = ["full"] }
 hyper.workspace = true
-subxt-signer = { workspace = true, optional = true }
+
+subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
 hex = { workspace = true, optional = true }
 hex-literal = { workspace = true, optional = true }
 scale-info = { workspace = true }

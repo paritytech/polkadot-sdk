@@ -1,7 +1,7 @@
-use eth_rpc::{example::Account, EthRpcClient};
 use hex_literal::hex;
 use jsonrpsee::http_client::HttpClientBuilder;
-use polkadot_sdk::pallet_revive::evm::{BlockTag, Bytes, H160};
+use pallet_revive::evm::{BlockTag, Bytes, H160};
+use pallet_revive_eth_rpc::{example::Account, EthRpcClient};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

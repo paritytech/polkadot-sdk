@@ -1,11 +1,11 @@
 use codec::Encode;
-use eth_rpc::{example::Account, EthRpcClient, ReceiptInfo};
 use jsonrpsee::http_client::HttpClientBuilder;
-use polkadot_sdk::pallet_revive::{
+use pallet_revive::{
 	create1,
-	evm::{BlockTag, Bytes, U256},
+	evm::{BlockTag, Bytes, ReceiptInfo, U256},
 	EthInstantiateInput,
 };
+use pallet_revive_eth_rpc::{example::Account, EthRpcClient};
 
 static DUMMY_BYTES: &[u8] = include_bytes!("./dummy.polkavm");
 
@@ -26,7 +26,14 @@ async fn main() -> anyhow::Result<()> {
 	let hash = account.send_transaction(&client, U256::zero(), input.into(), None).await?;
 	println!("Deploy Tx hash: {hash:?}");
 
-	tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+	for _ in 0..6 {
+		tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+		let receipt = client.get_transaction_receipt(hash).await?;
+		if receipt.is_some() {
+			break;
+		}
+	}
+
 	let ReceiptInfo { block_number, gas_used, contract_address, .. } =
 		client.get_transaction_receipt(hash).await?.unwrap();
 	println!("Receipt received: ");
@@ -46,7 +53,14 @@ async fn main() -> anyhow::Result<()> {
 		.await?;
 
 	println!("Contract call tx hash: {hash:?}");
-	tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+	for _ in 0..6 {
+		tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+		let receipt = client.get_transaction_receipt(hash).await?;
+		if receipt.is_some() {
+			break
+		}
+	}
 
 	let ReceiptInfo { block_number, gas_used, to, .. } =
 		client.get_transaction_receipt(hash).await?.unwrap();

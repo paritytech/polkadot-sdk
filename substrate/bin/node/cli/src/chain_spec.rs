@@ -322,6 +322,12 @@ fn configure_accounts(
 			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+			eth_account(subxt_signer::eth::dev::alith()),
+			eth_account(subxt_signer::eth::dev::baltathar()),
+			eth_account(subxt_signer::eth::dev::charleth()),
+			eth_account(subxt_signer::eth::dev::dorothy()),
+			eth_account(subxt_signer::eth::dev::ethan()),
+			eth_account(subxt_signer::eth::dev::faith()),
 		]
 	});
 	// endow all authorities and nominators.
@@ -450,8 +456,16 @@ fn development_config_genesis_json() -> serde_json::Value {
 
 fn props() -> Properties {
 	let mut properties = Properties::new();
-	properties.insert("tokenDecimals".to_string(), "12".into());
+	properties.insert("tokenDecimals".to_string(), 12.into());
 	properties
+}
+
+use crate::chain_spec::sp_runtime::AccountId32;
+fn eth_account(from: subxt_signer::eth::Keypair) -> AccountId32 {
+	let mut account_id = AccountId32::new([0xEE; 32]);
+	<AccountId32 as AsMut<[u8; 32]>>::as_mut(&mut account_id)[..20]
+		.copy_from_slice(&from.account_id().0);
+	account_id
 }
 
 /// Development config (single validator Alice).

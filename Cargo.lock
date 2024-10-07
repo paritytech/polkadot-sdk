@@ -23565,6 +23565,7 @@ dependencies = [
  "soketto 0.8.0",
  "staging-node-inspect",
  "substrate-cli-test-utils",
+ "subxt-signer",
  "tempfile",
  "tokio",
  "tokio-util",
