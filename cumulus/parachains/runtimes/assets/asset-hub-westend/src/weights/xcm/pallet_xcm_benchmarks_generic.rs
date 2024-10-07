@@ -146,6 +146,10 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		// Minimum execution time: 698_000 picoseconds.
 		Weight::from_parts(730_000, 0)
 	}
+	pub fn alias_origin() -> Weight {
+		// TODO: use real benchmark
+		Weight::from_parts(800_000, 0)
+	}
 	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
