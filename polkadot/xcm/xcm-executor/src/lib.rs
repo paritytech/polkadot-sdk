@@ -993,7 +993,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let maybe_delivery_fee_from_holding = if self.fees.is_empty() {
 						let maybe_delivery_fee =
 							self.get_delivery_fee_from_holding(&assets, &dest, &xcm)?;
-						Some(maybe_delivery_fee)
+						maybe_delivery_fee
 					} else {
 						None
 					};
@@ -1481,7 +1481,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		assets: &AssetFilter,
 		destination: &Location,
 		xcm: &Xcm<()>,
-	) -> Result<AssetsInHolding, XcmError> {
+	) -> Result<Option<AssetsInHolding>, XcmError> {
 		// we need to do this take/put cycle to solve wildcards and get exact assets to
 		// be weighed
 		let to_weigh = self.holding.saturating_take(assets.clone());
@@ -1491,7 +1491,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		message_to_weigh.extend(xcm.0.clone().into_iter());
 		let (_, fee) =
 			validate_send::<Config::XcmSender>(destination.clone(), Xcm(message_to_weigh))?;
-		let delivery_fee = fee
+		let maybe_delivery_fee = fee
 			.get(0)
 			.map(|asset_needed_for_fees| {
 				tracing::trace!(
@@ -1505,8 +1505,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let delivery_fee = self.holding.saturating_take(asset_to_pay_for_fees.into());
 				tracing::trace!(target: "xcm::DepositReserveAsset", ?delivery_fee);
 				delivery_fee
-			})
-			.ok_or(XcmError::NotHoldingFees)?;
-		Ok(delivery_fee)
+			});
+		Ok(maybe_delivery_fee)
 	}
 }
