@@ -48,6 +48,7 @@ use xcm_runtime_apis::{
 	conversions::{Error as LocationToAccountApiError, LocationToAccountApi},
 	dry_run::{CallDryRunEffects, DryRunApi, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::{Error as XcmPaymentApiError, XcmPaymentApi},
+	trust_query::{Error as TrustedQueryApiError, TrustedQueryApi},
 };
 
 construct_runtime! {
@@ -414,6 +415,52 @@ impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 }
 
 sp_api::mock_impl_runtime_apis! {
+
+	impl TrustedQueryApi<Block> for RuntimeApi {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, TrustedQueryApiError> {
+			let location: Location = location.try_into().map_err(|e| {
+				log::error!(
+					target: "xcm::TrustedQueryApi::is_trusted_reserve",
+					"Location version conversion failed with error: {:?}",
+					e,
+				);
+				TrustedQueryApiError::VersionedLocationConversionFailed
+			})?;
+
+			match asset.try_as::<Asset>() {
+				Ok(ass) => {
+					Ok(<XcmConfig as xcm_executor::Config>::IsReserve::contains(&ass, &location))
+				},
+				Err(e) => {
+					println!("Error block hit with error: {:?}", e);
+					log::error!(
+						target: "xcm::TrustedQueryApi::is_trusted_reserve",
+						"Location version conversion failed with error: {:?}",
+						e,
+					);
+					Err(TrustedQueryApiError::VersionedAssetConversionFailed)
+				}
+			}
+		}
+
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, TrustedQueryApiError> {
+			let location: Location = location.try_into().map_err(|_| TrustedQueryApiError::VersionedLocationConversionFailed)?;
+			match asset.try_as::<Asset>() {
+				Ok(ass) => {
+					Ok(<XcmConfig as xcm_executor::Config>::IsTeleporter::contains(&ass, &location))
+				},
+				Err(e) => {
+					log::error!(
+						target: "xcm::TrustedQueryApi::is_trusted_teleporter",
+						"Asset version conversion failed with error: {:?}",
+						e,
+					);
+					Err(TrustedQueryApiError::VersionedAssetConversionFailed)
+				}
+			}
+		}
+	}
+
 	impl LocationToAccountApi<Block, AccountId> for RuntimeApi {
 		fn convert_location(location: VersionedLocation) -> Result<AccountId, LocationToAccountApiError> {
 			let location = location.try_into().map_err(|_| LocationToAccountApiError::VersionedConversionFailed)?;

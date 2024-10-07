@@ -30,3 +30,6 @@ pub mod dry_run;
 /// Fee estimation API.
 /// Given an XCM program, it will return the fees needed to execute it properly or send it.
 pub mod fees;
+
+// Exposes runtime API for querying trusted reservers and teleporters.
+pub mod trust_query;

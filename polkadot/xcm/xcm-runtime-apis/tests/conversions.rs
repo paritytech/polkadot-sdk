@@ -27,9 +27,24 @@ use frame_support::{
 use mock::*;
 use sp_api::ProvideRuntimeApi;
 use xcm::prelude::*;
+use xcm::v3;
 use xcm_runtime_apis::conversions::{
 	Error as LocationToAccountApiError, LocationToAccountApi, LocationToAccountHelper,
 };
+use xcm_runtime_apis::trust_query::TrustedQueryApi;
+
+#[test]
+fn query_trusted_api_works() {
+	sp_io::TestExternalities::default().execute_with(|| {
+		let client = TestClient {};
+		let runtime_api = client.runtime_api();
+		let va: VersionedAsset = VersionedAsset::V3(v3::MultiAsset::from((v3::MultiLocation::default(), 1)));;
+		let vl: VersionedLocation = VersionedLocation::from((Parent, Parachain(1002)));
+
+		let res = runtime_api.is_trusted_reserve(H256::zero(), va, vl);
+		assert_eq!(res.unwrap(), Ok(false));
+	})
+}
 
 #[test]
 fn convert_location_to_account_works() {
