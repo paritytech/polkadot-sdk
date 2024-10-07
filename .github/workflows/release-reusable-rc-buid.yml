@@ -176,6 +176,7 @@ jobs:
       with:
         name: ${{ inputs.package }}
         path: target/production
+        overwrite: true
 
   upload-polkadot-artifacts-to-s3:
     if: ${{ inputs.package == 'polkadot' }}
