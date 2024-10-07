@@ -14837,6 +14837,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-omni-node"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "polkadot-omni-node-lib",
+ "substrate-build-script-utils",
+]
+
+[[package]]
 name = "polkadot-omni-node-lib"
 version = "0.1.0"
 dependencies = [
@@ -14942,7 +14951,6 @@ version = "4.0.0"
 dependencies = [
  "asset-hub-rococo-runtime",
  "asset-hub-westend-runtime",
- "bp-messages",
  "bridge-hub-rococo-runtime",
  "bridge-hub-westend-runtime",
  "collectives-westend-runtime",
@@ -14969,7 +14977,6 @@ dependencies = [
  "sp-genesis-builder",
  "staging-xcm",
  "substrate-build-script-utils",
- "testnet-parachains-constants",
 ]
 
 [[package]]

@@ -37,10 +37,6 @@ penpal-runtime = { workspace = true }
 people-rococo-runtime = { workspace = true }
 people-westend-runtime = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
-testnet-parachains-constants = { features = [
-	"rococo",
-	"westend",
-], workspace = true }
 
 # Substrate
 sp-core = { workspace = true, default-features = true }
@@ -54,9 +50,6 @@ xcm = { workspace = true, default-features = true }
 
 # Cumulus
 cumulus-primitives-core = { workspace = true, default-features = true }
-
-# Bridges
-bp-messages = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
