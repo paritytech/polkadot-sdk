@@ -1,0 +1,89 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Generic slashing side-effects
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      What?
+      Make it possible for other pallets to implement their own logic when a slash on a balance occurs.
+
+      How?
+      First we abstract the done_slash function of holds::Balanced to it's own trait that any pallet can implement.
+      Then we add a config type in pallet-balances that accepts a callback tuple of all the pallets that implement this trait.
+      Finally implement done_slash for pallet-balances such that it calls the config type.
+      Integration
+      The default implementation of done_slash is still an empty function, and the new config type of pallet-balances can be set to an empty tuple, so nothing changes by default.
+
+crates:
+  - name: frame-support
+    bump: major
+
+  - name: pallet-balances
+    bump: major
+
+  - name: pallet-broker
+    bump: minor
+
+  - name: rococo-runtime
+    bump: minor
+
+  - name: pallet-nis
+    bump: minor
+
+  - name: westend-runtime
+    bump: minor
+
+  - name: pallet-assets-freezer
+    bump: minor
+
+  - name: pallet-contracts-mock-network
+    bump: minor
+
+  - name: pallet-revive-mock-network
+    bump: minor
+
+  - name: asset-hub-rococo-runtime
+    bump: minor
+
+  - name: asset-hub-westend-runtime
+    bump: minor
+
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+
+  - name: bridge-hub-westend-runtime
+    bump: minor
+
+  - name: collectives-westend-runtime
+    bump: minor
+
+  - name: coretime-rococo-runtime
+    bump: minor
+
+  - name: coretime-westend-runtime
+    bump: minor
+
+  - name: people-rococo-runtime
+    bump: minor
+
+  - name: people-westend-runtime
+    bump: minor
+
+  - name: penpal-runtime
+    bump: minor
+
+  - name: contracts-rococo-runtime
+    bump: minor
+
+  - name: rococo-parachain-runtime
+    bump: minor
+
+  - name: staging-xcm-builder
+    bump: minor
+
+  - name: polkadot-sdk
+    bump: minor
+
+
