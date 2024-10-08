@@ -152,14 +152,15 @@ where
 				})
 				.collect::<Vec<_>>()
 		};
-		let maybe_watchers = futures::future::join_all(submit_and_watch_futures).await;
-		// log::debug!("view::submit_and_watch: maybe_watchers: {:?}", maybe_watchers);
-		let maybe_error = maybe_watchers.into_iter().reduce(|mut r, v| {
-			if r.is_err() && v.is_ok() {
-				r = v;
-			}
-			r
-		});
+		let maybe_error = futures::future::join_all(submit_and_watch_futures)
+			.await
+			.into_iter()
+			.reduce(|mut r, v| {
+				if r.is_err() && v.is_ok() {
+					r = v;
+				}
+				r
+			});
 		if let Some(Err(err)) = maybe_error {
 			log::trace!(target: LOG_TARGET, "[{:?}] submit_and_watch: err: {}", tx_hash, err);
 			return Err((err, Some(external_watcher)));
@@ -239,18 +240,12 @@ where
 	pub(super) fn futures(
 		&self,
 	) -> Vec<Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>> {
-		let futures = self
-			.most_recent_view
+		self.most_recent_view
 			.read()
 			.map(|at| self.get_view_at(at, true))
 			.flatten()
-			.map(|(v, _)| v.pool.validated_pool().pool.read().futures().cloned().collect());
-
-		if let Some(futures) = futures {
-			return futures
-		} else {
-			return Default::default()
-		}
+			.map(|(v, _)| v.pool.validated_pool().pool.read().futures().cloned().collect())
+			.unwrap_or_default()
 	}
 
 	/// Collects all the transactions included in the blocks on the provided `tree_route` and
