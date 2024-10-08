@@ -48,11 +48,11 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, DisablingStrategy,
-	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState,
-	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnbondingQueue,
-	UnlockChunk, ValidatorPrefs,
+	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
+	DisablingStrategy, EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
+	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
+	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnappliedSlash,
+	UnbondingQueue, UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
