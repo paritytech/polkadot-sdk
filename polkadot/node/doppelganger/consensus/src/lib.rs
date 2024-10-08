@@ -46,6 +46,7 @@ where
 		&self,
 		mut block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
+		let number = *block.header.number();
 		if block.with_state() {
 			debug!(target: LOG_TARGET, "Block param with state, with header {:?}", block.header);
 			if let StateAction::ApplyChanges(sc_consensus::StorageChanges::Import(
@@ -69,6 +70,10 @@ where
 						);
 
 						for kv in key_value_storage_level.key_values.iter_mut() {
+							if std::env::var("ZOMBIE_DUMP").is_ok() {
+								eprintln!("{}: {}", sp_core::hexdisplay::HexDisplay::from(&kv.0), sp_core::hexdisplay::HexDisplay::from(&kv.1));
+							}
+
 							if let Some(override_value) = overrides.get(&kv.0) {
 								println!(
 									"Overriding key: {}",
@@ -92,11 +97,14 @@ where
 
 				block.header.set_state_root(state_root);
 				block.post_hash = Some(block.post_header().hash());
+				// NOT create gap
+				block.create_gap = false;
 			}
 			let res = self.inner.import_block(block).await;
 			println!("Block import done! : {:?}, killing the process", res);
+			// use last line to share the block number
+			println!("{}", number);
 			std::process::exit(0);
-			//return res
 		}
 
 		return self.inner.import_block(block).await
@@ -141,13 +149,13 @@ fn get_overrides() -> HashMap<Vec<u8>, Vec<u8>> {
 		(
 			hex!("5f3e4907f716ac89b6347d15ececedcaf7dad0317324aecae8744b87fc95f2f3").into(),
 			hex!("02").into()
-		)
+		),
 
 		// Staking Invulnerables
 		(
 			hex!("5f3e4907f716ac89b6347d15ececedca5579297f4dfb9609e7e4c2ebab9ce40a").into(),
-			hex!("08be5ddb1579b72e84524fc29e78609e3caf42e85aa118ebfe0b0ad404b5bdd25ffe65717dad0447d715f660a0a58411de509b42e6efb8375f562f58a554d5860e")
-		)
+			hex!("08be5ddb1579b72e84524fc29e78609e3caf42e85aa118ebfe0b0ad404b5bdd25ffe65717dad0447d715f660a0a58411de509b42e6efb8375f562f58a554d5860e").into()
+		),
 
 		// System Accounts?
 	]);
