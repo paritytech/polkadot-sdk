@@ -1765,9 +1765,9 @@ dependencies = [
 
 [[package]]
 name = "blake3"
-version = "1.5.0"
+version = "1.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0231f06152bf547e9c2b5194f247cd97aacf6dcd8b15d8e5ec0663f64580da87"
+checksum = "d82033247fd8e890df8f740e407ad4d038debb9eb1f40533fffb32e7d17dc6f7"
 dependencies = [
  "arrayref",
  "arrayvec 0.7.4",
@@ -2708,12 +2708,13 @@ checksum = "a2698f953def977c68f935bb0dfa959375ad4638570e969e2f1e9f433cbf1af6"
 
 [[package]]
 name = "cc"
-version = "1.0.94"
+version = "1.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17f6e324229dc011159fcc089755d1e2e216a90d43a7dea6853ca740b84f35e7"
+checksum = "812acba72f0a070b003d3697490d2b55b837230ae7c6c6497f05cc2ddbb8d938"
 dependencies = [
  "jobserver",
  "libc",
+ "shlex",
 ]
 
 [[package]]
@@ -7918,9 +7919,9 @@ checksum = "8eaf4bc02d17cbdd7ff4c7438cafcdf7fb9a4613313ad11b4f8fefe7d3fa0130"
 
 [[package]]
 name = "jobserver"
-version = "0.1.26"
+version = "0.1.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "936cfd212a0155903bcbc060e316fb6cc7cbf2e1907329391ebadc1fe0ce77c2"
+checksum = "48d1dbcbbeb6a7fec7e059840aa538bd62aaccf972c7346c4d9d2059312853d0"
 dependencies = [
  "libc",
 ]
@@ -12309,7 +12310,8 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "paste",
- "polkavm 0.11.0",
+ "polkavm 0.12.0",
+ "polkavm-common 0.12.0",
  "pretty_assertions",
  "rlp",
  "scale-info",
@@ -12334,7 +12336,7 @@ dependencies = [
  "frame-system",
  "log",
  "parity-wasm",
- "polkavm-linker 0.11.0",
+ "polkavm-linker 0.12.0",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -12394,7 +12396,7 @@ dependencies = [
  "bitflags 1.3.2",
  "parity-scale-codec",
  "paste",
- "polkavm-derive 0.11.0",
+ "polkavm-derive 0.12.0",
  "scale-info",
 ]
 
@@ -12828,6 +12830,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
+ "log",
  "pallet-balances",
  "pallet-utility",
  "parity-scale-codec",
@@ -16148,15 +16151,15 @@ dependencies = [
 
 [[package]]
 name = "polkavm"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1195fbc12f11645143a4f3974bf909d25c7f7efddcc6f4e57688d9a518c90bae"
+checksum = "f27910c5061e4cea6be6c66684b49d0f42b6a05900c9b0da9e7f3dd2d587a8d4"
 dependencies = [
  "libc",
  "log",
- "polkavm-assembler 0.11.0",
- "polkavm-common 0.11.0",
- "polkavm-linux-raw 0.11.0",
+ "polkavm-assembler 0.12.0",
+ "polkavm-common 0.12.0",
+ "polkavm-linux-raw 0.12.0",
 ]
 
 [[package]]
@@ -16170,9 +16173,9 @@ dependencies = [
 
 [[package]]
 name = "polkavm-assembler"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0b0399659fe7a5370c3e3464188888d29069cfa46d99631d19834a379c15826"
+checksum = "82f0e374fa043f31459b30d629d7e866247ac4b6c7662ac72e4e5bf50d052b92"
 dependencies = [
  "log",
 ]
@@ -16194,12 +16197,13 @@ dependencies = [
 
 [[package]]
 name = "polkavm-common"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "254b19b64ff9b57c06b32c0affed961cb9a32429b8d3e5cf2633cad7fbb3e270"
+checksum = "f4e42e082c3d89da2346555baf4d951fe07dcb9208e42a02c272e6d5d0326f9a"
 dependencies = [
+ "blake3",
  "log",
- "polkavm-assembler 0.11.0",
+ "polkavm-assembler 0.12.0",
 ]
 
 [[package]]
@@ -16222,11 +16226,11 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f565f0106fbb3598d64b8528d5cb966b6a87a8dd93fbcfe09fb6388ff2865711"
+checksum = "540b798393e68a890202d5dc9f86a985b7ea83611e3406d90dc1043e7997b4d1"
 dependencies = [
- "polkavm-derive-impl-macro 0.11.0",
+ "polkavm-derive-impl-macro 0.12.0",
 ]
 
 [[package]]
@@ -16255,11 +16259,11 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive-impl"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "314445fb5688b4769354087d92be2ac94c487e63ffe74a6fb7bb312e57f20827"
+checksum = "d179eddaaef62ce5960faaa2ec9e8f131c81661c8b9365c4d55b275011688534"
 dependencies = [
- "polkavm-common 0.11.0",
+ "polkavm-common 0.12.0",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.79",
@@ -16287,11 +16291,11 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive-impl-macro"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bf952e05bc5ce7d81293bae18cb44c271c78615b201d75e983cdcc40d5c6ef1"
+checksum = "bd35472599d35d90e24afe9eb39ae6ee6cb1b924f0c03b277ef8b5f174a63853"
 dependencies = [
- "polkavm-derive-impl 0.11.0",
+ "polkavm-derive-impl 0.12.0",
  "syn 2.0.79",
 ]
 
@@ -16312,15 +16316,15 @@ dependencies = [
 
 [[package]]
 name = "polkavm-linker"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "535a2095a186ccde2cd2fa721d6370c495586d47714817565b2f6621d31164b3"
+checksum = "6f917b16db9ab13819a738a321b48a2d0d20d9e32dedcff75054148676afbec4"
 dependencies = [
  "gimli 0.28.0",
  "hashbrown 0.14.5",
  "log",
  "object 0.36.1",
- "polkavm-common 0.11.0",
+ "polkavm-common 0.12.0",
  "regalloc2 0.9.3",
  "rustc-demangle",
 ]
@@ -16333,9 +16337,9 @@ checksum = "26e85d3456948e650dff0cfc85603915847faf893ed1e66b020bb82ef4557120"
 
 [[package]]
 name = "polkavm-linux-raw"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3011697430dfcfe800d1d7c540ef69e3bdd66e9037cc38f01fee1c2e0908011e"
+checksum = "d280301d5b5a321c732173c969058f4b5726f3a0046f6802f396df2599f3753d"
 
 [[package]]
 name = "polling"
@@ -16765,7 +16769,7 @@ checksum = "80b776a1b2dc779f5ee0641f8ade0125bc1298dd41a9a0c16d8bd57b42d222b1"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "log",
  "multimap",
  "once_cell",
@@ -16786,7 +16790,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "log",
  "multimap",
  "once_cell",
@@ -16819,7 +16823,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81bddcdb20abf9501610992b6759a4c888aef7d1a7247ef75e2404275ac24af1"
 dependencies = [
  "anyhow",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.79",
@@ -16832,7 +16836,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acf0c195eebb4af52c752bec4f52f645da98b6e92077a04110c7f349477ae5ac"
 dependencies = [
  "anyhow",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.79",

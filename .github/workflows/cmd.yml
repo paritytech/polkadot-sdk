@@ -152,15 +152,15 @@ jobs:
         id: get-pr-comment
         with:
           text: ${{ github.event.comment.body }}
-          regex: '^(\/cmd )([-\/\s\w.=:]+)$' # see explanation in docs/contributor/commands-readme.md#examples
+          regex: "^(\\/cmd )([-\\/\\s\\w.=:]+)$" # see explanation in docs/contributor/commands-readme.md#examples
 
       - name: Save output of help
         id: help
         env:
           CMD: ${{ steps.get-pr-comment.outputs.group2 }} # to avoid "" around the command
         run: |
-          echo 'help<<EOF' >> $GITHUB_OUTPUT
           python3 -m pip install -r .github/scripts/generate-prdoc.requirements.txt
+          echo 'help<<EOF' >> $GITHUB_OUTPUT
           python3 .github/scripts/cmd/cmd.py $CMD >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
 
@@ -291,7 +291,18 @@ jobs:
         id: get-pr-comment
         with:
           text: ${{ github.event.comment.body }}
-          regex: '^(\/cmd )([-\/\s\w.=:]+)$' # see explanation in docs/contributor/commands-readme.md#examples
+          regex: "^(\\/cmd )([-\\/\\s\\w.=:]+)$" # see explanation in docs/contributor/commands-readme.md#examples
+
+      # In order to run prdoc without specifying the PR number, we need to add the PR number as an argument automatically
+      - name: Prepare PR Number argument
+        id: pr-arg
+        run: |
+          CMD="${{ steps.get-pr-comment.outputs.group2 }}"
+          if echo "$CMD" | grep -q "prdoc" && ! echo "$CMD" | grep -qE "\-\-pr[[:space:]=][0-9]+"; then
+            echo "arg=--pr ${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+          else
+            echo "arg=" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build workflow link
         if: ${{ !contains(github.event.comment.body, '--quiet') }}
@@ -314,7 +325,8 @@ jobs:
           echo "run_url=$runLink" >> $GITHUB_OUTPUT
 
       - name: Comment PR (Start)
-        if: ${{ !contains(github.event.comment.body, '--quiet') }}
+        # No need to comment on prdoc start or if --quiet
+        if: ${{ !contains(github.event.comment.body, '--quiet') && !contains(github.event.comment.body, 'prdoc') }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -344,14 +356,15 @@ jobs:
         id: cmd
         env:
           CMD: ${{ steps.get-pr-comment.outputs.group2 }} # to avoid "" around the command
+          PR_ARG: ${{ steps.pr-arg.outputs.arg }}
         run: |
-          echo "Running command: '$CMD' on '${{ needs.set-image.outputs.RUNNER }}' runner, container: '${{ needs.set-image.outputs.IMAGE }}'"
+          echo "Running command: '$CMD $PR_ARG' on '${{ needs.set-image.outputs.RUNNER }}' runner, container: '${{ needs.set-image.outputs.IMAGE }}'"
           echo "RUST_NIGHTLY_VERSION: $RUST_NIGHTLY_VERSION"
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
           git remote -v
           python3 -m pip install -r .github/scripts/generate-prdoc.requirements.txt
-          python3 .github/scripts/cmd/cmd.py $CMD
+          python3 .github/scripts/cmd/cmd.py $CMD $PR_ARG
           git status
           git diff
 
@@ -395,7 +408,8 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Comment PR (End)
-        if: ${{ !failure() && !contains(github.event.comment.body, '--quiet') }}
+        # No need to comment on prdoc success or --quiet
+        if: ${{ !failure() && !contains(github.event.comment.body, '--quiet') && !contains(github.event.comment.body, 'prdoc') }}
         uses: actions/github-script@v7
         env:
           SUBWEIGHT: "${{ steps.subweight.outputs.result }}"
