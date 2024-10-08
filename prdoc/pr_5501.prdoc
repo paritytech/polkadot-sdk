@@ -41,3 +41,5 @@ crates:
     bump: patch
   - name: pallet-root-offences
     bump: patch
+  - name: pallet-offences-benchmarking
+    bump: patch
