@@ -18,11 +18,24 @@
 
 //! Tests for fork-aware transaction pool.
 
-mod fatp_common;
-use fatp_common::*;
+use fatp_common::{
+	finalized_block_event, invalid_hash, new_best_block_event, pool, pool_with_api,
+	test_chain_with_forks, LOG_TARGET, SOURCE,
+};
+use futures::{executor::block_on, task::Poll, FutureExt, StreamExt};
+use sc_transaction_pool::ChainApi;
+use sc_transaction_pool_api::{
+	error::{Error as TxPoolError, IntoPoolError},
+	ChainEvent, MaintainedTransactionPool, TransactionPool, TransactionStatus,
+};
+use sp_runtime::transaction_validity::InvalidTransaction;
+use std::{sync::Arc, time::Duration};
+use substrate_test_runtime_client::AccountKeyring::*;
+use substrate_test_runtime_transaction_pool::uxt;
 
-//todo:
-//Add some more tests:
+pub mod fatp_common;
+
+// Some ideas for tests:
 // - view.ready iterator
 // - stale transaction submission when there is single view only (expect error)
 // - stale transaction submission when there are more views (expect ok if tx is ok for at least one
@@ -30,70 +43,11 @@ use fatp_common::*;
 // - view count (e.g. same new block notified twice)
 // - invalid with many views (different cases)
 //
-// done:
-// fn submission_should_work()
-// fn multiple_submission_should_work()
-// fn early_nonce_should_be_culled()
-// fn late_nonce_should_be_queued()
-// fn only_prune_on_new_best()
-// fn should_prune_old_during_maintenance()
-// fn should_resubmit_from_retracted_during_maintenance() (shitty name)
-// fn should_not_resubmit_from_retracted_during_maintenance_if_tx_is_also_in_enacted()
-// fn finalization()
-// fn finalization()  //with_watcher!
-// fn should_revalidate_across_many_blocks()
-//
-// fn prune_and_retract_tx_at_same_time() (w/o retracted event) |
-//      fatp_watcher_fork_retract_and_finalize
-//
-// fn resubmit_tx_of_fork_that_is_not_part_of_retracted() | fatp_retract_all_forks()
-// fn resubmit_from_retracted_fork() | fatp_fork_reorg
-// fn fork_aware_finalization() | fatp_watcher_finalizing_forks()
-//
-// fn ready_set_should_not_resolve_before_block_update() |
-// 		fatp_ready_at_does_not_trigger_after_submit
-//		fatp_ready_at_does_not_trigger
-// fn ready_set_should_resolve_after_block_update() | fatp_ready_at_triggered_by_maintain
-// fn ready_set_should_eventually_resolve_when_block_update_arrives() |
-// 		fatp_ready_at_triggered_by_maintain2
-//
-// fn pruning_a_transaction_should_remove_it_from_best_transaction() |
-// 		fatp_one_view_ready_gets_pruned
-//
-// fn stale_transactions_are_pruned() | fatp_linear_old_ready_becoming_stale
-//
-// fn finalized_only_handled_correctly() | fatp_watcher_finalized (todo: no view?)
-//
-// fn best_block_after_finalized_handled_correctly() | fatp_watcher_best_block_after_finalized
-// 		fatp_watcher_best_block_after_finalized2 fn switching_fork_with_finalized_works()
-//
-// fn switching_fork_multiple_times_works() | fatp_watcher_switching_fork_multiple_times_works
-//
-// todo: double events?
-// fn two_blocks_delayed_finalization_works() | fatp_watcher_two_blocks_delayed_finalization_works
-//
-// fn delayed_finalization_does_not_retract() | fatp_watcher_delayed_finalization_does_not_retract
-//
-//
-// fn best_block_after_finalization_does_not_retract() |
-// 		fatp_watcher_best_block_after_finalization_does_not_retract
-//
-// fn should_push_watchers_during_maintenance() | fatp_watcher_invalid_many_revalidation
-//
-// fn should_not_retain_invalid_hashes_from_retracted() |
-// should_not_retain_invalid_hashes_from_retracted
-//
-// fn should_revalidate_during_maintenance() | should_revalidate_during_maintenance()
-//
-// -------------------------------------------------------------------------
-//
-// todo: [validated_pool/pool related, probably can be reused]:
+// review (from old pool) and maybe re-use:
+// fn import_notification_to_pool_maintain_works()
 // fn prune_tags_should_work()
 // fn should_ban_invalid_transactions()
 // fn should_correctly_prune_transactions_providing_more_than_one_tag()
-//
-// review, difficult to understand:
-// fn import_notification_to_pool_maintain_works()
 
 #[test]
 fn fatp_no_view_future_and_ready_submit_one_works() {

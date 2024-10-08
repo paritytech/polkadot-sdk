@@ -16,14 +16,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// single file is just too big. re-use some common components and silence warnings.
-#![allow(unused_imports)]
-#![allow(dead_code)]
-
 //! Tests of limits for fork-aware transaction pool.
 
-mod fatp_common;
-use fatp_common::*;
+pub mod fatp_common;
+use fatp_common::{
+	finalized_block_event, invalid_hash, new_best_block_event, TestPoolBuilder, LOG_TARGET, SOURCE,
+};
+use futures::{executor::block_on, FutureExt};
+use sc_transaction_pool::ChainApi;
+use sc_transaction_pool_api::{
+	error::Error as TxPoolError, MaintainedTransactionPool, TransactionPool, TransactionStatus,
+};
+use substrate_test_runtime_client::AccountKeyring::*;
+use substrate_test_runtime_transaction_pool::uxt;
 
 #[test]
 fn fatp_limits_no_views_mempool_count() {
@@ -188,7 +193,7 @@ fn fatp_limits_watcher_mempool_prevents_dropping() {
 	let xt2_status = futures::executor::block_on_stream(xt2_watcher).take(1).collect::<Vec<_>>();
 	log::debug!("xt2_status: {:#?}", xt2_status);
 
-	assert_eq!(xt2_status, vec![TransactionStatus::Ready,]);
+	assert_eq!(xt2_status, vec![TransactionStatus::Ready]);
 }
 
 #[test]
@@ -233,7 +238,7 @@ fn fatp_limits_watcher_non_intial_view_drops_transaction() {
 	assert_eq!(xt1_status, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);
 
 	let xt2_status = futures::executor::block_on_stream(xt2_watcher).take(1).collect::<Vec<_>>();
-	assert_eq!(xt2_status, vec![TransactionStatus::Ready,]);
+	assert_eq!(xt2_status, vec![TransactionStatus::Ready]);
 }
 
 #[test]
@@ -284,7 +289,7 @@ fn fatp_limits_watcher_finalized_transaction_frees_ready_space() {
 	assert_eq!(xt1_status, vec![TransactionStatus::Ready]);
 
 	let xt2_status = futures::executor::block_on_stream(xt2_watcher).take(1).collect::<Vec<_>>();
-	assert_eq!(xt2_status, vec![TransactionStatus::Ready,]);
+	assert_eq!(xt2_status, vec![TransactionStatus::Ready]);
 }
 
 #[test]
@@ -341,8 +346,8 @@ fn fatp_limits_watcher_view_can_drop_transcation() {
 	assert_eq!(xt1_status, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);
 
 	let xt2_status = futures::executor::block_on_stream(xt2_watcher).take(1).collect::<Vec<_>>();
-	assert_eq!(xt2_status, vec![TransactionStatus::Ready,]);
+	assert_eq!(xt2_status, vec![TransactionStatus::Ready]);
 
 	let xt3_status = futures::executor::block_on_stream(xt3_watcher).take(1).collect::<Vec<_>>();
-	assert_eq!(xt3_status, vec![TransactionStatus::Ready,]);
+	assert_eq!(xt3_status, vec![TransactionStatus::Ready]);
 }

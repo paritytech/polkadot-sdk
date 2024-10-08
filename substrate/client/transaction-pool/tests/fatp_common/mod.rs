@@ -18,22 +18,18 @@
 
 //! Tests for fork-aware transaction pool.
 
-pub use futures::{executor::block_on, task::Poll, FutureExt, StreamExt};
-pub use sc_transaction_pool::{ChainApi, PoolLimit};
-pub use sc_transaction_pool_api::{
-	error::{Error as TxPoolError, IntoPoolError},
-	ChainEvent, MaintainedTransactionPool, TransactionPool, TransactionStatus,
-};
-pub use sp_runtime::transaction_validity::{InvalidTransaction, TransactionSource};
-pub use std::{sync::Arc, time::Duration};
-pub use substrate_test_runtime_client::{
+use sc_transaction_pool::{ChainApi, PoolLimit};
+use sc_transaction_pool_api::ChainEvent;
+use sp_runtime::transaction_validity::TransactionSource;
+use std::sync::Arc;
+use substrate_test_runtime_client::{
 	runtime::{Block, Hash, Header},
 	AccountKeyring::*,
 };
-pub use substrate_test_runtime_transaction_pool::{uxt, TestApi};
+use substrate_test_runtime_transaction_pool::{uxt, TestApi};
 pub const LOG_TARGET: &str = "txpool";
 
-pub use sc_transaction_pool::ForkAwareTxPool;
+use sc_transaction_pool::ForkAwareTxPool;
 
 pub fn invalid_hash() -> Hash {
 	Default::default()
@@ -98,35 +94,30 @@ impl TestPoolBuilder {
 		self
 	}
 
-	#[allow(dead_code)]
 	pub fn with_mempool_count_limit(mut self, mempool_count_limit: usize) -> Self {
 		self.mempool_max_transactions_count = mempool_count_limit;
 		self.use_default_limits = false;
 		self
 	}
 
-	#[allow(dead_code)]
 	pub fn with_ready_count(mut self, ready_count: usize) -> Self {
 		self.ready_limits.count = ready_count;
 		self.use_default_limits = false;
 		self
 	}
 
-	#[allow(dead_code)]
 	pub fn with_ready_bytes_size(mut self, ready_bytes_size: usize) -> Self {
 		self.ready_limits.total_bytes = ready_bytes_size;
 		self.use_default_limits = false;
 		self
 	}
 
-	#[allow(dead_code)]
 	pub fn with_future_count(mut self, future_count: usize) -> Self {
 		self.future_limits.count = future_count;
 		self.use_default_limits = false;
 		self
 	}
 
-	#[allow(dead_code)]
 	pub fn with_future_bytes_size(mut self, future_bytes_size: usize) -> Self {
 		self.future_limits.total_bytes = future_bytes_size;
 		self.use_default_limits = false;
@@ -280,17 +271,15 @@ pub mod test_chain_with_forks {
 	}
 
 	#[test]
-	fn test() {
+	fn test_chain_works() {
 		sp_tracing::try_init_simple();
 		let (api, f) = chain(None);
 		log::debug!("forks: {f:#?}");
 		f[0].iter().for_each(|h| print_block(api.clone(), h.hash()));
 		f[1].iter().for_each(|h| print_block(api.clone(), h.hash()));
-		let tr = api.tree_route(f[0][4].hash(), f[1][3].hash());
+		let tr = api.tree_route(f[0][5].hash(), f[1][5].hash()).unwrap();
 		log::debug!("{:#?}", tr);
-		if let Ok(tr) = tr {
-			log::debug!("e:{:#?}", tr.enacted());
-			log::debug!("r:{:#?}", tr.retracted());
-		}
+		log::debug!("e:{:#?}", tr.enacted());
+		log::debug!("r:{:#?}", tr.retracted());
 	}
 }
