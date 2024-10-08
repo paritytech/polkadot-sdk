@@ -7,7 +7,7 @@ doc:
   - audience: Runtime Dev
     description: |
       `get_account_id_from_seed / get_from_seed` are copied all over the place, causing code being bloated.
-      `Keyring::iter()` give the same so it replace all these functions.
+      `Keyring::iter()` provides the same functionality and is used instead.
 
 crates: 
   - name: polkadot-runtime-common
