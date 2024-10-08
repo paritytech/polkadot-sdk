@@ -698,7 +698,7 @@ impl PalletCmd {
 	) -> Result<FetchedCode<'a, BenchmarkingState<H>, H>> {
 		if let Some(runtime) = self.runtime.as_ref() {
 			log::info!(target: LOG_TARGET, "Loading WASM from file");
-			let code = fs::read(runtime).map_error(|e| {
+			let code = fs::read(runtime).map_err(|e| {
 				format!(
 					"Could not load runtime file from path: {}, error: {}",
 					runtime.display(),
