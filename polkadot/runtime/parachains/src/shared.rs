@@ -89,8 +89,8 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 		number: BlockNumber,
 		max_ancestry_len: u32,
 	) {
-		if self.buffer.iter().find(|info| info.relay_parent == relay_parent).is_some() {
-			// Already
+		if self.buffer.iter().any(|info| info.relay_parent == relay_parent) {
+			// Already present.
 			return
 		}
 
