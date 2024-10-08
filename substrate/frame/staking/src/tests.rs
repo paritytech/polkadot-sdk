@@ -8337,54 +8337,74 @@ mod byzantine_threshold_disabling_strategy {
 }
 
 mod unbonding_queue {
-	use crate::{
-		tests::Test, ActiveEra, ActiveEraInfo, DisablingStrategy, UpToLimitDisablingStrategy,
-	};
-	use sp_staking::EraIndex;
+	use super::{ConfigOp, Event, *};
+	use crate::{mock, tests::Test, UnbondingQueue, UnbondingQueueParams};
+	use sp_runtime::{traits::Zero, Perbill};
 
 	#[test]
 	fn get_min_lowest_third_stake_works() {
-		sp_io::TestExternalities::default().execute_with(|| {
-			// TODO: Implement
+		ExtBuilder::default().build_and_execute(|| {
+			// Check the era we are working with.
+			mock::start_active_era(1);
+			let current_era = Staking::current_era().unwrap();
+			assert_eq!(current_era, 1);
 
+			// Unbonding queue params are as expected.
+			assert_eq!(
+				UnbondingQueueParams::<Test>::get(),
+				UnbondingQueue {
+					min_slashable_share: Perbill::from_percent(50),
+					unbond_period_lower_bound: 2,
+					unbond_period_upper_bound: 28,
+					back_of_unbonding_queue_era: Zero::zero(),
+				}
+			);
+
+			// Get lowest third total state for the initial era.
+			let lowest_third_total_stake = EraLowestThirdTotalStake::<Test>::get(current_era);
+			assert_eq!(lowest_third_total_stake, Some(2500));
+
+			let unbonding_queue_params = UnbondingQueueParams::<Test>::get();
 			// Populate some `EraLowestThirdTotalStake` entries to test the function.
+			for i in current_era + 1..unbonding_queue_params.unbond_period_upper_bound {
+				mock::start_active_era(i);
+				let era_lowest_third_total_stake =
+					EraLowestThirdTotalStake::<Test>::get(current_era);
 
-			// Get unbonding queue params and ensure they are as expected.
+				println!(
+					"Era: {:?} started with {:?} lowest third total stake",
+					i, era_lowest_third_total_stake
+				);
+			}
 
-			// Ensure lowest values are always found.
+			// TODO: Ensure lowest values are always found.
 		});
 	}
 
 	#[test]
 	fn calculate_lowest_third_total_stake_works() {
-		sp_io::TestExternalities::default().execute_with(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			// TODO: Implement
-
-			// Get unbonding queue params and ensure they are as expected.
-
-			// Provide exposure data to the function to test the calculation.
-
-			// Ensure stale entries to `EraLowestThirdTotalStake` are removed.
 		});
 	}
 
 	#[test]
 	fn get_quick_unbond_max_unstake_works() {
-		sp_io::TestExternalities::default().execute_with(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			// TODO: Implement
 		});
 	}
 
 	#[test]
 	fn get_unbond_eras_delta_works() {
-		sp_io::TestExternalities::default().execute_with(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			// TODO: Implement
 		});
 	}
 
 	#[test]
 	fn correct_unbond_era_is_being_calculated() {
-		sp_io::TestExternalities::default().execute_with(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			// TODO: Implement
 		});
 	}
