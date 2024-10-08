@@ -28,6 +28,7 @@ mod benchmarking_dummy;
 mod exec;
 mod gas;
 mod primitives;
+use crate::evm::EthInstantiateInput;
 pub use crate::exec::MomentOf;
 use frame_support::traits::IsType;
 pub use primitives::*;
@@ -47,7 +48,6 @@ pub mod weights;
 #[cfg(test)]
 mod tests;
 use crate::{
-	evm::EthInstantiateInput,
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -1220,7 +1220,6 @@ where
 				..Default::default()
 			};
 			let payload = tx.dummy_signed_payload();
-
 			let Ok(EthInstantiateInput { code, data }) =
 				rlp::decode::<EthInstantiateInput>(&tx.input.0)
 			else {
