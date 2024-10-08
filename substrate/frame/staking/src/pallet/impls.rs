@@ -233,12 +233,7 @@ impl<T: Config> Pallet<T> {
 		validator_stash: T::AccountId,
 		era: EraIndex,
 	) -> DispatchResultWithPostInfo {
-		let controller = Self::bonded(&validator_stash).ok_or_else(|| {
-			Error::<T>::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
-		})?;
-
-		let ledger = Self::ledger(StakingAccount::Controller(controller))?;
-		let page = EraInfo::<T>::get_next_claimable_page(era, &validator_stash, &ledger)
+		let page = EraInfo::<T>::get_next_claimable_page(era, &validator_stash)
 			.ok_or_else(|| {
 				Error::<T>::AlreadyClaimed
 					.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
@@ -294,13 +289,12 @@ impl<T: Config> Pallet<T> {
 
 		let stash = ledger.stash.clone();
 
-		if EraInfo::<T>::is_rewards_claimed_with_legacy_fallback(era, &ledger, &stash, page) {
+		if EraInfo::<T>::is_rewards_claimed(era, &stash, page) {
 			return Err(Error::<T>::AlreadyClaimed
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
-		} else {
-			EraInfo::<T>::set_rewards_as_claimed(era, &stash, page);
 		}
 
+		EraInfo::<T>::set_rewards_as_claimed(era, &stash, page);
 		let exposure = EraInfo::<T>::get_paged_exposure(era, &stash, page).ok_or_else(|| {
 			Error::<T>::InvalidEraToReward
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
@@ -806,11 +800,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn clear_era_information(era_index: EraIndex) {
 		// FIXME: We can possibly set a reasonable limit since we do this only once per era and
 		// clean up state across multiple blocks.
-		let mut cursor = <ErasStakers<T>>::clear_prefix(era_index, u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-		cursor = <ErasStakersClipped<T>>::clear_prefix(era_index, u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-		cursor = <ErasValidatorPrefs<T>>::clear_prefix(era_index, u32::MAX, None);
+		let mut cursor = <ErasValidatorPrefs<T>>::clear_prefix(era_index, u32::MAX, None);
 		debug_assert!(cursor.maybe_cursor.is_none());
 		cursor = <ClaimedRewards<T>>::clear_prefix(era_index, u32::MAX, None);
 		debug_assert!(cursor.maybe_cursor.is_none());
@@ -1151,10 +1141,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Returns full exposure of a validator for a given era.
-	///
-	/// History note: This used to be a getter for old storage item `ErasStakers` deprecated in v14.
-	/// Since this function is used in the codebase at various places, we kept it as a custom getter
-	/// that takes care of getting the full exposure of the validator in a backward compatible way.
+	// Implementation note: This used to be a getter for the now removed storage item `ErasStakers`
+	// that is succeeded by `ErasStakersPaged`. Since this function is used in the codebase at
+	// various places, we kept it as a custom getter that builds the full exposure from the pages.
 	pub fn eras_stakers(
 		era: EraIndex,
 		account: &T::AccountId,
@@ -1845,12 +1834,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool {
-		// look in the non paged exposures
-		// FIXME: Can be cleaned up once non paged exposures are cleared (https://github.com/paritytech/polkadot-sdk/issues/433)
-		ErasStakers::<T>::iter_prefix(era).any(|(validator, exposures)| {
-			validator == *who || exposures.others.iter().any(|i| i.who == *who)
-		})
-			||
 		// look in the paged exposures
 		ErasStakersPaged::<T>::iter_prefix((era,)).any(|((validator, _), exposure_page)| {
 			validator == *who || exposure_page.others.iter().any(|i| i.who == *who)
@@ -1974,7 +1957,6 @@ impl<T: Config> Pallet<T> {
 		Self::check_bonded_consistency()?;
 		Self::check_payees()?;
 		Self::check_nominators()?;
-		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
 		Self::check_count()?;
 		Self::ensure_disabled_validators_sorted()
@@ -2126,27 +2108,6 @@ impl<T: Config> Pallet<T> {
 			})
 			.collect::<Result<Vec<_>, _>>()?;
 		Ok(())
-	}
-
-	/// Invariants:
-	/// * For each era exposed validator, check if the exposure total is sane (exposure.total  =
-	/// exposure.own + exposure.own).
-	fn check_exposures() -> Result<(), TryRuntimeError> {
-		let era = Self::active_era().unwrap().index;
-		ErasStakers::<T>::iter_prefix_values(era)
-			.map(|expo| {
-				ensure!(
-					expo.total ==
-						expo.own +
-							expo.others
-								.iter()
-								.map(|e| e.value)
-								.fold(Zero::zero(), |acc, x| acc + x),
-					"wrong total exposure.",
-				);
-				Ok(())
-			})
-			.collect::<Result<(), TryRuntimeError>>()
 	}
 
 	/// Invariants:
