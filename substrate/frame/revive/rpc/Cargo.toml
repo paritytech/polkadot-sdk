@@ -53,6 +53,7 @@ tower.workspace = true
 tower-http = { workspace = true, features = ["full"] }
 hyper.workspace = true
 
+rlp = { workspace = true, optional = true }
 subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
 hex = { workspace = true, optional = true }
 hex-literal = { workspace = true, optional = true }
@@ -62,7 +63,7 @@ env_logger = { workspace = true }
 
 [features]
 dev = []
-example = ["hex", "hex-literal", "secp256k1", "subxt-signer"]
+example = ["hex", "hex-literal", "secp256k1", "subxt-signer", "rlp"]
 
 [dev-dependencies]
 hex-literal.workspace = true

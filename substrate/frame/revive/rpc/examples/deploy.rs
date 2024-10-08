@@ -1,9 +1,7 @@
-use codec::Encode;
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::{
 	create1,
-	evm::{BlockTag, Bytes, ReceiptInfo, U256},
-	EthInstantiateInput,
+	evm::{BlockTag, Bytes, EthInstantiateInput, ReceiptInfo, U256},
 };
 use pallet_revive_eth_rpc::{
 	example::{wait_for_receipt, Account},
@@ -24,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
 
 	println!("\n\n=== Deploying contract ===\n\n");
 
-	let input = input.encode();
+	let input = rlp::encode(&input).to_vec();
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
 	let hash = account.send_transaction(&client, U256::zero(), input.into(), None).await?;
 
