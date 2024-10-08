@@ -321,22 +321,20 @@ where
 		view: Arc<View<ChainApi>>,
 		tree_route: &TreeRoute<Block>,
 	) {
-		let views_to_be_removed = {
-			std::iter::once(tree_route.common_block())
-				.chain(tree_route.enacted().iter())
-				.map(|block| block.hash)
-				.collect::<Vec<_>>()
-		};
 		//note: most_recent_view must be synced with changes in in/active_views.
 		{
 			let mut most_recent_view_lock = self.most_recent_view.write();
 			let mut active_views = self.active_views.write();
 			let mut inactive_views = self.inactive_views.write();
-			views_to_be_removed.iter().for_each(|hash| {
-				active_views.remove(hash).map(|view| {
-					inactive_views.insert(*hash, view);
+
+			std::iter::once(tree_route.common_block())
+				.chain(tree_route.enacted().iter())
+				.map(|block| block.hash)
+				.for_each(|hash| {
+					active_views.remove(&hash).map(|view| {
+						inactive_views.insert(hash, view);
+					});
 				});
-			});
 			active_views.insert(view.at.hash, view.clone());
 			most_recent_view_lock.replace(view.at.hash);
 		};
