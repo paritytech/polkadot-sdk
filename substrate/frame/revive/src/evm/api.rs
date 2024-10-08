@@ -29,6 +29,9 @@ mod rpc_types;
 mod rpc_types_gen;
 pub use rpc_types_gen::*;
 
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 /// A type used to encode the `input` field of an Ethereum transaction
 #[derive(Clone, rlp_derive::RlpEncodable, rlp_derive::RlpDecodable)]
 pub struct EthInstantiateInput {
