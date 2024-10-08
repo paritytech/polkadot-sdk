@@ -327,7 +327,7 @@ where
 				.map(|block| block.hash)
 				.collect::<Vec<_>>()
 		};
-		//todo: refactor this: maybe single object with one mutex?
+		//note: most_recent_view must be synced with changes in in/active_views.
 		{
 			let mut most_recent_view_lock = self.most_recent_view.write();
 			let mut active_views = self.active_views.write();
@@ -340,9 +340,7 @@ where
 			active_views.insert(view.at.hash, view.clone());
 			most_recent_view_lock.replace(view.at.hash);
 		};
-		{
-			log::trace!(target:LOG_TARGET,"insert_new_view: inactive_views: {:?}", self.inactive_views.read().keys());
-		}
+		log::trace!(target:LOG_TARGET,"insert_new_view: inactive_views: {:?}", self.inactive_views.read().keys());
 	}
 
 	/// Returns an optional reference to the view at given hash.
