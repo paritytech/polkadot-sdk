@@ -203,6 +203,15 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		DelegateStake::member_withdraw(who, pool_account, amount, num_slashing_spans)
 	}
 
+	fn member_dust(
+		who: Member<Self::AccountId>,
+		pool: Pool<Self::AccountId>,
+		amount: Self::Balance,
+		num_slashing_spans: u32,
+	) -> DispatchResult {
+		DelegateStake::member_dust(who, pool, amount, num_slashing_spans)
+	}
+
 	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult {
 		if LegacyAdapter::get() {
 			return TransferStake::dissolve(pool_account)

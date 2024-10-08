@@ -998,13 +998,17 @@ fn reap_member_transfer() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Burnt { stash: POOL1_BONDED, amount: 2 },],
+			vec![
+				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 2 },
+				StakingEvent::Burnt { stash: POOL1_BONDED, amount: 2 },
+			],
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
 			vec![PoolsEvent::MemberRemoved { pool_id: 1, member: 21, released_balance: 0 }],
 		);
 
+		// member reaped
 		assert_noop!(
 			Pools::reap_member(RuntimeOrigin::signed(21), 21, 0),
 			PoolsError::<Runtime>::PoolMemberNotFound

@@ -183,6 +183,14 @@ pub trait StakeStrategy {
 		num_slashing_spans: u32,
 	) -> DispatchResult;
 
+	/// Clean up leftovers before reaping a member.
+	fn member_dust(
+		who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
+		amount: Self::Balance,
+		num_slashing_spans: u32,
+	) -> DispatchResult;
+
 	/// Dissolve the pool account.
 	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult;
 
@@ -306,6 +314,15 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		T::Currency::transfer(&pool_account.0, &who.0, amount, Preservation::Expendable)?;
 
 		Ok(())
+	}
+
+	fn member_dust(
+		_who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
+		amount: Self::Balance,
+		_num_slashing_spans: u32,
+	) -> DispatchResult {
+		Staking::force_withdraw(&pool_account.0, amount)
 	}
 
 	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult {
@@ -456,6 +473,16 @@ impl<
 		value: Self::Balance,
 	) -> DispatchResult {
 		Delegation::migrate_delegation(pool.into(), delegator.into(), value)
+	}
+
+	fn member_dust(
+		who: Member<Self::AccountId>,
+		pool: Pool<Self::AccountId>,
+		amount: Self::Balance,
+		num_slashing_spans: u32,
+	) -> DispatchResult {
+		Staking::force_withdraw(&pool.0, amount)?;
+		Delegation::withdraw_delegation(who.into(), pool.clone().into(), amount, num_slashing_spans)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

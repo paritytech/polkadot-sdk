@@ -1856,6 +1856,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			validator == *who || exposure_page.others.iter().any(|i| i.who == *who)
 		})
 	}
+
 	fn status(
 		who: &Self::AccountId,
 	) -> Result<sp_staking::StakerStatus<Self::AccountId>, DispatchError> {
@@ -1878,6 +1879,28 @@ impl<T: Config> StakingInterface for Pallet<T> {
 				Err(Error::<T>::BadState.into())
 			},
 		}
+	}
+
+	fn force_withdraw(stash: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+		let mut ledger = Self::ledger(Stash(stash.clone()))?;
+		ledger.active = ledger.active.saturating_sub(amount);
+		// FIXME should we check if active >= ED before updating?
+		ledger.total = ledger.total.saturating_sub(amount);
+		ledger.update()?;
+
+		if T::VoterList::contains(stash) {
+			let _ = T::VoterList::on_update(stash, Self::weight_of(stash)).defensive();
+		}
+
+		// HACK Delegation relies on the `on_withdraw` event to increase agent's unclaimed
+		// withdrawals. We do this to maintain the ledger integrity.
+		T::EventListeners::on_withdraw(stash, amount);
+		Self::deposit_event(Event::<T>::Withdrawn { stash: stash.clone(), amount });
+
+		T::Currency::burn(amount);
+		Self::deposit_event(Event::<T>::Burnt { stash: stash.clone(), amount });
+
+		Ok(())
 	}
 
 	/// Whether `who` is a virtual staker whose funds are managed by another pallet.

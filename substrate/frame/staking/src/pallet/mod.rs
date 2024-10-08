@@ -863,6 +863,8 @@ pub mod pallet {
 		ForceEra { mode: Forcing },
 		/// Report of a controller batch deprecation.
 		ControllerBatchDeprecated { failures: u32 },
+		/// Certain amount of bonded fund has been burned.
+		Burnt { stash: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
