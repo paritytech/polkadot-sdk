@@ -85,7 +85,7 @@ state.
 
 Once we have all parameters, we can spin up a background task to perform the validation in a way that doesn't hold up
 the entire event loop. Before invoking the validation function itself, this should first do some basic checks:
-  * The collator signature is valid
+  * The collator signature is valid (only if `CandidateDescriptor` has version 1)
   * The PoV provided matches the `pov_hash` field of the descriptor
 
 For more details please see [PVF Host and Workers](pvf-host-and-workers.md).
