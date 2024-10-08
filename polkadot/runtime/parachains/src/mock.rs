@@ -511,9 +511,6 @@ pub mod mock_assigner {
 		#[pallet::storage]
 		pub(super) type MockAssignmentQueue<T: Config> =
 			StorageValue<_, VecDeque<Assignment>, ValueQuery>;
-
-		#[pallet::storage]
-		pub(super) type MockCoreCount<T: Config> = StorageValue<_, u32, OptionQuery>;
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -521,12 +518,6 @@ pub mod mock_assigner {
 		/// scheduler when filling the claim queue for tests.
 		pub fn add_test_assignment(assignment: Assignment) {
 			MockAssignmentQueue::<T>::mutate(|queue| queue.push_back(assignment));
-		}
-
-		// Allows for customized core count in scheduler tests, rather than a core count
-		// derived from on-demand config + parachain count.
-		pub fn set_core_count(count: u32) {
-			MockCoreCount::<T>::set(Some(count));
 		}
 	}
 
@@ -554,10 +545,6 @@ pub mod mock_assigner {
 		#[cfg(any(feature = "runtime-benchmarks", test))]
 		fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Assignment {
 			Assignment::Bulk(para_id)
-		}
-
-		fn session_core_count() -> u32 {
-			MockCoreCount::<T>::get().unwrap_or(5)
 		}
 
 		fn assignment_duplicated(_: &Assignment) {}

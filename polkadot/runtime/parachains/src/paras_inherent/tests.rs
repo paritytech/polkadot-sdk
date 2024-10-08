@@ -109,8 +109,6 @@ mod enter {
 			.set_candidate_modifier(candidate_modifier);
 
 		// Setup some assignments as needed:
-		mock_assigner::Pallet::<Test>::set_core_count(builder.max_cores());
-
 		(0..(builder.max_cores() as usize - extra_cores)).for_each(|para_id| {
 			(0..elastic_paras.get(&(para_id as u32)).cloned().unwrap_or(1)).for_each(
 				|_para_local_core_idx| {

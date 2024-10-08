@@ -165,28 +165,16 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Called after the initializer notifies all modules of a new session.
-	pub(crate) fn post_new_session(prev_core_count: u32) {
-		Self::maybe_resize_claim_queue(prev_core_count);
-		Self::populate_claim_queue_after_session_change();
-	}
-
-	/// Retrieve the number of cores of the current session, from the assigner.
-	/// Can be smaller than the number of "availability cores" (which is equal to the number of
-	/// validator groups).
-	pub(crate) fn num_assigner_cores() -> u32 {
-		T::AssignmentProvider::session_core_count()
-	}
-
 	/// Called by the initializer to note that a new session has started.
 	pub(crate) fn initializer_on_new_session(
 		notification: &SessionChangeNotification<BlockNumberFor<T>>,
 	) {
-		let SessionChangeNotification { validators, new_config, .. } = notification;
+		let SessionChangeNotification { validators, new_config, prev_config, .. } = notification;
 		let config = new_config;
+		let assigner_cores = config.scheduler_params.num_cores;
 
 		let n_cores = core::cmp::max(
-			Self::num_assigner_cores(),
+			assigner_cores,
 			match config.scheduler_params.max_validators_per_core {
 				Some(x) if x != 0 => validators.len() as u32 / x,
 				_ => 0,
@@ -235,27 +223,22 @@ impl<T: Config> Pallet<T> {
 			ValidatorGroups::<T>::set(groups);
 		}
 
+		// Resize and populate claim queue.
+		Self::maybe_resize_claim_queue(prev_config.scheduler_params.num_cores, assigner_cores);
+		Self::populate_claim_queue_after_session_change(assigner_cores);
+
 		let now = frame_system::Pallet::<T>::block_number() + One::one();
 		SessionStartBlock::<T>::set(now);
-	}
-
-	/// Get an iterator into the claim queues.
-	///
-	/// This iterator will have an item for each and every core index up to the maximum core index
-	/// found in the claim queue. In other words there will be no holes/missing core indices,
-	/// between core 0 and the maximum, even if the claim queue was missing entries for particular
-	/// indices in between. (The iterator will return an empty `VecDeque` for those indices.
-	fn claim_queue_iterator() -> impl Iterator<Item = (CoreIndex, VecDeque<Assignment>)> {
-		let queues = ClaimQueue::<T>::get();
-		return ClaimQueueIterator::<Assignment> {
-			next_idx: 0,
-			queue: queues.into_iter().peekable(),
-		}
 	}
 
 	/// Get the validators in the given group, if the group index is valid for this session.
 	pub(crate) fn group_validators(group_index: GroupIndex) -> Option<Vec<ValidatorIndex>> {
 		ValidatorGroups::<T>::get().get(group_index.0 as usize).map(|g| g.clone())
+	}
+
+	/// Get the number of validator groups.
+	pub(crate) fn num_validator_groups() -> usize {
+		ValidatorGroups::<T>::decode_len().unwrap_or(0)
 	}
 
 	/// Get the group assigned to a specific core by index at the current block number. Result
@@ -362,10 +345,67 @@ impl<T: Config> Pallet<T> {
 		.map(|para_id| ScheduledCore { para_id, collator: None })
 	}
 
-	// on new session
-	fn maybe_resize_claim_queue(old_core_count: u32) {
-		let new_core_count = Self::num_assigner_cores();
+	pub(crate) fn peek_claim_queue(core_idx: &CoreIndex) -> Option<Assignment> {
+		// Since this is being called from a runtime API, we need to workaround for #64.
+		if Self::on_chain_storage_version() == StorageVersion::new(2) {
+			migration::v2::ClaimQueue::<T>::get()
+				.get(core_idx)?
+				.front()
+				.map(|entry| entry.assignment.clone())
+		} else {
+			ClaimQueue::<T>::get().get(core_idx)?.front().cloned()
+		}
+	}
 
+	/// Paras that may get backed on cores.
+	///
+	/// 1. The para must be scheduled on core.
+	/// 2. Core needs to be free, otherwise backing is not possible.
+	///
+	/// We get a set of the occupied cores as input.
+	pub(crate) fn eligible_paras<'a>(
+		occupied_cores: &'a BTreeSet<CoreIndex>,
+	) -> impl Iterator<Item = (CoreIndex, ParaId)> + 'a {
+		Self::claim_queue_iterator().filter_map(|(core_idx, queue)| {
+			if occupied_cores.contains(&core_idx) {
+				return None
+			}
+			let next_scheduled = queue.front()?;
+			Some((core_idx, next_scheduled.para_id()))
+		})
+	}
+
+	/// For each core that isn't part of the `except_for` set, pop the first item of the claim queue
+	/// and fill the queue from the assignment provider.
+	pub(crate) fn advance_claim_queue(except_for: &BTreeSet<CoreIndex>) {
+		// This can only happen on new sessions at which we move all assignments back to the
+		// provider. Hence, there's nothing we need to do here.
+		// TODO: what??
+		if ValidatorGroups::<T>::decode_len().map_or(true, |l| l == 0) {
+			return
+		}
+		let config = configuration::ActiveConfig::<T>::get();
+		let num_assigner_cores = config.scheduler_params.num_cores;
+		// Extra sanity, config should already never be smaller than 1:
+		let n_lookahead = config.scheduler_params.lookahead.max(1);
+
+		for core_idx in 0..num_assigner_cores {
+			let core_idx = CoreIndex::from(core_idx);
+
+			if !except_for.contains(&core_idx) {
+				let core_idx = CoreIndex::from(core_idx);
+
+				if let Some(dropped_para) = Self::pop_from_claim_queue(&core_idx) {
+					T::AssignmentProvider::report_processed(dropped_para.para_id(), core_idx);
+				}
+
+				Self::fill_claim_queue(core_idx, n_lookahead);
+			}
+		}
+	}
+
+	// on new session
+	fn maybe_resize_claim_queue(old_core_count: u32, new_core_count: u32) {
 		if new_core_count < old_core_count {
 			ClaimQueue::<T>::mutate(|cq| {
 				let to_remove: Vec<_> = cq
@@ -383,13 +423,12 @@ impl<T: Config> Pallet<T> {
 
 	// Populate the claim queue. To be called on new session, after all the other modules were
 	// initialized.
-	fn populate_claim_queue_after_session_change() {
-		let n_session_cores = Self::num_assigner_cores();
+	fn populate_claim_queue_after_session_change(new_core_count: u32) {
 		let config = configuration::ActiveConfig::<T>::get();
 		// Extra sanity, config should already never be smaller than 1:
 		let n_lookahead = config.scheduler_params.lookahead.max(1);
 
-		for core_idx in 0..n_session_cores {
+		for core_idx in 0..new_core_count {
 			let core_idx = CoreIndex::from(core_idx);
 			Self::fill_claim_queue(core_idx, n_lookahead);
 		}
@@ -407,31 +446,17 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// For each core that isn't part of the `except_for` set, pop the first item of the claim queue
-	/// and fill the queue from the assignment provider.
-	pub(crate) fn advance_claim_queue(except_for: &BTreeSet<CoreIndex>) {
-		// This can only happen on new sessions at which we move all assignments back to the
-		// provider. Hence, there's nothing we need to do here.
-		if ValidatorGroups::<T>::decode_len().map_or(true, |l| l == 0) {
-			return
-		}
-		let n_session_cores = Self::num_assigner_cores();
-		let config = configuration::ActiveConfig::<T>::get();
-		// Extra sanity, config should already never be smaller than 1:
-		let n_lookahead = config.scheduler_params.lookahead.max(1);
-
-		for core_idx in 0..n_session_cores {
-			let core_idx = CoreIndex::from(core_idx);
-
-			if !except_for.contains(&core_idx) {
-				let core_idx = CoreIndex::from(core_idx);
-
-				if let Some(dropped_para) = Self::pop_from_claim_queue(&core_idx) {
-					T::AssignmentProvider::report_processed(dropped_para.para_id(), core_idx);
-				}
-
-				Self::fill_claim_queue(core_idx, n_lookahead);
-			}
+	/// Get an iterator into the claim queues.
+	///
+	/// This iterator will have an item for each and every core index up to the maximum core index
+	/// found in the claim queue. In other words there will be no holes/missing core indices,
+	/// between core 0 and the maximum, even if the claim queue was missing entries for particular
+	/// indices in between. (The iterator will return an empty `VecDeque` for those indices.
+	fn claim_queue_iterator() -> impl Iterator<Item = (CoreIndex, VecDeque<Assignment>)> {
+		let queues = ClaimQueue::<T>::get();
+		return ClaimQueueIterator::<Assignment> {
+			next_idx: 0,
+			queue: queues.into_iter().peekable(),
 		}
 	}
 
@@ -473,36 +498,6 @@ impl<T: Config> Pallet<T> {
 
 	fn pop_from_claim_queue(core_idx: &CoreIndex) -> Option<Assignment> {
 		ClaimQueue::<T>::mutate(|cq| cq.get_mut(core_idx)?.pop_front())
-	}
-
-	pub(crate) fn peek_claim_queue(core_idx: &CoreIndex) -> Option<Assignment> {
-		// Since this is being called from a runtime API, we need to workaround for #64.
-		if Self::on_chain_storage_version() == StorageVersion::new(2) {
-			migration::v2::ClaimQueue::<T>::get()
-				.get(core_idx)?
-				.front()
-				.map(|entry| entry.assignment.clone())
-		} else {
-			ClaimQueue::<T>::get().get(core_idx)?.front().cloned()
-		}
-	}
-
-	/// Paras that may get backed on cores.
-	///
-	/// 1. The para must be scheduled on core.
-	/// 2. Core needs to be free, otherwise backing is not possible.
-	///
-	/// We get a set of the occupied cores as input.
-	pub(crate) fn eligible_paras<'a>(
-		occupied_cores: &'a BTreeSet<CoreIndex>,
-	) -> impl Iterator<Item = (CoreIndex, ParaId)> + 'a {
-		Self::claim_queue_iterator().filter_map(|(core_idx, queue)| {
-			if occupied_cores.contains(&core_idx) {
-				return None
-			}
-			let next_scheduled = queue.front()?;
-			Some((core_idx, next_scheduled.para_id()))
-		})
 	}
 
 	#[cfg(any(feature = "try-runtime", test))]

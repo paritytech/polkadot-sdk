@@ -87,11 +87,11 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 
 	let occupied_cores: BTreeMap<CoreIndex, ParaId> =
 		inclusion::Pallet::<T>::get_occupied_cores().collect();
-	let n_cores = scheduler::ValidatorGroups::<T>::get().len() as u32;
+	let n_cores = scheduler::Pallet::<T>::num_validator_groups();
 
 	(0..n_cores)
 		.map(|core_idx| {
-			let core_idx = CoreIndex(core_idx);
+			let core_idx = CoreIndex(core_idx as u32);
 			if let Some(para_id) = occupied_cores.get(&core_idx) {
 				// Due to https://github.com/paritytech/polkadot-sdk/issues/64, using the new storage types would cause
 				// this runtime API to panic. We explicitly handle the storage for version 0 to

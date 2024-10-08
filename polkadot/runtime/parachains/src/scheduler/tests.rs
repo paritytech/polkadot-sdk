@@ -66,16 +66,11 @@ fn run_to_block(
 			}
 			Scheduler::pre_new_session(std::iter::empty());
 
-			MockAssigner::set_core_count(notification.new_config.scheduler_params.num_cores);
-
 			Configuration::force_set_active_config(notification.new_config.clone());
 
 			Paras::initializer_on_new_session(&notification);
 
-			let prev_core_count = notification.prev_config.scheduler_params.num_cores;
 			Scheduler::initializer_on_new_session(&notification);
-
-			Scheduler::post_new_session(prev_core_count);
 		}
 
 		System::on_finalize(b);
@@ -242,6 +237,7 @@ fn session_change_takes_only_max_per_core() {
 fn advance_claim_queue_doubles_assignment_only_if_empty() {
 	let mut config = default_config();
 	config.scheduler_params.lookahead = 3;
+	config.scheduler_params.num_cores = 2;
 	let genesis_config = genesis_config(&config);
 
 	let para_a = ParaId::from(3_u32);
@@ -253,8 +249,6 @@ fn advance_claim_queue_doubles_assignment_only_if_empty() {
 	let assignment_c = Assignment::Bulk(para_c);
 
 	new_test_ext(genesis_config).execute_with(|| {
-		MockAssigner::set_core_count(2);
-
 		// Add 3 paras
 		register_para(para_a);
 		register_para(para_b);
@@ -463,8 +457,6 @@ fn schedule_rotates_groups() {
 	let para_b = ParaId::from(2_u32);
 
 	new_test_ext(genesis_config).execute_with(|| {
-		MockAssigner::set_core_count(on_demand_cores);
-
 		register_para(para_a);
 		register_para(para_b);
 
@@ -566,7 +558,6 @@ fn next_up_on_available_uses_next_scheduled_or_none() {
 	let para_b = ParaId::from(2_u32);
 
 	new_test_ext(genesis_config).execute_with(|| {
-		MockAssigner::set_core_count(1);
 		register_para(para_a);
 		register_para(para_b);
 

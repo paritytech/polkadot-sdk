@@ -254,8 +254,6 @@ impl<T: Config> Pallet<T> {
 			buf
 		};
 
-		let prev_core_count = scheduler::Pallet::<T>::num_assigner_cores();
-
 		// inform about upcoming new session
 		scheduler::Pallet::<T>::pre_new_session(inclusion::Pallet::<T>::get_occupied_cores());
 
@@ -288,8 +286,6 @@ impl<T: Config> Pallet<T> {
 		dmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
 		hrmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
 		T::CoretimeOnNewSession::on_new_session(&notification);
-
-		scheduler::Pallet::<T>::post_new_session(prev_core_count);
 	}
 
 	/// Should be called when a new session occurs. Buffers the session notification to be applied
