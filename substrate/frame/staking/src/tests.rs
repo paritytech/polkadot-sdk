@@ -8335,3 +8335,57 @@ mod byzantine_threshold_disabling_strategy {
 		});
 	}
 }
+
+mod unbonding_queue {
+	use crate::{
+		tests::Test, ActiveEra, ActiveEraInfo, DisablingStrategy, UpToLimitDisablingStrategy,
+	};
+	use sp_staking::EraIndex;
+
+	#[test]
+	fn get_min_lowest_third_stake_works() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// TODO: Implement
+
+			// Populate some `EraLowestThirdTotalStake` entries to test the function.
+
+			// Get unbonding queue params and ensure they are as expected.
+
+			// Ensure lowest values are always found.
+		});
+	}
+
+	#[test]
+	fn calculate_lowest_third_total_stake_works() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// TODO: Implement
+
+			// Get unbonding queue params and ensure they are as expected.
+
+			// Provide exposure data to the function to test the calculation.
+
+			// Ensure stale entries to `EraLowestThirdTotalStake` are removed.
+		});
+	}
+
+	#[test]
+	fn get_quick_unbond_max_unstake_works() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// TODO: Implement
+		});
+	}
+
+	#[test]
+	fn get_unbond_eras_delta_works() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// TODO: Implement
+		});
+	}
+
+	#[test]
+	fn correct_unbond_era_is_being_calculated() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// TODO: Implement
+		});
+	}
+}
