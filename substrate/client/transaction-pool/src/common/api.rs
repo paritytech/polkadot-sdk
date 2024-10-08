@@ -95,11 +95,11 @@ impl<Client, Block> FullChainApi<Client, Block> {
 			Ok(api) => Some(Arc::new(api)),
 		});
 
-		let (sender, receiver) = mpsc::channel(1);
+		let (sender, receiver) = mpsc::channel(0);
 
 		let receiver = Arc::new(Mutex::new(receiver));
 		spawn_validation_pool_task("transaction-pool-task-0", receiver.clone(), spawner);
-		spawn_validation_pool_task("transaction-pool-task-1", receiver.clone(), spawner);
+		spawn_validation_pool_task("transaction-pool-task-1", receiver, spawner);
 
 		FullChainApi { client, validation_pool: sender, _marker: Default::default(), metrics }
 	}
