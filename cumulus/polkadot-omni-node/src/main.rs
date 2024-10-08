@@ -18,6 +18,8 @@
 //!
 //! It can be used to start a parachain node from a provided chain spec file.
 //! It is only compatible with runtimes that use block number `u32` and `Aura` consensus.
+//!
+//! Example: `polkadot-omni-node --chain [chain_spec.json]`
 
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
