@@ -107,8 +107,9 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		}
 
 		if let Some(ref sink) = self.dropped_by_limits_sink {
-			//todo
-			let _ = sink.unbounded_send((tx.clone(), TransactionStatus::Ready));
+			if let Err(e) = sink.unbounded_send((tx.clone(), TransactionStatus::Ready)) {
+				trace!(target: LOG_TARGET, "[{:?}] dropped_sink/ready: send message failed: {:?}", tx, e);
+			}
 		}
 	}
 
@@ -117,8 +118,9 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		trace!(target: LOG_TARGET, "[{:?}] Future", tx);
 		self.fire(tx, |watcher| watcher.future());
 		if let Some(ref sink) = self.dropped_by_limits_sink {
-			//todo
-			let _ = sink.unbounded_send((tx.clone(), TransactionStatus::Future));
+			if let Err(e) = sink.unbounded_send((tx.clone(), TransactionStatus::Future)) {
+				trace!(target: LOG_TARGET, "[{:?}] dropped_sink/future: send message failed: {:?}", tx, e);
+			}
 		}
 	}
 
@@ -135,8 +137,9 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 
 		if limits_enforced {
 			if let Some(ref sink) = self.dropped_by_limits_sink {
-				//todo
-				let _ = sink.unbounded_send((tx.clone(), TransactionStatus::Dropped));
+				if let Err(e) = sink.unbounded_send((tx.clone(), TransactionStatus::Dropped)) {
+					trace!(target: LOG_TARGET, "[{:?}] dropped_sink/future: send message failed: {:?}", tx, e);
+				}
 			}
 		}
 	}
