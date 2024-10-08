@@ -14840,69 +14840,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "polkadot-overseer"
-version = "7.0.0"
+name = "polkadot-omni-node"
+version = "0.1.0"
 dependencies = [
- "assert_matches",
- "async-trait",
- "femme",
- "futures",
- "futures-timer",
- "orchestra",
- "parking_lot 0.12.3",
- "polkadot-node-metrics",
- "polkadot-node-network-protocol",
- "polkadot-node-primitives",
- "polkadot-node-subsystem-test-helpers",
- "polkadot-node-subsystem-types",
- "polkadot-primitives",
- "polkadot-primitives-test-helpers",
- "prioritized-metered-channel",
- "sc-client-api",
- "sp-api 26.0.0",
- "sp-core 28.0.0",
- "tikv-jemalloc-ctl",
- "tracing-gum",
-]
-
-[[package]]
-name = "polkadot-parachain-bin"
-version = "4.0.0"
-dependencies = [
- "asset-hub-rococo-runtime",
- "asset-hub-westend-runtime",
- "bp-messages",
- "bridge-hub-rococo-runtime",
- "bridge-hub-westend-runtime",
- "collectives-westend-runtime",
  "color-eyre",
- "contracts-rococo-runtime",
- "coretime-rococo-runtime",
- "coretime-westend-runtime",
- "cumulus-primitives-core",
- "glutton-westend-runtime",
- "hex-literal",
- "log",
- "parachains-common",
- "penpal-runtime",
- "people-rococo-runtime",
- "people-westend-runtime",
- "polkadot-parachain-lib",
- "rococo-parachain-runtime",
- "sc-chain-spec",
- "sc-cli",
- "sc-service",
- "serde",
- "serde_json",
- "sp-core 28.0.0",
- "sp-genesis-builder",
- "staging-xcm",
+ "polkadot-omni-node-lib",
  "substrate-build-script-utils",
- "testnet-parachains-constants",
 ]
 
 [[package]]
-name = "polkadot-parachain-lib"
+name = "polkadot-omni-node-lib"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
@@ -14973,6 +14920,66 @@ dependencies = [
  "substrate-state-trie-migration-rpc",
  "tokio",
  "wait-timeout",
+]
+
+[[package]]
+name = "polkadot-overseer"
+version = "7.0.0"
+dependencies = [
+ "assert_matches",
+ "async-trait",
+ "femme",
+ "futures",
+ "futures-timer",
+ "orchestra",
+ "parking_lot 0.12.3",
+ "polkadot-node-metrics",
+ "polkadot-node-network-protocol",
+ "polkadot-node-primitives",
+ "polkadot-node-subsystem-test-helpers",
+ "polkadot-node-subsystem-types",
+ "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
+ "prioritized-metered-channel",
+ "sc-client-api",
+ "sp-api 26.0.0",
+ "sp-core 28.0.0",
+ "tikv-jemalloc-ctl",
+ "tracing-gum",
+]
+
+[[package]]
+name = "polkadot-parachain-bin"
+version = "4.0.0"
+dependencies = [
+ "asset-hub-rococo-runtime",
+ "asset-hub-westend-runtime",
+ "bridge-hub-rococo-runtime",
+ "bridge-hub-westend-runtime",
+ "collectives-westend-runtime",
+ "color-eyre",
+ "contracts-rococo-runtime",
+ "coretime-rococo-runtime",
+ "coretime-westend-runtime",
+ "cumulus-primitives-core",
+ "glutton-westend-runtime",
+ "hex-literal",
+ "log",
+ "parachains-common",
+ "penpal-runtime",
+ "people-rococo-runtime",
+ "people-westend-runtime",
+ "polkadot-omni-node-lib",
+ "rococo-parachain-runtime",
+ "sc-chain-spec",
+ "sc-cli",
+ "sc-service",
+ "serde",
+ "serde_json",
+ "sp-core 28.0.0",
+ "sp-genesis-builder",
+ "staging-xcm",
+ "substrate-build-script-utils",
 ]
 
 [[package]]
@@ -15408,8 +15415,8 @@ dependencies = [
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-types",
  "polkadot-node-subsystem-util",
+ "polkadot-omni-node-lib",
  "polkadot-overseer",
- "polkadot-parachain-lib",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-rpc",

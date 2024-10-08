@@ -18,7 +18,7 @@ use cumulus_primitives_core::ParaId;
 pub(crate) use parachains_common::genesis_config_helpers::{
 	get_account_id_from_seed, get_collator_keys_from_seed, get_from_seed,
 };
-use polkadot_parachain_lib::{
+use polkadot_omni_node_lib::{
 	chain_spec::{GenericChainSpec, LoadSpec},
 	runtime::{
 		AuraConsensusId, BlockNumber, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
