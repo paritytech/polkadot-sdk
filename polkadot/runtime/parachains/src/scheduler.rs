@@ -225,7 +225,7 @@ impl<T: Config> Pallet<T> {
 
 		// Resize and populate claim queue.
 		Self::maybe_resize_claim_queue(prev_config.scheduler_params.num_cores, assigner_cores);
-		Self::populate_claim_queue_after_session_change(assigner_cores);
+		Self::populate_claim_queue_after_session_change();
 
 		let now = frame_system::Pallet::<T>::block_number() + One::one();
 		SessionStartBlock::<T>::set(now);
@@ -378,12 +378,6 @@ impl<T: Config> Pallet<T> {
 	/// For each core that isn't part of the `except_for` set, pop the first item of the claim queue
 	/// and fill the queue from the assignment provider.
 	pub(crate) fn advance_claim_queue(except_for: &BTreeSet<CoreIndex>) {
-		// This can only happen on new sessions at which we move all assignments back to the
-		// provider. Hence, there's nothing we need to do here.
-		// TODO: what??
-		if ValidatorGroups::<T>::decode_len().map_or(true, |l| l == 0) {
-			return
-		}
 		let config = configuration::ActiveConfig::<T>::get();
 		let num_assigner_cores = config.scheduler_params.num_cores;
 		// Extra sanity, config should already never be smaller than 1:
@@ -395,7 +389,7 @@ impl<T: Config> Pallet<T> {
 			if !except_for.contains(&core_idx) {
 				let core_idx = CoreIndex::from(core_idx);
 
-				if let Some(dropped_para) = Self::pop_from_claim_queue(&core_idx) {
+				if let Some(dropped_para) = Self::pop_front_of_claim_queue(&core_idx) {
 					T::AssignmentProvider::report_processed(dropped_para.para_id(), core_idx);
 				}
 
@@ -423,10 +417,11 @@ impl<T: Config> Pallet<T> {
 
 	// Populate the claim queue. To be called on new session, after all the other modules were
 	// initialized.
-	fn populate_claim_queue_after_session_change(new_core_count: u32) {
+	fn populate_claim_queue_after_session_change() {
 		let config = configuration::ActiveConfig::<T>::get();
 		// Extra sanity, config should already never be smaller than 1:
 		let n_lookahead = config.scheduler_params.lookahead.max(1);
+		let new_core_count = config.scheduler_params.num_cores;
 
 		for core_idx in 0..new_core_count {
 			let core_idx = CoreIndex::from(core_idx);
@@ -496,7 +491,7 @@ impl<T: Config> Pallet<T> {
 		});
 	}
 
-	fn pop_from_claim_queue(core_idx: &CoreIndex) -> Option<Assignment> {
+	fn pop_front_of_claim_queue(core_idx: &CoreIndex) -> Option<Assignment> {
 		ClaimQueue::<T>::mutate(|cq| cq.get_mut(core_idx)?.pop_front())
 	}
 

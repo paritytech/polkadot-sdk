@@ -253,9 +253,17 @@ pub mod pallet {
 
 			ensure!(!Included::<T>::exists(), Error::<T>::TooManyInclusionInherents);
 			Included::<T>::set(Some(()));
+			let initial_candidate_count = data.backed_candidates.len();
 
-			Self::process_inherent_data(data, ProcessInherentDataContext::Enter)
-				.map(|(_processed, post_info)| post_info)
+			Self::process_inherent_data(data, ProcessInherentDataContext::Enter).and_then(
+				|(processed, post_info)| {
+					ensure!(
+						initial_candidate_count == processed.backed_candidates.len(),
+						Error::<T>::CandidatesFilteredDuringExecution
+					);
+					Ok(post_info)
+				},
+			)
 		}
 	}
 }
@@ -588,7 +596,7 @@ impl<T: Config> Pallet<T> {
 
 		// Back candidates.
 		let (candidate_receipt_with_backing_validator_indices, backed_candidates_with_core) =
-			Self::back_candidates(context, concluded_invalid_hashes, backed_candidates)?;
+			Self::back_candidates(concluded_invalid_hashes, backed_candidates)?;
 
 		set_scrapable_on_chain_backings::<T>(
 			current_session,
@@ -619,7 +627,6 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn back_candidates(
-		context: ProcessInherentDataContext,
 		concluded_invalid_hashes: BTreeSet<CandidateHash>,
 		backed_candidates: Vec<BackedCandidate<T::Hash>>,
 	) -> Result<
@@ -633,8 +640,6 @@ impl<T: Config> Pallet<T> {
 		let upcoming_new_session = initializer::Pallet::<T>::upcoming_session_change();
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
-
-		let initial_candidate_count = backed_candidates.len();
 
 		if !upcoming_new_session {
 			let occupied_cores =
@@ -674,16 +679,6 @@ impl<T: Config> Pallet<T> {
 
 			METRICS.on_candidates_sanitized(count as u64);
 
-			// In `Enter` context (invoked during execution) no more candidates should be
-			// filtered, because they have already been filtered during `ProvideInherent`
-			// context. Abort in such cases.
-			if context == ProcessInherentDataContext::Enter {
-				ensure!(
-					initial_candidate_count == count,
-					Error::<T>::CandidatesFilteredDuringExecution
-				);
-			}
-
 			// Process backed candidates according to scheduled cores.
 			let candidate_receipt_with_backing_validator_indices =
 				inclusion::Pallet::<T>::process_candidates(
@@ -706,17 +701,6 @@ impl<T: Config> Pallet<T> {
 			);
 			// If we'll initialize a new session at the end of the block, we don't want to
 			// advance the claim queue.
-
-			// In `Enter` context (invoked during execution) no more candidates should be
-			// filtered, because they have already been filtered during `ProvideInherent`
-			// context. Abort in such cases.
-			// In the case of an upcoming session change, the backed candidates should be empty.
-			if context == ProcessInherentDataContext::Enter {
-				ensure!(
-					initial_candidate_count == 0,
-					Error::<T>::CandidatesFilteredDuringExecution
-				);
-			}
 
 			Ok((vec![], BTreeMap::new()))
 		}
@@ -1179,10 +1163,7 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 }
 
 fn count_backed_candidates<B>(backed_candidates: &BTreeMap<ParaId, Vec<B>>) -> usize {
-	backed_candidates.iter().fold(0, |mut count, (_id, candidates)| {
-		count += candidates.len();
-		count
-	})
+	backed_candidates.values().map(|c| c.len()).sum()
 }
 
 /// Derive entropy from babe provided per block randomness.

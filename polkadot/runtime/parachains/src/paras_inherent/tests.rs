@@ -1780,7 +1780,7 @@ mod enter {
 				dispute_statements: BTreeMap::new(),
 				dispute_sessions: vec![], // No disputes
 				backed_and_concluding,
-				num_validators_per_core: 5,
+				num_validators_per_core: 1,
 				code_upgrade: None,
 				elastic_paras: [(2, 8)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
@@ -1800,8 +1800,8 @@ mod enter {
 			let unfiltered_para_inherent_data = scenario.data.clone();
 
 			// Check the para inherent data is as expected:
-			// * 1 bitfield per validator (5 validators per core, 10 backed candidates)
-			assert_eq!(unfiltered_para_inherent_data.bitfields.len(), 50);
+			// * 1 bitfield per validator (1 validators per core, 10 backed candidates)
+			assert_eq!(unfiltered_para_inherent_data.bitfields.len(), 10);
 			// * 10 v2 candidate descriptors.
 			assert_eq!(unfiltered_para_inherent_data.backed_candidates.len(), 10);
 
@@ -1847,7 +1847,7 @@ mod enter {
 				dispute_statements: BTreeMap::new(),
 				dispute_sessions: vec![], // No disputes
 				backed_and_concluding,
-				num_validators_per_core: 5,
+				num_validators_per_core: 1,
 				code_upgrade: None,
 				elastic_paras: [(2, 8)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
@@ -1867,8 +1867,8 @@ mod enter {
 			let unfiltered_para_inherent_data = scenario.data.clone();
 
 			// Check the para inherent data is as expected:
-			// * 1 bitfield per validator (5 validators per core, 10 backed candidates)
-			assert_eq!(unfiltered_para_inherent_data.bitfields.len(), 50);
+			// * 1 bitfield per validator (1 validator per core, 10 backed candidates)
+			assert_eq!(unfiltered_para_inherent_data.bitfields.len(), 10);
 			// * 10 v2 candidate descriptors.
 			assert_eq!(unfiltered_para_inherent_data.backed_candidates.len(), 10);
 
