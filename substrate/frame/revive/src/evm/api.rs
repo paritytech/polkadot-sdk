@@ -29,4 +29,13 @@ mod rpc_types;
 mod rpc_types_gen;
 pub use rpc_types_gen::*;
 
+/// A type used to encode the `input` field of an Ethereum transaction
+#[derive(Clone, rlp_derive::RlpEncodable, rlp_derive::RlpDecodable)]
+pub struct EthInstantiateInput {
+	/// The bytecode of the contract.
+	pub code: Vec<u8>,
+	/// The data to pass to the constructor.
+	pub data: Vec<u8>,
+}
+
 mod signature;

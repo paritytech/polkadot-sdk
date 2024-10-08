@@ -206,15 +206,6 @@ pub enum Code {
 	Existing(sp_core::H256),
 }
 
-/// A type used to encode the `input` field of an Ethereum transaction
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct EthInstantiateInput {
-	/// The bytecode of the contract.
-	pub code: Vec<u8>,
-	/// The data to pass to the constructor.
-	pub data: Vec<u8>,
-}
-
 /// The amount of balance that was either charged or refunded in order to pay for storage.
 #[derive(
 	Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo,

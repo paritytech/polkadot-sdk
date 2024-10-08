@@ -47,6 +47,7 @@ pub mod weights;
 #[cfg(test)]
 mod tests;
 use crate::{
+	evm::EthInstantiateInput,
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -1221,7 +1222,7 @@ where
 			let payload = tx.dummy_signed_payload();
 
 			let Ok(EthInstantiateInput { code, data }) =
-				EthInstantiateInput::decode(&mut &tx.input.0[..])
+				rlp::decode::<EthInstantiateInput>(&tx.input.0)
 			else {
 				let transact_kind = EthTransactKind::InstantiateWithCode {
 					code_len: tx.input.0.len() as u32,

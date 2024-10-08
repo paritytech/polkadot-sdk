@@ -17,9 +17,11 @@
 //! Runtime types for integrating `pallet-revive` with the EVM.
 #![allow(unused_imports, unused_variables)]
 use crate::{
-	evm::api::{TransactionLegacySigned, TransactionLegacyUnsigned, TransactionUnsigned},
-	AccountIdOf, AddressMapper, BalanceOf, Config, EthInstantiateInput, EthTransactKind, MomentOf,
-	Weight, LOG_TARGET,
+	evm::{
+		api::{TransactionLegacySigned, TransactionLegacyUnsigned, TransactionUnsigned},
+		EthInstantiateInput,
+	},
+	AccountIdOf, AddressMapper, BalanceOf, Config, EthTransactKind, MomentOf, Weight, LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
@@ -337,11 +339,11 @@ pub trait EthExtra {
 				return Err(InvalidTransaction::Call);
 			};
 
-			let EthInstantiateInput { code, data } = EthInstantiateInput::decode(&mut &input.0[..])
+			let EthInstantiateInput { code, data } = rlp::decode::<EthInstantiateInput>(&input.0)
 				.map_err(|_| {
-					log::debug!(target: LOG_TARGET, "Failed to decoded eth_transact input");
-					InvalidTransaction::Call
-				})?;
+				log::debug!(target: LOG_TARGET, "Failed to decoded eth_transact input");
+				InvalidTransaction::Call
+			})?;
 
 			if code.len() as u32 != code_len || data.len() as u32 != data_len {
 				log::debug!(target: LOG_TARGET, "Invalid code or data length");
@@ -484,7 +486,7 @@ mod test {
 				code_len: code.len() as u32,
 				data_len: data.len() as u32,
 			};
-			builder.tx.input = Bytes(EthInstantiateInput { code, data }.encode());
+			builder.tx.input = Bytes(rlp::encode(&EthInstantiateInput { code, data }));
 			builder
 		}
 

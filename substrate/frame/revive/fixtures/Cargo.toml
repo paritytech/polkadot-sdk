@@ -32,11 +32,4 @@ default = ["std"]
 # we will remove this once there is an upstream toolchain
 riscv = []
 # only when std is enabled all fixtures are available
-std = [
-	"anyhow",
-	"frame-system",
-	"log/std",
-	"sp-core",
-	"sp-io",
-	"sp-runtime",
-]
+std = ["anyhow", "frame-system", "log/std", "sp-core", "sp-io", "sp-runtime"]

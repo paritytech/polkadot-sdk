@@ -21,15 +21,16 @@ environmental = { workspace = true }
 paste = { workspace = true }
 polkavm = { version = "0.11.0", default-features = false }
 bitflags = { workspace = true }
-codec = { features = [
-	"derive",
-	"max-encoded-len",
-], workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 log = { workspace = true }
-serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
+serde = { features = [
+	"alloc",
+	"derive",
+], workspace = true, default-features = false }
 impl-trait-for-tuples = { workspace = true }
 rlp = { workspace = true }
+rlp-derive = { workspace = true }
 derive_more.workspace = true
 hex = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"], optional = true }
