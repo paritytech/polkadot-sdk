@@ -18,7 +18,7 @@ on:
 
 jobs:
   check-synchronization:
-    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@latest
+    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
 
   validate-inputs:
     needs: [check-synchronization]
