@@ -31,7 +31,7 @@ use crate::{
 	},
 	graph,
 	graph::{ExtrinsicHash, IsValidator},
-	PolledIterator, ReadyIteratorFor,
+	PolledIterator, ReadyIteratorFor, LOG_TARGET,
 };
 use async_trait::async_trait;
 use futures::{channel::oneshot, future, prelude::*, Future, FutureExt};
@@ -55,8 +55,6 @@ use std::{
 	time::Instant,
 };
 use tokio::select;
-
-pub(crate) const LOG_TARGET: &str = "txpool";
 
 /// Basic implementation of transaction pool that can be customized by providing PoolApi.
 pub struct BasicPool<PoolApi, Block>
