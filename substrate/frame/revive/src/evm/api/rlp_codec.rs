@@ -20,6 +20,20 @@
 use super::*;
 use rlp::{Decodable, Encodable};
 
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
+impl TransactionLegacyUnsigned {
+	/// Get a rlp encoded bytes of a signed transaction with a dummy 65 bytes signature.
+	pub fn dummy_signed_payload(&self) -> Vec<u8> {
+		let mut s = rlp::RlpStream::new();
+		s.append(self);
+		const DUMMY_SIGNATURE: [u8; 65] = [0u8; 65];
+		s.append_raw(&DUMMY_SIGNATURE.as_ref(), 1);
+		s.out().to_vec()
+	}
+}
+
 /// See <https://eips.ethereum.org/EIPS/eip-155>
 impl Encodable for TransactionLegacyUnsigned {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
@@ -104,8 +118,9 @@ impl Encodable for TransactionLegacySigned {
 impl Decodable for TransactionLegacySigned {
 	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
 		let v: U256 = rlp.val_at(6)?;
-		let extract_chain_id = |v: u64| {
-			if v >= 35 {
+
+		let extract_chain_id = |v: U256| {
+			if v.ge(&35u32.into()) {
 				Some((v - 35) / 2)
 			} else {
 				None
@@ -128,7 +143,7 @@ impl Decodable for TransactionLegacySigned {
 					},
 					value: rlp.val_at(4)?,
 					input: Bytes(rlp.val_at(5)?),
-					chain_id: extract_chain_id(v.as_u64()).map(|v| v.into()),
+					chain_id: extract_chain_id(v).map(|v| v.into()),
 					r#type: Type0 {},
 				}
 			},
@@ -193,6 +208,24 @@ mod test {
 		let rlp_bytes = rlp::encode(&tx);
 		let decoded = rlp::decode::<TransactionLegacySigned>(&rlp_bytes).unwrap();
 		assert_eq!(&tx, &decoded);
+	}
+
+	#[test]
+	fn dummy_signed_payload_works() {
+		let tx = TransactionLegacyUnsigned {
+			chain_id: Some(596.into()),
+			gas: U256::from(21000),
+			nonce: U256::from(1),
+			gas_price: U256::from("0x640000006a"),
+			to: Some(Account::from(subxt_signer::eth::dev::baltathar()).address()),
+			value: U256::from(123123),
+			input: Bytes(vec![]),
+			r#type: Type0,
+		};
+
+		let signed_tx = Account::default().sign_transaction(tx.clone());
+		let rlp_bytes = rlp::encode(&signed_tx);
+		assert_eq!(tx.dummy_signed_payload().len(), rlp_bytes.len());
 	}
 
 	#[test]

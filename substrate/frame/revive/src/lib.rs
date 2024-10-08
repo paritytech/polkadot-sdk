@@ -136,7 +136,7 @@ pub mod pallet {
 	use sp_runtime::Perbill;
 
 	/// The in-code storage version.
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1148,7 +1148,7 @@ where
 
 	/// A version of [`Self::eth_transact`] used to dry-run Ethereum calls.
 	pub fn bare_eth_transact(
-		origin: OriginFor<T>,
+		origin: T::AccountId,
 		dest: Option<H160>,
 		value: BalanceOf<T>,
 		input: Vec<u8>,
@@ -1160,43 +1160,48 @@ where
 	where
 		<T as Config>::RuntimeCall: From<crate::Call<T>>,
 		<T as Config>::RuntimeCall: Encode,
+		T::Nonce: Into<U256>,
 	{
-		use crate::evm::{TransactionLegacySigned, TransactionLegacyUnsigned};
+		use crate::evm::TransactionLegacyUnsigned;
+		use frame_support::traits::OriginTrait;
+		let nonce: T::Nonce = <System<T>>::account_nonce(&origin);
 
 		if let Some(dest) = dest {
-			let tx = TransactionLegacySigned {
-				transaction_legacy_unsigned: TransactionLegacyUnsigned {
-					value: value.into(),
-					input: input.into(),
-					to: Some(dest),
-					..Default::default()
-				},
+			let tx = TransactionLegacyUnsigned {
+				value: value.into(),
+				input: input.into(),
+				nonce: nonce.into(),
+				chain_id: Some(T::ChainId::get().into()),
+				gas_price: 1u32.into(),
+				gas: u128::MAX.into(),
+				to: Some(dest),
 				..Default::default()
 			};
 
-			let payload = rlp::encode(&tx).to_vec();
+			let payload = tx.dummy_signed_payload();
+
 			let result = crate::Pallet::<T>::bare_call(
-				origin,
+				T::RuntimeOrigin::signed(origin),
 				dest,
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				tx.transaction_legacy_unsigned.input.0,
+				tx.input.0,
 				debug,
 				collect_events,
 			);
 
-			let dispatch_call = crate::Call::<T>::eth_transact {
+			let transact_kind = EthTransactKind::Call;
+			let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
 				payload,
 				gas_limit: result.gas_required,
 				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-				transact_kind: EthTransactKind::Call,
-			};
-
-			let dispatch_call: <T as Config>::RuntimeCall = dispatch_call.into();
+				transact_kind,
+			}
+			.into();
 
 			EthContractResultDetails {
-				kind: EthTransactKind::Call,
+				transact_kind,
 				dispatch_info: dispatch_call.get_dispatch_info(),
 				len: dispatch_call.encode().len() as u32,
 				gas_limit: result.gas_required,
@@ -1204,31 +1209,33 @@ where
 				result: result.result.map(|v| v.data),
 			}
 		} else {
-			let tx = TransactionLegacySigned {
-				transaction_legacy_unsigned: TransactionLegacyUnsigned {
-					value: value.into(),
-					input: input.into(),
-					..Default::default()
-				},
+			let tx = TransactionLegacyUnsigned {
+				value: value.into(),
+				input: input.into(),
+				nonce: nonce.into(),
+				chain_id: Some(T::ChainId::get().into()),
+				gas_price: 1u32.into(),
+				gas: u128::MAX.into(),
 				..Default::default()
 			};
-			let payload = rlp::encode(&tx).to_vec();
+			let payload = tx.dummy_signed_payload();
 
 			let Ok(EthInstantiateInput { code, data }) =
-				EthInstantiateInput::decode(&mut &tx.transaction_legacy_unsigned.input.0[..])
+				EthInstantiateInput::decode(&mut &tx.input.0[..])
 			else {
+				let transact_kind = EthTransactKind::InstantiateWithCode {
+					code_len: tx.input.0.len() as u32,
+					data_len: 0,
+				};
 				let dispatch_call = crate::Call::<T>::eth_transact {
 					payload,
 					gas_limit: Default::default(),
 					storage_deposit_limit: 0u32.into(),
-					transact_kind: EthTransactKind::InstantiateWithCode {
-						code_len: tx.transaction_legacy_unsigned.input.0.len() as u32,
-						data_len: 0,
-					},
+					transact_kind,
 				};
 
 				return EthContractResultDetails {
-					kind: EthTransactKind::Call,
+					transact_kind,
 					dispatch_info: dispatch_call.get_dispatch_info(),
 					gas_limit: Default::default(),
 					storage_deposit: Default::default(),
@@ -1240,7 +1247,7 @@ where
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
 			let result = crate::Pallet::<T>::bare_instantiate(
-				origin,
+				T::RuntimeOrigin::signed(origin),
 				value,
 				gas_limit,
 				storage_deposit_limit,
@@ -1251,17 +1258,17 @@ where
 				CollectEvents::Skip,
 			);
 
-			let dispatch_call = crate::Call::<T>::eth_transact {
+			let transact_kind = EthTransactKind::InstantiateWithCode { code_len, data_len };
+			let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
 				payload,
-				transact_kind: EthTransactKind::InstantiateWithCode { code_len, data_len },
+				transact_kind,
 				gas_limit: result.gas_required,
 				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-			};
-
-			let dispatch_call: <T as Config>::RuntimeCall = dispatch_call.into();
+			}
+			.into();
 
 			EthContractResultDetails {
-				kind: EthTransactKind::InstantiateWithCode { code_len, data_len },
+				transact_kind,
 				dispatch_info: dispatch_call.get_dispatch_info(),
 				len: dispatch_call.encode().len() as u32,
 				gas_limit: result.gas_required,

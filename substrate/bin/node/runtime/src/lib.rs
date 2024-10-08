@@ -3057,7 +3057,7 @@ impl_runtime_apis! {
 			let blockweights: BlockWeights = <Runtime as frame_system::Config>::BlockWeights::get();
 			let origin = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id_contract(&from);
 			Revive::bare_eth_transact(
-				RuntimeOrigin::signed(origin),
+				origin,
 				dest,
 				value,
 				input,
