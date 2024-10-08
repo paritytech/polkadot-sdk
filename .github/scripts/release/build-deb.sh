@@ -5,7 +5,7 @@ PRODUCT=$1
 VERSION=$2
 PROFILE=${PROFILE:-production}
 
-cargo install cargo-deb
+cargo install --version 2.7.0 cargo-deb --locked -q
 echo "Using cargo-deb v$(cargo-deb --version)"
 echo "Building a Debian package for '$PRODUCT' in '$PROFILE' profile"
 
