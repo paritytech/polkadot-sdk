@@ -151,7 +151,7 @@ impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 	fn from(ir: ExtrinsicMetadataIR) -> Self {
 		ExtrinsicMetadata {
 			ty: ir.ty,
-			version: ir.version,
+			version: ir.version.iter().min().cloned().unwrap_or(0),
 			signed_extensions: ir.extensions.into_iter().map(Into::into).collect(),
 		}
 	}

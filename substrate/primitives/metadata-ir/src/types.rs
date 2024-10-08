@@ -168,7 +168,7 @@ pub struct ExtrinsicMetadataIR<T: Form = MetaForm> {
 	/// Note: Field used for metadata V14 only.
 	pub ty: T::Type,
 	/// Extrinsic version.
-	pub version: u8,
+	pub version: Vec<u8>,
 	/// The type of the address that signs the extrinsic
 	pub address_ty: T::Type,
 	/// The type of the outermost Call enum.

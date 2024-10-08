@@ -115,7 +115,7 @@ pub fn expand_runtime_metadata(
 					pallets: #scrate::__private::vec![ #(#pallets),* ],
 					extrinsic: #scrate::__private::metadata_ir::ExtrinsicMetadataIR {
 						ty,
-						version: <#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata>::VERSION,
+						version: <#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata>::VERSION.to_vec(),
 						address_ty,
 						call_ty,
 						signature_ty,

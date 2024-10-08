@@ -81,7 +81,7 @@ mod test {
 			pallets: vec![],
 			extrinsic: ExtrinsicMetadataIR {
 				ty: meta_type::<()>(),
-				version: 0,
+				version: vec![0],
 				address_ty: meta_type::<()>(),
 				call_ty: meta_type::<()>(),
 				signature_ty: meta_type::<()>(),

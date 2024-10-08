@@ -46,6 +46,8 @@ pub type ExtrinsicVersion = u8;
 /// It ensures that if the representation is changed and the format is not known,
 /// the decoding fails.
 pub const EXTRINSIC_FORMAT_VERSION: ExtrinsicVersion = 5;
+/// The current supported versions of the [`UncheckedExtrinsic`] encoded format.
+pub const SUPPORTED_EXTRINSIC_FORMAT_VERSIONS: [ExtrinsicVersion; 2] = [4, 5];
 /// Current version of the [Extension](TransactionExtension) used in this
 /// [extrinsic](UncheckedExtrinsic).
 ///
@@ -461,7 +463,7 @@ where
 impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call>>
 	ExtrinsicMetadata for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
-	const VERSION: u8 = EXTRINSIC_FORMAT_VERSION;
+	const VERSION: &'static [u8] = &SUPPORTED_EXTRINSIC_FORMAT_VERSIONS;
 	type TransactionExtensions = Extension;
 }
 

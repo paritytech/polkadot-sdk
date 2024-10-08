@@ -1412,7 +1412,7 @@ pub trait ExtrinsicMetadata {
 	/// The format version of the `Extrinsic`.
 	///
 	/// By format is meant the encoded representation of the `Extrinsic`.
-	const VERSION: u8;
+	const VERSION: &'static [u8];
 
 	/// Transaction extensions attached to this `Extrinsic`.
 	type TransactionExtensions;
