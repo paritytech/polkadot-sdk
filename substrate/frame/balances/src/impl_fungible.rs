@@ -354,7 +354,9 @@ impl<T: Config<I>, I: 'static> fungible::Balanced<T::AccountId> for Pallet<T, I>
 		Self::deposit_event(Event::<T, I>::Withdraw { who: who.clone(), amount });
 	}
 	fn done_issue(amount: Self::Balance) {
-		Self::deposit_event(Event::<T, I>::Issued { amount });
+		if !amount.is_zero() {
+			Self::deposit_event(Event::<T, I>::Issued { amount });
+		}
 	}
 	fn done_rescind(amount: Self::Balance) {
 		Self::deposit_event(Event::<T, I>::Rescinded { amount });

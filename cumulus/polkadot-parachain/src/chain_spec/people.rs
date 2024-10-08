@@ -16,7 +16,7 @@
 
 use cumulus_primitives_core::ParaId;
 use parachains_common::Balance as PeopleBalance;
-use polkadot_parachain_lib::chain_spec::GenericChainSpec;
+use polkadot_omni_node_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::ChainSpec;
 use std::str::FromStr;
 
@@ -122,7 +122,7 @@ pub mod rococo {
 	use super::{ParaId, PeopleBalance};
 	use crate::chain_spec::SAFE_XCM_VERSION;
 	use parachains_common::{AccountId, AuraId};
-	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
+	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 	use sp_keyring::Sr25519Keyring;
 
@@ -211,7 +211,7 @@ pub mod westend {
 	use super::{ParaId, PeopleBalance};
 	use crate::chain_spec::SAFE_XCM_VERSION;
 	use parachains_common::{AccountId, AuraId};
-	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
+	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 	use sp_keyring::Sr25519Keyring;
 

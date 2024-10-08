@@ -16,7 +16,7 @@
 
 use cumulus_primitives_core::ParaId;
 use parachains_common::AuraId;
-use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
+use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
 use sp_keyring::Sr25519Keyring;
 
