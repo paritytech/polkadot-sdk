@@ -399,6 +399,7 @@ pub struct UnbondingQueueConfig {
 /// Default implementation for `UnbondingQueueConfig`, providing sensible defaults for slashable
 /// share and lower and upper bound eras. `back_of_unbonding_queue_era` can be set to zero, and will
 /// update upon the first unlock request by a staker.
+/// TODO: Remove this in favour of OptionQuery and make this settable via `StakingAdmin` call.
 impl Default for UnbondingQueueConfig {
 	fn default() -> Self {
 		Self {
