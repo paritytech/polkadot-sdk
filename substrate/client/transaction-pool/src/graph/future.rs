@@ -27,7 +27,7 @@ use sp_runtime::transaction_validity::TransactionTag as Tag;
 use std::time::Instant;
 
 use super::base_pool::Transaction;
-use crate::{log_xt_trace, LOG_TARGET};
+use crate::{common::log_xt::log_xt_trace, LOG_TARGET};
 
 /// Transaction with partially satisfied dependencies.
 pub struct WaitingTransaction<Hash, Ex> {

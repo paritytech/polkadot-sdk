@@ -52,8 +52,6 @@ type ReadyIteratorFor<PoolApi> =
 
 type PolledIterator<PoolApi> = Pin<Box<dyn Future<Output = ReadyIteratorFor<PoolApi>> + Send>>;
 
-use crate::common::log_xt::*;
-
 /// Log target for transaction pool.
 ///
 /// It can be used by other components for logging functionality strictly related to txpool (e.g.

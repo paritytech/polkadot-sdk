@@ -25,11 +25,12 @@
 
 use super::metrics::MetricsLink as PrometheusMetrics;
 use crate::{
+	common::log_xt::log_xt_trace,
 	graph::{
 		self, watcher::Watcher, ExtrinsicFor, ExtrinsicHash, IsValidator, ValidatedTransaction,
 		ValidatedTransactionFor,
 	},
-	log_xt_trace, LOG_TARGET,
+	LOG_TARGET,
 };
 use parking_lot::Mutex;
 use sc_transaction_pool_api::{PoolStatus, TransactionSource};

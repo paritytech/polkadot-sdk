@@ -22,7 +22,7 @@ use std::{
 	sync::Arc,
 };
 
-use crate::{log_xt_trace, LOG_TARGET};
+use crate::{common::log_xt::log_xt_trace, LOG_TARGET};
 use futures::channel::mpsc::{channel, Sender};
 use parking_lot::{Mutex, RwLock};
 use sc_transaction_pool_api::{error, PoolStatus, ReadyTransactions};

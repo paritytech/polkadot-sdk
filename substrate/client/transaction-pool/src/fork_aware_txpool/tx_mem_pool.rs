@@ -28,9 +28,10 @@
 
 use super::{metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener};
 use crate::{
+	common::log_xt::log_xt_trace,
 	graph,
 	graph::{ExtrinsicFor, ExtrinsicHash},
-	log_xt_trace, LOG_TARGET,
+	LOG_TARGET,
 };
 use futures::FutureExt;
 use itertools::Itertools;

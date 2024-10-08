@@ -22,9 +22,10 @@
 //! by any view are detected and properly notified.
 
 use crate::{
+	common::log_xt::log_xt_trace,
 	fork_aware_txpool::stream_map_util::next_event,
 	graph::{BlockHash, ChainApi, ExtrinsicHash},
-	log_xt_trace, LOG_TARGET,
+	LOG_TARGET,
 };
 use futures::stream::StreamExt;
 use log::{debug, trace};

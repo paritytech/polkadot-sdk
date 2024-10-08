@@ -21,21 +21,21 @@
 /// Logs every transaction from given `tx_collection` with given level.
 macro_rules! log_xt {
 	(data: hash, target: $target:expr, $level:expr, $tx_collection:expr, $text_with_format:expr) => {
-		if log::max_level() >= $level {
+		if log::log_enabled!($level) {
 			for tx in $tx_collection {
 				log::log!(target: $target, $level, $text_with_format, tx);
 			}
 		}
 	};
 	(data: hash, target: $target:expr, $level:expr, $tx_collection:expr, $text_with_format:expr,  $($arg:expr),*) => {
-		if log::max_level() >= $level {
+		if log::log_enabled!($level) {
 			for tx in $tx_collection {
 				log::log!(target: $target, $level, $text_with_format, tx,  $($arg),*);
 			}
 		}
 	};
 	(data: tuple, target: $target:expr, $level:expr, $tx_collection:expr, $text_with_format:expr) => {
-		if log::max_level() >= $level {
+		if log::log_enabled!($level) {
 			for tx in $tx_collection {
 				log::log!(target: $target, $level, $text_with_format, tx.0, tx.1)
 			}
@@ -43,7 +43,7 @@ macro_rules! log_xt {
 	};
 }
 
-/// Logs every transaction from given `tx_collection` with debug level.
+/// Logs every transaction from given `tx_collection` with trace level.
 macro_rules! log_xt_trace {
     (data: $datatype:ident, target: $target:expr, $($arg:tt)+) => ($crate::common::log_xt::log_xt!(data: $datatype, target: $target, log::Level::Trace, $($arg)+));
     (target: $target:expr, $tx_collection:expr, $text_with_format:expr) => ($crate::common::log_xt::log_xt!(data: hash, target: $target, log::Level::Trace, $tx_collection, $text_with_format));
