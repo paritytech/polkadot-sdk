@@ -74,7 +74,7 @@ jobs:
     steps:
       - name: Install pgpkkms
         run: |
-          # Install pgpkms that is used to sign build artifacts
+          # Install pgpkms that is used to sign built artifacts
           python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69"
           which pgpkms
 
@@ -93,13 +93,6 @@ jobs:
 
       - name: Build binary
         run: |
-          # ARTIFACTS=/artifacts/${{ matrix.binaries }}
-          # echo "Artifacts will be copied into $ARTIFACTS"
-          # mkdir -p "$ARTIFACTS"
-          # cd $ARTIFACTS
-          # echo "Test" >> ${{ matrix.binaries }}.txt
-          # sha256sum "${{ matrix.binaries }}.txt" | tee "${{ matrix.binaries }}.sha256"
-
           git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
           ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }}
 
@@ -112,9 +105,6 @@ jobs:
         working-directory: /artifacts/${{ matrix.binaries }}
         run: |
           python3 -m pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
-
-          # python3 -m pgpkms sign --input ${{ matrix.binaries }}.txt -o ${{ matrix.binaries }}.asc
-          ls -la
 
       - name: Check sha256 ${{ matrix.binaries }}
         working-directory: /artifacts/${{ matrix.binaries }}
@@ -132,13 +122,6 @@ jobs:
           . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
           check_gpg  ${{ matrix.binaries }}
-
-      # - name: Build polkadot deb package
-      #   if: ${{ matrix.binaries == 'polkadot' }}
-      #   shell: bash
-      #   run: |
-      #     . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ matrix.binaries }}
-
 
       - name: Upload ${{ matrix.binaries }} artifacts
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
@@ -164,22 +147,10 @@ jobs:
         path: target/production
         merge-multiple: true
 
-    - name: Debug
-      working-directory: target/production
-      run: |
-        pwd
-        ls -la
-
     - name: Build polkadot deb package
       shell: bash
       run: |
-        echo "What is in working directory: "
-        ls -la
-
-        echo "What is in the target: "
-        ls -la target/production
-        pwd
-        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }}
+        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }} ${{ inputs.release_tag }}
 
     - name: Generate artifact attestation
       uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
@@ -217,5 +188,3 @@ jobs:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
       AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
-
-# - name: Upload artifacts to github release
