@@ -199,8 +199,8 @@ pub struct CheckEthTransact<T: Config> {
 	///
 	/// # Note
 	///
-	/// This is marked as `#[codec(skip)]` as this extracted from the Ethereum transaction and not
-	/// encoded as additional signed data.
+	/// This is marked as `#[codec(skip)]` as this extracted from the Ethereum transaction and
+	/// should have a zero size encoded representation.
 	#[codec(skip)]
 	eth_fee: Option<BalanceOf<T>>,
 	_phantom: core::marker::PhantomData<T>,

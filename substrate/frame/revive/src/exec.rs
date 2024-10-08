@@ -4226,14 +4226,7 @@ mod tests {
 				// Successful instantiation should set the output
 				let address = ctx
 					.ext
-					.instantiate(
-						Weight::zero(),
-						U256::zero(),
-						ok_ch,
-						value,
-						vec![],
-						Some(&[0u8; 32]),
-					)
+					.instantiate(Weight::zero(), U256::zero(), ok_ch, value, vec![], None)
 					.unwrap();
 				assert_eq!(
 					ctx.ext.last_frame_output(),
@@ -4249,14 +4242,7 @@ mod tests {
 
 				// Reverted instantiation should set the output
 				ctx.ext
-					.instantiate(
-						Weight::zero(),
-						U256::zero(),
-						revert_ch,
-						value,
-						vec![],
-						Some(&[1u8; 32]),
-					)
+					.instantiate(Weight::zero(), U256::zero(), revert_ch, value, vec![], None)
 					.unwrap();
 				assert_eq!(
 					ctx.ext.last_frame_output(),
@@ -4265,14 +4251,7 @@ mod tests {
 
 				// Trapped instantiation should clear the output
 				ctx.ext
-					.instantiate(
-						Weight::zero(),
-						U256::zero(),
-						trap_ch,
-						value,
-						vec![],
-						Some(&[2u8; 32]),
-					)
+					.instantiate(Weight::zero(), U256::zero(), trap_ch, value, vec![], None)
 					.unwrap_err();
 				assert_eq!(
 					ctx.ext.last_frame_output(),
