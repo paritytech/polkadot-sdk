@@ -2048,7 +2048,6 @@ dependencies = [
  "frame-system",
  "hex",
  "parity-scale-codec",
- "parity-util-mem",
  "scale-info",
  "serde",
  "sp-core 28.0.0",
@@ -5760,20 +5759,7 @@ version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9af52ec57c5147716872863c2567c886e7d62f539465b94352dbc0108fe5293"
 dependencies = [
- "ethereum-types 0.15.1",
- "tiny-keccak",
-]
-
-[[package]]
-name = "ethbloom"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c22d4b5885b6aa2fe5e8b9329fb8d232bf739e434e6b87347c63bdd00c120f60"
-dependencies = [
- "crunchy",
- "fixed-hash",
- "impl-rlp 0.3.0",
- "impl-serde 0.4.0",
+ "ethereum-types",
  "tiny-keccak",
 ]
 
@@ -5786,24 +5772,10 @@ dependencies = [
  "crunchy",
  "fixed-hash",
  "impl-codec 0.7.0",
- "impl-rlp 0.4.0",
+ "impl-rlp",
  "impl-serde 0.5.0",
  "scale-info",
  "tiny-keccak",
-]
-
-[[package]]
-name = "ethereum-types"
-version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02d215cbf040552efcbe99a38372fe80ab9d00268e20012b79fcd0f073edd8ee"
-dependencies = [
- "ethbloom 0.13.0",
- "fixed-hash",
- "impl-rlp 0.3.0",
- "impl-serde 0.4.0",
- "primitive-types 0.12.2",
- "uint 0.9.5",
 ]
 
 [[package]]
@@ -5812,10 +5784,10 @@ version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ab15ed80916029f878e0267c3a9f92b67df55e79af370bf66199059ae2b4ee3"
 dependencies = [
- "ethbloom 0.14.1",
+ "ethbloom",
  "fixed-hash",
  "impl-codec 0.7.0",
- "impl-rlp 0.4.0",
+ "impl-rlp",
  "impl-serde 0.5.0",
  "primitive-types 0.13.1",
  "scale-info",
@@ -7670,15 +7642,6 @@ dependencies = [
 
 [[package]]
 name = "impl-rlp"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f28220f89297a075ddc7245cd538076ee98b01f2a9c23a53a4f1105d5a322808"
-dependencies = [
- "rlp 0.5.2",
-]
-
-[[package]]
-name = "impl-rlp"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "54ed8ad1f3877f7e775b8cbf30ed1bd3209a95401817f19a0eb4402d13f8cf90"
@@ -9340,15 +9303,6 @@ checksum = "a7a70ba024b9dc04c27ea2f0c0548feb474ec5c54bba33a7f72f873a39d07b24"
 dependencies = [
  "serde",
  "value-bag",
-]
-
-[[package]]
-name = "lru"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6e8aaa3f231bb4bd57b84b2d5dc3ae7f350265df8aa96492e0bc394a1571909"
-dependencies = [
- "hashbrown 0.12.3",
 ]
 
 [[package]]
@@ -13346,35 +13300,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parity-util-mem"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d32c34f4f5ca7f9196001c0aba5a1f9a5a12382c8944b8b0f90233282d1e8f8"
-dependencies = [
- "cfg-if",
- "ethereum-types 0.14.1",
- "hashbrown 0.12.3",
- "impl-trait-for-tuples",
- "lru 0.8.1",
- "parity-util-mem-derive",
- "parking_lot 0.12.3",
- "primitive-types 0.12.2",
- "smallvec",
- "winapi",
-]
-
-[[package]]
-name = "parity-util-mem-derive"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f557c32c6d268a07c921471619c0295f5efad3a0e76d4f97a05c091a51d110b2"
-dependencies = [
- "proc-macro2 1.0.86",
- "syn 1.0.109",
- "synstructure 0.12.6",
-]
-
-[[package]]
 name = "parity-wasm"
 version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16582,7 +16507,6 @@ dependencies = [
  "fixed-hash",
  "impl-codec 0.6.0",
  "impl-num-traits 0.1.2",
- "impl-rlp 0.3.0",
  "impl-serde 0.4.0",
  "scale-info",
  "uint 0.9.5",
@@ -16597,7 +16521,7 @@ dependencies = [
  "fixed-hash",
  "impl-codec 0.7.0",
  "impl-num-traits 0.2.0",
- "impl-rlp 0.4.0",
+ "impl-rlp",
  "impl-serde 0.5.0",
  "scale-info",
  "uint 0.10.0",
@@ -20996,8 +20920,8 @@ name = "snowbridge-ethereum"
 version = "0.3.0"
 dependencies = [
  "ethabi-decode",
- "ethbloom 0.14.1",
- "ethereum-types 0.15.1",
+ "ethbloom",
+ "ethereum-types",
  "hex-literal",
  "parity-bytes",
  "parity-scale-codec",
