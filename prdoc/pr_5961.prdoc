@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Bounties Pallet: add `approve_bounty_with_curator` call"
+
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      Adds `approve_bounty_with_curator` call to the bounties pallet to combine `approve_bounty` and `propose_curator` into one call. If `unassign_curator` is called after `approve_bounty_with_curator` the process falls back to the previous flow of calling `propose_curator` separately.
+
+crates:
+    - name: pallet-bounty
+      bump: minor
+    - name: rococo-runtime
+      bump: minor
