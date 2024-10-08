@@ -28,7 +28,7 @@ use crate::{
 	signed::{self as signed_pallet},
 	unsigned::{
 		self as unsigned_pallet,
-		miner::{Miner, MinerError, OffchainWorkerMiner},
+		miner::{self, Miner, MinerError, OffchainWorkerMiner},
 	},
 	verifier::{self as verifier_pallet},
 	Config, *,
@@ -150,6 +150,7 @@ impl crate::verifier::Config for Runtime {
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type SolutionDataProvider = SignedPallet;
+	type MinerConfig = Self;
 	type WeightInfo = ();
 }
 
@@ -187,7 +188,22 @@ impl crate::unsigned::Config for Runtime {
 	type MinerTxPriority = MinerTxPriority;
 	type MaxLength = MinerSolutionMaxLength;
 	type MaxWeight = MinerSolutionMaxWeight;
+	type MinerConfig = Self;
 	type WeightInfo = ();
+}
+
+impl miner::Config for Runtime {
+	type AccountId = AccountId;
+	type Solution = TestNposSolution;
+	//type Verifier = VerifierPallet;
+	type Pages = Pages;
+	type MaxVotesPerVoter = MaxVotesPerVoter;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
+	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
+	type MaxWeight = MinerSolutionMaxWeight;
+	type MaxLength = MinerSolutionMaxLength;
 }
 
 pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
@@ -519,9 +535,24 @@ pub fn balances(who: AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
 }
 
-pub fn mine_full(pages: PageIndex) -> Result<PagedRawSolution<T>, MinerError> {
-	let (solution, _) = Miner::<T, Solver>::mine_paged_solution(pages, false)?;
-	Ok(solution)
+pub fn mine_full(pages: PageIndex) -> Result<PagedRawSolutionC<T>, MinerError> {
+	let (targets, voters) =
+		OffchainWorkerMiner::<T>::fetch_snapshots().map_err(|_| MinerError::DataProvider)?;
+
+	let reduce = false;
+	let round = crate::Pallet::<T>::current_round();
+	let desired_targets = <MockStaking as ElectionDataProvider>::desired_targets()
+		.map_err(|_| MinerError::DataProvider)?;
+
+	Miner::<Runtime, Solver>::mine_paged_solution_with_snaphsot(
+		targets,
+		voters,
+		Pages::get(),
+		round,
+		desired_targets,
+		reduce,
+	)
+	.map(|(s, _)| s)
 }
 
 pub fn mine(page: PageIndex) -> Result<(ElectionScore, SolutionOf<T>), ()> {

@@ -31,11 +31,14 @@ use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 use super::*;
 use pallet::*;
 
-use crate::{helpers, verifier::weights::WeightInfo, SolutionOf};
+use crate::{
+	helpers, unsigned::miner, verifier::weights::WeightInfo, AccountIdOf, SolutionAccuracyOf,
+	SolutionOf,
+};
 
 #[frame_support::pallet(dev_mode)]
 pub(crate) mod pallet {
-	use crate::SupportsOf;
+	use crate::{SolutionVoterIndexOf, SupportsOf};
 
 	use super::*;
 	use frame_support::pallet_prelude::{ValueQuery, *};
@@ -67,6 +70,16 @@ pub(crate) mod pallet {
 
 		/// Something that can provide the solution data to the verifier.
 		type SolutionDataProvider: crate::verifier::SolutionDataProvider<Solution = Self::Solution>;
+
+		/// The miner config.
+		/// TODO: move to main pallet (and collapse the MinerConfig from unsigned subpallet)
+		type MinerConfig: miner::Config<
+			AccountId = AccountIdOf<Self>,
+			MaxVotesPerVoter = <Self::DataProvider as frame_election_provider_support::ElectionDataProvider>::MaxVotesPerVoter,
+			MaxWinnersPerPage = Self::MaxWinnersPerPage,
+			MaxBackersPerWinner = Self::MaxBackersPerWinner,
+			Solution = Self::Solution,
+		>;
 
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
@@ -393,6 +406,7 @@ impl<T: impls::pallet::Config> Verifier for Pallet<T> {
 		partial_solution: Self::Solution,
 		page: PageIndex,
 	) -> Result<SupportsOf<Self>, FeasibilityError> {
+		// TODO: The feasibility_check should be called from the MinerConfig!
 		Self::feasibility_check(partial_solution, page)
 	}
 }
@@ -656,10 +670,10 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		let snapshot_voters =
 			crate::Snapshot::<T>::voters(page).ok_or(FeasibilityError::SnapshotUnavailable)?;
 
-		let voter_cache = helpers::generate_voter_cache::<T, _>(&snapshot_voters);
-		let voter_at = helpers::voter_at_fn::<T>(&snapshot_voters);
-		let target_at = helpers::target_at_fn::<T>(&snapshot_targets);
-		let voter_index = helpers::voter_index_fn_usize::<T>(&voter_cache);
+		let voter_cache = helpers::generate_voter_cache::<T::MinerConfig, _>(&snapshot_voters);
+		let voter_at = helpers::voter_at_fn::<T::MinerConfig>(&snapshot_voters);
+		let target_at = helpers::target_at_fn::<T::MinerConfig>(&snapshot_targets);
+		let voter_index = helpers::voter_index_fn_usize::<T::MinerConfig>(&voter_cache);
 
 		// Then convert solution -> assignment. This will fail if any of the indices are
 		// gibberish.
@@ -694,7 +708,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 			.collect::<Result<(), FeasibilityError>>()?;
 
 		// ----- Start building support. First, we need one more closure.
-		let stake_of = helpers::stake_of_fn::<T, _>(&snapshot_voters, &voter_cache);
+		let stake_of = helpers::stake_of_fn::<T::MinerConfig, _>(&snapshot_voters, &voter_cache);
 
 		// This might fail if the normalization fails. Very unlikely. See `integrity_test`.
 		let staked_assignments =

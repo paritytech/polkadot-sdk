@@ -1082,10 +1082,13 @@ mod election_provider {
 				Snapshot::<T>::set_voters(0, all_voter_pages[0].clone());
 				Snapshot::<T>::set_voters(1, all_voter_pages[1].clone());
 
+				let desired_targets = Snapshot::<T>::desired_targets().unwrap();
 				let (results, _) = Miner::<T, Solver>::mine_paged_solution_with_snaphsot(
 					all_voter_pages,
 					all_targets,
 					Pages::get(),
+					current_round(),
+					desired_targets,
 					false,
 				)
 				.unwrap();

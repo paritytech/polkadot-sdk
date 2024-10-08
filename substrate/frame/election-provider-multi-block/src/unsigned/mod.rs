@@ -67,10 +67,10 @@ mod tests;
 
 use crate::{
 	unsigned::{
-		miner::{OffchainMinerError, OffchainWorkerMiner},
+		miner::{Config as MinerConfig, OffchainMinerError, OffchainWorkerMiner},
 		weights::WeightInfo,
 	},
-	verifier, Pallet as EPM, Phase, SolutionAccuracyOf, SolutionOf, Verifier,
+	verifier, AccountIdOf, Pallet as EPM, Phase, SolutionAccuracyOf, SolutionOf, Verifier,
 };
 use frame_election_provider_support::PageIndex;
 use frame_support::{
@@ -91,6 +91,8 @@ pub use pallet::{
 
 #[frame_support::pallet(dev_mode)]
 pub(crate) mod pallet {
+
+	use crate::MinerSolutionAccuracyOf;
 
 	use super::*;
 	use frame_support::pallet_prelude::*;
@@ -114,7 +116,19 @@ pub(crate) mod pallet {
 		/// The solver used by the offchain worker miner.
 		type OffchainSolver: frame_election_provider_support::NposSolver<
 			AccountId = Self::AccountId,
-			Accuracy = SolutionAccuracyOf<Self>,
+			//Accuracy = SolutionAccuracyOf<Self>,
+            Accuracy = <<Self::MinerConfig as MinerConfig>::Solution as frame_election_provider_support::NposSolution>::Accuracy
+		>;
+
+		/// The miner config.
+		/// TODO: move to main pallet (and collapse the MinerConfig from verifier)
+		type MinerConfig: MinerConfig<
+			AccountId = AccountIdOf<Self>,
+			Solution = SolutionOf<Self>,
+			TargetSnapshotPerBlock = Self::TargetSnapshotPerBlock,
+			VoterSnapshotPerBlock = Self::VoterSnapshotPerBlock,
+            MaxVotesPerVoter = <Self::DataProvider as frame_election_provider_support::ElectionDataProvider>::MaxVotesPerVoter,
+            Pages = Self::Pages,
 		>;
 
 		/// Maximum length of the solution that the miner is allowed to generate.

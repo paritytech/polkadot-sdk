@@ -24,7 +24,7 @@ use sp_npos_elections::ElectionScore;
 use sp_runtime::SaturatedConversion;
 use sp_std::{boxed::Box, vec::Vec};
 
-use crate::Verifier;
+use crate::{unsigned::miner, Verifier};
 
 use frame_election_provider_support::{ElectionProvider, NposSolution, PageIndex};
 
@@ -38,10 +38,22 @@ pub type SupportsOf<V> = frame_election_provider_support::BoundedSupports<
 	<V as Verifier>::MaxBackersPerWinner,
 >;
 
+// miner.
+pub type MinerSupportsOf<M> = frame_election_provider_support::BoundedSupports<
+	<M as MinerConfig>::AccountId,
+	<M as MinerConfig>::MaxWinnersPerPage,
+	<M as MinerConfig>::MaxBackersPerWinner,
+>;
+
 /// The voter index. Derived from [`SolutionOf`].
 pub type SolutionVoterIndexOf<T> = <SolutionOf<T> as NposSolution>::VoterIndex;
 /// The target index. Derived from [`SolutionOf`].
 pub type SolutionTargetIndexOf<T> = <SolutionOf<T> as NposSolution>::TargetIndex;
+
+/// same, bonded to the miner config.
+pub type SolutionVoterIndexMinerOf<T> = <<T as MinerConfig>::Solution as NposSolution>::VoterIndex;
+pub type SolutionTargetIndexMinerOf<T> =
+	<<T as MinerConfig>::Solution as NposSolution>::TargetIndex;
 
 /// The solution type used by this crate.
 pub type SolutionOf<T> = <T as crate::Config>::Solution;
@@ -69,15 +81,28 @@ type FallbackErrorOf<T> = <<T as crate::Config>::Fallback as ElectionProvider>::
 pub(crate) type VoterOf<T> =
 	frame_election_provider_support::VoterOf<<T as crate::Config>::DataProvider>;
 
+/// Same as [`VoterOf`], but parameterized by the `miner::Config`.
+pub(crate) type MinerVoterOf<T> = frame_election_provider_support::Voter<
+	<T as miner::Config>::AccountId,
+	<T as miner::Config>::MaxVotesPerVoter,
+>;
+
 /// Alias for a page of voters, parameterized by this crate's config.
 pub(crate) type VoterPageOf<T> =
 	BoundedVec<VoterOf<T>, <T as crate::Config>::VoterSnapshotPerBlock>;
-
 pub(crate) type TargetPageOf<T> =
 	BoundedVec<AccountIdOf<T>, <T as crate::Config>::TargetSnapshotPerBlock>;
 
+// same but for miner's config
+pub(crate) type VoterPageMinerOf<T> =
+	BoundedVec<MinerVoterOf<T>, <T as MinerConfig>::VoterSnapshotPerBlock>;
+pub(crate) type TargetPageMinerOf<T> =
+	BoundedVec<<T as MinerConfig>::AccountId, <T as MinerConfig>::TargetSnapshotPerBlock>;
+
 pub(crate) type MaxWinnersPerPageOf<T> =
 	<<T as crate::Config>::Verifier as Verifier>::MaxWinnersPerPage;
+
+pub(crate) type MaxWinnersPerPageMinerOf<T> = <T as MinerConfig>::MaxWinnersPerPage;
 
 /// Strategies for when the election fails.
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
@@ -173,11 +198,24 @@ pub struct PageSize {
 /// Alias for all pages of voters, parameterized by this crate's config.
 pub(crate) type AllVoterPagesOf<T> = BoundedVec<VoterPageOf<T>, <T as crate::Config>::Pages>;
 pub(crate) type AllTargetPagesOf<T> = BoundedVec<TargetPageOf<T>, <T as crate::Config>::Pages>;
+
+/// Alias for all pages of voters, parameterized by the miner's Config.
+pub(crate) type AllVoterPagesMinerOf<T> =
+	BoundedVec<VoterPageMinerOf<T>, <T as MinerConfig>::Pages>;
+pub(crate) type AllTargetPagesMinerOf<T> =
+	BoundedVec<TargetPageMinerOf<T>, <T as MinerConfig>::Pages>;
+
 // Accuracy of the election.
 pub type SolutionAccuracyOf<T> = <SolutionOf<T> as NposSolution>::Accuracy;
 
 /// Edges from voters to nominated targets that are part of the winner set.
 pub type AssignmentOf<T> = sp_npos_elections::Assignment<AccountIdOf<T>, SolutionAccuracyOf<T>>;
+
+// for miner
+pub type MinerAssignmentOf<T> =
+	sp_npos_elections::Assignment<<T as MinerConfig>::AccountId, MinerSolutionAccuracyOf<T>>;
+
+pub type MinerSolutionAccuracyOf<T> = <<T as MinerConfig>::Solution as NposSolution>::Accuracy;
 
 /// A paged raw solution which contains a set of paginated solutions to be submitted.
 ///
@@ -197,6 +235,31 @@ pub type AssignmentOf<T> = sp_npos_elections::Assignment<AccountIdOf<T>, Solutio
 #[scale_info(skip_type_params(T))]
 pub struct PagedRawSolution<T: crate::Config> {
 	pub solution_pages: BoundedVec<SolutionOf<T>, T::Pages>,
+	pub score: ElectionScore,
+	pub round: u32,
+}
+
+use crate::unsigned::miner::Config as MinerConfig;
+pub type SolutionOfMiner<T> = <T as MinerConfig>::Solution;
+
+/// A paged raw solution which contains a set of paginated solutions to be submitted.
+///
+/// A raw solution has not been checked for correctness.
+#[derive(
+	TypeInfo,
+	Encode,
+	Decode,
+	RuntimeDebugNoBound,
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	MaxEncodedLen,
+	DefaultNoBound,
+)]
+#[codec(mel_bound(T: MinerConfig))]
+#[scale_info(skip_type_params(T))]
+pub struct PagedRawSolutionC<T: MinerConfig> {
+	pub solution_pages: BoundedVec<SolutionOfMiner<T>, T::Pages>,
 	pub score: ElectionScore,
 	pub round: u32,
 }

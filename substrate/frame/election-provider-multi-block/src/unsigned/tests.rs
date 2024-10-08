@@ -159,31 +159,6 @@ mod miner {
 	}
 
 	#[test]
-	fn mine_works() {
-		ExtBuilder::default().build_and_execute(|| {
-			let msp = crate::Pallet::<T>::msp();
-			assert_eq!(msp, 2);
-
-			// no snapshot available, calling mine_paged_solution should fail.
-			assert!(<VerifierPallet as Verifier>::queued_score().is_none());
-			assert!(<VerifierPallet as Verifier>::get_queued_solution(msp).is_none());
-
-			assert_noop!(
-				Miner::<T, OffchainSolver>::mine_paged_solution(0, true),
-				MinerError::SnapshotUnAvailable(SnapshotType::Targets),
-			);
-
-			// create and store snapshot so that the miner can mine solutions.
-			compute_snapshot_checked();
-
-			assert_ok!(Miner::<T, OffchainSolver>::mine_paged_solution(
-				crate::Pallet::<T>::msp() + 1,
-				true
-			));
-		});
-	}
-
-	#[test]
 	fn desired_targets_bounds_works() {
 		ExtBuilder::default()
 			.max_winners_per_page(3)

@@ -18,8 +18,12 @@
 //! Some helper functions/macros for this crate.
 
 use crate::{
-	types::{AllTargetPagesOf, AllVoterPagesOf, VoterOf},
-	AccountIdOf, Config, MaxWinnersPerPageOf, SolutionTargetIndexOf, SolutionVoterIndexOf,
+	types::{
+		AllTargetPagesMinerOf, AllTargetPagesOf, AllVoterPagesMinerOf, AllVoterPagesOf,
+		MaxWinnersPerPageMinerOf, MinerVoterOf, VoterOf,
+	},
+	AccountIdOf, Config, MaxWinnersPerPageOf, SolutionTargetIndexMinerOf, SolutionTargetIndexOf,
+	SolutionVoterIndexMinerOf, SolutionVoterIndexOf,
 };
 use frame_election_provider_support::{PageIndex, VoteWeight};
 use frame_support::{traits::Get, BoundedVec};
@@ -48,14 +52,16 @@ macro_rules! sublog {
 	};
 }
 
+use crate::unsigned::miner::Config as MinerConfig;
+
 /// Generate a btree-map cache of the voters and their indices within the provided `snapshot`.
 ///
 /// This does not care about pagination. `snapshot` might be a single page or the entire blob of
 /// voters.
 ///
 /// This can be used to efficiently build index getter closures.
-pub fn generate_voter_cache<T: Config, AnyBound: Get<u32>>(
-	snapshot: &BoundedVec<VoterOf<T>, AnyBound>,
+pub fn generate_voter_cache<T: MinerConfig, AnyBound: Get<u32>>(
+	snapshot: &BoundedVec<MinerVoterOf<T>, AnyBound>,
 ) -> BTreeMap<T::AccountId, usize> {
 	let mut cache: BTreeMap<T::AccountId, usize> = BTreeMap::new();
 	snapshot.iter().enumerate().for_each(|(i, (x, _, _))| {
@@ -68,8 +74,8 @@ pub fn generate_voter_cache<T: Config, AnyBound: Get<u32>>(
 	cache
 }
 
-pub fn generate_target_cache<T: Config>(
-	snapshot: &Vec<AccountIdOf<T>>,
+pub fn generate_target_cache<T: MinerConfig>(
+	snapshot: &Vec<T::AccountId>,
 ) -> BTreeMap<T::AccountId, usize> {
 	let mut cache: BTreeMap<T::AccountId, usize> = BTreeMap::new();
 	snapshot.iter().enumerate().for_each(|(i, x)| {
@@ -82,8 +88,8 @@ pub fn generate_target_cache<T: Config>(
 	cache
 }
 
-pub fn generate_voter_staked_cache<T: Config>(
-	snapshot: &Vec<&VoterOf<T>>,
+pub fn generate_voter_staked_cache<T: MinerConfig>(
+	snapshot: &Vec<&MinerVoterOf<T>>,
 ) -> BTreeMap<T::AccountId, usize> {
 	let mut cache: BTreeMap<T::AccountId, usize> = BTreeMap::new();
 	snapshot.into_iter().enumerate().for_each(|(i, (x, _, _))| {
@@ -98,8 +104,8 @@ pub fn generate_voter_staked_cache<T: Config>(
 /// Generate an efficient closure of voters and the page in which they live in.
 ///
 /// The bucketing of voters into a page number is based on their position in the snapshot's page.
-pub fn generate_voter_page_fn<T: Config>(
-	paged_snapshot: &AllVoterPagesOf<T>,
+pub fn generate_voter_page_fn<T: MinerConfig>(
+	paged_snapshot: &AllVoterPagesMinerOf<T>,
 ) -> impl Fn(&T::AccountId) -> Option<PageIndex> {
 	let mut cache: BTreeMap<T::AccountId, PageIndex> = BTreeMap::new();
 	paged_snapshot
@@ -118,8 +124,8 @@ pub fn generate_voter_page_fn<T: Config>(
 	move |who| cache.get(who).copied()
 }
 
-pub fn generate_target_page_fn<T: Config>(
-	paged_snapshot: &AllTargetPagesOf<T>,
+pub fn generate_target_page_fn<T: MinerConfig>(
+	paged_snapshot: &AllTargetPagesMinerOf<T>,
 ) -> impl Fn(&T::AccountId) -> Option<PageIndex> {
 	let mut cache: BTreeMap<T::AccountId, PageIndex> = BTreeMap::new();
 	paged_snapshot
@@ -141,8 +147,8 @@ pub fn generate_target_page_fn<T: Config>(
 ///
 /// The bucketing of voters into a page number is based on their relative stake in the assignments
 /// set (the larger the stake, the higher the page).
-pub fn generate_voter_page_stake_fn<T: Config>(
-	paged_snapshot: &AllVoterPagesOf<T>,
+pub fn generate_voter_page_stake_fn<T: MinerConfig>(
+	paged_snapshot: &AllVoterPagesMinerOf<T>,
 ) -> impl Fn(&T::AccountId) -> Option<PageIndex> {
 	let mut cache: BTreeMap<T::AccountId, PageIndex> = BTreeMap::new();
 	let mut sorted_by_weight: Vec<(VoteWeight, T::AccountId)> = vec![];
@@ -157,7 +163,7 @@ pub fn generate_voter_page_stake_fn<T: Config>(
 
 	sorted_by_weight.iter().enumerate().for_each(|(idx, voter)| {
 		let page = idx
-			.saturating_div(MaxWinnersPerPageOf::<T>::get() as usize)
+			.saturating_div(MaxWinnersPerPageMinerOf::<T>::get() as usize)
 			.min(T::Pages::get() as usize);
 		let _existed = cache.insert(voter.1.clone(), page as PageIndex);
 		debug_assert!(_existed.is_none());
@@ -173,13 +179,13 @@ pub fn generate_voter_page_stake_fn<T: Config>(
 /// ## Warning
 ///
 /// Note that this will represent the snapshot data from which the `cache` is generated.
-pub fn voter_index_fn<T: Config>(
+pub fn voter_index_fn<T: MinerConfig>(
 	cache: &BTreeMap<T::AccountId, usize>,
-) -> impl Fn(&T::AccountId) -> Option<SolutionVoterIndexOf<T>> + '_ {
+) -> impl Fn(&T::AccountId) -> Option<SolutionVoterIndexMinerOf<T>> + '_ {
 	move |who| {
 		cache
 			.get(who)
-			.and_then(|i| <usize as TryInto<SolutionVoterIndexOf<T>>>::try_into(*i).ok())
+			.and_then(|i| <usize as TryInto<SolutionVoterIndexMinerOf<T>>>::try_into(*i).ok())
 	}
 }
 
@@ -187,23 +193,23 @@ pub fn voter_index_fn<T: Config>(
 ///
 /// Same as [`voter_index_fn`] but the returned function owns all its necessary data; nothing is
 /// borrowed.
-pub fn voter_index_fn_owned<T: Config>(
+pub fn voter_index_fn_owned<T: MinerConfig>(
 	cache: BTreeMap<T::AccountId, usize>,
-) -> impl Fn(&T::AccountId) -> Option<SolutionVoterIndexOf<T>> {
+) -> impl Fn(&T::AccountId) -> Option<SolutionVoterIndexMinerOf<T>> {
 	move |who| {
 		cache
 			.get(who)
-			.and_then(|i| <usize as TryInto<SolutionVoterIndexOf<T>>>::try_into(*i).ok())
+			.and_then(|i| <usize as TryInto<SolutionVoterIndexMinerOf<T>>>::try_into(*i).ok())
 	}
 }
 
-pub fn target_index_fn_owned<T: Config>(
+pub fn target_index_fn_owned<T: MinerConfig>(
 	cache: BTreeMap<T::AccountId, usize>,
-) -> impl Fn(&T::AccountId) -> Option<SolutionTargetIndexOf<T>> {
+) -> impl Fn(&T::AccountId) -> Option<SolutionTargetIndexMinerOf<T>> {
 	move |who| {
 		cache
 			.get(who)
-			.and_then(|i| <usize as TryInto<SolutionTargetIndexOf<T>>>::try_into(*i).ok())
+			.and_then(|i| <usize as TryInto<SolutionTargetIndexMinerOf<T>>>::try_into(*i).ok())
 	}
 }
 
@@ -214,25 +220,25 @@ pub fn target_index_fn_owned<T: Config>(
 /// Note: to the extent possible, the returned function should be cached and reused. Producing that
 /// function requires a `O(n log n)` data transform. Each invocation of that function completes
 /// in `O(log n)`.
-pub fn target_index_fn<T: Config>(
+pub fn target_index_fn<T: MinerConfig>(
 	snapshot: &Vec<T::AccountId>,
-) -> impl Fn(&T::AccountId) -> Option<SolutionTargetIndexOf<T>> + '_ {
+) -> impl Fn(&T::AccountId) -> Option<SolutionTargetIndexMinerOf<T>> + '_ {
 	let cache: BTreeMap<_, _> =
 		snapshot.iter().enumerate().map(|(idx, account_id)| (account_id, idx)).collect();
 	move |who| {
 		cache
 			.get(who)
-			.and_then(|i| <usize as TryInto<SolutionTargetIndexOf<T>>>::try_into(*i).ok())
+			.and_then(|i| <usize as TryInto<SolutionTargetIndexMinerOf<T>>>::try_into(*i).ok())
 	}
 }
 
 /// Create a function that can map a voter index ([`SolutionVoterIndexOf`]) to the actual voter
 /// account using a linearly indexible snapshot.
-pub fn voter_at_fn<T: Config>(
-	snapshot: &Vec<VoterOf<T>>,
-) -> impl Fn(SolutionVoterIndexOf<T>) -> Option<T::AccountId> + '_ {
+pub fn voter_at_fn<T: MinerConfig>(
+	snapshot: &Vec<MinerVoterOf<T>>,
+) -> impl Fn(SolutionVoterIndexMinerOf<T>) -> Option<T::AccountId> + '_ {
 	move |i| {
-		<SolutionVoterIndexOf<T> as TryInto<usize>>::try_into(i)
+		<SolutionVoterIndexMinerOf<T> as TryInto<usize>>::try_into(i)
 			.ok()
 			.and_then(|i| snapshot.get(i).map(|(x, _, _)| x).cloned())
 	}
@@ -240,11 +246,11 @@ pub fn voter_at_fn<T: Config>(
 
 /// Create a function that can map a target index ([`SolutionTargetIndexOf`]) to the actual target
 /// account using a linearly indexible snapshot.
-pub fn target_at_fn<T: Config>(
+pub fn target_at_fn<T: MinerConfig>(
 	snapshot: &Vec<T::AccountId>,
-) -> impl Fn(SolutionTargetIndexOf<T>) -> Option<T::AccountId> + '_ {
+) -> impl Fn(SolutionTargetIndexMinerOf<T>) -> Option<T::AccountId> + '_ {
 	move |i| {
-		<SolutionTargetIndexOf<T> as TryInto<usize>>::try_into(i)
+		<SolutionTargetIndexMinerOf<T> as TryInto<usize>>::try_into(i)
 			.ok()
 			.and_then(|i| snapshot.get(i).cloned())
 	}
@@ -255,21 +261,21 @@ pub fn target_at_fn<T: Config>(
 /// ## Warning
 ///
 /// Note that this will represent the snapshot data from which the `cache` is generated.
-pub fn voter_index_fn_usize<T: Config>(
+pub fn voter_index_fn_usize<T: MinerConfig>(
 	cache: &BTreeMap<T::AccountId, usize>,
 ) -> impl Fn(&T::AccountId) -> Option<usize> + '_ {
 	move |who| cache.get(who).cloned()
 }
 
-pub fn target_index_fn_usize<T: Config>(
+pub fn target_index_fn_usize<T: MinerConfig>(
 	cache: &BTreeMap<T::AccountId, usize>,
 ) -> impl Fn(&T::AccountId) -> Option<usize> + '_ {
 	move |who| cache.get(who).cloned()
 }
 
 /// Create a function to get the stake of a voter.
-pub fn stake_of_fn<'a, T: Config, AnyBound: Get<u32>>(
-	snapshot: &'a BoundedVec<VoterOf<T>, AnyBound>,
+pub fn stake_of_fn<'a, T: MinerConfig, AnyBound: Get<u32>>(
+	snapshot: &'a BoundedVec<MinerVoterOf<T>, AnyBound>,
 	cache: &'a BTreeMap<T::AccountId, usize>,
 ) -> impl Fn(&T::AccountId) -> VoteWeight + 'a {
 	move |who| {
