@@ -486,7 +486,7 @@ mod test {
 				code_len: code.len() as u32,
 				data_len: data.len() as u32,
 			};
-			builder.tx.input = Bytes(rlp::encode(&EthInstantiateInput { code, data }));
+			builder.tx.input = Bytes(rlp::encode(&EthInstantiateInput { code, data }).to_vec());
 			builder
 		}
 
