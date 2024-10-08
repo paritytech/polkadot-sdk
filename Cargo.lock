@@ -12535,6 +12535,7 @@ dependencies = [
  "log",
  "pallet-revive",
  "parity-scale-codec",
+ "rlp",
  "scale-info",
  "secp256k1",
  "serde_json",

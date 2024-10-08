@@ -24,9 +24,9 @@ async fn main() -> anyhow::Result<()> {
 	println!("Transaction hash: {hash:?}");
 
 	let ReceiptInfo { block_number, gas_used, .. } = wait_for_receipt(&client, hash).await?;
-	println!("Receipt received: ");
-	println!("Block number: {block_number}");
-	println!("Gas used: {gas_used}");
+	println!("Receipt: ");
+	println!("- Block number: {block_number}");
+	println!("- Gas used: {gas_used}");
 
 	let balance = client.get_balance(account.address(), BlockTag::Latest.into()).await?;
 	println!("Account balance: {:?}", balance);

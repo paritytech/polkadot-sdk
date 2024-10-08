@@ -29,10 +29,10 @@ async fn main() -> anyhow::Result<()> {
 	println!("Deploy Tx hash: {hash:?}");
 	let ReceiptInfo { block_number, gas_used, contract_address, .. } =
 		wait_for_receipt(&client, hash).await?;
-	println!("Receipt received: ");
-	println!("Block number: {block_number}");
-	println!("Gas used: {gas_used}");
-	println!("Contract address: {contract_address:?}");
+	println!("Receipt:");
+	println!("- Block number: {block_number}");
+	println!("- Gas used: {gas_used}");
+	println!("- Contract address: {contract_address:?}");
 
 	if std::env::var("SKIP_CALL").is_ok() {
 		return Ok(())
@@ -47,9 +47,9 @@ async fn main() -> anyhow::Result<()> {
 
 	println!("Contract call tx hash: {hash:?}");
 	let ReceiptInfo { block_number, gas_used, to, .. } = wait_for_receipt(&client, hash).await?;
-	println!("Receipt received: ");
-	println!("Block number: {block_number}");
-	println!("Gas used: {gas_used}");
-	println!("To: {to:?}");
+	println!("Receipt:");
+	println!("- Block number: {block_number}");
+	println!("- Gas used: {gas_used}");
+	println!("- To: {to:?}");
 	Ok(())
 }
