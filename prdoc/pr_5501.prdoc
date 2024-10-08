@@ -27,7 +27,7 @@ crates:
     bump: patch
   - name: pallet-beefy
     bump: patch
-  - name: pallet-fast_unstake
+  - name: pallet-fast-unstake
     bump: patch
   - name: pallet-staking
     bump: major
