@@ -27,30 +27,44 @@ mod xcm_config;
 
 // Substrate and Polkadot dependencies
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
-use frame_support::{
-	derive_impl,
-	dispatch::DispatchClass,
-	parameter_types,
-	traits::{
-		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, TransformOrigin, VariantCountOf,
+#[cfg(feature = "runtime-benchmarks")]
+use polkadot_sdk::cumulus_primitives_core;
+use polkadot_sdk::{
+	cumulus_pallet_aura_ext, cumulus_pallet_xcmp_queue,
+	cumulus_primitives_core::{AggregateMessageOrigin, ParaId},
+	frame_support::{
+		self, derive_impl,
+		dispatch::DispatchClass,
+		parameter_types,
+		traits::{
+			ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, TransformOrigin,
+			VariantCountOf,
+		},
+		weights::{ConstantMultiplier, Weight},
+		PalletId,
 	},
-	weights::{ConstantMultiplier, Weight},
-	PalletId,
+	frame_system::{
+		self,
+		limits::{BlockLength, BlockWeights},
+		EnsureRoot,
+	},
+	pallet_aura, pallet_authorship, pallet_balances, pallet_collator_selection,
+	pallet_message_queue, pallet_session, pallet_sudo, pallet_timestamp,
+	pallet_transaction_payment,
+	pallet_xcm::{EnsureXcm, IsVoiceOfBody},
+	parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling},
+	polkadot_runtime_common::{
+		xcm_sender::NoPriceForMessageDelivery, BlockHashCount, SlowAdjustingFeeUpdate,
+	},
+	sp_consensus_aura::sr25519::AuthorityId as AuraId,
+	sp_core, sp_runtime,
+	sp_runtime::Perbill,
+	sp_version::RuntimeVersion,
+	staging_parachain_info as parachain_info,
+	staging_xcm::latest::prelude::BodyId,
 };
-use frame_system::{
-	limits::{BlockLength, BlockWeights},
-	EnsureRoot,
-};
-use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
-use polkadot_runtime_common::{
-	xcm_sender::NoPriceForMessageDelivery, BlockHashCount, SlowAdjustingFeeUpdate,
-};
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_runtime::Perbill;
-use sp_version::RuntimeVersion;
-use xcm::latest::prelude::BodyId;
+#[cfg(not(feature = "runtime-benchmarks"))]
+use polkadot_sdk::{staging_xcm_builder as xcm_builder, staging_xcm_executor as xcm_executor};
 
 // Local module imports
 use super::{

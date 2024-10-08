@@ -2,25 +2,30 @@ use crate::{
 	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
-use frame_support::{
-	parameter_types,
-	traits::{ConstU32, Contains, Everything, Nothing},
-	weights::Weight,
+use polkadot_sdk::{
+	cumulus_pallet_xcm, cumulus_primitives_utility,
+	frame_support::{
+		parameter_types,
+		traits::{ConstU32, Contains, Everything, Nothing},
+		weights::Weight,
+	},
+	frame_system::EnsureRoot,
+	pallet_xcm,
+	pallet_xcm::XcmPassthrough,
+	polkadot_parachain_primitives::primitives::Sibling,
+	polkadot_runtime_common::impls::ToAuthor,
+	staging_xcm::latest::prelude::*,
+	staging_xcm_builder::{
+		AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
+		DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FixedWeightBounds,
+		FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NativeAsset, ParentIsPreset,
+		RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+		SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
+		TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WithComputedOrigin,
+		WithUniqueTopic,
+	},
+	staging_xcm_executor::{self as xcm_executor, XcmExecutor},
 };
-use frame_system::EnsureRoot;
-use pallet_xcm::XcmPassthrough;
-use polkadot_parachain_primitives::primitives::Sibling;
-use polkadot_runtime_common::impls::ToAuthor;
-use xcm::latest::prelude::*;
-use xcm_builder::{
-	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
-	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FixedWeightBounds,
-	FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NativeAsset, ParentIsPreset,
-	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
-};
-use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub const RelayLocation: Location = Location::parent();

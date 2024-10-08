@@ -16,25 +16,37 @@ mod weights;
 extern crate alloc;
 use alloc::vec::Vec;
 use smallvec::smallvec;
-use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
-	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	MultiSignature,
-};
-
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
-use sp_version::RuntimeVersion;
-
-use frame_support::weights::{
-	constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
-	WeightToFeePolynomial,
-};
-pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-pub use sp_runtime::{MultiAddress, Perbill, Permill};
 
 #[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
+pub use polkadot_sdk::sp_runtime::BuildStorage;
+#[cfg(feature = "std")]
+use polkadot_sdk::sp_version::NativeVersion;
+use polkadot_sdk::{
+	cumulus_pallet_aura_ext, cumulus_pallet_xcm, cumulus_pallet_xcmp_queue,
+	cumulus_primitives_core, cumulus_primitives_storage_weight_reclaim, frame_executive,
+	frame_metadata_hash_extension,
+	frame_support::{
+		self,
+		weights::{
+			constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightToFeeCoefficient,
+			WeightToFeeCoefficients, WeightToFeePolynomial,
+		},
+	},
+	frame_system, pallet_aura, pallet_authorship, pallet_balances, pallet_collator_selection,
+	pallet_message_queue, pallet_session, pallet_sudo, pallet_timestamp,
+	pallet_transaction_payment, pallet_xcm, sp_core,
+	sp_runtime::{
+		create_runtime_str, generic, impl_opaque_keys,
+		traits::{BlakeTwo256, IdentifyAccount, Verify},
+		MultiSignature,
+	},
+	sp_version::{self, RuntimeVersion},
+	staging_parachain_info as parachain_info,
+};
+pub use polkadot_sdk::{
+	sp_consensus_aura::sr25519::AuthorityId as AuraId,
+	sp_runtime::{MultiAddress, Perbill, Permill},
+};
 
 use weights::ExtrinsicBaseWeight;
 
@@ -140,12 +152,11 @@ impl WeightToFeePolynomial for WeightToFee {
 /// to even the core data structures.
 pub mod opaque {
 	use super::*;
-	use sp_runtime::{
+	pub use polkadot_sdk::sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
+	use polkadot_sdk::sp_runtime::{
 		generic,
 		traits::{BlakeTwo256, Hash as HashT},
 	};
-
-	pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 
 	/// Opaque block header type.
 	pub type Header = generic::Header<BlockNumber, BlakeTwo256>;

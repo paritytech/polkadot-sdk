@@ -16,7 +16,7 @@
 // limitations under the License.
 
 pub mod constants {
-	use frame_support::{
+	use polkadot_sdk::frame_support::{
 		parameter_types,
 		weights::{constants, RuntimeDbWeight},
 	};
@@ -33,7 +33,7 @@ pub mod constants {
 	#[cfg(test)]
 	mod test_db_weights {
 		use super::constants::RocksDbWeight as W;
-		use frame_support::weights::constants;
+		use polkadot_sdk::frame_support::weights::constants;
 
 		/// Checks that all weights exist and have sane values.
 		// NOTE: If this test fails but you are sure that the generated values are fine,
