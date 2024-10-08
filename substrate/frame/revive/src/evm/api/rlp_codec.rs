@@ -142,42 +142,33 @@ impl Decodable for TransactionLegacySigned {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use core::str::FromStr;
-	use secp256k1::{Message, PublicKey, Secp256k1, SecretKey};
-	use sp_core::keccak_256;
 
-	struct Account {
-		sk: SecretKey,
-	}
+	/// A simple account that can sign transactions
+	pub struct Account(subxt_signer::eth::Keypair);
 
 	impl Default for Account {
 		fn default() -> Self {
-			Account {
-				sk: SecretKey::from_str(
-					"a872f6cbd25a0e04a08b1e21098017a9e6194d101d75e13111f71410c59cd57f",
-				)
-				.unwrap(),
-			}
+			Self(subxt_signer::eth::dev::alith())
+		}
+	}
+
+	impl From<subxt_signer::eth::Keypair> for Account {
+		fn from(kp: subxt_signer::eth::Keypair) -> Self {
+			Self(kp)
 		}
 	}
 
 	impl Account {
-		fn address(&self) -> H160 {
-			let pub_key =
-				PublicKey::from_secret_key(&Secp256k1::new(), &self.sk).serialize_uncompressed();
-			let hash = keccak_256(&pub_key[1..]);
-			H160::from_slice(&hash[12..])
+		/// Get the [`H160`] address of the account.
+		pub fn address(&self) -> H160 {
+			H160::from_slice(&self.0.account_id().as_ref())
 		}
 
-		fn sign_transaction(&self, tx: TransactionLegacyUnsigned) -> TransactionLegacySigned {
+		/// Sign a transaction.
+		pub fn sign_transaction(&self, tx: TransactionLegacyUnsigned) -> TransactionLegacySigned {
 			let rlp_encoded = tx.rlp_bytes();
-			let tx_hash = keccak_256(&rlp_encoded);
-			let secp = Secp256k1::new();
-			let msg = Message::from_digest(tx_hash);
-			let sig = secp.sign_ecdsa_recoverable(&msg, &self.sk);
-			let (recovery_id, sig) = sig.serialize_compact();
-			let sig = sig.into_iter().chain([recovery_id.to_i32() as u8]).collect::<Vec<_>>();
-			TransactionLegacySigned::from(tx, &sig.try_into().unwrap())
+			let signature = self.0.sign(&rlp_encoded);
+			TransactionLegacySigned::from(tx, signature.as_ref())
 		}
 	}
 
@@ -188,7 +179,7 @@ mod test {
 			gas: U256::from(21000),
 			nonce: U256::from(1),
 			gas_price: U256::from("0x640000006a"),
-			to: Some(H160::from_str("0x1111111111222222222233333333334444444444").unwrap()),
+			to: Some(Account::from(subxt_signer::eth::dev::baltathar()).address()),
 			value: U256::from(123123),
 			input: Bytes(vec![]),
 			r#type: Type0,
@@ -196,7 +187,7 @@ mod test {
 
 		let rlp_bytes = rlp::encode(&tx);
 		let decoded = rlp::decode::<TransactionLegacyUnsigned>(&rlp_bytes).unwrap();
-		dbg!(&decoded);
+		assert_eq!(&tx, &decoded);
 	}
 
 	#[test]
@@ -208,7 +199,7 @@ mod test {
 			gas_price: 100_000_000_200u64.into(),
 			gas: 100_107u32.into(),
 			nonce: 3.into(),
-			to: Some(H160::from_str("75e480db528101a381ce68544611c169ad7eb342").unwrap()),
+			to: Some(Account::from(subxt_signer::eth::dev::baltathar()).address()),
 			chain_id: Some(596.into()),
 			..Default::default()
 		};
