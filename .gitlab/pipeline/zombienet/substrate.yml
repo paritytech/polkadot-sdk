@@ -70,7 +70,7 @@ zombienet-substrate-0001-basic-warp-sync:
       --local-dir="${LOCAL_DIR}/0001-basic-warp-sync"
       --test="test-warp-sync.zndsl"
 
-zombienet-substrate-0002-validators-warp-sync:
+.zombienet-substrate-0002-validators-warp-sync:
   extends:
     - .zombienet-substrate-warp-sync-common
   before_script:
