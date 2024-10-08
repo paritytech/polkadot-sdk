@@ -64,6 +64,7 @@ impl pallet_balances::Config<Instance1> for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type DoneSlashHandler = ();
 }
 
 impl pallet_balances::Config<Instance2> for Test {
@@ -84,6 +85,7 @@ impl pallet_balances::Config<Instance2> for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
