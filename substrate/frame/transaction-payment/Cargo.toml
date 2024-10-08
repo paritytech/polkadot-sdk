@@ -26,6 +26,7 @@ frame-system = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
+log = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true, default-features = true }

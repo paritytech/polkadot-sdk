@@ -8548,6 +8548,7 @@ dependencies = [
  "primitive-types 0.13.1",
  "scale-info",
  "serde_json",
+ "sp-debug-derive 14.0.0",
  "static_assertions",
  "substrate-wasm-builder",
 ]
@@ -12986,6 +12987,7 @@ version = "28.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",

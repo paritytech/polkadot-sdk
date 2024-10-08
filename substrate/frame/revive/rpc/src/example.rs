@@ -80,6 +80,8 @@ impl Account {
 		let tx = self.sign_transaction(unsigned_tx.clone());
 		let bytes = tx.rlp_bytes().to_vec();
 
+		println!("Encode transaction len: {:?}", bytes.len());
+
 		let hash = client
 			.send_raw_transaction(bytes.clone().into())
 			.await

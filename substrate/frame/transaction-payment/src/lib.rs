@@ -577,6 +577,7 @@ impl<T: Config> Pallet<T> {
 	where
 		T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	{
+		log::info!(target: "evm", "compute_fee: len: {len:?}, info: {info:?}, tip: {tip:?}");
 		Self::compute_fee_details(len, info, tip).final_fee()
 	}
 
