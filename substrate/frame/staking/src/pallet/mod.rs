@@ -1153,30 +1153,11 @@ pub mod pallet {
 				// If a user runs into this error, they should chill first.
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
-				let unbonding_queue_params = <UnbondingQueueParams<T>>::get();
-
 				// Note: in case there is no current era it is fine to bond one era more.
 				let era = Self::current_era().unwrap_or(0);
 
 				// Calculate unbonding era based on unbonding queue mechanism.
-				let unbonding_eras_delta: EraIndex = Self::get_unbond_eras_delta(value);
-
-				let new_back_of_unbonding_queue_era: EraIndex = (era
-					.max(unbonding_queue_params.back_of_unbonding_queue_era) +
-					unbonding_eras_delta)
-					.min(unbonding_queue_params.unbond_period_upper_bound);
-
-				let unbonding_era: EraIndex = unbonding_queue_params.unbond_period_upper_bound.min(
-					new_back_of_unbonding_queue_era
-						.defensive_saturating_sub(era)
-						.max(unbonding_queue_params.unbond_period_lower_bound),
-				) + era;
-
-				// Update unbonding queue params with new `new_back_of_unbonding_queue_era`.
-				<UnbondingQueueParams<T>>::set(UnbondingQueue {
-					back_of_unbonding_queue_era: new_back_of_unbonding_queue_era,
-					..unbonding_queue_params
-				});
+				let unbonding_era: EraIndex = Self::process_unbond_queue_request(era, value);
 
 				// Update chunks with the new unbonding era.
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {

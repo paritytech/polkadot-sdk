@@ -53,7 +53,8 @@ use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnbondingQueue,
+	ValidatorPrefs,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -868,6 +869,31 @@ impl<T: Config> Pallet<T> {
 
 		(unbond_stake_usize.saturating_div(max_unstake_as_usize) * upper_bound_usize)
 			.saturated_into()
+	}
+
+	// Gets an unbond era for an unbond request, and updates `back_of_unbonding_queue_era`.
+	pub(crate) fn process_unbond_queue_request(era: EraIndex, value: BalanceOf<T>) -> EraIndex {
+		let unbonding_queue_params = <UnbondingQueueParams<T>>::get();
+
+		// Calculate unbonding era based on unbonding queue mechanism.
+		let unbonding_eras_delta: EraIndex = Self::get_unbond_eras_delta(value);
+
+		let new_back_of_unbonding_queue_era: EraIndex =
+			(era.max(unbonding_queue_params.back_of_unbonding_queue_era) + unbonding_eras_delta)
+				.min(unbonding_queue_params.unbond_period_upper_bound);
+
+		let unbonding_era: EraIndex = unbonding_queue_params.unbond_period_upper_bound.min(
+			new_back_of_unbonding_queue_era
+				.defensive_saturating_sub(era)
+				.max(unbonding_queue_params.unbond_period_lower_bound),
+		) + era;
+
+		// Update unbonding queue params with new `new_back_of_unbonding_queue_era`.
+		<UnbondingQueueParams<T>>::set(UnbondingQueue {
+			back_of_unbonding_queue_era: new_back_of_unbonding_queue_era,
+			..unbonding_queue_params
+		});
+		unbonding_era
 	}
 
 	/// Remove all associated data of a stash account from the staking system.
