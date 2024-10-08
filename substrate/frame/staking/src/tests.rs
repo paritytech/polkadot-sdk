@@ -8419,7 +8419,7 @@ mod hold_migration {
 			// any ledger mutation should create a hold
 			hypothetically!({
 				// give some extra balance to alice.
-				let _ = asset::mint_existing::<Test>(&alice, 100);
+				let _ = asset::mint_into_existing::<Test>(&alice, 100);
 
 				// WHEN new fund is bonded to ledger.
 				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(alice), 100));

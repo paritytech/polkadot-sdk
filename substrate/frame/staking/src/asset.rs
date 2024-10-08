@@ -41,7 +41,7 @@ pub fn total_issuance<T: Config>() -> BalanceOf<T> {
 	T::Currency::total_issuance()
 }
 
-/// Total balance of `who`. Includes both, free and reserved.
+/// Total balance of `who`. Includes both free and reserved.
 pub fn total_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 	T::Currency::total_balance(who)
 }
@@ -137,7 +137,7 @@ pub fn slash<T: Config>(
 /// Mint `value` into an existing account `who`.
 ///
 /// This does not increase the total issuance.
-pub fn mint_existing<T: Config>(
+pub fn mint_into_existing<T: Config>(
 	who: &T::AccountId,
 	value: BalanceOf<T>,
 ) -> Option<PositiveImbalanceOf<T>> {

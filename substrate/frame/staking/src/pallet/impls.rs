@@ -412,12 +412,12 @@ impl<T: Config> Pallet<T> {
 		let dest = Self::payee(StakingAccount::Stash(stash.clone()))?;
 
 		let maybe_imbalance = match dest {
-			RewardDestination::Stash => asset::mint_existing::<T>(stash, amount),
+			RewardDestination::Stash => asset::mint_into_existing::<T>(stash, amount),
 			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {
 					ledger.active += amount;
 					ledger.total += amount;
-					let r = asset::mint_existing::<T>(stash, amount);
+					let r = asset::mint_into_existing::<T>(stash, amount);
 
 					let _ = ledger
 						.update()
