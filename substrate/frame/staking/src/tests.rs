@@ -8367,6 +8367,8 @@ mod unbonding_queue {
 			let unbonding_queue_params = UnbondingQueueParams::<Test>::get();
 			// Populate some `EraLowestThirdTotalStake` entries to test the function.
 			for i in current_era + 1..unbonding_queue_params.unbond_period_upper_bound {
+				// TODO: Nominators to bond more to validators to mix up validator stakes each era.
+
 				mock::start_active_era(i);
 				let era_lowest_third_total_stake =
 					EraLowestThirdTotalStake::<Test>::get(current_era);
@@ -8377,7 +8379,7 @@ mod unbonding_queue {
 				);
 			}
 
-			// TODO: Ensure lowest values are always found.
+			// TODO: Now ensure lowest value is fetched with `get_min_lowest_third_stake`.
 		});
 	}
 
