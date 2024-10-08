@@ -8338,7 +8338,7 @@ mod byzantine_threshold_disabling_strategy {
 
 mod unbonding_queue {
 	use super::{ConfigOp, Event, *};
-	use crate::{mock, tests::Test, UnbondingQueue, UnbondingQueueParams};
+	use crate::{mock, tests::Test, UnbondingQueueConfig, UnbondingQueueParams};
 	use sp_runtime::{traits::Zero, Perbill};
 
 	#[test]
@@ -8352,7 +8352,7 @@ mod unbonding_queue {
 			// Unbonding queue params are as expected.
 			assert_eq!(
 				UnbondingQueueParams::<Test>::get(),
-				UnbondingQueue {
+				UnbondingQueueConfig {
 					min_slashable_share: Perbill::from_percent(50),
 					unbond_period_lower_bound: 2,
 					unbond_period_upper_bound: 28,

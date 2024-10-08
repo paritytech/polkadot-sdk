@@ -53,7 +53,7 @@ use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnbondingQueue,
+	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnbondingQueueConfig,
 	ValidatorPrefs,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
@@ -889,7 +889,7 @@ impl<T: Config> Pallet<T> {
 		) + era;
 
 		// Update unbonding queue params with new `new_back_of_unbonding_queue_era`.
-		<UnbondingQueueParams<T>>::set(UnbondingQueue {
+		<UnbondingQueueParams<T>>::set(UnbondingQueueConfig {
 			back_of_unbonding_queue_era: new_back_of_unbonding_queue_era,
 			..unbonding_queue_params
 		});

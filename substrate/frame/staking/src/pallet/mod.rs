@@ -52,7 +52,7 @@ use crate::{
 	DisablingStrategy, EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
 	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnappliedSlash,
-	UnbondingQueue, UnlockChunk, ValidatorPrefs,
+	UnbondingQueueConfig, UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -744,7 +744,8 @@ pub mod pallet {
 
 	/// Parameters for the unbonding queue mechanism.
 	#[pallet::storage]
-	pub(crate) type UnbondingQueueParams<T: Config> = StorageValue<_, UnbondingQueue, ValueQuery>;
+	pub(crate) type UnbondingQueueParams<T: Config> =
+		StorageValue<_, UnbondingQueueConfig, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
