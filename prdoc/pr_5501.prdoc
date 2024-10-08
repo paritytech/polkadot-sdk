@@ -12,7 +12,7 @@ doc:
 
 crates:
   - name: westend-runtime
-    bump: minor
+    bump: major
   - name: kitchensink-runtime
     bump: minor
   - name: pallet-delegated-staking
@@ -22,6 +22,22 @@ crates:
   - name: frame-support
     bump: patch
   - name: pallet-treasury
-    bump: minor
+    bump: patch
   - name: sp-staking
-    bump: minor
+    bump: patch
+  - name: pallet-beefy
+    bump: patch
+  - name: pallet-fast_unstake
+    bump: patch
+  - name: pallet-staking
+    bump: major
+  - name: pallet-grandpa
+    bump: patch
+  - name: pallet-babe
+    bump: patch
+  - name: pallet-nomination-pools-benchmarking
+    bump: patch
+  - name: pallet-session-benchmarking
+    bump: patch
+  - name: pallet-root-offences
+    bump: patch
