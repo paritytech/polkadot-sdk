@@ -249,7 +249,7 @@ benchmarks! {
 		let original_bonded: BalanceOf<T>
 			= Ledger::<T>::get(&controller).map(|l| l.active).ok_or("ledger not created after")?;
 
-		let _ = asset::mint_into_existing::<T>(&stash, max_additional).unwrap();
+		let _ = asset::mint_into_existing::<T>(&stash, max_additional + asset::existential_deposit::<T>()).unwrap();
 
 		whitelist_account!(stash);
 	}: _(RawOrigin::Signed(stash), max_additional)
