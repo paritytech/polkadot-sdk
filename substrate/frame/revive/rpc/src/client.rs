@@ -4,10 +4,7 @@
 #![allow(unused_imports, unused_variables)]
 use crate::{
 	rlp,
-	subxt_client::{
-		revive::calls::types::EthTransact,
-		runtime_types::{frame_system::EventRecord, revive_runtime::RuntimeEvent},
-	},
+	subxt_client::{revive::calls::types::EthTransact, runtime_types::frame_system::EventRecord},
 	TransactionLegacySigned, LOG_TARGET,
 };
 use codec::{Decode, Encode};
@@ -138,7 +135,8 @@ pub enum ClientError {
 
 // Convert a `ClientError` to an RPC `ErrorObjectOwned`.
 impl From<ClientError> for ErrorObjectOwned {
-	fn from(_value: ClientError) -> Self {
+	fn from(value: ClientError) -> Self {
+		log::debug!(target: LOG_TARGET, "ClientError: {value:?}");
 		ErrorObjectOwned::owned::<()>(
 			ErrorCode::InternalError.code(),
 			ErrorCode::InternalError.message(),

@@ -5,7 +5,10 @@ use pallet_revive::{
 	evm::{BlockTag, Bytes, ReceiptInfo, U256},
 	EthInstantiateInput,
 };
-use pallet_revive_eth_rpc::{example::Account, EthRpcClient};
+use pallet_revive_eth_rpc::{
+	example::{wait_for_receipt, Account},
+	EthRpcClient,
+};
 
 static DUMMY_BYTES: &[u8] = include_bytes!("./dummy.polkavm");
 
@@ -24,18 +27,10 @@ async fn main() -> anyhow::Result<()> {
 	let input = input.encode();
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
 	let hash = account.send_transaction(&client, U256::zero(), input.into(), None).await?;
+
 	println!("Deploy Tx hash: {hash:?}");
-
-	for _ in 0..6 {
-		tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-		let receipt = client.get_transaction_receipt(hash).await?;
-		if receipt.is_some() {
-			break;
-		}
-	}
-
 	let ReceiptInfo { block_number, gas_used, contract_address, .. } =
-		client.get_transaction_receipt(hash).await?.unwrap();
+		wait_for_receipt(&client, hash).await?;
 	println!("Receipt received: ");
 	println!("Block number: {block_number}");
 	println!("Gas used: {gas_used}");
@@ -53,17 +48,7 @@ async fn main() -> anyhow::Result<()> {
 		.await?;
 
 	println!("Contract call tx hash: {hash:?}");
-
-	for _ in 0..6 {
-		tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-		let receipt = client.get_transaction_receipt(hash).await?;
-		if receipt.is_some() {
-			break
-		}
-	}
-
-	let ReceiptInfo { block_number, gas_used, to, .. } =
-		client.get_transaction_receipt(hash).await?.unwrap();
+	let ReceiptInfo { block_number, gas_used, to, .. } = wait_for_receipt(&client, hash).await?;
 	println!("Receipt received: ");
 	println!("Block number: {block_number}");
 	println!("Gas used: {gas_used}");

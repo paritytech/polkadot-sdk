@@ -1,7 +1,7 @@
 //! Example utilities
 #![cfg(feature = "example")]
 
-use crate::EthRpcClient;
+use crate::{EthRpcClient, ReceiptInfo};
 use anyhow::Context;
 use jsonrpsee::http_client::HttpClient;
 use pallet_revive::evm::{
@@ -16,6 +16,19 @@ impl Default for Account {
 	fn default() -> Self {
 		Self(subxt_signer::eth::dev::alith())
 	}
+}
+
+/// Wait for a transaction receipt.
+pub async fn wait_for_receipt(client: &HttpClient, hash: H256) -> anyhow::Result<ReceiptInfo> {
+	for _ in 0..6 {
+		tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+		let receipt = client.get_transaction_receipt(hash).await?;
+		if let Some(receipt) = receipt {
+			return Ok(receipt)
+		}
+	}
+
+	anyhow::bail!("Failed to get receipt")
 }
 
 impl Account {
@@ -79,8 +92,6 @@ impl Account {
 
 		let tx = self.sign_transaction(unsigned_tx.clone());
 		let bytes = tx.rlp_bytes().to_vec();
-
-		println!("Encode transaction len: {:?}", bytes.len());
 
 		let hash = client
 			.send_raw_transaction(bytes.clone().into())

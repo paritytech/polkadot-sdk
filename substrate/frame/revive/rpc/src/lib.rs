@@ -124,12 +124,12 @@ impl EthRpcServer for EthRpcServerImpl {
 			)
 			.await?;
 
-		let EthContractResult { kind, gas_limit, storage_deposit, .. } = dry_run;
+		let EthContractResult { transact_kind, gas_limit, storage_deposit, .. } = dry_run;
 		let call = subxt_client::tx().revive().eth_transact(
 			transaction.0,
 			gas_limit.into(),
 			storage_deposit,
-			kind.into(),
+			transact_kind.into(),
 		);
 		let ext = self.client.tx().create_unsigned(&call).map_err(|err| ClientError::from(err))?;
 		let hash = ext.submit().await.map_err(|err| EthRpcError::ClientError(err.into()))?;

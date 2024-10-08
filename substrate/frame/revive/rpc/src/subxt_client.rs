@@ -2,7 +2,7 @@
 use subxt::config::{signed_extensions, Config, PolkadotConfig};
 
 #[subxt::subxt(
-	runtime_metadata_path = "metadata.scale",
+	runtime_metadata_path = "kitchensink.scale",
 	substitute_type(
 		path = "pallet_revive::primitives::EthContractResult<A>",
 		with = "::subxt::utils::Static<::pallet_revive::EthContractResult<A>>"

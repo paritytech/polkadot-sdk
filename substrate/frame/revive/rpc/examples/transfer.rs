@@ -1,7 +1,10 @@
 use hex_literal::hex;
 use jsonrpsee::http_client::HttpClientBuilder;
-use pallet_revive::evm::{BlockTag, Bytes, H160};
-use pallet_revive_eth_rpc::{example::Account, EthRpcClient};
+use pallet_revive::evm::{BlockTag, Bytes, ReceiptInfo, H160};
+use pallet_revive_eth_rpc::{
+	example::{wait_for_receipt, Account},
+	EthRpcClient,
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -20,9 +23,10 @@ async fn main() -> anyhow::Result<()> {
 	let hash = account.send_transaction(&client, value, Bytes::default(), to).await?;
 	println!("Transaction hash: {hash:?}");
 
-	tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-	let receipt = client.get_transaction_receipt(hash).await;
-	println!("Receipt: {receipt:?}");
+	let ReceiptInfo { block_number, gas_used, .. } = wait_for_receipt(&client, hash).await?;
+	println!("Receipt received: ");
+	println!("Block number: {block_number}");
+	println!("Gas used: {gas_used}");
 
 	let balance = client.get_balance(account.address(), BlockTag::Latest.into()).await?;
 	println!("Account balance: {:?}", balance);
