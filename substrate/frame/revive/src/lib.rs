@@ -1161,24 +1161,36 @@ where
 		<T as Config>::RuntimeCall: From<crate::Call<T>>,
 		<T as Config>::RuntimeCall: Encode,
 	{
+		use crate::evm::{TransactionLegacySigned, TransactionLegacyUnsigned};
+
 		if let Some(dest) = dest {
+			let tx = TransactionLegacySigned {
+				transaction_legacy_unsigned: TransactionLegacyUnsigned {
+					value: value.into(),
+					input: input.into(),
+					to: Some(dest),
+					..Default::default()
+				},
+				..Default::default()
+			};
+
+			let payload = rlp::encode(&tx).to_vec();
 			let result = crate::Pallet::<T>::bare_call(
 				origin,
 				dest,
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				input.clone(),
+				tx.transaction_legacy_unsigned.input.0,
 				debug,
 				collect_events,
 			);
 
-			let dispatch_call = crate::Call::<T>::call {
-				dest,
-				value,
+			let dispatch_call = crate::Call::<T>::eth_transact {
+				payload,
 				gas_limit: result.gas_required,
 				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-				data: input.clone(),
+				transact_kind: EthTransactKind::Call,
 			};
 
 			let dispatch_call: <T as Config>::RuntimeCall = dispatch_call.into();
@@ -1192,17 +1204,29 @@ where
 				result: result.result.map(|v| v.data),
 			}
 		} else {
+			let tx = TransactionLegacySigned {
+				transaction_legacy_unsigned: TransactionLegacyUnsigned {
+					value: value.into(),
+					input: input.into(),
+					..Default::default()
+				},
+				..Default::default()
+			};
+			let payload = rlp::encode(&tx).to_vec();
+
 			let Ok(EthInstantiateInput { code, data }) =
-				EthInstantiateInput::decode(&mut &input[..])
+				EthInstantiateInput::decode(&mut &tx.transaction_legacy_unsigned.input.0[..])
 			else {
-				let dispatch_call = crate::Call::<T>::instantiate_with_code {
-					value,
+				let dispatch_call = crate::Call::<T>::eth_transact {
+					payload,
 					gas_limit: Default::default(),
 					storage_deposit_limit: 0u32.into(),
-					code: input,
-					data: Default::default(),
-					salt: None,
+					transact_kind: EthTransactKind::InstantiateWithCode {
+						code_len: tx.transaction_legacy_unsigned.input.0.len() as u32,
+						data_len: 0,
+					},
 				};
+
 				return EthContractResultDetails {
 					kind: EthTransactKind::Call,
 					dispatch_info: dispatch_call.get_dispatch_info(),
@@ -1227,13 +1251,11 @@ where
 				CollectEvents::Skip,
 			);
 
-			let dispatch_call = crate::Call::<T>::instantiate_with_code {
-				value,
+			let dispatch_call = crate::Call::<T>::eth_transact {
+				payload,
+				transact_kind: EthTransactKind::InstantiateWithCode { code_len, data_len },
 				gas_limit: result.gas_required,
 				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-				code,
-				data,
-				salt: None,
 			};
 
 			let dispatch_call: <T as Config>::RuntimeCall = dispatch_call.into();
