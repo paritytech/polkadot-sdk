@@ -608,12 +608,6 @@ where
 			let results_map = view_store.submit(source, to_be_submitted.into_iter(), hashes).await;
 			let mut submission_results = reduce_multiview_result(results_map).into_iter();
 
-			//todo [#5494]:
-			//ImmediatelyDropped errors from view submission shall be ignored. If transaction got into the mempool,
-			//(and not into the view) it means that it was successfully submitted. It will be sent
-			//to view in some near future.
-			//alternatively, we could reverse the order, and at first submit transaction to all
-			//views, and if it is dropped by all of them, do not add it to mempool and return error.
 			Ok(mempool_result
 				.into_iter()
 				.map(|result| {
@@ -679,7 +673,6 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
-		//todo: should send to view first, and check if not Dropped [#5494]
 		log::trace!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.active_views_count());
 		let xt = Arc::from(xt);
 		let xt_hash = match self.mempool.push_watched(source, xt.clone()) {
@@ -1081,10 +1074,7 @@ where
 			self.mempool.unwatched_and_watched_count(),
 			self.active_views_count()
 		);
-		//todo: this could be collected/cached in view
 		let included_xts = self.extrinsics_included_since_finalized(view.at.hash).await;
-
-		//todo: can we do better - w/o clone?
 		let xts = self.mempool.clone_unwatched();
 
 		let mut all_submitted_count = 0;
