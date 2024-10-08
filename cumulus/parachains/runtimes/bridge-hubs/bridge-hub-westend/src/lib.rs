@@ -557,6 +557,8 @@ construct_runtime!(
 		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 81,
 		EthereumBeaconClient: snowbridge_pallet_ethereum_client = 82,
 		EthereumSystem: snowbridge_pallet_system = 83,
+		EthereumInboundQueueV2: snowbridge_pallet_inbound_queue_v2 = 84,
+		EthereumOutboundQueueV2: snowbridge_pallet_outbound_queue_v2 = 85,
 
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
@@ -613,6 +615,8 @@ mod benches {
 		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
 		[snowbridge_pallet_system, EthereumSystem]
 		[snowbridge_pallet_ethereum_client, EthereumBeaconClient]
+		[snowbridge_pallet_inbound_queue_v2, EthereumInboundQueueV2]
+		[snowbridge_pallet_outbound_queue_v2, EthereumOutboundQueueV2]
 	);
 }
 
@@ -888,6 +892,16 @@ impl_runtime_apis! {
 
 		fn calculate_fee(command: Command, parameters: Option<PricingParameters<Balance>>) -> Fee<Balance> {
 			snowbridge_pallet_outbound_queue::api::calculate_fee::<Runtime>(command, parameters)
+		}
+	}
+
+	impl snowbridge_outbound_queue_runtime_api_v2::OutboundQueueApiV2<Block, Balance> for Runtime {
+		fn prove_message(leaf_index: u64) -> Option<snowbridge_pallet_outbound_queue_v2::MerkleProof> {
+			snowbridge_pallet_outbound_queue_v2::api::prove_message::<Runtime>(leaf_index)
+		}
+
+		fn calculate_fee(command: Command, parameters: Option<PricingParameters<Balance>>) -> Fee<Balance> {
+			snowbridge_pallet_outbound_queue_v2::api::calculate_fee::<Runtime>(command, parameters)
 		}
 	}
 
