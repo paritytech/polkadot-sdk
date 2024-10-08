@@ -77,7 +77,7 @@ generate_prdoc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(generate_prdoc)
 
 parser_prdoc = subparsers.add_parser('prdoc', help='Generates PR documentation')
-generate_prdoc.setup_parser(parser_prdoc)
+generate_prdoc.setup_parser(parser_prdoc, pr_required=False)
 
 def main():
     global args, unknown, runtimesMatrix
