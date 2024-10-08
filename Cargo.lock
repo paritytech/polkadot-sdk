@@ -14182,8 +14182,8 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-keyring",
  "sp-maybe-compressed-blob 11.0.0",
+ "sp-tracing 16.0.0",
  "thiserror",
- "tracing-gum",
 ]
 
 [[package]]

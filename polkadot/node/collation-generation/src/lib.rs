@@ -127,7 +127,7 @@ impl CollationGenerationSubsystem {
 					)
 					.await
 					{
-						gum::warn!(target: LOG_TARGET, err = ?err, "failed to handle new activations");
+						sp_tracing::warn!(target: LOG_TARGET, err = ?err, "failed to handle new activations");
 					}
 				}
 
@@ -138,7 +138,7 @@ impl CollationGenerationSubsystem {
 				msg: CollationGenerationMessage::Initialize(config),
 			}) => {
 				if self.config.is_some() {
-					gum::error!(target: LOG_TARGET, "double initialization");
+					sp_tracing::error!(target: LOG_TARGET, "double initialization");
 				} else {
 					self.config = Some(Arc::new(config));
 				}
@@ -157,17 +157,17 @@ impl CollationGenerationSubsystem {
 					if let Err(err) =
 						handle_submit_collation(params, config, ctx, &self.metrics).await
 					{
-						gum::error!(target: LOG_TARGET, ?err, "Failed to submit collation");
+						sp_tracing::error!(target: LOG_TARGET, ?err, "Failed to submit collation");
 					}
 				} else {
-					gum::error!(target: LOG_TARGET, "Collation submitted before initialization");
+					sp_tracing::error!(target: LOG_TARGET, "Collation submitted before initialization");
 				}
 
 				false
 			},
 			Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => false,
 			Err(err) => {
-				gum::error!(
+				sp_tracing::error!(
 					target: LOG_TARGET,
 					err = ?err,
 					"error receiving message from subsystem context: {:?}",
@@ -266,7 +266,7 @@ async fn handle_new_activations<Context>(
 						}
 					},
 					_ => {
-						gum::trace!(
+						sp_tracing::trace!(
 							target: LOG_TARGET,
 							core_idx = %core_idx,
 							relay_parent = ?relay_parent,
@@ -276,7 +276,7 @@ async fn handle_new_activations<Context>(
 					},
 				},
 				CoreState::Free => {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						core_idx = %core_idx,
 						"core is not assigned to any para. Keep going.",
@@ -286,7 +286,7 @@ async fn handle_new_activations<Context>(
 			};
 
 			if scheduled_core.para_id != config.para_id {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					core_idx = %core_idx,
 					relay_parent = ?relay_parent,
@@ -334,7 +334,7 @@ async fn handle_new_activations<Context>(
 			}
 		}
 
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			relay_parent = ?relay_parent,
 			our_para = %para_id,
@@ -353,7 +353,7 @@ async fn handle_new_activations<Context>(
 		{
 			Some(v) => v,
 			None => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					relay_parent = ?relay_parent,
 					our_para = %para_id,
@@ -373,7 +373,7 @@ async fn handle_new_activations<Context>(
 		{
 			Some(v) => v,
 			None => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					relay_parent = ?relay_parent,
 					our_para = %para_id,
@@ -400,7 +400,7 @@ async fn handle_new_activations<Context>(
 						match collator_fn(relay_parent, &validation_data).await {
 							Some(collation) => collation.into_inner(),
 							None => {
-								gum::debug!(
+								sp_tracing::debug!(
 									target: LOG_TARGET,
 									?para_id,
 									"collator returned no collation on collate",
@@ -471,7 +471,7 @@ async fn handle_submit_collation<Context>(
 	{
 		Some(v) => v,
 		None => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				relay_parent = ?relay_parent,
 				our_para = %config.para_id,
@@ -549,7 +549,7 @@ async fn construct_and_distribute_receipt(
 		// As such, honest collators never produce an uncompressed PoV which starts with
 		// a compression magic number, which would lead validators to reject the collation.
 		if encoded_size > validation_data.max_pov_size as usize {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				para_id = %para_id,
 				size = encoded_size,
@@ -576,7 +576,7 @@ async fn construct_and_distribute_receipt(
 	let erasure_root = match erasure_root(n_validators, validation_data, pov.clone()) {
 		Ok(erasure_root) => erasure_root,
 		Err(err) => {
-			gum::error!(
+			sp_tracing::error!(
 				target: LOG_TARGET,
 				para_id = %para_id,
 				err = ?err,
@@ -610,7 +610,7 @@ async fn construct_and_distribute_receipt(
 		},
 	};
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		candidate_hash = ?ccr.hash(),
 		?pov_hash,
