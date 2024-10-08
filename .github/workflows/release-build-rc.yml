@@ -17,12 +17,11 @@ on:
         type: string
 
 jobs:
-  # TODO: Activate this job when the pipeline is moved to the fork in the `paritytech-release` org
-  # check-workflow-can-run:
-  #   uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@latest
+  check-workflow-can-run:
+    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@latest
 
   validate-inputs:
-    # needs: [check-workflow-can-run]
+    needs: [check-workflow-can-run]
     runs-on: ubuntu-latest
     outputs:
         release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
@@ -40,7 +39,6 @@ jobs:
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
   build-polkadot-binary:
-    # needs: [check-workflow-can-run, validate-inputs]
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
     uses: "./.github/workflows/release-reusable-rc-buid.yml"
@@ -58,7 +56,6 @@ jobs:
       AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
 
   build-polkadot-parachain-binary:
-    # needs: [check-workflow-can-run, validate-inputs]
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'all' }}
     uses: "./.github/workflows/release-reusable-rc-buid.yml"
