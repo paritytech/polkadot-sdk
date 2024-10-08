@@ -59,6 +59,7 @@ jobs:
   build-rc:
     needs: [set-image]
     runs-on: ubuntu-latest
+    environment: release
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     strategy:
@@ -182,7 +183,7 @@ jobs:
     needs: [build-rc]
     uses: ./.github/workflows/release-reusable-s3-upload.yml
     with:
-      package: ${{ inputs.package }}
+      package: ${{ inputs.binary }}
       release_tag: ${{ inputs.release_tag }}
     secrets:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}

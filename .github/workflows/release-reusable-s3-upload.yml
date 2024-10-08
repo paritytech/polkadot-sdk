@@ -24,6 +24,7 @@ on:
 jobs:
   upload-artifacts-to-s3:
       runs-on: ubuntu-latest
+      environment: release
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}

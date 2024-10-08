@@ -21,14 +21,33 @@ jobs:
   # check-workflow-can-run:
   #   uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@latest
 
-  build-polkadot-binary:
+  validate-inputs:
     # needs: [check-workflow-can-run]
+    runs-on: ubuntu-latest
+    outputs:
+        release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Validate inputs
+        id: validate_inputs
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
+          echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+
+  build-polkadot-binary:
+    # needs: [check-workflow-can-run, validate-inputs]
+    needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
     uses: "./.github/workflows/release-reusable-rc-buid.yml"
     with:
       binary: '["polkadot", "polkadot-prepare-worker", "polkadot-execute-worker"]'
       package: polkadot
-      release_tag: ${{ inputs.release_tag }}
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
     secrets:
       PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
       PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
@@ -39,13 +58,14 @@ jobs:
       AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
 
   build-polkadot-parachain-binary:
-    # needs: [check-workflow-can-run]
+    # needs: [check-workflow-can-run, validate-inputs]
+    needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'all' }}
     uses: "./.github/workflows/release-reusable-rc-buid.yml"
     with:
       binary: '["polkadot-parachain"]'
       package: "polkadot-parachain-bin"
-      release_tag: ${{ inputs.release_tag }}
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
     secrets:
       PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
       PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
