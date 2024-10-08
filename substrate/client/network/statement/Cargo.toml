@@ -5,7 +5,7 @@ version = "0.16.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 documentation = "https://docs.rs/sc-network-statement"
 
@@ -16,17 +16,16 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-array-bytes = "6.2.2"
-async-channel = "1.8.0"
-codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
-futures = "0.3.30"
-libp2p = "0.51.4"
+array-bytes = { workspace = true, default-features = true }
+async-channel = { workspace = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
+futures = { workspace = true }
 log = { workspace = true, default-features = true }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
-sc-network-common = { path = "../common" }
-sc-network-sync = { path = "../sync" }
-sc-network-types = { path = "../types" }
-sc-network = { path = ".." }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-statement-store = { path = "../../../primitives/statement-store" }
+prometheus-endpoint = { workspace = true, default-features = true }
+sc-network-common = { workspace = true, default-features = true }
+sc-network-sync = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-statement-store = { workspace = true, default-features = true }

@@ -24,19 +24,18 @@ use crate::chain_head::{
 		BestBlockChanged, Finalized, FollowEvent, Initialized, NewBlock, RuntimeEvent,
 		RuntimeVersionEvent,
 	},
-	subscription::{SubscriptionManagement, SubscriptionManagementError},
+	subscription::{InsertedSubscriptionData, SubscriptionManagement, SubscriptionManagementError},
 };
 use futures::{
 	channel::oneshot,
 	stream::{self, Stream, StreamExt},
 };
 use futures_util::future::Either;
-use jsonrpsee::SubscriptionSink;
-use log::{debug, error};
+use log::debug;
 use sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
 };
-use sc_rpc::utils::to_sub_message;
+use sc_rpc::utils::Subscription;
 use schnellru::{ByLength, LruMap};
 use sp_api::CallApiAt;
 use sp_blockchain::{
@@ -54,8 +53,6 @@ use std::{
 /// `Initialized` event.
 const MAX_FINALIZED_BLOCKS: usize = 16;
 
-use super::subscription::InsertedSubscriptionData;
-
 /// Generates the events of the `chainHead_follow` method.
 pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	/// Substrate client.
@@ -72,9 +69,74 @@ pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	current_best_block: Option<Block::Hash>,
 	/// LRU cache of pruned blocks.
 	pruned_blocks: LruMap<Block::Hash, ()>,
+	/// LRU cache of announced blocks.
+	announced_blocks: AnnouncedBlocks<Block>,
 	/// Stop all subscriptions if the distance between the leaves and the current finalized
 	/// block is larger than this value.
 	max_lagging_distance: usize,
+}
+
+struct AnnouncedBlocks<Block: BlockT> {
+	/// Unfinalized blocks.
+	blocks: LruMap<Block::Hash, ()>,
+	/// Finalized blocks.
+	finalized: MostRecentFinalizedBlocks<Block>,
+}
+
+/// Wrapper over LRU to efficiently lookup hashes and remove elements as FIFO queue.
+///
+/// For the finalized blocks we use `peek` to avoid moving the block counter to the front.
+/// This effectively means that the LRU acts as a FIFO queue. Otherwise, we might
+/// end up with scenarios where the "finalized block" in the end of LRU is overwritten which
+/// may not necessarily be the oldest finalized block i.e, possible that "get" promotes an
+/// older finalized block because it was accessed more recently.
+struct MostRecentFinalizedBlocks<Block: BlockT>(LruMap<Block::Hash, ()>);
+
+impl<Block: BlockT> MostRecentFinalizedBlocks<Block> {
+	/// Insert the finalized block hash into the LRU cache.
+	fn insert(&mut self, block: Block::Hash) {
+		self.0.insert(block, ());
+	}
+
+	/// Check if the block is contained in the LRU cache.
+	fn contains(&mut self, block: &Block::Hash) -> Option<&()> {
+		self.0.peek(block)
+	}
+}
+
+impl<Block: BlockT> AnnouncedBlocks<Block> {
+	/// Creates a new `AnnouncedBlocks`.
+	fn new() -> Self {
+		Self {
+			// The total number of pinned blocks is `MAX_PINNED_BLOCKS`, ensure we don't
+			// exceed the limit.
+			blocks: LruMap::new(ByLength::new((MAX_PINNED_BLOCKS - MAX_FINALIZED_BLOCKS) as u32)),
+			// We are keeping a smaller number of announced finalized blocks in memory.
+			// This is because the `Finalized` event might be triggered before the `NewBlock` event.
+			finalized: MostRecentFinalizedBlocks(LruMap::new(ByLength::new(
+				MAX_FINALIZED_BLOCKS as u32,
+			))),
+		}
+	}
+
+	/// Insert the block into the announced blocks.
+	fn insert(&mut self, block: Block::Hash, finalized: bool) {
+		if finalized {
+			// When a block is declared as finalized, it is removed from the unfinalized blocks.
+			//
+			// Given that the finalized blocks are bounded to `MAX_FINALIZED_BLOCKS`,
+			// this ensures we keep the minimum number of blocks in memory.
+			self.blocks.remove(&block);
+			self.finalized.insert(block);
+		} else {
+			self.blocks.insert(block, ());
+		}
+	}
+
+	/// Check if the block was previously announced.
+	fn was_announced(&mut self, block: &Block::Hash) -> bool {
+		self.blocks.get(block).is_some() || self.finalized.contains(block).is_some()
+	}
 }
 
 impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Client> {
@@ -97,6 +159,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 			pruned_blocks: LruMap::new(ByLength::new(
 				MAX_PINNED_BLOCKS.try_into().unwrap_or(u32::MAX),
 			)),
+			announced_blocks: AnnouncedBlocks::new(),
 			max_lagging_distance,
 		}
 	}
@@ -215,7 +278,7 @@ where
 	///
 	/// This edge-case can happen for parachains where the relay chain syncs slower to
 	/// the head of the chain than the parachain node that is synced already.
-	fn distace_within_reason(
+	fn distance_within_reason(
 		&self,
 		block: Block::Hash,
 		finalized: Block::Hash,
@@ -251,7 +314,7 @@ where
 		// Ensure all leaves are within a reasonable distance from the finalized block,
 		// before traversing the tree.
 		for leaf in &leaves {
-			self.distace_within_reason(*leaf, finalized)?;
+			self.distance_within_reason(*leaf, finalized)?;
 		}
 
 		for leaf in leaves {
@@ -327,6 +390,10 @@ where
 		let finalized_block_hash = startup_point.finalized_hash;
 		let finalized_block_runtime = self.generate_runtime_event(finalized_block_hash, None);
 
+		for finalized in &finalized_block_hashes {
+			self.announced_blocks.insert(*finalized, true);
+		}
+
 		let initialized_event = FollowEvent::Initialized(Initialized {
 			finalized_block_hashes: finalized_block_hashes.into(),
 			finalized_block_runtime,
@@ -337,6 +404,13 @@ where
 
 		finalized_block_descendants.push(initialized_event);
 		for (child, parent) in initial_blocks.into_iter() {
+			// If the parent was not announced we have a gap currently.
+			// This can happen during a WarpSync.
+			if !self.announced_blocks.was_announced(&parent) {
+				return Err(SubscriptionManagementError::BlockHeaderAbsent);
+			}
+			self.announced_blocks.insert(child, false);
+
 			let new_runtime = self.generate_runtime_event(child, Some(parent));
 
 			let event = FollowEvent::NewBlock(NewBlock {
@@ -352,6 +426,11 @@ where
 		// Generate a new best block event.
 		let best_block_hash = startup_point.best_hash;
 		if best_block_hash != finalized_block_hash {
+			if !self.announced_blocks.was_announced(&best_block_hash) {
+				return Err(SubscriptionManagementError::BlockHeaderAbsent);
+			}
+			self.announced_blocks.insert(best_block_hash, true);
+
 			let best_block = FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
 			self.current_best_block = Some(best_block_hash);
 			finalized_block_descendants.push(best_block);
@@ -409,29 +488,52 @@ where
 		notification: BlockImportNotification<Block>,
 		startup_point: &StartupPoint<Block>,
 	) -> Result<Vec<FollowEvent<Block::Hash>>, SubscriptionManagementError> {
-		// The block was already pinned by the initial block events or by the finalized event.
-		if !self.sub_handle.pin_block(&self.sub_id, notification.hash)? {
-			return Ok(Default::default())
-		}
+		let block_hash = notification.hash;
 
 		// Ensure we are only reporting blocks after the starting point.
 		if *notification.header.number() < startup_point.finalized_number {
 			return Ok(Default::default())
 		}
 
-		Ok(self.generate_import_events(
-			notification.hash,
-			*notification.header.parent_hash(),
-			notification.is_new_best,
-		))
+		// Ensure the block can be pinned before generating the events.
+		if !self.sub_handle.pin_block(&self.sub_id, block_hash)? {
+			// The block is already pinned, this is similar to the check above.
+			//
+			// The `SubscriptionManagement` ensures the block is tracked until (short lived):
+			// - 2 calls to `pin_block` are made (from `Finalized` and `NewBlock` branches).
+			// - the block is unpinned by the user
+			//
+			// This is rather a sanity checks for edge-cases (in theory), where
+			// [`MAX_FINALIZED_BLOCKS` + 1] finalized events are triggered before the `NewBlock`
+			// event of the first `Finalized` event.
+			return Ok(Default::default())
+		}
+
+		if self.announced_blocks.was_announced(&block_hash) {
+			// Block was already reported by the finalized branch.
+			return Ok(Default::default())
+		}
+
+		// Double check the parent hash. If the parent hash is not reported, we have a gap.
+		let parent_block_hash = *notification.header.parent_hash();
+		if !self.announced_blocks.was_announced(&parent_block_hash) {
+			// The parent block was not reported, we have a gap.
+			return Err(SubscriptionManagementError::Custom("Parent block was not reported".into()))
+		}
+
+		self.announced_blocks.insert(block_hash, false);
+		Ok(self.generate_import_events(block_hash, parent_block_hash, notification.is_new_best))
 	}
 
 	/// Generates new block events from the given finalized hashes.
 	///
 	/// It may be possible that the `Finalized` event fired before the `NewBlock`
-	/// event. In that case, for each finalized hash that was not reported yet
-	/// generate the `NewBlock` event. For the final finalized hash we must also
-	/// generate one `BestBlock` event.
+	/// event. Only in that case we generate:
+	/// - `NewBlock` event for all finalized hashes.
+	/// - `BestBlock` event for the last finalized hash.
+	///
+	/// This function returns an empty list if all finalized hashes were already reported
+	/// and are pinned.
 	fn generate_finalized_events(
 		&mut self,
 		finalized_block_hashes: &[Block::Hash],
@@ -446,43 +548,53 @@ where
 			return Err(SubscriptionManagementError::BlockHeaderAbsent)
 		};
 
+		if !self.announced_blocks.was_announced(first_header.parent_hash()) {
+			return Err(SubscriptionManagementError::Custom(
+				"Parent block was not reported for a finalized block".into(),
+			));
+		}
+
 		let parents =
 			std::iter::once(first_header.parent_hash()).chain(finalized_block_hashes.iter());
 		for (i, (hash, parent)) in finalized_block_hashes.iter().zip(parents).enumerate() {
-			// Check if the block was already reported and thus, is already pinned.
-			if !self.sub_handle.pin_block(&self.sub_id, *hash)? {
-				continue
+			// Ensure the block is pinned before generating the events.
+			self.sub_handle.pin_block(&self.sub_id, *hash)?;
+
+			// Check if the block was already reported.
+			if self.announced_blocks.was_announced(hash) {
+				continue;
 			}
 
 			// Generate `NewBlock` events for all blocks beside the last block in the list
-			if i + 1 != finalized_block_hashes.len() {
+			let is_last = i + 1 == finalized_block_hashes.len();
+			if !is_last {
 				// Generate only the `NewBlock` event for this block.
 				events.extend(self.generate_import_events(*hash, *parent, false));
-			} else {
+				self.announced_blocks.insert(*hash, true);
+				continue;
+			}
+
+			if let Some(best_block_hash) = self.current_best_block {
+				let ancestor =
+					sp_blockchain::lowest_common_ancestor(&*self.client, *hash, best_block_hash)?;
+
 				// If we end up here and the `best_block` is a descendent of the finalized block
 				// (last block in the list), it means that there were skipped notifications.
-				// Otherwise `pin_block` would had returned `true`.
+				// Otherwise `pin_block` would had returned `false`.
 				//
 				// When the node falls out of sync and then syncs up to the tip of the chain, it can
 				// happen that we skip notifications. Then it is better to terminate the connection
 				// instead of trying to send notifications for all missed blocks.
-				if let Some(best_block_hash) = self.current_best_block {
-					let ancestor = sp_blockchain::lowest_common_ancestor(
-						&*self.client,
-						*hash,
-						best_block_hash,
-					)?;
-
-					if ancestor.hash == *hash {
-						return Err(SubscriptionManagementError::Custom(
-							"A descendent of the finalized block was already reported".into(),
-						))
-					}
+				if ancestor.hash == *hash {
+					return Err(SubscriptionManagementError::Custom(
+						"A descendent of the finalized block was already reported".into(),
+					))
 				}
-
-				// Let's generate the `NewBlock` and `NewBestBlock` events for the block.
-				events.extend(self.generate_import_events(*hash, *parent, true))
 			}
+
+			// Let's generate the `NewBlock` and `NewBestBlock` events for the block.
+			events.extend(self.generate_import_events(*hash, *parent, true));
+			self.announced_blocks.insert(*hash, true);
 		}
 
 		Ok(events)
@@ -544,45 +656,42 @@ where
 		let pruned_block_hashes =
 			self.get_pruned_hashes(&notification.stale_heads, last_finalized)?;
 
+		for finalized in &finalized_block_hashes {
+			self.announced_blocks.insert(*finalized, true);
+		}
+
 		let finalized_event = FollowEvent::Finalized(Finalized {
 			finalized_block_hashes,
 			pruned_block_hashes: pruned_block_hashes.clone(),
 		});
 
 		if let Some(current_best_block) = self.current_best_block {
-			// The best reported block is in the pruned list. Report a new best block.
+			// We need to generate a new best block if the best block is in the pruned list.
 			let is_in_pruned_list =
 				pruned_block_hashes.iter().any(|hash| *hash == current_best_block);
-			// The block is not the last finalized block.
-			//
-			// It can be either:
-			//  - a descendant of the last finalized block
-			//  - a block on a fork that will be pruned in the future.
-			//
-			// In those cases, we emit a new best block.
-			let is_not_last_finalized = current_best_block != last_finalized;
-
-			if is_in_pruned_list || is_not_last_finalized {
-				// We need to generate a best block event.
-				let best_block_hash = self.client.info().best_hash;
-
-				// Defensive check against state missmatch.
-				if best_block_hash == current_best_block {
-					// The client doest not have any new information about the best block.
-					// The information from `.info()` is updated from the DB as the last
-					// step of the finalization and it should be up to date.
-					// If the info is outdated, there is nothing the RPC can do for now.
-					error!(
-						target: LOG_TARGET,
-						"[follow][id={:?}] Client does not contain different best block",
-						self.sub_id,
-					);
-				} else {
-					// The RPC needs to also submit a new best block changed before the
-					// finalized event.
-					self.current_best_block = Some(best_block_hash);
-					events
-						.push(FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash }));
+			if is_in_pruned_list {
+				self.current_best_block = Some(last_finalized);
+				events.push(FollowEvent::BestBlockChanged(BestBlockChanged {
+					best_block_hash: last_finalized,
+				}));
+			} else {
+				// The pruning logic ensures that when the finalized block is announced,
+				// all blocks on forks that have the common ancestor lower or equal
+				// to the finalized block are reported.
+				//
+				// However, we double check if the best block is a descendant of the last finalized
+				// block to ensure we don't miss any events.
+				let ancestor = sp_blockchain::lowest_common_ancestor(
+					&*self.client,
+					last_finalized,
+					current_best_block,
+				)?;
+				let is_descendant = ancestor.hash == last_finalized;
+				if !is_descendant {
+					self.current_best_block = Some(last_finalized);
+					events.push(FollowEvent::BestBlockChanged(BestBlockChanged {
+						best_block_hash: last_finalized,
+					}));
 				}
 			}
 		}
@@ -597,7 +706,7 @@ where
 		&mut self,
 		startup_point: &StartupPoint<Block>,
 		mut stream: EventStream,
-		sink: SubscriptionSink,
+		sink: Subscription,
 		rx_stop: oneshot::Receiver<()>,
 	) -> Result<(), SubscriptionManagementError>
 	where
@@ -632,23 +741,20 @@ where
 						self.sub_id,
 						err
 					);
-					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-					let _ = sink.send(msg).await;
+					_ = sink.send(&FollowEvent::<String>::Stop).await;
 					return Err(err)
 				},
 			};
 
 			for event in events {
-				let msg = to_sub_message(&sink, &event);
-				if let Err(err) = sink.send(msg).await {
+				if let Err(err) = sink.send(&event).await {
 					// Failed to submit event.
 					debug!(
 						target: LOG_TARGET,
 						"[follow][id={:?}] Failed to send event {:?}", self.sub_id, err
 					);
 
-					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-					let _ = sink.send(msg).await;
+					let _ = sink.send(&FollowEvent::<String>::Stop).await;
 					// No need to propagate this error further, the client disconnected.
 					return Ok(())
 				}
@@ -662,15 +768,14 @@ where
 		// - the substrate streams have closed
 		// - the `Stop` receiver was triggered internally (cannot hold the pinned block guarantee)
 		// - the client disconnected.
-		let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-		let _ = sink.send(msg).await;
+		let _ = sink.send(&FollowEvent::<String>::Stop).await;
 		Ok(())
 	}
 
 	/// Generate the block events for the `chainHead_follow` method.
 	pub async fn generate_events(
 		&mut self,
-		sink: SubscriptionSink,
+		sink: Subscription,
 		sub_data: InsertedSubscriptionData<Block>,
 	) -> Result<(), SubscriptionManagementError> {
 		// Register for the new block and finalized notifications.
@@ -698,8 +803,7 @@ where
 					self.sub_id,
 					err
 				);
-				let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-				let _ = sink.send(msg).await;
+				let _ = sink.send(&FollowEvent::<String>::Stop).await;
 				return Err(err)
 			},
 		};

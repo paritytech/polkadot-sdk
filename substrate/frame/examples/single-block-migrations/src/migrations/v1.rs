@@ -21,7 +21,7 @@ use frame_support::{
 };
 
 #[cfg(feature = "try-runtime")]
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// Collection of storage item formats from the previous storage version.
 ///
@@ -41,7 +41,7 @@ mod v0 {
 ///
 /// In this migration, update the on-chain storage for the pallet to reflect the new storage
 /// layout.
-pub struct InnerMigrateV0ToV1<T: crate::Config>(sp_std::marker::PhantomData<T>);
+pub struct InnerMigrateV0ToV1<T: crate::Config>(core::marker::PhantomData<T>);
 
 impl<T: crate::Config> UncheckedOnRuntimeUpgrade for InnerMigrateV0ToV1<T> {
 	/// Return the existing [`crate::Value`] so we can check that it was correctly set in
@@ -60,7 +60,7 @@ impl<T: crate::Config> UncheckedOnRuntimeUpgrade for InnerMigrateV0ToV1<T> {
 	///
 	/// - If the value doesn't exist, there is nothing to do.
 	/// - If the value exists, it is read and then written back to storage inside a
-	/// [`crate::CurrentAndPreviousValue`].
+	///   [`crate::CurrentAndPreviousValue`].
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		// Read the old value from storage
 		if let Some(old_value) = v0::Value::<T>::take() {

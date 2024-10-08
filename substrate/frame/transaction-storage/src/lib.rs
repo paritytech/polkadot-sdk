@@ -28,7 +28,11 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::result;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	traits::{
@@ -38,7 +42,6 @@ use frame_support::{
 	},
 };
 use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
-use sp_std::{prelude::*, result};
 use sp_transaction_storage_proof::{
 	encode_index, random_chunk, InherentError, TransactionStorageProof, CHUNK_SIZE,
 	INHERENT_IDENTIFIER,
@@ -159,11 +162,11 @@ pub mod pallet {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			// Drop obsolete roots. The proof for `obsolete` will be checked later
 			// in this block, so we drop `obsolete` - 1.
-			let period = <StoragePeriod<T>>::get();
+			let period = StoragePeriod::<T>::get();
 			let obsolete = n.saturating_sub(period.saturating_add(One::one()));
 			if obsolete > Zero::zero() {
-				<Transactions<T>>::remove(obsolete);
-				<ChunkCount<T>>::remove(obsolete);
+				Transactions::<T>::remove(obsolete);
+				ChunkCount::<T>::remove(obsolete);
 			}
 			// 2 writes in `on_initialize` and 2 writes + 2 reads in `on_finalize`
 			T::DbWeight::get().reads_writes(2, 4)
@@ -171,21 +174,21 @@ pub mod pallet {
 
 		fn on_finalize(n: BlockNumberFor<T>) {
 			assert!(
-				<ProofChecked<T>>::take() || {
+				ProofChecked::<T>::take() || {
 					// Proof is not required for early or empty blocks.
-					let number = <frame_system::Pallet<T>>::block_number();
-					let period = <StoragePeriod<T>>::get();
+					let number = frame_system::Pallet::<T>::block_number();
+					let period = StoragePeriod::<T>::get();
 					let target_number = number.saturating_sub(period);
-					target_number.is_zero() || <ChunkCount<T>>::get(target_number) == 0
+					target_number.is_zero() || ChunkCount::<T>::get(target_number) == 0
 				},
 				"Storage proof must be checked once in the block"
 			);
 			// Insert new transactions
-			let transactions = <BlockTransactions<T>>::take();
+			let transactions = BlockTransactions::<T>::take();
 			let total_chunks = transactions.last().map_or(0, |t| t.block_chunks);
 			if total_chunks != 0 {
-				<ChunkCount<T>>::insert(n, total_chunks);
-				<Transactions<T>>::insert(n, transactions);
+				ChunkCount::<T>::insert(n, total_chunks);
+				Transactions::<T>::insert(n, transactions);
 			}
 		}
 	}
@@ -215,11 +218,11 @@ pub mod pallet {
 
 			let content_hash = sp_io::hashing::blake2_256(&data);
 			let extrinsic_index =
-				<frame_system::Pallet<T>>::extrinsic_index().ok_or(Error::<T>::BadContext)?;
+				frame_system::Pallet::<T>::extrinsic_index().ok_or(Error::<T>::BadContext)?;
 			sp_io::transaction_index::index(extrinsic_index, data.len() as u32, content_hash);
 
 			let mut index = 0;
-			<BlockTransactions<T>>::mutate(|transactions| {
+			BlockTransactions::<T>::mutate(|transactions| {
 				if transactions.len() + 1 > T::MaxBlockTransactions::get() as usize {
 					return Err(Error::<T>::TooManyTransactions)
 				}
@@ -253,17 +256,17 @@ pub mod pallet {
 			index: u32,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
-			let transactions = <Transactions<T>>::get(block).ok_or(Error::<T>::RenewedNotFound)?;
+			let transactions = Transactions::<T>::get(block).ok_or(Error::<T>::RenewedNotFound)?;
 			let info = transactions.get(index as usize).ok_or(Error::<T>::RenewedNotFound)?;
 			let extrinsic_index =
-				<frame_system::Pallet<T>>::extrinsic_index().ok_or(Error::<T>::BadContext)?;
+				frame_system::Pallet::<T>::extrinsic_index().ok_or(Error::<T>::BadContext)?;
 
 			Self::apply_fee(sender, info.size)?;
 
 			sp_io::transaction_index::renew(extrinsic_index, info.content_hash.into());
 
 			let mut index = 0;
-			<BlockTransactions<T>>::mutate(|transactions| {
+			BlockTransactions::<T>::mutate(|transactions| {
 				if transactions.len() + 1 > T::MaxBlockTransactions::get() as usize {
 					return Err(Error::<T>::TooManyTransactions)
 				}
@@ -297,15 +300,15 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 			ensure!(!ProofChecked::<T>::get(), Error::<T>::DoubleCheck);
-			let number = <frame_system::Pallet<T>>::block_number();
-			let period = <StoragePeriod<T>>::get();
+			let number = frame_system::Pallet::<T>::block_number();
+			let period = StoragePeriod::<T>::get();
 			let target_number = number.saturating_sub(period);
 			ensure!(!target_number.is_zero(), Error::<T>::UnexpectedProof);
-			let total_chunks = <ChunkCount<T>>::get(target_number);
+			let total_chunks = ChunkCount::<T>::get(target_number);
 			ensure!(total_chunks != 0, Error::<T>::UnexpectedProof);
-			let parent_hash = <frame_system::Pallet<T>>::parent_hash();
+			let parent_hash = frame_system::Pallet::<T>::parent_hash();
 			let selected_chunk_index = random_chunk(parent_hash.as_ref(), total_chunks);
-			let (info, chunk_index) = match <Transactions<T>>::get(target_number) {
+			let (info, chunk_index) = match Transactions::<T>::get(target_number) {
 				Some(infos) => {
 					let index = match infos
 						.binary_search_by_key(&selected_chunk_index, |info| info.block_chunks)
@@ -349,8 +352,7 @@ pub mod pallet {
 
 	/// Collection of transaction metadata by block number.
 	#[pallet::storage]
-	#[pallet::getter(fn transaction_roots)]
-	pub(super) type Transactions<T: Config> = StorageMap<
+	pub type Transactions<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
 		BlockNumberFor<T>,
@@ -360,32 +362,30 @@ pub mod pallet {
 
 	/// Count indexed chunks for each block.
 	#[pallet::storage]
-	pub(super) type ChunkCount<T: Config> =
+	pub type ChunkCount<T: Config> =
 		StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, u32, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn byte_fee)]
 	/// Storage fee per byte.
-	pub(super) type ByteFee<T: Config> = StorageValue<_, BalanceOf<T>>;
+	pub type ByteFee<T: Config> = StorageValue<_, BalanceOf<T>>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn entry_fee)]
 	/// Storage fee per transaction.
-	pub(super) type EntryFee<T: Config> = StorageValue<_, BalanceOf<T>>;
+	pub type EntryFee<T: Config> = StorageValue<_, BalanceOf<T>>;
 
 	/// Storage period for data in blocks. Should match `sp_storage_proof::DEFAULT_STORAGE_PERIOD`
 	/// for block authoring.
 	#[pallet::storage]
-	pub(super) type StoragePeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type StoragePeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	// Intermediates
 	#[pallet::storage]
-	pub(super) type BlockTransactions<T: Config> =
+	pub type BlockTransactions<T: Config> =
 		StorageValue<_, BoundedVec<TransactionInfo, T::MaxBlockTransactions>, ValueQuery>;
 
 	/// Was the proof checked in this block?
 	#[pallet::storage]
-	pub(super) type ProofChecked<T: Config> = StorageValue<_, bool, ValueQuery>;
+	pub type ProofChecked<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -407,9 +407,9 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			<ByteFee<T>>::put(&self.byte_fee);
-			<EntryFee<T>>::put(&self.entry_fee);
-			<StoragePeriod<T>>::put(&self.storage_period);
+			ByteFee::<T>::put(&self.byte_fee);
+			EntryFee::<T>::put(&self.entry_fee);
+			StoragePeriod::<T>::put(&self.storage_period);
 		}
 	}
 
@@ -439,6 +439,21 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Get transaction storage information from outside of this pallet.
+		pub fn transaction_roots(
+			block: BlockNumberFor<T>,
+		) -> Option<BoundedVec<TransactionInfo, T::MaxBlockTransactions>> {
+			Transactions::<T>::get(block)
+		}
+		/// Get ByteFee storage information from outside of this pallet.
+		pub fn byte_fee() -> Option<BalanceOf<T>> {
+			ByteFee::<T>::get()
+		}
+		/// Get EntryFee storage information from outside of this pallet.
+		pub fn entry_fee() -> Option<BalanceOf<T>> {
+			EntryFee::<T>::get()
+		}
+
 		fn apply_fee(sender: T::AccountId, size: u32) -> DispatchResult {
 			let byte_fee = ByteFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 			let entry_fee = EntryFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;

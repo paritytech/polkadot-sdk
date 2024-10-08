@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-westend-runtime"
-version = "0.2.0"
+version = "0.3.0"
 authors.workspace = true
 edition.workspace = true
 description = "Westend's BridgeHub parachain runtime"
@@ -10,102 +10,117 @@ license = "Apache-2.0"
 workspace = true
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-hex-literal = { version = "0.4.1" }
+codec = { features = ["derive"], workspace = true }
+hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
-tuplex = { version = "0.1", default-features = false }
+serde_json = { features = ["alloc"], workspace = true }
 
 # Substrate
-frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
-frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false }
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
-frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
-frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/rpc/runtime-api", default-features = false }
-frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", default-features = false, optional = true }
-pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false }
-pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false }
-pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
-pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
-pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
-pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false }
-pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
-pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
-pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
-pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false }
-sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
-sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false }
-sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false }
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
-sp-genesis-builder = { path = "../../../../../substrate/primitives/genesis-builder", default-features = false }
-sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false }
-sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
-sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false }
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
-sp-session = { path = "../../../../../substrate/primitives/session", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
-sp-storage = { path = "../../../../../substrate/primitives/storage", default-features = false }
-sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-pool", default-features = false }
-sp-version = { path = "../../../../../substrate/primitives/version", default-features = false }
+frame-benchmarking = { optional = true, workspace = true }
+frame-executive = { workspace = true }
+frame-metadata-hash-extension = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+frame-system-benchmarking = { optional = true, workspace = true }
+frame-system-rpc-runtime-api = { workspace = true }
+frame-try-runtime = { optional = true, workspace = true }
+pallet-aura = { workspace = true }
+pallet-authorship = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-session = { workspace = true }
+pallet-message-queue = { workspace = true }
+pallet-multisig = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true }
+pallet-utility = { workspace = true }
+sp-api = { workspace = true }
+sp-block-builder = { workspace = true }
+sp-consensus-aura = { workspace = true }
+sp-core = { workspace = true }
+sp-genesis-builder = { workspace = true }
+sp-inherents = { workspace = true }
+sp-io = { workspace = true }
+sp-offchain = { workspace = true }
+sp-runtime = { workspace = true }
+sp-session = { workspace = true }
+sp-std = { workspace = true }
+sp-storage = { workspace = true }
+sp-transaction-pool = { workspace = true }
+sp-version = { workspace = true }
 
 # Polkadot
-westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/constants", default-features = false }
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
-pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
-polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false }
-polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
-xcm-fee-payment-runtime-api = { path = "../../../../../polkadot/xcm/xcm-fee-payment-runtime-api", default-features = false }
+westend-runtime-constants = { workspace = true }
+pallet-xcm = { workspace = true }
+pallet-xcm-benchmarks = { optional = true, workspace = true }
+polkadot-parachain-primitives = { workspace = true }
+polkadot-runtime-common = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
+xcm-runtime-apis = { workspace = true }
 
 # Cumulus
-cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false }
-cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false }
-cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
-cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, features = ["bridging"] }
-cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false }
-cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
-cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
-cumulus-primitives-storage-weight-reclaim = { path = "../../../../primitives/storage-weight-reclaim", default-features = false }
+cumulus-pallet-aura-ext = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-session-benchmarking = { workspace = true }
+cumulus-pallet-xcm = { workspace = true }
+cumulus-pallet-xcmp-queue = { features = ["bridging"], workspace = true }
+cumulus-primitives-aura = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+cumulus-primitives-utility = { workspace = true }
+cumulus-primitives-storage-weight-reclaim = { workspace = true }
 
-pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
-parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
-parachains-common = { path = "../../../common", default-features = false }
-testnet-parachains-constants = { path = "../../constants", default-features = false, features = ["westend"] }
+pallet-collator-selection = { workspace = true }
+parachain-info = { workspace = true }
+parachains-common = { workspace = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true }
 
 # Bridges
-bp-asset-hub-rococo = { path = "../../../../../bridges/chains/chain-asset-hub-rococo", default-features = false }
-bp-asset-hub-westend = { path = "../../../../../bridges/chains/chain-asset-hub-westend", default-features = false }
-bp-bridge-hub-rococo = { path = "../../../../../bridges/chains/chain-bridge-hub-rococo", default-features = false }
-bp-bridge-hub-westend = { path = "../../../../../bridges/chains/chain-bridge-hub-westend", default-features = false }
-bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false }
-bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false }
-bp-parachains = { path = "../../../../../bridges/primitives/parachains", default-features = false }
-bp-polkadot-core = { path = "../../../../../bridges/primitives/polkadot-core", default-features = false }
-bp-relayers = { path = "../../../../../bridges/primitives/relayers", default-features = false }
-bp-runtime = { path = "../../../../../bridges/primitives/runtime", default-features = false }
-bp-rococo = { path = "../../../../../bridges/chains/chain-rococo", default-features = false }
-bp-westend = { path = "../../../../../bridges/chains/chain-westend", default-features = false }
-pallet-bridge-grandpa = { path = "../../../../../bridges/modules/grandpa", default-features = false }
-pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false }
-pallet-bridge-parachains = { path = "../../../../../bridges/modules/parachains", default-features = false }
-pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", default-features = false }
-pallet-xcm-bridge-hub = { path = "../../../../../bridges/modules/xcm-bridge-hub", default-features = false }
-bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
-bridge-hub-common = { path = "../common", default-features = false }
+bp-asset-hub-rococo = { workspace = true }
+bp-asset-hub-westend = { workspace = true }
+bp-bridge-hub-rococo = { workspace = true }
+bp-bridge-hub-westend = { workspace = true }
+bp-header-chain = { workspace = true }
+bp-messages = { workspace = true }
+bp-parachains = { workspace = true }
+bp-polkadot-core = { workspace = true }
+bp-relayers = { workspace = true }
+bp-runtime = { workspace = true }
+bp-rococo = { workspace = true }
+bp-westend = { workspace = true }
+pallet-bridge-grandpa = { workspace = true }
+pallet-bridge-messages = { workspace = true }
+pallet-bridge-parachains = { workspace = true }
+pallet-bridge-relayers = { workspace = true }
+pallet-xcm-bridge-hub = { workspace = true }
+bridge-runtime-common = { workspace = true }
+bridge-hub-common = { workspace = true }
+
+# Ethereum Bridge (Snowbridge)
+snowbridge-beacon-primitives = { workspace = true }
+snowbridge-pallet-system = { workspace = true }
+snowbridge-system-runtime-api = { workspace = true }
+snowbridge-core = { workspace = true }
+snowbridge-pallet-ethereum-client = { workspace = true }
+snowbridge-pallet-inbound-queue = { workspace = true }
+snowbridge-pallet-outbound-queue = { workspace = true }
+snowbridge-outbound-queue-runtime-api = { workspace = true }
+snowbridge-router-primitives = { workspace = true }
+snowbridge-runtime-common = { workspace = true }
+
 
 [dev-dependencies]
-static_assertions = "1.1"
-bridge-hub-test-utils = { path = "../test-utils" }
-bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", features = ["integrity-test"] }
-sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
+bridge-hub-test-utils = { workspace = true, default-features = true }
+bridge-runtime-common = { features = ["integrity-test"], workspace = true, default-features = true }
+pallet-bridge-relayers = { features = ["integrity-test"], workspace = true }
+sp-keyring = { workspace = true, default-features = true }
+snowbridge-runtime-test-common = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -136,6 +151,7 @@ std = [
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
@@ -166,6 +182,17 @@ std = [
 	"polkadot-runtime-common/std",
 	"scale-info/std",
 	"serde",
+	"serde_json/std",
+	"snowbridge-beacon-primitives/std",
+	"snowbridge-core/std",
+	"snowbridge-outbound-queue-runtime-api/std",
+	"snowbridge-pallet-ethereum-client/std",
+	"snowbridge-pallet-inbound-queue/std",
+	"snowbridge-pallet-outbound-queue/std",
+	"snowbridge-pallet-system/std",
+	"snowbridge-router-primitives/std",
+	"snowbridge-runtime-common/std",
+	"snowbridge-system-runtime-api/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -182,11 +209,10 @@ std = [
 	"sp-version/std",
 	"substrate-wasm-builder",
 	"testnet-parachains-constants/std",
-	"tuplex/std",
 	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
-	"xcm-fee-payment-runtime-api/std",
+	"xcm-runtime-apis/std",
 	"xcm/std",
 ]
 
@@ -218,10 +244,18 @@ runtime-benchmarks = [
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
+	"snowbridge-pallet-inbound-queue/runtime-benchmarks",
+	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
+	"snowbridge-pallet-system/runtime-benchmarks",
+	"snowbridge-router-primitives/runtime-benchmarks",
+	"snowbridge-runtime-common/runtime-benchmarks",
+	"snowbridge-runtime-test-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
-	"xcm-fee-payment-runtime-api/runtime-benchmarks",
+	"xcm-runtime-apis/runtime-benchmarks",
 ]
 
 try-runtime = [
@@ -251,10 +285,16 @@ try-runtime = [
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
+	"snowbridge-pallet-ethereum-client/try-runtime",
+	"snowbridge-pallet-inbound-queue/try-runtime",
+	"snowbridge-pallet-outbound-queue/try-runtime",
+	"snowbridge-pallet-system/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
-on-chain-release-build = ["sp-api/disable-logging"]
+on-chain-release-build = []
+
+fast-runtime = []

@@ -11,46 +11,63 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
+codec = { workspace = true }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+scale-info = { features = ["derive"], workspace = true }
 
 # Bridge dependencies
-
-bp-messages = { path = "../../primitives/messages", default-features = false }
-bp-relayers = { path = "../../primitives/relayers", default-features = false }
-bp-runtime = { path = "../../primitives/runtime", default-features = false }
-pallet-bridge-messages = { path = "../messages", default-features = false }
+bp-header-chain = { workspace = true }
+bp-messages = { workspace = true }
+bp-relayers = { workspace = true }
+bp-runtime = { workspace = true }
+pallet-bridge-grandpa = { workspace = true }
+pallet-bridge-messages = { workspace = true }
+pallet-bridge-parachains = { workspace = true }
 
 # Substrate Dependencies
-
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-sp-arithmetic = { path = "../../../substrate/primitives/arithmetic", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+sp-arithmetic = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
 
 [dev-dependencies]
-bp-runtime = { path = "../../primitives/runtime" }
-pallet-balances = { path = "../../../substrate/frame/balances" }
-sp-io = { path = "../../../substrate/primitives/io" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
+bp-runtime = { workspace = true }
+pallet-balances = { workspace = true, default-features = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+bp-parachains = { workspace = true }
+bp-polkadot-core = { workspace = true }
+bp-test-utils = { workspace = true }
+pallet-utility = { workspace = true }
+sp-core = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
+	"bp-header-chain/std",
 	"bp-messages/std",
+	"bp-parachains/std",
+	"bp-polkadot-core/std",
 	"bp-relayers/std",
 	"bp-runtime/std",
+	"bp-test-utils/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
+	"pallet-bridge-parachains/std",
+	"pallet-transaction-payment/std",
+	"pallet-utility/std",
 	"scale-info/std",
 	"sp-arithmetic/std",
+	"sp-core/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 ]
@@ -59,13 +76,21 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-bridge-grandpa/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
+	"pallet-bridge-parachains/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-bridge-grandpa/try-runtime",
 	"pallet-bridge-messages/try-runtime",
+	"pallet-bridge-parachains/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+integrity-test = []

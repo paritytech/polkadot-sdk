@@ -143,21 +143,21 @@ thread_local! {
 pub struct PanickingBlockImport<B>(B);
 
 #[async_trait::async_trait]
-impl<B: BlockImport<TestBlock>> BlockImport<TestBlock> for PanickingBlockImport<B>
+impl<BI> BlockImport<TestBlock> for PanickingBlockImport<BI>
 where
-	B: Send,
+	BI: BlockImport<TestBlock> + Send + Sync,
 {
-	type Error = B::Error;
+	type Error = BI::Error;
 
 	async fn import_block(
-		&mut self,
+		&self,
 		block: BlockImportParams<TestBlock>,
 	) -> Result<ImportResult, Self::Error> {
 		Ok(self.0.import_block(block).await.expect("importing block failed"))
 	}
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<TestBlock>,
 	) -> Result<ImportResult, Self::Error> {
 		Ok(self.0.check_block(block).await.expect("checking block failed"))
@@ -198,7 +198,7 @@ impl Verifier<TestBlock> for TestVerifier {
 	/// new set of validators to import. If not, err with an Error-Message
 	/// presented to the User in the logs.
 	async fn verify(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<TestBlock>,
 	) -> Result<BlockImportParams<TestBlock>, String> {
 		// apply post-sealing mutations (i.e. stripping seal, if desired).

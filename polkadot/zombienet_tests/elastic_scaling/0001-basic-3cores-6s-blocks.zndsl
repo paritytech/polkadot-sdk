@@ -11,8 +11,8 @@ elastic-validator-4: reports node_roles is 4
 
 
 # Register 2 extra cores to this some-parachain.
-elastic-validator-0: js-script ./assign-core.js with "2000,0" return is 0 within 600 seconds
-elastic-validator-0: js-script ./assign-core.js with "2000,1" return is 0 within 600 seconds
+elastic-validator-0: js-script ./assign-core.js with "0,2000,57600" return is 0 within 600 seconds
+elastic-validator-0: js-script ./assign-core.js with "1,2000,57600" return is 0 within 600 seconds
 
 # Wait for 20 relay chain blocks 
 elastic-validator-0: reports substrate_block_height{status="best"} is at least 20 within 600 seconds

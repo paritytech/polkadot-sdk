@@ -23,21 +23,66 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use frame::{
-	deps::frame_support::{
-		genesis_builder_helper::{build_state, get_preset},
-		runtime,
-		weights::{FixedFee, NoFee},
-	},
-	prelude::*,
-	runtime::{
-		apis::{
-			self, impl_runtime_apis, ApplyExtrinsicResult, CheckInherentsResult,
-			ExtrinsicInclusionMode, OpaqueMetadata,
-		},
+extern crate alloc;
+
+use alloc::vec::Vec;
+use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
+use polkadot_sdk::{
+	polkadot_sdk_frame::{
+		self as frame,
 		prelude::*,
+		runtime::{apis, prelude::*},
 	},
+	*,
 };
+
+/// Provides getters for genesis configuration presets.
+pub mod genesis_config_presets {
+	use crate::{
+		interface::{Balance, MinimumBalance},
+		sp_genesis_builder::PresetId,
+		sp_keyring::AccountKeyring,
+		BalancesConfig, RuntimeGenesisConfig, SudoConfig,
+	};
+
+	use alloc::{vec, vec::Vec};
+	use polkadot_sdk::{sp_core::Get, sp_genesis_builder};
+	use serde_json::Value;
+
+	/// Returns a development genesis config preset.
+	pub fn development_config_genesis() -> Value {
+		let endowment = <MinimumBalance as Get<Balance>>::get().max(1) * 1000;
+		let config = RuntimeGenesisConfig {
+			balances: BalancesConfig {
+				balances: AccountKeyring::iter()
+					.map(|a| (a.to_account_id(), endowment))
+					.collect::<Vec<_>>(),
+			},
+			sudo: SudoConfig { key: Some(AccountKeyring::Alice.to_account_id()) },
+			..Default::default()
+		};
+
+		serde_json::to_value(config).expect("Could not build genesis config.")
+	}
+
+	/// Get the set of the available genesis config presets.
+	pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
+		let patch = match id.try_into() {
+			Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => development_config_genesis(),
+			_ => return None,
+		};
+		Some(
+			serde_json::to_string(&patch)
+				.expect("serialization to json is expected to work. qed.")
+				.into_bytes(),
+		)
+	}
+
+	/// List of supported presets.
+	pub fn preset_names() -> Vec<PresetId> {
+		vec![PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET)]
+	}
+}
 
 /// The runtime version.
 #[runtime_version]
@@ -49,7 +94,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// The version information used to identify this runtime when compiled natively.
@@ -80,7 +125,7 @@ type SignedExtra = (
 );
 
 // Composes the runtime by adding all the used pallets and deriving necessary types.
-#[runtime]
+#[frame_construct_runtime]
 mod runtime {
 	/// The main runtime type.
 	#[runtime::runtime]
@@ -100,27 +145,27 @@ mod runtime {
 
 	/// Mandatory system pallet that should always be included in a FRAME runtime.
 	#[runtime::pallet_index(0)]
-	pub type System = frame_system;
+	pub type System = frame_system::Pallet<Runtime>;
 
 	/// Provides a way for consensus systems to set and check the onchain time.
 	#[runtime::pallet_index(1)]
-	pub type Timestamp = pallet_timestamp;
+	pub type Timestamp = pallet_timestamp::Pallet<Runtime>;
 
 	/// Provides the ability to keep track of balances.
 	#[runtime::pallet_index(2)]
-	pub type Balances = pallet_balances;
+	pub type Balances = pallet_balances::Pallet<Runtime>;
 
 	/// Provides a way to execute privileged functions.
 	#[runtime::pallet_index(3)]
-	pub type Sudo = pallet_sudo;
+	pub type Sudo = pallet_sudo::Pallet<Runtime>;
 
 	/// Provides the ability to charge for extrinsic execution.
 	#[runtime::pallet_index(4)]
-	pub type TransactionPayment = pallet_transaction_payment;
+	pub type TransactionPayment = pallet_transaction_payment::Pallet<Runtime>;
 
 	/// A minimal pallet template.
 	#[runtime::pallet_index(5)]
-	pub type Template = pallet_minimal_template;
+	pub type Template = pallet_minimal_template::Pallet<Runtime>;
 }
 
 parameter_types! {
@@ -168,8 +213,6 @@ type Header = HeaderFor<Runtime>;
 
 type RuntimeExecutive =
 	Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPalletsWithSystem>;
-
-use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 
 impl_runtime_apis! {
 	impl apis::Core<Block> for Runtime {
@@ -278,11 +321,11 @@ impl_runtime_apis! {
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+			get_preset::<RuntimeGenesisConfig>(id, self::genesis_config_presets::get_preset)
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			vec![]
+			self::genesis_config_presets::preset_names()
 		}
 	}
 }
@@ -294,7 +337,7 @@ impl_runtime_apis! {
 // https://github.com/paritytech/substrate/issues/10579#issuecomment-1600537558
 pub mod interface {
 	use super::Runtime;
-	use frame::deps::frame_system;
+	use polkadot_sdk::{polkadot_sdk_frame as frame, *};
 
 	pub type Block = super::Block;
 	pub use frame::runtime::types_common::OpaqueBlock;

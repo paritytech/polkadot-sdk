@@ -124,10 +124,10 @@ fn test_parse_pallet_manual_tasks_impl_without_manual_tasks_enum() {
 			where
 				T: TypeInfo,
 			{
-				type Enumeration = sp_std::vec::IntoIter<Task<T>>;
+				type Enumeration = alloc::vec::IntoIter<Task<T>>;
 
 				fn iter() -> Self::Enumeration {
-					sp_std::vec![Task::increment, Task::decrement].into_iter()
+					alloc::vec![Task::increment, Task::decrement].into_iter()
 				}
 			}
 

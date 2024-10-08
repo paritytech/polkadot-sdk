@@ -32,6 +32,11 @@ use crate::{
 	shared::{self, AllowedRelayParentsTracker},
 	ParaId,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
 use bitvec::prelude::BitVec;
 use frame_support::{
 	defensive,
@@ -40,24 +45,25 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::Randomness,
 };
+
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
 use polkadot_primitives::{
-	effective_minimum_backing_votes, node_features::FeatureIndex, BackedCandidate, CandidateHash,
-	CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
-	DisputeStatementSet, HeadData, InherentData as ParachainsInherentData,
-	MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex, SignedAvailabilityBitfields,
-	SigningContext, UncheckedSignedAvailabilityBitfield, UncheckedSignedAvailabilityBitfields,
-	ValidatorId, ValidatorIndex, ValidityAttestation, PARACHAINS_INHERENT_IDENTIFIER,
+	effective_minimum_backing_votes,
+	node_features::FeatureIndex,
+	vstaging::{
+		BackedCandidate, CandidateDescriptorVersion, CandidateReceiptV2 as CandidateReceipt,
+		InherentData as ParachainsInherentData, ScrapedOnChainVotes,
+	},
+	CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
+	DisputeStatementSet, HeadData, MultiDisputeStatementSet, SessionIndex,
+	SignedAvailabilityBitfields, SigningContext, UncheckedSignedAvailabilityBitfield,
+	UncheckedSignedAvailabilityBitfields, ValidatorId, ValidatorIndex, ValidityAttestation,
+	PARACHAINS_INHERENT_IDENTIFIER,
 };
 use rand::{seq::SliceRandom, SeedableRng};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Header as HeaderT, One};
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	prelude::*,
-	vec::Vec,
-};
 
 mod misc;
 mod weights;
@@ -295,7 +301,7 @@ impl<T: Config> Pallet<T> {
 	fn process_inherent_data(
 		data: ParachainsInherentData<HeaderFor<T>>,
 		context: ProcessInherentDataContext,
-	) -> sp_std::result::Result<
+	) -> core::result::Result<
 		(ParachainsInherentData<HeaderFor<T>>, PostDispatchInfo),
 		DispatchErrorWithPostInfo,
 	> {
@@ -327,32 +333,16 @@ impl<T: Config> Pallet<T> {
 		let now = frame_system::Pallet::<T>::block_number();
 		let config = configuration::ActiveConfig::<T>::get();
 
-		// Before anything else, update the allowed relay-parents.
-		{
-			let parent_number = now - One::one();
-			let parent_storage_root = *parent_header.state_root();
-
-			shared::AllowedRelayParents::<T>::mutate(|tracker| {
-				tracker.update(
-					parent_hash,
-					parent_storage_root,
-					parent_number,
-					config.async_backing_params.allowed_ancestry_len,
-				);
-			});
-		}
-		let allowed_relay_parents = shared::AllowedRelayParents::<T>::get();
-
 		let candidates_weight = backed_candidates_weight::<T>(&backed_candidates);
 		let bitfields_weight = signed_bitfields_weight::<T>(&bitfields);
 		let disputes_weight = multi_dispute_statement_sets_weight::<T>(&disputes);
 
-		// Weight before filtering/sanitization
-		let all_weight_before = candidates_weight + bitfields_weight + disputes_weight;
+		// Weight before filtering/sanitization except for enacting the candidates
+		let weight_before_filtering = candidates_weight + bitfields_weight + disputes_weight;
 
-		METRICS.on_before_filter(all_weight_before.ref_time());
-		log::debug!(target: LOG_TARGET, "Size before filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_before.proof_size(), candidates_weight.proof_size() + bitfields_weight.proof_size(), disputes_weight.proof_size());
-		log::debug!(target: LOG_TARGET, "Time weight before filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_before.ref_time(), candidates_weight.ref_time() + bitfields_weight.ref_time(), disputes_weight.ref_time());
+		METRICS.on_before_filter(weight_before_filtering.ref_time());
+		log::debug!(target: LOG_TARGET, "Size before filter: {}, candidates + bitfields: {}, disputes: {}", weight_before_filtering.proof_size(), candidates_weight.proof_size() + bitfields_weight.proof_size(), disputes_weight.proof_size());
+		log::debug!(target: LOG_TARGET, "Time weight before filter: {}, candidates + bitfields: {}, disputes: {}", weight_before_filtering.ref_time(), candidates_weight.ref_time() + bitfields_weight.ref_time(), disputes_weight.ref_time());
 
 		let current_session = shared::CurrentSessionIndex::<T>::get();
 		let expected_bits = scheduler::AvailabilityCores::<T>::get().len();
@@ -409,7 +399,7 @@ impl<T: Config> Pallet<T> {
 				max_block_weight,
 			);
 
-		let all_weight_after = if context == ProcessInherentDataContext::ProvideInherent {
+		let mut all_weight_after = if context == ProcessInherentDataContext::ProvideInherent {
 			// Assure the maximum block weight is adhered, by limiting bitfields and backed
 			// candidates. Dispute statement sets were already limited before.
 			let non_disputes_weight = apply_weight_limit::<T>(
@@ -424,11 +414,11 @@ impl<T: Config> Pallet<T> {
 
 			METRICS.on_after_filter(all_weight_after.ref_time());
 			log::debug!(
-			target: LOG_TARGET,
-			"[process_inherent_data] after filter: bitfields.len(): {}, backed_candidates.len(): {}, checked_disputes_sets.len() {}",
-			bitfields.len(),
-			backed_candidates.len(),
-			checked_disputes_sets.len()
+				target: LOG_TARGET,
+				"[process_inherent_data] after filter: bitfields.len(): {}, backed_candidates.len(): {}, checked_disputes_sets.len() {}",
+				bitfields.len(),
+				backed_candidates.len(),
+				checked_disputes_sets.len()
 			);
 			log::debug!(target: LOG_TARGET, "Size after filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_after.proof_size(), non_disputes_weight.proof_size(), checked_disputes_sets_consumed_weight.proof_size());
 			log::debug!(target: LOG_TARGET, "Time weight after filter: {}, candidates + bitfields: {}, disputes: {}", all_weight_after.ref_time(), non_disputes_weight.ref_time(), checked_disputes_sets_consumed_weight.ref_time());
@@ -440,17 +430,20 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// This check is performed in the context of block execution. Ensures inherent weight
 			// invariants guaranteed by `create_inherent_data` for block authorship.
-			if all_weight_before.any_gt(max_block_weight) {
+			if weight_before_filtering.any_gt(max_block_weight) {
 				log::error!(
 					"Overweight para inherent data reached the runtime {:?}: {} > {}",
 					parent_hash,
-					all_weight_before,
+					weight_before_filtering,
 					max_block_weight
 				);
 			}
 
-			ensure!(all_weight_before.all_lte(max_block_weight), Error::<T>::InherentOverweight);
-			all_weight_before
+			ensure!(
+				weight_before_filtering.all_lte(max_block_weight),
+				Error::<T>::InherentOverweight
+			);
+			weight_before_filtering
 		};
 
 		// Note that `process_checked_multi_dispute_data` will iterate and import each
@@ -529,11 +522,32 @@ impl<T: Config> Pallet<T> {
 
 		// Process new availability bitfields, yielding any availability cores whose
 		// work has now concluded.
-		let freed_concluded =
+		let (enact_weight, freed_concluded) =
 			inclusion::Pallet::<T>::update_pending_availability_and_get_freed_cores(
 				&validator_public[..],
 				bitfields.clone(),
 			);
+		all_weight_after.saturating_accrue(enact_weight);
+		log::debug!(
+			target: LOG_TARGET,
+			"Enacting weight: {}, all weight: {}",
+			enact_weight.ref_time(),
+			all_weight_after.ref_time(),
+		);
+
+		// It's possible that that after the enacting the candidates, the total weight
+		// goes over the limit, however, we can't do anything about it at this point.
+		// By using the `Mandatory` weight, we ensure the block is still accepted,
+		// but no other (user) transactions can be included.
+		if all_weight_after.any_gt(max_block_weight) {
+			log::warn!(
+				target: LOG_TARGET,
+				"Overweight para inherent data after enacting the candidates {:?}: {} > {}",
+				parent_hash,
+				all_weight_after,
+				max_block_weight,
+			);
+		}
 
 		// Inform the disputes module of all included candidates.
 		for (_, candidate_hash) in &freed_concluded {
@@ -564,9 +578,38 @@ impl<T: Config> Pallet<T> {
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
 
+		// After freeing cores and filling claims, but before processing backed candidates
+		// we update the allowed relay-parents.
+		{
+			let parent_number = now - One::one();
+			let parent_storage_root = *parent_header.state_root();
+
+			shared::AllowedRelayParents::<T>::mutate(|tracker| {
+				tracker.update(
+					parent_hash,
+					parent_storage_root,
+					scheduler::ClaimQueue::<T>::get()
+						.into_iter()
+						.map(|(core_index, paras)| {
+							(core_index, paras.into_iter().map(|e| e.para_id()).collect())
+						})
+						.collect(),
+					parent_number,
+					config.async_backing_params.allowed_ancestry_len,
+				);
+			});
+		}
+		let allowed_relay_parents = shared::AllowedRelayParents::<T>::get();
+
 		let core_index_enabled = configuration::ActiveConfig::<T>::get()
 			.node_features
 			.get(FeatureIndex::ElasticScalingMVP as usize)
+			.map(|b| *b)
+			.unwrap_or(false);
+
+		let allow_v2_receipts = configuration::ActiveConfig::<T>::get()
+			.node_features
+			.get(FeatureIndex::CandidateReceiptV2 as usize)
 			.map(|b| *b)
 			.unwrap_or(false);
 
@@ -586,6 +629,7 @@ impl<T: Config> Pallet<T> {
 			concluded_invalid_hashes,
 			eligible,
 			core_index_enabled,
+			allow_v2_receipts,
 		);
 		let count = count_backed_candidates(&backed_candidates_with_core);
 
@@ -762,8 +806,8 @@ pub(crate) fn apply_weight_limit<T: Config + inclusion::Config>(
 	let mut chained_candidates: Vec<Vec<_>> = Vec::new();
 	let mut current_para_id = None;
 
-	for candidate in sp_std::mem::take(candidates).into_iter() {
-		let candidate_para_id = candidate.descriptor().para_id;
+	for candidate in core::mem::take(candidates).into_iter() {
+		let candidate_para_id = candidate.descriptor().para_id();
 		if Some(candidate_para_id) == current_para_id {
 			let chain = chained_candidates
 				.last_mut()
@@ -936,20 +980,101 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 	bitfields
 }
 
+/// Perform required checks for given candidate receipt.
+///
+/// Returns `true` if candidate descriptor is version 1.
+///
+/// Otherwise returns `false` if:
+/// - version 2 descriptors are not allowed
+/// - the core index in descriptor doesn't match the one computed from the commitments
+/// - the `SelectCore` signal does not refer to a core at the top of claim queue
+fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
+	candidate: &BackedCandidate<T::Hash>,
+	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
+	allow_v2_receipts: bool,
+) -> bool {
+	if candidate.descriptor().version() == CandidateDescriptorVersion::V1 {
+		return true
+	}
+
+	// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
+	// any v1 descendants of v2 candidates are dropped.
+	if !allow_v2_receipts {
+		log::debug!(
+			target: LOG_TARGET,
+			"V2 candidate descriptors not allowed. Dropping candidate {:?} for paraid {:?}.",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id()
+		);
+		return false
+	}
+
+	let Some(session_index) = candidate.descriptor().session_index() else {
+		log::debug!(
+			target: LOG_TARGET,
+			"Invalid V2 candidate receipt {:?} for paraid {:?}, missing session index.",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id(),
+		);
+		return false
+	};
+
+	// Check if session index is equal to current session index.
+	if session_index != shared::CurrentSessionIndex::<T>::get() {
+		log::debug!(
+			target: LOG_TARGET,
+			"Dropping V2 candidate receipt {:?} for paraid {:?}, invalid session index {}, current session {}",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id(),
+			session_index,
+			shared::CurrentSessionIndex::<T>::get()
+		);
+		return false
+	}
+
+	// Get the claim queue snapshot at the candidate relay parent.
+	let Some((rp_info, _)) =
+		allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent(), None)
+	else {
+		log::debug!(
+			target: LOG_TARGET,
+			"Relay parent {:?} for candidate {:?} is not in the allowed relay parents.",
+			candidate.descriptor().relay_parent(),
+			candidate.candidate().hash(),
+		);
+		return false
+	};
+
+	// Check validity of `core_index`.
+	if let Err(err) = candidate.candidate().check_core_index(&rp_info.claim_queue) {
+		log::debug!(
+			target: LOG_TARGET,
+			"Dropping candidate {:?} for paraid {:?}, {:?}",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id(),
+			err,
+		);
+
+		return false
+	}
+	true
+}
+
 /// Performs various filtering on the backed candidates inherent data.
 /// Must maintain the invariant that the returned candidate collection contains the candidates
 /// sorted in dependency order for each para. When doing any filtering, we must therefore drop any
 /// subsequent candidates after the filtered one.
 ///
 /// Filter out:
-/// 1. any candidates which don't form a chain with the other candidates of the paraid (even if they
+/// 1. Candidates that have v2 descriptors if the node `CandidateReceiptV2` feature is not enabled.
+/// 2. any candidates which don't form a chain with the other candidates of the paraid (even if they
 ///    do form a chain but are not in the right order).
-/// 2. any candidates that have a concluded invalid dispute or who are descendants of a concluded
+/// 3. any candidates that have a concluded invalid dispute or who are descendants of a concluded
 ///    invalid candidate.
-/// 3. any unscheduled candidates, as well as candidates whose paraid has multiple cores assigned
+/// 4. any unscheduled candidates, as well as candidates whose paraid has multiple cores assigned
 ///    but have no injected core index.
-/// 4. all backing votes from disabled validators
-/// 5. any candidates that end up with less than `effective_minimum_backing_votes` backing votes
+/// 5. all backing votes from disabled validators
+/// 6. any candidates that end up with less than `effective_minimum_backing_votes` backing votes
 ///
 /// Returns the scheduled
 /// backed candidates which passed filtering, mapped by para id and in the right dependency order.
@@ -959,13 +1084,20 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	concluded_invalid_with_descendants: BTreeSet<CandidateHash>,
 	scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 	core_index_enabled: bool,
+	allow_v2_receipts: bool,
 ) -> BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>> {
 	// Map the candidates to the right paraids, while making sure that the order between candidates
 	// of the same para is preserved.
 	let mut candidates_per_para: BTreeMap<ParaId, Vec<_>> = BTreeMap::new();
+
 	for candidate in backed_candidates {
+		if !sanitize_backed_candidate_v2::<T>(&candidate, allowed_relay_parents, allow_v2_receipts)
+		{
+			continue
+		}
+
 		candidates_per_para
-			.entry(candidate.descriptor().para_id)
+			.entry(candidate.descriptor().para_id())
 			.or_default()
 			.push(candidate);
 	}
@@ -984,7 +1116,7 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 				target: LOG_TARGET,
 				"Found backed candidate {:?} which was concluded invalid or is a descendant of a concluded invalid candidate, for paraid {:?}.",
 				candidate.candidate().hash(),
-				candidate.descriptor().para_id
+				candidate.descriptor().para_id()
 			);
 		}
 		keep
@@ -1158,24 +1290,26 @@ fn filter_backed_statements_from_disabled_validators<
 	// 1. Core index assigned to the parachain which has produced the candidate
 	// 2. The relay chain block number of the candidate
 	retain_candidates::<T, _, _>(backed_candidates_with_core, |para_id, (bc, core_idx)| {
+		// `CoreIndex` not used, we just need a copy to write it back later.
 		let (validator_indices, maybe_core_index) =
 			bc.validator_indices_and_core_index(core_index_enabled);
 		let mut validator_indices = BitVec::<_>::from(validator_indices);
 
 		// Get relay parent block number of the candidate. We need this to get the group index
 		// assigned to this core at this block number
-		let relay_parent_block_number =
-			match allowed_relay_parents.acquire_info(bc.descriptor().relay_parent, None) {
-				Some((_, block_num)) => block_num,
-				None => {
-					log::debug!(
-						target: LOG_TARGET,
-						"Relay parent {:?} for candidate is not in the allowed relay parents. Dropping the candidate.",
-						bc.descriptor().relay_parent
-					);
-					return false
-				},
-			};
+		let relay_parent_block_number = match allowed_relay_parents
+			.acquire_info(bc.descriptor().relay_parent(), None)
+		{
+			Some((_, block_num)) => block_num,
+			None => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Relay parent {:?} for candidate is not in the allowed relay parents. Dropping the candidate.",
+					bc.descriptor().relay_parent()
+				);
+				return false
+			},
+		};
 
 		// Get the group index for the core
 		let group_idx = match scheduler::Pallet::<T>::group_assigned_to_core(
@@ -1243,22 +1377,27 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 	candidates: &mut BTreeMap<ParaId, Vec<BackedCandidate<T::Hash>>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 ) {
-	let mut para_latest_head_data: BTreeMap<ParaId, HeadData> = BTreeMap::new();
+	let mut para_latest_context: BTreeMap<ParaId, (HeadData, BlockNumberFor<T>)> = BTreeMap::new();
 	for para_id in candidates.keys() {
-		let latest_head_data = match inclusion::Pallet::<T>::para_latest_head_data(&para_id) {
-			None => {
-				defensive!("Latest included head data for paraid {:?} is None", para_id);
-				continue
-			},
-			Some(latest_head_data) => latest_head_data,
+		let Some(latest_head_data) = inclusion::Pallet::<T>::para_latest_head_data(&para_id) else {
+			defensive!("Latest included head data for paraid {:?} is None", para_id);
+			continue
 		};
-		para_latest_head_data.insert(*para_id, latest_head_data);
+		let Some(latest_relay_parent) = inclusion::Pallet::<T>::para_most_recent_context(&para_id)
+		else {
+			defensive!("Latest relay parent for paraid {:?} is None", para_id);
+			continue
+		};
+		para_latest_context.insert(*para_id, (latest_head_data, latest_relay_parent));
 	}
 
 	let mut para_visited_candidates: BTreeMap<ParaId, BTreeSet<CandidateHash>> = BTreeMap::new();
 
 	retain_candidates::<T, _, _>(candidates, |para_id, candidate| {
-		let Some(latest_head_data) = para_latest_head_data.get(&para_id) else { return false };
+		let Some((latest_head_data, latest_relay_parent)) = para_latest_context.get(&para_id)
+		else {
+			return false
+		};
 		let candidate_hash = candidate.candidate().hash();
 
 		let visited_candidates =
@@ -1277,15 +1416,23 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 			visited_candidates.insert(candidate_hash);
 		}
 
-		let prev_context = paras::MostRecentContext::<T>::get(para_id);
-		let check_ctx = CandidateCheckContext::<T>::new(prev_context);
+		let check_ctx = CandidateCheckContext::<T>::new(Some(*latest_relay_parent));
 
-		let res = match check_ctx.verify_backed_candidate(
+		match check_ctx.verify_backed_candidate(
 			&allowed_relay_parents,
 			candidate.candidate(),
 			latest_head_data.clone(),
 		) {
-			Ok(_) => true,
+			Ok(relay_parent_block_number) => {
+				para_latest_context.insert(
+					para_id,
+					(
+						candidate.candidate().commitments.head_data.clone(),
+						relay_parent_block_number,
+					),
+				);
+				true
+			},
 			Err(err) => {
 				log::debug!(
 					target: LOG_TARGET,
@@ -1296,21 +1443,14 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 				);
 				false
 			},
-		};
-
-		if res {
-			para_latest_head_data
-				.insert(para_id, candidate.candidate().commitments.head_data.clone());
 		}
-
-		res
 	});
 }
 
 /// Map candidates to scheduled cores.
 /// If the para only has one scheduled core and one candidate supplied, map the candidate to the
-/// single core. If the para has multiple cores scheduled, only map the candidates which have a
-/// proper core injected. Filter out the rest.
+/// single core. If the para has multiple cores scheduled, only map the candidates with core index.
+/// Filter out the rest.
 /// Also returns whether or not we dropped any candidates.
 /// When dropping a candidate of a para, we must drop all subsequent candidates from that para
 /// (because they form a chain).
@@ -1328,130 +1468,127 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 			continue
 		}
 
-		let scheduled_cores = scheduled.get_mut(&para_id);
-
-		// ParaIds without scheduled cores are silently filtered out.
-		if let Some(scheduled_cores) = scheduled_cores {
-			if scheduled_cores.len() == 0 {
-				log::debug!(
-					target: LOG_TARGET,
-					"Paraid: {:?} has no scheduled cores but {} candidates were supplied.",
-					para_id,
-					backed_candidates.len()
-				);
-
-			// Non-elastic scaling case. One core per para.
-			} else if scheduled_cores.len() == 1 && !core_index_enabled {
-				backed_candidates_with_core.insert(
-					para_id,
-					vec![(
-						// We need the first one here, as we assume candidates of a para are in
-						// dependency order.
-						backed_candidates.into_iter().next().expect("Length is at least 1"),
-						scheduled_cores.pop_first().expect("Length is 1"),
-					)],
-				);
-				continue;
-
-			// Elastic scaling case. We only allow candidates which have the right core
-			// indices injected.
-			} else if scheduled_cores.len() >= 1 && core_index_enabled {
-				// We must preserve the dependency order given in the input.
-				let mut temp_backed_candidates = Vec::with_capacity(scheduled_cores.len());
-
-				for candidate in backed_candidates {
-					if scheduled_cores.len() == 0 {
-						// We've got candidates for all of this para's assigned cores. Move on to
-						// the next para.
-						log::debug!(
-							target: LOG_TARGET,
-							"Found enough candidates for paraid: {:?}.",
-							candidate.descriptor().para_id
-						);
-						break;
-					}
-					let maybe_injected_core_index: Option<CoreIndex> =
-						get_injected_core_index::<T>(allowed_relay_parents, &candidate);
-
-					if let Some(core_index) = maybe_injected_core_index {
-						if scheduled_cores.remove(&core_index) {
-							temp_backed_candidates.push((candidate, core_index));
-						} else {
-							// if we got a candidate for a core index which is not scheduled, stop
-							// the work for this para. the already processed candidate chain in
-							// temp_backed_candidates is still fine though.
-							log::debug!(
-								target: LOG_TARGET,
-								"Found a backed candidate {:?} with injected core index {}, which is not scheduled for paraid {:?}.",
-								candidate.candidate().hash(),
-								core_index.0,
-								candidate.descriptor().para_id
-							);
-
-							break;
-						}
-					} else {
-						// if we got a candidate which does not contain its core index, stop the
-						// work for this para. the already processed candidate chain in
-						// temp_backed_candidates is still fine though.
-
-						log::debug!(
-							target: LOG_TARGET,
-							"Found a backed candidate {:?} with no injected core index, for paraid {:?} which has multiple scheduled cores.",
-							candidate.candidate().hash(),
-							candidate.descriptor().para_id
-						);
-
-						break;
-					}
-				}
-
-				if !temp_backed_candidates.is_empty() {
-					backed_candidates_with_core
-						.entry(para_id)
-						.or_insert_with(|| vec![])
-						.extend(temp_backed_candidates);
-				}
-			} else {
-				log::warn!(
-					target: LOG_TARGET,
-					"Found a paraid {:?} which has multiple scheduled cores but ElasticScalingMVP feature is not enabled: {:?}",
-					para_id,
-					scheduled_cores
-				);
-			}
-		} else {
+		let Some(scheduled_cores) = scheduled.get_mut(&para_id) else {
 			log::debug!(
 				target: LOG_TARGET,
 				"Paraid: {:?} has no entry in scheduled cores but {} candidates were supplied.",
 				para_id,
 				backed_candidates.len()
 			);
+			continue
+		};
+
+		// ParaIds without scheduled cores are silently filtered out.
+		if scheduled_cores.len() == 0 {
+			log::debug!(
+				target: LOG_TARGET,
+				"Paraid: {:?} has no scheduled cores but {} candidates were supplied.",
+				para_id,
+				backed_candidates.len()
+			);
+			continue
+		}
+
+		// We must preserve the dependency order given in the input.
+		let mut temp_backed_candidates = Vec::with_capacity(scheduled_cores.len());
+
+		for candidate in backed_candidates {
+			if scheduled_cores.len() == 0 {
+				// We've got candidates for all of this para's assigned cores. Move on to
+				// the next para.
+				log::debug!(
+					target: LOG_TARGET,
+					"Found enough candidates for paraid: {:?}.",
+					candidate.descriptor().para_id()
+				);
+				break;
+			}
+
+			if let Some(core_index) =
+				get_core_index::<T>(core_index_enabled, allowed_relay_parents, &candidate)
+			{
+				if scheduled_cores.remove(&core_index) {
+					temp_backed_candidates.push((candidate, core_index));
+				} else {
+					// if we got a candidate for a core index which is not scheduled, stop
+					// the work for this para. the already processed candidate chain in
+					// temp_backed_candidates is still fine though.
+					log::debug!(
+						target: LOG_TARGET,
+						"Found a backed candidate {:?} with core index {}, which is not scheduled for paraid {:?}.",
+						candidate.candidate().hash(),
+						core_index.0,
+						candidate.descriptor().para_id()
+					);
+
+					break;
+				}
+			} else {
+				// No core index is fine, if para has just 1 core assigned.
+				if scheduled_cores.len() == 1 {
+					temp_backed_candidates
+						.push((candidate, scheduled_cores.pop_first().expect("Length is 1")));
+					break;
+				}
+
+				// if we got a candidate which does not contain its core index, stop the
+				// work for this para. the already processed candidate chain in
+				// temp_backed_candidates is still fine though.
+
+				log::debug!(
+					target: LOG_TARGET,
+					"Found a backed candidate {:?} without core index information, but paraid {:?} has multiple scheduled cores.",
+					candidate.candidate().hash(),
+					candidate.descriptor().para_id()
+				);
+
+				break;
+			}
+		}
+
+		if !temp_backed_candidates.is_empty() {
+			backed_candidates_with_core
+				.entry(para_id)
+				.or_insert_with(|| vec![])
+				.extend(temp_backed_candidates);
 		}
 	}
 
 	backed_candidates_with_core
 }
 
+// Must be called only for candidates that have been sanitized already.
+fn get_core_index<T: configuration::Config + scheduler::Config + inclusion::Config>(
+	core_index_enabled: bool,
+	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
+	candidate: &BackedCandidate<T::Hash>,
+) -> Option<CoreIndex> {
+	candidate.candidate().descriptor.core_index().or_else(|| {
+		get_injected_core_index::<T>(core_index_enabled, allowed_relay_parents, &candidate)
+	})
+}
+
 fn get_injected_core_index<T: configuration::Config + scheduler::Config + inclusion::Config>(
+	core_index_enabled: bool,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	candidate: &BackedCandidate<T::Hash>,
 ) -> Option<CoreIndex> {
 	// After stripping the 8 bit extensions, the `validator_indices` field length is expected
 	// to be equal to backing group size. If these don't match, the `CoreIndex` is badly encoded,
 	// or not supported.
-	let (validator_indices, maybe_core_idx) = candidate.validator_indices_and_core_index(true);
+	let (validator_indices, maybe_core_idx) =
+		candidate.validator_indices_and_core_index(core_index_enabled);
 
 	let Some(core_idx) = maybe_core_idx else { return None };
 
 	let relay_parent_block_number =
-		match allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent, None) {
+		match allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent(), None) {
 			Some((_, block_num)) => block_num,
 			None => {
 				log::debug!(
 					target: LOG_TARGET,
 					"Relay parent {:?} for candidate {:?} is not in the allowed relay parents.",
-					candidate.descriptor().relay_parent,
+					candidate.descriptor().relay_parent(),
 					candidate.candidate().hash(),
 				);
 				return None

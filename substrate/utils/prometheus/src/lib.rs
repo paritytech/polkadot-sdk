@@ -15,12 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use hyper::{
-	http::StatusCode,
-	server::Server,
-	service::{make_service_fn, service_fn},
-	Body, Request, Response,
-};
+mod sourced;
+
+use hyper::{http::StatusCode, Request, Response};
+use prometheus::{core::Collector, Encoder, TextEncoder};
+use std::net::SocketAddr;
+
 pub use prometheus::{
 	self,
 	core::{
@@ -30,12 +30,9 @@ pub use prometheus::{
 	exponential_buckets, Error as PrometheusError, Histogram, HistogramOpts, HistogramVec, Opts,
 	Registry,
 };
-use prometheus::{core::Collector, Encoder, TextEncoder};
-use std::net::SocketAddr;
-
-mod sourced;
-
 pub use sourced::{MetricSource, SourcedCounter, SourcedGauge, SourcedMetric};
+
+type Body = http_body_util::Full<hyper::body::Bytes>;
 
 pub fn register<T: Clone + Collector + 'static>(
 	metric: T,
@@ -63,7 +60,10 @@ pub enum Error {
 	PortInUse(SocketAddr),
 }
 
-async fn request_metrics(req: Request<Body>, registry: Registry) -> Result<Response<Body>, Error> {
+async fn request_metrics(
+	req: Request<hyper::body::Incoming>,
+	registry: Registry,
+) -> Result<Response<Body>, Error> {
 	if req.uri().path() == "/metrics" {
 		let metric_families = registry.gather();
 		let mut buffer = vec![];
@@ -86,9 +86,10 @@ async fn request_metrics(req: Request<Body>, registry: Registry) -> Result<Respo
 /// Initializes the metrics context, and starts an HTTP server
 /// to serve metrics.
 pub async fn init_prometheus(prometheus_addr: SocketAddr, registry: Registry) -> Result<(), Error> {
-	let listener = tokio::net::TcpListener::bind(&prometheus_addr)
-		.await
-		.map_err(|_| Error::PortInUse(prometheus_addr))?;
+	let listener = tokio::net::TcpListener::bind(&prometheus_addr).await.map_err(|e| {
+		log::error!(target: "prometheus", "Error binding to '{:#?}': {:#?}", prometheus_addr, e);
+		Error::PortInUse(prometheus_addr)
+	})?;
 
 	init_prometheus_with_listener(listener, registry).await
 }
@@ -98,46 +99,49 @@ async fn init_prometheus_with_listener(
 	listener: tokio::net::TcpListener,
 	registry: Registry,
 ) -> Result<(), Error> {
-	let listener = hyper::server::conn::AddrIncoming::from_listener(listener)?;
-	log::info!("〽️ Prometheus exporter started at {}", listener.local_addr());
+	log::info!(target: "prometheus", "〽️ Prometheus exporter started at {}", listener.local_addr()?);
 
-	let service = make_service_fn(move |_| {
+	let server = hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new());
+
+	loop {
+		let io = match listener.accept().await {
+			Ok((sock, _)) => hyper_util::rt::TokioIo::new(sock),
+			Err(e) => {
+				log::debug!(target: "prometheus", "Error accepting connection: {:?}", e);
+				continue;
+			},
+		};
+
 		let registry = registry.clone();
 
-		async move {
-			Ok::<_, hyper::Error>(service_fn(move |req: Request<Body>| {
-				request_metrics(req, registry.clone())
-			}))
-		}
-	});
+		let conn = server
+			.serve_connection_with_upgrades(
+				io,
+				hyper::service::service_fn(move |req| request_metrics(req, registry.clone())),
+			)
+			.into_owned();
 
-	let (signal, on_exit) = tokio::sync::oneshot::channel::<()>();
-	let server = Server::builder(listener).serve(service).with_graceful_shutdown(async {
-		let _ = on_exit.await;
-	});
-
-	let result = server.await.map_err(Into::into);
-
-	// Gracefully shutdown server, otherwise the server does not stop if it has open connections
-	let _ = signal.send(());
-
-	result
+		tokio::spawn(async move {
+			if let Err(err) = conn.await {
+				log::debug!(target: "prometheus", "connection error: {:?}", err);
+			}
+		});
+	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use hyper::{Client, Uri};
+	use http_body_util::BodyExt;
+	use hyper::Uri;
+	use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 
-	#[test]
-	fn prometheus_works() {
-		const METRIC_NAME: &str = "test_test_metric_name_test_test";
+	const METRIC_NAME: &str = "test_test_metric_name_test_test";
 
-		let runtime = tokio::runtime::Runtime::new().expect("Creates the runtime");
-
-		let listener = runtime
-			.block_on(tokio::net::TcpListener::bind("127.0.0.1:0"))
-			.expect("Creates listener");
+	#[tokio::test]
+	async fn prometheus_works() {
+		let listener =
+			tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("Creates listener");
 
 		let local_addr = listener.local_addr().expect("Returns the local addr");
 
@@ -148,20 +152,20 @@ mod tests {
 		)
 		.expect("Registers the test metric");
 
-		runtime.spawn(init_prometheus_with_listener(listener, registry));
+		tokio::spawn(init_prometheus_with_listener(listener, registry));
 
-		runtime.block_on(async {
-			let client = Client::new();
+		let client = Client::builder(TokioExecutor::new()).build_http::<Body>();
 
-			let res = client
-				.get(Uri::try_from(&format!("http://{}/metrics", local_addr)).expect("Parses URI"))
-				.await
-				.expect("Requests metrics");
+		let res = client
+			.get(Uri::try_from(&format!("http://{}/metrics", local_addr)).expect("Parses URI"))
+			.await
+			.expect("Requests metrics");
 
-			let buf = hyper::body::to_bytes(res).await.expect("Converts body to bytes");
+		assert!(res.status().is_success());
 
-			let body = String::from_utf8(buf.to_vec()).expect("Converts body to String");
-			assert!(body.contains(&format!("{} 0", METRIC_NAME)));
-		});
+		let buf = res.into_body().collect().await.expect("Failed to read HTTP body").to_bytes();
+		let body = String::from_utf8(buf.to_vec()).expect("Converts body to String");
+
+		assert!(body.contains(&format!("{} 0", METRIC_NAME)));
 	}
 }

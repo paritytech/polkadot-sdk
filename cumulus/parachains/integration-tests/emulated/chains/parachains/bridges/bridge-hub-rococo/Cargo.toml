@@ -13,12 +13,18 @@ workspace = true
 [dependencies]
 
 # Substrate
-sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false }
-frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
+sp-core = { workspace = true }
+frame-support = { workspace = true }
+
+# Polkadot Dependencies
+xcm = { workspace = true }
+
+# Bridge dependencies
+bp-messages = { workspace = true }
 
 # Cumulus
-parachains-common = { path = "../../../../../../common" }
-emulated-integration-tests-common = { path = "../../../../common", default-features = false }
-bridge-hub-rococo-runtime = { path = "../../../../../../runtimes/bridge-hubs/bridge-hub-rococo" }
-bridge-hub-common = { path = "../../../../../../runtimes/bridge-hubs/common", default-features = false }
-testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["rococo"] }
+parachains-common = { workspace = true, default-features = true }
+emulated-integration-tests-common = { workspace = true }
+bridge-hub-rococo-runtime = { workspace = true, default-features = true }
+bridge-hub-common = { workspace = true }
+testnet-parachains-constants = { features = ["rococo"], workspace = true, default-features = true }

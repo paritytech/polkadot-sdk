@@ -77,6 +77,7 @@ impl pallet_balances::Config for Test {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<0>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -299,6 +300,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(1, TreasuryAccountId::get(), INITIAL_BALANCE),
 			(100, TreasuryAccountId::get(), INITIAL_BALANCE),
 		],
+		next_asset_id: None,
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

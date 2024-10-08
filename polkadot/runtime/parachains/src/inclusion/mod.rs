@@ -27,8 +27,14 @@ use crate::{
 	shared::{self, AllowedRelayParentsTracker},
 	util::make_persisted_validation_data_with_parent,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
+	vec,
+	vec::Vec,
+};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use codec::{Decode, Encode};
+use core::fmt;
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
@@ -38,20 +44,18 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_message_queue::OnQueueChanged;
 use polkadot_primitives::{
-	effective_minimum_backing_votes, supermajority_threshold, well_known_keys, BackedCandidate,
-	CandidateCommitments, CandidateDescriptor, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId,
-	SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId, ValidatorIndex,
-	ValidityAttestation,
+	effective_minimum_backing_votes, supermajority_threshold,
+	vstaging::{
+		BackedCandidate, CandidateDescriptorV2 as CandidateDescriptor,
+		CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	},
+	well_known_keys, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, Hash, HeadData,
+	Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId,
+	ValidatorIndex, ValidityAttestation,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
-#[cfg(feature = "std")]
-use sp_std::fmt;
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
-	prelude::*,
-};
 
 pub use pallet::*;
 
@@ -64,18 +68,23 @@ mod benchmarking;
 pub mod migration;
 
 pub trait WeightInfo {
-	fn receive_upward_messages(i: u32) -> Weight;
+	/// Weight for `enact_candidate` extrinsic given the number of sent messages
+	/// (ump, hrmp) and whether there is a new code for a runtime upgrade.
+	///
+	/// NOTE: due to a shortcoming of the current benchmarking framework,
+	/// we use `u32` for the code upgrade, even though it is a `bool`.
+	fn enact_candidate(u: u32, h: u32, c: u32) -> Weight;
 }
 
 pub struct TestWeightInfo;
 impl WeightInfo for TestWeightInfo {
-	fn receive_upward_messages(_: u32) -> Weight {
-		Weight::MAX
+	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
+		Weight::zero()
 	}
 }
 
 impl WeightInfo for () {
-	fn receive_upward_messages(_: u32) -> Weight {
+	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
 		Weight::zero()
 	}
 }
@@ -337,8 +346,6 @@ pub mod pallet {
 		InsufficientBacking,
 		/// Invalid (bad signature, unknown validator, etc.) backing.
 		InvalidBacking,
-		/// Collator did not sign PoV.
-		NotCollatorSigned,
 		/// The validation data hash does not match expected.
 		ValidationDataHashMismatch,
 		/// The downward message queue is not processed correctly.
@@ -377,7 +384,7 @@ pub mod pallet {
 const LOG_TARGET: &str = "runtime::inclusion";
 
 /// The reason that a candidate's outputs were rejected for.
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Debug)]
 enum AcceptanceCheckErr {
 	HeadDataTooLarge,
 	/// Code upgrades are not permitted at the current time.
@@ -433,9 +440,13 @@ pub(crate) enum UmpAcceptanceCheckErr {
 	TotalSizeExceeded { total_size: u64, limit: u64 },
 	/// A para-chain cannot send UMP messages while it is offboarding.
 	IsOffboarding,
+	/// The allowed number of `UMPSignal` messages in the queue was exceeded.
+	/// Currenly only one such message is allowed.
+	TooManyUMPSignals { count: u32 },
+	/// The UMP queue contains an invalid `UMPSignal`
+	NoUmpSignal,
 }
 
-#[cfg(feature = "std")]
 impl fmt::Debug for UmpAcceptanceCheckErr {
 	fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
 		match *self {
@@ -461,6 +472,12 @@ impl fmt::Debug for UmpAcceptanceCheckErr {
 			),
 			UmpAcceptanceCheckErr::IsOffboarding => {
 				write!(fmt, "upward message rejected because the para is off-boarding")
+			},
+			UmpAcceptanceCheckErr::TooManyUMPSignals { count } => {
+				write!(fmt, "the ump queue has too many `UMPSignal` messages ({} > 1 )", count)
+			},
+			UmpAcceptanceCheckErr::NoUmpSignal => {
+				write!(fmt, "Required UMP signal not found")
 			},
 		}
 	}
@@ -508,7 +525,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn update_pending_availability_and_get_freed_cores(
 		validators: &[ValidatorId],
 		signed_bitfields: SignedAvailabilityBitfields,
-	) -> Vec<(CoreIndex, CandidateHash)> {
+	) -> (Weight, Vec<(CoreIndex, CandidateHash)>) {
 		let threshold = availability_threshold(validators.len());
 
 		let mut votes_per_core: BTreeMap<CoreIndex, BTreeSet<ValidatorIndex>> = BTreeMap::new();
@@ -529,6 +546,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let mut freed_cores = vec![];
+		let mut weight = Weight::zero();
 
 		let pending_paraids: Vec<_> = PendingAvailability::<T>::iter_keys().collect();
 		for paraid in pending_paraids {
@@ -582,7 +600,17 @@ impl<T: Config> Pallet<T> {
 								descriptor: candidate.descriptor,
 								commitments: candidate.commitments,
 							};
-							let _weight = Self::enact_candidate(
+
+							let has_runtime_upgrade =
+								receipt.commitments.new_validation_code.as_ref().map_or(0, |_| 1);
+							let u = receipt.commitments.upward_messages.len() as u32;
+							let h = receipt.commitments.horizontal_messages.len() as u32;
+							let enact_weight = <T as Config>::WeightInfo::enact_candidate(
+								u,
+								h,
+								has_runtime_upgrade,
+							);
+							Self::enact_candidate(
 								candidate.relay_parent_number,
 								receipt,
 								candidate.backers,
@@ -590,13 +618,14 @@ impl<T: Config> Pallet<T> {
 								candidate.core,
 								candidate.backing_group,
 							);
+							weight.saturating_accrue(enact_weight);
 						}
 					}
 				}
 			});
 		}
 
-		freed_cores
+		(weight, freed_cores)
 	}
 
 	/// Process candidates that have been backed. Provide a set of
@@ -639,6 +668,8 @@ impl<T: Config> Pallet<T> {
 			for (candidate, core) in para_candidates.iter() {
 				let candidate_hash = candidate.candidate().hash();
 
+				// The previous context is None, as it's already checked during candidate
+				// sanitization.
 				let check_ctx = CandidateCheckContext::<T>::new(None);
 				let relay_parent_number = check_ctx.verify_backed_candidate(
 					&allowed_relay_parents,
@@ -718,13 +749,23 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	// Get the latest backed output head data of this para.
+	// Get the latest backed output head data of this para (including pending availability).
 	pub(crate) fn para_latest_head_data(para_id: &ParaId) -> Option<HeadData> {
 		match PendingAvailability::<T>::get(para_id).and_then(|pending_candidates| {
 			pending_candidates.back().map(|x| x.commitments.head_data.clone())
 		}) {
 			Some(head_data) => Some(head_data),
 			None => paras::Heads::<T>::get(para_id),
+		}
+	}
+
+	// Get the relay parent number of the most recent candidate (including pending availability).
+	pub(crate) fn para_most_recent_context(para_id: &ParaId) -> Option<BlockNumberFor<T>> {
+		match PendingAvailability::<T>::get(para_id)
+			.and_then(|pending_candidates| pending_candidates.back().map(|x| x.relay_parent_number))
+		{
+			Some(relay_parent_number) => Some(relay_parent_number),
+			None => paras::MostRecentContext::<T>::get(para_id),
 		}
 	}
 
@@ -738,7 +779,7 @@ impl<T: Config> Pallet<T> {
 
 		let mut backers = bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()];
 		let signing_context = SigningContext {
-			parent_hash: backed_candidate.descriptor().relay_parent,
+			parent_hash: backed_candidate.descriptor().relay_parent(),
 			session_index: shared::CurrentSessionIndex::<T>::get(),
 		};
 
@@ -797,26 +838,23 @@ impl<T: Config> Pallet<T> {
 		relay_parent_number: BlockNumberFor<T>,
 		validation_outputs: polkadot_primitives::CandidateCommitments,
 	) -> bool {
-		let prev_context = paras::MostRecentContext::<T>::get(para_id);
+		let prev_context = Self::para_most_recent_context(&para_id);
 		let check_ctx = CandidateCheckContext::<T>::new(prev_context);
 
-		if check_ctx
-			.check_validation_outputs(
-				para_id,
-				relay_parent_number,
-				&validation_outputs.head_data,
-				&validation_outputs.new_validation_code,
-				validation_outputs.processed_downward_messages,
-				&validation_outputs.upward_messages,
-				BlockNumberFor::<T>::from(validation_outputs.hrmp_watermark),
-				&validation_outputs.horizontal_messages,
-			)
-			.is_err()
-		{
+		if let Err(err) = check_ctx.check_validation_outputs(
+			para_id,
+			relay_parent_number,
+			&validation_outputs.head_data,
+			&validation_outputs.new_validation_code,
+			validation_outputs.processed_downward_messages,
+			&validation_outputs.upward_messages,
+			BlockNumberFor::<T>::from(validation_outputs.hrmp_watermark),
+			&validation_outputs.horizontal_messages,
+		) {
 			log::debug!(
 				target: LOG_TARGET,
-				"Validation outputs checking for parachain `{}` failed",
-				u32::from(para_id),
+				"Validation outputs checking for parachain `{}` failed, error: {:?}",
+				u32::from(para_id), err
 			);
 			false
 		} else {
@@ -831,7 +869,7 @@ impl<T: Config> Pallet<T> {
 		availability_votes: BitVec<u8, BitOrderLsb0>,
 		core_index: CoreIndex,
 		backing_group: GroupIndex,
-	) -> Weight {
+	) {
 		let plain = receipt.to_plain();
 		let commitments = receipt.commitments;
 		let config = configuration::ActiveConfig::<T>::get();
@@ -852,38 +890,36 @@ impl<T: Config> Pallet<T> {
 				.map(|(i, _)| ValidatorIndex(i as _)),
 		);
 
-		// initial weight is config read.
-		let mut weight = T::DbWeight::get().reads_writes(1, 0);
 		if let Some(new_code) = commitments.new_validation_code {
 			// Block number of candidate's inclusion.
 			let now = frame_system::Pallet::<T>::block_number();
 
-			weight.saturating_add(paras::Pallet::<T>::schedule_code_upgrade(
-				receipt.descriptor.para_id,
+			paras::Pallet::<T>::schedule_code_upgrade(
+				receipt.descriptor.para_id(),
 				new_code,
 				now,
 				&config,
 				UpgradeStrategy::SetGoAheadSignal,
-			));
+			);
 		}
 
 		// enact the messaging facet of the candidate.
-		weight.saturating_accrue(dmp::Pallet::<T>::prune_dmq(
-			receipt.descriptor.para_id,
+		dmp::Pallet::<T>::prune_dmq(
+			receipt.descriptor.para_id(),
 			commitments.processed_downward_messages,
-		));
-		weight.saturating_accrue(Self::receive_upward_messages(
-			receipt.descriptor.para_id,
+		);
+		Self::receive_upward_messages(
+			receipt.descriptor.para_id(),
 			commitments.upward_messages.as_slice(),
-		));
-		weight.saturating_accrue(hrmp::Pallet::<T>::prune_hrmp(
-			receipt.descriptor.para_id,
+		);
+		hrmp::Pallet::<T>::prune_hrmp(
+			receipt.descriptor.para_id(),
 			BlockNumberFor::<T>::from(commitments.hrmp_watermark),
-		));
-		weight.saturating_accrue(hrmp::Pallet::<T>::queue_outbound_hrmp(
-			receipt.descriptor.para_id,
+		);
+		hrmp::Pallet::<T>::queue_outbound_hrmp(
+			receipt.descriptor.para_id(),
 			commitments.horizontal_messages,
-		));
+		);
 
 		Self::deposit_event(Event::<T>::CandidateIncluded(
 			plain,
@@ -892,11 +928,11 @@ impl<T: Config> Pallet<T> {
 			backing_group,
 		));
 
-		weight.saturating_add(paras::Pallet::<T>::note_new_head(
-			receipt.descriptor.para_id,
+		paras::Pallet::<T>::note_new_head(
+			receipt.descriptor.para_id(),
 			commitments.head_data,
 			relay_parent_number,
-		))
+		);
 	}
 
 	pub(crate) fn relay_dispatch_queue_size(para_id: ParaId) -> (u32, u32) {
@@ -910,6 +946,27 @@ impl<T: Config> Pallet<T> {
 		para: ParaId,
 		upward_messages: &[UpwardMessage],
 	) -> Result<(), UmpAcceptanceCheckErr> {
+		// Filter any pending UMP signals and the separator.
+		let upward_messages = if let Some(separator_index) =
+			upward_messages.iter().position(|message| message.is_empty())
+		{
+			let (upward_messages, ump_signals) = upward_messages.split_at(separator_index);
+
+			if ump_signals.len() > 2 {
+				return Err(UmpAcceptanceCheckErr::TooManyUMPSignals {
+					count: ump_signals.len() as u32,
+				})
+			}
+
+			if ump_signals.len() == 1 {
+				return Err(UmpAcceptanceCheckErr::NoUmpSignal)
+			}
+
+			upward_messages
+		} else {
+			upward_messages
+		};
+
 		// Cannot send UMP messages while off-boarding.
 		if paras::Pallet::<T>::is_offboarding(para) {
 			ensure!(upward_messages.is_empty(), UmpAcceptanceCheckErr::IsOffboarding);
@@ -961,14 +1018,15 @@ impl<T: Config> Pallet<T> {
 	/// This function is infallible since the candidate was already accepted and we therefore need
 	/// to deal with the messages as given. Messages that are too long will be ignored since such
 	/// candidates should have already been rejected in [`Self::check_upward_messages`].
-	pub(crate) fn receive_upward_messages(para: ParaId, upward_messages: &[Vec<u8>]) -> Weight {
+	pub(crate) fn receive_upward_messages(para: ParaId, upward_messages: &[Vec<u8>]) {
 		let bounded = upward_messages
 			.iter()
+			// Stop once we hit the `UMPSignal` separator.
+			.take_while(|message| !message.is_empty())
 			.filter_map(|d| {
 				BoundedSlice::try_from(&d[..])
-					.map_err(|e| {
+					.inspect_err(|_| {
 						defensive!("Accepted candidate contains too long msg, len=", d.len());
-						e
 					})
 					.ok()
 			})
@@ -980,19 +1038,17 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn receive_bounded_upward_messages(
 		para: ParaId,
 		messages: Vec<BoundedSlice<'_, u8, MaxUmpMessageLenOf<T>>>,
-	) -> Weight {
+	) {
 		let count = messages.len() as u32;
 		if count == 0 {
-			return Weight::zero()
+			return
 		}
 
 		T::MessageQueue::enqueue_messages(
 			messages.into_iter(),
 			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)),
 		);
-		let weight = <T as Config>::WeightInfo::receive_upward_messages(count);
 		Self::deposit_event(Event::UpwardMessagesReceived { from: para, count });
-		weight
 	}
 
 	/// Cleans up all timed out candidates as well as their descendant candidates.
@@ -1221,7 +1277,6 @@ impl<T: Config> CandidateCheckContext<T> {
 	///
 	/// Assures:
 	///  * relay-parent in-bounds
-	///  * collator signature check passes
 	///  * code hash of commitments matches current code hash
 	///  * para head in the descriptor and commitments match
 	///
@@ -1232,47 +1287,42 @@ impl<T: Config> CandidateCheckContext<T> {
 		backed_candidate_receipt: &CommittedCandidateReceipt<<T as frame_system::Config>::Hash>,
 		parent_head_data: HeadData,
 	) -> Result<BlockNumberFor<T>, Error<T>> {
-		let para_id = backed_candidate_receipt.descriptor().para_id;
-		let relay_parent = backed_candidate_receipt.descriptor().relay_parent;
+		let para_id = backed_candidate_receipt.descriptor.para_id();
+		let relay_parent = backed_candidate_receipt.descriptor.relay_parent();
 
 		// Check that the relay-parent is one of the allowed relay-parents.
-		let (relay_parent_storage_root, relay_parent_number) = {
+		let (state_root, relay_parent_number) = {
 			match allowed_relay_parents.acquire_info(relay_parent, self.prev_context) {
 				None => return Err(Error::<T>::DisallowedRelayParent),
-				Some(info) => info,
+				Some((info, relay_parent_number)) => (info.state_root, relay_parent_number),
 			}
 		};
 
 		{
 			let persisted_validation_data = make_persisted_validation_data_with_parent::<T>(
 				relay_parent_number,
-				relay_parent_storage_root,
+				state_root,
 				parent_head_data,
 			);
 
 			let expected = persisted_validation_data.hash();
 
 			ensure!(
-				expected == backed_candidate_receipt.descriptor().persisted_validation_data_hash,
+				expected == backed_candidate_receipt.descriptor.persisted_validation_data_hash(),
 				Error::<T>::ValidationDataHashMismatch,
 			);
 		}
-
-		ensure!(
-			backed_candidate_receipt.descriptor().check_collator_signature().is_ok(),
-			Error::<T>::NotCollatorSigned,
-		);
 
 		let validation_code_hash = paras::CurrentCodeHash::<T>::get(para_id)
 			// A candidate for a parachain without current validation code is not scheduled.
 			.ok_or_else(|| Error::<T>::UnscheduledCandidate)?;
 		ensure!(
-			backed_candidate_receipt.descriptor().validation_code_hash == validation_code_hash,
+			backed_candidate_receipt.descriptor.validation_code_hash() == validation_code_hash,
 			Error::<T>::InvalidValidationCodeHash,
 		);
 
 		ensure!(
-			backed_candidate_receipt.descriptor().para_head ==
+			backed_candidate_receipt.descriptor.para_head() ==
 				backed_candidate_receipt.commitments.head_data.hash(),
 			Error::<T>::ParaHeadMismatch,
 		);
@@ -1289,9 +1339,10 @@ impl<T: Config> CandidateCheckContext<T> {
 		) {
 			log::debug!(
 				target: LOG_TARGET,
-				"Validation outputs checking during inclusion of a candidate {:?} for parachain `{}` failed",
+				"Validation outputs checking during inclusion of a candidate {:?} for parachain `{}` failed, error: {:?}",
 				backed_candidate_receipt.hash(),
 				u32::from(para_id),
+				err
 			);
 			Err(err.strip_into_dispatch_err::<T>())?;
 		};
@@ -1347,10 +1398,49 @@ impl<T: Config> CandidateCheckContext<T> {
 			para_id,
 			relay_parent_number,
 			processed_downward_messages,
+		)
+		.map_err(|e| {
+			log::debug!(
+				target: LOG_TARGET,
+				"Check processed downward messages for parachain `{}` on relay parent number `{:?}` failed, error: {:?}",
+				u32::from(para_id),
+				relay_parent_number,
+				e
+			);
+			e
+		})?;
+		Pallet::<T>::check_upward_messages(&self.config, para_id, upward_messages).map_err(
+			|e| {
+				log::debug!(
+					target: LOG_TARGET,
+					"Check upward messages for parachain `{}` failed, error: {:?}",
+					u32::from(para_id),
+					e
+				);
+				e
+			},
 		)?;
-		Pallet::<T>::check_upward_messages(&self.config, para_id, upward_messages)?;
-		hrmp::Pallet::<T>::check_hrmp_watermark(para_id, relay_parent_number, hrmp_watermark)?;
-		hrmp::Pallet::<T>::check_outbound_hrmp(&self.config, para_id, horizontal_messages)?;
+		hrmp::Pallet::<T>::check_hrmp_watermark(para_id, relay_parent_number, hrmp_watermark)
+			.map_err(|e| {
+				log::debug!(
+					target: LOG_TARGET,
+					"Check hrmp watermark for parachain `{}` on relay parent number `{:?}` failed, error: {:?}",
+					u32::from(para_id),
+					relay_parent_number,
+					e
+				);
+				e
+			})?;
+		hrmp::Pallet::<T>::check_outbound_hrmp(&self.config, para_id, horizontal_messages)
+			.map_err(|e| {
+				log::debug!(
+					target: LOG_TARGET,
+					"Check outbound hrmp for parachain `{}` failed, error: {:?}",
+					u32::from(para_id),
+					e
+				);
+				e
+			})?;
 
 		Ok(())
 	}

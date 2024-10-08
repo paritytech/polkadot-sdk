@@ -22,7 +22,7 @@ use super::*;
 use crate as pallet_preimage;
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-	traits::{fungible::HoldConsideration, ConstU32, ConstU64},
+	traits::{fungible::HoldConsideration, ConstU64},
 };
 use frame_system::EnsureSignedBy;
 use sp_core::H256;
@@ -48,20 +48,10 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = u64;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ConstU64<5>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxLocks = ();
-	type MaxReserves = ConstU32<50>;
-	type ReserveIdentifier = [u8; 8];
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<1>;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = ();
 }
 
 ord_parameter_types! {

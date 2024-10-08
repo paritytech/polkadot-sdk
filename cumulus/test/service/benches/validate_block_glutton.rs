@@ -43,7 +43,7 @@ use sp_runtime::traits::Header as HeaderT;
 use cumulus_test_service::bench_utils as utils;
 
 async fn import_block(
-	mut client: &cumulus_test_client::Client,
+	client: &cumulus_test_client::Client,
 	built: cumulus_test_runtime::Block,
 	import_existing: bool,
 ) {

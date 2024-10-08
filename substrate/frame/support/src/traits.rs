@@ -23,7 +23,8 @@ pub mod tokens;
 pub use tokens::{
 	currency::{
 		ActiveIssuanceOf, Currency, InspectLockableCurrency, LockIdentifier, LockableCurrency,
-		NamedReservableCurrency, ReservableCurrency, TotalIssuanceOf, VestingSchedule,
+		NamedReservableCurrency, ReservableCurrency, TotalIssuanceOf, VestedTransfer,
+		VestingSchedule,
 	},
 	fungible, fungibles,
 	imbalance::{Imbalance, OnUnbalanced, SignedImbalance},
@@ -92,6 +93,8 @@ pub use hooks::{
 
 pub mod schedule;
 mod storage;
+#[cfg(feature = "experimental")]
+pub use storage::MaybeConsideration;
 pub use storage::{
 	Consideration, Footprint, Incrementable, Instance, LinearStoragePrice, PartialStorageInfoTrait,
 	StorageInfo, StorageInfoTrait, StorageInstance, TrackedStorageKey, WhitelistedStorageKeys,
@@ -129,6 +132,9 @@ pub mod dynamic_params;
 
 pub mod tasks;
 pub use tasks::Task;
+
+mod proving;
+pub use proving::*;
 
 #[cfg(feature = "try-runtime")]
 mod try_runtime;

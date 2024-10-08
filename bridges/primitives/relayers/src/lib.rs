@@ -19,9 +19,12 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use extension::{
+	BatchCallUnpacker, ExtensionCallData, ExtensionCallInfo, ExtensionConfig,
+	RuntimeWithUtilityPallet,
+};
 pub use registration::{ExplicitOrAccountParams, Registration, StakeAndSlash};
 
-use bp_messages::LaneId;
 use bp_runtime::{ChainId, StorageDoubleMapKeyProvider};
 use frame_support::{traits::tokens::Preservation, Blake2_128Concat, Identity};
 use scale_info::TypeInfo;
@@ -32,6 +35,7 @@ use sp_runtime::{
 };
 use sp_std::{fmt::Debug, marker::PhantomData};
 
+mod extension;
 mod registration;
 
 /// The owner of the sovereign account that should pay the rewards.
@@ -56,13 +60,16 @@ pub enum RewardsAccountOwner {
 /// of the sovereign accounts will pay rewards for different operations. So we need multiple
 /// parameters to identify the account that pays a reward to the relayer.
 #[derive(Copy, Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
-pub struct RewardsAccountParams {
-	lane_id: LaneId,
-	bridged_chain_id: ChainId,
+pub struct RewardsAccountParams<LaneId> {
+	// **IMPORTANT NOTE**: the order of fields here matters - we are using
+	// `into_account_truncating` and lane id is already `32` byte, so if other fields are encoded
+	// after it, they're simply dropped. So lane id shall be the last field.
 	owner: RewardsAccountOwner,
+	bridged_chain_id: ChainId,
+	lane_id: LaneId,
 }
 
-impl RewardsAccountParams {
+impl<LaneId: Decode + Encode> RewardsAccountParams<LaneId> {
 	/// Create a new instance of `RewardsAccountParams`.
 	pub const fn new(
 		lane_id: LaneId,
@@ -71,9 +78,14 @@ impl RewardsAccountParams {
 	) -> Self {
 		Self { lane_id, bridged_chain_id, owner }
 	}
+
+	/// Getter for `lane_id`.
+	pub const fn lane_id(&self) -> &LaneId {
+		&self.lane_id
+	}
 }
 
-impl TypeId for RewardsAccountParams {
+impl<LaneId: Decode + Encode> TypeId for RewardsAccountParams<LaneId> {
 	const TYPE_ID: [u8; 4] = *b"brap";
 }
 
@@ -81,47 +93,58 @@ impl TypeId for RewardsAccountParams {
 pub trait PaymentProcedure<Relayer, Reward> {
 	/// Error that may be returned by the procedure.
 	type Error: Debug;
+	/// Lane identifier type.
+	type LaneId: Decode + Encode;
 
 	/// Pay reward to the relayer from the account with provided params.
 	fn pay_reward(
 		relayer: &Relayer,
-		rewards_account_params: RewardsAccountParams,
+		rewards_account_params: RewardsAccountParams<Self::LaneId>,
 		reward: Reward,
 	) -> Result<(), Self::Error>;
 }
 
 impl<Relayer, Reward> PaymentProcedure<Relayer, Reward> for () {
 	type Error = &'static str;
+	type LaneId = ();
 
-	fn pay_reward(_: &Relayer, _: RewardsAccountParams, _: Reward) -> Result<(), Self::Error> {
+	fn pay_reward(
+		_: &Relayer,
+		_: RewardsAccountParams<Self::LaneId>,
+		_: Reward,
+	) -> Result<(), Self::Error> {
 		Ok(())
 	}
 }
 
 /// Reward payment procedure that does `balances::transfer` call from the account, derived from
 /// given params.
-pub struct PayRewardFromAccount<T, Relayer>(PhantomData<(T, Relayer)>);
+pub struct PayRewardFromAccount<T, Relayer, LaneId>(PhantomData<(T, Relayer, LaneId)>);
 
-impl<T, Relayer> PayRewardFromAccount<T, Relayer>
+impl<T, Relayer, LaneId> PayRewardFromAccount<T, Relayer, LaneId>
 where
 	Relayer: Decode + Encode,
+	LaneId: Decode + Encode,
 {
 	/// Return account that pays rewards based on the provided parameters.
-	pub fn rewards_account(params: RewardsAccountParams) -> Relayer {
+	pub fn rewards_account(params: RewardsAccountParams<LaneId>) -> Relayer {
 		params.into_sub_account_truncating(b"rewards-account")
 	}
 }
 
-impl<T, Relayer> PaymentProcedure<Relayer, T::Balance> for PayRewardFromAccount<T, Relayer>
+impl<T, Relayer, LaneId> PaymentProcedure<Relayer, T::Balance>
+	for PayRewardFromAccount<T, Relayer, LaneId>
 where
 	T: frame_support::traits::fungible::Mutate<Relayer>,
 	Relayer: Decode + Encode + Eq,
+	LaneId: Decode + Encode,
 {
 	type Error = sp_runtime::DispatchError;
+	type LaneId = LaneId;
 
 	fn pay_reward(
 		relayer: &Relayer,
-		rewards_account_params: RewardsAccountParams,
+		rewards_account_params: RewardsAccountParams<Self::LaneId>,
 		reward: T::Balance,
 	) -> Result<(), Self::Error> {
 		T::transfer(
@@ -134,49 +157,57 @@ where
 	}
 }
 
-/// Can be use to access the runtime storage key within the `RelayerRewards` map of the relayers
+/// Can be used to access the runtime storage key within the `RelayerRewards` map of the relayers
 /// pallet.
-pub struct RelayerRewardsKeyProvider<AccountId, Reward>(PhantomData<(AccountId, Reward)>);
+pub struct RelayerRewardsKeyProvider<AccountId, Reward, LaneId>(
+	PhantomData<(AccountId, Reward, LaneId)>,
+);
 
-impl<AccountId, Reward> StorageDoubleMapKeyProvider for RelayerRewardsKeyProvider<AccountId, Reward>
+impl<AccountId, Reward, LaneId> StorageDoubleMapKeyProvider
+	for RelayerRewardsKeyProvider<AccountId, Reward, LaneId>
 where
-	AccountId: Codec + EncodeLike,
-	Reward: Codec + EncodeLike,
+	AccountId: 'static + Codec + EncodeLike + Send + Sync,
+	Reward: 'static + Codec + EncodeLike + Send + Sync,
+	LaneId: Codec + EncodeLike + Send + Sync,
 {
 	const MAP_NAME: &'static str = "RelayerRewards";
 
 	type Hasher1 = Blake2_128Concat;
 	type Key1 = AccountId;
 	type Hasher2 = Identity;
-	type Key2 = RewardsAccountParams;
+	type Key2 = RewardsAccountParams<LaneId>;
 	type Value = Reward;
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bp_messages::LaneId;
-	use sp_runtime::testing::H256;
+	use bp_messages::{HashedLaneId, LaneIdType, LegacyLaneId};
+	use sp_runtime::{app_crypto::Ss58Codec, testing::H256};
 
 	#[test]
 	fn different_lanes_are_using_different_accounts() {
 		assert_eq!(
-			PayRewardFromAccount::<(), H256>::rewards_account(RewardsAccountParams::new(
-				LaneId([0, 0, 0, 0]),
-				*b"test",
-				RewardsAccountOwner::ThisChain
-			)),
-			hex_literal::hex!("62726170000000007465737400726577617264732d6163636f756e7400000000")
+			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
+				RewardsAccountParams::new(
+					HashedLaneId::try_new(1, 2).unwrap(),
+					*b"test",
+					RewardsAccountOwner::ThisChain
+				)
+			),
+			hex_literal::hex!("627261700074657374b1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dc")
 				.into(),
 		);
 
 		assert_eq!(
-			PayRewardFromAccount::<(), H256>::rewards_account(RewardsAccountParams::new(
-				LaneId([0, 0, 0, 1]),
-				*b"test",
-				RewardsAccountOwner::ThisChain
-			)),
-			hex_literal::hex!("62726170000000017465737400726577617264732d6163636f756e7400000000")
+			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
+				RewardsAccountParams::new(
+					HashedLaneId::try_new(1, 3).unwrap(),
+					*b"test",
+					RewardsAccountOwner::ThisChain
+				)
+			),
+			hex_literal::hex!("627261700074657374a43e8951aa302c133beb5f85821a21645f07b487270ef3")
 				.into(),
 		);
 	}
@@ -184,23 +215,101 @@ mod tests {
 	#[test]
 	fn different_directions_are_using_different_accounts() {
 		assert_eq!(
-			PayRewardFromAccount::<(), H256>::rewards_account(RewardsAccountParams::new(
-				LaneId([0, 0, 0, 0]),
-				*b"test",
-				RewardsAccountOwner::ThisChain
-			)),
-			hex_literal::hex!("62726170000000007465737400726577617264732d6163636f756e7400000000")
+			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
+				RewardsAccountParams::new(
+					HashedLaneId::try_new(1, 2).unwrap(),
+					*b"test",
+					RewardsAccountOwner::ThisChain
+				)
+			),
+			hex_literal::hex!("627261700074657374b1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dc")
 				.into(),
 		);
 
 		assert_eq!(
-			PayRewardFromAccount::<(), H256>::rewards_account(RewardsAccountParams::new(
-				LaneId([0, 0, 0, 0]),
-				*b"test",
-				RewardsAccountOwner::BridgedChain
-			)),
-			hex_literal::hex!("62726170000000007465737401726577617264732d6163636f756e7400000000")
+			PayRewardFromAccount::<(), H256, HashedLaneId>::rewards_account(
+				RewardsAccountParams::new(
+					HashedLaneId::try_new(1, 2).unwrap(),
+					*b"test",
+					RewardsAccountOwner::BridgedChain
+				)
+			),
+			hex_literal::hex!("627261700174657374b1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dc")
 				.into(),
 		);
+	}
+
+	#[test]
+	fn pay_reward_from_account_for_legacy_lane_id_works() {
+		let test_data = vec![
+			// Note: these accounts are used for integration tests within
+			// `bridges_rococo_westend.sh`
+			(
+				LegacyLaneId([0, 0, 0, 1]),
+				b"bhks",
+				RewardsAccountOwner::ThisChain,
+				(0_u16, "13E5fui97x6KTwNnSjaEKZ8s7kJNot5F3aUsy3jUtuoMyUec"),
+			),
+			(
+				LegacyLaneId([0, 0, 0, 1]),
+				b"bhks",
+				RewardsAccountOwner::BridgedChain,
+				(0_u16, "13E5fui9Ka9Vz4JbGN3xWjmwDNxnxF1N9Hhhbeu3VCqLChuj"),
+			),
+			(
+				LegacyLaneId([0, 0, 0, 1]),
+				b"bhpd",
+				RewardsAccountOwner::ThisChain,
+				(2_u16, "EoQBtnwtXqnSnr9cgBEJpKU7NjeC9EnR4D1VjgcvHz9ZYmS"),
+			),
+			(
+				LegacyLaneId([0, 0, 0, 1]),
+				b"bhpd",
+				RewardsAccountOwner::BridgedChain,
+				(2_u16, "EoQBtnx69txxumxSJexVzxYD1Q4LWAuWmRq8LrBWb27nhYN"),
+			),
+			// Note: these accounts are used for integration tests within
+			// `bridges_polkadot_kusama.sh` from fellows.
+			(
+				LegacyLaneId([0, 0, 0, 2]),
+				b"bhwd",
+				RewardsAccountOwner::ThisChain,
+				(4_u16, "SNihsskf7bFhnHH9HJFMjWD3FJ96ESdAQTFZUAtXudRQbaH"),
+			),
+			(
+				LegacyLaneId([0, 0, 0, 2]),
+				b"bhwd",
+				RewardsAccountOwner::BridgedChain,
+				(4_u16, "SNihsskrjeSDuD5xumyYv9H8sxZEbNkG7g5C5LT8CfPdaSE"),
+			),
+			(
+				LegacyLaneId([0, 0, 0, 2]),
+				b"bhro",
+				RewardsAccountOwner::ThisChain,
+				(4_u16, "SNihsskf7bF2vWogkC6uFoiqPhd3dUX6TGzYZ1ocJdo3xHp"),
+			),
+			(
+				LegacyLaneId([0, 0, 0, 2]),
+				b"bhro",
+				RewardsAccountOwner::BridgedChain,
+				(4_u16, "SNihsskrjeRZ3ScWNfq6SSnw2N3BzQeCAVpBABNCbfmHENB"),
+			),
+		];
+
+		for (lane_id, bridged_chain_id, owner, (expected_ss58, expected_account)) in test_data {
+			assert_eq!(
+				expected_account,
+				sp_runtime::AccountId32::new(PayRewardFromAccount::<
+					[u8; 32],
+					[u8; 32],
+					LegacyLaneId,
+				>::rewards_account(RewardsAccountParams::new(
+					lane_id,
+					*bridged_chain_id,
+					owner
+				)))
+				.to_ss58check_with_version(expected_ss58.into())
+			);
+		}
 	}
 }

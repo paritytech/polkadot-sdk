@@ -40,7 +40,7 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 		let name = vote_field(1);
 		// NOTE: we use the visibility of the struct for the fields as well.. could be made better.
 		quote!(
-			#vis #name: _fepsp::sp_std::prelude::Vec<(#voter_type, #target_type)>,
+			#vis #name: _fepsp::Vec<(#voter_type, #target_type)>,
 		)
 	};
 
@@ -49,7 +49,7 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 			let field_name = vote_field(c);
 			let array_len = c - 1;
 			quote!(
-				#vis #field_name: _fepsp::sp_std::prelude::Vec<(
+				#vis #field_name: _fepsp::Vec<(
 					#voter_type,
 					[(#target_type, #weight_type); #array_len],
 					#target_type
@@ -147,8 +147,8 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 				self,
 				voter_at: impl Fn(Self::VoterIndex) -> Option<A>,
 				target_at: impl Fn(Self::TargetIndex) -> Option<A>,
-			) -> Result<_fepsp::sp_std::prelude::Vec<_feps::Assignment<A, #weight_type>>, _feps::Error> {
-				let mut #assignment_name: _fepsp::sp_std::prelude::Vec<_feps::Assignment<A, #weight_type>> = Default::default();
+			) -> Result<_fepsp::Vec<_feps::Assignment<A, #weight_type>>, _feps::Error> {
+				let mut #assignment_name: _fepsp::Vec<_feps::Assignment<A, #weight_type>> = Default::default();
 				#into_impl
 				Ok(#assignment_name)
 			}
@@ -165,10 +165,10 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 				all_edges
 			}
 
-			fn unique_targets(&self) -> _fepsp::sp_std::prelude::Vec<Self::TargetIndex> {
+			fn unique_targets(&self) -> _fepsp::Vec<Self::TargetIndex> {
 				// NOTE: this implementation returns the targets sorted, but we don't use it yet per
 				// se, nor is the API enforcing it.
-				use _fepsp::sp_std::collections::btree_set::BTreeSet;
+				use _fepsp::BTreeSet;
 				let mut all_targets: BTreeSet<Self::TargetIndex> = BTreeSet::new();
 				let mut maybe_insert_target = |t: Self::TargetIndex| {
 					all_targets.insert(t);
@@ -206,7 +206,7 @@ pub(crate) fn generate(def: crate::SolutionDef) -> Result<TokenStream2> {
 					.saturating_add((s as usize).saturating_mul(max_element_size))
 			}
 		}
-		impl<'a> _fepsp::sp_std::convert::TryFrom<&'a [__IndexAssignment]> for #ident {
+		impl<'a> core::convert::TryFrom<&'a [__IndexAssignment]> for #ident {
 			type Error = _feps::Error;
 			fn try_from(index_assignments: &'a [__IndexAssignment]) -> Result<Self, Self::Error> {
 				let mut #struct_name =  #ident::default();
@@ -361,7 +361,7 @@ pub(crate) fn into_impl(
 							let target = target_at(*t_idx).or_invalid_index()?;
 							Ok((target, *p))
 						})
-						.collect::<Result<_fepsp::sp_std::prelude::Vec<(A, #per_thing)>, _feps::Error>>()?;
+						.collect::<Result<_fepsp::Vec<(A, #per_thing)>, _feps::Error>>()?;
 
 					if sum >= #per_thing::one() {
 						return Err(_feps::Error::SolutionWeightOverflow);

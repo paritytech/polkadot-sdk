@@ -51,23 +51,35 @@ pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
 type AccountPublic = <MultiSignature as Verify>::Signer;
 
-// This asset is added to AH as Asset and reserved transfer between Parachain and AH
+// (trust-backed) Asset registered on AH and reserve-transferred between Parachain and AH
 pub const RESERVABLE_ASSET_ID: u32 = 1;
-// This asset is added to AH as ForeignAsset and teleported between Penpal and AH
+// ForeignAsset registered on AH and teleported between Penpal and AH
 pub const TELEPORTABLE_ASSET_ID: u32 = 2;
 
+// USDT registered on AH as (trust-backed) Asset and reserve-transferred between Parachain and AH
+pub const USDT_ID: u32 = 1984;
+
 pub const PENPAL_ID: u32 = 2000;
+pub const PENPAL_B_ID: u32 = 2001;
 pub const ASSETS_PALLET_ID: u8 = 50;
 
 parameter_types! {
-	pub PenpalTeleportableAssetLocation: xcm::v3::Location
-		= xcm::v3::Location::new(1, [
-				xcm::v3::Junction::Parachain(PENPAL_ID),
-				xcm::v3::Junction::PalletInstance(ASSETS_PALLET_ID),
-				xcm::v3::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
+	pub PenpalTeleportableAssetLocation: xcm::v4::Location
+		= xcm::v4::Location::new(1, [
+				xcm::v4::Junction::Parachain(PENPAL_ID),
+				xcm::v4::Junction::PalletInstance(ASSETS_PALLET_ID),
+				xcm::v4::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
 			]
 		);
 	pub PenpalSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_ID).into_account_truncating();
+	pub PenpalBTeleportableAssetLocation: xcm::v4::Location
+		= xcm::v4::Location::new(1, [
+				xcm::v4::Junction::Parachain(PENPAL_B_ID),
+				xcm::v4::Junction::PalletInstance(ASSETS_PALLET_ID),
+				xcm::v4::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
+			]
+		);
+	pub PenpalBSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_B_ID).into_account_truncating();
 }
 
 /// Helper function to generate a crypto pair from seed
@@ -129,6 +141,7 @@ pub mod accounts {
 	pub const EVE_STASH: &str = "Eve//stash";
 	pub const FERDIE_STASH: &str = "Ferdie//stash";
 	pub const FERDIE_BEEFY: &str = "Ferdie//stash";
+	pub const DUMMY_EMPTY: &str = "JohnDoe";
 
 	pub fn init_balances() -> Vec<AccountId> {
 		vec![

@@ -10,28 +10,31 @@ description = "Shared primitives used by Polkadot runtime"
 workspace = true
 
 [dependencies]
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc", "serde"] }
-hex-literal = "0.4.1"
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["bit-vec", "derive", "serde"] }
-log = { workspace = true, default-features = false }
+bitvec = { features = ["alloc", "serde"], workspace = true }
+hex-literal = { workspace = true, default-features = true }
+codec = { features = ["bit-vec", "derive"], workspace = true }
+scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
+log = { workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 
-sp-application-crypto = { path = "../../substrate/primitives/application-crypto", default-features = false, features = ["serde"] }
-sp-inherents = { path = "../../substrate/primitives/inherents", default-features = false }
-sp-core = { path = "../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false }
-sp-api = { path = "../../substrate/primitives/api", default-features = false }
-sp-arithmetic = { path = "../../substrate/primitives/arithmetic", default-features = false, features = ["serde"] }
-sp-authority-discovery = { path = "../../substrate/primitives/authority-discovery", default-features = false, features = ["serde"] }
-sp-consensus-slots = { path = "../../substrate/primitives/consensus/slots", default-features = false, features = ["serde"] }
-sp-io = { path = "../../substrate/primitives/io", default-features = false }
-sp-keystore = { path = "../../substrate/primitives/keystore", optional = true, default-features = false }
-sp-staking = { path = "../../substrate/primitives/staking", default-features = false, features = ["serde"] }
-sp-std = { package = "sp-std", path = "../../substrate/primitives/std", default-features = false }
+sp-application-crypto = { features = ["serde"], workspace = true }
+sp-inherents = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-api = { workspace = true }
+sp-arithmetic = { features = ["serde"], workspace = true }
+sp-authority-discovery = { features = ["serde"], workspace = true }
+sp-consensus-slots = { features = ["serde"], workspace = true }
+sp-io = { workspace = true }
+sp-keystore = { optional = true, workspace = true }
+sp-staking = { features = ["serde"], workspace = true }
+sp-std = { workspace = true, optional = true }
 
-polkadot-core-primitives = { path = "../core-primitives", default-features = false }
-polkadot-parachain-primitives = { path = "../parachain", default-features = false }
+polkadot-core-primitives = { workspace = true }
+polkadot-parachain-primitives = { workspace = true }
+
+[dev-dependencies]
+polkadot-primitives-test-helpers = { workspace = true }
 
 [features]
 default = ["std"]
@@ -62,3 +65,4 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
+test = []

@@ -73,10 +73,9 @@ use futures::{
 	prelude::*,
 };
 use libp2p::{
-	core::ConnectedPoint,
 	swarm::{
-		handler::ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, KeepAlive,
-		NegotiatedSubstream, SubstreamProtocol,
+		handler::ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, KeepAlive, Stream,
+		SubstreamProtocol,
 	},
 	PeerId,
 };
@@ -117,9 +116,6 @@ pub struct NotifsHandler {
 	/// When the connection with the remote has been successfully established.
 	when_connection_open: Instant,
 
-	/// Whether we are the connection dialer or listener.
-	endpoint: ConnectedPoint,
-
 	/// Remote we are connected to.
 	peer_id: PeerId,
 
@@ -136,7 +132,6 @@ impl NotifsHandler {
 	/// Creates new [`NotifsHandler`].
 	pub fn new(
 		peer_id: PeerId,
-		endpoint: ConnectedPoint,
 		protocols: Vec<ProtocolConfig>,
 		metrics: Option<NotificationMetrics>,
 	) -> Self {
@@ -154,7 +149,6 @@ impl NotifsHandler {
 				})
 				.collect(),
 			peer_id,
-			endpoint,
 			when_connection_open: Instant::now(),
 			events_queue: VecDeque::with_capacity(16),
 			metrics: metrics.map_or(None, |metrics| Some(Arc::new(metrics))),
@@ -199,7 +193,7 @@ enum State {
 	/// emitted.
 	OpenDesiredByRemote {
 		/// Substream opened by the remote and that hasn't been accepted/rejected yet.
-		in_substream: NotificationsInSubstream<NegotiatedSubstream>,
+		in_substream: NotificationsInSubstream<Stream>,
 
 		/// See [`State::Closed::pending_opening`].
 		pending_opening: bool,
@@ -212,7 +206,7 @@ enum State {
 	/// be emitted when transitioning to respectively [`State::Open`] or [`State::Closed`].
 	Opening {
 		/// Substream opened by the remote. If `Some`, has been accepted.
-		in_substream: Option<NotificationsInSubstream<NegotiatedSubstream>>,
+		in_substream: Option<NotificationsInSubstream<Stream>>,
 		/// Is the connection inbound.
 		inbound: bool,
 	},
@@ -236,14 +230,14 @@ enum State {
 		/// Always `Some` on transition to [`State::Open`]. Switched to `None` only if the remote
 		/// closed the substream. If `None`, a [`NotifsHandlerOut::CloseDesired`] event has been
 		/// emitted.
-		out_substream: Option<NotificationsOutSubstream<NegotiatedSubstream>>,
+		out_substream: Option<NotificationsOutSubstream<Stream>>,
 
 		/// Substream opened by the remote.
 		///
 		/// Contrary to the `out_substream` field, operations continue as normal even if the
 		/// substream has been closed by the remote. A `None` is treated the same way as if there
 		/// was an idle substream.
-		in_substream: Option<NotificationsInSubstream<NegotiatedSubstream>>,
+		in_substream: Option<NotificationsInSubstream<Stream>>,
 	},
 }
 
@@ -281,8 +275,6 @@ pub enum NotifsHandlerOut {
 		protocol_index: usize,
 		/// Name of the protocol that was actually negotiated, if the default one wasn't available.
 		negotiated_fallback: Option<ProtocolName>,
-		/// The endpoint of the connection that is open for custom protocols.
-		endpoint: ConnectedPoint,
 		/// Handshake that was sent to us.
 		/// This is normally a "Status" message, but this out of the concern of this code.
 		received_handshake: Vec<u8>,
@@ -481,8 +473,8 @@ pub enum NotifsHandlerError {
 }
 
 impl ConnectionHandler for NotifsHandler {
-	type InEvent = NotifsHandlerIn;
-	type OutEvent = NotifsHandlerOut;
+	type FromBehaviour = NotifsHandlerIn;
+	type ToBehaviour = NotifsHandlerOut;
 	type Error = NotifsHandlerError;
 	type InboundProtocol = UpgradeCollec<NotificationsIn>;
 	type OutboundProtocol = NotificationsOut;
@@ -517,7 +509,7 @@ impl ConnectionHandler for NotifsHandler {
 
 				match protocol_info.state {
 					State::Closed { pending_opening } => {
-						self.events_queue.push_back(ConnectionHandlerEvent::Custom(
+						self.events_queue.push_back(ConnectionHandlerEvent::NotifyBehaviour(
 							NotifsHandlerOut::OpenDesiredByRemote {
 								protocol_index,
 								handshake: in_substream_open.handshake,
@@ -586,11 +578,10 @@ impl ConnectionHandler for NotifsHandler {
 							in_substream: in_substream.take(),
 						};
 
-						self.events_queue.push_back(ConnectionHandlerEvent::Custom(
+						self.events_queue.push_back(ConnectionHandlerEvent::NotifyBehaviour(
 							NotifsHandlerOut::OpenResultOk {
 								protocol_index,
 								negotiated_fallback: new_open.negotiated_fallback,
-								endpoint: self.endpoint.clone(),
 								received_handshake: new_open.handshake,
 								notifications_sink,
 								inbound,
@@ -600,6 +591,8 @@ impl ConnectionHandler for NotifsHandler {
 				}
 			},
 			ConnectionEvent::AddressChange(_address_change) => {},
+			ConnectionEvent::LocalProtocolsChange(_) => {},
+			ConnectionEvent::RemoteProtocolsChange(_) => {},
 			ConnectionEvent::DialUpgradeError(dial_upgrade_error) => match self.protocols
 				[dial_upgrade_error.info]
 				.state
@@ -614,7 +607,7 @@ impl ConnectionHandler for NotifsHandler {
 					self.protocols[dial_upgrade_error.info].state =
 						State::Closed { pending_opening: false };
 
-					self.events_queue.push_back(ConnectionHandlerEvent::Custom(
+					self.events_queue.push_back(ConnectionHandlerEvent::NotifyBehaviour(
 						NotifsHandlerOut::OpenResultErr { protocol_index: dial_upgrade_error.info },
 					));
 				},
@@ -701,7 +694,7 @@ impl ConnectionHandler for NotifsHandler {
 						self.protocols[protocol_index].state =
 							State::Closed { pending_opening: true };
 
-						self.events_queue.push_back(ConnectionHandlerEvent::Custom(
+						self.events_queue.push_back(ConnectionHandlerEvent::NotifyBehaviour(
 							NotifsHandlerOut::OpenResultErr { protocol_index },
 						));
 					},
@@ -711,7 +704,7 @@ impl ConnectionHandler for NotifsHandler {
 					State::Closed { .. } => {},
 				}
 
-				self.events_queue.push_back(ConnectionHandlerEvent::Custom(
+				self.events_queue.push_back(ConnectionHandlerEvent::NotifyBehaviour(
 					NotifsHandlerOut::CloseResult { protocol_index },
 				));
 			},
@@ -726,9 +719,11 @@ impl ConnectionHandler for NotifsHandler {
 
 		// A grace period of `INITIAL_KEEPALIVE_TIME` must be given to leave time for the remote
 		// to express desire to open substreams.
+		#[allow(deprecated)]
 		KeepAlive::Until(self.when_connection_open + INITIAL_KEEPALIVE_TIME)
 	}
 
+	#[allow(deprecated)]
 	fn poll(
 		&mut self,
 		cx: &mut Context,
@@ -736,7 +731,7 @@ impl ConnectionHandler for NotifsHandler {
 		ConnectionHandlerEvent<
 			Self::OutboundProtocol,
 			Self::OutboundOpenInfo,
-			Self::OutEvent,
+			Self::ToBehaviour,
 			Self::Error,
 		>,
 	> {
@@ -755,6 +750,7 @@ impl ConnectionHandler for NotifsHandler {
 					// Only proceed with `out_substream.poll_ready_unpin` if there is an element
 					// available in `notifications_sink_rx`. This avoids waking up the task when
 					// a substream is ready to send if there isn't actually something to send.
+					#[allow(deprecated)]
 					match Pin::new(&mut *notifications_sink_rx).as_mut().poll_peek(cx) {
 						Poll::Ready(Some(&NotificationsSinkMessage::ForceClose)) =>
 							return Poll::Ready(ConnectionHandlerEvent::Close(
@@ -808,7 +804,7 @@ impl ConnectionHandler for NotifsHandler {
 						Poll::Ready(Err(_)) => {
 							*out_substream = None;
 							let event = NotifsHandlerOut::CloseDesired { protocol_index };
-							return Poll::Ready(ConnectionHandlerEvent::Custom(event))
+							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(event))
 						},
 					};
 				},
@@ -830,11 +826,14 @@ impl ConnectionHandler for NotifsHandler {
 				State::Opening { in_substream: None, .. } => {},
 
 				State::Open { in_substream: in_substream @ Some(_), .. } =>
-					match Stream::poll_next(Pin::new(in_substream.as_mut().unwrap()), cx) {
+					match futures::prelude::stream::Stream::poll_next(
+						Pin::new(in_substream.as_mut().unwrap()),
+						cx,
+					) {
 						Poll::Pending => {},
 						Poll::Ready(Some(Ok(message))) => {
 							let event = NotifsHandlerOut::Notification { protocol_index, message };
-							return Poll::Ready(ConnectionHandlerEvent::Custom(event))
+							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(event))
 						},
 						Poll::Ready(None) | Poll::Ready(Some(Err(_))) => *in_substream = None,
 					},
@@ -846,7 +845,7 @@ impl ConnectionHandler for NotifsHandler {
 						Poll::Ready(Err(_)) => {
 							self.protocols[protocol_index].state =
 								State::Closed { pending_opening: *pending_opening };
-							return Poll::Ready(ConnectionHandlerEvent::Custom(
+							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
 								NotifsHandlerOut::CloseDesired { protocol_index },
 							))
 						},
@@ -880,8 +879,7 @@ pub mod tests {
 	use asynchronous_codec::Framed;
 	use libp2p::{
 		core::muxing::SubstreamBox,
-		swarm::{handler, ConnectionHandlerUpgrErr},
-		Multiaddr,
+		swarm::handler::{self, StreamUpgradeError},
 	};
 	use multistream_select::{dialer_select_proto, listener_select_proto, Negotiated, Version};
 	use std::{
@@ -917,7 +915,6 @@ pub mod tests {
 			&mut self,
 			peer: PeerId,
 			protocol_index: usize,
-			endpoint: ConnectedPoint,
 			received_handshake: Vec<u8>,
 		) -> NotifsHandlerOut {
 			let (async_tx, async_rx) =
@@ -946,7 +943,6 @@ pub mod tests {
 			NotifsHandlerOut::OpenResultOk {
 				protocol_index,
 				negotiated_fallback: None,
-				endpoint,
 				received_handshake,
 				notifications_sink,
 				inbound: false,
@@ -972,6 +968,7 @@ pub mod tests {
 			.await
 		}
 	}
+
 	struct MockSubstream {
 		pub rx: mpsc::Receiver<Vec<u8>>,
 		pub tx: mpsc::Sender<Vec<u8>>,
@@ -991,18 +988,35 @@ pub mod tests {
 		}
 
 		/// Create new negotiated substream pair.
-		pub async fn negotiated() -> (Negotiated<SubstreamBox>, Negotiated<SubstreamBox>) {
+		pub async fn negotiated() -> (Stream, Stream) {
 			let (socket1, socket2) = Self::new();
 			let socket1 = SubstreamBox::new(socket1);
 			let socket2 = SubstreamBox::new(socket2);
 
-			let protos = vec![b"/echo/1.0.0", b"/echo/2.5.0"];
+			let protos = vec!["/echo/1.0.0", "/echo/2.5.0"];
 			let (res1, res2) = tokio::join!(
 				dialer_select_proto(socket1, protos.clone(), Version::V1),
 				listener_select_proto(socket2, protos),
 			);
 
-			(res1.unwrap().1, res2.unwrap().1)
+			(Self::stream_new(res1.unwrap().1), Self::stream_new(res2.unwrap().1))
+		}
+
+		/// Unsafe substitute for `Stream::new` private constructor.
+		fn stream_new(stream: Negotiated<SubstreamBox>) -> Stream {
+			// Static asserts to make sure this doesn't break.
+			const _: () = {
+				assert!(
+					core::mem::size_of::<Stream>() ==
+						core::mem::size_of::<Negotiated<SubstreamBox>>()
+				);
+				assert!(
+					core::mem::align_of::<Stream>() ==
+						core::mem::align_of::<Negotiated<SubstreamBox>>()
+				);
+			};
+
+			unsafe { core::mem::transmute(stream) }
 		}
 	}
 
@@ -1084,10 +1098,6 @@ pub mod tests {
 		NotifsHandler {
 			protocols: vec![proto],
 			when_connection_open: Instant::now(),
-			endpoint: ConnectedPoint::Listener {
-				local_addr: Multiaddr::empty(),
-				send_back_addr: Multiaddr::empty(),
-			},
 			peer_id: PeerId::random(),
 			events_queue: VecDeque::new(),
 			metrics: None,
@@ -1105,7 +1115,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1132,7 +1141,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1165,7 +1173,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1199,7 +1206,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1239,7 +1245,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1290,7 +1295,6 @@ pub mod tests {
 		codec.set_max_len(usize::MAX);
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1329,7 +1333,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1389,7 +1392,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1426,7 +1428,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1472,7 +1473,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1504,7 +1504,7 @@ pub mod tests {
 
 		// inject dial failure to an already closed substream and verify outbound state is reset
 		handler.on_connection_event(handler::ConnectionEvent::DialUpgradeError(
-			handler::DialUpgradeError { info: 0, error: ConnectionHandlerUpgrErr::Timeout },
+			handler::DialUpgradeError { info: 0, error: StreamUpgradeError::Timeout },
 		));
 		assert!(std::matches!(
 			handler.protocols[0].state,
@@ -1521,7 +1521,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1557,7 +1556,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1574,7 +1572,7 @@ pub mod tests {
 
 		// inject dial failure to an already closed substream and verify outbound state is reset
 		handler.on_connection_event(handler::ConnectionEvent::DialUpgradeError(
-			handler::DialUpgradeError { info: 0, error: ConnectionHandlerUpgrErr::Timeout },
+			handler::DialUpgradeError { info: 0, error: StreamUpgradeError::Timeout },
 		));
 		assert!(std::matches!(
 			handler.protocols[0].state,
@@ -1610,6 +1608,7 @@ pub mod tests {
 		notifications_sink.send_sync_notification(vec![1, 3, 3, 9]);
 		notifications_sink.send_sync_notification(vec![1, 3, 4, 0]);
 
+		#[allow(deprecated)]
 		futures::future::poll_fn(|cx| {
 			assert!(std::matches!(
 				handler.poll(cx),
@@ -1631,7 +1630,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::PendingSend(vec![1, 2, 3, 4]),
@@ -1648,15 +1646,15 @@ pub mod tests {
 		futures::future::poll_fn(|cx| {
 			assert!(std::matches!(
 				handler.poll(cx),
-				Poll::Ready(ConnectionHandlerEvent::Custom(
+				Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
 					NotifsHandlerOut::OpenDesiredByRemote { protocol_index: 0, .. },
 				))
 			));
 			assert!(std::matches!(
 				handler.poll(cx),
-				Poll::Ready(ConnectionHandlerEvent::Custom(NotifsHandlerOut::CloseDesired {
-					protocol_index: 0
-				},))
+				Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
+					NotifsHandlerOut::CloseDesired { protocol_index: 0 },
+				))
 			));
 			Poll::Ready(())
 		})

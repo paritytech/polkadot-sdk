@@ -92,7 +92,7 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
-	pub struct Pallet<T>(sp_std::marker::PhantomData<T>);
+	pub struct Pallet<T>(core::marker::PhantomData<T>);
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

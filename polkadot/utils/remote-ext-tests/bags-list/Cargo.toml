@@ -10,14 +10,14 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-westend-runtime = { path = "../../../runtime/westend" }
-westend-runtime-constants = { path = "../../../runtime/westend/constants" }
+westend-runtime = { workspace = true }
+westend-runtime-constants = { workspace = true, default-features = true }
 
-pallet-bags-list-remote-tests = { path = "../../../../substrate/frame/bags-list/remote-tests" }
-sp-tracing = { path = "../../../../substrate/primitives/tracing" }
-frame-system = { path = "../../../../substrate/frame/system" }
-sp-core = { path = "../../../../substrate/primitives/core" }
+pallet-bags-list-remote-tests = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
 
-clap = { version = "4.5.3", features = ["derive"] }
+clap = { features = ["derive"], workspace = true }
 log = { workspace = true, default-features = true }
-tokio = { version = "1.24.2", features = ["macros"] }
+tokio = { features = ["macros"], workspace = true, default-features = true }

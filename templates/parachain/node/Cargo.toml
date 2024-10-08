@@ -14,72 +14,78 @@ build = "build.rs"
 # name = "parachain-template-node"
 
 [dependencies]
-clap = { version = "4.5.3", features = ["derive"] }
+clap = { features = ["derive"], workspace = true }
 log = { workspace = true, default-features = true }
-codec = { package = "parity-scale-codec", version = "3.6.12" }
+codec = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
-jsonrpsee = { version = "0.22", features = ["server"] }
-futures = "0.3.28"
+jsonrpsee = { features = ["server"], workspace = true }
+futures = { workspace = true }
 serde_json = { workspace = true, default-features = true }
-docify = "0.2.8"
+docify = { workspace = true }
 
 # Local
-parachain-template-runtime = { path = "../runtime" }
+parachain-template-runtime = { workspace = true }
 
 # Substrate
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking" }
-frame-benchmarking-cli = { path = "../../../substrate/utils/frame/benchmarking-cli" }
-pallet-transaction-payment-rpc = { path = "../../../substrate/frame/transaction-payment/rpc" }
-sc-basic-authorship = { path = "../../../substrate/client/basic-authorship" }
-sc-chain-spec = { path = "../../../substrate/client/chain-spec" }
-sc-cli = { path = "../../../substrate/client/cli" }
-sc-client-api = { path = "../../../substrate/client/api" }
-sc-offchain = { path = "../../../substrate/client/offchain" }
-sc-consensus = { path = "../../../substrate/client/consensus/common" }
-sc-executor = { path = "../../../substrate/client/executor" }
-sc-network = { path = "../../../substrate/client/network" }
-sc-network-sync = { path = "../../../substrate/client/network/sync" }
-sc-rpc = { path = "../../../substrate/client/rpc" }
-sc-service = { path = "../../../substrate/client/service" }
-sc-sysinfo = { path = "../../../substrate/client/sysinfo" }
-sc-telemetry = { path = "../../../substrate/client/telemetry" }
-sc-tracing = { path = "../../../substrate/client/tracing" }
-sc-transaction-pool = { path = "../../../substrate/client/transaction-pool" }
-sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
-sp-api = { path = "../../../substrate/primitives/api" }
-sp-block-builder = { path = "../../../substrate/primitives/block-builder" }
-sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
-sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-keystore = { path = "../../../substrate/primitives/keystore" }
-sp-io = { path = "../../../substrate/primitives/io" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
-substrate-frame-rpc-system = { path = "../../../substrate/utils/frame/rpc/system" }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
+frame-benchmarking = { workspace = true, default-features = true }
+frame-benchmarking-cli = { workspace = true, default-features = true }
+pallet-transaction-payment-rpc = { workspace = true, default-features = true }
+sc-basic-authorship = { workspace = true, default-features = true }
+sc-chain-spec = { workspace = true, default-features = true }
+sc-cli = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-offchain = { workspace = true, default-features = true }
+sc-consensus = { workspace = true, default-features = true }
+sc-executor = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-sync = { workspace = true, default-features = true }
+sc-rpc = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
+sc-sysinfo = { workspace = true, default-features = true }
+sc-telemetry = { workspace = true, default-features = true }
+sc-tracing = { workspace = true, default-features = true }
+sc-transaction-pool = { workspace = true, default-features = true }
+sc-transaction-pool-api = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-block-builder = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-consensus-aura = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-genesis-builder = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true, default-features = true }
+substrate-frame-rpc-system = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
 
 # Polkadot
-polkadot-cli = { path = "../../../polkadot/cli", features = ["rococo-native"] }
-polkadot-primitives = { path = "../../../polkadot/primitives" }
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
+polkadot-cli = { features = ["rococo-native"], workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+xcm = { workspace = true }
 
 # Cumulus
-cumulus-client-cli = { path = "../../../cumulus/client/cli" }
-cumulus-client-collator = { path = "../../../cumulus/client/collator" }
-cumulus-client-consensus-aura = { path = "../../../cumulus/client/consensus/aura" }
-cumulus-client-consensus-common = { path = "../../../cumulus/client/consensus/common" }
-cumulus-client-consensus-proposer = { path = "../../../cumulus/client/consensus/proposer" }
-cumulus-client-service = { path = "../../../cumulus/client/service" }
-cumulus-primitives-core = { path = "../../../cumulus/primitives/core" }
-cumulus-primitives-parachain-inherent = { path = "../../../cumulus/primitives/parachain-inherent" }
-cumulus-relay-chain-interface = { path = "../../../cumulus/client/relay-chain-interface" }
-color-print = "0.3.4"
+cumulus-client-cli = { workspace = true, default-features = true }
+cumulus-client-collator = { workspace = true, default-features = true }
+cumulus-client-consensus-aura = { workspace = true, default-features = true }
+cumulus-client-consensus-common = { workspace = true, default-features = true }
+cumulus-client-consensus-proposer = { workspace = true, default-features = true }
+cumulus-client-service = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }
+cumulus-relay-chain-interface = { workspace = true, default-features = true }
+color-print = { workspace = true }
 
 [build-dependencies]
-substrate-build-script-utils = { path = "../../../substrate/utils/build-script-utils" }
+substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
-default = []
+default = ["std"]
+std = [
+	"log/std",
+	"parachain-template-runtime/std",
+	"xcm/std",
+]
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",

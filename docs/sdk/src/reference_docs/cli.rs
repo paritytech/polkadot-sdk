@@ -1,7 +1,7 @@
 //! # Substrate CLI
 //!
 //! Let's see some examples of typical CLI arguments used when setting up and running a
-//! Substrate-based blockchain. We use the [`substrate-node-template`](https://github.com/substrate-developer-hub/substrate-node-template)
+//! Substrate-based blockchain. We use the [`solochain-template`](https://github.com/paritytech/polkadot-sdk-solochain-template)
 //! on these examples.
 //!
 //! #### Checking the available CLI arguments
@@ -45,7 +45,7 @@
 //! - `--chain=customSpec.json`: Uses the custom chain specification as input.
 //! - `--disable-default-bootnode`: Disables the default bootnodes in the node template.
 //! - `--raw`: Converts the chain specification into a raw format with encoded storage keys.
-//! - `> customSpecRaw.json`: Outputs to customSpecRaw.json.
+//! - `> customSpecRaw.json`: Outputs to `customSpecRaw.json`.
 //!
 //! #### Starting the First Node in a Private Network
 //! ```bash

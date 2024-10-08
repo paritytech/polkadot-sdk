@@ -6,16 +6,17 @@ authors.workspace = true
 edition.workspace = true
 repository.workspace = true
 license.workspace = true
+readme = "README.md"
 
 [lints]
 workspace = true
 
 [dependencies]
-clap = { version = "4.5.2", features = ["derive"] }
-cumulus-primitives-proof-size-hostfunction = { path = "../../../../cumulus/primitives/proof-size-hostfunction" }
-frame-benchmarking-cli = { path = "../benchmarking-cli", default-features = false }
-sc-cli = { path = "../../../client/cli" }
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-statement-store = { path = "../../../primitives/statement-store" }
-env_logger = "0.11.2"
+clap = { features = ["derive"], workspace = true }
+cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
+frame-benchmarking-cli = { workspace = true }
+sc-cli = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-statement-store = { workspace = true, default-features = true }
+tracing-subscriber = { workspace = true }
 log = { workspace = true }

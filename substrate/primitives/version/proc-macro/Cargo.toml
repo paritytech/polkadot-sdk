@@ -4,7 +4,7 @@ version = "13.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Macro for defining a runtime version."
 documentation = "https://docs.rs/sp-api-proc-macro"
@@ -19,10 +19,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 proc-macro = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
-proc-macro2 = "1.0.56"
+codec = { features = ["derive"], workspace = true, default-features = true }
+proc-macro-warning = { workspace = true }
+proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { features = ["extra-traits", "fold", "full", "visit"], workspace = true }
 
 [dev-dependencies]
-sp-version = { path = ".." }
+sp-version = { workspace = true, default-features = true }

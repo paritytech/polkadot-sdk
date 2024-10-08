@@ -26,36 +26,33 @@ jobs:
     uses: "./.github/workflows/release-srtool.yml"
     with:
        excluded_runtimes: "substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template"
+       build_opts: "--features on-chain-release-build"
 
   build-binaries:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        binary: [ frame-omni-bencher, chain-spec-builder ]
+        # Tuples of [package, binary-name]
+        binary: [ [frame-omni-bencher, frame-omni-bencher], [staging-chain-spec-builder, chain-spec-builder] ]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.0.0
 
       - name: Install protobuf-compiler
         run: |
           sudo apt update
           sudo apt install -y protobuf-compiler
 
-      - name: Build ${{ matrix.binary }} binary
+      - name: Build ${{ matrix.binary[1] }} binary
         run: |
-          if [[ ${{ matrix.binary }} =~ chain-spec-builder ]]; then
-            cargo build --locked --profile=production -p staging-${{ matrix.binary }} --bin ${{ matrix.binary }}
-            target/production/${{ matrix.binary }} -h
-          else
-            cargo build --locked --profile=production -p ${{ matrix.binary }}
-            target/production/${{ matrix.binary }} --version
-          fi
+          cargo build --locked --profile=production -p ${{ matrix.binary[0] }} --bin ${{ matrix.binary[1] }}
+          target/production/${{ matrix.binary[1] }} --version
 
-      - name: Upload ${{ matrix.binary }} binary
+      - name: Upload ${{ matrix.binary[1] }} binary
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
-          name: ${{ matrix.binary }}
-          path: target/production/${{ matrix.binary }}
+          name: ${{ matrix.binary[1] }}
+          path: target/production/${{ matrix.binary[1] }}
 
 
   publish-release-draft:
@@ -66,10 +63,10 @@ jobs:
       asset_upload_url: ${{ steps.create-release.outputs.upload_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.0.0
 
       - name: Download artifacts
-        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
 
       - name: Prepare tooling
         run: |
@@ -137,10 +134,10 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.0.0
 
       - name: Download artifacts
-        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
 
       - name: Get runtime info
         env:
@@ -170,7 +167,7 @@ jobs:
 
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: ${{ matrix.binary }}
 

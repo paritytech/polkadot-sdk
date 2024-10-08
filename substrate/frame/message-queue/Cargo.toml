@@ -4,7 +4,7 @@ edition.workspace = true
 name = "pallet-message-queue"
 version = "31.0.0"
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet to queue and process messages"
 
@@ -12,28 +12,27 @@ description = "FRAME pallet to queue and process messages"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 log = { workspace = true }
-environmental = { version = "1.1.4", default-features = false }
+environmental = { workspace = true }
 
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false }
-sp-weights = { path = "../../primitives/weights", default-features = false }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-arithmetic = { workspace = true }
+sp-weights = { workspace = true }
 
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 
 [dev-dependencies]
-sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
-sp-tracing = { path = "../../primitives/tracing" }
-rand = "0.8.5"
-rand_distr = "0.4.3"
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+rand = { workspace = true, default-features = true }
+rand_distr = { workspace = true }
 
 [features]
 default = ["std"]
@@ -49,7 +48,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-tracing/std",
 	"sp-weights/std",
 ]

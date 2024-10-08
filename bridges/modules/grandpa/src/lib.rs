@@ -117,7 +117,7 @@ pub mod pallet {
 		///
 		/// However, if the bridged chain gets compromised, its validators may generate as many
 		/// "free" headers as they want. And they may fill the whole block (at this chain) for
-		/// free. This constants limits number of calls that we may refund in a single block.
+		/// free. This constant limits number of calls that we may refund in a single block.
 		/// All calls above this limit are accepted, but are not refunded.
 		#[pallet::constant]
 		type MaxFreeHeadersPerBlock: Get<u32>;
@@ -728,15 +728,13 @@ pub mod pallet {
 			init_params;
 		let authority_set_length = authority_list.len();
 		let authority_set = StoredAuthoritySet::<T, I>::try_new(authority_list, set_id)
-			.map_err(|e| {
+			.inspect_err(|_| {
 				log::error!(
 					target: LOG_TARGET,
 					"Failed to initialize bridge. Number of authorities in the set {} is larger than the configured value {}",
 					authority_set_length,
 					T::BridgedChain::MAX_AUTHORITIES_COUNT,
 				);
-
-				e
 			})?;
 		let initial_hash = header.hash();
 
@@ -1443,11 +1441,14 @@ mod tests {
 	}
 
 	#[test]
-	fn parse_finalized_storage_proof_rejects_proof_on_unknown_header() {
+	fn verify_storage_proof_rejects_unknown_header() {
 		run_test(|| {
 			assert_noop!(
-				Pallet::<TestRuntime>::storage_proof_checker(Default::default(), vec![],)
-					.map(|_| ()),
+				Pallet::<TestRuntime>::verify_storage_proof(
+					Default::default(),
+					Default::default(),
+				)
+				.map(|_| ()),
 				bp_header_chain::HeaderChainError::UnknownHeader,
 			);
 		});
@@ -1465,9 +1466,7 @@ mod tests {
 			<BestFinalized<TestRuntime>>::put(HeaderId(2, hash));
 			<ImportedHeaders<TestRuntime>>::insert(hash, header.build());
 
-			assert_ok!(
-				Pallet::<TestRuntime>::storage_proof_checker(hash, storage_proof).map(|_| ())
-			);
+			assert_ok!(Pallet::<TestRuntime>::verify_storage_proof(hash, storage_proof).map(|_| ()));
 		});
 	}
 

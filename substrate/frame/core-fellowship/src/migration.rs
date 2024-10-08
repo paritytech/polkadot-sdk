@@ -25,6 +25,8 @@ use frame_support::{
 };
 
 #[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+#[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
 mod v0 {

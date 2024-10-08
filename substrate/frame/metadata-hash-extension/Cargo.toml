@@ -9,23 +9,23 @@ repository.workspace = true
 description = "FRAME signed extension for verifying the metadata hash"
 
 [dependencies]
-array-bytes = "6.2.2"
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-log = { workspace = true, default-features = false }
-docify = "0.2.8"
+array-bytes = { workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+log = { workspace = true }
+docify = { workspace = true }
 
 [dev-dependencies]
-substrate-wasm-builder = { path = "../../utils/wasm-builder", features = ["metadata-hash"] }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
-sp-api = { path = "../../primitives/api" }
-sp-transaction-pool = { path = "../../primitives/transaction-pool" }
-merkleized-metadata = "0.1.0"
-frame-metadata = { version = "16.0.0", features = ["current"] }
-sp-tracing = { path = "../../primitives/tracing" }
+substrate-wasm-builder = { features = ["metadata-hash"], workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
+sp-api = { workspace = true, default-features = true }
+sp-transaction-pool = { workspace = true, default-features = true }
+merkleized-metadata = { workspace = true }
+frame-metadata = { features = ["current"], workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

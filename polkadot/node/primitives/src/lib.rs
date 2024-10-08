@@ -59,7 +59,7 @@ pub use disputes::{
 /// relatively rare.
 ///
 /// The associated worker binaries should use the same version as the node that spawns them.
-pub const NODE_VERSION: &'static str = "1.12.0";
+pub const NODE_VERSION: &'static str = "1.16.0";
 
 // For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
@@ -105,7 +105,7 @@ pub const MAX_FINALITY_LAG: u32 = 500;
 /// Type of a session window size.
 ///
 /// We are not using `NonZeroU32` here because `expect` and `unwrap` are not yet const, so global
-/// constants of `SessionWindowSize` would require `lazy_static` in that case.
+/// constants of `SessionWindowSize` would require `LazyLock` in that case.
 ///
 /// See: <https://github.com/rust-lang/rust/issues/67441>
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]

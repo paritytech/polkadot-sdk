@@ -9,6 +9,7 @@ rules:
         - ^\.gitlab/.*
         - ^\.config/nextest.toml
         - ^\.cargo/.*
+        - ^\.forklift/.*
       exclude:
         - ^\.gitlab/pipeline/zombienet.*
     type: "or"
@@ -28,11 +29,12 @@ rules:
       # excluding files from 'Runtime files' and 'CI files' rules
       exclude:
         - ^cumulus/parachains/common/src/[^/]+\.rs$
-        - ^substrate/frame/(?!.*(nfts/.*|uniques/.*|babe/.*|grandpa/.*|beefy|merkle-mountain-range/.*|contracts/.*|election|nomination-pools/.*|staking/.*|aura/.*))
+        - ^substrate/frame/(?!.*(nfts/.*|uniques/.*|babe/.*|grandpa/.*|beefy|merkle-mountain-range/.*|contracts/.*|revive/.*|election|nomination-pools/.*|staking/.*|aura/.*))
         - ^\.gitlab-ci\.yml
         - ^docker/.*
         - ^\.github/.*
         - ^\.gitlab/.*
+        - ^\.forklift/.*
         - ^\.config/nextest.toml
         - ^\.cargo/.*
     minApprovals: 2
@@ -54,7 +56,7 @@ rules:
   - name: FRAME coders substrate
     condition:
       include:
-        - ^substrate/frame/(?!.*(nfts/.*|uniques/.*|babe/.*|grandpa/.*|beefy|merkle-mountain-range/.*|contracts/.*|election|nomination-pools/.*|staking/.*|aura/.*))
+        - ^substrate/frame/(?!.*(nfts/.*|uniques/.*|babe/.*|grandpa/.*|beefy|merkle-mountain-range/.*|contracts/.*|revive/.*|election|nomination-pools/.*|staking/.*|aura/.*))
     type: "and"
     reviewers:
       - minApprovals: 2
@@ -63,6 +65,17 @@ rules:
       - minApprovals: 1
         teams:
           - frame-coders
+
+  # Smart Contracts
+  - name: Smart Contracts
+    type: basic
+    condition:
+      include:
+        - ^substrate/frame/contracts/.*
+        - ^substrate/frame/revive/.*
+    minApprovals: 2
+    teams:
+      - smart-contracts
 
   # Protection of THIS file
   - name: Review Bot

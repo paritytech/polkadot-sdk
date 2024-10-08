@@ -26,35 +26,57 @@ mod imports {
 	};
 
 	// Polkadot
-	pub use xcm::{
-		prelude::{AccountId32 as AccountId32Junction, *},
-		v3,
-	};
+	pub use xcm::prelude::{AccountId32 as AccountId32Junction, *};
 	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
 	pub use asset_test_utils::xcm_helpers;
 	pub use emulated_integration_tests_common::{
-		test_parachain_is_trusted_teleporter,
+		accounts::DUMMY_EMPTY,
+		get_account_id_from_seed, test_parachain_is_trusted_teleporter,
+		test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test,
 			TestArgs, TestContext, TestExt,
 		},
-		xcm_helpers::{non_fee_asset, xcm_transact_paid_execution},
+		xcm_helpers::{
+			get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution,
+		},
 		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, XCM_V3,
 	};
 	pub use parachains_common::{AccountId, Balance};
 	pub use westend_system_emulated_network::{
 		asset_hub_westend_emulated_chain::{
+			asset_hub_westend_runtime::{
+				self,
+				xcm_config::{
+					self as ahw_xcm_config, WestendLocation as RelayLocation,
+					XcmConfig as AssetHubWestendXcmConfig,
+				},
+				AssetConversionOrigin as AssetHubWestendAssetConversionOrigin,
+				ExistentialDeposit as AssetHubWestendExistentialDeposit,
+			},
 			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		penpal_emulated_chain::{
+			penpal_runtime::xcm_config::{
+				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+				LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
+				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
+				UsdtFromAssetHub as PenpalUsdtFromAssetHub,
+			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
 			PenpalBParaPallet as PenpalBPallet,
 		},
-		westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
+		westend_emulated_chain::{
+			genesis::ED as WESTEND_ED,
+			westend_runtime::xcm_config::{
+				UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
+			},
+			WestendRelayPallet as WestendPallet,
+		},
 		AssetHubWestendPara as AssetHubWestend,
 		AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 		AssetHubWestendParaSender as AssetHubWestendSender,
@@ -66,22 +88,9 @@ mod imports {
 		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
 
-	// Runtimes
-	pub use asset_hub_westend_runtime::xcm_config::{
-		WestendLocation as RelayLocation, XcmConfig as AssetHubWestendXcmConfig,
-	};
-	pub use penpal_runtime::xcm_config::{
-		LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
-		LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
-	};
-	pub use westend_runtime::xcm_config::{
-		UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
-	};
-
 	pub const ASSET_ID: u32 = 3;
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
 
-	pub type RelayToSystemParaTest = Test<Westend, AssetHubWestend>;
 	pub type RelayToParaTest = Test<Westend, PenpalA>;
 	pub type ParaToRelayTest = Test<PenpalA, Westend>;
 	pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;

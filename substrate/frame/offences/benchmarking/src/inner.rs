@@ -17,10 +17,10 @@
 
 //! Offences pallet benchmarking.
 
-use sp_std::{prelude::*, vec};
+use alloc::{vec, vec::Vec};
 
 use frame_benchmarking::v1::{account, benchmarks};
-use frame_support::traits::{Currency, Get};
+use frame_support::traits::Get;
 use frame_system::{Config as SystemConfig, Pallet as System, RawOrigin};
 
 use sp_runtime::{
@@ -77,8 +77,7 @@ where
 }
 
 type LookupSourceOf<T> = <<T as SystemConfig>::Lookup as StaticLookup>::Source;
-type BalanceOf<T> =
-	<<T as StakingConfig>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+type BalanceOf<T> = <T as StakingConfig>::CurrencyBalance;
 
 struct Offender<T: Config> {
 	pub controller: T::AccountId,
@@ -89,7 +88,7 @@ struct Offender<T: Config> {
 }
 
 fn bond_amount<T: Config>() -> BalanceOf<T> {
-	T::Currency::minimum_balance().saturating_mul(10_000u32.into())
+	pallet_staking::asset::existential_deposit::<T>().saturating_mul(10_000u32.into())
 }
 
 fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'static str> {
@@ -99,7 +98,7 @@ fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'
 	let amount = bond_amount::<T>();
 	// add twice as much balance to prevent the account from being killed.
 	let free_amount = amount.saturating_mul(2u32.into());
-	T::Currency::make_free_balance_be(&stash, free_amount);
+	pallet_staking::asset::set_stakeable_balance::<T>(&stash, free_amount);
 	Staking::<T>::bond(
 		RawOrigin::Signed(stash.clone()).into(),
 		amount,
@@ -116,7 +115,7 @@ fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'
 	for i in 0..nominators {
 		let nominator_stash: T::AccountId =
 			account("nominator stash", n * MAX_NOMINATORS + i, SEED);
-		T::Currency::make_free_balance_be(&nominator_stash, free_amount);
+		pallet_staking::asset::set_stakeable_balance::<T>(&nominator_stash, free_amount);
 
 		Staking::<T>::bond(
 			RawOrigin::Signed(nominator_stash.clone()).into(),
@@ -172,6 +171,14 @@ fn make_offenders<T: Config>(
 }
 
 benchmarks! {
+	where_clause {
+		where
+		<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_staking::Event<T>>,
+		<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_balances::Event<T>>,
+		<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_offences::Event>,
+		<T as frame_system::Config>::RuntimeEvent: TryInto<frame_system::Event<T>>,
+	}
+
 	report_offence_grandpa {
 		let n in 0 .. MAX_NOMINATORS.min(MaxNominationsOf::<T>::get());
 
@@ -196,17 +203,19 @@ benchmarks! {
 		let _ = Offences::<T>::report_offence(reporters, offence);
 	}
 	verify {
-		// make sure that all slashes have been applied
 		#[cfg(test)]
-		assert_eq!(
-			System::<T>::event_count(), 0
-			+ 1 // offence
-			+ 3 // reporter (reward + endowment)
-			+ 1 // offenders reported
-			+ 3 // offenders slashed
-			+ 1 // offenders chilled
-			+ 3 * n // nominators slashed
-		);
+		{
+			// make sure that all slashes have been applied
+			// (n nominators + one validator) * (slashed + unlocked) + deposit to reporter + reporter
+			// account endowed + some funds rescinded from issuance.
+			assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2 * (n + 1) as usize + 3);
+			// (n nominators + one validator) * slashed + Slash Reported
+			assert_eq!(System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(), 1 * (n + 1) as usize + 1);
+			// offence
+			assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
+			// reporter new account
+			assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
+		}
 	}
 
 	report_offence_babe {
@@ -233,17 +242,19 @@ benchmarks! {
 		let _ = Offences::<T>::report_offence(reporters, offence);
 	}
 	verify {
-		// make sure that all slashes have been applied
 		#[cfg(test)]
-		assert_eq!(
-			System::<T>::event_count(), 0
-			+ 1 // offence
-			+ 3 // reporter (reward + endowment)
-			+ 1 // offenders reported
-			+ 3 // offenders slashed
-			+ 1 // offenders chilled
-			+ 3 * n // nominators slashed
-		);
+		{
+			// make sure that all slashes have been applied
+			// (n nominators + one validator) * (slashed + unlocked) + deposit to reporter + reporter
+			// account endowed + some funds rescinded from issuance.
+			assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2 * (n + 1) as usize + 3);
+			// (n nominators + one validator) * slashed + Slash Reported
+			assert_eq!(System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(), 1 * (n + 1) as usize + 1);
+			// offence
+			assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
+			// reporter new account
+			assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
+		}
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

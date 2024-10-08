@@ -4,7 +4,7 @@ version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Support code for the runtime."
 readme = "README.md"
@@ -16,63 +16,66 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-array-bytes = { version = "6.2.2", default-features = false }
+array-bytes = { workspace = true }
+binary-merkle-tree.workspace = true
 serde = { features = ["alloc", "derive"], workspace = true }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
+codec = { features = [
 	"derive",
 	"max-encoded-len",
-] }
-scale-info = { version = "2.11.1", default-features = false, features = [
+], workspace = true }
+scale-info = { features = [
 	"derive",
-] }
-frame-metadata = { version = "16.0.0", default-features = false, features = [
+], workspace = true }
+frame-metadata = { features = [
 	"current",
-] }
-sp-api = { path = "../../primitives/api", default-features = false, features = [
+], workspace = true }
+sp-api = { features = [
 	"frame-metadata",
-] }
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, features = [
+], workspace = true }
+sp-std = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { features = [
 	"serde",
-] }
-sp-tracing = { path = "../../primitives/tracing", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false }
-sp-inherents = { path = "../../primitives/inherents", default-features = false }
-sp-staking = { path = "../../primitives/staking", default-features = false }
-sp-weights = { path = "../../primitives/weights", default-features = false }
-sp-debug-derive = { path = "../../primitives/debug-derive", default-features = false }
-sp-metadata-ir = { path = "../../primitives/metadata-ir", default-features = false }
-tt-call = "1.0.8"
-macro_magic = "0.5.0"
-frame-support-procedural = { path = "procedural", default-features = false }
-paste = "1.0"
-sp-state-machine = { path = "../../primitives/state-machine", default-features = false, optional = true }
-bitflags = "1.3"
-impl-trait-for-tuples = "0.2.2"
-smallvec = "1.11.0"
+], workspace = true }
+sp-tracing = { workspace = true }
+sp-core = { workspace = true }
+sp-arithmetic = { workspace = true }
+sp-inherents = { workspace = true }
+sp-staking = { workspace = true }
+sp-weights = { workspace = true }
+sp-debug-derive = { workspace = true }
+sp-metadata-ir = { workspace = true }
+sp-trie = { workspace = true }
+tt-call = { workspace = true }
+macro_magic = { workspace = true }
+frame-support-procedural = { workspace = true }
+paste = { workspace = true, default-features = true }
+sp-state-machine = { optional = true, workspace = true }
+bitflags = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
+smallvec = { workspace = true, default-features = true }
 log = { workspace = true }
-sp-crypto-hashing-proc-macro = { path = "../../primitives/crypto/hashing/proc-macro" }
-k256 = { version = "0.13.1", default-features = false, features = ["ecdsa"] }
-environmental = { version = "1.1.4", default-features = false }
-sp-genesis-builder = { path = "../../primitives/genesis-builder", default-features = false }
+sp-crypto-hashing-proc-macro = { workspace = true, default-features = true }
+k256 = { features = ["ecdsa"], workspace = true }
+environmental = { workspace = true }
+sp-genesis-builder = { workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
-docify = "0.2.8"
-static_assertions = "1.1.0"
+docify = { workspace = true }
+static_assertions = { workspace = true, default-features = true }
 
-aquamarine = { version = "0.5.0" }
+aquamarine = { workspace = true }
 
 [dev-dependencies]
-assert_matches = "1.3.0"
-pretty_assertions = "1.2.1"
-sp-timestamp = { path = "../../primitives/timestamp", default-features = false }
-frame-system = { path = "../system" }
-sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
+assert_matches = { workspace = true }
+pretty_assertions = { workspace = true }
+sp-timestamp = { workspace = true }
+frame-system = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
+	"binary-merkle-tree/std",
 	"codec/std",
 	"environmental/std",
 	"frame-metadata/std",
@@ -97,6 +100,7 @@ std = [
 	"sp-std/std",
 	"sp-timestamp/std",
 	"sp-tracing/std",
+	"sp-trie/std",
 	"sp-weights/std",
 ]
 runtime-benchmarks = [

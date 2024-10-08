@@ -29,7 +29,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	sp_runtime::{MultiAddress, MultiSigner},
 };
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{RuntimeDebug, StateVersion};
 
 /// BridgeHubKusama parachain.
 #[derive(RuntimeDebug)]
@@ -47,6 +47,8 @@ impl Chain for BridgeHubKusama {
 	type Balance = Balance;
 	type Nonce = Nonce;
 	type Signature = Signature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		*BlockLength::get().max.get(DispatchClass::Normal)
@@ -91,4 +93,4 @@ pub const WITH_BRIDGE_HUB_KUSAMA_MESSAGES_PALLET_NAME: &str = "BridgeKusamaMessa
 pub const WITH_BRIDGE_HUB_KUSAMA_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 
 decl_bridge_finality_runtime_apis!(bridge_hub_kusama);
-decl_bridge_messages_runtime_apis!(bridge_hub_kusama);
+decl_bridge_messages_runtime_apis!(bridge_hub_kusama, LegacyLaneId);

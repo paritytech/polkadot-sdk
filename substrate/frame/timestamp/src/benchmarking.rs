@@ -25,7 +25,7 @@ use frame_support::{ensure, traits::OnFinalize};
 use frame_system::RawOrigin;
 use sp_storage::TrackedStorageKey;
 
-use crate::Pallet as Timestamp;
+use crate::{Now, Pallet as Timestamp};
 
 const MAX_TIME: u32 = 100;
 
@@ -42,7 +42,7 @@ benchmarks! {
 		});
 	}: _(RawOrigin::None, t.into())
 	verify {
-		ensure!(Timestamp::<T>::now() == t.into(), "Time was not set.");
+		ensure!(Now::<T>::get() == t.into(), "Time was not set.");
 	}
 
 	on_finalize {

@@ -23,8 +23,8 @@ use crate::{
 	primitives::{self, Error, NodeIndex},
 	Config, HashOf, HashingOf,
 };
+use alloc::vec::Vec;
 use sp_mmr_primitives::{mmr_lib, mmr_lib::MMRStoreReadOps, utils::NodesUtils, LeafIndex};
-use sp_std::prelude::*;
 
 /// Stateless verification of the proof for a batch of leaves.
 /// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
@@ -58,6 +58,42 @@ where
 	);
 	p.verify(Node::Hash(root), leaves_and_position_data)
 		.map_err(|e| Error::Verify.log_debug(e))
+}
+
+pub fn verify_ancestry_proof<H, L>(
+	root: H::Output,
+	ancestry_proof: primitives::AncestryProof<H::Output>,
+) -> Result<H::Output, Error>
+where
+	H: sp_runtime::traits::Hash,
+	L: primitives::FullLeaf,
+{
+	let mmr_size = NodesUtils::new(ancestry_proof.leaf_count).size();
+
+	let prev_peaks_proof = mmr_lib::NodeMerkleProof::<Node<H, L>, Hasher<H, L>>::new(
+		mmr_size,
+		ancestry_proof
+			.items
+			.into_iter()
+			.map(|(index, hash)| (index, Node::Hash(hash)))
+			.collect(),
+	);
+
+	let raw_ancestry_proof = mmr_lib::AncestryProof::<Node<H, L>, Hasher<H, L>> {
+		prev_peaks: ancestry_proof.prev_peaks.into_iter().map(|hash| Node::Hash(hash)).collect(),
+		prev_size: mmr_lib::helper::leaf_index_to_mmr_size(ancestry_proof.prev_leaf_count - 1),
+		proof: prev_peaks_proof,
+	};
+
+	let prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::<Node<H, L>, Hasher<H, L>>(
+		raw_ancestry_proof.prev_peaks.clone(),
+	)
+	.map_err(|e| Error::Verify.log_debug(e))?;
+	raw_ancestry_proof
+		.verify_ancestor(Node::Hash(root), prev_root.clone())
+		.map_err(|e| Error::Verify.log_debug(e))?;
+
+	Ok(prev_root.hash())
 }
 
 /// A wrapper around an MMR library to expose limited functionality.
@@ -119,46 +155,8 @@ where
 			.map_err(|e| Error::Verify.log_debug(e))
 	}
 
-	pub fn verify_ancestry_proof(
-		&self,
-		ancestry_proof: primitives::AncestryProof<HashOf<T, I>>,
-	) -> Result<bool, Error> {
-		let prev_peaks_proof =
-			mmr_lib::NodeMerkleProof::<NodeOf<T, I, L>, Hasher<HashingOf<T, I>, L>>::new(
-				self.mmr.mmr_size(),
-				ancestry_proof
-					.items
-					.into_iter()
-					.map(|(index, hash)| (index, Node::Hash(hash)))
-					.collect(),
-			);
-
-		let raw_ancestry_proof = mmr_lib::AncestryProof::<
-			NodeOf<T, I, L>,
-			Hasher<HashingOf<T, I>, L>,
-		> {
-			prev_peaks: ancestry_proof
-				.prev_peaks
-				.into_iter()
-				.map(|hash| Node::Hash(hash))
-				.collect(),
-			prev_size: mmr_lib::helper::leaf_index_to_mmr_size(ancestry_proof.prev_leaf_count - 1),
-			proof: prev_peaks_proof,
-		};
-
-		let prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::<
-			NodeOf<T, I, L>,
-			Hasher<HashingOf<T, I>, L>,
-		>(raw_ancestry_proof.prev_peaks.clone())
-		.map_err(|e| Error::Verify.log_debug(e))?;
-		let root = self.mmr.get_root().map_err(|e| Error::GetRoot.log_error(e))?;
-		raw_ancestry_proof
-			.verify_ancestor(root, prev_root)
-			.map_err(|e| Error::Verify.log_debug(e))
-	}
-
 	/// Return the internal size of the MMR (number of nodes).
-	#[cfg(test)]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub fn size(&self) -> NodeIndex {
 		self.mmr.mmr_size()
 	}
@@ -252,6 +250,50 @@ where
 				.iter()
 				.map(|(index, item)| (*index, item.hash()))
 				.collect(),
+		})
+	}
+
+	/// Generate an inflated ancestry proof for the latest leaf in the MMR.
+	///
+	/// The generated proof contains all the leafs in the MMR, so this way we can generate a proof
+	/// with exactly `leaf_count` items.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn generate_mock_ancestry_proof(
+		&self,
+	) -> Result<sp_mmr_primitives::AncestryProof<HashOf<T, I>>, Error> {
+		use crate::ModuleMmr;
+		use alloc::vec;
+		use sp_mmr_primitives::mmr_lib::helper;
+
+		let mmr: ModuleMmr<OffchainStorage, T, I> = Mmr::new(self.leaves);
+		let store = <Storage<OffchainStorage, T, I, L>>::default();
+
+		let mut prev_peaks = vec![];
+		for peak_pos in helper::get_peaks(mmr.size()) {
+			let peak = store
+				.get_elem(peak_pos)
+				.map_err(|_| Error::GenerateProof)?
+				.ok_or(Error::GenerateProof)?
+				.hash();
+			prev_peaks.push(peak);
+		}
+
+		let mut proof_items = vec![];
+		for leaf_idx in 0..self.leaves {
+			let leaf_pos = NodesUtils::leaf_index_to_leaf_node_index(leaf_idx);
+			let leaf = store
+				.get_elem(leaf_pos)
+				.map_err(|_| Error::GenerateProof)?
+				.ok_or(Error::GenerateProof)?
+				.hash();
+			proof_items.push((leaf_pos, leaf));
+		}
+
+		Ok(sp_mmr_primitives::AncestryProof {
+			prev_peaks,
+			prev_leaf_count: self.leaves,
+			leaf_count: self.leaves,
+			items: proof_items,
 		})
 	}
 }

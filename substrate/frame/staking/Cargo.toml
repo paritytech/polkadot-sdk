@@ -4,7 +4,7 @@ version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet staking"
 readme = "README.md"
@@ -17,40 +17,39 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 serde = { features = ["alloc", "derive"], workspace = true }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
+codec = { features = [
 	"derive",
-] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
-sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"] }
-sp-std = { path = "../../primitives/std", default-features = false }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-pallet-session = { path = "../session", default-features = false, features = [
+], workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+sp-staking = { features = ["serde"], workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-session = { features = [
 	"historical",
-] }
-pallet-authorship = { path = "../authorship", default-features = false }
-sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"] }
-frame-election-provider-support = { path = "../election-provider-support", default-features = false }
+], workspace = true }
+pallet-authorship = { workspace = true }
+sp-application-crypto = { features = ["serde"], workspace = true }
+frame-election-provider-support = { workspace = true }
 log = { workspace = true }
 
 # Optional imports for benchmarking
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-rand_chacha = { version = "0.3.1", default-features = false, optional = true }
+frame-benchmarking = { optional = true, workspace = true }
+rand_chacha = { optional = true, workspace = true }
 
 [dev-dependencies]
-pallet-balances = { path = "../balances" }
-sp-tracing = { path = "../../primitives/tracing" }
-sp-core = { path = "../../primitives/core" }
-sp-npos-elections = { path = "../../primitives/npos-elections" }
-pallet-timestamp = { path = "../timestamp" }
-pallet-staking-reward-curve = { path = "reward-curve" }
-pallet-bags-list = { path = "../bags-list" }
-substrate-test-utils = { path = "../../test-utils" }
-frame-benchmarking = { path = "../benchmarking" }
-frame-election-provider-support = { path = "../election-provider-support" }
-rand_chacha = { version = "0.3.1" }
+pallet-balances = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-npos-elections = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+pallet-staking-reward-curve = { workspace = true, default-features = true }
+pallet-bags-list = { workspace = true, default-features = true }
+substrate-test-utils = { workspace = true }
+frame-benchmarking = { workspace = true, default-features = true }
+frame-election-provider-support = { workspace = true, default-features = true }
+rand_chacha = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -74,7 +73,6 @@ std = [
 	"sp-npos-elections/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 	"sp-tracing/std",
 ]
 runtime-benchmarks = [

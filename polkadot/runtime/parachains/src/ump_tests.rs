@@ -31,10 +31,12 @@ use frame_support::{
 	traits::{EnqueueMessage, ExecuteOverweightError, ServiceQueues},
 	weights::Weight,
 };
-use polkadot_primitives::{well_known_keys, Id as ParaId, UpwardMessage};
+use polkadot_primitives::{
+	vstaging::{ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR},
+	well_known_keys, Id as ParaId, UpwardMessage,
+};
 use sp_crypto_hashing::{blake2_256, twox_64};
 use sp_runtime::traits::Bounded;
-use sp_std::prelude::*;
 
 pub(super) struct GenesisConfigBuilder {
 	max_upward_message_size: u32,
@@ -142,12 +144,12 @@ mod check_upward_messages {
 				configuration::ActiveConfig::<Test>::get().max_upward_message_num_per_candidate;
 
 			for sent in 0..permitted + 1 {
-				check(P_0, vec![msg(""); sent as usize], None);
+				check(P_0, vec![msg("a"); sent as usize], None);
 			}
 			for sent in permitted + 1..permitted + 10 {
 				check(
 					P_0,
-					vec![msg(""); sent as usize],
+					vec![msg("a"); sent as usize],
 					Some(UmpAcceptanceCheckErr::MoreMessagesThanPermitted { sent, permitted }),
 				);
 			}
@@ -162,7 +164,7 @@ mod check_upward_messages {
 			let max_per_candidate =
 				configuration::ActiveConfig::<Test>::get().max_upward_message_num_per_candidate;
 
-			for msg_size in 0..=max_size {
+			for msg_size in 1..=max_size {
 				check(P_0, vec![vec![0; msg_size as usize]], None);
 			}
 			for msg_size in max_size + 1..max_size + 10 {
@@ -186,18 +188,18 @@ mod check_upward_messages {
 			let limit = configuration::ActiveConfig::<Test>::get().max_upward_queue_count as u64;
 
 			for _ in 0..limit {
-				check(P_0, vec![msg("")], None);
-				queue(P_0, vec![msg("")]);
+				check(P_0, vec![msg("a")], None);
+				queue(P_0, vec![msg("a")]);
 			}
 
 			check(
 				P_0,
-				vec![msg("")],
+				vec![msg("a")],
 				Some(UmpAcceptanceCheckErr::CapacityExceeded { count: limit + 1, limit }),
 			);
 			check(
 				P_0,
-				vec![msg(""); 2],
+				vec![msg("a"); 2],
 				Some(UmpAcceptanceCheckErr::CapacityExceeded { count: limit + 2, limit }),
 			);
 		});
@@ -463,10 +465,11 @@ fn verify_relay_dispatch_queue_size_is_externally_accessible() {
 
 fn assert_queue_size(para: ParaId, count: u32, size: u32) {
 	#[allow(deprecated)]
-	let raw_queue_size = sp_io::storage::get(&well_known_keys::relay_dispatch_queue_size(para)).expect(
-		"enqueuing a message should create the dispatch queue\
+	let raw_queue_size = sp_io::storage::get(&well_known_keys::relay_dispatch_queue_size(para))
+		.expect(
+			"enqueuing a message should create the dispatch queue\
 				and it should be accessible via the well known keys",
-	);
+		);
 	let (c, s) = <(u32, u32)>::decode(&mut &raw_queue_size[..])
 		.expect("the dispatch queue size should be decodable into (u32, u32)");
 	assert_eq!((c, s), (count, size));
@@ -639,6 +642,42 @@ fn cannot_offboard_while_ump_dispatch_queued() {
 		// Offboarding completed.
 		run_to_block(11, vec![11]);
 		assert!(!Paras::is_valid_para(para));
+	});
+}
+
+/// Test UMP signals are filtered out and don't consume `max_upward_message_num_per_candidate`.
+#[test]
+fn enqueue_ump_signals() {
+	let para = 100.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		register_parachain(para);
+		run_to_block(5, vec![4, 5]);
+
+		let config = configuration::ActiveConfig::<Test>::get();
+		let mut messages = (0..config.max_upward_message_num_per_candidate)
+			.into_iter()
+			.map(|_| "msg".encode())
+			.collect::<Vec<_>>();
+		let expected_messages = messages.iter().cloned().map(|msg| (para, msg)).collect::<Vec<_>>();
+
+		// `UMPSignals` and separator do not count as XCM messages. The below check must pass.
+		messages.append(&mut vec![
+			UMP_SEPARATOR,
+			UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode(),
+		]);
+
+		ParaInclusion::check_upward_messages(
+			&configuration::ActiveConfig::<Test>::get(),
+			para,
+			&messages,
+		)
+		.unwrap();
+
+		// We expect that all messages except UMP signal and separator are processed
+		ParaInclusion::receive_upward_messages(para, &messages);
+		MessageQueue::service_queues(Weight::max_value());
+		assert_eq!(Processed::take(), expected_messages);
 	});
 }
 

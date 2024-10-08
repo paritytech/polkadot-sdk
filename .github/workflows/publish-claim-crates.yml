@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: master
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
@@ -18,7 +18,7 @@ jobs:
           cache-on-failure: true
 
       - name: install parity-publish
-        run: cargo install parity-publish@0.5.1
+        run: cargo install parity-publish@0.8.0 --locked -q
 
       - name: parity-publish claim
         env:

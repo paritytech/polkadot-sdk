@@ -1,0 +1,98 @@
+name: Short benchmarks (frame-omni-bencher)
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  ARTIFACTS_NAME: frame-omni-bencher-artifacts
+
+jobs:
+
+  preflight:
+    # TODO: remove once migration is complete or this workflow is fully stable
+    if: contains(github.event.label.name, 'GHA-migration')
+    uses: ./.github/workflows/reusable-preflight.yml
+
+  quick-benchmarks-omni:
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    env:
+      RUSTFLAGS: "-C debug-assertions"
+      RUST_BACKTRACE: "full"
+      WASM_BUILD_NO_COLOR: 1
+      WASM_BUILD_RUSTFLAGS: "-C debug-assertions"
+    timeout-minutes: 30
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: |
+          forklift cargo build --locked --quiet --release -p asset-hub-westend-runtime --features runtime-benchmarks
+          forklift cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.compact.compressed.wasm --all --steps 2 --repeat 1 --quiet
+
+  run-frame-omni-bencher:
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: [preflight] # , build-frame-omni-bencher ]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false # keep running other workflows even if one fails, to see the logs of all possible failures
+      matrix:
+        runtime:
+          [
+            westend-runtime,
+            rococo-runtime,
+            asset-hub-rococo-runtime,
+            asset-hub-westend-runtime,
+            bridge-hub-rococo-runtime,
+            bridge-hub-westend-runtime,
+            collectives-westend-runtime,
+            coretime-rococo-runtime,
+            coretime-westend-runtime,
+            people-rococo-runtime,
+            people-westend-runtime,
+            glutton-westend-runtime,
+          ]
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      PACKAGE_NAME: ${{ matrix.runtime }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: script
+        run: |
+          RUNTIME_BLOB_NAME=$(echo $PACKAGE_NAME | sed 's/-/_/g').compact.compressed.wasm
+          RUNTIME_BLOB_PATH=./target/release/wbuild/$PACKAGE_NAME/$RUNTIME_BLOB_NAME
+          forklift cargo build --release --locked -p $PACKAGE_NAME -p frame-omni-bencher --features runtime-benchmarks
+          echo "Running short benchmarking for PACKAGE_NAME=$PACKAGE_NAME and RUNTIME_BLOB_PATH=$RUNTIME_BLOB_PATH"
+          ls -lrt $RUNTIME_BLOB_PATH
+          ./target/release/frame-omni-bencher v1 benchmark pallet --runtime $RUNTIME_BLOB_PATH --all --steps 2 --repeat 1
+  confirm-frame-omni-benchers-passed:
+    runs-on: ubuntu-latest
+    name: All benchmarks passed
+    needs: run-frame-omni-bencher
+    if: always() && !cancelled()
+    steps:
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi

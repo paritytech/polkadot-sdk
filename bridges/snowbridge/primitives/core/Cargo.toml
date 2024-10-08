@@ -13,28 +13,29 @@ workspace = true
 
 [dependencies]
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
-hex-literal = { version = "0.4.1" }
+codec = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+hex-literal = { workspace = true, default-features = true }
 
-polkadot-parachain-primitives = { path = "../../../../polkadot/parachain", default-features = false }
-xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
+polkadot-parachain-primitives = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
 
-frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../substrate/frame/system", default-features = false }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
-sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
-sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
-sp-arithmetic = { path = "../../../../substrate/primitives/arithmetic", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+sp-io = { workspace = true }
+sp-core = { workspace = true }
+sp-arithmetic = { workspace = true }
 
-snowbridge-beacon-primitives = { path = "../beacon", default-features = false }
+snowbridge-beacon-primitives = { workspace = true }
 
-ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = false }
+ethabi = { workspace = true }
 
 [dev-dependencies]
-hex = { version = "0.4.3" }
+hex = { workspace = true, default-features = true }
+xcm-executor = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -62,4 +63,5 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]

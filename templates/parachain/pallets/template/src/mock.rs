@@ -1,25 +1,36 @@
-use frame_support::{derive_impl, parameter_types};
-use frame_system as system;
-use sp_runtime::BuildStorage;
-
-type Block = frame_system::mocking::MockBlock<Test>;
+use frame_support::{derive_impl, weights::constants::RocksDbWeight};
+use frame_system::{mocking::MockBlock, GenesisConfig};
+use sp_runtime::{traits::ConstU64, BuildStorage};
 
 // Configure a mock runtime to test the pallet.
-frame_support::construct_runtime!(
-	pub enum Test
-	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		TemplateModule: crate::{Pallet, Call, Storage, Event<T>},
-	}
-);
+#[frame_support::runtime]
+mod test_runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Test;
 
-parameter_types! {
-	pub const SS58Prefix: u8 = 42;
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
+	#[runtime::pallet_index(1)]
+	pub type Template = crate;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-impl system::Config for Test {
-	type Block = Block;
+impl frame_system::Config for Test {
+	type Nonce = u64;
+	type Block = MockBlock<Test>;
+	type BlockHashCount = ConstU64<250>;
+	type DbWeight = RocksDbWeight;
 }
 
 impl crate::Config for Test {
@@ -29,5 +40,5 @@ impl crate::Config for Test {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
+	GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }

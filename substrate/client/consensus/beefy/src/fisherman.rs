@@ -23,7 +23,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_beefy::{
-	check_equivocation_proof, AuthorityIdBound, BeefyApi, BeefySignatureHasher, DoubleVotingProof,
+	check_double_voting_proof, AuthorityIdBound, BeefyApi, BeefySignatureHasher, DoubleVotingProof,
 	OpaqueKeyOwnershipProof, ValidatorSetId,
 };
 use sp_runtime::{
@@ -32,9 +32,8 @@ use sp_runtime::{
 };
 use std::{marker::PhantomData, sync::Arc};
 
-/// Helper struct containing the id and the key ownership proof for a validator.
-pub struct ProvedValidator<'a, AuthorityId: AuthorityIdBound> {
-	pub id: &'a AuthorityId,
+/// Helper struct containing the key ownership proof for a validator.
+pub struct ProvedValidator {
 	pub key_owner_proof: OpaqueKeyOwnershipProof,
 }
 
@@ -66,7 +65,7 @@ where
 		at: BlockId<B>,
 		offender_ids: impl Iterator<Item = &'a AuthorityId>,
 		validator_set_id: ValidatorSetId,
-	) -> Result<Vec<ProvedValidator<'a, AuthorityId>>, Error> {
+	) -> Result<Vec<ProvedValidator>, Error> {
 		let hash = match at {
 			BlockId::Hash(hash) => hash,
 			BlockId::Number(number) => self
@@ -91,7 +90,7 @@ where
 				offender_id.clone(),
 			) {
 				Ok(Some(key_owner_proof)) => {
-					proved_offenders.push(ProvedValidator { id: offender_id, key_owner_proof });
+					proved_offenders.push(ProvedValidator { key_owner_proof });
 				},
 				Ok(None) => {
 					debug!(
@@ -132,7 +131,7 @@ where
 			(active_rounds.validators(), active_rounds.validator_set_id());
 		let offender_id = proof.offender_id();
 
-		if !check_equivocation_proof::<_, _, BeefySignatureHasher>(&proof) {
+		if !check_double_voting_proof::<_, _, BeefySignatureHasher>(&proof) {
 			debug!(target: LOG_TARGET, "🥩 Skipping report for bad equivocation {:?}", proof);
 			return Ok(());
 		}
@@ -155,7 +154,7 @@ where
 		for ProvedValidator { key_owner_proof, .. } in key_owner_proofs {
 			self.runtime
 				.runtime_api()
-				.submit_report_equivocation_unsigned_extrinsic(
+				.submit_report_double_voting_unsigned_extrinsic(
 					best_block_hash,
 					proof.clone(),
 					key_owner_proof,

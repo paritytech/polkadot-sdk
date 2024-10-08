@@ -4,6 +4,10 @@ on:
   pull_request:
   merge_group:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   packages: read
 
@@ -16,8 +20,8 @@ jobs:
       NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - uses: actions/setup-node@v4.0.1
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - uses: actions/setup-node@v4.0.4
         with:
           node-version: "18.x"
           registry-url: "https://npm.pkg.github.com"
@@ -35,7 +39,6 @@ jobs:
           shopt -s globstar
           npx @paritytech/license-scanner scan \
             --ensure-licenses ${{ env.LICENSES }} \
-            --exclude ./cumulus/parachain-template \
             -- ./cumulus/**/*.rs
 
       - name: Check the licenses in Substrate
@@ -43,4 +46,39 @@ jobs:
           shopt -s globstar
           npx @paritytech/license-scanner scan \
             --ensure-licenses ${{ env.LICENSES }} \
+            -- ./substrate/**/*.rs
+
+  check-product-references:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - uses: actions/setup-node@v4.0.4
+        with:
+          node-version: "18.x"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@paritytech"
+
+      - name: Check the product references in Polkadot
+        run: |
+          shopt -s globstar
+          npx @paritytech/license-scanner scan \
+            --ensure-product 'Polkadot' \
+            -- ./polkadot/**/*.rs
+
+      - name: Check the product references in Cumulus
+        run: |
+          shopt -s globstar
+          npx @paritytech/license-scanner scan \
+            --ensure-product 'Cumulus' \
+            -- ./cumulus/**/*.rs
+
+      - name: Check the product references in Substrate
+        run: |
+          shopt -s globstar
+          npx @paritytech/license-scanner scan \
+            --ensure-product 'Substrate' \
             -- ./substrate/**/*.rs

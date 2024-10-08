@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
+// This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! # XCM Version 2
 //!
@@ -62,7 +62,10 @@ use super::{
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{ConstU32, WeakBoundedVec};
-use codec::{self, Decode, Encode, MaxEncodedLen};
+use codec::{
+	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
+	MaxEncodedLen,
+};
 use core::{fmt::Debug, result};
 use derivative::Derivative;
 use scale_info::TypeInfo;
@@ -237,7 +240,7 @@ pub enum BodyPart {
 		#[codec(compact)]
 		denom: u32,
 	},
-	/// More than than the given proportion of members of the body.
+	/// More than the given proportion of members of the body.
 	MoreThanProportion {
 		#[codec(compact)]
 		nom: u32,
@@ -278,13 +281,38 @@ pub const VERSION: super::Version = 2;
 pub type QueryId = u64;
 
 /// DEPRECATED. Please use XCMv3 or XCMv4 instead.
-#[derive(Derivative, Default, Encode, Decode, TypeInfo)]
+#[derive(Derivative, Default, Encode, TypeInfo)]
 #[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub struct Xcm<RuntimeCall>(pub Vec<Instruction<RuntimeCall>>);
+
+environmental::environmental!(instructions_count: u8);
+
+impl<Call> Decode for Xcm<Call> {
+	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
+		instructions_count::using_once(&mut 0, || {
+			let number_of_instructions: u32 = <Compact<u32>>::decode(input)?.into();
+			instructions_count::with(|count| {
+				*count = count.saturating_add(number_of_instructions as u8);
+				if *count > MAX_INSTRUCTIONS_TO_DECODE {
+					return Err(CodecError::from("Max instructions exceeded"))
+				}
+				Ok(())
+			})
+			.unwrap_or(Ok(()))?;
+			let decoded_instructions = decode_vec_with_len(input, number_of_instructions as usize)?;
+			Ok(Self(decoded_instructions))
+		})
+	}
+}
+
+/// The maximal number of instructions in an XCM before decoding fails.
+///
+/// This is a deliberate limit - not a technical one.
+pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
 
 impl<RuntimeCall> Xcm<RuntimeCall> {
 	/// Create an empty instance.
@@ -1155,5 +1183,40 @@ impl<RuntimeCall> TryFrom<NewInstruction<RuntimeCall>> for Instruction<RuntimeCa
 				return Err(());
 			},
 		})
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::{prelude::*, *};
+
+	#[test]
+	fn decoding_respects_limit() {
+		let max_xcm = Xcm::<()>(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE as usize]);
+		let encoded = max_xcm.encode();
+		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_ok());
+
+		let big_xcm = Xcm::<()>(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE as usize + 1]);
+		let encoded = big_xcm.encode();
+		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_err());
+
+		let nested_xcm = Xcm::<()>(vec![
+			DepositReserveAsset {
+				assets: All.into(),
+				dest: Here.into(),
+				xcm: max_xcm,
+				max_assets: 1,
+			};
+			(MAX_INSTRUCTIONS_TO_DECODE / 2) as usize
+		]);
+		let encoded = nested_xcm.encode();
+		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_err());
+
+		let even_more_nested_xcm = Xcm::<()>(vec![SetAppendix(nested_xcm); 64]);
+		let encoded = even_more_nested_xcm.encode();
+		assert_eq!(encoded.len(), 345730);
+		// This should not decode since the limit is 100
+		assert_eq!(MAX_INSTRUCTIONS_TO_DECODE, 100, "precondition");
+		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_err());
 	}
 }

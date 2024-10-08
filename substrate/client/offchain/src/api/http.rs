@@ -27,6 +27,8 @@
 //! (i.e.: the socket should continue being processed) in the background even if the runtime isn't
 //! actively calling any function.
 
+use hyperv14 as hyper;
+
 use crate::api::timestamp;
 use bytes::buf::{Buf, Reader};
 use fnv::FnvHashMap;
@@ -761,14 +763,12 @@ mod tests {
 	use crate::api::timestamp;
 	use core::convert::Infallible;
 	use futures::{future, StreamExt};
-	use lazy_static::lazy_static;
 	use sp_core::offchain::{Duration, Externalities, HttpError, HttpRequestId, HttpRequestStatus};
+	use std::sync::LazyLock;
 
-	// Using lazy_static to avoid spawning lots of different SharedClients,
+	// Using LazyLock to avoid spawning lots of different SharedClients,
 	// as spawning a SharedClient is CPU-intensive and opens lots of fds.
-	lazy_static! {
-		static ref SHARED_CLIENT: SharedClient = SharedClient::new();
-	}
+	static SHARED_CLIENT: LazyLock<SharedClient> = LazyLock::new(|| SharedClient::new());
 
 	// Returns an `HttpApi` whose worker is ran in the background, and a `SocketAddr` to an HTTP
 	// server that runs in the background as well.
