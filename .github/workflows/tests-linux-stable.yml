@@ -126,8 +126,7 @@ jobs:
                    --no-fail-fast \
                    --cargo-quiet \
                    --features experimental,riscv,ci-only-tests \
-                   -- --skip all_security_features_work \
-                    --skip nonexistent_cache_dir
+                   -E 'not test(=all_security_features_work) + not test(=nonexistent_cache_dir)'
 
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
