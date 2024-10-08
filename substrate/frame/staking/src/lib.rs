@@ -385,7 +385,7 @@ pub struct ActiveEraInfo {
 /// Parameters of the unbonding queue mechanism.
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
-pub struct UnbondingQueue {
+pub struct UnbondingQueueConfig {
 	/// The share of stake backing the lowest 1/3 of validators that is slashable at any point in
 	/// time. It offers a trade-off between security and unbonding time.
 	pub min_slashable_share: Perbill,
