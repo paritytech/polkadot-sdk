@@ -981,7 +981,7 @@ fn reap_member_transfer() {
 
 		let tvl = TotalValueLocked::<Runtime>::get();
 
-		// FIXME is it appropriate to make `active_balance()` public too?
+		// FIXME eagr is it appropriate to make `active_balance()` public too?
 		// >ED after slash
 		assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().total_balance(), 7);
 		// =ED after slash

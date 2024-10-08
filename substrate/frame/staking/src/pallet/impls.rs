@@ -1884,7 +1884,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	fn force_withdraw(stash: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
 		let mut ledger = Self::ledger(Stash(stash.clone()))?;
 		ledger.active = ledger.active.saturating_sub(amount);
-		// FIXME should we check if active >= ED before updating?
+		// FIXME eagr should we check if active >= ED before updating?
 		ledger.total = ledger.total.saturating_sub(amount);
 		ledger.update()?;
 

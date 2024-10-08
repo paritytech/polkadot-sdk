@@ -183,7 +183,8 @@ pub trait StakeStrategy {
 		num_slashing_spans: u32,
 	) -> DispatchResult;
 
-	/// Clean up leftovers before reaping a member.
+	/// Clean up ledger leftovers before reaping a dusted member.
+	// FIXME eagr better name?
 	fn member_dust(
 		who: Member<Self::AccountId>,
 		pool_account: Pool<Self::AccountId>,

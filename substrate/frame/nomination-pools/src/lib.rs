@@ -2998,7 +2998,7 @@ pub mod pallet {
 		/// Reap the member from the pool. Effective only if their contribution to the pool falls
 		/// below ED.
 		#[pallet::call_index(26)]
-		// FIXME weight functions
+		// FIXME eagr weight functions
 		// #[pallet::weight(T::WeightInfo::reap_member())]
 		#[pallet::weight(1)]
 		pub fn reap_member(
@@ -3006,8 +3006,8 @@ pub mod pallet {
 			member_account: AccountIdLookupOf<T>,
 			num_slashing_spans: u32,
 		) -> DispatchResult {
-			ensure_signed(origin.clone())?;
-			let member = T::Lookup::lookup(member_account.clone())?;
+			ensure_signed(origin)?;
+			let member = T::Lookup::lookup(member_account)?;
 			ensure!(
 				!Self::api_member_needs_delegate_migration(member.clone()),
 				Error::<T>::NotMigrated,
@@ -3032,12 +3032,22 @@ pub mod pallet {
 					&mut reward_pool,
 				);
 
-				T::StakeAdapter::member_dust(
-					Member::from(member.clone()),
-					Pool::from(bonded_pool.bonded_account()),
-					contribution,
-					num_slashing_spans,
-				)?;
+				if contribution > Zero::zero() {
+					T::StakeAdapter::member_dust(
+						Member::from(member.clone()),
+						Pool::from(bonded_pool.bonded_account()),
+						contribution,
+						num_slashing_spans,
+					)?;
+
+					// FIXME eagr is this needed?
+					// Self::deposit_event(Event::<T>::Withdrawn {
+					// 	member: member.clone(),
+					// 	pool_id,
+					// 	points: bonded_pool.balance_to_point(contribution),
+					// 	balance: contribution,
+					// });
+				}
 
 				ClaimPermissions::<T>::remove(&member);
 				PoolMembers::<T>::remove(&member);
@@ -3045,7 +3055,7 @@ pub mod pallet {
 				Self::deposit_event(Event::<T>::MemberRemoved {
 					pool_id,
 					member: member.clone(),
-					// FIXME there should not be any dangling delegation right?
+					// FIXME eagr there should not be any dangling delegation at this point right?
 					released_balance: Zero::zero(),
 				});
 
@@ -3059,6 +3069,8 @@ pub mod pallet {
 			}
 
 			Ok(())
+
+			// FIXME eagr should return fee info?
 		}
 
 		/// Migrates delegated funds from the pool account to the `member_account`.
