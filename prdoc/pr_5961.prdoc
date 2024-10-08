@@ -9,7 +9,7 @@ doc:
       Adds `approve_bounty_with_curator` call to the bounties pallet to combine `approve_bounty` and `propose_curator` into one call. If `unassign_curator` is called after `approve_bounty_with_curator` the process falls back to the previous flow of calling `propose_curator` separately.
 
 crates:
-    - name: pallet-bounty
+    - name: pallet-bounties
       bump: minor
     - name: rococo-runtime
       bump: minor
