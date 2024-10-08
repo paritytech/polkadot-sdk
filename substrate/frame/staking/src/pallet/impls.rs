@@ -233,8 +233,8 @@ impl<T: Config> Pallet<T> {
 		validator_stash: T::AccountId,
 		era: EraIndex,
 	) -> DispatchResultWithPostInfo {
-		let page = EraInfo::<T>::get_next_claimable_page(era, &validator_stash)
-			.ok_or_else(|| {
+		let page =
+			EraInfo::<T>::get_next_claimable_page(era, &validator_stash).ok_or_else(|| {
 				Error::<T>::AlreadyClaimed
 					.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 			})?;

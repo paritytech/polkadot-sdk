@@ -1121,10 +1121,7 @@ impl<T: Config> EraInfo<T> {
 	}
 
 	/// Returns the next page that can be claimed or `None` if nothing to claim.
-	pub(crate) fn get_next_claimable_page(
-		era: EraIndex,
-		validator: &T::AccountId,
-	) -> Option<Page> {
+	pub(crate) fn get_next_claimable_page(era: EraIndex, validator: &T::AccountId) -> Option<Page> {
 		// Find next claimable page of paged exposure.
 		let page_count = Self::get_page_count(era, validator);
 		let all_claimable_pages: Vec<Page> = (0..page_count).collect();
