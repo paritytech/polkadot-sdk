@@ -76,6 +76,14 @@ impl<T: frame_system::Config> pallet_bounties::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
+	fn approve_bounty_with_curator() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 0_000 picoseconds.
+		Weight::from_parts(0, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
 	fn propose_curator() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
