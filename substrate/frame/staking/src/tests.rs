@@ -3978,6 +3978,7 @@ fn test_multi_page_payout_stakers_by_page() {
 		assert!(matches!(
 			staking_events_since_last_call().as_slice(),
 			&[
+				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 0, next: Some(1) },
 				..,
 				Event::Rewarded { stash: 1063, dest: RewardDestination::Stash, amount: 111 },
 				Event::Rewarded { stash: 1064, dest: RewardDestination::Stash, amount: 111 },
@@ -4001,7 +4002,7 @@ fn test_multi_page_payout_stakers_by_page() {
 		assert!(matches!(
 			events.as_slice(),
 			&[
-				Event::PayoutStarted { era_index: 1, validator_stash: 11 },
+				Event::PayoutStarted { era_index: 1, validator_stash: 11, page: 1, next: None },
 				Event::Rewarded { stash: 1065, dest: RewardDestination::Stash, amount: 111 },
 				Event::Rewarded { stash: 1066, dest: RewardDestination::Stash, amount: 111 },
 				..
