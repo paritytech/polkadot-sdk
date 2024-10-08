@@ -1110,8 +1110,7 @@ fn stale_transactions_are_pruned() {
 	assert_eq!(pool.status().future, 3);
 
 	// Import enough blocks to make our transactions stale
-	// todo: 1 here was resubmitting xts from block 1
-	for n in 2..66 {
+	for n in 1..66 {
 		let header = api.push_block(n, vec![], true);
 		block_on(pool.maintain(block_event(header)));
 	}
