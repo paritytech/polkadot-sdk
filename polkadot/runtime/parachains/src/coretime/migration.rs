@@ -19,8 +19,6 @@
 pub use v_coretime::{GetLegacyLease, MigrateToCoretime};
 
 mod v_coretime {
-	#[cfg(feature = "try-runtime")]
-	use crate::scheduler::common::AssignmentProvider;
 	use crate::{
 		assigner_coretime, configuration,
 		coretime::{mk_coretime_call, Config, PartsOf57600, WeightInfo},
