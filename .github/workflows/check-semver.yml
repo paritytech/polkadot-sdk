@@ -61,11 +61,6 @@ jobs:
 
           echo "PRDOC_EXTRA_ARGS=--max-bump minor" >> $GITHUB_ENV
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
-        with:
-          cache-on-failure: true
-
       - name: Rust compilation prerequisites
         run: |
           rustup default $TOOLCHAIN
