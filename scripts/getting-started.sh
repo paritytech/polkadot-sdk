@@ -38,9 +38,9 @@ clone_and_enter_template() {
     fi
     cd ${template}-template
     
-    if ! [[ -f "rust-toolchain.toml" ]]; then
+    if [ ! -f "rust-toolchain.toml" ]; then
         curl -s -H "Accept:application/vnd.github.v3.raw" https://api.github.com/repos/paritytech/polkadot-sdk/contents/rust-toolchain.toml > rust-toolchain.toml
-    
+
         if ! grep -q '^\[toolchain\]' rust-toolchain.toml; then
             rm rust-toolchain.toml
         fi
