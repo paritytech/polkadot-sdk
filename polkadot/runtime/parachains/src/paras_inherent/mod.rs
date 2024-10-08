@@ -648,7 +648,7 @@ impl<T: Config> Pallet<T> {
 			let mut eligible: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
 			let mut total_eligible_cores = 0;
 
-			for (core_idx, para_id) in scheduler::Pallet::<T>::eligible_paras(&occupied_cores) {
+			for (core_idx, para_id) in Self::eligible_paras(&occupied_cores) {
 				total_eligible_cores += 1;
 				log::trace!(target: LOG_TARGET, "Found eligible para {:?} on core {:?}", para_id, core_idx);
 				eligible.entry(para_id).or_default().insert(core_idx);
@@ -704,6 +704,24 @@ impl<T: Config> Pallet<T> {
 
 			Ok((vec![], BTreeMap::new()))
 		}
+	}
+
+	/// Paras that may get backed on cores.
+	///
+	/// 1. The para must be scheduled on core.
+	/// 2. Core needs to be free, otherwise backing is not possible.
+	///
+	/// We get a set of the occupied cores as input.
+	pub(crate) fn eligible_paras<'a>(
+		occupied_cores: &'a BTreeSet<CoreIndex>,
+	) -> impl Iterator<Item = (CoreIndex, ParaId)> + 'a {
+		scheduler::Pallet::<T>::claim_queue_iterator().filter_map(|(core_idx, queue)| {
+			if occupied_cores.contains(&core_idx) {
+				return None
+			}
+			let next_scheduled = queue.front()?;
+			Some((core_idx, next_scheduled.para_id()))
+		})
 	}
 }
 

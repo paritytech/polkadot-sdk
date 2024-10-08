@@ -357,24 +357,6 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Paras that may get backed on cores.
-	///
-	/// 1. The para must be scheduled on core.
-	/// 2. Core needs to be free, otherwise backing is not possible.
-	///
-	/// We get a set of the occupied cores as input.
-	pub(crate) fn eligible_paras<'a>(
-		occupied_cores: &'a BTreeSet<CoreIndex>,
-	) -> impl Iterator<Item = (CoreIndex, ParaId)> + 'a {
-		Self::claim_queue_iterator().filter_map(|(core_idx, queue)| {
-			if occupied_cores.contains(&core_idx) {
-				return None
-			}
-			let next_scheduled = queue.front()?;
-			Some((core_idx, next_scheduled.para_id()))
-		})
-	}
-
 	/// For each core that isn't part of the `except_for` set, pop the first item of the claim queue
 	/// and fill the queue from the assignment provider.
 	pub(crate) fn advance_claim_queue(except_for: &BTreeSet<CoreIndex>) {
@@ -395,6 +377,21 @@ impl<T: Config> Pallet<T> {
 
 				Self::fill_claim_queue(core_idx, n_lookahead);
 			}
+		}
+	}
+
+	/// Get an iterator into the claim queues.
+	///
+	/// This iterator will have an item for each and every core index up to the maximum core index
+	/// found in the claim queue. In other words there will be no holes/missing core indices,
+	/// between core 0 and the maximum, even if the claim queue was missing entries for particular
+	/// indices in between. (The iterator will return an empty `VecDeque` for those indices.
+	pub(crate) fn claim_queue_iterator() -> impl Iterator<Item = (CoreIndex, VecDeque<Assignment>)>
+	{
+		let queues = ClaimQueue::<T>::get();
+		return ClaimQueueIterator::<Assignment> {
+			next_idx: 0,
+			queue: queues.into_iter().peekable(),
 		}
 	}
 
@@ -438,20 +435,6 @@ impl<T: Config> Pallet<T> {
 		// now.
 		for assignment in assignments.rev() {
 			T::AssignmentProvider::push_back_assignment(assignment);
-		}
-	}
-
-	/// Get an iterator into the claim queues.
-	///
-	/// This iterator will have an item for each and every core index up to the maximum core index
-	/// found in the claim queue. In other words there will be no holes/missing core indices,
-	/// between core 0 and the maximum, even if the claim queue was missing entries for particular
-	/// indices in between. (The iterator will return an empty `VecDeque` for those indices.
-	fn claim_queue_iterator() -> impl Iterator<Item = (CoreIndex, VecDeque<Assignment>)> {
-		let queues = ClaimQueue::<T>::get();
-		return ClaimQueueIterator::<Assignment> {
-			next_idx: 0,
-			queue: queues.into_iter().peekable(),
 		}
 	}
 

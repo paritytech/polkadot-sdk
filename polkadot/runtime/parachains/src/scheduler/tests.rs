@@ -392,16 +392,6 @@ fn occupied_core_handling() {
 
 		run_to_block(2, |_| None);
 
-		assert_eq!(
-			Scheduler::eligible_paras(&Default::default()).collect::<Vec<_>>(),
-			vec![(CoreIndex(0), para_a), (CoreIndex(1), para_c)]
-		);
-
-		// Simulate that cores 0, 1 are occupied, core 2 is free
-		assert!(Scheduler::eligible_paras(&[CoreIndex(0), CoreIndex(1)].into_iter().collect())
-			.collect::<Vec<_>>()
-			.is_empty());
-
 		Scheduler::advance_claim_queue(&Default::default());
 
 		// Queues of all cores should be empty

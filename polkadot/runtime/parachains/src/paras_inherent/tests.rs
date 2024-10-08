@@ -2621,7 +2621,7 @@ mod sanitizers {
 
 			// State sanity checks
 			assert_eq!(
-				scheduler::Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
+				Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
 				vec![(CoreIndex(0), ParaId::from(1)), (CoreIndex(1), ParaId::from(2))]
 			);
 			assert_eq!(
@@ -3163,7 +3163,7 @@ mod sanitizers {
 
 			// State sanity checks
 			assert_eq!(
-				scheduler::Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
+				Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
 				vec![
 					(CoreIndex(0), ParaId::from(1)),
 					(CoreIndex(1), ParaId::from(1)),
@@ -3178,9 +3178,7 @@ mod sanitizers {
 				]
 			);
 			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-			for (core_idx, para_id) in
-				scheduler::Pallet::<Test>::eligible_paras(&Default::default())
-			{
+			for (core_idx, para_id) in Pallet::<Test>::eligible_paras(&Default::default()) {
 				scheduled.entry(para_id).or_default().insert(core_idx);
 			}
 
@@ -3653,7 +3651,7 @@ mod sanitizers {
 
 			// State sanity checks
 			assert_eq!(
-				scheduler::Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
+				Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
 				vec![
 					(CoreIndex(0), ParaId::from(1)),
 					(CoreIndex(1), ParaId::from(1)),
@@ -3667,9 +3665,7 @@ mod sanitizers {
 				]
 			);
 			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-			for (core_idx, para_id) in
-				scheduler::Pallet::<Test>::eligible_paras(&Default::default())
-			{
+			for (core_idx, para_id) in Pallet::<Test>::eligible_paras(&Default::default()) {
 				scheduled.entry(para_id).or_default().insert(core_idx);
 			}
 
@@ -4076,7 +4072,7 @@ mod sanitizers {
 
 			// State sanity checks
 			assert_eq!(
-				scheduler::Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
+				Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
 				vec![
 					(CoreIndex(0), ParaId::from(1)),
 					(CoreIndex(1), ParaId::from(1)),
@@ -4087,9 +4083,7 @@ mod sanitizers {
 				]
 			);
 			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-			for (core_idx, para_id) in
-				scheduler::Pallet::<Test>::eligible_paras(&Default::default())
-			{
+			for (core_idx, para_id) in Pallet::<Test>::eligible_paras(&Default::default()) {
 				scheduled.entry(para_id).or_default().insert(core_idx);
 			}
 
