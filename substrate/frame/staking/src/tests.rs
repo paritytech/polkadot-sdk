@@ -1076,7 +1076,7 @@ fn reward_destination_works() {
 		// Check that RewardDestination is Account(11)
 		assert_eq!(Staking::payee(11.into()), Some(RewardDestination::Account(11)));
 		// Check that reward went to the correct account
-			assert_eq!(asset::stakeable_balance::<Test>(&11), recorded_stash_balance + total_payout_2);
+		assert_eq!(asset::stakeable_balance::<Test>(&11), recorded_stash_balance + total_payout_2);
 
 		// Check that amount at stake is NOT increased
 		assert_eq!(
@@ -5209,21 +5209,9 @@ mod election_data_provider {
 			.nominate(false)
 			// the best way to invalidate a bunch of nominators is to have them nominate a lot of
 			// ppl, but then lower the MaxNomination limit.
-			.add_staker(
-				61,
-				2_000,
-				StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]),
-			)
-			.add_staker(
-				71,
-				2_000,
-				StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]),
-			)
-			.add_staker(
-				81,
-				2_000,
-				StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]),
-			)
+			.add_staker(61, 2_000, StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]))
+			.add_staker(71, 2_000, StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]))
+			.add_staker(81, 2_000, StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]))
 			.build_and_execute(|| {
 				let bounds_builder = ElectionBoundsBuilder::default();
 				// all voters ordered by stake,

@@ -25,7 +25,7 @@ use codec::Decode;
 use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProvider};
 use frame_support::{
 	pallet_prelude::*,
-  storage::bounded_vec::BoundedVec,
+	storage::bounded_vec::BoundedVec,
 	traits::{Currency, Get, Imbalance, UnfilteredDispatchable},
 };
 use sp_runtime::{
@@ -306,7 +306,6 @@ benchmarks! {
 
 		let ed = asset::existential_deposit::<T>();
 		let mut ledger = Ledger::<T>::get(&stash).unwrap();
-    
 		ledger.active = ed - One::one();
 		Ledger::<T>::insert(&stash, ledger);
 		CurrentEra::<T>::put(EraIndex::max_value());

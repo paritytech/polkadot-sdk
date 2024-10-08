@@ -1089,7 +1089,7 @@ pub mod pallet {
 			let maybe_withdraw_weight = {
 				if unlocking == T::MaxUnlockingChunks::get() as usize {
 					let real_num_slashing_spans =
-					Self::slashing_spans(&stash).map_or(0, |s| s.iter().count());
+						Self::slashing_spans(&stash).map_or(0, |s| s.iter().count());
 					Some(Self::do_withdraw_unbonded(&stash, real_num_slashing_spans as u32)?)
 				} else {
 					None
