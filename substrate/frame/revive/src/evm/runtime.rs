@@ -155,9 +155,9 @@ where
 	#[cfg(feature = "try-runtime")]
 	fn unchecked_into_checked_i_know_what_i_am_doing(
 		self,
-		_: &Lookup,
+		lookup: &Lookup,
 	) -> Result<Self::Checked, TransactionValidityError> {
-		unreachable!();
+		self.0.unchecked_into_checked_i_know_what_i_am_doing(lookup)
 	}
 }
 
