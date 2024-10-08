@@ -133,8 +133,9 @@ members = [
 	"cumulus/parachains/runtimes/test-utils",
 	"cumulus/parachains/runtimes/testing/penpal",
 	"cumulus/parachains/runtimes/testing/rococo-parachain",
+	"cumulus/polkadot-omni-node",
+	"cumulus/polkadot-omni-node/lib",
 	"cumulus/polkadot-parachain",
-	"cumulus/polkadot-parachain/polkadot-parachain-lib",
 	"cumulus/primitives/aura",
 	"cumulus/primitives/core",
 	"cumulus/primitives/parachain-inherent",
@@ -175,7 +176,6 @@ members = [
 	"polkadot/node/core/runtime-api",
 	"polkadot/node/gum",
 	"polkadot/node/gum/proc-macro",
-	"polkadot/node/jaeger",
 	"polkadot/node/malus",
 	"polkadot/node/metrics",
 	"polkadot/node/network/approval-distribution",
@@ -542,6 +542,7 @@ members = [
 ]
 
 default-members = [
+	"cumulus/polkadot-omni-node",
 	"cumulus/polkadot-parachain",
 	"polkadot",
 	"substrate/bin/node/cli",
@@ -843,7 +844,6 @@ merkleized-metadata = { version = "0.1.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
 metered = { version = "0.6.1", default-features = false, package = "prioritized-metered-channel" }
-mick-jaeger = { version = "0.1.8" }
 milagro-bls = { version = "1.5.4", default-features = false, package = "snowbridge-milagro-bls" }
 minimal-template-node = { path = "templates/minimal/node" }
 minimal-template-runtime = { path = "templates/minimal/runtime" }
@@ -1047,7 +1047,6 @@ polkadot-node-core-pvf-common = { path = "polkadot/node/core/pvf/common", defaul
 polkadot-node-core-pvf-execute-worker = { path = "polkadot/node/core/pvf/execute-worker", default-features = false }
 polkadot-node-core-pvf-prepare-worker = { path = "polkadot/node/core/pvf/prepare-worker", default-features = false }
 polkadot-node-core-runtime-api = { path = "polkadot/node/core/runtime-api", default-features = false }
-polkadot-node-jaeger = { path = "polkadot/node/jaeger", default-features = false }
 polkadot-node-metrics = { path = "polkadot/node/metrics", default-features = false }
 polkadot-node-network-protocol = { path = "polkadot/node/network/protocol", default-features = false }
 polkadot-node-primitives = { path = "polkadot/node/primitives", default-features = false }
@@ -1055,8 +1054,9 @@ polkadot-node-subsystem = { path = "polkadot/node/subsystem", default-features =
 polkadot-node-subsystem-test-helpers = { path = "polkadot/node/subsystem-test-helpers" }
 polkadot-node-subsystem-types = { path = "polkadot/node/subsystem-types", default-features = false }
 polkadot-node-subsystem-util = { path = "polkadot/node/subsystem-util", default-features = false }
+polkadot-omni-node = { path = "cumulus/polkadot-omni-node", default-features = false }
+polkadot-omni-node-lib = { path = "cumulus/polkadot-omni-node/lib", default-features = false }
 polkadot-overseer = { path = "polkadot/node/overseer", default-features = false }
-polkadot-parachain-lib = { path = "cumulus/polkadot-parachain/polkadot-parachain-lib", default-features = false }
 polkadot-parachain-primitives = { path = "polkadot/parachain", default-features = false }
 polkadot-primitives = { path = "polkadot/primitives", default-features = false }
 polkadot-primitives-test-helpers = { path = "polkadot/primitives/test-helpers" }

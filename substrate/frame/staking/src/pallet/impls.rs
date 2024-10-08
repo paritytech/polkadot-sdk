@@ -27,8 +27,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
-		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
+		Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance, Len, OnUnbalanced,
+		TryCollect, UnixTime,
 	},
 	weights::Weight,
 };
@@ -50,7 +50,7 @@ use sp_staking::{
 };
 
 use crate::{
-	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
+	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnlockChunk,
@@ -97,7 +97,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn inspect_bond_state(
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
-		let lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
+		let lock = asset::staked::<T>(&stash);
 
 		let controller = <Bonded<T>>::get(stash).ok_or_else(|| {
 			if lock == Zero::zero() {
@@ -143,7 +143,7 @@ impl<T: Config> Pallet<T> {
 	pub fn weight_of_fn() -> Box<dyn Fn(&T::AccountId) -> VoteWeight> {
 		// NOTE: changing this to unboxed `impl Fn(..)` return type and the pallet will still
 		// compile, while some types in mock fail to resolve.
-		let issuance = T::Currency::total_issuance();
+		let issuance = asset::total_issuance::<T>();
 		Box::new(move |who: &T::AccountId| -> VoteWeight {
 			Self::slashable_balance_of_vote_weight(who, issuance)
 		})
@@ -151,7 +151,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Same as `weight_of_fn`, but made for one time use.
 	pub fn weight_of(who: &T::AccountId) -> VoteWeight {
-		let issuance = T::Currency::total_issuance();
+		let issuance = asset::total_issuance::<T>();
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
@@ -165,7 +165,7 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// additional amount or actual balance of stash whichever is lower.
 			additional.min(
-				T::Currency::free_balance(stash)
+				asset::stakeable_balance::<T>(stash)
 					.checked_sub(&ledger.total)
 					.ok_or(ArithmeticError::Overflow)?,
 			)
@@ -174,7 +174,7 @@ impl<T: Config> Pallet<T> {
 		ledger.total = ledger.total.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
 		ledger.active = ledger.active.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
 		// last check: the new active amount of ledger must be more than ED.
-		ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
+		ensure!(ledger.active >= asset::existential_deposit::<T>(), Error::<T>::InsufficientBond);
 
 		// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 		ledger.update()?;
@@ -199,7 +199,7 @@ impl<T: Config> Pallet<T> {
 		}
 		let new_total = ledger.total;
 
-		let ed = T::Currency::minimum_balance();
+		let ed = asset::existential_deposit::<T>();
 		let used_weight =
 			if ledger.unlocking.is_empty() && (ledger.active < ed || ledger.active.is_zero()) {
 				// This account must have called `unbond()` with some value that caused the active
@@ -415,12 +415,12 @@ impl<T: Config> Pallet<T> {
 		let dest = Self::payee(StakingAccount::Stash(stash.clone()))?;
 
 		let maybe_imbalance = match dest {
-			RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
+			RewardDestination::Stash => asset::mint_existing::<T>(stash, amount),
 			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {
 					ledger.active += amount;
 					ledger.total += amount;
-					let r = T::Currency::deposit_into_existing(stash, amount).ok();
+					let r = asset::mint_existing::<T>(stash, amount);
 
 					let _ = ledger
 						.update()
@@ -430,7 +430,7 @@ impl<T: Config> Pallet<T> {
 				})
 				.unwrap_or_default(),
 			RewardDestination::Account(ref dest_account) =>
-				Some(T::Currency::deposit_creating(&dest_account, amount)),
+				Some(asset::mint_creating::<T>(&dest_account, amount)),
 			RewardDestination::None => None,
 			#[allow(deprecated)]
 			RewardDestination::Controller => Self::bonded(stash)
@@ -438,7 +438,7 @@ impl<T: Config> Pallet<T> {
 						defensive!("Paying out controller as reward destination which is deprecated and should be migrated.");
 						// This should never happen once payees with a `Controller` variant have been migrated.
 						// But if it does, just pay the controller account.
-						T::Currency::deposit_creating(&controller, amount)
+						asset::mint_creating::<T>(&controller, amount)
 		}),
 		};
 		maybe_imbalance.map(|imbalance| (imbalance, dest))
@@ -577,7 +577,7 @@ impl<T: Config> Pallet<T> {
 			let era_duration = (now_as_millis_u64.defensive_saturating_sub(active_era_start))
 				.saturated_into::<u64>();
 			let staked = Self::eras_total_stake(&active_era.index);
-			let issuance = T::Currency::total_issuance();
+			let issuance = asset::total_issuance::<T>();
 
 			let (validator_payout, remainder) =
 				T::EraPayout::era_payout(staked, issuance, era_duration);
@@ -598,7 +598,7 @@ impl<T: Config> Pallet<T> {
 
 			// Set ending era reward.
 			<ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
-			T::RewardRemainder::on_unbalanced(T::Currency::issue(remainder));
+			T::RewardRemainder::on_unbalanced(asset::issue::<T>(remainder));
 
 			// Clear disabled validators.
 			<DisabledValidators<T>>::kill();
@@ -749,7 +749,7 @@ impl<T: Config> Pallet<T> {
 	fn collect_exposures(
 		supports: BoundedSupportsOf<T::ElectionProvider>,
 	) -> BoundedVec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>), MaxWinnersOf<T>> {
-		let total_issuance = T::Currency::total_issuance();
+		let total_issuance = asset::total_issuance::<T>();
 		let to_currency = |e: frame_election_provider_support::ExtendedBalance| {
 			T::CurrencyToVote::to_currency(e, total_issuance)
 		};
@@ -1197,7 +1197,7 @@ impl<T: Config> Pallet<T> {
 			ledger.active -= value;
 
 			// Avoid there being a dust balance left in the staking system.
-			if ledger.active < T::Currency::minimum_balance() {
+			if ledger.active < asset::existential_deposit::<T>() {
 				value += ledger.active;
 				ledger.active = Zero::zero();
 			}
@@ -1662,7 +1662,7 @@ impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 		// also, we play a trick to make sure that a issuance based-`CurrencyToVote` behaves well:
 		// This will make sure that total issuance is zero, thus the currency to vote will be a 1-1
 		// conversion.
-		let imbalance = T::Currency::burn(T::Currency::total_issuance());
+		let imbalance = asset::burn::<T>(asset::total_issuance::<T>());
 		// kinda ugly, but gets the job done. The fact that this works here is a HUGE exception.
 		// Don't try this pattern in other places.
 		core::mem::forget(imbalance);
@@ -2000,7 +2000,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 	fn migrate_to_virtual_staker(who: &Self::AccountId) {
-		T::Currency::remove_lock(crate::STAKING_ID, who);
+		asset::kill_stake::<T>(who);
 		VirtualStakers::<T>::insert(who, ());
 	}
 
@@ -2037,12 +2037,7 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 	fn migrate_to_direct_staker(who: &Self::AccountId) {
 		assert!(VirtualStakers::<T>::contains_key(who));
 		let ledger = StakingLedger::<T>::get(Stash(who.clone())).unwrap();
-		T::Currency::set_lock(
-			crate::STAKING_ID,
-			who,
-			ledger.total,
-			frame_support::traits::WithdrawReasons::all(),
-		);
+		asset::update_stake::<T>(who, ledger.total);
 		VirtualStakers::<T>::remove(who);
 	}
 }
@@ -2178,7 +2173,7 @@ impl<T: Config> Pallet<T> {
 				// ensure locks consistency.
 				if VirtualStakers::<T>::contains_key(stash.clone()) {
 					ensure!(
-						T::Currency::balance_locked(crate::STAKING_ID, &stash) == Zero::zero(),
+						asset::staked::<T>(&stash) == Zero::zero(),
 						"virtual stakers should not have any locked balance"
 					);
 					ensure!(

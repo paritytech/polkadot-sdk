@@ -874,10 +874,6 @@ pub use polkadot_node_core_pvf_prepare_worker;
 #[cfg(feature = "polkadot-node-core-runtime-api")]
 pub use polkadot_node_core_runtime_api;
 
-/// Polkadot Jaeger primitives, but equally useful for Grafana/Tempo.
-#[cfg(feature = "polkadot-node-jaeger")]
-pub use polkadot_node_jaeger;
-
 /// Subsystem metric helpers.
 #[cfg(feature = "polkadot-node-metrics")]
 pub use polkadot_node_metrics;
@@ -902,13 +898,13 @@ pub use polkadot_node_subsystem_types;
 #[cfg(feature = "polkadot-node-subsystem-util")]
 pub use polkadot_node_subsystem_util;
 
+/// Helper library that can be used to build a parachain node.
+#[cfg(feature = "polkadot-omni-node-lib")]
+pub use polkadot_omni_node_lib;
+
 /// System overseer of the Polkadot node.
 #[cfg(feature = "polkadot-overseer")]
 pub use polkadot_overseer;
-
-/// Helper library that can be used to build a parachain node.
-#[cfg(feature = "polkadot-parachain-lib")]
-pub use polkadot_parachain_lib;
 
 /// Types and utilities for creating and working with parachains.
 #[cfg(feature = "polkadot-parachain-primitives")]
