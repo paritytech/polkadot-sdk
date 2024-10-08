@@ -488,15 +488,15 @@ where
 	}
 
 	fn ready_at_internal(&self, at: Block::Hash) -> (bool, PolledIterator<ChainApi>) {
+		let mut ready_poll = self.ready_poll.lock();
+
 		if let Some((view, inactive)) = self.view_store.get_view_at(at, true) {
 			log::debug!(target: LOG_TARGET, "fatp::ready_at {at:?} (inactive:{inactive:?})");
 			let iterator: ReadyIteratorFor<ChainApi> = Box::new(view.pool.validated_pool().ready());
 			return (true, async move { iterator }.boxed());
 		}
 
-		let pending = self
-			.ready_poll
-			.lock()
+		let pending = ready_poll
 			.add(at)
 			.map(|received| {
 				received.unwrap_or_else(|e| {
@@ -507,7 +507,7 @@ where
 			.boxed();
 		log::debug!(target: LOG_TARGET,
 			"fatp::ready_at {at:?} pending keys: {:?}",
-			self.ready_poll.lock().pollers.keys()
+			ready_poll.pollers.keys()
 		);
 		(false, pending)
 	}
