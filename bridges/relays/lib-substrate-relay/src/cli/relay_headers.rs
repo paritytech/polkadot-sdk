@@ -96,6 +96,7 @@ pub trait HeadersRelayer: RelayToRelayHeadersCliBridge {
 			signer: target_sign,
 			mortality: target_transactions_mortality,
 		};
+
 		Self::Finality::start_relay_guards(&target_client, target_client.can_start_version_guard())
 			.await?;
 
