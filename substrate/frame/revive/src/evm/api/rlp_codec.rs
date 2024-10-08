@@ -188,6 +188,11 @@ mod test {
 		let rlp_bytes = rlp::encode(&tx);
 		let decoded = rlp::decode::<TransactionLegacyUnsigned>(&rlp_bytes).unwrap();
 		assert_eq!(&tx, &decoded);
+
+		let tx = Account::default().sign_transaction(tx);
+		let rlp_bytes = rlp::encode(&tx);
+		let decoded = rlp::decode::<TransactionLegacySigned>(&rlp_bytes).unwrap();
+		assert_eq!(&tx, &decoded);
 	}
 
 	#[test]
