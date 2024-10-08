@@ -23,7 +23,7 @@ mod mock_helpers;
 mod tests;
 
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::{CoreIndex, Id as ParaId};
+use polkadot_primitives::CoreIndex;
 
 use crate::{
 	configuration, paras,
@@ -52,7 +52,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 			.map(Assignment::Bulk)
 	}
 
-	fn report_processed(_: ParaId, _: CoreIndex) {}
+	fn report_processed(_: Assignment) {}
 
 	/// Bulk assignment has no need to push the assignment back on a session change,
 	/// this is a no-op in the case of a bulk assignment slot.

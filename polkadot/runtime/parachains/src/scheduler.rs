@@ -154,17 +154,6 @@ impl<T: Config> Pallet<T> {
 	/// Called by the initializer to finalize the scheduler pallet.
 	pub(crate) fn initializer_finalize() {}
 
-	/// Called before the initializer notifies any modules of a new session.
-	pub(crate) fn pre_new_session(occupied_cores: impl Iterator<Item = (CoreIndex, ParaId)>) {
-		// The formerly occupied cores will have their candidates dropped in the inclusion module.
-		// We only need to report them as processed. These are candidates that took longer than 1
-		// block to become available and unfortunately they happened to be right before the session
-		// change. We don't push back to the assignment provider for simplicity.
-		for (core_index, para_id) in occupied_cores {
-			T::AssignmentProvider::report_processed(para_id, core_index);
-		}
-	}
-
 	/// Called by the initializer to note that a new session has started.
 	pub(crate) fn initializer_on_new_session(
 		notification: &SessionChangeNotification<BlockNumberFor<T>>,
@@ -372,7 +361,7 @@ impl<T: Config> Pallet<T> {
 				let core_idx = CoreIndex::from(core_idx);
 
 				if let Some(dropped_para) = Self::pop_front_of_claim_queue(&core_idx) {
-					T::AssignmentProvider::report_processed(dropped_para.para_id(), core_idx);
+					T::AssignmentProvider::report_processed(dropped_para);
 				}
 
 				Self::fill_claim_queue(core_idx, n_lookahead);

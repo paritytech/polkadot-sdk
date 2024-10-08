@@ -284,10 +284,12 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		})
 	}
 
-	fn report_processed(para_id: ParaId, core_index: CoreIndex) {
-		// Reporting processed assignments is only important for on-demand.
-		// Doing the call below is a no-op if the assignment was a `Bulk` one.
-		on_demand::Pallet::<T>::report_processed(para_id, core_index);
+	fn report_processed(assignment: Assignment) {
+		match assignment {
+			Assignment::Bulk(_) => {},
+			Assignment::Pool { para_id, core_index } =>
+				on_demand::Pallet::<T>::report_processed(para_id, core_index),
+		}
 	}
 
 	/// Push an assignment back to the front of the queue.

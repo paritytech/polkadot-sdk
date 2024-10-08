@@ -64,7 +64,6 @@ fn run_to_block(
 			if notification.session_index == SessionIndex::default() {
 				notification.session_index = ParasShared::scheduled_session();
 			}
-			Scheduler::pre_new_session(std::iter::empty());
 
 			Configuration::force_set_active_config(notification.new_config.clone());
 

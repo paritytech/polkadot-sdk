@@ -60,7 +60,7 @@ pub trait AssignmentProvider<BlockNumber> {
 	/// the scheduler.
 	///
 	/// This is one way of the life of an assignment coming to an end.
-	fn report_processed(_: ParaId, _: CoreIndex);
+	fn report_processed(assignment: Assignment);
 
 	/// Push back a previously popped assignment.
 	///

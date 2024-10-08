@@ -536,7 +536,7 @@ pub mod mock_assigner {
 		}
 
 		// We don't care about core affinity in the test assigner
-		fn report_processed(_: ParaId, _: CoreIndex) {}
+		fn report_processed(_: Assignment) {}
 
 		fn push_back_assignment(assignment: Assignment) {
 			Self::add_test_assignment(assignment);
