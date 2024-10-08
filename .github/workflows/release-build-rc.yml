@@ -17,11 +17,12 @@ on:
         type: string
 
 jobs:
-  check-workflow-can-run:
+  check-synchronization:
     uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@latest
 
   validate-inputs:
-    needs: [check-workflow-can-run]
+    needs: [check-synchronization]
+    if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
     runs-on: ubuntu-latest
     outputs:
         release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
