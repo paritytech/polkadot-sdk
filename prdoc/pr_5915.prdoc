@@ -6,7 +6,8 @@ title: Omni-Node renamings
 doc:
   - audience: Node Dev
     description: |
-      This PR renames the `polkadot-parachain-lib` crate to `polkadot-omni-node-lib`.
+      This PR renames the `polkadot-parachain-lib` crate to `polkadot-omni-node-lib` and introduces a new
+      `polkadot-omni-node` binary.
 
 crates: 
   - name: polkadot-omni-node-lib

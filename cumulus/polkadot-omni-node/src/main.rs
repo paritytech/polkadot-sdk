@@ -14,7 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Polkadot parachain node.
+//! Basic polkadot omni-node.
+//!
+//! It can be used to start a parachain node from a provided chain spec file.
+//! It is only compatible with runtimes that use block number `u32` and `Aura` consensus.
 
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
