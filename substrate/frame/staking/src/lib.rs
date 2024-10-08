@@ -293,6 +293,7 @@ pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
 
+pub mod asset;
 pub mod election_size_tracker;
 pub mod inflation;
 pub mod ledger;

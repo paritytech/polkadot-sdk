@@ -903,9 +903,8 @@ pub(crate) fn set_minimum_election_score(
 	.map_err(|_| ())
 }
 
-pub(crate) fn locked_amount_for(account_id: AccountId) -> Balance {
-	let lock = pallet_balances::Locks::<Runtime>::get(account_id);
-	lock[0].amount
+pub(crate) fn staked_amount_for(account_id: AccountId) -> Balance {
+	pallet_staking::asset::staked::<Runtime>(&account_id)
 }
 
 pub(crate) fn staking_events() -> Vec<pallet_staking::Event<Runtime>> {

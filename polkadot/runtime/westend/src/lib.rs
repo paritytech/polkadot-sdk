@@ -399,6 +399,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -1782,6 +1783,7 @@ pub mod migrations {
 			Runtime,
 			MaxAgentsToMigrate,
 		>,
+		parachains_shared::migration::MigrateToV1<Runtime>,
 	);
 }
 
