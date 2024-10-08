@@ -22,10 +22,10 @@ pub(crate) const LOG_TARGET: &str = "tests::e2e-epm";
 
 use frame_support::{assert_err, assert_noop, assert_ok};
 use mock::*;
+use pallet_staking::asset::stakeable_balance;
 use pallet_timestamp::Now;
 use sp_core::Get;
 use sp_runtime::Perbill;
-use pallet_staking::asset::stakeable_balance;
 
 use crate::mock::RuntimeOrigin;
 
@@ -426,14 +426,8 @@ fn automatic_unbonding_pools() {
 
 		// final conditions are the expected.
 		assert_eq!(stakeable_balance::<Runtime>(&pool_bonded_account), 6); // 5 init bonded + ED
-		assert_eq!(
-			stakeable_balance::<Runtime>(&2),
-			init_stakeable_balance_2
-		);
-		assert_eq!(
-			stakeable_balance::<Runtime>(&3),
-			init_stakeable_balance_3
-		);
+		assert_eq!(stakeable_balance::<Runtime>(&2), init_stakeable_balance_2);
+		assert_eq!(stakeable_balance::<Runtime>(&3), init_stakeable_balance_3);
 
 		assert_eq!(TotalValueLocked::<Runtime>::get(), init_tvl);
 	});
