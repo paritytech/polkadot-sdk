@@ -88,6 +88,15 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
+/// Defines how the account wants to pay for on-demand.
+#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone, Eq)]
+enum PaymentType {
+	/// Use credits to purchase on-demand coretime.
+	Credits,
+	/// Use account's free balance to purchase on-demand coretime.
+	Balance,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 
@@ -169,6 +178,11 @@ pub mod pallet {
 	pub type Revenue<T: Config> =
 		StorageValue<_, BoundedVec<BalanceOf<T>, T::MaxHistoricalRevenue>, ValueQuery>;
 
+	/// Keeps track of credits owned by each account.
+	#[pallet::storage]
+	pub type Credits<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -241,7 +255,7 @@ pub mod pallet {
 			para_id: ParaId,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-			Pallet::<T>::do_place_order(sender, max_amount, para_id, AllowDeath)
+			Pallet::<T>::do_place_order(sender, max_amount, para_id, AllowDeath, PaymentType::Balance)
 		}
 
 		/// Same as the [`place_order_allow_death`](Self::place_order_allow_death) call , but with a
@@ -267,7 +281,19 @@ pub mod pallet {
 			para_id: ParaId,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-			Pallet::<T>::do_place_order(sender, max_amount, para_id, KeepAlive)
+			Pallet::<T>::do_place_order(sender, max_amount, para_id, KeepAlive, PaymentType::Balance)
+		}
+
+		/// TODO: Docs
+		#[pallet::call_index(2)]
+		#[pallet::weight(10_000)] // TODO
+		pub fn place_order_with_credits(
+			origin: OriginFor<T>,
+			max_amount: BalanceOf<T>,
+			para_id: ParaId,
+		) -> DispatchResult {
+			let sender = ensure_signed(origin)?;
+			Pallet::<T>::do_place_order(sender, max_amount, para_id, KeepAlive, PaymentType::Credits)
 		}
 	}
 }
@@ -344,6 +370,18 @@ where
 		});
 	}
 
+	/// Adds credits to the specified account.
+	///
+	/// Parameters:
+	/// - `who`: Credit receiver.
+	/// - `amount`: The amount of new credits the account will receive.
+	pub fn credit_account(who: T::AccountId, amount: BalanceOf<T>) {
+		Credits::<T>::mutate(who, |maybe_credits| {
+			let credits = maybe_credits.unwrap_or_default().saturating_add(amount);
+			credits
+		});
+	}
+
 	/// Helper function for `place_order_*` calls. Used to differentiate between placing orders
 	/// with a keep alive check or to allow the account to be reaped. The amount charged is
 	/// stored to the pallet account to be later paid out as revenue.
@@ -353,6 +391,7 @@ where
 	/// - `max_amount`: The maximum balance to withdraw from the origin to place an order.
 	/// - `para_id`: A `ParaId` the origin wants to provide blockspace for.
 	/// - `existence_requirement`: Whether or not to ensure that the account will not be reaped.
+	/// - `payment_type`: Defines how the user wants to pay for on-demand.
 	///
 	/// Errors:
 	/// - `InsufficientBalance`: from the Currency implementation
@@ -366,6 +405,7 @@ where
 		max_amount: BalanceOf<T>,
 		para_id: ParaId,
 		existence_requirement: ExistenceRequirement,
+		payment_type: PaymentType,
 	) -> DispatchResult {
 		let config = configuration::ActiveConfig::<T>::get();
 
@@ -386,22 +426,29 @@ where
 				Error::<T>::QueueFull
 			);
 
-			// Charge the sending account the spot price. The amount will be teleported to the
-			// broker chain once it requests revenue information.
-			let amt = T::Currency::withdraw(
-				&sender,
-				spot_price,
-				WithdrawReasons::FEE,
-				existence_requirement,
-			)?;
+			match payment_type {
+				PaymentType::Balance => {
+					// Charge the sending account the spot price. The amount will be teleported to the
+					// broker chain once it requests revenue information.
+					let amt = T::Currency::withdraw(
+						&sender,
+						spot_price,
+						WithdrawReasons::FEE,
+						existence_requirement,
+					)?;
 
-			// Consume the negative imbalance and deposit it into the pallet account. Make sure the
-			// account preserves even without the existential deposit.
-			let pot = Self::account_id();
-			if !System::<T>::account_exists(&pot) {
-				System::<T>::inc_providers(&pot);
+					// Consume the negative imbalance and deposit it into the pallet account. Make sure the
+					// account preserves even without the existential deposit.
+					let pot = Self::account_id();
+					if !System::<T>::account_exists(&pot) {
+						System::<T>::inc_providers(&pot);
+					}
+					T::Currency::resolve_creating(&pot, amt);
+				},
+				PaymentType::Credits => {
+					// TODO: consume credits.
+				}
 			}
-			T::Currency::resolve_creating(&pot, amt);
 
 			// Add the amount to the current block's (index 0) revenue information.
 			Revenue::<T>::mutate(|bounded_revenue| {

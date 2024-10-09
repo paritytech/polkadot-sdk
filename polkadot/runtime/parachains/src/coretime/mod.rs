@@ -87,7 +87,7 @@ impl WeightInfo for TestWeightInfo {
 
 /// Shorthand for the Balance type the runtime is using.
 pub type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as on_demand::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// Broker pallet index on the coretime chain. Used to
 ///
@@ -133,8 +133,6 @@ pub mod pallet {
 		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<result::Result<Origin, <Self as Config>::RuntimeOrigin>>;
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		/// The runtime's definition of a Currency.
-		type Currency: Currency<Self::AccountId>;
 		/// The ParaId of the coretime chain.
 		#[pallet::constant]
 		type BrokerId: Get<u32>;
@@ -208,18 +206,19 @@ pub mod pallet {
 			Self::notify_revenue(when)
 		}
 
-		//// TODO Impl me!
-		////#[pallet::weight(<T as Config>::WeightInfo::credit_account())]
-		//#[pallet::call_index(3)]
-		//pub fn credit_account(
-		//	origin: OriginFor<T>,
-		//	_who: T::AccountId,
-		//	_amount: BalanceOf<T>,
-		//) -> DispatchResult {
-		//	// Ignore requests not coming from the coretime chain or root.
-		//	Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
-		//	Ok(())
-		//}
+		#[pallet::weight(10_000)] // TODO
+		#[pallet::call_index(3)]
+		pub fn credit_account(
+			origin: OriginFor<T>,
+			who: T::AccountId,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			// Ignore requests not coming from the coretime chain or root.
+			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
+
+			on_demand::Pallet::<T>::credit_account(who, amount.saturated_into());
+			Ok(())
+		}
 
 		/// Receive instructions from the `ExternalBrokerOrigin`, detailing how a specific core is
 		/// to be used.
