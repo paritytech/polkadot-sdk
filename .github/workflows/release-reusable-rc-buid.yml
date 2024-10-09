@@ -114,7 +114,7 @@ jobs:
           .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
           echo "Checking binary  ${{ matrix.binaries }}"
-          check_sha256  ${{ matrix.binaries }} && echo "OK" || echo "ERR"
+          check_sha256  ${{ matrix.binaries }}
 
       - name: Check GPG ${{ matrix.binaries }}
         working-directory: /artifacts/${{ matrix.binaries }}
