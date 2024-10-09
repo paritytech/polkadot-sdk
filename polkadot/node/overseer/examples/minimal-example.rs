@@ -31,7 +31,7 @@ use polkadot_overseer::{
 	gen::{FromOrchestra, SpawnedSubsystem},
 	HeadSupportsParachains, SubsystemError,
 };
-use polkadot_primitives::{CandidateReceipt, Hash, PersistedValidationData, PvfExecKind};
+use polkadot_primitives::{CandidateReceipt, Hash, PersistedValidationData};
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_descriptor, dummy_hash, dummy_validation_code,
 };
