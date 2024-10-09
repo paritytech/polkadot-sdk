@@ -349,19 +349,21 @@ pub mod common_strategies {
 	/// * As the update strategy, it accepts `Option<&[u8]>`, where `None` means data removal.
 	///
 	/// By default, the `Bytes` identifies a byte blob associated with the asset (the only one
-	/// blob). However, a user can define several flavors of this strategy by supplying the `Flavor`
-	/// type. The `Flavor` type can also contain additional data (like a byte key) to identify a
-	/// certain byte data.
-	pub struct Bytes<Flavor = ()>(pub Flavor);
+	/// blob). However, a user can define several variants of this strategy by supplying the
+	/// `Request` type. The `Request` type can also contain additional data (like a byte key) to
+	/// identify a certain byte data.
+	/// For instance, there can be several named byte attributes. In that case, the `Request` might
+	/// be something like `Attribute(/* name: */ String)`.
+	pub struct Bytes<Request = ()>(pub Request);
 	impl Default for Bytes<()> {
 		fn default() -> Self {
 			Self(())
 		}
 	}
-	impl<Flavor> MetadataInspectStrategy for Bytes<Flavor> {
+	impl<Request> MetadataInspectStrategy for Bytes<Request> {
 		type Value = Vec<u8>;
 	}
-	impl<Flavor> MetadataUpdateStrategy for Bytes<Flavor> {
+	impl<Request> MetadataUpdateStrategy for Bytes<Request> {
 		type Update<'u> = Option<&'u [u8]>;
 		type Success = ();
 	}
@@ -383,22 +385,22 @@ pub mod common_strategies {
 	/// metadata strategy.
 	///
 	/// * As the inspect strategy, it returns `bool`.
-	/// * As the update strategy is accepts `bool`.
+	/// * As the update strategy, it accepts `bool`.
 	///
 	/// By default, this strategy means the ability to create an asset "in general".
-	/// However, a user can define several flavors of this strategy by supplying the `Flavor` type.
-	/// The `Flavor` type can add more details to the strategy.
-	/// For instance, "Can **a specific user** create an asset?".
-	pub struct CanCreate<Flavor = ()>(pub Flavor);
+	/// However, a user can define several variants of this strategy by supplying the `Condition`
+	/// type. Using the `Condition` value, we are formulating the question, "Can this be created
+	/// under the given condition?". For instance, "Can **a specific user** create an asset?".
+	pub struct CanCreate<Condition = ()>(pub Condition);
 	impl Default for CanCreate<()> {
 		fn default() -> Self {
 			Self(())
 		}
 	}
-	impl<Flavor> MetadataInspectStrategy for CanCreate<Flavor> {
+	impl<Condition> MetadataInspectStrategy for CanCreate<Condition> {
 		type Value = bool;
 	}
-	impl<Flavor> MetadataUpdateStrategy for CanCreate<Flavor> {
+	impl<Condition> MetadataUpdateStrategy for CanCreate<Condition> {
 		type Update<'u> = bool;
 		type Success = ();
 	}
@@ -408,22 +410,23 @@ pub mod common_strategies {
 	/// metadata strategy.
 	///
 	/// * As the inspect strategy, it returns `bool`.
-	/// * As the update strategy is accepts `bool`.
+	/// * As the update strategy, it accepts `bool`.
 	///
 	/// By default, this strategy means the ability to transfer an asset "in general".
-	/// However, a user can define several flavors of this strategy by supplying the `Flavor` type.
-	/// The `Flavor` type can add more details to the strategy.
-	/// For instance, "Can **a specific user** transfer an asset of **another user**?".
-	pub struct CanTransfer<Flavor = ()>(pub Flavor);
+	/// However, a user can define several variants of this strategy by supplying the `Condition`
+	/// type. Using the `Condition` value, we are formulating the question, "Can this be transferred
+	/// under the given condition?". For instance, "Can **a specific user** transfer an asset of
+	/// **another user**?".
+	pub struct CanTransfer<Condition = ()>(pub Condition);
 	impl Default for CanTransfer<()> {
 		fn default() -> Self {
 			Self(())
 		}
 	}
-	impl<Flavor> MetadataInspectStrategy for CanTransfer<Flavor> {
+	impl<Condition> MetadataInspectStrategy for CanTransfer<Condition> {
 		type Value = bool;
 	}
-	impl<Flavor> MetadataUpdateStrategy for CanTransfer<Flavor> {
+	impl<Condition> MetadataUpdateStrategy for CanTransfer<Condition> {
 		type Update<'u> = bool;
 		type Success = ();
 	}
@@ -433,22 +436,23 @@ pub mod common_strategies {
 	/// metadata strategy.
 	///
 	/// * As the inspect strategy, it returns `bool`.
-	/// * As the update strategy is accepts `bool`.
+	/// * As the update strategy, it accepts `bool`.
 	///
 	/// By default, this strategy means the ability to destroy an asset "in general".
-	/// However, a user can define several flavors of this strategy by supplying the `Flavor` type.
-	/// The `Flavor` type can add more details to the strategy.
-	/// For instance, "Can **a specific user** destroy an asset of **another user**?".
-	pub struct CanDestroy<Flavor = ()>(pub Flavor);
+	/// However, a user can define several variants of this strategy by supplying the `Condition`
+	/// type. Using the `Condition` value, we are formulating the question, "Can this be destroyed
+	/// under the given condition?". For instance, "Can **a specific user** destroy an asset of
+	/// **another user**?".
+	pub struct CanDestroy<Condition = ()>(pub Condition);
 	impl Default for CanDestroy<()> {
 		fn default() -> Self {
 			Self(())
 		}
 	}
-	impl<Flavor> MetadataInspectStrategy for CanDestroy<Flavor> {
+	impl<Condition> MetadataInspectStrategy for CanDestroy<Condition> {
 		type Value = bool;
 	}
-	impl<Flavor> MetadataUpdateStrategy for CanDestroy<Flavor> {
+	impl<Condition> MetadataUpdateStrategy for CanDestroy<Condition> {
 		type Update<'u> = bool;
 		type Success = ();
 	}
