@@ -72,6 +72,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+// not all specific usages can be marked as deprecated
+#![allow(deprecated)]
+
 mod benchmarking;
 pub mod migration;
 #[cfg(test)]
@@ -240,6 +243,9 @@ pub mod pallet {
 		///
 		/// NOTE: This parameter is also used within the Bounties Pallet extension if enabled.
 		#[pallet::constant]
+		#[deprecated(
+			note = "Gov v1 type used for spend_local, configure pallet to use PayFromAccount for Paymaster type instead"
+		)]
 		type MaxApprovals: Get<u32>;
 
 		/// The origin required for approving spends from the treasury outside of the proposal
@@ -279,10 +285,17 @@ pub mod pallet {
 
 	/// Number of proposals that have been made.
 	#[pallet::storage]
+	#[deprecated(
+		note = "Gov v1 type used for spend_local, configure pallet to use PayFromAccount for Paymaster type instead"
+	)]
 	pub type ProposalCount<T, I = ()> = StorageValue<_, ProposalIndex, ValueQuery>;
 
 	/// Proposals that have been made.
 	#[pallet::storage]
+	#[deprecated(
+		note = "Gov v1 type used for spend_local, configure pallet to use PayFromAccount for Paymaster type instead"
+	)]
+	#[allow(deprecated)]
 	pub type Proposals<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Twox64Concat,
@@ -298,6 +311,10 @@ pub mod pallet {
 
 	/// Proposal indices that have been approved but not yet awarded.
 	#[pallet::storage]
+	#[deprecated(
+		note = "Gov v1 type used for spend_local, configure pallet to use PayFromAccount for Paymaster type instead"
+	)]
+	#[allow(deprecated)]
 	pub type Approvals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<ProposalIndex, T::MaxApprovals>, ValueQuery>;
 
@@ -470,6 +487,8 @@ pub mod pallet {
 		/// Emits [`Event::SpendApproved`] if successful.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::spend_local())]
+		#[deprecated(note = "This call will be removed by May 2025. Configure pallet to use PayFromAccount for Paymaster type instead")]
+		#[allow(deprecated)]
 		pub fn spend_local(
 			origin: OriginFor<T>,
 			#[pallet::compact] amount: BalanceOf<T, I>,
@@ -499,7 +518,9 @@ pub mod pallet {
 			.unwrap_or(Ok(()))?;
 
 			let beneficiary = T::Lookup::lookup(beneficiary)?;
+			#[allow(deprecated)]
 			let proposal_index = ProposalCount::<T, I>::get();
+			#[allow(deprecated)]
 			Approvals::<T, I>::try_append(proposal_index)
 				.map_err(|_| Error::<T, I>::TooManyApprovals)?;
 			let proposal = Proposal {
@@ -508,7 +529,9 @@ pub mod pallet {
 				beneficiary: beneficiary.clone(),
 				bond: Default::default(),
 			};
+			#[allow(deprecated)]
 			Proposals::<T, I>::insert(proposal_index, proposal);
+			#[allow(deprecated)]
 			ProposalCount::<T, I>::put(proposal_index + 1);
 
 			Self::deposit_event(Event::SpendApproved { proposal_index, amount, beneficiary });
@@ -538,12 +561,17 @@ pub mod pallet {
 		///   in the first place.
 		#[pallet::call_index(4)]
 		#[pallet::weight((T::WeightInfo::remove_approval(), DispatchClass::Operational))]
+		#[deprecated(
+			note = "This call will be removed by May 2025. Configure pallet to use PayFromAccount for Paymaster type instead"
+		)]
+		#[allow(deprecated)]
 		pub fn remove_approval(
 			origin: OriginFor<T>,
 			#[pallet::compact] proposal_id: ProposalIndex,
 		) -> DispatchResult {
 			T::RejectOrigin::ensure_origin(origin)?;
 
+			#[allow(deprecated)]
 			Approvals::<T, I>::try_mutate(|v| -> DispatchResult {
 				if let Some(index) = v.iter().position(|x| x == &proposal_id) {
 					v.remove(index);
@@ -793,16 +821,28 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Public function to proposal_count storage.
+	#[deprecated(
+		note = "This function will be removed by May 2025. Configure pallet to use PayFromAccount for Paymaster type instead"
+	)]
 	pub fn proposal_count() -> ProposalIndex {
+		#[allow(deprecated)]
 		ProposalCount::<T, I>::get()
 	}
 
 	/// Public function to proposals storage.
+	#[deprecated(
+		note = "This function will be removed by May 2025. Configure pallet to use PayFromAccount for Paymaster type instead"
+	)]
 	pub fn proposals(index: ProposalIndex) -> Option<Proposal<T::AccountId, BalanceOf<T, I>>> {
+		#[allow(deprecated)]
 		Proposals::<T, I>::get(index)
 	}
 
 	/// Public function to approvals storage.
+	#[deprecated(
+		note = "This function will be removed by May 2025. Configure pallet to use PayFromAccount for Paymaster type instead"
+	)]
+	#[allow(deprecated)]
 	pub fn approvals() -> BoundedVec<ProposalIndex, T::MaxApprovals> {
 		Approvals::<T, I>::get()
 	}
@@ -817,6 +857,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let mut missed_any = false;
 		let mut imbalance = PositiveImbalanceOf::<T, I>::zero();
+		#[allow(deprecated)]
 		let proposals_len = Approvals::<T, I>::mutate(|v| {
 			let proposals_approvals_len = v.len() as u32;
 			v.retain(|&index| {
