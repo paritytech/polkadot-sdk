@@ -15,8 +15,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-# TODO: will this work fine when we sync-out this template? maybe the name should `polkadot-sdk-frame`
-frame = { workspace = true, default-features = false, features = [
+polkadot-sdk = { workspace = true, default-features = false, features = [
 	"experimental",
 	"runtime",
 ] }
@@ -24,4 +23,4 @@ frame = { workspace = true, default-features = false, features = [
 
 [features]
 default = ["std"]
-std = ["codec/std", "frame/std", "scale-info/std"]
+std = ["codec/std", "polkadot-sdk/std", "scale-info/std"]

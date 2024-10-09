@@ -7,6 +7,7 @@
 
 #[allow(unused_imports)]
 use frame::prelude::*;
+use polkadot_sdk::polkadot_sdk_frame as frame;
 
 // Re-export all pallet parts, this is needed to properly import the pallet into the runtime.
 pub use pallet::*;
@@ -16,7 +17,7 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {}
+	pub trait Config: polkadot_sdk::frame_system::Config {}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
