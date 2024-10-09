@@ -4396,4 +4396,50 @@ mod run_tests {
 			assert_ok!(builder::call(addr).data(data.to_vec()).build());
 		});
 	}
+
+	#[test]
+	fn sbrk_cannot_be_deployed() {
+		let (code, _) = compile_module("sbrk").unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = Balances::set_balance(&ALICE, 1_000_000);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					code.clone(),
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::InvalidInstruction
+			);
+
+			assert_err!(
+				builder::bare_instantiate(Code::Upload(code)).build().result,
+				<Error<Test>>::InvalidInstruction
+			);
+		});
+	}
+
+	#[test]
+	fn overweight_basic_block_cannot_be_deployed() {
+		let (code, _) = compile_module("basic_block").unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = Balances::set_balance(&ALICE, 1_000_000);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					code.clone(),
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::BasicBlockTooLarge
+			);
+
+			assert_err!(
+				builder::bare_instantiate(Code::Upload(code)).build().result,
+				<Error<Test>>::BasicBlockTooLarge
+			);
+		});
+	}
 }
