@@ -745,7 +745,7 @@ pub mod pallet {
 	/// Parameters for the unbonding queue mechanism.
 	#[pallet::storage]
 	pub(crate) type UnbondingQueueParams<T: Config> =
-		StorageValue<_, UnbondingQueueConfig, ValueQuery>;
+		StorageValue<_, UnbondingQueueConfig, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -781,7 +781,6 @@ pub mod pallet {
 			if let Some(x) = self.max_nominator_count {
 				MaxNominatorsCount::<T>::put(x);
 			}
-			UnbondingQueueParams::<T>::set(Default::default());
 
 			for &(ref stash, _, balance, ref status) in &self.stakers {
 				crate::log!(
@@ -1155,10 +1154,10 @@ pub mod pallet {
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
 				// Note: in case there is no current era it is fine to bond one era more.
-				let era = Self::current_era().unwrap_or(0);
+				let current_era = Self::current_era().unwrap_or(0);
 
 				// Calculate unbonding era based on unbonding queue mechanism.
-				let unbonding_era: EraIndex = Self::process_unbond_queue_request(era, value);
+				let era: EraIndex = Self::process_unbond_queue_request(current_era, value);
 
 				// Update chunks with the new unbonding era.
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
@@ -1169,7 +1168,7 @@ pub mod pallet {
 				} else {
 					ledger
 						.unlocking
-						.try_push(UnlockChunk { value, era: unbonding_era })
+						.try_push(UnlockChunk { value, era })
 						.map_err(|_| Error::<T>::NoMoreChunks)?;
 				};
 				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
@@ -1793,6 +1792,7 @@ pub mod pallet {
 		///   should be filled in order for the `chill_other` transaction to work.
 		/// * `min_commission`: The minimum amount of commission that each validators must maintain.
 		///   This is checked only upon calling `validate`. Existing validators are not affected.
+		/// * `unbonding_queue_params`: The parameters for the unbonding queue.
 		///
 		/// RuntimeOrigin must be Root to call this function.
 		///
@@ -1814,6 +1814,7 @@ pub mod pallet {
 			chill_threshold: ConfigOp<Percent>,
 			min_commission: ConfigOp<Perbill>,
 			max_staked_rewards: ConfigOp<Percent>,
+			unbonding_queue_params: ConfigOp<UnbondingQueueConfig>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
@@ -1834,6 +1835,7 @@ pub mod pallet {
 			config_op_exp!(ChillThreshold<T>, chill_threshold);
 			config_op_exp!(MinCommission<T>, min_commission);
 			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
+			config_op_exp!(UnbondingQueueParams<T>, unbonding_queue_params);
 			Ok(())
 		}
 		/// Declare a `controller` to stop participating as either a validator or nominator.
