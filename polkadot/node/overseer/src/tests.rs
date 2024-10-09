@@ -29,7 +29,7 @@ use polkadot_node_subsystem_types::messages::{
 };
 use polkadot_primitives::{
 	CandidateHash, CandidateReceipt, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
-	PersistedValidationData, PvfExecKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
+	PersistedValidationData, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_descriptor, dummy_candidate_receipt, dummy_hash, dummy_validation_code,
