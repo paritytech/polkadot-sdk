@@ -561,7 +561,7 @@ impl Client {
 		Ok(result)
 	}
 
-	/// Dry run a transaction and returns the [`DryRunInfo`] for the transaction.
+	/// Dry run a transaction and returns the [`EthContractResult`] for the transaction.
 	pub async fn dry_run(
 		&self,
 		tx: &GenericTransaction,
@@ -700,6 +700,7 @@ impl Client {
 			transactions_root: header.extrinsics_root,
 			number: header.number.into(),
 			timestamp: timestamp.into(),
+			difficulty: Some(0u32.into()),
 			gas_limit,
 			logs_bloom: Bytes256([0u8; 256]),
 			receipts_root: header.extrinsics_root,
