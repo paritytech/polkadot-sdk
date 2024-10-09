@@ -23,10 +23,7 @@
 
 use crate::{Config, Pallet, LOG_TARGET};
 
-use bp_messages::{
-	target_chain::{DispatchMessage, MessageDispatch},
-	LaneId,
-};
+use bp_messages::target_chain::{DispatchMessage, MessageDispatch};
 use bp_runtime::messages::MessageDispatchResult;
 use bp_xcm_bridge_hub::{LocalXcmChannelManager, XcmAsPlainPayload};
 use codec::{Decode, Encode};
@@ -58,15 +55,18 @@ where
 {
 	type DispatchPayload = XcmAsPlainPayload;
 	type DispatchLevelResult = XcmBlobMessageDispatchResult;
+	type LaneId = T::LaneId;
 
-	fn is_active(lane: LaneId) -> bool {
+	fn is_active(lane: Self::LaneId) -> bool {
 		Pallet::<T, I>::bridge_by_lane_id(&lane)
 			.and_then(|(_, bridge)| bridge.bridge_origin_relative_location.try_as().cloned().ok())
 			.map(|recipient: Location| !T::LocalXcmChannelManager::is_congested(&recipient))
 			.unwrap_or(false)
 	}
 
-	fn dispatch_weight(message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
+	fn dispatch_weight(
+		message: &mut DispatchMessage<Self::DispatchPayload, Self::LaneId>,
+	) -> Weight {
 		match message.data.payload {
 			Ok(ref payload) => {
 				let payload_size = payload.encoded_size().saturated_into();
@@ -77,14 +77,14 @@ where
 	}
 
 	fn dispatch(
-		message: DispatchMessage<Self::DispatchPayload>,
+		message: DispatchMessage<Self::DispatchPayload, Self::LaneId>,
 	) -> MessageDispatchResult<Self::DispatchLevelResult> {
 		let payload = match message.data.payload {
 			Ok(payload) => payload,
 			Err(e) => {
 				log::error!(
 					target: LOG_TARGET,
-					"dispatch - payload error: {e:?} for lane_id: {} and message_nonce: {:?}",
+					"dispatch - payload error: {e:?} for lane_id: {:?} and message_nonce: {:?}",
 					message.key.lane_id,
 					message.key.nonce
 				);
@@ -98,7 +98,7 @@ where
 			Ok(_) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"dispatch - `DispatchBlob::dispatch_blob` was ok for lane_id: {} and message_nonce: {:?}",
+					"dispatch - `DispatchBlob::dispatch_blob` was ok for lane_id: {:?} and message_nonce: {:?}",
 					message.key.lane_id,
 					message.key.nonce
 				);
@@ -107,7 +107,7 @@ where
 			Err(e) => {
 				log::error!(
 					target: LOG_TARGET,
-					"dispatch - `DispatchBlob::dispatch_blob` failed with error: {e:?} for lane_id: {} and message_nonce: {:?}",
+					"dispatch - `DispatchBlob::dispatch_blob` failed with error: {e:?} for lane_id: {:?} and message_nonce: {:?}",
 					message.key.lane_id,
 					message.key.nonce
 				);
@@ -123,13 +123,13 @@ mod tests {
 	use super::*;
 	use crate::{mock::*, Bridges, LaneToBridge, LanesManagerOf};
 
-	use bp_messages::{target_chain::DispatchMessageData, MessageKey};
+	use bp_messages::{target_chain::DispatchMessageData, LaneIdType, MessageKey};
 	use bp_xcm_bridge_hub::{Bridge, BridgeLocations, BridgeState};
 	use frame_support::assert_ok;
 	use pallet_bridge_messages::InboundLaneStorage;
 	use xcm_executor::traits::ConvertLocation;
 
-	fn bridge() -> (Box<BridgeLocations>, LaneId) {
+	fn bridge() -> (Box<BridgeLocations>, TestLaneIdType) {
 		let origin = OpenBridgeOrigin::sibling_parachain_origin();
 		let with = bridged_asset_hub_universal_location();
 		let locations =
@@ -194,16 +194,16 @@ mod tests {
 		});
 	}
 
-	fn invalid_message() -> DispatchMessage<Vec<u8>> {
+	fn invalid_message() -> DispatchMessage<Vec<u8>, TestLaneIdType> {
 		DispatchMessage {
-			key: MessageKey { lane_id: LaneId::new(1, 2), nonce: 1 },
+			key: MessageKey { lane_id: TestLaneIdType::try_new(1, 2).unwrap(), nonce: 1 },
 			data: DispatchMessageData { payload: Err(codec::Error::from("test")) },
 		}
 	}
 
-	fn valid_message() -> DispatchMessage<Vec<u8>> {
+	fn valid_message() -> DispatchMessage<Vec<u8>, TestLaneIdType> {
 		DispatchMessage {
-			key: MessageKey { lane_id: LaneId::new(1, 2), nonce: 1 },
+			key: MessageKey { lane_id: TestLaneIdType::try_new(1, 2).unwrap(), nonce: 1 },
 			data: DispatchMessageData { payload: Ok(vec![42]) },
 		}
 	}

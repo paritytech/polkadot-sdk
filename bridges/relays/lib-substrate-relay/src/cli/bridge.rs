@@ -108,3 +108,7 @@ pub trait MessagesCliBridge: CliBridgeBase {
 		None
 	}
 }
+
+/// An alias for lane identifier type.
+pub type MessagesLaneIdOf<B> =
+	<<B as MessagesCliBridge>::MessagesLane as SubstrateMessageLane>::LaneId;

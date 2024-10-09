@@ -9,6 +9,8 @@ on:
 permissions:
   contents: write # so it can comment
   pull-requests: write # so it can create pull requests
+  issues: write
+  actions: write # It may have to backport changes to the CI as well.
 
 jobs:
   backport:

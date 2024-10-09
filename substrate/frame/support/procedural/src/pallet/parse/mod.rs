@@ -76,7 +76,6 @@ impl Def {
 	pub fn try_from(mut item: syn::ItemMod, dev_mode: bool) -> syn::Result<Self> {
 		let frame_system = generate_access_from_frame_or_crate("frame-system")?;
 		let frame_support = generate_access_from_frame_or_crate("frame-support")?;
-
 		let item_span = item.span();
 		let items = &mut item
 			.content
@@ -221,7 +220,7 @@ impl Def {
 				genesis_config.as_ref().map_or("unused", |_| "used"),
 				genesis_build.as_ref().map_or("unused", |_| "used"),
 			);
-			return Err(syn::Error::new(item_span, msg))
+			return Err(syn::Error::new(item_span, msg));
 		}
 
 		Self::resolve_tasks(&item_span, &mut tasks, &mut task_enum, items)?;
@@ -284,7 +283,7 @@ impl Def {
 						tasks.item_impl.impl_token.span(),
 						"A `#[pallet::tasks_experimental]` attribute must be attached to your `Task` impl if the \
 						task enum has been omitted",
-					))
+					));
 				} else {
 				},
 			_ => (),
@@ -313,7 +312,7 @@ impl Def {
 				// `task_enum`. We use a no-op instead of simply removing it from the vec
 				// so that any indices collected by `Def::try_from` remain accurate
 				*item = syn::Item::Verbatim(quote::quote!());
-				break
+				break;
 			}
 		}
 		*task_enum = result;
@@ -336,7 +335,7 @@ impl Def {
 			let syn::Type::Path(target_path) = &*item_impl.self_ty else { continue };
 			let target_path = target_path.path.segments.iter().collect::<Vec<_>>();
 			let (Some(target_ident), None) = (target_path.get(0), target_path.get(1)) else {
-				continue
+				continue;
 			};
 			let matches_task_enum = match task_enum {
 				Some(task_enum) => task_enum.item_enum.ident == target_ident.ident,
@@ -344,7 +343,7 @@ impl Def {
 			};
 			if trait_last_seg.ident == "Task" && matches_task_enum {
 				result = Some(syn::parse2::<tasks::TasksDef>(item_impl.to_token_stream())?);
-				break
+				break;
 			}
 		}
 		*tasks = result;
@@ -407,7 +406,7 @@ impl Def {
 
 		let mut errors = instances.into_iter().filter_map(|instances| {
 			if instances.has_instance == self.config.has_instance {
-				return None
+				return None;
 			}
 			let msg = if self.config.has_instance {
 				"Invalid generic declaration, trait is defined with instance but generic use none"
@@ -739,7 +738,7 @@ impl syn::parse::Parse for InheritedCallWeightAttr {
 			content.parse::<syn::Token![=]>().expect("peeked");
 			content
 		} else {
-			return Err(lookahead.error())
+			return Err(lookahead.error());
 		};
 
 		Ok(Self { typename: buffer.parse()? })

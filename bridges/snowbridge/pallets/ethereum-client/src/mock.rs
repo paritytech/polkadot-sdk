@@ -63,6 +63,33 @@ pub fn load_next_finalized_header_update_fixture() -> snowbridge_beacon_primitiv
 	load_fixture("next-finalized-header-update.json".to_string()).unwrap()
 }
 
+pub fn load_sync_committee_update_period_0() -> Box<
+	snowbridge_beacon_primitives::Update<
+		{ config::SYNC_COMMITTEE_SIZE },
+		{ config::SYNC_COMMITTEE_BITS_SIZE },
+	>,
+> {
+	Box::new(load_fixture("sync-committee-update-period-0.json".to_string()).unwrap())
+}
+
+pub fn load_sync_committee_update_period_0_older_fixture() -> Box<
+	snowbridge_beacon_primitives::Update<
+		{ config::SYNC_COMMITTEE_SIZE },
+		{ config::SYNC_COMMITTEE_BITS_SIZE },
+	>,
+> {
+	Box::new(load_fixture("sync-committee-update-period-0-older.json".to_string()).unwrap())
+}
+
+pub fn load_sync_committee_update_period_0_newer_fixture() -> Box<
+	snowbridge_beacon_primitives::Update<
+		{ config::SYNC_COMMITTEE_SIZE },
+		{ config::SYNC_COMMITTEE_BITS_SIZE },
+	>,
+> {
+	Box::new(load_fixture("sync-committee-update-period-0-newer.json".to_string()).unwrap())
+}
+
 pub fn get_message_verification_payload() -> (Log, Proof) {
 	let inbound_fixture = snowbridge_pallet_ethereum_client_fixtures::make_inbound_fixture();
 	(inbound_fixture.message.event_log, inbound_fixture.message.proof)
