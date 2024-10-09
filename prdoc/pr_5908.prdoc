@@ -1,0 +1,12 @@
+title: "collation-generation: use v2 receipts"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Implementation of [RFC 103](https://github.com/polkadot-fellows/RFCs/pull/103) for the collation-generation subsystem.
+
+crates:
+  - name: polkadot-node-collation-generation
+    bump: minor
+  - name: polkadot-primitives
+    bump: minor
