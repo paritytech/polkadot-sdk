@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The [AsTransactionExtension] adapter struct for adapting [SignedExtension]s to
+//! The [TreacherousAsTransactionExtension] adapter struct for adapting [SignedExtension]s to
 //! [TransactionExtension]s.
 
 #![allow(deprecated)]
@@ -31,23 +31,33 @@ use crate::{
 use super::*;
 
 /// Adapter to use a `SignedExtension` in the place of a `TransactionExtension`.
+///
+/// # WARNING
+///
+/// This is unsafe for 2 reasons:
+/// * It must not be used for a singular signed extension within a transaction extension pipeline.
+///   E.g.
+///   ```nocompile
+///   type Ext: TransactionExtension = (CheckNonce, TreacherousAsTransactionExtension<MySignedExtension>)
+///   ```
+///   is not invalid.
+///   Instead, use:
+///   ```nocompile
+///   type Ext: TransactionExtension = TreacherousAsTransactionExtension<(SignedExt1, SignedExt2)>
+///   ```
+///   The risk is that some feature from the signed extension won't be properly adapted.
+/// * It doesn't return the accurate weight.
 #[derive(TypeInfo, Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 #[deprecated = "Convert your SignedExtension to a TransactionExtension."]
-pub struct AsTransactionExtension<SE: SignedExtension>(pub SE);
+pub struct TreacherousAsTransactionExtension<SE: SignedExtension>(pub SE);
 
-impl<SE: SignedExtension + Default> Default for AsTransactionExtension<SE> {
+impl<SE: SignedExtension + Default> Default for TreacherousAsTransactionExtension<SE> {
 	fn default() -> Self {
 		Self(SE::default())
 	}
 }
 
-impl<SE: SignedExtension> From<SE> for AsTransactionExtension<SE> {
-	fn from(value: SE) -> Self {
-		Self(value)
-	}
-}
-
-impl<SE: SignedExtension> TransactionExtension<SE::Call> for AsTransactionExtension<SE>
+impl<SE: SignedExtension> TransactionExtension<SE::Call> for TreacherousAsTransactionExtension<SE>
 where
 	<SE::Call as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<SE::AccountId> + Clone,
 {

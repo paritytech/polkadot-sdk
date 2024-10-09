@@ -50,11 +50,6 @@ doc:
         - `TestXt` was removed and its usage in tests was replaced with `UncheckedExtrinsic`
           instances.
 
-      To fix the build issues introduced by this change, use the `AsTransactionExtension` adapter
-      to wrap existing `SignedExtension`s by converting them using the `From<SignedExtension>`
-      generic implementation for `AsTransactionExtension`. More details on migrating existing
-      `SignedExtension` implementations to `TransactionExtension` in the PR description.
-
 crates:
   - name: bridge-runtime-common
     bump: major
