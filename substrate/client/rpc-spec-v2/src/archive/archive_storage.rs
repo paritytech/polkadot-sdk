@@ -158,6 +158,17 @@ pub struct DiffDetails {
 	child_trie_key_string: Option<String>,
 }
 
+/// The type of storage query.
+#[derive(Debug, PartialEq, Clone, Copy)]
+enum FetchStorageType {
+	/// Only fetch the value.
+	Value,
+	/// Only fetch the hash.
+	Hash,
+	/// Fetch both the value and the hash.
+	Both,
+}
+
 pub struct ArchiveStorageDiff<Client, Block, BE> {
 	client: Storage<Client, Block, BE>,
 }
@@ -174,7 +185,7 @@ where
 	BE: Backend<Block> + 'static,
 	Client: StorageProvider<Block, BE> + 'static,
 {
-	/// Deduplicate the provided iterms and return a list of `DiffDetails`.
+	/// Deduplicate the provided items and return a list of `DiffDetails`.
 	///
 	/// Each list corresponds to a single child trie or the main trie.
 	pub fn deduplicate_items(
@@ -240,37 +251,86 @@ where
 		Ok(deduplicated.into_values().collect())
 	}
 
-	// This calls into the database.
+	/// This calls into the database.
 	fn fetch_storage(
 		&self,
 		hash: Block::Hash,
 		key: StorageKey,
 		maybe_child_trie: Option<ChildInfo>,
-		ty: ArchiveStorageDiffType,
-	) -> RpcResult<Option<StorageResult>> {
+		ty: FetchStorageType,
+	) -> RpcResult<Option<(StorageResult, Option<StorageResult>)>> {
+		let convert_err = |error| ArchiveError::InvalidParam(error);
+
 		match ty {
-			ArchiveStorageDiffType::Value =>
-				self.client.query_value(hash, &key, maybe_child_trie.as_ref()),
-			ArchiveStorageDiffType::Hash =>
-				self.client.query_hash(hash, &key, maybe_child_trie.as_ref()),
+			FetchStorageType::Value => {
+				let result = self
+					.client
+					.query_value(hash, &key, maybe_child_trie.as_ref())
+					.map_err(convert_err)?;
+
+				Ok(result.map(|res| (res, None)))
+			},
+
+			FetchStorageType::Hash => {
+				let result = self
+					.client
+					.query_hash(hash, &key, maybe_child_trie.as_ref())
+					.map_err(convert_err)?;
+
+				Ok(result.map(|res| (res, None)))
+			},
+
+			FetchStorageType::Both => {
+				let value = self
+					.client
+					.query_value(hash, &key, maybe_child_trie.as_ref())
+					.map_err(convert_err)?;
+
+				let Some(value) = value else {
+					return Ok(None);
+				};
+
+				let hash = self
+					.client
+					.query_hash(hash, &key, maybe_child_trie.as_ref())
+					.map_err(convert_err)?;
+
+				let Some(hash) = hash else {
+					return Ok(None);
+				};
+
+				Ok(Some((value, Some(hash))))
+			},
 		}
-		.map_err(|error| ArchiveError::InvalidParam(error).into())
 	}
 
-	// Check if the key starts with any of the provided items.
-	fn starts_with(key: &StorageKey, items: &[DiffDetails]) -> bool {
-		// User has requested all keys.
+	/// Check if the key starts with any of the provided items.
+	///
+	/// Returns a `FetchStorage` to indicate if the key should be fetched.
+	fn starts_with(key: &StorageKey, items: &[DiffDetails]) -> Option<FetchStorageType> {
+		// User has requested all keys, by default this fallbacks to fetching the value.
 		if items.is_empty() {
-			return true
+			return Some(FetchStorageType::Value)
 		}
+
+		let mut value = false;
+		let mut hash = false;
 
 		for item in items {
 			if key.as_ref().starts_with(&item.key.as_ref()) {
-				return true
+				match item.return_type {
+					ArchiveStorageDiffType::Value => value = true,
+					ArchiveStorageDiffType::Hash => hash = true,
+				}
 			}
 		}
 
-		false
+		match (value, hash) {
+			(true, true) => Some(FetchStorageType::Both),
+			(true, false) => Some(FetchStorageType::Value),
+			(false, true) => Some(FetchStorageType::Hash),
+			(false, false) => None,
+		}
 	}
 
 	/// It is guaranteed that all entries correspond to the same child trie or main trie.
@@ -286,10 +346,6 @@ where
 		let maybe_child_trie = items.first().map(|item| item.child_trie_key.clone()).flatten();
 		let maybe_child_trie_str =
 			items.first().map(|item| item.child_trie_key_string.clone()).flatten();
-		let return_type = items
-			.first()
-			.map(|item| item.return_type)
-			.unwrap_or(ArchiveStorageDiffType::Value);
 
 		let keys_iter = self
 			.client
@@ -302,12 +358,12 @@ where
 			.map_err(|error| ArchiveError::InvalidParam(error))?;
 
 		for key in keys_iter {
-			if !Self::starts_with(&key, &items) {
-				continue
-			}
+			let Some(fetch_type) = Self::starts_with(&key, &items) else {
+				continue;
+			};
 
 			let Some(storage_result) =
-				self.fetch_storage(hash, key.clone(), maybe_child_trie.clone(), return_type)?
+				self.fetch_storage(hash, key.clone(), maybe_child_trie.clone(), fetch_type)?
 			else {
 				continue
 			};
@@ -317,11 +373,22 @@ where
 				keys_set.insert(key.clone());
 
 				results.push(ArchiveStorageDiffResult {
-					key: storage_result.key.clone(),
-					result: storage_result.result.clone(),
-					operation_type: ArchiveStorageDiffOperationType::Modified,
+					key: storage_result.0.key.clone(),
+					result: storage_result.0.result.clone(),
+					operation_type: ArchiveStorageDiffOperationType::Added,
 					child_trie_key: maybe_child_trie_str.clone(),
 				});
+
+				if let Some(second) = storage_result.1 {
+					results.push(ArchiveStorageDiffResult {
+						key: second.key.clone(),
+						result: second.result.clone(),
+						operation_type: ArchiveStorageDiffOperationType::Added,
+						child_trie_key: maybe_child_trie_str.clone(),
+					});
+				}
+
+				continue
 			}
 
 			// Report the result only if the value has changed.
@@ -329,44 +396,63 @@ where
 				previous_hash,
 				key.clone(),
 				maybe_child_trie.clone(),
-				return_type,
+				fetch_type,
 			)?
 			else {
 				continue
 			};
-			if storage_result.result != previous_storage_result.result {
+
+			if storage_result.0.result != previous_storage_result.0.result {
 				keys_set.insert(key.clone());
 
 				results.push(ArchiveStorageDiffResult {
-					key: storage_result.key,
-					result: storage_result.result,
+					key: storage_result.0.key.clone(),
+					result: storage_result.0.result.clone(),
 					operation_type: ArchiveStorageDiffOperationType::Modified,
 					child_trie_key: maybe_child_trie_str.clone(),
 				});
+
+				if let Some(second) = storage_result.1 {
+					results.push(ArchiveStorageDiffResult {
+						key: second.key.clone(),
+						result: second.result.clone(),
+						operation_type: ArchiveStorageDiffOperationType::Modified,
+						child_trie_key: maybe_child_trie_str.clone(),
+					});
+				}
 			}
 		}
 
 		for previous_key in previous_keys_iter {
-			if !keys_set.contains(&previous_key) || !Self::starts_with(&previous_key, &items) {
+			let Some(fetch_type) = Self::starts_with(&previous_key, &items) else {
 				continue;
-			}
+			};
 
 			let Some(previous_storage_result) = self.fetch_storage(
 				previous_hash,
 				previous_key.clone(),
 				maybe_child_trie.clone(),
-				return_type,
+				fetch_type,
 			)?
 			else {
 				continue
 			};
 
 			results.push(ArchiveStorageDiffResult {
-				key: previous_storage_result.key,
-				result: previous_storage_result.result,
+				key: previous_storage_result.0.key,
+				result: previous_storage_result.0.result,
 				operation_type: ArchiveStorageDiffOperationType::Deleted,
 				child_trie_key: maybe_child_trie_str.clone(),
 			});
+
+			if let Some(second) = previous_storage_result.1 {
+				results.push(ArchiveStorageDiffResult {
+					key: second.key.clone(),
+					result: second.result.clone(),
+					operation_type: ArchiveStorageDiffOperationType::Deleted,
+					child_trie_key: maybe_child_trie_str.clone(),
+				});
+			}
 		}
 
 		Ok(results)
