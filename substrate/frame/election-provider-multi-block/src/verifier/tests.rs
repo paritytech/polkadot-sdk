@@ -75,10 +75,6 @@ mod feasibility_check {
 
 mod sync_verifier {
 	use super::*;
-	use crate::{
-		verifier::{impls::pallet::QueuedSolution, SolutionPointer},
-		SupportsOf, Verifier,
-	};
 
 	#[test]
 	fn sync_verifier_simple_works() {

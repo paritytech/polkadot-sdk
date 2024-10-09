@@ -18,17 +18,13 @@
 //! Some helper functions/macros for this crate.
 
 use crate::{
-	types::{
-		AllTargetPagesMinerOf, AllTargetPagesOf, AllVoterPagesMinerOf, AllVoterPagesOf,
-		MaxWinnersPerPageMinerOf, MinerVoterOf, VoterOf,
-	},
-	AccountIdOf, Config, MaxWinnersPerPageOf, SolutionTargetIndexMinerOf, SolutionTargetIndexOf,
-	SolutionVoterIndexMinerOf, SolutionVoterIndexOf,
+	types::{AllTargetPagesMinerOf, AllVoterPagesMinerOf, MaxWinnersPerPageMinerOf, MinerVoterOf},
+	SolutionTargetIndexMinerOf, SolutionVoterIndexMinerOf,
 };
 use frame_election_provider_support::{PageIndex, VoteWeight};
 use frame_support::{traits::Get, BoundedVec};
 use sp_runtime::SaturatedConversion;
-use sp_std::{cmp::Reverse, collections::btree_map::BTreeMap, vec, vec::Vec};
+use sp_std::{cmp::Reverse, collections::btree_map::BTreeMap, vec};
 
 #[macro_export]
 macro_rules! log {

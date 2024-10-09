@@ -67,10 +67,10 @@ mod tests;
 
 use crate::{
 	unsigned::{
-		miner::{Config as MinerConfig, OffchainMinerError, OffchainWorkerMiner},
+		miner::{OffchainMinerError, OffchainWorkerMiner},
 		weights::WeightInfo,
 	},
-	verifier, AccountIdOf, Pallet as EPM, Phase, SolutionAccuracyOf, SolutionOf, Verifier,
+	verifier, Phase, SolutionOf, Verifier,
 };
 use frame_election_provider_support::PageIndex;
 use frame_support::{
@@ -81,7 +81,6 @@ use frame_support::{
 use frame_system::{offchain::SendTransactionTypes, pallet_prelude::BlockNumberFor};
 use sp_npos_elections::ElectionScore;
 use sp_runtime::SaturatedConversion;
-use sp_std::vec::Vec;
 
 // public re-exports.
 pub use pallet::{
@@ -91,8 +90,6 @@ pub use pallet::{
 
 #[frame_support::pallet(dev_mode)]
 pub(crate) mod pallet {
-
-	use crate::MinerSolutionAccuracyOf;
 
 	use super::*;
 	use frame_support::pallet_prelude::*;

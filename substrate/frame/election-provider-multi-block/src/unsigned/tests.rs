@@ -17,13 +17,12 @@
 
 use super::*;
 use crate::{
-	mock::*,
-	unsigned::{miner::*, pallet::Config as UnsignedConfig},
-	PagedTargetSnapshot, PagedVoterSnapshot, Phase, Snapshot, Verifier,
+	mock::*, unsigned::miner::Config, PagedTargetSnapshot, PagedVoterSnapshot, Phase, Snapshot,
+	Verifier,
 };
 
 use frame_election_provider_support::ElectionProvider;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::assert_ok;
 
 mod calls {
 	use super::*;

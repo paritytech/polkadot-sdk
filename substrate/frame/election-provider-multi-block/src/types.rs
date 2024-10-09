@@ -22,7 +22,6 @@ use frame_support::{BoundedVec, DebugNoBound};
 use scale_info::TypeInfo;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::SaturatedConversion;
-use sp_std::{boxed::Box, vec::Vec};
 
 use crate::{unsigned::miner, Verifier};
 

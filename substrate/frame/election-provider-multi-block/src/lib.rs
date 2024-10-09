@@ -131,12 +131,7 @@ pub use crate::{verifier::Verifier, weights::WeightInfo};
 
 /// Internal crate re-exports to use across benchmarking and tests.
 #[cfg(any(test, feature = "runtime-benchmarks"))]
-use crate::{
-	signed::{Config as ConfigSigned, Pallet as PalletSigned},
-	unsigned::Config as ConfigUnsigned,
-	verifier::{Config as ConfigVerifier, Pallet as PalletVerifier},
-	Config as ConfigCore, Pallet as PalletCore,
-};
+use crate::verifier::Pallet as PalletVerifier;
 
 const LOG_TARGET: &'static str = "runtime::multiblock-election";
 
@@ -773,7 +768,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 #[cfg(test)]
 mod phase_transition {
 	use super::*;
-	use crate::{mock::*, verifier::AsyncVerifier};
+	use crate::mock::*;
 
 	use frame_support::assert_ok;
 

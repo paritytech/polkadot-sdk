@@ -19,26 +19,21 @@
 
 use crate::{
 	helpers,
-	types::{PageSize, Pagify, SupportsOf, VoterOf},
+	types::{PageSize, Pagify},
 	unsigned::{pallet::Config as UnsignedConfig, Call},
 	verifier::FeasibilityError,
-	MinerAssignmentOf, MinerSolutionAccuracyOf, MinerSupportsOf, MinerVoterOf, Pallet as EPM,
-	Snapshot, SolutionAccuracyOf, SolutionOf,
+	MinerAssignmentOf, MinerSupportsOf, MinerVoterOf, Pallet as EPM, Snapshot,
 };
 
-use codec::Encode;
 use frame_election_provider_support::{
-	DataProviderBounds, ElectionDataProvider, IndexAssignmentOf, NposSolution, NposSolver,
-	PageIndex, TryIntoBoundedSupports, Weight,
+	ElectionDataProvider, IndexAssignmentOf, NposSolution, NposSolver, PageIndex,
+	TryIntoBoundedSupports, Weight,
 };
 use frame_support::{ensure, traits::Get, BoundedVec};
 use scale_info::TypeInfo;
-use sp_npos_elections::{
-	assignment_ratio_to_staked_normalized, assignment_staked_to_ratio_normalized, ElectionResult,
-	ElectionScore, ExtendedBalance, PerThing128, Support,
-};
-use sp_runtime::{offchain::storage::StorageValueRef, traits::Zero, SaturatedConversion};
-use sp_std::{vec, vec::Vec};
+use sp_npos_elections::{ElectionResult, ElectionScore, ExtendedBalance, Support};
+use sp_runtime::{offchain::storage::StorageValueRef, SaturatedConversion};
+use sp_std::vec;
 
 pub type TargetSnaphsotOf<T> =
 	BoundedVec<<T as Config>::AccountId, <T as Config>::TargetSnapshotPerBlock>;

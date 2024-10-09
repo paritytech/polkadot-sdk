@@ -23,23 +23,17 @@ use frame_support::{
 	traits::{Defensive, TryCollect},
 	BoundedVec,
 };
-use sp_runtime::{
-	traits::{BlockNumber, One, Zero},
-	Perbill, Saturating,
-};
+use sp_runtime::{traits::Zero, Perbill};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 use super::*;
 use pallet::*;
 
-use crate::{
-	helpers, unsigned::miner, verifier::weights::WeightInfo, AccountIdOf, SolutionAccuracyOf,
-	SolutionOf,
-};
+use crate::{helpers, unsigned::miner, verifier::weights::WeightInfo, SolutionOf};
 
 #[frame_support::pallet(dev_mode)]
 pub(crate) mod pallet {
-	use crate::{SolutionVoterIndexOf, SupportsOf};
+	use crate::SupportsOf;
 
 	use super::*;
 	use frame_support::pallet_prelude::{ValueQuery, *};
