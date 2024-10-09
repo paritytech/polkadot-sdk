@@ -32,7 +32,14 @@
 //!
 //! ## Usage
 //!
-//! The main intended use of this crate is for it to be imported with its preludes:
+//! This crate is organized into 3 stages:
+//!
+//! 1. preludes: [`prelude`], [`testing_prelude`] and [`runtime::prelude`], [`benchmarking`],
+//!    [`weights_prelude`], [`try_runtime`].
+//! 2. domain-specific modules: [`traits`], [`hashing`], [`arithmetic`] and [`derive`].
+//! 3. Accessing frame/substrate dependencies directly: [`deps`].
+//!
+//! The main intended use of this crate is for it to be used with the former, preludes:
 //!
 //! ```
 //! use polkadot_sdk_frame as frame;
@@ -67,25 +74,67 @@
 //! }
 //! ```
 //!
-//! See: [`prelude`], [`testing_prelude`] and [`runtime::prelude`], [`benchmarking`].
+//! See: .
 //!
-//! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`.
+//! If not in preludes, one can look into the domain-specific modules. Finally, if an import is
+//! still not feasible, one can look into [`deps`].
+//!
+//!
+//! ## Naming
+//!
+//! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`. This is due
+//! to compatibility matters with `frame-support`.
+//!
+//! A typical pallet's `Cargo.toml` using this crate looks like:
+//!
+//! ```ignore
+//! [dependencies]
+//! codec = { features = ["max-encoded-len"], workspace = true }
+//! scale-info = { features = ["derive"], workspace = true }
+//! frame = { workspace = true, features = ["experimental", "runtime"] }
+//!
+//! [features]
+//! default = ["std"]
+//! std = [
+//! 	"codec/std",
+//! 	"scale-info/std",
+//! 	"frame/std",
+//! ]
+//! runtime-benchmarks = [
+//! 	"frame/runtime-benchmarks",
+//! ]
+//! try-runtime = [
+//! 	"frame/try-runtime",
+//! ]
+//! ```
 //!
 //! ## Documentation
 //!
 //! See [`polkadot_sdk::frame`](../polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html).
 //!
-//! ## Underlying dependencies
-//!
-//! This crate is an amalgamation of multiple other crates that are often used together to compose a
-//! pallet. It is not necessary to use it, and it may fall short for certain purposes.
-//!
-//! In short, this crate only re-exports types and traits from multiple sources. All of these
-//! sources are listed (and re-exported again) in [`deps`].
-//!
 //! ## WARNING: Experimental
 //!
 //! **This crate and all of its content is experimental, and should not yet be used in production.**
+//!
+//! ## Maintenance Note
+//!
+//! > Notes for the maintainers of this crate, describing how the re-exports and preludes should
+//! > work.
+//!
+//! * Preludes should be extensive. The goal of this pallet is to be ONLY used with the preludes.
+//!   The domain-specific modules are just a backup, aiming to keep things organized. Don't hesitate
+//!   in adding more items to the main prelude.
+//! 	* When doing so, prefer adding the relevant item to `frame_support::pallet_prelude` and
+//!    `frame_system::pallet_prelude`.
+//! * The only non-module, non-prelude items exported from the top level crate is the `pallet`
+//!   macro, such that we can have the `#[frame::pallet] mod pallet { .. }` syntax working.
+//! * In most cases, you might want to create a domain-specific module, but also add it to the
+//!   preludes, such as [`hashing`].
+//! * The only items that should NOT be in preludes are those that have been placed in
+//!   `frame-support`/`sp-runtime`, but in truth are related to just one pallet.
+//! * The currency related traits are kept out of the preludes to encourage a deliberate choice of
+//!   one over the other.
+//! * [`runtime::apis`] should expose all common runtime APIs that all FRAME-based runtimes need.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
@@ -325,6 +374,7 @@ pub mod runtime {
 		pub use sp_block_builder::*;
 		pub use sp_consensus_aura::*;
 		pub use sp_consensus_grandpa::*;
+		pub use sp_genesis_builder::*;
 		pub use sp_offchain::*;
 		pub use sp_session::runtime_api::*;
 		pub use sp_transaction_pool::runtime_api::*;

@@ -36,7 +36,6 @@ pub mod weights;
 extern crate alloc;
 use alloc::{boxed::Box, vec};
 use frame::{
-	hashing::blake2_256,
 	prelude::*,
 	traits::{Currency, ReservableCurrency},
 };
