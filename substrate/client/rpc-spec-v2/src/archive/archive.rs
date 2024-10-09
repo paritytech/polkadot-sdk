@@ -18,6 +18,7 @@
 
 //! API implementation for `archive`.
 
+use super::archive_storage::ArchiveStorage;
 use crate::{
 	archive::{error::Error as ArchiveError, ArchiveApiServer},
 	common::{
@@ -32,6 +33,7 @@ use crate::{
 };
 
 use codec::Encode;
+use itertools::Itertools;
 use jsonrpsee::core::{async_trait, RpcResult};
 use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, StorageKey,
@@ -47,8 +49,6 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
-
-use super::archive_storage::ArchiveStorage;
 
 /// The configuration of [`Archive`].
 pub struct ArchiveConfig {
@@ -322,6 +322,7 @@ where
 
 		// Deduplicate the items.
 		let mut storage_results = Vec::new();
+		let mut storage_keys_set = HashSet::new();
 
 		for item in items {
 			let (key, return_type, child_trie_key, child_trie_key_string) = item;
@@ -335,20 +336,18 @@ where
 			}
 			.map_err(|error| ArchiveError::InvalidParam(error.to_string()))?;
 
-			let previous_keys = {
+			let mut previous_keys = {
 				if let Some(child_key) = child_trie_key.clone() {
 					self.client.child_storage_keys(previous_hash, child_key, Some(&key), None)
 				} else {
 					self.client.storage_keys(previous_hash, Some(&key), None)
 				}
 			}
-			.map_err(|error| ArchiveError::InvalidParam(error.to_string()))?
-			.collect::<HashSet<_>>();
+			.map_err(|error| ArchiveError::InvalidParam(error.to_string()))?;
 
 			let storage_client: Storage<Client, Block, BE> = Storage::new(self.client.clone());
 
 			for current_key in current_keys {
-				// The key is not present in the previous state.
 				let result = match return_type {
 					ArchiveStorageDiffType::Value =>
 						storage_client.query_value(hash, &current_key, child_trie_key.as_ref()),
@@ -363,7 +362,10 @@ where
 					Err(error) => return Err(ArchiveError::InvalidParam(error.to_string()).into()),
 				};
 
+				// The key is not present in the previous state.
 				if !previous_keys.contains(&current_key) {
+					storage_keys_set.insert(current_key.clone());
+
 					storage_results.push(ArchiveStorageDiffResult {
 						key: storage_result.key,
 						result: storage_result.result,
@@ -372,6 +374,72 @@ where
 					});
 
 					continue
+				}
+
+				// Check for storage difference between the current and previous state.
+				let result = match return_type {
+					ArchiveStorageDiffType::Value => storage_client.query_value(
+						previous_hash,
+						&current_key,
+						child_trie_key.as_ref(),
+					),
+
+					ArchiveStorageDiffType::Hash => storage_client.query_hash(
+						previous_hash,
+						&current_key,
+						child_trie_key.as_ref(),
+					),
+				};
+
+				let previous_storage_result = match result {
+					Ok(Some(storage_result)) => storage_result,
+					Ok(None) => continue,
+					Err(error) => return Err(ArchiveError::InvalidParam(error.to_string()).into()),
+				};
+
+				// Report the result only if the value has changed.
+				if storage_result.result != previous_storage_result.result {
+					storage_keys_set.insert(current_key.clone());
+
+					storage_results.push(ArchiveStorageDiffResult {
+						key: storage_result.key,
+						result: storage_result.result,
+						operation_type: ArchiveStorageDiffOperationType::Modified,
+						child_trie_key: child_trie_key_string.clone(),
+					});
+				}
+			}
+
+			// Check for removed keys.
+			for previous_key in previous_keys {
+				if !storage_keys_set.contains(&previous_key) {
+					let result = match return_type {
+						ArchiveStorageDiffType::Value => storage_client.query_value(
+							previous_hash,
+							&previous_key,
+							child_trie_key.as_ref(),
+						),
+
+						ArchiveStorageDiffType::Hash => storage_client.query_hash(
+							previous_hash,
+							&previous_key,
+							child_trie_key.as_ref(),
+						),
+					};
+
+					let storage_result = match result {
+						Ok(Some(storage_result)) => storage_result,
+						Ok(None) => continue,
+						Err(error) =>
+							return Err(ArchiveError::InvalidParam(error.to_string()).into()),
+					};
+
+					storage_results.push(ArchiveStorageDiffResult {
+						key: storage_result.key,
+						result: storage_result.result,
+						operation_type: ArchiveStorageDiffOperationType::Deleted,
+						child_trie_key: child_trie_key_string.clone(),
+					});
 				}
 			}
 		}

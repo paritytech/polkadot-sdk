@@ -42,6 +42,7 @@ log = { workspace = true, default-features = true }
 futures-util = { workspace = true }
 rand = { workspace = true, default-features = true }
 schnellru = { workspace = true }
+itertools = { workspace = true }
 
 [dev-dependencies]
 jsonrpsee = { workspace = true, features = ["server", "ws-client"] }
