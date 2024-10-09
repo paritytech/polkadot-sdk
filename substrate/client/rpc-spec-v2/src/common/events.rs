@@ -143,9 +143,178 @@ pub struct ArchiveStorageMethodErr {
 	pub error: String,
 }
 
+/// The type of the archive storage difference query.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ArchiveStorageDiffType {
+	/// The result is provided as value of the key.
+	Value,
+	/// The result the hash of the value of the key.
+	Hash,
+}
+
+/// The storage item to query.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchiveStorageDiffItem<Key> {
+	/// The provided key.
+	pub key: Key,
+	/// The type of the storage query.
+	pub return_type: ArchiveStorageDiffType,
+	/// The child trie key if provided.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default)]
+	pub child_trie_key: Option<Key>,
+}
+
+/// The result of a storage difference call.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchiveStorageDiffMethodResult {
+	/// Reported results.
+	pub result: Vec<ArchiveStorageDiffResult>,
+}
+
+/// The result of a storage difference call operation type.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ArchiveStorageDiffOperationType {
+	/// The key is added.
+	Added,
+	/// The key is modified.
+	Modified,
+	/// The key is removed.
+	Deleted,
+}
+
+/// The result of an individual storage difference key.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchiveStorageDiffResult {
+	/// The hex-encoded key of the result.
+	pub key: String,
+	/// The result of the query.
+	#[serde(flatten)]
+	pub result: StorageResultType,
+	/// The operation type.
+	#[serde(rename = "type")]
+	pub operation_type: ArchiveStorageDiffOperationType,
+	/// The child trie key if provided.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default)]
+	pub child_trie_key: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn archive_diff_input() {
+		// Item with Value.
+		let item = ArchiveStorageDiffItem {
+			key: "0x1",
+			return_type: ArchiveStorageDiffType::Value,
+			child_trie_key: None,
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","returnType":"value"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: ArchiveStorageDiffItem<&str> = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with Hash.
+		let item = ArchiveStorageDiffItem {
+			key: "0x1",
+			return_type: ArchiveStorageDiffType::Hash,
+			child_trie_key: None,
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","returnType":"hash"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: ArchiveStorageDiffItem<&str> = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with Value and child trie key.
+		let item = ArchiveStorageDiffItem {
+			key: "0x1",
+			return_type: ArchiveStorageDiffType::Value,
+			child_trie_key: Some("0x2"),
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","returnType":"value","childTrieKey":"0x2"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: ArchiveStorageDiffItem<&str> = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with Hash and child trie key.
+		let item = ArchiveStorageDiffItem {
+			key: "0x1",
+			return_type: ArchiveStorageDiffType::Hash,
+			child_trie_key: Some("0x2"),
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","returnType":"hash","childTrieKey":"0x2"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: ArchiveStorageDiffItem<&str> = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+	}
+
+	#[test]
+	fn archive_diff_output() {
+		// Item with Value.
+		let item = ArchiveStorageDiffResult {
+			key: "0x1".into(),
+			result: StorageResultType::Value("res".into()),
+			operation_type: ArchiveStorageDiffOperationType::Added,
+			child_trie_key: None,
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","value":"res","type":"added"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: ArchiveStorageDiffResult = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with Hash.
+		let item = ArchiveStorageDiffResult {
+			key: "0x1".into(),
+			result: StorageResultType::Hash("res".into()),
+			operation_type: ArchiveStorageDiffOperationType::Modified,
+			child_trie_key: None,
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","hash":"res","type":"modified"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: ArchiveStorageDiffResult = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with Hash, child trie key and removed.
+		let item = ArchiveStorageDiffResult {
+			key: "0x1".into(),
+			result: StorageResultType::Hash("res".into()),
+			operation_type: ArchiveStorageDiffOperationType::Deleted,
+			child_trie_key: Some("0x2".into()),
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","hash":"res","type":"deleted","childTrieKey":"0x2"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: ArchiveStorageDiffResult = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+	}
 
 	#[test]
 	fn storage_result() {
