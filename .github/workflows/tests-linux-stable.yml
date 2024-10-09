@@ -120,13 +120,13 @@ jobs:
         uses: actions/checkout@v4
       - name: script
         run: |
-          forklift cargo nextest run \
+          forklift cargo nextest run --workspace \
                    --locked \
                    --release \
                    --no-fail-fast \
                    --cargo-quiet \
                    --features experimental,riscv,ci-only-tests \
-                   -E 'not test(=polkadot-node-core-pvf::it all_security_features_work) + not test(=polkadot-node-core-pvf::it nonexistent_cache_dir)'
+                   --filter-expr " !test(/all_security_features_work/) - test(/nonexistent_cache_dir/)"
 
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
