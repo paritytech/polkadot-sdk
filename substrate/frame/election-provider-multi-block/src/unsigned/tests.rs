@@ -141,7 +141,7 @@ mod calls {
 mod miner {
 	use super::*;
 
-	type OffchainSolver = <T as UnsignedConfig>::OffchainSolver;
+	type OffchainSolver = <T as miner::Config>::Solver;
 
 	#[test]
 	fn snapshot_idx_based_works() {

@@ -71,16 +71,6 @@ pub(crate) mod pallet {
 		/// Something that can provide the solution data to the verifier.
 		type SolutionDataProvider: crate::verifier::SolutionDataProvider<Solution = Self::Solution>;
 
-		/// The miner config.
-		/// TODO: move to main pallet (and collapse the MinerConfig from unsigned subpallet)
-		type MinerConfig: miner::Config<
-			AccountId = AccountIdOf<Self>,
-			MaxVotesPerVoter = <Self::DataProvider as frame_election_provider_support::ElectionDataProvider>::MaxVotesPerVoter,
-			MaxWinnersPerPage = Self::MaxWinnersPerPage,
-			MaxBackersPerWinner = Self::MaxBackersPerWinner,
-			Solution = Self::Solution,
-		>;
-
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -403,11 +393,14 @@ impl<T: impls::pallet::Config> Verifier for Pallet<T> {
 	}
 
 	fn feasibility_check(
-		partial_solution: Self::Solution,
+		solution: Self::Solution,
 		page: PageIndex,
 	) -> Result<SupportsOf<Self>, FeasibilityError> {
-		// TODO: The feasibility_check should be called from the MinerConfig!
-		Self::feasibility_check(partial_solution, page)
+		// OLD:
+		//Self::feasibility_check(partial_solution, page)
+
+		// 1. fetch snapshots.
+		miner::Miner::<T::MinerConfig>::feasibility_check_partial(voters, targets, solution, page)
 	}
 }
 

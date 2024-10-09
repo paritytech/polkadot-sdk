@@ -113,24 +113,6 @@ pub(crate) mod pallet {
 		/// The priority of the unsigned tx submitted.
 		type MinerTxPriority: Get<TransactionPriority>;
 
-		/// The solver used by the offchain worker miner.
-		type OffchainSolver: frame_election_provider_support::NposSolver<
-			AccountId = Self::AccountId,
-			//Accuracy = SolutionAccuracyOf<Self>,
-            Accuracy = <<Self::MinerConfig as MinerConfig>::Solution as frame_election_provider_support::NposSolution>::Accuracy
-		>;
-
-		/// The miner config.
-		/// TODO: move to main pallet (and collapse the MinerConfig from verifier)
-		type MinerConfig: MinerConfig<
-			AccountId = AccountIdOf<Self>,
-			Solution = SolutionOf<Self>,
-			TargetSnapshotPerBlock = Self::TargetSnapshotPerBlock,
-			VoterSnapshotPerBlock = Self::VoterSnapshotPerBlock,
-            MaxVotesPerVoter = <Self::DataProvider as frame_election_provider_support::ElectionDataProvider>::MaxVotesPerVoter,
-            Pages = Self::Pages,
-		>;
-
 		/// Maximum length of the solution that the miner is allowed to generate.
 		///
 		/// Solutions are trimmed to respect this.

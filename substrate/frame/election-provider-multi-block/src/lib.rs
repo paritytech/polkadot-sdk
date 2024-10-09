@@ -232,6 +232,16 @@ pub mod pallet {
 			BlockNumber = BlockNumberFor<Self>,
 		>;
 
+		// The miner configuration.
+		type MinerConfig: crate::unsigned::miner::Config<
+			AccountId = AccountIdOf<Self>,
+			Pages = Self::Pages,
+			Solution = SolutionOf<Self>,
+			MaxVotesPerVoter = <Self::DataProvider as frame_election_provider_support::ElectionDataProvider>::MaxVotesPerVoter,
+			TargetSnapshotPerBlock = Self::TargetSnapshotPerBlock,
+			VoterSnapshotPerBlock = Self::VoterSnapshotPerBlock,
+		>;
+
 		/// Something that implements a fallback election.
 		///
 		/// This provider must run the election in one block, thus it has at most 1 page.
@@ -1083,9 +1093,9 @@ mod election_provider {
 				Snapshot::<T>::set_voters(1, all_voter_pages[1].clone());
 
 				let desired_targets = Snapshot::<T>::desired_targets().unwrap();
-				let (results, _) = Miner::<T, Solver>::mine_paged_solution_with_snaphsot(
-					all_voter_pages,
-					all_targets,
+				let (results, _) = Miner::<T>::mine_paged_solution_with_snaphsot(
+					&all_voter_pages,
+					&all_targets,
 					Pages::get(),
 					current_round(),
 					desired_targets,

@@ -40,6 +40,13 @@ use sp_npos_elections::{
 use sp_runtime::{offchain::storage::StorageValueRef, traits::Zero, SaturatedConversion};
 use sp_std::{vec, vec::Vec};
 
+pub type TargetSnaphsotOf<T> =
+	BoundedVec<<T as Config>::AccountId, <T as Config>::TargetSnapshotPerBlock>;
+pub type VoterSnapshotPagedOf<T> = BoundedVec<
+	BoundedVec<MinerVoterOf<T>, <T as Config>::VoterSnapshotPerBlock>,
+	<T as Config>::Pages,
+>;
+
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum MinerError {
 	/// An internal error in the NPoS elections crate.
@@ -119,8 +126,10 @@ pub trait Config {
 		+ EncodeLike
 		+ MaxEncodedLen;
 
-	//type Verifier: crate::verifier::Verifier<AccountId = Self::AccountId, Solution =
-	// Self::Solution>;
+	type Solver: NposSolver<
+		AccountId = Self::AccountId,
+		Accuracy = <Self::Solution as NposSolution>::Accuracy,
+	>;
 
 	type Pages: Get<u32>;
 
@@ -135,18 +144,15 @@ pub trait Config {
 	type MaxLength: Get<u32>;
 }
 
-pub struct Miner<T: Config, Solver: NposSolver>(sp_std::marker::PhantomData<(T, Solver)>);
+pub struct Miner<T: Config>(sp_std::marker::PhantomData<T>);
 
-impl<T: Config, S: NposSolver> Miner<T, S>
-where
-	S: NposSolver<AccountId = T::AccountId, Accuracy = <T::Solution as NposSolution>::Accuracy>,
-{
+impl<T: Config> Miner<T> {
 	pub fn mine_paged_solution_with_snaphsot(
-		all_voter_pages: BoundedVec<
+		all_voter_pages: &BoundedVec<
 			BoundedVec<MinerVoterOf<T>, T::VoterSnapshotPerBlock>,
 			T::Pages,
 		>,
-		all_targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
+		all_targets: &BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
 		pages: PageIndex,
 		round: u32,
 		desired_targets: u32,
@@ -162,13 +168,17 @@ where
 		// these closures generate an efficient index mapping of each tvoter -> the snaphot
 		// that they are part of. this needs to be the same indexing fn in the verifier side to
 		// sync when reconstructing the assingments page from a solution.
+		//let binding_targets = all_targets.clone();
 		let voters_page_fn = helpers::generate_voter_page_fn::<T>(&all_voter_pages);
 		let targets_index_fn = helpers::target_index_fn::<T>(&all_targets);
 
 		// run the election with all voters and targets.
-		let ElectionResult { winners: _, assignments } =
-			S::solve(desired_targets as usize, all_targets.clone().to_vec(), all_voters.clone())
-				.map_err(|_| MinerError::Solver)?;
+		let ElectionResult { winners: _, assignments } = <T::Solver as NposSolver>::solve(
+			desired_targets as usize,
+			all_targets.clone().to_vec(),
+			all_voters.clone(),
+		)
+		.map_err(|_| MinerError::Solver)?;
 
 		if do_reduce {
 			// TODO(gpestana): reduce and trim.
@@ -221,7 +231,7 @@ where
 			PagedRawSolutionC { solution_pages, score: Default::default(), round };
 
 		// everytthing's ready - calculate final solution score.
-		paged_solution.score = Self::compute_score(&paged_solution)?;
+		paged_solution.score = Self::compute_score(all_voter_pages, all_targets, &paged_solution)?;
 
 		Ok((paged_solution, trimming_status))
 	}
@@ -231,7 +241,7 @@ where
 	///
 	/// May reduce the solution based on the `reduce` bool.
 	pub fn prepare_election_result_with_snapshot(
-		election_result: ElectionResult<T::AccountId, S::Accuracy>,
+		election_result: ElectionResult<T::AccountId, MinerSolutionAccuracyOf<T>>,
 		voters: BoundedVec<MinerVoterOf<T>, T::VoterSnapshotPerBlock>,
 		targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
 		desired_targets: u32,
@@ -325,11 +335,15 @@ where
 	/// Take the given raw paged solution and compute its score. This will replicate what the chain
 	/// would do as closely as possible, and expects all the corresponding snapshot data to be
 	/// available.
-	fn compute_score(paged_solution: &PagedRawSolutionC<T>) -> Result<ElectionScore, MinerError> {
+	fn compute_score(
+		voters: &VoterSnapshotPagedOf<T>,
+		targets: &TargetSnaphsotOf<T>,
+		paged_solution: &PagedRawSolutionC<T>,
+	) -> Result<ElectionScore, MinerError> {
 		use sp_npos_elections::EvaluateSupport;
 		use sp_std::collections::btree_map::BTreeMap;
 
-		let all_supports = Self::check_feasibility(paged_solution, "mined")?;
+		let all_supports = Self::feasibility_check(voters, targets, paged_solution)?;
 		let mut total_backings: BTreeMap<T::AccountId, ExtendedBalance> = BTreeMap::new();
 		all_supports.into_iter().map(|x| x.0).flatten().for_each(|(who, support)| {
 			let backing = total_backings.entry(who).or_default();
@@ -347,35 +361,46 @@ where
 	// Checks the feasibility of a paged solution and calculates the score associated with the
 	// page.
 	pub fn compute_partial_score(
+		voters: &VoterSnapshotPagedOf<T>,
+		targets: &TargetSnaphsotOf<T>,
 		solution: &<T as Config>::Solution,
 		page: PageIndex,
 	) -> Result<ElectionScore, MinerError> {
-		let supports = Self::feasibility_check(solution.clone(), page)?;
+		let supports = Self::feasibility_check_partial(voters, targets, solution.clone(), page)?;
 		let score = sp_npos_elections::evaluate_support(
 			supports.clone().into_iter().map(|(_, backings)| backings),
 		);
 		Ok(score)
 	}
 
+	// TODO: rename
 	/// Perform the feasibility check on all pages of a solution, one by one, and returns the
 	/// supports of the full solution.
-	pub fn check_feasibility(
+	pub fn feasibility_check(
+		voters: &VoterSnapshotPagedOf<T>,
+		targets: &TargetSnaphsotOf<T>,
 		paged_solution: &PagedRawSolutionC<T>,
-		solution_type: &str,
 	) -> Result<Vec<MinerSupportsOf<T>>, MinerError> {
 		// check every solution page for feasibility.
 		paged_solution
 			.solution_pages
 			.pagify(T::Pages::get())
 			.map(|(page_index, page_solution)| {
-				Self::feasibility_check(page_solution.clone(), page_index as PageIndex)
+				Self::feasibility_check_partial(
+					voters,
+					targets,
+					page_solution.clone(),
+					page_index as PageIndex,
+				)
 			})
 			.collect::<Result<Vec<_>, _>>()
 			.map_err(|err| MinerError::from(err))
 	}
 
-	// TODO: receives snapshot too.
-	pub fn feasibility_check(
+	// TODO: rename for partial feasibility_check?
+	pub fn feasibility_check_partial(
+		voters: &VoterSnapshotPagedOf<T>,
+		targets: &TargetSnaphsotOf<T>,
 		partial_solution: <T as Config>::Solution,
 		page: PageIndex,
 	) -> Result<MinerSupportsOf<T>, FeasibilityError> {
@@ -603,16 +628,16 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 	> {
 		let reduce = true;
 
-		let (all_targets, all_voter_pages) = Self::fetch_snapshots()?;
+		let (all_voter_pages, all_targets) = Self::fetch_snapshots()?;
 		let round = crate::Pallet::<T>::current_round();
 		let desired_targets =
 			<<T as crate::Config>::DataProvider as ElectionDataProvider>::desired_targets()
 				.map_err(|_| MinerError::DataProvider)?;
 
 		let (solution, _trimming_status) =
-			Miner::<T::MinerConfig, T::OffchainSolver>::mine_paged_solution_with_snaphsot(
-				all_targets,
-				all_voter_pages,
+			Miner::<T::MinerConfig>::mine_paged_solution_with_snaphsot(
+				&all_voter_pages,
+				&all_targets,
 				T::Pages::get(),
 				round,
 				desired_targets,
@@ -624,7 +649,9 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 			.get(page as usize)
 			.ok_or(OffchainMinerError::PageOutOfBounds)?;
 
-		let partial_score = Miner::<T::MinerConfig, T::OffchainSolver>::compute_partial_score(
+		let partial_score = Miner::<T::MinerConfig>::compute_partial_score(
+			&all_voter_pages,
+			&all_targets,
 			&partial_solution,
 			page,
 		)?;
@@ -634,19 +661,7 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 
 	// TODO: simplify with type alias.
 	pub(crate) fn fetch_snapshots() -> Result<
-		(
-			BoundedVec<
-				BoundedVec<
-					MinerVoterOf<T::MinerConfig>,
-					<T::MinerConfig as Config>::VoterSnapshotPerBlock,
-				>,
-				<T::MinerConfig as Config>::Pages,
-			>,
-			BoundedVec<
-				<T::MinerConfig as Config>::AccountId,
-				<T::MinerConfig as Config>::TargetSnapshotPerBlock,
-			>,
-		),
+		(VoterSnapshotPagedOf<T::MinerConfig>, TargetSnaphsotOf<T::MinerConfig>),
 		OffchainMinerError,
 	> {
 		// prepare range to fetch all pages of the target and voter snapshot.
@@ -682,68 +697,73 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 		let score_storage = StorageValueRef::persistent(&Self::OFFCHAIN_CACHED_SCORE);
 		let maybe_storage = StorageValueRef::persistent(&cache_id);
 
-		let (full_score, paged_solution) = if let Ok(Some(solution_page)) =
-			maybe_storage.get::<<T::MinerConfig as Config>::Solution>()
-		{
-			sublog!(debug, "unsigned::ocw-miner", "offchain restoring a solution from cache.");
+		let (full_score, paged_solution, partial_score) =
+			if let Ok(Some((solution_page, partial_score))) =
+				maybe_storage.get::<(<T::MinerConfig as Config>::Solution, ElectionScore)>()
+			{
+				sublog!(debug, "unsigned::ocw-miner", "offchain restoring a solution from cache.");
 
-			let full_score = score_storage
-				.get()
-				.map_err(|_| OffchainMinerError::StorageError)?
-				.ok_or(OffchainMinerError::StorageError)?;
+				let full_score = score_storage
+					.get()
+					.map_err(|_| OffchainMinerError::StorageError)?
+					.ok_or(OffchainMinerError::StorageError)?;
 
-			(full_score, solution_page)
-		} else {
-			sublog!(debug, "unsigned::ocw-miner", "offchain miner computing a new solution.");
+				(full_score, solution_page, partial_score)
+			} else {
+				sublog!(debug, "unsigned::ocw-miner", "offchain miner computing a new solution.");
 
-			// no solution cached, compute it first.
+				// no solution cached, compute it first.
 
-			// fetch snapshots.
-			let (all_targets, all_voter_pages) = Self::fetch_snapshots()?;
-			let round = crate::Pallet::<T>::current_round();
-			let desired_targets =
-				<<T as crate::Config>::DataProvider as ElectionDataProvider>::desired_targets()
-					.map_err(|_| MinerError::DataProvider)?;
+				// fetch snapshots.
+				let (all_voter_pages, all_targets) = Self::fetch_snapshots()?;
+				let round = crate::Pallet::<T>::current_round();
+				let desired_targets =
+					<<T as crate::Config>::DataProvider as ElectionDataProvider>::desired_targets()
+						.map_err(|_| MinerError::DataProvider)?;
 
-			let reduce = false; // TODO
+				let reduce = false; // TODO
 
-			let (solution, _trimming_status) =
-				Miner::<T::MinerConfig, T::OffchainSolver>::mine_paged_solution_with_snaphsot(
-					all_targets,
-					all_voter_pages,
-					T::Pages::get(),
-					round,
-					desired_targets,
-					reduce,
-				)?;
+				let (solution, _trimming_status) =
+					Miner::<T::MinerConfig>::mine_paged_solution_with_snaphsot(
+						&all_voter_pages,
+						&all_targets,
+						T::Pages::get(),
+						round,
+						desired_targets,
+						reduce,
+					)?;
 
-			// caches the solution score.
-			score_storage
-				.mutate::<_, (), _>(|_| Ok(solution.score.clone()))
-				.map_err(|_| OffchainMinerError::StorageError)?;
+				// caches the solution score.
+				score_storage
+					.mutate::<_, (), _>(|_| Ok(solution.score.clone()))
+					.map_err(|_| OffchainMinerError::StorageError)?;
 
-			let mut solution_page = Default::default();
+				let mut solution_page = Default::default();
+				let mut partial_score: ElectionScore = Default::default();
 
-			// caches each of the individual pages under its own key.
-			for (idx, paged_solution) in solution.solution_pages.into_iter().enumerate() {
-				if idx as PageIndex == page {
-					solution_page = paged_solution.clone();
+				// caches each of the individual pages and their partial score under its own key.
+				for (idx, paged_solution) in solution.solution_pages.into_iter().enumerate() {
+					if idx as PageIndex == page {
+						solution_page = paged_solution.clone();
+						partial_score = partial_score.clone();
+					}
+
+					let partial_score = Miner::<T::MinerConfig>::compute_partial_score(
+						&all_voter_pages,
+						&all_targets,
+						&paged_solution,
+						page,
+					)?;
+
+					let cache_id = Self::paged_cache_id(idx as PageIndex)?;
+					let storage = StorageValueRef::persistent(&cache_id);
+					storage
+						.mutate::<_, (), _>(|_| Ok((paged_solution.clone(), partial_score)))
+						.map_err(|_| OffchainMinerError::StorageError)?;
 				}
 
-				let cache_id = Self::paged_cache_id(idx as PageIndex)?;
-				let storage = StorageValueRef::persistent(&cache_id);
-				storage
-					.mutate::<_, (), _>(|_| Ok(paged_solution.clone()))
-					.map_err(|_| OffchainMinerError::StorageError)?;
-			}
-
-			(solution.score, solution_page)
-		};
-
-		let partial_score = Miner::<T::MinerConfig, T::OffchainSolver>::compute_partial_score(
-			&paged_solution,
-			page,
-		)?;
+				(solution.score, solution_page, partial_score)
+			};
 
 		Ok((full_score, partial_score, paged_solution))
 	}

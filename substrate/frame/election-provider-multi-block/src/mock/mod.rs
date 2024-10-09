@@ -131,6 +131,7 @@ impl Config for Runtime {
 	type ExportPhaseLimit = ExportPhaseLimit;
 	type DataProvider = MockStaking;
 	type Solution = TestNposSolution;
+	type MinerConfig = Self;
 	type Fallback = MockFallback;
 	type Verifier = VerifierPallet;
 	type BenchmarkingConfig = EPMBenchmarkingConfigs;
@@ -150,7 +151,6 @@ impl crate::verifier::Config for Runtime {
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type SolutionDataProvider = SignedPallet;
-	type MinerConfig = Self;
 	type WeightInfo = ();
 }
 
@@ -183,19 +183,17 @@ parameter_types! {
 
 impl crate::unsigned::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OffchainSolver = Solver;
 	type OffchainRepeatInterval = OffchainRepeatInterval;
 	type MinerTxPriority = MinerTxPriority;
 	type MaxLength = MinerSolutionMaxLength;
 	type MaxWeight = MinerSolutionMaxWeight;
-	type MinerConfig = Self;
 	type WeightInfo = ();
 }
 
 impl miner::Config for Runtime {
 	type AccountId = AccountId;
 	type Solution = TestNposSolution;
-	//type Verifier = VerifierPallet;
+	type Solver = Solver;
 	type Pages = Pages;
 	type MaxVotesPerVoter = MaxVotesPerVoter;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
@@ -544,9 +542,9 @@ pub fn mine_full(pages: PageIndex) -> Result<PagedRawSolutionC<T>, MinerError> {
 	let desired_targets = <MockStaking as ElectionDataProvider>::desired_targets()
 		.map_err(|_| MinerError::DataProvider)?;
 
-	Miner::<Runtime, Solver>::mine_paged_solution_with_snaphsot(
-		targets,
-		voters,
+	Miner::<Runtime>::mine_paged_solution_with_snaphsot(
+		&targets,
+		&voters,
 		Pages::get(),
 		round,
 		desired_targets,
