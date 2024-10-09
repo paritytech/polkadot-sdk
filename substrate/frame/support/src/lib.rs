@@ -906,8 +906,8 @@ pub mod pallet_prelude {
 		},
 		traits::{
 			BuildGenesisConfig, ConstU32, Contains, EnsureOrigin, Get, GetDefault,
-			GetStorageVersion, Hooks, IsType, OnRuntimeUpgrade, PalletInfoAccess, StorageInfoTrait,
-			StorageVersion, Task, TypedGet,
+			GetStorageVersion, Hooks, IsSubType, IsType, OnRuntimeUpgrade, PalletInfoAccess,
+			StorageInfoTrait, StorageVersion, Task, TypedGet,
 		},
 		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, DebugNoBound, EqNoBound, Identity,
 		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
@@ -921,7 +921,8 @@ pub mod pallet_prelude {
 	pub use sp_runtime::{
 		traits::{
 			Bounded, DispatchInfoOf, Dispatchable, MaybeSerializeDeserialize, Member, One,
-			SaturatedConversion, Saturating, TrailingZeroInput, ValidateUnsigned, Zero,
+			SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput, ValidateUnsigned,
+			Zero,
 		},
 		transaction_validity::{
 			InvalidTransaction, TransactionLongevity, TransactionPriority, TransactionSource,

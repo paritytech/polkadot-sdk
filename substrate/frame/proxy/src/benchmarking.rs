@@ -22,9 +22,8 @@
 use super::*;
 use crate::Pallet as Proxy;
 use alloc::{boxed::Box, vec};
-use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
-use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use sp_runtime::traits::Bounded;
+#[allow(deprecated)]
+use frame::benchmarking::v1::*;
 
 const SEED: u32 = 0;
 
@@ -250,8 +249,8 @@ benchmarks! {
 			BlockNumberFor::<T>::zero(),
 			0
 		)?;
-		let height = system::Pallet::<T>::block_number();
-		let ext_index = system::Pallet::<T>::extrinsic_index().unwrap_or(0);
+		let height = frame_system::Pallet::<T>::block_number();
+		let ext_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or(0);
 		let pure_account = Pallet::<T>::pure_account(&caller, &T::ProxyType::default(), 0, None);
 
 		add_proxies::<T>(p, Some(pure_account.clone()))?;

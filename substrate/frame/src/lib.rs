@@ -145,6 +145,9 @@ pub mod prelude {
 	/// All FRAME-relevant derive macros.
 	#[doc(no_inline)]
 	pub use super::derive::*;
+
+	/// All hashing related things
+	pub use super::hashing::*;
 }
 
 #[cfg(any(feature = "try-runtime", test))]
