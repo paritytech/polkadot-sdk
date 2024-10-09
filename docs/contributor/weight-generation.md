@@ -3,7 +3,7 @@
 To generate weights for a runtime.
 Weights generation is using self-hosted runner which is provided by Parity CI, the rest commands are using standard
 GitHub runners on `ubuntu-latest` or `ubuntu-20.04`.
-Self-hosted runner for benchmarks (arc-runners-Polkadot-sdk-benchmark) is configured to meet requirements of reference
+Self-hosted runner for benchmarks (`parity-weights`) is configured to meet requirements of reference
 hardware for running validators
 https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware
 

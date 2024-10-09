@@ -16,6 +16,6 @@
 
 fn main() {
 	if let Ok(profile) = std::env::var("PROFILE") {
-		println!(r#"cargo:rustc-cfg=build_type="{}""#, profile);
+		println!(r#"cargo:rustc-cfg=build_profile="{}""#, profile);
 	}
 }

@@ -18,11 +18,11 @@
 #![no_std]
 #![no_main]
 
-use common::input;
+use common::{input, u256_bytes};
 use uapi::{HostFn, HostFnImpl as api, StorageFlags};
 
 const ADDRESS_KEY: [u8; 32] = [0u8; 32];
-const VALUE: [u8; 8] = [0, 0, 1u8, 0, 0, 0, 0, 0];
+const VALUE: [u8; 32] = u256_bytes(65536);
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -42,7 +42,7 @@ pub extern "C" fn deploy() {
 		&input,
 		Some(&mut address),
 		None,
-		&salt,
+		Some(&salt),
 	)
 	.unwrap();
 

@@ -21,7 +21,6 @@ use crate::{
 	address::AddressMapper, storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error,
 	Event, HoldReason, Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
-
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
@@ -397,11 +396,7 @@ where
 }
 
 /// Functions that only apply to the nested state.
-impl<T, E> RawMeter<T, E, Nested>
-where
-	T: Config,
-	E: Ext<T>,
-{
+impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// Charges `diff` from the meter.
 	pub fn charge(&mut self, diff: &Diff) {
 		match &mut self.own_contribution {
@@ -679,6 +674,7 @@ mod tests {
 		items: u32,
 		bytes_deposit: BalanceOf<Test>,
 		items_deposit: BalanceOf<Test>,
+		immutable_data_len: u32,
 	}
 
 	fn new_info(info: StorageInfo) -> ContractInfo<Test> {
@@ -691,6 +687,7 @@ mod tests {
 			storage_item_deposit: info.items_deposit,
 			storage_base_deposit: Default::default(),
 			delegate_dependencies: Default::default(),
+			immutable_data_len: info.immutable_data_len,
 		}
 	}
 
@@ -778,6 +775,7 @@ mod tests {
 				items: 5,
 				bytes_deposit: 100,
 				items_deposit: 10,
+				immutable_data_len: 0,
 			});
 			let mut nested0 = meter.nested(BalanceOf::<Test>::zero());
 			nested0.charge(&Diff {
@@ -793,6 +791,7 @@ mod tests {
 				items: 10,
 				bytes_deposit: 100,
 				items_deposit: 20,
+				immutable_data_len: 0,
 			});
 			let mut nested1 = nested0.nested(BalanceOf::<Test>::zero());
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
@@ -803,6 +802,7 @@ mod tests {
 				items: 7,
 				bytes_deposit: 100,
 				items_deposit: 20,
+				immutable_data_len: 0,
 			});
 			let mut nested2 = nested0.nested(BalanceOf::<Test>::zero());
 			nested2.charge(&Diff { items_removed: 7, ..Default::default() });
@@ -872,6 +872,7 @@ mod tests {
 				items: 10,
 				bytes_deposit: 100,
 				items_deposit: 20,
+				immutable_data_len: 0,
 			});
 			let mut nested1 = nested0.nested(BalanceOf::<Test>::zero());
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });

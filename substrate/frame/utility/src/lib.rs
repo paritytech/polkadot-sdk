@@ -74,7 +74,7 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{dispatch::DispatchClass, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
@@ -134,8 +134,8 @@ pub mod pallet {
 		fn batched_calls_limit() -> u32 {
 			let allocator_limit = sp_core::MAX_POSSIBLE_ALLOCATION;
 			let call_size = ((core::mem::size_of::<<T as Config>::RuntimeCall>() as u32 +
-				CALL_ALIGN - 1) / CALL_ALIGN) *
-				CALL_ALIGN;
+				CALL_ALIGN - 1) /
+				CALL_ALIGN) * CALL_ALIGN;
 			// The margin to take into account vec doubling capacity.
 			let margin_factor = 3;
 
@@ -183,21 +183,8 @@ pub mod pallet {
 		/// event is deposited.
 		#[pallet::call_index(0)]
 		#[pallet::weight({
-			let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
-			let dispatch_weight = dispatch_infos.iter()
-				.map(|di| di.weight)
-				.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
-				.saturating_add(T::WeightInfo::batch(calls.len() as u32));
-			let dispatch_class = {
-				let all_operational = dispatch_infos.iter()
-					.map(|di| di.class)
-					.all(|class| class == DispatchClass::Operational);
-				if all_operational {
-					DispatchClass::Operational
-				} else {
-					DispatchClass::Normal
-				}
-			};
+			let (dispatch_weight, dispatch_class) = Pallet::<T>::weight_and_dispatch_class(&calls);
+			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::batch(calls.len() as u32));
 			(dispatch_weight, dispatch_class)
 		})]
 		pub fn batch(
@@ -233,13 +220,13 @@ pub mod pallet {
 					// Take the weight of this function itself into account.
 					let base_weight = T::WeightInfo::batch(index.saturating_add(1) as u32);
 					// Return the actual used weight + base_weight of this call.
-					return Ok(Some(base_weight + weight).into())
+					return Ok(Some(base_weight.saturating_add(weight)).into())
 				}
 				Self::deposit_event(Event::ItemCompleted);
 			}
 			Self::deposit_event(Event::BatchCompleted);
 			let base_weight = T::WeightInfo::batch(calls_len as u32);
-			Ok(Some(base_weight + weight).into())
+			Ok(Some(base_weight.saturating_add(weight)).into())
 		}
 
 		/// Send a call through an indexed pseudonym of the sender.
@@ -305,21 +292,8 @@ pub mod pallet {
 		/// - O(C) where C is the number of calls to be batched.
 		#[pallet::call_index(2)]
 		#[pallet::weight({
-			let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
-			let dispatch_weight = dispatch_infos.iter()
-				.map(|di| di.weight)
-				.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
-				.saturating_add(T::WeightInfo::batch_all(calls.len() as u32));
-			let dispatch_class = {
-				let all_operational = dispatch_infos.iter()
-					.map(|di| di.class)
-					.all(|class| class == DispatchClass::Operational);
-				if all_operational {
-					DispatchClass::Operational
-				} else {
-					DispatchClass::Normal
-				}
-			};
+			let (dispatch_weight, dispatch_class) = Pallet::<T>::weight_and_dispatch_class(&calls);
+			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::batch_all(calls.len() as u32));
 			(dispatch_weight, dispatch_class)
 		})]
 		pub fn batch_all(
@@ -359,7 +333,7 @@ pub mod pallet {
 					// Take the weight of this function itself into account.
 					let base_weight = T::WeightInfo::batch_all(index.saturating_add(1) as u32);
 					// Return the actual used weight + base_weight of this call.
-					err.post_info = Some(base_weight + weight).into();
+					err.post_info = Some(base_weight.saturating_add(weight)).into();
 					err
 				})?;
 				Self::deposit_event(Event::ItemCompleted);
@@ -414,21 +388,8 @@ pub mod pallet {
 		/// - O(C) where C is the number of calls to be batched.
 		#[pallet::call_index(4)]
 		#[pallet::weight({
-			let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info()).collect::<Vec<_>>();
-			let dispatch_weight = dispatch_infos.iter()
-				.map(|di| di.weight)
-				.fold(Weight::zero(), |total: Weight, weight: Weight| total.saturating_add(weight))
-				.saturating_add(T::WeightInfo::force_batch(calls.len() as u32));
-			let dispatch_class = {
-				let all_operational = dispatch_infos.iter()
-					.map(|di| di.class)
-					.all(|class| class == DispatchClass::Operational);
-				if all_operational {
-					DispatchClass::Operational
-				} else {
-					DispatchClass::Normal
-				}
-			};
+			let (dispatch_weight, dispatch_class) = Pallet::<T>::weight_and_dispatch_class(&calls);
+			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::force_batch(calls.len() as u32));
 			(dispatch_weight, dispatch_class)
 		})]
 		pub fn force_batch(
@@ -492,6 +453,27 @@ pub mod pallet {
 
 			let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
 			res.map(|_| ()).map_err(|e| e.error)
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// Get the accumulated `weight` and the dispatch class for the given `calls`.
+		fn weight_and_dispatch_class(
+			calls: &[<T as Config>::RuntimeCall],
+		) -> (Weight, DispatchClass) {
+			let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info());
+			let (dispatch_weight, dispatch_class) = dispatch_infos.fold(
+				(Weight::zero(), DispatchClass::Operational),
+				|(total_weight, dispatch_class): (Weight, DispatchClass), di| {
+					(
+						total_weight.saturating_add(di.weight),
+						// If not all are `Operational`, we want to use `DispatchClass::Normal`.
+						if di.class == DispatchClass::Normal { di.class } else { dispatch_class },
+					)
+				},
+			);
+
+			(dispatch_weight, dispatch_class)
 		}
 	}
 }

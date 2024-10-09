@@ -19,7 +19,7 @@ mod command;
 mod types;
 mod writer;
 
-use crate::{pallet::types::GenesisBuilder, shared::HostInfoParams};
+use crate::{pallet::types::GenesisBuilderPolicy, shared::HostInfoParams};
 use clap::ValueEnum;
 use sc_cli::{
 	WasmExecutionMethod, WasmtimeInstantiationStrategy, DEFAULT_WASMTIME_INSTANTIATION_STRATEGY,
@@ -52,6 +52,10 @@ pub struct PalletCmd {
 	/// Select an extrinsic inside the pallet to benchmark, or `*` for all.
 	#[arg(short, long, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
 	pub extrinsic: Option<String>,
+
+	/// Comma separated list of pallets that should be excluded from the benchmark.
+	#[arg(long, value_parser, num_args = 1.., value_delimiter = ',')]
+	pub exclude_pallets: Vec<String>,
 
 	/// Run benchmarks for all pallets and extrinsics.
 	///
@@ -177,9 +181,17 @@ pub struct PalletCmd {
 
 	/// How to construct the genesis state.
 	///
-	/// Uses `GenesisBuilder::Spec` by default and  `GenesisBuilder::Runtime` if `runtime` is set.
-	#[arg(long, value_enum)]
-	pub genesis_builder: Option<GenesisBuilder>,
+	/// Uses `GenesisBuilderPolicy::Spec` by default and  `GenesisBuilderPolicy::Runtime` if
+	/// `runtime` is set.
+	#[arg(long, value_enum, alias = "genesis-builder-policy")]
+	pub genesis_builder: Option<GenesisBuilderPolicy>,
+
+	/// The preset that we expect to find in the GenesisBuilder runtime API.
+	///
+	/// This can be useful when a runtime has a dedicated benchmarking preset instead of using the
+	/// default one.
+	#[arg(long, default_value = sp_genesis_builder::DEV_RUNTIME_PRESET)]
+	pub genesis_builder_preset: String,
 
 	/// DEPRECATED: This argument has no effect.
 	#[arg(long = "execution")]
