@@ -29,10 +29,10 @@ use polkadot_node_subsystem_types::messages::{
 };
 use polkadot_primitives::{
 	CandidateHash, CandidateReceipt, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
-	SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
+	PersistedValidationData, PvfExecKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_candidate_descriptor, dummy_candidate_receipt, dummy_hash,
+	dummy_candidate_descriptor, dummy_candidate_receipt, dummy_hash, dummy_validation_code,
 };
 
 use crate::{
@@ -104,7 +104,9 @@ where
 						};
 
 						let (tx, _) = oneshot::channel();
-						ctx.send_message(CandidateValidationMessage::ValidateFromChainState {
+						ctx.send_message(CandidateValidationMessage::ValidateFromExhaustive {
+							validation_data: PersistedValidationData { ..Default::default() },
+							validation_code: dummy_validation_code(),
 							candidate_receipt,
 							pov: PoV { block_data: BlockData(Vec::new()) }.into(),
 							executor_params: Default::default(),
@@ -802,7 +804,9 @@ fn test_candidate_validation_msg() -> CandidateValidationMessage {
 		commitments_hash: Hash::zero(),
 	};
 
-	CandidateValidationMessage::ValidateFromChainState {
+	CandidateValidationMessage::ValidateFromExhaustive {
+		validation_data: PersistedValidationData { ..Default::default() },
+		validation_code: dummy_validation_code(),
 		candidate_receipt,
 		pov,
 		executor_params: Default::default(),
@@ -950,7 +954,7 @@ fn test_prospective_parachains_msg() -> ProspectiveParachainsMessage {
 // Checks that `stop`, `broadcast_signal` and `broadcast_message` are implemented correctly.
 #[test]
 fn overseer_all_subsystems_receive_signals_and_messages() {
-	const NUM_SUBSYSTEMS: usize = 23;
+	const NUM_SUBSYSTEMS: usize = 24;
 	// -4 for BitfieldSigning, GossipSupport, AvailabilityDistribution and PvfCheckerSubsystem.
 	const NUM_SUBSYSTEMS_MESSAGED: usize = NUM_SUBSYSTEMS - 4;
 
@@ -1029,6 +1033,11 @@ fn overseer_all_subsystems_receive_signals_and_messages() {
 			.send_msg_anon(AllMessages::ApprovalDistribution(test_approval_distribution_msg()))
 			.await;
 		handle
+			.send_msg_anon(AllMessages::ApprovalVotingParallel(
+				test_approval_distribution_msg().into(),
+			))
+			.await;
+		handle
 			.send_msg_anon(AllMessages::ApprovalVoting(test_approval_voting_msg()))
 			.await;
 		handle
@@ -1101,6 +1110,7 @@ fn context_holds_onto_message_until_enough_signals_received() {
 	let (chain_selection_bounded_tx, _) = metered::channel(CHANNEL_CAPACITY);
 	let (pvf_checker_bounded_tx, _) = metered::channel(CHANNEL_CAPACITY);
 	let (prospective_parachains_bounded_tx, _) = metered::channel(CHANNEL_CAPACITY);
+	let (approval_voting_parallel_tx, _) = metered::channel(CHANNEL_CAPACITY);
 
 	let (candidate_validation_unbounded_tx, _) = metered::unbounded();
 	let (candidate_backing_unbounded_tx, _) = metered::unbounded();
@@ -1125,6 +1135,7 @@ fn context_holds_onto_message_until_enough_signals_received() {
 	let (chain_selection_unbounded_tx, _) = metered::unbounded();
 	let (pvf_checker_unbounded_tx, _) = metered::unbounded();
 	let (prospective_parachains_unbounded_tx, _) = metered::unbounded();
+	let (approval_voting_parallel_unbounded_tx, _) = metered::unbounded();
 
 	let channels_out = ChannelsOut {
 		candidate_validation: candidate_validation_bounded_tx.clone(),
@@ -1150,6 +1161,7 @@ fn context_holds_onto_message_until_enough_signals_received() {
 		chain_selection: chain_selection_bounded_tx.clone(),
 		pvf_checker: pvf_checker_bounded_tx.clone(),
 		prospective_parachains: prospective_parachains_bounded_tx.clone(),
+		approval_voting_parallel: approval_voting_parallel_tx.clone(),
 
 		candidate_validation_unbounded: candidate_validation_unbounded_tx.clone(),
 		candidate_backing_unbounded: candidate_backing_unbounded_tx.clone(),
@@ -1174,6 +1186,7 @@ fn context_holds_onto_message_until_enough_signals_received() {
 		chain_selection_unbounded: chain_selection_unbounded_tx.clone(),
 		pvf_checker_unbounded: pvf_checker_unbounded_tx.clone(),
 		prospective_parachains_unbounded: prospective_parachains_unbounded_tx.clone(),
+		approval_voting_parallel_unbounded: approval_voting_parallel_unbounded_tx.clone(),
 	};
 
 	let (mut signal_tx, signal_rx) = metered::channel(CHANNEL_CAPACITY);

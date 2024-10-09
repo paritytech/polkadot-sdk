@@ -21,9 +21,6 @@
 //! of others. It uses this information to determine when candidates and blocks have
 //! been sufficiently approved to finalize.
 
-use itertools::Itertools;
-use jaeger::{hash_to_trace_identifier, PerLeafSpan};
-use polkadot_node_jaeger as jaeger;
 use polkadot_node_primitives::{
 	approval::{
 		v1::{BlockApprovalMeta, DelayTranche},
@@ -634,11 +631,7 @@ impl Wakeups {
 		self.wakeups.entry(tick).or_default().push((block_hash, candidate_hash));
 	}
 
-	fn prune_finalized_wakeups(
-		&mut self,
-		finalized_number: BlockNumber,
-		spans: &mut HashMap<Hash, PerLeafSpan>,
-	) {
+	fn prune_finalized_wakeups(&mut self, finalized_number: BlockNumber) {
 		let after = self.block_numbers.split_off(&(finalized_number + 1));
 		let pruned_blocks: HashSet<_> = std::mem::replace(&mut self.block_numbers, after)
 			.into_iter()
@@ -662,9 +655,6 @@ impl Wakeups {
 				}
 			}
 		}
-
-		// Remove all spans that are associated with pruned blocks.
-		spans.retain(|h, _| !pruned_blocks.contains(h));
 	}
 
 	// Get the wakeup for a particular block/candidate combo, if any.
@@ -841,7 +831,6 @@ struct State {
 	slot_duration_millis: u64,
 	clock: Arc<dyn Clock + Send + Sync>,
 	assignment_criteria: Box<dyn AssignmentCriteria + Send + Sync>,
-	spans: HashMap<Hash, jaeger::PerLeafSpan>,
 	// Per block, candidate records about how long we take until we gather enough
 	// assignments, this is relevant because it gives us a good idea about how many
 	// tranches we trigger and why.
@@ -1203,7 +1192,6 @@ where
 		slot_duration_millis: subsystem.slot_duration_millis,
 		clock: subsystem.clock,
 		assignment_criteria,
-		spans: HashMap::new(),
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),
@@ -1525,18 +1513,8 @@ async fn handle_actions<
 					continue
 				}
 
-				let mut launch_approval_span = state
-					.spans
-					.get(&relay_block_hash)
-					.map(|span| span.child("launch-approval"))
-					.unwrap_or_else(|| jaeger::Span::new(candidate_hash, "launch-approval"))
-					.with_trace_id(candidate_hash)
-					.with_candidate(candidate_hash)
-					.with_stage(jaeger::Stage::ApprovalChecking);
-
 				metrics.on_assignment_produced(assignment_tranche);
 				let block_hash = indirect_cert.block_hash;
-				launch_approval_span.add_string_tag("block-hash", format!("{:?}", block_hash));
 				let validator_index = indirect_cert.validator;
 
 				if distribute_assignment {
@@ -1580,7 +1558,6 @@ async fn handle_actions<
 										backing_group,
 										executor_params,
 										core_index,
-										&launch_approval_span,
 									)
 									.await
 								},
@@ -1591,15 +1568,6 @@ async fn handle_actions<
 				}
 			},
 			Action::NoteApprovedInChainSelection(block_hash) => {
-				let _span = state
-					.spans
-					.get(&block_hash)
-					.map(|span| span.child("note-approved-in-chain-selection"))
-					.unwrap_or_else(|| {
-						jaeger::Span::new(block_hash, "note-approved-in-chain-selection")
-					})
-					.with_string_tag("block-hash", format!("{:?}", block_hash))
-					.with_stage(jaeger::Stage::ApprovalChecking);
 				sender.send_message(ChainSelectionMessage::Approved(block_hash)).await;
 			},
 			Action::BecomeActive => {
@@ -1704,15 +1672,6 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 	messages.push(ApprovalDistributionMessage::NewBlocks(Vec::new())); // dummy value.
 
 	for block_hash in all_blocks {
-		let mut distribution_message_span = state
-			.spans
-			.get(&block_hash)
-			.map(|span| span.child("distribution-messages-for-activation"))
-			.unwrap_or_else(|| {
-				jaeger::Span::new(block_hash, "distribution-messages-for-activation")
-			})
-			.with_stage(jaeger::Stage::ApprovalChecking)
-			.with_string_tag("block-hash", format!("{:?}", block_hash));
 		let block_entry = match db.load_block_entry(&block_hash)? {
 			Some(b) => b,
 			None => {
@@ -1722,9 +1681,6 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 			},
 		};
 
-		distribution_message_span.add_string_tag("block-hash", &block_hash.to_string());
-		distribution_message_span
-			.add_string_tag("parent-hash", &block_entry.parent_hash().to_string());
 		approval_meta.push(BlockApprovalMeta {
 			hash: block_hash,
 			number: block_entry.block_number(),
@@ -1756,8 +1712,6 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 		});
 		let mut signatures_queued = HashSet::new();
 		for (core_index, candidate_hash) in block_entry.candidates() {
-			let _candidate_span =
-				distribution_message_span.child("candidate").with_candidate(*candidate_hash);
 			let candidate_entry = match db.load_candidate_entry(&candidate_hash)? {
 				Some(c) => c,
 				None => {
@@ -1936,9 +1890,6 @@ async fn handle_from_overseer<
 			let mut actions = Vec::new();
 			if let Some(activated) = update.activated {
 				let head = activated.hash;
-				let approval_voting_span =
-					jaeger::PerLeafSpan::new(activated.span, "approval-voting");
-				state.spans.insert(head, approval_voting_span);
 				match import::handle_new_head(
 					sender,
 					approval_voting_sender,
@@ -2009,7 +1960,7 @@ async fn handle_from_overseer<
 
 			// `prune_finalized_wakeups` prunes all finalized block hashes. We prune spans
 			// accordingly.
-			wakeups.prune_finalized_wakeups(block_number, &mut state.spans);
+			wakeups.prune_finalized_wakeups(block_number);
 			state.cleanup_assignments_gathering_timestamp(block_number);
 
 			// // `prune_finalized_wakeups` prunes all finalized block hashes. We prune spans
@@ -2051,23 +2002,8 @@ async fn handle_from_overseer<
 				result.0
 			},
 			ApprovalVotingMessage::ApprovedAncestor(target, lower_bound, res) => {
-				let mut approved_ancestor_span = state
-					.spans
-					.get(&target)
-					.map(|span| span.child("approved-ancestor"))
-					.unwrap_or_else(|| jaeger::Span::new(target, "approved-ancestor"))
-					.with_stage(jaeger::Stage::ApprovalChecking)
-					.with_string_tag("leaf", format!("{:?}", target));
-				match handle_approved_ancestor(
-					sender,
-					db,
-					target,
-					lower_bound,
-					wakeups,
-					&mut approved_ancestor_span,
-					&metrics,
-				)
-				.await
+				match handle_approved_ancestor(sender, db, target, lower_bound, wakeups, &metrics)
+					.await
 				{
 					Ok(v) => {
 						let _ = res.send(v);
@@ -2260,15 +2196,11 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 	target: Hash,
 	lower_bound: BlockNumber,
 	wakeups: &Wakeups,
-	span: &mut jaeger::Span,
 	metrics: &Metrics,
 ) -> SubsystemResult<Option<HighestApprovedAncestorBlock>> {
 	const MAX_TRACING_WINDOW: usize = 200;
 	const ABNORMAL_DEPTH_THRESHOLD: usize = 5;
 	const LOGGING_DEPTH_THRESHOLD: usize = 10;
-	let mut span = span
-		.child("handle-approved-ancestor")
-		.with_stage(jaeger::Stage::ApprovalChecking);
 
 	let mut all_approved_max = None;
 
@@ -2284,8 +2216,6 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 		}
 	};
 
-	span.add_uint_tag("leaf-number", target_number as u64);
-	span.add_uint_tag("lower-bound", lower_bound as u64);
 	if target_number <= lower_bound {
 		return Ok(None)
 	}
@@ -2317,9 +2247,6 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 
 	let mut bits: BitVec<u8, Lsb0> = Default::default();
 	for (i, block_hash) in std::iter::once(target).chain(ancestry).enumerate() {
-		let mut entry_span =
-			span.child("load-block-entry").with_stage(jaeger::Stage::ApprovalChecking);
-		entry_span.add_string_tag("block-hash", format!("{:?}", block_hash));
 		// Block entries should be present as the assumption is that
 		// nothing here is finalized. If we encounter any missing block
 		// entries we can fail.
@@ -2386,7 +2313,6 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 				)
 			}
 			metrics.on_unapproved_candidates_in_unfinalized_chain(unapproved.len());
-			entry_span.add_uint_tag("unapproved-candidates", unapproved.len() as u64);
 			for candidate_hash in unapproved {
 				match db.load_candidate_entry(&candidate_hash)? {
 					None => {
@@ -2507,15 +2433,6 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 			number: block_number,
 			descriptions: block_descriptions,
 		});
-	match all_approved_max {
-		Some(HighestApprovedAncestorBlock { ref hash, ref number, .. }) => {
-			span.add_uint_tag("highest-approved-number", *number as u64);
-			span.add_string_fmt_debug_tag("highest-approved-hash", hash);
-		},
-		None => {
-			span.add_string_tag("reached-lower-bound", "true");
-		},
-	}
 
 	Ok(all_approved_max)
 }
@@ -2548,7 +2465,12 @@ fn schedule_wakeup_action(
 				last_assignment_tick.map(|l| l + APPROVAL_DELAY).filter(|t| t > &tick_now),
 				next_no_show,
 			)
-			.map(|tick| Action::ScheduleWakeup { block_hash, block_number, candidate_hash, tick })
+			.map(|tick| Action::ScheduleWakeup {
+				block_hash,
+				block_number,
+				candidate_hash,
+				tick,
+			})
 		},
 		RequiredTranches::Pending { considered, next_no_show, clock_drift, .. } => {
 			// select the minimum of `next_no_show`, or the tick of the next non-empty tranche
@@ -2617,17 +2539,6 @@ where
 	let assignment = checked_assignment.assignment();
 	let candidate_indices = checked_assignment.candidate_indices();
 	let tranche = checked_assignment.tranche();
-	let mut import_assignment_span = state
-		.spans
-		.get(&assignment.block_hash)
-		.map(|span| span.child("import-assignment"))
-		.unwrap_or_else(|| jaeger::Span::new(assignment.block_hash, "import-assignment"))
-		.with_relay_parent(assignment.block_hash)
-		.with_stage(jaeger::Stage::ApprovalChecking);
-
-	for candidate_index in candidate_indices.iter_ones() {
-		import_assignment_span.add_uint_tag("candidate-index", candidate_index as u64);
-	}
 
 	let block_entry = match db.load_block_entry(&assignment.block_hash)? {
 		Some(b) => b,
@@ -2707,13 +2618,6 @@ where
 				)), // no candidate at core.
 		};
 
-		import_assignment_span
-			.add_string_tag("candidate-hash", format!("{:?}", assigned_candidate_hash));
-		import_assignment_span.add_string_tag(
-			"traceID",
-			format!("{:?}", jaeger::hash_to_trace_identifier(assigned_candidate_hash.0)),
-		);
-
 		if candidate_entry.approval_entry_mut(&assignment.block_hash).is_none() {
 			return Ok((
 				AssignmentCheckResult::Bad(AssignmentCheckError::Internal(
@@ -2771,7 +2675,6 @@ where
 			};
 			is_duplicate &= approval_entry.is_assigned(assignment.validator);
 			approval_entry.import_assignment(tranche, assignment.validator, tick_now);
-			import_assignment_span.add_uint_tag("tranche", tranche as u64);
 
 			// We've imported a new assignment, so we need to schedule a wake-up for when that might
 			// no-show.
@@ -2845,14 +2748,6 @@ where
 			return Ok((Vec::new(), $e))
 		}};
 	}
-	let mut span = state
-		.spans
-		.get(&approval.block_hash)
-		.map(|span| span.child("import-approval"))
-		.unwrap_or_else(|| jaeger::Span::new(approval.block_hash, "import-approval"))
-		.with_string_fmt_debug_tag("candidate-index", approval.candidate_indices.clone())
-		.with_relay_parent(approval.block_hash)
-		.with_stage(jaeger::Stage::ApprovalChecking);
 
 	let block_entry = match db.load_block_entry(&approval.block_hash)? {
 		Some(b) => b,
@@ -2881,20 +2776,6 @@ where
 			respond_early!(ApprovalCheckResult::Bad(err))
 		},
 	};
-
-	span.add_string_tag("candidate-hashes", format!("{:?}", approved_candidates_info));
-	span.add_string_tag(
-		"traceIDs",
-		format!(
-			"{:?}",
-			approved_candidates_info
-				.iter()
-				.map(|(_, approved_candidate_hash)| hash_to_trace_identifier(
-					approved_candidate_hash.0
-				))
-				.collect_vec()
-		),
-	);
 
 	gum::trace!(
 		target: LOG_TARGET,
@@ -3250,16 +3131,6 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 	metrics: &Metrics,
 	wakeups: &Wakeups,
 ) -> SubsystemResult<Vec<Action>> {
-	let mut span = state
-		.spans
-		.get(&relay_block)
-		.map(|span| span.child("process-wakeup"))
-		.unwrap_or_else(|| jaeger::Span::new(candidate_hash, "process-wakeup"))
-		.with_trace_id(candidate_hash)
-		.with_relay_parent(relay_block)
-		.with_candidate(candidate_hash)
-		.with_stage(jaeger::Stage::ApprovalChecking);
-
 	let block_entry = db.load_block_entry(&relay_block)?;
 	let candidate_entry = db.load_candidate_entry(&candidate_hash)?;
 
@@ -3288,7 +3159,7 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 		Slot::from(u64::from(session_info.no_show_slots)),
 	);
 	let tranche_now = state.clock.tranche_now(state.slot_duration_millis, block_entry.slot());
-	span.add_uint_tag("tranche", tranche_now as u64);
+
 	gum::trace!(
 		target: LOG_TARGET,
 		tranche = tranche_now,
@@ -3451,7 +3322,6 @@ async fn launch_approval<
 	backing_group: GroupIndex,
 	executor_params: ExecutorParams,
 	core_index: Option<CoreIndex>,
-	span: &jaeger::Span,
 ) -> SubsystemResult<RemoteHandle<ApprovalState>> {
 	let (a_tx, a_rx) = oneshot::channel();
 	let (code_tx, code_rx) = oneshot::channel();
@@ -3485,13 +3355,6 @@ async fn launch_approval<
 	let para_id = candidate.descriptor.para_id;
 	gum::trace!(target: LOG_TARGET, ?candidate_hash, ?para_id, "Recovering data.");
 
-	let request_validation_data_span = span
-		.child("request-validation-data")
-		.with_trace_id(candidate_hash)
-		.with_candidate(candidate_hash)
-		.with_string_tag("block-hash", format!("{:?}", block_hash))
-		.with_stage(jaeger::Stage::ApprovalChecking);
-
 	let timer = metrics.time_recover_and_approve();
 	sender
 		.send_message(AvailabilityRecoveryMessage::RecoverAvailableData(
@@ -3502,13 +3365,6 @@ async fn launch_approval<
 			a_tx,
 		))
 		.await;
-
-	let request_validation_result_span = span
-		.child("request-validation-result")
-		.with_trace_id(candidate_hash)
-		.with_candidate(candidate_hash)
-		.with_string_tag("block-hash", format!("{:?}", block_hash))
-		.with_stage(jaeger::Stage::ApprovalChecking);
 
 	sender
 		.send_message(RuntimeApiMessage::Request(
@@ -3573,7 +3429,6 @@ async fn launch_approval<
 				return ApprovalState::failed(validator_index, candidate_hash)
 			},
 		};
-		drop(request_validation_data_span);
 
 		let validation_code = match code_rx.await {
 			Err(_) => return ApprovalState::failed(validator_index, candidate_hash),
@@ -3645,7 +3500,6 @@ async fn launch_approval<
 					"Failed to validate candidate due to internal error",
 				);
 				metrics_guard.take().on_approval_error();
-				drop(request_validation_result_span);
 				return ApprovalState::failed(validator_index, candidate_hash)
 			},
 		}
@@ -3673,17 +3527,6 @@ async fn issue_approval<
 	ApprovalVoteRequest { validator_index, block_hash }: ApprovalVoteRequest,
 	wakeups: &Wakeups,
 ) -> SubsystemResult<Vec<Action>> {
-	let mut issue_approval_span = state
-		.spans
-		.get(&block_hash)
-		.map(|span| span.child("issue-approval"))
-		.unwrap_or_else(|| jaeger::Span::new(block_hash, "issue-approval"))
-		.with_trace_id(candidate_hash)
-		.with_string_tag("block-hash", format!("{:?}", block_hash))
-		.with_candidate(candidate_hash)
-		.with_validator_index(validator_index)
-		.with_stage(jaeger::Stage::ApprovalChecking);
-
 	let mut block_entry = match db.load_block_entry(&block_hash)? {
 		Some(b) => b,
 		None => {
@@ -3708,7 +3551,6 @@ async fn issue_approval<
 		},
 		Some(idx) => idx,
 	};
-	issue_approval_span.add_int_tag("candidate_index", candidate_index as i64);
 
 	let candidate_hash = match block_entry.candidate(candidate_index as usize) {
 		Some((_, h)) => *h,

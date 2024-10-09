@@ -140,9 +140,18 @@ pub mod test_utils {
 	pub fn contract_info_storage_deposit(addr: &H160) -> BalanceOf<Test> {
 		let contract_info = self::get_contract(&addr);
 		let info_size = contract_info.encoded_size() as u64;
-		DepositPerByte::get()
+		let info_deposit = DepositPerByte::get()
 			.saturating_mul(info_size)
-			.saturating_add(DepositPerItem::get())
+			.saturating_add(DepositPerItem::get());
+		let immutable_size = contract_info.immutable_data_len() as u64;
+		if immutable_size > 0 {
+			let immutable_deposit = DepositPerByte::get()
+				.saturating_mul(immutable_size)
+				.saturating_add(DepositPerItem::get());
+			info_deposit.saturating_add(immutable_deposit)
+		} else {
+			info_deposit
+		}
 	}
 	pub fn expected_deposit(code_len: usize) -> u64 {
 		// For code_info, the deposit for max_encoded_len is taken.
@@ -412,6 +421,7 @@ parameter_types! {
 	pub static DepositPerByte: BalanceOf<Test> = 1;
 	pub const DepositPerItem: BalanceOf<Test> = 2;
 	pub static CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+	pub static ChainId: u64 = 384;
 }
 
 impl Convert<Weight, BalanceOf<Self>> for Test {
@@ -496,6 +506,7 @@ impl Config for Test {
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Debug = TestDebug;
+	type ChainId = ChainId;
 }
 
 pub struct ExtBuilder {
@@ -3528,8 +3539,11 @@ mod run_tests {
 			// Set enough deposit limit for the child instantiate. This should succeed.
 			let result = builder::bare_call(addr_caller)
 				.origin(RuntimeOrigin::signed(BOB))
-				.storage_deposit_limit(callee_info_len + 2 + ED + 4)
-				.data((1u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 3)).encode())
+				.storage_deposit_limit(callee_info_len + 2 + ED + 4 + 2)
+				.data(
+					(1u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 3 + 2))
+						.encode(),
+				)
 				.build();
 
 			let returned = result.result.unwrap();
@@ -3546,6 +3560,7 @@ mod run_tests {
 			//  - callee instantiation deposit = (callee_info_len + 2)
 			//  - callee account ED
 			//  - for writing an item of 1 byte to storage = 3 Balance
+			//  - Immutable data storage item deposit
 			assert_eq!(
 				<Test as Config>::Currency::free_balance(&BOB),
 				1_000_000 - (callee_info_len + 2 + ED + 3)
@@ -4308,6 +4323,123 @@ mod run_tests {
 			// correct output if the supplied output length was smaller than
 			// than what the callee returned.
 			assert_ok!(builder::call(addr).build());
+		});
+	}
+
+	#[test]
+	fn chain_id_works() {
+		let (code, _) = compile_module("chain_id").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let chain_id = U256::from(<Test as Config>::ChainId::get());
+			let received = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_result();
+			assert_eq!(received.result.data, chain_id.encode());
+		});
+	}
+
+	#[test]
+	fn return_data_api_works() {
+		let (code_return_data_api, _) = compile_module("return_data_api").unwrap();
+		let (code_return_with_data, hash_return_with_data) =
+			compile_module("return_with_data").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Upload the io echoing fixture for later use
+			assert_ok!(Contracts::upload_code(
+				RuntimeOrigin::signed(ALICE),
+				code_return_with_data,
+				deposit_limit::<Test>(),
+			));
+
+			// Create fixture: Constructor does nothing
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code_return_data_api))
+					.build_and_unwrap_contract();
+
+			// Call the contract: It will issue calls and deploys, asserting on
+			assert_ok!(builder::call(addr)
+				.value(10 * 1024)
+				.data(hash_return_with_data.encode())
+				.build());
+		});
+	}
+
+	#[test]
+	fn immutable_data_works() {
+		let (code, _) = compile_module("immutable_data").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let data = [0xfe; 8];
+
+			// Create fixture: Constructor sets the immtuable data
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+				.data(data.to_vec())
+				.build_and_unwrap_contract();
+
+			// Storing immmutable data charges storage deposit; verify it explicitly.
+			assert_eq!(
+				test_utils::get_balance_on_hold(
+					&HoldReason::StorageDepositReserve.into(),
+					&<Test as Config>::AddressMapper::to_account_id(&addr)
+				),
+				test_utils::contract_info_storage_deposit(&addr)
+			);
+			assert_eq!(test_utils::get_contract(&addr).immutable_data_len(), data.len() as u32);
+
+			// Call the contract: Asserts the input to equal the immutable data
+			assert_ok!(builder::call(addr).data(data.to_vec()).build());
+		});
+	}
+
+	#[test]
+	fn sbrk_cannot_be_deployed() {
+		let (code, _) = compile_module("sbrk").unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = Balances::set_balance(&ALICE, 1_000_000);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					code.clone(),
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::InvalidInstruction
+			);
+
+			assert_err!(
+				builder::bare_instantiate(Code::Upload(code)).build().result,
+				<Error<Test>>::InvalidInstruction
+			);
+		});
+	}
+
+	#[test]
+	fn overweight_basic_block_cannot_be_deployed() {
+		let (code, _) = compile_module("basic_block").unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = Balances::set_balance(&ALICE, 1_000_000);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					code.clone(),
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::BasicBlockTooLarge
+			);
+
+			assert_err!(
+				builder::bare_instantiate(Code::Upload(code)).build().result,
+				<Error<Test>>::BasicBlockTooLarge
+			);
 		});
 	}
 }

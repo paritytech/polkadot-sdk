@@ -38,12 +38,11 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{
 		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData,
 		RuntimeApiMessage,
 	},
-	overseer, FromOrchestra, OverseerSignal, PerLeafSpan,
+	overseer, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
@@ -284,9 +283,6 @@ struct State {
 	/// our view, including both leaves and implicit ancestry.
 	per_relay_parent: HashMap<Hash, PerRelayParent>,
 
-	/// Span per relay parent.
-	span_per_relay_parent: HashMap<Hash, PerLeafSpan>,
-
 	/// The result senders per collation.
 	collation_result_senders: HashMap<CandidateHash, oneshot::Sender<CollationSecondedSignal>>,
 
@@ -345,7 +341,6 @@ impl State {
 			implicit_view: None,
 			active_leaves: Default::default(),
 			per_relay_parent: Default::default(),
-			span_per_relay_parent: Default::default(),
 			collation_result_senders: Default::default(),
 			peer_ids: Default::default(),
 			validator_groups_buf: ValidatorGroupsBuffer::with_capacity(VALIDATORS_BUFFER_CAPACITY),
@@ -854,12 +849,6 @@ async fn process_msg<Context>(
 			result_sender,
 			core_index,
 		} => {
-			let _span1 = state
-				.span_per_relay_parent
-				.get(&candidate_receipt.descriptor.relay_parent)
-				.map(|s| s.child("distributing-collation"));
-			let _span2 = jaeger::Span::new(&pov, "distributing-collation");
-
 			match state.collating_on {
 				Some(id) if candidate_receipt.descriptor.para_id != id => {
 					// If the ParaId of a collation requested to be distributed does not match
@@ -1088,11 +1077,6 @@ async fn handle_incoming_request<Context>(
 	let peer_id = req.peer_id();
 	let para_id = req.para_id();
 
-	let _span = state
-		.span_per_relay_parent
-		.get(&relay_parent)
-		.map(|s| s.child("request-collation"));
-
 	match state.collating_on {
 		Some(our_para_id) if our_para_id == para_id => {
 			let per_relay_parent = match state.per_relay_parent.get_mut(&relay_parent) {
@@ -1146,8 +1130,6 @@ async fn handle_incoming_request<Context>(
 				};
 
 			state.metrics.on_collation_sent_requested();
-
-			let _span = _span.as_ref().map(|s| s.child("sending"));
 
 			let waiting = state.waiting_collation_fetches.entry(relay_parent).or_default();
 			let candidate_hash = receipt.hash();
@@ -1359,11 +1341,6 @@ async fn handle_our_view_change<Context>(
 	for leaf in added {
 		let mode = prospective_parachains_mode(ctx.sender(), *leaf).await?;
 
-		if let Some(span) = view.span_per_head().get(leaf).cloned() {
-			let per_leaf_span = PerLeafSpan::new(span, "collator-side");
-			state.span_per_relay_parent.insert(*leaf, per_leaf_span);
-		}
-
 		state.active_leaves.insert(*leaf, mode);
 		state.per_relay_parent.insert(*leaf, PerRelayParent::new(mode));
 
@@ -1464,7 +1441,6 @@ async fn handle_our_view_change<Context>(
 					),
 				}
 			}
-			state.span_per_relay_parent.remove(removed);
 			state.waiting_collation_fetches.remove(removed);
 		}
 	}

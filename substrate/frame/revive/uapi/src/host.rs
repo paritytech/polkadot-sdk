@@ -56,6 +56,30 @@ pub trait HostFn: private::Sealed {
 	///   otherwise.
 	fn lock_delegate_dependency(code_hash: &[u8; 32]);
 
+	/// Get the contract immutable data.
+	///
+	/// Traps if:
+	/// - Called from within the deploy export.
+	/// - Called by contracts that didn't set immutable data by calling `set_immutable_data` during
+	///   their constructor execution.
+	///
+	/// # Parameters
+	/// - `output`: A reference to the output buffer to write the immutable bytes.
+	fn get_immutable_data(output: &mut &mut [u8]);
+
+	/// Set the contract immutable data.
+	///
+	/// It is only valid to set non-empty immutable data in the constructor once.
+	///
+	/// Traps if:
+	/// - Called from within the call export.
+	/// - Called more than once.
+	/// - The provided data was empty.
+	///
+	/// # Parameters
+	/// - `data`: A reference to the data to be stored as immutable bytes.
+	fn set_immutable_data(data: &[u8]);
+
 	/// Stores the **reducible** balance of the current account into the supplied buffer.
 	///
 	/// # Parameters
@@ -70,6 +94,9 @@ pub trait HostFn: private::Sealed {
 	/// - `addr`: The target address of which to retreive the free balance.
 	/// - `output`: A reference to the output data buffer to write the balance.
 	fn balance_of(addr: &[u8; 20], output: &mut [u8; 32]);
+
+	/// Returns the [EIP-155](https://eips.ethereum.org/EIPS/eip-155) chain ID.
+	fn chain_id(output: &mut [u8; 32]);
 
 	/// Stores the current block number of the current contract into the supplied buffer.
 	///
@@ -617,6 +644,20 @@ pub trait HostFn: private::Sealed {
 	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
 	/// execution fails, `ReturnErrorCode::XcmSendFailed` is returned.
 	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result;
+
+	/// Stores the size of the returned data of the last contract call or instantiation.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output buffer to write the size.
+	fn return_data_size(output: &mut [u8; 32]);
+
+	/// Stores the returned data of the last contract call or contract instantiation.
+	///
+	/// # Parameters
+	/// - `output`: A reference to the output buffer to write the data.
+	/// - `offset`: Byte offset into the returned data
+	fn return_data_copy(output: &mut &mut [u8], offset: u32);
 }
 
 mod private {

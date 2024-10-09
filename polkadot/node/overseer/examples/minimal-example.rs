@@ -31,8 +31,10 @@ use polkadot_overseer::{
 	gen::{FromOrchestra, SpawnedSubsystem},
 	HeadSupportsParachains, SubsystemError,
 };
-use polkadot_primitives::{CandidateReceipt, Hash};
-use polkadot_primitives_test_helpers::{dummy_candidate_descriptor, dummy_hash};
+use polkadot_primitives::{CandidateReceipt, Hash, PersistedValidationData, PvfExecKind};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_descriptor, dummy_hash, dummy_validation_code,
+};
 
 struct AlwaysSupportsParachains;
 
@@ -73,7 +75,9 @@ impl Subsystem1 {
 				commitments_hash: Hash::zero(),
 			};
 
-			let msg = CandidateValidationMessage::ValidateFromChainState {
+			let msg = CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: PersistedValidationData { ..Default::default() },
+				validation_code: dummy_validation_code(),
 				candidate_receipt,
 				pov: PoV { block_data: BlockData(Vec::new()) }.into(),
 				executor_params: Default::default(),

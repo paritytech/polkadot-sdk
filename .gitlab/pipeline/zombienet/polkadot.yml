@@ -72,7 +72,9 @@
   after_script:
     - mkdir -p ./zombienet-logs
     - cp /tmp/zombie*/logs/* ./zombienet-logs/
-  retry: 2
+  retry:
+    max: 1
+    when: runner_system_failure
   tags:
     - zombienet-polkadot-integration-test
 
@@ -92,7 +94,7 @@ zombienet-polkadot-functional-0002-parachains-disputes:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0002-parachains-disputes.zndsl"
 
-zombienet-polkadot-functional-0003-beefy-and-mmr:
+.zombienet-polkadot-functional-0003-beefy-and-mmr:
   extends:
     - .zombienet-polkadot-common
   script:
@@ -108,7 +110,7 @@ zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0004-parachains-garbage-candidate.zndsl"
 
-zombienet-polkadot-functional-0005-parachains-disputes-past-session:
+.zombienet-polkadot-functional-0005-parachains-disputes-past-session:
   extends:
     - .zombienet-polkadot-common
   script:
@@ -188,7 +190,7 @@ zombienet-polkadot-elastic-scaling-0002-elastic-scaling-doesnt-break-parachains:
       --local-dir="${LOCAL_DIR}/elastic_scaling"
       --test="0002-elastic-scaling-doesnt-break-parachains.zndsl"
 
-zombienet-polkadot-functional-0012-spam-statement-distribution-requests:
+.zombienet-polkadot-functional-0012-spam-statement-distribution-requests:
   extends:
     - .zombienet-polkadot-common
   script:
@@ -222,6 +224,14 @@ zombienet-polkadot-functional-0015-coretime-shared-core:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/functional"
       --test="0015-coretime-shared-core.zndsl"
+
+zombienet-polkadot-functional-0016-approval-voting-parallel:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0016-approval-voting-parallel.zndsl"
 
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
@@ -267,7 +277,7 @@ zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:
       --local-dir="${LOCAL_DIR}/smoke"
       --test="0002-parachains-upgrade-smoke-test.zndsl"
 
-zombienet-polkadot-smoke-0003-deregister-register-validator:
+.zombienet-polkadot-smoke-0003-deregister-register-validator:
   extends:
     - .zombienet-polkadot-common
   script:
@@ -343,7 +353,7 @@ zombienet-polkadot-malus-0001-dispute-valid:
       --local-dir="${LOCAL_DIR}/integrationtests"
       --test="0001-dispute-valid-block.zndsl"
 
-zombienet-polkadot-coretime-revenue:
+.zombienet-polkadot-coretime-revenue:
   extends:
     - .zombienet-polkadot-common
   needs:

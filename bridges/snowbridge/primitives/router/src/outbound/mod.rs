@@ -44,7 +44,8 @@ impl<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription, 
 		OutboundQueue,
 		AgentHashedDescription,
 		ConvertAssetId,
-	> where
+	>
+where
 	UniversalLocation: Get<InteriorLocation>,
 	EthereumNetwork: Get<NetworkId>,
 	OutboundQueue: SendMessage<Balance = u128>,
@@ -68,13 +69,15 @@ impl<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription, 
 			return Err(SendError::NotApplicable)
 		}
 
-		let dest = destination.take().ok_or(SendError::MissingArgument)?;
+		// Cloning destination to avoid modifying the value so subsequent exporters can use it.
+		let dest = destination.clone().take().ok_or(SendError::MissingArgument)?;
 		if dest != Here {
 			log::trace!(target: "xcm::ethereum_blob_exporter", "skipped due to unmatched remote destination {dest:?}.");
 			return Err(SendError::NotApplicable)
 		}
 
-		let (local_net, local_sub) = universal_source
+		// Cloning universal_source to avoid modifying the value so subsequent exporters can use it.
+		let (local_net, local_sub) = universal_source.clone()
 			.take()
 			.ok_or_else(|| {
 				log::error!(target: "xcm::ethereum_blob_exporter", "universal source not provided.");
@@ -83,7 +86,7 @@ impl<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription, 
 			.split_global()
 			.map_err(|()| {
 				log::error!(target: "xcm::ethereum_blob_exporter", "could not get global consensus from universal source '{universal_source:?}'.");
-				SendError::Unroutable
+				SendError::NotApplicable
 			})?;
 
 		if Ok(local_net) != universal_location.global_consensus() {
@@ -95,14 +98,9 @@ impl<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription, 
 			[Parachain(para_id)] => *para_id,
 			_ => {
 				log::error!(target: "xcm::ethereum_blob_exporter", "could not get parachain id from universal source '{local_sub:?}'.");
-				return Err(SendError::MissingArgument)
+				return Err(SendError::NotApplicable)
 			},
 		};
-
-		let message = message.take().ok_or_else(|| {
-			log::error!(target: "xcm::ethereum_blob_exporter", "xcm message not provided.");
-			SendError::MissingArgument
-		})?;
 
 		let source_location = Location::new(1, local_sub.clone());
 
@@ -110,9 +108,14 @@ impl<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription, 
 			Some(id) => id,
 			None => {
 				log::error!(target: "xcm::ethereum_blob_exporter", "unroutable due to not being able to create agent id. '{source_location:?}'");
-				return Err(SendError::Unroutable)
+				return Err(SendError::NotApplicable)
 			},
 		};
+
+		let message = message.take().ok_or_else(|| {
+			log::error!(target: "xcm::ethereum_blob_exporter", "xcm message not provided.");
+			SendError::MissingArgument
+		})?;
 
 		let mut converter =
 			XcmConverter::<ConvertAssetId, ()>::new(&message, expected_network, agent_id);
