@@ -549,6 +549,44 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Broker::SaleInfo` (r:1 w:1)
+	/// Proof: `Broker::SaleInfo` (`max_values`: Some(1), `max_size`: Some(57), added: 552, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::PotentialRenewals` (r:1 w:2)
+	/// Proof: `Broker::PotentialRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::Configuration` (r:1 w:0)
+	/// Proof: `Broker::Configuration` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::Status` (r:1 w:0)
+	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Authorship::Author` (r:1 w:0)
+	/// Proof: `Authorship::Author` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `System::Digest` (r:1 w:0)
+	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Broker::AutoRenewals` (r:1 w:1)
+	/// Proof: `Broker::AutoRenewals` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::Workplan` (r:0 w:1)
+	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
+	fn enable_auto_renew() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `914`
+		//  Estimated: `4698`
+		// Minimum execution time: 51_938_000 picoseconds.
+		Weight::from_parts(55_025_000, 4698)
+			.saturating_add(T::DbWeight::get().reads(8_u64))
+			.saturating_add(T::DbWeight::get().writes(6_u64))
+	}
+	/// Storage: `Broker::AutoRenewals` (r:1 w:1)
+	/// Proof: `Broker::AutoRenewals` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
+	fn disable_auto_renew() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `480`
+		//  Estimated: `1516`
+		// Minimum execution time: 9_628_000 picoseconds.
+		Weight::from_parts(10_400_000, 1516)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+  }
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)

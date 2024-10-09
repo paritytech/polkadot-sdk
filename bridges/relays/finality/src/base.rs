@@ -45,7 +45,3 @@ pub trait SourceClientBase<P: FinalityPipeline>: RelayClient {
 	/// Subscribe to new finality proofs.
 	async fn finality_proofs(&self) -> Result<Self::FinalityProofsStream, Self::Error>;
 }
-
-/// Target client used in finality related loops.
-#[async_trait]
-pub trait TargetClientBase<P: FinalityPipeline>: RelayClient {}

@@ -31,8 +31,13 @@ use crate::{
 
 use futures::channel::oneshot;
 use libp2p::{
-	connection_limits::ConnectionLimits, core::Multiaddr, identify::Info as IdentifyInfo,
-	identity::PublicKey, kad::RecordKey, swarm::NetworkBehaviour, PeerId, StreamProtocol,
+	connection_limits::ConnectionLimits,
+	core::Multiaddr,
+	identify::Info as IdentifyInfo,
+	identity::PublicKey,
+	kad::{Record, RecordKey},
+	swarm::NetworkBehaviour,
+	PeerId, StreamProtocol,
 };
 
 use parking_lot::Mutex;
@@ -71,8 +76,6 @@ pub enum BehaviourOut {
 	///
 	/// This event is generated for statistics purposes.
 	InboundRequest {
-		/// Peer which sent us a request.
-		peer: PeerId,
 		/// Protocol name of the request.
 		protocol: ProtocolName,
 		/// If `Ok`, contains the time elapsed between when we received the request and when we
@@ -84,8 +87,6 @@ pub enum BehaviourOut {
 	///
 	/// This event is generated for statistics purposes.
 	RequestFinished {
-		/// Peer that we send a request to.
-		peer: PeerId,
 		/// Name of the protocol in question.
 		protocol: ProtocolName,
 		/// Duration the request took.
@@ -289,6 +290,16 @@ impl<B: BlockT> Behaviour<B> {
 		self.discovery.put_value(key, value);
 	}
 
+	/// Puts a record into DHT, on the provided Peers
+	pub fn put_record_to(
+		&mut self,
+		record: Record,
+		peers: HashSet<sc_network_types::PeerId>,
+		update_local_storage: bool,
+	) {
+		self.discovery.put_record_to(record, peers, update_local_storage);
+	}
+
 	/// Stores value in DHT
 	pub fn store_record(
 		&mut self,
@@ -335,10 +346,10 @@ impl From<CustomMessageOutcome> for BehaviourOut {
 impl From<request_responses::Event> for BehaviourOut {
 	fn from(event: request_responses::Event) -> Self {
 		match event {
-			request_responses::Event::InboundRequest { peer, protocol, result } =>
-				BehaviourOut::InboundRequest { peer, protocol, result },
-			request_responses::Event::RequestFinished { peer, protocol, duration, result } =>
-				BehaviourOut::RequestFinished { peer, protocol, duration, result },
+			request_responses::Event::InboundRequest { protocol, result, .. } =>
+				BehaviourOut::InboundRequest { protocol, result },
+			request_responses::Event::RequestFinished { protocol, duration, result, .. } =>
+				BehaviourOut::RequestFinished { protocol, duration, result },
 			request_responses::Event::ReputationChanges { peer, changes } =>
 				BehaviourOut::ReputationChanges { peer, changes },
 		}

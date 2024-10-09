@@ -26,9 +26,9 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{
-	node_features, AsyncBackingParams, CandidateEvent, CandidateReceipt, CoreState, GroupIndex,
-	GroupRotationInfo, IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex,
-	SessionInfo, ValidationCode, ValidatorIndex,
+	node_features, ApprovalVotingParams, AsyncBackingParams, CandidateEvent, CandidateReceipt,
+	CoreState, GroupIndex, GroupRotationInfo, IndexedVec, NodeFeatures, OccupiedCore,
+	ScheduledCore, SessionIndex, SessionInfo, ValidationCode, ValidatorIndex,
 };
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
@@ -297,6 +297,13 @@ impl MockRuntimeApi {
 								gum::error!(target: LOG_TARGET, ?err, "validation code wasn't received");
 							}
 						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::ApprovalVotingParams(_, tx),
+						) =>
+							if let Err(err) = tx.send(Ok(ApprovalVotingParams::default())) {
+								gum::error!(target: LOG_TARGET, ?err, "Voting params weren't received");
+							},
 						// Long term TODO: implement more as needed.
 						message => {
 							unimplemented!("Unexpected runtime-api message: {:?}", message)

@@ -28,10 +28,13 @@ sp-consensus-slots = { features = ["serde"], workspace = true }
 sp-io = { workspace = true }
 sp-keystore = { optional = true, workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
-sp-std = { workspace = true }
+sp-std = { workspace = true, optional = true }
 
 polkadot-core-primitives = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
+
+[dev-dependencies]
+polkadot-primitives-test-helpers = { workspace = true }
 
 [features]
 default = ["std"]
@@ -62,3 +65,4 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
+test = []

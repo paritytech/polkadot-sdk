@@ -31,7 +31,6 @@ use sp_runtime::{
 	traits::{Get, IdentityLookup},
 	AccountId32,
 };
-use sp_std::prelude::*;
 use xcm::latest::prelude::*;
 use xcm_builder::{EnsureXcmOrigin, SignedToAccountId32};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
@@ -101,7 +100,7 @@ impl EnsureOriginWithArg<RuntimeOrigin, Location> for ForeignCreators {
 	fn try_origin(
 		o: RuntimeOrigin,
 		a: &Location,
-	) -> sp_std::result::Result<Self::Success, RuntimeOrigin> {
+	) -> core::result::Result<Self::Success, RuntimeOrigin> {
 		let origin_location = pallet_xcm::EnsureXcm::<Everything>::try_origin(o.clone())?;
 		if !a.starts_with(&origin_location) {
 			return Err(o);

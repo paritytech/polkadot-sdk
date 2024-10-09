@@ -18,6 +18,7 @@
 //! Storage migrations for the vesting pallet.
 
 use super::*;
+use alloc::vec;
 
 // Migration from single schedule to multiple schedules.
 pub mod v1 {

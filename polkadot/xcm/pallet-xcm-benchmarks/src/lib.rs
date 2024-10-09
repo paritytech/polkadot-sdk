@@ -18,9 +18,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::Encode;
 use frame_benchmarking::{account, BenchmarkError};
-use sp_std::prelude::*;
 use xcm::latest::prelude::*;
 use xcm_builder::EnsureDelivery;
 use xcm_executor::{traits::ConvertLocation, Config as XcmConfig};
@@ -70,7 +72,7 @@ pub fn generate_holding_assets(max_assets: u32) -> Assets {
 	let fungibles_amount: u128 = 100;
 	let holding_fungibles = max_assets / 2;
 	let holding_non_fungibles = max_assets - holding_fungibles - 1; // -1 because of adding `Here` asset
-																// add count of `holding_fungibles`
+																 // add count of `holding_fungibles`
 	(0..holding_fungibles)
 		.map(|i| {
 			Asset {

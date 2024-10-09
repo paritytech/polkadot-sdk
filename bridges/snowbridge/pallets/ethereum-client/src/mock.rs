@@ -10,6 +10,7 @@ use sp_std::default::Default;
 use std::{fs::File, path::PathBuf};
 
 type Block = frame_system::mocking::MockBlock<Test>;
+use frame_support::traits::ConstU32;
 use sp_runtime::BuildStorage;
 
 fn load_fixture<T>(basename: String) -> Result<T, serde_json::Error>
@@ -56,6 +57,33 @@ pub fn load_next_finalized_header_update_fixture() -> snowbridge_beacon_primitiv
 	{ config::SYNC_COMMITTEE_BITS_SIZE },
 > {
 	load_fixture("next-finalized-header-update.json".to_string()).unwrap()
+}
+
+pub fn load_sync_committee_update_period_0() -> Box<
+	snowbridge_beacon_primitives::Update<
+		{ config::SYNC_COMMITTEE_SIZE },
+		{ config::SYNC_COMMITTEE_BITS_SIZE },
+	>,
+> {
+	Box::new(load_fixture("sync-committee-update-period-0.json".to_string()).unwrap())
+}
+
+pub fn load_sync_committee_update_period_0_older_fixture() -> Box<
+	snowbridge_beacon_primitives::Update<
+		{ config::SYNC_COMMITTEE_SIZE },
+		{ config::SYNC_COMMITTEE_BITS_SIZE },
+	>,
+> {
+	Box::new(load_fixture("sync-committee-update-period-0-older.json".to_string()).unwrap())
+}
+
+pub fn load_sync_committee_update_period_0_newer_fixture() -> Box<
+	snowbridge_beacon_primitives::Update<
+		{ config::SYNC_COMMITTEE_SIZE },
+		{ config::SYNC_COMMITTEE_BITS_SIZE },
+	>,
+> {
+	Box::new(load_fixture("sync-committee-update-period-0-newer.json".to_string()).unwrap())
 }
 
 pub fn get_message_verification_payload() -> (Log, Proof) {
@@ -108,9 +136,12 @@ parameter_types! {
 	};
 }
 
+pub const FREE_SLOTS_INTERVAL: u32 = config::SLOTS_PER_EPOCH as u32;
+
 impl ethereum_beacon_client::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
+	type FreeHeadersInterval = ConstU32<FREE_SLOTS_INTERVAL>;
 	type WeightInfo = ();
 }
 

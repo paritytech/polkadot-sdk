@@ -30,6 +30,7 @@ use crate::{
 	slots::{self, Pallet as Slots, WeightInfo as SlotsWeightInfo},
 	traits::{LeaseError, Leaser, Registrar},
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::*;
@@ -41,7 +42,6 @@ use polkadot_runtime_parachains::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{One, Saturating, Zero};
-use sp_std::prelude::*;
 
 const LOG_TARGET: &str = "runtime::assigned_slots";
 
@@ -186,6 +186,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub max_temporary_slots: u32,
 		pub max_permanent_slots: u32,
+		#[serde(skip)]
 		pub _config: PhantomData<T>,
 	}
 

@@ -18,9 +18,11 @@
 
 use std::collections::HashSet;
 
-use crate::*;
+use crate::{xcm_config::LocationConverter, *};
 use frame_support::traits::WhitelistedStorageKeys;
-use sp_core::hexdisplay::HexDisplay;
+use sp_core::{crypto::Ss58Codec, hexdisplay::HexDisplay};
+use sp_keyring::AccountKeyring::Alice;
+use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 #[test]
 fn remove_keys_weight_is_sensible() {
@@ -98,4 +100,214 @@ fn check_treasury_pallet_id() {
 		<Treasury as frame_support::traits::PalletInfoAccess>::index() as u8,
 		westend_runtime_constants::TREASURY_PALLET_ID
 	);
+}
+
+#[cfg(all(test, feature = "try-runtime"))]
+mod remote_tests {
+	use super::*;
+	use frame_try_runtime::{runtime_decl_for_try_runtime::TryRuntime, UpgradeCheckSelect};
+	use remote_externalities::{
+		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
+	};
+	use std::env::var;
+
+	#[tokio::test]
+	async fn run_migrations() {
+		if var("RUN_MIGRATION_TESTS").is_err() {
+			return;
+		}
+
+		sp_tracing::try_init_simple();
+		let transport: Transport =
+			var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string()).into();
+		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
+		let mut ext = Builder::<Block>::default()
+			.mode(if let Some(state_snapshot) = maybe_state_snapshot {
+				Mode::OfflineOrElseOnline(
+					OfflineConfig { state_snapshot: state_snapshot.clone() },
+					OnlineConfig {
+						transport,
+						state_snapshot: Some(state_snapshot),
+						..Default::default()
+					},
+				)
+			} else {
+				Mode::Online(OnlineConfig { transport, ..Default::default() })
+			})
+			.build()
+			.await
+			.unwrap();
+		ext.execute_with(|| Runtime::on_runtime_upgrade(UpgradeCheckSelect::PreAndPost));
+	}
+
+	#[tokio::test]
+	async fn delegate_stake_migration() {
+		// Intended to be run only manually.
+		if var("RUN_MIGRATION_TESTS").is_err() {
+			return;
+		}
+		use frame_support::assert_ok;
+		sp_tracing::try_init_simple();
+
+		let transport: Transport = var("WS").unwrap_or("ws://127.0.0.1:9900".to_string()).into();
+		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
+		let mut ext = Builder::<Block>::default()
+			.mode(if let Some(state_snapshot) = maybe_state_snapshot {
+				Mode::OfflineOrElseOnline(
+					OfflineConfig { state_snapshot: state_snapshot.clone() },
+					OnlineConfig {
+						transport,
+						state_snapshot: Some(state_snapshot),
+						pallets: vec![
+							"staking".into(),
+							"system".into(),
+							"balances".into(),
+							"nomination-pools".into(),
+							"delegated-staking".into(),
+						],
+						..Default::default()
+					},
+				)
+			} else {
+				Mode::Online(OnlineConfig { transport, ..Default::default() })
+			})
+			.build()
+			.await
+			.unwrap();
+		ext.execute_with(|| {
+			// create an account with some balance
+			let alice = AccountId::from([1u8; 32]);
+			use frame_support::traits::Currency;
+			let _ = Balances::deposit_creating(&alice, 100_000 * UNITS);
+
+			// iterate over all pools
+			pallet_nomination_pools::BondedPools::<Runtime>::iter_keys().for_each(|k| {
+				if pallet_nomination_pools::Pallet::<Runtime>::api_pool_needs_delegate_migration(k)
+				{
+					assert_ok!(
+						pallet_nomination_pools::Pallet::<Runtime>::migrate_pool_to_delegate_stake(
+							RuntimeOrigin::signed(alice.clone()).into(),
+							k,
+						)
+					);
+				}
+			});
+
+			// member migration stats
+			let mut success = 0;
+			let mut direct_stakers = 0;
+			let mut unexpected_errors = 0;
+
+			// iterate over all pool members
+			pallet_nomination_pools::PoolMembers::<Runtime>::iter_keys().for_each(|k| {
+				if pallet_nomination_pools::Pallet::<Runtime>::api_member_needs_delegate_migration(
+					k.clone(),
+				) {
+					// reasons migrations can fail:
+					let is_direct_staker = pallet_staking::Bonded::<Runtime>::contains_key(&k);
+
+					let migration = pallet_nomination_pools::Pallet::<Runtime>::migrate_delegation(
+						RuntimeOrigin::signed(alice.clone()).into(),
+						sp_runtime::MultiAddress::Id(k.clone()),
+					);
+
+					if is_direct_staker {
+						// if the member is a direct staker, the migration should fail until pool
+						// member unstakes all funds from pallet-staking.
+						direct_stakers += 1;
+						assert_eq!(
+							migration.unwrap_err(),
+							pallet_delegated_staking::Error::<Runtime>::AlreadyStaking.into()
+						);
+					} else if migration.is_err() {
+						unexpected_errors += 1;
+						log::error!(target: "remote_test", "Unexpected error {:?} while migrating {:?}", migration.unwrap_err(), k);
+					} else {
+						success += 1;
+					}
+				}
+			});
+
+			log::info!(
+				target: "remote_test",
+				"Migration stats: success: {}, direct_stakers: {}, unexpected_errors: {}",
+				success,
+				direct_stakers,
+				unexpected_errors
+			);
+		});
+	}
+}
+
+#[test]
+fn location_conversion_works() {
+	// the purpose of hardcoded values is to catch an unintended location conversion logic change.
+	struct TestCase {
+		description: &'static str,
+		location: Location,
+		expected_account_id_str: &'static str,
+	}
+
+	let test_cases = vec![
+		// DescribeTerminus
+		TestCase {
+			description: "DescribeTerminus Child",
+			location: Location::new(0, [Parachain(1111)]),
+			expected_account_id_str: "5Ec4AhP4h37t7TFsAZ4HhFq6k92usAAJDUC3ADSZ4H4Acru3",
+		},
+		// DescribePalletTerminal
+		TestCase {
+			description: "DescribePalletTerminal Child",
+			location: Location::new(0, [Parachain(1111), PalletInstance(50)]),
+			expected_account_id_str: "5FjEBrKn3STAFsZpQF4jzwxUYHNGnNgzdZqSQfTzeJ82XKp6",
+		},
+		// DescribeAccountId32Terminal
+		TestCase {
+			description: "DescribeAccountId32Terminal Child",
+			location: Location::new(
+				0,
+				[Parachain(1111), AccountId32 { network: None, id: AccountId::from(Alice).into() }],
+			),
+			expected_account_id_str: "5EEMro9RRDpne4jn9TuD7cTB6Amv1raVZ3xspSkqb2BF3FJH",
+		},
+		// DescribeAccountKey20Terminal
+		TestCase {
+			description: "DescribeAccountKey20Terminal Child",
+			location: Location::new(
+				0,
+				[Parachain(1111), AccountKey20 { network: None, key: [0u8; 20] }],
+			),
+			expected_account_id_str: "5HohjXdjs6afcYcgHHSstkrtGfxgfGKsnZ1jtewBpFiGu4DL",
+		},
+		// DescribeTreasuryVoiceTerminal
+		TestCase {
+			description: "DescribeTreasuryVoiceTerminal Child",
+			location: Location::new(
+				0,
+				[Parachain(1111), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }],
+			),
+			expected_account_id_str: "5GenE4vJgHvwYVcD6b4nBvH5HNY4pzpVHWoqwFpNMFT7a2oX",
+		},
+		// DescribeBodyTerminal
+		TestCase {
+			description: "DescribeBodyTerminal Child",
+			location: Location::new(
+				0,
+				[Parachain(1111), Plurality { id: BodyId::Unit, part: BodyPart::Voice }],
+			),
+			expected_account_id_str: "5DPgGBFTTYm1dGbtB1VWHJ3T3ScvdrskGGx6vSJZNP1WNStV",
+		},
+	];
+
+	for tc in test_cases {
+		let expected =
+			AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
+
+		let got = LocationToAccountHelper::<AccountId, LocationConverter>::convert_location(
+			tc.location.into(),
+		)
+		.unwrap();
+
+		assert_eq!(got, expected, "{}", tc.description);
+	}
 }

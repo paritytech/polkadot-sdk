@@ -1,0 +1,122 @@
+[package]
+name = "pallet-revive"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "FRAME pallet for PolkaVM contracts."
+readme = "README.md"
+include = ["CHANGELOG.md", "README.md", "build.rs", "src/**/*"]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+environmental = { workspace = true }
+paste = { workspace = true }
+polkavm = { version = "0.11.0", default-features = false }
+bitflags = { workspace = true }
+codec = { features = [
+	"derive",
+	"max-encoded-len",
+], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+log = { workspace = true }
+serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
+impl-trait-for-tuples = { workspace = true }
+rlp = { workspace = true }
+
+# Polkadot SDK Dependencies
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-balances = { optional = true, workspace = true }
+pallet-revive-fixtures = { workspace = true, default-features = false }
+pallet-revive-uapi = { workspace = true, default-features = true }
+pallet-revive-proc-macro = { workspace = true, default-features = true }
+sp-api = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+
+[dev-dependencies]
+array-bytes = { workspace = true, default-features = true }
+assert_matches = { workspace = true }
+pretty_assertions = { workspace = true }
+wat = { workspace = true }
+pallet-revive-fixtures = { workspace = true, default-features = true }
+
+# Polkadot SDK Dependencies
+pallet-balances = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+pallet-message-queue = { workspace = true, default-features = true }
+pallet-utility = { workspace = true, default-features = true }
+pallet-assets = { workspace = true, default-features = true }
+pallet-proxy = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+xcm-builder = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+# enabling this feature will require having a riscv toolchain installed
+# if no tests are ran and runtime benchmarks will not work
+# apart from this the pallet will stay functional
+riscv = ["pallet-revive-fixtures/riscv"]
+std = [
+	"codec/std",
+	"environmental/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-balances?/std",
+	"pallet-proxy/std",
+	"pallet-revive-fixtures/std",
+	"pallet-timestamp/std",
+	"pallet-utility/std",
+	"polkavm/std",
+	"rlp/std",
+	"scale-info/std",
+	"serde",
+	"sp-api/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-keystore/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm-builder/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-utility/try-runtime",
+	"sp-runtime/try-runtime",
+]

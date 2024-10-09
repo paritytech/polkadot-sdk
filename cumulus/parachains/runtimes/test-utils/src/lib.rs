@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use codec::{Decode, DecodeLimit};
 use cumulus_primitives_core::{
@@ -22,7 +22,7 @@ use cumulus_primitives_core::{
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
-	dispatch::{DispatchResult, RawOrigin},
+	dispatch::{DispatchResult, GetDispatchInfo, RawOrigin},
 	inherent::{InherentData, ProvideInherent},
 	pallet_prelude::Get,
 	traits::{OnFinalize, OnInitialize, OriginTrait, UnfilteredDispatchable},
@@ -242,7 +242,7 @@ impl<Runtime: BasicParachainRuntime> ExtBuilder<Runtime> {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		pallet_session::GenesisConfig::<Runtime> { keys: self.keys }
+		pallet_session::GenesisConfig::<Runtime> { keys: self.keys, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 
@@ -450,6 +450,7 @@ impl<
 				require_weight_at_most,
 				call: call.into(),
 			},
+			ExpectTransactStatus(MaybeErrorCode::Success),
 		]);
 
 		// execute xcm as parent origin
@@ -459,6 +460,38 @@ impl<
 			xcm,
 			&mut hash,
 			Self::xcm_max_weight(XcmReceivedFrom::Parent),
+			Weight::zero(),
+		)
+	}
+
+	pub fn execute_as_origin_xcm<Call: GetDispatchInfo + Encode>(
+		origin: Location,
+		call: Call,
+		buy_execution_fee: Asset,
+	) -> Outcome {
+		// prepare `Transact` xcm
+		let xcm = Xcm(vec![
+			WithdrawAsset(buy_execution_fee.clone().into()),
+			BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited },
+			Transact {
+				origin_kind: OriginKind::Xcm,
+				require_weight_at_most: call.get_dispatch_info().weight,
+				call: call.encode().into(),
+			},
+			ExpectTransactStatus(MaybeErrorCode::Success),
+		]);
+
+		// execute xcm as parent origin
+		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		<<Runtime as pallet_xcm::Config>::XcmExecutor>::prepare_and_execute(
+			origin.clone(),
+			xcm,
+			&mut hash,
+			Self::xcm_max_weight(if origin == Location::parent() {
+				XcmReceivedFrom::Parent
+			} else {
+				XcmReceivedFrom::Sibling
+			}),
 			Weight::zero(),
 		)
 	}

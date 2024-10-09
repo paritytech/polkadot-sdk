@@ -98,7 +98,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::cmp::Ordering;
 use frame_support::{
 	traits::{
 		defensive_prelude::*, ChangeMembers, Contains, ContainsLengthBound, Currency, Get,
@@ -115,7 +119,6 @@ use sp_runtime::{
 	DispatchError, Perbill, RuntimeDebug,
 };
 use sp_staking::currency_to_vote::CurrencyToVote;
-use sp_std::{cmp::Ordering, prelude::*};
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
@@ -826,7 +829,7 @@ impl<T: Config> Pallet<T> {
 				T::Currency::unreserve(who, removed.deposit);
 			}
 
-			let maybe_next_best = RunnersUp::<T>::mutate(|r| r.pop()).map(|next_best| {
+			let maybe_next_best = RunnersUp::<T>::mutate(|r| r.pop()).inspect(|next_best| {
 				// defensive-only: Members and runners-up are disjoint. This will always be err and
 				// give us an index to insert.
 				if let Err(index) = members.binary_search_by(|m| m.who.cmp(&next_best.who)) {
@@ -836,7 +839,6 @@ impl<T: Config> Pallet<T> {
 					// is already a member, so not much more to do.
 					log::error!(target: LOG_TARGET, "A member seems to also be a runner-up.");
 				}
-				next_best
 			});
 			Ok(maybe_next_best)
 		})?;
@@ -2192,7 +2194,7 @@ mod tests {
 			assert_eq!(locked_stake_of(&2), 0);
 
 			assert_eq!(balances(&2), (20, 0));
-			assert_eq!(Balances::locks(&2).len(), 0);
+			assert_eq!(pallet_balances::Locks::<Test>::get(&2).len(), 0);
 		});
 	}
 

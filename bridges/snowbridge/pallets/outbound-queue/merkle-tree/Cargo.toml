@@ -23,10 +23,10 @@ sp-runtime = { workspace = true }
 
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }
-env_logger = { workspace = true }
 hex = { workspace = true, default-features = true }
 array-bytes = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
