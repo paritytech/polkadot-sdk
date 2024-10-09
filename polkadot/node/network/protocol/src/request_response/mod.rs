@@ -123,10 +123,12 @@ const DEFAULT_REQUEST_TIMEOUT_CONNECTED: Duration = Duration::from_secs(1);
 /// Timeout for requesting availability chunks.
 pub const CHUNK_REQUEST_TIMEOUT: Duration = DEFAULT_REQUEST_TIMEOUT_CONNECTED;
 
-/// This timeout is based on what seems sensible from a time budget perspective, considering 6
-/// second block time. This is going to be tough, if we have multiple forks and large PoVs, but we
-/// only have so much time.
-const POV_REQUEST_TIMEOUT_CONNECTED: Duration = Duration::from_millis(1200);
+/// This timeout is based on the following parameters, assuming we use asynchronous backing with no
+/// time budget within a relay block:
+/// - 500 Mbit/s networking speed
+/// - 10 MB PoV
+/// - 10 parallel executions
+const POV_REQUEST_TIMEOUT_CONNECTED: Duration = Duration::from_millis(2000);
 
 /// We want timeout statement requests fast, so we don't waste time on slow nodes. Responders will
 /// try their best to either serve within that timeout or return an error immediately. (We need to
