@@ -233,6 +233,8 @@ fn session_change_takes_only_max_per_core() {
 }
 
 #[test]
+// Test that `advance_claim_queue` doubles the first assignment only for a core that didn't use to
+// have any assignments.
 fn advance_claim_queue_doubles_assignment_only_if_empty() {
 	let mut config = default_config();
 	config.scheduler_params.lookahead = 3;
@@ -295,6 +297,7 @@ fn advance_claim_queue_doubles_assignment_only_if_empty() {
 }
 
 #[test]
+// Test that `advance_claim_queue` doesn't populate for cores which have no assignments.
 fn advance_claim_queue_no_entry_if_empty() {
 	let mut config = default_config();
 	config.scheduler_params.lookahead = 3;
@@ -342,7 +345,9 @@ fn advance_claim_queue_no_entry_if_empty() {
 }
 
 #[test]
-fn occupied_core_handling() {
+// Test that `advance_claim_queue` only advances for cores that are not part of the `except_for`
+// set.
+fn advance_claim_queue_except_for() {
 	let mut config = default_config();
 	// NOTE: This test expects on demand cores to each get slotted on to a different core
 	// and not fill up the claimqueue of each core first.
