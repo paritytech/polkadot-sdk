@@ -11856,7 +11856,7 @@ name = "pallet-minimal-template"
 version = "0.0.0"
 dependencies = [
  "parity-scale-codec",
- "polkadot-sdk",
+ "polkadot-sdk-frame",
  "scale-info",
 ]
 

@@ -13,7 +13,6 @@ publish = false
 codec = { workspace = true }
 scale-info = { workspace = true }
 polkadot-sdk = { workspace = true, features = [
-	"experimental",
 	"pallet-balances",
 	"pallet-sudo",
 	"pallet-timestamp",
@@ -35,8 +34,9 @@ polkadot-sdk = { optional = true, workspace = true, features = [
 default = ["std"]
 std = [
 	"codec/std",
-	"pallet-minimal-template/std",
-	"polkadot-sdk/std",
 	"scale-info/std",
 	"serde_json/std",
+
+	"pallet-minimal-template/std",
+	"polkadot-sdk/std",
 ]

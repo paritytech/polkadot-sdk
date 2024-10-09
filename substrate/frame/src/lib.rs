@@ -350,6 +350,7 @@ pub mod runtime {
 
 		// Types often used in the runtime APIs.
 		pub use sp_core::OpaqueMetadata;
+		pub use sp_genesis_builder::PresetId;
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
 		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 	}
@@ -530,6 +531,8 @@ pub mod deps {
 	pub use sp_storage;
 	#[cfg(feature = "runtime")]
 	pub use sp_version;
+	#[cfg(feature = "runtime")]
+	pub use sp_genesis_builder;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub use frame_benchmarking;
