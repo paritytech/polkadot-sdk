@@ -28,7 +28,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
-use core::{fmt, marker::PhantomData};
+use core::{fmt, marker::PhantomData, mem};
 use frame_support::{
 	dispatch::DispatchInfo, ensure, pallet_prelude::DispatchResultWithPostInfo, parameter_types,
 	traits::Get, weights::Weight,
@@ -46,9 +46,7 @@ const MAX_DECODE_NESTING: u32 = 256;
 
 /// Encode a `U256` into a 32 byte buffer.
 fn as_bytes(u: U256) -> [u8; 32] {
-	let mut bytes = [0u8; 32];
-	u.to_little_endian(&mut bytes);
-	bytes
+	u.to_little_endian()
 }
 
 #[derive(Clone, Copy)]
@@ -237,8 +235,8 @@ parameter_types! {
 	const XcmExecutionFailed: ReturnErrorCode = ReturnErrorCode::XcmExecutionFailed;
 }
 
-impl From<ExecReturnValue> for ReturnErrorCode {
-	fn from(from: ExecReturnValue) -> Self {
+impl From<&ExecReturnValue> for ReturnErrorCode {
+	fn from(from: &ExecReturnValue) -> Self {
 		if from.flags.contains(ReturnFlags::REVERT) {
 			Self::CalleeReverted
 		} else {
@@ -310,8 +308,8 @@ pub enum RuntimeCosts {
 	CallerIsRoot,
 	/// Weight of calling `seal_address`.
 	Address,
-	/// Weight of calling `seal_gas_left`.
-	GasLeft,
+	/// Weight of calling `seal_weight_left`.
+	WeightLeft,
 	/// Weight of calling `seal_balance`.
 	Balance,
 	/// Weight of calling `seal_balance_of`.
@@ -390,6 +388,10 @@ pub enum RuntimeCosts {
 	LockDelegateDependency,
 	/// Weight of calling `unlock_delegate_dependency`
 	UnlockDelegateDependency,
+	/// Weight of calling `get_immutable_dependency`
+	GetImmutableData(u32),
+	/// Weight of calling `set_immutable_dependency`
+	SetImmutableData(u32),
 }
 
 /// For functions that modify storage, benchmarks are performed with one item in the
@@ -457,7 +459,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallerIsOrigin => T::WeightInfo::seal_caller_is_origin(),
 			CallerIsRoot => T::WeightInfo::seal_caller_is_root(),
 			Address => T::WeightInfo::seal_address(),
-			GasLeft => T::WeightInfo::seal_gas_left(),
+			WeightLeft => T::WeightInfo::seal_weight_left(),
 			Balance => T::WeightInfo::seal_balance(),
 			BalanceOf => T::WeightInfo::seal_balance_of(),
 			ValueTransferred => T::WeightInfo::seal_value_transferred(),
@@ -507,6 +509,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
 			LockDelegateDependency => T::WeightInfo::lock_delegate_dependency(),
 			UnlockDelegateDependency => T::WeightInfo::unlock_delegate_dependency(),
+			GetImmutableData(len) => T::WeightInfo::seal_get_immutable_data(len),
+			SetImmutableData(len) => T::WeightInfo::seal_set_immutable_data(len),
 		}
 	}
 }
@@ -769,20 +773,16 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		}
 	}
 
-	/// Fallible conversion of a `ExecResult` to `ReturnErrorCode`.
-	fn exec_into_return_code(from: ExecResult) -> Result<ReturnErrorCode, DispatchError> {
+	/// Fallible conversion of a `ExecError` to `ReturnErrorCode`.
+	fn exec_error_into_return_code(from: ExecError) -> Result<ReturnErrorCode, DispatchError> {
 		use crate::exec::ErrorOrigin::Callee;
 
-		let ExecError { error, origin } = match from {
-			Ok(retval) => return Ok(retval.into()),
-			Err(err) => err,
-		};
-
-		match (error, origin) {
+		match (from.error, from.origin) {
 			(_, Callee) => Ok(ReturnErrorCode::CalleeTrapped),
 			(err, _) => Self::err_into_return_code(err),
 		}
 	}
+
 	fn decode_key(&self, memory: &M, key_ptr: u32, key_len: u32) -> Result<Key, TrapReason> {
 		let res = match key_len {
 			SENTINEL => {
@@ -1036,28 +1036,32 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			},
 		};
 
-		// `TAIL_CALL` only matters on an `OK` result. Otherwise the call stack comes to
-		// a halt anyways without anymore code being executed.
-		if flags.contains(CallFlags::TAIL_CALL) {
-			if let Ok(return_value) = call_outcome {
+		match call_outcome {
+			// `TAIL_CALL` only matters on an `OK` result. Otherwise the call stack comes to
+			// a halt anyways without anymore code being executed.
+			Ok(_) if flags.contains(CallFlags::TAIL_CALL) => {
+				let output = mem::take(self.ext.last_frame_output_mut());
 				return Err(TrapReason::Return(ReturnData {
-					flags: return_value.flags.bits(),
-					data: return_value.data,
+					flags: output.flags.bits(),
+					data: output.data,
 				}));
-			}
+			},
+			Ok(_) => {
+				let output = mem::take(self.ext.last_frame_output_mut());
+				let write_result = self.write_sandbox_output(
+					memory,
+					output_ptr,
+					output_len_ptr,
+					&output.data,
+					true,
+					|len| Some(RuntimeCosts::CopyToContract(len)),
+				);
+				*self.ext.last_frame_output_mut() = output;
+				write_result?;
+				Ok(self.ext.last_frame_output().into())
+			},
+			Err(err) => Ok(Self::exec_error_into_return_code(err)?),
 		}
-
-		if let Ok(output) = &call_outcome {
-			self.write_sandbox_output(
-				memory,
-				output_ptr,
-				output_len_ptr,
-				&output.data,
-				true,
-				|len| Some(RuntimeCosts::CopyToContract(len)),
-			)?;
-		}
-		Ok(Self::exec_into_return_code(call_outcome)?)
 	}
 
 	fn instantiate(
@@ -1086,34 +1090,40 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			let salt: [u8; 32] = memory.read_array(salt_ptr)?;
 			Some(salt)
 		};
-		let instantiate_outcome = self.ext.instantiate(
+
+		match self.ext.instantiate(
 			weight,
 			deposit_limit,
 			code_hash,
 			value,
 			input_data,
 			salt.as_ref(),
-		);
-		if let Ok((address, output)) = &instantiate_outcome {
-			if !output.flags.contains(ReturnFlags::REVERT) {
-				self.write_fixed_sandbox_output(
+		) {
+			Ok(address) => {
+				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {
+					self.write_fixed_sandbox_output(
+						memory,
+						address_ptr,
+						&address.as_bytes(),
+						true,
+						already_charged,
+					)?;
+				}
+				let output = mem::take(self.ext.last_frame_output_mut());
+				let write_result = self.write_sandbox_output(
 					memory,
-					address_ptr,
-					&address.as_bytes(),
+					output_ptr,
+					output_len_ptr,
+					&output.data,
 					true,
-					already_charged,
-				)?;
-			}
-			self.write_sandbox_output(
-				memory,
-				output_ptr,
-				output_len_ptr,
-				&output.data,
-				true,
-				|len| Some(RuntimeCosts::CopyToContract(len)),
-			)?;
+					|len| Some(RuntimeCosts::CopyToContract(len)),
+				);
+				*self.ext.last_frame_output_mut() = output;
+				write_result?;
+				Ok(self.ext.last_frame_output().into())
+			},
+			Err(err) => Ok(Self::exec_error_into_return_code(err)?),
 		}
-		Ok(Self::exec_into_return_code(instantiate_outcome.map(|(_, retval)| retval))?)
 	}
 
 	fn terminate(&mut self, memory: &M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
@@ -1495,7 +1505,7 @@ pub mod env {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::GasLeft)?;
+		self.charge_gas(RuntimeCosts::WeightLeft)?;
 		let gas_left = &self.ext.gas_meter().gas_left().encode();
 		Ok(self.write_sandbox_output(
 			memory,
@@ -1505,6 +1515,36 @@ pub mod env {
 			false,
 			already_charged,
 		)?)
+	}
+
+	/// Stores the immutable data into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::get_immutable_data`].
+	#[api_version(0)]
+	fn get_immutable_data(
+		&mut self,
+		memory: &mut M,
+		out_ptr: u32,
+		out_len_ptr: u32,
+	) -> Result<(), TrapReason> {
+		let charged = self.charge_gas(RuntimeCosts::GetImmutableData(limits::IMMUTABLE_BYTES))?;
+		let data = self.ext.get_immutable_data()?;
+		self.adjust_gas(charged, RuntimeCosts::GetImmutableData(data.len() as u32));
+		self.write_sandbox_output(memory, out_ptr, out_len_ptr, &data, false, already_charged)?;
+		Ok(())
+	}
+
+	/// Attaches the supplied immutable data to the currently executing contract.
+	/// See [`pallet_revive_uapi::HostFn::set_immutable_data`].
+	#[api_version(0)]
+	fn set_immutable_data(&mut self, memory: &mut M, ptr: u32, len: u32) -> Result<(), TrapReason> {
+		if len > limits::IMMUTABLE_BYTES {
+			return Err(Error::<E::T>::OutOfBounds.into());
+		}
+		self.charge_gas(RuntimeCosts::SetImmutableData(len))?;
+		let buf = memory.read(ptr, len)?;
+		let data = buf.try_into().expect("bailed out earlier; qed");
+		self.ext.set_immutable_data(data)?;
+		Ok(())
 	}
 
 	/// Stores the *free* balance of the current account into the supplied buffer.
@@ -1924,7 +1964,9 @@ pub mod env {
 
 	/// Replace the contract code at the specified address with new code.
 	/// See [`pallet_revive_uapi::HostFn::set_code_hash`].
-	#[api_version(0)]
+	///
+	/// Disabled until the internal implementation takes care of collecting
+	/// the immutable data of the new code hash.
 	#[mutating]
 	fn set_code_hash(
 		&mut self,
@@ -1992,5 +2034,45 @@ pub mod env {
 		let code_hash = memory.read_h256(code_hash_ptr)?;
 		self.ext.unlock_delegate_dependency(&code_hash)?;
 		Ok(())
+	}
+
+	/// Stores the length of the data returned by the last call into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::return_data_size`].
+	#[api_version(0)]
+	fn return_data_size(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&as_bytes(U256::from(self.ext.last_frame_output().data.len())),
+			false,
+			|len| Some(RuntimeCosts::CopyToContract(len)),
+		)?)
+	}
+
+	/// Stores data returned by the last call, starting from `offset`, into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::return_data`].
+	#[api_version(0)]
+	fn return_data_copy(
+		&mut self,
+		memory: &mut M,
+		out_ptr: u32,
+		out_len_ptr: u32,
+		offset: u32,
+	) -> Result<(), TrapReason> {
+		let output = mem::take(self.ext.last_frame_output_mut());
+		let result = if offset as usize > output.data.len() {
+			Err(Error::<E::T>::OutOfBounds.into())
+		} else {
+			self.write_sandbox_output(
+				memory,
+				out_ptr,
+				out_len_ptr,
+				&output.data[offset as usize..],
+				false,
+				|len| Some(RuntimeCosts::CopyToContract(len)),
+			)
+		};
+		*self.ext.last_frame_output_mut() = output;
+		Ok(result?)
 	}
 }

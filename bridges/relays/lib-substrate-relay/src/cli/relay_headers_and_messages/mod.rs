@@ -31,7 +31,6 @@ pub mod relay_to_relay;
 pub mod relay_to_parachain;
 
 use async_trait::async_trait;
-use codec::{Codec, EncodeLike};
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 use structopt::StructOpt;
 
@@ -47,7 +46,6 @@ use crate::{
 	HeadersToRelay, TaggedAccount, TransactionParams,
 };
 use bp_runtime::BalanceOf;
-use messages_relay::Labeled;
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, Chain, ChainWithBalances, ChainWithMessages,
 	ChainWithRuntimeVersion, ChainWithTransactions,
@@ -239,20 +237,9 @@ where
 		+ ChainWithRuntimeVersion;
 
 	/// Left to Right bridge.
-	type L2R: MessagesCliBridge<Source = Self::Left, Target = Self::Right, LaneId = Self::LaneId>;
+	type L2R: MessagesCliBridge<Source = Self::Left, Target = Self::Right>;
 	/// Right to Left bridge
-	type R2L: MessagesCliBridge<Source = Self::Right, Target = Self::Left, LaneId = Self::LaneId>;
-	/// Lane identifier type.
-	type LaneId: Clone
-		+ Copy
-		+ Debug
-		+ Codec
-		+ EncodeLike
-		+ Send
-		+ Sync
-		+ Labeled
-		+ TryFrom<Vec<u8>>
-		+ Default;
+	type R2L: MessagesCliBridge<Source = Self::Right, Target = Self::Left>;
 
 	/// Construct new bridge.
 	fn new(params: <Self::Base as Full2WayBridgeBase>::Params) -> anyhow::Result<Self>;
@@ -303,7 +290,7 @@ where
 			self.mut_base().start_on_demand_headers_relayers().await?;
 
 		// add balance-related metrics
-		let lanes: Vec<Self::LaneId> = self
+		let lanes_l2r: Vec<MessagesLaneIdOf<Self::L2R>> = self
 			.base()
 			.common()
 			.shared
@@ -312,26 +299,48 @@ where
 			.cloned()
 			.map(HexLaneId::try_convert)
 			.collect::<Result<Vec<_>, HexLaneId>>()
-			.expect("");
+			.map_err(|e| {
+				anyhow::format_err!("Conversion failed for L2R lanes with error: {:?}!", e)
+			})?;
+		let lanes_r2l: Vec<MessagesLaneIdOf<Self::R2L>> = self
+			.base()
+			.common()
+			.shared
+			.lane
+			.iter()
+			.cloned()
+			.map(HexLaneId::try_convert)
+			.collect::<Result<Vec<_>, HexLaneId>>()
+			.map_err(|e| {
+				anyhow::format_err!("Conversion failed for R2L lanes with error: {:?}!", e)
+			})?;
 		{
 			let common = self.mut_base().mut_common();
 			crate::messages::metrics::add_relay_balances_metrics::<
 				_,
 				Self::Right,
 				MessagesLaneIdOf<Self::L2R>,
-			>(common.left.client.clone(), &common.metrics_params, &common.left.accounts, &lanes)
+			>(
+				common.left.client.clone(), &common.metrics_params, &common.left.accounts, &lanes_l2r
+			)
 			.await?;
 			crate::messages::metrics::add_relay_balances_metrics::<
 				_,
 				Self::Left,
 				MessagesLaneIdOf<Self::R2L>,
-			>(common.right.client.clone(), &common.metrics_params, &common.right.accounts, &lanes)
+			>(
+				common.right.client.clone(),
+				&common.metrics_params,
+				&common.right.accounts,
+				&lanes_r2l,
+			)
 			.await?;
 		}
 
 		// Need 2x capacity since we consider both directions for each lane
-		let mut message_relays = Vec::with_capacity(lanes.len() * 2);
-		for lane in lanes {
+		let mut message_relays =
+			Vec::with_capacity(lanes_l2r.len().saturating_add(lanes_r2l.len()));
+		for lane in lanes_l2r {
 			let left_to_right_messages =
 				crate::messages::run::<<Self::L2R as MessagesCliBridge>::MessagesLane, _, _>(
 					self.left_to_right().messages_relay_params(
@@ -344,7 +353,8 @@ where
 				.map_err(|e| anyhow::format_err!("{}", e))
 				.boxed();
 			message_relays.push(left_to_right_messages);
-
+		}
+		for lane in lanes_r2l {
 			let right_to_left_messages =
 				crate::messages::run::<<Self::R2L as MessagesCliBridge>::MessagesLane, _, _>(
 					self.right_to_left().messages_relay_params(
