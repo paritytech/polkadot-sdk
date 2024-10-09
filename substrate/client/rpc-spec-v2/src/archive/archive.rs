@@ -20,7 +20,14 @@
 
 use crate::{
 	archive::{error::Error as ArchiveError, ArchiveApiServer},
-	common::events::{ArchiveStorageResult, PaginatedStorageQuery},
+	common::{
+		events::{
+			ArchiveStorageDiffItem, ArchiveStorageDiffMethodResult,
+			ArchiveStorageDiffOperationType, ArchiveStorageDiffResult, ArchiveStorageDiffType,
+			ArchiveStorageResult, PaginatedStorageQuery,
+		},
+		storage::Storage,
+	},
 	hex_string, MethodResult,
 };
 
@@ -277,5 +284,98 @@ where
 		);
 
 		Ok(storage_client.handle_query(hash, items, child_trie))
+	}
+
+	fn archive_unstable_storage_diff(
+		&self,
+		hash: Block::Hash,
+		previous_hash: Option<Block::Hash>,
+		items: Vec<ArchiveStorageDiffItem<String>>,
+	) -> RpcResult<ArchiveStorageDiffMethodResult> {
+		let items = items
+			.into_iter()
+			.map(|item| {
+				let key = StorageKey(parse_hex_param(item.key)?);
+
+				let child_trie_key_string = item.child_trie_key.clone();
+				let child_trie_key = item
+					.child_trie_key
+					.map(|child_trie_key| parse_hex_param(child_trie_key))
+					.transpose()?
+					.map(ChildInfo::new_default_from_vec);
+				Ok((key, item.return_type, child_trie_key, child_trie_key_string))
+			})
+			.collect::<Result<Vec<_>, ArchiveError>>()?;
+
+		let previous_hash = if let Some(previous_hash) = previous_hash {
+			previous_hash
+		} else {
+			let Ok(Some(current_header)) = self.client.header(hash) else {
+				return Err(ArchiveError::InvalidParam(format!(
+					"Block header is not present: {}",
+					hash
+				))
+				.into());
+			};
+			*current_header.parent_hash()
+		};
+
+		// Deduplicate the items.
+		let mut storage_results = Vec::new();
+
+		for item in items {
+			let (key, return_type, child_trie_key, child_trie_key_string) = item;
+
+			let current_keys = {
+				if let Some(child_key) = child_trie_key.clone() {
+					self.client.child_storage_keys(hash, child_key, Some(&key), None)
+				} else {
+					self.client.storage_keys(hash, Some(&key), None)
+				}
+			}
+			.map_err(|error| ArchiveError::InvalidParam(error.to_string()))?;
+
+			let previous_keys = {
+				if let Some(child_key) = child_trie_key.clone() {
+					self.client.child_storage_keys(previous_hash, child_key, Some(&key), None)
+				} else {
+					self.client.storage_keys(previous_hash, Some(&key), None)
+				}
+			}
+			.map_err(|error| ArchiveError::InvalidParam(error.to_string()))?
+			.collect::<HashSet<_>>();
+
+			let storage_client: Storage<Client, Block, BE> = Storage::new(self.client.clone());
+
+			for current_key in current_keys {
+				// The key is not present in the previous state.
+				let result = match return_type {
+					ArchiveStorageDiffType::Value =>
+						storage_client.query_value(hash, &current_key, child_trie_key.as_ref()),
+
+					ArchiveStorageDiffType::Hash =>
+						storage_client.query_hash(hash, &current_key, child_trie_key.as_ref()),
+				};
+
+				let storage_result = match result {
+					Ok(Some(storage_result)) => storage_result,
+					Ok(None) => continue,
+					Err(error) => return Err(ArchiveError::InvalidParam(error.to_string()).into()),
+				};
+
+				if !previous_keys.contains(&current_key) {
+					storage_results.push(ArchiveStorageDiffResult {
+						key: storage_result.key,
+						result: storage_result.result,
+						operation_type: ArchiveStorageDiffOperationType::Added,
+						child_trie_key: child_trie_key_string.clone(),
+					});
+
+					continue
+				}
+			}
+		}
+
+		Ok(ArchiveStorageDiffMethodResult { result: vec![] })
 	}
 }
