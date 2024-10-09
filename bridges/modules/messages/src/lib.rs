@@ -60,9 +60,9 @@ use bp_messages::{
 		DeliveryPayments, DispatchMessage, FromBridgedChainMessagesProof, MessageDispatch,
 		ProvedLaneMessages, ProvedMessages,
 	},
-	ChainWithMessages, DeliveredMessages, InboundLaneData, InboundMessageDetails, MessageKey,
-	MessageNonce, MessagePayload, MessagesOperatingMode, OutboundLaneData, OutboundMessageDetails,
-	UnrewardedRelayersState, VerificationError,
+	ChainWithMessages, DeliveredMessages, InboundLaneData, InboundMessageDetails, LaneState,
+	MessageKey, MessageNonce, MessagePayload, MessagesOperatingMode, OutboundLaneData,
+	OutboundMessageDetails, UnrewardedRelayersState, VerificationError,
 };
 use bp_runtime::{
 	AccountIdOf, BasicOperatingMode, HashOf, OwnedBridgeModule, PreComputedSize, RangeInclusiveExt,
@@ -71,6 +71,8 @@ use bp_runtime::{
 use codec::{Decode, Encode};
 use frame_support::{dispatch::PostDispatchInfo, ensure, fail, traits::Get, DefaultNoBound};
 use sp_std::{marker::PhantomData, prelude::*};
+use xcm::prelude::*;
+use xcm_builder::{BridgeMessage, InspectMessageQueues};
 
 mod call_ext;
 mod inbound_lane;
@@ -663,6 +665,56 @@ pub mod pallet {
 
 			Ok(())
 		}
+	}
+}
+
+impl<T: Config<I>, I: 'static> InspectMessageQueues for Pallet<T, I> {
+	fn clear_messages() {
+		// Best effort.
+		let _ = OutboundMessages::<T, I>::clear(u32::MAX, None);
+		// Need to reset the lane data because it's checked in some tests
+		// after sending a message.
+		OutboundLanes::<T, I>::translate::<(), _>(|_, _| {
+			Some(OutboundLaneData {
+				oldest_unpruned_nonce: 0,
+				latest_received_nonce: 0,
+				latest_generated_nonce: 0,
+				state: LaneState::Opened,
+			})
+		});
+	}
+
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		use xcm::prelude::*;
+
+		let mut messages: Vec<(VersionedLocation, VersionedXcm<()>)> =
+			OutboundMessages::<T, I>::iter()
+				.map(|(_key, message)| {
+					let mut data = &message[..];
+					let payload = StoredMessagePayload::<T, I>::decode(&mut data).unwrap();
+					let BridgeMessage { universal_dest, message } =
+						BridgeMessage::decode(&mut &payload[..]).unwrap();
+					let destination_latest: InteriorLocation = universal_dest.try_into().unwrap();
+					let destination: VersionedLocation =
+						Location::new(0, destination_latest).into();
+					(destination, message)
+				})
+				.collect();
+		messages.sort_by(|a, b| a.0.cmp(&b.0));
+
+		let mut result: Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> = Vec::new();
+		for (destination, message) in messages.into_iter() {
+			if let Some((last_destination, vector)) = result.last_mut() {
+				if *last_destination == destination {
+					vector.push(message);
+					continue;
+				}
+			}
+
+			result.push((destination, vec![message]));
+		}
+
+		result
 	}
 }
 

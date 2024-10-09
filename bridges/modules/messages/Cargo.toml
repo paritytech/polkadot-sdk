@@ -15,18 +15,22 @@ codec = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
-# Bridge dependencies
+# Bridge dependencies.
 bp-header-chain = { workspace = true }
 bp-messages = { workspace = true }
 bp-runtime = { workspace = true }
 
-# Substrate Dependencies
+# Substrate dependencies.
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 sp-trie = { optional = true, workspace = true }
+
+# Polkadot dependencies.
+xcm = { workspace = true, package = "staging-xcm" }
+xcm-builder = { workspace = true, package = "staging-xcm-builder" }
 
 [dev-dependencies]
 bp-runtime = { features = ["test-helpers"], workspace = true }
