@@ -127,6 +127,8 @@ impl Config for Runtime {
 	type Lookhaead = Lookhaead;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type Pages = Pages;
 	type ExportPhaseLimit = ExportPhaseLimit;
 	type DataProvider = MockStaking;
@@ -148,8 +150,6 @@ impl crate::verifier::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type SolutionDataProvider = SignedPallet;
 	type WeightInfo = ();
 }
@@ -542,7 +542,7 @@ pub fn mine_full(pages: PageIndex) -> Result<PagedRawSolutionC<T>, MinerError> {
 	let desired_targets = <MockStaking as ElectionDataProvider>::desired_targets()
 		.map_err(|_| MinerError::DataProvider)?;
 
-	Miner::<Runtime>::mine_paged_solution_with_snaphsot(
+	Miner::<Runtime>::mine_paged_solution_with_snapshot(
 		&targets,
 		&voters,
 		Pages::get(),

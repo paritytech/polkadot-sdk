@@ -200,6 +200,17 @@ pub mod pallet {
 		#[pallet::constant]
 		type TargetSnapshotPerBlock: Get<u32>;
 
+		/// Maximum number of supports (i.e. winners/validators/targets) that can be represented
+		/// in one page of a solution.
+		type MaxWinnersPerPage: Get<u32>;
+
+		/// Maximum number of voters that can support a single target, across ALL the solution
+		/// pages. Thus, this can only be verified when processing the last solution page.
+		///
+		/// This limit must be set so that the memory limits of the rest of the system are
+		/// respected.
+		type MaxBackersPerWinner: Get<u32>;
+
 		/// The number of pages.
 		///
 		/// A solution may contain at MOST this many pages.
@@ -240,6 +251,8 @@ pub mod pallet {
 			MaxVotesPerVoter = <Self::DataProvider as frame_election_provider_support::ElectionDataProvider>::MaxVotesPerVoter,
 			TargetSnapshotPerBlock = Self::TargetSnapshotPerBlock,
 			VoterSnapshotPerBlock = Self::VoterSnapshotPerBlock,
+			MaxWinnersPerPage = Self::MaxWinnersPerPage,
+			MaxBackersPerWinner = Self::MaxBackersPerWinner,
 		>;
 
 		/// Something that implements a fallback election.
@@ -1093,7 +1106,7 @@ mod election_provider {
 				Snapshot::<T>::set_voters(1, all_voter_pages[1].clone());
 
 				let desired_targets = Snapshot::<T>::desired_targets().unwrap();
-				let (results, _) = Miner::<T>::mine_paged_solution_with_snaphsot(
+				let (results, _) = Miner::<T>::mine_paged_solution_with_snapshot(
 					&all_voter_pages,
 					&all_targets,
 					Pages::get(),

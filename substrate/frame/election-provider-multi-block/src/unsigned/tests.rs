@@ -195,10 +195,13 @@ mod miner {
 			assert!(OffchainWorkerMiner::<T>::fetch_or_mine(0).is_err());
 			compute_snapshot_checked();
 
+			println!("--- fetch_or_mine({}) ----", msp);
 			let (full_score_2, partial_score_2, _) =
 				OffchainWorkerMiner::<T>::fetch_or_mine(msp).unwrap();
+			println!("--- fetch_or_mine({}) ----", msp - 1);
 			let (full_score_1, partial_score_1, _) =
 				OffchainWorkerMiner::<T>::fetch_or_mine(msp - 1).unwrap();
+			println!("--- fetch_or_mine(0) ----");
 			let (full_score_0, partial_score_0, _) =
 				OffchainWorkerMiner::<T>::fetch_or_mine(0).unwrap();
 
@@ -206,6 +209,11 @@ mod miner {
 			assert!(
 				full_score_2.sum_stake == full_score_1.sum_stake &&
 					full_score_2.sum_stake == full_score_0.sum_stake
+			);
+
+			println!(
+				"Scores: {:?}, {:?}, {:?}",
+				partial_score_0.sum_stake, partial_score_1.sum_stake, partial_score_2.sum_stake
 			);
 
 			assert_eq!(

@@ -21,6 +21,7 @@ use frame_support::{
 	ensure,
 	pallet_prelude::Weight,
 	traits::{Defensive, TryCollect},
+	BoundedVec,
 };
 use sp_runtime::{
 	traits::{BlockNumber, One, Zero},
@@ -56,17 +57,6 @@ pub(crate) mod pallet {
 
 		/// Minimum improvement to a solution that defines a new solution as "better".
 		type SolutionImprovementThreshold: Get<Perbill>;
-
-		/// Maximum number of supports (i.e. winners/validators/targets) that can be represented
-		/// in one page of a solution.
-		type MaxWinnersPerPage: Get<u32>;
-
-		/// Maximum number of voters that can support a single target, across ALL the solution
-		/// pages. Thus, this can only be verified when processing the last solution page.
-		///
-		/// This limit must be set so that the memory limits of the rest of the system are
-		/// respected.
-		type MaxBackersPerWinner: Get<u32>;
 
 		/// Something that can provide the solution data to the verifier.
 		type SolutionDataProvider: crate::verifier::SolutionDataProvider<Solution = Self::Solution>;
@@ -396,11 +386,31 @@ impl<T: impls::pallet::Config> Verifier for Pallet<T> {
 		solution: Self::Solution,
 		page: PageIndex,
 	) -> Result<SupportsOf<Self>, FeasibilityError> {
-		// OLD:
-		//Self::feasibility_check(partial_solution, page)
+		let targets =
+			crate::Snapshot::<T>::targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
 
-		// 1. fetch snapshots.
-		miner::Miner::<T::MinerConfig>::feasibility_check_partial(voters, targets, solution, page)
+		// prepare range to fetch all pages of the target and voter snapshot.
+		let paged_range = 0..crate::Pallet::<T>::msp() + 1;
+
+		// fetch all pages of the voter snapshot and collect them in a bounded vec.
+		let all_voter_pages: BoundedVec<_, T::Pages> = paged_range
+			.map(|page| {
+				crate::Snapshot::<T>::voters(page).ok_or(FeasibilityError::SnapshotUnavailable)
+			})
+			.collect::<Result<Vec<_>, _>>()?
+			.try_into()
+			.expect("range was constructed from the bounded vec bounds; qed.");
+
+		let desired_targets =
+			crate::Snapshot::<T>::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
+
+		miner::Miner::<T::MinerConfig>::feasibility_check_partial(
+			&all_voter_pages,
+			&targets,
+			solution,
+			desired_targets,
+			page,
+		)
 	}
 }
 
@@ -645,15 +655,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Perform a feasibility check for a paged solution.
-	///
-	/// - Ensure that the solution edges match the snapshot edges;
-	/// - Ensure that [`T::MaxBackersPerWinner`] is respected;
-	/// - Ensure that the number of winners is less of equal than `DesiredTargets`.
-	///
-	/// Note that these checks are performed over a single page, not the full solution. The
-	/// [`Self::finalize_async_verification`] performs the remaining full solution checks.
-	pub(crate) fn feasibility_check(
+	pub(crate) fn feasibility_check_old(
 		partial_solution: SolutionOf<T>,
 		page: PageIndex,
 	) -> Result<SupportsOf<Self>, FeasibilityError> {
