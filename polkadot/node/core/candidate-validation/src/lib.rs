@@ -787,8 +787,8 @@ trait ValidationBackend {
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The priority for the execution job.
-		execute_priority: PvfExecKind,
+		// The kind for the execution job.
+		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError>;
 
 	/// Tries executing a PVF. Will retry once if an error is encountered that may have
@@ -809,8 +809,8 @@ trait ValidationBackend {
 		retry_delay: Duration,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The priority for the execution job.
-		execute_priority: PvfExecKind,
+		// The kind for the execution job.
+		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
@@ -832,7 +832,7 @@ trait ValidationBackend {
 				pvd.clone(),
 				pov.clone(),
 				prepare_priority,
-				execute_priority,
+				exec_kind,
 			)
 			.await;
 		if validation_result.is_ok() {
@@ -913,7 +913,7 @@ trait ValidationBackend {
 						pvd.clone(),
 						pov.clone(),
 						prepare_priority,
-						execute_priority,
+						exec_kind,
 					)
 					.await;
 			}
@@ -938,12 +938,12 @@ impl ValidationBackend for ValidationHost {
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
-		// The priority for the execution job.
-		execute_priority: PvfExecKind,
+		// The kind for the execution job.
+		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let (tx, rx) = oneshot::channel();
 		if let Err(err) = self
-			.execute_pvf(pvf, exec_timeout, pvd, pov, prepare_priority, execute_priority, tx)
+			.execute_pvf(pvf, exec_timeout, pvd, pov, prepare_priority, exec_kind, tx)
 			.await
 		{
 			return Err(InternalValidationError::HostCommunication(format!(

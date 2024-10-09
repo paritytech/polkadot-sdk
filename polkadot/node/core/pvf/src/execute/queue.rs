@@ -76,7 +76,7 @@ pub struct PendingExecutionRequest {
 	pub pov: Arc<PoV>,
 	pub executor_params: ExecutorParams,
 	pub result_tx: ResultSender,
-	pub execute_priority: PvfExecKind,
+	pub exec_kind: PvfExecKind,
 }
 
 struct ExecuteJob {
@@ -284,7 +284,7 @@ impl Queue {
 		} else {
 			spawn_extra_worker(self, job);
 		}
-		self.metrics.on_execute_priority(priority);
+		self.metrics.on_execute_kind(priority);
 		self.unscheduled.mark_scheduled(priority);
 	}
 }
@@ -306,14 +306,8 @@ async fn purge_dead(metrics: &Metrics, workers: &mut Workers) {
 
 fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 	let ToQueue::Enqueue { artifact, pending_execution_request } = to_queue;
-	let PendingExecutionRequest {
-		exec_timeout,
-		pvd,
-		pov,
-		executor_params,
-		result_tx,
-		execute_priority,
-	} = pending_execution_request;
+	let PendingExecutionRequest { exec_timeout, pvd, pov, executor_params, result_tx, exec_kind } =
+		pending_execution_request;
 	gum::debug!(
 		target: LOG_TARGET,
 		validation_code_hash = ?artifact.id.code_hash,
@@ -330,7 +324,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 		result_tx,
 		waiting_since: Instant::now(),
 	};
-	queue.unscheduled.add(job, execute_priority);
+	queue.unscheduled.add(job, exec_kind);
 	queue.try_assign_next_job(None);
 }
 
@@ -692,9 +686,7 @@ impl Unscheduled {
 
 	fn new() -> Self {
 		Self {
-			unscheduled: PvfExecKind::iter()
-				.map(|priority| (priority, VecDeque::new()))
-				.collect(),
+			unscheduled: PvfExecKind::iter().map(|priority| (priority, VecDeque::new())).collect(),
 			counter: PvfExecKind::iter().map(|priority| (priority, 0)).collect(),
 		}
 	}

@@ -114,7 +114,7 @@ impl ValidationHost {
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		priority: Priority,
-		execute_priority: PvfExecKind,
+		exec_kind: PvfExecKind,
 		result_tx: ResultSender,
 	) -> Result<(), String> {
 		self.to_host_tx
@@ -124,7 +124,7 @@ impl ValidationHost {
 				pvd,
 				pov,
 				priority,
-				execute_priority,
+				exec_kind,
 				result_tx,
 			}))
 			.await
@@ -157,7 +157,7 @@ struct ExecutePvfInputs {
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	priority: Priority,
-	execute_priority: PvfExecKind,
+	exec_kind: PvfExecKind,
 	result_tx: ResultSender,
 }
 
@@ -548,8 +548,7 @@ async fn handle_execute_pvf(
 	awaiting_prepare: &mut AwaitingPrepare,
 	inputs: ExecutePvfInputs,
 ) -> Result<(), Fatal> {
-	let ExecutePvfInputs { pvf, exec_timeout, pvd, pov, priority, execute_priority, result_tx } =
-		inputs;
+	let ExecutePvfInputs { pvf, exec_timeout, pvd, pov, priority, exec_kind, result_tx } = inputs;
 	let artifact_id = ArtifactId::from_pvf_prep_data(&pvf);
 	let executor_params = (*pvf.executor_params()).clone();
 
@@ -571,7 +570,7 @@ async fn handle_execute_pvf(
 								pvd,
 								pov,
 								executor_params,
-								execute_priority,
+								exec_kind,
 								result_tx,
 							},
 						},
@@ -602,7 +601,7 @@ async fn handle_execute_pvf(
 							pvd,
 							pov,
 							executor_params,
-							execute_priority,
+							exec_kind,
 							result_tx,
 						},
 					)
@@ -618,7 +617,7 @@ async fn handle_execute_pvf(
 						pov,
 						executor_params,
 						result_tx,
-						execute_priority,
+						exec_kind,
 					},
 				);
 			},
@@ -651,7 +650,7 @@ async fn handle_execute_pvf(
 							pvd,
 							pov,
 							executor_params,
-							execute_priority,
+							exec_kind,
 							result_tx,
 						},
 					)
@@ -677,7 +676,7 @@ async fn handle_execute_pvf(
 				pov,
 				executor_params,
 				result_tx,
-				execute_priority,
+				exec_kind,
 			},
 		)
 		.await?;
@@ -800,14 +799,8 @@ async fn handle_prepare_done(
 	// It's finally time to dispatch all the execution requests that were waiting for this artifact
 	// to be prepared.
 	let pending_requests = awaiting_prepare.take(&artifact_id);
-	for PendingExecutionRequest {
-		exec_timeout,
-		pvd,
-		pov,
-		executor_params,
-		result_tx,
-		execute_priority,
-	} in pending_requests
+	for PendingExecutionRequest { exec_timeout, pvd, pov, executor_params, result_tx, exec_kind } in
+		pending_requests
 	{
 		if result_tx.is_canceled() {
 			// Preparation could've taken quite a bit of time and the requester may be not
@@ -832,7 +825,7 @@ async fn handle_prepare_done(
 					pvd,
 					pov,
 					executor_params,
-					execute_priority,
+					exec_kind,
 					result_tx,
 				},
 			},
