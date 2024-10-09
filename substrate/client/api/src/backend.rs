@@ -235,6 +235,9 @@ pub trait BlockImportOperation<Block: BlockT> {
 
 	/// Configure whether to create a block gap if newly imported block is missing parent
 	fn set_create_gap(&mut self, create_gap: bool);
+
+	/// Configure whether to commit the state changes to the underlying database.
+	fn set_commit_state(&mut self, commit: bool);
 }
 
 /// Interface for performing operations on the backend.

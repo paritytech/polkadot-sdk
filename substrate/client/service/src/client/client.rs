@@ -685,11 +685,11 @@ where
 							&storage,
 							&self.executor,
 						)?;
-						let state_root = self.backend.commit_trie_changes(
-							parent_hash,
-							storage,
-							state_version,
-						)?;
+						operation.op.set_commit_state(true);
+						// TODO: this should be the parent hash of block gap' starting block.
+						let block_hash = self.backend.blockchain().info().genesis_hash;
+						let state_root =
+							self.backend.commit_trie_changes(block_hash, storage, state_version)?;
 						if state_root != *import_headers.post().state_root() {
 							// State root mismatch when importing state. This should not happen in
 							// safe fast sync mode, but may happen in unsafe mode.

@@ -1000,6 +1000,10 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 	fn set_create_gap(&mut self, create_gap: bool) {
 		self.create_gap = create_gap;
 	}
+
+	fn set_commit_state(&mut self, commit: bool) {
+		self.commit_state = commit;
+	}
 }
 
 struct StorageDb<Block: BlockT> {
@@ -4923,7 +4927,7 @@ pub(crate) mod tests {
 		// assert_eq!(hash1, hash1_trie_committer);
 
 		// let (state_storage_root, _) =
-			// backend.state_at(hash1).unwrap().storage_root(vec![].into_iter(), state_version);
+		// backend.state_at(hash1).unwrap().storage_root(vec![].into_iter(), state_version);
 		// assert_eq!(state_storage_root, state_root1);
 
 		// assert_eq!(state_root1, state_root1_trie_committer);

@@ -586,6 +586,8 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 	}
 
 	fn set_create_gap(&mut self, _create_gap: bool) {}
+
+	fn set_commit_state(&mut self, _commit: bool) {}
 }
 
 /// In-memory backend. Keeps all states and blocks in memory.
