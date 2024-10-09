@@ -120,3 +120,8 @@ The Balances module depends on the
 - Total issued balanced of all accounts should be less than `Config::Balance::max_value()`.
 
 License: Apache-2.0
+
+
+## Release
+
+polkadot v1.15.0

@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-primitives-storage-weight-reclaim"
-version = "7.0.1"
+version = "7.0.2"
 authors.workspace = true
 edition.workspace = true
 description = "Utilities to reclaim storage weight. (polkadot v1.15.0)"

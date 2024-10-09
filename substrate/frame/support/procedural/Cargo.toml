@@ -1,6 +1,6 @@
 [package]
 name = "frame-support-procedural"
-version = "30.0.2"
+version = "30.0.4"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"

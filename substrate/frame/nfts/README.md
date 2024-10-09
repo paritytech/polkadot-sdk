@@ -106,3 +106,8 @@ its associated variants for documentation on each function.
 * [`Assets`](https://docs.rs/pallet-assets/latest/pallet_assets/)
 
 License: Apache-2.0
+
+
+## Release
+
+polkadot v1.15.0

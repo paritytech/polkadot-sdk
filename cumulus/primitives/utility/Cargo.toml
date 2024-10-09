@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-primitives-utility"
-version = "0.16.0"
+version = "0.16.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"

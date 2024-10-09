@@ -31,3 +31,8 @@ any finders fee, in case of a public (and bonded) original report.
 - `tip` - Declare or redeclare an amount to tip for a particular reason.
 - `close_tip` - Close and pay out a tip.
 - `slash_tip` - Remove and slash an already-open tip.
+
+
+## Release
+
+polkadot v1.15.0

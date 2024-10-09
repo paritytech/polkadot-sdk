@@ -718,7 +718,7 @@ version = "0.16.0"
 path = "../cumulus/pallets/parachain-system"
 default-features = false
 optional = true
-version = "0.16.0"
+version = "0.16.1"
 
 [dependencies.cumulus-pallet-parachain-system-proc-macro]
 path = "../cumulus/pallets/parachain-system/proc-macro"
@@ -748,7 +748,7 @@ version = "0.16.0"
 path = "../cumulus/pallets/xcmp-queue"
 default-features = false
 optional = true
-version = "0.16.0"
+version = "0.16.1"
 
 [dependencies.cumulus-ping]
 path = "../cumulus/parachains/pallets/ping"
@@ -784,7 +784,7 @@ version = "0.10.0"
 path = "../cumulus/primitives/storage-weight-reclaim"
 default-features = false
 optional = true
-version = "7.0.1"
+version = "7.0.2"
 
 [dependencies.cumulus-primitives-timestamp]
 path = "../cumulus/primitives/timestamp"
@@ -796,7 +796,7 @@ version = "0.15.1"
 path = "../cumulus/primitives/utility"
 default-features = false
 optional = true
-version = "0.16.0"
+version = "0.16.1"
 
 [dependencies.frame-benchmarking]
 path = "../substrate/frame/benchmarking"
@@ -838,13 +838,13 @@ version = "0.5.0"
 path = "../substrate/frame/support"
 default-features = false
 optional = true
-version = "37.0.0"
+version = "37.0.1"
 
 [dependencies.frame-support-procedural]
 path = "../substrate/frame/support/procedural"
 default-features = false
 optional = true
-version = "30.0.2"
+version = "30.0.4"
 
 [dependencies.frame-support-procedural-tools-derive]
 path = "../substrate/frame/support/procedural/tools/derive"
@@ -1168,7 +1168,7 @@ version = "40.0.0"
 path = "../substrate/frame/migrations"
 default-features = false
 optional = true
-version = "7.0.0"
+version = "7.0.1"
 
 [dependencies.pallet-mixnet]
 path = "../substrate/frame/mixnet"
@@ -1432,7 +1432,7 @@ version = "36.0.0"
 path = "../substrate/frame/treasury"
 default-features = false
 optional = true
-version = "36.0.0"
+version = "36.0.1"
 
 [dependencies.pallet-tx-pause]
 path = "../substrate/frame/tx-pause"
@@ -1450,7 +1450,7 @@ version = "37.0.0"
 path = "../substrate/frame/utility"
 default-features = false
 optional = true
-version = "37.0.0"
+version = "37.0.1"
 
 [dependencies.pallet-vesting]
 path = "../substrate/frame/vesting"
@@ -1468,7 +1468,7 @@ version = "36.0.0"
 path = "../polkadot/xcm/pallet-xcm"
 default-features = false
 optional = true
-version = "16.0.0"
+version = "16.0.1"
 
 [dependencies.pallet-xcm-benchmarks]
 path = "../polkadot/xcm/pallet-xcm-benchmarks"
@@ -1480,13 +1480,13 @@ version = "16.0.0"
 path = "../bridges/modules/xcm-bridge-hub"
 default-features = false
 optional = true
-version = "0.12.0"
+version = "0.12.1"
 
 [dependencies.pallet-xcm-bridge-hub-router]
 path = "../bridges/modules/xcm-bridge-hub-router"
 default-features = false
 optional = true
-version = "0.14.0"
+version = "0.14.1"
 
 [dependencies.parachains-common]
 path = "../cumulus/parachains/common"
@@ -1516,7 +1516,7 @@ version = "15.0.0"
 path = "../polkadot/runtime/common"
 default-features = false
 optional = true
-version = "16.0.0"
+version = "16.0.1"
 
 [dependencies.polkadot-runtime-metrics]
 path = "../polkadot/runtime/metrics"
@@ -1816,7 +1816,7 @@ version = "34.0.0"
 path = "../substrate/primitives/runtime"
 default-features = false
 optional = true
-version = "39.0.0"
+version = "39.0.2"
 
 [dependencies.sp-runtime-interface]
 path = "../substrate/primitives/runtime-interface"
@@ -1936,7 +1936,7 @@ version = "14.1.0"
 path = "../polkadot/xcm/xcm-builder"
 default-features = false
 optional = true
-version = "16.0.0"
+version = "16.0.1"
 
 [dependencies.staging-xcm-executor]
 path = "../polkadot/xcm/xcm-executor"
@@ -2098,7 +2098,7 @@ version = "13.0.0"
 path = "../substrate/utils/frame/benchmarking-cli"
 default-features = false
 optional = true
-version = "42.0.0"
+version = "42.0.1"
 
 [dependencies.frame-remote-externalities]
 path = "../substrate/utils/frame/remote-externalities"

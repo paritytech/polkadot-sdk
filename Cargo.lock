@@ -3931,7 +3931,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-parachain-system"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "assert_matches",
  "bytes",
@@ -4030,7 +4030,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "bounded-collections",
  "bp-xcm-bridge-hub-router",
@@ -4124,7 +4124,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-primitives-storage-weight-reclaim"
-version = "7.0.1"
+version = "7.0.2"
 dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-proof-size-hostfunction",
@@ -4151,7 +4151,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-primitives-utility"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -5611,7 +5611,7 @@ dependencies = [
 
 [[package]]
 name = "frame-benchmarking-cli"
-version = "42.0.0"
+version = "42.0.1"
 dependencies = [
  "Inflector",
  "array-bytes",
@@ -5778,7 +5778,7 @@ dependencies = [
 
 [[package]]
 name = "frame-omni-bencher"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "clap 4.5.3",
  "cumulus-primitives-proof-size-hostfunction",
@@ -5815,7 +5815,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support"
-version = "37.0.0"
+version = "37.0.1"
 dependencies = [
  "aquamarine",
  "array-bytes",
@@ -5860,7 +5860,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support-procedural"
-version = "30.0.2"
+version = "30.0.4"
 dependencies = [
  "Inflector",
  "cfg-expr",
@@ -10728,7 +10728,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-migrations"
-version = "7.0.0"
+version = "7.0.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -11608,7 +11608,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-treasury"
-version = "36.0.0"
+version = "36.0.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -11662,7 +11662,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-utility"
-version = "37.0.0"
+version = "37.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11713,7 +11713,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "16.0.0"
+version = "16.0.1"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -11761,7 +11761,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge-hub"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -11786,7 +11786,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge-hub-router"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "bp-xcm-bridge-hub-router",
  "frame-benchmarking",
@@ -13797,7 +13797,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-runtime-common"
-version = "16.0.0"
+version = "16.0.1"
 dependencies = [
  "bitvec",
  "frame-benchmarking",
@@ -20116,7 +20116,7 @@ dependencies = [
 
 [[package]]
 name = "sp-runtime"
-version = "39.0.0"
+version = "39.0.2"
 dependencies = [
  "docify",
  "either",
@@ -20618,7 +20618,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "16.0.0"
+version = "16.0.1"
 dependencies = [
  "assert_matches",
  "frame-support",

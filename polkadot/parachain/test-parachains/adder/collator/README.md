@@ -23,3 +23,8 @@ The last step is to register the parachain using `polkadot-js`. The parachain id
 100. The genesis state and the validation code are printed at startup by the collator.
 
 To do this automatically, run `scripts/adder-collator.sh`.
+
+
+## Release
+
+polkadot v1.15.0

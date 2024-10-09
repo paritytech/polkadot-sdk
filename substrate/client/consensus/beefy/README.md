@@ -371,3 +371,8 @@ key format message at node startup. Basically something like
 # BEEFY Light Client
 
 TODO
+
+
+## Release
+
+polkadot v1.15.0

@@ -1,6 +1,6 @@
 [package]
 name = "sp-runtime"
-version = "39.0.0"
+version = "39.0.2"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"

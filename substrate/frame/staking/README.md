@@ -266,3 +266,8 @@ is optional and allow to set some initial stakers.
   validators is stored in the Session module's `Validators` at the end of each era.
 
 License: Apache-2.0
+
+
+## Release
+
+polkadot v1.15.0

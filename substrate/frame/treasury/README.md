@@ -37,3 +37,8 @@ General spending/proposal protocol:
 - `check_status` - Check the status of the spend and remove it from the storage
   if processed
 - `void_spend` - Void previously approved spend
+
+
+## Release
+
+polkadot v1.15.0

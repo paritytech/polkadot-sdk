@@ -233,3 +233,8 @@ that we currently maintain.
 ## License
 
 Polkadot is [GPL 3.0 licensed](LICENSE).
+
+
+## Release
+
+polkadot v1.15.0

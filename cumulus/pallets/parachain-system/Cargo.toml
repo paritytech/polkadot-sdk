@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-parachain-system"
-version = "0.16.0"
+version = "0.16.1"
 authors.workspace = true
 edition.workspace = true
 description = "Base pallet for cumulus-based parachains (polkadot v1.15.0)"

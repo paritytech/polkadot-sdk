@@ -4,7 +4,7 @@ description = "Tools & types for building with XCM and its executor. (polkadot v
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "16.0.0"
+version = "16.0.1"
 
 [lints]
 workspace = true

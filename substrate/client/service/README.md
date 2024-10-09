@@ -2,3 +2,8 @@ Substrate service. Starts a thread that spins up the network, client, and extrin
 Manages communication between them.
 
 License: GPL-3.0-or-later WITH Classpath-exception-2.0
+
+
+## Release
+
+polkadot v1.15.0

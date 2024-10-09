@@ -48,3 +48,8 @@ If relay operates properly, you should see that
 the `Rococo_to_BridgeHubWestend_Parachains_best_parachain_block_number_at_target` tries to reach
 the `Rococo_to_BridgeHubWestend_Parachains_best_parachain_block_number_at_source`.
 And the latter one always increases.
+
+
+## Release
+
+polkadot v1.15.0

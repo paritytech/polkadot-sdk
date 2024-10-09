@@ -21,3 +21,8 @@ claimed within a specified duration of time, the sender may cancel it.
 - `cancel_swap` - may be called by a sender after a specified duration
 
 License: Apache-2.0
+
+
+## Release
+
+polkadot v1.15.0

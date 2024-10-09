@@ -46,3 +46,8 @@ An in-depth description and analysis of the protocol can be found here:
 <https://research.web3.foundation/Polkadot/protocols/block-production/Babe>
 
 License: GPL-3.0-or-later WITH Classpath-exception-2.0
+
+
+## Release
+
+polkadot v1.15.0

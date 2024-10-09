@@ -9,3 +9,8 @@ Run `cargo doc --package pallet-dev-mode --open` to view this pallet's documenta
 **Dev mode is not meant to be used in production.**
 
 License: MIT-0
+
+
+## Release
+
+polkadot v1.15.0

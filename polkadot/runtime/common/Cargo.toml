@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-runtime-common"
-version = "16.0.0"
+version = "16.0.1"
 description = "Pallets and constants used in Relay Chain networks. (polkadot v1.15.0)"
 authors.workspace = true
 edition.workspace = true

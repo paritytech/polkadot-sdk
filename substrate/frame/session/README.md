@@ -79,3 +79,8 @@ fn validators<T: pallet_session::Config>() -> Vec<<T as pallet_session::Config>:
 - [Staking](https://docs.rs/pallet-staking/latest/pallet_staking/)
 
 License: Apache-2.0
+
+
+## Release
+
+polkadot v1.15.0

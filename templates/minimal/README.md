@@ -99,3 +99,8 @@ the Polkadot SDK documentation resources.
 
 * 👥 Additionally, there are [GitHub issues](https://github.com/paritytech/polkadot-sdk/issues) and
 [Substrate StackExchange](https://substrate.stackexchange.com/).
+
+
+## Release
+
+polkadot v1.15.0

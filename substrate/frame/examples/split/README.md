@@ -8,3 +8,8 @@ Note that this is purely experimental at this point.
 Run `cargo doc --package pallet-example-split --open` to view this pallet's documentation.
 
 License: MIT-0
+
+
+## Release
+
+polkadot v1.15.0

@@ -11,3 +11,8 @@ The `Glutton` can be set to consume a fraction of the available block length and
 accomplishes this by filling the block length up to a ration and utilizing the `on_idle` hook to consume a
 specific ration of the remaining weight. The rations can be set via `set_compute`, `set_storage` and `set_block_length`.
 Initially the `Glutton` needs to be initialized once with `initialize_pallet`.
+
+
+## Release
+
+polkadot v1.15.0
