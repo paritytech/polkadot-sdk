@@ -38,7 +38,10 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Header as HeaderT},
 	ConsensusEngineId, Justifications, StateVersion,
 };
-use sp_state_machine::{backend::Backend as _, InMemoryBackend, OverlayedChanges, StateMachine};
+use sp_state_machine::{
+	backend::{Backend as _, IgnorePendingCode},
+	InMemoryBackend, OverlayedChanges, StateMachine,
+};
 use sp_storage::{ChildInfo, StorageKey};
 use std::{collections::HashSet, sync::Arc};
 use substrate_test_runtime::TestAPI;
@@ -72,7 +75,8 @@ fn construct_block(
 		digest: Digest { logs: vec![] },
 	};
 	let mut overlay = OverlayedChanges::default();
-	let backend_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(backend);
+	let backend_runtime_code =
+		sp_state_machine::backend::BackendRuntimeCode::new(backend, IgnorePendingCode::Yes);
 	let runtime_code = backend_runtime_code.runtime_code().expect("Code is part of the backend");
 
 	StateMachine::new(
@@ -166,7 +170,8 @@ fn construct_genesis_should_work_with_native() {
 
 	let backend = InMemoryBackend::from((storage, StateVersion::default()));
 	let b1data = block1(genesis_hash, &backend);
-	let backend_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&backend);
+	let backend_runtime_code =
+		sp_state_machine::backend::BackendRuntimeCode::new(&backend, IgnorePendingCode::Yes);
 	let runtime_code = backend_runtime_code.runtime_code().expect("Code is part of the backend");
 
 	let mut overlay = OverlayedChanges::default();
@@ -197,7 +202,8 @@ fn construct_genesis_should_work_with_wasm() {
 
 	let backend = InMemoryBackend::from((storage, StateVersion::default()));
 	let b1data = block1(genesis_hash, &backend);
-	let backend_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&backend);
+	let backend_runtime_code =
+		sp_state_machine::backend::BackendRuntimeCode::new(&backend, IgnorePendingCode::Yes);
 	let runtime_code = backend_runtime_code.runtime_code().expect("Code is part of the backend");
 
 	let mut overlay = OverlayedChanges::default();

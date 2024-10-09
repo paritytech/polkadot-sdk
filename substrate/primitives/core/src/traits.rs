@@ -55,11 +55,11 @@ pub trait CodeExecutor: Sized + Send + Sync + ReadRuntimeVersion + Clone + 'stat
 	) -> (Result<Vec<u8>, Self::Error>, bool);
 }
 
-/// Something that can fetch the runtime `:code`.
+/// Something that can fetch the runtime code.
 pub trait FetchRuntimeCode {
-	/// Fetch the runtime `:code`.
+	/// Fetch the runtime `:pending_code` or `:code`.
 	///
-	/// If the `:code` could not be found/not available, `None` should be returned.
+	/// If the code could not be found/not available, `None` should be returned.
 	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>>;
 }
 

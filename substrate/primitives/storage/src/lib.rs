@@ -193,6 +193,12 @@ pub mod well_known_keys {
 	/// Stored as a raw byte vector. Required by substrate.
 	pub const CODE: &[u8] = b":code";
 
+	/// New wasm code of the runtime.
+	/// To be applied in the next block.
+	///
+	/// Stored as a raw byte vector. Required by substrate.
+	pub const PENDING_CODE: &[u8] = b":pending_code";
+
 	/// Number of wasm linear memory pages required for execution of the runtime.
 	///
 	/// The type of this value is encoded `u64`.

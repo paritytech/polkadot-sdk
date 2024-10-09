@@ -703,6 +703,7 @@ where
 		sp_io::init_tracing();
 		sp_tracing::enter_span!(sp_tracing::Level::TRACE, "finalize_block");
 
+		<frame_system::Pallet<System>>::maybe_apply_pending_code_upgrade();
 		// In this case there were no transactions to trigger this state transition:
 		if !<frame_system::Pallet<System>>::inherents_applied() {
 			Self::inherents_applied();

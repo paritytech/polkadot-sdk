@@ -128,6 +128,7 @@ use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 #[cfg(feature = "std")]
 use frame_support::traits::BuildGenesisConfig;
 use frame_support::{
+	defensive, defensive_assert,
 	dispatch::{
 		extract_actual_pays_fee, extract_actual_weight, DispatchClass, DispatchInfo,
 		DispatchResult, DispatchResultWithPostInfo, PerDispatchClass, PostDispatchInfo,
@@ -212,7 +213,7 @@ pub trait SetCode<T: Config> {
 
 impl<T: Config> SetCode<T> for () {
 	fn set_code(code: Vec<u8>) -> DispatchResult {
-		<Pallet<T>>::update_code_in_storage(&code);
+		<Pallet<T>>::update_pending_code_in_storage(&code);
 		Ok(())
 	}
 }
@@ -596,7 +597,7 @@ pub mod pallet {
 		///
 		/// The default (`()`) implementation is responsible for setting the correct storage
 		/// entry and emitting corresponding event and log item. (see
-		/// [`Pallet::update_code_in_storage`]).
+		/// [`Pallet::update_pending_code_in_storage`]).
 		/// It's unlikely that this needs to be customized, unless you are writing a parachain using
 		/// `Cumulus`, where the actual code change is deferred.
 		#[pallet::no_default_bounds]
@@ -1442,15 +1443,50 @@ impl<T: Config> Pallet<T> {
 		Account::<T>::contains_key(who)
 	}
 
-	/// Write code to the storage and emit related events and digest items.
+	/// Write pending code to the storage for it to be applied in the next block.
 	///
 	/// Note this function almost never should be used directly. It is exposed
 	/// for `OnSetCode` implementations that defer actual code being written to
 	/// the storage (for instance in case of parachains).
-	pub fn update_code_in_storage(code: &[u8]) {
-		storage::unhashed::put_raw(well_known_keys::CODE, code);
-		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
-		Self::deposit_event(Event::CodeUpdated);
+	///
+	/// This function assumes that the current block number has been set.
+	pub fn update_pending_code_in_storage(code: &[u8]) {
+		let current_number = Pallet::<T>::block_number();
+		let scheduled_at = current_number + One::one();
+		let value: (BlockNumberFor<T>, Vec<u8>) = (scheduled_at, code.to_vec());
+
+		storage::unhashed::put(well_known_keys::PENDING_CODE, &value);
+	}
+
+	/// Replace code with pending code if scheduled to enact in this block and in that case emit
+	/// related events and digest items.
+	///
+	/// This method is expected to be called in `on_finalize`.
+	///
+	/// Returns `true` if the pending code upgrade was applied.
+	pub fn maybe_apply_pending_code_upgrade() -> bool {
+		let maybe_pending_code: Option<(BlockNumberFor<T>, Vec<u8>)> =
+			storage::unhashed::get(well_known_keys::PENDING_CODE);
+
+		if let Some((scheduled_at, new_code)) = maybe_pending_code {
+			let current_number = Pallet::<T>::block_number();
+			// Only enact the pending code upgrade if it is scheduled to be enacted in this block.
+			if scheduled_at == current_number {
+				storage::unhashed::put_raw(well_known_keys::CODE, &new_code);
+				storage::unhashed::kill(well_known_keys::PENDING_CODE);
+
+				Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
+				Self::deposit_event(Event::CodeUpdated);
+
+				return true
+			} else if scheduled_at != current_number + One::one() {
+				defensive!("pending code scheduled to be applied not in the next block");
+				// should never happen, but if it does, we should clear the pending code
+				storage::unhashed::kill(well_known_keys::PENDING_CODE)
+			}
+		}
+
+		false
 	}
 
 	/// Whether all inherents have been applied.
