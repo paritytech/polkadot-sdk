@@ -46,8 +46,9 @@ use polkadot_primitives::{
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
 	AuthorityDiscoveryId, CandidateCommitments, CandidateDescriptor, CandidateEvent,
-	CandidateReceipt, ExecutorParams, Hash, PersistedValidationData, PvfExecKind, PvfPrepKind,
-	SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
+	CandidateReceipt, ExecutorParams, Hash, PersistedValidationData,
+	PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
+	ValidationCodeHash, ValidatorId,
 };
 use sp_application_crypto::{AppCrypto, ByteArray};
 use sp_keystore::KeystorePtr;
@@ -1035,12 +1036,12 @@ fn pvf_prep_timeout(executor_params: &ExecutorParams, kind: PvfPrepKind) -> Dura
 /// This should be much longer than the backing execution timeout to ensure that in the
 /// absence of extremely large disparities between hardware, blocks that pass backing are
 /// considered executable by approval checkers or dispute participants.
-fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: PvfExecKind) -> Duration {
+fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: RuntimePvfExecKind) -> Duration {
 	if let Some(timeout) = executor_params.pvf_exec_timeout(kind) {
 		return timeout
 	}
 	match kind {
-		PvfExecKind::Backing => DEFAULT_BACKING_EXECUTION_TIMEOUT,
-		PvfExecKind::Approval => DEFAULT_APPROVAL_EXECUTION_TIMEOUT,
+		RuntimePvfExecKind::Backing => DEFAULT_BACKING_EXECUTION_TIMEOUT,
+		RuntimePvfExecKind::Approval => DEFAULT_APPROVAL_EXECUTION_TIMEOUT,
 	}
 }
