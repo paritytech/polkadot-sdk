@@ -116,7 +116,16 @@ pub enum DiscoveryEvent {
 
 	/// New external address discovered.
 	ExternalAddressDiscovered {
-		/// Discovered addresses.
+		/// Discovered address.
+		address: Multiaddr,
+	},
+
+	/// The external address has expired.
+	///
+	/// This happens when the internal buffers exceed the maximum number of external addresses,
+	/// and this address is the oldest one.
+	ExternalAddressExpired {
+		/// Expired addresse.
 		address: Multiaddr,
 	},
 
@@ -579,7 +588,7 @@ impl Stream for Discovery {
 						"replacing expired external address {expired_address} with {observed_address}",
 					);
 
-					this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
+					this.pending_events.push_back(DiscoveryEvent::ExternalAddressExpired {
 						address: expired_address,
 					});
 				}
