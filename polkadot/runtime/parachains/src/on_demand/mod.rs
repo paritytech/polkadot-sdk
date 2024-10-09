@@ -181,7 +181,7 @@ pub mod pallet {
 	/// Keeps track of credits owned by each account.
 	#[pallet::storage]
 	pub type Credits<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -199,6 +199,8 @@ pub mod pallet {
 		/// The current spot price is higher than the max amount specified in the `place_order`
 		/// call, making it invalid.
 		SpotPriceHigherThanMaxAmount,
+		/// The doesn't have enough credits to purchase on-demand coretime.
+		InsufficientCredits,
 	}
 
 	#[pallet::hooks]
@@ -377,7 +379,7 @@ where
 	/// - `amount`: The amount of new credits the account will receive.
 	pub fn credit_account(who: T::AccountId, amount: BalanceOf<T>) {
 		Credits::<T>::mutate(who, |maybe_credits| {
-			let credits = maybe_credits.unwrap_or_default().saturating_add(amount);
+			let credits = maybe_credits.saturating_add(amount);
 			credits
 		});
 	}
@@ -446,7 +448,10 @@ where
 					T::Currency::resolve_creating(&pot, amt);
 				},
 				PaymentType::Credits => {
-					// TODO: consume credits.
+					// Charge the sending account the spot price in credits.
+					let credits = Credits::<T>::get(&sender);
+					ensure!(spot_price <= credits, Error::<T>::InsufficientCredits);
+					Credits::<T>::insert(&sender, credits.saturating_sub(spot_price));
 				}
 			}
 
