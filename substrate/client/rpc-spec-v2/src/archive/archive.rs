@@ -48,7 +48,11 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	SaturatedConversion,
 };
-use std::{collections::HashSet, marker::PhantomData, sync::Arc};
+use std::{
+	collections::{hash_map::Entry, HashMap, HashSet},
+	marker::PhantomData,
+	sync::Arc,
+};
 
 /// The configuration of [`Archive`].
 pub struct ArchiveConfig {
@@ -292,20 +296,69 @@ where
 		previous_hash: Option<Block::Hash>,
 		items: Vec<ArchiveStorageDiffItem<String>>,
 	) -> RpcResult<ArchiveStorageDiffMethodResult> {
-		let items = items
-			.into_iter()
-			.map(|item| {
-				let key = StorageKey(parse_hex_param(item.key)?);
+		let mut deduplicated: HashMap<Option<ChildInfo>, Vec<DiffDetails>> = HashMap::new();
 
-				let child_trie_key_string = item.child_trie_key.clone();
-				let child_trie_key = item
-					.child_trie_key
-					.map(|child_trie_key| parse_hex_param(child_trie_key))
-					.transpose()?
-					.map(ChildInfo::new_default_from_vec);
-				Ok((key, item.return_type, child_trie_key, child_trie_key_string))
-			})
-			.collect::<Result<Vec<_>, ArchiveError>>()?;
+		#[derive(Debug, PartialEq, Clone)]
+		struct DiffDetails {
+			key: StorageKey,
+			return_type: ArchiveStorageDiffType,
+			child_trie_key: Option<ChildInfo>,
+			child_trie_key_string: Option<String>,
+		}
+
+		for diff_item in items {
+			// Ensure the provided hex keys are valid before deduplication.
+			let key = StorageKey(parse_hex_param(diff_item.key)?);
+			let child_trie_key_string = diff_item.child_trie_key.clone();
+			let child_trie_key = diff_item
+				.child_trie_key
+				.map(|child_trie_key| parse_hex_param(child_trie_key))
+				.transpose()?
+				.map(ChildInfo::new_default_from_vec);
+
+			let diff_item = DiffDetails {
+				key,
+				return_type: diff_item.return_type,
+				child_trie_key: child_trie_key.clone(),
+				child_trie_key_string,
+			};
+
+			match deduplicated.entry(child_trie_key.clone()) {
+				Entry::Occupied(mut entry) => {
+					let mut should_insert = true;
+
+					for existing in entry.get() {
+						// This points to a different return type.
+						if existing.return_type != diff_item.return_type {
+							continue
+						}
+						// Keys and return types are identical.
+						if existing.key == diff_item.key {
+							should_insert = false;
+							break
+						}
+						// The current key is a longer prefix of the existing key.
+						if diff_item.key.as_ref().starts_with(&existing.key.as_ref()) {
+							should_insert = false;
+							break
+						}
+
+						if diff_item.key.as_ref().starts_with(&existing.key.as_ref()) {
+							let to_remove = existing.clone();
+							entry.get_mut().retain(|item| item != &to_remove);
+							break;
+						}
+					}
+
+					if should_insert {
+						entry.get_mut().push(diff_item);
+					}
+				},
+				Entry::Vacant(entry) => {
+					entry.insert(vec![diff_item]);
+				},
+			}
+		}
 
 		let previous_hash = if let Some(previous_hash) = previous_hash {
 			previous_hash
