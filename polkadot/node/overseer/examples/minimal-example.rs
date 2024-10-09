@@ -24,7 +24,7 @@ use orchestra::async_trait;
 use std::time::Duration;
 
 use polkadot_node_primitives::{BlockData, PoV};
-use polkadot_node_subsystem_types::messages::{CandidateValidationMessage, PvfExecPriority};
+use polkadot_node_subsystem_types::messages::{CandidateValidationMessage, PvfExecKind};
 use polkadot_overseer::{
 	self as overseer,
 	dummy::dummy_overseer_builder,
@@ -77,7 +77,7 @@ impl Subsystem1 {
 				candidate_receipt,
 				pov: PoV { block_data: BlockData(Vec::new()) }.into(),
 				executor_params: Default::default(),
-				exec_kind: PvfExecPriority::Backing,
+				exec_kind: PvfExecKind::Backing,
 				response_sender: tx,
 			};
 			ctx.send_message(msg).await;

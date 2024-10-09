@@ -41,7 +41,7 @@ use polkadot_node_subsystem::{
 		ApprovalVotingMessage, AssignmentCheckError, AssignmentCheckResult,
 		AvailabilityRecoveryMessage, BlockDescription, CandidateValidationMessage, ChainApiMessage,
 		ChainSelectionMessage, CheckedIndirectAssignment, CheckedIndirectSignedApprovalVote,
-		DisputeCoordinatorMessage, HighestApprovedAncestorBlock, PvfExecPriority,
+		DisputeCoordinatorMessage, HighestApprovedAncestorBlock, PvfExecKind,
 		RuntimeApiMessage, RuntimeApiRequest,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
@@ -3602,7 +3602,7 @@ async fn launch_approval<
 				candidate_receipt: candidate.clone(),
 				pov: available_data.pov,
 				executor_params,
-				exec_kind: PvfExecPriority::Approval,
+				exec_kind: PvfExecKind::Approval,
 				response_sender: val_tx,
 			})
 			.await;

@@ -37,7 +37,7 @@ use polkadot_node_core_pvf_common::{
 	pvf::PvfPrepData,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem::{messages::PvfExecPriority, SubsystemError, SubsystemResult};
+use polkadot_node_subsystem::{messages::PvfExecKind, SubsystemError, SubsystemResult};
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::PersistedValidationData;
 use std::{
@@ -114,7 +114,7 @@ impl ValidationHost {
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		priority: Priority,
-		execute_priority: PvfExecPriority,
+		execute_priority: PvfExecKind,
 		result_tx: ResultSender,
 	) -> Result<(), String> {
 		self.to_host_tx
@@ -157,7 +157,7 @@ struct ExecutePvfInputs {
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	priority: Priority,
-	execute_priority: PvfExecPriority,
+	execute_priority: PvfExecKind,
 	result_tx: ResultSender,
 }
 
@@ -1279,7 +1279,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov1.clone(),
 			Priority::Normal,
-			PvfExecPriority::Backing,
+			PvfExecKind::Backing,
 			result_tx,
 		)
 		.await
@@ -1292,7 +1292,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov1,
 			Priority::Critical,
-			PvfExecPriority::Backing,
+			PvfExecKind::Backing,
 			result_tx,
 		)
 		.await
@@ -1305,7 +1305,7 @@ pub(crate) mod tests {
 			pvd,
 			pov2,
 			Priority::Normal,
-			PvfExecPriority::Backing,
+			PvfExecKind::Backing,
 			result_tx,
 		)
 		.await
@@ -1455,7 +1455,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecPriority::Backing,
+			PvfExecKind::Backing,
 			result_tx,
 		)
 		.await
@@ -1504,7 +1504,7 @@ pub(crate) mod tests {
 			pvd,
 			pov,
 			Priority::Critical,
-			PvfExecPriority::Backing,
+			PvfExecKind::Backing,
 			result_tx,
 		)
 		.await
@@ -1615,7 +1615,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecPriority::Backing,
+			PvfExecKind::Backing,
 			result_tx,
 		)
 		.await
@@ -1647,7 +1647,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecPriority::Backing,
+			PvfExecKind::Backing,
 			result_tx_2,
 		)
 		.await
@@ -1671,7 +1671,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecPriority::Backing,
+			PvfExecKind::Backing,
 			result_tx_3,
 		)
 		.await
@@ -1730,7 +1730,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecPriority::Backing,
+			PvfExecKind::Backing,
 			result_tx,
 		)
 		.await
@@ -1762,7 +1762,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecPriority::Backing,
+			PvfExecKind::Backing,
 			result_tx_2,
 		)
 		.await
@@ -1786,7 +1786,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecPriority::Backing,
+			PvfExecKind::Backing,
 			result_tx_3,
 		)
 		.await
@@ -1861,7 +1861,7 @@ pub(crate) mod tests {
 			pvd,
 			pov,
 			Priority::Normal,
-			PvfExecPriority::Backing,
+			PvfExecKind::Backing,
 			result_tx,
 		)
 		.await

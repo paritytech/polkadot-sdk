@@ -18,7 +18,7 @@
 
 use polkadot_node_core_pvf_common::prepare::MemoryStats;
 use polkadot_node_metrics::metrics::{self, prometheus};
-use polkadot_node_subsystem::messages::PvfExecPriority;
+use polkadot_node_subsystem::messages::PvfExecKind;
 
 /// Validation host metrics.
 #[derive(Default, Clone)]
@@ -123,7 +123,7 @@ impl Metrics {
 	}
 
 	/// When preparation pipeline concluded working on an item.
-	pub(crate) fn on_execute_priority(&self, priority: PvfExecPriority) {
+	pub(crate) fn on_execute_priority(&self, priority: PvfExecKind) {
 		if let Some(metrics) = &self.0 {
 			metrics.execute_priority_selected.with_label_values(&[priority.as_str()]).inc();
 		}

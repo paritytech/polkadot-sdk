@@ -25,7 +25,7 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem_test_helpers::mock::{dummy_unpin_handle, new_leaf};
 use polkadot_node_subsystem_types::messages::{
-	NetworkBridgeEvent, PvfExecPriority, ReportPeerMessage, RuntimeApiRequest,
+	NetworkBridgeEvent, PvfExecKind, ReportPeerMessage, RuntimeApiRequest,
 };
 use polkadot_primitives::{
 	CandidateHash, CandidateReceipt, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
@@ -108,7 +108,7 @@ where
 							candidate_receipt,
 							pov: PoV { block_data: BlockData(Vec::new()) }.into(),
 							executor_params: Default::default(),
-							exec_kind: PvfExecPriority::Backing,
+							exec_kind: PvfExecKind::Backing,
 							response_sender: tx,
 						})
 						.await;
@@ -806,7 +806,7 @@ fn test_candidate_validation_msg() -> CandidateValidationMessage {
 		candidate_receipt,
 		pov,
 		executor_params: Default::default(),
-		exec_kind: PvfExecPriority::Backing,
+		exec_kind: PvfExecKind::Backing,
 		response_sender,
 	}
 }

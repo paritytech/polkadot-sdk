@@ -48,9 +48,10 @@ use polkadot_primitives::{
 	CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
 	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
-	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, PvfExecKind,
-	SessionIndex, SessionInfo, SignedAvailabilityBitfield, SignedAvailabilityBitfields,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	PvfExecKind as RuntimePvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -161,7 +162,7 @@ pub enum CandidateValidationMessage {
 		/// Session's executor parameters
 		executor_params: ExecutorParams,
 		/// Execution kind, used for timeouts and retries (backing/approvals)
-		exec_kind: PvfExecPriority,
+		exec_kind: PvfExecKind,
 		/// The sending side of the response channel
 		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
 	},
@@ -186,7 +187,7 @@ pub enum CandidateValidationMessage {
 		/// Session's executor parameters
 		executor_params: ExecutorParams,
 		/// Execution kind, used for timeouts and retries (backing/approvals)
-		exec_kind: PvfExecPriority,
+		exec_kind: PvfExecKind,
 		/// The sending side of the response channel
 		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
 	},
@@ -210,7 +211,7 @@ pub enum CandidateValidationMessage {
 /// The order is important, because we iterate through the values and assume it is going from higher
 /// to lowest priority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]
-pub enum PvfExecPriority {
+pub enum PvfExecKind {
 	/// For dispute requests
 	Dispute,
 	/// For approval requests
@@ -221,7 +222,7 @@ pub enum PvfExecPriority {
 	Backing,
 }
 
-impl PvfExecPriority {
+impl PvfExecKind {
 	/// Converts priority level to &str
 	pub fn as_str(&self) -> &str {
 		match *self {
@@ -233,13 +234,13 @@ impl PvfExecPriority {
 	}
 }
 
-impl From<PvfExecPriority> for PvfExecKind {
-	fn from(exec: PvfExecPriority) -> Self {
+impl From<PvfExecKind> for RuntimePvfExecKind {
+	fn from(exec: PvfExecKind) -> Self {
 		match exec {
-			PvfExecPriority::Dispute => PvfExecKind::Approval,
-			PvfExecPriority::Approval => PvfExecKind::Approval,
-			PvfExecPriority::BackingSystemParas => PvfExecKind::Backing,
-			PvfExecPriority::Backing => PvfExecKind::Backing,
+			PvfExecKind::Dispute => RuntimePvfExecKind::Approval,
+			PvfExecKind::Approval => RuntimePvfExecKind::Approval,
+			PvfExecKind::BackingSystemParas => RuntimePvfExecKind::Backing,
+			PvfExecKind::Backing => RuntimePvfExecKind::Backing,
 		}
 	}
 }

@@ -31,7 +31,7 @@ use polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{
-		CandidateValidationMessage, PreCheckOutcome, PvfExecPriority, RuntimeApiMessage,
+		CandidateValidationMessage, PreCheckOutcome, PvfExecKind, RuntimeApiMessage,
 		RuntimeApiRequest, ValidationFailed,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
@@ -772,7 +772,7 @@ async fn validate_from_chain_state<Sender>(
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
-	exec_kind: PvfExecPriority,
+	exec_kind: PvfExecKind,
 	metrics: &Metrics,
 ) -> Result<ValidationResult, ValidationFailed>
 where
@@ -828,7 +828,7 @@ async fn validate_candidate_exhaustive(
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
-	exec_kind: PvfExecPriority,
+	exec_kind: PvfExecKind,
 	metrics: &Metrics,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
@@ -856,7 +856,7 @@ async fn validate_candidate_exhaustive(
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
 		// honest backers getting slashed.
-		PvfExecPriority::Backing | PvfExecPriority::BackingSystemParas => {
+		PvfExecKind::Backing | PvfExecKind::BackingSystemParas => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
 			let pvf = PvfPrepData::from_code(
@@ -877,7 +877,7 @@ async fn validate_candidate_exhaustive(
 				)
 				.await
 		},
-		PvfExecPriority::Approval | PvfExecPriority::Dispute =>
+		PvfExecKind::Approval | PvfExecKind::Dispute =>
 			validation_backend
 				.validate_candidate_with_retry(
 					validation_code.0,
@@ -976,7 +976,7 @@ trait ValidationBackend {
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
 		// The priority for the execution job.
-		execute_priority: PvfExecPriority,
+		execute_priority: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError>;
 
 	/// Tries executing a PVF. Will retry once if an error is encountered that may have
@@ -998,7 +998,7 @@ trait ValidationBackend {
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
 		// The priority for the execution job.
-		execute_priority: PvfExecPriority,
+		execute_priority: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
@@ -1127,7 +1127,7 @@ impl ValidationBackend for ValidationHost {
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
 		// The priority for the execution job.
-		execute_priority: PvfExecPriority,
+		execute_priority: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let (tx, rx) = oneshot::channel();
 		if let Err(err) = self

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_node_subsystem::messages::PvfExecPriority;
+use polkadot_node_subsystem::messages::PvfExecKind;
 
 /// A priority assigned to preparation of a PVF.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -38,13 +38,13 @@ impl Priority {
 	}
 }
 
-impl From<PvfExecPriority> for Priority {
-	fn from(priority: PvfExecPriority) -> Self {
+impl From<PvfExecKind> for Priority {
+	fn from(priority: PvfExecKind) -> Self {
 		match priority {
-			PvfExecPriority::Dispute => Priority::Critical,
-			PvfExecPriority::Approval => Priority::Critical,
-			PvfExecPriority::BackingSystemParas => Priority::Normal,
-			PvfExecPriority::Backing => Priority::Normal,
+			PvfExecKind::Dispute => Priority::Critical,
+			PvfExecKind::Approval => Priority::Critical,
+			PvfExecKind::BackingSystemParas => Priority::Normal,
+			PvfExecKind::Backing => Priority::Normal,
 		}
 	}
 }
