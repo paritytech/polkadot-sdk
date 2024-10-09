@@ -81,12 +81,13 @@ jobs:
           license = "MIT-0"
           authors = ["Parity Technologies <admin@parity.io>"]
           homepage = "https://paritytech.github.io/polkadot-sdk/"
-
+        
           [workspace]
-          default-members = [
-            "pallets/template",
-            "runtime"
-          ]
+          EOF
+          
+          [ ${{ matrix.template }} != "solochain" ] && echo "\"default-members\" = [\"pallets/template\", \"runtime\"]" >> Cargo.toml
+          
+          cat << EOF >> Cargo.toml
           # add `--workspace` to the build command to build all members
           members = [
               "node",
