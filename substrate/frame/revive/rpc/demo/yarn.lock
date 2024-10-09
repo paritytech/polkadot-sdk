@@ -477,16 +477,6 @@ rxjs@^7.8.1:
   dependencies:
     tslib "^2.1.0"
 
-scale-codec@^0.13.0:
-  version "0.13.0"
-  resolved "https://registry.yarnpkg.com/scale-codec/-/scale-codec-0.13.0.tgz#7c9842412e0e4fdab5f9f10b475e3fbd40fdb23f"
-  integrity sha512-HxLaGxglkZP7SwjCLZPMsWGKN8Q/h5bjIH9YLFRcsG3Fmh+qsCOZYRLhntvTyP6B/Q7xHPBc2YKODOSfH0rH8g==
-
-scale-ts@^1.6.0:
-  version "1.6.0"
-  resolved "https://registry.yarnpkg.com/scale-ts/-/scale-ts-1.6.0.tgz#e9641093c5a9e50f964ddb1607139034e3e932e9"
-  integrity sha512-Ja5VCjNZR8TGKhUumy9clVVxcDpM+YFjAnkMuwQy68Hixio3VRRvWdE3g8T/yC+HXA0ZDQl2TGyUmtmbcVl40Q==
-
 source-map-js@^1.2.1:
   version "1.2.1"
   resolved "https://registry.yarnpkg.com/source-map-js/-/source-map-js-1.2.1.tgz#1ce5650fddd87abc099eda37dcff024c2667ae46"
