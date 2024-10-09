@@ -18,6 +18,12 @@ impl Default for Account {
 	}
 }
 
+impl From<subxt_signer::eth::Keypair> for Account {
+	fn from(keypair: subxt_signer::eth::Keypair) -> Self {
+		Self(keypair)
+	}
+}
+
 /// Wait for a transaction receipt.
 pub async fn wait_for_receipt(client: &HttpClient, hash: H256) -> anyhow::Result<ReceiptInfo> {
 	for _ in 0..6 {
