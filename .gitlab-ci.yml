@@ -284,8 +284,3 @@ cancel-pipeline-build-linux-substrate:
   extends: .cancel-pipeline-template
   needs:
     - job: build-linux-substrate
-
-cancel-pipeline-build-short-benchmark:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: build-short-benchmark
