@@ -64,7 +64,7 @@ pub struct Block {
 	#[serde(rename = "mixHash")]
 	pub mix_hash: H256,
 	/// Nonce
-	pub nonce: String,
+	pub nonce: Bytes8,
 	/// Number
 	pub number: U256,
 	/// Parent Beacon Block Root

@@ -30,7 +30,6 @@ serde = { features = [
 ], workspace = true, default-features = false }
 impl-trait-for-tuples = { workspace = true }
 rlp = { workspace = true }
-rlp-derive = { workspace = true }
 derive_more.workspace = true
 hex = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"], optional = true }

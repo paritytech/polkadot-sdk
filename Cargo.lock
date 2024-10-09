@@ -12400,7 +12400,6 @@ dependencies = [
  "polkavm 0.11.0",
  "pretty_assertions",
  "rlp",
- "rlp-derive",
  "scale-info",
  "secp256k1",
  "serde",
@@ -17729,17 +17728,6 @@ checksum = "bb919243f34364b6bd2fc10ef797edbfa75f33c252e7998527479c6d6b47e1ec"
 dependencies = [
  "bytes",
  "rustc-hex",
-]
-
-[[package]]
-name = "rlp-derive"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "652db34deaaa57929e10ca18e5454a32cb0efc351ae80d320334bbf907b908b3"
-dependencies = [
- "proc-macro2 1.0.86",
- "quote 1.0.37",
- "syn 2.0.79",
 ]
 
 [[package]]

@@ -1104,7 +1104,6 @@ relay-utils = { path = "bridges/relays/utils" }
 remote-externalities = { path = "substrate/utils/frame/remote-externalities", default-features = false, package = "frame-remote-externalities" }
 reqwest = { version = "0.11", default-features = false }
 rlp = { version = "0.5.2", default-features = false }
-rlp-derive = { version = "0.2.0", default-features = false }
 rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/rococo" }
 rococo-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/rococo-parachain" }
 rococo-runtime = { path = "polkadot/runtime/rococo" }
