@@ -1,13 +1,20 @@
-use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
-use cumulus_primitives_core::ParaId;
-use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
 use parachain_template_runtime::Block;
-use sc_cli::{
-	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
-	NetworkParams, Result, RpcEndpoint, SharedParams, SubstrateCli,
+use polkadot_sdk::{
+	cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions,
+	cumulus_primitives_core::ParaId,
+	frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE},
+	polkadot_cli,
+	sc_cli::{
+		self, ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams,
+		KeystoreParams, NetworkParams, Result, RpcEndpoint, SharedParams, SubstrateCli,
+	},
+	sc_service::{
+		self,
+		config::{BasePath, PrometheusConfig},
+	},
+	sc_sysinfo, sc_telemetry, sp_runtime,
 };
-use sc_service::config::{BasePath, PrometheusConfig};
 
 use crate::{
 	chain_spec,
