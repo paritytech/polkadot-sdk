@@ -54,11 +54,11 @@ use polkadot_primitives::{
 	node_features::FeatureIndex,
 	vstaging::{
 		transpose_claim_queue, CandidateDescriptorV2, CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2, CoreState, TransposedClaimQueue,
+		CommittedCandidateReceiptV2, CoreState,
 	},
 	AsyncBackingParams, CandidateCommitments, CandidateDescriptor, CollatorPair, CoreIndex, Hash,
-	Id as ParaId, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, ScheduledCore,
-	SessionIndex, ValidationCodeHash,
+	Id as ParaId, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
+	ValidationCodeHash,
 };
 use schnellru::{ByLength, LruMap};
 use sp_core::crypto::Pair;
