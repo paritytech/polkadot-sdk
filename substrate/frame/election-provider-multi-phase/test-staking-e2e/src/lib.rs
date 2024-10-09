@@ -322,24 +322,24 @@ fn automatic_unbonding_pools() {
 		assert_eq!(<Runtime as pallet_nomination_pools::Config>::MaxUnbonding::get(), 1);
 
 		// init state of pool members.
-		let init_free_balance_2 = Balances::free_balance(2);
-		let init_free_balance_3 = Balances::free_balance(3);
+		let init_stakeable_balance_2 = pallet_staking::asset::stakeable_balance::<Runtime>(&2);
+		let init_stakeable_balance_3 = pallet_staking::asset::stakeable_balance::<Runtime>(&3);
 
 		let pool_bonded_account = Pools::generate_bonded_account(1);
 
 		// creates a pool with 5 bonded, owned by 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(1), 5, 1, 1, 1));
-		assert_eq!(locked_amount_for(pool_bonded_account), 5);
+		assert_eq!(staked_amount_for(pool_bonded_account), 5);
 
 		let init_tvl = TotalValueLocked::<Runtime>::get();
 
 		// 2 joins the pool.
 		assert_ok!(Pools::join(RuntimeOrigin::signed(2), 10, 1));
-		assert_eq!(locked_amount_for(pool_bonded_account), 15);
+		assert_eq!(staked_amount_for(pool_bonded_account), 15);
 
 		// 3 joins the pool.
 		assert_ok!(Pools::join(RuntimeOrigin::signed(3), 10, 1));
-		assert_eq!(locked_amount_for(pool_bonded_account), 25);
+		assert_eq!(staked_amount_for(pool_bonded_account), 25);
 
 		assert_eq!(TotalValueLocked::<Runtime>::get(), 25);
 
@@ -350,7 +350,7 @@ fn automatic_unbonding_pools() {
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(2), 2, 10));
 
 		// amount is still locked in the pool, needs to wait for unbonding period.
-		assert_eq!(locked_amount_for(pool_bonded_account), 25);
+		assert_eq!(staked_amount_for(pool_bonded_account), 25);
 
 		// max chunks in the ledger are now filled up (`MaxUnlockingChunks == 1`).
 		assert_eq!(unlocking_chunks_of(pool_bonded_account), 1);
@@ -372,8 +372,8 @@ fn automatic_unbonding_pools() {
 		assert_eq!(current_era(), 3);
 		System::reset_events();
 
-		let locked_before_withdraw_pool = locked_amount_for(pool_bonded_account);
-		assert_eq!(Balances::free_balance(pool_bonded_account), 26);
+		let staked_before_withdraw_pool = staked_amount_for(pool_bonded_account);
+		assert_eq!(pallet_staking::asset::stakeable_balance::<Runtime>(&pool_bonded_account), 26);
 
 		// now unbonding 3 will work, although the pool's ledger still has the unlocking chunks
 		// filled up.
@@ -391,20 +391,21 @@ fn automatic_unbonding_pools() {
 		);
 
 		// balance of the pool remains the same, it hasn't withdraw explicitly from the pool yet.
-		assert_eq!(Balances::free_balance(pool_bonded_account), 26);
+		assert_eq!(pallet_staking::asset::stakeable_balance::<Runtime>(&pool_bonded_account), 26);
 		// but the locked amount in the pool's account decreases due to the auto-withdraw:
-		assert_eq!(locked_before_withdraw_pool - 10, locked_amount_for(pool_bonded_account));
+		assert_eq!(staked_before_withdraw_pool - 10, staked_amount_for(pool_bonded_account));
 
 		// TVL correctly updated.
 		assert_eq!(TotalValueLocked::<Runtime>::get(), 25 - 10);
 
 		// however, note that the withdrawing from the pool still works for 2, the funds are taken
-		// from the pool's free balance.
-		assert_eq!(Balances::free_balance(pool_bonded_account), 26);
+		// from the pool's non staked balance.
+		assert_eq!(pallet_staking::asset::stakeable_balance::<Runtime>(&pool_bonded_account), 26);
+		assert_eq!(pallet_staking::asset::staked::<Runtime>(&pool_bonded_account), 15);
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(2), 2, 10));
-		assert_eq!(Balances::free_balance(pool_bonded_account), 16);
+		assert_eq!(pallet_staking::asset::stakeable_balance::<Runtime>(&pool_bonded_account), 16);
 
-		assert_eq!(Balances::free_balance(2), 20);
+		assert_eq!(pallet_staking::asset::stakeable_balance::<Runtime>(&2), 20);
 		assert_eq!(TotalValueLocked::<Runtime>::get(), 15);
 
 		// 3 cannot withdraw yet.
@@ -423,9 +424,15 @@ fn automatic_unbonding_pools() {
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(3), 3, 10));
 
 		// final conditions are the expected.
-		assert_eq!(Balances::free_balance(pool_bonded_account), 6); // 5 init bonded + ED
-		assert_eq!(Balances::free_balance(2), init_free_balance_2);
-		assert_eq!(Balances::free_balance(3), init_free_balance_3);
+		assert_eq!(pallet_staking::asset::stakeable_balance::<Runtime>(&pool_bonded_account), 6); // 5 init bonded + ED
+		assert_eq!(
+			pallet_staking::asset::stakeable_balance::<Runtime>(&2),
+			init_stakeable_balance_2
+		);
+		assert_eq!(
+			pallet_staking::asset::stakeable_balance::<Runtime>(&3),
+			init_stakeable_balance_3
+		);
 
 		assert_eq!(TotalValueLocked::<Runtime>::get(), init_tvl);
 	});
