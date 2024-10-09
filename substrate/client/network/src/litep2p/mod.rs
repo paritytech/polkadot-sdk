@@ -938,21 +938,24 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 					Some(DiscoveryEvent::ExternalAddressExpired{ address }) => {
 						let local_peer_id = self.litep2p.local_peer_id().clone();
 
-						if let Some(multihash) = litep2p::types::multihash::Multihash::from_bytes(&local_peer_id.to_bytes()).ok() {
-							let address = if !std::matches!(address.iter().last(), Some(Protocol::P2p(_))) {
-								address.with(Protocol::P2p(multihash))
-							} else {
-								address
-							};
+						// Litep2p requires the peer ID to be present in the address.
+						let Some(multihash) = litep2p::types::multihash::Multihash::from_bytes(&local_peer_id.to_bytes()).ok() else {
+							continue
+						};
 
-							if self.litep2p.public_addresses().remove_address(&address) {
-								log::info!(target: LOG_TARGET, "🔍 Expired external address for our node: {address}");
-							} else {
-								log::warn!(
-									target: LOG_TARGET,
-									"🔍 Failed to remove expired external address {address:?}"
-								);
-							}
+						let address = if !std::matches!(address.iter().last(), Some(Protocol::P2p(_))) {
+							address.with(Protocol::P2p(multihash))
+						} else {
+							address
+						};
+
+						if self.litep2p.public_addresses().remove_address(&address) {
+							log::info!(target: LOG_TARGET, "🔍 Expired external address for our node: {address}");
+						} else {
+							log::warn!(
+								target: LOG_TARGET,
+								"🔍 Failed to remove expired external address {address:?}"
+							);
 						}
 					}
 					Some(DiscoveryEvent::Ping { peer, rtt }) => {
