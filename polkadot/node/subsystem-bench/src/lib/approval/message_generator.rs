@@ -401,7 +401,7 @@ impl PeerMessagesGenerator {
 /// We can not sample every time for all the messages because that would be too expensive to
 /// perform, so pre-generate a list of samples for a given network size.
 /// - result[i] give us as a list of random nodes that would send a given message to the node under
-/// test.
+///   test.
 fn random_samplings_to_node(
 	node_under_test: ValidatorIndex,
 	num_validators: usize,
@@ -474,8 +474,7 @@ fn issue_approvals(
 		coalesce_approvals_len(options.coalesce_mean, options.coalesce_std_dev, rand_chacha);
 	let result = assignments
 		.iter()
-		.enumerate()
-		.map(|(_index, message)| match &message.msg {
+		.map(|message| match &message.msg {
 			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) => {
 				let mut approvals_to_create = Vec::new();
 

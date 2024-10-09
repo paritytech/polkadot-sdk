@@ -18,7 +18,7 @@ use cumulus_primitives_core::ParaId;
 pub(crate) use parachains_common::genesis_config_helpers::{
 	get_account_id_from_seed, get_collator_keys_from_seed, get_from_seed,
 };
-use polkadot_parachain_lib::{
+use polkadot_omni_node_lib::{
 	chain_spec::{GenericChainSpec, LoadSpec},
 	runtime::{
 		AuraConsensusId, BlockNumber, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
@@ -34,8 +34,6 @@ pub mod glutton;
 pub mod penpal;
 pub mod people;
 pub mod rococo_parachain;
-pub mod seedling;
-pub mod shell;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
@@ -74,10 +72,6 @@ impl LoadSpec for ChainSpecLoader {
 			"track" => Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/track.json")[..],
 			)?),
-
-			// -- Starters
-			"shell" => Box::new(shell::get_shell_chain_spec()),
-			"seedling" => Box::new(seedling::get_seedling_chain_spec()),
 
 			// -- Asset Hub Polkadot
 			"asset-hub-polkadot" | "statemint" => Box::new(GenericChainSpec::from_json_bytes(
@@ -202,8 +196,6 @@ impl LoadSpec for ChainSpecLoader {
 #[derive(Debug, PartialEq)]
 enum LegacyRuntime {
 	Omni,
-	Shell,
-	Seedling,
 	AssetHubPolkadot,
 	AssetHub,
 	Penpal,
@@ -218,11 +210,7 @@ impl LegacyRuntime {
 	fn from_id(id: &str) -> LegacyRuntime {
 		let id = id.replace('_', "-");
 
-		if id.starts_with("shell") {
-			LegacyRuntime::Shell
-		} else if id.starts_with("seedling") {
-			LegacyRuntime::Seedling
-		} else if id.starts_with("asset-hub-polkadot") | id.starts_with("statemint") {
+		if id.starts_with("asset-hub-polkadot") | id.starts_with("statemint") {
 			LegacyRuntime::AssetHubPolkadot
 		} else if id.starts_with("asset-hub-kusama") |
 			id.starts_with("statemine") |
@@ -277,7 +265,6 @@ impl RuntimeResolverT for RuntimeResolver {
 			LegacyRuntime::Penpal |
 			LegacyRuntime::Omni =>
 				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)),
-			LegacyRuntime::Shell | LegacyRuntime::Seedling => Runtime::Shell,
 		})
 	}
 }
@@ -336,15 +323,6 @@ mod tests {
 
 	#[test]
 	fn test_legacy_runtime_for_different_chain_specs() {
-		let chain_spec = create_default_with_extensions("shell-1", Extensions1::default());
-		assert_eq!(LegacyRuntime::Shell, LegacyRuntime::from_id(chain_spec.id()));
-
-		let chain_spec = create_default_with_extensions("shell-2", Extensions2::default());
-		assert_eq!(LegacyRuntime::Shell, LegacyRuntime::from_id(chain_spec.id()));
-
-		let chain_spec = create_default_with_extensions("seedling", Extensions2::default());
-		assert_eq!(LegacyRuntime::Seedling, LegacyRuntime::from_id(chain_spec.id()));
-
 		let chain_spec =
 			create_default_with_extensions("penpal-rococo-1000", Extensions2::default());
 		assert_eq!(LegacyRuntime::Penpal, LegacyRuntime::from_id(chain_spec.id()));

@@ -35,7 +35,7 @@ use polkadot_node_core_pvf_common::{
 	SecurityStatus,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem::messages::PvfExecPriority;
+use polkadot_node_subsystem::messages::PvfExecKind;
 use polkadot_primitives::{ExecutorParams, ExecutorParamsHash, PersistedValidationData};
 use slotmap::HopSlotMap;
 use std::{
@@ -77,7 +77,7 @@ pub struct PendingExecutionRequest {
 	pub pov: Arc<PoV>,
 	pub executor_params: ExecutorParams,
 	pub result_tx: ResultSender,
-	pub execute_priority: PvfExecPriority,
+	pub exec_kind: PvfExecKind,
 }
 
 struct ExecuteJob {
@@ -312,7 +312,7 @@ impl Queue {
 		} else {
 			spawn_extra_worker(self, job);
 		}
-		self.metrics.on_execute_priority(priority);
+		self.metrics.on_execute_kind(priority);
 		self.unscheduled.mark_scheduled(priority);
 	}
 }
@@ -341,7 +341,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 		pov,
 		executor_params,
 		result_tx,
-		execute_priority,
+		exec_kind,
 	} = pending_execution_request;
 	gum::debug!(
 		target: LOG_TARGET,
@@ -360,7 +360,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 		result_tx,
 		waiting_since: Instant::now(),
 	};
-	queue.unscheduled.add(job, execute_priority);
+	queue.unscheduled.add(job, exec_kind);
 	queue.try_assign_next_job(None);
 }
 
@@ -691,8 +691,8 @@ pub fn start(
 }
 
 struct Unscheduled {
-	unscheduled: HashMap<PvfExecPriority, VecDeque<ExecuteJob>>,
-	counter: HashMap<PvfExecPriority, usize>,
+	unscheduled: HashMap<PvfExecKind, VecDeque<ExecuteJob>>,
+	counter: HashMap<PvfExecKind, usize>,
 }
 
 impl Unscheduled {
@@ -719,36 +719,34 @@ impl Unscheduled {
 	///   approvals could not exceed 24%, even if there are no disputes.
 	/// - We cannot fully prioritize backing system parachains over backing other parachains based
 	///   on the distribution of the original 100%.
-	const PRIORITY_ALLOCATION_THRESHOLDS: &'static [(PvfExecPriority, usize)] = &[
-		(PvfExecPriority::Dispute, 70),
-		(PvfExecPriority::Approval, 80),
-		(PvfExecPriority::BackingSystemParas, 100),
-		(PvfExecPriority::Backing, 100),
+	const PRIORITY_ALLOCATION_THRESHOLDS: &'static [(PvfExecKind, usize)] = &[
+		(PvfExecKind::Dispute, 70),
+		(PvfExecKind::Approval, 80),
+		(PvfExecKind::BackingSystemParas, 100),
+		(PvfExecKind::Backing, 100),
 	];
 
 	fn new() -> Self {
 		Self {
-			unscheduled: PvfExecPriority::iter()
-				.map(|priority| (priority, VecDeque::new()))
-				.collect(),
-			counter: PvfExecPriority::iter().map(|priority| (priority, 0)).collect(),
+			unscheduled: PvfExecKind::iter().map(|priority| (priority, VecDeque::new())).collect(),
+			counter: PvfExecKind::iter().map(|priority| (priority, 0)).collect(),
 		}
 	}
 
-	fn select_next_priority(&self) -> PvfExecPriority {
+	fn select_next_priority(&self) -> PvfExecKind {
 		gum::debug!(
 			target: LOG_TARGET,
-			unscheduled = ?self.unscheduled.iter().map(|(p, q)| (*p, q.len())).collect::<HashMap<PvfExecPriority, usize>>(),
+			unscheduled = ?self.unscheduled.iter().map(|(p, q)| (*p, q.len())).collect::<HashMap<PvfExecKind, usize>>(),
 			counter = ?self.counter,
 			"Selecting next execution priority...",
 		);
 
-		let priority = PvfExecPriority::iter()
+		let priority = PvfExecKind::iter()
 			.find(|priority| self.has_pending(priority) && !self.has_reached_threshold(priority))
 			.unwrap_or_else(|| {
-				PvfExecPriority::iter()
+				PvfExecKind::iter()
 					.find(|priority| self.has_pending(priority))
-					.unwrap_or(PvfExecPriority::Backing)
+					.unwrap_or(PvfExecKind::Backing)
 			});
 
 		gum::debug!(
@@ -760,19 +758,19 @@ impl Unscheduled {
 		priority
 	}
 
-	fn get_mut(&mut self, priority: PvfExecPriority) -> Option<&mut VecDeque<ExecuteJob>> {
+	fn get_mut(&mut self, priority: PvfExecKind) -> Option<&mut VecDeque<ExecuteJob>> {
 		self.unscheduled.get_mut(&priority)
 	}
 
-	fn add(&mut self, job: ExecuteJob, priority: PvfExecPriority) {
+	fn add(&mut self, job: ExecuteJob, priority: PvfExecKind) {
 		self.unscheduled.entry(priority).or_default().push_back(job);
 	}
 
-	fn has_pending(&self, priority: &PvfExecPriority) -> bool {
+	fn has_pending(&self, priority: &PvfExecKind) -> bool {
 		!self.unscheduled.get(priority).unwrap_or(&VecDeque::new()).is_empty()
 	}
 
-	fn priority_allocation_threshold(priority: &PvfExecPriority) -> Option<usize> {
+	fn priority_allocation_threshold(priority: &PvfExecKind) -> Option<usize> {
 		Self::PRIORITY_ALLOCATION_THRESHOLDS.iter().find_map(|&(p, value)| {
 			if p == *priority {
 				Some(value)
@@ -784,7 +782,7 @@ impl Unscheduled {
 
 	/// Checks if a given priority has reached its allocated threshold
 	/// The thresholds are defined in `PRIORITY_ALLOCATION_THRESHOLDS`.
-	fn has_reached_threshold(&self, priority: &PvfExecPriority) -> bool {
+	fn has_reached_threshold(&self, priority: &PvfExecKind) -> bool {
 		let Some(threshold) = Self::priority_allocation_threshold(priority) else { return false };
 		let Some(count) = self.counter.get(&priority) else { return false };
 		// Every time we iterate by lower level priorities
@@ -813,7 +811,7 @@ impl Unscheduled {
 		has_reached_threshold
 	}
 
-	fn mark_scheduled(&mut self, priority: PvfExecPriority) {
+	fn mark_scheduled(&mut self, priority: PvfExecKind) {
 		*self.counter.entry(priority).or_default() += 1;
 
 		if self.counter.values().sum::<usize>() >= Self::SCHEDULING_WINDOW_SIZE {
@@ -827,7 +825,7 @@ impl Unscheduled {
 	}
 
 	fn reset_counter(&mut self) {
-		self.counter = PvfExecPriority::iter().map(|kind| (kind, 0)).collect();
+		self.counter = PvfExecKind::iter().map(|kind| (kind, 0)).collect();
 	}
 }
 
@@ -865,11 +863,11 @@ mod tests {
 	fn test_unscheduled_add() {
 		let mut unscheduled = Unscheduled::new();
 
-		PvfExecPriority::iter().for_each(|priority| {
+		PvfExecKind::iter().for_each(|priority| {
 			unscheduled.add(create_execution_job(), priority);
 		});
 
-		PvfExecPriority::iter().for_each(|priority| {
+		PvfExecKind::iter().for_each(|priority| {
 			let queue = unscheduled.unscheduled.get(&priority).unwrap();
 			assert_eq!(queue.len(), 1);
 		});
@@ -877,7 +875,7 @@ mod tests {
 
 	#[test]
 	fn test_unscheduled_priority_distribution() {
-		use PvfExecPriority::*;
+		use PvfExecKind::*;
 
 		let mut priorities = vec![];
 
@@ -902,7 +900,7 @@ mod tests {
 
 	#[test]
 	fn test_unscheduled_priority_distribution_without_backing_system_paras() {
-		use PvfExecPriority::*;
+		use PvfExecKind::*;
 
 		let mut priorities = vec![];
 
@@ -926,7 +924,7 @@ mod tests {
 
 	#[test]
 	fn test_unscheduled_priority_distribution_without_disputes() {
-		use PvfExecPriority::*;
+		use PvfExecKind::*;
 
 		let mut priorities = vec![];
 
@@ -950,7 +948,7 @@ mod tests {
 
 	#[test]
 	fn test_unscheduled_priority_distribution_without_disputes_and_only_one_backing() {
-		use PvfExecPriority::*;
+		use PvfExecKind::*;
 
 		let mut priorities = vec![];
 
@@ -972,7 +970,7 @@ mod tests {
 
 	#[test]
 	fn test_unscheduled_does_not_postpone_backing() {
-		use PvfExecPriority::*;
+		use PvfExecKind::*;
 
 		let mut priorities = vec![];
 

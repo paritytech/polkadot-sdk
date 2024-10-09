@@ -90,7 +90,7 @@ use polkadot_node_subsystem::{
 		AvailabilityDistributionMessage, AvailabilityStoreMessage, CanSecondRequest,
 		CandidateBackingMessage, CandidateValidationMessage, CollatorProtocolMessage,
 		HypotheticalCandidate, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
-		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, PvfExecPriority,
+		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, PvfExecKind,
 		RuntimeApiMessage, RuntimeApiRequest, StatementDistributionMessage,
 		StoreAvailableDataError,
 	},
@@ -639,9 +639,9 @@ async fn request_candidate_validation(
 			pov,
 			executor_params,
 			exec_kind: if is_system {
-				PvfExecPriority::BackingSystemParas
+				PvfExecKind::BackingSystemParas
 			} else {
-				PvfExecPriority::Backing
+				PvfExecKind::Backing
 			},
 			response_sender: tx,
 			ttl: validation_request_ttl(mode),

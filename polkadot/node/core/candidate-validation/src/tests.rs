@@ -17,7 +17,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::*;
-use crate::PvfExecPriority;
+use crate::PvfExecKind;
 use assert_matches::assert_matches;
 use futures::executor;
 use polkadot_node_core_pvf::PrepareError;
@@ -26,7 +26,8 @@ use polkadot_node_subsystem::messages::AllMessages;
 use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
 use polkadot_primitives::{
-	CoreIndex, GroupIndex, HeadData, Id as ParaId, SessionInfo, UpwardMessage, ValidatorId,
+	CoreIndex, GroupIndex, HeadData, Id as ParaId, OccupiedCoreAssumption, SessionInfo,
+	UpwardMessage, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_collator, dummy_collator_signature, dummy_hash, make_valid_candidate_descriptor,
@@ -34,6 +35,58 @@ use polkadot_primitives_test_helpers::{
 use sp_core::{sr25519::Public, testing::TaskExecutor};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, Keystore};
+
+#[derive(Debug)]
+enum AssumptionCheckOutcome {
+	Matches(PersistedValidationData, ValidationCode),
+	DoesNotMatch,
+	BadRequest,
+}
+
+async fn check_assumption_validation_data<Sender>(
+	sender: &mut Sender,
+	descriptor: &CandidateDescriptor,
+	assumption: OccupiedCoreAssumption,
+) -> AssumptionCheckOutcome
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	let validation_data = {
+		let (tx, rx) = oneshot::channel();
+		let d = runtime_api_request(
+			sender,
+			descriptor.relay_parent,
+			RuntimeApiRequest::PersistedValidationData(descriptor.para_id, assumption, tx),
+			rx,
+		)
+		.await;
+
+		match d {
+			Ok(None) | Err(RuntimeRequestFailed) => return AssumptionCheckOutcome::BadRequest,
+			Ok(Some(d)) => d,
+		}
+	};
+
+	let persisted_validation_data_hash = validation_data.hash();
+
+	if descriptor.persisted_validation_data_hash == persisted_validation_data_hash {
+		let (code_tx, code_rx) = oneshot::channel();
+		let validation_code = runtime_api_request(
+			sender,
+			descriptor.relay_parent,
+			RuntimeApiRequest::ValidationCode(descriptor.para_id, assumption, code_tx),
+			code_rx,
+		)
+		.await;
+
+		match validation_code {
+			Ok(None) | Err(RuntimeRequestFailed) => AssumptionCheckOutcome::BadRequest,
+			Ok(Some(v)) => AssumptionCheckOutcome::Matches(validation_data, v),
+		}
+	} else {
+		AssumptionCheckOutcome::DoesNotMatch
+	}
+}
 
 #[test]
 fn correctly_checks_included_assumption() {
@@ -390,7 +443,7 @@ impl ValidationBackend for MockValidateCandidateBackend {
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
-		_execute_priority: PvfExecPriority,
+		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		// This is expected to panic if called more times than expected, indicating an error in the
 		// test.
@@ -463,7 +516,7 @@ fn candidate_validation_ok_is_ok() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecPriority::Backing,
+		PvfExecKind::Backing,
 		None,
 		&Default::default(),
 	))
@@ -516,7 +569,7 @@ fn candidate_validation_bad_return_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecPriority::Backing,
+		PvfExecKind::Backing,
 		None,
 		&Default::default(),
 	))
@@ -598,7 +651,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecPriority::Approval,
+		PvfExecKind::Approval,
 		None,
 		&Default::default(),
 	))
@@ -640,7 +693,7 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecPriority::Approval,
+		PvfExecKind::Approval,
 		None,
 		&Default::default(),
 	))
@@ -653,7 +706,7 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 #[test]
 fn candidate_validation_retry_internal_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecPriority::Approval,
+		PvfExecKind::Approval,
 		vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
 			// Throw an AJD error, we should still retry again.
@@ -671,7 +724,7 @@ fn candidate_validation_retry_internal_errors() {
 #[test]
 fn candidate_validation_dont_retry_internal_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecPriority::Backing,
+		PvfExecKind::Backing,
 		vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
 			// Throw an AWD error, we should still retry again.
@@ -688,7 +741,7 @@ fn candidate_validation_dont_retry_internal_errors() {
 #[test]
 fn candidate_validation_retry_panic_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecPriority::Approval,
+		PvfExecKind::Approval,
 		vec![
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("foo".into()))),
 			// Throw an AWD error, we should still retry again.
@@ -705,7 +758,7 @@ fn candidate_validation_retry_panic_errors() {
 #[test]
 fn candidate_validation_dont_retry_panic_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecPriority::Backing,
+		PvfExecKind::Backing,
 		vec![
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("foo".into()))),
 			// Throw an AWD error, we should still retry again.
@@ -719,7 +772,7 @@ fn candidate_validation_dont_retry_panic_errors() {
 }
 
 fn candidate_validation_retry_on_error_helper(
-	exec_kind: PvfExecPriority,
+	exec_kind: PvfExecKind,
 	mock_errors: Vec<Result<WasmValidationResult, ValidationError>>,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
@@ -798,7 +851,7 @@ fn candidate_validation_timeout_is_internal_error() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecPriority::Backing,
+		PvfExecKind::Backing,
 		None,
 		&Default::default(),
 	));
@@ -844,7 +897,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecPriority::Backing,
+		PvfExecKind::Backing,
 		None,
 		&Default::default(),
 	))
@@ -897,7 +950,7 @@ fn candidate_validation_code_mismatch_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecPriority::Backing,
+		PvfExecKind::Backing,
 		None,
 		&Default::default(),
 	))
@@ -955,7 +1008,7 @@ fn compressed_code_works() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecPriority::Backing,
+		PvfExecKind::Backing,
 		None,
 		&Default::default(),
 	));
@@ -983,7 +1036,7 @@ impl ValidationBackend for MockPreCheckBackend {
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
-		_execute_priority: PvfExecPriority,
+		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}
@@ -1139,7 +1192,7 @@ impl ValidationBackend for MockHeadsUp {
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
-		_execute_priority: PvfExecPriority,
+		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}
@@ -1178,7 +1231,6 @@ fn dummy_active_leaves_update(hash: Hash) -> ActiveLeavesUpdate {
 			hash,
 			number: 10,
 			unpin_handle: polkadot_node_subsystem_test_helpers::mock::dummy_unpin_handle(hash),
-			span: Arc::new(overseer::jaeger::Span::Disabled),
 		}),
 		..Default::default()
 	}

@@ -25,7 +25,7 @@ use polkadot_node_core_pvf::{
 	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
-use polkadot_node_subsystem::messages::PvfExecPriority;
+use polkadot_node_subsystem::messages::PvfExecKind;
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationResult};
 use polkadot_primitives::{
 	ExecutorParam, ExecutorParams, PersistedValidationData, PvfExecKind, PvfPrepKind,
@@ -126,7 +126,7 @@ impl TestHost {
 				Arc::new(pvd),
 				Arc::new(pov),
 				polkadot_node_core_pvf::Priority::Normal,
-				PvfExecPriority::Backing,
+				PvfExecKind::Backing,
 				result_tx,
 			)
 			.await

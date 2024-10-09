@@ -265,7 +265,9 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	let delivery_fees = AssetHubRococo::execute_with(|| {
 		xcm_helpers::teleport_assets_delivery_fees::<
 			<AssetHubRococoXcmConfig as xcm_executor::Config>::XcmSender,
-		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+		>(
+			test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest
+		)
 	});
 
 	// Sender's balance is reduced
@@ -526,4 +528,55 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 		para_to_system_para_transfer_assets,
 		system_para_to_para_transfer_assets,
 	);
+}
+
+/// Teleport Native Asset from AssetHub to Parachain fails.
+#[test]
+fn teleport_to_untrusted_chain_fails() {
+	// Init values for Parachain Origin
+	let destination = AssetHubRococo::sibling_location_of(PenpalA::para_id());
+	let signed_origin =
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get().into());
+	let roc_to_send: Balance = ROCOCO_ED * 10000;
+	let roc_location = RelayLocation::get();
+
+	// Assets to send
+	let assets: Vec<Asset> = vec![(roc_location.clone(), roc_to_send).into()];
+	let fee_id: AssetId = roc_location.into();
+
+	// this should fail
+	AssetHubRococo::execute_with(|| {
+		let result = <AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
+			signed_origin.clone(),
+			bx!(destination.clone().into()),
+			bx!(assets.clone().into()),
+			bx!(TransferType::Teleport),
+			bx!(fee_id.into()),
+			bx!(TransferType::Teleport),
+			bx!(VersionedXcm::from(Xcm::<()>::new())),
+			Unlimited,
+		);
+		assert_err!(
+			result,
+			DispatchError::Module(sp_runtime::ModuleError {
+				index: 31,
+				error: [2, 0, 0, 0],
+				message: Some("Filtered")
+			})
+		);
+	});
+
+	// this should also fail
+	AssetHubRococo::execute_with(|| {
+		let xcm: Xcm<asset_hub_rococo_runtime::RuntimeCall> = Xcm(vec![
+			WithdrawAsset(assets.into()),
+			InitiateTeleport { assets: Wild(All), dest: destination, xcm: Xcm::<()>::new() },
+		]);
+		let result = <AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::execute(
+			signed_origin,
+			bx!(xcm::VersionedXcm::V4(xcm)),
+			Weight::MAX,
+		);
+		assert!(result.is_err());
+	});
 }
