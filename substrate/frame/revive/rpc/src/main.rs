@@ -86,9 +86,9 @@ mod dev {
 				log::info!(target: LOG_TARGET, "method: {method} params: {params}");
 				let resp = service.call(req).await;
 				if resp.is_success() {
-					log::info!(target: LOG_TARGET, "✅ method: {method}");
+					log::info!(target: LOG_TARGET, "✅ rpc: {method}");
 				} else {
-					log::info!(target: LOG_TARGET, "❌ method: {method} {}", resp.as_result());
+					log::info!(target: LOG_TARGET, "❌ rpc: {method} {}", resp.as_result());
 				}
 				resp
 			}
