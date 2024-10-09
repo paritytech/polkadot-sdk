@@ -114,7 +114,14 @@ async fn run_server(client: Client, url: &str) -> anyhow::Result<SocketAddr> {
 	let server = builder.build(url.parse::<SocketAddr>()?).await?;
 	let addr = server.local_addr()?;
 
-	let eth_api = EthRpcServerImpl::new(client).into_rpc();
+	let eth_api = EthRpcServerImpl::new(client)
+		.with_accounts(if cfg!(feature = "dev") {
+			use pallet_revive::evm::Account;
+			vec![Account::default()]
+		} else {
+			vec![]
+		})
+		.into_rpc();
 	let misc_api = MiscRpcServerImpl.into_rpc();
 
 	let mut module = RpcModule::new(());

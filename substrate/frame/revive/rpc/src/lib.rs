@@ -29,13 +29,23 @@ pub trait MiscRpc {
 
 /// An EVM RPC server implementation.
 pub struct EthRpcServerImpl {
+	/// The client used to interact with the substrate node.
 	client: client::Client,
+
+	/// The accounts managed by the server.
+	accounts: Vec<Account>,
 }
 
 impl EthRpcServerImpl {
 	/// Creates a new [`EthRpcServerImpl`].
 	pub fn new(client: client::Client) -> Self {
-		Self { client }
+		Self { client, accounts: vec![] }
+	}
+
+	/// Sets the accounts managed by the server.
+	pub fn with_accounts(mut self, accounts: Vec<Account>) -> Self {
+		self.accounts = accounts;
+		self
 	}
 }
 
@@ -149,11 +159,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(Some(block))
 	}
 
-	async fn get_balance(
-		&self,
-		address: Address,
-		block: BlockNumberOrTagOrHash,
-	) -> RpcResult<U256> {
+	async fn get_balance(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<U256> {
 		let balance = self.client.balance(address, &block).await?;
 		log::debug!(target: LOG_TARGET, "balance({address}): {balance:?}");
 		Ok(balance)
@@ -167,13 +173,13 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(U256::from(GAS_PRICE))
 	}
 
-	async fn get_code(&self, address: Address, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes> {
+	async fn get_code(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes> {
 		let code = self.client.get_contract_code(&address, block).await?;
 		Ok(code.into())
 	}
 
-	async fn accounts(&self) -> RpcResult<Vec<Address>> {
-		Ok(vec![])
+	async fn accounts(&self) -> RpcResult<Vec<H160>> {
+		Ok(self.accounts.iter().map(|account| account.address()).collect())
 	}
 
 	async fn call(
@@ -233,7 +239,7 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn get_storage_at(
 		&self,
-		address: Address,
+		address: H160,
 		storage_slot: U256,
 		block: BlockNumberOrTagOrHash,
 	) -> RpcResult<Bytes> {
@@ -286,7 +292,7 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn get_transaction_count(
 		&self,
-		address: Address,
+		address: H160,
 		block: BlockNumberOrTagOrHash,
 	) -> RpcResult<U256> {
 		let nonce = self.client.nonce(address, block).await?;
