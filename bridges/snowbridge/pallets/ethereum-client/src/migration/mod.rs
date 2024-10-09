@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 
 use frame_support::pallet_prelude::StorageVersion;
+use sp_runtime::TryRuntimeError;
 
 mod test;
 
