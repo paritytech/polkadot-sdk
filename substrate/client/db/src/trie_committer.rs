@@ -30,18 +30,21 @@ impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> hash_db::HashDB<H, DBValue>
 	for TrieCommitter<'a, S, H>
 {
 	fn get(&self, key: &H::Out, prefix: Prefix) -> Option<DBValue> {
-		if prefix == sp_trie::EMPTY_PREFIX {
-			return Some([0u8].to_vec());
-		}
-
 		let db_key = sp_trie::prefixed_key::<H>(key, prefix);
 
-		self.trie_database.get(columns::STATE, &db_key).or_else(|| {
+		let res = self.trie_database.get(columns::STATE, &db_key).or_else(|| {
 			self.storage.get(key, prefix).unwrap_or_else(|e| {
 				log::warn!(target: "trie", "Failed to read from DB: {}", e);
 				None
 			})
-		})
+		});
+
+		// TODO: this feels like incorrect.
+		if prefix == sp_trie::EMPTY_PREFIX && res.is_none() {
+			Some([0u8].to_vec())
+		} else {
+			res
+		}
 	}
 
 	fn contains(&self, key: &H::Out, prefix: Prefix) -> bool {

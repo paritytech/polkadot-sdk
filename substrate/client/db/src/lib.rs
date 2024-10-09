@@ -4762,10 +4762,12 @@ pub(crate) mod tests {
 		use sp_runtime::traits::BlakeTwo256;
 
 		let state_version = StateVersion::default();
-		let backend = Backend::<Block>::new_test(10, 10);
 
 		// Build a block using `Ephemeral`.
-		let build_block = |number, parent_hash, changes: Vec<(Vec<u8>, Vec<u8>)>| {
+		let build_block = |backend: &Backend<Block>,
+		                   number,
+		                   parent_hash,
+		                   changes: Vec<(Vec<u8>, Vec<u8>)>| {
 			let mut op = backend.begin_operation().unwrap();
 			backend.begin_state_operation(&mut op, parent_hash).unwrap();
 			let mut header = Header {
@@ -4804,51 +4806,30 @@ pub(crate) mod tests {
 			(hash, state_root)
 		};
 
-		let changes = vec![(b"k1".to_vec(), b"v1".to_vec()), (b"k2".to_vec(), b"v2".to_vec())];
-		let (hash0, state_root0) = build_block(0, Default::default(), changes);
+		let storage_changes_block_0 =
+			vec![(b"k1".to_vec(), b"v1".to_vec()), (b"k2".to_vec(), b"v2".to_vec())];
 
-		// Data collected from a local fast-sync run.
-		let storage_block_1 = vec![(
-			hex::decode("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac")
-				.unwrap(),
-			hex::decode("0c0b0000").unwrap(),
-		)];
-		let (hash1, state_root1) = build_block(1, hash0, storage_block_1.clone());
+		let storage_changes_block_1 = vec![
+			(b"k3".to_vec(), b"v3".to_vec()),
+			(b"k4".to_vec(), b"v4".to_vec()),
+			(b"k5".to_vec(), b"v5".to_vec()),
+		];
 
-		// Revert block #1 and then rebuild it using `TrieCommitter`.
-		backend.revert(1, true).unwrap();
-
-		let build_block_1_with_trie_committer = |incremental| {
-			let mut op = backend.begin_operation().unwrap();
-
-			let parent_hash = hash0;
-
-			println!("\n================== [trie_committer] Start building block#1");
-
-			backend.begin_state_operation(&mut op, parent_hash).unwrap();
-
-			let mut header = Header {
-				number: 1,
-				parent_hash: hash0,
-				state_root: Default::default(),
-				digest: Default::default(),
-				extrinsics_root: Default::default(),
-			};
-
-			// Update the trie by applying the items in delta sequentially.
-			let update_trie_incrementally = || {
+		let update_trie_incrementally =
+			|backend: &Backend<Block>, initial_root: <Block as BlockT>::Hash| {
 				let backend_storage = backend.expose_storage();
 				let (db, _state_col) = backend.expose_db();
 
-				let delta = storage_block_1
+				let delta = storage_changes_block_1
 					.clone()
 					.into_iter()
 					.map(|(k, v)| (k, Some(v)))
 					.collect::<Vec<_>>();
 
 				let mut trie_committer = TrieCommitter::new(&backend_storage, db);
-				let mut prev_root = state_root0;
+				let mut prev_root = initial_root;
 
+				// The order of delta does not matter.
 				for (_index, item) in delta.clone().into_iter().rev().enumerate() {
 					let transient_root =
 						match state_version {
@@ -4880,13 +4861,38 @@ pub(crate) mod tests {
 				prev_root
 			};
 
-			// Update the trie with the entire delta directly.
-			let update_trie_with_delta = || {
+		let build_block_1_with_trie_committer = |incremental| {
+			let backend = Backend::<Block>::new_test(10, 10);
+
+			let (hash0, state_root0) =
+				build_block(&backend, 0, Default::default(), storage_changes_block_0.clone());
+
+			let (hash1, state_root1) =
+				build_block(&backend, 1, hash0, storage_changes_block_1.clone());
+
+			// Revert block #1 and rebuild it using `TrieCommitter`.
+			backend.revert(1, true).unwrap();
+
+			println!("\nStart building block#1 using `TrieCommitter`");
+			let parent_hash = hash0;
+
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, parent_hash).unwrap();
+
+			let mut header = Header {
+				number: 1,
+				parent_hash,
+				state_root: Default::default(),
+				digest: Default::default(),
+				extrinsics_root: Default::default(),
+			};
+
+			let update_trie_with_full_delta = || {
 				backend
 					.commit_trie_changes(
 						parent_hash,
 						sp_runtime::Storage {
-							top: storage_block_1.clone().into_iter().collect(),
+							top: storage_changes_block_1.clone().into_iter().collect(),
 							children_default: Default::default(),
 						},
 						state_version,
@@ -4894,42 +4900,38 @@ pub(crate) mod tests {
 					.unwrap()
 			};
 
-			header.state_root =
-				if incremental { update_trie_incrementally() } else { update_trie_with_delta() };
+			// Incremental trie update vs full delta commit.
+			header.state_root = if incremental {
+				update_trie_incrementally(&backend, state_root0)
+			} else {
+				update_trie_with_full_delta()
+			};
 
-			let main_sc = storage_block_1
+			let main_sc = storage_changes_block_1
 				.clone()
 				.into_iter()
 				.map(|(k, v)| (k, Some(v)))
 				.collect::<Vec<_>>();
 
-			// No db_updates.
-			// Unlike `reset_storage`, no db_updates here as the DB changes has already been
-			// written to the database within `TrieCommitter`.
+			op.set_commit_state(true);
 			op.update_storage(main_sc, Vec::new()).expect("Update storage");
-
 			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best)
 				.unwrap();
 
 			backend.commit_operation(op).unwrap();
 
-			(header.hash(), header.state_root)
+			let hash1_trie_committer = header.hash();
+			let state_root1_trie_committer = header.state_root;
+
+			assert_eq!(hash1, hash1_trie_committer);
+
+			let (state_storage_root, _) =
+				backend.state_at(hash1).unwrap().storage_root(vec![].into_iter(), state_version);
+			assert_eq!(state_storage_root, state_root1);
+			assert_eq!(state_storage_root, state_root1_trie_committer);
 		};
 
-		// FIXME: why this fails after dealing with the EMPTY_PREFIX in HashDB::get()?
-		// let (hash1_trie_committer, state_root1_trie_committer) =
-		// build_block_1_with_trie_committer(false);
-		// assert_eq!(hash1, hash1_trie_committer);
-
-		// backend.revert(1, true).unwrap();
-		// let (hash1_trie_committer, state_root1_trie_committer) =
-		// build_block_1_with_trie_committer(true);
-		// assert_eq!(hash1, hash1_trie_committer);
-
-		// let (state_storage_root, _) =
-		// backend.state_at(hash1).unwrap().storage_root(vec![].into_iter(), state_version);
-		// assert_eq!(state_storage_root, state_root1);
-
-		// assert_eq!(state_root1, state_root1_trie_committer);
+		build_block_1_with_trie_committer(true);
+		build_block_1_with_trie_committer(false);
 	}
 }
