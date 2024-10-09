@@ -396,16 +396,12 @@ pub struct UnbondingQueueConfig {
 	pub back_of_unbonding_queue_era: EraIndex,
 }
 
-/// Default implementation for `UnbondingQueueConfig`, providing sensible defaults for slashable
-/// share and lower and upper bound eras. `back_of_unbonding_queue_era` can be set to zero, and will
-/// update upon the first unlock request by a staker.
-/// TODO: Remove this in favour of OptionQuery and make this settable via `StakingAdmin` call.
 impl Default for UnbondingQueueConfig {
 	fn default() -> Self {
 		Self {
-			min_slashable_share: Perbill::from_percent(50),
-			unbond_period_lower_bound: 2,
-			unbond_period_upper_bound: 28,
+			min_slashable_share: Zero::zero(),
+			unbond_period_lower_bound: Zero::zero(),
+			unbond_period_upper_bound: Zero::zero(),
 			back_of_unbonding_queue_era: Zero::zero(),
 		}
 	}
