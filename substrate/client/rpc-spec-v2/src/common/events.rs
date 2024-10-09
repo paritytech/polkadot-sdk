@@ -144,7 +144,7 @@ pub struct ArchiveStorageMethodErr {
 }
 
 /// The type of the archive storage difference query.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ArchiveStorageDiffType {
 	/// The result is provided as value of the key.
