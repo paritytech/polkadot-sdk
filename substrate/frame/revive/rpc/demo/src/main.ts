@@ -55,18 +55,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     await call(address);
   });
 
-const code = getBytes('0x606060');
-const args = new Uint8Array();
-const rlpEncoded = encodeRlp([ code, args ]);
-console.log("RLP encoded:", rlpEncoded);
-
   async function deploy() {
     console.log('Deploying contract...');
 
 	const code = getBytes('0x50564d0001010424009000022363616c6cdeadbeef63616c6c5f6e657665726465706c6f797365616c5f72657475726e041001000000007365616c5f72657475726e051b03000a63616c6c5f6e6576657204066465706c6f79060463616c6c062c06011f000406081b1c06100408130013000211fc03100408040001040904040706100a05004e13005129a4b800');
 	const args = new Uint8Array()
     const bytecode = encodeRlp([ code, args ]);
-	console.log(bytecode);
 
     const contractFactory = new ContractFactory([], bytecode, signer);
 

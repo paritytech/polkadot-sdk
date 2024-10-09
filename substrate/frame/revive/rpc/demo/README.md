@@ -34,7 +34,7 @@ cd substrate/frame/revive/rpc/demo && yarn && yarn dev
 
 You can use the following instructions to setup [MetaMask](https://metamask.io) with the local chain.
 
-> Note: When you interact with MetaMask and restart the chain, you need to clear the activity tab (Settings > Advanced > Clear activity tab data)
+> Note: When you interact with MetaMask and restart the chain, you need to clear the activity tab (Settings > Advanced > Clear activity tab data), and in some cases lock / unlock metamask to reset the nonce.
 > See [here](https://support.metamask.io/managing-my-wallet/resetting-deleting-and-restoring/how-to-clear-your-account-activity-reset-account) for more info on how to reset the account activity.
 
 #### Add a new network
