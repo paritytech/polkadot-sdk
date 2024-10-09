@@ -83,5 +83,13 @@ sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 
+criterion = { workspace = true, default-features = true, features = ["async_tokio"] }
+sc-consensus = { workspace = true, default-features = true }
+
 [features]
 default = []
+
+
+[[bench]]
+name = "notifications_protocol"
+harness = false
