@@ -328,6 +328,39 @@ fn place_order_keep_alive_keeps_alive() {
 			OnDemand::place_order_keep_alive(RuntimeOrigin::signed(alice), max_amt, para_id),
 			BalancesError::<Test, _>::InsufficientBalance
 		);
+
+		// TODO: Missing a successful test case?
+	});
+}
+
+#[test]
+fn place_order_with_credits() {
+	let alice = 1u64;
+	let initial_credit = 10_000_000u128;
+	let para_id = ParaId::from(111);
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		let config = configuration::ActiveConfig::<Test>::get();
+
+		// Initialize the parathread and wait for it to be ready.
+		schedule_blank_para(para_id, ParaKind::Parathread);
+		Credits::<Test>::insert(alice, initial_credit);
+
+		assert!(!Paras::is_parathread(para_id));
+		run_to_block(100, |n| if n == 100 { Some(Default::default()) } else { None });
+		assert!(Paras::is_parathread(para_id));
+
+		let queue_status = QueueStatus::<Test>::get();
+		let spot_price = queue_status.traffic.saturating_mul_int(
+			config.scheduler_params.on_demand_base_fee.saturated_into::<BalanceOf<Test>>(),
+		);
+
+		// Create an order and pay for it with credits.
+		assert_ok!(
+			OnDemand::place_order_with_credits(RuntimeOrigin::signed(alice), initial_credit, para_id)
+		);
+
+		assert_eq!(Credits::<Test>::get(alice), initial_credit.saturating_sub(spot_price));
 	});
 }
 
