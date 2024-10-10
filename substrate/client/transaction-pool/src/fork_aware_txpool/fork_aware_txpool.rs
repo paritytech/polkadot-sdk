@@ -1160,7 +1160,7 @@ where
 			for result in watched_results {
 				match result {
 					Err(tx_hash) => {
-						self.view_store.listener.invalidate_transactions(vec![tx_hash]);
+						self.view_store.listener.invalidate_transactions(&[tx_hash]);
 						self.mempool.remove(tx_hash);
 					},
 					Ok(_) => {},

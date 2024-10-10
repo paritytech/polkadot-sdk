@@ -410,7 +410,7 @@ where
 		invalid_hashes.iter().for_each(|i| {
 			transactions.remove(i);
 		});
-		self.listener.invalidate_transactions(invalid_hashes);
+		self.listener.invalidate_transactions(&invalid_hashes);
 	}
 }
 
