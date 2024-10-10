@@ -14,33 +14,6 @@ workspace = true
 codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
-<<<<<<< HEAD
-sp-core.workspace = true
-frame-support.workspace = true
-pallet-assets.workspace = true
-pallet-asset-conversion.workspace = true
-pallet-balances.workspace = true
-pallet-message-queue.workspace = true
-pallet-message-queue.default-features = true
-sp-runtime.workspace = true
-xcm.workspace = true
-pallet-xcm.workspace = true
-xcm-executor.workspace = true
-pallet-bridge-messages.workspace = true
-cumulus-pallet-xcmp-queue.workspace = true
-emulated-integration-tests-common.workspace = true
-parachains-common.workspace = true
-parachains-common.default-features = true
-rococo-system-emulated-network.workspace = true
-rococo-westend-system-emulated-network.workspace = true
-testnet-parachains-constants = { features = ["rococo"], workspace = true, default-features = true }
-snowbridge-core.workspace = true
-snowbridge-router-primitives.workspace = true
-snowbridge-pallet-system.workspace = true
-snowbridge-pallet-outbound-queue.workspace = true
-snowbridge-pallet-inbound-queue-fixtures.workspace = true
-snowbridge-pallet-inbound-queue-fixtures.default-features = true
-=======
 
 # Substrate
 sp-core = { workspace = true }
@@ -75,4 +48,3 @@ snowbridge-router-primitives = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
 snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-inbound-queue-fixtures = { workspace = true, default-features = true }
->>>>>>> 4a70b2c (Remove redundant XCMs from dry run's forwarded xcms (#5913))

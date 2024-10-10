@@ -96,16 +96,10 @@ pub mod pallet {
 		/// Origin of the sibling bridge hub that is allowed to report bridge status.
 		type BridgeHubOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// Actual message sender (`HRMP` or `DMP`) to the sibling bridge hub location.
-<<<<<<< HEAD
-		type ToBridgeHubSender: SendXcm + InspectMessageQueues;
+		type ToBridgeHubSender: SendXcm;
 		/// Underlying channel with the sibling bridge hub. It must match the channel, used
 		/// by the `Self::ToBridgeHubSender`.
 		type WithBridgeHubChannel: XcmChannelStatusProvider;
-=======
-		type ToBridgeHubSender: SendXcm;
-		/// Local XCM channel manager.
-		type LocalXcmChannelManager: XcmChannelStatusProvider;
->>>>>>> 4a70b2c (Remove redundant XCMs from dry run's forwarded xcms (#5913))
 
 		/// Additional fee that is paid for every byte of the outbound message.
 		type ByteFee: Get<u128>;

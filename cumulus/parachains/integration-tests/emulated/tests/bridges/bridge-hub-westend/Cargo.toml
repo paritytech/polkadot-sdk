@@ -12,24 +12,6 @@ workspace = true
 
 [dependencies]
 hex-literal = { workspace = true, default-features = true }
-<<<<<<< HEAD
-frame-support.workspace = true
-pallet-assets.workspace = true
-pallet-asset-conversion.workspace = true
-pallet-balances.workspace = true
-pallet-message-queue.workspace = true
-pallet-message-queue.default-features = true
-sp-runtime.workspace = true
-xcm.workspace = true
-pallet-xcm.workspace = true
-xcm-executor.workspace = true
-pallet-bridge-messages.workspace = true
-cumulus-pallet-xcmp-queue.workspace = true
-emulated-integration-tests-common.workspace = true
-parachains-common.workspace = true
-parachains-common.default-features = true
-rococo-westend-system-emulated-network.workspace = true
-=======
 codec = { workspace = true }
 log = { workspace = true }
 scale-info = { workspace = true }
@@ -69,4 +51,3 @@ snowbridge-pallet-system = { workspace = true }
 snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-inbound-queue = { workspace = true }
 snowbridge-pallet-inbound-queue-fixtures = { workspace = true }
->>>>>>> 4a70b2c (Remove redundant XCMs from dry run's forwarded xcms (#5913))

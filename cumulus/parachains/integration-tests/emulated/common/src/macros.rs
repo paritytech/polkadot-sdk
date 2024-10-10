@@ -130,8 +130,6 @@ macro_rules! test_parachain_is_trusted_teleporter {
 		}
 	};
 }
-<<<<<<< HEAD
-=======
 
 #[macro_export]
 macro_rules! test_relay_is_trusted_teleporter {
@@ -421,7 +419,6 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 
 			// Bridge setup.
 			$sender_asset_hub::force_xcm_version($destination, XCM_VERSION);
-			open_bridge_between_asset_hub_rococo_and_asset_hub_westend();
 
 			<$sender_asset_hub as TestExt>::execute_with(|| {
 				type Runtime = <$sender_asset_hub as Chain>::Runtime;
@@ -453,4 +450,3 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 		}
 	};
 }
->>>>>>> 4a70b2c (Remove redundant XCMs from dry run's forwarded xcms (#5913))
