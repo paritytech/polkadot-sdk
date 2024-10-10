@@ -501,7 +501,7 @@ impl ConfigDef {
 				if is_event {
 					return Err(syn::Error::new(
 						span,
-						"Invalid #[pallet::include_metadata] for `type RuntimeEvent`, \
+						"Invalid #[pallet::include_metadata] for `type RuntimeEvent`. \
 						The associated type `RuntimeEvent` is already collected in the metadata.",
 					))
 				}
@@ -509,7 +509,7 @@ impl ConfigDef {
 				if already_constant {
 					return Err(syn::Error::new(
 						span,
-						"Invalid #[pallet::include_metadata]: conflict with #[pallet::constant], \
+						"Invalid #[pallet::include_metadata]: conflict with #[pallet::constant]. \
 						Pallet constant already collect the metadata for the type.",
 					))
 				}
