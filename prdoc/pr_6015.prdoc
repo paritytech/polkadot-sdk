@@ -3,19 +3,8 @@ doc:
 - audience:
   - Node Dev
   description: |-
-    # Description
+    When we send `QueueEvent::StartWork`, we have already completed the execution. Therefore, `QueueEvent::FinishWork` is a better match.
 
-    When we send `QueueEvent::StartWork`, we have already completed the execution. This may be a leftover of a previous logic change. Currently, the name is misleading, so it would be better to rename it to `FinishWork`.
-
-    https://github.com/paritytech/polkadot-sdk/blob/c52675efdc05e181ddcec72d3bd425dc0a89d622/polkadot/node/core/pvf/src/execute/queue.rs#L632-L646
-
-    https://github.com/paritytech/polkadot-sdk/blob/c52675efdc05e181ddcec72d3bd425dc0a89d622/polkadot/node/core/pvf/src/execute/queue.rs#L361-L363
-
-    Fixes https://github.com/paritytech/polkadot-sdk/issues/5910
-
-    ## Integration
-
-    Shouldn't affect downstream projects.
 crates:
 - name: polkadot-node-core-pvf
   bump: patch
