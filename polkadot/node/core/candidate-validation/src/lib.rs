@@ -31,8 +31,8 @@ use polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{
-		CandidateValidationMessage, PreCheckOutcome, RuntimeApiMessage, RuntimeApiRequest,
-		ValidationFailed,
+		CandidateValidationMessage, PreCheckOutcome, PvfExecKind, RuntimeApiMessage,
+		RuntimeApiRequest, ValidationFailed,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
@@ -46,8 +46,9 @@ use polkadot_primitives::{
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
 	AuthorityDiscoveryId, CandidateCommitments, CandidateDescriptor, CandidateEvent,
-	CandidateReceipt, ExecutorParams, Hash, PersistedValidationData, PvfExecKind, PvfPrepKind,
-	SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
+	CandidateReceipt, ExecutorParams, Hash, PersistedValidationData,
+	PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
+	ValidationCodeHash, ValidatorId,
 };
 use sp_application_crypto::{AppCrypto, ByteArray};
 use sp_keystore::KeystorePtr;
@@ -667,9 +668,9 @@ async fn validate_candidate_exhaustive(
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
 		// honest backers getting slashed.
-		PvfExecKind::Backing => {
+		PvfExecKind::Backing | PvfExecKind::BackingSystemParas => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
-			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind);
+			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
 			let pvf = PvfPrepData::from_code(
 				validation_code.0,
 				executor_params,
@@ -683,20 +684,22 @@ async fn validate_candidate_exhaustive(
 					exec_timeout,
 					persisted_validation_data.clone(),
 					pov,
-					polkadot_node_core_pvf::Priority::Normal,
+					exec_kind.into(),
+					exec_kind,
 				)
 				.await
 		},
-		PvfExecKind::Approval =>
+		PvfExecKind::Approval | PvfExecKind::Dispute =>
 			validation_backend
 				.validate_candidate_with_retry(
 					validation_code.0,
-					pvf_exec_timeout(&executor_params, exec_kind),
+					pvf_exec_timeout(&executor_params, exec_kind.into()),
 					persisted_validation_data.clone(),
 					pov,
 					executor_params,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
-					polkadot_node_core_pvf::Priority::Critical,
+					exec_kind.into(),
+					exec_kind,
 				)
 				.await,
 	};
@@ -784,6 +787,8 @@ trait ValidationBackend {
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
+		// The kind for the execution job.
+		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError>;
 
 	/// Tries executing a PVF. Will retry once if an error is encountered that may have
@@ -804,6 +809,8 @@ trait ValidationBackend {
 		retry_delay: Duration,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
+		// The kind for the execution job.
+		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
@@ -825,6 +832,7 @@ trait ValidationBackend {
 				pvd.clone(),
 				pov.clone(),
 				prepare_priority,
+				exec_kind,
 			)
 			.await;
 		if validation_result.is_ok() {
@@ -905,6 +913,7 @@ trait ValidationBackend {
 						pvd.clone(),
 						pov.clone(),
 						prepare_priority,
+						exec_kind,
 					)
 					.await;
 			}
@@ -929,9 +938,13 @@ impl ValidationBackend for ValidationHost {
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
+		// The kind for the execution job.
+		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let (tx, rx) = oneshot::channel();
-		if let Err(err) = self.execute_pvf(pvf, exec_timeout, pvd, pov, prepare_priority, tx).await
+		if let Err(err) = self
+			.execute_pvf(pvf, exec_timeout, pvd, pov, prepare_priority, exec_kind, tx)
+			.await
 		{
 			return Err(InternalValidationError::HostCommunication(format!(
 				"cannot send pvf to the validation host, it might have shut down: {:?}",
@@ -1023,12 +1036,12 @@ fn pvf_prep_timeout(executor_params: &ExecutorParams, kind: PvfPrepKind) -> Dura
 /// This should be much longer than the backing execution timeout to ensure that in the
 /// absence of extremely large disparities between hardware, blocks that pass backing are
 /// considered executable by approval checkers or dispute participants.
-fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: PvfExecKind) -> Duration {
+fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: RuntimePvfExecKind) -> Duration {
 	if let Some(timeout) = executor_params.pvf_exec_timeout(kind) {
 		return timeout
 	}
 	match kind {
-		PvfExecKind::Backing => DEFAULT_BACKING_EXECUTION_TIMEOUT,
-		PvfExecKind::Approval => DEFAULT_APPROVAL_EXECUTION_TIMEOUT,
+		RuntimePvfExecKind::Backing => DEFAULT_BACKING_EXECUTION_TIMEOUT,
+		RuntimePvfExecKind::Approval => DEFAULT_APPROVAL_EXECUTION_TIMEOUT,
 	}
 }
