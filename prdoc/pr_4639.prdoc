@@ -65,5 +65,5 @@ crates:
     bump: patch
   - name: cumulus-test-service
     bump: major
-  - name: polkadot-parachain-lib
+  - name: polkadot-omni-node-lib
     bump: patch
