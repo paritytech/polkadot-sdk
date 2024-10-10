@@ -501,8 +501,8 @@ impl ConfigDef {
 				if is_event {
 					return Err(syn::Error::new(
 						span,
-						"Invalid #[pallet::include_metadata] in `type RuntimeEvent`, \
-						expected type item. The associated type `RuntimeEvent` is already collected.",
+						"Invalid #[pallet::include_metadata] for `type RuntimeEvent`, \
+						The associated type `RuntimeEvent` is already collected in the metadata.",
 					))
 				}
 
