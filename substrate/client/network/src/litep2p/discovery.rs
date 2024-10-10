@@ -585,7 +585,7 @@ impl Stream for Discovery {
 				if let Some(expired_address) = expired_address {
 					log::trace!(
 						target: LOG_TARGET,
-						"replacing expired external address {expired_address} with {observed_address}",
+						"Removing expired external address expired={expired_address} is_new={is_new} observed={observed_address}",
 					);
 
 					this.pending_events.push_back(DiscoveryEvent::ExternalAddressExpired {
