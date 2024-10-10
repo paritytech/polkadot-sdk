@@ -70,8 +70,6 @@ pub use weights::WeightInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
 use snowbridge_beacon_primitives::BeaconHeader;
-#[cfg(feature = "runtime-benchmarks")]
-use sp_core::H256;
 
 type BalanceOf<T> =
 	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
