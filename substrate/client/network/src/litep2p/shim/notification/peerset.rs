@@ -54,7 +54,6 @@ use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnbound
 use std::{
 	collections::{HashMap, HashSet},
 	future::Future,
-	iter::Cloned,
 	pin::Pin,
 	sync::{
 		atomic::{AtomicUsize, Ordering},
@@ -122,10 +121,10 @@ pub enum Direction {
 }
 
 impl Direction {
-	fn set_reserved(&mut self, reserved: Reserved) {
+	fn set_reserved(&mut self, new_reserved: Reserved) {
 		match self {
-			Direction::Inbound(ref mut reserved) => *reserved = reserved,
-			Direction::Outbound(ref mut reserved) => *reserved = reserved,
+			Direction::Inbound(ref mut reserved) => *reserved = new_reserved,
+			Direction::Outbound(ref mut reserved) => *reserved = new_reserved,
 		}
 	}
 }
