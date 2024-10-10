@@ -578,10 +578,10 @@ impl syn::parse::Parse for ConfigValue {
 
 		if lookahead.peek(keyword::with_default) {
 			input.parse().map(ConfigValue::WithDefault)
-		} else if input.peek(keyword::without_metadata) {
+		} else if lookahead.peek(keyword::without_metadata) {
 			input.parse().map(ConfigValue::WithoutMetadata)
 		} else {
-			Err(input.error("expected `with_default` or `without_metadata`"))
+			Err(lookahead.error())
 		}
 	}
 }
