@@ -1,10 +1,10 @@
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::{
 	create1,
-	evm::{BlockTag, Bytes, EthInstantiateInput, ReceiptInfo, U256},
+	evm::{Account, BlockTag, Bytes, EthInstantiateInput, ReceiptInfo, U256},
 };
 use pallet_revive_eth_rpc::{
-	example::{wait_for_receipt, Account},
+	example::{send_transaction, wait_for_receipt},
 	EthRpcClient,
 };
 
@@ -23,7 +23,7 @@ async fn main() -> anyhow::Result<()> {
 
 	let input = rlp::encode(&input).to_vec();
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let hash = account.send_transaction(&client, U256::zero(), input.into(), None).await?;
+	let hash = send_transaction(&account, &client, U256::zero(), input.into(), None).await?;
 
 	println!("Deploy Tx hash: {hash:?}");
 	let ReceiptInfo { block_number, gas_used, contract_address, .. } =
@@ -36,9 +36,9 @@ async fn main() -> anyhow::Result<()> {
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 	println!("\n\n=== Calling contract ===\n\n");
 
-	let hash = account
-		.send_transaction(&client, U256::zero(), Bytes::default(), Some(contract_address))
-		.await?;
+	let hash =
+		send_transaction(&account, &client, U256::zero(), Bytes::default(), Some(contract_address))
+			.await?;
 
 	println!("Contract call tx hash: {hash:?}");
 	let ReceiptInfo { block_number, gas_used, to, .. } = wait_for_receipt(&client, hash).await?;

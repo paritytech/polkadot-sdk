@@ -5,24 +5,9 @@ use crate::{EthRpcClient, ReceiptInfo};
 use anyhow::Context;
 use jsonrpsee::http_client::HttpClient;
 use pallet_revive::evm::{
-	rlp::*, BlockTag, Bytes, GenericTransaction, TransactionLegacySigned,
-	TransactionLegacyUnsigned, H160, H256, U256,
+	rlp::*, Account, BlockTag, Bytes, GenericTransaction, TransactionLegacyUnsigned, H160, H256,
+	U256,
 };
-
-/// A simple account that can sign transactions
-pub struct Account(subxt_signer::eth::Keypair);
-
-impl Default for Account {
-	fn default() -> Self {
-		Self(subxt_signer::eth::dev::alith())
-	}
-}
-
-impl From<subxt_signer::eth::Keypair> for Account {
-	fn from(keypair: subxt_signer::eth::Keypair) -> Self {
-		Self(keypair)
-	}
-}
 
 /// Wait for a transaction receipt.
 pub async fn wait_for_receipt(client: &HttpClient, hash: H256) -> anyhow::Result<ReceiptInfo> {
@@ -37,73 +22,59 @@ pub async fn wait_for_receipt(client: &HttpClient, hash: H256) -> anyhow::Result
 	anyhow::bail!("Failed to get receipt")
 }
 
-impl Account {
-	/// Get the [`H160`] address of the account.
-	pub fn address(&self) -> H160 {
-		H160::from_slice(&self.0.account_id().as_ref())
-	}
+/// Send a transaction.
+pub async fn send_transaction(
+	signer: &Account,
+	client: &HttpClient,
+	value: U256,
+	input: Bytes,
+	to: Option<H160>,
+) -> anyhow::Result<H256> {
+	let from = signer.address();
 
-	/// Sign a transaction.
-	pub fn sign_transaction(&self, tx: TransactionLegacyUnsigned) -> TransactionLegacySigned {
-		let rlp_encoded = tx.rlp_bytes();
-		let signature = self.0.sign(&rlp_encoded);
-		TransactionLegacySigned::from(tx, signature.as_ref())
-	}
+	let chain_id = Some(client.chain_id().await?);
 
-	/// Send a transaction.
-	pub async fn send_transaction(
-		&self,
-		client: &HttpClient,
-		value: U256,
-		input: Bytes,
-		to: Option<H160>,
-	) -> anyhow::Result<H256> {
-		let from = self.address();
+	let gas_price = client.gas_price().await?;
+	let nonce = client
+		.get_transaction_count(from, BlockTag::Latest.into())
+		.await
+		.with_context(|| "Failed to fetch account nonce")?;
 
-		let chain_id = Some(client.chain_id().await?);
+	let gas = client
+		.estimate_gas(
+			GenericTransaction {
+				from: Some(from),
+				input: Some(input.clone()),
+				value: Some(value),
+				gas_price: Some(gas_price),
+				to,
+				..Default::default()
+			},
+			None,
+		)
+		.await
+		.with_context(|| "Failed to fetch gas estimate")?;
 
-		let gas_price = client.gas_price().await?;
-		let nonce = client
-			.get_transaction_count(from, BlockTag::Latest.into())
-			.await
-			.with_context(|| "Failed to fetch account nonce")?;
+	println!("Estimated Gas: {gas:?}");
 
-		let gas = client
-			.estimate_gas(
-				GenericTransaction {
-					from: Some(from),
-					input: Some(input.clone()),
-					value: Some(value),
-					gas_price: Some(gas_price),
-					to,
-					..Default::default()
-				},
-				None,
-			)
-			.await
-			.with_context(|| "Failed to fetch gas estimate")?;
+	let unsigned_tx = TransactionLegacyUnsigned {
+		gas,
+		nonce,
+		to,
+		value,
+		input,
+		gas_price,
+		chain_id,
+		..Default::default()
+	};
 
-		println!("Estimated Gas: {gas:?}");
+	let tx = signer.sign_transaction(unsigned_tx.clone());
+	let bytes = tx.rlp_bytes().to_vec();
 
-		let unsigned_tx = TransactionLegacyUnsigned {
-			gas,
-			nonce,
-			to,
-			value,
-			input,
-			gas_price,
-			chain_id,
-			..Default::default()
-		};
+	let hash = client
+		.send_raw_transaction(bytes.clone().into())
+		.await
+		.with_context(|| "transaction failed")?;
 
-		let tx = self.sign_transaction(unsigned_tx.clone());
-		let bytes = tx.rlp_bytes().to_vec();
-
-		let hash = client
-			.send_raw_transaction(bytes.clone().into())
-			.await
-			.with_context(|| "transaction failed")?;
-
-		Ok(hash)
-	}
+	Ok(hash)
 }

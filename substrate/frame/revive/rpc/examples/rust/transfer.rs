@@ -1,7 +1,7 @@
 use jsonrpsee::http_client::HttpClientBuilder;
-use pallet_revive::evm::{BlockTag, Bytes, ReceiptInfo};
+use pallet_revive::evm::{Account, BlockTag, Bytes, ReceiptInfo};
 use pallet_revive_eth_rpc::{
-	example::{wait_for_receipt, Account},
+	example::{send_transaction, wait_for_receipt},
 	EthRpcClient,
 };
 
@@ -24,9 +24,9 @@ async fn main() -> anyhow::Result<()> {
 	print_balance().await?;
 	println!("\n\n=== Transferring  ===\n\n");
 
-	let hash = alith
-		.send_transaction(&client, value, Bytes::default(), Some(baltathar.address()))
-		.await?;
+	let hash =
+		send_transaction(&alith, &client, value, Bytes::default(), Some(baltathar.address()))
+			.await?;
 	println!("Transaction hash: {hash:?}");
 
 	let ReceiptInfo { block_number, gas_used, .. } = wait_for_receipt(&client, hash).await?;
