@@ -152,7 +152,7 @@ parameter_types! {
 impl pallet_migrations::Config for Test {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations =
-		(crate::migration::EthereumExecutionHeaderCleanup<Test, (), ExecutionHeaderCount>,);
+		(crate::migration::v0_to_v1::EthereumExecutionHeaderCleanup<Test, (), ExecutionHeaderCount>,);
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
 	type MaxServiceWeight = MigratorServiceWeight;

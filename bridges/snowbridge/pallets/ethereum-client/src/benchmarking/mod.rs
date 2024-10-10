@@ -9,12 +9,12 @@ use crate::{
 			CompactExecutionHeader, ExecutionHeaderIndex, ExecutionHeaderMapping,
 			ExecutionHeaderState, ExecutionHeaders, LatestExecutionState,
 		},
-		EthereumExecutionHeaderCleanup,
+		v0_to_v1,
 	},
 	Pallet as EthereumBeaconClient,
 };
 use frame_benchmarking::v2::*;
-use frame_support::weights::WeightMeter;
+use frame_support::{migrations::SteppedMigration,weights::WeightMeter};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 
@@ -180,7 +180,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			EthereumExecutionHeaderCleanup::<T, (), ExecutionHeaderCount>::step(None, &mut meter)
+			v0_to_v1::EthereumExecutionHeaderCleanup::<T, (), ExecutionHeaderCount>::step(None, &mut meter)
 				.unwrap();
 		}
 
