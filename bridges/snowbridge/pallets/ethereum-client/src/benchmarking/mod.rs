@@ -14,7 +14,7 @@ use crate::{
 	Pallet as EthereumBeaconClient,
 };
 use frame_benchmarking::v2::*;
-use frame_support::{migrations::SteppedMigration,weights::WeightMeter};
+use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 
@@ -180,8 +180,10 @@ mod benchmarks {
 
 		#[block]
 		{
-			v0_to_v1::EthereumExecutionHeaderCleanup::<T, (), ExecutionHeaderCount>::step(None, &mut meter)
-				.unwrap();
+			v0_to_v1::EthereumExecutionHeaderCleanup::<T, (), ExecutionHeaderCount>::step(
+				None, &mut meter,
+			)
+			.unwrap();
 		}
 
 		// Check that the header is removed
