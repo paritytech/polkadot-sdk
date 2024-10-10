@@ -4,8 +4,14 @@ doc:
   - audience: Node Dev
     description: |
       Most important changes introduced by this PR:
-       - The transaction pool references spread across codebase can now be Unsized allowing to use trait object,
-       - New command line option was added allowing to select implementation of transaction pool:
+       - The transaction pool references spread across codebase are now wrapper to a transaction pool trait object,
+       - The fork-aware pool implementation was added.
+       - The `sc-transaction-pool` refactored,
+       - Trasnaction pool builder was introduced to allow to instantiation of either old or new transaction pool. Refer to PR description for
+       more details on how to enable fork-aware pool in the custom node.
+  - audience: Node Operator
+    description: |
+       - New command line option was added, allowing to select implementation of transaction pool:
          - `--pool-type=fork-aware`  - new fork aware transaction pool,
          - `--pool-type=single-state` - old transaction pool implementation which is still default,
 
