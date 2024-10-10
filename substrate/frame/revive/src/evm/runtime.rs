@@ -396,6 +396,12 @@ mod test {
 		}
 	}
 
+	impl From<subxt_signer::eth::Keypair> for Account {
+		fn from(kp: subxt_signer::eth::Keypair) -> Self {
+			Self(kp)
+		}
+	}
+
 	impl Account {
 		/// Get the [`AccountId`] of the account.
 		pub fn account_id(&self) -> AccountId {

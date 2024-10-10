@@ -32,7 +32,14 @@ pub use rpc_types_gen::*;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+#[cfg(feature = "std")]
+mod account;
+
+#[cfg(feature = "std")]
+pub use account::*;
+
 mod signature;
+use rlp::{Decodable, DecoderError, Encodable};
 
 /// A type used to encode the `input` field of an Ethereum transaction
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,7 +50,7 @@ pub struct EthInstantiateInput {
 	pub data: Vec<u8>,
 }
 
-impl rlp::Encodable for EthInstantiateInput {
+impl Encodable for EthInstantiateInput {
 	fn rlp_append(&self, stream: &mut rlp::RlpStream) {
 		stream.begin_list(2usize);
 		stream.append(&self.code);
@@ -51,8 +58,8 @@ impl rlp::Encodable for EthInstantiateInput {
 	}
 }
 
-impl rlp::Decodable for EthInstantiateInput {
-	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+impl Decodable for EthInstantiateInput {
+	fn decode(rlp: &rlp::Rlp) -> Result<Self, DecoderError> {
 		let result = EthInstantiateInput { code: rlp.val_at(0)?, data: rlp.val_at(1)? };
 		Ok(result)
 	}
