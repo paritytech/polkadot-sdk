@@ -21,21 +21,21 @@
 /// Logs every transaction from given `tx_collection` with given level.
 macro_rules! log_xt {
 	(data: hash, target: $target:expr, $level:expr, $tx_collection:expr, $text_with_format:expr) => {
-		if log::log_enabled!($level) {
+		if log::log_enabled!(target: $target, $level) {
 			for tx in $tx_collection {
 				log::log!(target: $target, $level, $text_with_format, tx);
 			}
 		}
 	};
 	(data: hash, target: $target:expr, $level:expr, $tx_collection:expr, $text_with_format:expr,  $($arg:expr),*) => {
-		if log::log_enabled!($level) {
+		if log::log_enabled!(target: $target, $level) {
 			for tx in $tx_collection {
 				log::log!(target: $target, $level, $text_with_format, tx,  $($arg),*);
 			}
 		}
 	};
 	(data: tuple, target: $target:expr, $level:expr, $tx_collection:expr, $text_with_format:expr) => {
-		if log::log_enabled!($level) {
+		if log::log_enabled!(target: $target, $level) {
 			for tx in $tx_collection {
 				log::log!(target: $target, $level, $text_with_format, tx.0, tx.1)
 			}
