@@ -14,6 +14,7 @@ workspace = true
 codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
+<<<<<<< HEAD
 sp-core.workspace = true
 frame-support.workspace = true
 pallet-assets.workspace = true
@@ -33,6 +34,34 @@ parachains-common.workspace = true
 parachains-common.default-features = true
 rococo-system-emulated-network.workspace = true
 rococo-westend-system-emulated-network.workspace = true
+=======
+
+# Substrate
+sp-core = { workspace = true }
+frame-support = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-asset-conversion = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-message-queue = { workspace = true, default-features = true }
+sp-runtime = { workspace = true }
+
+# Polkadot
+xcm = { workspace = true }
+pallet-xcm = { workspace = true }
+xcm-executor = { workspace = true }
+xcm-runtime-apis = { workspace = true }
+
+# Bridges
+pallet-bridge-messages = { workspace = true }
+pallet-xcm-bridge-hub = { workspace = true }
+
+# Cumulus
+cumulus-pallet-xcmp-queue = { workspace = true }
+emulated-integration-tests-common = { workspace = true }
+parachains-common = { workspace = true, default-features = true }
+rococo-system-emulated-network = { workspace = true }
+rococo-westend-system-emulated-network = { workspace = true }
+>>>>>>> 4a70b2cf (Remove redundant XCMs from dry run's forwarded xcms (#5913))
 testnet-parachains-constants = { features = ["rococo", "westend"], workspace = true, default-features = true }
 snowbridge-core.workspace = true
 snowbridge-router-primitives.workspace = true
