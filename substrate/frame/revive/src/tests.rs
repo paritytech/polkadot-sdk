@@ -523,10 +523,11 @@ impl Config for Test {
 	type ChainId = ChainId;
 }
 
-impl TryInto<crate::Call<Test>> for RuntimeCall {
+impl TryFrom<RuntimeCall> for crate::Call<Test> {
 	type Error = ();
-	fn try_into(self) -> Result<crate::Call<Test>, Self::Error> {
-		match self {
+
+	fn try_from(value: RuntimeCall) -> Result<Self, Self::Error> {
+		match value {
 			RuntimeCall::Contracts(call) => Ok(call),
 			_ => Err(()),
 		}

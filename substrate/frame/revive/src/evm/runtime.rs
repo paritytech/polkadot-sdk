@@ -77,12 +77,11 @@ impl<Call, E: EthExtra>
 	}
 }
 
-impl<Call, E: EthExtra>
-	Into<generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>>
-	for UncheckedExtrinsic<Call, E>
+impl<Call, E: EthExtra> From<UncheckedExtrinsic<Call, E>>
+	for generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>
 {
-	fn into(self) -> generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra> {
-		self.0
+	fn from(extrinsic: UncheckedExtrinsic<Call, E>) -> Self {
+		extrinsic.0
 	}
 }
 

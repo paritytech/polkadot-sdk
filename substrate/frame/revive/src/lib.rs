@@ -34,7 +34,6 @@ use frame_support::traits::IsType;
 pub use primitives::*;
 use sp_core::U256;
 
-pub mod evm;
 mod limits;
 mod storage;
 mod transient_storage;
@@ -42,6 +41,7 @@ mod wasm;
 
 pub mod chain_extension;
 pub mod debug;
+pub mod evm;
 pub mod test_utils;
 pub mod weights;
 
@@ -91,7 +91,7 @@ pub use weights::WeightInfo;
 pub use crate::wasm::SyscallDoc;
 
 type TrieId = BoundedVec<u8, ConstU32<128>>;
-pub type BalanceOf<T> =
+type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
 type EventRecordOf<T> =

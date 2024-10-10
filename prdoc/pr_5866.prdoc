@@ -12,6 +12,8 @@ doc:
 crates:
   - name: pallet-revive
     bump: major
+  - name: pallet-revive-fixtures
+    bump: major
   - name: polkadot-sdk
     bump: patch
 

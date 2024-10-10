@@ -2534,16 +2534,16 @@ mod runtime {
 	pub type Revive = pallet_revive::Pallet<Runtime>;
 }
 
-impl TryInto<pallet_revive::Call<Runtime>> for RuntimeCall {
+impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
 	type Error = ();
-	fn try_into(self) -> Result<pallet_revive::Call<Runtime>, Self::Error> {
-		match self {
+
+	fn try_from(value: RuntimeCall) -> Result<Self, Self::Error> {
+		match value {
 			RuntimeCall::Revive(call) => Ok(call),
 			_ => Err(()),
 		}
 	}
 }
-
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, AccountIndex>;
 /// Block header type as expected by this runtime.
