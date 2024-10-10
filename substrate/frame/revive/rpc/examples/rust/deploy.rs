@@ -8,14 +8,13 @@ use pallet_revive_eth_rpc::{
 	EthRpcClient,
 };
 
-static DUMMY_BYTES: &[u8] = include_bytes!("./dummy.polkavm");
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
 	env_logger::init();
 	let account = Account::default();
 	let data = vec![];
-	let input = EthInstantiateInput { code: DUMMY_BYTES.to_vec(), data: data.clone() };
+	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let input = EthInstantiateInput { code: bytes, data: data.clone() };
 
 	println!("Account address: {:?}", account.address());
 	let client = HttpClientBuilder::default().build("http://localhost:9090".to_string())?;
@@ -23,8 +22,6 @@ async fn main() -> anyhow::Result<()> {
 	println!("\n\n=== Deploying contract ===\n\n");
 
 	let input = rlp::encode(&input).to_vec();
-	println!("Deploying contract with input: 0x{}", hex::encode(&input));
-
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
 	let hash = account.send_transaction(&client, U256::zero(), input.into(), None).await?;
 

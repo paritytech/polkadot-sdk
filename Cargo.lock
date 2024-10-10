@@ -12534,6 +12534,7 @@ dependencies = [
  "jsonrpsee 0.24.3",
  "log",
  "pallet-revive",
+ "pallet-revive-fixtures",
  "parity-scale-codec",
  "rlp 0.6.1",
  "scale-info",

@@ -64,7 +64,8 @@ env_logger = { workspace = true }
 
 [features]
 dev = []
-example = ["hex", "hex-literal", "secp256k1", "subxt-signer", "rlp"]
+example = ["hex", "hex-literal", "secp256k1", "subxt-signer", "rlp",]
 
 [dev-dependencies]
 hex-literal.workspace = true
+pallet-revive-fixtures.workspace = true

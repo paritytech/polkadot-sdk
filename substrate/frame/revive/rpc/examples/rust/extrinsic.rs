@@ -3,19 +3,17 @@ use sp_weights::Weight;
 use subxt::OnlineClient;
 use subxt_signer::sr25519::dev;
 
-static DUMMY_BYTES: &[u8] = include_bytes!("./dummy.polkavm");
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let client = OnlineClient::<SrcChainConfig>::new().await?;
 
-	println!("\n\n=== Deploying contract ===\n\n");
+	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 
 	let tx_payload = subxt_client::tx().revive().instantiate_with_code(
 		0u32.into(),
-		Weight::from_parts(2_000, 2_000).into(),
-		10000000u32.into(),
-		DUMMY_BYTES.to_vec(),
+		Weight::from_parts(100_000, 0).into(),
+		3_000_000_000_000_000u128.into(),
+		bytes,
 		vec![],
 		None,
 	);
