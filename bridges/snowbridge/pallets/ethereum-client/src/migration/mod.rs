@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 
 use frame_support::pallet_prelude::StorageVersion;
-use sp_runtime::TryRuntimeError;
 
 mod test;
 
@@ -64,17 +63,16 @@ pub mod v0 {
 }
 
 pub mod v0_to_v1 {
-	use crate::{pallet::Config, WeightInfo};
-	use crate::migration::LOG_TARGET;
+	extern crate alloc;
+	use crate::{migration::LOG_TARGET, pallet::Config, WeightInfo};
 	use frame_support::{
 		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-		pallet_prelude::PhantomData,
-		weights::WeightMeter,
+		pallet_prelude::{PhantomData, Weight},
+		traits::OnRuntimeUpgrade,
+		weights::{constants::RocksDbWeight, WeightMeter},
 	};
 	use sp_core::Get;
-	use frame_support::traits::OnRuntimeUpgrade;
-	use frame_support::pallet_prelude::Weight;
-	use frame_support::weights::constants::RocksDbWeight;
+	use sp_runtime::TryRuntimeError;
 
 	pub const PALLET_MIGRATIONS_ID: &[u8; 26] = b"ethereum-execution-headers";
 
@@ -82,7 +80,7 @@ pub mod v0_to_v1 {
 		PhantomData<(T, W, M)>,
 	);
 	impl<T: Config, W: WeightInfo, M: Get<u32>> SteppedMigration
-	for EthereumExecutionHeaderCleanup<T, W, M>
+		for EthereumExecutionHeaderCleanup<T, W, M>
 	{
 		type Cursor = u32;
 		type Identifier = MigrationId<26>; // Length of the migration ID PALLET_MIGRATIONS_ID
@@ -121,7 +119,8 @@ pub mod v0_to_v1 {
 					log::info!(target: LOG_TARGET, "Ethereum execution header cleanup migration is complete. Index = {}.", index);
 					break
 				} else {
-					let execution_hash = crate::migration::v0::ExecutionHeaderMapping::<T>::get(index);
+					let execution_hash =
+						crate::migration::v0::ExecutionHeaderMapping::<T>::get(index);
 					crate::migration::v0::ExecutionHeaders::<T>::remove(execution_hash);
 					crate::migration::v0::ExecutionHeaderMapping::<T>::remove(index);
 					cursor = Some(index);
@@ -144,20 +143,21 @@ pub mod v0_to_v1 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, TryRuntimeError> {
 			let last_index = crate::migration::v0::ExecutionHeaderIndex::<T>::get();
 			log::info!(target: LOG_TARGET, "Pre-upgrade execution header index is {}.", last_index);
-			Ok(vec![])
+			Ok(alloc::vec![])
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
+		fn post_upgrade(_: alloc::vec::Vec<u8>) -> Result<(), TryRuntimeError> {
 			let last_index = crate::migration::v0::ExecutionHeaderIndex::<T>::get();
 			log::info!(target: LOG_TARGET, "Post-upgrade execution header index is {}.", last_index);
-			frame_support::ensure!(last_index == 0, "Snowbridge execution header storage has not successfully been migrated.");
+			frame_support::ensure!(
+				last_index == 0,
+				"Snowbridge execution header storage has not successfully been migrated."
+			);
 			Ok(())
 		}
 	}
-
 }
-
