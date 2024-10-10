@@ -784,7 +784,9 @@ impl Peerset {
 	}
 
 	/// Calculate how many of the connected peers were counted as normal inbound/outbound peers
-	/// which is needed to adjust slot counts when new reserved peers are added
+	/// which is needed to adjust slot counts when new reserved peers are added.
+	///
+	/// If the peer is not already in the [`Peerset`], it is added as a disconnected peer.
 	fn calculate_slot_adjustment<'a>(
 		&'a mut self,
 		peers: impl Iterator<Item = &'a PeerId>,
@@ -963,13 +965,6 @@ impl Stream for Peerset {
 					let (in_peers, out_peers) = self.calculate_slot_adjustment(peers.iter());
 					self.num_out -= out_peers;
 					self.num_in -= in_peers;
-
-					// add all unknown peers to `self.peers`
-					peers.iter().for_each(|peer| {
-						if !self.peers.contains_key(peer) {
-							self.peers.insert(*peer, PeerState::Disconnected);
-						}
-					});
 
 					// collect all peers who are not in the new reserved set
 					let peers_to_remove = self
