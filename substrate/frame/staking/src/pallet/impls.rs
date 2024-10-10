@@ -2107,8 +2107,10 @@ impl<T: Config> Pallet<T> {
 						Ledger::<T>::get(stash.clone()).unwrap().stash == stash,
 						"ledger corrupted for virtual staker"
 					);
-					ensure!(frame_system::Pallet::<T>::account_nonce(&stash).is_zero(),
-						"virtual stakers are keyless and should not have any nonce");
+					ensure!(
+						frame_system::Pallet::<T>::account_nonce(&stash).is_zero(),
+						"virtual stakers are keyless and should not have any nonce"
+					);
 					let reward_destination = <Payee<T>>::get(stash.clone()).unwrap();
 					if let RewardDestination::Account(payee) = reward_destination {
 						ensure!(
