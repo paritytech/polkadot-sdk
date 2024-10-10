@@ -20,7 +20,7 @@
 
 use polkadot_sdk::*;
 
-use crate::chain_spec::sc_service::Properties;
+use crate::chain_spec::{sc_service::Properties, sp_runtime::AccountId32};
 use kitchensink_runtime::{
 	constants::currency::*, wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
 };
@@ -460,7 +460,6 @@ fn props() -> Properties {
 	properties
 }
 
-use crate::chain_spec::sp_runtime::AccountId32;
 fn eth_account(from: subxt_signer::eth::Keypair) -> AccountId32 {
 	let mut account_id = AccountId32::new([0xEE; 32]);
 	<AccountId32 as AsMut<[u8; 32]>>::as_mut(&mut account_id)[..20]
