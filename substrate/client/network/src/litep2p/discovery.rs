@@ -125,7 +125,7 @@ pub enum DiscoveryEvent {
 	/// This happens when the internal buffers exceed the maximum number of external addresses,
 	/// and this address is the oldest one.
 	ExternalAddressExpired {
-		/// Expired addresse.
+		/// Expired address.
 		address: Multiaddr,
 	},
 
