@@ -52,8 +52,8 @@ impl TransactionLegacySigned {
 	/// Get the raw 65 bytes signature from the signed transaction.
 	pub fn raw_signature(&self) -> Result<[u8; 65], ()> {
 		let mut s = [0u8; 65];
-		self.r.to_big_endian(s[0..32].as_mut());
-		self.s.to_big_endian(s[32..64].as_mut());
+		self.r.write_as_big_endian(s[0..32].as_mut());
+		self.s.write_as_big_endian(s[32..64].as_mut());
 		s[64] = self.extract_recovery_id().ok_or(())?;
 		Ok(s)
 	}
