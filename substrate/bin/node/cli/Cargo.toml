@@ -46,6 +46,7 @@ futures = { workspace = true }
 log = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+subxt-signer = { workspace = true, features = ["unstable-eth"] }
 
 # The Polkadot-SDK:
 polkadot-sdk = { features = ["node"], workspace = true, default-features = true }
