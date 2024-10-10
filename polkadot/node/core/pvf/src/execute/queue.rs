@@ -1019,7 +1019,7 @@ mod tests {
 				result_tx,
 				waiting_since: Instant::now(),
 			};
-			queue.unscheduled.add(expired_job, PvfExecPriority::Backing);
+			queue.unscheduled.add(expired_job, PvfExecKind::Backing);
 			result_rxs.push(result_rx);
 		}
 
