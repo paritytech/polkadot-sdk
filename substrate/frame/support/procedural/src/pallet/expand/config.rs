@@ -112,13 +112,14 @@ pub fn expand_config_metadata(def: &Def) -> proc_macro2::TokenStream {
 
 	let types = def.config.associated_types_metadata.iter().map(|metadata| {
 		let ident = &metadata.ident;
+		let span = ident.span();
 		let ident_str = ident.to_string();
 		let cfgs = &metadata.cfg;
 
 		let no_docs = vec![];
 		let doc = if cfg!(feature = "no-metadata-docs") { &no_docs } else { &metadata.doc };
 
-		quote::quote!({
+		quote::quote_spanned!(span => {
 			#( #cfgs ) *
 			#frame_support::__private::metadata_ir::PalletAssociatedTypeMetadataIR {
 				name: #ident_str,
