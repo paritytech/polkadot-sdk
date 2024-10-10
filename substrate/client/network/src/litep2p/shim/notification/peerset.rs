@@ -962,13 +962,17 @@ impl Stream for Peerset {
 					//
 					// calculate how many of the previously connected peers were counted as regular
 					// peers and substract these counts from `num_out`/`num_in`
+					//
+					// If a reserved peer is not already tracked, it is added as disconnected by
+					// `calculate_slot_adjustment`. This ensures at the next slot allocation (1sec)
+					// that we'll try to establish a connection with the reserved peer.
 					let (in_peers, out_peers) = self.calculate_slot_adjustment(peers.iter());
 					self.num_out -= out_peers;
 					self.num_in -= in_peers;
 
-					// collect all peers who are not in the new reserved set
+					// collect all *reserved* peers who are not in the new reserved set
 					let peers_to_remove = self
-						.peers
+						.reserved_peers
 						.iter()
 						.filter_map(|(peer, _)| (!peers.contains(peer)).then_some(*peer))
 						.collect::<HashSet<_>>();
