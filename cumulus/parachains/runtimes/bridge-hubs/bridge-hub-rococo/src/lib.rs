@@ -178,9 +178,7 @@ pub type Migrations = (
 		RocksDbWeight,
 	>,
 	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
-	snowbridge_pallet_ethereum_client::migration::v0_to_v1::ExecutionHeaderCleanup<
-		Runtime,
-	>,
+	snowbridge_pallet_ethereum_client::migration::v0_to_v1::ExecutionHeaderCleanup<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
@@ -552,11 +550,12 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = snowbridge_pallet_ethereum_client::migration::v0_to_v1::EthereumExecutionHeaderCleanup<
-		Runtime,
-		crate::weights::snowbridge_pallet_ethereum_client::WeightInfo<Runtime>,
-		ExecutionHeaderCount,
-	>;
+	type Migrations =
+		snowbridge_pallet_ethereum_client::migration::v0_to_v1::EthereumExecutionHeaderCleanup<
+			Runtime,
+			crate::weights::snowbridge_pallet_ethereum_client::WeightInfo<Runtime>,
+			ExecutionHeaderCount,
+		>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
 	type CursorMaxLen = ConstU32<65_536>;
