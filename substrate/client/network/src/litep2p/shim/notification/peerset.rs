@@ -54,6 +54,7 @@ use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnbound
 use std::{
 	collections::{HashMap, HashSet},
 	future::Future,
+	iter::Cloned,
 	pin::Pin,
 	sync::{
 		atomic::{AtomicUsize, Ordering},
@@ -116,6 +117,15 @@ pub enum Direction {
 
 	/// Outbound substream.
 	Outbound(Reserved),
+}
+
+impl Direction {
+	fn set_reserved(&mut self, reserved: Reserved) {
+		match self {
+			Direction::Inbound(ref mut reserved) => *reserved = reserved,
+			Direction::Outbound(ref mut reserved) => *reserved = reserved,
+		}
+	}
 }
 
 impl From<Direction> for traits::Direction {
@@ -301,6 +311,18 @@ pub enum PeerState {
 		/// Is the peer inbound or outbound.
 		direction: Direction,
 	},
+}
+
+impl PeerState {
+	fn set_reserved(&mut self, reserved: Reserved) {
+		match self {
+			PeerState::Opening { ref mut direction } => direction.set_reserved(reserved),
+			PeerState::Connected { ref mut direction } => direction.set_reserved(reserved),
+			PeerState::Canceled { ref mut direction } => direction.set_reserved(reserved),
+			PeerState::Closing { ref mut direction } => direction.set_reserved(reserved),
+			_ => {},
+		}
+	}
 }
 
 /// `Peerset` implementation.
@@ -951,8 +973,9 @@ impl Stream for Peerset {
 				},
 				// set new reserved peers for the protocol
 				//
-				// current reserved peers not in the new set are disconnected and the new reserved
-				// peers are scheduled for outbound substreams
+				// Current reserved peers not in the new set are moved to the regular set of peers
+				// or disconnected (if there are no slots available). The new reserved peers are
+				// scheduled for outbound substreams
 				PeersetCommand::SetReservedPeers { peers } => {
 					log::debug!(target: LOG_TARGET, "{}: set reserved peers {peers:?}", self.protocol);
 
@@ -971,31 +994,55 @@ impl Stream for Peerset {
 					self.num_in -= in_peers;
 
 					// collect all *reserved* peers who are not in the new reserved set
-					let peers_to_remove = self
-						.reserved_peers
-						.iter()
-						.filter_map(|(peer, _)| (!peers.contains(peer)).then_some(*peer))
-						.collect::<HashSet<_>>();
+					let reserved_peers_maybe_remove =
+						self.reserved_peers.difference(&peers).cloned().collect::<HashSet<_>>();
 
 					self.reserved_peers = peers;
 
-					let peers = peers_to_remove
+					let peers = reserved_peers_maybe_remove
 						.into_iter()
 						.filter(|peer| {
 							match self.peers.remove(&peer) {
-								Some(PeerState::Connected { direction }) => {
-									log::trace!(
-										target: LOG_TARGET,
-										"{}: close connection to {peer:?}, direction {direction:?}",
-										self.protocol,
-									);
+								Some(PeerState::Connected { mut direction }) => {
+									direction.set_reserved(Reserved::No);
 
-									self.peers.insert(*peer, PeerState::Closing { direction });
-									true
+									let disconnect = self.reserved_only ||
+										match direction {
+											Direction::Inbound(_) => self.num_in >= self.max_in,
+											Direction::Outbound(_) => self.num_out >= self.max_out,
+										};
+
+									if disconnect {
+										log::trace!(
+											target: LOG_TARGET,
+											"{}: close connection to previously reserved {peer:?}, direction {direction:?}",
+											self.protocol,
+										);
+
+										self.peers.insert(*peer, PeerState::Closing { direction });
+										true
+									} else {
+										log::trace!(
+											target: LOG_TARGET,
+											"{}: {peer:?} is no longer reserved, move to regular peers, direction {direction:?}",
+											self.protocol,
+										);
+
+										match direction {
+											Direction::Inbound(_) => self.num_in += 1,
+											Direction::Outbound(_) => self.num_out += 1,
+										}
+
+										self.peers
+											.insert(*peer, PeerState::Connected { direction });
+										false
+									}
 								},
 								// substream might have been opening but not yet fully open when
 								// the protocol request the reserved set to be changed
-								Some(PeerState::Opening { direction }) => {
+								Some(PeerState::Opening { mut direction }) => {
+									direction.set_reserved(Reserved::No);
+
 									log::trace!(
 										target: LOG_TARGET,
 										"{}: cancel substream to {peer:?}, direction {direction:?}",
@@ -1005,7 +1052,8 @@ impl Stream for Peerset {
 									self.peers.insert(*peer, PeerState::Canceled { direction });
 									false
 								},
-								Some(state) => {
+								Some(mut state) => {
+									state.set_reserved(Reserved::No);
 									self.peers.insert(*peer, state);
 									false
 								},
