@@ -1,0 +1,45 @@
+[package]
+name = "sp-crypto-pubkeycrypto"
+authors.workspace = true
+edition.workspace = true
+version = "28.0.0"
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "A crate for all implementations of public key cryptography in Substrate (currently in primitive/core.)"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+
+# full crypto
+
+
+[dev-dependencies]
+
+
+
+[lib]
+bench = false
+
+
+[features]
+default = ["std"]
+
+std = []
+
+# Serde support without relying on std features.
+serde = [
+
+]
+
+# This feature enables all crypto primitives for `no_std` builds like microcontrollers
+# or Intel SGX.
+# For the regular wasm runtime builds this should not be used.
+full_crypto = [
+]
+

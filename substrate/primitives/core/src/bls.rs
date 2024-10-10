@@ -32,7 +32,7 @@ use alloc::vec::Vec;
 
 use w3f_bls::{
 	DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
-	SecretKey, SerializableToBytes, TinyBLS381,
+	ProofOfPossession, SecretKey, SerializableToBytes, TinyBLS381,
 };
 
 /// BLS-377 specialized types

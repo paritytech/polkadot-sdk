@@ -21844,6 +21844,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-crypto-hashing 0.1.0",
+ "sp-crypto-pubkeycrypto-proc-macro",
  "sp-debug-derive 14.0.0",
  "sp-externalities 0.25.0",
  "sp-runtime-interface 24.0.0",
@@ -22106,6 +22107,19 @@ checksum = "b85d0f1f1e44bd8617eb2a48203ee854981229e3e79e6f468c7175d5fd37489b"
 dependencies = [
  "quote 1.0.37",
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syn 2.0.79",
+]
+
+[[package]]
+name = "sp-crypto-pubkeycrypto"
+version = "28.0.0"
+
+[[package]]
+name = "sp-crypto-pubkeycrypto-proc-macro"
+version = "0.1.0"
+dependencies = [
+ "quote 1.0.37",
+ "sp-crypto-hashing 0.1.0",
  "syn 2.0.79",
 ]
 

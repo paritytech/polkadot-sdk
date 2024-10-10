@@ -19,10 +19,12 @@
 
 use crate::crypto::{
 	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
-	PublicBytes, SecretStringError, SignatureBytes,
+	ProofOfPossessionGenerator, ProofOfPossessionVerifier, PublicBytes, SecretStringError,
+	SignatureBytes,
 };
 
 use ed25519_zebra::{SigningKey, VerificationKey};
+use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
 
 use alloc::vec::Vec;
 
@@ -50,7 +52,7 @@ pub type Public = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, Ed25519Tag>;
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Ed25519Tag>;
 
 /// A key pair.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, ProofOfPossession)]
 pub struct Pair {
 	public: VerificationKey,
 	secret: SigningKey,

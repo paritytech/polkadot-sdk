@@ -42,6 +42,7 @@ sp-std = { workspace = true }
 sp-debug-derive = { workspace = true }
 sp-storage = { workspace = true }
 sp-externalities = { optional = true, workspace = true }
+sp-crypto-pubkeycrypto-proc-macro=  { workspace = true }
 futures = { optional = true, workspace = true }
 dyn-clonable = { optional = true, workspace = true }
 thiserror = { optional = true, workspace = true }

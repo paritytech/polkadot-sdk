@@ -24,8 +24,10 @@
 use crate::crypto::VrfSecret;
 use crate::crypto::{
 	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
-	PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
+	ProofOfPossessionGenerator, ProofOfPossessionVerifier, PublicBytes, SecretStringError,
+	SignatureBytes, UncheckedFrom, VrfPublic,
 };
+use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
 
 use bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
@@ -75,7 +77,7 @@ impl CryptoType for Signature {
 type Seed = [u8; SEED_SERIALIZED_SIZE];
 
 /// Bandersnatch secret key.
-#[derive(Clone)]
+#[derive(Clone, ProofOfPossession)]
 pub struct Pair {
 	secret: SecretKey,
 	seed: Seed,

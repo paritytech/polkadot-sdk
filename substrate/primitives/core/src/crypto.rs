@@ -37,6 +37,9 @@ pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58Addres
 /// Trait to zeroize a memory buffer.
 pub use zeroize::Zeroize;
 
+use quote::quote;
+use syn::{parse_macro_input, DeriveInput};
+
 pub use crate::{
 	address_uri::{AddressUri, Error as AddressUriError},
 	crypto_bytes::{CryptoBytes, PublicBytes, SignatureBytes},
@@ -958,6 +961,52 @@ pub trait Pair: CryptoType + Sized {
 
 	/// Return a vec filled with raw data.
 	fn to_raw_vec(&self) -> Vec<u8>;
+}
+
+/// Pair which is able to generate proof of possession. This is implemented
+/// in different trait to provide default behavoir
+pub trait ProofOfPossessionGenerator: Pair
+where
+	Self::Public: Encode,
+{
+	/// The proof of possession generator is supposed to
+	/// to produce a signature with unique hash context that should
+	/// never be used in other signatures. This proves that
+	/// that the secret key is known to the prover. While prevent
+	/// malicious actors to trick an honest party to sign their
+	/// public key to mount a rogue key attack (See: Section 4.3 of
+	/// - Ristenpart, T., & Yilek, S. (2007). The power of proofs-of-possession: Securing multiparty
+	///   signatures against rogue-key attacks. In , Annual {{International Conference}} on the
+	///   {{Theory}} and {{Applications}} of {{Cryptographic Techniques} (pp. 228–245). : Springer.
+	fn generate_proof_of_possession(&mut self) -> Self::Signature {
+		let pub_key_scaled = self.public().as_slice().encode();
+		let pop_context_tag: &[u8] = b"POP_";
+		let pop_statement = [pop_context_tag, pub_key_scaled.as_slice()].concat();
+		self.sign(pop_statement.as_slice())
+	}
+}
+
+/// Pair which is able to generate proof of possession. While you don't need a keypair
+/// to verify a proof of possession (you only need a public key) we constrain on Pair
+/// to use the Public  and Signature types associated to Pair. This is implemented
+/// in different trait (than Public Key) to provide default behavoir
+pub trait ProofOfPossessionVerifier: Pair
+where
+	Self::Public: Encode,
+{
+	/// The proof of possession verifier is supposed to
+	/// to verify a signature with unique hash context that is
+	/// produced solely for this reason. This proves that
+	/// that the secret key is known to the prover.
+	fn verify_proof_of_possession(
+		proof_of_possesion: &Self::Signature,
+		allegedly_possessesd_pubkey: &Self::Public,
+	) -> bool {
+		let pub_key_scaled = allegedly_possessesd_pubkey.encode();
+		let pop_context_tag = b"POP_";
+		let pop_statement = [pop_context_tag, pub_key_scaled.as_slice()].concat();
+		Self::verify(proof_of_possesion, pop_statement, allegedly_possessesd_pubkey)
+	}
 }
 
 /// One type is wrapped by another.

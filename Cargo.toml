@@ -469,6 +469,8 @@ members = [
 	"substrate/primitives/crypto/ec-utils",
 	"substrate/primitives/crypto/hashing",
 	"substrate/primitives/crypto/hashing/proc-macro",
+	"substrate/primitives/crypto/pubkeycrypto",
+	"substrate/primitives/crypto/pubkeycrypto/proc-macro",
 	"substrate/primitives/database",
 	"substrate/primitives/debug-derive",
 	"substrate/primitives/externalities",
@@ -1240,6 +1242,8 @@ sp-consensus-slots = { path = "substrate/primitives/consensus/slots", default-fe
 sp-core = { path = "substrate/primitives/core", default-features = false }
 sp-core-hashing = { default-features = false, path = "substrate/deprecated/hashing" }
 sp-core-hashing-proc-macro = { default-features = false, path = "substrate/deprecated/hashing/proc-macro" }
+sp-crypto-pubkeycrypto = {default-features = false, path = "substrate/primitives/crypto/pubkeycrypto"}
+sp-crypto-pubkeycrypto-proc-macro = {default-features = false, path = "substrate/primitives/crypto/pubkeycrypto/proc-macro"}
 sp-crypto-ec-utils = { default-features = false, path = "substrate/primitives/crypto/ec-utils" }
 sp-crypto-hashing = { path = "substrate/primitives/crypto/hashing", default-features = false }
 sp-crypto-hashing-proc-macro = { path = "substrate/primitives/crypto/hashing/proc-macro", default-features = false }

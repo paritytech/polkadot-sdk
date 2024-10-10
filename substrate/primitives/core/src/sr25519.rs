@@ -23,8 +23,11 @@
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError,
+	CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, ProofOfPossessionGenerator,
+	ProofOfPossessionVerifier, SecretStringError,
 };
+use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
+
 use alloc::vec::Vec;
 #[cfg(feature = "full_crypto")]
 use schnorrkel::signing_context;
@@ -145,6 +148,7 @@ impl From<schnorrkel::Signature> for Signature {
 }
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") key pair.
+#[derive(ProofOfPossession)]
 pub struct Pair(Keypair);
 
 impl Clone for Pair {

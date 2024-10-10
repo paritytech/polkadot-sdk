@@ -18,9 +18,12 @@
 //! Simple ECDSA secp256k1 API.
 
 use crate::crypto::{
-	CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes,
-	SecretStringError, SignatureBytes,
+	CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
+	ProofOfPossessionGenerator, ProofOfPossessionVerifier, PublicBytes, SecretStringError,
+	SignatureBytes,
 };
+
+use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -154,7 +157,7 @@ fn derive_hard_junction(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
 }
 
 /// A key pair.
-#[derive(Clone)]
+#[derive(Clone, ProofOfPossession)]
 pub struct Pair {
 	public: Public,
 	secret: SecretKey,
