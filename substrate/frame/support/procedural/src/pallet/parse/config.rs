@@ -509,8 +509,8 @@ impl ConfigDef {
 				if already_constant {
 					return Err(syn::Error::new(
 						span,
-						"Invalid #[pallet::include_metadata] in #[pallet::constant], \
-						expected type item. Pallet constant's metadata is already collected.",
+						"Invalid #[pallet::include_metadata]: conflict with #[pallet::constant], \
+						Pallet constant already collect the metadata for the type.",
 					))
 				}
 			} else {
