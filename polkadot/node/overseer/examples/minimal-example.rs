@@ -83,7 +83,6 @@ impl Subsystem1 {
 				executor_params: Default::default(),
 				exec_kind: PvfExecKind::Backing,
 				response_sender: tx,
-				ttl: None,
 			};
 			ctx.send_message(msg).await;
 		}

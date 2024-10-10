@@ -169,9 +169,6 @@ pub enum CandidateValidationMessage {
 		exec_kind: PvfExecKind,
 		/// The sending side of the response channel
 		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
-		/// The time within which the validation should be completed.
-		/// Important for time-sensitive tasks such as backing.
-		ttl: Option<Instant>,
 	},
 	/// Try to compile the given validation code and send back
 	/// the outcome.

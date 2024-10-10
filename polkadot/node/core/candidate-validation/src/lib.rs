@@ -163,7 +163,6 @@ where
 			executor_params,
 			exec_kind,
 			response_sender,
-			ttl,
 			..
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();

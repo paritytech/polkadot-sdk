@@ -112,7 +112,6 @@ where
 							executor_params: Default::default(),
 							exec_kind: PvfExecKind::Backing,
 							response_sender: tx,
-							ttl: None,
 						})
 						.await;
 						c += 1;
@@ -813,7 +812,6 @@ fn test_candidate_validation_msg() -> CandidateValidationMessage {
 		executor_params: Default::default(),
 		exec_kind: PvfExecKind::Backing,
 		response_sender,
-		ttl: None,
 	}
 }
 

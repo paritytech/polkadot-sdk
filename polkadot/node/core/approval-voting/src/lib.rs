@@ -3459,7 +3459,6 @@ async fn launch_approval<
 				executor_params,
 				exec_kind: PvfExecKind::Approval,
 				response_sender: val_tx,
-				ttl: None,
 			})
 			.await;
 

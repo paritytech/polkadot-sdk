@@ -644,7 +644,6 @@ async fn request_candidate_validation(
 				PvfExecKind::Backing
 			},
 			response_sender: tx,
-			ttl: validation_request_ttl(mode),
 		})
 		.await;
 

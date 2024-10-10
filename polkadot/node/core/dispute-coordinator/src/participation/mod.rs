@@ -387,7 +387,6 @@ async fn participate(
 			executor_params: req.executor_params(),
 			exec_kind: PvfExecKind::Dispute,
 			response_sender: validation_tx,
-			ttl: None,
 		})
 		.await;
 
