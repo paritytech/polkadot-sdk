@@ -24,6 +24,7 @@ slotmap = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { features = ["fs", "process"], workspace = true, default-features = true }
+strum = { features = ["derive"], workspace = true, default-features = true }
 
 codec = { features = [
 	"derive",
