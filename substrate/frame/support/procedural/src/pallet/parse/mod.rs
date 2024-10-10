@@ -569,7 +569,7 @@ enum ConfigValue {
 	/// `#[pallet::config(with_default)]`
 	WithDefault(keyword::with_default),
 	/// `#[pallet::config(without_automatic_metadata)]`
-	WithoutMetadata(keyword::without_automatic_metadata),
+	WithoutAutomaticMetadata(keyword::without_automatic_metadata),
 }
 
 impl syn::parse::Parse for ConfigValue {
