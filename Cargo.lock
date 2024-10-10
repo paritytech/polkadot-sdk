@@ -2012,6 +2012,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "testnet-parachains-constants",
+ "xcm-runtime-apis",
 ]
 
 [[package]]
@@ -2184,6 +2185,11 @@ dependencies = [
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
+<<<<<<< HEAD
+=======
+ "testnet-parachains-constants",
+ "xcm-runtime-apis",
+>>>>>>> 4a70b2c (Remove redundant XCMs from dry run's forwarded xcms (#5913))
 ]
 
 [[package]]
