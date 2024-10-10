@@ -37,11 +37,11 @@ clap = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
 futures = { workspace = true, features = ["thread-pool"] }
 jsonrpsee = { workspace = true, features = ["full"] }
-serde_json.workspace = true
-thiserror.workspace = true
+serde_json = { workspace = true }
+thiserror = { workspace = true }
 sp-crypto-hashing = { workspace = true }
 subxt = { workspace = true, default-features = true, features = [
-  "unstable-reconnecting-rpc-client",
+	"unstable-reconnecting-rpc-client",
 ] }
 tokio = { workspace = true, features = ["full"] }
 codec = { workspace = true, features = ["derive"] }
@@ -58,7 +58,7 @@ hyper.workspace = true
 
 rlp = { workspace = true, optional = true }
 subxt-signer = { workspace = true, optional = true, features = [
-  "unstable-eth",
+	"unstable-eth",
 ] }
 hex = { workspace = true, optional = true }
 hex-literal = { workspace = true, optional = true }
@@ -68,7 +68,7 @@ env_logger = { workspace = true }
 
 [features]
 dev = []
-example = ["hex", "hex-literal", "secp256k1", "subxt-signer", "rlp"]
+example = ["hex", "hex-literal", "rlp", "secp256k1", "subxt-signer"]
 
 [dev-dependencies]
 hex-literal = { workspace = true }
