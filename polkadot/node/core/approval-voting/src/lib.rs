@@ -38,7 +38,7 @@ use polkadot_node_subsystem::{
 		ApprovalVotingMessage, AssignmentCheckError, AssignmentCheckResult,
 		AvailabilityRecoveryMessage, BlockDescription, CandidateValidationMessage, ChainApiMessage,
 		ChainSelectionMessage, CheckedIndirectAssignment, CheckedIndirectSignedApprovalVote,
-		DisputeCoordinatorMessage, HighestApprovedAncestorBlock, RuntimeApiMessage,
+		DisputeCoordinatorMessage, HighestApprovedAncestorBlock, PvfExecKind, RuntimeApiMessage,
 		RuntimeApiRequest,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
@@ -53,8 +53,8 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	ApprovalVoteMultipleCandidates, ApprovalVotingParams, BlockNumber, CandidateHash,
-	CandidateIndex, CandidateReceipt, CoreIndex, ExecutorParams, GroupIndex, Hash, PvfExecKind,
-	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
+	CandidateIndex, CandidateReceipt, CoreIndex, ExecutorParams, GroupIndex, Hash, SessionIndex,
+	SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
