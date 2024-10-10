@@ -33,6 +33,7 @@ bridge-hub-common = { workspace = true }
 snowbridge-core = { features = ["serde"], workspace = true }
 snowbridge-outbound-queue-merkle-tree-v2 = { workspace = true }
 ethabi = { workspace = true }
+hex-literal = { workspace = true, default-features = true }
 
 [dev-dependencies]
 pallet-message-queue = { workspace = true }

@@ -7,86 +7,53 @@ use codec::Encode;
 use frame_support::{
 	ensure,
 	traits::{EnqueueMessage, Get},
-	CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
-use frame_system::unique;
-use snowbridge_core::{
-	outbound::{
-		Fee, Message, QueuedMessage, SendError, SendMessage, SendMessageFeeProvider,
-		VersionedQueuedMessage,
-	},
-	ChannelId, PRIMARY_GOVERNANCE_CHANNEL,
-};
+use hex_literal::hex;
+use snowbridge_core::outbound_v2::{Message, SendError, SendMessage, SendMessageFeeProvider};
 use sp_core::H256;
-use sp_runtime::BoundedVec;
+use sp_runtime::{traits::Zero, BoundedVec};
 
 /// The maximal length of an enqueued message, as determined by the MessageQueue pallet
 pub type MaxEnqueuedMessageSizeOf<T> =
 	<<T as Config>::MessageQueue as EnqueueMessage<AggregateMessageOrigin>>::MaxMessageLen;
 
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
-pub struct Ticket<T>
-where
-	T: Config,
-{
-	pub message_id: H256,
-	pub channel_id: ChannelId,
-	pub message: BoundedVec<u8, MaxEnqueuedMessageSizeOf<T>>,
-}
-
 impl<T> SendMessage for Pallet<T>
 where
 	T: Config,
 {
-	type Ticket = Ticket<T>;
+	type Ticket = Message;
 
 	fn validate(
 		message: &Message,
 	) -> Result<(Self::Ticket, Fee<<Self as SendMessageFeeProvider>::Balance>), SendError> {
 		// The inner payload should not be too large
-		let payload = message.command.abi_encode();
+		let payload = message.encode();
 		ensure!(
 			payload.len() < T::MaxMessagePayloadSize::get() as usize,
 			SendError::MessageTooLarge
 		);
 
-		// Ensure there is a registered channel we can transmit this message on
-		ensure!(T::Channels::contains(&message.channel_id), SendError::InvalidChannel);
+		let fee = Fee::from((Self::calculate_local_fee(), T::Balance::zero()));
 
-		// Generate a unique message id unless one is provided
-		let message_id: H256 = message
-			.id
-			.unwrap_or_else(|| unique((message.channel_id, &message.command)).into());
-
-		let gas_used_at_most = T::GasMeter::maximum_gas_used_at_most(&message.command);
-		let fee = Self::calculate_fee(gas_used_at_most, T::PricingParameters::get());
-
-		let queued_message: VersionedQueuedMessage = QueuedMessage {
-			id: message_id,
-			channel_id: message.channel_id,
-			command: message.command.clone(),
-		}
-		.into();
-		// The whole message should not be too large
-		let encoded = queued_message.encode().try_into().map_err(|_| SendError::MessageTooLarge)?;
-
-		let ticket = Ticket { message_id, channel_id: message.channel_id, message: encoded };
-
-		Ok((ticket, fee))
+		Ok((message.clone(), fee))
 	}
 
 	fn deliver(ticket: Self::Ticket) -> Result<H256, SendError> {
-		let origin = AggregateMessageOrigin::Snowbridge(ticket.channel_id);
+		let origin = AggregateMessageOrigin::SnowbridgeV2(ticket.origin);
 
-		if ticket.channel_id != PRIMARY_GOVERNANCE_CHANNEL {
+		let primary_governance_origin: [u8; 32] =
+			hex!("0000000000000000000000000000000000000000000000000000000000000001");
+
+		if ticket.origin.0 != primary_governance_origin {
 			ensure!(!Self::operating_mode().is_halted(), SendError::Halted);
 		}
 
-		let message = ticket.message.as_bounded_slice();
+		let message =
+			BoundedVec::try_from(ticket.encode()).map_err(|_| SendError::MessageTooLarge)?;
 
-		T::MessageQueue::enqueue_message(message, origin);
-		Self::deposit_event(Event::MessageQueued { id: ticket.message_id });
-		Ok(ticket.message_id)
+		T::MessageQueue::enqueue_message(message.as_bounded_slice(), origin);
+		Self::deposit_event(Event::MessageQueued { id: ticket.id });
+		Ok(ticket.id)
 	}
 }
 

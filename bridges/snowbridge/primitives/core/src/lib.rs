@@ -12,6 +12,7 @@ pub mod inbound;
 pub mod location;
 pub mod operating_mode;
 pub mod outbound;
+pub mod outbound_v2;
 pub mod pricing;
 pub mod ringbuffer;
 

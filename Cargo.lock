@@ -21146,6 +21146,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex-literal",
  "pallet-message-queue",
  "parity-scale-codec",
  "scale-info",

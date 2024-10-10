@@ -107,20 +107,17 @@ use bridge_hub_common::{AggregateMessageOrigin, CustomDigestItem};
 use codec::Decode;
 use frame_support::{
 	storage::StorageStreamIter,
-	traits::{tokens::Balance, Contains, Defensive, EnqueueMessage, Get, ProcessMessageError},
+	traits::{tokens::Balance, EnqueueMessage, Get, ProcessMessageError},
 	weights::{Weight, WeightToFee},
 };
 use snowbridge_core::{
-	outbound::{Fee, GasMeter, QueuedMessage, VersionedQueuedMessage, ETHER_DECIMALS},
-	BasicOperatingMode, ChannelId,
+	outbound_v2::{CommandWrapper, Fee, GasMeter, Message},
+	BasicOperatingMode,
 };
 use snowbridge_outbound_queue_merkle_tree_v2::merkle_root;
 pub use snowbridge_outbound_queue_merkle_tree_v2::MerkleProof;
-use sp_core::{H256, U256};
-use sp_runtime::{
-	traits::{CheckedDiv, Hash},
-	DigestItem, Saturating,
-};
+use sp_core::H256;
+use sp_runtime::{traits::Hash, DigestItem};
 use sp_std::prelude::*;
 pub use types::{CommittedMessage, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
@@ -132,8 +129,6 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use snowbridge_core::PricingParameters;
-	use sp_arithmetic::FixedU128;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -151,10 +146,6 @@ pub mod pallet {
 
 		type Balance: Balance + From<u128>;
 
-		/// Number of decimal places in native currency
-		#[pallet::constant]
-		type Decimals: Get<u8>;
-
 		/// Max bytes in a message payload
 		#[pallet::constant]
 		type MaxMessagePayloadSize: Get<u32>;
@@ -162,11 +153,6 @@ pub mod pallet {
 		/// Max number of messages processed per block
 		#[pallet::constant]
 		type MaxMessagesPerBlock: Get<u32>;
-
-		/// Check whether a channel exists
-		type Channels: Contains<ChannelId>;
-
-		type PricingParameters: Get<PricingParameters<Self::Balance>>;
 
 		/// Convert a weight value into a deductible fee based.
 		type WeightToFee: WeightToFee<Balance = Self::Balance>;
@@ -232,12 +218,16 @@ pub mod pallet {
 
 	/// The current nonce for each message origin
 	#[pallet::storage]
-	pub type Nonce<T: Config> = StorageMap<_, Twox64Concat, ChannelId, u64, ValueQuery>;
+	pub type Nonce<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
 	#[pallet::getter(fn operating_mode)]
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
+
+	/// Fee locked by nonce
+	#[pallet::storage]
+	pub type LockedFee<T: Config> = StorageMap<_, Twox64Concat, u64, u128, ValueQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
@@ -254,11 +244,6 @@ pub mod pallet {
 
 		fn on_finalize(_: BlockNumberFor<T>) {
 			Self::commit();
-		}
-
-		fn integrity_test() {
-			let decimals = T::Decimals::get();
-			assert!(decimals == 10 || decimals == 12, "Decimals should be 10 or 12");
 		}
 	}
 
@@ -313,92 +298,44 @@ pub mod pallet {
 			);
 
 			// Decode bytes into versioned message
-			let versioned_queued_message: VersionedQueuedMessage =
-				VersionedQueuedMessage::decode(&mut message).map_err(|_| Corrupt)?;
+			let message: Message = Message::decode(&mut message).map_err(|_| Corrupt)?;
 
-			// Convert versioned message into latest supported message version
-			let queued_message: QueuedMessage =
-				versioned_queued_message.try_into().map_err(|_| Unsupported)?;
+			let nonce = Nonce::<T>::get();
 
-			// Obtain next nonce
-			let nonce = <Nonce<T>>::try_mutate(
-				queued_message.channel_id,
-				|nonce| -> Result<u64, ProcessMessageError> {
-					*nonce = nonce.checked_add(1).ok_or(Unsupported)?;
-					Ok(*nonce)
-				},
-			)?;
-
-			let pricing_params = T::PricingParameters::get();
-			let command = queued_message.command.index();
-			let params = queued_message.command.abi_encode();
-			let max_dispatch_gas =
-				T::GasMeter::maximum_dispatch_gas_used_at_most(&queued_message.command);
-			let reward = pricing_params.rewards.remote;
+			let commands: Vec<CommandWrapper> = message
+				.commands
+				.into_iter()
+				.map(|command| CommandWrapper {
+					kind: command.index(),
+					max_dispatch_gas: T::GasMeter::maximum_dispatch_gas_used_at_most(&command),
+					command: command.clone(),
+				})
+				.collect();
 
 			// Construct the final committed message
-			let message = CommittedMessage {
-				channel_id: queued_message.channel_id,
+			let committed_message = CommittedMessage {
+				origin: message.origin,
 				nonce,
-				command,
-				params,
-				max_dispatch_gas,
-				max_fee_per_gas: pricing_params
-					.fee_per_gas
-					.try_into()
-					.defensive_unwrap_or(u128::MAX),
-				reward: reward.try_into().defensive_unwrap_or(u128::MAX),
-				id: queued_message.id,
+				id: message.id,
+				commands: commands.try_into().expect("should work"),
 			};
 
 			// ABI-encode and hash the prepared message
-			let message_abi_encoded = ethabi::encode(&[message.clone().into()]);
+			let message_abi_encoded = ethabi::encode(&[committed_message.clone().into()]);
 			let message_abi_encoded_hash = <T as Config>::Hashing::hash(&message_abi_encoded);
 
-			Messages::<T>::append(Box::new(message));
+			Messages::<T>::append(Box::new(committed_message.clone()));
 			MessageLeaves::<T>::append(message_abi_encoded_hash);
+			Nonce::<T>::set(nonce.saturating_add(1));
+			<LockedFee<T>>::try_mutate(nonce, |amount| -> DispatchResult {
+				*amount = amount.saturating_add(message.fee);
+				Ok(())
+			})
+			.map_err(|_| Corrupt)?;
 
-			Self::deposit_event(Event::MessageAccepted { id: queued_message.id, nonce });
+			Self::deposit_event(Event::MessageAccepted { id: message.id, nonce });
 
 			Ok(true)
-		}
-
-		/// Calculate total fee in native currency to cover all costs of delivering a message to the
-		/// remote destination. See module-level documentation for more details.
-		pub(crate) fn calculate_fee(
-			gas_used_at_most: u64,
-			params: PricingParameters<T::Balance>,
-		) -> Fee<T::Balance> {
-			// Remote fee in ether
-			let fee = Self::calculate_remote_fee(
-				gas_used_at_most,
-				params.fee_per_gas,
-				params.rewards.remote,
-			);
-
-			// downcast to u128
-			let fee: u128 = fee.try_into().defensive_unwrap_or(u128::MAX);
-
-			// multiply by multiplier and convert to local currency
-			let fee = FixedU128::from_inner(fee)
-				.saturating_mul(params.multiplier)
-				.checked_div(&params.exchange_rate)
-				.expect("exchange rate is not zero; qed")
-				.into_inner();
-
-			// adjust fixed point to match local currency
-			let fee = Self::convert_from_ether_decimals(fee);
-
-			Fee::from((Self::calculate_local_fee(), fee))
-		}
-
-		/// Calculate fee in remote currency for dispatching a message on Ethereum
-		pub(crate) fn calculate_remote_fee(
-			gas_used_at_most: u64,
-			fee_per_gas: U256,
-			reward: U256,
-		) -> U256 {
-			fee_per_gas.saturating_mul(gas_used_at_most.into()).saturating_add(reward)
 		}
 
 		/// The local component of the message processing fees in native currency
@@ -406,15 +343,6 @@ pub mod pallet {
 			T::WeightToFee::weight_to_fee(
 				&T::WeightInfo::do_process_message().saturating_add(T::WeightInfo::commit_single()),
 			)
-		}
-
-		// 1 DOT has 10 digits of precision
-		// 1 KSM has 12 digits of precision
-		// 1 ETH has 18 digits of precision
-		pub(crate) fn convert_from_ether_decimals(value: u128) -> T::Balance {
-			let decimals = ETHER_DECIMALS.saturating_sub(T::Decimals::get()) as u32;
-			let denom = 10u128.saturating_pow(decimals);
-			value.checked_div(denom).expect("divisor is non-zero; qed").into()
 		}
 	}
 }

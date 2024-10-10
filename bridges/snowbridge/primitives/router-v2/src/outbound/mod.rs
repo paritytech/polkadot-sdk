@@ -9,10 +9,10 @@ use core::slice::Iter;
 
 use codec::{Decode, Encode};
 
-use frame_support::{ensure, traits::Get};
+use frame_support::{ensure, traits::Get, BoundedVec};
 use snowbridge_core::{
-	outbound::{AgentExecuteCommand, Command, Message, SendMessage},
-	AgentId, ChannelId, ParaId, TokenId, TokenIdOf,
+	outbound_v2::{Command, Message, SendMessage},
+	AgentId, TokenId, TokenIdOf,
 };
 use sp_core::{H160, H256};
 use sp_runtime::traits::MaybeEquivalence;
@@ -94,7 +94,7 @@ where
 			return Err(SendError::NotApplicable)
 		}
 
-		let para_id = match local_sub.as_slice() {
+		let _para_id = match local_sub.as_slice() {
 			[Parachain(para_id)] => *para_id,
 			_ => {
 				log::error!(target: "xcm::ethereum_blob_exporter", "could not get parachain id from universal source '{local_sub:?}'.");
@@ -119,17 +119,13 @@ where
 
 		let mut converter =
 			XcmConverter::<ConvertAssetId, ()>::new(&message, expected_network, agent_id);
-		let (command, message_id) = converter.convert().map_err(|err|{
+		let message = converter.convert().map_err(|err|{
 			log::error!(target: "xcm::ethereum_blob_exporter", "unroutable due to pattern matching error '{err:?}'.");
 			SendError::Unroutable
 		})?;
 
-		let channel_id: ChannelId = ParaId::from(para_id).into();
-
-		let outbound_message = Message { id: Some(message_id.into()), channel_id, command };
-
 		// validate the message
-		let (ticket, fee) = OutboundQueue::validate(&outbound_message).map_err(|err| {
+		let (ticket, fee) = OutboundQueue::validate(&message).map_err(|err| {
 			log::error!(target: "xcm::ethereum_blob_exporter", "OutboundQueue validation of message failed. {err:?}");
 			SendError::Unroutable
 		})?;
@@ -137,7 +133,7 @@ where
 		// convert fee to Asset
 		let fee = Asset::from((Location::parent(), fee.total())).into();
 
-		Ok(((ticket.encode(), message_id), fee))
+		Ok(((ticket.encode(), XcmHash::from(message.id)), fee))
 	}
 
 	fn deliver(blob: (Vec<u8>, XcmHash)) -> Result<XcmHash, SendError> {
@@ -175,6 +171,7 @@ enum XcmConverterError {
 	ReserveAssetDepositedExpected,
 	InvalidAsset,
 	UnexpectedInstruction,
+	TooManyCommands,
 }
 
 macro_rules! match_expression {
@@ -205,7 +202,7 @@ where
 		}
 	}
 
-	fn convert(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
+	fn convert(&mut self) -> Result<Message, XcmConverterError> {
 		let result = match self.peek() {
 			Ok(ReserveAssetDeposited { .. }) => self.send_native_tokens_message(),
 			// Get withdraw/deposit and make native tokens create message.
@@ -222,7 +219,7 @@ where
 		Ok(result)
 	}
 
-	fn send_tokens_message(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
+	fn send_tokens_message(&mut self) -> Result<Message, XcmConverterError> {
 		use XcmConverterError::*;
 
 		// Get the reserve assets from WithdrawAsset.
@@ -296,13 +293,22 @@ where
 		// Check if there is a SetTopic and skip over it if found.
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
 
-		Ok((
-			Command::AgentExecute {
+		let message = Message {
+			id: (*topic_id).into(),
+			// Todo: from XCMV5 AliasOrigin
+			origin: H256::zero(),
+			// Todo: from XCMV5 PayFees
+			fee: 0,
+			commands: BoundedVec::try_from(vec![Command::UnlockNativeToken {
 				agent_id: self.agent_id,
-				command: AgentExecuteCommand::TransferToken { token, recipient, amount },
-			},
-			*topic_id,
-		))
+				token,
+				recipient,
+				amount,
+			}])
+			.map_err(|_| TooManyCommands)?,
+		};
+
+		Ok(message)
 	}
 
 	fn next(&mut self) -> Result<&'a Instruction<Call>, XcmConverterError> {
@@ -328,7 +334,7 @@ where
 	/// # BuyExecution
 	/// # DepositAsset
 	/// # SetTopic
-	fn send_native_tokens_message(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
+	fn send_native_tokens_message(&mut self) -> Result<Message, XcmConverterError> {
 		use XcmConverterError::*;
 
 		// Get the reserve assets.
@@ -404,6 +410,18 @@ where
 		// Check if there is a SetTopic and skip over it if found.
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
 
-		Ok((Command::MintForeignToken { token_id, recipient, amount }, *topic_id))
+		let message = Message {
+			origin: H256::zero(),
+			fee: 0,
+			id: (*topic_id).into(),
+			commands: BoundedVec::try_from(vec![Command::MintForeignToken {
+				token_id,
+				recipient,
+				amount,
+			}])
+			.map_err(|_| TooManyCommands)?,
+		};
+
+		Ok(message)
 	}
 }

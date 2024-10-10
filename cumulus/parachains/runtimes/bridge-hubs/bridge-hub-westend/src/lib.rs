@@ -899,10 +899,6 @@ impl_runtime_apis! {
 		fn prove_message(leaf_index: u64) -> Option<snowbridge_pallet_outbound_queue_v2::MerkleProof> {
 			snowbridge_pallet_outbound_queue_v2::api::prove_message::<Runtime>(leaf_index)
 		}
-
-		fn calculate_fee(command: Command, parameters: Option<PricingParameters<Balance>>) -> Fee<Balance> {
-			snowbridge_pallet_outbound_queue_v2::api::calculate_fee::<Runtime>(command, parameters)
-		}
 	}
 
 	impl snowbridge_system_runtime_api::ControlApi<Block> for Runtime {

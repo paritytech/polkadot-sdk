@@ -1,9 +1,6 @@
 use frame_support::parameter_types;
 use hex_literal::hex;
-use snowbridge_core::{
-	outbound::{Fee, SendError, SendMessageFeeProvider},
-	AgentIdOf,
-};
+use snowbridge_core::{outbound::SendError, AgentIdOf};
 use sp_std::default::Default;
 use xcm::prelude::SendError as XcmSendError;
 
