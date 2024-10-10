@@ -2225,17 +2225,3 @@ fn handle_get_backable_candidates_message(
 	tx.send(backed).map_err(|data| Error::Send(data))?;
 	Ok(())
 }
-
-fn validation_request_ttl(mode: ProspectiveParachainsMode) -> Option<Instant> {
-	const MILLISECS_PER_BLOCK: u64 = 6000;
-	let ttl_in_blocks = match mode {
-		ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. } => allowed_ancestry_len,
-		_ => 1,
-	} as u64;
-
-	if ttl_in_blocks < 1 {
-		None
-	} else {
-		Some(Instant::now() + Duration::from_millis(MILLISECS_PER_BLOCK * ttl_in_blocks))
-	}
-}

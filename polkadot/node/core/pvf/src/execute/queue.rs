@@ -36,7 +36,9 @@ use polkadot_node_core_pvf_common::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::messages::PvfExecKind;
-use polkadot_primitives::{ExecutorParams, ExecutorParamsHash, PersistedValidationData};
+use polkadot_primitives::{
+	BlockNumber, ExecutorParams, ExecutorParamsHash, PersistedValidationData,
+};
 use slotmap::HopSlotMap;
 use std::{
 	collections::{HashMap, VecDeque},
@@ -72,7 +74,7 @@ pub enum FromQueue {
 #[derive(Debug)]
 pub struct PendingExecutionRequest {
 	pub exec_timeout: Duration,
-	pub exec_ttl: Option<Instant>,
+	pub exec_ttl: Option<BlockNumber>,
 	pub pvd: Arc<PersistedValidationData>,
 	pub pov: Arc<PoV>,
 	pub executor_params: ExecutorParams,
@@ -83,7 +85,7 @@ pub struct PendingExecutionRequest {
 struct ExecuteJob {
 	artifact: ArtifactPathId,
 	exec_timeout: Duration,
-	exec_ttl: Option<Instant>,
+	exec_ttl: Option<BlockNumber>,
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
@@ -283,17 +285,9 @@ impl Queue {
 		}
 
 		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
-		let exec_deadline = job.exec_ttl.and_then(|ttl| {
-			// Because we observe the execution of all jobs with different timeouts, their minimum
-			// execution time can exceed the current job's execution timeout.
-			let min_exec_time = self.min_exec_time.unwrap_or_default().min(job.exec_timeout);
-			// We subtract the observed minimum execution time from the TTL to minimize cases where
-			// a job starts execution close to its deadline but finishes later, with useless result
-			ttl.checked_sub(min_exec_time)
-		});
-
-		if let Some(deadline) = exec_deadline {
-			let now = Instant::now();
+		if let Some(deadline) = job.exec_ttl {
+			// TODO: use real now
+			let now = deadline;
 			gum::debug!(target: LOG_TARGET, ?priority, ?deadline, ?now, "Job has a deadline");
 			if now > deadline {
 				let _ = job.result_tx.send(Err(ValidationError::ExecutionDeadline));

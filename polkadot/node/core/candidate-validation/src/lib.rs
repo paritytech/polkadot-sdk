@@ -37,7 +37,10 @@ use polkadot_node_subsystem::{
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
 };
-use polkadot_node_subsystem_util as util;
+use polkadot_node_subsystem_util::{
+	self as util,
+	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
+};
 use polkadot_overseer::ActiveLeavesUpdate;
 use polkadot_parachain_primitives::primitives::ValidationResult as WasmValidationResult;
 use polkadot_primitives::{
@@ -45,7 +48,7 @@ use polkadot_primitives::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
-	AuthorityDiscoveryId, CandidateCommitments, CandidateDescriptor, CandidateEvent,
+	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateDescriptor, CandidateEvent,
 	CandidateReceipt, ExecutorParams, Hash, PersistedValidationData,
 	PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
 	ValidationCodeHash, ValidatorId,
@@ -163,9 +166,15 @@ where
 			executor_params,
 			exec_kind,
 			response_sender,
-			..
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();
+			let ttl = validation_request_ttl(
+				&mut sender,
+				candidate_receipt.descriptor.relay_parent,
+				validation_data.relay_parent_number,
+				exec_kind,
+			)
+			.await;
 			let res = validate_candidate_exhaustive(
 				validation_host,
 				validation_data,
@@ -642,7 +651,7 @@ async fn validate_candidate_exhaustive(
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
 	exec_kind: PvfExecKind,
-	request_ttl: Option<Instant>,
+	request_ttl: Option<BlockNumber>,
 	metrics: &Metrics,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
@@ -796,7 +805,7 @@ trait ValidationBackend {
 		&mut self,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
-		exec_ttl: Option<Instant>,
+		exec_ttl: Option<BlockNumber>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
@@ -817,7 +826,7 @@ trait ValidationBackend {
 		&mut self,
 		code: Vec<u8>,
 		exec_timeout: Duration,
-		exec_ttl: Option<Instant>,
+		exec_ttl: Option<BlockNumber>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		executor_params: ExecutorParams,
@@ -956,7 +965,7 @@ impl ValidationBackend for ValidationHost {
 		&mut self,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
-		exec_ttl: Option<Instant>,
+		exec_ttl: Option<BlockNumber>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
@@ -1066,5 +1075,34 @@ fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: RuntimePvfExecKind) 
 	match kind {
 		RuntimePvfExecKind::Backing => DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		RuntimePvfExecKind::Approval => DEFAULT_APPROVAL_EXECUTION_TIMEOUT,
+	}
+}
+
+async fn validation_request_ttl<S>(
+	sender: &mut S,
+	relay_parent: Hash,
+	relay_parent_number: BlockNumber,
+	exec_kind: PvfExecKind,
+) -> Option<BlockNumber>
+where
+	S: SubsystemSender<RuntimeApiMessage>,
+{
+	if !matches!(exec_kind, PvfExecKind::Backing | PvfExecKind::BackingSystemParas) {
+		return None;
+	}
+
+	let Ok(mode) = prospective_parachains_mode(sender, relay_parent).await else {
+		return None;
+	};
+
+	let ttl_in_blocks = match mode {
+		ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. } => allowed_ancestry_len,
+		_ => 1,
+	} as BlockNumber;
+
+	if ttl_in_blocks < 1 {
+		None
+	} else {
+		Some(relay_parent_number * ttl_in_blocks)
 	}
 }

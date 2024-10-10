@@ -39,12 +39,12 @@ use polkadot_node_core_pvf_common::{
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::{messages::PvfExecKind, SubsystemError, SubsystemResult};
 use polkadot_parachain_primitives::primitives::ValidationResult;
-use polkadot_primitives::PersistedValidationData;
+use polkadot_primitives::{BlockNumber, PersistedValidationData};
 use std::{
 	collections::HashMap,
 	path::PathBuf,
 	sync::Arc,
-	time::{Duration, Instant, SystemTime},
+	time::{Duration, SystemTime},
 };
 
 /// The time period after which a failed preparation artifact is considered ready to be retried.
@@ -111,7 +111,7 @@ impl ValidationHost {
 		&mut self,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
-		exec_ttl: Option<Instant>,
+		exec_ttl: Option<BlockNumber>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		priority: Priority,
@@ -156,7 +156,7 @@ enum ToHost {
 struct ExecutePvfInputs {
 	pvf: PvfPrepData,
 	exec_timeout: Duration,
-	exec_ttl: Option<Instant>,
+	exec_ttl: Option<BlockNumber>,
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	priority: Priority,
@@ -551,16 +551,8 @@ async fn handle_execute_pvf(
 	awaiting_prepare: &mut AwaitingPrepare,
 	inputs: ExecutePvfInputs,
 ) -> Result<(), Fatal> {
-	let ExecutePvfInputs {
-		pvf,
-		exec_timeout,
-		exec_ttl,
-		pvd,
-		pov,
-		priority,
-		exec_kind,
-		result_tx,
-	} = inputs;
+	let ExecutePvfInputs { pvf, exec_timeout, exec_ttl, pvd, pov, priority, exec_kind, result_tx } =
+		inputs;
 	let artifact_id = ArtifactId::from_pvf_prep_data(&pvf);
 	let executor_params = (*pvf.executor_params()).clone();
 
