@@ -25,11 +25,11 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem_test_helpers::mock::{dummy_unpin_handle, new_leaf};
 use polkadot_node_subsystem_types::messages::{
-	NetworkBridgeEvent, ReportPeerMessage, RuntimeApiRequest,
+	NetworkBridgeEvent, PvfExecKind, ReportPeerMessage, RuntimeApiRequest,
 };
 use polkadot_primitives::{
 	CandidateHash, CandidateReceipt, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
-	PersistedValidationData, PvfExecKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
+	PersistedValidationData, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_descriptor, dummy_candidate_receipt, dummy_hash, dummy_validation_code,
