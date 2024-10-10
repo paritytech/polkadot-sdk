@@ -94,7 +94,7 @@ zombienet-polkadot-functional-0002-parachains-disputes:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0002-parachains-disputes.zndsl"
 
-.zombienet-polkadot-functional-0003-beefy-and-mmr:
+zombienet-polkadot-functional-0003-beefy-and-mmr:
   extends:
     - .zombienet-polkadot-common
   script:
@@ -172,7 +172,7 @@ zombienet-polkadot-elastic-scaling-0001-basic-3cores-6s-blocks:
   variables:
     FORCED_INFRA_INSTANCE: "spot-iops"
   before_script:
-    - !reference [.zombienet-polkadot-common, before_script]
+    - !reference [ .zombienet-polkadot-common, before_script ]
     - cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/elastic_scaling
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
@@ -183,7 +183,7 @@ zombienet-polkadot-elastic-scaling-0002-elastic-scaling-doesnt-break-parachains:
   extends:
     - .zombienet-polkadot-common
   before_script:
-    - !reference [.zombienet-polkadot-common, before_script]
+    - !reference [ .zombienet-polkadot-common, before_script ]
     - cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/elastic_scaling
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
@@ -218,7 +218,7 @@ zombienet-polkadot-functional-0015-coretime-shared-core:
   extends:
     - .zombienet-polkadot-common
   before_script:
-    - !reference [.zombienet-polkadot-common, before_script]
+    - !reference [ .zombienet-polkadot-common, before_script ]
     - cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/functional
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
@@ -360,10 +360,10 @@ zombienet-polkadot-malus-0001-dispute-valid:
     - job: build-polkadot-zombienet-tests
       artifacts: true
   before_script:
-    - !reference [".zombienet-polkadot-common", "before_script"]
+    - !reference [ ".zombienet-polkadot-common", "before_script" ]
     - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
   script:
-  # we want to use `--no-capture` in zombienet tests.
+    # we want to use `--no-capture` in zombienet tests.
     - unset NEXTEST_FAILURE_OUTPUT
     - unset NEXTEST_SUCCESS_OUTPUT
     - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- smoke::coretime_revenue::coretime_revenue_test
