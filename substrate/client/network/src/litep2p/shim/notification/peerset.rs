@@ -1159,6 +1159,7 @@ impl Stream for Peerset {
 									self.peers.insert(*peer, PeerState::Backoff);
 									None
 								},
+
 								// if there is a rapid change in substream state, the peer may
 								// be canceled when the substream is asked to be closed.
 								//
@@ -1179,6 +1180,7 @@ impl Stream for Peerset {
 									self.peers.insert(*peer, PeerState::Canceled { direction });
 									None
 								},
+
 								// substream to the peer might have failed to open which caused
 								// the peer to be backed off
 								//
@@ -1195,6 +1197,7 @@ impl Stream for Peerset {
 									self.peers.insert(*peer, PeerState::Disconnected);
 									None
 								},
+
 								// if a node disconnects, it's put into `PeerState::Closing`
 								// which indicates that `Peerset` wants the substream closed and
 								// has asked litep2p to close it but it hasn't yet received a
@@ -1224,66 +1227,43 @@ impl Stream for Peerset {
 								// if there are enough slots, the peer is just converted to
 								// a regular peer and the used slot count is increased and if the
 								// peer cannot be accepted, litep2p is asked to close the substream.
-								PeerState::Connected { direction } => match direction {
-									Direction::Inbound(_) => match self.num_in < self.max_in {
-										true => {
-											log::trace!(
-												target: LOG_TARGET,
-												"{}: {peer:?} converted to regular inbound peer (inbound open)",
-												self.protocol,
-											);
+								PeerState::Connected { mut direction } => {
+									let disconnect = match direction {
+										Direction::Inbound(_) => self.num_in >= self.max_in,
+										Direction::Outbound(_) => self.num_out >= self.max_out,
+									};
 
-											self.num_in += 1;
-											self.peers.insert(
-												*peer,
-												PeerState::Connected {
-													direction: Direction::Inbound(Reserved::No),
-												},
-											);
+									if disconnect {
+										log::trace!(
+											target: LOG_TARGET,
+											"{}: close connection to removed reserved {peer:?}, direction {direction:?}",
+											self.protocol,
+										);
 
-											None
-										},
-										false => {
-											self.peers.insert(
-												*peer,
-												PeerState::Closing {
-													direction: Direction::Inbound(Reserved::Yes),
-												},
-											);
+										self.peers.insert(*peer, PeerState::Closing { direction });
+										Some(*peer)
+									} else {
+										log::trace!(
+											target: LOG_TARGET,
+											"{}: {peer:?} converted to regular peer {peer:?} direction {direction:?}",
+											self.protocol,
+										);
 
-											Some(*peer)
-										},
-									},
-									Direction::Outbound(_) => match self.num_out < self.max_out {
-										true => {
-											log::trace!(
-												target: LOG_TARGET,
-												"{}: {peer:?} converted to regular outbound peer (outbound open)",
-												self.protocol,
-											);
+										// The peer is kept connected as non-reserved. This will
+										// further count towards the slot count.
+										direction.set_reserved(Reserved::No);
+										match direction {
+											Direction::Inbound(_) => self.num_in += 1,
+											Direction::Outbound(_) => self.num_out += 1,
+										}
 
-											self.num_out += 1;
-											self.peers.insert(
-												*peer,
-												PeerState::Connected {
-													direction: Direction::Outbound(Reserved::No),
-												},
-											);
+										self.peers
+											.insert(*peer, PeerState::Connected { direction });
 
-											None
-										},
-										false => {
-											self.peers.insert(
-												*peer,
-												PeerState::Closing {
-													direction: Direction::Outbound(Reserved::Yes),
-												},
-											);
-
-											Some(*peer)
-										},
-									},
+										None
+									}
 								},
+
 								PeerState::Opening { direction } => match direction {
 									Direction::Inbound(_) => match self.num_in < self.max_in {
 										true => {
