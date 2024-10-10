@@ -1422,12 +1422,17 @@ impl Stream for Peerset {
 			// if the number of outbound peers is lower than the desired amount of outbound peers,
 			// query `PeerStore` and try to get a new outbound candidated.
 			if self.num_out < self.max_out && !self.reserved_only {
+				// From the candidates offered by the peerstore we need to ignore:
+				// - all peers that are not in the `PeerState::Disconnected` state (ie they are
+				//   connected / closing)
+				// - reserved peers since we initiated a connection to them in the previous step
 				let ignore: HashSet<PeerId> = self
 					.peers
 					.iter()
 					.filter_map(|(peer, state)| {
 						(!std::matches!(state, PeerState::Disconnected)).then_some(*peer)
 					})
+					.chain(self.reserved_peers.iter().cloned())
 					.collect();
 
 				let peers: Vec<_> =
