@@ -8480,6 +8480,7 @@ dependencies = [
  "primitive-types 0.13.1",
  "scale-info",
  "serde_json",
+ "sp-debug-derive 14.0.0",
  "static_assertions",
  "substrate-wasm-builder",
 ]
@@ -23457,6 +23458,7 @@ dependencies = [
  "soketto 0.8.0",
  "staging-node-inspect",
  "substrate-cli-test-utils",
+ "subxt-signer",
  "tempfile",
  "tokio",
  "tokio-util",
