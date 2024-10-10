@@ -1264,65 +1264,45 @@ impl Stream for Peerset {
 									}
 								},
 
-								PeerState::Opening { direction } => match direction {
-									Direction::Inbound(_) => match self.num_in < self.max_in {
-										true => {
-											log::trace!(
-												target: LOG_TARGET,
-												"{}: {peer:?} converted to regular inbound peer (inbound opening)",
-												self.protocol,
-											);
+								PeerState::Opening { mut direction } => {
+									let disconnect = match direction {
+										Direction::Inbound(_) => self.num_in >= self.max_in,
+										Direction::Outbound(_) => self.num_out >= self.max_out,
+									};
 
-											self.num_in += 1;
-											self.peers.insert(
-												*peer,
-												PeerState::Opening {
-													direction: Direction::Inbound(Reserved::No),
-												},
-											);
+									if disconnect {
+										log::trace!(
+											target: LOG_TARGET,
+											"{}: cancel substream to disconnect removed reserved peer {peer:?}, direction {direction:?}",
+											self.protocol,
+										);
 
-											None
-										},
-										false => {
-											self.peers.insert(
-												*peer,
-												PeerState::Canceled {
-													direction: Direction::Inbound(Reserved::Yes),
-												},
-											);
+										self.peers.insert(
+											*peer,
+											PeerState::Canceled {
+												direction: Direction::Inbound(Reserved::Yes),
+											},
+										);
+									} else {
+										log::trace!(
+											target: LOG_TARGET,
+											"{}: {peer:?} converted to regular peer {peer:?} direction {direction:?}",
+											self.protocol,
+										);
 
-											None
-										},
-									},
-									Direction::Outbound(_) => match self.num_out < self.max_out {
-										true => {
-											log::trace!(
-												target: LOG_TARGET,
-												"{}: {peer:?} converted to regular outbound peer (outbound opening)",
-												self.protocol,
-											);
+										// The peer is kept connected as non-reserved. This will
+										// further count towards the slot count.
+										direction.set_reserved(Reserved::No);
+										match direction {
+											Direction::Inbound(_) => self.num_in += 1,
+											Direction::Outbound(_) => self.num_out += 1,
+										}
 
-											self.num_out += 1;
-											self.peers.insert(
-												*peer,
-												PeerState::Opening {
-													direction: Direction::Outbound(Reserved::No),
-												},
-											);
+										self.peers
+											.insert(*peer, PeerState::Opening { direction });
+									}
 
-											None
-										},
-										false => {
-											self.peers.insert(
-												*peer,
-												PeerState::Canceled {
-													direction: Direction::Outbound(Reserved::Yes),
-												},
-											);
-
-											None
-										},
-									},
+									None
 								},
 							}
 						})
