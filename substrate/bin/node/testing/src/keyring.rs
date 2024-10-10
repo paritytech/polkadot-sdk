@@ -58,23 +58,13 @@ pub fn ferdie() -> AccountId {
 
 /// Convert keyrings into `SessionKeys`.
 pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
-	// use std::str::FromStr;
-	let sr25519_seed = sr25519::Pair::from_string(&format!("//{}", seed), None)
-		.expect("should parse str seed to sr25519 public")
-		.public();
 	SessionKeys {
-		grandpa: ed25519::Pair::from_string(&format!("//{}", seed), None)
-			.expect("should parse str seed to sr25519 public")
-			.public()
-			.into(),
-		babe: sr25519_seed.into(),
-		im_online: sr25519_seed.into(),
-		authority_discovery: sr25519_seed.into(),
-		mixnet: sr25519_seed.into(),
-		beefy: ecdsa::Pair::from_string(&format!("//{}", seed), None)
-			.expect("should parse str seed to ecdsa public")
-			.public()
-			.into(),
+		grandpa: ed25519::Pair::get_from_seed(seed).into(),
+		babe: sr25519::Pair::get_from_seed(seed).into(),
+		im_online: sr25519::Pair::get_from_seed(seed).into(),
+		authority_discovery: sr25519::Pair::get_from_seed(seed).into(),
+		mixnet: sr25519::Pair::get_from_seed(seed).into(),
+		beefy: ecdsa::Pair::get_from_seed(seed).into(),
 	}
 }
 

@@ -1045,11 +1045,7 @@ fn reserve_transfer_multiple_assets_from_para_to_asset_hub() {
 	);
 
 	// Beneficiary is a new (empty) account
-	let receiver: sp_runtime::AccountId32 =
-		sr25519::Pair::from_string(&format!("//{}", DUMMY_EMPTY), None)
-			.expect("static values are valid")
-			.public()
-			.into();
+	let receiver: sp_runtime::AccountId32 = sr25519::Pair::get_from_seed(DUMMY_EMPTY).into();
 	// Init values for Asset Hub
 	let penpal_location_as_seen_by_ahr = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr =

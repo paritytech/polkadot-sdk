@@ -30,7 +30,7 @@ use sc_telemetry::TelemetryEndpoints;
 use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
+use sp_consensus_beefy::ecdsa_crypto::{self, AuthorityId as BeefyId};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{crypto::UncheckedInto, ed25519, sr25519, Pair};
 use sp_keyring::Sr25519Keyring;
@@ -247,28 +247,15 @@ pub fn authority_keys_from_seed(
 	seed: &str,
 ) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId, BeefyId)
 {
-	use core::str::FromStr;
-	let sr25519_seed = sr25519::Pair::from_string(&format!("//{}", seed), None)
-		.expect("should generate key from seed")
-		.public();
-	let ed25519_seed = ed25519::Pair::from_string(&format!("//{}", seed), None)
-		.expect("should generate key from seed")
-		.public();
 	(
-		Sr25519Keyring::from_str(&format!("{}//stash", seed))
-			.expect("should parse str seed to keyring")
-			.to_account_id(),
-		sr25519_seed.into(),
-		GrandpaId::from(ed25519_seed),
-		BabeId::from(sr25519_seed),
-		ImOnlineId::from(sr25519_seed),
-		AuthorityDiscoveryId::from(sr25519_seed),
-		MixnetId::from(sr25519_seed),
-		BeefyId::from(
-			sp_consensus_beefy::ecdsa_crypto::Pair::from_string(&format!("//{}", seed), None)
-				.expect("should parse str seed to keyring")
-				.public(),
-		),
+		sr25519::Pair::get_from_seed(&format!("{}//stash", seed)).into(),
+		sr25519::Pair::get_from_seed(seed).into(),
+		GrandpaId::from(ed25519::Pair::get_from_seed(seed)),
+		BabeId::from(sr25519::Pair::get_from_seed(seed)),
+		ImOnlineId::from(sr25519::Pair::get_from_seed(seed)),
+		AuthorityDiscoveryId::from(sr25519::Pair::get_from_seed(seed)),
+		MixnetId::from(sr25519::Pair::get_from_seed(seed)),
+		BeefyId::from(ecdsa_crypto::Pair::get_from_seed(seed)),
 	)
 }
 
@@ -302,7 +289,7 @@ fn configure_accounts(
 	Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
 ) {
 	let mut endowed_accounts: Vec<AccountId> = endowed_accounts
-		.unwrap_or_else(|| Sr25519Keyring::iter().map(|k| k.to_account_id()).collect());
+		.unwrap_or_else(|| Sr25519Keyring::iter().take(12).map(|k| k.to_account_id()).collect());
 	// endow all authorities and nominators.
 	initial_authorities
 		.iter()

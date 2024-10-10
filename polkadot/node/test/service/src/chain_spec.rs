@@ -16,8 +16,6 @@
 
 //! Chain specifications for the test runtime.
 
-use std::str::FromStr;
-
 use pallet_staking::Forcing;
 use polkadot_primitives::{
 	AccountId, AssignmentId, SchedulerParams, ValidatorId, MAX_CODE_SIZE, MAX_POV_SIZE,
@@ -28,7 +26,8 @@ use sc_chain_spec::{ChainSpec, ChainType};
 use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
+use sp_core::{ed25519, sr25519, Pair};
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::Perbill;
 use test_runtime_constants::currency::DOTS;
 
@@ -75,21 +74,19 @@ pub fn polkadot_local_testnet_genesis() -> serde_json::Value {
 fn get_authority_keys_from_seed(
 	seed: &str,
 ) -> (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
-	let sr25519_keyring = Sr25519Keyring::from_str(seed).expect("should parse str seed to keyring");
-	let ed25519_keyring = Ed25519Keyring::from_str(seed).expect("should parse str seed to keyring");
 	(
-		sr25519_keyring.to_account_id(),
-		sr25519_keyring.to_account_id(),
-		BabeId::from(sr25519_keyring.public()),
-		GrandpaId::from(ed25519_keyring.public()),
-		ValidatorId::from(sr25519_keyring.public()),
-		AssignmentId::from(sr25519_keyring.public()),
-		AuthorityDiscoveryId::from(sr25519_keyring.public()),
+		sr25519::Pair::get_from_seed(&format!("{}//stash", seed)).into(),
+		sr25519::Pair::get_from_seed(seed).into(),
+		BabeId::from(sr25519::Pair::get_from_seed(seed)),
+		GrandpaId::from(ed25519::Pair::get_from_seed(seed)),
+		ValidatorId::from(sr25519::Pair::get_from_seed(seed)),
+		AssignmentId::from(sr25519::Pair::get_from_seed(seed)),
+		AuthorityDiscoveryId::from(sr25519::Pair::get_from_seed(seed)),
 	)
 }
 
 fn testnet_accounts() -> Vec<AccountId> {
-	Sr25519Keyring::iter().map(|k| k.to_account_id()).collect()
+	Sr25519Keyring::iter().take(12).map(|k| k.to_account_id()).collect()
 }
 
 /// Helper function to create polkadot `RuntimeGenesisConfig` for testing

@@ -114,7 +114,7 @@ pub mod accounts {
 	pub const DUMMY_EMPTY: &str = "JohnDoe";
 
 	pub fn init_balances() -> Vec<AccountId> {
-		Sr25519Keyring::iter().map(|k| k.to_account_id()).collect()
+		Sr25519Keyring::iter().take(12).map(|k| k.to_account_id()).collect()
 	}
 }
 

@@ -156,7 +156,7 @@ pub mod rococo {
 				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
 				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
 			],
-			Sr25519Keyring::iter().map(|k| k.to_account_id()).collect(),
+			Sr25519Keyring::iter().take(12).map(|k| k.to_account_id()).collect(),
 			para_id,
 		))
 		.with_properties(properties)
@@ -245,7 +245,7 @@ pub mod westend {
 				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
 				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
 			],
-			Sr25519Keyring::iter().map(|k| k.to_account_id()).collect(),
+			Sr25519Keyring::iter().take(12).map(|k| k.to_account_id()).collect(),
 			para_id,
 		))
 		.with_properties(properties)

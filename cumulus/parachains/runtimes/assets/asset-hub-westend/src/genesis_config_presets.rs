@@ -111,7 +111,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
 				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
 			],
-			Sr25519Keyring::iter().map(|k| k.to_account_id()).collect(),
+			Sr25519Keyring::iter().take(12).map(|k| k.to_account_id()).collect(),
 			WND * 1_000_000,
 			1000.into(),
 		),

@@ -958,6 +958,13 @@ pub trait Pair: CryptoType + Sized {
 
 	/// Return a vec filled with raw data.
 	fn to_raw_vec(&self) -> Vec<u8>;
+
+	/// Interprets the string `s` in order to generate a public key without password.
+	fn get_from_seed(s: &str) -> Self::Public {
+		Self::from_string(&format!("//{}", s), None)
+			.expect("static values are valid; qed")
+			.public()
+	}
 }
 
 /// One type is wrapped by another.

@@ -27,7 +27,7 @@ use pallet_staking::{Forcing, StakerStatus};
 use polkadot_primitives::{AccountId, AssignmentId, SchedulerParams, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
+use sp_consensus_beefy::ecdsa_crypto::{self, AuthorityId as BeefyId};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{ed25519, sr25519, Pair};
 use sp_genesis_builder::PresetId;
@@ -57,11 +57,7 @@ fn get_authority_keys_from_seed(
 		keys.4,
 		keys.5,
 		keys.6,
-		BeefyId::from(
-			sp_consensus_beefy::ecdsa_crypto::Pair::from_string(&format!("//{}", seed), None)
-				.expect("should parse str seed to keyring")
-				.public(),
-		),
+		BeefyId::from(ecdsa_crypto::Pair::get_from_seed(seed)),
 	)
 }
 
@@ -69,28 +65,19 @@ fn get_authority_keys_from_seed(
 fn get_authority_keys_from_seed_no_beefy(
 	seed: &str,
 ) -> (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
-	use core::str::FromStr;
-	let sr25519_seed = sr25519::Pair::from_string(&format!("//{}", seed), None)
-		.expect("should generate key from seed")
-		.public();
-	let ed25519_seed = ed25519::Pair::from_string(&format!("//{}", seed), None)
-		.expect("should generate key from seed")
-		.public();
 	(
-		Sr25519Keyring::from_str(&format!("{}//stash", seed))
-			.expect("should parse str seed to keyring")
-			.to_account_id(),
-		sr25519_seed.into(),
-		BabeId::from(sr25519_seed),
-		GrandpaId::from(ed25519_seed),
-		ValidatorId::from(sr25519_seed),
-		AssignmentId::from(sr25519_seed),
-		AuthorityDiscoveryId::from(sr25519_seed),
+		sr25519::Pair::get_from_seed(&format!("{}//stash", seed)).into(),
+		sr25519::Pair::get_from_seed(seed).into(),
+		BabeId::from(sr25519::Pair::get_from_seed(seed)),
+		GrandpaId::from(ed25519::Pair::get_from_seed(seed)),
+		ValidatorId::from(sr25519::Pair::get_from_seed(seed)),
+		AssignmentId::from(sr25519::Pair::get_from_seed(seed)),
+		AuthorityDiscoveryId::from(sr25519::Pair::get_from_seed(seed)),
 	)
 }
 
 fn testnet_accounts() -> Vec<AccountId> {
-	Sr25519Keyring::iter().map(|k| k.to_account_id()).collect()
+	Sr25519Keyring::iter().take(12).map(|k| k.to_account_id()).collect()
 }
 
 fn westend_session_keys(

@@ -20,7 +20,7 @@ use crate::chain_spec::SAFE_XCM_VERSION;
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use parachains_common::AccountId;
-use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
+use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use rococo_parachain_runtime::AuraId;
 use sc_chain_spec::ChainType;
 use sp_core::crypto::UncheckedInto;
@@ -40,7 +40,7 @@ pub fn rococo_parachain_local_config() -> GenericChainSpec {
 			AuraId::from(Sr25519Keyring::Alice.public()),
 			AuraId::from(Sr25519Keyring::Bob.public()),
 		],
-		Sr25519Keyring::iter().map(|k| k.to_account_id()).collect(),
+		Sr25519Keyring::iter().take(12).map(|k| k.to_account_id()).collect(),
 		1000.into(),
 	))
 	.build()
