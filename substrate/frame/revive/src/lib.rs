@@ -27,14 +27,8 @@ mod benchmarking;
 mod benchmarking_dummy;
 mod exec;
 mod gas;
-mod primitives;
-use crate::evm::EthInstantiateInput;
-pub use crate::exec::MomentOf;
-use frame_support::traits::IsType;
-pub use primitives::*;
-use sp_core::U256;
-
 mod limits;
+mod primitives;
 mod storage;
 mod transient_storage;
 mod wasm;
@@ -44,6 +38,12 @@ pub mod debug;
 pub mod evm;
 pub mod test_utils;
 pub mod weights;
+
+use crate::evm::EthInstantiateInput;
+pub use crate::exec::MomentOf;
+use frame_support::traits::IsType;
+pub use primitives::*;
+use sp_core::U256;
 
 #[cfg(test)]
 mod tests;
