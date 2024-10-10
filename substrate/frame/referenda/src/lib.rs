@@ -859,6 +859,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 		let dummy_account_id =
 			codec::Decode::decode(&mut sp_runtime::traits::TrailingZeroInput::new(&b"dummy"[..]))
 				.expect("infinite length input; no invalid inputs for type; qed");
+		let track = Self::track(class).expect("Track should exist for `class`");
 		let mut status = ReferendumStatusOf::<T, I> {
 			track: class,
 			origin: frame_support::dispatch::RawOrigin::Root.into(),
@@ -867,14 +868,14 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 			enactment: DispatchTime::After(Zero::zero()),
 			submitted: now,
 			submission_deposit: Deposit { who: dummy_account_id, amount: Zero::zero() },
-			decision_deposit: None,
+			decision_deposit: DecisionDeposit::new(track.decision_deposit.clone()),
 			deciding: None,
 			tally: TallyOf::<T, I>::new(class),
 			in_queue: false,
 			alarm: None,
 		};
 		Self::ensure_alarm_at(&mut status, index, sp_runtime::traits::Bounded::max_value());
-		ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
+		ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing { status });
 		Ok(index)
 	}
 
@@ -885,9 +886,17 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 		Self::note_one_fewer_deciding(status.track);
 		let now = frame_system::Pallet::<T>::block_number();
 		let info = if approved {
-			ReferendumInfo::Approved(now, Some(status.submission_deposit), status.decision_deposit)
+			ReferendumInfo::Approved {
+				when: now,
+				submission_deposit: Some(status.submission_deposit),
+				decision_deposit: status.decision_deposit,
+			}
 		} else {
-			ReferendumInfo::Rejected(now, Some(status.submission_deposit), status.decision_deposit)
+			ReferendumInfo::Rejected {
+				when: now,
+				submission_deposit: Some(status.submission_deposit),
+				decision_deposit: status.decision_deposit,
+			}
 		};
 		ReferendumInfoFor::<T, I>::insert(index, info);
 		Ok(())

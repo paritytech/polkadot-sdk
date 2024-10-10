@@ -210,7 +210,7 @@ benchmarks_instance_pallet! {
 		DispatchTime::After(0u32.into())
 	) verify {
 		let index = ReferendumCount::<T, I>::get().checked_sub(1).unwrap();
-		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Ongoing(_)));
+		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Ongoing{..}));
 	}
 
 	place_decision_deposit_preparing {
@@ -219,7 +219,7 @@ benchmarks_instance_pallet! {
 		let index = create_referendum::<T, I>(origin.clone());
 	}: place_decision_deposit<T::RuntimeOrigin>(origin, index)
 	verify {
-		assert!(Referenda::<T, I>::ensure_ongoing(index).unwrap().decision_deposit.is_some());
+		assert!(Referenda::<T, I>::ensure_ongoing(index).unwrap().decision_deposit.is_fully_collected());
 	}
 
 	place_decision_deposit_queued {
@@ -281,7 +281,7 @@ benchmarks_instance_pallet! {
 		));
 	}: _<T::RuntimeOrigin>(origin, index)
 	verify {
-		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled(_, _, None)));
+		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled { decision_deposit, .. }) if decision_deposit.collected_deposit.is_zero());
 	}
 
 	refund_submission_deposit {
@@ -295,10 +295,10 @@ benchmarks_instance_pallet! {
 				.expect("CancelOrigin has no successful origin required for the benchmark"),
 			index,
 		));
-		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled(_, Some(_), _)));
+		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled{ submission_deposit: Some(_), .. }));
 	}: _<T::RuntimeOrigin>(origin, index)
 	verify {
-		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled(_, None, _)));
+		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled{ submission_deposit: None, .. }));
 		let new_balance = T::Currency::free_balance(&caller);
 		// the deposit is zero or make sure it was unreserved.
 		assert!(T::SubmissionDeposit::get().is_zero() || new_balance > balance);
@@ -313,7 +313,7 @@ benchmarks_instance_pallet! {
 		T::CancelOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 		index
 	) verify {
-		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled(..)));
+		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled{..}));
 	}
 
 	kill {
@@ -325,7 +325,7 @@ benchmarks_instance_pallet! {
 		T::KillOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 		index
 	) verify {
-		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Killed(..)));
+		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Killed{..}));
 	}
 
 	one_fewer_deciding_queue_empty {
@@ -516,7 +516,7 @@ benchmarks_instance_pallet! {
 	}: nudge_referendum(RawOrigin::Root, index)
 	verify {
 		let info = ReferendumInfoFor::<T, I>::get(index).unwrap();
-		assert_matches!(info, ReferendumInfo::TimedOut(..));
+		assert_matches!(info, ReferendumInfo::TimedOut{ .. });
 	}
 
 	nudge_referendum_begin_deciding_failing {
@@ -614,7 +614,7 @@ benchmarks_instance_pallet! {
 	}: nudge_referendum(RawOrigin::Root, index)
 	verify {
 		let info = ReferendumInfoFor::<T, I>::get(index).unwrap();
-		assert_matches!(info, ReferendumInfo::Approved(..));
+		assert_matches!(info, ReferendumInfo::Approved{..});
 	}
 
 	nudge_referendum_rejected {
@@ -629,7 +629,7 @@ benchmarks_instance_pallet! {
 	}: nudge_referendum(RawOrigin::Root, index)
 	verify {
 		let info = ReferendumInfoFor::<T, I>::get(index).unwrap();
-		assert_matches!(info, ReferendumInfo::Rejected(..));
+		assert_matches!(info, ReferendumInfo::Rejected { .. });
 	}
 
 	set_some_metadata {
