@@ -44,7 +44,12 @@ pub mod bench {
 	#[cfg(feature = "riscv")]
 	macro_rules! fixture {
 		($name: literal) => {
-			include_bytes!(concat!(env!("OUT_DIR"), "/", $name, ".polkavm"))
+			include_bytes!(concat!(
+				env!("CARGO_WORKSPACE_ROOT_DIR"),
+				"target/pallet-revive-fixtures/",
+				$name,
+				".polkavm"
+			))
 		};
 	}
 	#[cfg(not(feature = "riscv"))]
@@ -65,14 +70,5 @@ pub mod bench {
 			.expect("Benchmark fixture contains this pattern; qed");
 		dummy[idx..idx + 4].copy_from_slice(&replace_with.to_le_bytes());
 		dummy
-	}
-}
-
-#[cfg(test)]
-mod test {
-	#[test]
-	fn out_dir_should_have_compiled_mocks() {
-		let out_dir: std::path::PathBuf = env!("OUT_DIR").into();
-		assert!(out_dir.join("dummy.polkavm").exists());
 	}
 }
