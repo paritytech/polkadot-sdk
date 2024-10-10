@@ -9,14 +9,12 @@ use std::sync::Arc;
 
 use parachain_template_runtime::{opaque::Block, AccountId, Balance, Nonce};
 
-use polkadot_sdk::{
-	pallet_transaction_payment_rpc,
-	sc_transaction_pool_api::TransactionPool,
-	sp_api::ProvideRuntimeApi,
-	sp_block_builder::BlockBuilder,
-	sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata},
-	substrate_frame_rpc_system,
-};
+use polkadot_sdk::*;
+
+use sc_transaction_pool_api::TransactionPool;
+use sp_api::ProvideRuntimeApi;
+use sp_block_builder::BlockBuilder;
+use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;

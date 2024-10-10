@@ -16,13 +16,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
-polkadot-sdk = { workspace = true, default-features = false, features = [
+frame = { workspace = true, default-features = false, features = [
 	"experimental",
 	"runtime",
 ] }
 
 [features]
 default = ["std"]
-runtime-benchmarks = ["polkadot-sdk/runtime-benchmarks"]
-std = ["codec/std", "polkadot-sdk/std", "scale-info/std"]
-try-runtime = ["polkadot-sdk/try-runtime"]
+runtime-benchmarks = ["frame/runtime-benchmarks"]
+std = ["codec/std", "frame/std", "scale-info/std"]
+try-runtime = ["frame/try-runtime"]

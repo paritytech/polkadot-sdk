@@ -1,7 +1,7 @@
 //! Benchmarking setup for pallet-template
 
 use super::*;
-use polkadot_sdk::{frame_benchmarking::v2::*, frame_system};
+use frame::{deps::frame_benchmarking::v2::*, prelude::*};
 
 #[benchmarks]
 mod benchmarks {

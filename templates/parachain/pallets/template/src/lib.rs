@@ -66,19 +66,17 @@ mod benchmarking;
 // To see a full list of `pallet` macros and their use cases, see:
 // <https://paritytech.github.io/polkadot-sdk/master/pallet_example_kitchensink/index.html>
 // <https://paritytech.github.io/polkadot-sdk/master/frame_support/pallet_macros/index.html>
-#[polkadot_sdk::frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
-	use polkadot_sdk::{
-		frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*, DefaultNoBound},
-		frame_system::pallet_prelude::*,
-		sp_runtime::traits::{CheckedAdd, One},
+	use frame::{
+		arithmetic::{CheckedAdd, One},
+		prelude::*,
 	};
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: polkadot_sdk::frame_system::Config {
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
+	pub trait Config: frame_system::Config {
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// A type representing the weights required by the dispatchables of this pallet.
 		type WeightInfo: crate::weights::WeightInfo;

@@ -1,9 +1,8 @@
+use polkadot_sdk::*;
+
 use parachain_template_runtime as runtime;
-use polkadot_sdk::{
-	sc_chain_spec::{self, ChainSpecExtension, ChainSpecGroup},
-	sc_service::{self, ChainType},
-	sp_genesis_builder,
-};
+use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
+use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.

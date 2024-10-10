@@ -2,7 +2,7 @@
 
 #![warn(missing_docs)]
 
-use polkadot_sdk::sc_cli;
+use polkadot_sdk::*;
 
 mod chain_spec;
 mod cli;

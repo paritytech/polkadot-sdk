@@ -29,8 +29,7 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use polkadot_sdk::frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
-use polkadot_sdk::frame_system;
+use frame::{deps::frame_support::weights::constants::RocksDbWeight, prelude::*};
 use core::marker::PhantomData;
 
 /// Weight functions needed for pallet_template.

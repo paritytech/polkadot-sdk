@@ -2,15 +2,16 @@ use crate::{
 	AccountId, BalancesConfig, CollatorSelectionConfig, ParachainInfoConfig, PolkadotXcmConfig,
 	RuntimeGenesisConfig, SessionConfig, SessionKeys, SudoConfig, EXISTENTIAL_DEPOSIT,
 };
+
 use alloc::{vec, vec::Vec};
-use polkadot_sdk::{
-	cumulus_primitives_core::ParaId,
-	parachains_common::{genesis_config_helpers::*, AuraId},
-	sp_core::sr25519,
-	sp_genesis_builder::{self, PresetId},
-	staging_xcm as xcm,
-};
+
+use polkadot_sdk::{staging_xcm as xcm, *};
+
+use cumulus_primitives_core::ParaId;
+use parachains_common::{genesis_config_helpers::*, AuraId};
 use serde_json::Value;
+use sp_core::sr25519;
+use sp_genesis_builder::PresetId;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
