@@ -92,7 +92,7 @@ pub mod pallet3 {
 	pub struct Pallet<T>(_);
 
 	// Associated types are not collected by default.
-	#[pallet::config(without_metadata)]
+	#[pallet::config(without_automatic_metadata)]
 	pub trait Config: frame_system::Config {
 		// Runtime events already propagated to the metadata.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;

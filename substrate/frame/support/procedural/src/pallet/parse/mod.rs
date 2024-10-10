@@ -109,13 +109,13 @@ impl Def {
 			let pallet_attr: Option<PalletAttr> = helper::take_first_item_pallet_attr(item)?;
 
 			match pallet_attr {
-				Some(PalletAttr::Config{ with_default, without_metadata, ..}) if config.is_none() =>
+				Some(PalletAttr::Config{ with_default, without_automatic_metadata, ..}) if config.is_none() =>
 					config = Some(config::ConfigDef::try_from(
 						&frame_system,
 						index,
 						item,
 						with_default,
-						without_metadata,
+						without_automatic_metadata,
 					)?),
 				Some(PalletAttr::Pallet(span)) if pallet_struct.is_none() => {
 					let p = pallet_struct::PalletStructDef::try_from(span, index, item)?;
@@ -549,7 +549,7 @@ mod keyword {
 	syn::custom_keyword!(event);
 	syn::custom_keyword!(config);
 	syn::custom_keyword!(with_default);
-	syn::custom_keyword!(without_metadata);
+	syn::custom_keyword!(without_automatic_metadata);
 	syn::custom_keyword!(hooks);
 	syn::custom_keyword!(inherent);
 	syn::custom_keyword!(error);
@@ -568,8 +568,8 @@ mod keyword {
 enum ConfigValue {
 	/// `#[pallet::config(with_default)]`
 	WithDefault(keyword::with_default),
-	/// `#[pallet::config(without_metadata)]`
-	WithoutMetadata(keyword::without_metadata),
+	/// `#[pallet::config(without_automatic_metadata)]`
+	WithoutMetadata(keyword::without_automatic_metadata),
 }
 
 impl syn::parse::Parse for ConfigValue {
@@ -578,8 +578,8 @@ impl syn::parse::Parse for ConfigValue {
 
 		if lookahead.peek(keyword::with_default) {
 			input.parse().map(ConfigValue::WithDefault)
-		} else if lookahead.peek(keyword::without_metadata) {
-			input.parse().map(ConfigValue::WithoutMetadata)
+		} else if lookahead.peek(keyword::without_automatic_metadata) {
+			input.parse().map(ConfigValue::WithoutAutomaticMetadata)
 		} else {
 			Err(lookahead.error())
 		}
@@ -592,7 +592,7 @@ enum PalletAttr {
 	Config {
 		span: proc_macro2::Span,
 		with_default: bool,
-		without_metadata: bool,
+		without_automatic_metadata: bool,
 	},
 	Pallet(proc_macro2::Span),
 	Hooks(proc_macro2::Span),
@@ -693,7 +693,7 @@ impl syn::parse::Parse for PalletAttr {
 			if content.peek(syn::token::Paren) {
 				let inside_config;
 
-				// Parse (with_default, without_metadata) attributes.
+				// Parse (with_default, without_automatic_metadata) attributes.
 				let _paren = syn::parenthesized!(inside_config in content);
 
 				let fields: syn::punctuated::Punctuated<ConfigValue, syn::Token![,]> =
@@ -703,15 +703,15 @@ impl syn::parse::Parse for PalletAttr {
 				let frequencies = config_values.iter().fold(HashMap::new(), |mut map, val| {
 					let string_name = match val {
 						ConfigValue::WithDefault(_) => "with_default",
-						ConfigValue::WithoutMetadata(_) => "without_metadata",
+						ConfigValue::WithoutAutomaticMetadata(_) => "without_automatic_metadata",
 					}
 					.to_string();
 					map.entry(string_name).and_modify(|frq| *frq += 1).or_insert(1);
 					map
 				});
 				let with_default = frequencies.get("with_default").copied().unwrap_or(0) > 0;
-				let without_metadata =
-					frequencies.get("without_metadata").copied().unwrap_or(0) > 0;
+				let without_automatic_metadata =
+					frequencies.get("without_automatic_metadata").copied().unwrap_or(0) > 0;
 
 				let duplicates = frequencies
 					.into_iter()
@@ -722,9 +722,13 @@ impl syn::parse::Parse for PalletAttr {
 					return Err(syn::Error::new(span, msg));
 				}
 
-				Ok(PalletAttr::Config { span, with_default, without_metadata })
+				Ok(PalletAttr::Config { span, with_default, without_automatic_metadata })
 			} else {
-				Ok(PalletAttr::Config { span, with_default: false, without_metadata: false })
+				Ok(PalletAttr::Config {
+					span,
+					with_default: false,
+					without_automatic_metadata: false,
+				})
 			}
 		} else if lookahead.peek(keyword::pallet) {
 			Ok(PalletAttr::Pallet(content.parse::<keyword::pallet>()?.span()))

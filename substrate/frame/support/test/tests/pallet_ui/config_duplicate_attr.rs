@@ -20,7 +20,7 @@ mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	#[pallet::config(with_default, without_metadata, without_metadata)]
+	#[pallet::config(with_default, without_automatic_metadata, without_automatic_metadata)]
 	pub trait Config: frame_system::Config {
 		#[pallet::constant]
 		type MyGetParam2: Get<u32>;
