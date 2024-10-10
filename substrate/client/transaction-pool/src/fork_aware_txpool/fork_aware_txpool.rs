@@ -967,9 +967,9 @@ where
 		Some(view)
 	}
 
-	/// Returns the list of xts included in all block ancestors, excluding the block itself.
+	/// Returns the list of xts included in all block ancestors, including the block itself.
 	///
-	/// For the following chain `F<-B1<-B2<-B3` xts from `F,B1,B2` will be returned.
+	/// Example: for the following chain `F<-B1<-B2<-B3` xts from `F,B1,B2,B3` will be returned.
 	async fn extrinsics_included_since_finalized(&self, at: Block::Hash) -> HashSet<TxHash<Self>> {
 		let start = Instant::now();
 		let recent_finalized_block = self.enactment_state.lock().recent_finalized_block();
@@ -981,7 +981,7 @@ where
 		let api = self.api.clone();
 		let mut all_extrinsics = HashSet::new();
 
-		for h in tree_route.enacted().iter().rev().skip(1) {
+		for h in tree_route.enacted().iter().rev() {
 			api.block_body(h.hash)
 				.await
 				.unwrap_or_else(|e| {
@@ -1023,7 +1023,6 @@ where
 			self.mempool.unwatched_and_watched_count(),
 			self.active_views_count()
 		);
-		let view = Arc::from(view);
 
 		//todo [#5495]: maybe we don't need to register listener in view? We could use
 		// multi_view_listener.transaction_in_block
@@ -1032,13 +1031,13 @@ where
 			.clone_watched()
 			.into_iter()
 			.map(|(tx_hash, tx)| {
-				let view = view.clone();
+				let watcher = view.create_watcher(tx_hash);
+				let at = view.at.clone();
 				async move {
-					let watcher = view.create_watcher(tx_hash);
-					log::trace!(target: LOG_TARGET, "[{:?}] adding watcher {:?}", tx_hash, view.at.hash);
+					log::trace!(target: LOG_TARGET, "[{:?}] adding watcher {:?}", tx_hash, at.hash);
 					self.view_store.listener.add_view_watcher_for_tx(
 						tx_hash,
-						view.at.hash,
+						at.hash,
 						watcher.into_stream().boxed(),
 					);
 					(tx_hash, tx)
