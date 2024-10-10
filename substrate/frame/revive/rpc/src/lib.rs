@@ -163,7 +163,7 @@ impl EthRpcServer for EthRpcServerImpl {
 			storage_deposit,
 			transact_kind.into(),
 		);
-		let ext = self.client.tx().create_unsigned(&call).map_err(|err| ClientError::from(err))?;
+		let ext = self.client.tx().create_unsigned(&call).map_err(ClientError::from)?;
 		let hash = ext.submit().await.map_err(|err| EthRpcError::ClientError(err.into()))?;
 
 		Ok(hash)
