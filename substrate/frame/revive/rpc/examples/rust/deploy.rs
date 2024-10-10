@@ -33,10 +33,6 @@ async fn main() -> anyhow::Result<()> {
 	println!("- Gas used: {gas_used}");
 	println!("- Contract address: {contract_address:?}");
 
-	if std::env::var("SKIP_CALL").is_ok() {
-		return Ok(())
-	}
-
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 	println!("\n\n=== Calling contract ===\n\n");
 
