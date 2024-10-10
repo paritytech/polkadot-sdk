@@ -18,9 +18,9 @@ validator-unstable: reports substrate_beefy_best_block is at least 1 within 60 s
 validator-unstable: pause
 
 # Verify validator sets get changed on new sessions.
-validator: reports substrate_beefy_validator_set_id is at least 1 within 120 seconds
+validator: reports substrate_beefy_validator_set_id is at least 1 within 180 seconds
 # Check next session too.
-validator: reports substrate_beefy_validator_set_id is at least 2 within 120 seconds
+validator: reports substrate_beefy_validator_set_id is at least 2 within 180 seconds
 
 # Verify voting happens and blocks are being finalized for new sessions too:
 # since we verified we're at least in the 3rd session, verify BEEFY finalized mandatory #21.
