@@ -967,16 +967,7 @@ impl ValidationBackend for ValidationHost {
 	) -> Result<WasmValidationResult, ValidationError> {
 		let (tx, rx) = oneshot::channel();
 		if let Err(err) = self
-			.execute_pvf(
-				pvf,
-				exec_timeout,
-				exec_ttl,
-				pvd,
-				pov,
-				prepare_priority,
-				exec_kind,
-				tx,
-			)
+			.execute_pvf(pvf, exec_timeout, exec_ttl, pvd, pov, prepare_priority, exec_kind, tx)
 			.await
 		{
 			return Err(InternalValidationError::HostCommunication(format!(
