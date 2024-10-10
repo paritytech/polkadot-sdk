@@ -14,7 +14,7 @@ use crate::{
 	Pallet as EthereumBeaconClient,
 };
 use frame_benchmarking::v2::*;
-use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
+use frame_support::weights::WeightMeter;
 use frame_system::RawOrigin;
 use hex_literal::hex;
 
