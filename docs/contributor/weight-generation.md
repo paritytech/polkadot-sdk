@@ -40,7 +40,7 @@ For Substrate pallets (supports sub-modules too):
 > So might be quick, but might also take up to 10 mins (That's in control of Github).  
 > Once the action is run, you'll see reaction 👀 on original comment, and if you didn't pass `--quiet` -
 > it will also send a link to a pipeline when started, and link to whole workflow when finished.
-
+>
 > **📝 Note**: It will try keep benchmarking even if some pallets failed, with the result of failed/successful pallets.
 >
 > If you want to fail fast on first failed benchmark, add `--fail-fast` flag to the command.
