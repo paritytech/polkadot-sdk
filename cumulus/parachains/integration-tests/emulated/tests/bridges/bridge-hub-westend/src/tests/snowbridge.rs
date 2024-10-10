@@ -180,7 +180,6 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 
-		let message_id: H256 = [0; 32].into();
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
 			command: Command::SendToken {
