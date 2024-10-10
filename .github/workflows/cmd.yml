@@ -372,8 +372,12 @@ jobs:
 
           if [ -f /tmp/cmd/command_output.log ]; then
             CMD_OUTPUT=$(cat /tmp/cmd/command_output.log)
-            echo "cmd_output=$CMD_OUTPUT" >> $GITHUB_OUTPUT
+            # export to summary to display in the PR
             echo "$CMD_OUTPUT" >> $GITHUB_STEP_SUMMARY
+            # should be multiline, otherwise it captures the first line only
+            echo 'cmd_output<<EOF' >> $GITHUB_OUTPUT
+            echo "$CMD_OUTPUT" >> $GITHUB_OUTPUT
+            echo 'EOF' >> $GITHUB_OUTPUT
           fi
 
       - name: Upload command output
@@ -435,6 +439,7 @@ jobs:
             let runUrl = ${{ steps.build-link.outputs.run_url }}
             let subweight = process.env.SUBWEIGHT;
             let cmdOutput = process.env.CMD_OUTPUT;
+            console.log(cmdOutput);
 
             let subweightCollapsed = subweight.trim() !== '' 
               ? `<details>\n\n<summary>Subweight results:</summary>\n\n${subweight}\n\n</details>` 
