@@ -520,7 +520,7 @@ pub mod pallet {
 			let track =
 				T::Tracks::track_for(&proposal_origin).map_err(|_| Error::<T, I>::NoTrack)?;
 			let track_info = T::Tracks::info(track).ok_or(Error::<T, I>::BadTrack)?;
-			let submission_deposit = Self::take_deposit(who, T::SubmissionDeposit::get())?.into();
+			let submission_deposit = Self::take_deposit(&who, T::SubmissionDeposit::get())?;
 			let index = ReferendumCount::<T, I>::mutate(|x| {
 				let r = *x;
 				*x += 1;
@@ -535,7 +535,7 @@ pub mod pallet {
 				proposal: proposal.clone(),
 				enactment: enactment_moment,
 				submitted: now,
-				submission_deposit,
+				submission_deposit: (who, submission_deposit).into(),
 				decision_deposit: DecisionDeposit::new(track_info.decision_deposit.clone()),
 				deciding: None,
 				tally: TallyOf::<T, I>::new(track),
@@ -575,11 +575,11 @@ pub mod pallet {
 		///
 		/// Emits `DecisionDepositRefunded`.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::refund_decision_deposit())]
+		#[pallet::weight(T::WeightInfo::refund_decision_deposit(T::MaxDepositContributions::get()))]
 		pub fn refund_decision_deposit(
 			origin: OriginFor<T>,
 			index: ReferendumIndex,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			ensure_signed_or_root(origin)?;
 			let mut info =
 				ReferendumInfoFor::<T, I>::get(index).ok_or(Error::<T, I>::BadReferendum)?;
@@ -588,6 +588,7 @@ pub mod pallet {
 				.map_err(|_| Error::<T, I>::Unfinished)?
 				.ok_or(Error::<T, I>::NoDeposit)?;
 
+			let num_contributors = deposit.contributors.len() as u32;
 			deposit.contributors.into_iter().for_each(|(who, amount)| {
 				Self::refund_deposit(&who, amount.clone());
 
@@ -595,7 +596,7 @@ pub mod pallet {
 				Self::deposit_event(e);
 			});
 			ReferendumInfoFor::<T, I>::insert(index, info);
-			Ok(())
+			Ok(Some(T::WeightInfo::refund_decision_deposit(num_contributors)).into())
 		}
 
 		/// Cancel an ongoing referendum.
@@ -954,7 +955,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					decreased_by: old_deposit - deposit,
 				});
 			} else {
-				Self::take_deposit(contributor.clone(), deposit - old_deposit)?;
+				Self::take_deposit(&contributor, deposit - old_deposit)?;
 				status.decision_deposit.collected_deposit += deposit - old_deposit;
 
 				Self::deposit_event(Event::DecisionDepositContributionIncreased {
@@ -975,6 +976,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				.try_insert(pos, (contributor.clone(), deposit))
 				.expect("We just removed an element, so there is space; qed");
 		} else {
+			Self::take_deposit(&contributor, deposit)?;
 			let pos = status
 				.decision_deposit
 				.contributors
@@ -1433,11 +1435,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Reserve a deposit and return the `Deposit` instance.
 	fn take_deposit(
-		who: T::AccountId,
+		who: &T::AccountId,
 		amount: BalanceOf<T, I>,
-	) -> Result<(T::AccountId, BalanceOf<T, I>), DispatchError> {
-		T::Currency::reserve(&who, amount)?;
-		Ok((who, amount))
+	) -> Result<BalanceOf<T, I>, DispatchError> {
+		T::Currency::reserve(who, amount)?;
+		Ok(amount)
 	}
 
 	/// Return a deposit, if `Some`.
@@ -1447,7 +1449,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Slash a deposit, if `Some`.
 	fn slash_deposit(who: T::AccountId, amount: BalanceOf<T, I>) {
-		T::Slash::on_unbalanced(T::Currency::slash_reserved(&who, amount).0);
+		T::Slash::on_unbalanced(T::Currency::slash_reserved(dbg!(&who), dbg!(amount)).0);
 		Self::deposit_event(Event::<T, I>::DepositSlashed { who, amount });
 	}
 

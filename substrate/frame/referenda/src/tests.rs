@@ -47,6 +47,7 @@ fn basic_happy_path_works() {
 		assert_eq!(Balances::reserved_balance(&1), 2);
 		assert_eq!(ReferendumCount::<Test>::get(), 1);
 		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+		assert_eq!(Balances::reserved_balance(&2), 10);
 		run_to(4);
 		assert_eq!(DecidingCount::<Test>::get(0), 0);
 		run_to(5);
@@ -536,12 +537,16 @@ fn kill_works() {
 			DispatchTime::At(10),
 		));
 		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+		assert_eq!(Balances::total_balance(&2), 100);
 
 		run_to(8);
 		assert_ok!(Referenda::kill(RuntimeOrigin::root(), 0));
-		let e = Error::<Test>::NoDeposit;
-		assert_noop!(Referenda::refund_decision_deposit(RuntimeOrigin::signed(3), 0), e);
+		assert_noop!(
+			Referenda::refund_decision_deposit(RuntimeOrigin::signed(2), 0),
+			Error::<Test>::NoDeposit
+		);
 		assert_eq!(killed_since(0), 8);
+		assert_eq!(Balances::total_balance(&2), 90);
 	});
 }
 

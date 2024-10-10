@@ -57,7 +57,7 @@ pub trait WeightInfo {
 	fn place_decision_deposit_not_queued() -> Weight;
 	fn place_decision_deposit_passing() -> Weight;
 	fn place_decision_deposit_failing() -> Weight;
-	fn refund_decision_deposit() -> Weight;
+	fn refund_decision_deposit(n: u32,) -> Weight;
 	fn refund_submission_deposit() -> Weight;
 	fn cancel() -> Weight;
 	fn kill() -> Weight;
@@ -190,7 +190,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Referenda::ReferendumInfoFor` (r:1 w:1)
 	/// Proof: `Referenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(366), added: 2841, mode: `MaxEncodedLen`)
-	fn refund_decision_deposit() -> Weight {
+	fn refund_decision_deposit(_: u32,) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `417`
 		//  Estimated: `3831`
@@ -626,7 +626,7 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Referenda::ReferendumInfoFor` (r:1 w:1)
 	/// Proof: `Referenda::ReferendumInfoFor` (`max_values`: None, `max_size`: Some(366), added: 2841, mode: `MaxEncodedLen`)
-	fn refund_decision_deposit() -> Weight {
+	fn refund_decision_deposit(_: u32,) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `417`
 		//  Estimated: `3831`

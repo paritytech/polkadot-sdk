@@ -70,6 +70,23 @@ fn place_deposit<T: Config<I>, I: 'static>(index: ReferendumIndex) {
 	assert_ok!(Referenda::<T, I>::place_decision_deposit(RawOrigin::Signed(caller).into(), index));
 }
 
+fn contribute_decision_deposit<T: Config<I>, I: 'static>(index: ReferendumIndex, num: u32) {
+	let track = T::Tracks::track_for(&RawOrigin::Root.into()).unwrap();
+	let track_info = T::Tracks::info(track).unwrap();
+	let per_contributor_deposit =
+		(track_info.decision_deposit + num.into() - 1u32.into()) / num.into();
+
+	for i in 0..num {
+		let caller = funded_account::<T, I>("caller", i);
+		whitelist_account!(caller);
+		assert_ok!(Referenda::<T, I>::contribute_decision_deposit(
+			RawOrigin::Signed(caller).into(),
+			index,
+			per_contributor_deposit
+		));
+	}
+}
+
 fn nudge<T: Config<I>, I: 'static>(index: ReferendumIndex) {
 	assert_ok!(Referenda::<T, I>::nudge_referendum(RawOrigin::Root.into(), index));
 }
@@ -270,10 +287,13 @@ benchmarks_instance_pallet! {
 	}
 
 	refund_decision_deposit {
+		let n in 1..T::MaxDepositContributions::get();
+
 		let origin =
 			T::SubmitOrigin::try_successful_origin(&RawOrigin::Root.into()).map_err(|_| BenchmarkError::Weightless)?;
 		let index = create_referendum::<T, I>(origin.clone());
-		place_deposit::<T, I>(index);
+
+		contribute_decision_deposit::<T, I>(index, n);
 		assert_ok!(Referenda::<T, I>::cancel(
 			T::CancelOrigin::try_successful_origin()
 				.expect("CancelOrigin has no successful origin required for the benchmark"),
