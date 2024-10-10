@@ -539,10 +539,12 @@ impl Client {
 	) -> Result<Vec<u8>, ClientError> {
 		let runtime_api = self.runtime_api(&block).await?;
 
-		let mut bytes = [0u8; 32];
-		key.to_big_endian(&mut bytes);
+		// TODO: remove once subxt is updated
+		let contract_address = contract_address.0.into();
 
-		let payload = subxt_client::apis().revive_api().get_storage(contract_address, bytes);
+		let payload = subxt_client::apis()
+			.revive_api()
+			.get_storage(contract_address, key.to_big_endian());
 		let result = runtime_api.call(payload).await?.unwrap_or_default().unwrap_or_default();
 		Ok(result)
 	}
@@ -555,7 +557,8 @@ impl Client {
 	) -> Result<Vec<u8>, ClientError> {
 		let storage_api = self.storage_api(&block).await?;
 		let account_id = self.account_id(contract_address);
-		let code_hash: H256 = account_id.0.into();
+		let code_hash: subxt::utils::H256 = account_id.0.into();
+
 		let query = subxt_client::storage().revive().pristine_code(code_hash);
 		let result = storage_api.fetch(&query).await?.map(|v| v.0).unwrap_or_default();
 		Ok(result)
@@ -575,9 +578,13 @@ impl Client {
 			.try_into()
 			.map_err(|_| ClientError::ConversionFailed)?;
 
+		// TODO: remove once subxt is updated
+		let from = from.0.into();
+		let to = tx.to.map(|v| v.0.into());
+
 		let payload = subxt_client::apis().revive_api().eth_transact(
 			from,
-			tx.to,
+			to,
 			value,
 			tx.input.clone().unwrap_or_default().0,
 			None,
@@ -693,17 +700,23 @@ impl Client {
 
 		let header = block.header();
 		let timestamp = extract_block_timestamp(&block).await.unwrap_or_default();
+
+		// TODO: remove once subxt is updated
+		let parent_hash = header.parent_hash.0.into();
+		let state_root = header.state_root.0.into();
+		let extrinsics_root = header.extrinsics_root.0.into();
+
 		Ok(Block {
 			hash: block.hash(),
-			parent_hash: header.parent_hash,
-			state_root: header.state_root,
-			transactions_root: header.extrinsics_root,
+			parent_hash,
+			state_root,
+			transactions_root: extrinsics_root,
 			number: header.number.into(),
 			timestamp: timestamp.into(),
 			difficulty: Some(0u32.into()),
 			gas_limit,
 			logs_bloom: Bytes256([0u8; 256]),
-			receipts_root: header.extrinsics_root,
+			receipts_root: extrinsics_root,
 			..Default::default()
 		})
 	}

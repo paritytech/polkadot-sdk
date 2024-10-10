@@ -14,20 +14,29 @@ This command starts the Ethereum JSON-RPC server, by default it runs on `localho
 RUST_LOG="info,eth-rpc=debug" cargo run -p pallet-revive-eth-rpc --features dev
 ```
 
-## Send a transaction using provided examples
+## Rust examples
 
-You can run one of the examples from the `examples` directory to send a transaction to the node.
+Run one of the examples from the `examples` directory to send a transaction to the node.
 
 ```bash
 RUST_LOG="info,eth-rpc=debug" cargo run -p pallet-revive-eth-rpc --features example --example deploy
 ```
 
-## Interact with the node using MetaMask & Ether.js
+## JS examples
 
-Start the Ether.js demo server, and open the demo Ether.js web page at `http://localhost:3000`
+Interact with the node using MetaMask & Ether.js, by starting the example web app.
 
 ```bash
-cd substrate/frame/revive/rpc/demo && yarn && yarn dev
+cd substrate/frame/revive/rpc/examples/js
+bun install
+bun run dev
+```
+
+Alternatively, you can run the example script directly.
+
+```bash
+cd substrate/frame/revive/rpc/examples/js
+bun src/script.ts
 ```
 
 ### Configure MetaMask

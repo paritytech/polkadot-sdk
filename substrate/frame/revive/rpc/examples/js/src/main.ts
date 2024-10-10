@@ -1,4 +1,10 @@
-import { BrowserProvider, Contract, ContractFactory, JsonRpcSigner, parseEther, encodeRlp, AddressLike, getBytes } from 'ethers';
+import { BrowserProvider, Contract, ContractFactory, JsonRpcSigner, parseEther, encodeRlp, AddressLike, getBytes, Eip1193Provider } from 'ethers';
+
+declare global {
+  interface Window {
+    ethereum?: Eip1193Provider;
+  }
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   if (typeof window.ethereum == 'undefined') {

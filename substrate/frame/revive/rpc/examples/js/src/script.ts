@@ -1,4 +1,6 @@
-//! Run with bun run demo.ts
+//! Run with one of
+// bun run script.ts
+// deno run --allow-all script.ts
 import { Contract, ContractFactory,  encodeRlp, getBytes, JsonRpcProvider } from 'ethers';
 
 const provider = new JsonRpcProvider('http://localhost:9090');
@@ -8,7 +10,7 @@ console.log(`Signer address: ${await signer.getAddress()}, Nonce: ${await signer
 function str_to_bytes(str: string): Uint8Array {
 	return new TextEncoder().encode(str);
 }
-debugger
+
 // deploy
 async function deploy() {
 	console.log(`Deploying Contract...`);
@@ -39,6 +41,4 @@ async function call(address: string) {
 }
 
 const address = await deploy()
-if (Deno.env.get('CALL') ) {
-	await call(address)
-}
+await call(address)
