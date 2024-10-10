@@ -72,6 +72,8 @@ pub mod v0_to_v1 {
 		weights::{constants::RocksDbWeight, WeightMeter},
 	};
 	use sp_core::Get;
+	#[cfg(feature = "try-runtime")]
+	use sp_runtime::TryRuntimeError;
 
 	pub const PALLET_MIGRATIONS_ID: &[u8; 26] = b"ethereum-execution-headers";
 
