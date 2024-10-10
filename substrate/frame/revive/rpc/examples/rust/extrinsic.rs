@@ -1,25 +1,9 @@
-use eth_rpc::{
-	subxt_client::{self, build_params, CheckEvmGasParam, SrcChainConfig},
-	MultiSignature,
-};
-use polkadot_sdk::sp_weights::Weight;
-use subxt::{tx::Signer, Config, OnlineClient};
+use pallet_revive_eth_rpc::subxt_client::{self, SrcChainConfig};
+use sp_weights::Weight;
+use subxt::OnlineClient;
 use subxt_signer::sr25519::dev;
 
 static DUMMY_BYTES: &[u8] = include_bytes!("./dummy.polkavm");
-struct SrcChainSigner(subxt_signer::sr25519::Keypair);
-impl Signer<SrcChainConfig> for SrcChainSigner {
-	fn account_id(&self) -> <SrcChainConfig as Config>::AccountId {
-		self.0.public_key().into()
-	}
-	fn address(&self) -> <SrcChainConfig as Config>::Address {
-		self.0.public_key().into()
-	}
-
-	fn sign(&self, signer_payload: &[u8]) -> <SrcChainConfig as Config>::Signature {
-		MultiSignature::Sr25519(self.0.sign(signer_payload).0.into())
-	}
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -38,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	let res = client
 		.tx()
-		.sign_and_submit_default_then_watch(&tx_payload, &SrcChainSigner(dev::alice()))
+		.sign_and_submit_then_watch_default(&tx_payload, &dev::alice())
 		.await?
 		.wait_for_finalized_success()
 		.await?;
