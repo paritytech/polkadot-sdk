@@ -67,6 +67,12 @@ pub enum EthRpcError {
 	/// The account was not found at the given address
 	#[error("Account not found for address {0:?}")]
 	AccountNotFound(H160),
+	/// Received an invalid transaction
+	#[error("Invalid transaction")]
+	InvalidTransaction,
+	/// Received an invalid transaction
+	#[error("Invalid transaction {0:?}")]
+	TransactionTypeNotSupported(Byte),
 }
 
 impl From<EthRpcError> for ErrorObjectOwned {
@@ -145,6 +151,44 @@ impl EthRpcServer for EthRpcServerImpl {
 		let hash = ext.submit().await.map_err(|err| EthRpcError::ClientError(err.into()))?;
 
 		Ok(hash)
+	}
+
+	async fn send_transaction(&self, transaction: GenericTransaction) -> RpcResult<H256> {
+		log::debug!(target: LOG_TARGET, "{transaction:#?}");
+		let GenericTransaction { from, gas, gas_price, input, to, value, r#type, .. } = transaction;
+
+		let Some(from) = from else {
+			log::debug!(target: LOG_TARGET, "Transaction must have a sender");
+			return Err(EthRpcError::InvalidTransaction.into());
+		};
+
+		let account = self
+			.accounts
+			.iter()
+			.find(|account| account.address() == from)
+			.ok_or(EthRpcError::AccountNotFound(from))?;
+
+		let gas_price = gas_price.unwrap_or_else(|| U256::from(GAS_PRICE));
+		let chain_id = Some(self.client.chain_id().into());
+		let input = input.unwrap_or_default();
+		let value = value.unwrap_or_default();
+		let r#type = r#type.unwrap_or_default();
+
+		let Some(gas) = gas else {
+			log::debug!(target: LOG_TARGET, "Transaction must have a gas limit");
+			return Err(EthRpcError::InvalidTransaction.into());
+		};
+
+		let r#type = Type0::try_from_byte(r#type.clone())
+			.map_err(|_| EthRpcError::TransactionTypeNotSupported(r#type))?;
+
+		let nonce = self.get_transaction_count(from, BlockTag::Latest.into()).await?;
+
+		let tx =
+			TransactionLegacyUnsigned { chain_id, gas, gas_price, input, nonce, to, value, r#type };
+		let tx = account.sign_transaction(tx);
+		let rlp_bytes = rlp::encode(&tx).to_vec();
+		self.send_raw_transaction(Bytes(rlp_bytes)).await
 	}
 
 	async fn get_block_by_hash(

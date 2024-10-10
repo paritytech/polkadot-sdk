@@ -146,6 +146,10 @@ pub trait EthRpc {
 	#[method(name = "eth_sendRawTransaction")]
 	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256>;
 
+	/// Signs and submits a transaction.
+	#[method(name = "eth_sendTransaction")]
+	async fn send_transaction(&self, transaction: GenericTransaction) -> RpcResult<H256>;
+
 	/// The string value of current network id
 	#[method(name = "net_version")]
 	async fn net_version(&self) -> RpcResult<String>;
