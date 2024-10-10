@@ -1099,6 +1099,8 @@ impl Stream for Peerset {
 								return None
 							}
 
+							self.peers.get_mut(peer).map(|state| state.set_reserved(Reserved::Yes));
+
 							std::matches!(
 								self.peers.get_mut(peer),
 								None | Some(PeerState::Disconnected)
