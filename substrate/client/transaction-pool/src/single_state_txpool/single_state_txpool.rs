@@ -230,30 +230,17 @@ where
 		timeout: std::time::Duration,
 	) -> PolledIterator<PoolApi> {
 		let timeout = futures_timer::Delay::new(timeout);
-		let ready_at = self.ready_at(at);
+		let ready_maintained = self.ready_at(at);
+		let ready_current = self.ready();
 
-		let fall_back_ready = {
-			let ready = self.ready();
-			async move { Some(ready) }
-		};
-
-		let maybe_ready = async {
+		let ready = async {
 			select! {
-				ready = ready_at => Some(ready),
-				_ = timeout => {
-					None
-				}
+				ready = ready_maintained => ready,
+				_ = timeout => ready_current
 			}
 		};
 
-		Box::pin(async move {
-			let results = futures::future::join(maybe_ready.boxed(), fall_back_ready.boxed()).await;
-			if let Some(ready) = results.0 {
-				ready
-			} else {
-				results.1.expect("Fallback value is always Some. qed")
-			}
-		})
+		Box::pin(ready)
 	}
 }
 
