@@ -135,6 +135,7 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 			None => watcher.dropped(),
 		});
 
+		//note: LimitEnforced could be introduced as new status to get rid of this flag.
 		if limits_enforced {
 			if let Some(ref sink) = self.dropped_by_limits_sink {
 				if let Err(e) = sink.unbounded_send((tx.clone(), TransactionStatus::Dropped)) {
