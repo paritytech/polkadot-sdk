@@ -136,7 +136,7 @@ where
 	/// accordingly.
 	///
 	/// If the event indicates that a transaction has been dropped and is no longer referenced by
-	/// any active views, the transaction hash is returned. Otherwise function returns `None`.
+	/// any active views, the transaction hash is returned. Otherwise `None` is returned.
 	fn handle_event(
 		&mut self,
 		block_hash: BlockHash<C>,

@@ -79,9 +79,9 @@ where
 			};
 			match payload {
 				WorkerPayload::RevalidateView(view, worker_channels) =>
-					(*view).revalidate(worker_channels).await,
+					view.revalidate(worker_channels).await,
 				WorkerPayload::RevalidateMempool(mempool, finalized_hash_and_number) =>
-					(*mempool).revalidate(finalized_hash_and_number).await,
+					mempool.revalidate(finalized_hash_and_number).await,
 			};
 		}
 	}

@@ -252,7 +252,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 		if ready_limit.is_exceeded(status.ready, status.ready_bytes) ||
 			future_limit.is_exceeded(status.future, status.future_bytes)
 		{
-			log::warn!(
+			log::debug!(
 				target: LOG_TARGET,
 				"Enforcing limits ({}/{}kB ready, {}/{}kB future",
 				ready_limit.count,

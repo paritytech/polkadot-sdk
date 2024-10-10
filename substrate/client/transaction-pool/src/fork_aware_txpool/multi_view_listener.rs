@@ -143,8 +143,6 @@ struct ExternalWatcherContext<ChainApi: graph::ChainApi> {
 	/// A flag indicating if a `Ready` status has been encountered.
 	ready_seen: bool,
 
-	/// A hash set of block hashes where the transaction is included.
-	in_block: HashSet<BlockHash<ChainApi>>,
 	/// A hash set of block hashes from views that consider the transaction valid.
 	views_keeping_tx_valid: HashSet<BlockHash<ChainApi>>,
 	/// The pending events to be sent.
@@ -170,7 +168,6 @@ where
 			future_seen: false,
 			ready_seen: false,
 			views_keeping_tx_valid: Default::default(),
-			in_block: Default::default(),
 			pending_events: Default::default(),
 		}
 	}
@@ -179,8 +176,7 @@ where
 	///
 	/// Function may set the context termination flag, which will close the stream.
 	///
-	/// Returns true if the event should be sent out, and false if the status update should be
-	/// skipped.
+	/// Returns `Some` with the `event` to forward or `None`.
 	fn handle(
 		&mut self,
 		status: TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>,
@@ -210,14 +206,12 @@ where
 				}
 			},
 			TransactionStatus::Broadcast(_) => None,
-			TransactionStatus::InBlock((block, _)) =>
+			TransactionStatus::InBlock((..)) =>
 				if !(self.ready_seen || self.future_seen) {
 					self.ready_seen = true;
-					self.in_block.insert(block);
 					self.pending_events.push(status);
 					Some(TransactionStatus::Ready)
 				} else {
-					self.in_block.insert(block);
 					Some(status)
 				},
 			TransactionStatus::Retracted(_) => {
@@ -327,44 +321,47 @@ where
 				}
 				loop {
 					tokio::select! {
-					biased;
-					Some((view_hash, status)) =  next_event(&mut ctx.status_stream_map) => {
-						if let Some(new_status) = ctx.handle(status, view_hash) {
-							log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: {new_status:?}", ctx.tx_hash);
-							return Some((new_status, ctx))
-						}
-					},
-					cmd = ctx.command_receiver.next() => {
-						log::trace!(target: LOG_TARGET, "[{:?}] select::rx views:{:?}", ctx.tx_hash, ctx.status_stream_map.keys().collect::<Vec<_>>());
-						match cmd? {
-							ControllerCommand::AddViewStream(h,stream) => {
-								ctx.add_stream(h, stream);
-							},
-							ControllerCommand::RemoveViewStream(h) => {
-								ctx.remove_view(h);
-							},
-							ControllerCommand::TransactionInvalidated => {
-								if ctx.handle_invalidate_transaction() {
-									log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Invalid", ctx.tx_hash);
-									return Some((TransactionStatus::Invalid, ctx))
-								}
-							},
-							ControllerCommand::FinalizeTransaction(block, index) => {
-								log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Finalized", ctx.tx_hash);
-								ctx.terminate = true;
-								return Some((TransactionStatus::Finalized((block, index)), ctx))
-							},
-							ControllerCommand::TransactionBroadcasted(peers) => {
-								log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Broadcasted", ctx.tx_hash);
-								return Some((TransactionStatus::Broadcast(peers), ctx))
-							},
-							ControllerCommand::TransactionDropped => {
-								log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Dropped", ctx.tx_hash);
-								ctx.terminate = true;
-								return Some((TransactionStatus::Dropped, ctx))
-							},
-						}
-					},
+						biased;
+						Some((view_hash, status)) =  next_event(&mut ctx.status_stream_map) => {
+							if let Some(new_status) = ctx.handle(status, view_hash) {
+								log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: {new_status:?}", ctx.tx_hash);
+								return Some((new_status, ctx))
+							}
+						},
+						cmd = ctx.command_receiver.next() => {
+							log::trace!(target: LOG_TARGET, "[{:?}] select::rx views:{:?}",
+								ctx.tx_hash,
+								ctx.status_stream_map.keys().collect::<Vec<_>>()
+							);
+							match cmd? {
+								ControllerCommand::AddViewStream(h,stream) => {
+									ctx.add_stream(h, stream);
+								},
+								ControllerCommand::RemoveViewStream(h) => {
+									ctx.remove_view(h);
+								},
+								ControllerCommand::TransactionInvalidated => {
+									if ctx.handle_invalidate_transaction() {
+										log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Invalid", ctx.tx_hash);
+										return Some((TransactionStatus::Invalid, ctx))
+									}
+								},
+								ControllerCommand::FinalizeTransaction(block, index) => {
+									log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Finalized", ctx.tx_hash);
+									ctx.terminate = true;
+									return Some((TransactionStatus::Finalized((block, index)), ctx))
+								},
+								ControllerCommand::TransactionBroadcasted(peers) => {
+									log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Broadcasted", ctx.tx_hash);
+									return Some((TransactionStatus::Broadcast(peers), ctx))
+								},
+								ControllerCommand::TransactionDropped => {
+									log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Dropped", ctx.tx_hash);
+									ctx.terminate = true;
+									return Some((TransactionStatus::Dropped, ctx))
+								},
+							}
+						},
 					};
 				}
 			})
@@ -447,7 +444,6 @@ where
 		&self,
 		propagated: HashMap<ExtrinsicHash<ChainApi>, Vec<String>>,
 	) {
-		// pub fn on_broadcasted(&self, propagated: HashMap<ExtrinsicHash<B>, Vec<String>>) {
 		let mut controllers = self.controllers.write();
 
 		for (tx_hash, peers) in propagated {

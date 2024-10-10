@@ -152,8 +152,6 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 
 	/// Transaction was pruned from the pool.
 	pub fn pruned(&mut self, block_hash: BlockHash<C>, tx: &H) {
-		// trace!(target: LOG_TARGET, "[{:?}] Pruned at {:?} {:#?}", tx, block_hash,
-		// std::backtrace::Backtrace::force_capture());
 		trace!(target: LOG_TARGET, "[{:?}] Pruned at {:?}", tx, block_hash);
 		// Get the transactions included in the given block hash.
 		let txs = self.finality_watchers.entry(block_hash).or_insert(vec![]);
