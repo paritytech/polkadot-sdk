@@ -89,6 +89,8 @@ const DISCONNECT_ADJUSTMENT: Reputation = Reputation::new(-256, "Peer disconnect
 const OPEN_FAILURE_ADJUSTMENT: Reputation = Reputation::new(-1024, "Open failure");
 
 /// Is the peer reserved?
+///
+/// Regular peers count towards slot allocation.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Reserved {
 	Yes,
@@ -1004,7 +1006,10 @@ impl Stream for Peerset {
 						.filter(|peer| {
 							match self.peers.remove(&peer) {
 								Some(PeerState::Connected { mut direction }) => {
-									direction.set_reserved(Reserved::No);
+									// The direction contains a `Reserved::Yes` flag, because this
+									// is a reserve peer that we want to close.
+									// The `Reserved::Yes` ensures we don't adjust the slot count
+									// when the substream is closed.
 
 									let disconnect = self.reserved_only ||
 										match direction {
@@ -1028,6 +1033,9 @@ impl Stream for Peerset {
 											self.protocol,
 										);
 
+										// The peer is kept connected as non-reserved. This will
+										// further count towards the slot count.
+										direction.set_reserved(Reserved::No);
 										match direction {
 											Direction::Inbound(_) => self.num_in += 1,
 											Direction::Outbound(_) => self.num_out += 1,
@@ -1040,9 +1048,7 @@ impl Stream for Peerset {
 								},
 								// substream might have been opening but not yet fully open when
 								// the protocol request the reserved set to be changed
-								Some(PeerState::Opening { mut direction }) => {
-									direction.set_reserved(Reserved::No);
-
+								Some(PeerState::Opening { direction }) => {
 									log::trace!(
 										target: LOG_TARGET,
 										"{}: cancel substream to {peer:?}, direction {direction:?}",
@@ -1052,8 +1058,7 @@ impl Stream for Peerset {
 									self.peers.insert(*peer, PeerState::Canceled { direction });
 									false
 								},
-								Some(mut state) => {
-									state.set_reserved(Reserved::No);
+								Some(state) => {
 									self.peers.insert(*peer, state);
 									false
 								},
@@ -1099,6 +1104,9 @@ impl Stream for Peerset {
 								return None
 							}
 
+							// If the peer was a regular peer, the slot count was already adjusted
+							// above. Ensure the newly reserved peer does not count towards
+							// slot allocation.
 							self.peers.get_mut(peer).map(|state| state.set_reserved(Reserved::Yes));
 
 							std::matches!(
