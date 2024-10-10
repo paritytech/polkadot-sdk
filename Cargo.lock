@@ -2171,13 +2171,10 @@ dependencies = [
 name = "bridge-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
- "asset-hub-westend-runtime",
- "bridge-hub-westend-runtime",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
  "hex-literal",
- "log",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
@@ -2186,20 +2183,11 @@ dependencies = [
  "pallet-xcm",
  "pallet-xcm-bridge-hub",
  "parachains-common",
- "parity-scale-codec",
  "rococo-westend-system-emulated-network",
- "scale-info",
- "snowbridge-core",
- "snowbridge-pallet-inbound-queue",
- "snowbridge-pallet-inbound-queue-fixtures",
- "snowbridge-pallet-outbound-queue",
- "snowbridge-pallet-system",
- "snowbridge-router-primitives",
  "sp-core",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
- "testnet-parachains-constants",
  "xcm-runtime-apis",
 ]
 
