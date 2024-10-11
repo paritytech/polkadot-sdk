@@ -177,7 +177,8 @@ struct Queue {
 	unscheduled: Unscheduled,
 	workers: Workers,
 	mux: Mux,
-	/// Current relay block number
+
+	/// Current relay block number, used to check the viability of backing jobs.
 	relay_block_number: Option<BlockNumber>,
 }
 

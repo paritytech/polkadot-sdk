@@ -148,7 +148,9 @@ impl ValidationHost {
 			.map_err(|_| "the inner loop hung up".to_string())
 	}
 
-	/// TODO: Add docs
+	/// Sends a signal to the validation host requesting to update active leaf.
+	///
+	/// Returns an error if the request cannot be sent to the validation host, i.e. if it shut down.
 	pub async fn update_active_leaf(&mut self, leaf: ActivatedLeaf) -> Result<(), String> {
 		self.to_host_tx
 			.send(ToHost::UpdateActiveLeaf { leaf })
