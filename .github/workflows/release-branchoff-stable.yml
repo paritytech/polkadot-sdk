@@ -98,7 +98,7 @@ jobs:
 
           # TODO: clarify what to do with the polkadot-parachain binary
           # Set new version for polkadot-parachain binary to match the polkadot node binary
-          set_polkadot_parachain_binary_version $NODE_VERSION "cumulus/polkadot-parachain/Cargo.toml"
+          # set_polkadot_parachain_binary_version $NODE_VERSION "cumulus/polkadot-parachain/Cargo.toml"
 
           reorder_prdocs $STABLE_BRANCH_NAME
 
