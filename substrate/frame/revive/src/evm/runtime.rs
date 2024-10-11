@@ -17,10 +17,7 @@
 //! Runtime types for integrating `pallet-revive` with the EVM.
 #![allow(unused_imports, unused_variables)]
 use crate::{
-	evm::{
-		api::{TransactionLegacySigned, TransactionLegacyUnsigned, TransactionUnsigned},
-		EthInstantiateInput,
-	},
+	evm::api::{TransactionLegacySigned, TransactionLegacyUnsigned, TransactionUnsigned},
 	AccountIdOf, AddressMapper, BalanceOf, Config, EthTransactKind, MomentOf, Weight, LOG_TARGET,
 };
 use codec::{Decode, Encode};
@@ -338,11 +335,18 @@ pub trait EthExtra {
 				return Err(InvalidTransaction::Call);
 			};
 
-			let EthInstantiateInput { code, data } = rlp::decode::<EthInstantiateInput>(&input.0)
-				.map_err(|_| {
-				log::debug!(target: LOG_TARGET, "Failed to decoded eth_transact input");
-				InvalidTransaction::Call
-			})?;
+			let blob = match polkavm_linker::ProgramParts::blob_length(&input.0) {
+				Some(blob_len) => blob_len
+					.try_into()
+					.ok()
+					.and_then(|blob_len| (input.0.split_at_checked(blob_len))),
+				_ => None,
+			};
+
+			let Some((code, data)) = blob else {
+				log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
+				return Err(InvalidTransaction::Call);
+			};
 
 			if code.len() as u32 != code_len || data.len() as u32 != data_len {
 				log::debug!(target: LOG_TARGET, "Invalid code or data length");
@@ -353,8 +357,8 @@ pub trait EthExtra {
 				value: value.try_into().map_err(|_| InvalidTransaction::Call)?,
 				gas_limit,
 				storage_deposit_limit,
-				code,
-				data,
+				code: code.to_vec(),
+				data: data.to_vec(),
 				salt: None,
 			}
 		};
@@ -491,7 +495,7 @@ mod test {
 				code_len: code.len() as u32,
 				data_len: data.len() as u32,
 			};
-			builder.tx.input = Bytes(rlp::encode(&EthInstantiateInput { code, data }).to_vec());
+			builder.tx.input = Bytes(code.into_iter().chain(data.into_iter()).collect());
 			builder
 		}
 
@@ -560,7 +564,7 @@ mod test {
 	#[test]
 	fn check_eth_transact_instantiate_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			let code = vec![];
+			let (code, _) = compile_module("dummy").unwrap();
 			let data = vec![];
 			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
@@ -616,16 +620,17 @@ mod test {
 	#[test]
 	fn check_instantiate_data() {
 		ExtBuilder::default().build().execute_with(|| {
-			let code = vec![1, 2, 3];
+			let code = b"invalid code".to_vec();
 			let data = vec![1];
 			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
-			// Fail because the tx input should decode as an `EthInstantiateInput`
+			// Fail because the tx input fail to get the blob length
 			assert_eq!(
 				builder.clone().update(|tx| tx.input = Bytes(vec![1, 2, 3])).check(),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 			);
 
+			let (code, _) = compile_module("dummy").unwrap();
 			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
 				.transact_kind(EthTransactKind::InstantiateWithCode {
 					code_len: 0,

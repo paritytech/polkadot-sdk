@@ -39,7 +39,6 @@ pub mod evm;
 pub mod test_utils;
 pub mod weights;
 
-use crate::evm::EthInstantiateInput;
 pub use crate::exec::MomentOf;
 use frame_support::traits::IsType;
 pub use primitives::*;
@@ -1224,13 +1223,22 @@ where
 				..Default::default()
 			};
 			let payload = tx.dummy_signed_payload();
-			let Ok(EthInstantiateInput { code, data }) =
-				rlp::decode::<EthInstantiateInput>(&tx.input.0)
-			else {
+
+			let blob = match polkavm_linker::ProgramParts::blob_length(&tx.input.0) {
+				Some(blob_len) => blob_len
+					.try_into()
+					.ok()
+					.and_then(|blob_len| (tx.input.0.split_at_checked(blob_len))),
+				_ => None,
+			};
+
+			let Some((code, data)) = blob else {
+				log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
 				let transact_kind = EthTransactKind::InstantiateWithCode {
 					code_len: tx.input.0.len() as u32,
 					data_len: 0,
 				};
+
 				let dispatch_call = crate::Call::<T>::eth_transact {
 					payload,
 					gas_limit: Default::default(),
@@ -1255,8 +1263,8 @@ where
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				Code::Upload(code.clone()),
-				data.clone(),
+				Code::Upload(code.to_vec()),
+				data.to_vec(),
 				None,
 				DebugInfo::Skip,
 				CollectEvents::Skip,
