@@ -1115,4 +1115,8 @@ async fn set_reserved_peers_cannot_move_previously_reserved() {
 		},
 		event => panic!("invalid event: {event:?}"),
 	}
+
+	assert_eq!(peerset.num_in(), 0usize);
+	assert_eq!(peerset.num_out(), 0usize);
+	assert_eq!(peerset.reserved_peers().len(), 3usize);
 }
