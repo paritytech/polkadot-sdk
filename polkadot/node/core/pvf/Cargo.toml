@@ -52,6 +52,7 @@ criterion = { features = [
 hex-literal = { workspace = true, default-features = true }
 
 polkadot-node-core-pvf-common = { features = ["test-utils"], workspace = true, default-features = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
 # For benches and integration tests, depend on ourselves with the test-utils
 # feature.
 polkadot-node-core-pvf = { features = ["test-utils"], workspace = true, default-features = true }

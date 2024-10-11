@@ -460,6 +460,10 @@ impl ValidationBackend for MockValidateCandidateBackend {
 	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
 		unreachable!()
 	}
+
+	async fn update_active_leaf(&mut self, _leaf: ActivatedLeaf) -> Result<(), String> {
+		unreachable!()
+	}
 }
 
 #[test]
@@ -1048,6 +1052,10 @@ impl ValidationBackend for MockPreCheckBackend {
 	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
 		unreachable!()
 	}
+
+	async fn update_active_leaf(&mut self, _leaf: ActivatedLeaf) -> Result<(), String> {
+		unreachable!()
+	}
 }
 
 #[test]
@@ -1204,6 +1212,10 @@ impl ValidationBackend for MockHeadsUp {
 	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
 		let _ = self.heads_up_call_count.fetch_add(1, Ordering::SeqCst);
 		Ok(())
+	}
+
+	async fn update_active_leaf(&mut self, _leaf: ActivatedLeaf) -> Result<(), String> {
+		unreachable!()
 	}
 }
 

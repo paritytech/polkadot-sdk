@@ -37,7 +37,9 @@ use polkadot_node_core_pvf_common::{
 	pvf::PvfPrepData,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem::{messages::PvfExecKind, SubsystemError, SubsystemResult};
+use polkadot_node_subsystem::{
+	messages::PvfExecKind, ActivatedLeaf, SubsystemError, SubsystemResult,
+};
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::{BlockNumber, PersistedValidationData};
 use std::{
@@ -145,12 +147,21 @@ impl ValidationHost {
 			.await
 			.map_err(|_| "the inner loop hung up".to_string())
 	}
+
+	/// TODO: Add docs
+	pub async fn update_active_leaf(&mut self, leaf: ActivatedLeaf) -> Result<(), String> {
+		self.to_host_tx
+			.send(ToHost::UpdateActiveLeaf { leaf })
+			.await
+			.map_err(|_| "the inner loop hung up".to_string())
+	}
 }
 
 enum ToHost {
 	PrecheckPvf { pvf: PvfPrepData, result_tx: PrecheckResultSender },
 	ExecutePvf(ExecutePvfInputs),
 	HeadsUp { active_pvfs: Vec<PvfPrepData> },
+	UpdateActiveLeaf { leaf: ActivatedLeaf },
 }
 
 struct ExecutePvfInputs {
@@ -491,6 +502,7 @@ async fn handle_to_host(
 		},
 		ToHost::HeadsUp { active_pvfs } =>
 			handle_heads_up(artifacts, prepare_queue, active_pvfs).await?,
+		ToHost::UpdateActiveLeaf { leaf } => handle_update_active_leaf(execute_queue, leaf).await?,
 	}
 
 	Ok(())
@@ -870,6 +882,13 @@ async fn handle_prepare_done(
 	};
 
 	Ok(())
+}
+
+async fn handle_update_active_leaf(
+	execute_queue: &mut mpsc::Sender<execute::ToQueue>,
+	leaf: ActivatedLeaf,
+) -> Result<(), Fatal> {
+	send_execute(execute_queue, execute::ToQueue::UpdateActiveLeaf { leaf }).await
 }
 
 async fn send_prepare(

@@ -35,7 +35,7 @@ use polkadot_node_core_pvf_common::{
 	SecurityStatus,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem::messages::PvfExecKind;
+use polkadot_node_subsystem::{messages::PvfExecKind, ActivatedLeaf};
 use polkadot_primitives::{
 	BlockNumber, ExecutorParams, ExecutorParamsHash, PersistedValidationData,
 };
@@ -60,6 +60,7 @@ slotmap::new_key_type! { struct Worker; }
 
 #[derive(Debug)]
 pub enum ToQueue {
+	UpdateActiveLeaf { leaf: ActivatedLeaf },
 	Enqueue { artifact: ArtifactPathId, pending_execution_request: PendingExecutionRequest },
 }
 
@@ -176,8 +177,8 @@ struct Queue {
 	unscheduled: Unscheduled,
 	workers: Workers,
 	mux: Mux,
-	/// Minimal observed execution time
-	min_exec_time: Option<Duration>,
+	/// Current relay block number
+	relay_block_number: Option<BlockNumber>,
 }
 
 impl Queue {
@@ -208,7 +209,7 @@ impl Queue {
 				spawn_inflight: 0,
 				capacity: worker_capacity,
 			},
-			min_exec_time: None,
+			relay_block_number: None,
 		}
 	}
 
@@ -285,9 +286,7 @@ impl Queue {
 		}
 
 		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
-		if let Some(deadline) = job.exec_ttl {
-			// TODO: use real now
-			let now = deadline;
+		if let (Some(now), Some(deadline)) = (self.relay_block_number, job.exec_ttl) {
 			gum::debug!(target: LOG_TARGET, ?priority, ?deadline, ?now, "Job has a deadline");
 			if now > deadline {
 				let _ = job.result_tx.send(Err(ValidationError::ExecutionDeadline));
@@ -309,6 +308,11 @@ impl Queue {
 		self.metrics.on_execute_kind(priority);
 		self.unscheduled.mark_scheduled(priority);
 	}
+
+	fn set_relay_block_number(&mut self, block_number: BlockNumber) {
+		self.relay_block_number =
+			self.relay_block_number.map(|v| v.max(block_number)).or(Some(block_number))
+	}
 }
 
 async fn purge_dead(metrics: &Metrics, workers: &mut Workers) {
@@ -327,35 +331,41 @@ async fn purge_dead(metrics: &Metrics, workers: &mut Workers) {
 }
 
 fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
-	let ToQueue::Enqueue { artifact, pending_execution_request } = to_queue;
-	let PendingExecutionRequest {
-		exec_timeout,
-		exec_ttl,
-		pvd,
-		pov,
-		executor_params,
-		result_tx,
-		exec_kind,
-	} = pending_execution_request;
-	gum::debug!(
-		target: LOG_TARGET,
-		validation_code_hash = ?artifact.id.code_hash,
-		"enqueueing an artifact for execution",
-	);
-	queue.metrics.observe_pov_size(pov.block_data.0.len(), true);
-	queue.metrics.execute_enqueued();
-	let job = ExecuteJob {
-		artifact,
-		exec_timeout,
-		exec_ttl,
-		pvd,
-		pov,
-		executor_params,
-		result_tx,
-		waiting_since: Instant::now(),
-	};
-	queue.unscheduled.add(job, exec_kind);
-	queue.try_assign_next_job(None);
+	match to_queue {
+		ToQueue::UpdateActiveLeaf { leaf } => {
+			queue.set_relay_block_number(leaf.number);
+		},
+		ToQueue::Enqueue { artifact, pending_execution_request } => {
+			let PendingExecutionRequest {
+				exec_timeout,
+				exec_ttl,
+				pvd,
+				pov,
+				executor_params,
+				result_tx,
+				exec_kind,
+			} = pending_execution_request;
+			gum::debug!(
+				target: LOG_TARGET,
+				validation_code_hash = ?artifact.id.code_hash,
+				"enqueueing an artifact for execution",
+			);
+			queue.metrics.observe_pov_size(pov.block_data.0.len(), true);
+			queue.metrics.execute_enqueued();
+			let job = ExecuteJob {
+				artifact,
+				exec_timeout,
+				exec_ttl,
+				pvd,
+				pov,
+				executor_params,
+				result_tx,
+				waiting_since: Instant::now(),
+			};
+			queue.unscheduled.add(job, exec_kind);
+			queue.try_assign_next_job(None);
+		},
+	}
 }
 
 async fn handle_mux(queue: &mut Queue, event: QueueEvent) {
@@ -504,12 +514,6 @@ async fn handle_job_finish(
 			err
 		);
 	} else {
-		if let Some(dur) = duration {
-			queue.min_exec_time = queue
-				.min_exec_time
-				.map(|min_time| if dur < min_time { dur } else { min_time })
-				.or(Some(dur));
-		}
 		gum::trace!(
 			target: LOG_TARGET,
 			?artifact_id,
@@ -999,6 +1003,7 @@ mod tests {
 			to_queue_rx,
 			from_queue_tx,
 		);
+		queue.relay_block_number = Some(10);
 		let mut result_rxs = vec![];
 		for _ in 0..10 {
 			let (result_tx, result_rx) = oneshot::channel();
@@ -1006,7 +1011,7 @@ mod tests {
 			let expired_job = ExecuteJob {
 				artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
 				exec_timeout: Duration::from_secs(1),
-				exec_ttl: Some(Instant::now() - Duration::from_secs(1)),
+				exec_ttl: Some(9),
 				pvd: Arc::new(PersistedValidationData::default()),
 				pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
 				executor_params: ExecutorParams::default(),
