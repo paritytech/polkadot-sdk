@@ -1224,7 +1224,7 @@ where
 			};
 			let payload = tx.dummy_signed_payload();
 
-			let blob = match polkavm_linker::ProgramParts::blob_length(&tx.input.0) {
+			let blob = match polkavm::ProgramParts::blob_length(&tx.input.0) {
 				Some(blob_len) => blob_len
 					.try_into()
 					.ok()

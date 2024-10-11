@@ -12500,7 +12500,6 @@ dependencies = [
  "paste",
  "polkavm 0.12.0",
  "polkavm-common 0.12.0 (git+https://github.com/xermicus/polkavm?branch=cl/blob-length)",
- "polkavm-linker 0.12.0",
  "pretty_assertions",
  "rlp 0.6.1",
  "scale-info",
