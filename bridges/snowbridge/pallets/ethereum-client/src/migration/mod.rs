@@ -10,7 +10,6 @@ pub const LOG_TARGET: &str = "ethereum-client-migration";
 /// Module containing the old Ethereum execution headers that should be cleaned up.
 
 /// The in-code storage version.
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 pub mod v0 {
 	use crate::pallet::{Config, Pallet};
@@ -63,11 +62,15 @@ pub mod v0 {
 }
 
 pub mod v0_to_v1 {
+	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	extern crate alloc;
 	use crate::{migration::LOG_TARGET, pallet::Config, WeightInfo};
+	#[cfg(feature = "try-runtime")]
+	use frame_support::traits::GetStorageVersion;
 	use frame_support::{
 		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-		pallet_prelude::{PhantomData, Weight},
+		pallet_prelude::{PhantomData, StorageVersion, Weight},
 		traits::OnRuntimeUpgrade,
 		weights::{constants::RocksDbWeight, WeightMeter},
 	};
@@ -120,6 +123,8 @@ pub mod v0_to_v1 {
 					log::info!(target: LOG_TARGET, "Ethereum execution header cleanup migration is complete. Index = {}.", index);
 					break
 				} else {
+					STORAGE_VERSION.put::<crate::Pallet<T>>();
+
 					let execution_hash =
 						crate::migration::v0::ExecutionHeaderMapping::<T>::get(index);
 					crate::migration::v0::ExecutionHeaders::<T>::remove(execution_hash);
@@ -145,6 +150,7 @@ pub mod v0_to_v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, TryRuntimeError> {
+			assert_eq!(crate::Pallet::<T>::on_chain_storage_version(), 0);
 			let last_index = crate::migration::v0::ExecutionHeaderIndex::<T>::get();
 			log::info!(target: LOG_TARGET, "Pre-upgrade execution header index is {}.", last_index);
 			Ok(alloc::vec![])
@@ -152,6 +158,7 @@ pub mod v0_to_v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_: alloc::vec::Vec<u8>) -> Result<(), TryRuntimeError> {
+			assert_eq!(crate::Pallet::<T>::on_chain_storage_version(), 1);
 			let last_index = crate::migration::v0::ExecutionHeaderIndex::<T>::get();
 			log::info!(target: LOG_TARGET, "Post-upgrade execution header index is {}.", last_index);
 			frame_support::ensure!(
