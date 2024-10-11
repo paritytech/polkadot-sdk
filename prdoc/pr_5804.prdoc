@@ -38,3 +38,5 @@ crates:
     bump: patch
   - name: polkadot-parachain-bin
     bump: patch
+  - name: sp-core
+    bump: minor
