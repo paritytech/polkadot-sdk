@@ -25,10 +25,9 @@
 
 mod xcm_config;
 
-use polkadot_sdk::{
-	staging_parachain_info as parachain_info, staging_xcm as xcm,
-	staging_xcm_builder as xcm_builder, staging_xcm_executor as xcm_executor, *,
-};
+use polkadot_sdk::{staging_parachain_info as parachain_info, staging_xcm as xcm, *};
+#[cfg(not(feature = "runtime-benchmarks"))]
+use polkadot_sdk::{staging_xcm_builder as xcm_builder, staging_xcm_executor as xcm_executor};
 
 // Substrate and Polkadot dependencies
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
