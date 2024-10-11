@@ -16,14 +16,14 @@
 // limitations under the License.
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::evm::BlockTag;
-use pallet_revive_eth_rpc::{example::Account, EthRpcClient};
+use pallet_revive_eth_rpc::EthRpcClient;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
 	let account = Account::default();
 	println!("Account address: {:?}", account.address());
 
-	let client = HttpClientBuilder::default().build("http://localhost:9090".to_string())?;
+	let client = HttpClientBuilder::default().build("http://localhost:9090")?;
 
 	let block = client.get_block_by_number(BlockTag::Latest.into(), false).await?;
 	println!("Latest block: {block:#?}");

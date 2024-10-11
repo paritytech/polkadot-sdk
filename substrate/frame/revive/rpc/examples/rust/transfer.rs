@@ -24,7 +24,7 @@ use pallet_revive_eth_rpc::{
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
 	let alith = Account::default();
-	let client = HttpClientBuilder::default().build("http://localhost:9090".to_string())?;
+	let client = HttpClientBuilder::default().build("http://localhost:9090")?;
 
 	let baltathar = Account::from(subxt_signer::eth::dev::baltathar());
 	let value = 1_000_000_000_000_000_000u128.into(); // 1 ETH

@@ -33,7 +33,7 @@ async fn main() -> anyhow::Result<()> {
 	let input = EthInstantiateInput { code: bytes, data: data.clone() };
 
 	println!("Account address: {:?}", account.address());
-	let client = HttpClientBuilder::default().build("http://localhost:9090".to_string())?;
+	let client = HttpClientBuilder::default().build("http://localhost:9090")?;
 
 	println!("\n\n=== Deploying contract ===\n\n");
 
