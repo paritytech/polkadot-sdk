@@ -34,5 +34,8 @@ async fn main() -> anyhow::Result<()> {
 	let balance = client.get_balance(account.address(), BlockTag::Latest.into()).await?;
 	println!("Account balance: {balance:?}");
 
+	let sync_state = client.syncing().await?;
+	println!("Sync state: {sync_state:?}");
+
 	Ok(())
 }

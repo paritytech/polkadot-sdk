@@ -150,6 +150,10 @@ pub trait EthRpc {
 	#[method(name = "eth_sendTransaction")]
 	async fn send_transaction(&self, transaction: GenericTransaction) -> RpcResult<H256>;
 
+	/// Returns an object with data about the sync status or false.
+	#[method(name = "eth_syncing")]
+	async fn syncing(&self) -> RpcResult<SyncingStatus>;
+
 	/// The string value of current network id
 	#[method(name = "net_version")]
 	async fn net_version(&self) -> RpcResult<String>;
