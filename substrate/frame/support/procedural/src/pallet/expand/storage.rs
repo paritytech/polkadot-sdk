@@ -425,6 +425,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			Ok(deprecation) => deprecation,
 			Err(e) => return e.into_compile_error(),
 		};
+		// FIXME eagr just use quote::quote!() instead?
 		entries_builder.push(quote::quote_spanned!(storage.attr_span =>
 			#(#cfg_attrs)*
 			(|entries: &mut #frame_support::__private::Vec<_>| {
