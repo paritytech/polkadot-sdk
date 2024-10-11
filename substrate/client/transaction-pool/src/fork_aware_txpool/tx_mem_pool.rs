@@ -237,11 +237,11 @@ where
 	pub(super) fn extend_unwatched(
 		&self,
 		source: TransactionSource,
-		xts: Vec<ExtrinsicFor<ChainApi>>,
+		xts: &[ExtrinsicFor<ChainApi>],
 	) -> Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>> {
 		let mut transactions = self.transactions.write();
 		let result = xts
-			.into_iter()
+			.iter()
 			.map(|xt| {
 				let hash = self.api.hash_and_length(&xt).0;
 				self.try_insert(
@@ -437,7 +437,7 @@ mod tx_mem_pool_tests {
 
 		let xts = (0..max + 1).map(|x| Arc::from(uxt(x as _))).collect::<Vec<_>>();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, xts);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
 		assert!(results.iter().take(max).all(Result::is_ok));
 		assert!(matches!(
 			results.into_iter().last().unwrap().unwrap_err(),
@@ -455,7 +455,7 @@ mod tx_mem_pool_tests {
 		let mut xts = (0..max - 1).map(|x| Arc::from(uxt(x as _))).collect::<Vec<_>>();
 		xts.push(xts.iter().last().unwrap().clone());
 
-		let results = mempool.extend_unwatched(TransactionSource::External, xts);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
 		assert!(results.iter().take(max - 1).all(Result::is_ok));
 		assert!(matches!(
 			results.into_iter().last().unwrap().unwrap_err(),
@@ -471,7 +471,7 @@ mod tx_mem_pool_tests {
 
 		let xts = (0..max).map(|x| Arc::from(uxt(x as _))).collect::<Vec<_>>();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, xts);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
 		assert!(results.iter().all(Result::is_ok));
 
 		let xt = Arc::from(uxt(98));
@@ -481,7 +481,7 @@ mod tx_mem_pool_tests {
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
 		));
 		let xt = Arc::from(uxt(99));
-		let mut result = mempool.extend_unwatched(TransactionSource::External, vec![xt]);
+		let mut result = mempool.extend_unwatched(TransactionSource::External, &[xt]);
 		assert!(matches!(
 			result.pop().unwrap().unwrap_err(),
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
@@ -498,7 +498,7 @@ mod tx_mem_pool_tests {
 		let xt0 = xts.iter().last().unwrap().clone();
 		let xt1 = xts.iter().next().unwrap().clone();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, xts);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
 		assert!(results.iter().all(Result::is_ok));
 
 		let result = mempool.push_watched(TransactionSource::External, xt0);
@@ -506,7 +506,7 @@ mod tx_mem_pool_tests {
 			result.unwrap_err(),
 			sc_transaction_pool_api::error::Error::AlreadyImported(_)
 		));
-		let mut result = mempool.extend_unwatched(TransactionSource::External, vec![xt1]);
+		let mut result = mempool.extend_unwatched(TransactionSource::External, &[xt1]);
 		assert!(matches!(
 			result.pop().unwrap().unwrap_err(),
 			sc_transaction_pool_api::error::Error::AlreadyImported(_)
@@ -521,7 +521,7 @@ mod tx_mem_pool_tests {
 
 		let xts0 = (0..10).map(|x| Arc::from(uxt(x as _))).collect::<Vec<_>>();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, xts0);
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts0);
 		assert!(results.iter().all(Result::is_ok));
 
 		let xts1 = (0..5).map(|x| Arc::from(uxt(2 * x))).collect::<Vec<_>>();
