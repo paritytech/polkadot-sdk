@@ -39,7 +39,6 @@ pub mod evm;
 pub mod test_utils;
 pub mod weights;
 
-use crate::evm::EthInstantiateInput;
 pub use crate::exec::MomentOf;
 use frame_support::traits::IsType;
 pub use primitives::*;
@@ -1224,13 +1223,14 @@ where
 				..Default::default()
 			};
 			let payload = tx.dummy_signed_payload();
-			let Ok(EthInstantiateInput { code, data }) =
-				rlp::decode::<EthInstantiateInput>(&tx.input.0)
-			else {
+
+			let Some(blob_len) = polkavm_linker::ProgramParts::blob_length(&tx.input.0) else {
+				log::debug!(target: LOG_TARGET, "Failed to get polkavm blob length from tx input");
 				let transact_kind = EthTransactKind::InstantiateWithCode {
 					code_len: tx.input.0.len() as u32,
 					data_len: 0,
 				};
+
 				let dispatch_call = crate::Call::<T>::eth_transact {
 					payload,
 					gas_limit: Default::default(),
@@ -1248,6 +1248,7 @@ where
 				}
 			};
 
+			let (code, data) = tx.input.0.split_at(blob_len as _);
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
 			let result = crate::Pallet::<T>::bare_instantiate(
@@ -1255,8 +1256,8 @@ where
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				Code::Upload(code.clone()),
-				data.clone(),
+				Code::Upload(code.to_vec()),
+				data.to_vec(),
 				None,
 				DebugInfo::Skip,
 				CollectEvents::Skip,

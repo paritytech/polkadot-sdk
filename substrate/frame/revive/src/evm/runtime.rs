@@ -17,10 +17,7 @@
 //! Runtime types for integrating `pallet-revive` with the EVM.
 #![allow(unused_imports, unused_variables)]
 use crate::{
-	evm::{
-		api::{TransactionLegacySigned, TransactionLegacyUnsigned, TransactionUnsigned},
-		EthInstantiateInput,
-	},
+	evm::api::{TransactionLegacySigned, TransactionLegacyUnsigned, TransactionUnsigned},
 	AccountIdOf, AddressMapper, BalanceOf, Config, EthTransactKind, MomentOf, Weight, LOG_TARGET,
 };
 use codec::{Decode, Encode};
@@ -338,12 +335,12 @@ pub trait EthExtra {
 				return Err(InvalidTransaction::Call);
 			};
 
-			let EthInstantiateInput { code, data } = rlp::decode::<EthInstantiateInput>(&input.0)
-				.map_err(|_| {
-				log::debug!(target: LOG_TARGET, "Failed to decoded eth_transact input");
-				InvalidTransaction::Call
-			})?;
+			let Some(blob_len) = polkavm_linker::ProgramParts::blob_length(&input.0) else {
+				log::debug!(target: LOG_TARGET, "Failed to get polkavm blob length");
+				return Err(InvalidTransaction::Call);
+			};
 
+			let (code, data) = input.0.split_at(blob_len as _);
 			if code.len() as u32 != code_len || data.len() as u32 != data_len {
 				log::debug!(target: LOG_TARGET, "Invalid code or data length");
 				return Err(InvalidTransaction::Call);
@@ -353,8 +350,8 @@ pub trait EthExtra {
 				value: value.try_into().map_err(|_| InvalidTransaction::Call)?,
 				gas_limit,
 				storage_deposit_limit,
-				code,
-				data,
+				code: code.to_vec(),
+				data: data.to_vec(),
 				salt: None,
 			}
 		};
@@ -491,7 +488,7 @@ mod test {
 				code_len: code.len() as u32,
 				data_len: data.len() as u32,
 			};
-			builder.tx.input = Bytes(rlp::encode(&EthInstantiateInput { code, data }).to_vec());
+			builder.tx.input = Bytes(code.into_iter().chain(data.into_iter()).collect());
 			builder
 		}
 
@@ -620,6 +617,7 @@ mod test {
 			let data = vec![1];
 			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
+			// TODO fix with some invalid blob
 			// Fail because the tx input should decode as an `EthInstantiateInput`
 			assert_eq!(
 				builder.clone().update(|tx| tx.input = Bytes(vec![1, 2, 3])).check(),

@@ -39,36 +39,3 @@ mod account;
 pub use account::*;
 
 mod signature;
-use rlp::{Decodable, DecoderError, Encodable};
-
-/// A type used to encode the `input` field of an Ethereum transaction
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EthInstantiateInput {
-	/// The bytecode of the contract.
-	pub code: Vec<u8>,
-	/// The data to pass to the constructor.
-	pub data: Vec<u8>,
-}
-
-impl Encodable for EthInstantiateInput {
-	fn rlp_append(&self, stream: &mut rlp::RlpStream) {
-		stream.begin_list(2usize);
-		stream.append(&self.code);
-		stream.append(&self.data);
-	}
-}
-
-impl Decodable for EthInstantiateInput {
-	fn decode(rlp: &rlp::Rlp) -> Result<Self, DecoderError> {
-		let result = EthInstantiateInput { code: rlp.val_at(0)?, data: rlp.val_at(1)? };
-		Ok(result)
-	}
-}
-
-#[test]
-fn eth_instantiate_rlp_codec_works() {
-	let input = EthInstantiateInput { code: vec![1, 2, 3], data: vec![4, 5, 6] };
-	let encoded = rlp::encode(&input);
-	let decoded = rlp::decode::<EthInstantiateInput>(&encoded).unwrap();
-	assert_eq!(input, decoded);
-}

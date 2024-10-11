@@ -12421,7 +12421,8 @@ dependencies = [
  "parity-scale-codec",
  "paste",
  "polkavm 0.12.0",
- "polkavm-common 0.12.0",
+ "polkavm-common 0.12.0 (git+https://github.com/xermicus/polkavm?branch=cl/blob-length)",
+ "polkavm-linker 0.12.0",
  "pretty_assertions",
  "rlp 0.6.1",
  "scale-info",
@@ -16240,13 +16241,12 @@ dependencies = [
 [[package]]
 name = "polkavm"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f27910c5061e4cea6be6c66684b49d0f42b6a05900c9b0da9e7f3dd2d587a8d4"
+source = "git+https://github.com/xermicus/polkavm?branch=cl/blob-length#05c0cff7d580fc7892a44986ec5428048f89aff6"
 dependencies = [
  "libc",
  "log",
  "polkavm-assembler 0.12.0",
- "polkavm-common 0.12.0",
+ "polkavm-common 0.12.0 (git+https://github.com/xermicus/polkavm?branch=cl/blob-length)",
  "polkavm-linux-raw 0.12.0",
 ]
 
@@ -16262,8 +16262,7 @@ dependencies = [
 [[package]]
 name = "polkavm-assembler"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82f0e374fa043f31459b30d629d7e866247ac4b6c7662ac72e4e5bf50d052b92"
+source = "git+https://github.com/xermicus/polkavm?branch=cl/blob-length#05c0cff7d580fc7892a44986ec5428048f89aff6"
 dependencies = [
  "log",
 ]
@@ -16288,6 +16287,11 @@ name = "polkavm-common"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f4e42e082c3d89da2346555baf4d951fe07dcb9208e42a02c272e6d5d0326f9a"
+
+[[package]]
+name = "polkavm-common"
+version = "0.12.0"
+source = "git+https://github.com/xermicus/polkavm?branch=cl/blob-length#05c0cff7d580fc7892a44986ec5428048f89aff6"
 dependencies = [
  "blake3",
  "log",
@@ -16351,7 +16355,7 @@ version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d179eddaaef62ce5960faaa2ec9e8f131c81661c8b9365c4d55b275011688534"
 dependencies = [
- "polkavm-common 0.12.0",
+ "polkavm-common 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.79",
@@ -16405,14 +16409,13 @@ dependencies = [
 [[package]]
 name = "polkavm-linker"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f917b16db9ab13819a738a321b48a2d0d20d9e32dedcff75054148676afbec4"
+source = "git+https://github.com/xermicus/polkavm?branch=cl/blob-length#05c0cff7d580fc7892a44986ec5428048f89aff6"
 dependencies = [
  "gimli 0.28.0",
  "hashbrown 0.14.5",
  "log",
  "object 0.36.1",
- "polkavm-common 0.12.0",
+ "polkavm-common 0.12.0 (git+https://github.com/xermicus/polkavm?branch=cl/blob-length)",
  "regalloc2 0.9.3",
  "rustc-demangle",
 ]
@@ -16426,8 +16429,7 @@ checksum = "26e85d3456948e650dff0cfc85603915847faf893ed1e66b020bb82ef4557120"
 [[package]]
 name = "polkavm-linux-raw"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d280301d5b5a321c732173c969058f4b5726f3a0046f6802f396df2599f3753d"
+source = "git+https://github.com/xermicus/polkavm?branch=cl/blob-length#05c0cff7d580fc7892a44986ec5428048f89aff6"
 
 [[package]]
 name = "polling"
