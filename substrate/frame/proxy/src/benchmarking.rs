@@ -277,7 +277,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	fn kill_pure(p: Linear<1, { T::MaxProxies::get() - 2 }>) -> Result<(), BenchmarkError> {
+	fn kill_pure(p: Linear<0, { T::MaxProxies::get() - 2 }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
