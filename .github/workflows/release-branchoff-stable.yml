@@ -9,7 +9,7 @@ on:
         type: string
 
       node_version:
-        description: Version of the polkadot node in the format vX.XX.X (e.g. 1.15.0)
+        description: Version of the polkadot node in the format X.XX.X (e.g. 1.15.0)
         required: true
 
 jobs:
