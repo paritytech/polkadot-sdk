@@ -1125,6 +1125,6 @@ where
 	if ttl_in_blocks < 1 {
 		None
 	} else {
-		Some(relay_parent_number * ttl_in_blocks)
+		Some(relay_parent_number + ttl_in_blocks)
 	}
 }
