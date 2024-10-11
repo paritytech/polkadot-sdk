@@ -269,6 +269,24 @@ pub struct ReceiptInfo {
 	pub r#type: Option<Byte>,
 }
 
+/// Syncing status
+#[derive(
+	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
+)]
+#[serde(untagged)]
+pub enum SyncingStatus {
+	/// Syncing progress
+	SyncingProgress(SyncingProgress),
+	/// Not syncing
+	/// Should always return false if not syncing.
+	Bool(bool),
+}
+impl Default for SyncingStatus {
+	fn default() -> Self {
+		SyncingStatus::SyncingProgress(Default::default())
+	}
+}
+
 /// Transaction information
 #[derive(
 	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
@@ -385,6 +403,22 @@ pub struct Log {
 	/// transaction index
 	#[serde(rename = "transactionIndex", skip_serializing_if = "Option::is_none")]
 	pub transaction_index: Option<U256>,
+}
+
+/// Syncing progress
+#[derive(
+	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+)]
+pub struct SyncingProgress {
+	/// Current block
+	#[serde(rename = "currentBlock", skip_serializing_if = "Option::is_none")]
+	pub current_block: Option<U256>,
+	/// Highest block
+	#[serde(rename = "highestBlock", skip_serializing_if = "Option::is_none")]
+	pub highest_block: Option<U256>,
+	/// Starting block
+	#[serde(rename = "startingBlock", skip_serializing_if = "Option::is_none")]
+	pub starting_block: Option<U256>,
 }
 
 /// EIP-1559 transaction.
