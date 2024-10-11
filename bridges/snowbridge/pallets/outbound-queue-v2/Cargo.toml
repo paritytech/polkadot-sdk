@@ -18,6 +18,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 serde = { features = ["alloc", "derive"], workspace = true }
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+alloy-primitives = { features = ["rlp"], workspace = true }
+alloy-sol-types = { workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
@@ -42,6 +44,8 @@ sp-keyring = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
+	"alloy-primitives/std",
+	"alloy-sol-types/std",
 	"bridge-hub-common/std",
 	"codec/std",
 	"ethabi/std",

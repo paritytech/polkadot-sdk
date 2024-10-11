@@ -89,6 +89,7 @@
 //! * `calculate_fee`: Calculate the delivery fee for a message
 #![cfg_attr(not(feature = "std"), no_std)]
 pub mod api;
+pub mod envelope;
 pub mod process_message_impl;
 pub mod send_message_impl;
 pub mod types;
@@ -105,12 +106,14 @@ mod test;
 
 use bridge_hub_common::{AggregateMessageOrigin, CustomDigestItem};
 use codec::Decode;
+use envelope::Envelope;
 use frame_support::{
 	storage::StorageStreamIter,
 	traits::{tokens::Balance, EnqueueMessage, Get, ProcessMessageError},
 	weights::{Weight, WeightToFee},
 };
 use snowbridge_core::{
+	inbound::Message as DeliveryMessage,
 	outbound_v2::{CommandWrapper, Fee, GasMeter, Message},
 	BasicOperatingMode,
 };
@@ -129,6 +132,8 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use snowbridge_core::inbound::{VerificationError, Verifier};
+	use sp_core::H160;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -159,6 +164,13 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet
 		type WeightInfo: WeightInfo;
+
+		/// The verifier for delivery proof from Ethereum
+		type Verifier: Verifier;
+
+		/// Address of the Gateway contract
+		#[pallet::constant]
+		type GatewayAddress: Get<H160>;
 	}
 
 	#[pallet::event]
@@ -186,6 +198,8 @@ pub mod pallet {
 		},
 		/// Set OperatingMode
 		OperatingModeChanged { mode: BasicOperatingMode },
+		/// Delivery Proof received
+		MessageDeliveryProofReceived { nonce: u64 },
 	}
 
 	#[pallet::error]
@@ -196,6 +210,14 @@ pub mod pallet {
 		Halted,
 		/// Invalid Channel
 		InvalidChannel,
+		/// Invalid Envelope
+		InvalidEnvelope,
+		/// Message verification error
+		Verification(VerificationError),
+		/// Invalid Gateway
+		InvalidGateway,
+		/// No pending nonce
+		PendingNonceNotExist,
 	}
 
 	/// Messages to be committed in the current block. This storage value is killed in
@@ -259,6 +281,39 @@ pub mod pallet {
 			ensure_root(origin)?;
 			OperatingMode::<T>::put(mode);
 			Self::deposit_event(Event::OperatingModeChanged { mode });
+			Ok(())
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::submit_delivery_proof())]
+		pub fn submit_delivery_proof(
+			origin: OriginFor<T>,
+			message: DeliveryMessage,
+		) -> DispatchResult {
+			ensure_signed(origin)?;
+			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
+
+			// submit message to verifier for verification
+			T::Verifier::verify(&message.event_log, &message.proof)
+				.map_err(|e| Error::<T>::Verification(e))?;
+
+			// Decode event log into an Envelope
+			let envelope =
+				Envelope::try_from(&message.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
+
+			// Verify that the message was submitted from the known Gateway contract
+			ensure!(T::GatewayAddress::get() == envelope.gateway, Error::<T>::InvalidGateway);
+
+			let nonce = envelope.nonce;
+			ensure!(<LockedFee<T>>::contains_key(nonce), Error::<T>::PendingNonceNotExist);
+
+			// Todo: Reward relayer
+			// let fee = <LockedFee<T>>::get(nonce);
+			// T::RewardLeger::deposit(envelope.reward_address.into(), fee.into())?;
+			<LockedFee<T>>::remove(nonce);
+
+			Self::deposit_event(Event::MessageDeliveryProofReceived { nonce });
+
 			Ok(())
 		}
 	}

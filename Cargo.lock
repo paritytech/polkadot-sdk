@@ -21141,6 +21141,8 @@ dependencies = [
 name = "snowbridge-pallet-outbound-queue-v2"
 version = "0.2.0"
 dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
  "bridge-hub-common",
  "ethabi-decode",
  "frame-benchmarking",

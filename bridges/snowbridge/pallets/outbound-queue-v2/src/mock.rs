@@ -9,8 +9,11 @@ use frame_support::{
 	BoundedVec,
 };
 
+use hex_literal::hex;
 use snowbridge_core::{
-	gwei, meth,
+	gwei,
+	inbound::{Log, Proof, VerificationError, Verifier},
+	meth,
 	outbound_v2::*,
 	pricing::{PricingParameters, Rewards},
 	ParaId,
@@ -69,6 +72,17 @@ impl pallet_message_queue::Config for Test {
 	type QueuePausedQuery = ();
 }
 
+// Mock verifier
+pub struct MockVerifier;
+
+impl Verifier for MockVerifier {
+	fn verify(_: &Log, _: &Proof) -> Result<(), VerificationError> {
+		Ok(())
+	}
+}
+
+const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
+
 parameter_types! {
 	pub const OwnParaId: ParaId = ParaId::new(1013);
 	pub Parameters: PricingParameters<u128> = PricingParameters {
@@ -77,12 +91,14 @@ parameter_types! {
 		rewards: Rewards { local: DOT, remote: meth(1) },
 		multiplier: FixedU128::from_rational(4, 3),
 	};
+	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 }
 
 pub const DOT: u128 = 10_000_000_000;
-
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type Verifier = MockVerifier;
+	type GatewayAddress = GatewayAddress;
 	type Hashing = Keccak256;
 	type MessageQueue = MessageQueue;
 	type MaxMessagePayloadSize = ConstU32<1024>;
