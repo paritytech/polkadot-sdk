@@ -462,7 +462,7 @@ function get_polkadot_node_version_from_code() {
 
 validate_stable_tag() {
     tag="$1"
-    pattern='^stable[0-9]+(-[0-9]+)?$'
+    pattern="^stable[0-9]{4}(-[0-9]+)?(-rc[0-9]+)?$"
 
     if [[ $tag =~ $pattern ]]; then
         echo $tag
