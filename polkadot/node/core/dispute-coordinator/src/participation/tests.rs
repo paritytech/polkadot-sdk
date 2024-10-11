@@ -26,7 +26,7 @@ use codec::Encode;
 use polkadot_node_primitives::{AvailableData, BlockData, InvalidCandidate, PoV};
 use polkadot_node_subsystem::{
 	messages::{
-		AllMessages, ChainApiMessage, DisputeCoordinatorMessage, RuntimeApiMessage,
+		AllMessages, ChainApiMessage, DisputeCoordinatorMessage, PvfExecKind, RuntimeApiMessage,
 		RuntimeApiRequest,
 	},
 	ActiveLeavesUpdate, SpawnGlue,
@@ -116,7 +116,7 @@ pub async fn participation_full_happy_path(
 	ctx_handle.recv().await,
 	AllMessages::CandidateValidation(
 		CandidateValidationMessage::ValidateFromExhaustive { candidate_receipt, exec_kind, response_sender, .. }
-		) if exec_kind == PvfExecKind::Approval => {
+		) if exec_kind == PvfExecKind::Dispute => {
 			if expected_commitments_hash != candidate_receipt.commitments_hash {
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))).unwrap();
 			} else {
@@ -450,7 +450,7 @@ fn cast_invalid_vote_if_validation_fails_or_is_invalid() {
 			ctx_handle.recv().await,
 			AllMessages::CandidateValidation(
 				CandidateValidationMessage::ValidateFromExhaustive { exec_kind, response_sender, .. }
-			) if exec_kind == PvfExecKind::Approval => {
+			) if exec_kind == PvfExecKind::Dispute => {
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::Timeout))).unwrap();
 			},
 			"overseer did not receive candidate validation message",
@@ -487,7 +487,7 @@ fn cast_invalid_vote_if_commitments_dont_match() {
 			ctx_handle.recv().await,
 			AllMessages::CandidateValidation(
 				CandidateValidationMessage::ValidateFromExhaustive { exec_kind, response_sender, .. }
-			) if exec_kind == PvfExecKind::Approval => {
+			) if exec_kind == PvfExecKind::Dispute => {
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))).unwrap();
 			},
 			"overseer did not receive candidate validation message",
@@ -524,7 +524,7 @@ fn cast_valid_vote_if_validation_passes() {
 			ctx_handle.recv().await,
 			AllMessages::CandidateValidation(
 				CandidateValidationMessage::ValidateFromExhaustive { exec_kind, response_sender, .. }
-			) if exec_kind == PvfExecKind::Approval => {
+			) if exec_kind == PvfExecKind::Dispute => {
 				response_sender.send(Ok(ValidationResult::Valid(dummy_candidate_commitments(None), PersistedValidationData::default()))).unwrap();
 			},
 			"overseer did not receive candidate validation message",
