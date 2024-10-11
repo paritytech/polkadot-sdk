@@ -453,7 +453,7 @@ impl ConfigDef {
 					// They must provide a type item that implements `TypeInfo`.
 					(PalletAttrType::IncludeMetadata(_), syn::TraitItem::Type(ref typ)) => {
 						already_collected_associated_type = Some(pallet_attr._bracket.span.join());
-						associated_types_metadata.push(AssociatedTypeMetadataDef::from(typ));
+						associated_types_metadata.push(AssociatedTypeMetadataDef::from(AssociatedTypeMetadataDef::from(typ)));
 					}
 					(PalletAttrType::IncludeMetadata(_), _) =>
 						return Err(syn::Error::new(
@@ -512,6 +512,17 @@ impl ConfigDef {
 						"Invalid #[pallet::include_metadata]: conflict with #[pallet::constant]. \
 						Pallet constant already collect the metadata for the type.",
 					))
+				}
+
+				if let syn::TraitItem::Type(ref ty) = trait_item {
+					if !contains_type_info_bound(ty) {
+						let msg = format!(
+						"Invalid #[pallet::include_metadata] in #[pallet::config], collected type `{}` \
+						does not implement `scale::TypeInfo`",
+						ty.ident,
+					);
+						return Err(syn::Error::new(span, msg));
+					}
 				}
 			} else {
 				// Metadata of associated types is collected by default, if the associated type
