@@ -1224,8 +1224,16 @@ where
 			};
 			let payload = tx.dummy_signed_payload();
 
-			let Some(blob_len) = polkavm_linker::ProgramParts::blob_length(&tx.input.0) else {
-				log::debug!(target: LOG_TARGET, "Failed to get polkavm blob length from tx input");
+			let blob = match polkavm_linker::ProgramParts::blob_length(&tx.input.0) {
+				Some(blob_len) => blob_len
+					.try_into()
+					.ok()
+					.and_then(|blob_len| (tx.input.0.split_at_checked(blob_len))),
+				_ => None,
+			};
+
+			let Some((code, data)) = blob else {
+				log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
 				let transact_kind = EthTransactKind::InstantiateWithCode {
 					code_len: tx.input.0.len() as u32,
 					data_len: 0,
@@ -1248,7 +1256,6 @@ where
 				}
 			};
 
-			let (code, data) = tx.input.0.split_at(blob_len as _);
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
 			let result = crate::Pallet::<T>::bare_instantiate(

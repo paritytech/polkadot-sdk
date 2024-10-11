@@ -335,12 +335,19 @@ pub trait EthExtra {
 				return Err(InvalidTransaction::Call);
 			};
 
-			let Some(blob_len) = polkavm_linker::ProgramParts::blob_length(&input.0) else {
-				log::debug!(target: LOG_TARGET, "Failed to get polkavm blob length");
+			let blob = match polkavm_linker::ProgramParts::blob_length(&input.0) {
+				Some(blob_len) => blob_len
+					.try_into()
+					.ok()
+					.and_then(|blob_len| (input.0.split_at_checked(blob_len))),
+				_ => None,
+			};
+
+			let Some((code, data)) = blob else {
+				log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
 				return Err(InvalidTransaction::Call);
 			};
 
-			let (code, data) = input.0.split_at(blob_len as _);
 			if code.len() as u32 != code_len || data.len() as u32 != data_len {
 				log::debug!(target: LOG_TARGET, "Invalid code or data length");
 				return Err(InvalidTransaction::Call);
