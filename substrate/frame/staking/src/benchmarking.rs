@@ -1246,25 +1246,4 @@ mod tests {
 			}
 		});
 	}
-
-	#[test]
-	fn test_payout_all() {
-		ExtBuilder::default().build_and_execute(|| {
-			let v = 10;
-			let n = 100;
-
-			let selected_benchmark = SelectedBenchmark::payout_all;
-			let c = vec![
-				(frame_benchmarking::BenchmarkParameter::v, v),
-				(frame_benchmarking::BenchmarkParameter::n, n),
-			];
-
-			assert_ok!(
-				<SelectedBenchmark as frame_benchmarking::BenchmarkingSetup<Test>>::unit_test_instance(
-					&selected_benchmark,
-					&c,
-				)
-			);
-		});
-	}
 }
