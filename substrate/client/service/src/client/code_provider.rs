@@ -75,14 +75,14 @@ where
 		Ok(Self { backend, executor, wasm_override: Arc::new(wasm_override), wasm_substitutes })
 	}
 
-	/// Returns the `:code` for the given `block`.
+	/// Returns the `:code` (or `:pending_code`) for the given `block`.
 	///
-	/// This takes into account potential substitutes, but ignores overrides and `:pending_code`.
+	/// This takes into account potential substitutes, but ignores overrides.
 	pub fn code_at_ignoring_overrides(&self, block: Block::Hash) -> sp_blockchain::Result<Vec<u8>> {
 		let state = self.backend.state_at(block)?;
 
 		// TODO: make sure this is correct
-		let ignore_pending_code = IgnorePendingCode::Yes;
+		let ignore_pending_code = IgnorePendingCode::No;
 		let state_runtime_code =
 			sp_state_machine::backend::BackendRuntimeCode::new(&state, ignore_pending_code);
 		let runtime_code =
