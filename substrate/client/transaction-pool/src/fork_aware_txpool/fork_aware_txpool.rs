@@ -839,7 +839,12 @@ where
 	) -> Result<Self::Hash, Self::Error> {
 		//todo [#5493]
 		//looks like view_store / view needs non async submit_local method ?.
-		unimplemented!();
+		let e = Err(sc_transaction_pool_api::error::Error::Unactionable.into());
+		log::warn!(
+			target: LOG_TARGET,
+			"LocalTransactionPool::submit_local is not implemented for ForkAwareTxPool, returning error: {e:?}",
+		);
+		e
 	}
 }
 

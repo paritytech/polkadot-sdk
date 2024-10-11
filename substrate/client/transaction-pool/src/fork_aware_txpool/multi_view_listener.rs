@@ -214,11 +214,7 @@ where
 				} else {
 					Some(status)
 				},
-			TransactionStatus::Retracted(_) => {
-				//todo remove panic / handle event [#5479]
-				panic!("retracted? shall not happen");
-				// false
-			},
+			TransactionStatus::Retracted(_) => None,
 			TransactionStatus::FinalityTimeout(_) => Some(status),
 			TransactionStatus::Finalized(_) => {
 				self.terminate = true;
