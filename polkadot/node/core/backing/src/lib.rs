@@ -68,7 +68,6 @@
 use std::{
 	collections::{HashMap, HashSet},
 	sync::Arc,
-	time::{Duration, Instant},
 };
 
 use bitvec::vec::BitVec;
@@ -626,7 +625,6 @@ async fn request_candidate_validation(
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
-	mode: ProspectiveParachainsMode,
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
 	let is_system = candidate_receipt.descriptor.para_id.is_system();
@@ -680,7 +678,6 @@ async fn validate_and_make_available(
 		impl Fn(BackgroundValidationResult) -> ValidatedCandidateCommand + Sync,
 	>,
 	core_index: CoreIndex,
-	mode: ProspectiveParachainsMode,
 ) -> Result<(), Error> {
 	let BackgroundValidationParams {
 		mut sender,
@@ -757,7 +754,6 @@ async fn validate_and_make_available(
 			candidate.clone(),
 			pov.clone(),
 			executor_params,
-			mode,
 		)
 		.await?
 	};
@@ -1816,13 +1812,10 @@ async fn background_validate_and_make_available<Context>(
 ) -> Result<(), Error> {
 	let candidate_hash = params.candidate.hash();
 	let Some(core_index) = rp_state.assigned_core else { return Ok(()) };
-	let prospective_parachains_mode = rp_state.prospective_parachains_mode;
 	if rp_state.awaiting_validation.insert(candidate_hash) {
 		// spawn background task.
 		let bg = async move {
-			if let Err(error) =
-				validate_and_make_available(params, core_index, prospective_parachains_mode).await
-			{
+			if let Err(error) = validate_and_make_available(params, core_index).await {
 				if let Error::BackgroundValidationMpsc(error) = error {
 					gum::debug!(
 						target: LOG_TARGET,
