@@ -2,7 +2,7 @@ use crate::open_rpc::*;
 use inflector::Inflector;
 
 /// Type information used for generating the type.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TypeInfo {
     /// The type name.
     pub name: String,
@@ -30,12 +30,15 @@ impl TypeInfo {
 
 /// A trait to provide type names.
 pub trait TypeNameProvider {
-    /// Returns  type information for a schema.
+    /// Returns type information for a schema.
     fn type_info(&mut self, schema: &Schema) -> Option<TypeInfo>;
+
+    /// Record an inline type.
+    fn record_inline_type(&mut self, name: String, schema: &Schema) -> TypeInfo;
 }
 
 /// Describes whether the type is required or not.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Required {
     /// The type is required.
     Yes,
@@ -176,10 +179,11 @@ pub struct Variant {
 
 impl Variant {
     pub fn name(&self) -> String {
+        let name = self.type_info.name.to_pascal_case();
         if self.type_info.array {
-            format!("{}s", self.type_info.name)
+            format!("{}s", name)
         } else {
-            self.type_info.name.clone()
+            name
         }
     }
 }
@@ -206,12 +210,22 @@ impl Variants {
             .iter()
             .filter_map(|schema| {
                 let doc = doc_str_from_schema(schema);
-                let type_info = provider.type_info(schema).expect("Type should be defined");
-                if type_info.name == "Null" || type_info.name == "NotFound" {
-                    return None;
-                }
+                if let Some(type_info) = provider.type_info(schema) {
+                    if type_info.name == "Null" || type_info.name == "NotFound" {
+                        return None;
+                    }
 
-                Some(Variant { doc, type_info })
+                    Some(Variant { doc, type_info })
+                } else {
+                    let name = schema
+                        .title
+                        .clone()
+                        .expect("Title should be defined for inline variant")
+                        .to_pascal_case();
+
+                    let type_info = provider.record_inline_type(name.clone(), schema);
+                    Some(Variant { doc, type_info })
+                }
             })
             .collect::<Vec<_>>()
             .into()
