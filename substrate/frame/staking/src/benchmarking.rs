@@ -930,14 +930,16 @@ mod benchmarks {
 		let slash_amount = asset::existential_deposit::<T>() * 10u32.into();
 		let balance_before = asset::stakeable_balance::<T>(&stash);
 
-		#[extrinsic_call]
-		crate::slashing::do_slash::<T>(
-			&stash,
-			slash_amount,
-			&mut BalanceOf::<T>::zero(),
-			&mut NegativeImbalanceOf::<T>::zero(),
-			EraIndex::zero()
-		);
+		#[block]
+		{
+			crate::slashing::do_slash::<T>(
+				&stash,
+				slash_amount,
+				&mut BalanceOf::<T>::zero(),
+				&mut NegativeImbalanceOf::<T>::zero(),
+				EraIndex::zero()
+			);
+		}
 
 		let balance_after = asset::stakeable_balance::<T>(&stash);
 		assert!(balance_before > balance_after);
@@ -1002,18 +1004,17 @@ mod benchmarks {
 	#[benchmark]
 	fn set_staking_configs_all_set()
 	{
-		#[block] {
-			set_staking_configs(
-				RawOrigin::Root,
-				ConfigOp::Set(BalanceOf::<T>::max_value()),
-				ConfigOp::Set(BalanceOf::<T>::max_value()),
-				ConfigOp::Set(u32::MAX),
-				ConfigOp::Set(u32::MAX),
-				ConfigOp::Set(Percent::max_value()),
-				ConfigOp::Set(Perbill::max_value()),
-				ConfigOp::Set(Percent::max_value())
-			);
-		}
+		#[extrinsic_call]
+		set_staking_configs(
+			RawOrigin::Root,
+			ConfigOp::Set(BalanceOf::<T>::max_value()),
+			ConfigOp::Set(BalanceOf::<T>::max_value()),
+			ConfigOp::Set(u32::MAX),
+			ConfigOp::Set(u32::MAX),
+			ConfigOp::Set(Percent::max_value()),
+			ConfigOp::Set(Perbill::max_value()),
+			ConfigOp::Set(Percent::max_value())
+		);
 
 		assert_eq!(MinNominatorBond::<T>::get(), BalanceOf::<T>::max_value());
 		assert_eq!(MinValidatorBond::<T>::get(), BalanceOf::<T>::max_value());
@@ -1027,7 +1028,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_staking_configs_all_remove() {
 	
-	#[block] {
+		#[extrinsic_call]
 		set_staking_configs(
 			RawOrigin::Root,
 			ConfigOp::Remove,
@@ -1038,7 +1039,6 @@ mod benchmarks {
 			ConfigOp::Remove,
 			ConfigOp::Remove
 		);
-	}
 
 		assert!(!MinNominatorBond::<T>::exists());
 		assert!(!MinValidatorBond::<T>::exists());
