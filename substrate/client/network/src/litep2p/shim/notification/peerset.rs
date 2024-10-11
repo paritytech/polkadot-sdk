@@ -1103,11 +1103,6 @@ impl Stream for Peerset {
 								return None
 							}
 
-							// If the peer was a regular peer, the slot count was already adjusted
-							// above. Ensure the newly reserved peer does not count towards
-							// slot allocation.
-							self.peers.get_mut(peer).map(|state| state.set_reserved(Reserved::Yes));
-
 							std::matches!(
 								self.peers.get_mut(peer),
 								None | Some(PeerState::Disconnected)
@@ -1279,7 +1274,7 @@ impl Stream for Peerset {
 										self.peers.insert(
 											*peer,
 											PeerState::Canceled {
-												direction: Direction::Inbound(Reserved::Yes),
+												direction
 											},
 										);
 									} else {
