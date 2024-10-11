@@ -1026,3 +1026,93 @@ async fn set_reserved_peers_move_previously_reserved() {
 	assert_eq!(peerset.num_out(), 2usize);
 	assert_eq!(peerset.reserved_peers().len(), 3usize);
 }
+
+#[tokio::test]
+async fn set_reserved_peers_cannot_move_previously_reserved() {
+	sp_tracing::try_init_simple();
+
+	let peerstore_handle = Arc::new(peerstore_handle_test());
+	let known_peers = (0..3)
+		.map(|_| {
+			let peer = PeerId::random();
+			peerstore_handle.add_known_peer(peer);
+			peer
+		})
+		.collect::<Vec<_>>();
+
+	// We'll keep this peer as reserved and move the the others to regular nodes.
+	let common_peer = *known_peers.iter().next().unwrap();
+	let moved_peers = known_peers.iter().skip(1).copied().collect::<HashSet<_>>();
+	let known_peers = known_peers.into_iter().collect::<HashSet<_>>();
+	assert_eq!(moved_peers.len(), 2);
+
+	// We don't have capacity to move peers.
+	let (mut peerset, to_peerset) = Peerset::new(
+		ProtocolName::from("/notif/1"),
+		0,
+		0,
+		false,
+		known_peers.clone(),
+		Default::default(),
+		peerstore_handle,
+	);
+	assert_eq!(peerset.num_in(), 0usize);
+	assert_eq!(peerset.num_out(), 0usize);
+
+	// We are not connected to the reserved peers.
+	match peerset.next().await {
+		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+			assert_eq!(out_peers.len(), 3);
+
+			for peer in &out_peers {
+				assert_eq!(
+					peerset.peers().get(&peer),
+					Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) })
+				);
+			}
+		},
+		event => panic!("invalid event: {event:?}"),
+	}
+
+	// verify all three peers are counted as outbound peers and they don't count towards
+	// slot allocation.
+	assert_eq!(peerset.num_in(), 0usize);
+	assert_eq!(peerset.num_out(), 0usize);
+	assert_eq!(peerset.reserved_peers().len(), 3usize);
+
+	// report that all substreams were opened
+	for peer in &known_peers {
+		assert!(std::matches!(
+			peerset.report_substream_opened(*peer, traits::Direction::Outbound),
+			OpenResult::Accept { .. }
+		));
+		assert_eq!(
+			peerset.peers().get(peer),
+			Some(&PeerState::Connected { direction: Direction::Outbound(Reserved::Yes) })
+		);
+	}
+
+	// set reserved peers with `common_peer` being one of them
+	let reserved_peers = HashSet::from_iter([common_peer, PeerId::random(), PeerId::random()]);
+	to_peerset
+		.unbounded_send(PeersetCommand::SetReservedPeers { peers: reserved_peers.clone() })
+		.unwrap();
+
+	// The command `SetReservedPeers` might evict currently reserved peers if
+	// we don't have enough slot capacity to move them to regular nodes.
+	// In this case, we don't have enough capacity.
+	match peerset.next().await {
+		Some(PeersetNotificationCommand::CloseSubstream { peers }) => {
+			// This ensures we don't disconnect peers when receiving `SetReservedPeers`.
+			assert_eq!(peers.len(), 2);
+
+			for peer in peers {
+				assert_eq!(
+					peerset.peers().get(&peer),
+					Some(&PeerState::Closing { direction: Direction::Outbound(Reserved::Yes) })
+				);
+			}
+		},
+		event => panic!("invalid event: {event:?}"),
+	}
+}
