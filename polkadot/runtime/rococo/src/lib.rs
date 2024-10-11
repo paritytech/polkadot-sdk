@@ -33,14 +33,19 @@ use frame_support::{
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	traits::FromContains,
 };
+use pallet_balances::WeightInfo;
 use pallet_nis::WithMaximumOf;
 use polkadot_primitives::{
-	slashing, AccountId, AccountIndex, ApprovalVotingParams, Balance, BlockNumber, CandidateEvent,
-	CandidateHash, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment,
-	NodeFeatures, Nonce, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
-	SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	PARACHAIN_KEY_TYPE_ID,
+	slashing,
+	vstaging::{
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		ScrapedOnChainVotes,
+	},
+	AccountId, AccountIndex, ApprovalVotingParams, Balance, BlockNumber, CandidateHash, CoreIndex,
+	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, Moment, NodeFeatures, Nonce, OccupiedCoreAssumption,
+	PersistedValidationData, SessionInfo, Signature, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
 use polkadot_runtime_common::{
 	assigned_slots, auctions, claims, crowdloan, identity_migrator, impl_runtime_weights,
@@ -62,9 +67,7 @@ use polkadot_runtime_parachains::{
 	initializer as parachains_initializer, on_demand as parachains_on_demand,
 	origin as parachains_origin, paras as parachains_paras,
 	paras_inherent as parachains_paras_inherent,
-	runtime_api_impl::{
-		v10 as parachains_runtime_api_impl, vstaging as vstaging_parachains_runtime_api_impl,
-	},
+	runtime_api_impl::v11 as parachains_runtime_api_impl,
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
@@ -166,11 +169,11 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("rococo"),
 	impl_name: create_runtime_str!("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 1_015_000,
+	spec_version: 1_016_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 26,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// The BABE epoch configuration at genesis.
@@ -398,6 +401,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -1232,6 +1236,7 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<1>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -1597,6 +1602,8 @@ pub mod migrations {
 		pub const TechnicalMembershipPalletName: &'static str = "TechnicalMembership";
 		pub const TipsPalletName: &'static str = "Tips";
 		pub const PhragmenElectionPalletId: LockIdentifier = *b"phrelect";
+		/// Weight for balance unreservations
+		pub BalanceUnreserveWeight: Weight = weights::pallet_balances_balances::WeightInfo::<Runtime>::force_unreserve();
 	}
 
 	// Special Config for Gov V1 pallets, allowing us to run migrations for them without
@@ -1652,6 +1659,7 @@ pub mod migrations {
         pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
         pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
         pallet_tips::migrations::unreserve_deposits::UnreserveDeposits<UnlockConfig, ()>,
+        pallet_treasury::migration::cleanup_proposals::Migration<Runtime, (), BalanceUnreserveWeight>,
 
         // Delete all Gov v1 pallet storage key/values.
 
@@ -1675,6 +1683,7 @@ pub mod migrations {
         // permanent
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
         parachains_inclusion::migration::MigrateToV1<Runtime>,
+        parachains_shared::migration::MigrateToV1<Runtime>,
     );
 }
 
@@ -2032,7 +2041,7 @@ sp_api::impl_runtime_apis! {
 			parachains_runtime_api_impl::minimum_backing_votes::<Runtime>()
 		}
 
-		fn para_backing_state(para_id: ParaId) -> Option<polkadot_primitives::async_backing::BackingState> {
+		fn para_backing_state(para_id: ParaId) -> Option<polkadot_primitives::vstaging::async_backing::BackingState> {
 			parachains_runtime_api_impl::backing_state::<Runtime>(para_id)
 		}
 
@@ -2053,11 +2062,11 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-			vstaging_parachains_runtime_api_impl::claim_queue::<Runtime>()
+			parachains_runtime_api_impl::claim_queue::<Runtime>()
 		}
 
 		fn candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt<Hash>> {
-			vstaging_parachains_runtime_api_impl::candidates_pending_availability::<Runtime>(para_id)
+			parachains_runtime_api_impl::candidates_pending_availability::<Runtime>(para_id)
 		}
 	}
 
@@ -2578,13 +2587,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn preset_names() -> Vec<PresetId> {
-			vec![
-				PresetId::from("local_testnet"),
-				PresetId::from("development"),
-				PresetId::from("staging_testnet"),
-				PresetId::from("wococo_local_testnet"),
-				PresetId::from("versi_local_testnet"),
-			]
+			genesis_config_presets::preset_names()
 		}
 	}
 }

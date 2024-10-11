@@ -119,7 +119,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 1,
+	system_version: 1,
 };
 
 fn version() -> RuntimeVersion {
@@ -391,6 +391,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type DoneSlashHandler = ();
 }
 
 impl substrate_test_pallet::Config for Runtime {}

@@ -9,12 +9,13 @@ Note: it works only for members of the `paritytech` organization.
 
 `/cmd <command> --help` to see the usage of a specific command
 
-
 ### Commands
 
 - `/cmd fmt` to format the code in the PR. It commits back with the formatted code (fmt) and configs (taplo).
 
 - `/cmd bench` to generate weights for a runtime. Read more about [Weight Generation](weight-generation.md)
+
+- `/cmd prdoc` to generate a prdoc for a PR. Read more about [PRDoc](prdoc.md)
 
 ### Flags
 
@@ -32,13 +33,16 @@ The pipeline logs will include what is failed (like which runtimes/pallets), the
 or they keep failing, and you're rerunning them again, it's handy to add this flag to keep a PR clean.
 
 ### Adding new Commands
+
 Feel free to add new commands to the workflow, however **_note_** that triggered workflows will use the actions
 from `main` (default) branch, meaning they will take effect only after the PR with new changes/command is merged.
 If you want to test the new command, it's better to test in your fork and local-to-fork PRs, where you control
 the default branch.
 
 ### Examples
+
 The regex in cmd.yml is: `^(\/cmd )([-\/\s\w.=:]+)$` accepts only alphanumeric, space, "-", "/", "=", ":", "." chars.
 
 `/cmd bench --runtime bridge-hub-westend --pallet=pallet_name`
+`/cmd prdoc --audience runtime_dev runtime_user --bump patch --force`
 `/cmd update-ui --image=docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v202407161507 --clean`

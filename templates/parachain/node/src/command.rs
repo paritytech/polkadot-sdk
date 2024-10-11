@@ -17,9 +17,9 @@ use crate::{
 
 fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 	Ok(match id {
-		"dev" => Box::new(chain_spec::development_config()),
-		"template-rococo" => Box::new(chain_spec::local_testnet_config()),
-		"" | "local" => Box::new(chain_spec::local_testnet_config()),
+		"dev" => Box::new(chain_spec::development_chain_spec()),
+		"template-rococo" => Box::new(chain_spec::local_chain_spec()),
+		"" | "local" => Box::new(chain_spec::local_chain_spec()),
 		path => Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
 	})
 }
@@ -220,7 +220,10 @@ pub fn run() -> Result<()> {
 				let hwbench = (!cli.no_hardware_benchmarks)
 					.then_some(config.database.path().map(|database_path| {
 						let _ = std::fs::create_dir_all(database_path);
-						sc_sysinfo::gather_hwbench(Some(database_path))
+						sc_sysinfo::gather_hwbench(
+							Some(database_path),
+							&SUBSTRATE_REFERENCE_HARDWARE,
+						)
 					}))
 					.flatten();
 
@@ -307,15 +310,9 @@ impl CliConfiguration<Self> for RelayChainCli {
 		self.base.base.prometheus_config(default_listen_port, chain_spec)
 	}
 
-	fn init<F>(
-		&self,
-		_support_url: &String,
-		_impl_version: &String,
-		_logger_hook: F,
-		_config: &sc_service::Configuration,
-	) -> Result<()>
+	fn init<F>(&self, _support_url: &String, _impl_version: &String, _logger_hook: F) -> Result<()>
 	where
-		F: FnOnce(&mut sc_cli::LoggerBuilder, &sc_service::Configuration),
+		F: FnOnce(&mut sc_cli::LoggerBuilder),
 	{
 		unreachable!("PolkadotCli is never initialized; qed");
 	}

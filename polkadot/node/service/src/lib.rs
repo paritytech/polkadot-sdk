@@ -59,10 +59,10 @@ use {
 	sc_client_api::BlockBackend,
 	sc_consensus_grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider},
 	sc_transaction_pool_api::OffchainTransactionPoolFactory,
-	sp_core::traits::SpawnNamed,
 };
 
 use polkadot_node_subsystem_util::database::Database;
+use polkadot_overseer::SpawnGlue;
 
 #[cfg(feature = "full-node")]
 pub use {
@@ -75,15 +75,12 @@ pub use {
 	sp_consensus_babe::BabeApi,
 };
 
-#[cfg(feature = "full-node")]
-use polkadot_node_subsystem::jaeger;
-
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 
 use prometheus_endpoint::Registry;
 #[cfg(feature = "full-node")]
 use sc_service::KeystoreContainer;
-use sc_service::RpcHandlers;
+use sc_service::{build_polkadot_syncing_strategy, RpcHandlers, SpawnTaskHandle};
 use sc_telemetry::TelemetryWorker;
 #[cfg(feature = "full-node")]
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
@@ -221,9 +218,6 @@ pub enum Error {
 	#[error(transparent)]
 	Telemetry(#[from] sc_telemetry::Error),
 
-	#[error(transparent)]
-	Jaeger(#[from] polkadot_node_subsystem::jaeger::JaegerError),
-
 	#[cfg(feature = "full-node")]
 	#[error(transparent)]
 	Availability(#[from] AvailabilityError),
@@ -289,9 +283,6 @@ pub trait IdentifyVariant {
 	/// Returns if this is a configuration for the `Rococo` network.
 	fn is_rococo(&self) -> bool;
 
-	/// Returns if this is a configuration for the `Wococo` test network.
-	fn is_wococo(&self) -> bool;
-
 	/// Returns if this is a configuration for the `Versi` test network.
 	fn is_versi(&self) -> bool;
 
@@ -315,9 +306,6 @@ impl IdentifyVariant for Box<dyn ChainSpec> {
 	fn is_rococo(&self) -> bool {
 		self.id().starts_with("rococo") || self.id().starts_with("rco")
 	}
-	fn is_wococo(&self) -> bool {
-		self.id().starts_with("wococo") || self.id().starts_with("wco")
-	}
 	fn is_versi(&self) -> bool {
 		self.id().starts_with("versi") || self.id().starts_with("vrs")
 	}
@@ -331,7 +319,7 @@ impl IdentifyVariant for Box<dyn ChainSpec> {
 			Chain::Kusama
 		} else if self.is_westend() {
 			Chain::Westend
-		} else if self.is_rococo() || self.is_versi() || self.is_wococo() {
+		} else if self.is_rococo() || self.is_versi() {
 			Chain::Rococo
 		} else {
 			Chain::Unknown
@@ -370,25 +358,6 @@ pub fn open_database(db_source: &DatabaseSource) -> Result<Arc<dyn Database>, Er
 	Ok(parachains_db)
 }
 
-/// Initialize the `Jeager` collector. The destination must listen
-/// on the given address and port for `UDP` packets.
-#[cfg(any(test, feature = "full-node"))]
-fn jaeger_launch_collector_with_agent(
-	spawner: impl SpawnNamed,
-	config: &Configuration,
-	agent: Option<std::net::SocketAddr>,
-) -> Result<(), Error> {
-	if let Some(agent) = agent {
-		let cfg = jaeger::JaegerConfig::builder()
-			.agent(agent)
-			.named(&config.network.node_name)
-			.build();
-
-		jaeger::Jaeger::new(cfg).launch(spawner)?;
-	}
-	Ok(())
-}
-
 #[cfg(feature = "full-node")]
 type FullSelectChain = relay_chain_selection::SelectRelayChain<FullBackend>;
 #[cfg(feature = "full-node")]
@@ -416,7 +385,6 @@ struct Basics {
 #[cfg(feature = "full-node")]
 fn new_partial_basics(
 	config: &mut Configuration,
-	jaeger_agent: Option<std::net::SocketAddr>,
 	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 ) -> Result<Basics, Error> {
 	let telemetry = config
@@ -437,15 +405,16 @@ fn new_partial_basics(
 		.transpose()?;
 
 	let heap_pages = config
+		.executor
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h as _ });
 
 	let executor = WasmExecutor::builder()
-		.with_execution_method(config.wasm_method)
+		.with_execution_method(config.executor.wasm_method)
 		.with_onchain_heap_alloc_strategy(heap_pages)
 		.with_offchain_heap_alloc_strategy(heap_pages)
-		.with_max_runtime_instances(config.max_runtime_instances)
-		.with_runtime_cache_size(config.runtime_cache_size)
+		.with_max_runtime_instances(config.executor.max_runtime_instances)
+		.with_runtime_cache_size(config.executor.runtime_cache_size)
 		.build();
 
 	let (client, backend, keystore_container, task_manager) =
@@ -466,8 +435,6 @@ fn new_partial_basics(
 		}
 		telemetry
 	});
-
-	jaeger_launch_collector_with_agent(task_manager.spawn_handle(), &*config, jaeger_agent)?;
 
 	Ok(Basics { task_manager, client, backend, keystore_container, telemetry })
 }
@@ -641,7 +608,6 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	/// Whether to enable the block authoring backoff on production networks
 	/// where it isn't enabled by default.
 	pub force_authoring_backoff: bool,
-	pub jaeger_agent: Option<std::net::SocketAddr>,
 	pub telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	/// The version of the node. TESTING ONLY: `None` can be passed to skip the node/worker version
 	/// check, both on startup and in the workers.
@@ -664,6 +630,8 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	#[allow(dead_code)]
 	pub malus_finality_delay: Option<u32>,
 	pub hwbench: Option<sc_sysinfo::HwBench>,
+	/// Enable approval voting processing in parallel.
+	pub enable_approval_voting_parallel: bool,
 }
 
 #[cfg(feature = "full-node")]
@@ -744,7 +712,6 @@ pub fn new_full<
 		is_parachain_node,
 		enable_beefy,
 		force_authoring_backoff,
-		jaeger_agent,
 		telemetry_worker_handle,
 		node_version,
 		secure_validator_mode,
@@ -757,14 +724,16 @@ pub fn new_full<
 		execute_workers_max_num,
 		prepare_workers_soft_max_num,
 		prepare_workers_hard_max_num,
+		enable_approval_voting_parallel,
 	}: NewFullParams<OverseerGenerator>,
 ) -> Result<NewFull, Error> {
 	use polkadot_availability_recovery::FETCH_CHUNKS_THRESHOLD;
 	use polkadot_node_network_protocol::request_response::IncomingRequest;
 	use sc_network_sync::WarpSyncConfig;
+	use sc_sysinfo::Metric;
 
 	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
-	let role = config.role.clone();
+	let role = config.role;
 	let force_authoring = config.force_authoring;
 	let backoff_authoring_blocks = if !force_authoring_backoff &&
 		(config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())
@@ -775,7 +744,6 @@ pub fn new_full<
 		let mut backoff = sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default();
 
 		if config.chain_spec.is_rococo() ||
-			config.chain_spec.is_wococo() ||
 			config.chain_spec.is_versi() ||
 			config.chain_spec.is_dev()
 		{
@@ -788,17 +756,23 @@ pub fn new_full<
 		Some(backoff)
 	};
 
+	// Running approval voting in parallel is enabled by default on all networks except Polkadot and
+	// Kusama, unless explicitly enabled by the commandline option.
+	// This is meant to be temporary until we have enough confidence in the new system to enable it
+	// by default on all networks.
+	let enable_approval_voting_parallel = (!config.chain_spec.is_kusama() &&
+		!config.chain_spec.is_polkadot()) ||
+		enable_approval_voting_parallel;
+
 	let disable_grandpa = config.disable_grandpa;
 	let name = config.network.node_name.clone();
 
-	let basics = new_partial_basics(&mut config, jaeger_agent, telemetry_worker_handle)?;
+	let basics = new_partial_basics(&mut config, telemetry_worker_handle)?;
 
 	let prometheus_registry = config.prometheus_registry().cloned();
 
 	let overseer_connector = OverseerConnector::default();
 	let overseer_handle = Handle::new(overseer_connector.handle());
-
-	let chain_spec = config.chain_spec.cloned_box();
 
 	let keystore = basics.keystore_container.local_keystore();
 	let auth_or_collator = role.is_authority() || is_parachain_node.is_collator();
@@ -812,6 +786,7 @@ pub fn new_full<
 			overseer_handle.clone(),
 			metrics,
 			Some(basics.task_manager.spawn_handle()),
+			enable_approval_voting_parallel,
 		)
 	} else {
 		SelectRelayChain::new_longest_chain(basics.backend.clone())
@@ -1022,8 +997,19 @@ pub fn new_full<
 			dispute_coordinator_config,
 			chain_selection_config,
 			fetch_chunks_threshold,
+			enable_approval_voting_parallel,
 		})
 	};
+
+	let syncing_strategy = build_polkadot_syncing_strategy(
+		config.protocol_id(),
+		config.chain_spec.fork_id(),
+		&mut net_config,
+		Some(WarpSyncConfig::WithProvider(warp_sync)),
+		client.clone(),
+		&task_manager.spawn_handle(),
+		config.prometheus_config.as_ref().map(|config| &config.registry),
+	)?;
 
 	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
@@ -1034,7 +1020,7 @@ pub fn new_full<
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
+			syncing_strategy,
 			block_relay: None,
 			metrics,
 		})?;
@@ -1079,13 +1065,31 @@ pub fn new_full<
 
 	if let Some(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(&hwbench);
-		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) {
+		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench, role.is_authority()) {
 			Err(err) if role.is_authority() => {
-				log::warn!(
-				"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
-				https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
-				err
-			);
+				if err
+					.0
+					.iter()
+					.any(|failure| matches!(failure.metric, Metric::Blake2256Parallel { .. }))
+				{
+					log::warn!(
+						"⚠️  Starting January 2025 the hardware will fail the minimal physical CPU cores requirements {} for role 'Authority',\n\
+						    find out more when this will become mandatory at:\n\
+						    https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+						err
+					);
+				}
+				if err
+					.0
+					.iter()
+					.any(|failure| !matches!(failure.metric, Metric::Blake2256Parallel { .. }))
+				{
+					log::warn!(
+						"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
+						https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+						err
+					);
+				}
 			},
 			_ => {},
 		}
@@ -1296,7 +1300,7 @@ pub fn new_full<
 			runtime: client.clone(),
 			key_store: keystore_opt.clone(),
 			network_params,
-			min_block_delta: if chain_spec.is_wococo() { 4 } else { 8 },
+			min_block_delta: 8,
 			prometheus_registry: prometheus_registry.clone(),
 			links: beefy_links,
 			on_demand_justifications_handler: beefy_on_demand_justifications_handler,
@@ -1402,11 +1406,10 @@ pub fn new_full<
 
 #[cfg(feature = "full-node")]
 macro_rules! chain_ops {
-	($config:expr, $jaeger_agent:expr, $telemetry_worker_handle:expr) => {{
+	($config:expr, $telemetry_worker_handle:expr) => {{
 		let telemetry_worker_handle = $telemetry_worker_handle;
-		let jaeger_agent = $jaeger_agent;
 		let mut config = $config;
-		let basics = new_partial_basics(config, jaeger_agent, telemetry_worker_handle)?;
+		let basics = new_partial_basics(config, telemetry_worker_handle)?;
 
 		use ::sc_consensus::LongestChain;
 		// use the longest chain selection, since there is no overseer available
@@ -1422,22 +1425,18 @@ macro_rules! chain_ops {
 #[cfg(feature = "full-node")]
 pub fn new_chain_ops(
 	config: &mut Configuration,
-	jaeger_agent: Option<std::net::SocketAddr>,
 ) -> Result<(Arc<FullClient>, Arc<FullBackend>, sc_consensus::BasicQueue<Block>, TaskManager), Error>
 {
 	config.keystore = sc_service::config::KeystoreConfig::InMemory;
 
-	if config.chain_spec.is_rococo() ||
-		config.chain_spec.is_wococo() ||
-		config.chain_spec.is_versi()
-	{
-		chain_ops!(config, jaeger_agent, None)
+	if config.chain_spec.is_rococo() || config.chain_spec.is_versi() {
+		chain_ops!(config, None)
 	} else if config.chain_spec.is_kusama() {
-		chain_ops!(config, jaeger_agent, None)
+		chain_ops!(config, None)
 	} else if config.chain_spec.is_westend() {
-		return chain_ops!(config, jaeger_agent, None)
+		return chain_ops!(config, None)
 	} else {
-		chain_ops!(config, jaeger_agent, None)
+		chain_ops!(config, None)
 	}
 }
 
@@ -1480,6 +1479,7 @@ pub fn revert_backend(
 	backend: Arc<FullBackend>,
 	blocks: BlockNumber,
 	config: Configuration,
+	task_handle: SpawnTaskHandle,
 ) -> Result<(), Error> {
 	let best_number = client.info().best_number;
 	let finalized = client.info().finalized_number;
@@ -1500,7 +1500,7 @@ pub fn revert_backend(
 	let parachains_db = open_database(&config.database)
 		.map_err(|err| sp_blockchain::Error::Backend(err.to_string()))?;
 
-	revert_approval_voting(parachains_db.clone(), hash)?;
+	revert_approval_voting(parachains_db.clone(), hash, task_handle)?;
 	revert_chain_selection(parachains_db, hash)?;
 	// Revert Substrate consensus related components
 	sc_consensus_babe::revert(client.clone(), backend, blocks)?;
@@ -1523,7 +1523,11 @@ fn revert_chain_selection(db: Arc<dyn Database>, hash: Hash) -> sp_blockchain::R
 		.map_err(|err| sp_blockchain::Error::Backend(err.to_string()))
 }
 
-fn revert_approval_voting(db: Arc<dyn Database>, hash: Hash) -> sp_blockchain::Result<()> {
+fn revert_approval_voting(
+	db: Arc<dyn Database>,
+	hash: Hash,
+	task_handle: SpawnTaskHandle,
+) -> sp_blockchain::Result<()> {
 	let config = approval_voting_subsystem::Config {
 		col_approval_data: parachains_db::REAL_COLUMNS.col_approval_data,
 		slot_duration_millis: Default::default(),
@@ -1535,6 +1539,7 @@ fn revert_approval_voting(db: Arc<dyn Database>, hash: Hash) -> sp_blockchain::R
 		Arc::new(sc_keystore::LocalKeystore::in_memory()),
 		Box::new(sp_consensus::NoNetwork),
 		approval_voting_subsystem::Metrics::default(),
+		Arc::new(SpawnGlue(task_handle)),
 	);
 
 	approval_voting

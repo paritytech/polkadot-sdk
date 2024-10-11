@@ -25,10 +25,9 @@ use bitvec::{bitvec, prelude::Lsb0};
 use frame_benchmarking::benchmarks;
 use pallet_message_queue as mq;
 use polkadot_primitives::{
-	CandidateCommitments, CollatorId, CollatorSignature, CommittedCandidateReceipt, HrmpChannelId,
-	OutboundHrmpMessage, SessionIndex,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateCommitments,
+	HrmpChannelId, OutboundHrmpMessage, SessionIndex,
 };
-use sp_core::sr25519;
 
 fn create_candidate_commitments<T: crate::hrmp::pallet::Config>(
 	para_id: ParaId,
@@ -95,8 +94,8 @@ benchmarks! {
 	}
 
 	enact_candidate {
-		let u in 1 .. 32;
-		let h in 1 .. 32;
+		let u in 0 .. 2;
+		let h in 0 .. 2;
 		let c in 0 .. 1;
 
 		let para = 42_u32.into();	// not especially important.
@@ -124,17 +123,17 @@ benchmarks! {
 		let core_index = CoreIndex::from(0);
 		let backing_group = GroupIndex::from(0);
 
-		let descriptor = CandidateDescriptor::<T::Hash> {
-			para_id: para,
-			relay_parent: Default::default(),
-			collator: CollatorId::from(sr25519::Public::from_raw([42u8; 32])),
-			persisted_validation_data_hash: Default::default(),
-			pov_hash: Default::default(),
-			erasure_root: Default::default(),
-			signature: CollatorSignature::from(sr25519::Signature::from_raw([42u8; 64])),
-			para_head: Default::default(),
-			validation_code_hash: ValidationCode(vec![1, 2, 3]).hash(),
-		};
+		let descriptor = CandidateDescriptor::<T::Hash>::new(
+			para,
+			Default::default(),
+			CoreIndex(0),
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			ValidationCode(vec![1, 2, 3]).hash(),
+		);
 
 		let receipt = CommittedCandidateReceipt::<T::Hash> {
 			descriptor,

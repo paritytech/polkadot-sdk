@@ -2,7 +2,7 @@ name: Command
 
 on:
   issue_comment: # listen for comments on issues
-    types: [ created ]
+    types: [created]
 
 permissions: # allow the action to comment on the PR
   contents: write
@@ -35,14 +35,14 @@ jobs:
             try {              
               const org = '${{ github.event.repository.owner.login }}';
               const username = '${{ github.event.comment.user.login }}';
-            
+
               const membership = await github.rest.orgs.checkMembershipForUser({
                   org: org,
                   username: username
               });
-            
+
               console.log(membership, membership.status, membership.status === 204);
-            
+
               if (membership.status === 204) {
                 return 'true';
               } else {
@@ -52,7 +52,7 @@ jobs:
             } catch (error) {
               console.log(error)
             }
-            
+
             return 'false';
 
   reject-non-members:
@@ -140,7 +140,7 @@ jobs:
               }
             })
   help:
-    needs: [ clean, is-org-member ]
+    needs: [clean, is-org-member]
     if: ${{ startsWith(github.event.comment.body, '/cmd') && contains(github.event.comment.body, '--help') && needs.is-org-member.outputs.member == 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -152,13 +152,14 @@ jobs:
         id: get-pr-comment
         with:
           text: ${{ github.event.comment.body }}
-          regex: '^(\/cmd )([-\/\s\w.=:]+)$' # see explanation in docs/contributor/commands-readme.md#examples
+          regex: "^(\\/cmd )([-\\/\\s\\w.=:]+)$" # see explanation in docs/contributor/commands-readme.md#examples
 
       - name: Save output of help
         id: help
         env:
           CMD: ${{ steps.get-pr-comment.outputs.group2 }} # to avoid "" around the command
         run: |
+          python3 -m pip install -r .github/scripts/generate-prdoc.requirements.txt
           echo 'help<<EOF' >> $GITHUB_OUTPUT
           python3 .github/scripts/cmd/cmd.py $CMD >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
@@ -173,11 +174,11 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `<details><summary>Command help:</summary> 
-            
+
             \`\`\`
             ${{ steps.help.outputs.help }}
             \`\`\` 
-            
+
             </details>`
             })
 
@@ -208,7 +209,7 @@ jobs:
             })
 
   set-image:
-    needs: [ clean, is-org-member ]
+    needs: [clean, is-org-member]
     if: ${{ startsWith(github.event.comment.body, '/cmd') && !contains(github.event.comment.body, '--help') && needs.is-org-member.outputs.member == 'true' }}
     runs-on: ubuntu-latest
     outputs:
@@ -222,26 +223,67 @@ jobs:
         run: |
           BODY=$(echo "${{ github.event.comment.body }}" | xargs)
           IMAGE_OVERRIDE=$(echo $BODY | grep -oe 'docker.io/paritytech/ci-unified:.*\s' | xargs)
-          
+
           cat .github/env >> $GITHUB_OUTPUT
-          
+
           if [ -n "$IMAGE_OVERRIDE" ]; then
               echo "IMAGE=$IMAGE_OVERRIDE" >> $GITHUB_OUTPUT
           fi
-          
+
           if [[ $BODY == "/cmd bench"* ]]; then
-              echo "RUNNER=arc-runners-polkadot-sdk-benchmark" >> $GITHUB_OUTPUT
+              echo "RUNNER=parity-weights" >> $GITHUB_OUTPUT
           elif [[ $BODY == "/cmd update-ui"* ]]; then
-              echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
+              echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
           else
               echo "RUNNER=ubuntu-latest" >> $GITHUB_OUTPUT
           fi
 
+  # Get PR branch name, because the issue_comment event does not contain the PR branch name
+  get-pr-branch:
+    needs: [set-image]
+    runs-on: ubuntu-latest
+    outputs:
+      pr-branch: ${{ steps.get-pr.outputs.pr_branch }}
+      repo: ${{ steps.get-pr.outputs.repo }}
+    steps:
+      - name: Check if the issue is a PR
+        id: check-pr
+        run: |
+          if [ -n "${{ github.event.issue.pull_request.url }}" ]; then
+            echo "This is a pull request comment"
+          else
+            echo "This is not a pull request comment"
+            exit 1
+          fi
+
+      - name: Get PR Branch Name and Repo
+        if: steps.check-pr.outcome == 'success'
+        id: get-pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            const prBranch = pr.data.head.ref;
+            const repo = pr.data.head.repo.full_name;
+            console.log(prBranch, repo)
+            core.setOutput('pr_branch', prBranch);
+            core.setOutput('repo', repo);
+
+      - name: Use PR Branch Name and Repo
+        run: |
+          echo "The PR branch is ${{ steps.get-pr.outputs.pr_branch }}"
+          echo "The repository is ${{ steps.get-pr.outputs.repo }}"
+
   cmd:
-    needs: [ set-image ]
+    needs: [set-image, get-pr-branch]
     env:
-      JOB_NAME: 'cmd'
+      JOB_NAME: "cmd"
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    timeout-minutes: 1800 # 30 hours as it could take a long time to run all the runtimes/pallets
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
@@ -250,7 +292,18 @@ jobs:
         id: get-pr-comment
         with:
           text: ${{ github.event.comment.body }}
-          regex: '^(\/cmd )([-\/\s\w.=:]+)$' # see explanation in docs/contributor/commands-readme.md#examples
+          regex: "^(\\/cmd )([-\\/\\s\\w.=:]+)$" # see explanation in docs/contributor/commands-readme.md#examples
+
+      # In order to run prdoc without specifying the PR number, we need to add the PR number as an argument automatically
+      - name: Prepare PR Number argument
+        id: pr-arg
+        run: |
+          CMD="${{ steps.get-pr-comment.outputs.group2 }}"
+          if echo "$CMD" | grep -q "prdoc" && ! echo "$CMD" | grep -qE "\-\-pr[[:space:]=][0-9]+"; then
+            echo "arg=--pr ${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+          else
+            echo "arg=" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build workflow link
         if: ${{ !contains(github.event.comment.body, '--quiet') }}
@@ -261,26 +314,26 @@ jobs:
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs | jq '.jobs[] | select(.name | contains("${{ env.JOB_NAME }}")) | .html_url')
-          
+
           runLink=$(curl -s \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }} | jq '.html_url')
-          
+
           echo "job_url=${jobLink}"
           echo "run_url=${runLink}"
           echo "job_url=$jobLink" >> $GITHUB_OUTPUT
           echo "run_url=$runLink" >> $GITHUB_OUTPUT
 
-
       - name: Comment PR (Start)
-        if: ${{ !contains(github.event.comment.body, '--quiet') }}
+        # No need to comment on prdoc start or if --quiet
+        if: ${{ !contains(github.event.comment.body, '--quiet') && !contains(github.event.comment.body, 'prdoc') }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             let job_url = ${{ steps.build-link.outputs.job_url }}
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -291,23 +344,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          repository: ${{ needs.get-pr-branch.outputs.repo }}
+          ref: ${{ needs.get-pr-branch.outputs.pr-branch }}
 
       - name: Install dependencies for bench
         if: startsWith(steps.get-pr-comment.outputs.group2, 'bench')
-        run: cargo install subweight frame-omni-bencher --locked
+        run: |
+          cargo install subweight --locked
+          cargo install --path substrate/utils/frame/omni-bencher --locked
 
       - name: Run cmd
         id: cmd
         env:
           CMD: ${{ steps.get-pr-comment.outputs.group2 }} # to avoid "" around the command
+          PR_ARG: ${{ steps.pr-arg.outputs.arg }}
         run: |
-          echo "Running command: '$CMD' on '${{ needs.set-image.outputs.RUNNER }}' runner, container: '${{ needs.set-image.outputs.IMAGE }}'"
+          echo "Running command: '$CMD $PR_ARG' on '${{ needs.set-image.outputs.RUNNER }}' runner, container: '${{ needs.set-image.outputs.IMAGE }}'"
           echo "RUST_NIGHTLY_VERSION: $RUST_NIGHTLY_VERSION"
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
           git remote -v
-          python3 .github/scripts/cmd/cmd.py $CMD
+          python3 -m pip install -r .github/scripts/generate-prdoc.requirements.txt
+          python3 .github/scripts/cmd/cmd.py $CMD $PR_ARG
           git status
           git diff
 
@@ -316,12 +374,14 @@ jobs:
           if [ -n "$(git status --porcelain)" ]; then
             git config --local user.email "action@github.com"
             git config --local user.name "GitHub Action"
-          
-            git pull origin ${{ github.head_ref }}
+
             git add .
             git restore --staged Cargo.lock # ignore changes in Cargo.lock
             git commit -m "Update from ${{ github.actor }} running command '${{ steps.get-pr-comment.outputs.group2 }}'" || true
-            git push origin ${{ github.head_ref }}
+            
+            git pull --rebase origin ${{ needs.get-pr-branch.outputs.pr-branch }}
+            
+            git push origin ${{ needs.get-pr-branch.outputs.pr-branch }}
           else
             echo "Nothing to commit";
           fi
@@ -339,8 +399,8 @@ jobs:
             --no-color \
             --change added changed \
             --ignore-errors \
-            refs/remotes/origin/master ${{ github.ref }})
-          
+            refs/remotes/origin/master refs/heads/${{ needs.get-pr-branch.outputs.pr-branch }})
+
           # Save the multiline result to the output
           {
             echo "result<<EOF"
@@ -349,20 +409,21 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Comment PR (End)
-        if: ${{ !failure() && !contains(github.event.comment.body, '--quiet') }}
+        # No need to comment on prdoc success or --quiet
+        if: ${{ !failure() && !contains(github.event.comment.body, '--quiet') && !contains(github.event.comment.body, 'prdoc') }}
         uses: actions/github-script@v7
         env:
-          SUBWEIGHT: '${{ steps.subweight.outputs.result }}'
+          SUBWEIGHT: "${{ steps.subweight.outputs.result }}"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             let runUrl = ${{ steps.build-link.outputs.run_url }}
             let subweight = process.env.SUBWEIGHT;
-            
+
             let subweightCollapsed = subweight 
               ? `<details>\n\n<summary>Subweight results:</summary>\n\n${subweight}\n\n</details>` 
               : '';
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,

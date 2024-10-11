@@ -68,6 +68,7 @@ use substrate_test_client::{
 pub type Client = FullClient;
 
 pub use polkadot_service::{FullBackend, GetLastTimestamp};
+use sc_service::config::{ExecutorConfiguration, RpcConfiguration};
 
 /// Create a new full node.
 #[sc_tracing::logging::prefix_logs_with(config.network.node_name.as_str())]
@@ -87,7 +88,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					is_parachain_node,
 					enable_beefy: true,
 					force_authoring_backoff: false,
-					jaeger_agent: None,
 					telemetry_worker_handle: None,
 					node_version: None,
 					secure_validator_mode: false,
@@ -100,6 +100,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					execute_workers_max_num: None,
 					prepare_workers_hard_max_num: None,
 					prepare_workers_soft_max_num: None,
+					enable_approval_voting_parallel: false,
 				},
 			),
 		sc_network::config::NetworkBackendType::Litep2p =>
@@ -109,7 +110,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					is_parachain_node,
 					enable_beefy: true,
 					force_authoring_backoff: false,
-					jaeger_agent: None,
 					telemetry_worker_handle: None,
 					node_version: None,
 					secure_validator_mode: false,
@@ -122,6 +122,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					execute_workers_max_num: None,
 					prepare_workers_hard_max_num: None,
 					prepare_workers_soft_max_num: None,
+					enable_approval_voting_parallel: false,
 				},
 			),
 	}
@@ -200,35 +201,37 @@ pub fn node_config(
 		state_pruning: Default::default(),
 		blocks_pruning: BlocksPruning::KeepFinalized,
 		chain_spec: Box::new(spec),
-		wasm_method: WasmExecutionMethod::Compiled {
-			instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
+		executor: ExecutorConfiguration {
+			wasm_method: WasmExecutionMethod::Compiled {
+				instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
+			},
+			..ExecutorConfiguration::default()
 		},
 		wasm_runtime_overrides: Default::default(),
-		rpc_addr: Default::default(),
-		rpc_max_request_size: Default::default(),
-		rpc_max_response_size: Default::default(),
-		rpc_max_connections: Default::default(),
-		rpc_cors: None,
-		rpc_methods: Default::default(),
-		rpc_id_provider: None,
-		rpc_max_subs_per_conn: Default::default(),
-		rpc_port: 9944,
-		rpc_message_buffer_capacity: Default::default(),
-		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
-		rpc_rate_limit: None,
-		rpc_rate_limit_whitelisted_ips: Default::default(),
-		rpc_rate_limit_trust_proxy_headers: Default::default(),
+		rpc: RpcConfiguration {
+			addr: Default::default(),
+			max_request_size: Default::default(),
+			max_response_size: Default::default(),
+			max_connections: Default::default(),
+			cors: None,
+			methods: Default::default(),
+			id_provider: None,
+			max_subs_per_conn: Default::default(),
+			port: 9944,
+			message_buffer_capacity: Default::default(),
+			batch_config: RpcBatchRequestConfig::Unlimited,
+			rate_limit: None,
+			rate_limit_whitelisted_ips: Default::default(),
+			rate_limit_trust_proxy_headers: Default::default(),
+		},
 		prometheus_config: None,
 		telemetry_endpoints: None,
-		default_heap_pages: None,
 		offchain_worker: Default::default(),
 		force_authoring: false,
 		disable_grandpa: false,
 		dev_key_seed: Some(key_seed),
 		tracing_targets: None,
 		tracing_receiver: Default::default(),
-		max_runtime_instances: 8,
-		runtime_cache_size: 2,
 		announce_block: true,
 		data_path: root,
 		base_path,

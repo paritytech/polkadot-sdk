@@ -31,7 +31,7 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(
 		256,
-		callee_addr: [u8; 32],
+		callee_addr: &[u8; 20],
 		callee_input: [u8],
 	);
 
@@ -39,10 +39,10 @@ pub extern "C" fn call() {
 	api::call(
 		uapi::CallFlags::READ_ONLY,
 		callee_addr,
-		0u64,                // How much ref_time to devote for the execution. 0 = all.
-		0u64,                // How much proof_size to devote for the execution. 0 = all.
-		None,                // No deposit limit.
-		&0u64.to_le_bytes(), // Value transferred to the contract.
+		0u64,       // How much ref_time to devote for the execution. 0 = all.
+		0u64,       // How much proof_size to devote for the execution. 0 = all.
+		None,       // No deposit limit.
+		&[0u8; 32], // Value transferred to the contract.
 		callee_input,
 		None,
 	)

@@ -20,12 +20,13 @@
 pub mod meter;
 
 use crate::{
+	address::AddressMapper,
 	exec::{AccountIdOf, Key},
 	limits,
 	storage::meter::Diff,
 	weights::WeightInfo,
-	BalanceOf, CodeHash, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter,
-	Error, TrieId, SENTINEL,
+	BalanceOf, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter, Error,
+	StorageDeposit, TrieId, SENTINEL,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -35,8 +36,9 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 	CloneNoBound, DefaultNoBound,
 };
+use meter::DepositOf;
 use scale_info::TypeInfo;
-use sp_core::{ConstU32, Get};
+use sp_core::{ConstU32, Get, H160};
 use sp_io::KillStorageResult;
 use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
@@ -44,7 +46,7 @@ use sp_runtime::{
 };
 
 type DelegateDependencyMap<T> =
-	BoundedBTreeMap<CodeHash<T>, BalanceOf<T>, ConstU32<{ limits::DELEGATE_DEPENDENCIES }>>;
+	BoundedBTreeMap<sp_core::H256, BalanceOf<T>, ConstU32<{ limits::DELEGATE_DEPENDENCIES }>>;
 
 /// Information for managing an account and its sub trie abstraction.
 /// This is the required info to cache for an account.
@@ -54,7 +56,7 @@ pub struct ContractInfo<T: Config> {
 	/// Unique ID for the subtree encoded as a bytes vector.
 	pub trie_id: TrieId,
 	/// The code associated with a given account.
-	pub code_hash: CodeHash<T>,
+	pub code_hash: sp_core::H256,
 	/// How many bytes of storage are accumulated in this contract's child trie.
 	storage_bytes: u32,
 	/// How many items of storage are accumulated in this contract's child trie.
@@ -74,6 +76,8 @@ pub struct ContractInfo<T: Config> {
 	/// to the map can not be removed from the chain state and can be safely used for delegate
 	/// calls.
 	delegate_dependencies: DelegateDependencyMap<T>,
+	/// The size of the immutable data of this contract.
+	immutable_data_len: u32,
 }
 
 impl<T: Config> ContractInfo<T> {
@@ -82,16 +86,16 @@ impl<T: Config> ContractInfo<T> {
 	/// This returns an `Err` if an contract with the supplied `account` already exists
 	/// in storage.
 	pub fn new(
-		account: &AccountIdOf<T>,
+		address: &H160,
 		nonce: T::Nonce,
-		code_hash: CodeHash<T>,
+		code_hash: sp_core::H256,
 	) -> Result<Self, DispatchError> {
-		if <ContractInfoOf<T>>::contains_key(account) {
-			return Err(Error::<T>::DuplicateContract.into())
+		if <ContractInfoOf<T>>::contains_key(address) {
+			return Err(Error::<T>::DuplicateContract.into());
 		}
 
 		let trie_id = {
-			let buf = ("bcontract_trie_v1", account, nonce).using_encoded(T::Hashing::hash);
+			let buf = ("bcontract_trie_v1", address, nonce).using_encoded(T::Hashing::hash);
 			buf.as_ref()
 				.to_vec()
 				.try_into()
@@ -107,6 +111,7 @@ impl<T: Config> ContractInfo<T> {
 			storage_item_deposit: Zero::zero(),
 			storage_base_deposit: Zero::zero(),
 			delegate_dependencies: Default::default(),
+			immutable_data_len: 0,
 		};
 
 		Ok(contract)
@@ -259,7 +264,7 @@ impl<T: Config> ContractInfo<T> {
 	/// the delegate dependency already exists.
 	pub fn lock_delegate_dependency(
 		&mut self,
-		code_hash: CodeHash<T>,
+		code_hash: sp_core::H256,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
 		self.delegate_dependencies
@@ -275,7 +280,7 @@ impl<T: Config> ContractInfo<T> {
 	/// Returns an error if the entry doesn't exist.
 	pub fn unlock_delegate_dependency(
 		&mut self,
-		code_hash: &CodeHash<T>,
+		code_hash: &sp_core::H256,
 	) -> Result<BalanceOf<T>, DispatchError> {
 		self.delegate_dependencies
 			.remove(code_hash)
@@ -352,8 +357,37 @@ impl<T: Config> ContractInfo<T> {
 	}
 
 	/// Returns the code hash of the contract specified by `account` ID.
-	pub fn load_code_hash(account: &AccountIdOf<T>) -> Option<CodeHash<T>> {
-		<ContractInfoOf<T>>::get(account).map(|i| i.code_hash)
+	pub fn load_code_hash(account: &AccountIdOf<T>) -> Option<sp_core::H256> {
+		<ContractInfoOf<T>>::get(&T::AddressMapper::to_address(account)).map(|i| i.code_hash)
+	}
+
+	/// Returns the amount of immutable bytes of this contract.
+	pub fn immutable_data_len(&self) -> u32 {
+		self.immutable_data_len
+	}
+
+	/// Set the number of immutable bytes of this contract.
+	///
+	/// On success, returns the storage deposit to be charged.
+	///
+	/// Returns `Err(InvalidImmutableAccess)` if:
+	/// - The immutable bytes of this contract are not 0. This indicates that the immutable data
+	///   have already been set; it is only valid to set the immutable data exactly once.
+	/// - The provided `immutable_data_len` value was 0; it is invalid to set empty immutable data.
+	pub fn set_immutable_data_len(
+		&mut self,
+		immutable_data_len: u32,
+	) -> Result<DepositOf<T>, DispatchError> {
+		if self.immutable_data_len != 0 || immutable_data_len == 0 {
+			return Err(Error::<T>::InvalidImmutableAccess.into());
+		}
+
+		self.immutable_data_len = immutable_data_len;
+
+		let amount = T::DepositPerByte::get()
+			.saturating_mul(immutable_data_len.into())
+			.saturating_add(T::DepositPerItem::get());
+		Ok(StorageDeposit::Charge(amount))
 	}
 }
 
