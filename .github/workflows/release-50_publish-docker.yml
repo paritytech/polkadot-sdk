@@ -26,6 +26,7 @@ on:
         type: choice
         options:
           - polkadot
+          - polkadot-omni-node
           - polkadot-parachain
           - chain-spec-builder
 
@@ -80,9 +81,9 @@ jobs:
   validate-inputs:
     runs-on: ubuntu-latest
     outputs:
-        version: ${{ steps.validate_inputs.outputs.VERSION }}
-        release_id: ${{ steps.validate_inputs.outputs.RELEASE_ID }}
-        stable_tag: ${{ steps.validate_inputs.outputs.stable_tag }}
+      version: ${{ steps.validate_inputs.outputs.VERSION }}
+      release_id: ${{ steps.validate_inputs.outputs.RELEASE_ID }}
+      stable_tag: ${{ steps.validate_inputs.outputs.stable_tag }}
 
     steps:
       - name: Checkout sources
@@ -105,15 +106,15 @@ jobs:
           echo "stable_tag=${STABLE_TAG}" >> $GITHUB_OUTPUT
 
   fetch-artifacts: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
-    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
+    if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
-    needs: [validate-inputs]
+    needs: [ validate-inputs ]
 
     steps:
       - name: Checkout sources
         uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
 
-      #TODO: this step will be needed when automated triggering will work
+        #TODO: this step will be needed when automated triggering will work
         #this step runs only if the workflow is triggered automatically when new release is published
         # if: ${{ env.EVENT_NAME == 'release' && env.EVENT_ACTION != '' && env.EVENT_ACTION == 'published' }}
         # run: |
@@ -129,7 +130,7 @@ jobs:
 
       - name: Fetch rc artifacts or release artifacts from s3 based on version
         #this step runs only if the workflow is triggered manually
-        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary != 'chain-spec-builder'}}
+        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary != 'polkadot-omni-node' && inputs.binary != 'chain-spec-builder'}}
         run: |
           . ./.github/scripts/common/lib.sh
 
@@ -143,9 +144,9 @@ jobs:
             fetch_release_artifacts_from_s3 $BINARY
           fi
 
-      - name: Fetch chain-spec-builder rc artifacts or release artifacts based on release id
+      - name: Fetch polkadot-omni-node/chain-spec-builder rc artifacts or release artifacts based on release id
         #this step runs only if the workflow is triggered manually and only for chain-spec-builder
-        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary == 'chain-spec-builder' }}
+        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && (inputs.binary == 'polkadot-omni-node' || inputs.binary == 'chain-spec-builder') }}
         run: |
           . ./.github/scripts/common/lib.sh
 
@@ -159,9 +160,9 @@ jobs:
           path: release-artifacts/${{ env.BINARY }}/**/*
 
   build-container: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
-    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
+    if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
     runs-on: ubuntu-latest
-    needs: [fetch-artifacts, validate-inputs]
+    needs: [ fetch-artifacts, validate-inputs ]
     environment: release
 
     steps:
@@ -233,8 +234,8 @@ jobs:
           echo "Building container for $BINARY"
           ./docker/scripts/polkadot/build-injected.sh $ARTIFACTS_FOLDER
 
-      - name: Build Injected Container image chain-spec-builder
-        if: ${{ env.BINARY == 'chain-spec-builder' }}
+      - name: Build Injected Container image for polkadot-omni-node/chain-spec-builder
+        if: ${{ env.BINARY == 'polkadot-omni-node' || env.BINARY == 'chain-spec-builder' }}
         env:
           ARTIFACTS_FOLDER: release-artifacts
           IMAGE_NAME: ${{ env.BINARY }}
@@ -268,8 +269,8 @@ jobs:
           username: ${{ secrets.POLKADOT_DOCKERHUB_USERNAME }}
           password: ${{ secrets.POLKADOT_DOCKERHUB_TOKEN }}
 
-      - name: Login to Dockerhub to puiblish polkadot-parachain/chain-spec-builder
-        if: ${{ env.BINARY == 'polkadot-parachain' || env.BINARY == 'chain-spec-builder' }}
+      - name: Login to Dockerhub to publish polkadot-omni-node/polkadot-parachain/chain-spec-builder
+        if: ${{ env.BINARY == 'polkadot-omni-node' || env.BINARY == 'polkadot-parachain' || env.BINARY == 'chain-spec-builder' }}
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           username: ${{ secrets.CUMULUS_DOCKERHUB_USERNAME }}
@@ -317,7 +318,7 @@ jobs:
   build-polkadot-release-container: # this job will be triggered for polkadot release build
     if: ${{ inputs.binary == 'polkadot' && inputs.image_type == 'release' }}
     runs-on: ubuntu-latest
-    needs: [fetch-latest-debian-package-version, validate-inputs]
+    needs: [ fetch-latest-debian-package-version, validate-inputs ]
     environment: release
     steps:
       - name: Checkout sources
@@ -329,10 +330,10 @@ jobs:
       - name: Cache Docker layers
         uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
         with:
-         path: /tmp/.buildx-cache
-         key: ${{ runner.os }}-buildx-${{ github.sha }}
-         restore-keys: |
-           ${{ runner.os }}-buildx-
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
 
       - name: Login to Docker Hub
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
@@ -347,7 +348,7 @@ jobs:
           echo "date=$date" >> $GITHUB_OUTPUT
 
       - name: Build and push
-        id:   docker_build
+        id: docker_build
         uses: docker/build-push-action@32945a339266b759abcbdc89316275140b0fc960 #  v6.8.0
         with:
           push: true
