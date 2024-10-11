@@ -1229,7 +1229,10 @@ where
 					.try_into()
 					.ok()
 					.and_then(|blob_len| (tx.input.0.split_at_checked(blob_len))),
-				_ => None,
+				_ => {
+					log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
+					None
+				},
 			};
 
 			let Some((code, data)) = blob else {

@@ -37,7 +37,6 @@ async fn main() -> anyhow::Result<()> {
 
 	println!("\n\n=== Deploying contract ===\n\n");
 
-	let input = rlp::encode(&input).to_vec();
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
 	let hash = send_transaction(&account, &client, U256::zero(), input.into(), None).await?;
 
