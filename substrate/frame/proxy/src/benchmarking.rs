@@ -295,7 +295,7 @@ mod benchmarks {
 		ensure!(Proxies::<T>::contains_key(&pure_account), "pure proxy not created");
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(pure_account.clone()), caller_lookup, T::ProxyType::default(), 0, height, ext_index)
+		_(RawOrigin::Signed(pure_account.clone()), caller_lookup, T::ProxyType::default(), 0, height, ext_index);
 
 		assert!(!Proxies::<T>::contains_key(&pure_account));
 
