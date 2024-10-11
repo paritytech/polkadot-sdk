@@ -405,14 +405,10 @@ function find_runtimes() {
 # output: none
 filter_version_from_input() {
   version=$1
-  regex="(^v[0-9]+\.[0-9]+\.[0-9]+)$|(^v[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+)$"
+  regex="^v[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$"
 
   if [[ $version =~ $regex ]]; then
-      if [ -n "${BASH_REMATCH[1]}" ]; then
-          echo "${BASH_REMATCH[1]}"
-      elif [ -n "${BASH_REMATCH[2]}" ]; then
-          echo "${BASH_REMATCH[2]}"
-      fi
+      echo $version
   else
       echo "Invalid version: $version"
       exit 1
