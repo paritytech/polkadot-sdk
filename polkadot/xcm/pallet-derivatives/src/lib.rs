@@ -21,7 +21,7 @@
 
 use frame_support::pallet_prelude::*;
 use sp_runtime::DispatchResult;
-use xcm_builder::unique_instances::derivatives::DerivativesRegistry;
+use xcm_builder::unique_instances::derivatives::{DerivativesRegistry, IterDerivativesRegistry};
 
 pub use pallet::*;
 
@@ -57,12 +57,12 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn original_to_derivative)]
 	pub type OriginalToDerivative<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128, OriginalOf<T, I>, DerivativeOf<T, I>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, OriginalOf<T, I>, DerivativeOf<T, I>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn derivative_to_original)]
 	pub type DerivativeToOriginal<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128, DerivativeOf<T, I>, OriginalOf<T, I>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, DerivativeOf<T, I>, OriginalOf<T, I>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
@@ -136,5 +136,21 @@ impl<T: Config<I>, I: 'static> DerivativesRegistry<OriginalOf<T, I>, DerivativeO
 
 	fn get_original(derivative: &DerivativeOf<T, I>) -> Option<OriginalOf<T, I>> {
 		<DerivativeToOriginal<T, I>>::get(derivative)
+	}
+}
+
+impl<T: Config<I>, I: 'static> IterDerivativesRegistry<OriginalOf<T, I>, DerivativeOf<T, I>>
+	for Pallet<T, I>
+{
+	fn iter_originals() -> impl Iterator<Item = OriginalOf<T, I>> {
+		<OriginalToDerivative<T, I>>::iter_keys()
+	}
+
+	fn iter_derivatives() -> impl Iterator<Item = DerivativeOf<T, I>> {
+		<OriginalToDerivative<T, I>>::iter_values()
+	}
+
+	fn iter() -> impl Iterator<Item = (OriginalOf<T, I>, DerivativeOf<T, I>)> {
+		<OriginalToDerivative<T, I>>::iter()
 	}
 }

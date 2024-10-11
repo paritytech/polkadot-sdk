@@ -18,8 +18,9 @@ use super::NonFungibleAsset;
 /// A registry abstracts the mapping between an `Original` entity and a `Derivative` entity.
 ///
 /// The primary use cases of the registry are:
+/// * a map between an `AssetId` and an chain-local asset ID.
+/// For instance, it could be chain-local currency ID or an NFT collection ID.
 /// * a map between a [`NonFungibleAsset`] and a derivative instance ID
-/// * a map between an [`AssetId`] and a derive ID parameters for the [`DeriveAndReportId`]
 /// to create a new derivative instance
 pub trait DerivativesRegistry<Original, Derivative> {
 	fn try_register_derivative(original: &Original, derivative: &Derivative) -> DispatchResult;
@@ -29,6 +30,15 @@ pub trait DerivativesRegistry<Original, Derivative> {
 	fn get_derivative(original: &Original) -> Option<Derivative>;
 
 	fn get_original(derivative: &Derivative) -> Option<Original>;
+}
+
+/// Iterator utilities for a derivatives registry.
+pub trait IterDerivativesRegistry<Original, Derivative> {
+	fn iter_originals() -> impl Iterator<Item = Original>;
+
+	fn iter_derivatives() -> impl Iterator<Item = Derivative>;
+
+	fn iter() -> impl Iterator<Item = (Original, Derivative)>;
 }
 
 /// The `MatchDerivativeInstances` is an XCM Matcher
