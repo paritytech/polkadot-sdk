@@ -415,7 +415,7 @@ fn build_std_required() -> bool {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-enum RuntimeTarget {
+pub enum RuntimeTarget {
 	Wasm,
 	Riscv,
 }

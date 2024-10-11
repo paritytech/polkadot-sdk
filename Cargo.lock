@@ -14561,6 +14561,8 @@ dependencies = [
  "rand",
  "rococo-runtime",
  "rusty-fork",
+ "sc-executor 0.32.0",
+ "sc-executor-polkavm 0.29.0",
  "sc-sysinfo",
  "slotmap",
  "sp-core 28.0.0",
@@ -14611,6 +14613,7 @@ dependencies = [
  "polkadot-primitives",
  "sc-executor 0.32.0",
  "sc-executor-common 0.29.0",
+ "sc-executor-polkavm 0.29.0",
  "sc-executor-wasmtime 0.29.0",
  "seccompiler",
  "sp-core 28.0.0",
@@ -14945,6 +14948,8 @@ dependencies = [
  "staging-xcm",
  "substrate-build-script-utils",
  "testnet-parachains-constants",
+ "westend-parachain-runtime",
+ "westend-pvm-parachain-runtime",
 ]
 
 [[package]]
@@ -16203,6 +16208,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm"
+version = "0.12.0"
+dependencies = [
+ "libc",
+ "log",
+ "polkavm-assembler 0.12.0",
+ "polkavm-common 0.12.0",
+ "polkavm-linux-raw 0.12.0",
+]
+
+[[package]]
 name = "polkavm-assembler"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16216,6 +16232,13 @@ name = "polkavm-assembler"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0b0399659fe7a5370c3e3464188888d29069cfa46d99631d19834a379c15826"
+dependencies = [
+ "log",
+]
+
+[[package]]
+name = "polkavm-assembler"
+version = "0.12.0"
 dependencies = [
  "log",
 ]
@@ -16246,6 +16269,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm-common"
+version = "0.12.0"
+dependencies = [
+ "log",
+ "polkavm-assembler 0.12.0",
+]
+
+[[package]]
 name = "polkavm-derive"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16270,6 +16301,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f565f0106fbb3598d64b8528d5cb966b6a87a8dd93fbcfe09fb6388ff2865711"
 dependencies = [
  "polkavm-derive-impl-macro 0.11.0",
+]
+
+[[package]]
+name = "polkavm-derive"
+version = "0.12.0"
+dependencies = [
+ "polkavm-derive-impl-macro 0.12.0",
 ]
 
 [[package]]
@@ -16309,6 +16347,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm-derive-impl"
+version = "0.12.0"
+dependencies = [
+ "polkavm-common 0.12.0",
+ "proc-macro2 1.0.86",
+ "quote 1.0.37",
+ "syn 2.0.79",
+]
+
+[[package]]
 name = "polkavm-derive-impl-macro"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16339,18 +16387,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "polkavm-linker"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c7be503e60cf56c0eb785f90aaba4b583b36bff00e93997d93fef97f9553c39"
+name = "polkavm-derive-impl-macro"
+version = "0.12.0"
 dependencies = [
- "gimli 0.28.0",
- "hashbrown 0.14.5",
- "log",
- "object 0.32.2",
- "polkavm-common 0.9.0",
- "regalloc2 0.9.3",
- "rustc-demangle",
+ "polkavm-derive-impl 0.12.0",
+ "syn 2.0.79",
 ]
 
 [[package]]
@@ -16369,6 +16410,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm-linker"
+version = "0.12.0"
+dependencies = [
+ "gimli 0.28.0",
+ "hashbrown 0.14.5",
+ "log",
+ "object 0.36.1",
+ "polkavm-common 0.12.0",
+ "regalloc2 0.9.3",
+ "rustc-demangle",
+]
+
+[[package]]
 name = "polkavm-linux-raw"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16379,6 +16433,10 @@ name = "polkavm-linux-raw"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3011697430dfcfe800d1d7c540ef69e3bdd66e9037cc38f01fee1c2e0908011e"
+
+[[package]]
+name = "polkavm-linux-raw"
+version = "0.12.0"
 
 [[package]]
 name = "polling"
@@ -16808,7 +16866,7 @@ checksum = "80b776a1b2dc779f5ee0641f8ade0125bc1298dd41a9a0c16d8bd57b42d222b1"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "log",
  "multimap",
  "once_cell",
@@ -16829,7 +16887,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "log",
  "multimap",
  "once_cell",
@@ -16862,7 +16920,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81bddcdb20abf9501610992b6759a4c888aef7d1a7247ef75e2404275ac24af1"
 dependencies = [
  "anyhow",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.79",
@@ -16875,7 +16933,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acf0c195eebb4af52c752bec4f52f645da98b6e92077a04110c7f349477ae5ac"
 dependencies = [
  "anyhow",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.79",
@@ -19018,7 +19076,7 @@ dependencies = [
 name = "sc-executor-common"
 version = "0.29.0"
 dependencies = [
- "polkavm 0.9.3",
+ "polkavm 0.12.0",
  "sc-allocator 23.0.0",
  "sp-maybe-compressed-blob 11.0.0",
  "sp-wasm-interface 20.0.0",
@@ -19045,7 +19103,7 @@ name = "sc-executor-polkavm"
 version = "0.29.0"
 dependencies = [
  "log",
- "polkavm 0.9.3",
+ "polkavm 0.12.0",
  "sc-executor-common 0.29.0",
  "sp-wasm-interface 20.0.0",
 ]
@@ -22224,7 +22282,7 @@ dependencies = [
  "libsecp256k1",
  "log",
  "parity-scale-codec",
- "polkavm-derive 0.9.1",
+ "polkavm-derive 0.12.0",
  "rustversion",
  "secp256k1",
  "sp-core 28.0.0",
@@ -22639,7 +22697,7 @@ dependencies = [
  "bytes",
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "polkavm-derive 0.9.1",
+ "polkavm-derive 0.12.0",
  "primitive-types",
  "rustversion",
  "sp-core 28.0.0",
@@ -24074,7 +24132,7 @@ dependencies = [
  "merkleized-metadata",
  "parity-scale-codec",
  "parity-wasm",
- "polkavm-linker 0.9.2",
+ "polkavm-linker 0.12.0",
  "sc-executor 0.32.0",
  "shlex",
  "sp-core 28.0.0",
@@ -26430,6 +26488,110 @@ dependencies = [
  "westend-runtime",
  "westend-runtime-constants",
  "xcm-runtime-apis",
+]
+
+[[package]]
+name = "westend-parachain-runtime"
+version = "0.6.0"
+dependencies = [
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcm",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-ping",
+ "cumulus-primitives-aura",
+ "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
+ "cumulus-primitives-utility",
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-rpc-runtime-api",
+ "pallet-assets",
+ "pallet-aura",
+ "pallet-balances",
+ "pallet-message-queue",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
+ "scale-info",
+ "sp-api 26.0.0",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core 28.0.0",
+ "sp-genesis-builder",
+ "sp-inherents",
+ "sp-offchain",
+ "sp-runtime 31.0.1",
+ "sp-runtime-interface 24.0.0",
+ "sp-session",
+ "sp-transaction-pool",
+ "sp-version 29.0.0",
+ "staging-parachain-info",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "substrate-wasm-builder",
+ "testnet-parachains-constants",
+]
+
+[[package]]
+name = "westend-pvm-parachain-runtime"
+version = "0.6.0"
+dependencies = [
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcm",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-ping",
+ "cumulus-primitives-aura",
+ "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
+ "cumulus-primitives-utility",
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-rpc-runtime-api",
+ "pallet-assets",
+ "pallet-aura",
+ "pallet-balances",
+ "pallet-message-queue",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
+ "scale-info",
+ "sp-api 26.0.0",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core 28.0.0",
+ "sp-genesis-builder",
+ "sp-inherents",
+ "sp-offchain",
+ "sp-runtime 31.0.1",
+ "sp-runtime-interface 24.0.0",
+ "sp-session",
+ "sp-transaction-pool",
+ "sp-version 29.0.0",
+ "staging-parachain-info",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]

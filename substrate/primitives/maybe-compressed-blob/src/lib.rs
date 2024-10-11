@@ -27,7 +27,8 @@ use std::{
 // Zstd compression.
 //
 // This differs from the WASM magic bytes, so real WASM blobs will not have this prefix.
-const ZSTD_PREFIX: [u8; 8] = [82, 188, 83, 118, 70, 219, 142, 5];
+const ZSTD_PREFIX_PVM: [u8; 8] = [82, 188, 83, 118, 70, 219, 142, 4];
+const ZSTD_PREFIX_OTHER: [u8; 8] = [82, 188, 83, 118, 70, 219, 142, 5];
 
 /// A recommendation for the bomb limit for code blobs.
 ///
@@ -35,6 +36,11 @@ const ZSTD_PREFIX: [u8; 8] = [82, 188, 83, 118, 70, 219, 142, 5];
 /// expected maximum code size. When adjusting upwards, nodes should be updated
 /// before performing a runtime upgrade to a blob with larger compressed size.
 pub const CODE_BLOB_BOMB_LIMIT: usize = 50 * 1024 * 1024;
+
+pub enum MaybeCompressedBlobType {
+	Pvm,
+	Other,
+}
 
 /// A possible bomb was encountered.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -73,8 +79,8 @@ fn decompress_zstd(blob: &[u8], bomb_limit: usize) -> Result<Vec<u8>, Error> {
 /// Decode a blob, if it indicates that it is compressed. Provide a `bomb_limit`, which
 /// is the limit of bytes which should be decompressed from the blob.
 pub fn decompress(blob: &[u8], bomb_limit: usize) -> Result<Cow<[u8]>, Error> {
-	if blob.starts_with(&ZSTD_PREFIX) {
-		decompress_zstd(&blob[ZSTD_PREFIX.len()..], bomb_limit).map(Into::into)
+	if blob.starts_with(&ZSTD_PREFIX_PVM) || blob.starts_with(&ZSTD_PREFIX_OTHER) {
+		decompress_zstd(&blob[ZSTD_PREFIX_OTHER.len()..], bomb_limit).map(Into::into)
 	} else {
 		Ok(blob.into())
 	}
@@ -84,11 +90,19 @@ pub fn decompress(blob: &[u8], bomb_limit: usize) -> Result<Cow<[u8]>, Error> {
 /// this will not compress the blob, as the decoder will not be able to be
 /// able to differentiate it from a compression bomb.
 pub fn compress(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
+	compress_as(MaybeCompressedBlobType::Other, blob, bomb_limit)
+}
+
+pub fn compress_as(ty: MaybeCompressedBlobType, blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
 	if blob.len() > bomb_limit {
 		return None
 	}
 
-	let mut buf = ZSTD_PREFIX.to_vec();
+	let mut buf = match ty {
+		MaybeCompressedBlobType::Pvm => ZSTD_PREFIX_PVM,
+		_ => ZSTD_PREFIX_OTHER,
+	}
+	.to_vec();
 
 	{
 		let mut v = zstd::Encoder::new(&mut buf, 3).ok()?.auto_finish();
@@ -96,6 +110,16 @@ pub fn compress(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
 	}
 
 	Some(buf)
+}
+
+pub fn blob_type(blob: &[u8]) -> Result<MaybeCompressedBlobType, Error> {
+	if blob.starts_with(&ZSTD_PREFIX_PVM) {
+		Ok(MaybeCompressedBlobType::Pvm)
+	} else if blob.starts_with(&ZSTD_PREFIX_OTHER) {
+		Ok(MaybeCompressedBlobType::Other)
+	} else {
+		Err(Error::Invalid)
+	}
 }
 
 #[cfg(test)]

@@ -29,7 +29,7 @@ pub struct RuntimeBlob(BlobKind);
 #[derive(Clone)]
 enum BlobKind {
 	WebAssembly(Module),
-	PolkaVM(polkavm::ProgramBlob<'static>),
+	PolkaVM(Vec<u8>),
 }
 
 impl RuntimeBlob {
@@ -52,9 +52,7 @@ impl RuntimeBlob {
 	pub fn new(raw_blob: &[u8]) -> Result<Self, WasmError> {
 		if raw_blob.starts_with(b"PVM\0") {
 			if crate::is_polkavm_enabled() {
-				return Ok(Self(BlobKind::PolkaVM(
-					polkavm::ProgramBlob::parse(raw_blob)?.into_owned(),
-				)));
+				return Ok(Self(BlobKind::PolkaVM(raw_blob.to_vec())));
 			} else {
 				return Err(WasmError::Other("expected a WASM runtime blob, found a PolkaVM runtime blob; set the 'SUBSTRATE_ENABLE_POLKAVM' environment variable to enable the experimental PolkaVM-based executor".to_string()));
 			}
@@ -192,7 +190,7 @@ impl RuntimeBlob {
 		match self.0 {
 			BlobKind::WebAssembly(raw_module) =>
 				serialize(raw_module).expect("serializing into a vec should succeed; qed"),
-			BlobKind::PolkaVM(ref blob) => blob.as_bytes().to_vec(),
+			BlobKind::PolkaVM(ref blob) => blob.clone(),
 		}
 	}
 
@@ -224,10 +222,10 @@ impl RuntimeBlob {
 	}
 
 	/// Gets a reference to the inner PolkaVM program blob, if this is a PolkaVM program.
-	pub fn as_polkavm_blob(&self) -> Option<&polkavm::ProgramBlob> {
+	pub fn as_polkavm_blob(&self) -> Option<Vec<u8>> {
 		match self.0 {
 			BlobKind::WebAssembly(..) => None,
-			BlobKind::PolkaVM(ref blob) => Some(blob),
+			BlobKind::PolkaVM(ref blob) => Some(blob.clone()),
 		}
 	}
 }

@@ -37,8 +37,10 @@ polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
+sc-executor = { workspace = true, default-features = true }
+sc-executor-polkavm = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
-sp-maybe-compressed-blob = { optional = true, workspace = true, default-features = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
 polkadot-node-core-pvf-prepare-worker = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-pvf-execute-worker = { optional = true, workspace = true, default-features = true }
 
@@ -77,5 +79,4 @@ test-utils = [
 	"dep:is_executable",
 	"dep:polkadot-node-core-pvf-execute-worker",
 	"dep:polkadot-node-core-pvf-prepare-worker",
-	"dep:sp-maybe-compressed-blob",
 ]

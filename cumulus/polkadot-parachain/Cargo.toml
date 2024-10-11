@@ -24,6 +24,8 @@ serde_json = { workspace = true, default-features = true }
 # Local
 polkadot-parachain-lib = { features = ["rococo-native", "westend-native"], workspace = true }
 rococo-parachain-runtime = { workspace = true }
+westend-parachain-runtime = { workspace = true }
+westend-pvm-parachain-runtime = { workspace = true }
 shell-runtime = { workspace = true }
 glutton-westend-runtime = { workspace = true }
 seedling-runtime = { workspace = true }

@@ -26,10 +26,10 @@ use sp_wasm_interface::{
 };
 
 #[repr(transparent)]
-pub struct InstancePre(polkavm::InstancePre<()>);
+pub struct InstancePre(polkavm::InstancePre<(), polkavm::CallError>);
 
 #[repr(transparent)]
-pub struct Instance(polkavm::Instance<()>);
+pub struct Instance(polkavm::Instance<(), polkavm::CallError>);
 
 impl WasmModule for InstancePre {
 	fn new_instance(&self) -> Result<Box<dyn WasmInstance>, Error> {
@@ -43,12 +43,13 @@ impl WasmInstance for Instance {
 		name: &str,
 		raw_data: &[u8],
 	) -> (Result<Vec<u8>, Error>, Option<AllocationStats>) {
-		let Some(method_index) = self.0.module().lookup_export(name) else {
-			return (
-				Err(format!("cannot call into the runtime: export not found: '{name}'").into()),
-				None,
-			);
-		};
+		// let Some(method_index) = self.0.module().exports().find(|e| e.symbol() name) else {
+		// 	return (
+		// 		Err(format!("cannot call into the runtime: export not found: '{name}'").into()),
+		// 		None,
+		// 	);
+		// };
+		log::warn!("CALL {name}, data len {}", raw_data.len());
 
 		let Ok(raw_data_length) = u32::try_from(raw_data.len()) else {
 			return (
@@ -57,64 +58,90 @@ impl WasmInstance for Instance {
 			);
 		};
 
-		// TODO: This will leak guest memory; find a better solution.
-		let mut state_args = polkavm::StateArgs::new();
+		let heap_size = self.0.heap_size();
+		let data_pointer = self.0.module().memory_map().heap_base() + heap_size;
+		log::warn!("DATA POINTER {data_pointer}, HEAP SIZE {heap_size}");
 
-		// Make sure the memory is cleared...
-		state_args.reset_memory(true);
-		// ...and allocate space for the input payload.
-		state_args.sbrk(raw_data_length);
-
-		match self.0.update_state(state_args) {
-			Ok(()) => {},
-			Err(polkavm::ExecutionError::Trap(trap)) => {
-				return (Err(format!("call into the runtime method '{name}' failed: failed to prepare the guest's memory: {trap}").into()), None);
-			},
-			Err(polkavm::ExecutionError::Error(error)) => {
-				return (Err(format!("call into the runtime method '{name}' failed: failed to prepare the guest's memory: {error}").into()), None);
-			},
-			Err(polkavm::ExecutionError::OutOfGas) => unreachable!("gas metering is never enabled"),
+		match self.0.sbrk(raw_data_length) {
+    		Ok(Some(sb)) => {
+    			log::info!("SBRK returned {sb}");
+    		},
+    		_ => {
+    			log::warn!("SBRK screwed up");
+    		},
 		}
+		// // TODO: This will leak guest memory; find a better solution.
+		// let mut state_args = polkavm::StateArgs::new();
+
+		// // Make sure the memory is cleared...
+		// state_args.reset_memory(true);
+		// // ...and allocate space for the input payload.
+		// state_args.sbrk(raw_data_length);
+
+		// match self.0.update_state(state_args) {
+		// 	Ok(()) => {},
+		// 	Err(polkavm::ExecutionError::Trap(trap)) => {
+		// 		return (Err(format!("call into the runtime method '{name}' failed: failed to prepare the guest's memory: {trap}").into()), None);
+		// 	},
+		// 	Err(polkavm::ExecutionError::Error(error)) => {
+		// 		return (Err(format!("call into the runtime method '{name}' failed: failed to prepare the guest's memory: {error}").into()), None);
+		// 	},
+		// 	Err(polkavm::ExecutionError::OutOfGas) => unreachable!("gas metering is never enabled"),
+		// }
 
 		// Grab the address of where the guest's heap starts; that's where we've just allocated
 		// the memory for the input payload.
-		let data_pointer = self.0.module().memory_map().heap_base();
 
 		if let Err(error) = self.0.write_memory(data_pointer, raw_data) {
 			return (Err(format!("call into the runtime method '{name}': failed to write the input payload into guest memory: {error}").into()), None);
 		}
 
-		let mut state = ();
-		let mut call_args = polkavm::CallArgs::new(&mut state, method_index);
-		call_args.args_untyped(&[data_pointer, raw_data_length]);
+		// let mut state = ();
+		// let mut call_args = polkavm::CallArgs::new(&mut state, method_index);
+		// call_args.args_untyped(&[data_pointer, raw_data_length]);
 
-		match self.0.call(Default::default(), call_args) {
-			Ok(()) => {},
-			Err(polkavm::ExecutionError::Trap(trap)) => {
-				return (
-					Err(format!("call into the runtime method '{name}' failed: {trap}").into()),
-					None,
-				);
-			},
-			Err(polkavm::ExecutionError::Error(error)) => {
-				return (
-					Err(format!("call into the runtime method '{name}' failed: {error}").into()),
-					None,
-				);
-			},
-			Err(polkavm::ExecutionError::OutOfGas) => unreachable!("gas metering is never enabled"),
+		let res = self.0.call_typed(&mut (), name, (data_pointer, raw_data_length));
+		if let Err(e) = res {
+			log::warn!("TYPED CALL ERROR: {e:?}");
 		}
 
-		let result_pointer = self.0.get_reg(Reg::A0);
-		let result_length = self.0.get_reg(Reg::A1);
-		let output = match self.0.read_memory_into_vec(result_pointer, result_length) {
+		// match self.0.call(Default::default(), call_args) {
+		// 	Ok(()) => {},
+		// 	Err(polkavm::ExecutionError::Trap(trap)) => {
+		// 		return (
+		// 			Err(format!("call into the runtime method '{name}' failed: {trap}").into()),
+		// 			None,
+		// 		);
+		// 	},
+		// 	Err(polkavm::ExecutionError::Error(error)) => {
+		// 		return (
+		// 			Err(format!("call into the runtime method '{name}' failed: {error}").into()),
+		// 			None,
+		// 		);
+		// 	},
+		// 	Err(polkavm::ExecutionError::OutOfGas) => unreachable!("gas metering is never enabled"),
+		// }
+
+		let result_pointer = self.0.reg(Reg::A0);
+		let result_length = self.0.reg(Reg::A1);
+		// let output = match self.0.read_memory_into_vec(result_pointer, result_length) {
+		// 	Ok(output) => output,
+		// 	Err(error) => {
+		// 		return (Err(format!("call into the runtime method '{name}' failed: failed to read the return payload: {error}").into()), None)
+		// 	},
+		// };
+		// let res: u64 = self.0.get_result_typed();
+		// let result_length= (res >> 32) as u32;
+		// let result_pointer = res as u32;
+		let mut buf = vec![0u8; result_length as usize];
+		let output = match self.0.read_memory_into(result_pointer, buf.as_mut_slice()) {
 			Ok(output) => output,
 			Err(error) => {
 				return (Err(format!("call into the runtime method '{name}' failed: failed to read the return payload: {error}").into()), None)
 			},
 		};
 
-		(Ok(output), None)
+		(Ok(output.to_vec()), None)
 	}
 }
 
@@ -127,20 +154,21 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 		dest: &mut [u8],
 	) -> sp_wasm_interface::Result<()> {
 		self.0
-			.read_memory_into_slice(u32::from(address), dest)
+			.instance.read_memory_into(u32::from(address), dest)
 			.map_err(|error| error.to_string())
 			.map(|_| ())
 	}
 
 	fn write_memory(&mut self, address: Pointer<u8>, data: &[u8]) -> sp_wasm_interface::Result<()> {
-		self.0.write_memory(u32::from(address), data).map_err(|error| error.to_string())
+		self.0.instance.write_memory(u32::from(address), data).map_err(|error| error.to_string())
 	}
 
 	fn allocate_memory(&mut self, size: WordSize) -> sp_wasm_interface::Result<Pointer<u8>> {
-		let pointer = self.0.sbrk(0).expect("fetching the current heap pointer never fails");
+		let pointer = self.0.instance.sbrk(0).expect("fetching the current heap pointer never fails").expect("heap base is known");
+		log::warn!("ALLOC: point to {pointer}");
 
 		// TODO: This will leak guest memory; find a better solution.
-		self.0.sbrk(size).ok_or_else(|| String::from("allocation failed"))?;
+		self.0.instance.sbrk(size).map_err(|e| format!("allocation failed: {}", e))?;
 
 		Ok(Pointer::new(pointer))
 	}
@@ -158,34 +186,34 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 fn call_host_function(
 	caller: &mut Caller<()>,
 	function: &dyn Function,
-) -> Result<(), polkavm::Trap> {
+) -> Result<(), polkavm::CallError> {
 	let mut args = [Value::I64(0); Reg::ARG_REGS.len()];
 	let mut nth_reg = 0;
 	for (nth_arg, kind) in function.signature().args.iter().enumerate() {
 		match kind {
 			ValueType::I32 => {
-				args[nth_arg] = Value::I32(caller.get_reg(Reg::ARG_REGS[nth_reg]) as i32);
+				args[nth_arg] = Value::I32(caller.instance.reg(Reg::ARG_REGS[nth_reg]) as i32);
 				nth_reg += 1;
 			},
 			ValueType::F32 => {
-				args[nth_arg] = Value::F32(caller.get_reg(Reg::ARG_REGS[nth_reg]));
+				args[nth_arg] = Value::F32(caller.instance.reg(Reg::ARG_REGS[nth_reg]));
 				nth_reg += 1;
 			},
 			ValueType::I64 => {
-				let value_lo = caller.get_reg(Reg::ARG_REGS[nth_reg]);
+				let value_lo = caller.instance.reg(Reg::ARG_REGS[nth_reg]);
 				nth_reg += 1;
 
-				let value_hi = caller.get_reg(Reg::ARG_REGS[nth_reg]);
+				let value_hi = caller.instance.reg(Reg::ARG_REGS[nth_reg]);
 				nth_reg += 1;
 
 				args[nth_arg] =
 					Value::I64((u64::from(value_lo) | (u64::from(value_hi) << 32)) as i64);
 			},
 			ValueType::F64 => {
-				let value_lo = caller.get_reg(Reg::ARG_REGS[nth_reg]);
+				let value_lo = caller.instance.reg(Reg::ARG_REGS[nth_reg]);
 				nth_reg += 1;
 
-				let value_hi = caller.get_reg(Reg::ARG_REGS[nth_reg]);
+				let value_hi = caller.instance.reg(Reg::ARG_REGS[nth_reg]);
 				nth_reg += 1;
 
 				args[nth_arg] = Value::F64(u64::from(value_lo) | (u64::from(value_hi) << 32));
@@ -205,25 +233,25 @@ fn call_host_function(
 		Ok(value) => value,
 		Err(error) => {
 			log::warn!("Call into the host function '{}' failed: {error}", function.name());
-			return Err(polkavm::Trap::default());
+			return Err(polkavm::CallError::Error(error.into()));
 		},
 	};
 
 	if let Some(value) = value {
 		match value {
 			Value::I32(value) => {
-				caller.set_reg(Reg::A0, value as u32);
+				caller.instance.set_reg(Reg::A0, value as u32);
 			},
 			Value::F32(value) => {
-				caller.set_reg(Reg::A0, value);
+				caller.instance.set_reg(Reg::A0, value);
 			},
 			Value::I64(value) => {
-				caller.set_reg(Reg::A0, value as u32);
-				caller.set_reg(Reg::A1, (value >> 32) as u32);
+				caller.instance.set_reg(Reg::A0, value as u32);
+				caller.instance.set_reg(Reg::A1, (value >> 32) as u32);
 			},
 			Value::F64(value) => {
-				caller.set_reg(Reg::A0, value as u32);
-				caller.set_reg(Reg::A1, (value >> 32) as u32);
+				caller.instance.set_reg(Reg::A0, value as u32);
+				caller.instance.set_reg(Reg::A1, (value >> 32) as u32);
 			},
 		}
 	}
@@ -231,7 +259,7 @@ fn call_host_function(
 	Ok(())
 }
 
-pub fn create_runtime<H>(blob: &polkavm::ProgramBlob) -> Result<Box<dyn WasmModule>, WasmError>
+pub fn create_runtime<H>(blob: Vec<u8>) -> Result<Box<dyn WasmModule>, WasmError>
 where
 	H: HostFunctions,
 {
@@ -250,10 +278,14 @@ where
 		},
 	};
 
-	let module = polkavm::Module::from_blob(&engine, &polkavm::ModuleConfig::default(), blob)?;
-	let mut linker = polkavm::Linker::new(&engine);
+	let module = polkavm::Module::from_blob(&engine, &polkavm::ModuleConfig::default(), polkavm::ProgramBlob::parse(blob.into())?)?;
+	let mut linker = polkavm::Linker::new();
+	linker.define_fallback(|c, p| {
+		log::warn!(target: "executor::polkavm", "Fallback function called on {p:?}");
+		Ok(())
+	});
 	for function in H::host_functions() {
-		linker.func_new(function.name(), |mut caller| call_host_function(&mut caller, function))?;
+		linker.define_untyped(function.name(), |mut caller| call_host_function(&mut caller, function))?;
 	}
 
 	let instance_pre = linker.instantiate_pre(&module)?;
