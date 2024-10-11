@@ -809,6 +809,8 @@ async fn set_reserved_peers_but_available_slots() {
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
 
+	// We have less than 25 outbound peers connected. At the next slot allocation we
+	// query the `peerstore_handle` for more peers to connect to.
 	match peerset.next().await {
 		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
 			assert_eq!(out_peers.len(), 3);
@@ -845,26 +847,22 @@ async fn set_reserved_peers_but_available_slots() {
 		.unbounded_send(PeersetCommand::SetReservedPeers { peers: reserved_peers.clone() })
 		.unwrap();
 
+	// The command `SetReservedPeers` might evict currently reserved peers if
+	// we don't have enough slot capacity to move them to regular nodes.
+	// In this case, we did not have previously any reserved peers.
 	match peerset.next().await {
-		Some(PeersetNotificationCommand::CloseSubstream { peers: out_peers }) => {
-			assert_eq!(out_peers.len(), 2);
-
-			for peer in &out_peers {
-				assert!(disconnected_peers.contains(peer));
-				assert_eq!(
-					peerset.peers().get(peer),
-					Some(&PeerState::Closing { direction: Direction::Outbound(Reserved::No) }),
-				);
-			}
+		Some(PeersetNotificationCommand::CloseSubstream { peers }) => {
+			// This ensures we don't disconnect peers when receiving `SetReservedPeers`.
+			assert_eq!(peers.len(), 0);
 		},
 		event => panic!("invalid event: {event:?}"),
 	}
 
-	// verify that `Peerset` is aware of five peers, with two of them as outbound
-	// (the two disconnected peers)
+	// verify that `Peerset` is aware of five peers, with two of them as outbound.
 	assert_eq!(peerset.peers().len(), 5);
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 2usize);
+	assert_eq!(peerset.reserved_peers().len(), 3usize);
 
 	match peerset.next().await {
 		Some(PeersetNotificationCommand::OpenSubstream { peers }) => {
@@ -885,7 +883,6 @@ async fn set_reserved_peers_but_available_slots() {
 
 	assert_eq!(peerset.peers().len(), 5);
 	assert_eq!(peerset.num_in(), 0usize);
-
-	// two substreams are closing still closing
 	assert_eq!(peerset.num_out(), 2usize);
+	assert_eq!(peerset.reserved_peers().len(), 3usize);
 }
