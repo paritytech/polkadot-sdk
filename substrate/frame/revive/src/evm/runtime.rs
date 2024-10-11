@@ -557,7 +557,7 @@ mod test {
 	#[test]
 	fn check_eth_transact_instantiate_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			let code = vec![];
+			let (code, _) = compile_module("dummy").unwrap();
 			let data = vec![];
 			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
@@ -613,17 +613,17 @@ mod test {
 	#[test]
 	fn check_instantiate_data() {
 		ExtBuilder::default().build().execute_with(|| {
-			let code = vec![1, 2, 3];
+			let code = b"invalid code".to_vec();
 			let data = vec![1];
 			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
-			// TODO fix with some invalid blob
-			// Fail because the tx input should decode as an `EthInstantiateInput`
+			// Fail because the tx input fail to get the blob length
 			assert_eq!(
 				builder.clone().update(|tx| tx.input = Bytes(vec![1, 2, 3])).check(),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 			);
 
+			let (code, _) = compile_module("dummy").unwrap();
 			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
 				.transact_kind(EthTransactKind::InstantiateWithCode {
 					code_len: 0,
