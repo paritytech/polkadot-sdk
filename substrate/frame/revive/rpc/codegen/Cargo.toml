@@ -1,15 +1,14 @@
 [package]
-name = "pallet-revive-evm-codegen"
+name = "pallet-revive-rpc-codegen"
 version = "0.1.0"
 edition.workspace = true
 publish = false
 
 [dependencies]
-Inflector.workspace = true
-lazy_static.workspace = true
+Inflector = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true
-anyhow.workspace = true
+serde_json = { workspace = true }
+anyhow = { workspace = true }
 indoc = "2.0.5"
 
 [dev-dependencies]

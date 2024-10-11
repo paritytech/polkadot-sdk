@@ -2,8 +2,6 @@ use crate::generator::TypeGenerator;
 use anyhow::Context;
 use std::path::Path;
 
-#[macro_use]
-extern crate lazy_static;
 mod generator;
 mod open_rpc;
 mod printer;
@@ -15,9 +13,9 @@ fn main() -> anyhow::Result<()> {
 	generator.collect_extra_type("TransactionUnsigned");
 
 	let out_dir = if let Ok(dir) = std::env::var("CARGO_MANIFEST_DIR") {
-		Path::new(&dir).join("../src/evm/api")
+		Path::new(&dir).join("../src")
 	} else {
-		"../src/evm/api".into()
+		"../src".into()
 	}
 	.canonicalize()
 	.with_context(|| "Failed to find the api directory")?;
@@ -26,6 +24,14 @@ fn main() -> anyhow::Result<()> {
 	println!("Generating rpc_methods at {out:?}");
 	format_and_write_file(&out, &generator.generate_rpc_methods(&specs))
 		.with_context(|| format!("Failed to generate code to {out:?}"))?;
+
+	let out_dir = if let Ok(dir) = std::env::var("CARGO_MANIFEST_DIR") {
+		Path::new(&dir).join("../../src/evm/api")
+	} else {
+		"../../src/evm/api".into()
+	}
+	.canonicalize()
+	.with_context(|| "Failed to find the api directory")?;
 
 	let out = std::fs::canonicalize(out_dir.join("rpc_types_gen.rs"))?;
 	println!("Generating rpc_types at {out:?}");

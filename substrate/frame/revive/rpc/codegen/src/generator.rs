@@ -3,6 +3,7 @@ use inflector::Inflector;
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
 	mem,
+	sync::LazyLock,
 };
 
 use crate::{
@@ -14,55 +15,61 @@ use crate::{
 	writeln,
 };
 
-lazy_static! {
-  /// List of supported Ethereum RPC methods we want to generate.
-  static ref SUPPORTED_ETH_METHODS: Vec<&'static str> = vec![
-	"net_version",
-	"eth_accounts",
-	"eth_blockNumber",
-	"eth_call",
-	"eth_chainId",
-	"eth_estimateGas",
-	"eth_gasPrice",
-	"eth_getBalance",
-	"eth_getBlockByHash",
-	"eth_getBlockByNumber",
-	"eth_getBlockTransactionCountByHash",
-	"eth_getBlockTransactionCountByNumber",
-	"eth_getCode",
-	"eth_getStorageAt",
-	"eth_getTransactionByBlockHashAndIndex",
-	"eth_getTransactionByBlockNumberAndIndex",
-	"eth_getTransactionByHash",
-	"eth_getTransactionCount",
-	"eth_getTransactionReceipt",
-	"eth_sendRawTransaction",
-	"eth_sendTransaction",
-  ];
+pub const LICENSE: &str = include_str!("LICENSE.txt");
 
-  /// Mapping of primitive schema types to their Rust counterparts.
-  pub static ref PRIMITIVE_MAPPINGS: HashMap<&'static str, &'static str> = HashMap::from([
-	("#/components/schemas/address", "Address"),
-	("#/components/schemas/byte", "Byte"),
+/// List of supported Ethereum RPC methods we want to generate.
+pub static SUPPORTED_ETH_METHODS: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
+	vec![
+		"net_version",
+		"eth_accounts",
+		"eth_blockNumber",
+		"eth_call",
+		"eth_chainId",
+		"eth_estimateGas",
+		"eth_gasPrice",
+		"eth_getBalance",
+		"eth_getBlockByHash",
+		"eth_getBlockByNumber",
+		"eth_getBlockTransactionCountByHash",
+		"eth_getBlockTransactionCountByNumber",
+		"eth_getCode",
+		"eth_getStorageAt",
+		"eth_getTransactionByBlockHashAndIndex",
+		"eth_getTransactionByBlockNumberAndIndex",
+		"eth_getTransactionByHash",
+		"eth_getTransactionCount",
+		"eth_getTransactionReceipt",
+		"eth_sendRawTransaction",
+		"eth_sendTransaction",
+	]
+});
 
-	("#/components/schemas/bytes", "Bytes"),
-	("#/components/schemas/bytes256", "Bytes256"),
-	("#/components/schemas/hash32", "H256"),
-	("#/components/schemas/bytes32", "H256"),
-	("#/components/schemas/bytes8", "String"),
-	("#/components/schemas/uint", "U256"),
-	("#/components/schemas/uint256", "U256"),
-	("#/components/schemas/uint64", "U256"),
-  ]);
+/// Mapping of primitive schema types to their Rust counterparts.
+pub static PRIMITIVE_MAPPINGS: LazyLock<HashMap<&'static str, &'static str>> =
+	LazyLock::new(|| {
+		HashMap::from([
+			("#/components/schemas/address", "Address"),
+			("#/components/schemas/byte", "Byte"),
+			("#/components/schemas/bytes", "Bytes"),
+			("#/components/schemas/bytes256", "Bytes256"),
+			("#/components/schemas/hash32", "H256"),
+			("#/components/schemas/bytes32", "H256"),
+			("#/components/schemas/bytes8", "Bytes8"),
+			("#/components/schemas/uint", "U256"),
+			("#/components/schemas/uint256", "U256"),
+			("#/components/schemas/uint64", "U256"),
+		])
+	});
 
-
-  /// Mapping of legacy aliases to their new names.
-  pub static ref LEGACY_ALIASES: HashMap<&'static str, HashMap<&'static str, &'static str>> = HashMap::from([
-	// We accept "data" and "input" for backwards-compatibility reasons.
-	// Issue detail: https://github.com/ethereum/go-ethereum/issues/15628
-	("#/components/schemas/GenericTransaction", HashMap::from([("input", "data")])),
-  ]);
-}
+/// Mapping of legacy aliases to their new names.
+pub static LEGACY_ALIASES: LazyLock<HashMap<&'static str, HashMap<&'static str, &'static str>>> =
+	LazyLock::new(|| {
+		HashMap::from([
+			// We accept "data" and "input" for backwards-compatibility reasons.
+			// Issue detail: https://github.com/ethereum/go-ethereum/issues/15628
+			("#/components/schemas/GenericTransaction", HashMap::from([("input", "data")])),
+		])
+	});
 
 /// Read the OpenRPC specs, and inject extra methods and legacy aliases.
 pub fn read_specs() -> anyhow::Result<OpenRpc> {
@@ -165,7 +172,8 @@ impl TypeGenerator {
 			panic!("Missing methods: {missing:?}");
 		}
 
-		let mut code = indoc! {r###"
+		let mut code = LICENSE.to_string();
+		code.push_str(indoc! {r###"
             //! Generated JSON-RPC methods.
             #![allow(missing_docs)]
 
@@ -175,9 +183,7 @@ impl TypeGenerator {
 
             #[rpc(server, client)]
             pub trait EthRpc {
-
-        "###}
-		.to_string();
+        "###});
 
 		for method in methods {
 			self.generate_rpc_method(&mut code, method);
@@ -200,7 +206,8 @@ impl TypeGenerator {
 	/// Note: This should be called after [`TypeGenerator::generate_rpc_methods`] to collect the
 	/// types used in the RPC methods.
 	pub fn generate_types(&mut self, specs: &OpenRpc) -> String {
-		let mut code = indoc! {r###"
+		let mut code = LICENSE.to_string();
+		code.push_str(indoc! {r###"
             //! Generated JSON-RPC types.
             #![allow(missing_docs)]
 
@@ -212,10 +219,9 @@ impl TypeGenerator {
 			use serde::{Deserialize, Serialize};
 
             #[cfg(not(feature = "std"))]
-            use alloc::{string::String, vec::Vec};
+            use alloc::vec::Vec;
 
-        "###}
-		.to_string();
+        "###});
 		loop {
 			let collected = mem::take(&mut self.collected);
 			self.generated.extend(collected.keys().cloned());
