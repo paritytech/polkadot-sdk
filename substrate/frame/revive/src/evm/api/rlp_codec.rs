@@ -18,10 +18,8 @@
 //! See <https://eth.wiki/fundamentals/rlp> for more information about RLP encoding.
 
 use super::*;
-use rlp::{Decodable, Encodable};
-
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+use rlp::{Decodable, Encodable};
 
 impl TransactionLegacyUnsigned {
 	/// Get a rlp encoded bytes of a signed transaction with a dummy 65 bytes signature.

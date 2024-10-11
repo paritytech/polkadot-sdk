@@ -18,14 +18,12 @@
 #![allow(missing_docs)]
 
 use super::{byte::*, Type0, Type1, Type2};
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
 
 /// Block object
 #[derive(

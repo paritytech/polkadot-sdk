@@ -43,7 +43,6 @@ use sp_runtime::{
 	AccountId32, MultiSignature, MultiSigner, RuntimeDebug, Saturating,
 };
 
-#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 
 /// Some way of identifying an account on the chain.
