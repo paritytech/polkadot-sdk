@@ -136,6 +136,7 @@ macro_rules! impl_hex {
 
 impl_hex!(Byte, u8, 0u8);
 impl_hex!(Bytes, Vec<u8>, vec![]);
+impl_hex!(Bytes8, [u8; 8], [0u8; 8]);
 impl_hex!(Bytes256, [u8; 256], [0u8; 256]);
 
 #[test]

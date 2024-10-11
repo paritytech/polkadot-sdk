@@ -25,7 +25,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 
 #[cfg(not(feature = "std"))]
-use alloc::{string::String, vec::Vec};
+use alloc::vec::Vec;
 
 /// Block object
 #[derive(
@@ -64,7 +64,7 @@ pub struct Block {
 	#[serde(rename = "mixHash")]
 	pub mix_hash: H256,
 	/// Nonce
-	pub nonce: String,
+	pub nonce: Bytes8,
 	/// Number
 	pub number: U256,
 	/// Parent Beacon Block Root

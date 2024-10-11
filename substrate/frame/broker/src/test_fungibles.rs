@@ -275,6 +275,20 @@ impl<
 		AssetId: tokens::AssetId + Copy,
 		MinimumBalance: TypedGet,
 		HoldReason: Encode + Decode + TypeInfo + 'static,
+		Balance: tokens::Balance,
+	> fungibles::hold::DoneSlash<AssetId, HoldReason, AccountId, Balance>
+	for TestFungibles<Instance, AccountId, AssetId, MinimumBalance, HoldReason>
+where
+	MinimumBalance::Type: tokens::Balance,
+{
+}
+
+impl<
+		Instance: Get<u32>,
+		AccountId: Encode,
+		AssetId: tokens::AssetId + Copy,
+		MinimumBalance: TypedGet,
+		HoldReason: Encode + Decode + TypeInfo + 'static,
 	> fungibles::BalancedHold<AccountId>
 	for TestFungibles<Instance, AccountId, AssetId, MinimumBalance, HoldReason>
 where

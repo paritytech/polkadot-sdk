@@ -226,7 +226,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_version: 1_016_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 5,
+	transaction_version: 6,
 	system_version: 1,
 };
 
@@ -327,6 +327,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<0>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {

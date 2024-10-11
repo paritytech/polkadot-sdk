@@ -547,6 +547,7 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -2533,16 +2534,16 @@ mod runtime {
 	pub type Revive = pallet_revive::Pallet<Runtime>;
 }
 
-impl TryInto<pallet_revive::Call<Runtime>> for RuntimeCall {
+impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
 	type Error = ();
-	fn try_into(self) -> Result<pallet_revive::Call<Runtime>, Self::Error> {
-		match self {
+
+	fn try_from(value: RuntimeCall) -> Result<Self, Self::Error> {
+		match value {
 			RuntimeCall::Revive(call) => Ok(call),
 			_ => Err(()),
 		}
 	}
 }
-
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, AccountIndex>;
 /// Block header type as expected by this runtime.
@@ -3056,7 +3057,7 @@ impl_runtime_apis! {
 			let blockweights: BlockWeights = <Runtime as frame_system::Config>::BlockWeights::get();
 			let origin = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id_contract(&from);
 			Revive::bare_eth_transact(
-				RuntimeOrigin::signed(origin),
+				origin,
 				dest,
 				value,
 				input,

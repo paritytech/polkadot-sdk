@@ -19,18 +19,19 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 environmental = { workspace = true }
 paste = { workspace = true }
-polkavm = { version = "0.11.0", default-features = false }
+polkavm = { git = "https://github.com/xermicus/polkavm", branch="cl/blob-length", default-features = false }
+polkavm-common = { git = "https://github.com/xermicus/polkavm", branch="cl/blob-length", default-features = false }
 bitflags = { workspace = true }
-codec = { features = [
-	"derive",
-	"max-encoded-len",
-], workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 log = { workspace = true }
-serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
+serde = { features = [
+	"alloc",
+	"derive",
+], workspace = true, default-features = false }
 impl-trait-for-tuples = { workspace = true }
 rlp = { workspace = true }
-derive_more.workspace = true
+derive_more = { workspace = true }
 hex = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"], optional = true }
 ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
@@ -53,6 +54,9 @@ sp-std = { workspace = true }
 sp-weights = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
+subxt-signer = { workspace = true, optional = true, features = [
+	"unstable-eth",
+] }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -60,9 +64,8 @@ assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
-serde_json.workspace = true
-hex-literal.workspace = true
-subxt-signer.workspace = true
+serde_json = { workspace = true }
+hex-literal = { workspace = true }
 
 # Polkadot SDK Dependencies
 pallet-balances = { workspace = true, default-features = true }
@@ -84,22 +87,23 @@ riscv = ["pallet-revive-fixtures/riscv"]
 std = [
 	"codec/std",
 	"environmental/std",
+	"ethereum-types/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"hex/std",
 	"jsonrpsee",
 	"log/std",
 	"pallet-balances?/std",
 	"pallet-proxy/std",
 	"pallet-revive-fixtures/std",
 	"pallet-timestamp/std",
+	"pallet-transaction-payment/std",
 	"pallet-utility/std",
+	"polkavm-common/std",
 	"polkavm/std",
 	"rlp/std",
 	"scale-info/std",
-	"ethereum-types/std",
-	"hex/std",
-	"pallet-transaction-payment/std",
 	"secp256k1/std",
 	"serde/std",
 	"serde_json/std",
@@ -111,6 +115,7 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-weights/std",
+	"subxt-signer",
 	"xcm-builder/std",
 	"xcm/std",
 ]

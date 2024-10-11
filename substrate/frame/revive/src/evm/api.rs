@@ -29,9 +29,13 @@ mod rpc_types;
 mod rpc_types_gen;
 pub use rpc_types_gen::*;
 
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 #[cfg(feature = "std")]
-pub mod rpc_methods_gen;
+mod account;
+
 #[cfg(feature = "std")]
-pub use rpc_methods_gen::*;
+pub use account::*;
 
 mod signature;

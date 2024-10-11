@@ -335,7 +335,7 @@ pub mod rpsr_digest {
 
 /// The default claim queue offset to be used if it's not configured/accessible in the parachain
 /// runtime
-pub const DEFAULT_CLAIM_QUEUE_OFFSET: u8 = 1;
+pub const DEFAULT_CLAIM_QUEUE_OFFSET: u8 = 0;
 
 /// Information about a collation.
 ///

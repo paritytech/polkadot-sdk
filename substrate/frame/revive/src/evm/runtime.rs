@@ -18,8 +18,7 @@
 #![allow(unused_imports, unused_variables)]
 use crate::{
 	evm::api::{TransactionLegacySigned, TransactionLegacyUnsigned, TransactionUnsigned},
-	AccountIdOf, AddressMapper, BalanceOf, Config, EthInstantiateInput, EthTransactKind, MomentOf,
-	Weight, LOG_TARGET,
+	AccountIdOf, AddressMapper, BalanceOf, Config, EthTransactKind, MomentOf, Weight, LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
@@ -61,7 +60,7 @@ pub type MultiAddress = sp_runtime::MultiAddress<AccountId, AccountIndex>;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(E))]
 pub struct UncheckedExtrinsic<Call, E: EthExtra>(
-	generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>,
+	pub generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>,
 );
 
 impl<Call, E: EthExtra>
@@ -75,12 +74,11 @@ impl<Call, E: EthExtra>
 	}
 }
 
-impl<Call, E: EthExtra>
-	Into<generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>>
-	for UncheckedExtrinsic<Call, E>
+impl<Call, E: EthExtra> From<UncheckedExtrinsic<Call, E>>
+	for generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>
 {
-	fn into(self) -> generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra> {
-		self.0
+	fn from(extrinsic: UncheckedExtrinsic<Call, E>) -> Self {
+		extrinsic.0
 	}
 }
 
@@ -155,9 +153,9 @@ where
 	#[cfg(feature = "try-runtime")]
 	fn unchecked_into_checked_i_know_what_i_am_doing(
 		self,
-		_: &Lookup,
+		lookup: &Lookup,
 	) -> Result<Self::Checked, TransactionValidityError> {
-		unreachable!();
+		self.0.unchecked_into_checked_i_know_what_i_am_doing(lookup)
 	}
 }
 
@@ -199,8 +197,8 @@ pub struct CheckEthTransact<T: Config> {
 	///
 	/// # Note
 	///
-	/// This is marked as `#[codec(skip)]` as this extracted from the Ethereum transaction and not
-	/// encoded as additional signed data.
+	/// This is marked as `#[codec(skip)]` as this extracted from the Ethereum transaction and
+	/// should have a zero size encoded representation.
 	#[codec(skip)]
 	eth_fee: Option<BalanceOf<T>>,
 	_phantom: core::marker::PhantomData<T>,
@@ -268,9 +266,10 @@ pub trait EthExtra {
 
 	/// The Runtime's signed extension.
 	/// It should include at least:
-	/// [`CheckNonce`] to ensure that the nonce from the Ethereum transaction is correct.
-	/// [`CheckEthTransact`] to ensure that the fees from the Ethereum transaction correspond to
-	/// the pre-dispatch fees computed from the extrinsic.
+	/// - [`frame_system::CheckNonce`] to ensure that the nonce from the Ethereum transaction is
+	///   correct.
+	/// - [`CheckEthTransact`] to ensure that the fees from the Ethereum transaction
+	/// correspond to the pre-dispatch fees computed from the extrinsic.
 	type Extra: SignedExtension<AccountId = AccountId32>;
 
 	/// Get the signed extensions to apply to an unsigned [`crate::Call::eth_transact`] extrinsic.
@@ -336,11 +335,18 @@ pub trait EthExtra {
 				return Err(InvalidTransaction::Call);
 			};
 
-			let EthInstantiateInput { code, data } = EthInstantiateInput::decode(&mut &input.0[..])
-				.map_err(|_| {
-					log::debug!(target: LOG_TARGET, "Failed to decoded eth_transact input");
-					InvalidTransaction::Call
-				})?;
+			let blob = match polkavm::ProgramParts::blob_length(&input.0) {
+				Some(blob_len) => blob_len
+					.try_into()
+					.ok()
+					.and_then(|blob_len| (input.0.split_at_checked(blob_len))),
+				_ => None,
+			};
+
+			let Some((code, data)) = blob else {
+				log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
+				return Err(InvalidTransaction::Call);
+			};
 
 			if code.len() as u32 != code_len || data.len() as u32 != data_len {
 				log::debug!(target: LOG_TARGET, "Invalid code or data length");
@@ -351,8 +357,8 @@ pub trait EthExtra {
 				value: value.try_into().map_err(|_| InvalidTransaction::Call)?,
 				gas_limit,
 				storage_deposit_limit,
-				code,
-				data,
+				code: code.to_vec(),
+				data: data.to_vec(),
 				salt: None,
 			}
 		};
@@ -361,6 +367,7 @@ pub trait EthExtra {
 		let eth_fee =
 			gas_price.saturating_mul(gas).try_into().map_err(|_| InvalidTransaction::Call)?;
 
+		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce {nonce:?}");
 		Ok(CheckedExtrinsic {
 			signed: Some((signer.into(), Self::get_eth_transact_extra(nonce, eth_fee))),
 			function: call.into(),
@@ -384,24 +391,21 @@ mod test {
 	use sp_runtime::traits::{Checkable, IdentityLookup};
 
 	/// A simple account that can sign transactions
-	pub struct Account {
-		/// The secret key of the account
-		sk: SecretKey,
-	}
+	pub struct Account(subxt_signer::eth::Keypair);
 
 	impl Default for Account {
 		fn default() -> Self {
-			Account::from_keypair(&subxt_signer::ecdsa::dev::alice())
+			Self(subxt_signer::eth::dev::alith())
+		}
+	}
+
+	impl From<subxt_signer::eth::Keypair> for Account {
+		fn from(kp: subxt_signer::eth::Keypair) -> Self {
+			Self(kp)
 		}
 	}
 
 	impl Account {
-		/// Create an account from a keypair.
-		pub fn from_keypair(pair: &subxt_signer::ecdsa::Keypair) -> Self {
-			let sb = pair.0.secret_key().secret_bytes();
-			Account { sk: SecretKey::from_slice(&sb).unwrap() }
-		}
-
 		/// Get the [`AccountId`] of the account.
 		pub fn account_id(&self) -> AccountId {
 			let address = self.address();
@@ -410,22 +414,14 @@ mod test {
 
 		/// Get the [`H160`] address of the account.
 		pub fn address(&self) -> H160 {
-			let pub_key =
-				PublicKey::from_secret_key(&Secp256k1::new(), &self.sk).serialize_uncompressed();
-			let hash = keccak_256(&pub_key[1..]);
-			H160::from_slice(&hash[12..])
+			H160::from_slice(&self.0.account_id().as_ref())
 		}
 
 		/// Sign a transaction.
 		pub fn sign_transaction(&self, tx: TransactionLegacyUnsigned) -> TransactionLegacySigned {
 			let rlp_encoded = tx.rlp_bytes();
-			let tx_hash = keccak_256(&rlp_encoded);
-			let secp = Secp256k1::new();
-			let msg = Message::from_digest(tx_hash);
-			let sig = secp.sign_ecdsa_recoverable(&msg, &self.sk);
-			let (recovery_id, sig) = sig.serialize_compact();
-			let sig = sig.into_iter().chain([recovery_id.to_i32() as u8]).collect::<Vec<_>>();
-			TransactionLegacySigned::from(tx, &sig.try_into().unwrap())
+			let signature = self.0.sign(&rlp_encoded);
+			TransactionLegacySigned::from(tx, signature.as_ref())
 		}
 	}
 
@@ -499,7 +495,7 @@ mod test {
 				code_len: code.len() as u32,
 				data_len: data.len() as u32,
 			};
-			builder.tx.input = Bytes(EthInstantiateInput { code, data }.encode());
+			builder.tx.input = Bytes(code.into_iter().chain(data.into_iter()).collect());
 			builder
 		}
 
@@ -568,7 +564,7 @@ mod test {
 	#[test]
 	fn check_eth_transact_instantiate_works() {
 		ExtBuilder::default().build().execute_with(|| {
-			let code = vec![];
+			let (code, _) = compile_module("dummy").unwrap();
 			let data = vec![];
 			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
@@ -624,16 +620,17 @@ mod test {
 	#[test]
 	fn check_instantiate_data() {
 		ExtBuilder::default().build().execute_with(|| {
-			let code = vec![1, 2, 3];
+			let code = b"invalid code".to_vec();
 			let data = vec![1];
 			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
-			// Fail because the tx input should decode as an `EthInstantiateInput`
+			// Fail because the tx input fail to get the blob length
 			assert_eq!(
 				builder.clone().update(|tx| tx.input = Bytes(vec![1, 2, 3])).check(),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 			);
 
+			let (code, _) = compile_module("dummy").unwrap();
 			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
 				.transact_kind(EthTransactKind::InstantiateWithCode {
 					code_len: 0,

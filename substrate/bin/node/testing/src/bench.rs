@@ -51,6 +51,7 @@ use sp_core::{ed25519, sr25519, traits::SpawnNamed, Pair, Public};
 use sp_crypto_hashing::blake2_256;
 use sp_inherents::InherentData;
 use sp_runtime::{
+	generic,
 	traits::{Block as BlockT, IdentifyAccount, Verify},
 	OpaqueExtrinsic,
 };
@@ -582,12 +583,13 @@ impl BenchKeyring {
 						key.sign(b)
 					}
 				});
-				UncheckedExtrinsic {
+				generic::UncheckedExtrinsic {
 					signature: Some((sp_runtime::MultiAddress::Id(signed), signature, extra)),
 					function: payload.0,
 				}
+				.into()
 			},
-			None => UncheckedExtrinsic { signature: None, function: xt.function },
+			None => generic::UncheckedExtrinsic { signature: None, function: xt.function }.into(),
 		}
 	}
 

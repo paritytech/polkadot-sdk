@@ -11,7 +11,9 @@ doc:
       - Generated types and traits to support implementing a JSON-RPC Ethereum proxy.
 crates:
   - name: pallet-revive
-    bump: patch
+    bump: major
+  - name: pallet-revive-fixtures
+    bump: major
   - name: polkadot-sdk
     bump: patch
 

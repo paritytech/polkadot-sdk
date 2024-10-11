@@ -27,22 +27,22 @@ mod benchmarking;
 mod benchmarking_dummy;
 mod exec;
 mod gas;
-mod primitives;
-pub use crate::exec::MomentOf;
-use frame_support::traits::IsType;
-pub use primitives::*;
-use sp_core::U256;
-
-pub mod evm;
 mod limits;
+mod primitives;
 mod storage;
 mod transient_storage;
 mod wasm;
 
 pub mod chain_extension;
 pub mod debug;
+pub mod evm;
 pub mod test_utils;
 pub mod weights;
+
+pub use crate::exec::MomentOf;
+use frame_support::traits::IsType;
+pub use primitives::*;
+use sp_core::U256;
 
 #[cfg(test)]
 mod tests;
@@ -90,12 +90,13 @@ pub use weights::WeightInfo;
 pub use crate::wasm::SyscallDoc;
 
 type TrieId = BoundedVec<u8, ConstU32<128>>;
-pub type BalanceOf<T> =
+type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
 type EventRecordOf<T> =
 	EventRecord<<T as frame_system::Config>::RuntimeEvent, <T as frame_system::Config>::Hash>;
 type DebugBuffer = BoundedVec<u8, ConstU32<{ limits::DEBUG_BUFFER_BYTES }>>;
+type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 
 /// Used as a sentinel value when reading and writing contract memory.
 ///
@@ -135,7 +136,7 @@ pub mod pallet {
 	use sp_runtime::Perbill;
 
 	/// The in-code storage version.
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -535,6 +536,10 @@ pub mod pallet {
 		/// The static memory consumption of the blob will be larger than
 		/// [`limits::code::STATIC_MEMORY_BYTES`].
 		StaticMemoryTooLarge,
+		/// The program contains a basic block that is larger than allowed.
+		BasicBlockTooLarge,
+		/// The program contains an invalid instruction.
+		InvalidInstruction,
 		/// The contract has reached its maximum number of delegate dependencies.
 		MaxDelegateDependenciesReached,
 		/// The dependency was not found in the contract's delegate dependencies.
@@ -553,6 +558,9 @@ pub mod pallet {
 		ExecutionFailed,
 		/// Failed to convert a U256 to a Balance.
 		BalanceConversionFailed,
+		/// Immutable data can only be set during deploys and only be read during calls.
+		/// Additionally, it is only valid to set the data once and it must not be empty.
+		InvalidImmutableAccess,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
@@ -575,6 +583,10 @@ pub mod pallet {
 	/// The code associated with a given account.
 	#[pallet::storage]
 	pub(crate) type ContractInfoOf<T: Config> = StorageMap<_, Identity, H160, ContractInfo<T>>;
+
+	/// The immutable data associated with a given account.
+	#[pallet::storage]
+	pub(crate) type ImmutableDataOf<T: Config> = StorageMap<_, Identity, H160, ImmutableData>;
 
 	/// Evicted contracts that await child trie deletion.
 	///
@@ -668,6 +680,16 @@ pub mod pallet {
 					.hash()
 					.len() as u32;
 
+			let max_immutable_key_size = T::AccountId::max_encoded_len() as u32;
+			let max_immutable_size: u32 = ((max_block_ref_time /
+				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetImmutableData(
+					limits::IMMUTABLE_BYTES,
+				))
+				.ref_time()))
+			.saturating_mul(limits::IMMUTABLE_BYTES.saturating_add(max_immutable_key_size) as u64))
+			.try_into()
+			.expect("Immutable data size too big");
+
 			// We can use storage to store items using the available block ref_time with the
 			// `set_storage` host function.
 			let max_storage_size: u32 = ((max_block_ref_time /
@@ -677,6 +699,7 @@ pub mod pallet {
 				})
 				.ref_time()))
 			.saturating_mul(max_payload_size.saturating_add(max_key_size) as u64))
+			.saturating_add(max_immutable_size.into())
 			.try_into()
 			.expect("Storage size too big");
 
@@ -722,7 +745,7 @@ pub mod pallet {
 		///
 		/// # Parameters
 		///
-		/// * `payload`: The RLP-encoded [`crate::api::TransactionLegacySigned`].
+		/// * `payload`: The RLP-encoded [`crate::evm::TransactionLegacySigned`].
 		/// * `gas_limit`: The gas limit enforced during contract execution.
 		/// * `storage_deposit_limit`: The maximum balance that can be charged to the caller for
 		///   storage usage.
@@ -919,7 +942,7 @@ pub mod pallet {
 		/// only be instantiated by permissioned entities. The same is true when uploading
 		/// through [`Self::instantiate_with_code`].
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::upload_code_determinism_enforced(code.len() as u32))]
+		#[pallet::weight(T::WeightInfo::upload_code(code.len() as u32))]
 		pub fn upload_code(
 			origin: OriginFor<T>,
 			code: Vec<u8>,
@@ -1129,7 +1152,7 @@ where
 
 	/// A version of [`Self::eth_transact`] used to dry-run Ethereum calls.
 	pub fn bare_eth_transact(
-		origin: OriginFor<T>,
+		origin: T::AccountId,
 		dest: Option<H160>,
 		value: BalanceOf<T>,
 		input: Vec<u8>,
@@ -1141,31 +1164,48 @@ where
 	where
 		<T as Config>::RuntimeCall: From<crate::Call<T>>,
 		<T as Config>::RuntimeCall: Encode,
+		T::Nonce: Into<U256>,
 	{
+		use crate::evm::TransactionLegacyUnsigned;
+		use frame_support::traits::OriginTrait;
+		let nonce: T::Nonce = <System<T>>::account_nonce(&origin);
+
 		if let Some(dest) = dest {
+			let tx = TransactionLegacyUnsigned {
+				value: value.into(),
+				input: input.into(),
+				nonce: nonce.into(),
+				chain_id: Some(T::ChainId::get().into()),
+				gas_price: 1u32.into(),
+				gas: u128::MAX.into(),
+				to: Some(dest),
+				..Default::default()
+			};
+
+			let payload = tx.dummy_signed_payload();
+
 			let result = crate::Pallet::<T>::bare_call(
-				origin,
+				T::RuntimeOrigin::signed(origin),
 				dest,
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				input.clone(),
+				tx.input.0,
 				debug,
 				collect_events,
 			);
 
-			let dispatch_call = crate::Call::<T>::call {
-				dest,
-				value,
+			let transact_kind = EthTransactKind::Call;
+			let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
+				payload,
 				gas_limit: result.gas_required,
 				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-				data: input.clone(),
-			};
-
-			let dispatch_call: <T as Config>::RuntimeCall = dispatch_call.into();
+				transact_kind,
+			}
+			.into();
 
 			EthContractResultDetails {
-				kind: EthTransactKind::Call,
+				transact_kind,
 				dispatch_info: dispatch_call.get_dispatch_info(),
 				len: dispatch_call.encode().len() as u32,
 				gas_limit: result.gas_required,
@@ -1173,19 +1213,44 @@ where
 				result: result.result.map(|v| v.data),
 			}
 		} else {
-			let Ok(EthInstantiateInput { code, data }) =
-				EthInstantiateInput::decode(&mut &input[..])
-			else {
-				let dispatch_call = crate::Call::<T>::instantiate_with_code {
-					value,
+			let tx = TransactionLegacyUnsigned {
+				value: value.into(),
+				input: input.into(),
+				nonce: nonce.into(),
+				chain_id: Some(T::ChainId::get().into()),
+				gas_price: 1u32.into(),
+				gas: u128::MAX.into(),
+				..Default::default()
+			};
+			let payload = tx.dummy_signed_payload();
+
+			let blob = match polkavm::ProgramParts::blob_length(&tx.input.0) {
+				Some(blob_len) => blob_len
+					.try_into()
+					.ok()
+					.and_then(|blob_len| (tx.input.0.split_at_checked(blob_len))),
+				_ => {
+					log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
+					None
+				},
+			};
+
+			let Some((code, data)) = blob else {
+				log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
+				let transact_kind = EthTransactKind::InstantiateWithCode {
+					code_len: tx.input.0.len() as u32,
+					data_len: 0,
+				};
+
+				let dispatch_call = crate::Call::<T>::eth_transact {
+					payload,
 					gas_limit: Default::default(),
 					storage_deposit_limit: 0u32.into(),
-					code: input,
-					data: Default::default(),
-					salt: None,
+					transact_kind,
 				};
+
 				return EthContractResultDetails {
-					kind: EthTransactKind::Call,
+					transact_kind,
 					dispatch_info: dispatch_call.get_dispatch_info(),
 					gas_limit: Default::default(),
 					storage_deposit: Default::default(),
@@ -1197,30 +1262,28 @@ where
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
 			let result = crate::Pallet::<T>::bare_instantiate(
-				origin,
+				T::RuntimeOrigin::signed(origin),
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				Code::Upload(code.clone()),
-				data.clone(),
+				Code::Upload(code.to_vec()),
+				data.to_vec(),
 				None,
 				DebugInfo::Skip,
 				CollectEvents::Skip,
 			);
 
-			let dispatch_call = crate::Call::<T>::instantiate_with_code {
-				value,
+			let transact_kind = EthTransactKind::InstantiateWithCode { code_len, data_len };
+			let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
+				payload,
+				transact_kind,
 				gas_limit: result.gas_required,
 				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-				code,
-				data,
-				salt: None,
-			};
-
-			let dispatch_call: <T as Config>::RuntimeCall = dispatch_call.into();
+			}
+			.into();
 
 			EthContractResultDetails {
-				kind: EthTransactKind::InstantiateWithCode { code_len, data_len },
+				transact_kind,
 				dispatch_info: dispatch_call.get_dispatch_info(),
 				len: dispatch_call.encode().len() as u32,
 				gas_limit: result.gas_required,

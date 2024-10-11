@@ -65,7 +65,6 @@ mod build {
 	}
 
 	/// Collect all contract entries from the given source directory.
-	/// Contracts that have already been compiled are filtered out.
 	fn collect_entries(contracts_dir: &Path) -> Vec<Entry> {
 		fs::read_dir(contracts_dir)
 			.expect("src dir exists; qed")
@@ -115,6 +114,7 @@ mod build {
 
 	fn invoke_build(current_dir: &Path) -> Result<()> {
 		let encoded_rustflags = [
+			"-Dwarnings",
 			"-Crelocation-model=pie",
 			"-Clink-arg=--emit-relocs",
 			"-Clink-arg=--export-dynamic-symbol=__polkavm_symbol_export_hack__*",
@@ -158,8 +158,8 @@ mod build {
 	/// Post-process the compiled code.
 	fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
 		let mut config = polkavm_linker::Config::default();
-		config.set_strip(true);
-		config.set_optimize(false);
+		config.set_strip(false);
+		config.set_optimize(true);
 		let orig =
 			fs::read(input_path).with_context(|| format!("Failed to read {:?}", input_path))?;
 		let linked = polkavm_linker::program_from_elf(config, orig.as_ref())
@@ -183,7 +183,13 @@ mod build {
 		let fixtures_dir: PathBuf = env::var("CARGO_MANIFEST_DIR")?.into();
 		let contracts_dir = fixtures_dir.join("contracts");
 		let uapi_dir = fixtures_dir.parent().expect("uapi dir exits; qed").join("uapi");
-		let out_dir: PathBuf = env::var("OUT_DIR")?.into();
+		let ws_dir: PathBuf = env::var("CARGO_WORKSPACE_ROOT_DIR")?.into();
+		let out_dir: PathBuf = ws_dir.join("target").join("pallet-revive-fixtures");
+
+		// create out_dir if it does not exist
+		if !out_dir.exists() {
+			fs::create_dir_all(&out_dir)?;
+		}
 
 		// the fixtures have a dependency on the uapi crate
 		println!("cargo::rerun-if-changed={}", fixtures_dir.display());
