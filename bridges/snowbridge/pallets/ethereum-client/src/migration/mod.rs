@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 
-use frame_support::pallet_prelude::StorageVersion;
-
 mod test;
 
 pub const LOG_TARGET: &str = "ethereum-client-migration";
