@@ -439,7 +439,6 @@ impl ValidationBackend for MockValidateCandidateBackend {
 		&mut self,
 		_pvf: PvfPrepData,
 		_timeout: Duration,
-		_ttl: Option<BlockNumber>,
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
@@ -520,8 +519,7 @@ fn candidate_validation_ok_is_ok() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
-		None,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 	))
 	.unwrap();
@@ -573,8 +571,7 @@ fn candidate_validation_bad_return_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
-		None,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 	))
 	.unwrap();
@@ -656,7 +653,6 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		Arc::new(pov),
 		ExecutorParams::default(),
 		PvfExecKind::Approval,
-		None,
 		&Default::default(),
 	))
 	.unwrap();
@@ -698,7 +694,6 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 		Arc::new(pov),
 		ExecutorParams::default(),
 		PvfExecKind::Approval,
-		None,
 		&Default::default(),
 	))
 	.unwrap();
@@ -728,7 +723,7 @@ fn candidate_validation_retry_internal_errors() {
 #[test]
 fn candidate_validation_dont_retry_internal_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecKind::Backing,
+		PvfExecKind::Backing { ttl: None },
 		vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
 			// Throw an AWD error, we should still retry again.
@@ -762,7 +757,7 @@ fn candidate_validation_retry_panic_errors() {
 #[test]
 fn candidate_validation_dont_retry_panic_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecKind::Backing,
+		PvfExecKind::Backing { ttl: None },
 		vec![
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("foo".into()))),
 			// Throw an AWD error, we should still retry again.
@@ -813,7 +808,6 @@ fn candidate_validation_retry_on_error_helper(
 		Arc::new(pov),
 		ExecutorParams::default(),
 		exec_kind,
-		None,
 		&Default::default(),
 	))
 }
@@ -855,8 +849,7 @@ fn candidate_validation_timeout_is_internal_error() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
-		None,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 	));
 
@@ -901,8 +894,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
-		None,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 	))
 	.unwrap();
@@ -954,8 +946,7 @@ fn candidate_validation_code_mismatch_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
-		None,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 	))
 	.unwrap();
@@ -1012,8 +1003,7 @@ fn compressed_code_works() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
-		None,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 	));
 
@@ -1036,7 +1026,6 @@ impl ValidationBackend for MockPreCheckBackend {
 		&mut self,
 		_pvf: PvfPrepData,
 		_timeout: Duration,
-		_ttl: Option<BlockNumber>,
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
@@ -1196,7 +1185,6 @@ impl ValidationBackend for MockHeadsUp {
 		&mut self,
 		_pvf: PvfPrepData,
 		_timeout: Duration,
-		_ttl: Option<BlockNumber>,
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,

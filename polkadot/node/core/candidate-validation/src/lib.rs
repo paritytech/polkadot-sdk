@@ -37,10 +37,7 @@ use polkadot_node_subsystem::{
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
 };
-use polkadot_node_subsystem_util::{
-	self as util,
-	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
-};
+use polkadot_node_subsystem_util::{self as util};
 use polkadot_overseer::{ActivatedLeaf, ActiveLeavesUpdate};
 use polkadot_parachain_primitives::primitives::ValidationResult as WasmValidationResult;
 use polkadot_primitives::{
@@ -48,7 +45,7 @@ use polkadot_primitives::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
-	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateDescriptor, CandidateEvent,
+	AuthorityDiscoveryId, CandidateCommitments, CandidateDescriptor, CandidateEvent,
 	CandidateReceipt, ExecutorParams, Hash, PersistedValidationData,
 	PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
 	ValidationCodeHash, ValidatorId,
@@ -168,13 +165,6 @@ where
 			response_sender,
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();
-			let ttl = validation_request_ttl(
-				&mut sender,
-				candidate_receipt.descriptor.relay_parent,
-				validation_data.relay_parent_number,
-				exec_kind,
-			)
-			.await;
 			let res = validate_candidate_exhaustive(
 				validation_host,
 				validation_data,
@@ -183,7 +173,6 @@ where
 				pov,
 				executor_params,
 				exec_kind,
-				ttl,
 				&metrics,
 			)
 			.await;
@@ -667,7 +656,6 @@ async fn validate_candidate_exhaustive(
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
 	exec_kind: PvfExecKind,
-	request_ttl: Option<BlockNumber>,
 	metrics: &Metrics,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
@@ -695,7 +683,7 @@ async fn validate_candidate_exhaustive(
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
 		// honest backers getting slashed.
-		PvfExecKind::Backing | PvfExecKind::BackingSystemParas => {
+		PvfExecKind::Backing { .. } | PvfExecKind::BackingSystemParas { .. } => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
 			let pvf = PvfPrepData::from_code(
@@ -709,7 +697,6 @@ async fn validate_candidate_exhaustive(
 				.validate_candidate(
 					pvf,
 					exec_timeout,
-					request_ttl,
 					persisted_validation_data.clone(),
 					pov,
 					exec_kind.into(),
@@ -722,7 +709,6 @@ async fn validate_candidate_exhaustive(
 				.validate_candidate_with_retry(
 					validation_code.0,
 					pvf_exec_timeout(&executor_params, exec_kind.into()),
-					request_ttl,
 					persisted_validation_data.clone(),
 					pov,
 					executor_params,
@@ -821,7 +807,6 @@ trait ValidationBackend {
 		&mut self,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
-		exec_ttl: Option<BlockNumber>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
@@ -842,7 +827,6 @@ trait ValidationBackend {
 		&mut self,
 		code: Vec<u8>,
 		exec_timeout: Duration,
-		exec_ttl: Option<BlockNumber>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		executor_params: ExecutorParams,
@@ -869,7 +853,6 @@ trait ValidationBackend {
 			.validate_candidate(
 				pvf.clone(),
 				exec_timeout,
-				exec_ttl,
 				pvd.clone(),
 				pov.clone(),
 				prepare_priority,
@@ -956,7 +939,6 @@ trait ValidationBackend {
 					.validate_candidate(
 						pvf.clone(),
 						new_timeout,
-						exec_ttl,
 						pvd.clone(),
 						pov.clone(),
 						prepare_priority,
@@ -983,7 +965,6 @@ impl ValidationBackend for ValidationHost {
 		&mut self,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
-		exec_ttl: Option<BlockNumber>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
@@ -993,7 +974,7 @@ impl ValidationBackend for ValidationHost {
 	) -> Result<WasmValidationResult, ValidationError> {
 		let (tx, rx) = oneshot::channel();
 		if let Err(err) = self
-			.execute_pvf(pvf, exec_timeout, exec_ttl, pvd, pov, prepare_priority, exec_kind, tx)
+			.execute_pvf(pvf, exec_timeout, pvd, pov, prepare_priority, exec_kind, tx)
 			.await
 		{
 			return Err(InternalValidationError::HostCommunication(format!(
@@ -1097,34 +1078,5 @@ fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: RuntimePvfExecKind) 
 	match kind {
 		RuntimePvfExecKind::Backing => DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		RuntimePvfExecKind::Approval => DEFAULT_APPROVAL_EXECUTION_TIMEOUT,
-	}
-}
-
-async fn validation_request_ttl<S>(
-	sender: &mut S,
-	relay_parent: Hash,
-	relay_parent_number: BlockNumber,
-	exec_kind: PvfExecKind,
-) -> Option<BlockNumber>
-where
-	S: SubsystemSender<RuntimeApiMessage>,
-{
-	if !matches!(exec_kind, PvfExecKind::Backing | PvfExecKind::BackingSystemParas) {
-		return None;
-	}
-
-	let Ok(mode) = prospective_parachains_mode(sender, relay_parent).await else {
-		return None;
-	};
-
-	let ttl_in_blocks = match mode {
-		ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. } => allowed_ancestry_len,
-		_ => 1,
-	} as BlockNumber;
-
-	if ttl_in_blocks < 1 {
-		None
-	} else {
-		Some(relay_parent_number + ttl_in_blocks)
 	}
 }

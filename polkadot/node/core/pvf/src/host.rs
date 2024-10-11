@@ -41,7 +41,7 @@ use polkadot_node_subsystem::{
 	messages::PvfExecKind, ActivatedLeaf, SubsystemError, SubsystemResult,
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
-use polkadot_primitives::{BlockNumber, PersistedValidationData};
+use polkadot_primitives::PersistedValidationData;
 use std::{
 	collections::HashMap,
 	path::PathBuf,
@@ -113,7 +113,6 @@ impl ValidationHost {
 		&mut self,
 		pvf: PvfPrepData,
 		exec_timeout: Duration,
-		exec_ttl: Option<BlockNumber>,
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		priority: Priority,
@@ -124,7 +123,6 @@ impl ValidationHost {
 			.send(ToHost::ExecutePvf(ExecutePvfInputs {
 				pvf,
 				exec_timeout,
-				exec_ttl,
 				pvd,
 				pov,
 				priority,
@@ -169,7 +167,6 @@ enum ToHost {
 struct ExecutePvfInputs {
 	pvf: PvfPrepData,
 	exec_timeout: Duration,
-	exec_ttl: Option<BlockNumber>,
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	priority: Priority,
@@ -565,8 +562,7 @@ async fn handle_execute_pvf(
 	awaiting_prepare: &mut AwaitingPrepare,
 	inputs: ExecutePvfInputs,
 ) -> Result<(), Fatal> {
-	let ExecutePvfInputs { pvf, exec_timeout, exec_ttl, pvd, pov, priority, exec_kind, result_tx } =
-		inputs;
+	let ExecutePvfInputs { pvf, exec_timeout, pvd, pov, priority, exec_kind, result_tx } = inputs;
 	let artifact_id = ArtifactId::from_pvf_prep_data(&pvf);
 	let executor_params = (*pvf.executor_params()).clone();
 
@@ -585,7 +581,6 @@ async fn handle_execute_pvf(
 							artifact: ArtifactPathId::new(artifact_id, path),
 							pending_execution_request: PendingExecutionRequest {
 								exec_timeout,
-								exec_ttl,
 								pvd,
 								pov,
 								executor_params,
@@ -617,7 +612,6 @@ async fn handle_execute_pvf(
 						artifact_id,
 						PendingExecutionRequest {
 							exec_timeout,
-							exec_ttl,
 							pvd,
 							pov,
 							executor_params,
@@ -633,7 +627,6 @@ async fn handle_execute_pvf(
 					artifact_id,
 					PendingExecutionRequest {
 						exec_timeout,
-						exec_ttl,
 						pvd,
 						pov,
 						executor_params,
@@ -668,7 +661,6 @@ async fn handle_execute_pvf(
 						artifact_id,
 						PendingExecutionRequest {
 							exec_timeout,
-							exec_ttl,
 							pvd,
 							pov,
 							executor_params,
@@ -694,7 +686,6 @@ async fn handle_execute_pvf(
 			artifact_id,
 			PendingExecutionRequest {
 				exec_timeout,
-				exec_ttl,
 				pvd,
 				pov,
 				executor_params,
@@ -822,15 +813,8 @@ async fn handle_prepare_done(
 	// It's finally time to dispatch all the execution requests that were waiting for this artifact
 	// to be prepared.
 	let pending_requests = awaiting_prepare.take(&artifact_id);
-	for PendingExecutionRequest {
-		exec_timeout,
-		exec_ttl,
-		pvd,
-		pov,
-		executor_params,
-		result_tx,
-		exec_kind,
-	} in pending_requests
+	for PendingExecutionRequest { exec_timeout, pvd, pov, executor_params, result_tx, exec_kind } in
+		pending_requests
 	{
 		if result_tx.is_canceled() {
 			// Preparation could've taken quite a bit of time and the requester may be not
@@ -852,7 +836,6 @@ async fn handle_prepare_done(
 				artifact: ArtifactPathId::new(artifact_id.clone(), &path),
 				pending_execution_request: PendingExecutionRequest {
 					exec_timeout,
-					exec_ttl,
 					pvd,
 					pov,
 					executor_params,
@@ -1290,11 +1273,10 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			None,
 			pvd.clone(),
 			pov1.clone(),
 			Priority::Normal,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await
@@ -1304,11 +1286,10 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			None,
 			pvd.clone(),
 			pov1,
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await
@@ -1318,11 +1299,10 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(2),
 			TEST_EXECUTION_TIMEOUT,
-			None,
 			pvd,
 			pov2,
 			Priority::Normal,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await
@@ -1469,11 +1449,10 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			None,
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await
@@ -1519,11 +1498,10 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(2),
 			TEST_EXECUTION_TIMEOUT,
-			None,
 			pvd,
 			pov,
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await
@@ -1631,11 +1609,10 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			None,
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await
@@ -1664,11 +1641,10 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			None,
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx_2,
 		)
 		.await
@@ -1689,11 +1665,10 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			None,
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx_3,
 		)
 		.await
@@ -1749,11 +1724,10 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			None,
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await
@@ -1782,11 +1756,10 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			None,
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx_2,
 		)
 		.await
@@ -1807,11 +1780,10 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			None,
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx_3,
 		)
 		.await
@@ -1883,11 +1855,10 @@ pub(crate) mod tests {
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
 			TEST_EXECUTION_TIMEOUT,
-			None,
 			pvd,
 			pov,
 			Priority::Normal,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await

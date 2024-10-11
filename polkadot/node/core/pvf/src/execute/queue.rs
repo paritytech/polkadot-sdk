@@ -47,7 +47,7 @@ use std::{
 	sync::Arc,
 	time::{Duration, Instant},
 };
-use strum::IntoEnumIterator;
+use strum::{EnumIter, IntoEnumIterator};
 
 /// The amount of time a job for which the queue does not have a compatible worker may wait in the
 /// queue. After that time passes, the queue will kill the first worker which becomes idle to
@@ -75,7 +75,6 @@ pub enum FromQueue {
 #[derive(Debug)]
 pub struct PendingExecutionRequest {
 	pub exec_timeout: Duration,
-	pub exec_ttl: Option<BlockNumber>,
 	pub pvd: Arc<PersistedValidationData>,
 	pub pov: Arc<PoV>,
 	pub executor_params: ExecutorParams,
@@ -86,7 +85,7 @@ pub struct PendingExecutionRequest {
 struct ExecuteJob {
 	artifact: ArtifactPathId,
 	exec_timeout: Duration,
-	exec_ttl: Option<BlockNumber>,
+	exec_kind: PvfExecKind,
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
@@ -287,14 +286,15 @@ impl Queue {
 		}
 
 		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
-		if let (Some(now), Some(deadline)) = (self.relay_block_number, job.exec_ttl) {
-			gum::debug!(target: LOG_TARGET, ?priority, ?deadline, ?now, "Job has a deadline");
-			if now > deadline {
+		let exec_kind = job.exec_kind;
+		if let (Some(ttl), Some(now)) = (exec_kind.ttl(), self.relay_block_number) {
+			gum::debug!(target: LOG_TARGET, ?priority, ?ttl, ?now, "Job has a deadline");
+			if now > ttl {
 				let _ = job.result_tx.send(Err(ValidationError::ExecutionDeadline));
 				gum::warn!(
 					target: LOG_TARGET,
 					?priority,
-					?deadline,
+					?ttl,
 					"Job exceeded its deadline and was dropped without execution",
 				);
 				return self.try_assign_next_job(finished_worker);
@@ -306,7 +306,7 @@ impl Queue {
 		} else {
 			spawn_extra_worker(self, job);
 		}
-		self.metrics.on_execute_kind(priority);
+		self.metrics.on_execute_kind(exec_kind);
 		self.unscheduled.mark_scheduled(priority);
 	}
 
@@ -339,7 +339,6 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 		ToQueue::Enqueue { artifact, pending_execution_request } => {
 			let PendingExecutionRequest {
 				exec_timeout,
-				exec_ttl,
 				pvd,
 				pov,
 				executor_params,
@@ -356,14 +355,14 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 			let job = ExecuteJob {
 				artifact,
 				exec_timeout,
-				exec_ttl,
+				exec_kind,
 				pvd,
 				pov,
 				executor_params,
 				result_tx,
 				waiting_since: Instant::now(),
 			};
-			queue.unscheduled.add(job, exec_kind);
+			queue.unscheduled.add(job, exec_kind.into());
 			queue.try_assign_next_job(None);
 		},
 	}
@@ -689,9 +688,28 @@ pub fn start(
 	(to_queue_tx, from_queue_rx, run)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]
+enum Priority {
+	Dispute,
+	Approval,
+	BackingSystemParas,
+	Backing,
+}
+
+impl From<PvfExecKind> for Priority {
+	fn from(kind: PvfExecKind) -> Self {
+		match kind {
+			PvfExecKind::Dispute => Priority::Dispute,
+			PvfExecKind::Approval => Priority::Approval,
+			PvfExecKind::BackingSystemParas { .. } => Priority::BackingSystemParas,
+			PvfExecKind::Backing { .. } => Priority::Backing,
+		}
+	}
+}
+
 struct Unscheduled {
-	unscheduled: HashMap<PvfExecKind, VecDeque<ExecuteJob>>,
-	counter: HashMap<PvfExecKind, usize>,
+	unscheduled: HashMap<Priority, VecDeque<ExecuteJob>>,
+	counter: HashMap<Priority, usize>,
 }
 
 impl Unscheduled {
@@ -718,34 +736,34 @@ impl Unscheduled {
 	///   approvals could not exceed 24%, even if there are no disputes.
 	/// - We cannot fully prioritize backing system parachains over backing other parachains based
 	///   on the distribution of the original 100%.
-	const PRIORITY_ALLOCATION_THRESHOLDS: &'static [(PvfExecKind, usize)] = &[
-		(PvfExecKind::Dispute, 70),
-		(PvfExecKind::Approval, 80),
-		(PvfExecKind::BackingSystemParas, 100),
-		(PvfExecKind::Backing, 100),
+	const PRIORITY_ALLOCATION_THRESHOLDS: &'static [(Priority, usize)] = &[
+		(Priority::Dispute, 70),
+		(Priority::Approval, 80),
+		(Priority::BackingSystemParas, 100),
+		(Priority::Backing, 100),
 	];
 
 	fn new() -> Self {
 		Self {
-			unscheduled: PvfExecKind::iter().map(|priority| (priority, VecDeque::new())).collect(),
-			counter: PvfExecKind::iter().map(|priority| (priority, 0)).collect(),
+			unscheduled: Priority::iter().map(|priority| (priority, VecDeque::new())).collect(),
+			counter: Priority::iter().map(|priority| (priority, 0)).collect(),
 		}
 	}
 
-	fn select_next_priority(&self) -> PvfExecKind {
+	fn select_next_priority(&self) -> Priority {
 		gum::debug!(
 			target: LOG_TARGET,
-			unscheduled = ?self.unscheduled.iter().map(|(p, q)| (*p, q.len())).collect::<HashMap<PvfExecKind, usize>>(),
+			unscheduled = ?self.unscheduled.iter().map(|(p, q)| (*p, q.len())).collect::<HashMap<Priority, usize>>(),
 			counter = ?self.counter,
 			"Selecting next execution priority...",
 		);
 
-		let priority = PvfExecKind::iter()
+		let priority = Priority::iter()
 			.find(|priority| self.has_pending(priority) && !self.has_reached_threshold(priority))
 			.unwrap_or_else(|| {
-				PvfExecKind::iter()
+				Priority::iter()
 					.find(|priority| self.has_pending(priority))
-					.unwrap_or(PvfExecKind::Backing)
+					.unwrap_or(Priority::Backing)
 			});
 
 		gum::debug!(
@@ -757,19 +775,19 @@ impl Unscheduled {
 		priority
 	}
 
-	fn get_mut(&mut self, priority: PvfExecKind) -> Option<&mut VecDeque<ExecuteJob>> {
+	fn get_mut(&mut self, priority: Priority) -> Option<&mut VecDeque<ExecuteJob>> {
 		self.unscheduled.get_mut(&priority)
 	}
 
-	fn add(&mut self, job: ExecuteJob, priority: PvfExecKind) {
+	fn add(&mut self, job: ExecuteJob, priority: Priority) {
 		self.unscheduled.entry(priority).or_default().push_back(job);
 	}
 
-	fn has_pending(&self, priority: &PvfExecKind) -> bool {
+	fn has_pending(&self, priority: &Priority) -> bool {
 		!self.unscheduled.get(priority).unwrap_or(&VecDeque::new()).is_empty()
 	}
 
-	fn priority_allocation_threshold(priority: &PvfExecKind) -> Option<usize> {
+	fn priority_allocation_threshold(priority: &Priority) -> Option<usize> {
 		Self::PRIORITY_ALLOCATION_THRESHOLDS.iter().find_map(|&(p, value)| {
 			if p == *priority {
 				Some(value)
@@ -781,7 +799,7 @@ impl Unscheduled {
 
 	/// Checks if a given priority has reached its allocated threshold
 	/// The thresholds are defined in `PRIORITY_ALLOCATION_THRESHOLDS`.
-	fn has_reached_threshold(&self, priority: &PvfExecKind) -> bool {
+	fn has_reached_threshold(&self, priority: &Priority) -> bool {
 		let Some(threshold) = Self::priority_allocation_threshold(priority) else { return false };
 		let Some(count) = self.counter.get(&priority) else { return false };
 		// Every time we iterate by lower level priorities
@@ -810,7 +828,7 @@ impl Unscheduled {
 		has_reached_threshold
 	}
 
-	fn mark_scheduled(&mut self, priority: PvfExecKind) {
+	fn mark_scheduled(&mut self, priority: Priority) {
 		*self.counter.entry(priority).or_default() += 1;
 
 		if self.counter.values().sum::<usize>() >= Self::SCHEDULING_WINDOW_SIZE {
@@ -824,7 +842,7 @@ impl Unscheduled {
 	}
 
 	fn reset_counter(&mut self) {
-		self.counter = PvfExecKind::iter().map(|kind| (kind, 0)).collect();
+		self.counter = Priority::iter().map(|kind| (kind, 0)).collect();
 	}
 }
 
@@ -849,7 +867,7 @@ mod tests {
 		ExecuteJob {
 			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
 			exec_timeout: Duration::from_secs(10),
-			exec_ttl: None,
+			exec_kind: PvfExecKind::Approval,
 			pvd,
 			pov,
 			executor_params: ExecutorParams::default(),
@@ -862,11 +880,11 @@ mod tests {
 	fn test_unscheduled_add() {
 		let mut unscheduled = Unscheduled::new();
 
-		PvfExecKind::iter().for_each(|priority| {
+		Priority::iter().for_each(|priority| {
 			unscheduled.add(create_execution_job(), priority);
 		});
 
-		PvfExecKind::iter().for_each(|priority| {
+		Priority::iter().for_each(|priority| {
 			let queue = unscheduled.unscheduled.get(&priority).unwrap();
 			assert_eq!(queue.len(), 1);
 		});
@@ -874,7 +892,7 @@ mod tests {
 
 	#[test]
 	fn test_unscheduled_priority_distribution() {
-		use PvfExecKind::*;
+		use Priority::*;
 
 		let mut priorities = vec![];
 
@@ -899,7 +917,7 @@ mod tests {
 
 	#[test]
 	fn test_unscheduled_priority_distribution_without_backing_system_paras() {
-		use PvfExecKind::*;
+		use Priority::*;
 
 		let mut priorities = vec![];
 
@@ -923,7 +941,7 @@ mod tests {
 
 	#[test]
 	fn test_unscheduled_priority_distribution_without_disputes() {
-		use PvfExecKind::*;
+		use Priority::*;
 
 		let mut priorities = vec![];
 
@@ -947,7 +965,7 @@ mod tests {
 
 	#[test]
 	fn test_unscheduled_priority_distribution_without_disputes_and_only_one_backing() {
-		use PvfExecKind::*;
+		use Priority::*;
 
 		let mut priorities = vec![];
 
@@ -969,7 +987,7 @@ mod tests {
 
 	#[test]
 	fn test_unscheduled_does_not_postpone_backing() {
-		use PvfExecKind::*;
+		use Priority::*;
 
 		let mut priorities = vec![];
 
@@ -1012,14 +1030,14 @@ mod tests {
 			let expired_job = ExecuteJob {
 				artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
 				exec_timeout: Duration::from_secs(1),
-				exec_ttl: Some(9),
+				exec_kind: PvfExecKind::Backing { ttl: Some(9) },
 				pvd: Arc::new(PersistedValidationData::default()),
 				pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
 				executor_params: ExecutorParams::default(),
 				result_tx,
 				waiting_since: Instant::now(),
 			};
-			queue.unscheduled.add(expired_job, PvfExecKind::Backing);
+			queue.unscheduled.add(expired_job, Priority::Backing);
 			result_rxs.push(result_rx);
 		}
 

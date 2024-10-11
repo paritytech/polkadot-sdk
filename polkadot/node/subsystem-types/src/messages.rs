@@ -195,9 +195,9 @@ pub enum PvfExecKind {
 	/// For approval requests
 	Approval,
 	/// For backing requests from system parachains.
-	BackingSystemParas,
+	BackingSystemParas { ttl: Option<BlockNumber> },
 	/// For backing requests.
-	Backing,
+	Backing { ttl: Option<BlockNumber> },
 }
 
 impl PvfExecKind {
@@ -206,9 +206,23 @@ impl PvfExecKind {
 		match *self {
 			Self::Dispute => "dispute",
 			Self::Approval => "approval",
-			Self::BackingSystemParas => "backing_system_paras",
-			Self::Backing => "backing",
+			Self::BackingSystemParas { .. } => "backing_system_paras",
+			Self::Backing { .. } => "backing",
 		}
+	}
+
+	/// Returns TTL of execution job
+	pub fn ttl(&self) -> Option<BlockNumber> {
+		match *self {
+			Self::BackingSystemParas { ttl } | Self::Backing { ttl } => ttl,
+			_ => None,
+		}
+	}
+
+	#[cfg(test)]
+	/// Returns if the kind matches `BackingSystemParas`
+	pub fn is_backing_system_paras(&self) -> bool {
+		exec_kind.is_backing_system_paras()
 	}
 }
 
@@ -217,8 +231,8 @@ impl From<PvfExecKind> for RuntimePvfExecKind {
 		match exec {
 			PvfExecKind::Dispute => RuntimePvfExecKind::Approval,
 			PvfExecKind::Approval => RuntimePvfExecKind::Approval,
-			PvfExecKind::BackingSystemParas => RuntimePvfExecKind::Backing,
-			PvfExecKind::Backing => RuntimePvfExecKind::Backing,
+			PvfExecKind::BackingSystemParas { .. } => RuntimePvfExecKind::Backing,
+			PvfExecKind::Backing { .. } => RuntimePvfExecKind::Backing,
 		}
 	}
 }

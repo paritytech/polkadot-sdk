@@ -28,7 +28,7 @@ use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
 use polkadot_node_subsystem::{messages::PvfExecKind, ActivatedLeaf};
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationResult};
 use polkadot_primitives::{
-	BlockNumber, ExecutorParam, ExecutorParams, Hash, PersistedValidationData,
+	ExecutorParam, ExecutorParams, Hash, PersistedValidationData,
 	PvfExecKind as RuntimePvfExecKind, PvfPrepKind,
 };
 use sp_core::H256;
@@ -108,7 +108,7 @@ impl TestHost {
 		pvd: PersistedValidationData,
 		pov: PoV,
 		executor_params: ExecutorParams,
-		exec_ttl: Option<BlockNumber>,
+		ttl: Option<BlockNumber>,
 	) -> Result<ValidationResult, ValidationError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
 
@@ -123,11 +123,10 @@ impl TestHost {
 					PrepareJobKind::Compilation,
 				),
 				TEST_EXECUTION_TIMEOUT,
-				exec_ttl,
 				Arc::new(pvd),
 				Arc::new(pov),
 				polkadot_node_core_pvf::Priority::Normal,
-				PvfExecKind::Backing,
+				PvfExecKind::Backing { ttl },
 				result_tx,
 			)
 			.await

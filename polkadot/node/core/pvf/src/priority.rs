@@ -43,8 +43,8 @@ impl From<PvfExecKind> for Priority {
 		match priority {
 			PvfExecKind::Dispute => Priority::Critical,
 			PvfExecKind::Approval => Priority::Critical,
-			PvfExecKind::BackingSystemParas => Priority::Normal,
-			PvfExecKind::Backing => Priority::Normal,
+			PvfExecKind::BackingSystemParas { .. } => Priority::Normal,
+			PvfExecKind::Backing { .. } => Priority::Normal,
 		}
 	}
 }
