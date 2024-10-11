@@ -74,7 +74,7 @@ mod benchmarks {
 	// `z`: Transaction Length
 	// `s`: Signatories, need at least 2 people
 	#[benchmark]
-	fn as_multi_create(s: Linear<2,T::MaxSignatories::get() >, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
+	fn as_multi_create(s: Linear<2, T::MaxSignatories::get()>, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let (mut signatories, call) = setup_multi::<T>(s, z)?;
 		let call_hash = call.using_encoded(blake2_256);
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
@@ -94,7 +94,7 @@ mod benchmarks {
 	// `z`: Transaction Length
 	// `s`: Signatories, need at least 3 people (so we don't complete the multisig)
 	#[benchmark]
-	fn as_multi_approve(s: Linear<3,T::MaxSignatories::get() >, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
+	fn as_multi_approve(s: Linear<3, T::MaxSignatories::get()>, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let (mut signatories, call) = setup_multi::<T>(s, z)?;
 		let call_hash = call.using_encoded(blake2_256);
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
@@ -121,7 +121,7 @@ mod benchmarks {
 	// `z`: Transaction Length
 	// `s`: Signatories, need at least 2 people
 	#[benchmark]
-	fn as_multi_complete(s: Linear<2,T::MaxSignatories::get() >, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
+	fn as_multi_complete(s: Linear<2, T::MaxSignatories::get()>, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let (mut signatories, call) = setup_multi::<T>(s, z)?;
 		let call_hash = call.using_encoded(blake2_256);
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
@@ -155,7 +155,7 @@ mod benchmarks {
 	// `z`: Transaction Length, not a component
 	// `s`: Signatories, need at least 2 people
 	#[benchmark]
-	fn approve_as_multi_create(s: Linear<2,T::MaxSignatories::get() >, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
+	fn approve_as_multi_create(s: Linear<2, T::MaxSignatories::get()>, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let (mut signatories, call) = setup_multi::<T>(s, z)?;
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
 		let caller = signatories.pop().ok_or("signatories should have len 2 or more")?;
@@ -176,7 +176,7 @@ mod benchmarks {
 	// `z`: Transaction Length, not a component
 	// `s`: Signatories, need at least 2 people
 	#[benchmark]
-	fn approve_as_multi_approve(s: Linear<2,T::MaxSignatories::get() >, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
+	fn approve_as_multi_approve(s: Linear<2, T::MaxSignatories::get() >, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let (mut signatories, call) = setup_multi::<T>(s, z)?;
 		let mut signatories2 = signatories.clone();
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
@@ -210,7 +210,7 @@ mod benchmarks {
 	// `z`: Transaction Length, not a component
 	// `s`: Signatories, need at least 2 people
 	#[benchmark]
-	fn cancel_as_multi(s: Linear<2,T::MaxSignatories::get() >, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
+	fn cancel_as_multi(s: Linear<2, T::MaxSignatories::get() >, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let (mut signatories, call) = setup_multi::<T>(s, z)?;
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
 		let caller = signatories.pop().ok_or("signatories should have len 2 or more")?;
