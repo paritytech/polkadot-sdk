@@ -1788,10 +1788,10 @@ impl<T: Config> Pallet<T> {
 			weight,
 		);
 		Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
-		outcome.ensure_complete().map_err(|error| {
+		outcome.clone().ensure_complete().map_err(|error| {
 			tracing::error!(
 				target: "xcm::pallet_xcm::execute_xcm_transfer",
-				?error, ?outcome, "XCM execution failed with error",
+				?error, "XCM execution failed with error with outcome: {:?}", outcome
 			);
 			Error::<T>::LocalExecutionIncomplete
 		})?;
@@ -1800,7 +1800,7 @@ impl<T: Config> Pallet<T> {
 			let (ticket, price) = validate_send::<T::XcmRouter>(dest.clone(), remote_xcm.clone())
 				.map_err(Error::<T>::from)?;
 			if origin != Here.into_location() {
-				Self::charge_fees(origin.clone(), price).map_err(|error| {
+				Self::charge_fees(origin.clone(), price.clone()).map_err(|error| {
 					tracing::error!(
 						target: "xcm::pallet_xcm::execute_xcm_transfer",
 						?error, ?price, ?origin, "Unable to charge fee",
@@ -2474,11 +2474,15 @@ impl<T: Config> Pallet<T> {
 		} else {
 			None
 		};
-		tracing::debug!(target: "xcm::send_xcm", ?&dest, ?&message);
+		tracing::debug!(target: "xcm::send_xcm", "{:?}, {:?}", dest.clone(), message.clone());
 		let (ticket, price) = validate_send::<T::XcmRouter>(dest, message)?;
 		if let Some(fee_payer) = maybe_fee_payer {
 			Self::charge_fees(fee_payer, price).map_err(|e| {
-				tracing::error!(target: "xcm::pallet_xcm::send_xcm", ?e, ?price, ?fee_payer, "Charging fees failed with error");
+				tracing::error!(
+					target: "xcm::pallet_xcm::send_xcm",
+					?e,
+					"Charging fees failed with error",
+				);
 				SendError::Fees
 			})?;
 		}
@@ -2587,13 +2591,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
-		let message = Xcm::<()>::try_from(message)
+		let message = Xcm::<()>::try_from(message.clone())
 			.map_err(|e| {
 				tracing::error!(target: "xcm::pallet_xcm::query_xcm_weight", ?e, ?message, "Failed to convert versioned message");
 				XcmPaymentApiError::VersionedConversionFailed
 			})?;
 
-		T::Weigher::weight(&mut message.into()).map_err(|()| {
+		T::Weigher::weight(&mut message.clone().into()).map_err(|()| {
 			tracing::error!(target: "xcm::pallet_xcm::query_xcm_weight", ?message, "Error when querying XCM weight");
 			XcmPaymentApiError::WeightNotComputable
 		})
@@ -2605,20 +2609,21 @@ impl<T: Config> Pallet<T> {
 	) -> Result<VersionedAssets, XcmPaymentApiError> {
 		let result_version = destination.identify_version().max(message.identify_version());
 
-		let destination = destination
+		let destination: Location = destination
+			.clone()
 			.try_into()
 			.map_err(|e| {
 				tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?e, ?destination, "Failed to convert versioned destination");
 				XcmPaymentApiError::VersionedConversionFailed
 			})?;
 
-		let message =
-			message.try_into().map_err(|e| {
+		let message: Xcm<()> =
+			message.clone().try_into().map_err(|e| {
 				tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?e, ?message, "Failed to convert versioned message");
 				XcmPaymentApiError::VersionedConversionFailed
 			})?;
 
-		let (_, fees) = validate_send::<T::XcmRouter>(destination, message).map_err(|error| {
+		let (_, fees) = validate_send::<T::XcmRouter>(destination.clone(), message.clone()).map_err(|error| {
 			tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?error, ?destination, ?message, "Failed to validate send to destination");
 			XcmPaymentApiError::Unroutable
 		})?;
@@ -2714,7 +2719,7 @@ impl<T: Config> Pallet<T> {
 	fn note_unknown_version(dest: &Location) {
 		tracing::trace!(
 			target: "xcm::pallet_xcm::note_unknown_version",
-			?dest, "XCM version is unknown for destination: {:?}"
+			?dest, "XCM version is unknown for destination"
 		);
 		let versioned_dest = VersionedLocation::from(dest.clone());
 		VersionDiscoveryQueue::<T>::mutate(|q| {
