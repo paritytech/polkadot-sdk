@@ -314,18 +314,6 @@ pub enum PeerState {
 	},
 }
 
-impl PeerState {
-	fn set_reserved(&mut self, reserved: Reserved) {
-		match self {
-			PeerState::Opening { ref mut direction } => direction.set_reserved(reserved),
-			PeerState::Connected { ref mut direction } => direction.set_reserved(reserved),
-			PeerState::Canceled { ref mut direction } => direction.set_reserved(reserved),
-			PeerState::Closing { ref mut direction } => direction.set_reserved(reserved),
-			_ => {},
-		}
-	}
-}
-
 /// `Peerset` implementation.
 ///
 /// `Peerset` allows other subsystems of the blockchain to modify the connection state
