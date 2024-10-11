@@ -233,13 +233,7 @@ impl<H: ExHashT> TransactionsHandlerController<H> {
 	/// This transaction will be fetched from the `TransactionPool` that was passed at
 	/// initialization as part of the configuration and propagated to peers.
 	pub fn propagate_transaction(&self, hash: H) {
-		let r = self.to_handler.unbounded_send(ToHandler::PropagateTransaction(hash.clone()));
-		if r.is_err() {
-			log::debug!(
-				"[{hash:?} ] import_notification_stream: sending failed {:?}",
-				r.unwrap_err()
-			);
-		}
+		let _ = self.to_handler.unbounded_send(ToHandler::PropagateTransaction(hash));
 	}
 }
 
