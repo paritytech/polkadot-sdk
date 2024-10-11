@@ -1,14 +1,5 @@
-error[E0277]: the trait bound `<T as pallet::Config>::MyNonScaleTypeInfo: TypeInfo` is not satisfied
-  --> tests/pallet_ui/config_metadata_non_type_info.rs:29:8
+error: Invalid #[pallet::include_metadata] in #[pallet::config], collected type `MyNonScaleTypeInfo` does not implement `scale::TypeInfo`
+  --> tests/pallet_ui/config_metadata_non_type_info.rs:28:4
    |
-29 |         type MyNonScaleTypeInfo;
-   |              ^^^^^^^^^^^^^^^^^^ the trait `TypeInfo` is not implemented for `<T as pallet::Config>::MyNonScaleTypeInfo`
-   |
-note: required by a bound in `meta_type`
-  --> $CARGO/scale-info-2.11.3/src/lib.rs
-   |
-   | pub fn meta_type<T>() -> MetaType
-   |        --------- required by a bound in this function
-   | where
-   |     T: ?Sized + TypeInfo + 'static,
-   |                 ^^^^^^^^ required by this bound in `meta_type`
+28 |         #[pallet::include_metadata]
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^
