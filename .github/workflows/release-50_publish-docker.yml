@@ -199,7 +199,7 @@ jobs:
           commit=$(git rev-parse --short HEAD) && \
           echo "commit=${commit}" >> $GITHUB_OUTPUT
 
-          echo "tag=$${{ needs.validate-inputs.outputs.version }}" >> $GITHUB_OUTPUT
+          echo "tag=${{ needs.validate-inputs.outputs.version }}" >> $GITHUB_OUTPUT
 
       - name: Fetch release tags
         working-directory: release-artifacts
