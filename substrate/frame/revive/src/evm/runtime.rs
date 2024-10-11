@@ -335,7 +335,7 @@ pub trait EthExtra {
 				return Err(InvalidTransaction::Call);
 			};
 
-			let blob = match polkavm_linker::ProgramParts::blob_length(&input.0) {
+			let blob = match polkavm::ProgramParts::blob_length(&input.0) {
 				Some(blob_len) => blob_len
 					.try_into()
 					.ok()
