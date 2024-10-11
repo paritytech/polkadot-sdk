@@ -580,7 +580,7 @@ impl Stream for Discovery {
 				..
 			})) => {
 				let (is_new, expired_address) =
-					this.is_new_external_address(&observed_address, peer.clone());
+					this.is_new_external_address(&observed_address, peer);
 
 				if let Some(expired_address) = expired_address {
 					log::trace!(

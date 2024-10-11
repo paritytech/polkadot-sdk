@@ -936,7 +936,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 					Some(DiscoveryEvent::ExternalAddressExpired{ address }) => {
-						let local_peer_id = self.litep2p.local_peer_id().clone();
+						let local_peer_id = self.litep2p.local_peer_id();
 
 						// Litep2p requires the peer ID to be present in the address.
 						let Some(multihash) = litep2p::types::multihash::Multihash::from_bytes(&local_peer_id.to_bytes()).ok() else {
