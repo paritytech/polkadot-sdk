@@ -6,4 +6,6 @@ doc:
       Add a new Ethereum JSON-RPC server that can be used a substrate chain configured with pallet-revive
 crates:
   - name: pallet-revive-eth-rpc
-    bump: major
+    bump: patch
+  - name: pallet-revive-fixtures
+    bump: patch
