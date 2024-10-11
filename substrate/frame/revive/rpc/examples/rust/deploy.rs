@@ -17,7 +17,7 @@
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::{
 	create1,
-	evm::{Account, BlockTag, Bytes, EthInstantiateInput, ReceiptInfo, U256},
+	evm::{Account, BlockTag, Bytes, ReceiptInfo, U256},
 };
 use pallet_revive_eth_rpc::{
 	example::{send_transaction, wait_for_receipt},
@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
 	let account = Account::default();
 	let data = vec![];
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
-	let input = EthInstantiateInput { code: bytes, data: data.clone() };
+	let input = bytes.into_iter().chain(data.clone()).collect::<Vec<u8>>();
 
 	println!("Account address: {:?}", account.address());
 	let client = HttpClientBuilder::default().build("http://localhost:9090")?;

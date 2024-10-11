@@ -29,8 +29,8 @@ use jsonrpsee::types::{ErrorCode, ErrorObjectOwned};
 use pallet_revive::{
 	create1,
 	evm::{
-		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes256, EthInstantiateInput,
-		GenericTransaction, ReceiptInfo, TransactionSigned, H160, H256, U256,
+		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes256, GenericTransaction, ReceiptInfo,
+		TransactionSigned, H160, H256, U256,
 	},
 	ContractResult, EthContractResult,
 };
