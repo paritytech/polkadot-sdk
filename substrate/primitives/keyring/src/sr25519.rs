@@ -159,20 +159,20 @@ impl FromStr for Keyring {
 
 	fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
 		match s {
-			"Alice" => Ok(Keyring::Alice),
-			"Bob" => Ok(Keyring::Bob),
-			"Charlie" => Ok(Keyring::Charlie),
-			"Dave" => Ok(Keyring::Dave),
-			"Eve" => Ok(Keyring::Eve),
-			"Ferdie" => Ok(Keyring::Ferdie),
+			"Alice" | "alice" => Ok(Keyring::Alice),
+			"Bob" | "bob" => Ok(Keyring::Bob),
+			"Charlie" | "charlie" => Ok(Keyring::Charlie),
+			"Dave" | "dave" => Ok(Keyring::Dave),
+			"Eve" | "eve" => Ok(Keyring::Eve),
+			"Ferdie" | "ferdie" => Ok(Keyring::Ferdie),
 			"Alice//stash" => Ok(Keyring::AliceStash),
 			"Bob//stash" => Ok(Keyring::BobStash),
 			"Charlie//stash" => Ok(Keyring::CharlieStash),
 			"Dave//stash" => Ok(Keyring::DaveStash),
 			"Eve//stash" => Ok(Keyring::EveStash),
 			"Ferdie//stash" => Ok(Keyring::FerdieStash),
-			"One" => Ok(Keyring::One),
-			"Two" => Ok(Keyring::Two),
+			"One" | "one" => Ok(Keyring::One),
+			"Two" | "two" => Ok(Keyring::Two),
 			_ => Err(ParseKeyringError),
 		}
 	}
