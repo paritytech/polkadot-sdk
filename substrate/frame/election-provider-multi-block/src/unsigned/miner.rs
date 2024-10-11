@@ -33,7 +33,7 @@ use frame_support::{ensure, traits::Get, BoundedVec};
 use scale_info::TypeInfo;
 use sp_npos_elections::{ElectionResult, ElectionScore, ExtendedBalance, Support};
 use sp_runtime::{offchain::storage::StorageValueRef, SaturatedConversion};
-use sp_std::vec;
+use sp_std::{prelude::ToOwned, vec, vec::Vec};
 
 pub type TargetSnaphsotOf<T> =
 	BoundedVec<<T as Config>::AccountId, <T as Config>::TargetSnapshotPerBlock>;

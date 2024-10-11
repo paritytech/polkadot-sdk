@@ -17,10 +17,11 @@
 
 //! Offchain workers types
 
-use crate::{OpaquePeerId, RuntimeDebug};
+use crate::{alloc::boxed::Box, OpaquePeerId, RuntimeDebug};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime_interface::pass_by::{PassByCodec, PassByEnum, PassByInner};
+use sp_std::vec::Vec;
 
 pub use crate::crypto::KeyTypeId;
 

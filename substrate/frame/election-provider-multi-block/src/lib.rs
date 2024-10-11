@@ -127,7 +127,7 @@ mod mock;
 pub use pallet::*;
 pub use types::*;
 
-pub use crate::{verifier::Verifier, weights::WeightInfo};
+pub use crate::{unsigned::miner, verifier::Verifier, weights::WeightInfo};
 
 /// Internal crate re-exports to use across benchmarking and tests.
 #[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -239,7 +239,7 @@ pub mod pallet {
 		>;
 
 		// The miner configuration.
-		type MinerConfig: crate::unsigned::miner::Config<
+		type MinerConfig: miner::Config<
 			AccountId = AccountIdOf<Self>,
 			Pages = Self::Pages,
 			Solution = SolutionOf<Self>,
@@ -271,6 +271,25 @@ pub mod pallet {
 
 		/// The weights for this pallet.
 		type WeightInfo: WeightInfo;
+	}
+
+	// Expose miner configs over the metadata such that they can be re-implemented.
+	#[pallet::extra_constants]
+	impl<T: Config> Pallet<T> {
+		#[pallet::constant_name(MinerMaxVotesPerVoter)]
+		fn max_votes_per_voter() -> u32 {
+			<T::MinerConfig as miner::Config>::MaxVotesPerVoter::get()
+		}
+
+		#[pallet::constant_name(MinerMaxBackersPerWinner)]
+		fn max_backers_per_winner() -> u32 {
+			<T::MinerConfig as miner::Config>::MaxBackersPerWinner::get()
+		}
+
+		#[pallet::constant_name(MinerMaxWinnersPerPage)]
+		fn max_winners_per_page() -> u32 {
+			<T::MinerConfig as miner::Config>::MaxWinnersPerPage::get()
+		}
 	}
 
 	/// Election failure strategy.
