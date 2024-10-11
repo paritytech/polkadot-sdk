@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use jsonrpsee::http_client::HttpClientBuilder;
-use pallet_revive::evm::BlockTag;
+use pallet_revive::evm::{Account, BlockTag};
 use pallet_revive_eth_rpc::EthRpcClient;
 
 #[tokio::main]

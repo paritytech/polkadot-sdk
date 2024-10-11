@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let tx_payload = subxt_client::tx().revive().instantiate_with_code(
 		0u32.into(),
 		Weight::from_parts(100_000, 0).into(),
-		3_000_000_000_000_000u128.into(),
+		3_000_000_000_000_000,
 		bytes,
 		vec![],
 		None,
