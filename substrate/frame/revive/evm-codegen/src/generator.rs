@@ -37,6 +37,7 @@ lazy_static! {
 	"eth_getTransactionCount",
 	"eth_getTransactionReceipt",
 	"eth_sendRawTransaction",
+	"eth_sendTransaction",
   ];
 
   /// Mapping of primitive schema types to their Rust counterparts.
