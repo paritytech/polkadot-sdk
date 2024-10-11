@@ -17,6 +17,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::*;
+use crate::PvfExecKind;
 use assert_matches::assert_matches;
 use futures::executor;
 use polkadot_node_core_pvf::PrepareError;
@@ -441,6 +442,7 @@ impl ValidationBackend for MockValidateCandidateBackend {
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		// This is expected to panic if called more times than expected, indicating an error in the
 		// test.
@@ -1023,6 +1025,7 @@ impl ValidationBackend for MockPreCheckBackend {
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}
@@ -1177,6 +1180,7 @@ impl ValidationBackend for MockHeadsUp {
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}
@@ -1215,7 +1219,6 @@ fn dummy_active_leaves_update(hash: Hash) -> ActiveLeavesUpdate {
 			hash,
 			number: 10,
 			unpin_handle: polkadot_node_subsystem_test_helpers::mock::dummy_unpin_handle(hash),
-			span: Arc::new(overseer::jaeger::Span::Disabled),
 		}),
 		..Default::default()
 	}
