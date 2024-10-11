@@ -915,7 +915,7 @@ pub mod pallet_prelude {
 	pub use scale_info::TypeInfo;
 	pub use sp_inherents::MakeFatalError;
 	pub use sp_runtime::{
-		traits::{MaybeSerializeDeserialize, Member, ValidateUnsigned},
+		traits::{CheckedAdd, MaybeSerializeDeserialize, Member, One, ValidateUnsigned},
 		transaction_validity::{
 			InvalidTransaction, TransactionLongevity, TransactionPriority, TransactionSource,
 			TransactionTag, TransactionValidity, TransactionValidityError, UnknownTransaction,
