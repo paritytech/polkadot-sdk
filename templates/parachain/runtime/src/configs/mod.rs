@@ -562,11 +562,11 @@ parameter_types! {
 
 	//pub SignedPhase: u32 = 0; // (1 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
 	//pub UnsignedPhase: u32 = 60; // (5 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
-	pub SignedValidationPhase: BlockNumber = 0; // Pages::get() * SignedMaxSubmissions::get();
+	pub SignedValidationPhase: BlockNumber = Pages::get() * SignedMaxSubmissions::get();
 	pub Lookhaead: BlockNumber = 5;
 	pub ExportPhaseLimit: BlockNumber = Pages::get().into();
 
-	pub const SignedMaxSubmissions: u32 = 32;
+	pub const SignedMaxSubmissions: u32 = 2;
 	pub const SignedMaxRefunds: u32 = 128 / 4;
 	pub const SignedFixedDeposit: Balance = 10;
 	pub const SignedDepositByte: Balance = 10;
@@ -584,7 +584,7 @@ parameter_types! {
 
 
 	// sub-pallets.
-	pub SolutionImprovementThreshold: Perbill = Perbill::zero();
+	pub SolutionImprovementThreshold: Perbill = Perbill::from_percent(10);
 
 	pub ElectionSubmissionDepositBase: Balance = 10;
 	pub DepositPerPage: Balance = 1;
