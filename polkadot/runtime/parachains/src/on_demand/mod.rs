@@ -257,7 +257,13 @@ pub mod pallet {
 			para_id: ParaId,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-			Pallet::<T>::do_place_order(sender, max_amount, para_id, AllowDeath, PaymentType::Balance)
+			Pallet::<T>::do_place_order(
+				sender,
+				max_amount,
+				para_id,
+				AllowDeath,
+				PaymentType::Balance,
+			)
 		}
 
 		/// Same as the [`place_order_allow_death`](Self::place_order_allow_death) call , but with a
@@ -283,7 +289,13 @@ pub mod pallet {
 			para_id: ParaId,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-			Pallet::<T>::do_place_order(sender, max_amount, para_id, KeepAlive, PaymentType::Balance)
+			Pallet::<T>::do_place_order(
+				sender,
+				max_amount,
+				para_id,
+				KeepAlive,
+				PaymentType::Balance,
+			)
 		}
 
 		/// TODO: Docs
@@ -295,7 +307,13 @@ pub mod pallet {
 			para_id: ParaId,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-			Pallet::<T>::do_place_order(sender, max_amount, para_id, KeepAlive, PaymentType::Credits)
+			Pallet::<T>::do_place_order(
+				sender,
+				max_amount,
+				para_id,
+				KeepAlive,
+				PaymentType::Credits,
+			)
 		}
 	}
 }
@@ -430,8 +448,8 @@ where
 
 			match payment_type {
 				PaymentType::Balance => {
-					// Charge the sending account the spot price. The amount will be teleported to the
-					// broker chain once it requests revenue information.
+					// Charge the sending account the spot price. The amount will be teleported to
+					// the broker chain once it requests revenue information.
 					let amt = T::Currency::withdraw(
 						&sender,
 						spot_price,
@@ -439,8 +457,8 @@ where
 						existence_requirement,
 					)?;
 
-					// Consume the negative imbalance and deposit it into the pallet account. Make sure the
-					// account preserves even without the existential deposit.
+					// Consume the negative imbalance and deposit it into the pallet account. Make
+					// sure the account preserves even without the existential deposit.
 					let pot = Self::account_id();
 					if !System::<T>::account_exists(&pot) {
 						System::<T>::inc_providers(&pot);
@@ -452,7 +470,7 @@ where
 					let credits = Credits::<T>::get(&sender);
 					ensure!(spot_price <= credits, Error::<T>::InsufficientCredits);
 					Credits::<T>::insert(&sender, credits.saturating_sub(spot_price));
-				}
+				},
 			}
 
 			// Add the amount to the current block's (index 0) revenue information.
@@ -666,7 +684,7 @@ where
 
 	/// Increases the affinity of a `ParaId` to a specified `CoreIndex`.
 	/// Adds to the count of the `CoreAffinityCount` if an entry is found and the core_index
-	/// matches. A non-existent entry will be initialized with a count of 1 and uses the  supplied
+	/// matches. A non-existent entry will be initialized with a count of 1 and uses the supplied
 	/// `CoreIndex`.
 	fn increase_affinity(para_id: ParaId, core_index: CoreIndex) {
 		ParaIdAffinity::<T>::mutate(para_id, |maybe_affinity| match maybe_affinity {

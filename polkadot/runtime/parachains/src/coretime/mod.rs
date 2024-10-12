@@ -86,8 +86,9 @@ impl WeightInfo for TestWeightInfo {
 }
 
 /// Shorthand for the Balance type the runtime is using.
-pub type BalanceOf<T> =
-	<<T as on_demand::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub type BalanceOf<T> = <<T as on_demand::Config>::Currency as Currency<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
 
 /// Broker pallet index on the coretime chain. Used to
 ///
