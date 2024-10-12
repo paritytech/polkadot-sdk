@@ -45,7 +45,7 @@ use frame_support::{
 	ord_parameter_types, parameter_types,
 	traits::{
 		fungible, fungibles,
-		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
+		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect, ConversionToAssetBalance},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, InstanceFilter,
 		TransformOrigin,
 	},
@@ -67,7 +67,10 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, Saturating, Verify},
+	traits::{
+		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, MaybeEquivalence,
+		Saturating, Verify,
+	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug,
 };
@@ -1178,6 +1181,12 @@ mod benches {
 	);
 }
 
+pub type NativeToAssets =
+	pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, TrustBackedAssetsInstance>;
+
+pub type NativeToForeignAssets =
+	pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, ForeignAssetsInstance>;
+
 impl_runtime_apis! {
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
@@ -1367,19 +1376,41 @@ impl_runtime_apis! {
 
 	impl xcm_runtime_apis::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			let acceptable_assets = vec![AssetId(xcm_config::WestendLocation::get())];
+			use xcm::prelude::Junction::*;
+
+			let assets = Assets::sufficient_assets()
+				.filter_map(|asset_id| TrustBackedAssetsPalletLocation::get().appended_with(GeneralIndex(asset_id.into())).ok().map(AssetId));
+			let foreign_assets = ForeignAssets::sufficient_assets()
+				.map(AssetId);
+
+			let acceptable_assets = core::iter::once(AssetId(xcm_config::WestendLocation::get()))
+				.chain(assets)
+				.chain(foreign_assets)
+				.collect::<Vec<_>>();
+
 			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
+			let native_fee = WeightToFee::weight_to_fee(&weight);
+
 			match asset.try_as::<AssetId>() {
 				Ok(asset_id) if asset_id.0 == xcm_config::WestendLocation::get() => {
 					// for native token
-					Ok(WeightToFee::weight_to_fee(&weight))
+					Ok(native_fee)
 				},
-				Ok(asset_id) => {
-					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
-					Err(XcmPaymentApiError::AssetNotFound)
+				Ok(AssetId(location)) => {
+					if let Some(asset_id) = <AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>>::convert(location) {
+						let sufficient_asset_fee = NativeToAssets::to_asset_balance(native_fee, asset_id)
+							.map_err(|_| XcmPaymentApiError::WeightNotComputable)?;
+
+						return Ok(sufficient_asset_fee);
+					}
+
+					let foreign_asset_fee = NativeToForeignAssets::to_asset_balance(native_fee, location.clone())
+						.map_err(|_| XcmPaymentApiError::WeightNotComputable)?;
+
+					Ok(foreign_asset_fee)
 				},
 				Err(_) => {
 					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");

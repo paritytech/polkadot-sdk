@@ -33,6 +33,11 @@ use DeadConsequence::*;
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	// Public immutables
 
+	pub fn sufficient_assets() -> impl Iterator<Item = T::AssetId> {
+		Asset::<T, I>::iter()
+			.filter_map(|(asset_id, details)| details.is_sufficient.then_some(asset_id))
+	}
+
 	/// Return the extra "sid-car" data for `id`/`who`, or `None` if the account doesn't exist.
 	pub fn adjust_extra(
 		id: T::AssetId,
