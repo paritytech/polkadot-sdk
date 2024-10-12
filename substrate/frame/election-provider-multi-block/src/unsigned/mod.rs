@@ -186,7 +186,7 @@ pub(crate) mod pallet {
 		pub fn submit_page_unsigned(
 			origin: OriginFor<T>,
 			page: PageIndex,
-			solution: SolutionOf<T>,
+			solution: SolutionOf<T::MinerConfig>,
 			partial_score: ElectionScore,
 			claimed_full_score: ElectionScore,
 		) -> DispatchResult {

@@ -22,7 +22,7 @@ use crate::{
 	types::{PageSize, Pagify},
 	unsigned::{pallet::Config as UnsignedConfig, Call},
 	verifier::FeasibilityError,
-	MinerAssignmentOf, MinerSupportsOf, MinerVoterOf, Pallet as EPM, Snapshot,
+	AssignmentOf, MinerSupportsOf, MinerVoterOf, Pallet as EPM, Snapshot,
 };
 
 use frame_election_provider_support::{
@@ -102,7 +102,7 @@ impl Default for TrimmingStatus {
 	}
 }
 
-use crate::PagedRawSolutionC;
+use crate::PagedRawSolution;
 use codec::{EncodeLike, MaxEncodedLen};
 
 pub trait Config {
@@ -152,7 +152,7 @@ impl<T: Config> Miner<T> {
 		round: u32,
 		desired_targets: u32,
 		do_reduce: bool,
-	) -> Result<(PagedRawSolutionC<T>, TrimmingStatus), MinerError> {
+	) -> Result<(PagedRawSolution<T>, TrimmingStatus), MinerError> {
 		// useless to proceed if the solution will not be feasible.
 		ensure!(all_targets.len() >= desired_targets as usize, MinerError::NotEnoughTargets);
 
@@ -179,7 +179,7 @@ impl<T: Config> Miner<T> {
 			// TODO(gpestana): reduce and trim.
 		}
 		// split assignments into `T::Pages pages.
-		let mut paged_assignments: BoundedVec<Vec<MinerAssignmentOf<T>>, T::Pages> =
+		let mut paged_assignments: BoundedVec<Vec<AssignmentOf<T>>, T::Pages> =
 			BoundedVec::with_bounded_capacity(pages as usize);
 
 		paged_assignments.bounded_resize(pages as usize, vec![]);
@@ -223,7 +223,7 @@ impl<T: Config> Miner<T> {
 		let trimming_status = Default::default();
 
 		let mut paged_solution =
-			PagedRawSolutionC { solution_pages, score: Default::default(), round };
+			PagedRawSolution { solution_pages, score: Default::default(), round };
 
 		// everytthing's ready - calculate final solution score.
 		paged_solution.score =
@@ -238,7 +238,7 @@ impl<T: Config> Miner<T> {
 	fn compute_score(
 		voters: &VoterSnapshotPagedOf<T>,
 		targets: &TargetSnaphsotOf<T>,
-		paged_solution: &PagedRawSolutionC<T>,
+		paged_solution: &PagedRawSolution<T>,
 		desired_targets: u32,
 	) -> Result<ElectionScore, MinerError> {
 		use sp_npos_elections::EvaluateSupport;
@@ -288,7 +288,7 @@ impl<T: Config> Miner<T> {
 	pub fn feasibility_check(
 		voters: &VoterSnapshotPagedOf<T>,
 		targets: &TargetSnaphsotOf<T>,
-		paged_solution: &PagedRawSolutionC<T>,
+		paged_solution: &PagedRawSolution<T>,
 		desired_targets: u32,
 	) -> Result<Vec<MinerSupportsOf<T>>, MinerError> {
 		// check every solution page for feasibility.

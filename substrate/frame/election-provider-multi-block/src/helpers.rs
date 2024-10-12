@@ -19,7 +19,7 @@
 
 use crate::{
 	types::{AllTargetPagesMinerOf, AllVoterPagesMinerOf, MaxWinnersPerPageMinerOf, MinerVoterOf},
-	SolutionTargetIndexMinerOf, SolutionVoterIndexMinerOf,
+	SolutionTargetIndexOf, SolutionVoterIndexOf,
 };
 use frame_election_provider_support::{PageIndex, VoteWeight};
 use frame_support::{traits::Get, BoundedVec};
@@ -177,11 +177,11 @@ pub fn generate_voter_page_stake_fn<T: MinerConfig>(
 /// Note that this will represent the snapshot data from which the `cache` is generated.
 pub fn voter_index_fn<T: MinerConfig>(
 	cache: &BTreeMap<T::AccountId, usize>,
-) -> impl Fn(&T::AccountId) -> Option<SolutionVoterIndexMinerOf<T>> + '_ {
+) -> impl Fn(&T::AccountId) -> Option<SolutionVoterIndexOf<T>> + '_ {
 	move |who| {
 		cache
 			.get(who)
-			.and_then(|i| <usize as TryInto<SolutionVoterIndexMinerOf<T>>>::try_into(*i).ok())
+			.and_then(|i| <usize as TryInto<SolutionVoterIndexOf<T>>>::try_into(*i).ok())
 	}
 }
 
@@ -191,21 +191,21 @@ pub fn voter_index_fn<T: MinerConfig>(
 /// borrowed.
 pub fn voter_index_fn_owned<T: MinerConfig>(
 	cache: BTreeMap<T::AccountId, usize>,
-) -> impl Fn(&T::AccountId) -> Option<SolutionVoterIndexMinerOf<T>> {
+) -> impl Fn(&T::AccountId) -> Option<SolutionVoterIndexOf<T>> {
 	move |who| {
 		cache
 			.get(who)
-			.and_then(|i| <usize as TryInto<SolutionVoterIndexMinerOf<T>>>::try_into(*i).ok())
+			.and_then(|i| <usize as TryInto<SolutionVoterIndexOf<T>>>::try_into(*i).ok())
 	}
 }
 
 pub fn target_index_fn_owned<T: MinerConfig>(
 	cache: BTreeMap<T::AccountId, usize>,
-) -> impl Fn(&T::AccountId) -> Option<SolutionTargetIndexMinerOf<T>> {
+) -> impl Fn(&T::AccountId) -> Option<SolutionTargetIndexOf<T>> {
 	move |who| {
 		cache
 			.get(who)
-			.and_then(|i| <usize as TryInto<SolutionTargetIndexMinerOf<T>>>::try_into(*i).ok())
+			.and_then(|i| <usize as TryInto<SolutionTargetIndexOf<T>>>::try_into(*i).ok())
 	}
 }
 
@@ -218,13 +218,13 @@ pub fn target_index_fn_owned<T: MinerConfig>(
 /// in `O(log n)`.
 pub fn target_index_fn<T: MinerConfig>(
 	snapshot: &Vec<T::AccountId>,
-) -> impl Fn(&T::AccountId) -> Option<SolutionTargetIndexMinerOf<T>> + '_ {
+) -> impl Fn(&T::AccountId) -> Option<SolutionTargetIndexOf<T>> + '_ {
 	let cache: BTreeMap<_, _> =
 		snapshot.iter().enumerate().map(|(idx, account_id)| (account_id, idx)).collect();
 	move |who| {
 		cache
 			.get(who)
-			.and_then(|i| <usize as TryInto<SolutionTargetIndexMinerOf<T>>>::try_into(*i).ok())
+			.and_then(|i| <usize as TryInto<SolutionTargetIndexOf<T>>>::try_into(*i).ok())
 	}
 }
 
@@ -232,9 +232,9 @@ pub fn target_index_fn<T: MinerConfig>(
 /// account using a linearly indexible snapshot.
 pub fn voter_at_fn<T: MinerConfig>(
 	snapshot: &Vec<MinerVoterOf<T>>,
-) -> impl Fn(SolutionVoterIndexMinerOf<T>) -> Option<T::AccountId> + '_ {
+) -> impl Fn(SolutionVoterIndexOf<T>) -> Option<T::AccountId> + '_ {
 	move |i| {
-		<SolutionVoterIndexMinerOf<T> as TryInto<usize>>::try_into(i)
+		<SolutionVoterIndexOf<T> as TryInto<usize>>::try_into(i)
 			.ok()
 			.and_then(|i| snapshot.get(i).map(|(x, _, _)| x).cloned())
 	}
@@ -244,9 +244,9 @@ pub fn voter_at_fn<T: MinerConfig>(
 /// account using a linearly indexible snapshot.
 pub fn target_at_fn<T: MinerConfig>(
 	snapshot: &Vec<T::AccountId>,
-) -> impl Fn(SolutionTargetIndexMinerOf<T>) -> Option<T::AccountId> + '_ {
+) -> impl Fn(SolutionTargetIndexOf<T>) -> Option<T::AccountId> + '_ {
 	move |i| {
-		<SolutionTargetIndexMinerOf<T> as TryInto<usize>>::try_into(i)
+		<SolutionTargetIndexOf<T> as TryInto<usize>>::try_into(i)
 			.ok()
 			.and_then(|i| snapshot.get(i).cloned())
 	}

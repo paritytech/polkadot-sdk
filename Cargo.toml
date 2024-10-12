@@ -339,8 +339,6 @@ members = [
 	"substrate/frame/core-fellowship",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
-	# TODO: remove
-  "substrate/frame/election-provider-multi-phase",
 	"substrate/frame/election-provider-multi-block",
 	"substrate/frame/election-provider-multi-block/integration-tests",
 	"substrate/frame/election-provider-support",
@@ -906,8 +904,6 @@ pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false }
 pallet-dev-mode = { path = "substrate/frame/examples/dev-mode", default-features = false }
 pallet-election-provider-multi-block = { path = "substrate/frame/election-provider-multi-block", default-features = false }
-# TODO: remove
-pallet-election-provider-multi-phase = { path = "substrate/frame/election-provider-multi-phase", default-features = false }
 pallet-election-provider-support-benchmarking = { path = "substrate/frame/election-provider-support/benchmarking", default-features = false }
 pallet-elections-phragmen = { path = "substrate/frame/elections-phragmen", default-features = false }
 pallet-example-basic = { path = "substrate/frame/examples/basic", default-features = false }

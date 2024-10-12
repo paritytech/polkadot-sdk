@@ -132,7 +132,6 @@ impl Config for Runtime {
 	type Pages = Pages;
 	type ExportPhaseLimit = ExportPhaseLimit;
 	type DataProvider = MockStaking;
-	type Solution = TestNposSolution;
 	type MinerConfig = Self;
 	type Fallback = MockFallback;
 	type Verifier = VerifierPallet;
@@ -533,7 +532,7 @@ pub fn balances(who: AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
 }
 
-pub fn mine_full(pages: PageIndex) -> Result<PagedRawSolutionC<T>, MinerError> {
+pub fn mine_full(pages: PageIndex) -> Result<PagedRawSolution<T>, MinerError> {
 	let (targets, voters) =
 		OffchainWorkerMiner::<T>::fetch_snapshots().map_err(|_| MinerError::DataProvider)?;
 
@@ -553,7 +552,9 @@ pub fn mine_full(pages: PageIndex) -> Result<PagedRawSolutionC<T>, MinerError> {
 	.map(|(s, _)| s)
 }
 
-pub fn mine(page: PageIndex) -> Result<(ElectionScore, SolutionOf<T>), ()> {
+pub fn mine(
+	page: PageIndex,
+) -> Result<(ElectionScore, SolutionOf<<T as Config>::MinerConfig>), ()> {
 	let (_, partial_score, partial_solution) =
 		OffchainWorkerMiner::<T>::mine(page).map_err(|_| ())?;
 

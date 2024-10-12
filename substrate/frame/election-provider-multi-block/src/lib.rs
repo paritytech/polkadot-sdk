@@ -218,20 +218,6 @@ pub mod pallet {
 		/// the `EPM::call(0)` is called.
 		type ExportPhaseLimit: Get<BlockNumberFor<Self>>;
 
-		/// The solution type.
-		type Solution: codec::Codec
-			+ sp_std::fmt::Debug
-			+ Default
-			+ PartialEq
-			+ Eq
-			+ Clone
-			+ Sized
-			+ Ord
-			+ NposSolution
-			+ TypeInfo
-			+ EncodeLike
-			+ MaxEncodedLen;
-
 		/// Something that will provide the election data.
 		type DataProvider: LockableElectionDataProvider<
 			AccountId = Self::AccountId,
@@ -242,7 +228,6 @@ pub mod pallet {
 		type MinerConfig: miner::Config<
 			AccountId = AccountIdOf<Self>,
 			Pages = Self::Pages,
-			Solution = SolutionOf<Self>,
 			MaxVotesPerVoter = <Self::DataProvider as frame_election_provider_support::ElectionDataProvider>::MaxVotesPerVoter,
 			TargetSnapshotPerBlock = Self::TargetSnapshotPerBlock,
 			VoterSnapshotPerBlock = Self::VoterSnapshotPerBlock,
@@ -263,8 +248,10 @@ pub mod pallet {
 		>;
 
 		/// Something that implements an election solution verifier.
-		type Verifier: verifier::Verifier<AccountId = Self::AccountId, Solution = SolutionOf<Self>>
-			+ verifier::AsyncVerifier;
+		type Verifier: verifier::Verifier<
+				AccountId = Self::AccountId,
+				Solution = SolutionOf<Self::MinerConfig>,
+			> + verifier::AsyncVerifier;
 
 		/// Benchmarking configurations for this and sub-pallets.
 		type BenchmarkingConfig: BenchmarkingConfig;

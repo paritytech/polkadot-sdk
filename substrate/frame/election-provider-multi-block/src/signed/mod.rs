@@ -55,7 +55,7 @@ use crate::{
 	signed::pallet::Submissions,
 	types::AccountIdOf,
 	verifier::{AsyncVerifier, SolutionDataProvider, VerificationResult},
-	PageIndex, PagesOf,
+	PageIndex, PagesOf, SolutionOf,
 };
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -180,7 +180,7 @@ pub mod pallet {
 			NMapKey<Twox64Concat, T::AccountId>,
 			NMapKey<Twox64Concat, PageIndex>,
 		),
-		T::Solution,
+		SolutionOf<T::MinerConfig>,
 		OptionQuery,
 	>;
 
@@ -343,7 +343,7 @@ pub mod pallet {
 			who: &T::AccountId,
 			round: u32,
 			page: PageIndex,
-			maybe_solution: Option<T::Solution>,
+			maybe_solution: Option<SolutionOf<T::MinerConfig>>,
 		) -> DispatchResult {
 			Self::mutate_checked(round, || {
 				Self::try_mutate_page_inner(who, round, page, maybe_solution)
@@ -354,7 +354,7 @@ pub mod pallet {
 			who: &T::AccountId,
 			round: u32,
 			page: PageIndex,
-			maybe_solution: Option<T::Solution>,
+			maybe_solution: Option<SolutionOf<T::MinerConfig>>,
 		) -> DispatchResult {
 			ensure!(
 				crate::Pallet::<T>::current_phase().is_signed(),
@@ -408,7 +408,7 @@ pub mod pallet {
 			who: &T::AccountId,
 			round: u32,
 			page: PageIndex,
-		) -> Option<T::Solution> {
+		) -> Option<SolutionOf<T::MinerConfig>> {
 			SubmissionStorage::<T>::get((round, who, page))
 		}
 	}
@@ -435,7 +435,7 @@ pub mod pallet {
 			who: T::AccountId,
 			round: u32,
 			page: PageIndex,
-		) -> Option<T::Solution> {
+		) -> Option<SolutionOf<T::MinerConfig>> {
 			SubmissionStorage::<T>::get((round, who, page))
 		}
 	}
@@ -510,7 +510,7 @@ pub mod pallet {
 		pub fn submit_page(
 			origin: OriginFor<T>,
 			page: PageIndex,
-			maybe_solution: Option<T::Solution>,
+			maybe_solution: Option<SolutionOf<T::MinerConfig>>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -634,7 +634,7 @@ pub mod pallet {
 }
 
 impl<T: Config> SolutionDataProvider for Pallet<T> {
-	type Solution = T::Solution;
+	type Solution = SolutionOf<T::MinerConfig>;
 
 	fn get_paged_solution(page: PageIndex) -> Option<Self::Solution> {
 		let round = crate::Pallet::<T>::current_round();
