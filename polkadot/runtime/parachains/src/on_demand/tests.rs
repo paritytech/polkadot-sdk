@@ -383,6 +383,13 @@ fn place_order_with_credits() {
 			FreeEntries::<Test>::get().pop(),
 			Some(EnqueuedOrder::new(QueueIndex(0), para_id))
 		);
+
+		// Insufficient credits:
+		Credits::<Test>::insert(alice, 1u128);
+		assert_noop!(
+			OnDemand::place_order_with_credits(RuntimeOrigin::signed(alice), 1_000_000u128, para_id),
+			Error::<Test>::InsufficientCredits
+		);
 	});
 }
 
