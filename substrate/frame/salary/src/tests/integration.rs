@@ -17,11 +17,13 @@
 
 //! The crate's tests.
 
+use crate as pallet_salary;
+use crate::*;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{ConstU64, EitherOf, MapSuccess},
+	traits::{ConstU64, EitherOf, MapSuccess, NoOpPoll},
 };
 use pallet_ranked_collective::{EnsureRanked, Geometric};
 use sp_core::{ConstU16, Get};
@@ -29,9 +31,6 @@ use sp_runtime::{
 	traits::{Convert, ReduceBy, ReplaceWithDefault},
 	BuildStorage,
 };
-
-use crate as pallet_salary;
-use crate::*;
 
 type Rank = u16;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -137,7 +136,7 @@ impl pallet_ranked_collective::Config for Test {
 		// Members can exchange up to the rank of 2 below them.
 		MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
 	>;
-	type Polls = ();
+	type Polls = NoOpPoll;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type MemberSwappedHandler = Salary;
 	type VoteWeight = Geometric;

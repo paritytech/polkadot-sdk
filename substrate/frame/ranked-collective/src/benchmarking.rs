@@ -21,13 +21,12 @@ use super::*;
 #[allow(unused_imports)]
 use crate::Pallet as RankedCollective;
 use alloc::vec::Vec;
-
 use frame_benchmarking::{
 	v1::{account, BenchmarkError},
 	v2::*,
 };
 
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok, traits::NoOpPoll};
 use frame_system::RawOrigin as SystemOrigin;
 
 const SEED: u32 = 0;
@@ -178,51 +177,60 @@ mod benchmarks {
 
 	#[benchmark]
 	fn vote() -> Result<(), BenchmarkError> {
-		// Find the first class or use a default one if none exists.
-		let (class_exists, class) = T::Polls::classes()
-			.into_iter()
-			.next()
-			.map(|c| (true, c))
-			.unwrap_or_else(|| (false, Default::default()));
+		// Get the first available class or set it to None if no class exists.
+		let class = T::Polls::classes().into_iter().next();
 
-		// Convert the class to a rank and create a caller based on that rank.
-		let rank = T::MinRankOfClass::convert(class.clone());
+		// Convert the class to a rank if it exists, otherwise use the default rank.
+		let rank = class.as_ref().map_or(
+			<Pallet<T, I> as frame_support::traits::RankedMembers>::Rank::default(),
+			|class| T::MinRankOfClass::convert(class.clone()),
+		);
+
+		// Create a caller based on the rank.
 		let caller = make_member::<T, I>(rank);
 
-		// If the class exists, create an ongoing poll, otherwise use a default poll.
-		let poll = if class_exists {
+		// Determine the poll to use: create an ongoing poll if class exists, or use an invalid
+		// poll.
+		let poll = if let Some(ref class) = class {
 			T::Polls::create_ongoing(class.clone())
-				.expect("Should always be able to create a poll for rank 0")
+				.expect("Poll creation should succeed for rank 0")
 		} else {
-			Default::default()
+			<NoOpPoll as Polling<T>>::Index::MAX.into()
 		};
 
-		// Benchmark the vote logic.
+		// Benchmark the vote logic for a positive vote (true).
 		#[block]
 		{
 			let vote_result =
 				Pallet::<T, I>::vote(SystemOrigin::Signed(caller.clone()).into(), poll, true);
 
-			// If the class exists, expect a successful vote, otherwise expect a `NotPolling` error.
-			if class_exists {
-				assert_ok!(vote_result);
-			} else {
-				assert_err!(vote_result, crate::Error::<T, I>::NotPolling);
+			// If the class exists, expect success; otherwise expect a "NotPolling" error.
+			match class {
+				Some(_) => {
+					assert_ok!(vote_result);
+				},
+				None => {
+					assert_err!(vote_result, crate::Error::<T, I>::NotPolling);
+				},
 			}
 		}
 
-		// Vote again with a different decision (false).
-		let vote_false =
+		// Vote logic for a negative vote (false).
+		let vote_result =
 			Pallet::<T, I>::vote(SystemOrigin::Signed(caller.clone()).into(), poll, false);
 
-		if class_exists {
-			assert_ok!(vote_false);
-		} else {
-			assert_err!(vote_false, crate::Error::<T, I>::NotPolling);
+		// Check the result of the negative vote.
+		match class {
+			Some(_) => {
+				assert_ok!(vote_result);
+			},
+			None => {
+				assert_err!(vote_result, crate::Error::<T, I>::NotPolling);
+			},
 		}
 
 		// If the class exists, verify the vote event and tally.
-		if class_exists {
+		if let Some(_) = class {
 			let tally = Tally::from_parts(0, 0, 1);
 			let vote_event = Event::Voted { who: caller, poll, vote: VoteRecord::Nay(1), tally };
 			assert_last_event::<T, I>(vote_event.into());
@@ -233,31 +241,34 @@ mod benchmarks {
 
 	#[benchmark]
 	fn cleanup_poll(n: Linear<0, 100>) -> Result<(), BenchmarkError> {
-		// Try to find an existing class or default to a new one.
-		let (class_exists, class) = T::Polls::classes()
-			.into_iter()
-			.next()
-			.map(|c| (true, c))
-			.unwrap_or_else(|| (false, Default::default()));
 		let alice: T::AccountId = whitelisted_caller();
 		let origin = SystemOrigin::Signed(alice.clone());
 
-		// Get rank and create a poll if the class exists.
-		let rank = T::MinRankOfClass::convert(class.clone());
-		let poll = if class_exists {
+		// Try to retrieve the first class if it exists.
+		let class = T::Polls::classes().into_iter().next();
+
+		// Convert the class to a rank, or use a default rank if no class exists.
+		let rank = class.as_ref().map_or(
+			<Pallet<T, I> as frame_support::traits::RankedMembers>::Rank::default(),
+			|class| T::MinRankOfClass::convert(class.clone()),
+		);
+
+		// Determine the poll to use: create an ongoing poll if class exists, or use an invalid
+		// poll.
+		let poll = if let Some(ref class) = class {
 			T::Polls::create_ongoing(class.clone())
 				.expect("Poll creation should succeed for rank 0")
 		} else {
-			Default::default()
+			<NoOpPoll as Polling<T>>::Index::MAX.into()
 		};
 
-		// Simulate voting in the poll by `n` members.
+		// Simulate voting by `n` members.
 		for _ in 0..n {
 			let voter = make_member::<T, I>(rank);
 			let result = Pallet::<T, I>::vote(SystemOrigin::Signed(voter).into(), poll, true);
 
 			// Check voting results based on class existence.
-			if class_exists {
+			if class.is_some() {
 				assert_ok!(result);
 			} else {
 				assert_err!(result, crate::Error::<T, I>::NotPolling);
@@ -265,20 +276,22 @@ mod benchmarks {
 		}
 
 		// End the poll if the class exists.
-		if class_exists {
-			T::Polls::end_ongoing(poll, false).expect("Poll should be able to end");
+		if class.is_some() {
+			T::Polls::end_ongoing(poll, false)
+				.map_err(|_| BenchmarkError::Stop("Failed to end poll"))?;
 		}
 
 		// Verify the number of votes cast.
-		let expected_votes = if class_exists { n as usize } else { 0 };
+		let expected_votes = if class.is_some() { n as usize } else { 0 };
 		assert_eq!(Voting::<T, I>::iter_prefix(poll).count(), expected_votes);
 
 		// Benchmark the cleanup function.
 		#[extrinsic_call]
 		_(origin, poll, n);
 
-		// Ensure all votes are cleaned up.
+		// Ensure all votes are cleaned up after the extrinsic call.
 		assert_eq!(Voting::<T, I>::iter().count(), 0);
+
 		Ok(())
 	}
 

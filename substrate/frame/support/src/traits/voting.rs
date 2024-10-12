@@ -82,9 +82,9 @@ impl<T, P: Polling<T>> sp_runtime::traits::Get<u32> for ClassCountOf<P, T> {
 }
 
 pub trait Polling<Tally> {
-	type Index: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen + Default;
+	type Index: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen + From<u8>;
 	type Votes: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
-	type Class: Parameter + Member + Ord + PartialOrd + MaxEncodedLen + Default;
+	type Class: Parameter + Member + Ord + PartialOrd + MaxEncodedLen;
 	type Moment;
 
 	/// Provides a vec of values that `T` may take.
@@ -127,8 +127,9 @@ pub trait Polling<Tally> {
 	}
 }
 
-impl<Tally> Polling<Tally> for () {
-	type Index = u32;
+pub struct NoOpPoll;
+impl<Tally> Polling<Tally> for NoOpPoll {
+	type Index = u8;
 	type Votes = u32;
 	type Class = u16;
 	type Moment = u64;
