@@ -19,23 +19,28 @@
 
 use crate::{
 	helpers,
-	types::{PageSize, Pagify, SupportsOf, VoterOf},
+	types::{PageSize, Pagify},
 	unsigned::{pallet::Config as UnsignedConfig, Call},
 	verifier::FeasibilityError,
-	AssignmentOf, PagedRawSolution, Pallet as EPM, Snapshot, SolutionAccuracyOf, SolutionOf,
+	AssignmentOf, MinerSupportsOf, MinerVoterOf, Pallet as EPM, Snapshot,
 };
 
-use codec::Encode;
 use frame_election_provider_support::{
-	IndexAssignmentOf, NposSolution, NposSolver, PageIndex, Weight,
+	ElectionDataProvider, IndexAssignmentOf, NposSolution, NposSolver, PageIndex,
+	TryIntoBoundedSupports, Weight,
 };
 use frame_support::{ensure, traits::Get, BoundedVec};
-use sp_npos_elections::{
-	assignment_ratio_to_staked_normalized, assignment_staked_to_ratio_normalized, ElectionResult,
-	ElectionScore, ExtendedBalance, Support,
-};
+use scale_info::TypeInfo;
+use sp_npos_elections::{ElectionResult, ElectionScore, ExtendedBalance, Support};
 use sp_runtime::{offchain::storage::StorageValueRef, SaturatedConversion};
-use sp_std::{vec, vec::Vec};
+use sp_std::{prelude::ToOwned, vec, vec::Vec};
+
+pub type TargetSnaphsotOf<T> =
+	BoundedVec<<T as Config>::AccountId, <T as Config>::TargetSnapshotPerBlock>;
+pub type VoterSnapshotPagedOf<T> = BoundedVec<
+	BoundedVec<MinerVoterOf<T>, <T as Config>::VoterSnapshotPerBlock>,
+	<T as Config>::Pages,
+>;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum MinerError {
@@ -50,6 +55,7 @@ pub enum MinerError {
 	InvalidPage,
 	SubmissionFailed,
 	NotEnoughTargets,
+	DataProvider,
 }
 
 impl From<sp_npos_elections::Error> for MinerError {
@@ -96,74 +102,82 @@ impl Default for TrimmingStatus {
 	}
 }
 
-pub struct Miner<T: UnsignedConfig, Solver: NposSolver>(sp_std::marker::PhantomData<(T, Solver)>);
+use crate::PagedRawSolution;
+use codec::{EncodeLike, MaxEncodedLen};
 
-impl<T: UnsignedConfig, S: NposSolver> Miner<T, S>
-where
-	S: NposSolver<AccountId = T::AccountId, Accuracy = SolutionAccuracyOf<T>>,
-{
-	/// Mines a (paged) NPoS solution.
-	///
-	/// This always trims the solution to match a few parameters:
-	///
-	/// 1. [`crate::verifier::Config::MaxBackersPerWinner`]
-	/// 2. [`crate::unsigned::Config::MaxLength`]
-	/// 3. [`crate::unsigned::Config::MaxWeight`]
-	pub fn mine_paged_solution(
+pub trait Config {
+	type AccountId: Ord + Clone + codec::Codec + core::fmt::Debug;
+
+	type Solution: codec::Codec
+		+ sp_std::fmt::Debug
+		+ Default
+		+ PartialEq
+		+ Eq
+		+ Clone
+		+ Sized
+		+ Ord
+		+ NposSolution
+		+ TypeInfo
+		+ EncodeLike
+		+ MaxEncodedLen;
+
+	type Solver: NposSolver<
+		AccountId = Self::AccountId,
+		Accuracy = <Self::Solution as NposSolution>::Accuracy,
+	>;
+
+	type Pages: Get<u32>;
+
+	type MaxVotesPerVoter: Get<u32>;
+	type MaxWinnersPerPage: Get<u32>;
+	type MaxBackersPerWinner: Get<u32>;
+
+	type VoterSnapshotPerBlock: Get<u32>;
+	type TargetSnapshotPerBlock: Get<u32>;
+
+	type MaxWeight: Get<Weight>;
+	type MaxLength: Get<u32>;
+}
+
+pub struct Miner<T: Config>(sp_std::marker::PhantomData<T>);
+
+impl<T: Config> Miner<T> {
+	pub fn mine_paged_solution_with_snapshot(
+		all_voter_pages: &BoundedVec<
+			BoundedVec<MinerVoterOf<T>, T::VoterSnapshotPerBlock>,
+			T::Pages,
+		>,
+		all_targets: &BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
 		pages: PageIndex,
+		round: u32,
+		desired_targets: u32,
 		do_reduce: bool,
 	) -> Result<(PagedRawSolution<T>, TrimmingStatus), MinerError> {
-		// prepare range to fetch all pages of the target and voter snapshot.
-		let paged_range = (0..EPM::<T>::msp() + 1).take(pages as usize);
-
-		// fetch all pages of the voter snapshot and collect them in a bounded vec.
-		let all_voter_pages: BoundedVec<_, T::Pages> = paged_range
-			.map(|page| {
-				Snapshot::<T>::voters(page)
-					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Voters(page)))
-			})
-			.collect::<Result<Vec<_>, _>>()?
-			.try_into()
-			.expect("range was constructed from the bounded vec bounds; qed.");
-
-		// fetch all pages of the target snapshot and collect them in a bounded vec.
-		let all_targets = Snapshot::<T>::targets()
-			.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Targets))?;
-
-		Self::mine_paged_solution_with_snaphsot(all_voter_pages, all_targets, pages, do_reduce)
-	}
-
-	pub fn mine_paged_solution_with_snaphsot(
-		all_voter_pages: BoundedVec<BoundedVec<VoterOf<T>, T::VoterSnapshotPerBlock>, T::Pages>,
-		all_targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
-		pages: PageIndex,
-		do_reduce: bool,
-	) -> Result<(PagedRawSolution<T>, TrimmingStatus), MinerError> {
-		let desired_targets = Snapshot::<T>::desired_targets()
-			.ok_or::<MinerError>(SnapshotType::DesiredTargets.into())?;
-
 		// useless to proceed if the solution will not be feasible.
 		ensure!(all_targets.len() >= desired_targets as usize, MinerError::NotEnoughTargets);
 
 		// flatten pages of voters and target snapshots.
-		let all_voters: Vec<VoterOf<T>> =
+		let all_voters: Vec<MinerVoterOf<T>> =
 			all_voter_pages.iter().cloned().flatten().collect::<Vec<_>>();
 
 		// these closures generate an efficient index mapping of each tvoter -> the snaphot
 		// that they are part of. this needs to be the same indexing fn in the verifier side to
 		// sync when reconstructing the assingments page from a solution.
+		//let binding_targets = all_targets.clone();
 		let voters_page_fn = helpers::generate_voter_page_fn::<T>(&all_voter_pages);
 		let targets_index_fn = helpers::target_index_fn::<T>(&all_targets);
 
 		// run the election with all voters and targets.
-		let ElectionResult { winners: _, assignments } =
-			S::solve(desired_targets as usize, all_targets.clone().to_vec(), all_voters.clone())
-				.map_err(|_| MinerError::Solver)?;
+		let ElectionResult { winners: _, assignments } = <T::Solver as NposSolver>::solve(
+			desired_targets as usize,
+			all_targets.clone().to_vec(),
+			all_voters.clone(),
+		)
+		.map_err(|_| MinerError::Solver)?;
 
 		if do_reduce {
 			// TODO(gpestana): reduce and trim.
 		}
-
 		// split assignments into `T::Pages pages.
 		let mut paged_assignments: BoundedVec<Vec<AssignmentOf<T>>, T::Pages> =
 			BoundedVec::with_bounded_capacity(pages as usize);
@@ -179,7 +193,7 @@ where
 		}
 
 		// convert each page of assignments to a paged `T::Solution`.
-		let solution_pages: BoundedVec<SolutionOf<T>, T::Pages> = paged_assignments
+		let solution_pages: BoundedVec<<T as Config>::Solution, T::Pages> = paged_assignments
 			.clone()
 			.into_iter()
 			.enumerate()
@@ -194,7 +208,7 @@ where
 					helpers::voter_index_fn_owned::<T>(cache)
 				};
 
-				<SolutionOf<T>>::from_assignment(
+				<<T as Config>::Solution>::from_assignment(
 					&assignment_page,
 					&voters_index_fn,
 					&targets_index_fn,
@@ -208,149 +222,30 @@ where
 		// TODO(gpestana): trim again?
 		let trimming_status = Default::default();
 
-		let round = crate::Pallet::<T>::current_round();
 		let mut paged_solution =
 			PagedRawSolution { solution_pages, score: Default::default(), round };
 
 		// everytthing's ready - calculate final solution score.
-		paged_solution.score = Self::compute_score(&paged_solution)?;
+		paged_solution.score =
+			Self::compute_score(all_voter_pages, all_targets, &paged_solution, desired_targets)?;
 
 		Ok((paged_solution, trimming_status))
-	}
-
-	/// Mines a NPoS solution of a given page and converts the result into a [`PagedRawSolution`],
-	/// ready to be submitted on-chain.
-	///
-	/// Fetches the snapshot data (`voters`, `targets`, `desired_targets`) from storage for the
-	/// requested page and calls into the NPoS solver `S` to calculate a solution.
-	///
-	/// The final solution may be reduced, based on the `reduce`bool parameter.
-	pub fn mine_and_prepare_solution_single_page(
-		page: PageIndex,
-		reduce: bool,
-	) -> Result<(PagedRawSolution<T>, TrimmingStatus), MinerError> {
-		let desired_targets = Snapshot::<T>::desired_targets()
-			.ok_or::<MinerError>(SnapshotType::DesiredTargets.into())?;
-		let voters =
-			Snapshot::<T>::voters(page).ok_or::<MinerError>(SnapshotType::Voters(page).into())?;
-		let targets = Snapshot::<T>::targets().ok_or::<MinerError>(SnapshotType::Targets.into())?;
-
-		S::solve(desired_targets as usize, targets.to_vec(), voters.to_vec())
-			.map_err(|_| MinerError::Solver)
-			.and_then(|election_result| {
-				Self::prepare_election_result_with_snapshot(
-					election_result,
-					voters,
-					targets,
-					desired_targets,
-					reduce,
-				)
-			})
-	}
-	/// Convert a raw solution from [`sp_npos_elections::ElectionResult`] to
-	/// [`crate::types::PagedRawSolution`], whic is ready to be submitted to the chain.
-	///
-	/// May reduce the solution based on the `reduce` bool.
-	pub fn prepare_election_result_with_snapshot(
-		election_result: ElectionResult<T::AccountId, S::Accuracy>,
-		voters: BoundedVec<VoterOf<T>, T::VoterSnapshotPerBlock>,
-		targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
-		desired_targets: u32,
-		reduce: bool,
-	) -> Result<(PagedRawSolution<T>, TrimmingStatus), MinerError> {
-		// prepare helper closures.
-		let cache = helpers::generate_voter_cache::<T, _>(&voters);
-		let voter_index = helpers::voter_index_fn::<T>(&cache);
-		let target_index = helpers::target_index_fn::<T>(&targets);
-		let voter_at = helpers::voter_at_fn::<T>(&voters);
-		let target_at = helpers::target_at_fn::<T>(&targets);
-		let stake_of = helpers::stake_of_fn::<T, _>(&voters, &cache);
-
-		// Compute the size of a solution comprised of the selected arguments.
-		//
-		// This function completes in `O(edges)`; it's expensive, but linear.
-		let encoded_size_of = |assignments: &[IndexAssignmentOf<T::Solution>]| {
-			SolutionOf::<T>::try_from(assignments).map(|s| s.encoded_size())
-		};
-
-		let ElectionResult { assignments, winners: _ } = election_result;
-
-		let sorted_assignments = {
-			let mut staked = assignment_ratio_to_staked_normalized(assignments, &stake_of)?;
-
-			if reduce {
-				// we reduce before sorting in order to ensure that the reduction process doesn't
-				// accidentally change the sort order
-				sp_npos_elections::reduce(&mut staked);
-			}
-
-			// Sort the assignments by reversed voter stake. This ensures that we can efficiently
-			// truncate the list.
-			staked.sort_by_key(
-				|sp_npos_elections::StakedAssignment::<T::AccountId> { who, .. }| {
-					// though staked assignments are expressed in terms of absolute stake, we'd
-					// still need to iterate over all votes in order to actually compute the total
-					// stake. it should be faster to look it up from the cache.
-					let stake = cache
-						.get(who)
-						.map(|idx| {
-							let (_, stake, _) = voters[*idx];
-							stake
-						})
-						.unwrap_or_default();
-					sp_std::cmp::Reverse(stake)
-				},
-			);
-
-			// convert back.
-			assignment_staked_to_ratio_normalized(staked)?
-		};
-
-		// Convert to `IndexAssignment`. This improves the runtime complexity of repeatedly
-		// converting to `Solution`.
-		let mut index_assignments = sorted_assignments
-			.into_iter()
-			.map(|assignment| {
-				IndexAssignmentOf::<T::Solution>::new(&assignment, &voter_index, &target_index)
-			})
-			.collect::<Result<Vec<_>, _>>()?;
-
-		// trim assignments list for weight and length.
-		let size = PageSize { voters: voters.len() as u32, targets: targets.len() as u32 };
-		let weight_trimmed = Self::trim_assignments_weight(
-			desired_targets,
-			size,
-			T::MaxWeight::get(),
-			&mut index_assignments,
-		);
-		let length_trimmed = Self::trim_assignments_length(
-			T::MaxLength::get(),
-			&mut index_assignments,
-			&encoded_size_of,
-		)?;
-
-		// now make solution.
-		let solution = SolutionOf::<T>::try_from(&index_assignments)?;
-
-		// re-calc score.
-		let score = solution.clone().score(stake_of, voter_at, target_at)?;
-		let is_trimmed = TrimmingStatus { weight: weight_trimmed, length: length_trimmed };
-
-		let round = EPM::<T>::current_round();
-		let solution_pages: BoundedVec<T::Solution, T::Pages> =
-			vec![solution].try_into().expect("fits");
-
-		Ok((PagedRawSolution { solution_pages, score, round }, is_trimmed))
 	}
 
 	/// Take the given raw paged solution and compute its score. This will replicate what the chain
 	/// would do as closely as possible, and expects all the corresponding snapshot data to be
 	/// available.
-	fn compute_score(paged_solution: &PagedRawSolution<T>) -> Result<ElectionScore, MinerError> {
+	fn compute_score(
+		voters: &VoterSnapshotPagedOf<T>,
+		targets: &TargetSnaphsotOf<T>,
+		paged_solution: &PagedRawSolution<T>,
+		desired_targets: u32,
+	) -> Result<ElectionScore, MinerError> {
 		use sp_npos_elections::EvaluateSupport;
 		use sp_std::collections::btree_map::BTreeMap;
 
-		let all_supports = Self::check_feasibility(paged_solution, "mined")?;
+		let all_supports =
+			Self::feasibility_check(voters, targets, paged_solution, desired_targets)?;
 		let mut total_backings: BTreeMap<T::AccountId, ExtendedBalance> = BTreeMap::new();
 		all_supports.into_iter().map(|x| x.0).flatten().for_each(|(who, support)| {
 			let backing = total_backings.entry(who).or_default();
@@ -367,44 +262,136 @@ where
 
 	// Checks the feasibility of a paged solution and calculates the score associated with the
 	// page.
-	pub(crate) fn compute_partial_score(
-		solution: &SolutionOf<T>,
+	pub fn compute_partial_score(
+		voters: &VoterSnapshotPagedOf<T>,
+		targets: &TargetSnaphsotOf<T>,
+		solution: &<T as Config>::Solution,
+		desired_targets: u32,
 		page: PageIndex,
 	) -> Result<ElectionScore, MinerError> {
-		let supports = <T::Verifier as crate::Verifier>::feasibility_check(solution.clone(), page)?;
+		let supports = Self::feasibility_check_partial(
+			voters,
+			targets,
+			solution.clone(),
+			desired_targets,
+			page,
+		)?;
 		let score = sp_npos_elections::evaluate_support(
 			supports.clone().into_iter().map(|(_, backings)| backings),
 		);
+
 		Ok(score)
 	}
 
 	/// Perform the feasibility check on all pages of a solution, one by one, and returns the
 	/// supports of the full solution.
-	pub fn check_feasibility(
+	pub fn feasibility_check(
+		voters: &VoterSnapshotPagedOf<T>,
+		targets: &TargetSnaphsotOf<T>,
 		paged_solution: &PagedRawSolution<T>,
-		solution_type: &str,
-	) -> Result<Vec<SupportsOf<T::Verifier>>, MinerError> {
+		desired_targets: u32,
+	) -> Result<Vec<MinerSupportsOf<T>>, MinerError> {
 		// check every solution page for feasibility.
 		paged_solution
 			.solution_pages
 			.pagify(T::Pages::get())
 			.map(|(page_index, page_solution)| {
-				<T::Verifier as crate::verifier::Verifier>::feasibility_check(
+				Self::feasibility_check_partial(
+					voters,
+					targets,
 					page_solution.clone(),
+					desired_targets,
 					page_index as PageIndex,
 				)
 			})
 			.collect::<Result<Vec<_>, _>>()
-			.map_err(|err| {
-				sublog!(
-					warn,
-					"unsigned::base-miner",
-					"feasibility check failed for {} solution: {:?}",
-					solution_type,
-					err
-				);
-				MinerError::from(err)
+			.map_err(|err| MinerError::from(err))
+	}
+
+	/// Performs the feasibility check of a single page, returns the supports of the partial
+	/// feasibility check.
+	pub fn feasibility_check_partial(
+		voters: &VoterSnapshotPagedOf<T>,
+		targets: &TargetSnaphsotOf<T>,
+		partial_solution: <T as Config>::Solution,
+		desired_targets: u32,
+		page: PageIndex,
+	) -> Result<MinerSupportsOf<T>, FeasibilityError> {
+		// TODO: double check page index if tests ERR.
+		let voters_page: BoundedVec<MinerVoterOf<T>, <T as Config>::VoterSnapshotPerBlock> = voters
+			.get(page as usize)
+			.ok_or(FeasibilityError::Incomplete)
+			.map(|v| v.to_owned())?;
+
+		let voter_cache = helpers::generate_voter_cache::<T, _>(&voters_page);
+		let voter_at = helpers::voter_at_fn::<T>(&voters_page);
+		let target_at = helpers::target_at_fn::<T>(targets);
+		let voter_index = helpers::voter_index_fn_usize::<T>(&voter_cache);
+
+		// Then convert solution -> assignment. This will fail if any of the indices are
+		// gibberish.
+		let assignments = partial_solution
+			.into_assignment(voter_at, target_at)
+			.map_err::<FeasibilityError, _>(Into::into)?;
+
+		// Ensure that assignments are all correct.
+		let _ = assignments
+			.iter()
+			.map(|ref assignment| {
+				// Check that assignment.who is actually a voter (defensive-only). NOTE: while
+				// using the index map from `voter_index` is better than a blind linear search,
+				// this *still* has room for optimization. Note that we had the index when we
+				// did `solution -> assignment` and we lost it. Ideal is to keep the index
+				// around.
+
+				// Defensive-only: must exist in the snapshot.
+				let snapshot_index =
+					voter_index(&assignment.who).ok_or(FeasibilityError::InvalidVoter)?;
+				// Defensive-only: index comes from the snapshot, must exist.
+				let (_voter, _stake, targets) =
+					voters_page.get(snapshot_index).ok_or(FeasibilityError::InvalidVoter)?;
+				debug_assert!(*_voter == assignment.who);
+
+				// Check that all of the targets are valid based on the snapshot.
+				if assignment.distribution.iter().any(|(t, _)| !targets.contains(t)) {
+					return Err(FeasibilityError::InvalidVote)
+				}
+				Ok(())
 			})
+			.collect::<Result<(), FeasibilityError>>()?;
+
+		// ----- Start building support. First, we need one more closure.
+		let stake_of = helpers::stake_of_fn::<T, _>(&voters_page, &voter_cache);
+
+		// This might fail if the normalization fails. Very unlikely. See `integrity_test`.
+		let staked_assignments =
+			sp_npos_elections::assignment_ratio_to_staked_normalized(assignments, stake_of)
+				.map_err::<FeasibilityError, _>(Into::into)?;
+
+		let supports = sp_npos_elections::to_supports(&staked_assignments);
+
+		// Check the maximum number of backers per winner. If this is a single-page solution, this
+		// is enough to check `MaxBackersPerWinner`. Else, this is just a heuristic, and needs to be
+		// checked again at the end (via `QueuedSolutionBackings`).
+		ensure!(
+			supports
+				.iter()
+				.all(|(_, s)| (s.voters.len() as u32) <= T::MaxBackersPerWinner::get()),
+			FeasibilityError::TooManyBackings
+		);
+
+		// supports per page must not be higher than the desired targets, otherwise final solution
+		// will also be higher than desired_targets.
+		ensure!((supports.len() as u32) <= desired_targets, FeasibilityError::WrongWinnerCount);
+
+		// almost-defensive-only: `MaxBackersPerWinner` is already checked. A sane value of
+		// `MaxWinnersPerPage` should be more than any possible value of `desired_targets()`, which
+		// is ALSO checked, so this conversion can almost never fail.
+		let bounded_supports = supports
+			.try_into_bounded_supports()
+			.map_err(|_| FeasibilityError::WrongWinnerCount)?;
+
+		Ok(bounded_supports)
 	}
 
 	/// Greedily reduce the size of the solution to fit into the block w.r.t length.
@@ -471,14 +458,6 @@ where
 		// check before edit.
 
 		let remove = assignments.len().saturating_sub(maximum_allowed_voters);
-
-		log!(
-			debug,
-			"from {} assignments, truncating to {} for length, removing {}",
-			assignments.len(),
-			maximum_allowed_voters,
-			remove
-		);
 		assignments.truncate(maximum_allowed_voters);
 
 		Ok(remove)
@@ -509,13 +488,6 @@ where
 			Self::maximum_voter_for_weight(desired_targets, size, max_weight);
 		let removing: usize =
 			assignments.len().saturating_sub(maximum_allowed_voters.saturated_into());
-		log!(
-			debug,
-			"from {} assignments, truncating to {} for weight, removing {}",
-			assignments.len(),
-			maximum_allowed_voters,
-			removing,
-		);
 		assignments.truncate(maximum_allowed_voters as usize);
 
 		removing
@@ -605,6 +577,7 @@ pub enum OffchainMinerError {
 	NotUnsignedPhase,
 	StorageError,
 	PageOutOfBounds,
+	Snapshots,
 }
 
 impl From<MinerError> for OffchainMinerError {
@@ -636,20 +609,66 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 	/// of the page with `page` index.
 	pub fn mine(
 		page: PageIndex,
-	) -> Result<(ElectionScore, ElectionScore, SolutionOf<T>), OffchainMinerError> {
+	) -> Result<
+		(ElectionScore, ElectionScore, <T::MinerConfig as Config>::Solution),
+		OffchainMinerError,
+	> {
 		let reduce = true;
+
+		let (all_voter_pages, all_targets) = Self::fetch_snapshots()?;
+		let round = crate::Pallet::<T>::current_round();
+		let desired_targets =
+			<<T as crate::Config>::DataProvider as ElectionDataProvider>::desired_targets()
+				.map_err(|_| MinerError::DataProvider)?;
+
 		let (solution, _trimming_status) =
-			Miner::<T, T::OffchainSolver>::mine_paged_solution(T::Pages::get(), reduce)?;
+			Miner::<T::MinerConfig>::mine_paged_solution_with_snapshot(
+				&all_voter_pages,
+				&all_targets,
+				T::Pages::get(),
+				round,
+				desired_targets,
+				reduce,
+			)?;
 
 		let partial_solution = solution
 			.solution_pages
 			.get(page as usize)
 			.ok_or(OffchainMinerError::PageOutOfBounds)?;
 
-		let partial_score =
-			Miner::<T, T::OffchainSolver>::compute_partial_score(&partial_solution, page)?;
+		let partial_score = Miner::<T::MinerConfig>::compute_partial_score(
+			&all_voter_pages,
+			&all_targets,
+			&partial_solution,
+			desired_targets,
+			page,
+		)?;
 
 		Ok((solution.score, partial_score, partial_solution.clone()))
+	}
+
+	pub(crate) fn fetch_snapshots() -> Result<
+		(VoterSnapshotPagedOf<T::MinerConfig>, TargetSnaphsotOf<T::MinerConfig>),
+		OffchainMinerError,
+	> {
+		// prepare range to fetch all pages of the target and voter snapshot.
+		let paged_range = 0..EPM::<T>::msp() + 1;
+
+		// fetch all pages of the voter snapshot and collect them in a bounded vec.
+		let all_voter_pages: BoundedVec<_, T::Pages> = paged_range
+			.map(|page| {
+				Snapshot::<T>::voters(page)
+					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Voters(page)))
+			})
+			.collect::<Result<Vec<_>, _>>()?
+			.try_into()
+			.expect("range was constructed from the bounded vec bounds; qed.");
+
+		// fetch all pages of the target snapshot and collect them in a bounded vec.
+		let all_targets = Snapshot::<T>::targets()
+			.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Targets))?;
+
+		Ok((all_voter_pages, all_targets))
 	}
 
 	/// Fetches from the local storage or mines a new solution.
@@ -657,13 +676,18 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 	/// Calculates and returns the partial score of paged solution of the given `page` index.
 	pub fn fetch_or_mine(
 		page: PageIndex,
-	) -> Result<(ElectionScore, ElectionScore, SolutionOf<T>), OffchainMinerError> {
+	) -> Result<
+		(ElectionScore, ElectionScore, <T::MinerConfig as Config>::Solution),
+		OffchainMinerError,
+	> {
 		let cache_id = Self::paged_cache_id(page)?;
 		let score_storage = StorageValueRef::persistent(&Self::OFFCHAIN_CACHED_SCORE);
 		let maybe_storage = StorageValueRef::persistent(&cache_id);
 
-		let (full_score, paged_solution) =
-			if let Ok(Some(solution_page)) = maybe_storage.get::<SolutionOf<T>>() {
+		let (full_score, paged_solution, partial_score) =
+			if let Ok(Some((solution_page, partial_score))) =
+				maybe_storage.get::<(<T::MinerConfig as Config>::Solution, ElectionScore)>()
+			{
 				sublog!(debug, "unsigned::ocw-miner", "offchain restoring a solution from cache.");
 
 				let full_score = score_storage
@@ -671,14 +695,29 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 					.map_err(|_| OffchainMinerError::StorageError)?
 					.ok_or(OffchainMinerError::StorageError)?;
 
-				(full_score, solution_page)
+				(full_score, solution_page, partial_score)
 			} else {
+				// no solution cached, compute it first.
 				sublog!(debug, "unsigned::ocw-miner", "offchain miner computing a new solution.");
 
-				// no solution cached, compute it first.
-				let reduce = true;
+				// fetch snapshots.
+				let (all_voter_pages, all_targets) = Self::fetch_snapshots()?;
+				let round = crate::Pallet::<T>::current_round();
+				let desired_targets =
+					<<T as crate::Config>::DataProvider as ElectionDataProvider>::desired_targets()
+						.map_err(|_| MinerError::DataProvider)?;
+
+				let reduce = false; // TODO
+
 				let (solution, _trimming_status) =
-					Miner::<T, T::OffchainSolver>::mine_paged_solution(T::Pages::get(), reduce)?;
+					Miner::<T::MinerConfig>::mine_paged_solution_with_snapshot(
+						&all_voter_pages,
+						&all_targets,
+						T::Pages::get(),
+						round,
+						desired_targets,
+						reduce,
+					)?;
 
 				// caches the solution score.
 				score_storage
@@ -686,25 +725,32 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 					.map_err(|_| OffchainMinerError::StorageError)?;
 
 				let mut solution_page = Default::default();
+				let mut partial_score_r: ElectionScore = Default::default();
 
-				// caches each of the individual pages under its own key.
+				// caches each of the individual pages and their partial score under its own key.
 				for (idx, paged_solution) in solution.solution_pages.into_iter().enumerate() {
-					if idx as PageIndex == page {
-						solution_page = paged_solution.clone();
-					}
+					let partial_score = Miner::<T::MinerConfig>::compute_partial_score(
+						&all_voter_pages,
+						&all_targets,
+						&paged_solution,
+						desired_targets,
+						idx as u32,
+					)?;
 
 					let cache_id = Self::paged_cache_id(idx as PageIndex)?;
 					let storage = StorageValueRef::persistent(&cache_id);
 					storage
-						.mutate::<_, (), _>(|_| Ok(paged_solution.clone()))
+						.mutate::<_, (), _>(|_| Ok((paged_solution.clone(), partial_score)))
 						.map_err(|_| OffchainMinerError::StorageError)?;
+
+					// save to return the requested paged solution and partial score.
+					if idx as PageIndex == page {
+						solution_page = paged_solution;
+						partial_score_r = partial_score;
+					}
 				}
-
-				(solution.score, solution_page)
+				(solution.score, solution_page, partial_score_r)
 			};
-
-		let partial_score =
-			Miner::<T, T::OffchainSolver>::compute_partial_score(&paged_solution, page)?;
 
 		Ok((full_score, partial_score, paged_solution))
 	}
@@ -714,7 +760,7 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 		let mut score_storage = StorageValueRef::persistent(&Self::OFFCHAIN_CACHED_SCORE);
 		score_storage.clear();
 
-		for idx in (0..EPM::<T>::msp()).into_iter() {
+		for idx in (0..<T::MinerConfig as Config>::Pages::get()).into_iter() {
 			let cache_id = Self::paged_cache_id(idx as PageIndex)
 				.expect("page index was calculated based on the msp.");
 			let mut page_storage = StorageValueRef::persistent(&cache_id);
@@ -737,7 +783,7 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 	/// inherent.
 	pub(crate) fn submit_paged_call(
 		page: PageIndex,
-		solution: SolutionOf<T>,
+		solution: <T::MinerConfig as Config>::Solution,
 		partial_score: ElectionScore,
 		claimed_full_score: ElectionScore,
 	) -> Result<(), OffchainMinerError> {

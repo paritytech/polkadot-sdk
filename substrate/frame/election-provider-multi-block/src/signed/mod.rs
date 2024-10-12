@@ -18,7 +18,7 @@
 //! # Signed sub-pallet
 //!
 //! The main goal of the signed sub-pallet is to keep and manage a list of sorted score commitments
-//! and correponding paged solutions at the [`crate::Phase::Signed`].
+//! and correponding paged solutions during the [`crate::Phase::Signed`].
 //!
 //! Accounts may submit up to [`Config::MaxSubmissions`] score commitments per election round and
 //! this pallet ensures that the scores are stored under the map `SortedScores` are sorted and keyed
@@ -51,12 +51,11 @@ pub mod benchmarking;
 #[cfg(test)]
 mod tests;
 
-// TODO(gpestana): clean imports.
 use crate::{
 	signed::pallet::Submissions,
 	types::AccountIdOf,
 	verifier::{AsyncVerifier, SolutionDataProvider, VerificationResult},
-	PageIndex,
+	PageIndex, PagesOf, SolutionOf,
 };
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -81,9 +80,9 @@ pub use pallet::{
 	__substrate_event_check, tt_default_parts, tt_default_parts_v2, tt_error_token,
 };
 
-// Alias for the pallet's balance type.
+/// Alias for the pallet's balance type.
 type BalanceOf<T> = <<T as Config>::Currency as FnInspect<AccountIdOf<T>>>::Balance;
-// Alias for the pallet's hold credit type.
+/// Alias for the pallet's hold credit type.
 pub type CreditOf<T> = Credit<AccountIdOf<T>, <T as Config>::Currency>;
 
 /// Metadata of a registered submission.
@@ -95,7 +94,7 @@ pub struct SubmissionMetadata<T: Config> {
 	/// The score that this submission is proposing.
 	claimed_score: ElectionScore,
 	/// A bit-wise bounded vec representing the submitted pages thus far.
-	pages: BoundedVec<bool, T::Pages>,
+	pages: BoundedVec<bool, PagesOf<T>>,
 	/// The amount held for this submission.
 	deposit: BalanceOf<T>,
 }
@@ -181,7 +180,7 @@ pub mod pallet {
 			NMapKey<Twox64Concat, T::AccountId>,
 			NMapKey<Twox64Concat, PageIndex>,
 		),
-		T::Solution,
+		SolutionOf<T::MinerConfig>,
 		OptionQuery,
 	>;
 
@@ -344,7 +343,7 @@ pub mod pallet {
 			who: &T::AccountId,
 			round: u32,
 			page: PageIndex,
-			maybe_solution: Option<T::Solution>,
+			maybe_solution: Option<SolutionOf<T::MinerConfig>>,
 		) -> DispatchResult {
 			Self::mutate_checked(round, || {
 				Self::try_mutate_page_inner(who, round, page, maybe_solution)
@@ -355,7 +354,7 @@ pub mod pallet {
 			who: &T::AccountId,
 			round: u32,
 			page: PageIndex,
-			maybe_solution: Option<T::Solution>,
+			maybe_solution: Option<SolutionOf<T::MinerConfig>>,
 		) -> DispatchResult {
 			ensure!(
 				crate::Pallet::<T>::current_phase().is_signed(),
@@ -409,7 +408,7 @@ pub mod pallet {
 			who: &T::AccountId,
 			round: u32,
 			page: PageIndex,
-		) -> Option<T::Solution> {
+		) -> Option<SolutionOf<T::MinerConfig>> {
 			SubmissionStorage::<T>::get((round, who, page))
 		}
 	}
@@ -436,7 +435,7 @@ pub mod pallet {
 			who: T::AccountId,
 			round: u32,
 			page: PageIndex,
-		) -> Option<T::Solution> {
+		) -> Option<SolutionOf<T::MinerConfig>> {
 			SubmissionStorage::<T>::get((round, who, page))
 		}
 	}
@@ -482,6 +481,7 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		pub fn register(origin: OriginFor<T>, claimed_score: ElectionScore) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
 			ensure!(
 				crate::Pallet::<T>::current_phase().is_signed(),
 				Error::<T>::NotAcceptingSubmissions
@@ -510,7 +510,7 @@ pub mod pallet {
 		pub fn submit_page(
 			origin: OriginFor<T>,
 			page: PageIndex,
-			maybe_solution: Option<T::Solution>,
+			maybe_solution: Option<SolutionOf<T::MinerConfig>>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -609,6 +609,7 @@ pub mod pallet {
 		/// - Start async verification at the beginning of the [`crate::Phase::SignedValidation`].
 		/// - Stopns async verification at the beginning of the [`crate::Phase::Unsigned`].
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			// TODO: match
 			if crate::Pallet::<T>::current_phase().is_signed_validation_open_at(Some(now)) {
 				let _ = <T::Verifier as AsyncVerifier>::start().defensive();
 			};
@@ -618,13 +619,22 @@ pub mod pallet {
 				<T::Verifier as AsyncVerifier>::stop();
 			}
 
+			if crate::Pallet::<T>::current_phase() == crate::Phase::Off {
+				sublog!(info, "signed", "clear up storage for pallets.");
+
+				// TODO: optimize.
+				let _ = SubmissionMetadataStorage::<T>::clear(u32::MAX, None);
+				let _ = SubmissionStorage::<T>::clear(u32::MAX, None);
+				let _ = SortedScores::<T>::clear(u32::MAX, None);
+			}
+
 			Weight::default()
 		}
 	}
 }
 
 impl<T: Config> SolutionDataProvider for Pallet<T> {
-	type Solution = T::Solution;
+	type Solution = SolutionOf<T::MinerConfig>;
 
 	fn get_paged_solution(page: PageIndex) -> Option<Self::Solution> {
 		let round = crate::Pallet::<T>::current_round();

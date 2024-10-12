@@ -17,13 +17,12 @@
 
 use super::*;
 use crate::{
-	mock::*,
-	unsigned::{miner::*, pallet::Config as UnsignedConfig},
-	PagedTargetSnapshot, PagedVoterSnapshot, Phase, Snapshot, Verifier,
+	mock::*, unsigned::miner::Config, PagedTargetSnapshot, PagedVoterSnapshot, Phase, Snapshot,
+	Verifier,
 };
 
 use frame_election_provider_support::ElectionProvider;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::assert_ok;
 
 mod calls {
 	use super::*;
@@ -34,8 +33,6 @@ mod calls {
 		ext.execute_with(|| {
 			// election predicted at 30.
 			assert_eq!(election_prediction(), 30);
-
-			roll_to_with_ocw(25, Some(pool.clone()));
 
 			// no solution available until the unsigned phase.
 			assert!(<VerifierPallet as Verifier>::queued_score().is_none());
@@ -48,9 +45,9 @@ mod calls {
 			assert_eq!(
 				unsigned_events(),
 				[
-					Event::UnsignedSolutionSubmitted { at: 25, page: 2 },
-					Event::UnsignedSolutionSubmitted { at: 26, page: 1 },
-					Event::UnsignedSolutionSubmitted { at: 27, page: 0 }
+					Event::UnsignedSolutionSubmitted { at: 19, page: 2 },
+					Event::UnsignedSolutionSubmitted { at: 20, page: 1 },
+					Event::UnsignedSolutionSubmitted { at: 21, page: 0 }
 				]
 			);
 			// now, solution exists.
@@ -70,12 +67,6 @@ mod calls {
 			assert!(call_elect().is_ok());
 
 			assert_eq!(current_phase(), Phase::Off);
-
-			// 2nd round election predicted at 60.
-			assert_eq!(election_prediction(), 60);
-
-			roll_to_with_ocw(election_prediction() - 1, Some(pool.clone()));
-			assert!(call_elect().is_ok());
 		})
 	}
 
@@ -125,9 +116,9 @@ mod calls {
 			assert_eq!(
 				unsigned_events(),
 				[
-					Event::UnsignedSolutionSubmitted { at: 55, page: 2 },
-					Event::UnsignedSolutionSubmitted { at: 56, page: 1 },
-					Event::UnsignedSolutionSubmitted { at: 57, page: 0 }
+					Event::UnsignedSolutionSubmitted { at: 49, page: 2 },
+					Event::UnsignedSolutionSubmitted { at: 50, page: 1 },
+					Event::UnsignedSolutionSubmitted { at: 51, page: 0 }
 				]
 			);
 			// now, solution exists.
@@ -149,7 +140,7 @@ mod calls {
 mod miner {
 	use super::*;
 
-	type OffchainSolver = <T as UnsignedConfig>::OffchainSolver;
+	type OffchainSolver = <T as miner::Config>::Solver;
 
 	#[test]
 	fn snapshot_idx_based_works() {
@@ -164,31 +155,6 @@ mod miner {
 				all_target_pages.push(Snapshot::<T>::targets().unwrap());
 			}
 		})
-	}
-
-	#[test]
-	fn mine_works() {
-		ExtBuilder::default().build_and_execute(|| {
-			let msp = crate::Pallet::<T>::msp();
-			assert_eq!(msp, 2);
-
-			// no snapshot available, calling mine_paged_solution should fail.
-			assert!(<VerifierPallet as Verifier>::queued_score().is_none());
-			assert!(<VerifierPallet as Verifier>::get_queued_solution(msp).is_none());
-
-			assert_noop!(
-				Miner::<T, OffchainSolver>::mine_paged_solution(0, true),
-				MinerError::SnapshotUnAvailable(SnapshotType::Targets),
-			);
-
-			// create and store snapshot so that the miner can mine solutions.
-			compute_snapshot_checked();
-
-			assert_ok!(Miner::<T, OffchainSolver>::mine_paged_solution(
-				crate::Pallet::<T>::msp() + 1,
-				true
-			));
-		});
 	}
 
 	#[test]

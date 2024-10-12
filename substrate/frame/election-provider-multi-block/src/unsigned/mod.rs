@@ -70,7 +70,7 @@ use crate::{
 		miner::{OffchainMinerError, OffchainWorkerMiner},
 		weights::WeightInfo,
 	},
-	verifier, Pallet as EPM, Phase, SolutionAccuracyOf, SolutionOf, Verifier,
+	verifier, Phase, SolutionOf, Verifier,
 };
 use frame_election_provider_support::PageIndex;
 use frame_support::{
@@ -81,7 +81,6 @@ use frame_support::{
 use frame_system::{offchain::SendTransactionTypes, pallet_prelude::BlockNumberFor};
 use sp_npos_elections::ElectionScore;
 use sp_runtime::SaturatedConversion;
-use sp_std::vec::Vec;
 
 // public re-exports.
 pub use pallet::{
@@ -110,12 +109,6 @@ pub(crate) mod pallet {
 
 		/// The priority of the unsigned tx submitted.
 		type MinerTxPriority: Get<TransactionPriority>;
-
-		/// The solver used by the offchain worker miner.
-		type OffchainSolver: frame_election_provider_support::NposSolver<
-			AccountId = Self::AccountId,
-			Accuracy = SolutionAccuracyOf<Self>,
-		>;
 
 		/// Maximum length of the solution that the miner is allowed to generate.
 		///
@@ -193,7 +186,7 @@ pub(crate) mod pallet {
 		pub fn submit_page_unsigned(
 			origin: OriginFor<T>,
 			page: PageIndex,
-			solution: SolutionOf<T>,
+			solution: SolutionOf<T::MinerConfig>,
 			partial_score: ElectionScore,
 			claimed_full_score: ElectionScore,
 		) -> DispatchResult {
