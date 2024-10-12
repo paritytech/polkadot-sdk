@@ -73,6 +73,7 @@ pub use pallet::*;
 pub trait WeightInfo {
 	fn place_order_allow_death(s: u32) -> Weight;
 	fn place_order_keep_alive(s: u32) -> Weight;
+	fn place_order_with_credits(s: u32) -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
@@ -84,6 +85,10 @@ impl WeightInfo for TestWeightInfo {
 	}
 
 	fn place_order_keep_alive(_: u32) -> Weight {
+		Weight::MAX
+	}
+
+	fn place_order_with_credits(_: u32) -> Weight {
 		Weight::MAX
 	}
 }
@@ -298,9 +303,23 @@ pub mod pallet {
 			)
 		}
 
-		/// TODO: Docs
+		/// Same as the [`place_order_allow_death`](Self::place_order_allow_death) call, but paying for
+		/// order with credits on-demand credits.
+		///
+		/// Parameters:
+		/// - `origin`: The sender of the call, funds will be withdrawn from this account.
+		/// - `max_amount`: The maximum credit to spend from the origin to place an order.
+		/// - `para_id`: A `ParaId` the origin wants to provide blockspace for.
+		///
+		/// Errors:
+		/// - `InsufficientCredits`
+		/// - `QueueFull`
+		/// - `SpotPriceHigherThanMaxAmount`
+		///
+		/// Events:
+		/// - `OnDemandOrderPlaced`
 		#[pallet::call_index(2)]
-		#[pallet::weight(10_000)] // TODO
+		#[pallet::weight(<T as Config>::WeightInfo::place_order_with_credits(QueueStatus::<T>::get().size()))]
 		pub fn place_order_with_credits(
 			origin: OriginFor<T>,
 			max_amount: BalanceOf<T>,

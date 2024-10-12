@@ -343,6 +343,10 @@ fn place_order_keep_alive_keeps_alive() {
 			config.scheduler_params.on_demand_base_fee.saturated_into::<BalanceOf<Test>>(),
 		);
 		assert_eq!(Balances::free_balance(&alice), max_amt.saturating_sub(spot_price));
+		assert_eq!(
+			FreeEntries::<Test>::get().pop(),
+			Some(EnqueuedOrder::new(QueueIndex(0), para_id))
+		);
 	});
 }
 
