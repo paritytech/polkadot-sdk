@@ -873,6 +873,8 @@ impl Stream for Peerset {
 		}
 
 		if let Poll::Ready(Some(action)) = Pin::new(&mut self.cmd_rx).poll_next(cx) {
+			log::trace!(target: LOG_TARGET, "{}: Incoming action={action:?}", self.protocol);
+
 			match action {
 				PeersetCommand::DisconnectPeer { peer } if !self.reserved_peers.contains(&peer) =>
 					match self.peers.remove(&peer) {
