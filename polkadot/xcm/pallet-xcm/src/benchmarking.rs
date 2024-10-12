@@ -128,7 +128,7 @@ benchmarks! {
 					&origin_location,
 					None,
 				).map_err(|error| {
-				  log::error!("Fungible asset couldn't be deposited, error: {:?}", error);
+				  tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error);
 				  BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
