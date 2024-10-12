@@ -61,7 +61,7 @@ const LOG_TARGET: &str = "runtime::parachains::coretime";
 pub trait WeightInfo {
 	fn request_core_count() -> Weight;
 	fn request_revenue_at() -> Weight;
-	//fn credit_account() -> Weight;
+	fn credit_account() -> Weight;
 	fn assign_core(s: u32) -> Weight;
 }
 
@@ -75,11 +75,9 @@ impl WeightInfo for TestWeightInfo {
 	fn request_revenue_at() -> Weight {
 		Weight::MAX
 	}
-	// TODO: Add real benchmarking functionality for each of these to
-	// benchmarking.rs, then uncomment here and in trait definition.
-	//fn credit_account() -> Weight {
-	//	Weight::MAX
-	//}
+	fn credit_account() -> Weight {
+		Weight::MAX
+	}
 	fn assign_core(_s: u32) -> Weight {
 		Weight::MAX
 	}
@@ -207,7 +205,7 @@ pub mod pallet {
 			Self::notify_revenue(when)
 		}
 
-		#[pallet::weight(10_000)] // TODO
+		#[pallet::weight(<T as Config>::WeightInfo::credit_account())]
 		#[pallet::call_index(3)]
 		pub fn credit_account(
 			origin: OriginFor<T>,
