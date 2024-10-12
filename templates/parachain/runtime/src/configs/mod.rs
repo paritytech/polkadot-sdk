@@ -431,20 +431,21 @@ parameter_types! {
 	pub MaxVoters: u32 = VoterSnapshotPerBlock::get() * Pages::get();
 
 	// SETUPS
-    // see results at https://hackmd.io/KpU6KVL-QOiwRxWPY9FDdQ/view
-    
-    // AAA.
-    // current numbers.
+	// see results at https://hackmd.io/KpU6KVL-QOiwRxWPY9FDdQ/view
+
+	// AAA. (modified for staking-miner tests)
+	// current numbers.
 	// let validators_count = 1_500; in chainspec
-    pub const Period: u32 = 10 * MINUTES;
+	pub const Period: u32 = 5 * MINUTES;
 	pub const MaxExposurePageSize: u32 = 512;
 	pub const MaxValidatorSet: u32 = 1_000;
-	pub UnsignedPhase: u32 = 45;
-	pub Pages: PageIndex = 20;
+	pub SignedPhase: u32 = 25;
+	pub UnsignedPhase: u32 = 0;
+	pub Pages: PageIndex = 3;
 	pub MaxWinnersPerPage: u32 = MaxValidatorSet::get();
 	pub MaxBackersPerWinner: u32 = 5_000;
-	pub VoterSnapshotPerBlock: VoterIndex = 1_800;
-	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap(); 
+	pub VoterSnapshotPerBlock: VoterIndex = 500;
+	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
 
 	/*
 	// A1.
@@ -530,9 +531,9 @@ parameter_types! {
 	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
 	*/
 
-    /*
+	/*
 	// A3. at full page verification:
-    //  ⚠️  ⚠️   PoV STORAGE PROOF OVER LIMIT (5571.548828125kb > 5120.0kb, ie. 108% overflow)
+	//  ⚠️  ⚠️   PoV STORAGE PROOF OVER LIMIT (5571.548828125kb > 5120.0kb, ie. 108% overflow)
 	// let validators_count = 4_000; in chainspec
 	pub const Period: u32 = 20 * MINUTES;
 	pub const MaxExposurePageSize: u32 = 64;
@@ -543,9 +544,9 @@ parameter_types! {
 	pub MaxBackersPerWinner: u32 = 30_000;
 	pub VoterSnapshotPerBlock: VoterIndex = 2_000;
 	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
-    */
+	*/
 
-    /*
+	/*
 	// B3. OK
 	// let validators_count = 3_000; in chainspec
 	pub const Period: u32 = 20 * MINUTES;
@@ -557,10 +558,9 @@ parameter_types! {
 	pub MaxBackersPerWinner: u32 = 30_000;
 	pub VoterSnapshotPerBlock: VoterIndex = 2_000;
 	pub TargetSnapshotPerBlock: TargetIndex = MaxWinnersPerPage::get().try_into().unwrap();
-    */
+	*/
 
-	// phase boundaries.
-	pub SignedPhase: u32 = 0; // (1 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
+	//pub SignedPhase: u32 = 0; // (1 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
 	//pub UnsignedPhase: u32 = 60; // (5 * MINUTES / 2).min(EpochDuration::get().saturated_into::<u32>() / 2);
 	pub SignedValidationPhase: BlockNumber = 0; // Pages::get() * SignedMaxSubmissions::get();
 	pub Lookhaead: BlockNumber = 5;
@@ -581,6 +581,7 @@ parameter_types! {
 	pub const MaxOnchainElectingVoters: u32 = 22_500;
 	pub OnChainElectionBounds: frame_election_provider_support::bounds::ElectionBounds =
 		ElectionBoundsBuilder::default().voters_count(MaxOnchainElectingVoters::get().into()).build();
+
 
 	// sub-pallets.
 	pub SolutionImprovementThreshold: Perbill = Perbill::zero();
@@ -623,9 +624,11 @@ impl pallet_epm_core::Config for Runtime {
 	type Lookhaead = Lookhaead;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type Pages = Pages;
 	type ExportPhaseLimit = ExportPhaseLimit;
-	type Solution = NposCompactSolution;
+	type MinerConfig = Self;
 	type Fallback = frame_election_provider_support::NoElection<(
 		AccountId,
 		BlockNumber,
@@ -643,8 +646,6 @@ impl pallet_epm_verifier::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type SolutionDataProvider = ElectionSignedPallet;
 	type WeightInfo = pallet_epm_verifier::weights::SubstrateWeight<Runtime>;
 }
@@ -671,12 +672,25 @@ impl sp_runtime::traits::Convert<usize, Balance> for ConstDepositBase {
 
 impl pallet_epm_unsigned::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OffchainSolver = SequentialPhragmen<AccountId, sp_runtime::PerU16>;
 	type OffchainRepeatInterval = OffchainRepeatInterval;
 	type MinerTxPriority = MinerTxPriority;
 	type MaxLength = MinerSolutionMaxLength;
 	type MaxWeight = MinerSolutionMaxWeight;
 	type WeightInfo = pallet_epm_unsigned::weights::SubstrateWeight<Runtime>;
+}
+
+impl pallet_election_provider_multi_block::unsigned::miner::Config for Runtime {
+	type AccountId = AccountId;
+	type Solution = NposCompactSolution;
+	type Solver = SequentialPhragmen<AccountId, sp_runtime::PerU16>;
+	type Pages = Pages;
+	type MaxVotesPerVoter = ConstU32<16>;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
+	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
+	type MaxWeight = MinerSolutionMaxWeight;
+	type MaxLength = MinerSolutionMaxLength;
 }
 
 pub struct OnChainSeqPhragmen;

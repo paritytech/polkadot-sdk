@@ -75,10 +75,6 @@ mod feasibility_check {
 
 mod sync_verifier {
 	use super::*;
-	use crate::{
-		verifier::{impls::pallet::QueuedSolution, SolutionPointer},
-		SupportsOf, Verifier,
-	};
 
 	#[test]
 	fn sync_verifier_simple_works() {
@@ -88,7 +84,7 @@ mod sync_verifier {
 	#[test]
 	fn next_missing_solution_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			let supports: SupportsOf<VerifierPallet> = Default::default();
+			let supports: SupportsOf<Pallet<T>> = Default::default();
 			let msp = crate::Pallet::<T>::msp();
 			assert!(msp == <T as crate::Config>::Pages::get() - 1 && msp == 2);
 

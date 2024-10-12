@@ -92,13 +92,9 @@
 // TODO: remove
 #![allow(dead_code)]
 
-// TODO(gpestana): clean imports
-use codec::MaxEncodedLen;
-use scale_info::TypeInfo;
-
 use frame_election_provider_support::{
 	bounds::ElectionBoundsBuilder, BoundedSupportsOf, ElectionDataProvider, ElectionProvider,
-	LockableElectionDataProvider, NposSolution, PageIndex, VoterOf, Weight,
+	LockableElectionDataProvider, PageIndex, VoterOf, Weight,
 };
 use frame_support::{
 	defensive, ensure,
@@ -127,18 +123,16 @@ mod mock;
 pub use pallet::*;
 pub use types::*;
 
-pub use crate::{verifier::Verifier, weights::WeightInfo};
+pub use crate::{unsigned::miner, verifier::Verifier, weights::WeightInfo};
 
 /// Internal crate re-exports to use across benchmarking and tests.
 #[cfg(any(test, feature = "runtime-benchmarks"))]
-use crate::{
-	signed::{Config as ConfigSigned, Pallet as PalletSigned},
-	unsigned::Config as ConfigUnsigned,
-	verifier::{Config as ConfigVerifier, Pallet as PalletVerifier},
-	Config as ConfigCore, Pallet as PalletCore,
-};
+use crate::verifier::Pallet as PalletVerifier;
 
 const LOG_TARGET: &'static str = "runtime::multiblock-election";
+
+/// Page configured for the election.
+pub type PagesOf<T> = <T as crate::Config>::Pages;
 
 /// Trait defining the benchmarking configs.
 pub trait BenchmarkingConfig {
@@ -156,7 +150,6 @@ pub trait BenchmarkingConfig {
 pub mod pallet {
 
 	use super::*;
-	use codec::EncodeLike;
 	use frame_support::{
 		pallet_prelude::{ValueQuery, *},
 		sp_runtime::Saturating,
@@ -197,6 +190,17 @@ pub mod pallet {
 		#[pallet::constant]
 		type TargetSnapshotPerBlock: Get<u32>;
 
+		/// Maximum number of supports (i.e. winners/validators/targets) that can be represented
+		/// in one page of a solution.
+		type MaxWinnersPerPage: Get<u32>;
+
+		/// Maximum number of voters that can support a single target, across ALL the solution
+		/// pages. Thus, this can only be verified when processing the last solution page.
+		///
+		/// This limit must be set so that the memory limits of the rest of the system are
+		/// respected.
+		type MaxBackersPerWinner: Get<u32>;
+
 		/// The number of pages.
 		///
 		/// A solution may contain at MOST this many pages.
@@ -209,24 +213,21 @@ pub mod pallet {
 		/// the `EPM::call(0)` is called.
 		type ExportPhaseLimit: Get<BlockNumberFor<Self>>;
 
-		/// The solution type.
-		type Solution: codec::Codec
-			+ sp_std::fmt::Debug
-			+ Default
-			+ PartialEq
-			+ Eq
-			+ Clone
-			+ Sized
-			+ Ord
-			+ NposSolution
-			+ TypeInfo
-			+ EncodeLike
-			+ MaxEncodedLen;
-
 		/// Something that will provide the election data.
 		type DataProvider: LockableElectionDataProvider<
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
+		>;
+
+		// The miner configuration.
+		type MinerConfig: miner::Config<
+			AccountId = AccountIdOf<Self>,
+			Pages = Self::Pages,
+			MaxVotesPerVoter = <Self::DataProvider as frame_election_provider_support::ElectionDataProvider>::MaxVotesPerVoter,
+			TargetSnapshotPerBlock = Self::TargetSnapshotPerBlock,
+			VoterSnapshotPerBlock = Self::VoterSnapshotPerBlock,
+			MaxWinnersPerPage = Self::MaxWinnersPerPage,
+			MaxBackersPerWinner = Self::MaxBackersPerWinner,
 		>;
 
 		/// Something that implements a fallback election.
@@ -242,14 +243,35 @@ pub mod pallet {
 		>;
 
 		/// Something that implements an election solution verifier.
-		type Verifier: verifier::Verifier<AccountId = Self::AccountId, Solution = SolutionOf<Self>>
-			+ verifier::AsyncVerifier;
+		type Verifier: verifier::Verifier<
+				AccountId = Self::AccountId,
+				Solution = SolutionOf<Self::MinerConfig>,
+			> + verifier::AsyncVerifier;
 
 		/// Benchmarking configurations for this and sub-pallets.
 		type BenchmarkingConfig: BenchmarkingConfig;
 
 		/// The weights for this pallet.
 		type WeightInfo: WeightInfo;
+	}
+
+	// Expose miner configs over the metadata such that they can be re-implemented.
+	#[pallet::extra_constants]
+	impl<T: Config> Pallet<T> {
+		#[pallet::constant_name(MinerMaxVotesPerVoter)]
+		fn max_votes_per_voter() -> u32 {
+			<T::MinerConfig as miner::Config>::MaxVotesPerVoter::get()
+		}
+
+		#[pallet::constant_name(MinerMaxBackersPerWinner)]
+		fn max_backers_per_winner() -> u32 {
+			<T::MinerConfig as miner::Config>::MaxBackersPerWinner::get()
+		}
+
+		#[pallet::constant_name(MinerMaxWinnersPerPage)]
+		fn max_winners_per_page() -> u32 {
+			<T::MinerConfig as miner::Config>::MaxWinnersPerPage::get()
+		}
 	}
 
 	/// Election failure strategy.
@@ -747,7 +769,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 #[cfg(test)]
 mod phase_transition {
 	use super::*;
-	use crate::{mock::*, verifier::AsyncVerifier};
+	use crate::mock::*;
 
 	use frame_support::assert_ok;
 
@@ -1079,10 +1101,13 @@ mod election_provider {
 				Snapshot::<T>::set_voters(0, all_voter_pages[0].clone());
 				Snapshot::<T>::set_voters(1, all_voter_pages[1].clone());
 
-				let (results, _) = Miner::<T, Solver>::mine_paged_solution_with_snaphsot(
-					all_voter_pages,
-					all_targets,
+				let desired_targets = Snapshot::<T>::desired_targets().unwrap();
+				let (results, _) = Miner::<T>::mine_paged_solution_with_snapshot(
+					&all_voter_pages,
+					&all_targets,
 					Pages::get(),
+					current_round(),
+					desired_targets,
 					false,
 				)
 				.unwrap();

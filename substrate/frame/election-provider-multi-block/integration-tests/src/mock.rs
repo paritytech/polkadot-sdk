@@ -50,9 +50,9 @@ use sp_npos_elections::ElectionScore;
 use pallet_election_provider_multi_block::{
 	self as epm_core_pallet,
 	signed::{self as epm_signed_pallet},
-	unsigned::{self as epm_unsigned_pallet, miner::Miner},
+	unsigned::{self as epm_unsigned_pallet, miner},
 	verifier::{self as epm_verifier_pallet},
-	Phase,
+	Config, Phase,
 };
 
 use pallet_staking::StakerStatus;
@@ -211,7 +211,9 @@ impl epm_core_pallet::Config for Runtime {
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type Pages = Pages;
 	type ExportPhaseLimit = ExportPhaseLimit;
-	type Solution = MockNposSolution;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MinerConfig = Self;
 	type Fallback = frame_election_provider_support::NoElection<(
 		AccountId,
 		BlockNumber,
@@ -235,8 +237,6 @@ impl epm_verifier_pallet::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type SolutionDataProvider = SignedPallet;
 	type WeightInfo = ();
 }
@@ -277,12 +277,25 @@ parameter_types! {
 
 impl epm_unsigned_pallet::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OffchainSolver = Solver;
 	type OffchainRepeatInterval = OffchainRepeatInterval;
 	type MinerTxPriority = TransactionPriority;
 	type MaxLength = MinerMaxLength;
 	type MaxWeight = MinerMaxWeight;
 	type WeightInfo = ();
+}
+
+impl miner::Config for Runtime {
+	type AccountId = AccountId;
+	type Solution = MockNposSolution;
+	type Solver = Solver;
+	type Pages = Pages;
+	type MaxVotesPerVoter = ConstU32<16>;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
+	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
+	type MaxWeight = MinerMaxWeight;
+	type MaxLength = MinerMaxLength;
 }
 
 const THRESHOLDS: [VoteWeight; 9] = [10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
@@ -855,13 +868,21 @@ parameter_types! {
 
 pub(crate) fn try_submit_paged_solution() -> Result<(), ()> {
 	let submit = || {
+		// TODO: to finish.
 		let (paged_solution, _) =
-			Miner::<T, Solver>::mine_paged_solution(Pages::get(), false).unwrap();
+			miner::Miner::<<T as Config>::MinerConfig>::mine_paged_solution_with_snapshot(
+				voters_snapshot,
+				targets_snapshot,
+				Pages::get(),
+				round,
+				desired_targets,
+				false,
+			)
+			.unwrap();
+
 		let _ = SignedPallet::register(RuntimeOrigin::signed(10), paged_solution.score).unwrap();
 
-		for (idx, page) in paged_solution.solution_pages.into_iter().enumerate() {
-			let _ = SignedPallet::submit_page(RuntimeOrigin::signed(10), idx as u32, Some(page));
-		}
+		for (idx, page) in paged_solution.solution_pages.into_iter().enumerate() {}
 		log!(
 			info,
 			"submitter: successfully submitted {} pages with {:?} score in round {}.",
@@ -885,64 +906,6 @@ pub(crate) fn try_submit_paged_solution() -> Result<(), ()> {
 	};
 	LastSolutionSubmittedFor::set(Some(ElectionProvider::current_round()));
 
-	Ok(())
-}
-
-/// Queue a solution based on the current snapshot rn.
-///
-/// TODO: remove, not neeeded anymre.
-pub(crate) fn try_submit_solution() -> Result<(), ()> {
-	let submit = || {
-		log!(
-			info,
-			"submitter: will prepare solution with {:?} pages and try to submit",
-			Pages::get()
-		);
-
-		let mut paged_solutions = vec![];
-		let mut total_election_score: ElectionScore = Default::default();
-
-		for _ in 0..Pages::get() {
-			let paged_solution =
-				Miner::<T, Solver>::mine_and_prepare_solution_single_page(0, false).unwrap();
-			let page_score = paged_solution.0.score;
-
-			paged_solutions.push(paged_solution.0.solution_pages[0].clone());
-			total_election_score.minimal_stake += page_score.minimal_stake;
-			total_election_score.sum_stake += page_score.sum_stake;
-			// not correct btw (see below).
-			total_election_score.sum_stake_squared += page_score.sum_stake_squared;
-		}
-		//TODO: fix this hack
-		total_election_score.sum_stake_squared = 40500000;
-
-		// register submission.
-		let _ = SignedPallet::register(RuntimeOrigin::signed(10), total_election_score).unwrap();
-
-		// submit pages from higher to 0.
-		while let Some(page) = paged_solutions.pop() {
-			let _ = SignedPallet::submit_page(
-				RuntimeOrigin::signed(10),
-				paged_solutions.len().try_into().unwrap(),
-				Some(page),
-			);
-		}
-	};
-
-	match LastSolutionSubmittedFor::get() {
-		Some(submitted_at) => {
-			if submitted_at == ElectionProvider::current_round() {
-				// solution already submitted in this round, do nothing.
-			} else {
-				// haven't submit in this round, submit it.
-				submit()
-			}
-		},
-		// never submitted, do it.
-		None => submit(),
-	};
-
-	LastSolutionSubmittedFor::set(Some(ElectionProvider::current_round()));
 	Ok(())
 }
 

@@ -28,7 +28,7 @@ use crate::{
 	signed::{self as signed_pallet},
 	unsigned::{
 		self as unsigned_pallet,
-		miner::{Miner, MinerError, OffchainWorkerMiner},
+		miner::{self, Miner, MinerError, OffchainWorkerMiner},
 	},
 	verifier::{self as verifier_pallet},
 	Config, *,
@@ -127,10 +127,12 @@ impl Config for Runtime {
 	type Lookhaead = Lookhaead;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type Pages = Pages;
 	type ExportPhaseLimit = ExportPhaseLimit;
 	type DataProvider = MockStaking;
-	type Solution = TestNposSolution;
+	type MinerConfig = Self;
 	type Fallback = MockFallback;
 	type Verifier = VerifierPallet;
 	type BenchmarkingConfig = EPMBenchmarkingConfigs;
@@ -147,8 +149,6 @@ impl crate::verifier::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type SolutionDataProvider = SignedPallet;
 	type WeightInfo = ();
 }
@@ -182,12 +182,25 @@ parameter_types! {
 
 impl crate::unsigned::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OffchainSolver = Solver;
 	type OffchainRepeatInterval = OffchainRepeatInterval;
 	type MinerTxPriority = MinerTxPriority;
 	type MaxLength = MinerSolutionMaxLength;
 	type MaxWeight = MinerSolutionMaxWeight;
 	type WeightInfo = ();
+}
+
+impl miner::Config for Runtime {
+	type AccountId = AccountId;
+	type Solution = TestNposSolution;
+	type Solver = Solver;
+	type Pages = Pages;
+	type MaxVotesPerVoter = MaxVotesPerVoter;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
+	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
+	type MaxWeight = MinerSolutionMaxWeight;
+	type MaxLength = MinerSolutionMaxLength;
 }
 
 pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
@@ -209,7 +222,7 @@ impl sp_runtime::traits::Convert<usize, Balance> for ConstDepositBase {
 
 parameter_types! {
 	pub static OnChainElectionBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
-	pub static MaxVotesPerVoter: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;
+	pub static MaxVotesPerVoter: u32 = <TestNposSolution as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub static FallbackEnabled: bool = true;
 }
 
@@ -520,11 +533,28 @@ pub fn balances(who: AccountId) -> (Balance, Balance) {
 }
 
 pub fn mine_full(pages: PageIndex) -> Result<PagedRawSolution<T>, MinerError> {
-	let (solution, _) = Miner::<T, Solver>::mine_paged_solution(pages, false)?;
-	Ok(solution)
+	let (targets, voters) =
+		OffchainWorkerMiner::<T>::fetch_snapshots().map_err(|_| MinerError::DataProvider)?;
+
+	let reduce = false;
+	let round = crate::Pallet::<T>::current_round();
+	let desired_targets = <MockStaking as ElectionDataProvider>::desired_targets()
+		.map_err(|_| MinerError::DataProvider)?;
+
+	Miner::<Runtime>::mine_paged_solution_with_snapshot(
+		&targets,
+		&voters,
+		Pages::get(),
+		round,
+		desired_targets,
+		reduce,
+	)
+	.map(|(s, _)| s)
 }
 
-pub fn mine(page: PageIndex) -> Result<(ElectionScore, SolutionOf<T>), ()> {
+pub fn mine(
+	page: PageIndex,
+) -> Result<(ElectionScore, SolutionOf<<T as Config>::MinerConfig>), ()> {
 	let (_, partial_score, partial_solution) =
 		OffchainWorkerMiner::<T>::mine(page).map_err(|_| ())?;
 

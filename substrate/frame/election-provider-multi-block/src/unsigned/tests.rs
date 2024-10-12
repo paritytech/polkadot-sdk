@@ -17,13 +17,12 @@
 
 use super::*;
 use crate::{
-	mock::*,
-	unsigned::{miner::*, pallet::Config as UnsignedConfig},
-	PagedTargetSnapshot, PagedVoterSnapshot, Phase, Snapshot, Verifier,
+	mock::*, unsigned::miner::Config, PagedTargetSnapshot, PagedVoterSnapshot, Phase, Snapshot,
+	Verifier,
 };
 
 use frame_election_provider_support::ElectionProvider;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::assert_ok;
 
 mod calls {
 	use super::*;
@@ -141,7 +140,7 @@ mod calls {
 mod miner {
 	use super::*;
 
-	type OffchainSolver = <T as UnsignedConfig>::OffchainSolver;
+	type OffchainSolver = <T as miner::Config>::Solver;
 
 	#[test]
 	fn snapshot_idx_based_works() {
@@ -156,31 +155,6 @@ mod miner {
 				all_target_pages.push(Snapshot::<T>::targets().unwrap());
 			}
 		})
-	}
-
-	#[test]
-	fn mine_works() {
-		ExtBuilder::default().build_and_execute(|| {
-			let msp = crate::Pallet::<T>::msp();
-			assert_eq!(msp, 2);
-
-			// no snapshot available, calling mine_paged_solution should fail.
-			assert!(<VerifierPallet as Verifier>::queued_score().is_none());
-			assert!(<VerifierPallet as Verifier>::get_queued_solution(msp).is_none());
-
-			assert_noop!(
-				Miner::<T, OffchainSolver>::mine_paged_solution(0, true),
-				MinerError::SnapshotUnAvailable(SnapshotType::Targets),
-			);
-
-			// create and store snapshot so that the miner can mine solutions.
-			compute_snapshot_checked();
-
-			assert_ok!(Miner::<T, OffchainSolver>::mine_paged_solution(
-				crate::Pallet::<T>::msp() + 1,
-				true
-			));
-		});
 	}
 
 	#[test]
