@@ -33,6 +33,7 @@ use frame_support::{
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	traits::FromContains,
 };
+use pallet_balances::WeightInfo;
 use pallet_nis::WithMaximumOf;
 use polkadot_primitives::{
 	slashing,
@@ -400,6 +401,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -1234,6 +1236,7 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<1>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -1599,6 +1602,8 @@ pub mod migrations {
 		pub const TechnicalMembershipPalletName: &'static str = "TechnicalMembership";
 		pub const TipsPalletName: &'static str = "Tips";
 		pub const PhragmenElectionPalletId: LockIdentifier = *b"phrelect";
+		/// Weight for balance unreservations
+		pub BalanceUnreserveWeight: Weight = weights::pallet_balances_balances::WeightInfo::<Runtime>::force_unreserve();
 	}
 
 	// Special Config for Gov V1 pallets, allowing us to run migrations for them without
@@ -1654,6 +1659,7 @@ pub mod migrations {
         pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
         pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
         pallet_tips::migrations::unreserve_deposits::UnreserveDeposits<UnlockConfig, ()>,
+        pallet_treasury::migration::cleanup_proposals::Migration<Runtime, (), BalanceUnreserveWeight>,
 
         // Delete all Gov v1 pallet storage key/values.
 
@@ -1677,6 +1683,7 @@ pub mod migrations {
         // permanent
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
         parachains_inclusion::migration::MigrateToV1<Runtime>,
+        parachains_shared::migration::MigrateToV1<Runtime>,
     );
 }
 
