@@ -177,7 +177,7 @@ pub mod test_utils {
 	}
 }
 
-pub mod builder {
+mod builder {
 	use super::Test;
 	use crate::{
 		test_utils::{builder::*, ALICE},

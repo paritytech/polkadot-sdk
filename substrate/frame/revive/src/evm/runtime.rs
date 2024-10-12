@@ -340,7 +340,7 @@ mod test {
 	use crate::{
 		evm::*,
 		test_utils::*,
-		tests::{builder, ExtBuilder, RuntimeCall, Test},
+		tests::{ExtBuilder, RuntimeCall, Test},
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
