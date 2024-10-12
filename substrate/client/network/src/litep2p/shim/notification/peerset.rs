@@ -88,6 +88,8 @@ const DISCONNECT_ADJUSTMENT: Reputation = Reputation::new(-256, "Peer disconnect
 const OPEN_FAILURE_ADJUSTMENT: Reputation = Reputation::new(-1024, "Open failure");
 
 /// Is the peer reserved?
+///
+/// Regular peers count towards slot allocation.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Reserved {
 	Yes,
@@ -116,6 +118,15 @@ pub enum Direction {
 
 	/// Outbound substream.
 	Outbound(Reserved),
+}
+
+impl Direction {
+	fn set_reserved(&mut self, new_reserved: Reserved) {
+		match self {
+			Direction::Inbound(ref mut reserved) => *reserved = new_reserved,
+			Direction::Outbound(ref mut reserved) => *reserved = new_reserved,
+		}
+	}
 }
 
 impl From<Direction> for traits::Direction {
@@ -784,7 +795,9 @@ impl Peerset {
 	}
 
 	/// Calculate how many of the connected peers were counted as normal inbound/outbound peers
-	/// which is needed to adjust slot counts when new reserved peers are added
+	/// which is needed to adjust slot counts when new reserved peers are added.
+	///
+	/// If the peer is not already in the [`Peerset`], it is added as a disconnected peer.
 	fn calculate_slot_adjustment<'a>(
 		&'a mut self,
 		peers: impl Iterator<Item = &'a PeerId>,
@@ -949,8 +962,9 @@ impl Stream for Peerset {
 				},
 				// set new reserved peers for the protocol
 				//
-				// current reserved peers not in the new set are disconnected and the new reserved
-				// peers are scheduled for outbound substreams
+				// Current reserved peers not in the new set are moved to the regular set of peers
+				// or disconnected (if there are no slots available). The new reserved peers are
+				// scheduled for outbound substreams
 				PeersetCommand::SetReservedPeers { peers } => {
 					log::debug!(target: LOG_TARGET, "{}: set reserved peers {peers:?}", self.protocol);
 
@@ -960,39 +974,64 @@ impl Stream for Peerset {
 					//
 					// calculate how many of the previously connected peers were counted as regular
 					// peers and substract these counts from `num_out`/`num_in`
+					//
+					// If a reserved peer is not already tracked, it is added as disconnected by
+					// `calculate_slot_adjustment`. This ensures at the next slot allocation (1sec)
+					// that we'll try to establish a connection with the reserved peer.
 					let (in_peers, out_peers) = self.calculate_slot_adjustment(peers.iter());
 					self.num_out -= out_peers;
 					self.num_in -= in_peers;
 
-					// add all unknown peers to `self.peers`
-					peers.iter().for_each(|peer| {
-						if !self.peers.contains_key(peer) {
-							self.peers.insert(*peer, PeerState::Disconnected);
-						}
-					});
-
-					// collect all peers who are not in the new reserved set
-					let peers_to_remove = self
-						.peers
-						.iter()
-						.filter_map(|(peer, _)| (!peers.contains(peer)).then_some(*peer))
-						.collect::<HashSet<_>>();
+					// collect all *reserved* peers who are not in the new reserved set
+					let reserved_peers_maybe_remove =
+						self.reserved_peers.difference(&peers).cloned().collect::<HashSet<_>>();
 
 					self.reserved_peers = peers;
 
-					let peers = peers_to_remove
+					let peers = reserved_peers_maybe_remove
 						.into_iter()
 						.filter(|peer| {
 							match self.peers.remove(&peer) {
-								Some(PeerState::Connected { direction }) => {
-									log::trace!(
-										target: LOG_TARGET,
-										"{}: close connection to {peer:?}, direction {direction:?}",
-										self.protocol,
-									);
+								Some(PeerState::Connected { mut direction }) => {
+									// The direction contains a `Reserved::Yes` flag, because this
+									// is a reserve peer that we want to close.
+									// The `Reserved::Yes` ensures we don't adjust the slot count
+									// when the substream is closed.
 
-									self.peers.insert(*peer, PeerState::Closing { direction });
-									true
+									let disconnect = self.reserved_only ||
+										match direction {
+											Direction::Inbound(_) => self.num_in >= self.max_in,
+											Direction::Outbound(_) => self.num_out >= self.max_out,
+										};
+
+									if disconnect {
+										log::trace!(
+											target: LOG_TARGET,
+											"{}: close connection to previously reserved {peer:?}, direction {direction:?}",
+											self.protocol,
+										);
+
+										self.peers.insert(*peer, PeerState::Closing { direction });
+										true
+									} else {
+										log::trace!(
+											target: LOG_TARGET,
+											"{}: {peer:?} is no longer reserved, move to regular peers, direction {direction:?}",
+											self.protocol,
+										);
+
+										// The peer is kept connected as non-reserved. This will
+										// further count towards the slot count.
+										direction.set_reserved(Reserved::No);
+										match direction {
+											Direction::Inbound(_) => self.num_in += 1,
+											Direction::Outbound(_) => self.num_out += 1,
+										}
+
+										self.peers
+											.insert(*peer, PeerState::Connected { direction });
+										false
+									}
 								},
 								// substream might have been opening but not yet fully open when
 								// the protocol request the reserved set to be changed
@@ -1102,6 +1141,7 @@ impl Stream for Peerset {
 									self.peers.insert(*peer, PeerState::Backoff);
 									None
 								},
+
 								// if there is a rapid change in substream state, the peer may
 								// be canceled when the substream is asked to be closed.
 								//
@@ -1122,6 +1162,7 @@ impl Stream for Peerset {
 									self.peers.insert(*peer, PeerState::Canceled { direction });
 									None
 								},
+
 								// substream to the peer might have failed to open which caused
 								// the peer to be backed off
 								//
@@ -1138,6 +1179,7 @@ impl Stream for Peerset {
 									self.peers.insert(*peer, PeerState::Disconnected);
 									None
 								},
+
 								// if a node disconnects, it's put into `PeerState::Closing`
 								// which indicates that `Peerset` wants the substream closed and
 								// has asked litep2p to close it but it hasn't yet received a
@@ -1167,125 +1209,82 @@ impl Stream for Peerset {
 								// if there are enough slots, the peer is just converted to
 								// a regular peer and the used slot count is increased and if the
 								// peer cannot be accepted, litep2p is asked to close the substream.
-								PeerState::Connected { direction } => match direction {
-									Direction::Inbound(_) => match self.num_in < self.max_in {
-										true => {
-											log::trace!(
-												target: LOG_TARGET,
-												"{}: {peer:?} converted to regular inbound peer (inbound open)",
-												self.protocol,
-											);
+								PeerState::Connected { mut direction } => {
+									let disconnect = match direction {
+										Direction::Inbound(_) => self.num_in >= self.max_in,
+										Direction::Outbound(_) => self.num_out >= self.max_out,
+									};
 
-											self.num_in += 1;
-											self.peers.insert(
-												*peer,
-												PeerState::Connected {
-													direction: Direction::Inbound(Reserved::No),
-												},
-											);
+									if disconnect {
+										log::trace!(
+											target: LOG_TARGET,
+											"{}: close connection to removed reserved {peer:?}, direction {direction:?}",
+											self.protocol,
+										);
 
-											None
-										},
-										false => {
-											self.peers.insert(
-												*peer,
-												PeerState::Closing {
-													direction: Direction::Inbound(Reserved::Yes),
-												},
-											);
+										self.peers.insert(*peer, PeerState::Closing { direction });
+										Some(*peer)
+									} else {
+										log::trace!(
+											target: LOG_TARGET,
+											"{}: {peer:?} converted to regular peer {peer:?} direction {direction:?}",
+											self.protocol,
+										);
 
-											Some(*peer)
-										},
-									},
-									Direction::Outbound(_) => match self.num_out < self.max_out {
-										true => {
-											log::trace!(
-												target: LOG_TARGET,
-												"{}: {peer:?} converted to regular outbound peer (outbound open)",
-												self.protocol,
-											);
+										// The peer is kept connected as non-reserved. This will
+										// further count towards the slot count.
+										direction.set_reserved(Reserved::No);
+										match direction {
+											Direction::Inbound(_) => self.num_in += 1,
+											Direction::Outbound(_) => self.num_out += 1,
+										}
 
-											self.num_out += 1;
-											self.peers.insert(
-												*peer,
-												PeerState::Connected {
-													direction: Direction::Outbound(Reserved::No),
-												},
-											);
+										self.peers
+											.insert(*peer, PeerState::Connected { direction });
 
-											None
-										},
-										false => {
-											self.peers.insert(
-												*peer,
-												PeerState::Closing {
-													direction: Direction::Outbound(Reserved::Yes),
-												},
-											);
-
-											Some(*peer)
-										},
-									},
+										None
+									}
 								},
-								PeerState::Opening { direction } => match direction {
-									Direction::Inbound(_) => match self.num_in < self.max_in {
-										true => {
-											log::trace!(
-												target: LOG_TARGET,
-												"{}: {peer:?} converted to regular inbound peer (inbound opening)",
-												self.protocol,
-											);
 
-											self.num_in += 1;
-											self.peers.insert(
-												*peer,
-												PeerState::Opening {
-													direction: Direction::Inbound(Reserved::No),
-												},
-											);
+								PeerState::Opening { mut direction } => {
+									let disconnect = match direction {
+										Direction::Inbound(_) => self.num_in >= self.max_in,
+										Direction::Outbound(_) => self.num_out >= self.max_out,
+									};
 
-											None
-										},
-										false => {
-											self.peers.insert(
-												*peer,
-												PeerState::Canceled {
-													direction: Direction::Inbound(Reserved::Yes),
-												},
-											);
+									if disconnect {
+										log::trace!(
+											target: LOG_TARGET,
+											"{}: cancel substream to disconnect removed reserved peer {peer:?}, direction {direction:?}",
+											self.protocol,
+										);
 
-											None
-										},
-									},
-									Direction::Outbound(_) => match self.num_out < self.max_out {
-										true => {
-											log::trace!(
-												target: LOG_TARGET,
-												"{}: {peer:?} converted to regular outbound peer (outbound opening)",
-												self.protocol,
-											);
+										self.peers.insert(
+											*peer,
+											PeerState::Canceled {
+												direction
+											},
+										);
+									} else {
+										log::trace!(
+											target: LOG_TARGET,
+											"{}: {peer:?} converted to regular peer {peer:?} direction {direction:?}",
+											self.protocol,
+										);
 
-											self.num_out += 1;
-											self.peers.insert(
-												*peer,
-												PeerState::Opening {
-													direction: Direction::Outbound(Reserved::No),
-												},
-											);
+										// The peer is kept connected as non-reserved. This will
+										// further count towards the slot count.
+										direction.set_reserved(Reserved::No);
+										match direction {
+											Direction::Inbound(_) => self.num_in += 1,
+											Direction::Outbound(_) => self.num_out += 1,
+										}
 
-											None
-										},
-										false => {
-											self.peers.insert(
-												*peer,
-												PeerState::Canceled {
-													direction: Direction::Outbound(Reserved::Yes),
-												},
-											);
+										self.peers
+											.insert(*peer, PeerState::Opening { direction });
+									}
 
-											None
-										},
-									},
+									None
 								},
 							}
 						})
@@ -1373,12 +1372,17 @@ impl Stream for Peerset {
 			// if the number of outbound peers is lower than the desired amount of outbound peers,
 			// query `PeerStore` and try to get a new outbound candidated.
 			if self.num_out < self.max_out && !self.reserved_only {
+				// From the candidates offered by the peerstore we need to ignore:
+				// - all peers that are not in the `PeerState::Disconnected` state (ie they are
+				//   connected / closing)
+				// - reserved peers since we initiated a connection to them in the previous step
 				let ignore: HashSet<PeerId> = self
 					.peers
 					.iter()
 					.filter_map(|(peer, state)| {
 						(!std::matches!(state, PeerState::Disconnected)).then_some(*peer)
 					})
+					.chain(self.reserved_peers.iter().cloned())
 					.collect();
 
 				let peers: Vec<_> =
