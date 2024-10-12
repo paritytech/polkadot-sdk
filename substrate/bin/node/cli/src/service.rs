@@ -138,8 +138,6 @@ pub fn create_extrinsic(
 				>::from(tip, None),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
-			pallet_revive::evm::runtime::CheckEthTransact::<kitchensink_runtime::Runtime>::default(
-			),
 		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
@@ -155,7 +153,6 @@ pub fn create_extrinsic(
 			(),
 			(),
 			None,
-			(),
 		),
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
@@ -1070,7 +1067,6 @@ mod tests {
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
-				let check_eth_transact = pallet_revive::evm::runtime::CheckEthTransact::default();
 				let extra = (
 					check_non_zero_sender,
 					check_spec_version,
@@ -1081,7 +1077,6 @@ mod tests {
 					check_weight,
 					tx_payment,
 					metadata_hash,
-					check_eth_transact,
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
@@ -1096,7 +1091,6 @@ mod tests {
 						(),
 						(),
 						None,
-						(),
 					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));

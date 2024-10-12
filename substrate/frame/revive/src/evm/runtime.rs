@@ -111,11 +111,15 @@ impl<Call: TypeInfo, E: EthExtra> ExtrinsicCall for UncheckedExtrinsic<Call, E> 
 	}
 }
 
+type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
+
 impl<Call, E, Lookup> Checkable<Lookup> for UncheckedExtrinsic<Call, E>
 where
 	Call: Encode + Member,
 	E: EthExtra,
 	<E::Config as frame_system::Config>::Nonce: TryFrom<U256>,
+	<E::Config as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	OnChargeTransactionBalanceOf<E::Config>: Into<BalanceOf<E::Config>>,
 	BalanceOf<E::Config>: Into<U256> + TryFrom<U256>,
 	MomentOf<E::Config>: Into<U256>,
 
@@ -141,6 +145,7 @@ where
 						gas_limit,
 						storage_deposit_limit,
 						transact_kind,
+						self.encoded_size(),
 					)?;
 					return Ok(checked)
 				};
@@ -188,111 +193,47 @@ impl<'a, Call: Decode, E: EthExtra> serde::Deserialize<'a> for UncheckedExtrinsi
 	}
 }
 
-/// A [`SignedExtension`] that performs pre-dispatch checks on the Ethereum transaction's fees.
-#[derive(DebugNoBound, DefaultNoBound, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct CheckEthTransact<T: Config> {
-	/// The gas fee, computed from the signed Ethereum transaction.
-	///
-	/// # Note
-	///
-	/// This is marked as `#[codec(skip)]` as this extracted from the Ethereum transaction and
-	/// should have a zero size encoded representation.
-	#[codec(skip)]
-	eth_fee: Option<BalanceOf<T>>,
-	_phantom: core::marker::PhantomData<T>,
-}
-
-impl<T: Config> CheckEthTransact<T> {
-	/// Create a new `CheckEthTransact` with the given eth_fee.
-	pub fn from(eth_fee: BalanceOf<T>) -> Self {
-		Self { eth_fee: Some(eth_fee), _phantom: Default::default() }
-	}
-}
-
-impl<T: Send + Sync> SignedExtension for CheckEthTransact<T>
-where
-	T: Config + pallet_transaction_payment::Config,
-	<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	<<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance: Into<BalanceOf<T>>,
-{
-	const IDENTIFIER: &'static str = "CheckEthTransact";
-	type AccountId = T::AccountId;
-	type Call = <T as frame_system::Config>::RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = ();
-
-	fn additional_signed(
-		&self,
-	) -> Result<Self::AdditionalSigned, sp_runtime::transaction_validity::TransactionValidityError>
-	{
-		Ok(())
-	}
-
-	fn pre_dispatch(
-		self,
-		_who: &Self::AccountId,
-		call: &Self::Call,
-		info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
-		let Some(eth_fee) = self.eth_fee else {
-			return Ok(())
-		};
-
-		let tip = Default::default();
-
-		let actual_fee: BalanceOf<T> =
-			pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, tip).into();
-
-		// Make sure that that the fee are not more than 5% higher than the eth_fee
-		if actual_fee > eth_fee &&
-			Percent::from_rational(actual_fee - eth_fee, eth_fee) > Percent::from_percent(5)
-		{
-			log::debug!(target: LOG_TARGET, "fees {actual_fee:?} should be no more than 5% higher than fees calculated from the Ethereum transaction {eth_fee:?}");
-			return Err(InvalidTransaction::Call.into())
-		}
-
-		Ok(())
-	}
-}
-
 /// EthExtra convert an unsigned [`crate::Call::eth_transact`] into a [`CheckedExtrinsic`].
 pub trait EthExtra {
 	/// The Runtime configuration.
-	type Config: crate::Config;
+	type Config: crate::Config + pallet_transaction_payment::Config;
 
 	/// The Runtime's signed extension.
 	/// It should include at least:
 	/// - [`frame_system::CheckNonce`] to ensure that the nonce from the Ethereum transaction is
 	///   correct.
-	/// - [`CheckEthTransact`] to ensure that the fees from the Ethereum transaction
-	/// correspond to the pre-dispatch fees computed from the extrinsic.
 	type Extra: SignedExtension<AccountId = AccountId32>;
 
 	/// Get the signed extensions to apply to an unsigned [`crate::Call::eth_transact`] extrinsic.
 	///
 	/// # Parameters
 	/// - `nonce`: The nonce from the Ethereum transaction.
-	/// - `gas_fee`: The gas fee from the Ethereum transaction.
-	fn get_eth_transact_extra(
-		nonce: <Self::Config as frame_system::Config>::Nonce,
-		gas_fee: BalanceOf<Self::Config>,
-	) -> Self::Extra;
+	fn get_eth_transact_extra(nonce: <Self::Config as frame_system::Config>::Nonce) -> Self::Extra;
 
 	/// Convert the unsigned [`crate::Call::eth_transact`] into a [`CheckedExtrinsic`].
+	/// and ensure that the fees from the Ethereum transaction correspond to the fees computed from
+	/// the encoded_len, the injected gas_limit and storage_deposit_limit.
+	///
+	/// # Parameters
+	/// - `payload`: The RLP-encoded Ethereum transaction.
+	/// - `gas_limit`: The gas limit for the extrinsic
+	/// - `storage_deposit_limit`: The storage deposit limit for the extrinsic,
+	/// - `transact_kind`: The kind of Ethereum transaction.
+	/// - `encoded_len`: The encoded length of the extrinsic.
 	fn try_into_checked_extrinsic<Call>(
 		payload: Vec<u8>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<Self::Config>,
 		transact_kind: EthTransactKind,
+		encoded_len: usize,
 	) -> Result<CheckedExtrinsic<AccountId32, Call, Self::Extra>, InvalidTransaction>
 	where
 		<Self::Config as frame_system::Config>::Nonce: TryFrom<U256>,
 		BalanceOf<Self::Config>: Into<U256> + TryFrom<U256>,
 		MomentOf<Self::Config>: Into<U256>,
 		AccountIdOf<Self::Config>: Into<AccountId32>,
+		<Self::Config as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+		OnChargeTransactionBalanceOf<Self::Config>: Into<BalanceOf<Self::Config>>,
 		Call: From<crate::Call<Self::Config>> + TryInto<crate::Call<Self::Config>>,
 	{
 		let tx = rlp::decode::<TransactionLegacySigned>(&payload).map_err(|err| {
@@ -365,11 +306,30 @@ pub trait EthExtra {
 		let nonce = nonce.try_into().map_err(|_| InvalidTransaction::Call)?;
 		let eth_fee =
 			gas_price.saturating_mul(gas).try_into().map_err(|_| InvalidTransaction::Call)?;
+		let info = call.get_dispatch_info();
+		let function: Call = call.into();
+
+		let tip = Default::default();
+		let actual_fee: BalanceOf<Self::Config> =
+			pallet_transaction_payment::Pallet::<Self::Config>::compute_fee(
+				encoded_len as u32,
+				&info,
+				tip,
+			)
+			.into();
+
+		if actual_fee > eth_fee &&
+			Percent::from_rational(actual_fee - eth_fee, eth_fee) > Percent::from_percent(5)
+		{
+			log::debug!(target: LOG_TARGET, "fees {actual_fee:?} should be no more than 5% higher
+		 than fees calculated from the Ethereum transaction {eth_fee:?}");
+			return Err(InvalidTransaction::Call.into())
+		}
 
 		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce {nonce:?}");
 		Ok(CheckedExtrinsic {
-			signed: Some((signer.into(), Self::get_eth_transact_extra(nonce, eth_fee))),
-			function: call.into(),
+			signed: Some((signer.into(), Self::get_eth_transact_extra(nonce))),
+			function,
 		})
 	}
 }
@@ -429,10 +389,10 @@ mod test {
 
 	impl EthExtra for Extra {
 		type Config = Test;
-		type Extra = (frame_system::CheckNonce<Test>, CheckEthTransact<Test>);
+		type Extra = frame_system::CheckNonce<Test>;
 
-		fn get_eth_transact_extra(nonce: u32, eth_fee: u64) -> Self::Extra {
-			(frame_system::CheckNonce::from(nonce), CheckEthTransact::from(eth_fee))
+		fn get_eth_transact_extra(nonce: u32) -> Self::Extra {
+			frame_system::CheckNonce::from(nonce)
 		}
 	}
 

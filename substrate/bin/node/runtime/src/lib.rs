@@ -1473,7 +1473,6 @@ where
 				),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
-			pallet_revive::evm::runtime::CheckEthTransact::<Runtime>::default(),
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
@@ -2572,7 +2571,6 @@ pub type SignedExtra = (
 		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 	>,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
-	pallet_revive::evm::runtime::CheckEthTransact<Runtime>,
 );
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -2582,7 +2580,7 @@ impl EthExtra for EthSignedExtra {
 	type Config = Runtime;
 	type Extra = SignedExtra;
 
-	fn get_eth_transact_extra(nonce: u32, eth_fee: u128) -> Self::Extra {
+	fn get_eth_transact_extra(nonce: u32) -> Self::Extra {
 		(
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
@@ -2594,7 +2592,6 @@ impl EthExtra for EthSignedExtra {
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None)
 				.into(),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
-			pallet_revive::evm::runtime::CheckEthTransact::<Runtime>::from(eth_fee),
 		)
 	}
 }
