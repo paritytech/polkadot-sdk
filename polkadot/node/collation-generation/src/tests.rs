@@ -1090,7 +1090,6 @@ mod helpers {
 					unpin_handle: polkadot_node_subsystem_test_helpers::mock::dummy_unpin_handle(
 						activated_hash,
 					),
-					span: Arc::new(overseer::jaeger::Span::Disabled),
 				}),
 				..Default::default()
 			})))
