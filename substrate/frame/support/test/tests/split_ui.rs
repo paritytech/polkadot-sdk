@@ -32,5 +32,5 @@ fn split_ui() {
 
 	let t = trybuild::TestCases::new();
 	t.compile_fail("tests/split_ui/*.rs");
-	t.pass("tests/split_ui/pass/split_*.rs");
+	t.pass("tests/split_ui/pass/*.rs");
 }
