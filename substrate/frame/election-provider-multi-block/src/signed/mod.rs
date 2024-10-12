@@ -481,6 +481,7 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		pub fn register(origin: OriginFor<T>, claimed_score: ElectionScore) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
 			ensure!(
 				crate::Pallet::<T>::current_phase().is_signed(),
 				Error::<T>::NotAcceptingSubmissions
@@ -608,6 +609,7 @@ pub mod pallet {
 		/// - Start async verification at the beginning of the [`crate::Phase::SignedValidation`].
 		/// - Stopns async verification at the beginning of the [`crate::Phase::Unsigned`].
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			// TODO: match
 			if crate::Pallet::<T>::current_phase().is_signed_validation_open_at(Some(now)) {
 				let _ = <T::Verifier as AsyncVerifier>::start().defensive();
 			};
@@ -615,6 +617,15 @@ pub mod pallet {
 			if crate::Pallet::<T>::current_phase().is_unsigned_open_at(now) {
 				sublog!(info, "signed", "signed validation phase ended, signaling the verifier.");
 				<T::Verifier as AsyncVerifier>::stop();
+			}
+
+			if crate::Pallet::<T>::current_phase() == crate::Phase::Off {
+				sublog!(info, "signed", "clear up storage for pallets.");
+
+				// TODO: optimize.
+				let _ = SubmissionMetadataStorage::<T>::clear(u32::MAX, None);
+				let _ = SubmissionStorage::<T>::clear(u32::MAX, None);
+				let _ = SortedScores::<T>::clear(u32::MAX, None);
 			}
 
 			Weight::default()
