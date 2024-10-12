@@ -628,7 +628,6 @@ impl pallet_epm_core::Config for Runtime {
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type Pages = Pages;
 	type ExportPhaseLimit = ExportPhaseLimit;
-	type Solution = NposCompactSolution;
 	type MinerConfig = Self;
 	type Fallback = frame_election_provider_support::NoElection<(
 		AccountId,
