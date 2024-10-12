@@ -17,9 +17,6 @@ use paste::paste;
 #[cfg(target_arch = "wasm32")]
 mod wasm32;
 
-#[cfg(target_arch = "riscv32")]
-mod riscv32;
-
 macro_rules! hash_fn {
 	( $name:ident, $bytes:literal ) => {
 		paste! {
@@ -66,7 +63,7 @@ fn ptr_or_sentinel(data: &Option<&[u8]>) -> *const u8 {
 /// Implements [`HostFn`] for each supported target architecture.
 pub enum HostFnImpl {}
 
-/// Defines all the host apis implemented by both wasm and RISC-V vms.
+/// Defines all the host apis implemented by the wasm vm.
 pub trait HostFn: private::Sealed {
 	/// Returns the number of times specified contract exists on the call stack. Delegated calls are
 	/// not counted as separate calls.

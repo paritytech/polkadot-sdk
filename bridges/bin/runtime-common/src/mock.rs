@@ -18,16 +18,15 @@
 
 #![cfg(test)]
 
-use crate::messages_xcm_extension::XcmAsPlainPayload;
-
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
-	ChainWithMessages, LaneId, MessageNonce,
+	ChainWithMessages, HashedLaneId, LaneIdType, MessageNonce,
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_relayers::PayRewardFromAccount;
 use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, Parachain};
+use codec::Encode;
 use frame_support::{
 	derive_impl, parameter_types,
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight},
@@ -71,7 +70,7 @@ pub type BridgedChainHeader =
 	sp_runtime::generic::Header<BridgedChainBlockNumber, BridgedChainHasher>;
 
 /// Rewards payment procedure.
-pub type TestPaymentProcedure = PayRewardFromAccount<Balances, ThisChainAccountId>;
+pub type TestPaymentProcedure = PayRewardFromAccount<Balances, ThisChainAccountId, TestLaneIdType>;
 /// Stake that we are using in tests.
 pub type TestStake = ConstU64<5_000>;
 /// Stake and slash mechanism to use in tests.
@@ -84,8 +83,13 @@ pub type TestStakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 	ConstU32<8>,
 >;
 
-/// Message lane used in tests.
-pub const TEST_LANE_ID: LaneId = LaneId([0, 0, 0, 0]);
+/// Lane identifier type used for tests.
+pub type TestLaneIdType = HashedLaneId;
+/// Lane that we're using in tests.
+pub fn test_lane_id() -> TestLaneIdType {
+	TestLaneIdType::try_new(1, 2).unwrap()
+}
+
 /// Bridged chain id used in tests.
 pub const TEST_BRIDGED_CHAIN_ID: ChainId = *b"brdg";
 /// Maximal extrinsic size at the `BridgedChain`.
@@ -111,7 +115,6 @@ crate::generate_bridge_reject_obsolete_headers_and_messages! {
 }
 
 parameter_types! {
-	pub const ActiveOutboundLanes: &'static [LaneId] = &[TEST_LANE_ID];
 	pub const BridgedParasPalletName: &'static str = "Paras";
 	pub const ExistentialDeposit: ThisChainBalance = 500;
 	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight { read: 1, write: 2 };
@@ -185,13 +188,12 @@ impl pallet_bridge_parachains::Config for TestRuntime {
 impl pallet_bridge_messages::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<TestRuntime>;
-	type ActiveOutboundLanes = ActiveOutboundLanes;
 
-	type OutboundPayload = XcmAsPlainPayload;
-
+	type OutboundPayload = Vec<u8>;
 	type InboundPayload = Vec<u8>;
-	type DeliveryPayments = ();
+	type LaneId = TestLaneIdType;
 
+	type DeliveryPayments = ();
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		TestRuntime,
 		(),
@@ -212,31 +214,36 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;
 	type WeightInfo = ();
+	type LaneId = TestLaneIdType;
 }
 
 /// Dummy message dispatcher.
 pub struct DummyMessageDispatch;
 
 impl DummyMessageDispatch {
-	pub fn deactivate() {
-		frame_support::storage::unhashed::put(&b"inactive"[..], &false);
+	pub fn deactivate(lane: TestLaneIdType) {
+		frame_support::storage::unhashed::put(&(b"inactive", lane).encode()[..], &false);
 	}
 }
 
 impl MessageDispatch for DummyMessageDispatch {
 	type DispatchPayload = Vec<u8>;
 	type DispatchLevelResult = ();
+	type LaneId = TestLaneIdType;
 
-	fn is_active() -> bool {
-		frame_support::storage::unhashed::take::<bool>(&b"inactive"[..]) != Some(false)
+	fn is_active(lane: Self::LaneId) -> bool {
+		frame_support::storage::unhashed::take::<bool>(&(b"inactive", lane).encode()[..]) !=
+			Some(false)
 	}
 
-	fn dispatch_weight(_message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
+	fn dispatch_weight(
+		_message: &mut DispatchMessage<Self::DispatchPayload, Self::LaneId>,
+	) -> Weight {
 		Weight::zero()
 	}
 
 	fn dispatch(
-		_: DispatchMessage<Self::DispatchPayload>,
+		_: DispatchMessage<Self::DispatchPayload, Self::LaneId>,
 	) -> MessageDispatchResult<Self::DispatchLevelResult> {
 		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result: () }
 	}

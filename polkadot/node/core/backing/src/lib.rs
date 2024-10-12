@@ -89,8 +89,9 @@ use polkadot_node_subsystem::{
 		AvailabilityDistributionMessage, AvailabilityStoreMessage, CanSecondRequest,
 		CandidateBackingMessage, CandidateValidationMessage, CollatorProtocolMessage,
 		HypotheticalCandidate, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
-		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, RuntimeApiMessage,
-		RuntimeApiRequest, StatementDistributionMessage, StoreAvailableDataError,
+		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, PvfExecKind,
+		RuntimeApiMessage, RuntimeApiRequest, StatementDistributionMessage,
+		StoreAvailableDataError,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -100,17 +101,18 @@ use polkadot_node_subsystem_util::{
 	executor_params_at_relay_parent, request_from_runtime, request_session_index_for_child,
 	request_validator_groups, request_validators,
 	runtime::{
-		self, prospective_parachains_mode, request_min_backing_votes, ProspectiveParachainsMode,
+		self, fetch_claim_queue, prospective_parachains_mode, request_min_backing_votes,
+		ClaimQueueSnapshot, ProspectiveParachainsMode,
 	},
-	vstaging::{fetch_claim_queue, ClaimQueueSnapshot},
 	Validator,
 };
+use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::{
 	node_features::FeatureIndex, BackedCandidate, CandidateCommitments, CandidateHash,
 	CandidateReceipt, CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex,
 	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData,
-	PvfExecKind, SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex,
-	ValidatorSignature, ValidityAttestation,
+	SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
+	ValidityAttestation,
 };
 use polkadot_statement_table::{
 	generic::AttestedCandidate as TableAttestedCandidate,
@@ -121,7 +123,7 @@ use polkadot_statement_table::{
 	Config as TableConfig, Context as TableContextTrait, Table,
 };
 use sp_keystore::KeystorePtr;
-use util::{runtime::request_node_features, vstaging::get_disabled_validators_with_fallback};
+use util::runtime::{get_disabled_validators_with_fallback, request_node_features};
 
 mod error;
 
@@ -625,6 +627,7 @@ async fn request_candidate_validation(
 	executor_params: ExecutorParams,
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
+	let is_system = candidate_receipt.descriptor.para_id.is_system();
 
 	sender
 		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
@@ -633,7 +636,11 @@ async fn request_candidate_validation(
 			candidate_receipt,
 			pov,
 			executor_params,
-			exec_kind: PvfExecKind::Backing,
+			exec_kind: if is_system {
+				PvfExecKind::BackingSystemParas
+			} else {
+				PvfExecKind::Backing
+			},
 			response_sender: tx,
 		})
 		.await;

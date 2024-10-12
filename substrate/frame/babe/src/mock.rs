@@ -25,12 +25,12 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64, KeyOwnerProofSystem, OnInitialize},
+	traits::{ConstU128, ConstU32, ConstU64, OnInitialize},
 };
 use pallet_session::historical as pallet_session_historical;
 use sp_consensus_babe::{AuthorityId, AuthorityPair, Randomness, Slot, VrfSignature};
 use sp_core::{
-	crypto::{KeyTypeId, Pair, VrfSecret},
+	crypto::{Pair, VrfSecret},
 	U256,
 };
 use sp_io;
@@ -182,7 +182,7 @@ impl Config for Test {
 	type WeightInfo = ();
 	type MaxAuthorities = ConstU32<10>;
 	type MaxNominators = ConstU32<100>;
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, AuthorityId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		super::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -291,7 +291,7 @@ pub fn new_test_ext_with_pairs(
 	authorities_len: usize,
 ) -> (Vec<AuthorityPair>, sp_io::TestExternalities) {
 	let pairs = (0..authorities_len)
-		.map(|i| AuthorityPair::from_seed(&U256::from(i).into()))
+		.map(|i| AuthorityPair::from_seed(&U256::from(i).to_little_endian()))
 		.collect::<Vec<_>>();
 
 	let public = pairs.iter().map(|p| p.public()).collect();

@@ -36,7 +36,9 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
+use cumulus_primitives_core::{
+	ClaimQueueOffset, CollectCollationInfo, PersistedValidationData, DEFAULT_CLAIM_QUEUE_OFFSET,
+};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::{PoV, SubmitCollationParams};
@@ -260,6 +262,7 @@ where
 				relay_parent,
 				params.para_id,
 				&mut params.relay_client,
+				ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET),
 			)
 			.await
 			.get(0)
@@ -412,6 +415,16 @@ where
 				)
 				.await;
 
+				let allowed_pov_size = if cfg!(feature = "full-pov-size") {
+					validation_data.max_pov_size
+				} else {
+					// Set the block limit to 50% of the maximum PoV size.
+					//
+					// TODO: If we got benchmarking that includes the proof size,
+					// we should be able to use the maximum pov size.
+					validation_data.max_pov_size / 2
+				} as usize;
+
 				match collator
 					.collate(
 						&parent_header,
@@ -419,12 +432,7 @@ where
 						None,
 						(parachain_inherent_data, other_inherent_data),
 						params.authoring_duration,
-						// Set the block limit to 50% of the maximum PoV size.
-						//
-						// TODO: If we got benchmarking that includes the proof size,
-						// we should be able to use the maximum pov size.
-						//(validation_data.max_pov_size / 2) as usize,
-						validation_data.max_pov_size as usize,
+						allowed_pov_size,
 					)
 					.await
 				{

@@ -62,6 +62,18 @@ pub type Result = core::result::Result<(), sp_runtime::RuntimeString>;
 /// The type representing preset ID.
 pub type PresetId = sp_runtime::RuntimeString;
 
+/// The default `development` preset used to communicate with the runtime via
+/// [`GenesisBuilder`] interface.
+///
+/// (Recommended for testing with a single node, e.g., for benchmarking)
+pub const DEV_RUNTIME_PRESET: &'static str = "development";
+
+/// The default `local_testnet` preset used to communicate with the runtime via
+/// [`GenesisBuilder`] interface.
+///
+/// (Recommended for local testing with multiple nodes)
+pub const LOCAL_TESTNET_RUNTIME_PRESET: &'static str = "local_testnet";
+
 sp_api::decl_runtime_apis! {
 	/// API to interact with RuntimeGenesisConfig for the runtime
 	pub trait GenesisBuilder {
@@ -85,7 +97,7 @@ sp_api::decl_runtime_apis! {
 		///
 		/// Otherwise function returns a JSON representation of the built-in, named
 		/// `RuntimeGenesisConfig` preset identified by `id`, or `None` if such preset does not
-		/// exists. Returned `Vec<u8>` contains bytes of JSON blob (patch) which comprises a list of
+		/// exist. Returned `Vec<u8>` contains bytes of JSON blob (patch) which comprises a list of
 		/// (potentially nested) key-value pairs that are intended for customizing the default
 		/// runtime genesis config. The patch shall be merged (rfc7386) with the JSON representation
 		/// of the default `RuntimeGenesisConfig` to create a comprehensive genesis config that can

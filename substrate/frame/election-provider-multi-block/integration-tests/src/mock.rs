@@ -969,6 +969,10 @@ pub(crate) fn set_minimum_election_score(
 	todo!()
 }
 
+pub(crate) fn staked_amount_for(account_id: AccountId) -> Balance {
+	pallet_staking::asset::staked::<Runtime>(&account_id)
+}
+
 pub(crate) fn staking_events() -> Vec<pallet_staking::Event<T>> {
 	System::events()
 		.into_iter()

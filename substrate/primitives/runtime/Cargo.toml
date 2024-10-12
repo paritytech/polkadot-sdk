@@ -32,9 +32,11 @@ sp-arithmetic = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-std = { workspace = true }
+sp-trie = { workspace = true }
 sp-weights = { workspace = true }
 docify = { workspace = true }
 tracing = { workspace = true, features = ["log"], default-features = false }
+binary-merkle-tree = { workspace = true }
 
 simple-mermaid = { version = "0.1.1", optional = true }
 
@@ -52,6 +54,7 @@ runtime-benchmarks = []
 try-runtime = []
 default = ["std"]
 std = [
+	"binary-merkle-tree/std",
 	"codec/std",
 	"either/use_std",
 	"hash256-std-hasher/std",
@@ -69,6 +72,7 @@ std = [
 	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-tracing/std",
+	"sp-trie/std",
 	"sp-weights/std",
 	"tracing/std",
 ]

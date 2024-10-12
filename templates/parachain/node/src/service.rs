@@ -77,15 +77,16 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 		.transpose()?;
 
 	let heap_pages = config
+		.executor
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h as _ });
 
 	let executor = ParachainExecutor::builder()
-		.with_execution_method(config.wasm_method)
+		.with_execution_method(config.executor.wasm_method)
 		.with_onchain_heap_alloc_strategy(heap_pages)
 		.with_offchain_heap_alloc_strategy(heap_pages)
-		.with_max_runtime_instances(config.max_runtime_instances)
-		.with_runtime_cache_size(config.runtime_cache_size)
+		.with_max_runtime_instances(config.executor.max_runtime_instances)
+		.with_runtime_cache_size(config.executor.runtime_cache_size)
 		.build();
 
 	let (client, backend, keystore_container, task_manager) =
@@ -305,12 +306,9 @@ pub async fn start_parachain_node(
 		let client = client.clone();
 		let transaction_pool = transaction_pool.clone();
 
-		Box::new(move |deny_unsafe, _| {
-			let deps = crate::rpc::FullDeps {
-				client: client.clone(),
-				pool: transaction_pool.clone(),
-				deny_unsafe,
-			};
+		Box::new(move |_| {
+			let deps =
+				crate::rpc::FullDeps { client: client.clone(), pool: transaction_pool.clone() };
 
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})
@@ -336,7 +334,7 @@ pub async fn start_parachain_node(
 		// Here you can check whether the hardware meets your chains' requirements. Putting a link
 		// in there and swapping out the requirements for your own are probably a good idea. The
 		// requirements for a para-chain are dictated by its relay-chain.
-		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) {
+		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench, false) {
 			Err(err) if validator => {
 				log::warn!(
 				"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority'.",

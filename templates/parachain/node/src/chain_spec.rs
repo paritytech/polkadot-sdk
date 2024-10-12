@@ -10,9 +10,6 @@ use staking_runtime as runtime;
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
 
-/// The default XCM version to set in genesis config.
-const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
-
 /// The extensions for the [`ChainSpec`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
 pub struct Extensions {
@@ -31,14 +28,7 @@ impl Extensions {
 	}
 }
 
-/// Generate the session keys from individual elements.
-///
-/// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn template_session_keys(keys: AuraId) -> runtime::SessionKeys {
-	runtime::SessionKeys { aura: keys }
-}
-
-pub fn development_config() -> ChainSpec {
+pub fn development_chain_spec() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "UNIT".into());
@@ -56,39 +46,11 @@ pub fn development_config() -> ChainSpec {
 	.with_name("Development")
 	.with_id("dev")
 	.with_chain_type(ChainType::Development)
-	.with_genesis_config_patch(testnet_genesis(
-		// initial collators.
-		vec![
-			(
-				utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
-				utils::get_collator_keys_from_seed("Alice"),
-			),
-			(
-				utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
-				utils::get_collator_keys_from_seed("Bob"),
-			),
-		],
-		vec![
-			utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Dave"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Eve"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-		],
-		utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
-		2000.into(),
-	))
+	.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
 	.build()
 }
 
-pub fn local_testnet_config() -> ChainSpec {
+pub fn local_chain_spec() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "UNIT".into());
@@ -103,29 +65,7 @@ pub fn local_testnet_config() -> ChainSpec {
 	.with_name("Local Testnet")
 	.with_id("local_testnet")
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_patch(testnet_genesis(
-		// initial collators.
-		vec![(
-			utils::get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			utils::get_collator_keys_from_seed("Charlie"),
-		)],
-		vec![
-			utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Dave"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Eve"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-			utils::get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-		],
-		utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
-		2000.into(),
-	))
+	.with_genesis_config_preset_name(sc_chain_spec::LOCAL_TESTNET_RUNTIME_PRESET)
 	.with_protocol_id("template-local")
 	.with_properties(properties)
 	.build()
@@ -191,13 +131,10 @@ fn testnet_genesis(
 					(
 						acc.clone(),                 // account id
 						acc,                         // validator id
-						template_session_keys(aura), // session keys
+						//template_session_keys(aura), // session keys
 					)
 				})
 			.collect::<Vec<_>>(),
-		},
-		"polkadotXcm": {
-			"safeXcmVersion": Some(SAFE_XCM_VERSION),
 		},
 		"sudo": { "key": Some(root) },
 		"staking": staking_gen

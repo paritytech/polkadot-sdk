@@ -21,12 +21,19 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl,
 	dispatch::Pays,
 	parameter_types,
-	traits::{ConstU32, ConstU64, StorageVersion},
+	traits::{
+		fungible::{HoldConsideration, Inspect, Mutate},
+		ConstU32, ConstU64, StorageVersion,
+	},
 	Hashable,
 };
 use frame_system::{EnsureRoot, EventRecord, Phase};
-use sp_core::H256;
-use sp_runtime::{testing::Header, traits::BlakeTwo256, BuildStorage};
+use sp_core::{ConstU128, H256};
+use sp_runtime::{
+	testing::Header,
+	traits::{BlakeTwo256, Convert, Zero},
+	BuildStorage, FixedU128,
+};
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, u64, RuntimeCall, ()>;
@@ -35,6 +42,7 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
+		Balances: pallet_balances,
 		Collective: pallet_collective::<Instance1>,
 		CollectiveMajority: pallet_collective::<Instance2>,
 		DefaultCollective: pallet_collective,
@@ -90,7 +98,26 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type AccountData = pallet_balances::AccountData<u64>;
 }
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+impl pallet_balances::Config for Test {
+	type ReserveIdentifier = [u8; 8];
+	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
+}
+
+parameter_types! {
+	pub ProposalDepositBase: u64 = Balances::minimum_balance() + Balances::minimum_balance();
+	pub const ProposalDepositDelay: u32 = 2;
+	pub const ProposalHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Collective(pallet_collective::HoldReason::ProposalSubmission);
+}
+
+type CollectiveDeposit =
+	deposit::Delayed<ProposalDepositDelay, deposit::Constant<ProposalDepositBase>>;
+
 impl Config<Instance1> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Proposal = RuntimeCall;
@@ -102,7 +129,14 @@ impl Config<Instance1> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type DisapproveOrigin = EnsureRoot<AccountId>;
+	type KillOrigin = EnsureRoot<AccountId>;
+	type Consideration =
+		HoldConsideration<AccountId, Balances, ProposalHoldReason, CollectiveDeposit, u32>;
 }
+
+type CollectiveMajorityDeposit = deposit::Linear<ConstU32<2>, ProposalDepositBase>;
+
 impl Config<Instance2> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Proposal = RuntimeCall;
@@ -114,11 +148,22 @@ impl Config<Instance2> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	// type ProposalDeposit = CollectiveMajorityDeposit;
+	type DisapproveOrigin = EnsureRoot<AccountId>;
+	type KillOrigin = EnsureRoot<AccountId>;
+	type Consideration =
+		HoldConsideration<AccountId, Balances, ProposalHoldReason, CollectiveMajorityDeposit, u32>;
 }
 impl mock_democracy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ExternalMajorityOrigin = EnsureProportionAtLeast<u64, Instance1, 3, 4>;
 }
+parameter_types! {
+	pub const Ratio2: FixedU128 = FixedU128::from_u32(2);
+	pub ProposalDepositCeil: u64 = Balances::minimum_balance() * 100;
+}
+type DefaultCollectiveDeposit =
+	deposit::WithCeil<ProposalDepositCeil, deposit::Geometric<Ratio2, ProposalDepositBase>>;
 impl Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Proposal = RuntimeCall;
@@ -130,6 +175,12 @@ impl Config for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	// type ProposalDeposit =
+	// 	deposit::WithCeil<ProposalDepositCeil, deposit::Geometric<Ratio2, ProposalDepositBase>>;
+	type DisapproveOrigin = EnsureRoot<AccountId>;
+	type KillOrigin = EnsureRoot<AccountId>;
+	type Consideration =
+		HoldConsideration<AccountId, Balances, ProposalHoldReason, DefaultCollectiveDeposit, u32>;
 }
 
 pub struct ExtBuilder {
@@ -151,6 +202,8 @@ impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
 			system: frame_system::GenesisConfig::default(),
+			// balances: pallet_balances::GenesisConfig::default(),
+			balances: pallet_balances::GenesisConfig { balances: vec![(1, 100), (2, 200)] },
 			collective: pallet_collective::GenesisConfig {
 				members: self.collective_members,
 				phantom: Default::default(),
@@ -550,15 +603,27 @@ fn close_with_no_prime_but_majority_works() {
 			MaxMembers::get()
 		));
 
+		let deposit = <CollectiveMajorityDeposit as Convert<u32, u64>>::convert(0);
+		let ed = Balances::minimum_balance();
+		let _ = Balances::mint_into(&5, ed + deposit);
+		System::reset_events();
+
 		assert_ok!(CollectiveMajority::propose(
-			RuntimeOrigin::signed(1),
+			RuntimeOrigin::signed(5),
 			5,
 			Box::new(proposal.clone()),
 			proposal_len
 		));
+		assert_eq!(Balances::balance(&5), ed);
+
 		assert_ok!(CollectiveMajority::vote(RuntimeOrigin::signed(1), hash, 0, true));
 		assert_ok!(CollectiveMajority::vote(RuntimeOrigin::signed(2), hash, 0, true));
 		assert_ok!(CollectiveMajority::vote(RuntimeOrigin::signed(3), hash, 0, true));
+
+		assert_noop!(
+			CollectiveMajority::release_proposal_cost(RuntimeOrigin::signed(1), hash),
+			Error::<Test, Instance2>::ProposalActive
+		);
 
 		System::set_block_number(4);
 		assert_ok!(CollectiveMajority::close(
@@ -569,11 +634,14 @@ fn close_with_no_prime_but_majority_works() {
 			proposal_len
 		));
 
+		assert_ok!(CollectiveMajority::release_proposal_cost(RuntimeOrigin::signed(5), hash));
+		assert_eq!(Balances::balance(&5), ed + deposit);
+
 		assert_eq!(
 			System::events(),
 			vec![
 				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::Proposed {
-					account: 1,
+					account: 5,
 					proposal_index: 0,
 					proposal_hash: hash,
 					threshold: 5
@@ -610,6 +678,10 @@ fn close_with_no_prime_but_majority_works() {
 				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::Executed {
 					proposal_hash: hash,
 					result: Err(DispatchError::BadOrigin)
+				})),
+				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::ProposalCostReleased {
+					proposal_hash: hash,
+					who: 5,
 				}))
 			]
 		);
@@ -757,9 +829,13 @@ fn propose_works() {
 #[test]
 fn limit_active_proposals() {
 	ExtBuilder::default().build_and_execute(|| {
+		let ed = Balances::minimum_balance();
+		assert_ok!(Balances::mint_into(&1, ed));
 		for i in 0..MaxProposals::get() {
 			let proposal = make_proposal(i as u64);
 			let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+			let deposit = <CollectiveMajorityDeposit as Convert<u32, u64>>::convert(0);
+			assert_ok!(Balances::mint_into(&1, deposit));
 			assert_ok!(Collective::propose(
 				RuntimeOrigin::signed(1),
 				3,
@@ -1498,4 +1574,184 @@ fn migration_v4() {
 		crate::migrations::v4::migrate::<Test, DefaultCollective, _>(old_pallet);
 		crate::migrations::v4::post_migrate::<DefaultCollective, _>(old_pallet);
 	});
+}
+
+#[test]
+fn kill_proposal_with_deposit() {
+	ExtBuilder::default().build_and_execute(|| {
+		let ed = Balances::minimum_balance();
+		assert_ok!(Balances::mint_into(&1, ed));
+		let mut last_deposit = None;
+		let mut last_hash = None;
+		for i in 0..=ProposalDepositDelay::get() {
+			let proposal = make_proposal(i as u64);
+			let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+			last_hash = Some(BlakeTwo256::hash_of(&proposal));
+			let deposit = <CollectiveDeposit as Convert<u32, u64>>::convert(i);
+			assert_ok!(Balances::mint_into(&1, deposit));
+			last_deposit = Some(deposit);
+
+			assert_ok!(Collective::propose(
+				RuntimeOrigin::signed(1),
+				3,
+				Box::new(proposal.clone()),
+				proposal_len
+			));
+			assert_eq!(
+				CostOf::<Test, Instance1>::get(last_hash.unwrap()).is_none(),
+				deposit.is_zero()
+			);
+		}
+		let balance = Balances::total_balance(&1);
+		System::reset_events();
+
+		let unpublished = make_proposal((ProposalDepositDelay::get() + 1).into());
+		assert_noop!(
+			Collective::kill(RuntimeOrigin::root(), BlakeTwo256::hash_of(&unpublished)),
+			Error::<Test, Instance1>::ProposalMissing
+		);
+
+		assert_ok!(Collective::kill(RuntimeOrigin::root(), last_hash.unwrap()));
+		assert_eq!(Balances::total_balance(&1), balance - last_deposit.unwrap());
+
+		assert_eq!(
+			System::events(),
+			vec![
+				record(RuntimeEvent::Collective(CollectiveEvent::ProposalCostBurned {
+					proposal_hash: last_hash.unwrap(),
+					who: 1,
+				})),
+				record(RuntimeEvent::Collective(CollectiveEvent::Killed {
+					proposal_hash: last_hash.unwrap(),
+				})),
+			]
+		);
+	})
+}
+
+#[docify::export]
+#[test]
+fn deposit_types_with_linear_work() {
+	type LinearWithSlop2 = crate::deposit::Linear<ConstU32<2>, ConstU128<10>>;
+	assert_eq!(<LinearWithSlop2 as Convert<_, u128>>::convert(0), 10);
+	assert_eq!(<LinearWithSlop2 as Convert<_, u128>>::convert(1), 12);
+	assert_eq!(<LinearWithSlop2 as Convert<_, u128>>::convert(2), 14);
+	assert_eq!(<LinearWithSlop2 as Convert<_, u128>>::convert(3), 16);
+	assert_eq!(<LinearWithSlop2 as Convert<_, u128>>::convert(4), 18);
+
+	type SteppedWithStep3 = crate::deposit::Stepped<ConstU32<3>, LinearWithSlop2>;
+	assert_eq!(<SteppedWithStep3 as Convert<_, u128>>::convert(0), 10);
+	assert_eq!(<SteppedWithStep3 as Convert<_, u128>>::convert(1), 10);
+	assert_eq!(<SteppedWithStep3 as Convert<_, u128>>::convert(2), 10);
+	assert_eq!(<SteppedWithStep3 as Convert<_, u128>>::convert(3), 12);
+	assert_eq!(<SteppedWithStep3 as Convert<_, u128>>::convert(4), 12);
+	assert_eq!(<SteppedWithStep3 as Convert<_, u128>>::convert(5), 12);
+	assert_eq!(<SteppedWithStep3 as Convert<_, u128>>::convert(6), 14);
+
+	type DelayedWithDelay4 = crate::deposit::Delayed<ConstU32<4>, SteppedWithStep3>;
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(0), 0);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(3), 0);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(4), 10);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(5), 10);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(6), 10);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(7), 12);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(9), 12);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(10), 14);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(13), 16);
+
+	type WithCeil13 = crate::deposit::WithCeil<ConstU128<13>, DelayedWithDelay4>;
+	assert_eq!(<WithCeil13 as Convert<_, u128>>::convert(0), 0);
+	assert_eq!(<WithCeil13 as Convert<_, u128>>::convert(4), 10);
+	assert_eq!(<WithCeil13 as Convert<_, u128>>::convert(9), 12);
+	assert_eq!(<WithCeil13 as Convert<_, u128>>::convert(10), 13);
+	assert_eq!(<WithCeil13 as Convert<_, u128>>::convert(11), 13);
+	assert_eq!(<WithCeil13 as Convert<_, u128>>::convert(13), 13);
+}
+
+#[docify::export]
+#[test]
+fn deposit_types_with_geometric_work() {
+	parameter_types! {
+		pub const Ratio2: FixedU128 = FixedU128::from_u32(2);
+	}
+	type WithRatio2Base10 = crate::deposit::Geometric<Ratio2, ConstU128<10>>;
+	assert_eq!(<WithRatio2Base10 as Convert<_, u128>>::convert(0), 10);
+	assert_eq!(<WithRatio2Base10 as Convert<_, u128>>::convert(1), 20);
+	assert_eq!(<WithRatio2Base10 as Convert<_, u128>>::convert(2), 40);
+	assert_eq!(<WithRatio2Base10 as Convert<_, u128>>::convert(3), 80);
+	assert_eq!(<WithRatio2Base10 as Convert<_, u128>>::convert(4), 160);
+	assert_eq!(<WithRatio2Base10 as Convert<_, u128>>::convert(5), 320);
+	assert_eq!(<WithRatio2Base10 as Convert<_, u128>>::convert(6), 640);
+	assert_eq!(<WithRatio2Base10 as Convert<_, u128>>::convert(7), 1280);
+	assert_eq!(<WithRatio2Base10 as Convert<_, u128>>::convert(8), 2560);
+	assert_eq!(<WithRatio2Base10 as Convert<_, u128>>::convert(9), 5120);
+
+	type SteppedWithStep3 = crate::deposit::Stepped<ConstU32<3>, WithRatio2Base10>;
+	assert_eq!(<SteppedWithStep3 as Convert<_, u128>>::convert(0), 10);
+	assert_eq!(<SteppedWithStep3 as Convert<_, u128>>::convert(1), 10);
+	assert_eq!(<SteppedWithStep3 as Convert<_, u128>>::convert(2), 10);
+	assert_eq!(<SteppedWithStep3 as Convert<_, u128>>::convert(3), 20);
+	assert_eq!(<SteppedWithStep3 as Convert<_, u128>>::convert(4), 20);
+	assert_eq!(<SteppedWithStep3 as Convert<_, u128>>::convert(5), 20);
+	assert_eq!(<SteppedWithStep3 as Convert<_, u128>>::convert(6), 40);
+
+	type DelayedWithDelay4 = crate::deposit::Delayed<ConstU32<4>, SteppedWithStep3>;
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(0), 0);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(3), 0);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(4), 10);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(5), 10);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(6), 10);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(7), 20);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(9), 20);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(10), 40);
+	assert_eq!(<DelayedWithDelay4 as Convert<_, u128>>::convert(13), 80);
+
+	type WithCeil21 = crate::deposit::WithCeil<ConstU128<21>, DelayedWithDelay4>;
+	assert_eq!(<WithCeil21 as Convert<_, u128>>::convert(0), 0);
+	assert_eq!(<WithCeil21 as Convert<_, u128>>::convert(4), 10);
+	assert_eq!(<WithCeil21 as Convert<_, u128>>::convert(9), 20);
+	assert_eq!(<WithCeil21 as Convert<_, u128>>::convert(10), 21);
+	assert_eq!(<WithCeil21 as Convert<_, u128>>::convert(11), 21);
+	assert_eq!(<WithCeil21 as Convert<_, u128>>::convert(13), 21);
+}
+
+#[docify::export]
+#[test]
+fn deposit_round_with_geometric_work() {
+	parameter_types! {
+		pub const Ratio1_5: FixedU128 = FixedU128::from_rational(3, 2);
+	}
+	type WithRatio1_5Base10 = crate::deposit::Geometric<Ratio1_5, ConstU128<10000>>;
+	assert_eq!(<WithRatio1_5Base10 as Convert<_, u128>>::convert(0), 10000);
+	assert_eq!(<WithRatio1_5Base10 as Convert<_, u128>>::convert(1), 15000);
+	assert_eq!(<WithRatio1_5Base10 as Convert<_, u128>>::convert(2), 22500);
+	assert_eq!(<WithRatio1_5Base10 as Convert<_, u128>>::convert(3), 33750);
+	assert_eq!(<WithRatio1_5Base10 as Convert<_, u128>>::convert(4), 50625);
+	assert_eq!(<WithRatio1_5Base10 as Convert<_, u128>>::convert(5), 75937);
+
+	type RoundWithPrecision3 = crate::deposit::Round<ConstU32<3>, WithRatio1_5Base10>;
+	assert_eq!(<RoundWithPrecision3 as Convert<_, u128>>::convert(0), 10000);
+	assert_eq!(<RoundWithPrecision3 as Convert<_, u128>>::convert(1), 15000);
+	assert_eq!(<RoundWithPrecision3 as Convert<_, u128>>::convert(2), 22000);
+	assert_eq!(<RoundWithPrecision3 as Convert<_, u128>>::convert(3), 33000);
+	assert_eq!(<RoundWithPrecision3 as Convert<_, u128>>::convert(4), 50000);
+	assert_eq!(<RoundWithPrecision3 as Convert<_, u128>>::convert(5), 75000);
+}
+
+#[test]
+fn constant_deposit_work() {
+	type Constant0 = crate::deposit::Constant<ConstU128<0>>;
+	assert_eq!(<Constant0 as Convert<_, u128>>::convert(0), 0);
+	assert_eq!(<Constant0 as Convert<_, u128>>::convert(1), 0);
+	assert_eq!(<Constant0 as Convert<_, u128>>::convert(2), 0);
+
+	type Constant1 = crate::deposit::Constant<ConstU128<1>>;
+	assert_eq!(<Constant1 as Convert<_, u128>>::convert(0), 1);
+	assert_eq!(<Constant1 as Convert<_, u128>>::convert(1), 1);
+	assert_eq!(<Constant1 as Convert<_, u128>>::convert(2), 1);
+
+	type Constant12 = crate::deposit::Constant<ConstU128<12>>;
+	assert_eq!(<Constant12 as Convert<_, u128>>::convert(0), 12);
+	assert_eq!(<Constant12 as Convert<_, u128>>::convert(1), 12);
+	assert_eq!(<Constant12 as Convert<_, u128>>::convert(2), 12);
 }

@@ -28,7 +28,7 @@ use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_runtime::TryRuntimeError;
 
 /// Which state tests to execute.
-#[derive(codec::Encode, codec::Decode, Clone, scale_info::TypeInfo)]
+#[derive(codec::Encode, codec::Decode, Clone, scale_info::TypeInfo, PartialEq)]
 pub enum Select {
 	/// None of them.
 	None,
@@ -95,7 +95,7 @@ impl std::str::FromStr for Select {
 }
 
 /// Select which checks should be run when trying a runtime upgrade upgrade.
-#[derive(codec::Encode, codec::Decode, Clone, Debug, Copy, scale_info::TypeInfo)]
+#[derive(codec::Encode, codec::Decode, Clone, Debug, Copy, scale_info::TypeInfo, PartialEq)]
 pub enum UpgradeCheckSelect {
 	/// Run no checks.
 	None,

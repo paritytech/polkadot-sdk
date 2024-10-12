@@ -17,11 +17,13 @@ scale-info = { features = ["derive"], workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
+serde_json = { features = ["alloc"], workspace = true }
 smallvec = { workspace = true, default-features = true }
 
 sp-authority-discovery = { workspace = true }
 sp-consensus-babe = { workspace = true }
 sp-consensus-beefy = { workspace = true }
+sp-consensus-grandpa = { workspace = true }
 binary-merkle-tree = { workspace = true }
 sp-inherents = { workspace = true }
 sp-offchain = { workspace = true }
@@ -102,7 +104,7 @@ pallet-election-provider-support-benchmarking = { optional = true, workspace = t
 pallet-nomination-pools-benchmarking = { optional = true, workspace = true }
 pallet-offences-benchmarking = { optional = true, workspace = true }
 pallet-session-benchmarking = { optional = true, workspace = true }
-hex-literal = { optional = true, workspace = true, default-features = true }
+hex-literal = { workspace = true, default-features = true }
 
 polkadot-runtime-common = { workspace = true }
 polkadot-primitives = { workspace = true }
@@ -115,7 +117,6 @@ xcm-builder = { workspace = true }
 xcm-runtime-apis = { workspace = true }
 
 [dev-dependencies]
-hex-literal = { workspace = true, default-features = true }
 tiny-keccak = { features = ["keccak"], workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
@@ -202,6 +203,7 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"serde_derive",
+	"serde_json/std",
 	"sp-api/std",
 	"sp-application-crypto/std",
 	"sp-arithmetic/std",
@@ -209,6 +211,7 @@ std = [
 	"sp-block-builder/std",
 	"sp-consensus-babe/std",
 	"sp-consensus-beefy/std",
+	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
@@ -235,7 +238,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"hex-literal",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
@@ -355,4 +357,4 @@ runtime-metrics = [
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
-on-chain-release-build = ["metadata-hash", "sp-api/disable-logging"]
+on-chain-release-build = ["metadata-hash"]
