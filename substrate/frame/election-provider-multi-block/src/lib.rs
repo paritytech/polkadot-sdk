@@ -92,13 +92,9 @@
 // TODO: remove
 #![allow(dead_code)]
 
-// TODO(gpestana): clean imports
-use codec::MaxEncodedLen;
-use scale_info::TypeInfo;
-
 use frame_election_provider_support::{
 	bounds::ElectionBoundsBuilder, BoundedSupportsOf, ElectionDataProvider, ElectionProvider,
-	LockableElectionDataProvider, NposSolution, PageIndex, VoterOf, Weight,
+	LockableElectionDataProvider, PageIndex, VoterOf, Weight,
 };
 use frame_support::{
 	defensive, ensure,
@@ -154,7 +150,6 @@ pub trait BenchmarkingConfig {
 pub mod pallet {
 
 	use super::*;
-	use codec::EncodeLike;
 	use frame_support::{
 		pallet_prelude::{ValueQuery, *},
 		sp_runtime::Saturating,

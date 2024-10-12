@@ -18,7 +18,7 @@
 use crate::{
 	mock::*,
 	verifier::{impls::pallet::*, *},
-	MinerSupportsOf, Phase,
+	Phase,
 };
 use frame_support::assert_noop;
 use sp_npos_elections::ElectionScore;

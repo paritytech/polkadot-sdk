@@ -222,7 +222,7 @@ impl sp_runtime::traits::Convert<usize, Balance> for ConstDepositBase {
 
 parameter_types! {
 	pub static OnChainElectionBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
-	pub static MaxVotesPerVoter: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;
+	pub static MaxVotesPerVoter: u32 = <TestNposSolution as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub static FallbackEnabled: bool = true;
 }
 

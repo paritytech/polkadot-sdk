@@ -82,7 +82,7 @@ pub use impls::pallet::{
 	tt_default_parts_v2, tt_error_token,
 };
 
-use crate::{MinerSupportsOf, PageIndex, SupportsOf};
+use crate::{PageIndex, SupportsOf};
 
 /// Errors related to the solution feasibility checks.
 #[derive(Debug, Eq, PartialEq, codec::Encode, codec::Decode, scale_info::TypeInfo, Clone)]

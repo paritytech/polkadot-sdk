@@ -15,18 +15,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Types for the multi-block election provider pallet.
+//! # Types for the multi-block election provider pallet and sub-pallets.
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{BoundedVec, DebugNoBound};
 use scale_info::TypeInfo;
+
+use crate::{unsigned::miner::Config as MinerConfig, Verifier};
+use frame_election_provider_support::{ElectionProvider, NposSolution, PageIndex};
+use frame_support::{
+	BoundedVec, CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
+	RuntimeDebugNoBound,
+};
 use sp_npos_elections::ElectionScore;
 use sp_runtime::SaturatedConversion;
 use sp_std::{boxed::Box, vec::Vec};
-
-use crate::{unsigned::miner::Config as MinerConfig, Verifier};
-
-use frame_election_provider_support::{ElectionProvider, NposSolution, PageIndex};
 
 /// The main account ID type.
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -69,19 +71,44 @@ pub(crate) type MinerVoterOf<T> = frame_election_provider_support::Voter<
 /// Alias for a page of voters, parameterized by this crate's config.
 pub(crate) type VoterPageOf<T> =
 	BoundedVec<VoterOf<T>, <T as crate::Config>::VoterSnapshotPerBlock>;
+/// Alias for a page of targets, parameterized by this crate's config.
 pub(crate) type TargetPageOf<T> =
 	BoundedVec<AccountIdOf<T>, <T as crate::Config>::TargetSnapshotPerBlock>;
 
-// same but for miner's config
+/// Same as [`VoterPageOf`], but parameterized by [`miner::Config`].
 pub(crate) type VoterPageMinerOf<T> =
 	BoundedVec<MinerVoterOf<T>, <T as MinerConfig>::VoterSnapshotPerBlock>;
+/// Same as [`TargetPageOf`], but parameterized by []`miner::Config`].
 pub(crate) type TargetPageMinerOf<T> =
 	BoundedVec<<T as MinerConfig>::AccountId, <T as MinerConfig>::TargetSnapshotPerBlock>;
 
-pub(crate) type MaxWinnersPerPageOf<T> =
-	<<T as crate::Config>::Verifier as Verifier>::MaxWinnersPerPage;
+pub(crate) type MaxWinnersPerPageOf<T> = <T as MinerConfig>::MaxWinnersPerPage;
 
-pub(crate) type MaxWinnersPerPageMinerOf<T> = <T as MinerConfig>::MaxWinnersPerPage;
+/// Alias for all pages of voters, parameterized by the miner's Config.
+pub(crate) type AllVoterPagesOf<T> = BoundedVec<VoterPageMinerOf<T>, <T as MinerConfig>::Pages>;
+pub(crate) type AllTargetPagesOf<T> = BoundedVec<TargetPageMinerOf<T>, <T as MinerConfig>::Pages>;
+
+/// Edges from voters to nominated targets that are part of the winner set.
+pub type AssignmentOf<T> =
+	sp_npos_elections::Assignment<<T as MinerConfig>::AccountId, SolutionAccuracyOf<T>>;
+
+// Accuracy of the election.
+pub type SolutionAccuracyOf<T> = <<T as MinerConfig>::Solution as NposSolution>::Accuracy;
+
+/// Encodes the length of a page of either a solution or a snapshot.
+///
+/// This is stored automatically on-chain, and it contains the **size of the entire snapshot page**.
+/// This is also used in dispatchables as weight witness data and should **only contain the size of
+/// the presented solution page**, not the entire snapshot or page snaphsot.
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, Default, TypeInfo)]
+pub struct PageSize {
+	/// The length of voters.
+	#[codec(compact)]
+	pub voters: u32,
+	/// The length of targets.
+	#[codec(compact)]
+	pub targets: u32,
+}
 
 /// Strategies for when the election fails.
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
@@ -154,38 +181,6 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 		matches!(self, Phase::Export(_))
 	}
 }
-
-use frame_support::{
-	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-};
-
-/// Encodes the length of a page of either a solution or a snapshot.
-///
-/// This is stored automatically on-chain, and it contains the **size of the entire snapshot page**.
-/// This is also used in dispatchables as weight witness data and should **only contain the size of
-/// the presented solution page**, not the entire snapshot or page snaphsot.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, Default, TypeInfo)]
-pub struct PageSize {
-	/// The length of voters.
-	#[codec(compact)]
-	pub voters: u32,
-	/// The length of targets.
-	#[codec(compact)]
-	pub targets: u32,
-}
-
-/// Alias for all pages of voters, parameterized by the miner's Config.
-pub(crate) type AllVoterPagesMinerOf<T> =
-	BoundedVec<VoterPageMinerOf<T>, <T as MinerConfig>::Pages>;
-pub(crate) type AllTargetPagesMinerOf<T> =
-	BoundedVec<TargetPageMinerOf<T>, <T as MinerConfig>::Pages>;
-
-/// Edges from voters to nominated targets that are part of the winner set.
-pub type AssignmentOf<T> =
-	sp_npos_elections::Assignment<<T as MinerConfig>::AccountId, SolutionAccuracyOf<T>>;
-
-// Accuracy of the election.
-pub type SolutionAccuracyOf<T> = <<T as MinerConfig>::Solution as NposSolution>::Accuracy;
 
 #[derive(DebugNoBound, PartialEq)]
 pub enum ElectionError<T: crate::Config> {

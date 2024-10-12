@@ -18,7 +18,7 @@
 //! Some helper functions/macros for this crate.
 
 use crate::{
-	types::{AllTargetPagesMinerOf, AllVoterPagesMinerOf, MaxWinnersPerPageMinerOf, MinerVoterOf},
+	types::{AllTargetPagesOf, AllVoterPagesOf, MaxWinnersPerPageOf, MinerVoterOf},
 	SolutionTargetIndexOf, SolutionVoterIndexOf,
 };
 use frame_election_provider_support::{PageIndex, VoteWeight};
@@ -101,7 +101,7 @@ pub fn generate_voter_staked_cache<T: MinerConfig>(
 ///
 /// The bucketing of voters into a page number is based on their position in the snapshot's page.
 pub fn generate_voter_page_fn<T: MinerConfig>(
-	paged_snapshot: &AllVoterPagesMinerOf<T>,
+	paged_snapshot: &AllVoterPagesOf<T>,
 ) -> impl Fn(&T::AccountId) -> Option<PageIndex> {
 	let mut cache: BTreeMap<T::AccountId, PageIndex> = BTreeMap::new();
 	paged_snapshot
@@ -121,7 +121,7 @@ pub fn generate_voter_page_fn<T: MinerConfig>(
 }
 
 pub fn generate_target_page_fn<T: MinerConfig>(
-	paged_snapshot: &AllTargetPagesMinerOf<T>,
+	paged_snapshot: &AllTargetPagesOf<T>,
 ) -> impl Fn(&T::AccountId) -> Option<PageIndex> {
 	let mut cache: BTreeMap<T::AccountId, PageIndex> = BTreeMap::new();
 	paged_snapshot
@@ -144,7 +144,7 @@ pub fn generate_target_page_fn<T: MinerConfig>(
 /// The bucketing of voters into a page number is based on their relative stake in the assignments
 /// set (the larger the stake, the higher the page).
 pub fn generate_voter_page_stake_fn<T: MinerConfig>(
-	paged_snapshot: &AllVoterPagesMinerOf<T>,
+	paged_snapshot: &AllVoterPagesOf<T>,
 ) -> impl Fn(&T::AccountId) -> Option<PageIndex> {
 	let mut cache: BTreeMap<T::AccountId, PageIndex> = BTreeMap::new();
 	let mut sorted_by_weight: Vec<(VoteWeight, T::AccountId)> = vec![];
@@ -159,7 +159,7 @@ pub fn generate_voter_page_stake_fn<T: MinerConfig>(
 
 	sorted_by_weight.iter().enumerate().for_each(|(idx, voter)| {
 		let page = idx
-			.saturating_div(MaxWinnersPerPageMinerOf::<T>::get() as usize)
+			.saturating_div(MaxWinnersPerPageOf::<T>::get() as usize)
 			.min(T::Pages::get() as usize);
 		let _existed = cache.insert(voter.1.clone(), page as PageIndex);
 		debug_assert!(_existed.is_none());
