@@ -129,7 +129,7 @@ pub mod memory_tracker {
 		match thread.join() {
 			Ok(Ok(stats)) => Some(stats),
 			Ok(Err(err)) => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					%worker_pid,
 					"worker: error occurred in the memory tracker thread: {}", err
@@ -137,7 +137,7 @@ pub mod memory_tracker {
 				None
 			},
 			Err(err) => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					%worker_pid,
 					"worker: error joining on memory tracker thread: {}", stringify_panic_payload(err)
@@ -183,7 +183,7 @@ pub mod max_rss_stat {
 	pub fn extract_max_rss_stat(max_rss: io::Result<i64>, worker_pid: u32) -> Option<i64> {
 		max_rss
 			.map_err(|err| {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					%worker_pid,
 					"error getting `ru_maxrss` in preparation thread: {}",

@@ -21,6 +21,7 @@ polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
 
 sp-keystore = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
 sp-core = { workspace = true, default-features = true }

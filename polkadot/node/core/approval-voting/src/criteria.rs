@@ -127,7 +127,7 @@ fn generate_samples(
 	max_cores: usize,
 ) -> Vec<CoreIndex> {
 	if num_samples as usize > MAX_MODULO_SAMPLES {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			n_cores = max_cores,
 			num_samples,
@@ -137,7 +137,7 @@ fn generate_samples(
 	}
 
 	if 2 * num_samples > max_cores {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			n_cores = max_cores,
 			num_samples,
@@ -245,7 +245,7 @@ pub fn compute_assignments(
 		config.assignment_keys.is_empty() ||
 		config.validator_groups.is_empty()
 	{
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			n_cores = config.n_cores,
 			has_assignment_keys = !config.assignment_keys.is_empty(),
@@ -264,7 +264,7 @@ pub fn compute_assignments(
 				Err(sc_keystore::Error::Unavailable) => None,
 				Err(sc_keystore::Error::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => None,
 				Err(e) => {
-					gum::warn!(target: LOG_TARGET, "Encountered keystore error: {:?}", e);
+					sp_tracing::warn!(target: LOG_TARGET, "Encountered keystore error: {:?}", e);
 					None
 				},
 			}
@@ -272,7 +272,7 @@ pub fn compute_assignments(
 
 		match key {
 			None => {
-				gum::trace!(target: LOG_TARGET, "No assignment key");
+				sp_tracing::trace!(target: LOG_TARGET, "No assignment key");
 				return HashMap::new()
 			},
 			Some(k) => k,
@@ -286,7 +286,7 @@ pub fn compute_assignments(
 		.map(|(c_hash, core, _)| (c_hash, core))
 		.collect::<Vec<_>>();
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		assignable_cores = leaving_cores.len(),
 		"Assigning to candidates from different backing groups"
@@ -353,7 +353,7 @@ fn compute_relay_vrf_modulo_assignments_v1(
 					if let Some((candidate_hash, _)) =
 						leaving_cores.clone().into_iter().find(|(_, c)| c == core)
 					{
-						gum::trace!(
+						sp_tracing::trace!(
 							target: LOG_TARGET,
 							?candidate_hash,
 							?core,
@@ -424,7 +424,7 @@ fn compute_relay_vrf_modulo_assignments_v2(
 				.collect::<Vec<CoreIndex>>();
 
 				if !assigned_cores.is_empty() {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						?assigned_cores,
 						?validator_index,
@@ -513,7 +513,7 @@ fn compute_relay_vrf_delay_assignments(
 		};
 
 		if used {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?core,
@@ -610,7 +610,7 @@ pub(crate) fn check_assignment_cert(
 			// cores.
 			for claimed_core_index in claimed_core_indices.iter_ones() {
 				if !resulting_cores.contains(&CoreIndex(claimed_core_index as u32)) {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						?resulting_cores,
 						?claimed_core_indices,
@@ -630,7 +630,7 @@ pub(crate) fn check_assignment_cert(
 
 			// Enforce claimed candidates is 1.
 			if claimed_core_indices.count_ones() != 1 {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?claimed_core_indices,
 					"`RelayVRFModulo` assignment must always claim 1 core",
@@ -652,7 +652,7 @@ pub(crate) fn check_assignment_cert(
 			if core.0 == first_claimed_core_index {
 				Ok(0)
 			} else {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?core,
 					?claimed_core_indices,
@@ -664,7 +664,7 @@ pub(crate) fn check_assignment_cert(
 		AssignmentCertKindV2::RelayVRFDelay { core_index } => {
 			// Enforce claimed candidates is 1.
 			if claimed_core_indices.count_ones() != 1 {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?claimed_core_indices,
 					"`RelayVRFDelay` assignment must always claim 1 core",

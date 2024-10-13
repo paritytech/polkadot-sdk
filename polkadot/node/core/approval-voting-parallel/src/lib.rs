@@ -174,7 +174,7 @@ async fn start_workers<Context>(
 ) -> SubsystemResult<(ToWorker<ApprovalVotingMessage>, Vec<ToWorker<ApprovalDistributionMessage>>)>
 where
 {
-	gum::info!(target: LOG_TARGET, "Starting approval distribution workers");
+	sp_tracing::info!(target: LOG_TARGET, "Starting approval distribution workers");
 
 	// Build approval voting handles.
 	let (to_approval_voting_worker, approval_voting_work_provider) = build_worker_handles(
@@ -225,7 +225,7 @@ where
 					let message = match approval_distribution_work_provider.next().await {
 						Some(message) => message,
 						None => {
-							gum::info!(
+							sp_tracing::info!(
 								target: LOG_TARGET,
 								"Approval distribution stream finished, most likely shutting down",
 							);
@@ -244,7 +244,7 @@ where
 						)
 						.await
 					{
-						gum::info!(
+						sp_tracing::info!(
 							target: LOG_TARGET,
 							"Approval distribution worker {}, exiting because of shutdown", i
 						);
@@ -255,7 +255,7 @@ where
 		to_approval_distribution_workers.push(to_approval_distribution_worker);
 	}
 
-	gum::info!(target: LOG_TARGET, "Starting approval voting workers");
+	sp_tracing::info!(target: LOG_TARGET, "Starting approval voting workers");
 
 	let sender = ctx.sender().clone();
 	let to_approval_distribution = ApprovalVotingToApprovalDistribution(sender.clone());
@@ -288,7 +288,7 @@ async fn run<Context>(
 	subsystem: ApprovalVotingParallelSubsystem,
 ) -> SubsystemResult<()> {
 	let mut metrics_watcher = MetricsWatcher::new(subsystem.metrics.clone());
-	gum::info!(
+	sp_tracing::info!(
 		target: LOG_TARGET,
 		"Starting workers"
 	);
@@ -296,7 +296,7 @@ async fn run<Context>(
 	let (to_approval_voting_worker, to_approval_distribution_workers) =
 		start_workers(&mut ctx, subsystem, &mut metrics_watcher).await?;
 
-	gum::info!(
+	sp_tracing::info!(
 		target: LOG_TARGET,
 		"Starting main subsystem loop"
 	);
@@ -322,7 +322,7 @@ async fn run_main_loop<Context>(
 				let next_msg = match next_msg {
 					Ok(msg) => msg,
 					Err(err) => {
-						gum::info!(target: LOG_TARGET, ?err, "Approval voting parallel subsystem received an error");
+						sp_tracing::info!(target: LOG_TARGET, ?err, "Approval voting parallel subsystem received an error");
 						return Err(err);
 					}
 				};
@@ -458,7 +458,7 @@ async fn handle_get_approval_signatures<Context>(
 			.timeout(WAIT_FOR_SIGS_GATHER_TIMEOUT)
 			.await
 		else {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				"Waiting for approval signatures timed out - dead lock?"
 			);
@@ -469,7 +469,7 @@ async fn handle_get_approval_signatures<Context>(
 			let worker_sigs = match result {
 				Ok(sigs) => sigs,
 				Err(_) => {
-					gum::error!(
+					sp_tracing::error!(
 						target: LOG_TARGET,
 						"Getting approval signatures failed, oneshot got closed"
 					);
@@ -480,7 +480,7 @@ async fn handle_get_approval_signatures<Context>(
 		}
 
 		if let Err(_) = result_channel.send(sigs) {
-			gum::debug!(
+			sp_tracing::debug!(
 					target: LOG_TARGET,
 					"Sending back approval signatures failed, oneshot got closed"
 			);
@@ -488,7 +488,7 @@ async fn handle_get_approval_signatures<Context>(
 	};
 
 	if let Err(err) = ctx.spawn("approval-voting-gather-signatures", Box::pin(gather_signatures)) {
-		gum::warn!(target: LOG_TARGET, "Failed to spawn gather signatures task: {:?}", err);
+		sp_tracing::warn!(target: LOG_TARGET, "Failed to spawn gather signatures task: {:?}", err);
 	}
 }
 
@@ -739,7 +739,7 @@ impl<T: Send + Sync + 'static + Debug> overseer::SubsystemSender<T> for ToWorker
 			if let Err(err) =
 				self.0.send(polkadot_overseer::FromOrchestra::Communication { msg }).await
 			{
-				gum::error!(
+				sp_tracing::error!(
 					target: LOG_TARGET,
 					"Failed to send message to approval voting worker: {:?}, subsystem is probably shutting down.",
 					err
@@ -792,7 +792,7 @@ impl<T: Send + Sync + 'static + Debug> overseer::SubsystemSender<T> for ToWorker
 		if let Err(err) =
 			self.1.unbounded_send(polkadot_overseer::FromOrchestra::Communication { msg })
 		{
-			gum::error!(
+			sp_tracing::error!(
 				target: LOG_TARGET,
 				"Failed to send unbounded message to approval voting worker: {:?}, subsystem is probably shutting down.",
 				err

@@ -12,7 +12,6 @@ workspace = true
 [dependencies]
 cpu-time = { workspace = true }
 futures = { workspace = true }
-gum = { workspace = true, default-features = true }
 libc = { workspace = true }
 nix = { features = ["resource", "sched"], workspace = true }
 thiserror = { workspace = true }

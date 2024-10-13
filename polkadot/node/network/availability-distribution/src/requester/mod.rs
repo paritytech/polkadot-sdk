@@ -112,7 +112,7 @@ impl Requester {
 		runtime: &mut RuntimeInfo,
 		update: ActiveLeavesUpdate,
 	) -> Result<()> {
-		gum::trace!(target: LOG_TARGET, ?update, "Update fetching heads");
+		sp_tracing::trace!(target: LOG_TARGET, ?update, "Update fetching heads");
 		let ActiveLeavesUpdate { activated, deactivated } = update;
 		if let Some(leaf) = activated {
 			// Order important! We need to handle activated, prior to deactivated, otherwise we
@@ -147,7 +147,7 @@ impl Requester {
 		// Also spawn or bump tasks for candidates in ancestry in the same session.
 		for hash in std::iter::once(leaf).chain(ancestors_in_session) {
 			let cores = get_occupied_cores(sender, hash).await?;
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				occupied_cores = ?cores,
 				"Query occupied core"
@@ -211,7 +211,7 @@ impl Requester {
 					)
 					.await
 					.map_err(|err| {
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							error = ?err,
 							"Failed to spawn a fetch task"

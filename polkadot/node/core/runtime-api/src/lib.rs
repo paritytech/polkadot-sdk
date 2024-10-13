@@ -442,7 +442,7 @@ where
 			let version: u32 = $version; // enforce type for the version expression
 			let runtime_version = client.api_version_parachain_host(relay_parent).await
 				.unwrap_or_else(|e| {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						api = ?stringify!($api_name),
 						"cannot query the runtime API version: {}",
@@ -451,7 +451,7 @@ where
 					Some(0)
 				})
 				.unwrap_or_else(|| {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						"no runtime version is reported"
 					);

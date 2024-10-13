@@ -56,7 +56,7 @@ pub async fn check_security_status(config: &Config) -> Result<SecurityStatus, St
 	}
 
 	if security_status.secure_validator_mode {
-		gum::info!(
+		sp_tracing::info!(
 			target: LOG_TARGET,
 			"👮‍♀️ Running in Secure Validator Mode. \
 			 It is highly recommended that you operate according to our security guidelines. \
@@ -173,14 +173,14 @@ fn print_secure_mode_error_or_warning(security_status: &FullSecurityStatus) {
 	let errs_string = security_status.errs_string();
 
 	if all_errs_allowed {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			"{}{}",
 			crate::SECURE_MODE_WARNING,
 			errs_string,
 		);
 	} else {
-		gum::error!(
+		sp_tracing::error!(
 			target: LOG_TARGET,
 			"{}{}{}",
 			crate::SECURE_MODE_ERROR,

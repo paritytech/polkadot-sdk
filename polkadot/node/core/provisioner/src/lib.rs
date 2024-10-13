@@ -177,7 +177,7 @@ async fn run_iteration<Context>(
 				if let Some(state) = per_relay_parent.get_mut(&hash) {
 					state.is_inherent_ready = true;
 
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						relay_parent = ?hash,
 						"Inherent Data became ready"
@@ -200,7 +200,7 @@ async fn handle_active_leaves_update(
 	per_session: &mut LruMap<SessionIndex, PerSession>,
 	inherent_delays: &mut InherentDelays,
 ) -> Result<(), Error> {
-	gum::trace!(target: LOG_TARGET, "Handle ActiveLeavesUpdate");
+	sp_tracing::trace!(target: LOG_TARGET, "Handle ActiveLeavesUpdate");
 	for deactivated in &update.deactivated {
 		per_relay_parent.remove(deactivated);
 	}
@@ -228,7 +228,7 @@ async fn handle_active_leaves_update(
 
 		let session_info = per_session.get(&session_index).expect("Just inserted");
 
-		gum::trace!(target: LOG_TARGET, leaf_hash=?leaf.hash, "Adding delay");
+		sp_tracing::trace!(target: LOG_TARGET, leaf_hash=?leaf.hash, "Adding delay");
 		let delay_fut = Delay::new(PRE_PROPOSE_TIMEOUT).map(move |_| leaf.hash).boxed();
 		per_relay_parent.insert(leaf.hash, PerRelayParent::new(leaf, session_info));
 		inherent_delays.push(delay_fut);
@@ -246,15 +246,15 @@ async fn handle_communication<Context>(
 ) -> Result<(), Error> {
 	match message {
 		ProvisionerMessage::RequestInherentData(relay_parent, return_sender) => {
-			gum::trace!(target: LOG_TARGET, ?relay_parent, "Inherent data got requested.");
+			sp_tracing::trace!(target: LOG_TARGET, ?relay_parent, "Inherent data got requested.");
 
 			if let Some(state) = per_relay_parent.get_mut(&relay_parent) {
 				if state.is_inherent_ready {
-					gum::trace!(target: LOG_TARGET, ?relay_parent, "Calling send_inherent_data.");
+					sp_tracing::trace!(target: LOG_TARGET, ?relay_parent, "Calling send_inherent_data.");
 					send_inherent_data_bg(ctx, &state, vec![return_sender], metrics.clone())
 						.await?;
 				} else {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						?relay_parent,
 						"Queuing inherent data request (inherent data not yet ready)."
@@ -267,7 +267,7 @@ async fn handle_communication<Context>(
 			if let Some(state) = per_relay_parent.get_mut(&relay_parent) {
 				let _timer = metrics.time_provisionable_data();
 
-				gum::trace!(target: LOG_TARGET, ?relay_parent, "Received provisionable data: {:?}", &data);
+				sp_tracing::trace!(target: LOG_TARGET, ?relay_parent, "Received provisionable data: {:?}", &data);
 
 				note_provisionable_data(state, data);
 			}
@@ -295,7 +295,7 @@ async fn send_inherent_data_bg<Context>(
 	let bg = async move {
 		let _timer = metrics.time_request_inherent_data();
 
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			relay_parent = ?leaf.hash,
 			"Sending inherent data in background."
@@ -320,19 +320,19 @@ async fn send_inherent_data_bg<Context>(
 		match send_result.await {
 			Err(err) => {
 				if let Error::CanceledBackedCandidates(_) = err {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						err = ?err,
 						"Failed to assemble or send inherent data - block got likely obsoleted already."
 					);
 				} else {
-					gum::warn!(target: LOG_TARGET, err = ?err, "failed to assemble or send inherent data");
+					sp_tracing::warn!(target: LOG_TARGET, err = ?err, "failed to assemble or send inherent data");
 				}
 				metrics.on_inherent_data_request(Err(()));
 			},
 			Ok(()) => {
 				metrics.on_inherent_data_request(Ok(()));
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					signed_bitfield_count = signed_bitfields.len(),
 					leaf_hash = ?leaf.hash,
@@ -358,7 +358,7 @@ fn note_provisionable_data(
 			per_relay_parent.signed_bitfields.push(signed_bitfield),
 		ProvisionableData::BackedCandidate(backed_candidate) => {
 			let candidate_hash = backed_candidate.hash();
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				para = ?backed_candidate.descriptor().para_id,
@@ -419,7 +419,7 @@ async fn send_inherent_data(
 	from_job: &mut impl overseer::ProvisionerSenderTrait,
 	metrics: &Metrics,
 ) -> Result<(), Error> {
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		relay_parent = ?leaf.hash,
 		"Requesting availability cores"
@@ -429,7 +429,7 @@ async fn send_inherent_data(
 		.await
 		.map_err(|err| Error::CanceledAvailabilityCores(err))??;
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		relay_parent = ?leaf.hash,
 		"Selecting disputes"
@@ -447,7 +447,7 @@ async fn send_inherent_data(
 
 	let disputes = disputes::prioritized_selection::select_disputes(from_job, metrics, leaf).await;
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		relay_parent = ?leaf.hash,
 		"Selected disputes"
@@ -455,7 +455,7 @@ async fn send_inherent_data(
 
 	let bitfields = select_availability_bitfields(&availability_cores, bitfields, &leaf.hash);
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		relay_parent = ?leaf.hash,
 		"Selected bitfields"
@@ -472,13 +472,13 @@ async fn send_inherent_data(
 	)
 	.await?;
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		relay_parent = ?leaf.hash,
 		"Selected candidates"
 	);
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		availability_cores_len = availability_cores.len(),
 		disputes_count = disputes.len(),
@@ -491,7 +491,7 @@ async fn send_inherent_data(
 	let inherent_data =
 		ProvisionerInherentData { bitfields, backed_candidates: candidates, disputes };
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		relay_parent = ?leaf.hash,
 		"Sending back inherent data to requesters."
@@ -523,7 +523,7 @@ fn select_availability_bitfields(
 ) -> Vec<SignedAvailabilityBitfield> {
 	let mut selected: BTreeMap<ValidatorIndex, SignedAvailabilityBitfield> = BTreeMap::new();
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		bitfields_count = bitfields.len(),
 		?leaf_hash,
@@ -532,7 +532,7 @@ fn select_availability_bitfields(
 
 	'a: for bitfield in bitfields.iter().cloned() {
 		if bitfield.payload().0.len() != cores.len() {
-			gum::debug!(target: LOG_TARGET, ?leaf_hash, "dropping bitfield due to length mismatch");
+			sp_tracing::debug!(target: LOG_TARGET, ?leaf_hash, "dropping bitfield due to length mismatch");
 			continue
 		}
 
@@ -541,7 +541,7 @@ fn select_availability_bitfields(
 			.map_or(true, |b| b.payload().0.count_ones() < bitfield.payload().0.count_ones());
 
 		if !is_better {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				val_idx = bitfield.validator_index().0,
 				?leaf_hash,
@@ -553,7 +553,7 @@ fn select_availability_bitfields(
 		for (idx, _) in cores.iter().enumerate().filter(|v| !v.1.is_occupied()) {
 			// Bit is set for an unoccupied core - invalid
 			if *bitfield.payload().0.get(idx).as_deref().unwrap_or(&false) {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					val_idx = bitfield.validator_index().0,
 					?leaf_hash,
@@ -566,7 +566,7 @@ fn select_availability_bitfields(
 		let _ = selected.insert(bitfield.validator_index(), bitfield);
 	}
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		?leaf_hash,
 		"selected {} of all {} bitfields (each bitfield is from a unique validator)",
@@ -592,7 +592,7 @@ async fn select_candidate_hashes_from_tracked(
 	let mut selected_candidates =
 		HashMap::with_capacity(candidates.len().min(availability_cores.len()));
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		leaf_hash=?relay_parent,
 		n_candidates = candidates.len(),
@@ -654,7 +654,7 @@ async fn select_candidate_hashes_from_tracked(
 				descriptor.persisted_validation_data_hash == computed_validation_data_hash
 		}) {
 			let candidate_hash = candidate.hash();
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				leaf_hash=?relay_parent,
 				?candidate_hash,
@@ -756,7 +756,7 @@ async fn request_backable_candidates(
 		.await?;
 
 		if response.is_empty() {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				leaf_hash = ?relay_parent,
 				?para_id,
@@ -782,7 +782,7 @@ async fn select_candidates(
 	relay_parent: Hash,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
 ) -> Result<Vec<BackedCandidate>, Error> {
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		leaf_hash=?relay_parent,
 		"before GetBackedCandidates"
@@ -808,7 +808,7 @@ async fn select_candidates(
 			)
 			.await?,
 	};
-	gum::debug!(target: LOG_TARGET, ?selected_candidates, "Got backable candidates");
+	sp_tracing::debug!(target: LOG_TARGET, ?selected_candidates, "Got backable candidates");
 
 	// now get the backed candidates corresponding to these candidate receipts
 	let (tx, rx) = oneshot::channel();
@@ -817,7 +817,7 @@ async fn select_candidates(
 		tx,
 	));
 	let candidates = rx.await.map_err(|err| Error::CanceledBackedCandidates(err))?;
-	gum::trace!(target: LOG_TARGET, leaf_hash=?relay_parent,
+	sp_tracing::trace!(target: LOG_TARGET, leaf_hash=?relay_parent,
 				"Got {} backed candidates", candidates.len());
 
 	// keep only one candidate with validation code.
@@ -839,7 +839,7 @@ async fn select_candidates(
 		}
 	}
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		n_candidates = merged_candidates.len(),
 		n_cores = availability_cores.len(),
@@ -911,7 +911,7 @@ fn bitfields_indicate_availability(
 				// more clearly express this error condition however, in practice, that would just
 				// push off an error-handling routine which would look a whole lot like this one.
 				// simpler to just handle the error internally here.
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					validator_idx = %validator_idx,
 					availability_len = %availability_len,

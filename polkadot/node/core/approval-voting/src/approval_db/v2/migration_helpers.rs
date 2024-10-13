@@ -65,7 +65,7 @@ pub fn v1_to_latest(db: Arc<dyn Database>, config: Config) -> Result<()> {
 		})
 		.collect::<Vec<_>>();
 
-	gum::info!(
+	sp_tracing::info!(
 		target: crate::LOG_TARGET,
 		"Migrating candidate entries on top of {} blocks",
 		all_blocks.len()
@@ -92,7 +92,7 @@ pub fn v1_to_latest(db: Arc<dyn Database>, config: Config) -> Result<()> {
 		overlay.write_block_entry(block);
 	}
 
-	gum::info!(target: crate::LOG_TARGET, "Migrated {} entries", counter);
+	sp_tracing::info!(target: crate::LOG_TARGET, "Migrated {} entries", counter);
 
 	// Commit all changes to DB.
 	let write_ops = overlay.into_write_ops();

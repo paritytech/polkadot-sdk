@@ -235,7 +235,7 @@ impl TestState {
 		);
 
 		while remaining_stores > 0 {
-			gum::trace!(target: LOG_TARGET, remaining_stores, "Stores left to go");
+			sp_tracing::trace!(target: LOG_TARGET, remaining_stores, "Stores left to go");
 			let msg = overseer_recv(&mut rx).await;
 			match msg {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(
@@ -307,7 +307,7 @@ impl TestState {
 					assert_eq!(self.our_chunk_index, chunk.index);
 
 					tx.send(Ok(())).expect("Receiver is expected to be alive");
-					gum::trace!(target: LOG_TARGET, "'Stored' fetched chunk.");
+					sp_tracing::trace!(target: LOG_TARGET, "'Stored' fetched chunk.");
 					remaining_stores -= 1;
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(hash, req)) => {
@@ -325,7 +325,7 @@ impl TestState {
 								.expect("Receiver should be alive.");
 						},
 						RuntimeApiRequest::AvailabilityCores(tx) => {
-							gum::trace!(target: LOG_TARGET, cores= ?self.cores[&hash], hash = ?hash, "Sending out cores for hash");
+							sp_tracing::trace!(target: LOG_TARGET, cores= ?self.cores[&hash], hash = ?hash, "Sending out cores for hash");
 							tx.send(Ok(self.cores[&hash].clone()))
 								.expect("Receiver should still be alive");
 						},
@@ -362,14 +362,14 @@ async fn overseer_signal(
 	msg: impl Into<OverseerSignal>,
 ) {
 	let msg = msg.into();
-	gum::trace!(target: LOG_TARGET, msg = ?msg, "sending message");
+	sp_tracing::trace!(target: LOG_TARGET, msg = ?msg, "sending message");
 	tx.send(FromOrchestra::Signal(msg))
 		.await
 		.expect("Test subsystem no longer live");
 }
 
 async fn overseer_recv(rx: &mut mpsc::UnboundedReceiver<AllMessages>) -> AllMessages {
-	gum::trace!(target: LOG_TARGET, "waiting for message ...");
+	sp_tracing::trace!(target: LOG_TARGET, "waiting for message ...");
 	rx.next().await.expect("Test subsystem no longer live")
 }
 

@@ -88,7 +88,7 @@ impl DbBackend {
 		} else {
 			earliest_session
 		};
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?watermark,
 			?clean_until,
@@ -98,7 +98,7 @@ impl DbBackend {
 		);
 
 		for index in watermark..clean_until {
-			gum::trace!(
+			sp_tracing::trace!(
 			target: LOG_TARGET,
 			?index,
 			encoded = ?candidate_votes_session_prefix(index),
@@ -167,7 +167,7 @@ impl Backend for DbBackend {
 					);
 				},
 				BackendWriteOp::WriteCandidateVotes(session, candidate_hash, votes) => {
-					gum::trace!(target: LOG_TARGET, ?session, "Writing candidate votes");
+					sp_tracing::trace!(target: LOG_TARGET, ?session, "Writing candidate votes");
 					tx.put_vec(
 						self.config.col_dispute_data,
 						&candidate_votes_key(session, &candidate_hash),
@@ -425,7 +425,7 @@ mod tests {
 
 		let mut overlay_db = OverlayedBackend::new(&backend);
 
-		gum::trace!(target: LOG_TARGET, ?current_session, "Noting current session");
+		sp_tracing::trace!(target: LOG_TARGET, ?current_session, "Noting current session");
 		note_earliest_session(&mut overlay_db, earliest_session).unwrap();
 
 		let write_ops = overlay_db.into_write_ops();

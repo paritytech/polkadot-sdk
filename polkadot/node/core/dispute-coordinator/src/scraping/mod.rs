@@ -266,7 +266,7 @@ impl ChainScraper {
 
 		let mut scraped_updates = ScrapedUpdates::new();
 		for (block_number, block_hash) in block_numbers.zip(block_hashes) {
-			gum::trace!(target: LOG_TARGET, ?block_number, ?block_hash, "In ancestor processing.");
+			sp_tracing::trace!(target: LOG_TARGET, ?block_number, ?block_hash, "In ancestor processing.");
 
 			let receipts_for_block =
 				self.process_candidate_events(sender, block_number, block_hash).await?;
@@ -284,14 +284,14 @@ impl ChainScraper {
 				scraped_updates.unapplied_slashes = unapplied_slashes;
 			},
 			Err(runtime::Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					block_hash = ?activated.hash,
 					"Fetching unapplied slashes not yet supported.",
 				);
 			},
 			Err(error) => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					block_hash = ?activated.hash,
 					?error,
@@ -347,7 +347,7 @@ impl ChainScraper {
 			match ev {
 				CandidateEvent::CandidateIncluded(receipt, _, _, _) => {
 					let candidate_hash = receipt.hash();
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						?candidate_hash,
 						?block_number,
@@ -358,7 +358,7 @@ impl ChainScraper {
 				},
 				CandidateEvent::CandidateBacked(receipt, _, _, _) => {
 					let candidate_hash = receipt.hash();
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						?candidate_hash,
 						?block_number,
@@ -407,7 +407,7 @@ impl ChainScraper {
 				None => {
 					// It's assumed that it's impossible to retrieve
 					// more than N ancestors for block number N.
-					gum::error!(
+					sp_tracing::error!(
 						target: LOG_TARGET,
 						"Received {} ancestors for block number {} from Chain API",
 						hashes.len(),

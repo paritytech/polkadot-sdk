@@ -13,7 +13,6 @@ workspace = true
 futures = { workspace = true }
 futures-timer = { workspace = true }
 codec = { features = ["bit-vec", "derive"], workspace = true }
-gum = { workspace = true, default-features = true }
 bitvec = { features = ["alloc"], workspace = true }
 schnellru = { workspace = true }
 merlin = { workspace = true, default-features = true }
@@ -35,6 +34,7 @@ sp-consensus = { workspace = true }
 sp-consensus-slots = { workspace = true }
 sp-application-crypto = { features = ["full_crypto"], workspace = true }
 sp-runtime = { workspace = true }
+sp-tracing = { workspace = true }
 # rand_core should match schnorrkel
 rand_core = { workspace = true }
 rand_chacha = { workspace = true, default-features = true }
@@ -52,7 +52,6 @@ assert_matches = { workspace = true }
 kvdb-memorydb = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 log = { workspace = true, default-features = true }
-sp-tracing = { workspace = true }
 
 polkadot-subsystem-bench = { workspace = true }
 

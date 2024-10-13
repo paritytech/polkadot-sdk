@@ -13885,7 +13885,6 @@ dependencies = [
  "sp-authority-discovery",
  "sp-core 28.0.0",
  "sp-tracing 16.0.0",
- "tracing-gum",
 ]
 
 [[package]]
@@ -14227,7 +14226,6 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "thiserror",
- "tracing-gum",
 ]
 
 [[package]]
@@ -14269,7 +14267,6 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "thiserror",
- "tracing-gum",
 ]
 
 [[package]]
@@ -14298,7 +14295,6 @@ dependencies = [
  "sp-keyring",
  "sp-tracing 16.0.0",
  "thiserror",
- "tracing-gum",
 ]
 
 [[package]]
@@ -14327,7 +14323,6 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-tracing 16.0.0",
  "thiserror",
- "tracing-gum",
 ]
 
 [[package]]
@@ -14341,8 +14336,8 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "sp-keystore 0.34.0",
+ "sp-tracing 16.0.0",
  "thiserror",
- "tracing-gum",
  "wasm-timer",
 ]
 
@@ -14370,7 +14365,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore 0.34.0",
  "sp-maybe-compressed-blob 11.0.0",
- "tracing-gum",
+ "sp-tracing 16.0.0",
 ]
 
 [[package]]
@@ -14390,7 +14385,7 @@ dependencies = [
  "sc-consensus-babe",
  "sp-blockchain",
  "sp-core 28.0.0",
- "tracing-gum",
+ "sp-tracing 16.0.0",
 ]
 
 [[package]]
@@ -14410,8 +14405,8 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "sp-core 28.0.0",
+ "sp-tracing 16.0.0",
  "thiserror",
- "tracing-gum",
 ]
 
 [[package]]
@@ -14439,7 +14434,6 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-tracing 16.0.0",
  "thiserror",
- "tracing-gum",
 ]
 
 [[package]]
@@ -14454,8 +14448,8 @@ dependencies = [
  "polkadot-primitives",
  "sp-blockchain",
  "sp-inherents",
+ "sp-tracing 16.0.0",
  "thiserror",
- "tracing-gum",
 ]
 
 [[package]]
@@ -14496,8 +14490,8 @@ dependencies = [
  "schnellru",
  "sp-application-crypto 30.0.0",
  "sp-keystore 0.34.0",
+ "sp-tracing 16.0.0",
  "thiserror",
- "tracing-gum",
 ]
 
 [[package]]
@@ -14535,13 +14529,13 @@ dependencies = [
  "slotmap",
  "sp-core 28.0.0",
  "sp-maybe-compressed-blob 11.0.0",
+ "sp-tracing 16.0.0",
  "strum 0.26.3",
  "tempfile",
  "test-parachain-adder",
  "test-parachain-halt",
  "thiserror",
  "tokio",
- "tracing-gum",
 ]
 
 [[package]]
@@ -14563,6 +14557,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0",
  "thiserror",
  "tracing-gum",
 ]
@@ -14591,7 +14586,6 @@ dependencies = [
  "sp-tracing 16.0.0",
  "tempfile",
  "thiserror",
- "tracing-gum",
 ]
 
 [[package]]
@@ -14608,7 +14602,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "sp-maybe-compressed-blob 11.0.0",
- "tracing-gum",
+ "sp-tracing 16.0.0",
 ]
 
 [[package]]
@@ -14629,10 +14623,10 @@ dependencies = [
  "sc-executor-common 0.29.0",
  "sc-executor-wasmtime 0.29.0",
  "sp-maybe-compressed-blob 11.0.0",
+ "sp-tracing 16.0.0",
  "staging-tracking-allocator",
  "tikv-jemalloc-ctl",
  "tikv-jemallocator",
- "tracing-gum",
 ]
 
 [[package]]
@@ -14653,7 +14647,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-core 28.0.0",
  "sp-keyring",
- "tracing-gum",
+ "sp-tracing 16.0.0",
 ]
 
 [[package]]
@@ -15987,6 +15981,7 @@ dependencies = [
  "rand",
  "sp-core 28.0.0",
  "sp-keystore 0.34.0",
+ "sp-tracing 16.0.0",
  "substrate-build-script-utils",
  "tracing-gum",
 ]

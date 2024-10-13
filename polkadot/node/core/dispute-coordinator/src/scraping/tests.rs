@@ -72,7 +72,7 @@ impl TestState {
 		let finalized_block_number = 0;
 		let overseer_fut = async {
 			assert_finalized_block_number_request(&mut ctx_handle, finalized_block_number).await;
-			gum::trace!(target: LOG_TARGET, "After assert_finalized_block_number");
+			sp_tracing::trace!(target: LOG_TARGET, "After assert_finalized_block_number");
 			// No ancestors requests, as list would be empty.
 			assert_candidate_events_request(
 				&mut ctx_handle,
@@ -88,7 +88,7 @@ impl TestState {
 			.await
 			.0
 			.unwrap();
-		gum::trace!(target: LOG_TARGET, "After launching chain scraper");
+		sp_tracing::trace!(target: LOG_TARGET, "After launching chain scraper");
 
 		let test_state = Self { chain, scraper, ctx };
 

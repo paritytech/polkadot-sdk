@@ -11,12 +11,12 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
-gum = { workspace = true, default-features = true }
 polkadot-node-metrics = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-types = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-consensus-babe = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
 futures = { features = ["thread-pool"], workspace = true }

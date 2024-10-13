@@ -85,7 +85,7 @@ where
 						ref _pov,
 					),
 			} => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: MALUS,
 					candidate_hash = ?candidate.hash(),
 					?relay_parent,
@@ -104,7 +104,7 @@ where
 				let generate_malicious_candidate = distribution.sample(&mut rand::thread_rng());
 
 				if generate_malicious_candidate {
-					gum::debug!(target: MALUS, "😈 Suggesting malicious candidate.",);
+					sp_tracing::debug!(target: MALUS, "😈 Suggesting malicious candidate.",);
 
 					let pov = PoV { block_data: BlockData(MALICIOUS_POV.into()) };
 
@@ -116,14 +116,14 @@ where
 						"malus-get-validation-data",
 						Some("malus"),
 						Box::pin(async move {
-							gum::trace!(target: MALUS, "Requesting validators");
+							sp_tracing::trace!(target: MALUS, "Requesting validators");
 							let n_validators = request_validators(relay_parent, &mut new_sender)
 								.await
 								.await
 								.unwrap()
 								.unwrap()
 								.len();
-							gum::trace!(target: MALUS, "Validators {}", n_validators);
+							sp_tracing::trace!(target: MALUS, "Validators {}", n_validators);
 
 							let validation_code = {
 								let validation_code_hash =
@@ -142,7 +142,7 @@ where
 								let code = rx.await.expect("Querying the RuntimeApi should work");
 								match code {
 									Err(e) => {
-										gum::error!(
+										sp_tracing::error!(
 											target: MALUS,
 											?validation_code_hash,
 											error = %e,
@@ -153,7 +153,7 @@ where
 										return
 									},
 									Ok(None) => {
-										gum::debug!(
+										sp_tracing::debug!(
 											target: MALUS,
 											?validation_code_hash,
 											"Could not find validation code on chain",
@@ -179,7 +179,7 @@ where
 					let validation_code_hash = validation_code.hash();
 					let validation_data_relay_parent_number = validation_data.relay_parent_number;
 
-					gum::trace!(
+					sp_tracing::trace!(
 						target: MALUS,
 						candidate_hash = ?candidate.hash(),
 						?relay_parent,
@@ -252,7 +252,7 @@ where
 						),
 					};
 
-					gum::info!(
+					sp_tracing::info!(
 						target: MALUS,
 						candidate_hash = ?candidate.hash(),
 						"😈 Intercepted CandidateBackingMessage::Second and created malicious candidate with hash: {:?}",
@@ -300,7 +300,7 @@ impl OverseerGen for SuggestGarbageCandidates {
 		RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
-		gum::info!(
+		sp_tracing::info!(
 			target: MALUS,
 			"😈 Started Malus node with a {:?} percent chance of behaving maliciously for a given candidate.",
 			&self.percentage,

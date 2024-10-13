@@ -230,7 +230,7 @@ pub async fn start(
 	config: Config,
 	metrics: Metrics,
 ) -> SubsystemResult<(ValidationHost, impl Future<Output = ()>)> {
-	gum::debug!(target: LOG_TARGET, ?config, "starting PVF validation host");
+	sp_tracing::debug!(target: LOG_TARGET, ?config, "starting PVF validation host");
 
 	// Make sure the cache is initialized before doing anything else.
 	let artifacts = Artifacts::new(&config.cache_path).await;
@@ -244,7 +244,7 @@ pub async fn start(
 	};
 	#[cfg(not(target_os = "linux"))]
 	let security_status = if config.secure_validator_mode {
-		gum::error!(
+		sp_tracing::error!(
 			target: LOG_TARGET,
 			"{}{}{}",
 			crate::SECURE_MODE_ERROR,
@@ -255,7 +255,7 @@ pub async fn start(
 			"could not enable Secure Validator Mode for non-Linux; check logs".into(),
 		));
 	} else {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			"{}{}",
 			crate::SECURE_MODE_WARNING,
@@ -383,7 +383,7 @@ async fn run(
 		($expr:expr) => {
 			match $expr {
 				Err(Fatal) => {
-					gum::error!(
+					sp_tracing::error!(
 						target: LOG_TARGET,
 						"Fatal error occurred, terminating the host. Line: {}",
 						line!(),
@@ -577,7 +577,7 @@ async fn handle_execute_pvf(
 					)
 					.await?;
 				} else {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						?pvf,
 						?artifact_id,
@@ -623,7 +623,7 @@ async fn handle_execute_pvf(
 			},
 			ArtifactState::FailedToProcess { last_time_failed, num_failures, error } => {
 				if can_retry_prepare_after_failure(*last_time_failed, *num_failures, error) {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						?pvf,
 						?artifact_id,
@@ -704,7 +704,7 @@ async fn handle_heads_up(
 				},
 				ArtifactState::FailedToProcess { last_time_failed, num_failures, error } => {
 					if can_retry_prepare_after_failure(*last_time_failed, *num_failures, error) {
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							?active_pvf,
 							?artifact_id,
@@ -840,7 +840,7 @@ async fn handle_prepare_done(
 			let last_time_failed = SystemTime::now();
 			let num_failures = *num_failures + 1;
 
-			gum::error!(
+			sp_tracing::error!(
 				target: LOG_TARGET,
 				?artifact_id,
 				time_failed = ?last_time_failed,
@@ -893,13 +893,13 @@ async fn handle_cleanup_pulse(
 	cleanup_config: &ArtifactsCleanupConfig,
 ) -> Result<(), Fatal> {
 	let to_remove = artifacts.prune(cleanup_config);
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		"PVF pruning: {} artifacts reached their end of life",
 		to_remove.len(),
 	);
 	for (artifact_id, path) in to_remove {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			validation_code_hash = ?artifact_id.code_hash,
 			"pruning artifact",
@@ -932,7 +932,7 @@ async fn handle_artifact_removal(
 	// `artifacts::generate_artifact_path`) there is no issue with any name conflict on
 	// future repreparation.
 	// So we can confirm the artifact removal already
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		validation_code_hash = ?artifact_id.code_hash,
 		"PVF pruning: pruning artifact by request from the execute queue",
@@ -948,7 +948,7 @@ async fn sweeper_task(mut sweeper_rx: mpsc::Receiver<PathBuf>) {
 			None => break,
 			Some(condemned) => {
 				let result = tokio::fs::remove_file(&condemned).await;
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?result,
 					"Swept the artifact file {}",

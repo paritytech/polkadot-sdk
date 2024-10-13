@@ -12,7 +12,6 @@ workspace = true
 [dependencies]
 blake3 = { workspace = true }
 cfg-if = { workspace = true }
-gum = { workspace = true, default-features = true }
 libc = { workspace = true }
 rayon = { workspace = true }
 tracking-allocator = { workspace = true, default-features = true }
@@ -29,6 +28,7 @@ polkadot-primitives = { workspace = true, default-features = true }
 sc-executor-common = { workspace = true, default-features = true }
 sc-executor-wasmtime = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemallocator = "0.5.0"

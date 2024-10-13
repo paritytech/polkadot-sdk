@@ -196,7 +196,7 @@ async fn handle_active_leaves_update<Context>(
 
 	let _timer = metrics.time_handle_active_leaves_update();
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		activated = ?update.activated,
 		deactivated = ?update.deactivated,
@@ -218,7 +218,7 @@ async fn handle_active_leaves_update<Context>(
 
 		let ProspectiveParachainsMode::Enabled { max_candidate_depth, allowed_ancestry_len } = mode
 		else {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				block_hash = ?hash,
 				"Skipping leaf activation since async backing is disabled"
@@ -232,7 +232,7 @@ async fn handle_active_leaves_update<Context>(
 
 		let block_info = match fetch_block_info(ctx, &mut temp_header_cache, hash).await? {
 			None => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					block_hash = ?hash,
 					"Failed to get block info for newly activated leaf block."
@@ -258,7 +258,7 @@ async fn handle_active_leaves_update<Context>(
 			let backing_state = fetch_backing_state(ctx, hash, para).await?;
 			let Some((constraints, pending_availability)) = backing_state else {
 				// This indicates a runtime conflict of some kind.
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					para_id = ?para,
 					relay_parent = ?hash,
@@ -290,7 +290,7 @@ async fn handle_active_leaves_update<Context>(
 				match res {
 					Ok(_) | Err(FragmentChainError::CandidateAlreadyKnown) => {},
 					Err(err) => {
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							?candidate_hash,
 							para_id = ?para,
@@ -317,7 +317,7 @@ async fn handle_active_leaves_update<Context>(
 			) {
 				Ok(scope) => scope,
 				Err(unexpected_ancestors) => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						para_id = ?para,
 						max_candidate_depth,
@@ -330,7 +330,7 @@ async fn handle_active_leaves_update<Context>(
 				},
 			};
 
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
 				min_relay_parent = scope.earliest_relay_parent().number,
@@ -345,7 +345,7 @@ async fn handle_active_leaves_update<Context>(
 			let mut chain = FragmentChain::init(scope, pending_availability_storage);
 
 			if chain.best_chain_len() < number_of_pending_candidates {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					relay_parent = ?hash,
 					para_id = ?para,
@@ -363,7 +363,7 @@ async fn handle_active_leaves_update<Context>(
 				chain.populate_from_previous(prev_fragment_chain);
 			}
 
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
 				para_id = ?para,
@@ -372,7 +372,7 @@ async fn handle_active_leaves_update<Context>(
 				chain.best_chain_vec()
 			);
 
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
 				para_id = ?para,
@@ -509,7 +509,7 @@ async fn handle_introduce_seconded_candidate(
 	let candidate_entry = match CandidateEntry::new_seconded(candidate_hash, candidate, pvd) {
 		Ok(candidate) => candidate,
 		Err(err) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				para = ?para,
 				"Cannot add seconded candidate: {}",
@@ -533,7 +533,7 @@ async fn handle_introduce_seconded_candidate(
 
 		match chain.try_adding_seconded_candidate(&candidate_entry) {
 			Ok(()) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?para,
 					?relay_parent,
@@ -544,7 +544,7 @@ async fn handle_introduce_seconded_candidate(
 				added = true;
 			},
 			Err(FragmentChainError::CandidateAlreadyKnown) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?para,
 					?relay_parent,
@@ -555,7 +555,7 @@ async fn handle_introduce_seconded_candidate(
 				added = true;
 			},
 			Err(err) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?para,
 					?relay_parent,
@@ -569,7 +569,7 @@ async fn handle_introduce_seconded_candidate(
 	}
 
 	if !para_scheduled {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			para_id = ?para,
 			?candidate_hash,
@@ -578,7 +578,7 @@ async fn handle_introduce_seconded_candidate(
 	}
 
 	if !added {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			para = ?para,
 			candidate = ?candidate_hash,
@@ -608,7 +608,7 @@ async fn handle_candidate_backed(
 
 		found_para = true;
 		if chain.is_candidate_backed(&candidate_hash) {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				?para,
 				?candidate_hash,
@@ -621,7 +621,7 @@ async fn handle_candidate_backed(
 			// Mark the candidate as backed. This can recreate the fragment chain.
 			chain.candidate_backed(&candidate_hash);
 
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?relay_parent,
 				?para,
@@ -630,7 +630,7 @@ async fn handle_candidate_backed(
 				chain.best_chain_vec()
 			);
 
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?relay_parent,
 				?para,
@@ -642,7 +642,7 @@ async fn handle_candidate_backed(
 	}
 
 	if !found_para {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?para,
 			?candidate_hash,
@@ -655,7 +655,7 @@ async fn handle_candidate_backed(
 	if !found_candidate {
 		// This can be harmless. It can happen if we received a better backed candidate before and
 		// dropped this other candidate already.
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?para,
 			?candidate_hash,
@@ -673,7 +673,7 @@ fn answer_get_backable_candidates(
 	tx: oneshot::Sender<Vec<(CandidateHash, Hash)>>,
 ) {
 	if !view.active_leaves.contains(&relay_parent) {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
 			para_id = ?para,
@@ -684,7 +684,7 @@ fn answer_get_backable_candidates(
 		return
 	}
 	let Some(data) = view.per_relay_parent.get(&relay_parent) else {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
 			para_id = ?para,
@@ -696,7 +696,7 @@ fn answer_get_backable_candidates(
 	};
 
 	let Some(chain) = data.fragment_chains.get(&para) else {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
 			para_id = ?para,
@@ -707,7 +707,7 @@ fn answer_get_backable_candidates(
 		return
 	};
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?relay_parent,
 		para_id = ?para,
@@ -715,7 +715,7 @@ fn answer_get_backable_candidates(
 		chain.best_chain_vec()
 	);
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?relay_parent,
 		para_id = ?para,
@@ -726,7 +726,7 @@ fn answer_get_backable_candidates(
 	let backable_candidates = chain.find_backable_chain(ancestors.clone(), count);
 
 	if backable_candidates.is_empty() {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?ancestors,
 			para_id = ?para,
@@ -734,7 +734,7 @@ fn answer_get_backable_candidates(
 			"Could not find any backable candidate",
 		);
 	} else {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?relay_parent,
 			?backable_candidates,
@@ -776,7 +776,7 @@ fn answer_hypothetical_membership_request(
 					membership.push(*active_leaf);
 				},
 				Err(err) => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						para = ?para_id,
 						leaf = ?active_leaf,
@@ -962,7 +962,7 @@ async fn fetch_ancestry<Context>(
 	for hash in hashes {
 		let info = match fetch_block_info(ctx, cache, hash).await? {
 			None => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					relay_hash = ?hash,
 					"Failed to fetch info for hash returned from ancestry.",

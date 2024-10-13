@@ -118,7 +118,7 @@ pub async fn start_work(
 ) -> Outcome {
 	let IdleWorker { stream, pid, worker_dir } = worker;
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		worker_pid = %pid,
 		?worker_dir,
@@ -134,7 +134,7 @@ pub async fn start_work(
 			let preparation_timeout = pvf.prep_timeout();
 
 			if let Err(err) = send_request(&mut stream, &pvf).await {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					worker_pid = %pid,
 					"failed to send a prepare request: {:?}",
@@ -170,7 +170,7 @@ pub async fn start_work(
 					.await,
 				Ok(Err(err)) => {
 					// Communication error within the time limit.
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						worker_pid = %pid,
 						"failed to recv a prepare response: {}",
@@ -180,7 +180,7 @@ pub async fn start_work(
 				},
 				Err(_) => {
 					// Timed out here on the host.
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						worker_pid = %pid,
 						"did not recv a prepare response within the time limit",
@@ -224,7 +224,7 @@ async fn handle_response(
 
 	if cpu_time_elapsed > preparation_timeout {
 		// The job didn't complete within the timeout.
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			%worker_pid,
 			"prepare job took {}ms cpu time, exceeded preparation timeout {}ms. Clearing WIP artifact {}",
@@ -238,7 +238,7 @@ async fn handle_response(
 	let size = match tokio::fs::metadata(cache_path).await {
 		Ok(metadata) => metadata.len(),
 		Err(err) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				?cache_path,
 				"failed to read size of the artifact: {}",
@@ -254,7 +254,7 @@ async fn handle_response(
 	// environment, etc.
 	let artifact_path = generate_artifact_path(cache_path);
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		%worker_pid,
 		"promoting WIP artifact {} to {}",
@@ -276,7 +276,7 @@ async fn handle_response(
 			}),
 		},
 		Err(err) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				%worker_pid,
 				"failed to rename the artifact from {} to {}: {:?}",
@@ -319,7 +319,7 @@ where
 	// be cleared at the end of this function.
 	let tmp_file = worker_dir::prepare_tmp_artifact(worker_dir.path());
 	if let Err(err) = tokio::fs::File::create(&tmp_file).await {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			worker_pid = %pid,
 			?worker_dir,
@@ -337,7 +337,7 @@ where
 
 	// Try to clear the worker dir.
 	if let Err(err) = clear_worker_dir_path(&worker_dir_path) {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			worker_pid = %pid,
 			?worker_dir_path,
@@ -360,7 +360,7 @@ async fn recv_response(stream: &mut UnixStream, pid: u32) -> io::Result<PrepareW
 	let result = PrepareWorkerResult::decode(&mut &result[..]).map_err(|e| {
 		// We received invalid bytes from the worker.
 		let bound_bytes = &result[..result.len().min(4)];
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			worker_pid = %pid,
 			"received unexpected response from the prepare worker: {}",

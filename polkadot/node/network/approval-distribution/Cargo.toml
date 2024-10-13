@@ -21,7 +21,7 @@ itertools = { workspace = true }
 
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 bitvec = { features = ["alloc"], workspace = true }
 
 [dev-dependencies]

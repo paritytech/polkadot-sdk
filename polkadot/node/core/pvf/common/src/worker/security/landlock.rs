@@ -99,7 +99,7 @@ pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 			panic!("this should only be passed for checking pivot_root; qed"),
 	};
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?worker_info,
 		"enabling landlock with exceptions: {:?}",

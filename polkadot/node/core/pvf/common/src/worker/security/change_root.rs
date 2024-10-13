@@ -40,7 +40,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// NOTE: This should not be called in a multi-threaded context. `unshare(2)`:
 ///       "CLONE_NEWUSER requires that the calling process is not threaded."
 pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?worker_info,
 		"enabling change-root",

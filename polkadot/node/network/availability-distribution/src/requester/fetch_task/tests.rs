@@ -337,7 +337,7 @@ impl TestRun {
 				return true
 			},
 			_ => {
-				gum::debug!(target: LOG_TARGET, "Unexpected message");
+				sp_tracing::debug!(target: LOG_TARGET, "Unexpected message");
 				return false
 			},
 		}

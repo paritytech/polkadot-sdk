@@ -118,7 +118,7 @@ const TIMEOUT: Duration = Duration::from_millis(200);
 const REPUTATION_CHANGE_TEST_INTERVAL: Duration = Duration::from_millis(1);
 
 async fn overseer_send(overseer: &mut VirtualOverseer, msg: ApprovalDistributionMessage) {
-	gum::trace!(msg = ?msg, "Sending message");
+	sp_tracing::trace!(msg = ?msg, "Sending message");
 	overseer
 		.send(FromOrchestra::Communication { msg })
 		.timeout(TIMEOUT)
@@ -127,7 +127,7 @@ async fn overseer_send(overseer: &mut VirtualOverseer, msg: ApprovalDistribution
 }
 
 async fn overseer_signal_block_finalized(overseer: &mut VirtualOverseer, number: BlockNumber) {
-	gum::trace!(?number, "Sending a finalized signal");
+	sp_tracing::trace!(?number, "Sending a finalized signal");
 	// we don't care about the block hash
 	overseer
 		.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(Hash::zero(), number)))
@@ -137,10 +137,10 @@ async fn overseer_signal_block_finalized(overseer: &mut VirtualOverseer, number:
 }
 
 async fn overseer_recv(overseer: &mut VirtualOverseer) -> AllMessages {
-	gum::trace!("Waiting for a message");
+	sp_tracing::trace!("Waiting for a message");
 	let msg = overseer.recv().timeout(TIMEOUT).await.expect("msg recv timeout");
 
-	gum::trace!(msg = ?msg, "Received message");
+	sp_tracing::trace!(msg = ?msg, "Received message");
 
 	msg
 }
@@ -2237,7 +2237,7 @@ fn update_peer_authority_id() {
 						protocol_v1::ApprovalDistributionMessage::Assignments(assignments)
 					))
 				)) => {
-					gum::info!(target: LOG_TARGET, ?peers, ?assignments);
+					sp_tracing::info!(target: LOG_TARGET, ?peers, ?assignments);
 					assert_eq!(peers.len(), 1);
 					assert_eq!(assignments.len(), 2);
 					assert_eq!(assignments.get(0).unwrap().0.block_hash, hash_a);

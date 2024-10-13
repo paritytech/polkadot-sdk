@@ -94,7 +94,7 @@ pub async fn select_disputes<Sender>(
 where
 	Sender: overseer::ProvisionerSenderTrait,
 {
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?leaf,
 		"Selecting disputes for inherent data using prioritized selection"
@@ -103,7 +103,7 @@ where
 	// Fetch the onchain disputes. We'll do a prioritization based on them.
 	let onchain = match get_onchain_disputes(sender, leaf.hash).await {
 		Ok(r) => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?leaf,
 				"Successfully fetched {} onchain disputes",
@@ -114,7 +114,7 @@ where
 		Err(GetOnchainDisputesError::NotSupported(runtime_api_err, relay_parent)) => {
 			// Runtime version is checked before calling this method, so the error below should
 			// never happen!
-			gum::error!(
+			sp_tracing::error!(
 				target: LOG_TARGET,
 				?runtime_api_err,
 				?relay_parent,
@@ -124,14 +124,14 @@ where
 		},
 		Err(GetOnchainDisputesError::Channel) => {
 			// This error usually means the node is shutting down. Log just in case.
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				"Channel error occurred while fetching onchain disputes. Will continue with empty onchain disputes set.",
 			);
 			HashMap::new()
 		},
 		Err(GetOnchainDisputesError::Execution(runtime_api_err, parent_hash)) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				?runtime_api_err,
 				?parent_hash,
@@ -142,9 +142,9 @@ where
 	};
 	metrics.on_fetched_onchain_disputes(onchain.keys().len() as u64);
 
-	gum::trace!(target: LOG_TARGET, ?leaf, "Fetching recent disputes");
+	sp_tracing::trace!(target: LOG_TARGET, ?leaf, "Fetching recent disputes");
 	let recent_disputes = request_disputes(sender).await;
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?leaf,
 		"Got {} recent disputes and {} onchain disputes.",
@@ -152,7 +152,7 @@ where
 		onchain.len(),
 	);
 
-	gum::trace!(target: LOG_TARGET, ?leaf, "Filtering recent disputes");
+	sp_tracing::trace!(target: LOG_TARGET, ?leaf, "Filtering recent disputes");
 
 	// Filter out unconfirmed disputes. However if the dispute is already onchain - don't skip it.
 	// In this case we'd better push as much fresh votes as possible to bring it to conclusion
@@ -162,12 +162,12 @@ where
 		.filter(|d| d.2.is_confirmed_concluded() || onchain.contains_key(&(d.0, d.1)))
 		.collect::<Vec<_>>();
 
-	gum::trace!(target: LOG_TARGET, ?leaf, "Partitioning recent disputes");
+	sp_tracing::trace!(target: LOG_TARGET, ?leaf, "Partitioning recent disputes");
 	let partitioned = partition_recent_disputes(recent_disputes, &onchain);
 	metrics.on_partition_recent_disputes(&partitioned);
 
 	if partitioned.inactive_unknown_onchain.len() > 0 {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?leaf,
 			"Got {} inactive unknown onchain disputes. This should not happen in normal conditions!",
@@ -175,10 +175,10 @@ where
 		);
 	}
 
-	gum::trace!(target: LOG_TARGET, ?leaf, "Vote selection for recent disputes");
+	sp_tracing::trace!(target: LOG_TARGET, ?leaf, "Vote selection for recent disputes");
 	let result = vote_selection(sender, partitioned, &onchain).await;
 
-	gum::trace!(target: LOG_TARGET, ?leaf, "Convert to multi dispute statement set");
+	sp_tracing::trace!(target: LOG_TARGET, ?leaf, "Convert to multi dispute statement set");
 	make_multi_dispute_statement_set(metrics, result)
 }
 
@@ -199,13 +199,13 @@ where
 	let mut result = BTreeMap::new();
 	let mut request_votes_counter = 0;
 	while !disputes.is_empty() {
-		gum::trace!(target: LOG_TARGET, "has to process {} disputes left", disputes.len());
+		sp_tracing::trace!(target: LOG_TARGET, "has to process {} disputes left", disputes.len());
 		let batch_size = std::cmp::min(VOTES_SELECTION_BATCH_SIZE, disputes.len());
 		let batch = Vec::from_iter(disputes.drain(0..batch_size));
 
 		// Filter votes which are already onchain
 		request_votes_counter += 1;
-		gum::trace!(target: LOG_TARGET, "requesting onchain votes",);
+		sp_tracing::trace!(target: LOG_TARGET, "requesting onchain votes",);
 		let votes = super::request_votes(sender, batch)
 			.await
 			.into_iter()
@@ -235,7 +235,7 @@ where
 				(session_index, candidate_hash, votes)
 			})
 			.collect::<Vec<_>>();
-		gum::trace!(target: LOG_TARGET, "got {} onchain votes after processing", votes.len());
+		sp_tracing::trace!(target: LOG_TARGET, "got {} onchain votes after processing", votes.len());
 
 		// Check if votes are within the limit
 		for (session_index, candidate_hash, selected_votes) in votes {
@@ -244,7 +244,7 @@ where
 				// we are done - no more votes can be added. Importantly, we don't add any votes for
 				// a dispute here if we can't fit them all. This gives us an important invariant,
 				// that backing votes for disputes make it into the provisioned vote set.
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?request_votes_counter,
 					?total_votes_len,
@@ -259,7 +259,7 @@ where
 		}
 	}
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?request_votes_counter,
 		?total_votes_len,
@@ -318,7 +318,7 @@ fn secs_since_epoch() -> Timestamp {
 	match SystemTime::now().duration_since(UNIX_EPOCH) {
 		Ok(d) => d.as_secs(),
 		Err(e) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				err = ?e,
 				"Error getting system time."
@@ -449,7 +449,7 @@ async fn request_disputes(
 	sender.send_unbounded_message(msg);
 
 	let recent_disputes = rx.await.unwrap_or_else(|err| {
-		gum::warn!(target: LOG_TARGET, err=?err, "Unable to gather recent disputes");
+		sp_tracing::warn!(target: LOG_TARGET, err=?err, "Unable to gather recent disputes");
 		Vec::new()
 	});
 	recent_disputes
@@ -496,7 +496,7 @@ pub async fn get_onchain_disputes<Sender>(
 where
 	Sender: overseer::ProvisionerSenderTrait,
 {
-	gum::trace!(target: LOG_TARGET, ?relay_parent, "Fetching on-chain disputes");
+	sp_tracing::trace!(target: LOG_TARGET, ?relay_parent, "Fetching on-chain disputes");
 	let (tx, rx) = oneshot::channel();
 	sender
 		.send_message(RuntimeApiMessage::Request(relay_parent, RuntimeApiRequest::Disputes(tx)))

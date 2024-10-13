@@ -172,7 +172,7 @@ fn query_inner<D: Decode>(
 		},
 		Ok(None) => Ok(None),
 		Err(err) => {
-			gum::warn!(target: LOG_TARGET, ?err, "Error reading from the availability store");
+			sp_tracing::warn!(target: LOG_TARGET, ?err, "Error reading from the availability store");
 			Err(err.into())
 		},
 	}
@@ -400,10 +400,10 @@ impl Error {
 		match self {
 			// don't spam the log with spurious errors
 			Self::RuntimeApi(_) | Self::Oneshot(_) => {
-				gum::debug!(target: LOG_TARGET, err = ?self)
+				sp_tracing::debug!(target: LOG_TARGET, err = ?self)
 			},
 			// it's worth reporting otherwise
-			_ => gum::warn!(target: LOG_TARGET, err = ?self),
+			_ => sp_tracing::warn!(target: LOG_TARGET, err = ?self),
 		}
 	}
 }
@@ -571,7 +571,7 @@ async fn run<Context>(mut subsystem: AvailabilityStoreSubsystem, mut ctx: Contex
 				}
 			},
 			Ok(true) => {
-				gum::info!(target: LOG_TARGET, "received `Conclude` signal, exiting");
+				sp_tracing::info!(target: LOG_TARGET, "received `Conclude` signal, exiting");
 				break
 			},
 			Ok(false) => continue,
@@ -669,12 +669,12 @@ async fn start_prune_all<Context>(
 		Box::pin(async move {
 			let _timer = metrics.time_pruning();
 
-			gum::debug!(target: LOG_TARGET, "Prunning started");
+			sp_tracing::debug!(target: LOG_TARGET, "Prunning started");
 			let result = prune_all(&db, &config, time_now);
 
 			if let Err(err) = pruning_result_tx.send(result).await {
 				// This usually means that the node is closing down, log it just in case
-				gum::debug!(target: LOG_TARGET, ?err, "Failed to send prune_all result",);
+				sp_tracing::debug!(target: LOG_TARGET, ?err, "Failed to send prune_all result",);
 			}
 		}),
 	)?;
@@ -792,7 +792,7 @@ fn note_block_backed(
 ) -> Result<(), Error> {
 	let candidate_hash = candidate.hash();
 
-	gum::debug!(target: LOG_TARGET, ?candidate_hash, "Candidate backed");
+	sp_tracing::debug!(target: LOG_TARGET, ?candidate_hash, "Candidate backed");
 
 	if load_meta(db, config, &candidate_hash)?.is_none() {
 		let meta = CandidateMeta {
@@ -824,7 +824,7 @@ fn note_block_included(
 		None => {
 			// This is alarming. We've observed a block being included without ever seeing it
 			// backed. Warn and ignore.
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				"Candidate included without being backed?",
@@ -833,7 +833,7 @@ fn note_block_included(
 		Some(mut meta) => {
 			let be_block = (BEBlockNumber(block.0), block.1);
 
-			gum::debug!(target: LOG_TARGET, ?candidate_hash, "Candidate included");
+			sp_tracing::debug!(target: LOG_TARGET, ?candidate_hash, "Candidate included");
 
 			meta.state = match meta.state {
 				State::Unavailable(at) => {
@@ -925,7 +925,7 @@ async fn process_block_finalized<Context>(
 
 			match rx.await? {
 				Err(err) => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						batch_num,
 						?err,
@@ -935,7 +935,7 @@ async fn process_block_finalized<Context>(
 					break
 				},
 				Ok(None) => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						"Availability store was informed that block #{} is finalized, \
 						but chain API has no finalized hash.",
@@ -1014,7 +1014,7 @@ fn update_blocks_at_finalized_height(
 	for (candidate_hash, is_finalized) in candidates {
 		let mut meta = match load_meta(&subsystem.db, &subsystem.config, &candidate_hash)? {
 			None => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					"Dangling candidate metadata for {}",
 					candidate_hash,
@@ -1153,7 +1153,7 @@ fn process_message(
 						)? {
 							Some(c) => chunks.push((validator_index, c)),
 							None => {
-								gum::warn!(
+								sp_tracing::warn!(
 									target: LOG_TARGET,
 									?candidate,
 									?validator_index,
@@ -1268,7 +1268,7 @@ fn store_chunk(
 		None => return Ok(false), // out of bounds.
 	}
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		?candidate_hash,
 		chunk_index = %chunk.index.0,
@@ -1353,7 +1353,7 @@ fn store_available_data(
 
 	subsystem.db.write(tx)?;
 
-	gum::debug!(target: LOG_TARGET, ?candidate_hash, "Stored data and chunks");
+	sp_tracing::debug!(target: LOG_TARGET, ?candidate_hash, "Stored data and chunks");
 
 	Ok(())
 }

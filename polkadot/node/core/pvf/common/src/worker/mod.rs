@@ -324,7 +324,7 @@ pub fn run_worker<F>(
 		version: worker_version.map(|v| v.to_string()),
 		worker_dir_path,
 	};
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		?worker_info,
 		?socket_path,
@@ -335,7 +335,7 @@ pub fn run_worker<F>(
 	// Check for a mismatch between the node and worker versions.
 	if let (Some(node_version), Some(worker_version)) = (node_version, &worker_info.version) {
 		if node_version != worker_version {
-			gum::error!(
+			sp_tracing::error!(
 				target: LOG_TARGET,
 				?worker_info,
 				%node_version,
@@ -351,7 +351,7 @@ pub fn run_worker<F>(
 		.and_then(|d| d.map(|res| res.map(|e| e.file_name())).collect());
 	match entries {
 		Ok(entries) =>
-			gum::trace!(target: LOG_TARGET, ?worker_info, "content of worker dir: {:?}", entries),
+			sp_tracing::trace!(target: LOG_TARGET, ?worker_info, "content of worker dir: {:?}", entries),
 		Err(err) => {
 			let err = format!("Could not read worker dir: {}", err.to_string());
 			worker_shutdown_error(worker_info, &err);
@@ -376,14 +376,14 @@ pub fn run_worker<F>(
 
 	// Enable some security features.
 	{
-		gum::trace!(target: LOG_TARGET, ?security_status, "Enabling security features");
+		sp_tracing::trace!(target: LOG_TARGET, ?security_status, "Enabling security features");
 
 		// First, make sure env vars were cleared, to match the environment we perform the checks
 		// within. (In theory, running checks with different env vars could result in different
 		// outcomes of the checks.)
 		if !security::check_env_vars_were_cleared(&worker_info) {
 			let err = "not all env vars were cleared when spawning the process";
-			gum::error!(
+			sp_tracing::error!(
 				target: LOG_TARGET,
 				?worker_info,
 				"{}",
@@ -416,7 +416,7 @@ pub fn run_worker<F>(
 				// We previously were able to enable, so this should never happen. Shutdown if
 				// running in secure mode.
 				let err = format!("could not fully enable landlock: {:?}", err);
-				gum::error!(
+				sp_tracing::error!(
 					target: LOG_TARGET,
 					?worker_info,
 					"{}. This should not happen, please report an issue",
@@ -436,7 +436,7 @@ pub fn run_worker<F>(
 				// We previously were able to enable, so this should never happen. Shutdown if
 				// running in secure mode.
 				let err = format!("could not fully enable seccomp: {:?}", err);
-				gum::error!(
+				sp_tracing::error!(
 					target: LOG_TARGET,
 					?worker_info,
 					"{}. This should not happen, please report an issue",
@@ -459,13 +459,13 @@ pub fn run_worker<F>(
 
 /// Provide a consistent message on unexpected worker shutdown.
 fn worker_shutdown(worker_info: WorkerInfo, err: &str) -> ! {
-	gum::warn!(target: LOG_TARGET, ?worker_info, "quitting pvf worker ({}): {}", worker_info.kind, err);
+	sp_tracing::warn!(target: LOG_TARGET, ?worker_info, "quitting pvf worker ({}): {}", worker_info.kind, err);
 	std::process::exit(1);
 }
 
 /// Provide a consistent error on unexpected worker shutdown.
 fn worker_shutdown_error(worker_info: WorkerInfo, err: &str) -> ! {
-	gum::error!(target: LOG_TARGET, ?worker_info, "quitting pvf worker ({}): {}", worker_info.kind, err);
+	sp_tracing::error!(target: LOG_TARGET, ?worker_info, "quitting pvf worker ({}): {}", worker_info.kind, err);
 	std::process::exit(1);
 }
 
@@ -595,14 +595,14 @@ where
 	Result<T, E>: Encode,
 {
 	if let Err(ref err) = result {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?worker_info,
 			"worker: error occurred: {}",
 			err
 		);
 	}
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?worker_info,
 		"worker: sending result to host: {:?}",
@@ -610,7 +610,7 @@ where
 	);
 
 	framed_send_blocking(stream, &result.encode()).map_err(|err| {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?worker_info,
 			"worker: error occurred sending result to host: {}",

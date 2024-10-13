@@ -94,7 +94,7 @@ async fn get_core_availability(
 
 		let res = rx.await.map_err(Into::into);
 
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			para_id = %core.para_id(),
 			availability = ?res,
@@ -138,7 +138,7 @@ async fn construct_availability_bitfield(
 	.await?;
 
 	let core_bits = FromIterator::from_iter(results.into_iter());
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		?relay_parent,
 		"Signing Bitfield for {core_count} cores: {core_bits}",
@@ -248,7 +248,7 @@ where
 		match construct_availability_bitfield(leaf.hash, validator.index(), &mut sender).await {
 			Err(Error::Runtime(runtime_err)) => {
 				// Don't take down the node on runtime API errors.
-				gum::warn!(target: LOG_TARGET, err = ?runtime_err, "Encountered a runtime API error");
+				sp_tracing::warn!(target: LOG_TARGET, err = ?runtime_err, "Encountered a runtime API error");
 				return Ok(())
 			},
 			Err(err) => return Err(err),
@@ -259,7 +259,7 @@ where
 		match validator.sign(keystore, bitfield).map_err(|e| Error::Keystore(e))? {
 			Some(b) => b,
 			None => {
-				gum::error!(
+				sp_tracing::error!(
 					target: LOG_TARGET,
 					"Key was found at construction, but while signing it could not be found.",
 				);

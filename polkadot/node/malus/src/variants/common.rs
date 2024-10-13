@@ -201,7 +201,7 @@ fn create_validation_response(
 
 	let result = Ok(ValidationResult::Valid(commitments, persisted_validation_data));
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: MALUS,
 		para_id = ?candidate_receipt.descriptor.para_id,
 		candidate_hash = ?candidate_receipt.hash(),
@@ -261,7 +261,7 @@ where
 						let behave_maliciously = self.distribution.sample(&mut rand::thread_rng());
 						match behave_maliciously {
 							true => {
-								gum::info!(
+								sp_tracing::info!(
 									target: MALUS,
 									?behave_maliciously,
 									"😈 Creating malicious ValidationResult::Valid message with fake candidate commitments.",
@@ -276,7 +276,7 @@ where
 							},
 							false => {
 								// Behave normally with probability `(1-p)` for a malicious `PoV`.
-								gum::info!(
+								sp_tracing::info!(
 									target: MALUS,
 									?behave_maliciously,
 									"😈 Passing CandidateValidationMessage::ValidateFromExhaustive to the candidate validation subsystem.",
@@ -305,7 +305,7 @@ where
 								let validation_result =
 									ValidationResult::Invalid(self.fake_validation_error.into());
 
-								gum::info!(
+								sp_tracing::info!(
 									target: MALUS,
 									?behave_maliciously,
 									para_id = ?candidate_receipt.descriptor.para_id,
@@ -320,7 +320,7 @@ where
 							},
 							false => {
 								// Behave normally with probability `(1-p)`
-								gum::info!(target: MALUS, "😈 'Decided' to not act maliciously.",);
+								sp_tracing::info!(target: MALUS, "😈 'Decided' to not act maliciously.",);
 
 								Some(FromOrchestra::Communication {
 									msg: CandidateValidationMessage::ValidateFromExhaustive {

@@ -11,10 +11,10 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
-gum = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 
 sp-consensus-babe = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-metrics = { workspace = true, default-features = true }

@@ -76,7 +76,7 @@ where
 							new_requests.push(request);
 
 							// Duplicate for spam purposes
-							gum::info!(
+							sp_tracing::info!(
 								target: MALUS,
 								"😈 Duplicating AttestedCandidateV2 request extra {:?} times to peer: {:?}.", self.spam_factor, peer_to_duplicate,
 							);
@@ -136,7 +136,7 @@ impl OverseerGen for SpamStatementRequests {
 		RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
-		gum::info!(
+		sp_tracing::info!(
 			target: MALUS,
 			"😈 Started Malus node that duplicates each statement distribution request spam_factor = {:?} times.",
 			&self.spam_factor,
