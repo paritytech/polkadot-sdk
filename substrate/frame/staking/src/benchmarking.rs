@@ -42,6 +42,7 @@ use frame_system::RawOrigin;
 const SEED: u32 = 0;
 const MAX_SPANS: u32 = 100;
 const MAX_SLASHES: u32 = 1000;
+const SINGLE_PAGE: u32 = 0;
 
 type MaxValidators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxValidators;
 type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxNominators;
@@ -827,7 +828,7 @@ benchmarks! {
 		let num_voters = (v + n) as usize;
 	}: {
 		// default bounds are unbounded.
-		let voters = <Staking<T>>::get_npos_voters(DataProviderBounds::default());
+		let voters = <Staking<T>>::get_npos_voters(DataProviderBounds::default(), SINGLE_PAGE);
 		assert_eq!(voters.len(), num_voters);
 	}
 
@@ -842,7 +843,7 @@ benchmarks! {
 		)?;
 	}: {
 		// default bounds are unbounded.
-		let targets = <Staking<T>>::get_npos_targets(DataProviderBounds::default());
+		let targets = <Staking<T>>::get_npos_targets(DataProviderBounds::default(), SINGLE_PAGE);
 		assert_eq!(targets.len() as u32, v);
 	}
 
