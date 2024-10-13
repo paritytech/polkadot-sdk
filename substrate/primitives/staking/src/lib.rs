@@ -357,6 +357,8 @@ pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 
 /// A snapshot of the stake backing a single validator in the system.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[codec(mel_bound(T: Config))]
+#[scale_info(skip_type_params(T))]
 pub struct Exposure<AccountId, Balance: HasCompact> {
 	/// The total balance backing this validator.
 	#[codec(compact)]
@@ -432,6 +434,44 @@ impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
 	}
 }
 
+impl<A, B: HasCompact + Default + sp_std::ops::AddAssign + sp_std::ops::SubAssign + Clone>
+	From<Vec<IndividualExposure<A, B>>> for ExposurePage<A, B>
+{
+	fn from(exposures: Vec<IndividualExposure<A, B>>) -> Self {
+		let mut page: Self = Default::default();
+
+		let _ = exposures
+			.into_iter()
+			.map(|e| {
+				page.page_total += e.value.clone();
+				page.others.push(e)
+			})
+			.collect::<Vec<_>>();
+
+		page
+	}
+}
+
+impl<
+		A,
+		B: Default
+			+ HasCompact
+			+ core::fmt::Debug
+			+ sp_std::ops::AddAssign
+			+ sp_std::ops::SubAssign
+			+ Clone,
+	> ExposurePage<A, B>
+{
+	/// Split the current exposure page into two pages where the new page takes up to `num`
+	/// individual exposures. The remaining individual exposures are left in `self`.
+	pub fn from_split_others(&mut self, num: usize) -> Self {
+		let new: ExposurePage<_, _> = self.others.split_off(num).into();
+		self.page_total -= new.page_total.clone();
+
+		new
+	}
+}
+
 /// Metadata for Paged Exposure of a validator such as total stake across pages and page count.
 ///
 /// In combination with the associated `ExposurePage`s, it can be used to reconstruct a full
@@ -449,6 +489,7 @@ impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
 	TypeInfo,
 	Default,
 	MaxEncodedLen,
+	Copy,
 )]
 pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	/// The total balance backing this validator.
@@ -461,6 +502,28 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub nominator_count: u32,
 	/// Number of pages of nominators.
 	pub page_count: Page,
+}
+
+impl<Balance> PagedExposureMetadata<Balance>
+where
+	Balance: HasCompact
+		+ codec::MaxEncodedLen
+		+ sp_std::ops::Add<Output = Balance>
+		+ sp_std::ops::Sub<Output = Balance>
+		+ PartialEq
+		+ Copy,
+{
+	pub fn merge(self, other: Self) -> Self {
+		debug_assert!(self.own == other.own);
+
+		Self {
+			total: self.total + other.total - self.own,
+			own: self.own,
+			nominator_count: self.nominator_count + other.nominator_count,
+			// TODO: merge the pages correctly.
+			page_count: self.page_count + other.page_count,
+		}
+	}
 }
 
 /// A type that belongs only in the context of an `Agent`.

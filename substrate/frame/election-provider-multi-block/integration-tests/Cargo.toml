@@ -1,0 +1,54 @@
+[package]
+name = "pallet-election-tests"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "FRAME election provider multi block pallet tests with staking pallet, bags-list and session pallets"
+publish = false
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dev-dependencies]
+parking_lot = { workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true, default-features = true }
+log = { workspace = true }
+
+sp-runtime = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-std = { workspace = true, default-features = true }
+sp-staking = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-npos-elections = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
+
+frame-system = { workspace = true, default-features = true }
+frame-support = { workspace = true, default-features = true }
+frame-election-provider-support = { workspace = true, default-features = true }
+
+pallet-election-provider-multi-block = { workspace = true, default-features = true }
+pallet-staking = { workspace = true, default-features = true }
+pallet-nomination-pools = { workspace = true, default-features = true }
+pallet-bags-list = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+pallet-session = { workspace = true, default-features = true }
+
+[features]
+try-runtime = [
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-bags-list/try-runtime",
+	"pallet-balances/try-runtime",
+	#"pallet-election-provider-multi-block/try-runtime",
+	"pallet-nomination-pools/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"sp-runtime/try-runtime",
+]
