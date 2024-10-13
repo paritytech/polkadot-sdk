@@ -126,7 +126,6 @@ pub use pallet_election_provider_multi_block::{
 	verifier::{self as pallet_epm_verifier},
 	Phase,
 };
-pub use pallet_election_provider_multi_phase::{Call as EPMCall, GeometricDepositBase};
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
 use pallet_staking::UseValidatorsMap;
@@ -625,11 +624,13 @@ impl pallet_epm_core::Config for Runtime {
 	type UnsignedPhase = UnsignedPhase;
 	type SignedValidationPhase = SignedValidationPhase;
 	type Lookhaead = Lookhaead;
+	type ExportPhaseLimit = ExportPhaseLimit;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type Pages = Pages;
-	type ExportPhaseLimit = ExportPhaseLimit;
-	type Solution = NposCompactSolution16;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MinerConfig = Self;
 	type Fallback = frame_election_provider_support::NoElection<(
 		AccountId,
 		BlockNumber,
@@ -651,8 +652,6 @@ impl pallet_epm_verifier::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type SolutionDataProvider = ElectionSignedPallet;
 	type WeightInfo = pallet_epm_verifier::weights::SubstrateWeight<Runtime>;
 }
@@ -694,12 +693,25 @@ parameter_types! {
 
 impl pallet_epm_unsigned::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OffchainSolver = SequentialPhragmen<AccountId, sp_runtime::PerU16>;
 	type OffchainRepeatInterval = OffchainRepeatInterval;
 	type MinerTxPriority = MinerTxPriority;
 	type MaxLength = MinerSolutionMaxLength;
 	type MaxWeight = MinerSolutionMaxWeight;
 	type WeightInfo = pallet_epm_unsigned::weights::SubstrateWeight<Runtime>;
+}
+
+impl pallet_election_provider_multi_block::unsigned::miner::Config for Runtime {
+	type AccountId = AccountId;
+	type Solution = NposCompactSolution16;
+	type Solver = SequentialPhragmen<AccountId, sp_runtime::PerU16>;
+	type Pages = Pages;
+	type MaxVotesPerVoter = ConstU32<16>;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
+	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
+	type MaxWeight = MinerSolutionMaxWeight;
+	type MaxLength = MinerSolutionMaxLength;
 }
 
 parameter_types! {
