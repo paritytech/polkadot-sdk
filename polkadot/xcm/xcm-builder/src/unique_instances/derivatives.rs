@@ -1,14 +1,7 @@
 //! Utilities for working with unique instances derivatives.
 
 use core::marker::PhantomData;
-use frame_support::{
-	ensure,
-	traits::tokens::asset_ops::{
-		common_asset_kinds::Instance,
-		common_strategies::{DeriveAndReportId, IfOwnedBy, Owned},
-		AssetDefinition, Create, Destroy,
-	},
-};
+use frame_support::ensure;
 use sp_runtime::DispatchResult;
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{Error, MatchesInstance};
