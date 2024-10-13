@@ -144,7 +144,7 @@ pub fn run() -> sc_cli::Result<()> {
 						let ext_builder = RemarkBuilder::new(client.clone());
 
 						cmd.run(
-							config,
+							config.chain_spec.name().into(),
 							client,
 							inherent_benchmark_data()?,
 							Vec::new(),

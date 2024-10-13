@@ -37,6 +37,7 @@ use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicBuilder, SUBSTRATE_REFERENCE
 use log::info;
 use sc_cli::{Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
+use sp_core::H256;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
 
@@ -51,7 +52,15 @@ pub struct RunConfig {
 	///
 	/// Some benchmarks attempt to build blocks. This extrinsic builder
 	/// is used to populate these blocks with extrinsics.
-	pub extrinsic_builder: Option<Box<dyn ExtrinsicBuilder>>,
+	pub extrinsic_builder: Option<
+			Box<
+				dyn FnOnce(
+					subxt::Metadata,
+					H256,
+					subxt::client::RuntimeVersion,
+				) -> Box<dyn ExtrinsicBuilder>,
+			>,
+		>,
 }
 
 impl RunConfig {

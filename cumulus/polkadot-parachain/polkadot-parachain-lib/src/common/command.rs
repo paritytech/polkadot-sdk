@@ -21,6 +21,7 @@ use frame_benchmarking_cli::StorageCmd;
 use frame_benchmarking_cli::{BlockCmd, ExtrinsicBuilder, OverheadCmd};
 use sc_cli::{CheckBlockCmd, ExportBlocksCmd, ExportStateCmd, ImportBlocksCmd, RevertCmd};
 use sc_service::{Configuration, TaskManager};
+use sp_core::H256;
 use std::{future::Future, pin::Pin};
 
 type SyncCmdResult = sc_cli::Result<()>;
@@ -81,7 +82,14 @@ pub trait NodeCommandRunner {
 	fn run_benchmark_overhead_cmd(
 		self: Box<Self>,
 		cmd: &OverheadCmd,
-		ext_builder: Option<Box<dyn ExtrinsicBuilder>>,
+		ext_builder: Option<
+			Box<
+				dyn FnOnce(
+					subxt::Metadata,
+					H256,
+					subxt::client::RuntimeVersion,
+				) -> Box<dyn ExtrinsicBuilder>,
+			>>
 	) -> SyncCmdResult;
 }
 
@@ -168,7 +176,14 @@ where
 	fn run_benchmark_overhead_cmd(
 		self: Box<Self>,
 		cmd: &OverheadCmd,
-		ext_builder: Option<Box<dyn ExtrinsicBuilder>>,
+		ext_builder: Option<
+			Box<
+				dyn FnOnce(
+					subxt::Metadata,
+					H256,
+					subxt::client::RuntimeVersion,
+				) -> Box<dyn ExtrinsicBuilder>,
+			>>
 	) -> SyncCmdResult {
 		cmd.run_with_extrinsic_builder::<<Self as NodeSpec>::Block, ()>(ext_builder)
 	}
