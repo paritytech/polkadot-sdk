@@ -56,9 +56,9 @@ use sp_staking::{
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
-	LedgerIntegrityState, MaxExposuresPerPageOf, MaxNominationsOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, SnapshotStatus, StakingLedger,
-	ValidatorPrefs,
+	LedgerIntegrityState, MaxExposuresPerPageOf, MaxNominationsOf, MaxWinnersOf, Nominations,
+	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, SnapshotStatus,
+	StakingLedger, ValidatorPrefs,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -485,6 +485,10 @@ impl<T: Config> Pallet<T> {
 				Self::set_force_era(Forcing::NotForcing);
 			}
 
+			//TODO: we may want to keep track of the past 1/N era's stashes
+			// reset electable stashes.
+			ElectableStashes::<T>::kill();
+
 			maybe_new_era_validators
 		} else {
 			// Set initial era.
@@ -663,16 +667,17 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn try_trigger_new_era(
 		start_session_index: SessionIndex,
 		is_genesis: bool,
-	) -> Option<BoundedVec<T::AccountId, T::MaxValidatorSet>> {
-		let validators: BoundedVec<T::AccountId, T::MaxValidatorSet> = if is_genesis {
+	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
+		let validators: BoundedVec<T::AccountId, MaxWinnersOf<T>> = if is_genesis {
 			// genesis election only use the lsp of the election result.
 			let result = <T::GenesisElectionProvider>::elect(Zero::zero()).map_err(|e| {
 				log!(warn, "genesis election provider failed due to {:?}", e);
 				Self::deposit_event(Event::StakingElectionFailed);
 			});
 
+			let (_, planned_era) = ElectingStartedAt::<T>::get().unwrap_or_default();
 			let exposures = Self::collect_exposures(result.ok().unwrap_or_default());
-			Self::store_stakers_info_paged(exposures.clone());
+			Self::store_stakers_info_paged(exposures.clone(), planned_era);
 
 			exposures
 				.into_iter()
@@ -680,14 +685,7 @@ impl<T: Config> Pallet<T> {
 				.try_collect()
 				.unwrap_or_default()
 		} else {
-			ElectableStashes::<T>::iter()
-				.map(|(s, _)| s)
-				.collect::<Vec<_>>()
-				.try_into()
-				.expect("should fit, qed.")
-
-			// TODO: add status to the election in case it fails in any of the elect() calls.
-			//Self::deposit_event(Event::StakingElectionFailed);
+			ElectableStashes::<T>::get()
 		};
 
 		log!(info, "electable validators for session {:?}: {:?}", start_session_index, validators);
@@ -738,10 +736,15 @@ impl<T: Config> Pallet<T> {
 			},
 		};
 
-		let _ = Self::store_stakers_info_paged(Self::collect_exposures(paged_result))
-			.iter()
-			.map(|s| ElectableStashes::<T>::insert(s, ()))
-			.collect::<Vec<_>>();
+		let new_planned_era = CurrentEra::<T>::get().unwrap_or_default().saturating_add(1);
+		let stashes =
+			Self::store_stakers_info_paged(Self::collect_exposures(paged_result), new_planned_era);
+
+		ElectableStashes::<T>::mutate(|v| {
+			// TODO: be even more defensive and handle potential error? (should not happen if page
+			// bounds and T::MaxValidatorSet configs are in sync).
+			let _ = (*v).try_extend(stashes.into_iter()).defensive();
+		});
 	}
 
 	/// Process the output of a paged election.
@@ -752,11 +755,11 @@ impl<T: Config> Pallet<T> {
 			(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>),
 			MaxExposuresPerPageOf<T>,
 		>,
+		new_planned_era: EraIndex,
 	) -> BoundedVec<T::AccountId, MaxExposuresPerPageOf<T>> {
 		// Populate elected stash, stakers, exposures, and the snapshot of validator prefs.
 		let mut total_stake: BalanceOf<T> = Zero::zero();
 		let mut elected_stashes = Vec::with_capacity(exposures.len());
-		let (_, planned_era) = ElectingStartedAt::<T>::get().unwrap_or_default();
 
 		exposures.into_iter().for_each(|(stash, exposure)| {
 			// build elected stash
@@ -764,7 +767,7 @@ impl<T: Config> Pallet<T> {
 			// accumulate total stake
 			total_stake = total_stake.saturating_add(exposure.total);
 			// store staker exposure for this era
-			EraInfo::<T>::set_exposure(planned_era, &stash, exposure);
+			EraInfo::<T>::set_exposure(new_planned_era, &stash, exposure);
 		});
 
 		// TODO: correct??
@@ -772,20 +775,20 @@ impl<T: Config> Pallet<T> {
 			.try_into()
 			.expect("elected_stashes.len() always equal to exposures.len(); qed");
 
-		EraInfo::<T>::add_total_stake(planned_era, total_stake);
+		EraInfo::<T>::add_total_stake(new_planned_era, total_stake);
 
 		// Collect the pref of all winners.
 		for stash in &elected_stashes {
 			let pref = Self::validators(stash);
-			<ErasValidatorPrefs<T>>::insert(&planned_era, stash, pref);
+			<ErasValidatorPrefs<T>>::insert(&new_planned_era, stash, pref);
 		}
 
-		if planned_era > 0 {
+		if new_planned_era > 0 {
 			log!(
 				info,
 				"updated validator set (current size {:?}) for era {:?}",
 				elected_stashes.len(),
-				planned_era,
+				new_planned_era,
 			);
 		}
 

@@ -38,8 +38,9 @@ use sp_staking::{
 	OnStakingUpdate,
 };
 
-pub const INIT_TIMESTAMP: u64 = 30_000;
-pub const BLOCK_TIME: u64 = 1000;
+pub(crate) const INIT_TIMESTAMP: u64 = 30_000;
+pub(crate) const BLOCK_TIME: u64 = 1000;
+pub(crate) const SINGLE_PAGE: u32 = 0;
 
 /// The AccountId alias in this test module.
 pub(crate) type AccountId = u64;
@@ -205,7 +206,7 @@ parameter_types! {
 	pub static MaxValidatorSet: u32 = 500;
 	pub static MaxUnlockingChunks: u32 = 32;
 	pub static RewardOnUnbalanceWasCalled: bool = false;
-	pub static MaxWinners: u32 = 100;
+	pub static MaxValidatorSet: u32 = 100;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
 }

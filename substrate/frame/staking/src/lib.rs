@@ -350,7 +350,11 @@ macro_rules! log {
 	};
 }
 
-/// Maximum number of exposures (validators) that each page of our [`Config::ElectionProvider`]
+/// Alias fo the maximum number of winners (aka. active validators), as defined in by this pallet's
+/// config.
+pub type MaxWinnersOf<T> = <T as Config>::MaxValidatorSet;
+
+/// Maximum number of exposures (validators) that each page of [`Config::ElectionProvider`] might
 /// might return.
 pub type MaxExposuresPerPageOf<T> =
 	<<T as Config>::ElectionProvider as ElectionProvider>::MaxWinnersPerPage;

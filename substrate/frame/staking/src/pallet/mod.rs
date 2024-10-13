@@ -767,7 +767,7 @@ pub mod pallet {
 	// * maybe use pallet-paged-list? (https://paritytech.github.io/polkadot-sdk/master/pallet_paged_list/index.html)
 	#[pallet::storage]
 	pub(crate) type ElectableStashes<T: Config> =
-		CountedStorageMap<_, Twox64Concat, T::AccountId, (), ValueQuery>;
+		StorageValue<_, BoundedVec<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
 
 	/// Lock for election data provider.
 	///
@@ -1016,6 +1016,8 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// Start fetching the election pages `Pages` blocks before the election prediction, so
+		/// that the `ElectableStashes` is ready with all the pages on time.
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			let pages: BlockNumberFor<T> =
 				<<T as Config>::ElectionProvider as ElectionProvider>::Pages::get().into();
@@ -1037,7 +1039,6 @@ pub mod pallet {
 						"elect(): progressing with calling elect, remaining pages {:?}.",
 						remaining_pages
 					);
-
 					Self::do_elect_paged(remaining_pages.saturated_into::<PageIndex>());
 				}
 			} else {
@@ -1050,7 +1051,6 @@ pub mod pallet {
 						"elect(): next election in {:?} pages, start fetching solution pages.",
 						pages,
 					);
-
 					Self::do_elect_paged(pages.saturated_into::<PageIndex>().saturating_sub(1));
 
 					// set `ElectingStartedAt` only in multi-paged election.
@@ -1060,10 +1060,13 @@ pub mod pallet {
 							CurrentEra::<T>::get().unwrap_or_default().saturating_add(1),
 						)));
 					} else {
-					    crate::log!(info, "elect(): finished fetching the single paged solution.");
-                    }
+						crate::log!(info, "elect(): finished fetching the single paged solution.");
+					}
 				}
 			};
+
+			// TODO: benchmarls of fetching/ not fetching election page on_initialize.
+
 			// return the weight of the on_finalize.
 			T::DbWeight::get().reads(1)
 		}
@@ -1544,12 +1547,15 @@ pub mod pallet {
 			#[pallet::compact] new: u32,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+
+			ensure!(new <= T::MaxValidatorSet::get(), Error::<T>::TooManyValidators);
+
 			ValidatorCount::<T>::put(new);
 			Ok(())
 		}
 
 		/// Increments the ideal number of validators up to maximum of
-		/// `ElectionProviderBase::MaxWinners`.
+		/// `T::MaxValidatorSet`.
 		///
 		/// The dispatch origin must be Root.
 		///
@@ -1564,12 +1570,15 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let old = ValidatorCount::<T>::get();
 			let new = old.checked_add(additional).ok_or(ArithmeticError::Overflow)?;
+
+			ensure!(new <= T::MaxValidatorSet::get(), Error::<T>::TooManyValidators);
+
 			ValidatorCount::<T>::put(new);
 			Ok(())
 		}
 
 		/// Scale up the ideal number of validators by a factor up to maximum of
-		/// `ElectionProviderBase::MaxWinners`.
+		/// `T::MaxValidatorSet`.
 		///
 		/// The dispatch origin must be Root.
 		///
@@ -1581,6 +1590,8 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let old = ValidatorCount::<T>::get();
 			let new = old.checked_add(factor.mul_floor(old)).ok_or(ArithmeticError::Overflow)?;
+
+			ensure!(new <= T::MaxValidatorSet::get(), Error::<T>::TooManyValidators);
 
 			ValidatorCount::<T>::put(new);
 			Ok(())

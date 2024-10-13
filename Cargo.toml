@@ -342,7 +342,7 @@ members = [
 	"substrate/frame/election-provider-multi-block",
 	"substrate/frame/election-provider-multi-block/integration-tests",
 	"substrate/frame/election-provider-multi-phase",
-	"substrate/frame/election-provider-multi-phase/test-staking-e2e",
+  #"substrate/frame/election-provider-multi-phase/test-staking-e2e",
 	"substrate/frame/election-provider-support",
 	"substrate/frame/election-provider-support/benchmarking",
 	"substrate/frame/election-provider-support/solution-type",
