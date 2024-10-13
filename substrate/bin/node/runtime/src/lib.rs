@@ -2684,7 +2684,7 @@ mod benches {
 		[pallet_contracts, Contracts]
 		[pallet_revive, Revive]
 		[pallet_core_fellowship, CoreFellowship]
-		[tasks_example, TasksExample]
+		[pallet_example_tasks, TasksExample]
 		[pallet_democracy, Democracy]
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
