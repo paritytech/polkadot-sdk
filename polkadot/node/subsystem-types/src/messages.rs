@@ -24,6 +24,7 @@
 
 use futures::channel::oneshot;
 use sc_network::{Multiaddr, ReputationChange};
+use strum::EnumIter;
 use thiserror::Error;
 
 pub use sc_network::IfDisconnected;
@@ -47,9 +48,10 @@ use polkadot_primitives::{
 	CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
 	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
-	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, PvfExecKind,
-	SessionIndex, SessionInfo, SignedAvailabilityBitfield, SignedAvailabilityBitfields,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	PvfExecKind as RuntimePvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -142,28 +144,6 @@ pub enum PreCheckOutcome {
 /// or `Ok(ValidationResult::Invalid)`.
 #[derive(Debug)]
 pub enum CandidateValidationMessage {
-	/// Validate a candidate with provided parameters using relay-chain state.
-	///
-	/// This will implicitly attempt to gather the `PersistedValidationData` and `ValidationCode`
-	/// from the runtime API of the chain, based on the `relay_parent`
-	/// of the `CandidateReceipt`.
-	///
-	/// This will also perform checking of validation outputs against the acceptance criteria.
-	///
-	/// If there is no state available which can provide this data or the core for
-	/// the para is not free at the relay-parent, an error is returned.
-	ValidateFromChainState {
-		/// The candidate receipt
-		candidate_receipt: CandidateReceipt,
-		/// The proof-of-validity
-		pov: Arc<PoV>,
-		/// Session's executor parameters
-		executor_params: ExecutorParams,
-		/// Execution kind, used for timeouts and retries (backing/approvals)
-		exec_kind: PvfExecKind,
-		/// The sending side of the response channel
-		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
-	},
 	/// Validate a candidate with provided, exhaustive parameters for validation.
 	///
 	/// Explicitly provide the `PersistedValidationData` and `ValidationCode` so this can do full
@@ -202,6 +182,45 @@ pub enum CandidateValidationMessage {
 		/// The sending side of the response channel
 		response_sender: oneshot::Sender<PreCheckOutcome>,
 	},
+}
+
+/// Extends primitives::PvfExecKind, which is a runtime parameter we don't want to change,
+/// to separate and prioritize execution jobs by request type.
+/// The order is important, because we iterate through the values and assume it is going from higher
+/// to lowest priority.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]
+pub enum PvfExecKind {
+	/// For dispute requests
+	Dispute,
+	/// For approval requests
+	Approval,
+	/// For backing requests from system parachains.
+	BackingSystemParas,
+	/// For backing requests.
+	Backing,
+}
+
+impl PvfExecKind {
+	/// Converts priority level to &str
+	pub fn as_str(&self) -> &str {
+		match *self {
+			Self::Dispute => "dispute",
+			Self::Approval => "approval",
+			Self::BackingSystemParas => "backing_system_paras",
+			Self::Backing => "backing",
+		}
+	}
+}
+
+impl From<PvfExecKind> for RuntimePvfExecKind {
+	fn from(exec: PvfExecKind) -> Self {
+		match exec {
+			PvfExecKind::Dispute => RuntimePvfExecKind::Approval,
+			PvfExecKind::Approval => RuntimePvfExecKind::Approval,
+			PvfExecKind::BackingSystemParas => RuntimePvfExecKind::Backing,
+			PvfExecKind::Backing => RuntimePvfExecKind::Backing,
+		}
+	}
 }
 
 /// Messages received by the Collator Protocol subsystem.

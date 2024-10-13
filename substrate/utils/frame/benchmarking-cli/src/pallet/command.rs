@@ -38,7 +38,7 @@ use sp_core::{
 		testing::{TestOffchainExt, TestTransactionPoolExt},
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
-	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt},
+	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt, WrappedRuntimeCode},
 	Hasher,
 };
 use sp_externalities::Extensions;
@@ -48,6 +48,7 @@ use sp_state_machine::StateMachine;
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::Recorder};
 use sp_wasm_interface::HostFunctions;
 use std::{
+	borrow::Cow,
 	collections::{BTreeMap, BTreeSet, HashMap},
 	fmt::Debug,
 	fs,
@@ -366,12 +367,12 @@ impl PalletCmd {
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							log::error!("Error executing and verifying runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Error executing and verifying runtime benchmark: {}", e);
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
 						Ok(Err(e)) => {
-							log::error!("Error executing and verifying runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Error executing and verifying runtime benchmark: {}", e);
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
@@ -406,12 +407,12 @@ impl PalletCmd {
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							log::error!("Error executing runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Error executing runtime benchmark: {}", e);
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
 						Ok(Err(e)) => {
-							log::error!("Benchmark {pallet}::{extrinsic} failed: {e}",);
+							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}",);
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
@@ -500,33 +501,28 @@ impl PalletCmd {
 	}
 
 	fn select_benchmarks_to_run(&self, list: Vec<BenchmarkList>) -> Result<Vec<SelectedBenchmark>> {
-		let pallet = self.pallet.clone().unwrap_or_default();
-		let pallet = pallet.as_bytes();
-
 		let extrinsic = self.extrinsic.clone().unwrap_or_default();
 		let extrinsic_split: Vec<&str> = extrinsic.split(',').collect();
 		let extrinsics: Vec<_> = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
 
 		// Use the benchmark list and the user input to determine the set of benchmarks to run.
 		let mut benchmarks_to_run = Vec::new();
-		list.iter()
-			.filter(|item| pallet.is_empty() || pallet == &b"*"[..] || pallet == &item.pallet[..])
-			.for_each(|item| {
-				for benchmark in &item.benchmarks {
-					let benchmark_name = &benchmark.name;
-					if extrinsic.is_empty() ||
-						extrinsic.as_bytes() == &b"*"[..] ||
-						extrinsics.contains(&&benchmark_name[..])
-					{
-						benchmarks_to_run.push((
-							item.pallet.clone(),
-							benchmark.name.clone(),
-							benchmark.components.clone(),
-							benchmark.pov_modes.clone(),
-						))
-					}
+		list.iter().filter(|item| self.pallet_selected(&item.pallet)).for_each(|item| {
+			for benchmark in &item.benchmarks {
+				let benchmark_name = &benchmark.name;
+				if extrinsic.is_empty() ||
+					extrinsic.as_bytes() == &b"*"[..] ||
+					extrinsics.contains(&&benchmark_name[..])
+				{
+					benchmarks_to_run.push((
+						item.pallet.clone(),
+						benchmark.name.clone(),
+						benchmark.components.clone(),
+						benchmark.pov_modes.clone(),
+					))
 				}
-			});
+			}
+		});
 		// Convert `Vec<u8>` to `String` for better readability.
 		let benchmarks_to_run: Vec<_> = benchmarks_to_run
 			.into_iter()
@@ -555,6 +551,16 @@ impl PalletCmd {
 
 		Ok(benchmarks_to_run)
 	}
+
+    /// Whether this pallet should be run.
+    fn pallet_selected(&self, pallet: &Vec<u8>) -> bool {
+        let include = self.pallet.clone().unwrap_or_default();
+
+        let included = include.is_empty() || include == "*" || include.as_bytes() == pallet;
+        let excluded = self.exclude_pallets.iter().any(|p| p.as_bytes() == pallet);
+
+        included && !excluded
+    }
 
 	/// Execute a state machine and decode its return value as `R`.
 	fn exec_state_machine<R: Decode, H: Hash, Exec: CodeExecutor>(
@@ -597,10 +603,25 @@ impl PalletCmd {
 		&self,
 		state: &'a BenchmarkingState<H>,
 	) -> Result<FetchedCode<'a, BenchmarkingState<H>, H>> {
-		log::info!("Loading WASM from state");
-		let state = sp_state_machine::backend::BackendRuntimeCode::new(state);
+		if let Some(runtime) = self.runtime.as_ref() {
+			log::info!(target: LOG_TARGET, "Loading WASM from file");
+			let code = fs::read(runtime).map_err(|e| {
+				format!(
+					"Could not load runtime file from path: {}, error: {}",
+					runtime.display(),
+					e
+				)
+			})?;
+			let hash = sp_core::blake2_256(&code).to_vec();
+			let wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
 
-		Ok(FetchedCode { state })
+			Ok(FetchedCode::FromFile { wrapped_code, heap_pages: self.heap_pages, hash })
+		} else {
+			log::info!(target: LOG_TARGET, "Loading WASM from state");
+			let state = sp_state_machine::backend::BackendRuntimeCode::new(state);
+
+			Ok(FetchedCode::FromGenesis { state })
+		}
 	}
 
 	/// Allocation strategy for pallet benchmarking.
