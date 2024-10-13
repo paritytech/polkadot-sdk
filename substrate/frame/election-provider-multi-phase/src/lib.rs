@@ -271,6 +271,7 @@ mod mock;
 #[macro_use]
 pub mod helpers;
 
+pub(crate) const SINGLE_PAGE: u32 = 0;
 const LOG_TARGET: &str = "runtime::election-provider";
 
 pub mod migrations;
@@ -1510,13 +1511,12 @@ impl<T: Config> Pallet<T> {
 	/// Parts of [`create_snapshot`] that happen outside of this pallet.
 	///
 	/// Extracted for easier weight calculation.
+	///
+	/// Note: this pallet only supports one page of voter and target snapshots.
 	fn create_snapshot_external(
 	) -> Result<(Vec<T::AccountId>, Vec<VoterOf<T>>, u32), ElectionError<T>> {
 		let election_bounds = T::ElectionBounds::get();
-		// always 1 page only.
-		let page = Zero::zero();
-
-		let targets = T::DataProvider::electable_targets(election_bounds.targets, page)
+		let targets = T::DataProvider::electable_targets(election_bounds.targets, SINGLE_PAGE)
 			.and_then(|t| {
 				election_bounds.ensure_targets_limits(
 					CountBound(t.len() as u32),
@@ -1526,7 +1526,7 @@ impl<T: Config> Pallet<T> {
 			})
 			.map_err(ElectionError::DataProvider)?;
 
-		let voters = T::DataProvider::electing_voters(election_bounds.voters, page)
+		let voters = T::DataProvider::electing_voters(election_bounds.voters, SINGLE_PAGE)
 			.and_then(|v| {
 				election_bounds.ensure_voters_limits(
 					CountBound(v.len() as u32),
@@ -2079,7 +2079,7 @@ mod tests {
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Unsigned((true, 25)));
 			assert!(Snapshot::<Runtime>::get().is_some());
 
-			assert_ok!(MultiPhase::elect(Zero::zero()));
+			assert_ok!(MultiPhase::elect(SINGLE_PAGE));
 
 			assert!(CurrentPhase::<Runtime>::get().is_off());
 			assert!(Snapshot::<Runtime>::get().is_none());
@@ -2143,7 +2143,7 @@ mod tests {
 			roll_to(30);
 			assert!(CurrentPhase::<Runtime>::get().is_unsigned_open_at(20));
 
-			assert_ok!(MultiPhase::elect(Zero::zero()));
+			assert_ok!(MultiPhase::elect(SINGLE_PAGE));
 
 			assert!(CurrentPhase::<Runtime>::get().is_off());
 			assert!(Snapshot::<Runtime>::get().is_none());
@@ -2190,7 +2190,7 @@ mod tests {
 			roll_to(30);
 			assert!(CurrentPhase::<Runtime>::get().is_signed());
 
-			assert_ok!(MultiPhase::elect(Zero::zero()));
+			assert_ok!(MultiPhase::elect(SINGLE_PAGE));
 
 			assert!(CurrentPhase::<Runtime>::get().is_off());
 			assert!(Snapshot::<Runtime>::get().is_none());
@@ -2229,7 +2229,7 @@ mod tests {
 			assert!(CurrentPhase::<Runtime>::get().is_off());
 
 			// This module is now only capable of doing on-chain backup.
-			assert_ok!(MultiPhase::elect(Zero::zero()));
+			assert_ok!(MultiPhase::elect(SINGLE_PAGE));
 
 			assert!(CurrentPhase::<Runtime>::get().is_off());
 
@@ -2265,7 +2265,7 @@ mod tests {
 			assert_eq!(Round::<Runtime>::get(), 1);
 
 			// An unexpected call to elect.
-			assert_ok!(MultiPhase::elect(Zero::zero()));
+			assert_ok!(MultiPhase::elect(SINGLE_PAGE));
 
 			// We surely can't have any feasible solutions. This will cause an on-chain election.
 			assert_eq!(
@@ -2316,7 +2316,7 @@ mod tests {
 			}
 
 			// an unexpected call to elect.
-			assert_ok!(MultiPhase::elect(Zero::zero()));
+			assert_ok!(MultiPhase::elect(SINGLE_PAGE));
 
 			// all storage items must be cleared.
 			assert_eq!(Round::<Runtime>::get(), 2);
@@ -2387,7 +2387,7 @@ mod tests {
 			));
 
 			roll_to(30);
-			assert_ok!(MultiPhase::elect(Zero::zero()));
+			assert_ok!(MultiPhase::elect(SINGLE_PAGE));
 
 			assert_eq!(
 				multi_phase_events(),
@@ -2444,7 +2444,7 @@ mod tests {
 			));
 			assert!(QueuedSolution::<Runtime>::get().is_some());
 
-			assert_ok!(MultiPhase::elect(Zero::zero()));
+			assert_ok!(MultiPhase::elect(SINGLE_PAGE));
 
 			assert_eq!(
 				multi_phase_events(),
@@ -2486,7 +2486,7 @@ mod tests {
 
 			// Zilch solutions thus far, but we get a result.
 			assert!(QueuedSolution::<Runtime>::get().is_none());
-			let supports = MultiPhase::elect(Zero::zero()).unwrap();
+			let supports = MultiPhase::elect(SINGLE_PAGE).unwrap();
 
 			let expected_supports = vec![
 				(30, Support { total: 40, voters: vec![(2, 5), (4, 5), (30, 30)] }),
@@ -2530,7 +2530,7 @@ mod tests {
 			// Zilch solutions thus far.
 			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert_eq!(
-				MultiPhase::elect(Zero::zero()).unwrap_err(),
+				MultiPhase::elect(SINGLE_PAGE).unwrap_err(),
 				ElectionError::Fallback("NoFallback.")
 			);
 			// phase is now emergency.
@@ -2567,7 +2567,7 @@ mod tests {
 			// Zilch solutions thus far.
 			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert_eq!(
-				MultiPhase::elect(Zero::zero()).unwrap_err(),
+				MultiPhase::elect(SINGLE_PAGE).unwrap_err(),
 				ElectionError::Fallback("NoFallback.")
 			);
 
@@ -2587,7 +2587,7 @@ mod tests {
 			// something is queued now
 			assert!(QueuedSolution::<Runtime>::get().is_some());
 			// next election call with fix everything.;
-			assert!(MultiPhase::elect(Zero::zero()).is_ok());
+			assert!(MultiPhase::elect(SINGLE_PAGE).is_ok());
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 
 			assert_eq!(
@@ -2639,7 +2639,7 @@ mod tests {
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 
 			// On-chain backup works though.
-			let supports = MultiPhase::elect(Zero::zero()).unwrap();
+			let supports = MultiPhase::elect(SINGLE_PAGE).unwrap();
 			assert!(supports.len() > 0);
 
 			assert_eq!(
@@ -2678,7 +2678,7 @@ mod tests {
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 
 			roll_to(29);
-			let err = MultiPhase::elect(Zero::zero()).unwrap_err();
+			let err = MultiPhase::elect(SINGLE_PAGE).unwrap_err();
 			assert_eq!(err, ElectionError::Fallback("NoFallback."));
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Emergency);
 
