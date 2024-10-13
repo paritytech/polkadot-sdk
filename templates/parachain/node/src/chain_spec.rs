@@ -28,6 +28,13 @@ impl Extensions {
 	}
 }
 
+/// Generate the session keys from individual elements.
+///
+/// The input must be a tuple of individual keys (a single arg for now since we have just one key).
+pub fn template_session_keys(keys: AuraId) -> runtime::SessionKeys {
+	runtime::SessionKeys { aura: keys }
+}
+
 pub fn development_chain_spec() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
@@ -47,6 +54,35 @@ pub fn development_chain_spec() -> ChainSpec {
 	.with_id("dev")
 	.with_chain_type(ChainType::Development)
 	.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
+	.with_genesis_config_patch(testnet_genesis(
+		// initial collators.
+		vec![
+			(
+				utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
+				utils::get_collator_keys_from_seed("Alice"),
+			),
+			(
+				utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
+				utils::get_collator_keys_from_seed("Bob"),
+			),
+		],
+		vec![
+			utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Dave"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Eve"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+		],
+		utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
+		2000.into(),
+	))
 	.build()
 }
 
@@ -68,6 +104,29 @@ pub fn local_chain_spec() -> ChainSpec {
 	.with_genesis_config_preset_name(sc_chain_spec::LOCAL_TESTNET_RUNTIME_PRESET)
 	.with_protocol_id("template-local")
 	.with_properties(properties)
+	.with_genesis_config_patch(testnet_genesis(
+		// initial collators.
+		vec![(
+			utils::get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			utils::get_collator_keys_from_seed("Charlie"),
+		)],
+		vec![
+			utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Bob"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Dave"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Eve"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			utils::get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+		],
+		utils::get_account_id_from_seed::<sr25519::Public>("Alice"),
+		2000.into(),
+	))
 	.build()
 }
 
@@ -131,7 +190,7 @@ fn testnet_genesis(
 					(
 						acc.clone(),                 // account id
 						acc,                         // validator id
-						//template_session_keys(aura), // session keys
+						template_session_keys(aura), // session keys
 					)
 				})
 			.collect::<Vec<_>>(),
