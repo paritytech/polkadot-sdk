@@ -32,6 +32,7 @@ use bp_runtime::{BlockNumberOf, HashOf, HeaderOf};
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, EquivocationProof, Precommit};
 use sp_runtime::traits::Header as HeaderT;
 use sp_std::{
+	vec, vec::Vec,
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	prelude::*,
 };
