@@ -25,15 +25,6 @@ use sp_api::ProvideRuntimeApi;
 use xcm::prelude::*;
 use xcm_runtime_apis::trust_query::{Error, TrustedQueryApi};
 
-// write table driven tests for trusted_reserver
-// write a new fake for teleporter
-// write table driven tests for teleporter
-// ^ done
-
-// copy mock impl to a runtime
-// build runtime to wasm
-// use wasm for typescript thingy
-// details - figure out
 #[test]
 fn query_trusted_reserve() {
 	#[derive(Debug)]
@@ -71,8 +62,9 @@ fn query_trusted_reserve() {
 			},
 			// The error is:
 			// asset: VersionedAssetId::V3(v3::AssetId::Abstract([1; 32])).into(),
-			// ^^^^ the trait `From<staging_xcm::VersionedAssetId>` is not implemented for `staging_xcm::v4::Asset`, which is required by `staging_xcm::VersionedAssetId: Into<_>`
-			// TestCase {
+			// ^^^^ the trait `From<staging_xcm::VersionedAssetId>` is not implemented for
+			// `staging_xcm::v4::Asset`, which is required by `staging_xcm::VersionedAssetId:
+			// Into<_>` TestCase {
 			// 	name: "Invalid asset conversion",
 			// 	asset: VersionedAssetId::V3(v3::AssetId::Abstract([1; 32])).into(),
 			// 	location: (Parent, Parachain(1000)).into(),
@@ -140,8 +132,9 @@ fn query_trusted_teleporter() {
 			},
 			// The error is:
 			// asset: VersionedAssetId::V3(v3::AssetId::Abstract([1; 32])).into(),
-			// ^^^^ the trait `From<staging_xcm::VersionedAssetId>` is not implemented for `staging_xcm::v4::Asset`, which is required by `staging_xcm::VersionedAssetId: Into<_>`
-			// TestCase {
+			// ^^^^ the trait `From<staging_xcm::VersionedAssetId>` is not implemented for
+			// `staging_xcm::v4::Asset`, which is required by `staging_xcm::VersionedAssetId:
+			// Into<_>` TestCase {
 			// 	name: "Invalid asset conversion",
 			// 	asset: VersionedAssetId::V3(v3::AssetId::Abstract([1; 32])).into(),
 			// 	location: (Parent, Parachain(1000)).into(),
