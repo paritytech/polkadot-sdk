@@ -1456,6 +1456,8 @@ impl<T: Config> Pallet<T> {
 		let value: (BlockNumberFor<T>, Vec<u8>) = (scheduled_at, code.to_vec());
 
 		storage::unhashed::put(well_known_keys::PENDING_CODE, &value);
+		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
+		Self::deposit_event(Event::CodeUpdated);
 	}
 
 	/// Replace code with pending code if scheduled to enact in this block and in that case emit
@@ -1474,9 +1476,6 @@ impl<T: Config> Pallet<T> {
 			if scheduled_at == current_number {
 				storage::unhashed::put_raw(well_known_keys::CODE, &new_code);
 				storage::unhashed::kill(well_known_keys::PENDING_CODE);
-
-				Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
-				Self::deposit_event(Event::CodeUpdated);
 
 				return true
 			} else if scheduled_at != current_number + One::one() {
