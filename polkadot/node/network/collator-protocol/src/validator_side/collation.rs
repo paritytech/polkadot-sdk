@@ -284,8 +284,7 @@ impl Collations {
 			if let Some(collation) = self
 				.waiting_queue
 				.get_mut(&assignment)
-				.map(|collations| collations.pop_front())
-				.flatten()
+				.and_then(|collations| collations.pop_front())
 			{
 				return Some(collation)
 			}
