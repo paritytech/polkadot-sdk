@@ -393,7 +393,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 					#(
 						#cfg_attrs
 						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
-							#feeless_check(origin, #( #args_name, )*)
+							let feeless_check = #feeless_check;
+							feeless_check(origin, #( #args_name, )*)
 						},
 					)*
 					Self::__Ignore(_, _) => unreachable!("__Ignore cannot be used"),
