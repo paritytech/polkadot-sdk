@@ -5,7 +5,7 @@ use frame_support::pallet_prelude::StorageVersion;
 
 mod test;
 
-pub const LOG_TARGET: &str = "ethereum-client-migration";
+pub const LOG_TARGET: &str = "runtime::storage::ethereum-client-migration";
 
 /// Module containing the old Ethereum execution headers that should be cleaned up.
 
