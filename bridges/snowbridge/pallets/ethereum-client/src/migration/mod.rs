@@ -115,6 +115,7 @@ pub mod v0_to_v1 {
 			// We loop here to do as much progress as possible per step.
 			loop {
 				if meter.try_consume(required).is_err() {
+					log::info!(target: LOG_TARGET, "Max weight consumed, exiting loop");
 					break;
 				}
 
@@ -127,6 +128,14 @@ pub mod v0_to_v1 {
 				};
 				if index > 162399 {
 					log::info!(target: LOG_TARGET, "Last step index. Index = {}.", index);
+				}
+				if index == 163419 {
+					let execution_hash_extra1 =
+						crate::migration::v0::ExecutionHeaderMapping::<T>::get(163420);
+					log::info!(target: LOG_TARGET, "Value at hardcoded index 163420 is {}.", execution_hash_extra1);
+					let execution_hash_extra2 =
+						crate::migration::v0::ExecutionHeaderMapping::<T>::get(163425);
+					log::info!(target: LOG_TARGET, "Value at hardcoded index 163425 is {}.", execution_hash_extra2);
 				}
 				if index >= M::get() {
 					log::info!(target: LOG_TARGET, "Ethereum execution header cleanup migration is complete. Index = {}.", index);
