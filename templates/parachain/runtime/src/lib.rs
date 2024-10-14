@@ -16,6 +16,9 @@ mod weights;
 extern crate alloc;
 use alloc::vec::Vec;
 use smallvec::smallvec;
+
+use polkadot_sdk::{staging_parachain_info as parachain_info, *};
+
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
@@ -32,9 +35,6 @@ use frame_support::weights::{
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-
-#[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
 
 use weights::ExtrinsicBaseWeight;
 
@@ -140,12 +140,11 @@ impl WeightToFeePolynomial for WeightToFee {
 /// to even the core data structures.
 pub mod opaque {
 	use super::*;
-	use sp_runtime::{
+	pub use polkadot_sdk::sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
+	use polkadot_sdk::sp_runtime::{
 		generic,
 		traits::{BlakeTwo256, Hash as HashT},
 	};
-
-	pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 
 	/// Opaque block header type.
 	pub type Header = generic::Header<BlockNumber, BlakeTwo256>;

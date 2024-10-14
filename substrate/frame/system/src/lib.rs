@@ -378,7 +378,7 @@ pub mod pallet {
 			type MaxConsumers = frame_support::traits::ConstU32<128>;
 
 			/// The default data to be stored in an account.
-			type AccountData = crate::AccountInfo<Self::Nonce, ()>;
+			type AccountData = ();
 
 			/// What to do if a new account is created.
 			type OnNewAccount = ();

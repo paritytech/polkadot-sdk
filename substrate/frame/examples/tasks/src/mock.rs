@@ -18,7 +18,7 @@
 //! Mock runtime for `tasks-example` tests.
 #![cfg(test)]
 
-use crate::{self as tasks_example};
+use crate::{self as pallet_example_tasks};
 use frame_support::derive_impl;
 use sp_runtime::testing::TestXt;
 
@@ -29,7 +29,7 @@ type Block = frame_system::mocking::MockBlock<Runtime>;
 frame_support::construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
-		TasksExample: tasks_example,
+		TasksExample: pallet_example_tasks,
 	}
 );
 
@@ -57,7 +57,7 @@ where
 	}
 }
 
-impl tasks_example::Config for Runtime {
+impl pallet_example_tasks::Config for Runtime {
 	type RuntimeTask = RuntimeTask;
 	type WeightInfo = ();
 }
