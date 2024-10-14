@@ -14,7 +14,7 @@ chain = "rococo-local"
   allowed_ancestry_len = 2
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
-  lookahead = 3
+  lookahead = 2
   group_rotation_frequency = 4
 
 
