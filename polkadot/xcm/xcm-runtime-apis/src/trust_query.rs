@@ -22,17 +22,17 @@ use xcm::{VersionedAsset, VersionedLocation};
 
 sp_api::decl_runtime_apis! {
 	pub trait TrustedQueryApi {
-        fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, Error>;
-        fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, Error>;
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, Error>;
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, Error>;
 	}
 }
 
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
 pub enum Error {
-    /// Converting a versioned Asset structure from one version to another failed.
-    #[codec(index = 1)]
-    VersionedAssetConversionFailed,
-    /// Converting a versioned Location structure from one version to another failed.
-    #[codec(index = 1)]
-    VersionedLocationConversionFailed,
+	/// Converting a versioned Asset structure from one version to another failed.
+	#[codec(index = 1)]
+	VersionedAssetConversionFailed,
+	/// Converting a versioned Location structure from one version to another failed.
+	#[codec(index = 1)]
+	VersionedLocationConversionFailed,
 }

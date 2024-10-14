@@ -27,15 +27,9 @@ use frame_support::{
 use mock::*;
 use sp_api::ProvideRuntimeApi;
 use xcm::prelude::*;
-use xcm::{v2, v3};
 use xcm_runtime_apis::conversions::{
 	Error as LocationToAccountApiError, LocationToAccountApi, LocationToAccountHelper,
 };
-use xcm_runtime_apis::trust_query::{
-	Error as TQError,
-	TrustedQueryApi
-};
-
 
 #[test]
 fn convert_location_to_account_works() {
