@@ -49,10 +49,11 @@ pub use frame_system::{
 pub use pallet_balances::AccountData;
 pub use pallet_message_queue;
 pub use sp_arithmetic::traits::Bounded;
-pub use sp_core::{parameter_types, sr25519, storage::Storage, Pair};
+pub use sp_core::{
+	crypto::get_public_from_string_or_panic, parameter_types, sr25519, storage::Storage, Pair,
+};
 pub use sp_crypto_hashing::blake2_256;
 pub use sp_io::TestExternalities;
-pub use sp_keyring::Sr25519Keyring;
 pub use sp_runtime::BoundedSlice;
 pub use sp_tracing;
 
@@ -227,12 +228,7 @@ pub trait Chain: TestExt {
 	type OriginCaller;
 
 	fn account_id_of(seed: &str) -> AccountId {
-		use sp_runtime::traits::IdentifyAccount;
-		use std::str::FromStr;
-		sp_runtime::MultiSigner::from(
-			Sr25519Keyring::from_str(seed).expect("should parse str seed to keyring"),
-		)
-		.into_account()
+		get_public_from_string_or_panic::<sr25519::Public>(seed).into()
 	}
 
 	fn account_data_of(account: AccountIdOf<Self::Runtime>) -> AccountData<Balance>;

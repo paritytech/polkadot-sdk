@@ -47,7 +47,9 @@ use sc_executor::{WasmExecutionMethod, WasmtimeInstantiationStrategy};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_consensus::BlockOrigin;
-use sp_core::{ed25519, sr25519, traits::SpawnNamed, Pair};
+use sp_core::{
+	crypto::get_public_from_string_or_panic, ed25519, sr25519, traits::SpawnNamed, Pair,
+};
 use sp_crypto_hashing::blake2_256;
 use sp_inherents::InherentData;
 use sp_runtime::{
@@ -283,15 +285,16 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 	type Item = OpaqueExtrinsic;
 
 	fn next(&mut self) -> Option<Self::Item> {
-		use core::str::FromStr;
 		if self.content.size.map(|size| size <= self.iteration).unwrap_or(false) {
 			return None
 		}
 
 		let sender = self.keyring.at(self.iteration);
-		let receiver = sr25519::Public::from_str(&format!("random-user//{}", self.iteration))
-			.expect("should parse str seed to sr25519 public")
-			.into();
+		let receiver = get_public_from_string_or_panic::<sr25519::Public>(&format!(
+			"random-user//{}",
+			self.iteration
+		))
+		.into();
 
 		let signed = self.keyring.sign(
 			CheckedExtrinsic {

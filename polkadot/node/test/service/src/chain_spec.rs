@@ -26,7 +26,7 @@ use sc_chain_spec::{ChainSpec, ChainType};
 use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_core::{ed25519, sr25519, Pair};
+use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::Perbill;
 use test_runtime_constants::currency::DOTS;
@@ -75,13 +75,13 @@ fn get_authority_keys_from_seed(
 	seed: &str,
 ) -> (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
 	(
-		sr25519::Pair::get_from_seed(&format!("{}//stash", seed)).into(),
-		sr25519::Pair::get_from_seed(seed).into(),
-		BabeId::from(sr25519::Pair::get_from_seed(seed)),
-		GrandpaId::from(ed25519::Pair::get_from_seed(seed)),
-		ValidatorId::from(sr25519::Pair::get_from_seed(seed)),
-		AssignmentId::from(sr25519::Pair::get_from_seed(seed)),
-		AuthorityDiscoveryId::from(sr25519::Pair::get_from_seed(seed)),
+		get_public_from_string_or_panic::<sr25519::Public>(&format!("{}//stash", seed)).into(),
+		get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
+		get_public_from_string_or_panic::<BabeId>(seed),
+		get_public_from_string_or_panic::<GrandpaId>(seed),
+		get_public_from_string_or_panic::<ValidatorId>(seed),
+		get_public_from_string_or_panic::<AssignmentId>(seed),
+		get_public_from_string_or_panic::<AuthorityDiscoveryId>(seed),
 	)
 }
 

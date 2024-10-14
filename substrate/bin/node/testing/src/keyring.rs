@@ -21,7 +21,7 @@
 use codec::Encode;
 use kitchensink_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
 use node_primitives::{AccountId, Balance, Nonce};
-use sp_core::{ecdsa, ed25519, sr25519, Pair};
+use sp_core::{crypto::get_public_from_string_or_panic, ecdsa, ed25519, sr25519};
 use sp_crypto_hashing::blake2_256;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::generic::Era;
@@ -59,12 +59,12 @@ pub fn ferdie() -> AccountId {
 /// Convert keyrings into `SessionKeys`.
 pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 	SessionKeys {
-		grandpa: ed25519::Pair::get_from_seed(seed).into(),
-		babe: sr25519::Pair::get_from_seed(seed).into(),
-		im_online: sr25519::Pair::get_from_seed(seed).into(),
-		authority_discovery: sr25519::Pair::get_from_seed(seed).into(),
-		mixnet: sr25519::Pair::get_from_seed(seed).into(),
-		beefy: ecdsa::Pair::get_from_seed(seed).into(),
+		grandpa: get_public_from_string_or_panic::<ed25519::Public>(seed).into(),
+		babe: get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
+		im_online: get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
+		authority_discovery: get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
+		mixnet: get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
+		beefy: get_public_from_string_or_panic::<ecdsa::Public>(seed).into(),
 	}
 }
 

@@ -419,6 +419,16 @@ pub fn set_default_ss58_version(new_default: Ss58AddressFormat) {
 	DEFAULT_VERSION.store(new_default.into(), core::sync::atomic::Ordering::Relaxed);
 }
 
+/// Interprets the string `s` in order to generate a public key without password.
+#[cfg(feature = "serde")]
+pub fn get_public_from_string_or_panic<TPublic: Public>(
+	s: &str,
+) -> <TPublic::Pair as Pair>::Public {
+	TPublic::Pair::from_string(&format!("//{}", s), None)
+		.expect("static values are valid; qed")
+		.public()
+}
+
 #[cfg(feature = "std")]
 impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string(s: &str) -> Result<Self, PublicError> {
@@ -958,14 +968,6 @@ pub trait Pair: CryptoType + Sized {
 
 	/// Return a vec filled with raw data.
 	fn to_raw_vec(&self) -> Vec<u8>;
-
-	/// Interprets the string `s` in order to generate a public key without password.
-	#[cfg(feature = "serde")]
-	fn get_from_seed(s: &str) -> Self::Public {
-		Self::from_string(&format!("//{}", s), None)
-			.expect("static values are valid; qed")
-			.public()
-	}
 }
 
 /// One type is wrapped by another.

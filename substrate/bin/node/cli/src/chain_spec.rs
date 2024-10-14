@@ -30,9 +30,12 @@ use sc_telemetry::TelemetryEndpoints;
 use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_consensus_beefy::ecdsa_crypto::{self, AuthorityId as BeefyId};
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{crypto::UncheckedInto, ed25519, sr25519, Pair};
+use sp_core::{
+	crypto::{get_public_from_string_or_panic, UncheckedInto},
+	sr25519,
+};
 use sp_keyring::Sr25519Keyring;
 use sp_mixnet::types::AuthorityId as MixnetId;
 use sp_runtime::Perbill;
@@ -248,14 +251,14 @@ pub fn authority_keys_from_seed(
 ) -> (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId, BeefyId)
 {
 	(
-		sr25519::Pair::get_from_seed(&format!("{}//stash", seed)).into(),
-		sr25519::Pair::get_from_seed(seed).into(),
-		GrandpaId::from(ed25519::Pair::get_from_seed(seed)),
-		BabeId::from(sr25519::Pair::get_from_seed(seed)),
-		ImOnlineId::from(sr25519::Pair::get_from_seed(seed)),
-		AuthorityDiscoveryId::from(sr25519::Pair::get_from_seed(seed)),
-		MixnetId::from(sr25519::Pair::get_from_seed(seed)),
-		BeefyId::from(ecdsa_crypto::Pair::get_from_seed(seed)),
+		get_public_from_string_or_panic::<sr25519::Public>(&format!("{}//stash", seed)).into(),
+		get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
+		get_public_from_string_or_panic::<GrandpaId>(seed),
+		get_public_from_string_or_panic::<BabeId>(seed),
+		get_public_from_string_or_panic::<ImOnlineId>(seed),
+		get_public_from_string_or_panic::<AuthorityDiscoveryId>(seed),
+		get_public_from_string_or_panic::<MixnetId>(seed),
+		get_public_from_string_or_panic::<BeefyId>(seed),
 	)
 }
 

@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sp_core::{sr25519, Pair};
+use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 
 use crate::imports::*;
 
@@ -1044,7 +1044,8 @@ fn reserve_transfer_multiple_assets_from_para_to_asset_hub() {
 	);
 
 	// Beneficiary is a new (empty) account
-	let receiver: sp_runtime::AccountId32 = sr25519::Pair::get_from_seed(DUMMY_EMPTY).into();
+	let receiver: sp_runtime::AccountId32 =
+		get_public_from_string_or_panic::<sr25519::Public>(DUMMY_EMPTY).into();
 	// Init values for Asset Hub
 	let penpal_location_as_seen_by_ahr = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(penpal_location_as_seen_by_ahr);
