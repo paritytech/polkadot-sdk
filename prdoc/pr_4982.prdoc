@@ -9,5 +9,5 @@ doc:
 crates:
   - name: staging-xcm-executor
     bump: patch
-  - name: patch-xcm
+  - name: pallet-xcm
     bump: patch
