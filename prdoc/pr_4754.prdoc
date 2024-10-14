@@ -9,13 +9,11 @@ doc:
 crates:
   - name: snowbridge-pallet-ethereum-client
     bump: patch
-  - name: snowbridge-pallet-inbound-queue
-    bump: major
   - name: snowbridge-pallet-outbound-queue
     bump: major
-  - name: snowbridge-router-primitives
-    bump: patch
   - name: bridge-hub-rococo-integration-tests
     bump: patch
   - name: bridge-hub-rococo-runtime
+    bump: major
+  - name: bridge-hub-westend-runtime
     bump: major
