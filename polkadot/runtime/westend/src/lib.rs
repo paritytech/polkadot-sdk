@@ -696,7 +696,7 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 		let yearly_emission = fixed_inflation_rate.saturating_mul_int(fixed_total_issuance);
 
 		let era_emission = relative_era_len.saturating_mul_int(yearly_emission);
-		// 15% to treasury, as per ref 1139.
+		// 15% to treasury, as per Polkadot ref 1139.
 		let to_treasury = FixedU128::from_rational(15, 100).saturating_mul_int(era_emission);
 		let to_stakers = era_emission.saturating_sub(to_treasury);
 
