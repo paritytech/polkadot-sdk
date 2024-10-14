@@ -276,7 +276,7 @@ where
 	/// and send the `Dropped` event to the listeners of these transactions.
 	pub(super) async fn remove_dropped_transactions(
 		&self,
-		to_be_removed: &Vec<ExtrinsicHash<ChainApi>>,
+		to_be_removed: &[ExtrinsicHash<ChainApi>],
 	) {
 		log::debug!(target: LOG_TARGET, "remove_dropped_transactions count:{:?}", to_be_removed.len());
 		log_xt_trace!(target: LOG_TARGET, to_be_removed, "[{:?}] mempool::remove_dropped_transactions");

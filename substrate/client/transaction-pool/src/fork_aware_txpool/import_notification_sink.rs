@@ -178,12 +178,15 @@ where
 				let already_notified_items = already_notified_items.clone();
 				async move {
 					if already_notified_items.write().insert(event.clone()) {
-						for sink in &mut *external_sinks.write() {
+						external_sinks.write().retain_mut(|sink| {
 							trace!(target: LOG_TARGET, "[{:?}] import_sink_worker sending out imported", event);
-							let _ = sink.try_send(event.clone()).map_err(|e| {
+							if let Err(e) = sink.try_send(event.clone()) {
 								trace!(target: LOG_TARGET, "import_sink_worker sending message failed: {e}");
-							});
-						}
+								false
+							} else {
+								true
+							}
+						});
 					}
 				}
 			})
@@ -215,7 +218,7 @@ where
 	/// Removes specified items from the `already_notified_items` set.
 	///
 	/// Intended to be called once transactions are finalized.
-	pub fn clean_notified_items(&self, items_to_be_removed: &Vec<I>) {
+	pub fn clean_notified_items(&self, items_to_be_removed: &[I]) {
 		let mut already_notified_items = self.already_notified_items.write();
 		items_to_be_removed.iter().for_each(|i| {
 			already_notified_items.remove(i);

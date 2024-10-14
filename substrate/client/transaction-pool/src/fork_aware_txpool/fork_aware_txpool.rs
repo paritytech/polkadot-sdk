@@ -197,7 +197,11 @@ where
 
 		let (dropped_stream_controller, dropped_stream) =
 			MultiViewDroppedWatcherController::<ChainApi>::new();
-		let dropped_monitor_task = Self::dropped_monitor_task(dropped_stream, mempool.clone());
+		let dropped_monitor_task = Self::dropped_monitor_task(
+			dropped_stream,
+			mempool.clone(),
+			import_notification_sink.clone(),
+		);
 
 		let combined_tasks = async move {
 			tokio::select! {
@@ -233,10 +237,14 @@ where
 	///
 	/// This asynchronous task continuously listens for dropped transaction notifications provided
 	/// within `dropped_stream` and ensures that these transactions are removed from the `mempool`
-	/// instance.
+	/// and `import_notification_sink` instances.
 	async fn dropped_monitor_task(
 		mut dropped_stream: StreamOfDropped<ChainApi>,
 		mempool: Arc<TxMemPool<ChainApi, Block>>,
+		import_notification_sink: MultiViewImportNotificationSink<
+			Block::Hash,
+			ExtrinsicHash<ChainApi>,
+		>,
 	) {
 		loop {
 			let Some(dropped) = dropped_stream.next().await else {
@@ -244,7 +252,8 @@ where
 				break;
 			};
 			log::trace!(target: LOG_TARGET, "[{:?}] fatp::dropped notification, removing", dropped);
-			mempool.remove_dropped_transactions(&vec![dropped]).await;
+			mempool.remove_dropped_transactions(&[dropped]).await;
+			import_notification_sink.clean_notified_items(&[dropped]);
 		}
 	}
 
@@ -278,7 +287,11 @@ where
 
 		let (dropped_stream_controller, dropped_stream) =
 			MultiViewDroppedWatcherController::<ChainApi>::new();
-		let dropped_monitor_task = Self::dropped_monitor_task(dropped_stream, mempool.clone());
+		let dropped_monitor_task = Self::dropped_monitor_task(
+			dropped_stream,
+			mempool.clone(),
+			import_notification_sink.clone(),
+		);
 
 		let combined_tasks = async move {
 			tokio::select! {
