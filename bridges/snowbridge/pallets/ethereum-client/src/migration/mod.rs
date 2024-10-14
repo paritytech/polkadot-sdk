@@ -11,7 +11,7 @@ pub const LOG_TARGET: &str = "ethereum-client-migration";
 
 /// The in-code storage version.
 
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 pub mod v0 {
 	use crate::pallet::{Config, Pallet};
 	use frame_support::{
@@ -69,7 +69,7 @@ pub mod v0_to_v1 {
 	use frame_support::traits::GetStorageVersion;
 	use frame_support::{
 		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-		pallet_prelude::{PhantomData, Weight},
+		pallet_prelude::{PhantomData, StorageVersion, Weight},
 		traits::OnRuntimeUpgrade,
 		weights::{constants::RocksDbWeight, WeightMeter},
 	};
@@ -78,6 +78,8 @@ pub mod v0_to_v1 {
 	use sp_core::H256;
 	#[cfg(feature = "try-runtime")]
 	use sp_runtime::TryRuntimeError;
+
+	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	pub const PALLET_MIGRATIONS_ID: &[u8; 26] = b"ethereum-execution-headers";
 
@@ -155,7 +157,7 @@ pub mod v0_to_v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_: alloc::vec::Vec<u8>) -> Result<(), TryRuntimeError> {
-			assert_eq!(crate::Pallet::<T>::on_chain_storage_version(), 1);
+			assert_eq!(crate::Pallet::<T>::on_chain_storage_version(), STORAGE_VERSION);
 			let random_indexes: alloc::vec::Vec<u32> = alloc::vec![0, 700, 340, 4000, 1501];
 			for i in 0..5 {
 				// Check 5 random index is cleared
