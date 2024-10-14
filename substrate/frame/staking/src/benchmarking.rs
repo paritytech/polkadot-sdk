@@ -17,8 +17,6 @@
 
 //! Staking pallet benchmarking.
 
-#![cfg(feature = "runtime-benchmarks")]
-
 use super::*;
 use crate::{asset, ConfigOp, Pallet as Staking};
 use testing_utils::*;
