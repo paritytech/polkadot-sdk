@@ -803,7 +803,7 @@ hyper-rustls = { version = "0.24.2" }
 hyper-util = { version = "0.1.5", default-features = false }
 # TODO: remove hyper v0.14 https://github.com/paritytech/polkadot-sdk/issues/4896
 hyperv14 = { package = "hyper", version = "0.14.29", default-features = false }
-impl-serde = { version = "0.4.0", default-features = false }
+impl-serde = { version = "0.5.0", default-features = false }
 impl-trait-for-tuples = { version = "0.2.2" }
 indexmap = { version = "2.0.0" }
 indicatif = { version = "0.17.7" }

@@ -21737,7 +21737,7 @@ dependencies = [
  "futures",
  "hash-db",
  "hash256-std-hasher",
- "impl-serde 0.4.0",
+ "impl-serde 0.5.0",
  "itertools 0.11.0",
  "k256",
  "libsecp256k1",
@@ -22852,7 +22852,7 @@ dependencies = [
 name = "sp-storage"
 version = "19.0.0"
 dependencies = [
- "impl-serde 0.4.0",
+ "impl-serde 0.5.0",
  "parity-scale-codec",
  "ref-cast",
  "serde",
@@ -23080,7 +23080,7 @@ dependencies = [
 name = "sp-version"
 version = "29.0.0"
 dependencies = [
- "impl-serde 0.4.0",
+ "impl-serde 0.5.0",
  "parity-scale-codec",
  "parity-wasm",
  "scale-info",
