@@ -73,13 +73,27 @@ pub mod pallet {
 
 	/// The primary structure that holds all offence records keyed by report identifiers.
 	#[pallet::storage]
-	#[pallet::getter(fn reports)]
 	pub type Reports<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		ReportIdOf<T>,
 		OffenceDetails<T::AccountId, T::IdentificationTuple>,
 	>;
+
+	impl<T: Config> Pallet<T> {
+		#[deprecated(note = "Use Reports::<T>::get(id) instead.")]
+		pub fn reports<KArg>(
+			k: KArg,
+		) -> Option<OffenceDetails<T::AccountId, T::IdentificationTuple>>
+		where
+			KArg: frame_support::__private::codec::EncodeLike<ReportIdOf<T>>,
+		{
+			<Reports<T> as frame_support::storage::StorageMap<
+				ReportIdOf<T>,
+				OffenceDetails<T::AccountId, T::IdentificationTuple>,
+			>>::get(k)
+		}
+	}
 
 	/// A vector of reports of the same kind that happened at the same time slot.
 	#[pallet::storage]
