@@ -125,7 +125,9 @@ pub mod v0_to_v1 {
 					// If no cursor is provided, start iterating from the beginning.
 					0
 				};
-
+				if index > 162399 {
+					log::info!(target: LOG_TARGET, "Last step index. Index = {}.", index);
+				}
 				if index >= M::get() {
 					log::info!(target: LOG_TARGET, "Ethereum execution header cleanup migration is complete. Index = {}.", index);
 					crate::migration::STORAGE_VERSION.put::<crate::Pallet<T>>();
