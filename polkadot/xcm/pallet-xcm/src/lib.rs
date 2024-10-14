@@ -70,6 +70,7 @@ use xcm_executor::{
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
+	trust_query::Error as TrustQueryApiError,
 };
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -2567,6 +2568,54 @@ impl<T: Config> Pallet<T> {
 			log::error!(target: "xcm::pallet_xcm::query_xcm_weight", "Error when querying XCM weight");
 			XcmPaymentApiError::WeightNotComputable
 		})
+	}
+
+	pub fn is_trusted_reserve(
+		asset: VersionedAsset,
+		location: VersionedLocation,
+	) -> Result<bool, TrustQueryApiError> {
+		let location: Location = location.try_into().map_err(|e| {
+			log::error!(
+				target: "xcm::TrustedQueryApi::is_trusted_reserve",
+				"Asset version conversion failed with error: {:?}",
+				e,
+			);
+			TrustQueryApiError::VersionedLocationConversionFailed
+		})?;
+
+		let ass: Asset = asset.try_into().map_err(|e| {
+			log::error!(
+				target: "xcm::TrustedQueryApi::is_trusted_reserve",
+				"Location version conversion failed with error: {:?}",
+				e,
+			);
+			TrustQueryApiError::VersionedAssetConversionFailed
+		})?;
+
+		Ok(<T::XcmExecutor as XcmAssetTransfers>::IsReserve::contains(&ass, &location))
+	}
+
+	pub fn is_trusted_teleporter(
+		asset: VersionedAsset,
+		location: VersionedLocation,
+	) -> Result<bool, TrustQueryApiError> {
+		let location: Location = location.try_into().map_err(|e| {
+			log::error!(
+				target: "xcm::TrustedQueryApi::is_trusted_teleporter",
+				"Asset version conversion failed with error: {:?}",
+				e,
+			);
+			TrustQueryApiError::VersionedLocationConversionFailed
+		})?;
+		let ass: Asset = asset.try_into().map_err(|e| {
+			log::error!(
+				target: "xcm::TrustedQueryApi::is_trusted_teleporter",
+				"Location version conversion failed with error: {:?}",
+				e,
+			);
+			TrustQueryApiError::VersionedAssetConversionFailed
+		})?;
+		Ok(<T::XcmExecutor as XcmAssetTransfers>::IsTeleporter::contains(&ass, &location))
 	}
 
 	pub fn query_delivery_fees(

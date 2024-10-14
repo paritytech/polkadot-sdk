@@ -1418,6 +1418,9 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl xcm_runtime_apis::trust_query::TrustedQueryApi<Block> for Runtime {
+	}
+
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
 		for Runtime
 	{

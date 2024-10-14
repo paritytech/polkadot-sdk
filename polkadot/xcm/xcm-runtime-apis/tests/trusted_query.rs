@@ -35,7 +35,7 @@ use xcm_runtime_apis::trust_query::{Error, TrustedQueryApi};
 // use wasm for typescript thingy
 // details - figure out
 #[test]
-fn query_trusted_api_works() {
+fn query_trusted_reserve() {
 	#[derive(Debug)]
 	struct TestCase {
 		name: &'static str,
@@ -101,7 +101,7 @@ fn query_trusted_api_works() {
 }
 
 #[test]
-fn query_trusted_teleporter_works() {
+fn query_trusted_teleporter() {
 	#[derive(Debug)]
 	struct TestCase {
 		name: &'static str,

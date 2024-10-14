@@ -418,46 +418,11 @@ sp_api::mock_impl_runtime_apis! {
 
 	impl TrustedQueryApi<Block> for RuntimeApi {
 		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, TrustedQueryApiError> {
-			let location: Location = location.try_into().map_err(|e| {
-				log::error!(
-					target: "xcm::TrustedQueryApi::is_trusted_reserve",
-					"Asset version conversion failed with error: {:?}",
-					e,
-				);
-				TrustedQueryApiError::VersionedLocationConversionFailed
-			})?;
-
-
-			let ass: Asset = asset.try_into().map_err(|e| {
-				log::error!(
-					target: "xcm::TrustedQueryApi::is_trusted_reserve",
-					"Location version conversion failed with error: {:?}",
-					e,
-				);
-				TrustedQueryApiError::VersionedAssetConversionFailed
-			})?;
-
-			Ok(<XcmConfig as xcm_executor::Config>::IsReserve::contains(&ass, &location))
+			XcmPallet::is_trusted_reserve(asset, location)
 		}
 
 		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, TrustedQueryApiError> {
-			let location: Location = location.try_into().map_err(|e| {
-				log::error!(
-					target: "xcm::TrustedQueryApi::is_trusted_teleporter",
-					"Asset version conversion failed with error: {:?}",
-					e,
-				);
-				TrustedQueryApiError::VersionedLocationConversionFailed
-			})?;
-			let ass: Asset = asset.try_into().map_err(|e| {
-				log::error!(
-					target: "xcm::TrustedQueryApi::is_trusted_teleporter",
-					"Location version conversion failed with error: {:?}",
-					e,
-				);
-				TrustedQueryApiError::VersionedAssetConversionFailed
-			})?;
-			Ok(<XcmConfig as xcm_executor::Config>::IsTeleporter::contains(&ass, &location))
+			XcmPallet::is_trusted_teleporter(asset, location)
 		}
 	}
 
