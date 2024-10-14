@@ -355,7 +355,7 @@ fn staking_inflation_correct_whole_year() {
 		(36525 * 24 * MILLISECONDS_PER_HOUR) / 100, // 1 year
 	);
 
-	// Our yearly emissions is about 120M WND:
+	// Our yearly emissions is about 417k WND:
 	let yearly_emission = 417_307 * UNITS;
 	assert_relative_eq!(
 		to_stakers as f64 + to_treasury as f64,
