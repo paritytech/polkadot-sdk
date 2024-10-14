@@ -5,14 +5,14 @@ use frame_support::{
 	derive_impl, parameter_types,
 	traits::{tokens::fungible::Mutate, ConstU128, ConstU8},
 	weights::IdentityFee,
-	PalletId,
+	BoundedVec, PalletId,
 };
 use sp_core::H256;
 use xcm_executor::traits::ConvertLocation;
 
 use snowbridge_core::{
 	gwei, meth, outbound::ConstantGasMeter, sibling_sovereign_account, AgentId, AllowSiblingsOnly,
-	ParaId, PricingParameters, Rewards,
+	AssetMetadata, ParaId, PricingParameters, Rewards,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, Keccak256},
@@ -252,4 +252,12 @@ pub fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 pub fn make_agent_id(location: Location) -> AgentId {
 	<Test as snowbridge_system::Config>::AgentIdOf::convert_location(&location)
 		.expect("convert location")
+}
+
+pub fn mock_asset_meta() -> AssetMetadata {
+	AssetMetadata {
+		name: BoundedVec::try_from("SDOT".as_bytes().to_vec()).unwrap(),
+		symbol: BoundedVec::try_from("SDOT".as_bytes().to_vec()).unwrap(),
+		decimals: 10,
+	}
 }

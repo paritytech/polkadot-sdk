@@ -159,6 +159,12 @@ pub struct AssetMetadata {
 	pub decimals: u8,
 }
 
+impl AssetMetadata {
+	pub fn validate(&self) -> bool {
+		self.decimals > 0 && self.name.len() > 0 && self.symbol.len() > 0
+	}
+}
+
 #[cfg(any(test, feature = "std", feature = "runtime-benchmarks"))]
 impl Default for AssetMetadata {
 	fn default() -> Self {

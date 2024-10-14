@@ -709,7 +709,7 @@ fn register_all_tokens_succeeds() {
 			assert_ok!(EthereumSystem::register_token(
 				origin,
 				Box::new(versioned_location),
-				Default::default()
+				mock_asset_meta()
 			));
 
 			assert_eq!(NativeToForeignId::<Test>::get(tc.reanchored.clone()), Some(tc.foreign));
@@ -739,7 +739,7 @@ fn register_ethereum_native_token_fails() {
 		);
 		let versioned_location: Box<VersionedLocation> = Box::new(location.clone().into());
 		assert_noop!(
-			EthereumSystem::register_token(origin, versioned_location, Default::default()),
+			EthereumSystem::register_token(origin, versioned_location, mock_asset_meta()),
 			Error::<Test>::LocationConversionFailed
 		);
 	});
