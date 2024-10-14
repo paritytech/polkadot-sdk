@@ -141,6 +141,7 @@ pub mod v0_to_v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, TryRuntimeError> {
+			log::info!(target: LOG_TARGET, "Pre-upgrade execution header at index 0 is {}.", crate::migration::v0::ExecutionHeaderMapping::<T>::get(0));
 			assert_eq!(crate::Pallet::<T>::on_chain_storage_version(), 0);
 			let random_indexes: alloc::vec::Vec<u32> = alloc::vec![0, 700, 340, 4000, 1501];
 			for i in 0..5 {
@@ -157,6 +158,7 @@ pub mod v0_to_v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_: alloc::vec::Vec<u8>) -> Result<(), TryRuntimeError> {
+			log::info!(target: LOG_TARGET, "Post-upgrade execution header at index 0 is {}.", crate::migration::v0::ExecutionHeaderMapping::<T>::get(0));
 			assert_eq!(crate::Pallet::<T>::on_chain_storage_version(), STORAGE_VERSION);
 			let random_indexes: alloc::vec::Vec<u32> = alloc::vec![0, 700, 340, 4000, 1501];
 			for i in 0..5 {
