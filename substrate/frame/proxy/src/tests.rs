@@ -520,12 +520,59 @@ fn proxying_works() {
 			dest: 6,
 			value: 1,
 		}));
-		assert_ok!(RuntimeCall::Proxy(super::Call::new_call_variant_proxy(1, None, call.clone()))
+		assert_ok!(RuntimeCall::Proxy(Call::new_call_variant_proxy(1, None, call.clone()))
 			.dispatch(RuntimeOrigin::signed(2)));
 		System::assert_last_event(
 			ProxyEvent::ProxyExecuted { result: Err(SystemError::CallFiltered.into()) }.into(),
 		);
+
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(3), 1, None, call.clone()));
+		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
+		assert_eq!(Balances::free_balance(6), 2);
+	});
+}
+
+#[test]
+fn proxy_propagate_error_works() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::JustTransfer, 0));
+		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
+
+		let call = Box::new(call_transfer(6, 1));
+		assert_noop!(
+			Proxy::proxy_propagate_error(RuntimeOrigin::signed(4), 1, None, call.clone()),
+			Error::<Test>::NotProxy
+		);
+		assert_noop!(
+			Proxy::proxy_propagate_error(
+				RuntimeOrigin::signed(2),
+				1,
+				Some(ProxyType::Any),
+				call.clone()
+			),
+			Error::<Test>::NotProxy
+		);
+		assert_ok!(Proxy::proxy_propagate_error(RuntimeOrigin::signed(2), 1, None, call.clone()));
+		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
+		assert_eq!(Balances::free_balance(6), 1);
+
+		let call = Box::new(RuntimeCall::System(SystemCall::set_code { code: vec![] }));
+		assert_noop!(
+			Proxy::proxy_propagate_error(RuntimeOrigin::signed(3), 1, None, call.clone()),
+			SystemError::CallFiltered
+		);
+
+		let call = Box::new(RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
+			dest: 6,
+			value: 1,
+		}));
+		assert_noop!(
+			RuntimeCall::Proxy(Call::new_call_variant_proxy_propagate_error(1, None, call.clone()))
+				.dispatch(RuntimeOrigin::signed(2)),
+			SystemError::CallFiltered
+		);
+
+		assert_ok!(Proxy::proxy_propagate_error(RuntimeOrigin::signed(3), 1, None, call.clone()));
 		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
 		assert_eq!(Balances::free_balance(6), 2);
 	});

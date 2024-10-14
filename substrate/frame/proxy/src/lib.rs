@@ -46,10 +46,11 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
 use scale_info::TypeInfo;
+use frame_support::dispatch::DispatchResultWithPostInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	traits::{Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
-	DispatchError, DispatchResult, RuntimeDebug,
+	DispatchError, DispatchResult, RuntimeDebug
 };
 pub use weights::WeightInfo;
 
@@ -98,6 +99,7 @@ pub struct Announcement<AccountId, Hash, BlockNumber> {
 
 #[frame_support::pallet]
 pub mod pallet {
+	use frame_support::dispatch::PostDispatchInfo;
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
@@ -113,7 +115,7 @@ pub mod pallet {
 
 		/// The overarching call type.
 		type RuntimeCall: Parameter
-			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>
@@ -209,7 +211,8 @@ pub mod pallet {
 			let def = Self::find_proxy(&real, &who, force_proxy_type)?;
 			ensure!(def.delay.is_zero(), Error::<T>::Unannounced);
 
-			Self::do_proxy(def, real, *call);
+			// The return value of the proxied call is ignored.
+			let _ = Self::do_proxy(def, real, *call);
 
 			Ok(())
 		}
@@ -511,9 +514,45 @@ pub mod pallet {
 			})
 			.map_err(|_| Error::<T>::Unannounced)?;
 
-			Self::do_proxy(def, real, *call);
+			// The return value of the proxied call is ignored.
+			let _ = Self::do_proxy(def, real, *call);
 
 			Ok(())
+		}
+
+		/// Dispatch the given `call` from an account that the sender is authorised for through
+		/// `add_proxy`.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// Any error from `call` will propagate up, otherwise this will emit a `ProxyExecuted`
+		/// event with `Ok` result.
+		///
+		/// Parameters:
+		/// - `real`: The account that the proxy will make a call on behalf of.
+		/// - `force_proxy_type`: Specify the exact proxy type to be used and checked for this call.
+		/// - `call`: The call to be made by the `real` account.
+		#[pallet::call_index(10)]
+		#[pallet::weight({
+			let di = call.get_dispatch_info();
+			(T::WeightInfo::proxy_propagate_error(T::MaxProxies::get())
+				// AccountData for inner call origin accountdata.
+				.saturating_add(T::DbWeight::get().reads_writes(1, 1))
+				.saturating_add(di.weight),
+			di.class)
+		})]
+		pub fn proxy_propagate_error(
+			origin: OriginFor<T>,
+			real: AccountIdLookupOf<T>,
+			force_proxy_type: Option<T::ProxyType>,
+			call: Box<<T as Config>::RuntimeCall>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let real = T::Lookup::lookup(real)?;
+			let def = Self::find_proxy(&real, &who, force_proxy_type)?;
+			ensure!(def.delay.is_zero(), Error::<T>::Unannounced);
+
+			Self::do_proxy(def, real, *call)
 		}
 	}
 
@@ -795,7 +834,7 @@ impl<T: Config> Pallet<T> {
 		def: ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>,
 		real: T::AccountId,
 		call: <T as Config>::RuntimeCall,
-	) {
+	) -> DispatchResultWithPostInfo {
 		// This is a freshly authenticated new account, the origin restrictions doesn't apply.
 		let mut origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(real).into();
 		origin.add_filter(move |c: &<T as frame_system::Config>::RuntimeCall| {
@@ -817,7 +856,10 @@ impl<T: Config> Pallet<T> {
 			}
 		});
 		let e = call.dispatch(origin);
+
 		Self::deposit_event(Event::ProxyExecuted { result: e.map(|_| ()).map_err(|e| e.error) });
+
+		e
 	}
 
 	/// Removes all proxy delegates for a given delegator.
