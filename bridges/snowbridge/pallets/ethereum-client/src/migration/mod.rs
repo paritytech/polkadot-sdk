@@ -60,8 +60,6 @@ pub mod v0 {
 }
 
 pub mod v0_to_v1 {
-	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
-
 	extern crate alloc;
 	use crate::{migration::LOG_TARGET, pallet::Config, WeightInfo};
 	#[cfg(feature = "try-runtime")]
@@ -75,6 +73,10 @@ pub mod v0_to_v1 {
 	use sp_core::Get;
 	#[cfg(feature = "try-runtime")]
 	use sp_runtime::TryRuntimeError;
+	#[cfg(feature = "try-runtime")]
+	use sp_core::H256;
+
+	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	pub const PALLET_MIGRATIONS_ID: &[u8; 26] = b"ethereum-execution-headers";
 
@@ -133,6 +135,28 @@ pub mod v0_to_v1 {
 			}
 			Ok(cursor)
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, TryRuntimeError> {
+			assert_eq!(crate::Pallet::<T>::on_chain_storage_version(), 0);
+			let random_indexes: alloc::vec::Vec<u32> = alloc::vec![0, 700, 340, 4000, 1501];
+			for i in 0..5 {
+				// Check 5 random index is set
+				assert!(H256::zero() != crate::migration::v0::ExecutionHeaderMapping::<T>::get(random_indexes[i]));
+			}
+			Ok(alloc::vec![])
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_: alloc::vec::Vec<u8>) -> Result<(), TryRuntimeError> {
+			assert_eq!(crate::Pallet::<T>::on_chain_storage_version(), 1);
+			let random_indexes: alloc::vec::Vec<u32> = alloc::vec![0, 700, 340, 4000, 1501];
+			for i in 0..5 {
+				// Check 5 random index is cleared
+				assert_eq!(H256::zero(), crate::migration::v0::ExecutionHeaderMapping::<T>::get(random_indexes[i]));
+			}
+			Ok(())
+		}
 	}
 
 	pub struct ExecutionHeaderCleanup<T: Config>(PhantomData<T>);
@@ -148,7 +172,6 @@ pub mod v0_to_v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, TryRuntimeError> {
-			assert_eq!(crate::Pallet::<T>::on_chain_storage_version(), 0);
 			let last_index = crate::migration::v0::ExecutionHeaderIndex::<T>::get();
 			log::info!(target: LOG_TARGET, "Pre-upgrade execution header index is {}.", last_index);
 			Ok(alloc::vec![])
@@ -156,7 +179,6 @@ pub mod v0_to_v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_: alloc::vec::Vec<u8>) -> Result<(), TryRuntimeError> {
-			assert_eq!(crate::Pallet::<T>::on_chain_storage_version(), 1);
 			let last_index = crate::migration::v0::ExecutionHeaderIndex::<T>::get();
 			log::info!(target: LOG_TARGET, "Post-upgrade execution header index is {}.", last_index);
 			frame_support::ensure!(
