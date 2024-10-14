@@ -1006,7 +1006,7 @@ pub mod pallet {
 	/// The execution phase of the block.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	pub(super) type ExecutionPhase<T: Config> = StorageValue<_, Phase>;
+	pub type ExecutionPhase<T: Config> = StorageValue<_, Phase>;
 
 	/// `Some` if a code upgrade has been authorized.
 	#[pallet::storage]
@@ -1073,12 +1073,18 @@ pub type KeyValue = (Vec<u8>, Vec<u8>);
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, PartialEq, Eq, Clone))]
 pub enum Phase {
-	/// Applying an extrinsic.
+	/// Applying a non-inherent extrinsic.
 	ApplyExtrinsic(u32),
 	/// Finalizing the block.
 	Finalization,
 	/// Initializing the block.
 	Initialization,
+	/// Applying the inherent with this index.
+	ApplyInherent(u32),
+	/// All inherents have been applied.
+	///
+	/// This is set before any transaction is applied.
+	AfterInherent,
 }
 
 impl Default for Phase {
@@ -1464,6 +1470,13 @@ impl<T: Config> Pallet<T> {
 	/// once per block.
 	pub fn note_inherents_applied() {
 		InherentsApplied::<T>::put(true);
+		ExecutionPhase::<T>::put(Phase::AfterInherent);
+	}
+
+	/// Note that that all post-inherent code was executed.
+	pub fn note_after_inherents_done() {
+		debug_assert!(matches!(ExecutionPhase::<T>::get(), Some(Phase::AfterInherent)));
+		ExecutionPhase::<T>::put(Phase::ApplyExtrinsic(Self::extrinsic_index().unwrap_or(0)));
 	}
 
 	/// Increment the reference counter on an account.
@@ -2025,7 +2038,11 @@ impl<T: Config> Pallet<T> {
 	/// Emits an `ExtrinsicSuccess` or `ExtrinsicFailed` event depending on the outcome.
 	/// The emitted event contains the post-dispatch corrected weight including
 	/// the base-weight for its dispatch class.
-	pub fn note_applied_extrinsic(r: &DispatchResultWithPostInfo, mut info: DispatchInfo) {
+	pub fn note_applied_extrinsic(
+		r: &DispatchResultWithPostInfo,
+		mut info: DispatchInfo,
+		inherent: bool,
+	) {
 		info.weight = extract_actual_weight(r, &info)
 			.saturating_add(T::BlockWeights::get().get(info.class).base_extrinsic);
 		info.pays_fee = extract_actual_pays_fee(r, &info);
@@ -2046,7 +2063,13 @@ impl<T: Config> Pallet<T> {
 		let next_extrinsic_index = Self::extrinsic_index().unwrap_or_default() + 1u32;
 
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &next_extrinsic_index);
-		ExecutionPhase::<T>::put(Phase::ApplyExtrinsic(next_extrinsic_index));
+
+		// The caller (Executive) ensures that inherents and transactions are not mixed.
+		if inherent {
+			ExecutionPhase::<T>::put(Phase::ApplyInherent(next_extrinsic_index));
+		} else {
+			ExecutionPhase::<T>::put(Phase::ApplyExtrinsic(next_extrinsic_index));
+		}
 	}
 
 	/// To be called immediately after `note_applied_extrinsic` of the last extrinsic of the block
@@ -2058,10 +2081,11 @@ impl<T: Config> Pallet<T> {
 		ExecutionPhase::<T>::put(Phase::Finalization);
 	}
 
-	/// To be called immediately after finishing the initialization of the block
-	/// (e.g., called `on_initialize` for all pallets).
+	/// To be called immediately after finishing the initialization of the block.
+	///
+	/// This includes runtime upgrades, `on_initialize` of all pallets and pre-inherent hooks.
 	pub fn note_finished_initialize() {
-		ExecutionPhase::<T>::put(Phase::ApplyExtrinsic(0))
+		ExecutionPhase::<T>::put(Phase::ApplyInherent(0))
 	}
 
 	/// An account is being created.

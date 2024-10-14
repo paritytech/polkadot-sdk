@@ -348,7 +348,7 @@ where
 				return Err(InvalidTransaction::BadMandatory.into())
 			}
 
-			<frame_system::Pallet<System>>::note_applied_extrinsic(&r, dispatch_info);
+			<frame_system::Pallet<System>>::note_applied_extrinsic(&r, dispatch_info, is_inherent);
 
 			Ok(r.map(|_| ()).map_err(|e| e.error))
 		};
@@ -602,8 +602,8 @@ where
 			DispatchClass::Mandatory,
 		);
 
-		frame_system::Pallet::<System>::note_finished_initialize();
 		<System as frame_system::Config>::PreInherents::pre_inherents();
+		frame_system::Pallet::<System>::note_finished_initialize();
 	}
 
 	/// Returns if the runtime has been upgraded, based on [`frame_system::LastRuntimeUpgrade`].
@@ -684,6 +684,9 @@ where
 			let block_number = <frame_system::Pallet<System>>::block_number();
 			Self::on_poll_hook(block_number);
 		}
+
+		// MBMs and poll should run in phase `AfterInherent`, hence this goes here.
+		<frame_system::Pallet<System>>::note_after_inherents_done();
 	}
 
 	/// Execute given extrinsics.
@@ -748,7 +751,6 @@ where
 		let weight = <frame_system::Pallet<System>>::block_weight();
 		let max_weight = <System::BlockWeights as frame_support::traits::Get<_>>::get().max_block;
 		let remaining = max_weight.saturating_sub(weight.total());
-
 		if remaining.all_gt(Weight::zero()) {
 			let mut meter = WeightMeter::with_limit(remaining);
 			<AllPalletsWithSystem as OnPoll<BlockNumberFor<System>>>::on_poll(
@@ -807,7 +809,7 @@ where
 			return Err(InvalidTransaction::BadMandatory.into())
 		}
 
-		<frame_system::Pallet<System>>::note_applied_extrinsic(&r, dispatch_info);
+		<frame_system::Pallet<System>>::note_applied_extrinsic(&r, dispatch_info, is_inherent);
 
 		Ok(r.map(|_| ()).map_err(|e| e.error))
 	}
