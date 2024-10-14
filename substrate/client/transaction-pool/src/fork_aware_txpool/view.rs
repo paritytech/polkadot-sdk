@@ -275,10 +275,6 @@ where
 				Ok(Err(TransactionValidityError::Invalid(_))) => {
 					invalid_hashes.push(tx_hash);
 				},
-				Ok(Err(TransactionValidityError::Unknown(_))) => {
-					// skipping unknown, they might be pushed by valid or invalid transaction
-					// when latter resubmitted.
-				},
 				Ok(Ok(validity)) => {
 					revalidated.insert(
 						tx_hash,
@@ -291,6 +287,15 @@ where
 							validity,
 						),
 					);
+				},
+				Ok(Err(TransactionValidityError::Unknown(e))) => {
+					log::trace!(
+						target: LOG_TARGET,
+						"[{:?}]: Removing. Cannot determine transaction validity: {:?}",
+						tx_hash,
+						e
+					);
+					invalid_hashes.push(tx_hash);
 				},
 				Err(validation_err) => {
 					log::trace!(
