@@ -24,6 +24,7 @@
 
 use futures::channel::oneshot;
 use sc_network::{Multiaddr, ReputationChange};
+use strum::EnumIter;
 use thiserror::Error;
 
 pub use sc_network::IfDisconnected;
@@ -47,9 +48,10 @@ use polkadot_primitives::{
 	CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
 	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
-	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, PvfExecKind,
-	SessionIndex, SessionInfo, SignedAvailabilityBitfield, SignedAvailabilityBitfields,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	PvfExecKind as RuntimePvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -180,6 +182,45 @@ pub enum CandidateValidationMessage {
 		/// The sending side of the response channel
 		response_sender: oneshot::Sender<PreCheckOutcome>,
 	},
+}
+
+/// Extends primitives::PvfExecKind, which is a runtime parameter we don't want to change,
+/// to separate and prioritize execution jobs by request type.
+/// The order is important, because we iterate through the values and assume it is going from higher
+/// to lowest priority.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]
+pub enum PvfExecKind {
+	/// For dispute requests
+	Dispute,
+	/// For approval requests
+	Approval,
+	/// For backing requests from system parachains.
+	BackingSystemParas,
+	/// For backing requests.
+	Backing,
+}
+
+impl PvfExecKind {
+	/// Converts priority level to &str
+	pub fn as_str(&self) -> &str {
+		match *self {
+			Self::Dispute => "dispute",
+			Self::Approval => "approval",
+			Self::BackingSystemParas => "backing_system_paras",
+			Self::Backing => "backing",
+		}
+	}
+}
+
+impl From<PvfExecKind> for RuntimePvfExecKind {
+	fn from(exec: PvfExecKind) -> Self {
+		match exec {
+			PvfExecKind::Dispute => RuntimePvfExecKind::Approval,
+			PvfExecKind::Approval => RuntimePvfExecKind::Approval,
+			PvfExecKind::BackingSystemParas => RuntimePvfExecKind::Backing,
+			PvfExecKind::Backing => RuntimePvfExecKind::Backing,
+		}
+	}
 }
 
 /// Messages received by the Collator Protocol subsystem.
