@@ -113,6 +113,7 @@ pub mod v0_to_v1 {
 				}
 
 				let index = if let Some(last_key) = cursor {
+					log::info!(target: LOG_TARGET, "Last key is {}. Max value is {}", last_key, M::get());
 					last_key.saturating_add(1)
 				} else {
 					log::info!(target: LOG_TARGET, "Cursor is 0, starting migration.");
@@ -121,10 +122,10 @@ pub mod v0_to_v1 {
 				};
 
 				if index >= M::get() {
+					log::info!(target: LOG_TARGET, "Ethereum execution header cleanup migration is complete. Index = {}.", index);
 					crate::migration::STORAGE_VERSION.put::<crate::Pallet<T>>();
 					// We are at the end of the migration, signal complete.
 					cursor = None;
-					log::info!(target: LOG_TARGET, "Ethereum execution header cleanup migration is complete. Index = {}.", index);
 					break
 				} else {
 					let execution_hash =
