@@ -109,8 +109,7 @@ pub(super) async fn update_view(
 ) -> Option<AllMessages> {
 	let new_view: HashMap<Hash, u32> = HashMap::from_iter(new_view);
 
-	let our_view =
-		OurView::new(new_view.keys().map(|hash| (*hash, Arc::new(jaeger::Span::Disabled))), 0);
+	let our_view = OurView::new(new_view.keys().map(|hash| *hash), 0);
 
 	overseer_send(
 		virtual_overseer,

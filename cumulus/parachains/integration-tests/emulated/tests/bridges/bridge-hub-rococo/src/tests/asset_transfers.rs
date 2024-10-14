@@ -432,6 +432,16 @@ fn send_back_wnds_from_penpal_rococo_through_asset_hub_rococo_to_asset_hub_weste
 		ASSET_MIN_BALANCE,
 		vec![(sender.clone(), amount * 2)],
 	);
+	// Configure source Penpal chain to trust local AH as reserve of bridged WND
+	PenpalA::execute_with(|| {
+		assert_ok!(<PenpalA as Chain>::System::set_storage(
+			<PenpalA as Chain>::RuntimeOrigin::root(),
+			vec![(
+				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
+				wnd_at_rococo_parachains.encode(),
+			)],
+		));
+	});
 
 	// fund the AHR's SA on AHW with the WND tokens held in reserve
 	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
@@ -523,4 +533,13 @@ fn send_back_wnds_from_penpal_rococo_through_asset_hub_rococo_to_asset_hub_weste
 	// Receiver's balance is increased by no more than "amount"
 	assert!(receiver_wnds_after > receiver_wnds_before);
 	assert!(receiver_wnds_after <= receiver_wnds_before + amount);
+}
+
+#[test]
+fn dry_run_transfer_to_westend_sends_xcm_to_bridge_hub() {
+	test_dry_run_transfer_across_pk_bridge!(
+		AssetHubRococo,
+		BridgeHubRococo,
+		asset_hub_westend_location()
+	);
 }

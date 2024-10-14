@@ -14,7 +14,6 @@
 // limitations under the License.
 
 //! Some common helpers for declaring runtime's presets
-// note: copied from: cumulus/polkadot-parachain/src/chain_spec/mod.rs
 
 use crate::{AccountId, Signature};
 #[cfg(not(feature = "std"))]

@@ -39,13 +39,12 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{
 		CanSecondRequest, CandidateBackingMessage, CollatorProtocolMessage, IfDisconnected,
 		NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData, ProspectiveParachainsMessage,
 		ProspectiveValidationDataRequest,
 	},
-	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal, PerLeafSpan,
+	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
@@ -394,9 +393,6 @@ struct State {
 	/// Metrics.
 	metrics: Metrics,
 
-	/// Span per relay parent.
-	span_per_relay_parent: HashMap<Hash, PerLeafSpan>,
-
 	/// When a timer in this `FuturesUnordered` triggers, we should dequeue the next request
 	/// attempt in the corresponding `collations_per_relay_parent`.
 	///
@@ -714,10 +710,6 @@ async fn request_collation(
 		collator_protocol_version: peer_protocol_version,
 		from_collator: response_recv,
 		cancellation_token: cancellation_token.clone(),
-		span: state
-			.span_per_relay_parent
-			.get(&relay_parent)
-			.map(|s| s.child("collation-request").with_para_id(para_id)),
 		_lifetime_timer: state.metrics.time_collation_request_duration(),
 	};
 
@@ -1057,11 +1049,6 @@ async fn handle_advertisement<Sender>(
 where
 	Sender: CollatorProtocolSenderTrait,
 {
-	let _span = state
-		.span_per_relay_parent
-		.get(&relay_parent)
-		.map(|s| s.child("advertise-collation"));
-
 	let peer_data = state.peer_data.get_mut(&peer_id).ok_or(AdvertisementError::UnknownPeer)?;
 
 	if peer_data.version == CollationVersion::V1 && !state.active_leaves.contains_key(&relay_parent)
@@ -1248,11 +1235,6 @@ where
 		let async_backing_params =
 			recv_runtime(request_async_backing_params(*leaf, sender).await).await?;
 
-		if let Some(span) = view.span_per_head().get(leaf).cloned() {
-			let per_leaf_span = PerLeafSpan::new(span, "validator-side");
-			state.span_per_relay_parent.insert(*leaf, per_leaf_span);
-		}
-
 		let assignments =
 			assign_incoming(sender, &mut state.current_assignments, keystore, *leaf).await?;
 
@@ -1301,7 +1283,6 @@ where
 				keep
 			});
 			state.fetched_candidates.retain(|k, _| k.relay_parent != removed);
-			state.span_per_relay_parent.remove(&removed);
 		}
 	}
 
@@ -1938,10 +1919,6 @@ async fn handle_collation_fetch_response(
 		Ok(resp) => Ok(resp),
 	};
 
-	let _span = state
-		.span_per_relay_parent
-		.get(&pending_collation.relay_parent)
-		.map(|s| s.child("received-collation"));
 	let _timer = state.metrics.time_handle_collation_request_result();
 
 	let mut metrics_result = Err(());
@@ -2022,7 +1999,6 @@ async fn handle_collation_fetch_response(
 				candidate_hash = ?candidate_receipt.hash(),
 				"Received collation",
 			);
-			let _span = jaeger::Span::new(&pov, "received-collation");
 
 			metrics_result = Ok(());
 			Ok(PendingCollationFetch {
@@ -2048,7 +2024,6 @@ async fn handle_collation_fetch_response(
 				candidate_hash = ?receipt.hash(),
 				"Received collation (v3)",
 			);
-			let _span = jaeger::Span::new(&pov, "received-collation");
 
 			metrics_result = Ok(());
 			Ok(PendingCollationFetch {
