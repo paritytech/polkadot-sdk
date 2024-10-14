@@ -72,9 +72,9 @@ pub mod v0_to_v1 {
 	};
 	use sp_core::Get;
 	#[cfg(feature = "try-runtime")]
-	use sp_runtime::TryRuntimeError;
-	#[cfg(feature = "try-runtime")]
 	use sp_core::H256;
+	#[cfg(feature = "try-runtime")]
+	use sp_runtime::TryRuntimeError;
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -142,7 +142,12 @@ pub mod v0_to_v1 {
 			let random_indexes: alloc::vec::Vec<u32> = alloc::vec![0, 700, 340, 4000, 1501];
 			for i in 0..5 {
 				// Check 5 random index is set
-				assert!(H256::zero() != crate::migration::v0::ExecutionHeaderMapping::<T>::get(random_indexes[i]));
+				assert!(
+					H256::zero() !=
+						crate::migration::v0::ExecutionHeaderMapping::<T>::get(
+							random_indexes[i]
+						)
+				);
 			}
 			Ok(alloc::vec![])
 		}
@@ -153,7 +158,10 @@ pub mod v0_to_v1 {
 			let random_indexes: alloc::vec::Vec<u32> = alloc::vec![0, 700, 340, 4000, 1501];
 			for i in 0..5 {
 				// Check 5 random index is cleared
-				assert_eq!(H256::zero(), crate::migration::v0::ExecutionHeaderMapping::<T>::get(random_indexes[i]));
+				assert_eq!(
+					H256::zero(),
+					crate::migration::v0::ExecutionHeaderMapping::<T>::get(random_indexes[i])
+				);
 			}
 			Ok(())
 		}
