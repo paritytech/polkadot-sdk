@@ -16,7 +16,7 @@ use snowbridge_core::{
 	meth,
 	outbound_v2::*,
 	pricing::{PricingParameters, Rewards},
-	ParaId,
+	primary_governance_origin, ParaId,
 };
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
@@ -143,7 +143,7 @@ where
 	let _marker = PhantomData::<T>; // for clippy
 
 	Message {
-		origin: Default::default(),
+		origin: primary_governance_origin(),
 		id: Default::default(),
 		fee: 0,
 		commands: BoundedVec::try_from(vec![Command::Upgrade {
@@ -178,9 +178,9 @@ where
 	}
 }
 
-pub fn mock_message(_sibling_para_id: u32) -> Message {
+pub fn mock_message(sibling_para_id: u32) -> Message {
 	Message {
-		origin: Default::default(),
+		origin: H256::from_low_u64_be(sibling_para_id as u64),
 		id: Default::default(),
 		fee: 0,
 		commands: BoundedVec::try_from(vec![Command::UnlockNativeToken {

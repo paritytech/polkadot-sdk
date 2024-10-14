@@ -8,8 +8,10 @@ use frame_support::{
 	ensure,
 	traits::{EnqueueMessage, Get},
 };
-use hex_literal::hex;
-use snowbridge_core::outbound_v2::{Message, SendError, SendMessage, SendMessageFeeProvider};
+use snowbridge_core::{
+	outbound_v2::{Message, SendError, SendMessage, SendMessageFeeProvider},
+	primary_governance_origin,
+};
 use sp_core::H256;
 use sp_runtime::{traits::Zero, BoundedVec};
 
@@ -41,10 +43,7 @@ where
 	fn deliver(ticket: Self::Ticket) -> Result<H256, SendError> {
 		let origin = AggregateMessageOrigin::SnowbridgeV2(ticket.origin);
 
-		let primary_governance_origin: [u8; 32] =
-			hex!("0000000000000000000000000000000000000000000000000000000000000001");
-
-		if ticket.origin.0 != primary_governance_origin {
+		if ticket.origin != primary_governance_origin() {
 			ensure!(!Self::operating_mode().is_halted(), SendError::Halted);
 		}
 

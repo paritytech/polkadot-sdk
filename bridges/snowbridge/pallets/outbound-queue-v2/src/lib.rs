@@ -120,7 +120,7 @@ use snowbridge_core::{
 use snowbridge_outbound_queue_merkle_tree_v2::merkle_root;
 pub use snowbridge_outbound_queue_merkle_tree_v2::MerkleProof;
 use sp_core::H256;
-use sp_runtime::{traits::Hash, DigestItem};
+use sp_runtime::{traits::Hash, ArithmeticError, DigestItem};
 use sp_std::prelude::*;
 pub use types::{CommittedMessage, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
@@ -372,7 +372,7 @@ pub mod pallet {
 				origin: message.origin,
 				nonce,
 				id: message.id,
-				commands: commands.try_into().expect("should work"),
+				commands: commands.try_into().map_err(|_| Unsupported)?,
 			};
 
 			// ABI-encode and hash the prepared message
@@ -381,12 +381,16 @@ pub mod pallet {
 
 			Messages::<T>::append(Box::new(committed_message.clone()));
 			MessageLeaves::<T>::append(message_abi_encoded_hash);
-			Nonce::<T>::set(nonce.saturating_add(1));
+
 			<LockedFee<T>>::try_mutate(nonce, |amount| -> DispatchResult {
-				*amount = amount.saturating_add(message.fee);
+				*amount = amount.checked_add(message.fee).ok_or(ArithmeticError::Overflow)?;
 				Ok(())
 			})
-			.map_err(|_| Corrupt)?;
+			.map_err(|_| Unsupported)?;
+
+			let new_nonce = nonce.checked_add(1).ok_or(Unsupported)?;
+
+			Nonce::<T>::set(new_nonce);
 
 			Self::deposit_event(Event::MessageAccepted { id: message.id, nonce });
 
