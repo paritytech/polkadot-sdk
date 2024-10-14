@@ -21,7 +21,7 @@ serde_json = { workspace = true, default-features = true }
 docify = { workspace = true }
 color-print = { workspace = true }
 
-polkadot-sdk = { workspace = true, features = ["experimental", "node"] }
+polkadot-sdk = { workspace = true, features = ["node"] }
 
 parachain-template-runtime = { workspace = true }
 
