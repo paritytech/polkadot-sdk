@@ -178,7 +178,7 @@ pub type Migrations = (
 		RocksDbWeight,
 	>,
 	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
-	snowbridge_pallet_ethereum_client::migration::v0_to_v1::ExecutionHeaderCleanup<Runtime>,
+	snowbridge_pallet_ethereum_client::migration::v0_to_v1::ExecutionHeaderIndexCleanup<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
@@ -308,7 +308,7 @@ impl frame_system::Config for Runtime {
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
-	type MultiBlockMigrator = pallet_migrations::Pallet<Runtime>;
+	type MultiBlockMigrator = MultiBlockMigrations;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -551,7 +551,7 @@ impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations =
-		snowbridge_pallet_ethereum_client::migration::v0_to_v1::EthereumExecutionHeaderCleanup<
+		snowbridge_pallet_ethereum_client::migration::v0_to_v1::ExecutionHeadersCleanup<
 			Runtime,
 			crate::weights::snowbridge_pallet_ethereum_client::WeightInfo<Runtime>,
 			ExecutionHeaderCount,
@@ -575,7 +575,6 @@ construct_runtime!(
 		ParachainSystem: cumulus_pallet_parachain_system = 1,
 		Timestamp: pallet_timestamp = 2,
 		ParachainInfo: parachain_info = 3,
-		MultiBlockMigrations: pallet_migrations = 4,
 
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
@@ -631,6 +630,8 @@ construct_runtime!(
 		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 81,
 		EthereumBeaconClient: snowbridge_pallet_ethereum_client = 82,
 		EthereumSystem: snowbridge_pallet_system = 83,
+
+		MultiBlockMigrations: pallet_migrations = 98,
 
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.

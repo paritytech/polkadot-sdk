@@ -81,11 +81,11 @@ pub mod v0_to_v1 {
 
 	pub const PALLET_MIGRATIONS_ID: &[u8; 26] = b"ethereum-execution-headers";
 
-	pub struct EthereumExecutionHeaderCleanup<T: Config, W: WeightInfo, M: Get<u32>>(
+	pub struct ExecutionHeadersCleanup<T: Config, W: WeightInfo, M: Get<u32>>(
 		PhantomData<(T, W, M)>,
 	);
 	impl<T: Config, W: WeightInfo, M: Get<u32>> SteppedMigration
-		for EthereumExecutionHeaderCleanup<T, W, M>
+		for ExecutionHeadersCleanup<T, W, M>
 	{
 		type Cursor = u32;
 		type Identifier = MigrationId<26>; // Length of the migration ID PALLET_MIGRATIONS_ID
@@ -98,50 +98,39 @@ pub mod v0_to_v1 {
 			mut cursor: Option<Self::Cursor>,
 			meter: &mut WeightMeter,
 		) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-			log::info!(target: LOG_TARGET, "Starting step iteration for Ethereum execution header cleanup.");
+			log::info!(target: LOG_TARGET, "ExecutionHeadersCleanup: Starting step iteration for Ethereum execution header cleanup.");
 			let required = W::step();
 			if meter.remaining().any_lt(required) {
 				return Err(SteppedMigrationError::InsufficientWeight { required });
 			}
 
 			if let Some(last_key) = cursor {
-				log::info!(target: LOG_TARGET, "Last key is {}. Max value is {}", last_key, M::get());
+				log::info!(target: LOG_TARGET, "ExecutionHeadersCleanup: Last key is {}. Max value is {}", last_key, M::get());
 			} else {
-				log::info!(target: LOG_TARGET, "Error getting last key");
+				log::info!(target: LOG_TARGET, "ExecutionHeadersCleanup: Error getting last key");
 			};
 
 			// We loop here to do as much progress as possible per step.
 			loop {
 				if meter.try_consume(required).is_err() {
-					log::info!(target: LOG_TARGET, "Max weight consumed, exiting loop");
+					log::info!(target: LOG_TARGET, "ExecutionHeadersCleanup: Max weight consumed, exiting loop");
 					break;
 				}
 
 				let index = if let Some(last_key) = cursor {
 					last_key.saturating_add(1)
 				} else {
-					log::info!(target: LOG_TARGET, "Cursor is 0, starting migration.");
+					log::info!(target: LOG_TARGET, "ExecutionHeadersCleanup: Cursor is 0, starting migration.");
 					// If no cursor is provided, start iterating from the beginning.
 					0
 				};
-				if index == 1 {
-					let execution_hash_extra1 =
-						crate::migration::v0::ExecutionHeaderMapping::<T>::get(163420);
-					log::info!(target: LOG_TARGET, "Value at hardcoded index 163420 is {}.", execution_hash_extra1);
-					let execution_hash_extra2 =
-						crate::migration::v0::ExecutionHeaderMapping::<T>::get(163425);
-					log::info!(target: LOG_TARGET, "Value at hardcoded index 163425 is {}.", execution_hash_extra2);
-					let execution_hash_extra3 =
-						crate::migration::v0::ExecutionHeaderMapping::<T>::get(146719);
-					log::info!(target: LOG_TARGET, "Value at hardcoded index 146719 is {}.", execution_hash_extra3);
-				}
 				let execution_hash = crate::migration::v0::ExecutionHeaderMapping::<T>::get(index);
 
 				if index >= M::get() || execution_hash == H256::zero() {
-					log::info!(target: LOG_TARGET, "Ethereum execution header cleanup migration is complete. Index = {}.", index);
+					log::info!(target: LOG_TARGET, "ExecutionHeadersCleanup: Ethereum execution header cleanup migration is complete. Index = {}.", index);
 					crate::migration::STORAGE_VERSION.put::<crate::Pallet<T>>();
 					// We are at the end of the migration, signal complete.
-					log::info!(target: LOG_TARGET, "SIGNAL COMPLETE");
+					log::info!(target: LOG_TARGET, "ExecutionHeadersCleanup: SIGNAL COMPLETE");
 					cursor = None;
 					break
 				} else {
@@ -152,9 +141,9 @@ pub mod v0_to_v1 {
 			}
 
 			if let Some(last_key) = cursor {
-				log::info!(target: LOG_TARGET, "Step done, index is {}.", last_key);
+				log::info!(target: LOG_TARGET, "ExecutionHeadersCleanup: Step done, index is {}.", last_key);
 			} else {
-				log::info!(target: LOG_TARGET, "Step done, error getting last index");
+				log::info!(target: LOG_TARGET, "ExecutionHeadersCleanup: Step done, error getting last index");
 			};
 
 			Ok(cursor)
@@ -162,7 +151,7 @@ pub mod v0_to_v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, TryRuntimeError> {
-			log::info!(target: LOG_TARGET, "Pre-upgrade execution header at index 0 is {}.", crate::migration::v0::ExecutionHeaderMapping::<T>::get(0));
+			log::info!(target: LOG_TARGET, "ExecutionHeadersCleanup: Pre-upgrade execution header at index 0 is {}.", crate::migration::v0::ExecutionHeaderMapping::<T>::get(0));
 			assert_eq!(crate::Pallet::<T>::on_chain_storage_version(), 0);
 			let random_indexes: alloc::vec::Vec<u32> = alloc::vec![0, 700, 340, 4000, 1501];
 			for i in 0..5 {
@@ -179,7 +168,7 @@ pub mod v0_to_v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_: alloc::vec::Vec<u8>) -> Result<(), TryRuntimeError> {
-			log::info!(target: LOG_TARGET, "Post-upgrade execution header at index 0 is {}.", crate::migration::v0::ExecutionHeaderMapping::<T>::get(0));
+			log::info!(target: LOG_TARGET, "ExecutionHeadersCleanup: Post-upgrade execution header at index 0 is {}.", crate::migration::v0::ExecutionHeaderMapping::<T>::get(0));
 			assert_eq!(crate::Pallet::<T>::on_chain_storage_version(), STORAGE_VERSION);
 			let random_indexes: alloc::vec::Vec<u32> = alloc::vec![0, 700, 340, 4000, 1501];
 			for i in 0..5 {
@@ -193,11 +182,11 @@ pub mod v0_to_v1 {
 		}
 	}
 
-	pub struct ExecutionHeaderCleanup<T: Config>(PhantomData<T>);
+	pub struct ExecutionHeaderIndexCleanup<T: Config>(PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for ExecutionHeaderCleanup<T> {
+	impl<T: Config> OnRuntimeUpgrade for ExecutionHeaderIndexCleanup<T> {
 		fn on_runtime_upgrade() -> Weight {
-			log::info!(target: LOG_TARGET, "Cleaning up latest execution header state and index.");
+			log::info!(target: LOG_TARGET, "ExecutionHeaderIndexCleanup: Cleaning up latest execution header state and index.");
 			crate::migration::v0::LatestExecutionState::<T>::kill();
 			crate::migration::v0::ExecutionHeaderIndex::<T>::kill();
 
@@ -207,14 +196,14 @@ pub mod v0_to_v1 {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, TryRuntimeError> {
 			let last_index = crate::migration::v0::ExecutionHeaderIndex::<T>::get();
-			log::info!(target: LOG_TARGET, "Pre-upgrade execution header index is {}.", last_index);
+			log::info!(target: LOG_TARGET, "ExecutionHeaderIndexCleanup: Pre-upgrade execution header index is {}.", last_index);
 			Ok(alloc::vec![])
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_: alloc::vec::Vec<u8>) -> Result<(), TryRuntimeError> {
 			let last_index = crate::migration::v0::ExecutionHeaderIndex::<T>::get();
-			log::info!(target: LOG_TARGET, "Post-upgrade execution header index is {}.", last_index);
+			log::info!(target: LOG_TARGET, "ExecutionHeaderIndexCleanup: Post-upgrade execution header index is {}.", last_index);
 			frame_support::ensure!(
 				last_index == 0,
 				"Snowbridge execution header storage has not successfully been migrated."
