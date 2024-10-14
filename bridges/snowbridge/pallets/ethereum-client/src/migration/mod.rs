@@ -106,6 +106,12 @@ pub mod v0_to_v1 {
 				return Err(SteppedMigrationError::InsufficientWeight { required });
 			}
 
+			if let Some(last_key) = cursor {
+				log::info!(target: LOG_TARGET, "Last key is {}. Max value is {}", last_key, M::get());
+			} else {
+				log::info!(target: LOG_TARGET, "Error getting last key");
+			};
+
 			// We loop here to do as much progress as possible per step.
 			loop {
 				if meter.try_consume(required).is_err() {
@@ -113,7 +119,6 @@ pub mod v0_to_v1 {
 				}
 
 				let index = if let Some(last_key) = cursor {
-					log::info!(target: LOG_TARGET, "Last key is {}. Max value is {}", last_key, M::get());
 					last_key.saturating_add(1)
 				} else {
 					log::info!(target: LOG_TARGET, "Cursor is 0, starting migration.");
