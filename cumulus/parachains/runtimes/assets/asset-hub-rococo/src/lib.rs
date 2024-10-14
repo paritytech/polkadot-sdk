@@ -1326,19 +1326,23 @@ impl_runtime_apis! {
 
 	impl xcm_runtime_apis::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			// We accept the native token (`xcm_config::TokenLocation`) to pay fees.
-			let mut acceptable_assets = vec![
-				AssetId(xcm_config::TokenLocation::get()),
-			];
+			let native_token = xcm_config::TokenLocation::get();
+			// We accept the native token to pay fees.
+			let mut acceptable_assets = vec![AssetId(native_token.clone())];
 			// We also accept all assets in a pool with the native token.
-			let keys_iter = pallet_asset_conversion::Pools::<Runtime>::iter_keys();
-			for (asset_1, asset_2) in keys_iter {
-				if asset_1 == xcm_config::TokenLocation::get() {
-					acceptable_assets.push(asset_2.clone().into());
-				} else if asset_2 == xcm_config::TokenLocation::get() {
-					acceptable_assets.push(asset_1.clone().into());
-				}
-			}
+			acceptable_assets.extend(
+				pallet_asset_conversion::Pools::<Runtime>::iter_keys().filter_map(
+					|(asset_1, asset_2)| {
+						if asset_1 == native_token {
+							Some(asset_2.clone().into())
+						} else if asset_2 == native_token {
+							Some(asset_1.clone().into())
+						} else {
+							None
+						}
+					},
+				),
+			);
 			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
 		}
 
