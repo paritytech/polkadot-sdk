@@ -121,19 +121,17 @@ pub mod v0_to_v1 {
 				};
 
 				if index >= M::get() {
+					crate::migration::STORAGE_VERSION.put::<crate::Pallet<T>>();
 					// We are at the end of the migration, signal complete.
 					cursor = None;
 					log::info!(target: LOG_TARGET, "Ethereum execution header cleanup migration is complete. Index = {}.", index);
 					break
 				} else {
-					crate::migration::STORAGE_VERSION.put::<crate::Pallet<T>>();
-
 					let execution_hash =
 						crate::migration::v0::ExecutionHeaderMapping::<T>::get(index);
 					crate::migration::v0::ExecutionHeaders::<T>::remove(execution_hash);
 					crate::migration::v0::ExecutionHeaderMapping::<T>::remove(index);
 					cursor = Some(index);
-					log::info!(target: LOG_TARGET, "Migration is in progress. Index = {}.", index);
 				}
 			}
 			Ok(cursor)
