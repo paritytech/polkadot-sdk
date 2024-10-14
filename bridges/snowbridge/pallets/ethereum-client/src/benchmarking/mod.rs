@@ -180,7 +180,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			v0_to_v1::EthereumExecutionHeaderCleanup::<T, (), ExecutionHeaderCount>::step(
+			v0_to_v1::ExecutionHeadersCleanup::<T, (), ExecutionHeaderCount>::step(
 				None, &mut meter,
 			)
 			.unwrap();
