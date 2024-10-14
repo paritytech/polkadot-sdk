@@ -410,9 +410,13 @@ fn fatp_two_views_submit_many_variations() {
 		));
 	});
 	//note: tx at 2 is valid at header01a and invalid at header01b
-	(2..6).for_each(|i| {
+	(2..5).for_each(|i| {
 		assert_eq!(*results[i].as_ref().unwrap(), api.hash_and_length(&xts[i]).0);
 	});
+	//xt0 at index 5 (transaction from the imported block, gets banned when pruned)
+	assert!(matches!(results[5].as_ref().unwrap_err().0, TxPoolError::TemporarilyBanned));
+	//xt1 at index 6
+	assert!(matches!(results[6].as_ref().unwrap_err().0, TxPoolError::AlreadyImported(_)));
 }
 
 #[test]
@@ -1246,7 +1250,6 @@ fn fatp_no_view_pool_watcher_two_finalized_in_different_block() {
 	assert_eq!(
 		xt1_status,
 		vec![
-			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header03.hash(), 0)),
 			TransactionStatus::Finalized((header03.hash(), 0))
 		]

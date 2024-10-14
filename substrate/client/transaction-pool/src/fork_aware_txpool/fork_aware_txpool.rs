@@ -54,7 +54,6 @@ use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Extrinsic, NumberFor},
-	transaction_validity::InvalidTransaction,
 };
 use std::{
 	collections::{HashMap, HashSet},
@@ -620,12 +619,7 @@ where
 							match error {
 								Ok(
 									// The transaction is still in mempool it may get included into the view for the next block.
-									Error::ImmediatelyDropped|
-									// These errors indicates that transaction is already known (e.g. it was ready, broadcasted and dropped from
-									// local peer, and then imported in a fork from the other peer). Returning status stream is
-									// better then reporting error in this case.
-									Error::AlreadyImported(..) |
-									Error::TemporarilyBanned,
+									Error::ImmediatelyDropped
 								) => Ok(xt_hash),
 								Ok(e) => {
 									mempool.remove(xt_hash);
@@ -691,13 +685,9 @@ where
 				match (error, maybe_watcher) {
 					(
 						Ok(
-							// The transaction is still in mempool it may get included into the view for the next block.
-							Error::ImmediatelyDropped |
-							// These errors indicates that transaction is already known (e.g. it was ready, broadcasted and dropped from
-							// local peer, and then imported in a fork from the other peer). Returning status stream is
-							// better then reporting error in this case.
-							Error::AlreadyImported(..) |
-							Error::TemporarilyBanned,
+							// The transaction is still in mempool it may get included into the
+							// view for the next block.
+							Error::ImmediatelyDropped,
 						),
 						Some(watcher),
 					) => Ok(watcher),
@@ -1106,6 +1096,7 @@ where
 		>::default();
 		watched_xts
 			.into_iter()
+			.filter(|(hash, _)| !included_xts.contains(&hash))
 			.map(|(tx_hash, tx)| (tx.source(), tx_hash, tx.tx()))
 			.for_each(|(source, tx_hash, tx)| {
 				buckets.entry(source).or_default().push((tx_hash, tx))
@@ -1115,39 +1106,12 @@ where
 		for (source, watched_xts) in buckets {
 			let hashes = watched_xts.iter().map(|i| i.0).collect::<Vec<_>>();
 			let results = view
-			.submit_many(source, watched_xts.into_iter().map(|i| i.1))
-			.await
-			.into_iter()
-			.zip(hashes)
-			.map(|(result, tx_hash)| {
-				let result = result.or_else(
-					|error| {
-						let error = error.into_pool_error();
-						log::trace!(
-							target: LOG_TARGET,
-							"[{:?}] update_view_with_mempool: submit (watched) result: {:?} {:?}",
-							tx_hash,
-							view.at.hash,
-							error,
-						);
-						match error {
-							Ok(
-								Error::InvalidTransaction(InvalidTransaction::Stale) | Error::TemporarilyBanned
-							) => {
-								Ok(tx_hash)
-							}
-							Ok(_) => Err(tx_hash),
-							_ => {
-								log::debug!(target: LOG_TARGET, "[{:?}] txpool: update_view_with_mempool: something went wrong: {error:?}", tx_hash);
-								Err(
-									tx_hash,
-								)
-							},
-						}
-					}
-				);
-				result
-			}).collect::<Vec<_>>();
+				.submit_many(source, watched_xts.into_iter().map(|i| i.1))
+				.await
+				.into_iter()
+				.zip(hashes)
+				.map(|(result, tx_hash)| result.or_else(|_| Err(tx_hash)))
+				.collect::<Vec<_>>();
 			watched_results.extend(results);
 		}
 
