@@ -943,16 +943,13 @@ mod benchmarks {
 		// number of nominator intention. we will iterate all of them.
 		n: Linear<{ MaxNominators::<T>::get() / 2 }, { MaxNominators::<T>::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let _ = create_validators_with_nominators_for_era::<T>(
+		create_validators_with_nominators_for_era::<T>(
 			v,
 			n,
 			MaxNominationsOf::<T>::get() as usize,
 			false,
 			None,
-		)?
-		.into_iter()
-		.map(|v| T::Lookup::lookup(v).unwrap())
-		.collect::<Vec<_>>();
+		)?;
 
 		assert_eq!(Validators::<T>::count(), v);
 		assert_eq!(Nominators::<T>::count(), n);
@@ -981,7 +978,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			let _ = create_validators_with_nominators_for_era::<T>(
+			create_validators_with_nominators_for_era::<T>(
 				v,
 				n,
 				MaxNominationsOf::<T>::get() as usize,
