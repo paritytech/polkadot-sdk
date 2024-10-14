@@ -44,7 +44,7 @@ use sp_core::{
 use sp_runtime::traits::Block as BlockT;
 use sp_version::RuntimeVersion;
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{HashMap, HashSet, VecDeque},
 	fmt::Debug,
 	sync::Arc,
 	time::Duration,
@@ -4032,4 +4032,54 @@ async fn follow_event_with_unknown_parent() {
 	run_with_timeout(client_mock.trigger_import_stream(block_2.header)).await;
 	// When importing the block 2, chainHead detects a gap in our blocks and stops.
 	assert_matches!(get_next_event::<FollowEvent<String>>(&mut sub).await, FollowEvent::Stop);
+}
+
+#[tokio::test]
+async fn events_are_backpressured() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let client = Arc::new(builder.build());
+
+	let api = ChainHead::new(
+		client.clone(),
+		backend,
+		Arc::new(TokioTestExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+		},
+	)
+	.into_rpc();
+
+	let mut parent_hash = client.chain_info().genesis_hash;
+	let mut header = VecDeque::new();
+	let mut sub = api.subscribe("chainHead_v1_follow", [false], 17).await.unwrap();
+
+	// insert more events than the user can consume
+	for i in 0..=18 {
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(parent_hash)
+			.with_parent_block_number(i)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		header.push_front(block.header().clone());
+
+		parent_hash = block.hash();
+		client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+	}
+
+	let mut events = Vec::new();
+
+	while let Some(event) = sub.next::<FollowEvent<String>>().await {
+		events.push(event);
+	}
+
+	assert_eq!(events.len(), 19);
+	assert_matches!(events.pop().unwrap().map(|x| x.0), Ok(FollowEvent::Stop));
 }

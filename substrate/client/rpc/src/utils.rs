@@ -173,10 +173,10 @@ impl From<SubscriptionSink> for Subscription {
 impl Subscription {
 	/// Feed items to the subscription from the underlying stream
 	/// with specified buffer strategy.
-	pub async fn pipe_from_stream<S, T, B>(self, mut stream: S, mut buf: B)
+	pub async fn pipe_from_stream<S, T, B>(&self, mut stream: S, mut buf: B)
 	where
-		S: Stream<Item = T> + Unpin + Send + 'static,
-		T: Serialize + Send + 'static,
+		S: Stream<Item = T> + Unpin,
+		T: Serialize + Send,
 		B: Buffer<Item = T>,
 	{
 		let mut next_fut = Box::pin(Fuse::terminated());

@@ -29,8 +29,8 @@ use crate::chain_head::{
 use futures::{
 	channel::oneshot,
 	stream::{self, Stream, StreamExt},
+	FutureExt,
 };
-use futures_util::future::Either;
 use log::debug;
 use sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
@@ -47,11 +47,16 @@ use sp_runtime::{
 };
 use std::{
 	collections::{HashSet, VecDeque},
+	mem,
 	sync::Arc,
 };
 /// The maximum number of finalized blocks provided by the
 /// `Initialized` event.
 const MAX_FINALIZED_BLOCKS: usize = 16;
+
+/// Maximum amount of events buffered by submit_events
+/// before dropping the stream.
+const MAX_BUFFERED_EVENTS: usize = 4;
 
 /// Generates the events of the `chainHead_follow` method.
 pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
@@ -705,71 +710,109 @@ where
 	async fn submit_events<EventStream>(
 		&mut self,
 		startup_point: &StartupPoint<Block>,
-		mut stream: EventStream,
+		stream: EventStream,
 		sink: Subscription,
 		rx_stop: oneshot::Receiver<()>,
 	) -> Result<(), SubscriptionManagementError>
 	where
-		EventStream: Stream<Item = NotificationType<Block>> + Unpin,
+		EventStream: Stream<Item = NotificationType<Block>> + Unpin + Send,
 	{
-		let mut stream_item = stream.next();
+		// make the stream abortable
+		let (stream, handle) = futures::stream::abortable(stream);
+		let cancel_handle = handle.clone();
 
-		// The stop event can be triggered by the chainHead logic when the pinned
-		// block guarantee cannot be hold. Or when the client is disconnected.
-		let connection_closed = sink.closed();
-		tokio::pin!(connection_closed);
-		let mut stop_event = futures_util::future::select(rx_stop, connection_closed);
+		// create a oneshot to propagate error messages
+		let (tx_send, mut tx_receive) = oneshot::channel();
 
-		while let Either::Left((Some(event), next_stop_event)) =
-			futures_util::future::select(stream_item, stop_event).await
-		{
-			let events = match event {
+		// TODO: is there a cleaner way to do this?
+		let tx_send = Arc::new(parking_lot::Mutex::new(tx_send));
+		let mut events = move |event| {
+			match event {
 				NotificationType::InitialEvents(events) => Ok(events),
 				NotificationType::NewBlock(notification) =>
 					self.handle_import_blocks(notification, &startup_point),
 				NotificationType::Finalized(notification) =>
 					self.handle_finalized_blocks(notification, &startup_point),
 				NotificationType::MethodResponse(notification) => Ok(vec![notification]),
-			};
-
-			let events = match events {
-				Ok(events) => events,
-				Err(err) => {
-					debug!(
-						target: LOG_TARGET,
-						"[follow][id={:?}] Failed to handle stream notification {:?}",
-						self.sub_id,
-						err
-					);
-					_ = sink.send(&FollowEvent::<String>::Stop).await;
-					return Err(err)
-				},
-			};
-
-			for event in events {
-				if let Err(err) = sink.send(&event).await {
-					// Failed to submit event.
-					debug!(
-						target: LOG_TARGET,
-						"[follow][id={:?}] Failed to send event {:?}", self.sub_id, err
-					);
-
-					let _ = sink.send(&FollowEvent::<String>::Stop).await;
-					// No need to propagate this error further, the client disconnected.
-					return Ok(())
-				}
 			}
+			.map_err(|err| {
+				debug!(
+					target: LOG_TARGET,
+					"[follow][id={:?}] Failed to handle stream notification {:?}",
+					self.sub_id,
+					err
+				);
+				err
+			})
+		};
 
-			stream_item = stream.next();
-			stop_event = next_stop_event;
-		}
+		let stream = stream
+			.map(move |event| events(event))
+			.then(move |event| {
+				let handle = handle.clone();
+				let tx_send = tx_send.clone();
+				async move {
+					let handle = handle.clone();
+					let tx_send = tx_send.clone();
 
-		// If we got here either:
-		// - the substrate streams have closed
-		// - the `Stop` receiver was triggered internally (cannot hold the pinned block guarantee)
-		// - the client disconnected.
+					let result = match event {
+						Ok(events) => stream::iter(events),
+						Err(err) => {
+							{
+								// TODO: this is very hacky
+								// grab the lock
+								// swap the channels
+								// return the error to the main channel
+								let mut tx_send = tx_send.lock();
+								let (mut s, _receiver) =
+									oneshot::channel::<SubscriptionManagementError>();
+								mem::swap(&mut s, &mut tx_send);
+								s.send(err).expect("shouldn't happpen.");
+							}
+							handle.abort();
+							stream::iter(vec![])
+						},
+					};
+					result
+				}
+			})
+			.flatten();
+
+		tokio::pin!(stream);
+
+		let connection_closed = sink.closed().fuse();
+		tokio::pin!(connection_closed);
+
+		let sink_future = sink
+			.pipe_from_stream(stream, sc_rpc::utils::BoundedVecDeque::new(MAX_BUFFERED_EVENTS))
+			.fuse();
+
+		tokio::pin!(sink_future);
+		tokio::pin!(rx_stop);
+
+		let result = futures::select! {
+			err =  tx_receive => {
+				Err(err.expect("should not happen.qed"))
+			}
+			_ = connection_closed => {
+				cancel_handle.abort();
+				Ok(())
+			}
+			_ = rx_stop => {
+				cancel_handle.abort();
+				Ok(())
+			}
+			_ = sink_future => {
+				cancel_handle.abort();
+				Ok(())
+			}
+		};
+		// // If we got here either:
+		// // - the substrate streams have closed
+		// // - the `Stop` receiver was triggered internally (cannot hold the pinned block
+		// guarantee) // - the client disconnected.
 		let _ = sink.send(&FollowEvent::<String>::Stop).await;
-		Ok(())
+		result
 	}
 
 	/// Generate the block events for the `chainHead_follow` method.
