@@ -126,10 +126,10 @@ pub mod v0_to_v1 {
 					// If no cursor is provided, start iterating from the beginning.
 					0
 				};
-				if index > 162399 {
+				if index > 163300 {
 					log::info!(target: LOG_TARGET, "Last step index. Index = {}.", index);
 				}
-				if index == 163419 {
+				if index == 163300 {
 					let execution_hash_extra1 =
 						crate::migration::v0::ExecutionHeaderMapping::<T>::get(163420);
 					log::info!(target: LOG_TARGET, "Value at hardcoded index 163420 is {}.", execution_hash_extra1);
@@ -151,6 +151,8 @@ pub mod v0_to_v1 {
 					cursor = Some(index);
 				}
 			}
+			log::info!(target: LOG_TARGET, "Step done.");
+
 			Ok(cursor)
 		}
 
