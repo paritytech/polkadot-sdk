@@ -107,6 +107,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(self.client.chain_id().to_string())
 	}
 
+	async fn syncing(&self) -> RpcResult<SyncingStatus> {
+		Ok(self.client.syncing().await?)
+	}
+
 	async fn block_number(&self) -> RpcResult<U256> {
 		let number = self.client.block_number().await?;
 		Ok(number.into())

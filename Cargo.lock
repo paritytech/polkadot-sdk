@@ -12543,6 +12543,7 @@ dependencies = [
  "pallet-revive-fixtures",
  "parity-scale-codec",
  "rlp 0.6.1",
+ "sc-rpc",
  "scale-info",
  "secp256k1",
  "serde_json",

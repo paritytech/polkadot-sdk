@@ -30,7 +30,7 @@ use pallet_revive::{
 	create1,
 	evm::{
 		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes256, GenericTransaction, ReceiptInfo,
-		TransactionSigned, H160, H256, U256,
+		SyncingProgress, SyncingStatus, TransactionSigned, H160, H256, U256,
 	},
 	ContractResult, EthContractResult,
 };
@@ -452,6 +452,29 @@ impl Client {
 	pub async fn receipt(&self, tx_hash: &H256) -> Option<ReceiptInfo> {
 		let cache = self.inner.cache.read().await;
 		cache.receipts_by_hash.get(tx_hash).cloned()
+	}
+
+	/// Get the syncing status of the chain.
+	pub async fn syncing(&self) -> Result<SyncingStatus, ClientError> {
+		use subxt::backend::rpc::RpcClientT;
+		let health = self.inner.rpc.system_health().await?;
+
+		let status = if health.is_syncing {
+			let client = RpcClient::new(self.inner.rpc_client.clone());
+			let sync_state: sc_rpc::system::SyncState<SubstrateBlockNumber> =
+				client.request("system_syncState", Default::default()).await?;
+
+			SyncingProgress {
+				current_block: Some(sync_state.current_block.into()),
+				highest_block: Some(sync_state.highest_block.into()),
+				starting_block: Some(sync_state.starting_block.into()),
+			}
+			.into()
+		} else {
+			SyncingStatus::Bool(false)
+		};
+
+		Ok(status)
 	}
 
 	/// Get an EVM transaction receipt by hash.

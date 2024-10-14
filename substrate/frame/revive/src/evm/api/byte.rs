@@ -15,21 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Define Byte wrapper types for encoding and decoding hex strings
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::{
 	fmt::{Debug, Display, Formatter, Result as FmtResult},
 	str::FromStr,
 };
+use hex_serde::HexCodec;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-
-#[cfg(not(feature = "std"))]
-use alloc::vec;
-
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-
-use hex_serde::HexCodec;
 
 mod hex_serde {
 	#[cfg(not(feature = "std"))]

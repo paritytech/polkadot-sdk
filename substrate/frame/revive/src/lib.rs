@@ -21,7 +21,6 @@
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "1024")]
 
 extern crate alloc;
-
 mod address;
 mod benchmarking;
 mod benchmarking_dummy;
