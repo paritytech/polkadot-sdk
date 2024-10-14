@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{self as fast_unstake};
+use frame_election_provider_support::PageIndex;
 use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
@@ -82,26 +83,23 @@ parameter_types! {
 	pub static BondingDuration: u32 = 3;
 	pub static CurrentEra: u32 = 0;
 	pub static Ongoing: bool = false;
-	pub static MaxWinners: u32 = 100;
 }
 
 pub struct MockElection;
-impl frame_election_provider_support::ElectionProviderBase for MockElection {
-	type AccountId = AccountId;
-	type BlockNumber = BlockNumber;
-	type MaxWinners = MaxWinners;
-	type DataProvider = Staking;
-	type Error = ();
-}
-
 impl frame_election_provider_support::ElectionProvider for MockElection {
-	fn ongoing() -> bool {
-		Ongoing::get()
-	}
-	fn elect() -> Result<frame_election_provider_support::BoundedSupportsOf<Self>, Self::Error> {
+	type BlockNumber = BlockNumber;
+	type AccountId = AccountId;
+	type DataProvider = Staking;
+	type MaxBackersPerWinner = ConstU32<100>;
+	type MaxWinnersPerPage = ConstU32<100>;
+	type Pages = ConstU32<1>;
+	type Error = ();
+
+	fn elect(
+		_remaining_pages: PageIndex,
+	) -> Result<frame_election_provider_support::BoundedSupportsOf<Self>, Self::Error> {
 		Err(())
 	}
-
 	fn ongoing() -> bool {
 		Ongoing::get()
 	}
@@ -118,6 +116,7 @@ impl pallet_staking::Config for Runtime {
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type MaxValidatorSet = ConstU32<100>;
 }
 
 parameter_types! {
