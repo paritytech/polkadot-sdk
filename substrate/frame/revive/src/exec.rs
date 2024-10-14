@@ -1033,7 +1033,6 @@ where
 					frame.contract_info.get(&frame.account_id),
 					executable.code_info(),
 				)?;
-
 				// Needs to be incremented before calling into the code so that it is visible
 				// in case of recursion.
 				<System<T>>::inc_account_nonce(caller.account_id()?);
