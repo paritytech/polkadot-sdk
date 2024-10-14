@@ -543,6 +543,18 @@ pub mod pallet {
 		/// If `None`, it will not call `ServiceQueues::service_queues` in `on_idle`.
 		#[pallet::constant]
 		type IdleMaxServiceWeight: Get<Option<Weight>>;
+
+		/// The relative amount of weight to allocate to a specific weight.
+		///
+		/// This is relative to the weight still left in the block and not in absolute terms. It does
+		/// not affect the round-robin scheduling of the queues. If you want to run this queue exclusively,
+		/// then you have to implement a custom message processor that returns `QueuePaused` for all other queues.
+		/// This mechanism is still useful for cases where you want to somewhat prioritize a queue
+		/// without starving all others. In that case you could return `1.0` for your prioritized queue and `0.25` for all others.
+		/// This would mean that when your prioritized queue is ready, it will use all the remaining weight. This is also the default
+		/// behaviour. Now for all other queues they will only get 25% of what is left in each block, to ensure that your
+		/// queue will be served sooner (since it is still round robin).
+		type QueuePriority: Convert<MessageOriginOf<T>, Perbill>;
 	}
 
 	#[pallet::event]
@@ -1579,11 +1591,11 @@ impl<T: Get<O>, O: Into<u32>> Get<u32> for IntoU32<T, O> {
 impl<T: Config> ServiceQueues for Pallet<T> {
 	type OverweightMessageAddress = (MessageOriginOf<T>, PageIndex, T::Size);
 
-	fn service_queues(weight_limit: Weight) -> Weight {
-		let mut weight = WeightMeter::with_limit(weight_limit);
+	fn service_queues(available: Weight) -> Weight {
+		let mut weight = WeightMeter::with_limit(available);
 
 		// Get the maximum weight that processing a single message may take:
-		let max_weight = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
+		let overweight_limit = Self::max_message_weight(available).unwrap_or_else(|| {
 			defensive!("Not enough weight to service a single message.");
 			Weight::zero()
 		});
@@ -1593,13 +1605,14 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 				Some(h) => h,
 				None => return weight.consumed(),
 			};
+
 			// The last queue that did not make any progress.
 			// The loop aborts as soon as it arrives at this queue again without making any progress
 			// on other queues in between.
 			let mut last_no_progress = None;
 
 			loop {
-				let (progressed, n) = Self::service_queue(next.clone(), &mut weight, max_weight);
+				let (progressed, n) = Self::service_queue(next.clone(), &mut weight, overweight_limit);
 				next = match n {
 					Some(n) =>
 						if !progressed {
