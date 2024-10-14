@@ -1202,7 +1202,39 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This should be valid before or after each state transition of this pallet.
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		//PublicPropCount should be greater than PublicProps count
+		ensure!(
+			PublicProps::<T>::get().len() <= <PublicPropCount<T>>::get() as usize,
+			"`PublicPropCount` should be greater than of `PublicProps` in storage"
+		);
+		// DepositOf should be equal to PublicProps in storage
+		ensure!(
+			DepositOf::<T>::iter().count() == PublicProps::<T>::get().len() as usize,
+			"`DepositOf` should be greater than of `PublicProps` in storage"
+		);
+		// Total number of depositors should be greater or equal to `PublicProps`
+		ensure!(
+			Self::count_total_depositors() >= PublicProps::<T>::get().len() as u32,
+			"Total depositors should be greater than that of `PublicProps` in storage"
+		);
+		// Cancellations should be less than or equal to ReferendumInfoOf
+		ensure!(
+			Cancellations::<T>::iter().count() <= ReferendumInfoOf::<T>::iter().count() as usize,
+			"`Cancellations` should be less than or must equal `ReferendumInfoOf` in storage"
+		);
+
 		Ok(())
+	}
+
+	fn count_total_depositors() -> u32 {
+		let mut total_count = 0;
+
+		// Iterate over the `DepositOf` storage map.
+		for (_, (account_ids, _)) in DepositOf::<T>::iter() {
+			total_count += account_ids.len() as u32; // Add the length of the BoundedVec
+		}
+
+		total_count
 	}
 }
 
