@@ -45,9 +45,12 @@ fn fee_estimation_for_teleport() {
 	let who = 1; // AccountId = u64.
 	let balances = vec![(who, 100 + DeliveryFees::get() + ExistentialDeposit::get())];
 	let assets = vec![(1, who, 50)];
+	// what are TestExternalities that are being return? the struct itself is not helpful
 	new_test_ext_with_balances_and_assets(balances, assets).execute_with(|| {
+		// where TestClient is derived from?
 		let client = TestClient;
 		let runtime_api = client.runtime_api();
+		// Why dest and beneficiary are split. We could deduce dest from beneficiary's account id?
 		let call = RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
 			dest: Box::new(VersionedLocation::from((Parent, Parachain(1000)))),
 			beneficiary: Box::new(VersionedLocation::from(AccountId32 {

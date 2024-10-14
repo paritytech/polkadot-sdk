@@ -421,43 +421,43 @@ sp_api::mock_impl_runtime_apis! {
 			let location: Location = location.try_into().map_err(|e| {
 				log::error!(
 					target: "xcm::TrustedQueryApi::is_trusted_reserve",
-					"Location version conversion failed with error: {:?}",
+					"Asset version conversion failed with error: {:?}",
 					e,
 				);
 				TrustedQueryApiError::VersionedLocationConversionFailed
 			})?;
 
-			match asset.try_as::<Asset>() {
-				Ok(ass) => {
-					Ok(<XcmConfig as xcm_executor::Config>::IsReserve::contains(&ass, &location))
-				},
-				Err(e) => {
-					println!("Error block hit with error: {:?}", e);
-					log::error!(
-						target: "xcm::TrustedQueryApi::is_trusted_reserve",
-						"Location version conversion failed with error: {:?}",
-						e,
-					);
-					Err(TrustedQueryApiError::VersionedAssetConversionFailed)
-				}
-			}
+
+			let ass: Asset = asset.try_into().map_err(|e| {
+				log::error!(
+					target: "xcm::TrustedQueryApi::is_trusted_reserve",
+					"Location version conversion failed with error: {:?}",
+					e,
+				);
+				TrustedQueryApiError::VersionedAssetConversionFailed
+			})?;
+
+			Ok(<XcmConfig as xcm_executor::Config>::IsReserve::contains(&ass, &location))
 		}
 
 		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, TrustedQueryApiError> {
-			let location: Location = location.try_into().map_err(|_| TrustedQueryApiError::VersionedLocationConversionFailed)?;
-			match asset.try_as::<Asset>() {
-				Ok(ass) => {
-					Ok(<XcmConfig as xcm_executor::Config>::IsTeleporter::contains(&ass, &location))
-				},
-				Err(e) => {
-					log::error!(
-						target: "xcm::TrustedQueryApi::is_trusted_teleporter",
-						"Asset version conversion failed with error: {:?}",
-						e,
-					);
-					Err(TrustedQueryApiError::VersionedAssetConversionFailed)
-				}
-			}
+			let location: Location = location.try_into().map_err(|e| {
+				log::error!(
+					target: "xcm::TrustedQueryApi::is_trusted_teleporter",
+					"Asset version conversion failed with error: {:?}",
+					e,
+				);
+				TrustedQueryApiError::VersionedLocationConversionFailed
+			})?;
+			let ass: Asset = asset.try_into().map_err(|e| {
+				log::error!(
+					target: "xcm::TrustedQueryApi::is_trusted_teleporter",
+					"Location version conversion failed with error: {:?}",
+					e,
+				);
+				TrustedQueryApiError::VersionedAssetConversionFailed
+			})?;
+			Ok(<XcmConfig as xcm_executor::Config>::IsTeleporter::contains(&ass, &location))
 		}
 	}
 
