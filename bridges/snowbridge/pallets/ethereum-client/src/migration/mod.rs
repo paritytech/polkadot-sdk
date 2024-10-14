@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 
+use frame_support::pallet_prelude::StorageVersion;
+
 mod test;
 
 pub const LOG_TARGET: &str = "ethereum-client-migration";
@@ -9,6 +11,7 @@ pub const LOG_TARGET: &str = "ethereum-client-migration";
 
 /// The in-code storage version.
 
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 pub mod v0 {
 	use crate::pallet::{Config, Pallet};
 	use frame_support::{
@@ -66,7 +69,7 @@ pub mod v0_to_v1 {
 	use frame_support::traits::GetStorageVersion;
 	use frame_support::{
 		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-		pallet_prelude::{PhantomData, StorageVersion, Weight},
+		pallet_prelude::{PhantomData, Weight},
 		traits::OnRuntimeUpgrade,
 		weights::{constants::RocksDbWeight, WeightMeter},
 	};
@@ -75,8 +78,6 @@ pub mod v0_to_v1 {
 	use sp_core::H256;
 	#[cfg(feature = "try-runtime")]
 	use sp_runtime::TryRuntimeError;
-
-	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	pub const PALLET_MIGRATIONS_ID: &[u8; 26] = b"ethereum-execution-headers";
 
@@ -123,7 +124,7 @@ pub mod v0_to_v1 {
 					log::info!(target: LOG_TARGET, "Ethereum execution header cleanup migration is complete. Index = {}.", index);
 					break
 				} else {
-					STORAGE_VERSION.put::<crate::Pallet<T>>();
+					crate::migration::STORAGE_VERSION.put::<crate::Pallet<T>>();
 
 					let execution_hash =
 						crate::migration::v0::ExecutionHeaderMapping::<T>::get(index);
