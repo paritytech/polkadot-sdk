@@ -159,7 +159,6 @@ pub type Migrations = (
 		RocksDbWeight,
 	>,
 	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
-	snowbridge_pallet_ethereum_client::migration::v0_to_v1::ExecutionHeaderCleanup<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	snowbridge_pallet_system::migration::v0::InitializeOnUpgrade<
@@ -293,7 +292,6 @@ impl frame_system::Config for Runtime {
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
-	type MultiBlockMigrator = pallet_migrations::Pallet<Runtime>;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -518,30 +516,6 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
 }
 
-parameter_types! {
-	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
-	pub const ExecutionHeaderCount: u32 = 8192 * 20;
-}
-
-impl pallet_migrations::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations =
-		snowbridge_pallet_ethereum_client::migration::v0_to_v1::EthereumExecutionHeaderCleanup<
-			Runtime,
-			crate::weights::snowbridge_pallet_ethereum_client::WeightInfo<Runtime>,
-			ExecutionHeaderCount,
-		>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
-	type CursorMaxLen = ConstU32<65_536>;
-	type IdentifierMaxLen = ConstU32<256>;
-	type MigrationStatusHandler = ();
-	type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
-	type MaxServiceWeight = MbmServiceWeight;
-	type WeightInfo = pallet_migrations::weights::SubstrateWeight<Runtime>;
-}
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -551,7 +525,6 @@ construct_runtime!(
 		ParachainSystem: cumulus_pallet_parachain_system = 1,
 		Timestamp: pallet_timestamp = 2,
 		ParachainInfo: parachain_info = 3,
-		MultiBlockMigrations: pallet_migrations = 4,
 
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
