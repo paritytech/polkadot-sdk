@@ -21,10 +21,36 @@ use sp_runtime::{type_with_default::TypeWithDefault, BuildStorage, Perbill};
 
 type Block = mocking::MockBlock<Test>;
 
+#[frame_support::pallet(dev_mode)]
+pub mod pallet_dummy {
+	use super::frame_system;
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		#[pallet::feeless_if(|_origin: &OriginFor<T>, data: &u32| -> bool {
+			*data == 0
+		})]
+		pub fn aux(_origin: OriginFor<T>, #[pallet::compact] _data: u32) -> DispatchResult {
+			unreachable!()
+		}
+	}
+}
+
+impl pallet_dummy::Config for Test {}
+
 frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
+		Dummy: pallet_dummy,
 	}
 );
 
@@ -118,6 +144,9 @@ pub type SysEvent = frame_system::Event<Test>;
 /// A simple call, which one doesn't matter.
 pub const CALL: &<Test as Config>::RuntimeCall =
 	&RuntimeCall::System(frame_system::Call::set_heap_pages { pages: 0u64 });
+
+pub const FEELESS_CALL: &<Test as Config>::RuntimeCall =
+	&RuntimeCall::Dummy(pallet_dummy::Call::aux { data: 0u32 });
 
 /// Create new externalities for `System` module tests.
 pub fn new_test_ext() -> sp_io::TestExternalities {

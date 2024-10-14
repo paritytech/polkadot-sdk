@@ -18,7 +18,10 @@
 use crate::Config;
 use alloc::vec;
 use codec::{Decode, Encode};
-use frame_support::dispatch::DispatchInfo;
+use frame_support::{
+	dispatch::{CheckIfFeeless, DispatchInfo},
+	traits::OriginTrait,
+};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, One, SignedExtension, Zero},
@@ -60,12 +63,16 @@ impl<T: Config> core::fmt::Debug for CheckNonce<T> {
 
 impl<T: Config> SignedExtension for CheckNonce<T>
 where
-	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	T::RuntimeCall: Dispatchable<Info = DispatchInfo>
+		+ CheckIfFeeless<Origin = crate::pallet_prelude::OriginFor<T>>,
 {
 	type AccountId = T::AccountId;
 	type Call = T::RuntimeCall;
 	type AdditionalSigned = ();
-	type Pre = ();
+	type Pre = (
+		Self::AccountId, // who
+		bool,            // is feeless with zero nonce
+	);
 	const IDENTIFIER: &'static str = "CheckNonce";
 
 	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
@@ -75,14 +82,19 @@ where
 	fn pre_dispatch(
 		self,
 		who: &Self::AccountId,
-		_call: &Self::Call,
+		call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
-	) -> Result<(), TransactionValidityError> {
+	) -> Result<Self::Pre, TransactionValidityError> {
 		let mut account = crate::Account::<T>::get(who);
+		let mut is_feeless_with_zero_nonce = false;
 		if account.providers.is_zero() && account.sufficients.is_zero() {
-			// Nonce storage not paid for
-			return Err(InvalidTransaction::Payment.into())
+			if !(call.is_feeless(&T::RuntimeOrigin::signed(who.clone())) && account.nonce.is_zero())
+			{
+				return Err(InvalidTransaction::Payment.into())
+			} else {
+				is_feeless_with_zero_nonce = true;
+			}
 		}
 		if self.0 != account.nonce {
 			return Err(if self.0 < account.nonce {
@@ -92,22 +104,52 @@ where
 			}
 			.into())
 		}
-		account.nonce += T::Nonce::one();
-		crate::Account::<T>::insert(who, account);
-		Ok(())
+		if !is_feeless_with_zero_nonce {
+			account.nonce += T::Nonce::one();
+			crate::Account::<T>::insert(who, account);
+		}
+		Ok((who.clone(), is_feeless_with_zero_nonce))
+	}
+
+	fn post_dispatch(
+		_pre: Option<Self::Pre>,
+		_info: &DispatchInfoOf<Self::Call>,
+		_post_info: &sp_runtime::traits::PostDispatchInfoOf<Self::Call>,
+		_len: usize,
+		_result: &sp_runtime::DispatchResult,
+	) -> Result<(), TransactionValidityError> {
+		if let Some((who, is_feeless_with_zero_nonce)) = _pre {
+			if !is_feeless_with_zero_nonce {
+				Ok(())
+			} else {
+				let mut account = crate::Account::<T>::get(who.clone());
+				if account.providers.is_zero() && account.sufficients.is_zero() {
+					return Err(InvalidTransaction::Payment.into())
+				} else {
+					account.nonce += T::Nonce::one();
+					crate::Account::<T>::insert(who, account);
+					Ok(())
+				}
+			}
+		} else {
+			Ok(())
+		}
 	}
 
 	fn validate(
 		&self,
 		who: &Self::AccountId,
-		_call: &Self::Call,
+		call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> TransactionValidity {
 		let account = crate::Account::<T>::get(who);
 		if account.providers.is_zero() && account.sufficients.is_zero() {
-			// Nonce storage not paid for
-			return InvalidTransaction::Payment.into()
+			if !(call.is_feeless(&T::RuntimeOrigin::signed(who.clone())) && account.nonce.is_zero())
+			{
+				// Nonce storage not paid for
+				return InvalidTransaction::Payment.into()
+			}
 		}
 		if self.0 < account.nonce {
 			return InvalidTransaction::Stale.into()
@@ -133,7 +175,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{new_test_ext, Test, CALL};
+	use crate::mock::{new_test_ext, Test, CALL, FEELESS_CALL};
 	use frame_support::{assert_noop, assert_ok};
 
 	#[test]
@@ -212,6 +254,59 @@ mod tests {
 			// Non-zero sufficients
 			assert_ok!(CheckNonce::<Test>(1u64.into()).validate(&3, CALL, &info, len));
 			assert_ok!(CheckNonce::<Test>(1u64.into()).pre_dispatch(&3, CALL, &info, len));
+		})
+	}
+
+	#[test]
+	fn feeless_calls_should_work_without_account_existence() {
+		new_test_ext().execute_with(|| {
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			assert_noop!(
+				CheckNonce::<Test>(0).validate(&1, CALL, &info, len),
+				InvalidTransaction::Payment
+			);
+			assert_noop!(
+				CheckNonce::<Test>(0).pre_dispatch(&1, CALL, &info, len),
+				InvalidTransaction::Payment
+			);
+			// feeless call should work without account existence
+			assert_ok!(CheckNonce::<Test>(0).validate(&1, FEELESS_CALL, &info, len));
+
+			let pre_dispatch_result =
+				CheckNonce::<Test>(0).pre_dispatch(&1, FEELESS_CALL, &info, len);
+			assert_ok!(pre_dispatch_result);
+
+			let post_dispatch_result = CheckNonce::<Test>::post_dispatch(
+				Some(pre_dispatch_result.unwrap()),
+				&info,
+				&Default::default(),
+				len,
+				&Ok(()),
+			);
+			assert_noop!(post_dispatch_result, InvalidTransaction::Payment);
+
+			crate::Account::<Test>::insert(
+				1,
+				crate::AccountInfo {
+					nonce: 0,
+					consumers: 0,
+					providers: 1,
+					sufficients: 0,
+					data: 0,
+				},
+			);
+			let post_dispatch_result = CheckNonce::<Test>::post_dispatch(
+				Some(pre_dispatch_result.unwrap()),
+				&info,
+				&Default::default(),
+				len,
+				&Ok(()),
+			);
+			assert_ok!(post_dispatch_result);
+
+			let account = crate::Account::<Test>::get(1);
+			assert_eq!(account.nonce, 1);
 		})
 	}
 }
