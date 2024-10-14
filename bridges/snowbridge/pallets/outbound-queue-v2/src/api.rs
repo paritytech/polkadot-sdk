@@ -4,7 +4,7 @@
 
 use crate::{Config, MessageLeaves};
 use frame_support::storage::StorageStreamIter;
-use snowbridge_outbound_queue_merkle_tree_v2::{merkle_proof, MerkleProof};
+use snowbridge_core::merkle::{merkle_proof, MerkleProof};
 
 pub fn prove_message<T>(leaf_index: u64) -> Option<MerkleProof>
 where

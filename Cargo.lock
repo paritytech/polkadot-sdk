@@ -20958,21 +20958,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "snowbridge-outbound-queue-merkle-tree-v2"
-version = "0.3.0"
-dependencies = [
- "array-bytes",
- "hex",
- "hex-literal",
- "parity-scale-codec",
- "scale-info",
- "sp-core 28.0.0",
- "sp-crypto-hashing 0.1.0",
- "sp-runtime 31.0.1",
- "sp-tracing 16.0.0",
-]
-
-[[package]]
 name = "snowbridge-outbound-queue-runtime-api"
 version = "0.2.0"
 dependencies = [
@@ -20991,7 +20976,6 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "snowbridge-core",
- "snowbridge-outbound-queue-merkle-tree-v2",
  "sp-api 26.0.0",
  "sp-std 14.0.0",
 ]
@@ -21154,7 +21138,6 @@ dependencies = [
  "scale-info",
  "serde",
  "snowbridge-core",
- "snowbridge-outbound-queue-merkle-tree-v2",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
  "sp-io 30.0.0",

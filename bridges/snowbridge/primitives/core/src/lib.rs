@@ -10,6 +10,7 @@ mod tests;
 
 pub mod inbound;
 pub mod location;
+pub mod merkle;
 pub mod operating_mode;
 pub mod outbound;
 pub mod outbound_v2;

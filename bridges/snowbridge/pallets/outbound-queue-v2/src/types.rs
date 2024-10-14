@@ -10,8 +10,8 @@ use sp_std::prelude::*;
 
 use super::Pallet;
 
+pub use snowbridge_core::merkle::MerkleProof;
 use snowbridge_core::outbound_v2::CommandWrapper;
-pub use snowbridge_outbound_queue_merkle_tree_v2::MerkleProof;
 
 pub type ProcessMessageOriginOf<T> = <Pallet<T> as ProcessMessage>::Origin;
 

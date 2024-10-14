@@ -114,11 +114,10 @@ use frame_support::{
 };
 use snowbridge_core::{
 	inbound::Message as DeliveryMessage,
+	merkle::merkle_root,
 	outbound_v2::{CommandWrapper, Fee, GasMeter, Message},
 	BasicOperatingMode,
 };
-use snowbridge_outbound_queue_merkle_tree_v2::merkle_root;
-pub use snowbridge_outbound_queue_merkle_tree_v2::MerkleProof;
 use sp_core::H256;
 use sp_runtime::{traits::Hash, ArithmeticError, DigestItem};
 use sp_std::prelude::*;

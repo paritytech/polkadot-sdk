@@ -54,7 +54,6 @@ members = [
 	"bridges/snowbridge/pallets/inbound-queue/fixtures",
 	"bridges/snowbridge/pallets/outbound-queue",
 	"bridges/snowbridge/pallets/outbound-queue-v2",
-	"bridges/snowbridge/pallets/outbound-queue-v2/merkle-tree",
 	"bridges/snowbridge/pallets/outbound-queue-v2/runtime-api",
 	"bridges/snowbridge/pallets/outbound-queue/merkle-tree",
 	"bridges/snowbridge/pallets/outbound-queue/runtime-api",
@@ -1208,7 +1207,6 @@ snowbridge-beacon-primitives = { path = "bridges/snowbridge/primitives/beacon", 
 snowbridge-core = { path = "bridges/snowbridge/primitives/core", default-features = false }
 snowbridge-ethereum = { path = "bridges/snowbridge/primitives/ethereum", default-features = false }
 snowbridge-outbound-queue-merkle-tree = { path = "bridges/snowbridge/pallets/outbound-queue/merkle-tree", default-features = false }
-snowbridge-outbound-queue-merkle-tree-v2 = { path = "bridges/snowbridge/pallets/outbound-queue-v2/merkle-tree", default-features = false }
 snowbridge-outbound-queue-runtime-api = { path = "bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false }
 snowbridge-outbound-queue-runtime-api-v2 = { path = "bridges/snowbridge/pallets/outbound-queue-v2/runtime-api", default-features = false }
 snowbridge-pallet-ethereum-client = { path = "bridges/snowbridge/pallets/ethereum-client", default-features = false }

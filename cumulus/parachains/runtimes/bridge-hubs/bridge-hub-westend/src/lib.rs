@@ -896,7 +896,7 @@ impl_runtime_apis! {
 	}
 
 	impl snowbridge_outbound_queue_runtime_api_v2::OutboundQueueApiV2<Block, Balance> for Runtime {
-		fn prove_message(leaf_index: u64) -> Option<snowbridge_pallet_outbound_queue_v2::MerkleProof> {
+		fn prove_message(leaf_index: u64) -> Option<snowbridge_core::merkle::MerkleProof> {
 			snowbridge_pallet_outbound_queue_v2::api::prove_message::<Runtime>(leaf_index)
 		}
 	}
