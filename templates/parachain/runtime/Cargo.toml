@@ -68,6 +68,9 @@ polkadot-sdk = { workspace = true, default-features = false, features = [
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true }
 
+[dev-dependencies]
+polkadot-sdk = { workspace = true, default-features = false, features = ["experimental"] }
+
 [features]
 default = ["std"]
 std = [
