@@ -69,6 +69,9 @@ fn query_trusted_reserve() {
 				location: (Parent, Parachain(1000)).into(),
 				expected: Ok(false),
 			},
+			// The error is:
+			// asset: VersionedAssetId::V3(v3::AssetId::Abstract([1; 32])).into(),
+			// ^^^^ the trait `From<staging_xcm::VersionedAssetId>` is not implemented for `staging_xcm::v4::Asset`, which is required by `staging_xcm::VersionedAssetId: Into<_>`
 			// TestCase {
 			// 	name: "Invalid asset conversion",
 			// 	asset: VersionedAssetId::V3(v3::AssetId::Abstract([1; 32])).into(),
@@ -135,12 +138,14 @@ fn query_trusted_teleporter() {
 				location: (Parent, Parachain(1002)).into(),
 				expected: Ok(false),
 			},
+			// The error is:
+			// asset: VersionedAssetId::V3(v3::AssetId::Abstract([1; 32])).into(),
+			// ^^^^ the trait `From<staging_xcm::VersionedAssetId>` is not implemented for `staging_xcm::v4::Asset`, which is required by `staging_xcm::VersionedAssetId: Into<_>`
 			// TestCase {
-			// 	name: "Invalid location conversion",
-			// 	asset: Asset{ id: AssetId(Location::new(11, [GeneralIndex(3212122222),
-			// PalletInstance(50)]).into()), fun: Fungible(100) }.into(), 	location:
-			// Location::new(11, [GeneralIndex(3212122222), PalletInstance(50)]).into(),
-			// 	expected: Err(Error::VersionedLocationConversionFailed),
+			// 	name: "Invalid asset conversion",
+			// 	asset: VersionedAssetId::V3(v3::AssetId::Abstract([1; 32])).into(),
+			// 	location: (Parent, Parachain(1000)).into(),
+			// 	expected: Err(Error::VersionedAssetConversionFailed),
 			// },
 			// TestCase {
 			// 	name: "Invalid asset conversion",
