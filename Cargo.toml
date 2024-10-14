@@ -339,8 +339,10 @@ members = [
 	"substrate/frame/core-fellowship",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
+	"substrate/frame/election-provider-multi-block",
+	"substrate/frame/election-provider-multi-block/integration-tests",
 	"substrate/frame/election-provider-multi-phase",
-	"substrate/frame/election-provider-multi-phase/test-staking-e2e",
+  #"substrate/frame/election-provider-multi-phase/test-staking-e2e",
 	"substrate/frame/election-provider-support",
 	"substrate/frame/election-provider-support/benchmarking",
 	"substrate/frame/election-provider-support/solution-type",
@@ -911,6 +913,7 @@ pallet-default-config-example = { path = "substrate/frame/examples/default-confi
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false }
 pallet-dev-mode = { path = "substrate/frame/examples/dev-mode", default-features = false }
+pallet-election-provider-multi-block = { path = "substrate/frame/election-provider-multi-block", default-features = false }
 pallet-election-provider-multi-phase = { path = "substrate/frame/election-provider-multi-phase", default-features = false }
 pallet-election-provider-support-benchmarking = { path = "substrate/frame/election-provider-support/benchmarking", default-features = false }
 pallet-elections-phragmen = { path = "substrate/frame/elections-phragmen", default-features = false }
@@ -997,7 +1000,6 @@ pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-f
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false }
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false }
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info" }
-parachain-template-runtime = { path = "templates/parachain/runtime" }
 parachains-common = { path = "cumulus/parachains/common", default-features = false }
 parachains-relay = { path = "bridges/relays/parachains" }
 parachains-runtimes-test-utils = { path = "cumulus/parachains/runtimes/test-utils", default-features = false }
@@ -1279,6 +1281,8 @@ spinners = { version = "4.1.1" }
 ss58-registry = { version = "1.34.0", default-features = false }
 ssz_rs = { version = "0.9.0", default-features = false }
 ssz_rs_derive = { version = "0.9.0", default-features = false }
+staking-rococo-runtime = { path = "cumulus/parachains/runtimes/staking/staking-rococo" }
+staking-runtime = { path = "templates/parachain/runtime" }
 static_assertions = { version = "1.1.0", default-features = false }
 static_init = { version = "1.0.3" }
 structopt = { version = "0.3" }

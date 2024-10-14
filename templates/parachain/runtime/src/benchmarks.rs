@@ -33,4 +33,8 @@ frame_benchmarking::define_benchmarks!(
 	[pallet_collator_selection, CollatorSelection]
 	[cumulus_pallet_parachain_system, ParachainSystem]
 	[cumulus_pallet_xcmp_queue, XcmpQueue]
+	[pallet_epm_core, ElectionProviderMultiBlock]
+	[pallet_epm_verifier, ElectionVerifierPallet]
+	[pallet_epm_signed, ElectionSignedPallet]
+	[pallet_epm_unsigned, ElectionUnsignedPallet]
 );

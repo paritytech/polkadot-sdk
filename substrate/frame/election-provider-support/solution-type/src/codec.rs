@@ -33,6 +33,7 @@ pub(crate) fn codec_and_info_impl(
 	let scale_info = scale_info_impl(&ident, &voter_type, &target_type, &weight_type, count);
 
 	quote! {
+		impl _fepsp::codec::EncodeLike for #ident {}
 		#encode
 		#decode
 		#scale_info

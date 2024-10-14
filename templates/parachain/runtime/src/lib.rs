@@ -30,6 +30,14 @@ use frame_support::weights::{
 	constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
 	WeightToFeePolynomial,
 };
+
+pub use pallet_election_provider_multi_block::{
+	self as pallet_epm_core,
+	signed::{self as pallet_epm_signed},
+	unsigned::{self as pallet_epm_unsigned, miner::Miner},
+	verifier::{self as pallet_epm_verifier},
+};
+
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 
@@ -165,8 +173,8 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("parachain-template-runtime"),
-	impl_name: create_runtime_str!("parachain-template-runtime"),
+	spec_name: create_runtime_str!("staking-dev"),
+	impl_name: create_runtime_str!("staking-dev"),
 	authoring_version: 1,
 	spec_version: 1,
 	impl_version: 0,
@@ -305,9 +313,29 @@ mod runtime {
 	#[runtime::pallet_index(33)]
 	pub type MessageQueue = pallet_message_queue;
 
-	// Template
-	#[runtime::pallet_index(50)]
-	pub type TemplatePallet = pallet_parachain_template;
+	// Utility module.
+	#[runtime::pallet_index(34)]
+	pub type Utility = pallet_utility;
+
+	// Staking.
+	#[runtime::pallet_index(35)]
+	pub type Staking = pallet_staking;
+	#[runtime::pallet_index(36)]
+	pub type NominationPools = pallet_nomination_pools;
+	#[runtime::pallet_index(37)]
+	pub type FastUnstake = pallet_fast_unstake;
+	#[runtime::pallet_index(38)]
+	pub type VoterList = pallet_bags_list<Instance1>;
+
+	// Election provider core pallet and sub-pallets. Note: order matters.
+	#[runtime::pallet_index(39)]
+	pub type ElectionProviderMultiBlock = pallet_epm_core;
+	#[runtime::pallet_index(40)]
+	pub type ElectionVerifierPallet = pallet_epm_verifier;
+	#[runtime::pallet_index(41)]
+	pub type ElectionSignedPallet = pallet_epm_signed;
+	#[runtime::pallet_index(42)]
+	pub type ElectionUnsignedPallet = pallet_epm_unsigned;
 }
 
 #[docify::export(register_validate_block)]

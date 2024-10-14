@@ -16,6 +16,9 @@
 
 //! Code for elections.
 
+pub type VoterIndex = u32;
+pub type TargetIndex = u16;
+
 /// Implements the weight types for the elections module and a specific
 /// runtime.
 /// This macro should not be called directly; use
@@ -43,20 +46,6 @@ macro_rules! impl_elections_weights {
 				.get(DispatchClass::Normal);
 		}
 	};
-}
-
-/// The numbers configured here could always be more than the the maximum limits of staking pallet
-/// to ensure election snapshot will not run out of memory. For now, we set them to smaller values
-/// since the staking is bounded and the weight pipeline takes hours for this single pallet.
-pub struct BenchmarkConfig;
-impl pallet_election_provider_multi_phase::BenchmarkingConfig for BenchmarkConfig {
-	const VOTERS: [u32; 2] = [1000, 2000];
-	const TARGETS: [u32; 2] = [500, 1000];
-	const ACTIVE_VOTERS: [u32; 2] = [500, 800];
-	const DESIRED_TARGETS: [u32; 2] = [200, 400];
-	const SNAPSHOT_MAXIMUM_VOTERS: u32 = 1000;
-	const MINER_MAXIMUM_VOTERS: u32 = 1000;
-	const MAXIMUM_TARGETS: u32 = 300;
 }
 
 /// The accuracy type used for genesis election provider;

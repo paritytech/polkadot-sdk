@@ -121,4 +121,5 @@ chain-spec-guide-runtime = { workspace = true }
 # Templates
 minimal-template-runtime = { workspace = true }
 solochain-template-runtime = { workspace = true }
-parachain-template-runtime = { workspace = true }
+# Staking fork from parachain-template-runtime
+staking-runtime = { workspace = true }

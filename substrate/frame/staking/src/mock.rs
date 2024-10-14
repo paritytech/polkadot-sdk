@@ -20,7 +20,7 @@
 use crate::{self as pallet_staking, *};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen, VoteWeight,
+	onchain, BoundedSupports, SequentialPhragmen, Support, TryIntoBoundedSupports, VoteWeight,
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
@@ -38,8 +38,9 @@ use sp_staking::{
 	OnStakingUpdate,
 };
 
-pub const INIT_TIMESTAMP: u64 = 30_000;
-pub const BLOCK_TIME: u64 = 1000;
+pub(crate) const INIT_TIMESTAMP: u64 = 30_000;
+pub(crate) const BLOCK_TIME: u64 = 1000;
+pub(crate) const SINGLE_PAGE: u32 = 0;
 
 /// The AccountId alias in this test module.
 pub(crate) type AccountId = u64;
@@ -202,9 +203,10 @@ parameter_types! {
 	pub static BagThresholds: &'static [sp_npos_elections::VoteWeight] = &THRESHOLDS;
 	pub static HistoryDepth: u32 = 80;
 	pub static MaxExposurePageSize: u32 = 64;
+	pub static MaxValidatorSet: u32 = 500;
 	pub static MaxUnlockingChunks: u32 = 32;
 	pub static RewardOnUnbalanceWasCalled: bool = false;
-	pub static MaxWinners: u32 = 100;
+	pub static MaxValidatorSet: u32 = 100;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
 }
@@ -225,8 +227,9 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<AccountId, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinners = MaxWinners;
 	type Bounds = ElectionsBounds;
+	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
+	type MaxWinnersPerPage = ConstU32<{ u32::MAX }>;
 }
 
 pub struct MockReward {}
@@ -274,6 +277,7 @@ impl crate::pallet::pallet::Config for Test {
 	type EraPayout = ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
 	type MaxExposurePageSize = MaxExposurePageSize;
+	type MaxValidatorSet = MaxValidatorSet;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	// NOTE: consider a macro and use `UseNominatorsAndValidatorsMap<Self>` as well.
@@ -417,6 +421,10 @@ impl ExtBuilder {
 		status: StakerStatus<AccountId>,
 	) -> Self {
 		self.stakers.push((stash, ctrl, stake, status));
+		self
+	}
+	pub fn exposures_page_size(self, max: u32) -> Self {
+		MaxExposurePageSize::set(max);
 		self
 	}
 	pub fn balance_factor(mut self, factor: Balance) -> Self {
@@ -616,13 +624,17 @@ pub(crate) fn bond_virtual_nominator(
 /// a block import/propose process where we first initialize the block, then execute some stuff (not
 /// in the function), and then finalize the block.
 pub(crate) fn run_to_block(n: BlockNumber) {
-	Staking::on_finalize(System::block_number());
+	let now = System::block_number();
+	Session::on_finalize(now);
+	Staking::on_finalize(now);
+
 	for b in (System::block_number() + 1)..=n {
 		System::set_block_number(b);
 		Session::on_initialize(b);
-		<Staking as Hooks<u64>>::on_initialize(b);
+		Staking::on_initialize(b);
 		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
 		if b != n {
+			Session::on_finalize(System::block_number());
 			Staking::on_finalize(System::block_number());
 		}
 	}
@@ -927,4 +939,14 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+pub(crate) fn to_bounded_supports(
+	supports: Vec<(AccountId, Support<AccountId>)>,
+) -> BoundedSupports<
+	AccountId,
+	<<Test as Config>::ElectionProvider as ElectionProvider>::MaxBackersPerWinner,
+	<<Test as Config>::ElectionProvider as ElectionProvider>::MaxWinnersPerPage,
+> {
+	supports.try_into_bounded_supports().unwrap()
 }

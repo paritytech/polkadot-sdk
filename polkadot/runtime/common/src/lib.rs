@@ -85,6 +85,11 @@ pub const MAXIMUM_BLOCK_WEIGHT: Weight =
 
 const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
 
+// Election voter index type.
+pub type VoterIndex = u16;
+// Election target index type.
+pub type TargetIndex = u16;
+
 // Common constants used in all runtimes.
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 4096;
@@ -232,6 +237,15 @@ pub struct StakingBenchmarkingConfig;
 impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
 	type MaxValidators = ConstU32<1000>;
 	type MaxNominators = ConstU32<1000>;
+}
+
+/// A reasonable benchmarking config for the EPM pallet and sub-pallets.
+pub struct EPMBenchmarkingConfig;
+impl pallet_election_provider_multi_block::BenchmarkingConfig for EPMBenchmarkingConfig {
+	const VOTERS: u32 = 5000;
+	const TARGETS: u32 = 1000;
+	const VOTERS_PER_PAGE: [u32; 2] = [32, 1024];
+	const TARGETS_PER_PAGE: [u32; 2] = [512, 2048];
 }
 
 /// Convert a balance to an unsigned 256-bit number, use in nomination pools.

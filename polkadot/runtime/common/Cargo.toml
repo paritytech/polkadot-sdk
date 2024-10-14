@@ -44,7 +44,7 @@ pallet-vesting = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-treasury = { workspace = true }
 pallet-asset-rate = { optional = true, workspace = true }
-pallet-election-provider-multi-phase = { workspace = true }
+pallet-election-provider-multi-block = { workspace = true }
 frame-election-provider-support = { workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
@@ -86,7 +86,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-broker/std",
-	"pallet-election-provider-multi-phase/std",
+	"pallet-election-provider-multi-block/std",
 	"pallet-fast-unstake/std",
 	"pallet-identity/std",
 	"pallet-session/std",
@@ -125,7 +125,6 @@ runtime-benchmarks = [
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-broker/runtime-benchmarks",
-	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
@@ -149,7 +148,6 @@ try-runtime = [
 	"pallet-babe?/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-broker/try-runtime",
-	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-identity/try-runtime",
 	"pallet-session/try-runtime",

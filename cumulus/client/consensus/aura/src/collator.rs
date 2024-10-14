@@ -251,11 +251,25 @@ where
 		{
 			tracing::info!(
 				target: crate::LOG_TARGET,
-				"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}",
+				"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }} (max storage_proof: {}kb)",
 				block_data.header().encode().len() as f64 / 1024f64,
 				block_data.extrinsics().encode().len() as f64 / 1024f64,
 				block_data.storage_proof().encode().len() as f64 / 1024f64,
+				max_pov_size as f64 / 1024f64,
 			);
+
+			// if storage proof > max_pov_size, log and panic as inclusion will not work.
+			if block_data.storage_proof().encode().len() > max_pov_size {
+				tracing::error!(
+					target: crate::LOG_TARGET,
+					"\n\n ⚠️ ⚠️  PoV STORAGE PROOF OVER LIMIT ({:?}kb > {:?}kb, ie. {:?}% overflow)\n",
+					block_data.storage_proof().encode().len() as f64 / 1024f64,
+					max_pov_size as f64 / 1024f64,
+					(block_data.storage_proof().encode().len() * 100 / max_pov_size),
+
+				);
+				panic!("chain bricked due to PoV limits");
+			}
 
 			if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
 				tracing::info!(
