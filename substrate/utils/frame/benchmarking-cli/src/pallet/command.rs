@@ -711,7 +711,8 @@ impl PalletCmd {
 			Ok(FetchedCode::FromFile { wrapped_code, heap_pages: self.heap_pages, hash })
 		} else {
 			log::info!(target: LOG_TARGET, "Loading WASM from state");
-			let state = sp_state_machine::backend::BackendRuntimeCode::new(state, IgnorePendingCode::Yes);
+			let state =
+				sp_state_machine::backend::BackendRuntimeCode::new(state, IgnorePendingCode::Yes);
 
 			Ok(FetchedCode::FromGenesis { state })
 		}
