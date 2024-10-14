@@ -126,21 +126,22 @@ pub mod v0_to_v1 {
 					// If no cursor is provided, start iterating from the beginning.
 					0
 				};
-				if index > 163300 {
-					log::info!(target: LOG_TARGET, "Last step index. Index = {}.", index);
-				}
-				if index == 163300 {
+				if index == 1 {
 					let execution_hash_extra1 =
 						crate::migration::v0::ExecutionHeaderMapping::<T>::get(163420);
 					log::info!(target: LOG_TARGET, "Value at hardcoded index 163420 is {}.", execution_hash_extra1);
 					let execution_hash_extra2 =
 						crate::migration::v0::ExecutionHeaderMapping::<T>::get(163425);
 					log::info!(target: LOG_TARGET, "Value at hardcoded index 163425 is {}.", execution_hash_extra2);
+					let execution_hash_extra3 =
+						crate::migration::v0::ExecutionHeaderMapping::<T>::get(146719);
+					log::info!(target: LOG_TARGET, "Value at hardcoded index 146719 is {}.", execution_hash_extra3);
 				}
 				if index >= M::get() {
 					log::info!(target: LOG_TARGET, "Ethereum execution header cleanup migration is complete. Index = {}.", index);
 					crate::migration::STORAGE_VERSION.put::<crate::Pallet<T>>();
 					// We are at the end of the migration, signal complete.
+					log::info!(target: LOG_TARGET, "SIGNAL COMPLETE");
 					cursor = None;
 					break
 				} else {
@@ -151,7 +152,12 @@ pub mod v0_to_v1 {
 					cursor = Some(index);
 				}
 			}
-			log::info!(target: LOG_TARGET, "Step done.");
+
+			if let Some(last_key) = cursor {
+				log::info!(target: LOG_TARGET, "Step done, index is {}.", last_key);
+			} else {
+				log::info!(target: LOG_TARGET, "Step done, error getting last index");
+			};
 
 			Ok(cursor)
 		}
