@@ -204,7 +204,18 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
+		(
+			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
+			XcmExportFeeToSibling<
+				bp_westend::Balance,
+				AccountId,
+				WestendLocation,
+				EthereumNetwork,
+				Self::AssetTransactor,
+				crate::EthereumOutboundQueue,
+			>,
+			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
+		),
 	>;
 	type MessageExporter = (
 		XcmOverBridgeHubRococo,
