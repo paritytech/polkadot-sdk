@@ -175,7 +175,8 @@ where
 							})
 					}
 				} else {
-					debug!("[{:?}] dropped_watcher: skipping non tracked tx", tx_hash);
+					debug!("[{:?}] dropped_watcher: removing (non-tracked) tx", tx_hash);
+					return Some(tx_hash)
 				}
 			},
 			_ => {},
