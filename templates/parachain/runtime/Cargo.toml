@@ -33,8 +33,6 @@ serde_json = { workspace = true, default-features = false, features = ["alloc"] 
 pallet-parachain-template = { workspace = true }
 
 polkadot-sdk = { workspace = true, default-features = false, features = [
-	"experimental",
-
 	"pallet-aura",
 	"pallet-authorship",
 	"pallet-balances",
