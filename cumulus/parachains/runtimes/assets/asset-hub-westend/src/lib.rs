@@ -93,7 +93,7 @@ use assets_common::{
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm::{
 	latest::prelude::AssetId,
-	prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
+	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -1419,6 +1419,12 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::trust_query::TrustedQueryApi<Block> for Runtime {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trust_query::Error> {
+			PolkadotXcm::is_trusted_reserve(asset, location)
+		}
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trust_query::Error> {
+			PolkadotXcm::is_trusted_teleporter(asset, location)
+		}
 	}
 
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
