@@ -1267,3 +1267,66 @@ fn exporter_validate_with_invalid_universal_source_does_not_alter_universal_sour
 	assert_eq!(Some(msg), msg_wrapper);
 	assert_eq!(Some(universal_source), universal_source_wrapper);
 }
+
+#[test]
+fn xcm_converter_transfer_non_fungible_asset_fails() {
+	let network = BridgedNetwork::get();
+
+	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	let asset_location: Location = [AccountKey20 { network: None, key: token_address }].into();
+	let fee_asset = Asset { id: AssetId(asset_location.clone()), fun: NonFungible(Index(1)) };
+
+	let assets: Assets =
+		vec![Asset { id: AssetId(asset_location), fun: NonFungible(Index(1)) }].into();
+
+	let filter: AssetFilter = assets.clone().into();
+
+	let message: Xcm<()> = vec![
+		WithdrawAsset(assets.clone()),
+		ClearOrigin,
+		BuyExecution { fees: fee_asset, weight_limit: Unlimited },
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+	let result = converter.convert();
+	assert_eq!(result.err(), Some(XcmConverterError::AssetResolutionFailed));
+}
+
+#[test]
+fn xcm_converter_transfer_native_non_fungible_asset_will_fail() {
+	let network = BridgedNetwork::get();
+
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	let amount = 1000000;
+	// Invalid asset location from a different consensus
+	let asset_location = Location { parents: 2, interior: [GlobalConsensus(Rococo)].into() };
+
+	let assets: Assets =
+		vec![Asset { id: AssetId(asset_location), fun: NonFungible(Index(1)) }].into();
+	let filter: AssetFilter = assets.clone().into();
+
+	let message: Xcm<()> = vec![
+		ReserveAssetDeposited(assets.clone()),
+		ClearOrigin,
+		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+	let result = converter.convert();
+	assert_eq!(result.err(), Some(XcmConverterError::AssetResolutionFailed));
+}
