@@ -257,9 +257,9 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	let feeless_check =
 		feeless_checks.iter().zip(args_name.iter()).map(|(feeless_check, arg_name)| {
 			if let Some(check) = feeless_check {
-				quote::quote_spanned!(span => (#check))
+				quote::quote_spanned!(span => #check)
 			} else {
-				quote::quote_spanned!(span => (|_origin, #( #arg_name, )*| { false }))
+				quote::quote_spanned!(span => |_origin, #( #arg_name, )*| { false })
 			}
 		});
 
