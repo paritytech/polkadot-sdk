@@ -73,8 +73,7 @@ pub mod v0_to_v1 {
 		traits::OnRuntimeUpgrade,
 		weights::{constants::RocksDbWeight, WeightMeter},
 	};
-	use sp_core::Get;
-	use sp_core::H256;
+	use sp_core::{Get, H256};
 	#[cfg(feature = "try-runtime")]
 	use sp_runtime::TryRuntimeError;
 
@@ -136,8 +135,7 @@ pub mod v0_to_v1 {
 						crate::migration::v0::ExecutionHeaderMapping::<T>::get(146719);
 					log::info!(target: LOG_TARGET, "Value at hardcoded index 146719 is {}.", execution_hash_extra3);
 				}
-				let execution_hash =
-					crate::migration::v0::ExecutionHeaderMapping::<T>::get(index);
+				let execution_hash = crate::migration::v0::ExecutionHeaderMapping::<T>::get(index);
 
 				if index >= M::get() || execution_hash == H256::zero() {
 					log::info!(target: LOG_TARGET, "Ethereum execution header cleanup migration is complete. Index = {}.", index);
