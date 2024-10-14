@@ -544,17 +544,47 @@ pub mod pallet {
 		#[pallet::constant]
 		type IdleMaxServiceWeight: Get<Option<Weight>>;
 
-		/// The relative amount of weight to allocate to a specific weight.
-		///
-		/// This is relative to the weight still left in the block and not in absolute terms. It does
-		/// not affect the round-robin scheduling of the queues. If you want to run this queue exclusively,
-		/// then you have to implement a custom message processor that returns `QueuePaused` for all other queues.
-		/// This mechanism is still useful for cases where you want to somewhat prioritize a queue
-		/// without starving all others. In that case you could return `1.0` for your prioritized queue and `0.25` for all others.
-		/// This would mean that when your prioritized queue is ready, it will use all the remaining weight. This is also the default
-		/// behaviour. Now for all other queues they will only get 25% of what is left in each block, to ensure that your
-		/// queue will be served sooner (since it is still round robin).
-		type QueuePriority: Convert<MessageOriginOf<T>, Perbill>;
+		// The relative amount of weight to allocate to a specific weight.
+		//
+		// This is relative to the weight still left in the block and not in absolute terms. It does
+		// not affect the round-robin scheduling of the queues. If you want to run this queue
+		// exclusively, then you have to implement a custom message processor that returns
+		// `QueuePaused` for all other queues. This mechanism is still useful for cases where you
+		// want to somewhat prioritize a queue without starving all others. In that case you could
+		// return `1.0` for your prioritized queue and `0.25` for all others. This would mean that
+		// when your prioritized queue is ready, it will use all the remaining weight. This is also
+		// the default behaviour. Now for all other queues they will only get 25% of what is left
+		// in each block, to ensure that your queue will be served sooner (since it is still round
+		// robin). type QueuePriority: Convert<MessageOriginOf<T>, Perbill>;
+
+		/// FAIL-CI
+		type QueueNextSelector: NextQueueSelector<MessageOriginOf<Self>>;
+	}
+
+	/// FAIL-CI
+	pub trait NextQueueSelector<Origin> {
+		/// FAIL-CI
+		fn next_queue(weight: &mut WeightMeter) -> NextQueueSelection<Origin>;
+	}
+
+	impl<Origin> NextQueueSelector<Origin> for () {
+		fn next_queue(_: &mut WeightMeter) -> NextQueueSelection<Origin> {
+			NextQueueSelection::RoundRobin
+		}
+	}
+
+	/// FAIL-CI
+	pub enum NextQueueSelection<Origin> {
+		/// FAIL-CI
+		RoundRobin,
+		/// FAIL-CI
+		Queue(Origin),
+	}
+
+	impl<T> Default for NextQueueSelection<T> {
+		fn default() -> Self {
+			NextQueueSelection::RoundRobin
+		}
 	}
 
 	#[pallet::event]
@@ -1601,9 +1631,12 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 		});
 
 		match with_service_mutex(|| {
-			let mut next = match Self::bump_service_head(&mut weight) {
-				Some(h) => h,
-				None => return weight.consumed(),
+			let mut next = match T::QueueNextSelector::next_queue(&mut weight) {
+				NextQueueSelection::RoundRobin => match Self::bump_service_head(&mut weight) {
+					Some(h) => h,
+					None => return weight.consumed(),
+				},
+				NextQueueSelection::Queue(this) => this,
 			};
 
 			// The last queue that did not make any progress.
@@ -1612,7 +1645,8 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 			let mut last_no_progress = None;
 
 			loop {
-				let (progressed, n) = Self::service_queue(next.clone(), &mut weight, overweight_limit);
+				let (progressed, n) =
+					Self::service_queue(next.clone(), &mut weight, overweight_limit);
 				next = match n {
 					Some(n) =>
 						if !progressed {

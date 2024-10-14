@@ -46,6 +46,7 @@ parameter_types! {
 	pub const MaxStale: u32 = 2;
 	pub const ServiceWeight: Option<Weight> = Some(Weight::from_parts(100, 100));
 }
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = MockedWeightInfo;
@@ -57,6 +58,7 @@ impl Config for Test {
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
 	type IdleMaxServiceWeight = ServiceWeight;
+	type QueueNextSelector = MockedNextQueueSelector;
 }
 
 /// Mocked `WeightInfo` impl with allows to set the weight per call.

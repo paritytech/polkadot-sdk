@@ -191,3 +191,14 @@ pub fn assert_ring<T: Config>(
 	}
 	assert_eq!(ServiceHead::<T>::get(), queues.first().cloned());
 }
+
+frame_support::parameter_types! {
+	pub static NextQueue: Box<fn (&mut WeightMeter) -> NextQueueSelection<MessageOrigin>> = Box::new(|_| { Default::default() });
+}
+
+pub struct MockedNextQueueSelector;
+impl NextQueueSelector<MessageOrigin> for MockedNextQueueSelector {
+	fn next_queue(meter: &mut WeightMeter) -> NextQueueSelection<MessageOrigin> {
+		NextQueue::get()(meter)
+	}
+}

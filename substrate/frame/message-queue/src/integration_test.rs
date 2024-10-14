@@ -74,6 +74,7 @@ impl Config for Test {
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
 	type IdleMaxServiceWeight = ();
+	type QueueNextSelector = ();
 }
 
 /// Simulates heavy usage by enqueueing and processing large amounts of messages.

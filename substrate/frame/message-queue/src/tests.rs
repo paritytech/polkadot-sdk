@@ -2034,3 +2034,66 @@ fn process_message_ok_true_keeps_storage_changes() {
 		assert_eq!(sp_io::storage::exists(b"key"), true);
 	});
 }
+
+/// A custom next queue selector can be used to starve other queues.
+///
+/// This demonstrates that it is very powerful and must be used with care.
+#[test]
+fn queue_selector_can_starve_other_queues() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		// enqueue 2 messages to Here with weight 1
+		for _ in 0..2 {
+			MessageQueue::enqueue_message(msg("A"), Here);
+			MessageQueue::enqueue_message(msg("B"), There);
+		}
+		// enqueue a single message to Everywhere(0) with weight 1
+		MessageQueue::enqueue_message(msg("C"), Everywhere(0));
+
+		// Always favour Here
+		//NextQueue::set(Box::new(|_| NextQueueSelection::Queue(Here)));
+
+		MessageQueue::service_queues(4.into_weight());
+		assert_eq!(
+			MessagesProcessed::take(),
+			vec![
+				(b"A".to_vec(), Here),
+				(b"A".to_vec(), Here),
+				(b"B".to_vec(), There),
+				(b"B".to_vec(), There)
+			]
+		);
+
+		for _ in 0..10 {
+			// Assume more traffic on Here and There and enqueue the same messages again
+			for _ in 0..2 {
+				MessageQueue::enqueue_message(msg("A"), Here);
+			}
+			for _ in 0..2 {
+				MessageQueue::enqueue_message(msg("B"), There);
+			}
+
+			// Hypothetically, it would proceed with `Everywhere(0)`:
+			frame_support::hypothetically! {{
+				MessageQueue::service_queues(1.into_weight());
+				assert_eq!(MessagesProcessed::take(), vec![(b"C".to_vec(), Everywhere(0))]);
+			}};
+
+			// But we wont let that happen by prioritizing Here and There:
+			NextQueue::set(Box::new(|_| NextQueueSelection::Queue(Here)));
+
+			MessageQueue::service_queues(4.into_weight());
+			assert_eq!(
+				MessagesProcessed::take(),
+				vec![
+					(b"A".to_vec(), Here),
+					(b"A".to_vec(), Here),
+					(b"B".to_vec(), There),
+					(b"B".to_vec(), There)
+				]
+			);
+
+			NextQueue::take();
+		}
+	});
+}
