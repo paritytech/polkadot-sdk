@@ -390,6 +390,7 @@ pub struct NewFullBase {
 	pub rpc_handlers: RpcHandlers,
 }
 
+// #[docify::export]
 /// Creates a full service from the configuration.
 pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	config: Configuration,

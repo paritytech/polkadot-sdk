@@ -324,7 +324,7 @@ impl_runtime_apis! {
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			self::genesis_config_presets::preset_names()
+			crate::genesis_config_presets::preset_names()
 		}
 	}
 }

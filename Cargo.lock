@@ -10096,6 +10096,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
+dependencies = [
+ "bitflags 2.6.0",
+ "cfg-if",
+ "cfg_aliases 0.2.1",
+ "libc",
+]
+
+[[package]]
 name = "no-std-compat"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -15573,6 +15585,7 @@ dependencies = [
 name = "polkadot-sdk-docs"
 version = "0.0.1"
 dependencies = [
+ "assert_cmd",
  "chain-spec-guide-runtime",
  "cumulus-client-service",
  "cumulus-pallet-aura-ext",
@@ -15587,6 +15600,7 @@ dependencies = [
  "kitchensink-runtime",
  "log",
  "minimal-template-runtime",
+ "nix 0.29.0",
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-tx-payment",
  "pallet-assets",
@@ -15602,6 +15616,7 @@ dependencies = [
  "pallet-example-offchain-worker",
  "pallet-example-single-block-migrations",
  "pallet-examples",
+ "pallet-grandpa",
  "pallet-multisig",
  "pallet-nfts",
  "pallet-preimage",
@@ -15616,7 +15631,11 @@ dependencies = [
  "pallet-xcm",
  "parachain-template-runtime",
  "parity-scale-codec",
+ "polkadot-omni-node",
+ "polkadot-omni-node-lib",
  "polkadot-sdk",
+ "polkadot-sdk-docs-first-pallet",
+ "polkadot-sdk-docs-first-runtime",
  "polkadot-sdk-frame",
  "sc-chain-spec",
  "sc-cli",
@@ -15660,6 +15679,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-sdk-docs-first-pallet"
+version = "0.0.0"
+dependencies = [
+ "docify",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+]
+
+[[package]]
+name = "polkadot-sdk-docs-first-runtime"
+version = "0.0.0"
+dependencies = [
+ "docify",
+ "pallet-balances",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "parity-scale-codec",
+ "polkadot-sdk-docs-first-pallet",
+ "polkadot-sdk-frame",
+ "scale-info",
+ "serde_json",
+ "sp-keyring",
+ "substrate-wasm-builder",
+]
+
+[[package]]
 name = "polkadot-sdk-frame"
 version = "0.1.0"
 dependencies = [
@@ -15681,8 +15729,10 @@ dependencies = [
  "sp-consensus-aura",
  "sp-consensus-grandpa",
  "sp-core 28.0.0",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io 30.0.0",
+ "sp-keyring",
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
@@ -23327,6 +23377,7 @@ dependencies = [
  "clap 4.5.13",
  "clap_complete",
  "criterion",
+ "docify",
  "futures",
  "jsonrpsee 0.24.3",
  "kitchensink-runtime",

@@ -46,6 +46,7 @@ futures = { workspace = true }
 log = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+docify = { version = "0.2.7" }
 
 # The Polkadot-SDK:
 polkadot-sdk = { features = ["node"], workspace = true, default-features = true }

@@ -10,9 +10,6 @@ edition.workspace = true
 publish = false
 build = "build.rs"
 
-# [[bin]]
-# name = "parachain-template-node"
-
 [dependencies]
 clap = { features = ["derive"], workspace = true }
 log = { workspace = true, default-features = true }

@@ -69,6 +69,10 @@ cumulus-primitives-proof-size-hostfunction = { workspace = true, default-feature
 cumulus-client-service = { workspace = true, default-features = true }
 cumulus-primitives-storage-weight-reclaim = { workspace = true, default-features = true }
 
+# Omni Nodes
+polkadot-omni-node = { workspace = true, default-features = true }
+polkadot-omni-node-lib = { workspace = true, default-features = true }
+
 # Pallets and FRAME internals
 pallet-aura = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
@@ -91,6 +95,7 @@ pallet-scheduler = { workspace = true, default-features = true }
 pallet-referenda = { workspace = true, default-features = true }
 pallet-broker = { workspace = true, default-features = true }
 pallet-babe = { workspace = true, default-features = true }
+pallet-grandpa = { workspace = true, default-features = true }
 
 # Primitives
 sp-io = { workspace = true, default-features = true }
@@ -116,9 +121,18 @@ xcm-simulator = { workspace = true }
 pallet-xcm = { workspace = true }
 
 # runtime guides
-chain-spec-guide-runtime = { workspace = true }
+
+chain-spec-guide-runtime = { workspace = true, default-features = true }
 
 # Templates
-minimal-template-runtime = { workspace = true }
-solochain-template-runtime = { workspace = true }
-parachain-template-runtime = { workspace = true }
+minimal-template-runtime = { workspace = true, default-features = true }
+solochain-template-runtime = { workspace = true, default-features = true }
+parachain-template-runtime = { workspace = true, default-features = true }
+
+# local packages
+first-runtime = { workspace = true, default-features = true }
+first-pallet = { workspace = true, default-features = true }
+
+[dev-dependencies]
+assert_cmd = "2.0.14"
+nix = { version = "0.29.0", features = ["signal"] }

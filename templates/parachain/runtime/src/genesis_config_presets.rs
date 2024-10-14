@@ -92,6 +92,8 @@ fn local_testnet_genesis() -> Value {
 			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		// TODO: this is super opaque, how should one know they should configure this? add to
+		// README!
 		1000.into(),
 	)
 }

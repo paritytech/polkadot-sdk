@@ -106,3 +106,5 @@ pub mod umbrella_crate;
 
 /// Learn about how to create custom RPC endpoints and runtime APIs.
 pub mod custom_runtime_api_rpc;
+
+pub mod omni_node;

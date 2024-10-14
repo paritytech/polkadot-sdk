@@ -149,6 +149,8 @@ members = [
 	"cumulus/test/service",
 	"cumulus/xcm/xcm-emulator",
 	"docs/sdk",
+	"docs/sdk/packages/guides/first-pallet",
+	"docs/sdk/packages/guides/first-runtime",
 	"docs/sdk/src/reference_docs/chain_spec_runtime",
 	"polkadot",
 	"polkadot/cli",
@@ -1065,6 +1067,8 @@ polkadot-runtime-metrics = { path = "polkadot/runtime/metrics", default-features
 polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false }
 polkadot-sdk = { path = "umbrella", default-features = false }
 polkadot-sdk-docs = { path = "docs/sdk" }
+first-pallet = { package = "polkadot-sdk-docs-first-pallet", path = "docs/sdk/packages/guides/first-pallet", default-features = false }
+first-runtime = { package = "polkadot-sdk-docs-first-runtime", path = "docs/sdk/packages/guides/first-runtime", default-features = false }
 polkadot-service = { path = "polkadot/node/service", default-features = false }
 polkadot-statement-distribution = { path = "polkadot/node/network/statement-distribution", default-features = false }
 polkadot-statement-table = { path = "polkadot/statement-table", default-features = false }

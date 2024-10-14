@@ -1,16 +1,29 @@
 //! # Polkadot SDK Docs Guides
 //!
-//! This crate contains a collection of guides that are foundational to the developers of Polkadot
-//! SDK. They are common user-journeys that are traversed in the Polkadot ecosystem.
+//! This crate contains a collection of guides that are foundational to the developers of
+//! Polkadot SDK. They are common user-journeys that are traversed in the Polkadot ecosystem.
 //!
-//! 1. [`crate::guides::your_first_pallet`] is your starting point with Polkadot SDK. It contains
-//!    the basics of
-//! building a simple crypto currency with FRAME.
-//! 2. [`crate::guides::your_first_runtime`] is the next step in your journey. It contains the
-//!    basics of building a runtime that contains this pallet, plus a few common pallets from FRAME.
+//! The main user-journey covered by these guides is:
 //!
+//! * [`your_first_pallet`], where you learn what a FRAME pallet is, and write your first
+//!   application logic.
+//! * [`your_first_runtime`], where you learn how to compile your pallets into a WASM runtime.
+//! * [`your_first_node`], where you learn how to run the said runtime in a node.
+//!
+//! > By this step, you have already launched a full Polkadot-Sdk-based blockchain!
+//!
+//! * [`your_first_parachain`], where you convert an exiting blockchain to a Polkadot parachain.
+//!
+//! [`your_first_pallet`]: crate::guides::your_first_pallet
+//! [`your_first_runtime`]: crate::guides::your_first_runtime
+//! [`your_first_node`]: crate::guides::your_first_node
+//! [`your_first_parachain`]: crate::guides::your_first_parachain
 //!
 //! Other guides are related to other miscellaneous topics and are listed as modules below.
+//!
+//! ## How to Read
+//!
+//! TODO: how to read, find the code, etc.
 
 /// Write your first simple pallet, learning the most most basic features of FRAME along the way.
 pub mod your_first_pallet;
@@ -19,19 +32,12 @@ pub mod your_first_pallet;
 /// compiling it to [WASM](crate::polkadot_sdk::substrate#wasm-build).
 pub mod your_first_runtime;
 
-// /// Running the given runtime with a node. No specific consensus mechanism is used at this stage.
-// TODO
-// pub mod your_first_node;
+/// Running the given runtime with a node. No specific consensus mechanism is used at this stage.
+pub mod your_first_node;
 
-// /// How to enhance a given runtime and node to be cumulus-enabled, run it as a parachain
-// /// and connect it to a relay-chain.
-// TODO
-// pub mod cumulus_enabled_parachain;
-
-// /// How to make a given runtime XCM-enabled, capable of sending messages (`Transact`) between
-// /// itself and the relay chain to which it is connected.
-// TODO
-// pub mod xcm_enabled_parachain;
+/// How to enhance a given runtime and node to be cumulus-enabled, run it as a parachain
+/// and connect it to a relay-chain.
+pub mod your_first_parachain;
 
 /// How to enable storage weight reclaiming in a parachain node and runtime.
 pub mod enable_pov_reclaim;

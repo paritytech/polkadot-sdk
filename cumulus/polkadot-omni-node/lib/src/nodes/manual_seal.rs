@@ -28,7 +28,6 @@ use sc_network::NetworkBackend;
 use sc_service::{build_polkadot_syncing_strategy, Configuration, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sp_runtime::traits::Header;
-use sp_timestamp::Timestamp;
 use std::{marker::PhantomData, sync::Arc};
 
 pub struct ManualSealNode<NodeSpec>(PhantomData<NodeSpec>);
@@ -181,10 +180,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 						raw_horizontal_messages: vec![],
 						additional_key_values: None,
 					};
-					Ok((
-						sp_timestamp::InherentDataProvider::new(Timestamp::new(0)),
-						mocked_parachain,
-					))
+					Ok((sp_timestamp::InherentDataProvider::from_system_time(), mocked_parachain))
 				}
 			},
 		};
