@@ -22,7 +22,7 @@
 use super::*;
 use crate::Pallet as Proxy;
 use alloc::{boxed::Box, vec};
-use frame::benchmarking::v2::*;
+use frame::benchmarking::prelude::*;
 
 const SEED: u32 = 0;
 
@@ -203,6 +203,7 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
 	fn add_proxy(p: Linear<1, { T::MaxProxies::get() - 1 }>) -> Result<(), BenchmarkError> {
 		add_proxies::<T>(p, None)?;
 		let caller: T::AccountId = whitelisted_caller();
@@ -222,6 +223,7 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
 	fn remove_proxy(p: Linear<1, { T::MaxProxies::get() - 1 }>) -> Result<(), BenchmarkError> {
 		add_proxies::<T>(p, None)?;
 		let caller: T::AccountId = whitelisted_caller();
@@ -241,6 +243,7 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
 	fn remove_proxies(p: Linear<1, { T::MaxProxies::get() - 1 }>) -> Result<(), BenchmarkError> {
 		add_proxies::<T>(p, None)?;
 		let caller: T::AccountId = whitelisted_caller();
@@ -254,6 +257,7 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
 	fn create_pure(p: Linear<1, { T::MaxProxies::get() - 1 }>) -> Result<(), BenchmarkError> {
 		add_proxies::<T>(p, None)?;
 		let caller: T::AccountId = whitelisted_caller();
@@ -277,6 +281,7 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
 	fn kill_pure(p: Linear<0, { T::MaxProxies::get() - 2 }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());

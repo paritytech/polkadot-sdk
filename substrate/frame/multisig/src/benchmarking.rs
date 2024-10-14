@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame::benchmarking::v2::*;
+use frame::benchmarking::prelude::*;
 
 use crate::Pallet as Multisig;
 
@@ -210,7 +210,7 @@ mod benchmarks {
 	// `z`: Transaction Length, not a component
 	// `s`: Signatories, need at least 2 people
 	#[benchmark]
-	fn cancel_as_multi(s: Linear<2, T::MaxSignatories::get() >, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
+	fn cancel_as_multi(s: Linear<2, { T::MaxSignatories::get() } >, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let (mut signatories, call) = setup_multi::<T>(s, z)?;
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
 		let caller = signatories.pop().ok_or("signatories should have len 2 or more")?;
