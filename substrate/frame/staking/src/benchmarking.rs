@@ -278,8 +278,6 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		// setup the worst case list scenario.
-		let _total_issuance = asset::total_issuance::<T>();
 		// the weight the nominator will start at. The value used here is expected to be
 		// significantly higher than the first position in a list (e.g. the first bag threshold).
 		let origin_weight = BalanceOf::<T>::try_from(952_994_955_240_703u128)
@@ -287,7 +285,6 @@ mod benchmarks {
 			.unwrap();
 		let scenario = ListScenario::<T>::new(origin_weight, false)?;
 
-		let _stash = scenario.origin_stash1.clone();
 		let controller = scenario.origin_controller1.clone();
 		let amount = origin_weight - scenario.dest_weight;
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
@@ -468,7 +465,7 @@ mod benchmarks {
 
 		// setup a worst case list scenario. Note we don't care about the destination position,
 		// because we are just doing an insert into the origin position.
-		let _scenario = ListScenario::<T>::new(origin_weight, true)?;
+		ListScenario::<T>::new(origin_weight, true)?;
 		let (stash, controller) = create_stash_controller_with_balance::<T>(
 			SEED + MaxNominationsOf::<T>::get() + 1, /* make sure the account does not conflict
 			                                          * with others */
@@ -770,7 +767,6 @@ mod benchmarks {
 		assert!(value * l.into() + origin_weight <= dest_weight);
 		let unlock_chunk = UnlockChunk::<BalanceOf<T>> { value, era: EraIndex::zero() };
 
-		let _stash = scenario.origin_stash1.clone();
 		let controller = scenario.origin_controller1;
 		let mut staking_ledger = Ledger::<T>::get(controller.clone()).unwrap();
 
@@ -949,7 +945,7 @@ mod benchmarks {
 		// number of nominator intention. we will iterate all of them.
 		n: Linear<{ MaxNominators::<T>::get() / 2 }, { MaxNominators::<T>::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let _validators = create_validators_with_nominators_for_era::<T>(
+		let _ = create_validators_with_nominators_for_era::<T>(
 			v,
 			n,
 			MaxNominationsOf::<T>::get() as usize,
@@ -1059,7 +1055,6 @@ mod benchmarks {
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
-		let _controller = scenario.origin_controller1.clone();
 		let stash = scenario.origin_stash1;
 		assert!(T::VoterList::contains(&stash));
 
