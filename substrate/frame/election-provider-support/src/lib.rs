@@ -448,6 +448,9 @@ pub trait ElectionProvider {
 			}
 		})
 	}
+
+	/// Indicate if this election provider is currently ongoing an asynchronous election or not.
+	fn ongoing() -> bool;
 }
 
 /// A (almost) marker trait that signifies an election provider as working synchronously. i.e. being
@@ -483,6 +486,10 @@ where
 
 	fn elect(_remaining_pages: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		Err("`NoElection` cannot do anything.")
+	}
+
+	fn ongoing() -> bool {
+		false
 	}
 }
 

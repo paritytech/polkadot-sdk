@@ -330,6 +330,10 @@ impl ElectionProvider for MockFallback {
 	fn elect(_remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		unimplemented!()
 	}
+
+	fn ongoing() -> bool {
+		false
+	}
 }
 
 impl InstantElectionProvider for MockFallback {

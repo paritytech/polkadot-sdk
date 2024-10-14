@@ -764,6 +764,13 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 				err
 			})
 	}
+
+	fn ongoing() -> bool {
+		match CurrentPhase::<T>::get() {
+			Phase::Off => false,
+			_ => true,
+		}
+	}
 }
 
 #[cfg(test)]
