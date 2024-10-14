@@ -2016,9 +2016,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn election_ongoing() -> bool {
-		// TODO(gpestana)
-		//T::ElectionProvider::ongoing()
-		false
+		<T::ElectionProvider as ElectionProvider>::ongoing()
 	}
 
 	fn force_unstake(who: Self::AccountId) -> sp_runtime::DispatchResult {

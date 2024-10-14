@@ -1797,6 +1797,13 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			},
 		}
 	}
+
+	fn ongoing() -> bool {
+		match CurrentPhase::<T>::get() {
+			Phase::Off => false,
+			_ => true,
+		}
+	}
 }
 
 /// convert a DispatchError to a custom InvalidTransaction with the inner code being the error

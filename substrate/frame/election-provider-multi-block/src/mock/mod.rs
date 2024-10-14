@@ -255,6 +255,10 @@ impl ElectionProvider for MockFallback {
 			Err("fallback election failed (forced in mock)")
 		}
 	}
+
+	fn ongoing() -> bool {
+		false
+	}
 }
 
 #[derive(Default)]

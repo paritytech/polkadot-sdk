@@ -187,6 +187,10 @@ impl<T: Config> ElectionProvider for OnChainExecution<T> {
 		let election_bounds = ElectionBoundsBuilder::from(T::Bounds::get()).build();
 		Self::elect_with(election_bounds, Zero::zero())
 	}
+
+	fn ongoing() -> bool {
+		false
+	}
 }
 
 #[cfg(test)]

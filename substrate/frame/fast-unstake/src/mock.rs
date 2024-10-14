@@ -101,6 +101,10 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 	) -> Result<frame_election_provider_support::BoundedSupportsOf<Self>, Self::Error> {
 		Err(())
 	}
+
+	fn ongoing() -> bool {
+		Ongoing::get()
+	}
 }
 
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
