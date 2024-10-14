@@ -103,7 +103,7 @@ use xcm::latest::prelude::{
 };
 use xcm::{
 	latest::prelude::{AssetId, BodyId},
-	VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
+	VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
 };
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
@@ -1778,6 +1778,15 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			genesis_config_presets::preset_names()
+		}
+	}
+
+	impl xcm_runtime_apis::trust_query::TrustedQueryApi<Block> for Runtime {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trust_query::Error> {
+			PolkadotXcm::is_trusted_reserve(asset, location)
+		}
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trust_query::Error> {
+			PolkadotXcm::is_trusted_teleporter(asset, location)
 		}
 	}
 }

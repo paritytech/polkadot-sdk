@@ -1164,6 +1164,15 @@ impl_runtime_apis! {
 			genesis_config_presets::preset_names()
 		}
 	}
+
+	impl xcm_runtime_apis::trust_query::TrustedQueryApi<Block> for Runtime {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trust_query::Error> {
+			PolkadotXcm::is_trusted_reserve(asset, location)
+		}
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trust_query::Error> {
+			PolkadotXcm::is_trusted_teleporter(asset, location)
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {
