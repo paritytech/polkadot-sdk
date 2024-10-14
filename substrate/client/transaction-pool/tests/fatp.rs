@@ -1262,7 +1262,6 @@ fn fatp_no_view_pool_watcher_two_finalized_in_different_block() {
 	assert_eq!(
 		xt0_status,
 		vec![
-			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header02.hash(), 2)),
 			TransactionStatus::Finalized((header02.hash(), 2))
 		]
@@ -1274,7 +1273,6 @@ fn fatp_no_view_pool_watcher_two_finalized_in_different_block() {
 	assert_eq!(
 		xt2_status,
 		vec![
-			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header02.hash(), 1)),
 			TransactionStatus::Finalized((header02.hash(), 1))
 		]
@@ -1515,23 +1513,15 @@ fn fatp_watcher_finalizing_forks() {
 
 	//=======================
 
-	let mut xt0_status = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
-	let mut xt1_status = futures::executor::block_on_stream(xt1_watcher).collect::<Vec<_>>();
-	let mut xt2_status = futures::executor::block_on_stream(xt2_watcher).collect::<Vec<_>>();
-	let mut xt3_status = futures::executor::block_on_stream(xt3_watcher).collect::<Vec<_>>();
-	let mut xt4_status = futures::executor::block_on_stream(xt4_watcher).collect::<Vec<_>>();
-
-	// Ready may come from numerous views, simplify that, we don't care:
-	xt0_status.dedup();
-	xt1_status.dedup();
-	xt2_status.dedup();
-	xt3_status.dedup();
-	xt4_status.dedup();
+	let xt0_status = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
+	let xt1_status = futures::executor::block_on_stream(xt1_watcher).collect::<Vec<_>>();
+	let xt2_status = futures::executor::block_on_stream(xt2_watcher).collect::<Vec<_>>();
+	let xt3_status = futures::executor::block_on_stream(xt3_watcher).collect::<Vec<_>>();
+	let xt4_status = futures::executor::block_on_stream(xt4_watcher).collect::<Vec<_>>();
 
 	assert_eq!(
 		xt0_status,
 		vec![
-			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header01.hash(), 0)),
 			TransactionStatus::Finalized((header01.hash(), 0)),
 		]
@@ -1626,7 +1616,6 @@ fn fatp_watcher_best_block_after_finalized2() {
 	assert_eq!(
 		xt0_events,
 		vec![
-			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header01.hash(), 0)),
 			TransactionStatus::Finalized((header01.hash(), 0)),
 		]
@@ -1670,7 +1659,6 @@ fn fatp_watcher_switching_fork_multiple_times_works() {
 	assert_eq!(
 		xt0_status,
 		vec![
-			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header01a.hash(), 0)),
 			TransactionStatus::InBlock((header01b.hash(), 0)),
 			TransactionStatus::Finalized((header01b.hash(), 0)),
@@ -1785,7 +1773,6 @@ fn fatp_watcher_delayed_finalization_does_not_retract() {
 	assert_eq!(
 		xt0_status,
 		vec![
-			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header02.hash(), 0)),
 			TransactionStatus::Finalized((header02.hash(), 0)),
 		]

@@ -145,8 +145,6 @@ struct ExternalWatcherContext<ChainApi: graph::ChainApi> {
 
 	/// A hash set of block hashes from views that consider the transaction valid.
 	views_keeping_tx_valid: HashSet<BlockHash<ChainApi>>,
-	/// The pending events to be sent.
-	pending_events: Vec<TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>>,
 }
 
 impl<ChainApi: graph::ChainApi> ExternalWatcherContext<ChainApi>
@@ -168,7 +166,6 @@ where
 			future_seen: false,
 			ready_seen: false,
 			views_keeping_tx_valid: Default::default(),
-			pending_events: Default::default(),
 		}
 	}
 
@@ -206,14 +203,15 @@ where
 				}
 			},
 			TransactionStatus::Broadcast(_) => None,
-			TransactionStatus::InBlock((..)) =>
+			TransactionStatus::InBlock((..)) => {
+				self.views_keeping_tx_valid.insert(hash);
 				if !(self.ready_seen || self.future_seen) {
 					self.ready_seen = true;
-					self.pending_events.push(status);
-					Some(TransactionStatus::Ready)
+					Some(status)
 				} else {
 					Some(status)
-				},
+				}
+			},
 			TransactionStatus::Retracted(_) => None,
 			TransactionStatus::FinalityTimeout(_) => Some(status),
 			TransactionStatus::Finalized(_) => {
@@ -309,9 +307,6 @@ where
 
 		Some(
 			futures::stream::unfold(ctx, |mut ctx| async move {
-				if let Some(pending_status) = ctx.pending_events.pop() {
-					return Some((pending_status, ctx))
-				}
 				if ctx.terminate {
 					return None
 				}
