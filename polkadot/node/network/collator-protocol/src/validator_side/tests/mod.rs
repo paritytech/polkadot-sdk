@@ -130,14 +130,14 @@ impl Default for TestState {
 		claim_queue.insert(
 			CoreIndex(0),
 			iter::repeat(ParaId::from(Self::CHAIN_IDS[0]))
-				.take(Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize)
+				.take(Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize - 1)
 				.collect(),
 		);
 		claim_queue.insert(CoreIndex(1), VecDeque::new());
 		claim_queue.insert(
 			CoreIndex(2),
 			iter::repeat(ParaId::from(Self::CHAIN_IDS[1]))
-				.take(Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize)
+				.take(Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize - 1)
 				.collect(),
 		);
 
@@ -175,18 +175,13 @@ impl TestState {
 		claim_queue.insert(
 			CoreIndex(0),
 			VecDeque::from_iter(
-				[
-					ParaId::from(Self::CHAIN_IDS[0]),
-					ParaId::from(Self::CHAIN_IDS[1]),
-					ParaId::from(Self::CHAIN_IDS[0]),
-				]
-				.into_iter(),
+				[ParaId::from(Self::CHAIN_IDS[1]), ParaId::from(Self::CHAIN_IDS[0])].into_iter(),
 			),
 		);
 
 		assert!(
 			claim_queue.get(&CoreIndex(0)).unwrap().len() ==
-				Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize
+				Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize - 1
 		);
 
 		state.cores = cores;
@@ -223,18 +218,13 @@ impl TestState {
 		claim_queue.insert(
 			CoreIndex(0),
 			VecDeque::from_iter(
-				[
-					ParaId::from(Self::CHAIN_IDS[0]),
-					ParaId::from(Self::CHAIN_IDS[0]),
-					ParaId::from(Self::CHAIN_IDS[0]),
-				]
-				.into_iter(),
+				[ParaId::from(Self::CHAIN_IDS[0]), ParaId::from(Self::CHAIN_IDS[0])].into_iter(),
 			),
 		);
 
 		assert!(
 			claim_queue.get(&CoreIndex(0)).unwrap().len() ==
-				Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize
+				Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize - 1
 		);
 
 		state.cores = cores;
