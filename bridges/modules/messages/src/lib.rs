@@ -674,14 +674,7 @@ impl<T: Config<I>, I: 'static> InspectMessageQueues for Pallet<T, I> {
 		let _ = OutboundMessages::<T, I>::clear(u32::MAX, None);
 		// Need to reset the lane data because it's checked in some tests
 		// after sending a message.
-		OutboundLanes::<T, I>::translate::<(), _>(|_, _| {
-			Some(OutboundLaneData {
-				oldest_unpruned_nonce: 0,
-				latest_received_nonce: 0,
-				latest_generated_nonce: 0,
-				state: LaneState::Opened,
-			})
-		});
+		OutboundLanes::<T, I>::translate::<(), _>(|_, _| Some(OutboundLaneData::opened()));
 	}
 
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
@@ -696,13 +689,14 @@ impl<T: Config<I>, I: 'static> InspectMessageQueues for Pallet<T, I> {
 						BridgeMessage::decode(&mut &payload[..]).unwrap();
 					let destination_latest: InteriorLocation = universal_dest.try_into().unwrap();
 					let destination: VersionedLocation =
-						Location::new(0, destination_latest).into();
+						Location::new(2, destination_latest).into();
 					(destination, message)
 				})
 				.collect();
-		messages.sort_by(|a, b| a.0.cmp(&b.0));
-
 		let mut result: Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> = Vec::new();
+		// We sort the messages to "group" them by destination, so we can iterate over them
+		// and easily get all messages for a given destination.
+		messages.sort_by(|a, b| a.0.cmp(&b.0));
 		for (destination, message) in messages.into_iter() {
 			if let Some((last_destination, vector)) = result.last_mut() {
 				if *last_destination == destination {
