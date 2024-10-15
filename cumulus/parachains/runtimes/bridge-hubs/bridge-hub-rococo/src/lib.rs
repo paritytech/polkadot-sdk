@@ -178,6 +178,7 @@ pub type Migrations = (
 		RocksDbWeight,
 	>,
 	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
+	snowbridge_pallet_ethereum_client::migration::v0_to_v1::ExecutionHeaderIndexCleanup<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
@@ -307,6 +308,7 @@ impl frame_system::Config for Runtime {
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MultiBlockMigrator = MultiBlockMigrations;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -540,6 +542,30 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
+	pub const ExecutionHeaderCount: u32 = 8192 * 20;
+}
+
+impl pallet_migrations::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Migrations =
+		snowbridge_pallet_ethereum_client::migration::v0_to_v1::ExecutionHeadersCleanup<
+			Runtime,
+			crate::weights::snowbridge_pallet_ethereum_client::WeightInfo<Runtime>,
+			ExecutionHeaderCount,
+		>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+	type CursorMaxLen = ConstU32<65_536>;
+	type IdentifierMaxLen = ConstU32<256>;
+	type MigrationStatusHandler = ();
+	type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
+	type MaxServiceWeight = MbmServiceWeight;
+	type WeightInfo = pallet_migrations::weights::SubstrateWeight<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -604,6 +630,8 @@ construct_runtime!(
 		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 81,
 		EthereumBeaconClient: snowbridge_pallet_ethereum_client = 82,
 		EthereumSystem: snowbridge_pallet_system = 83,
+
+		MultiBlockMigrations: pallet_migrations = 98,
 
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.

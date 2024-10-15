@@ -2202,6 +2202,7 @@ dependencies = [
 name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
+ "bridge-hub-rococo-runtime",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
@@ -2219,6 +2220,7 @@ dependencies = [
  "rococo-westend-system-emulated-network",
  "scale-info",
  "snowbridge-core",
+ "snowbridge-pallet-inbound-queue",
  "snowbridge-pallet-inbound-queue-fixtures",
  "snowbridge-pallet-outbound-queue",
  "snowbridge-pallet-system",
@@ -2280,6 +2282,7 @@ dependencies = [
  "pallet-bridge-relayers",
  "pallet-collator-selection",
  "pallet-message-queue",
+ "pallet-migrations",
  "pallet-multisig",
  "pallet-session",
  "pallet-timestamp",
@@ -20911,7 +20914,7 @@ dependencies = [
  "frame-system",
  "hex-literal",
  "log",
- "pallet-timestamp",
+ "pallet-migrations",
  "parity-scale-codec",
  "rand",
  "scale-info",
