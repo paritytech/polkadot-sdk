@@ -29,7 +29,7 @@ use sp_core::H256;
 use sp_runtime::Perbill;
 
 #[test]
-fn should_get_reports_with_storagemap_getter_and_deprecated_getter() {
+fn should_get_reports_with_storagemap_getter_and_function_getter() {
 	new_test_ext().execute_with(|| {
 		// given
 		let report_id: ReportIdOf<Runtime> = H256::from_low_u64_be(1);
