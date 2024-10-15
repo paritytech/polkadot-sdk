@@ -119,6 +119,7 @@ xcm-builder = { workspace = true }
 xcm-runtime-apis = { workspace = true }
 
 [dev-dependencies]
+approx = { workspace = true }
 tiny-keccak = { features = ["keccak"], workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }

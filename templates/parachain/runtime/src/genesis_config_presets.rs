@@ -1,10 +1,13 @@
-use cumulus_primitives_core::ParaId;
-
 use crate::{
 	AccountId, BalancesConfig, CollatorSelectionConfig, ParachainInfoConfig, PolkadotXcmConfig,
 	RuntimeGenesisConfig, SessionConfig, SessionKeys, SudoConfig, EXISTENTIAL_DEPOSIT,
 };
+
 use alloc::{vec, vec::Vec};
+
+use polkadot_sdk::{staging_xcm as xcm, *};
+
+use cumulus_primitives_core::ParaId;
 use parachains_common::AuraId;
 use serde_json::Value;
 use sp_genesis_builder::PresetId;
