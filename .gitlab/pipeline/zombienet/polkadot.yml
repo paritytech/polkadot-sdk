@@ -241,6 +241,14 @@ zombienet-polkadot-functional-0017-sync-backing:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0017-sync-backing.zndsl"
 
+zombienet-polkadot-functional-0018-shared-core-idle-parachain:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0018-shared-core-idle-parachain.zndsl"
+
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
     - .zombienet-polkadot-common
