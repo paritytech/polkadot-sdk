@@ -7,7 +7,11 @@ on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). We maintain a
 single integer version number for staking pallet to keep track of all storage
 migrations.
 
-## [v15]
+## [v16]
+
+
+### Added
+
 - New default implementation of `DisablingStrategy` - `UpToLimitWithReEnablingDisablingStrategy`. Same as `UpToLimitDisablingStrategy` except when a limit (1/3 default) is reached. When limit is reached the offender is only disabled if his offence is greater or equal than some other already disabled offender. The smallest possible offender is re-enabled to make space for the new greater offender. A limit should thus always be respected.
 - `DisabledValidators` changed format to include severity of the offence.
 
