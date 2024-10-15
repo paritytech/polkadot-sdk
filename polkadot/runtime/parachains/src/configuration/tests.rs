@@ -316,6 +316,7 @@ fn setting_pending_config_members() {
 			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
 			minimum_backing_votes: 5,
 			node_features: bitvec![u8, Lsb0; 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+			#[allow(deprecated)]
 			scheduler_params: SchedulerParams {
 				group_rotation_frequency: 20,
 				paras_availability_period: 10,

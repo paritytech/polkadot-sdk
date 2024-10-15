@@ -87,7 +87,7 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 
 	let occupied_cores: BTreeMap<CoreIndex, inclusion::CandidatePendingAvailability<_, _>> =
 		inclusion::Pallet::<T>::get_occupied_cores().collect();
-	let n_cores = scheduler::Pallet::<T>::num_validator_groups();
+	let n_cores = scheduler::Pallet::<T>::num_availability_cores();
 
 	(0..n_cores)
 		.map(|core_idx| {

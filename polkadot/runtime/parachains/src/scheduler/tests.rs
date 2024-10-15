@@ -91,6 +91,7 @@ fn default_config() -> HostConfiguration<BlockNumber> {
 		// `minimum_validation_upgrade_delay` is greater than `chain_availability_period` and
 		// `thread_availability_period`.
 		minimum_validation_upgrade_delay: 6,
+		#[allow(deprecated)]
 		scheduler_params: SchedulerParams {
 			group_rotation_frequency: 10,
 			paras_availability_period: 3,

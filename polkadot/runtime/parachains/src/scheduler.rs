@@ -198,8 +198,8 @@ impl<T: Config> Pallet<T> {
 		ValidatorGroups::<T>::get().get(group_index.0 as usize).map(|g| g.clone())
 	}
 
-	/// Get the number of validator groups.
-	pub(crate) fn num_validator_groups() -> usize {
+	/// Get the number of cores.
+	pub(crate) fn num_availability_cores() -> usize {
 		ValidatorGroups::<T>::decode_len().unwrap_or(0)
 	}
 
