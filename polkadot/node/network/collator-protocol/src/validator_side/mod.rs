@@ -205,9 +205,7 @@ impl PeerData {
 		}
 	}
 
-	/// Note an advertisement by the collator. Returns `true` if the advertisement was imported
-	/// successfully. Fails if the advertisement is duplicate, out of view, or the peer has not
-	/// declared itself a collator.
+	/// Performs sanity check for an advertisement and notes it as advertised.
 	fn insert_advertisement(
 		&mut self,
 		on_relay_parent: Hash,
@@ -476,7 +474,7 @@ where
 	// of the latest known relay parent plus its `lookahead` number of ancestors. When #5079 is
 	// merged everything will be deduced from the claim queue and this logic will be simplified.
 	let assigned_paras = {
-		let mut from_core: VecDeque<_> =
+		let from_core: VecDeque<_> =
 			if let Some(CoreState::Scheduled(core_state)) = cores.get(core_now.0 as usize) {
 				vec![core_state.para_id].into_iter().collect()
 			} else {
@@ -505,10 +503,13 @@ where
 				},
 			};
 
-		let mut from_claim_queue = from_claim_queue.unwrap_or_else(|| VecDeque::new());
-		from_core.append(&mut from_claim_queue);
+		let from_claim_queue = from_claim_queue.unwrap_or_else(|| VecDeque::new());
 
+		// The order is important - first from core, then from claim queue.
 		from_core
+			.into_iter()
+			.chain(from_claim_queue.into_iter())
+			.collect::<VecDeque<_>>()
 	};
 
 	for para_id in assigned_paras.iter() {
@@ -681,7 +682,6 @@ async fn request_collation(
 		.get_mut(&relay_parent)
 		.ok_or(FetchError::RelayParentOutOfView)?;
 
-	// Relay parent mode is checked in `handle_advertisement`.
 	let (requests, response_recv) = match (peer_protocol_version, prospective_candidate) {
 		(CollationVersion::V1, _) => {
 			let (req, response_recv) = OutgoingRequest::new(
