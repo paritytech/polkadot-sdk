@@ -1,0 +1,11 @@
+title: Fix `feeless_if` in pallet section
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fix compilation with `pallet::feeless_if` in a pallet section: a local binding unexpectely
+      resolved to a macro definition.
+
+crates:
+  - name: frame-support-procedural
+    bump: patch
