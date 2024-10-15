@@ -29,7 +29,7 @@ use crate::chain_head::{
 use futures::{
 	channel::oneshot,
 	stream::{self, Stream, StreamExt},
-	FutureExt,
+	SinkExt,
 };
 use log::debug;
 use sc_client_api::{
@@ -47,7 +47,6 @@ use sp_runtime::{
 };
 use std::{
 	collections::{HashSet, VecDeque},
-	mem,
 	sync::Arc,
 };
 /// The maximum number of finalized blocks provided by the
@@ -721,11 +720,8 @@ where
 		let (stream, handle) = futures::stream::abortable(stream);
 		let cancel_handle = handle.clone();
 
-		// create a oneshot to propagate error messages
-		let (tx_send, mut tx_receive) = oneshot::channel();
-
-		// TODO: is there a cleaner way to do this?
-		let tx_send = Arc::new(parking_lot::Mutex::new(tx_send));
+		// create a channel to propagate error messages
+		let (tx_send, mut tx_receive) = futures::channel::mpsc::channel(1);
 		let mut events = move |event| {
 			match event {
 				NotificationType::InitialEvents(events) => Ok(events),
@@ -735,41 +731,27 @@ where
 					self.handle_finalized_blocks(notification, &startup_point),
 				NotificationType::MethodResponse(notification) => Ok(vec![notification]),
 			}
-			.map_err(|err| {
+			.inspect_err(|e| {
 				debug!(
 					target: LOG_TARGET,
 					"[follow][id={:?}] Failed to handle stream notification {:?}",
-					self.sub_id,
-					err
+					&self.sub_id,
+					e
 				);
-				err
 			})
 		};
 
 		let stream = stream
 			.map(move |event| events(event))
-			.then(move |event| {
-				let handle = handle.clone();
+			.then(|event| {
 				let tx_send = tx_send.clone();
 				async move {
-					let handle = handle.clone();
-					let tx_send = tx_send.clone();
+					let mut tx_send = tx_send.clone();
 
 					let result = match event {
 						Ok(events) => stream::iter(events),
 						Err(err) => {
-							{
-								// TODO: this is very hacky
-								// grab the lock
-								// swap the channels
-								// return the error to the main channel
-								let mut tx_send = tx_send.lock();
-								let (mut s, _receiver) =
-									oneshot::channel::<SubscriptionManagementError>();
-								mem::swap(&mut s, &mut tx_send);
-								s.send(err).expect("shouldn't happpen.");
-							}
-							handle.abort();
+							tx_send.send(err).await.expect("shouldn't happpen.");
 							stream::iter(vec![])
 						},
 					};
@@ -779,34 +761,22 @@ where
 			.flatten();
 
 		tokio::pin!(stream);
-
-		let connection_closed = sink.closed().fuse();
-		tokio::pin!(connection_closed);
-
-		let sink_future = sink
-			.pipe_from_stream(stream, sc_rpc::utils::BoundedVecDeque::new(MAX_BUFFERED_EVENTS))
-			.fuse();
-
-		tokio::pin!(sink_future);
 		tokio::pin!(rx_stop);
 
-		let result = futures::select! {
-			err =  tx_receive => {
+		let sink_future =
+			sink.pipe_from_stream(stream, sc_rpc::utils::BoundedVecDeque::new(MAX_BUFFERED_EVENTS));
+
+		tokio::pin!(sink_future);
+		let result = tokio::select! {
+			err =  tx_receive.next() => {
 				Err(err.expect("should not happen.qed"))
 			}
-			_ = connection_closed => {
-				cancel_handle.abort();
-				Ok(())
-			}
-			_ = rx_stop => {
-				cancel_handle.abort();
-				Ok(())
-			}
-			_ = sink_future => {
-				cancel_handle.abort();
-				Ok(())
-			}
+			_ = rx_stop => Ok(()),
+			_ = sink_future => Ok(()),
 		};
+
+		cancel_handle.abort();
+
 		// // If we got here either:
 		// // - the substrate streams have closed
 		// // - the `Stop` receiver was triggered internally (cannot hold the pinned block
