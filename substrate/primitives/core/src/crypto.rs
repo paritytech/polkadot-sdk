@@ -420,6 +420,8 @@ pub fn set_default_ss58_version(new_default: Ss58AddressFormat) {
 }
 
 /// Interprets the string `s` in order to generate a public key without password.
+///
+/// Function will panic when invalid string is provided.
 #[cfg(feature = "serde")]
 pub fn get_public_from_string_or_panic<TPublic: Public>(
 	s: &str,
