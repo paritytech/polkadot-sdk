@@ -204,7 +204,7 @@ pub mod pallet {
 		/// The current spot price is higher than the max amount specified in the `place_order`
 		/// call, making it invalid.
 		SpotPriceHigherThanMaxAmount,
-		/// The doesn't have enough credits to purchase on-demand coretime.
+		/// The account doesn't have enough credits to purchase on-demand coretime.
 		InsufficientCredits,
 	}
 
