@@ -46,10 +46,9 @@ use sc_client_db::{BlocksPruning, DatabaseSettings, DatabaseSource};
 use sc_executor::WasmExecutor;
 use sc_service::{new_client, new_db_backend, BasePath, ClientConfig, TFullClient, TaskManager};
 use serde::Serialize;
-use serde_json::{json, Value};
 use sp_api::{ApiExt, CallApiAt, Core, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
-use sp_core::{crypto::AccountId32, H256};
+use sp_core::H256;
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_runtime::{
 	generic,
@@ -59,7 +58,6 @@ use sp_runtime::{
 use sp_wasm_interface::HostFunctions;
 use std::{fmt::Debug, path::PathBuf, sync::Arc};
 use subxt::{ext::futures, Metadata};
-use subxt_signer::{eth::Keypair as EthKeypair, DeriveJunction};
 
 const DEFAULT_PARA_ID: u32 = 100;
 
@@ -124,10 +122,6 @@ pub struct OverheadParams {
 	#[arg(long, value_enum)]
 	pub genesis_builder: Option<GenesisBuilderPolicy>,
 
-	/// Account type to generate.
-	#[arg(long)]
-	pub account_type: Option<AccountType>,
-
 	/// Inflate the genesis state by generating accounts.
 	///
 	/// Can be used together with `--account_type` to specify the type of accounts to generate.
@@ -138,15 +132,6 @@ pub struct OverheadParams {
 	/// a para-id and patch the state accordingly.
 	#[arg(long)]
 	pub para_id: Option<u32>,
-}
-
-/// Enum representing the type of account to generate.
-#[derive(Debug, Clone, PartialEq, clap::ValueEnum, Serialize)]
-pub enum AccountType {
-	/// Sr25519 account type.
-	Sr25519,
-	/// ECDSA account type.
-	ECDSA,
 }
 
 /// Type of a benchmark.
@@ -225,79 +210,6 @@ fn create_inherent_data<Client: UsageProvider<Block> + HeaderBackend<Block>, Blo
 pub struct ParachainExtension {
 	/// The id of the Parachain.
 	pub para_id: Option<u32>,
-}
-
-fn generate_balances_sr25519(num_accounts: u64) -> Vec<Value> {
-	let alice_pair = subxt_signer::sr25519::dev::alice();
-	(0..num_accounts)
-		.into_iter()
-		.map(|path| {
-			let derived = alice_pair.derive([DeriveJunction::hard(path.to_string())]);
-			json!((AccountId32::from(derived.public_key().0), 1u64 << 60,))
-		})
-		.collect()
-}
-
-fn generate_balances_ecdsa(num_accounts: u64) -> Vec<Value> {
-	let alice_pair = subxt_signer::ecdsa::dev::alice();
-	(0..num_accounts)
-		.into_iter()
-		.map(|path| {
-			let derived = alice_pair.derive([DeriveJunction::hard(path.to_string())]).unwrap();
-			json!((
-				"0x".to_string() + &hex::encode(EthKeypair::from(derived).account_id()),
-				1u64 << 60,
-			))
-		})
-		.collect()
-}
-
-/// Patch the genesis state.
-///
-/// We perform two actions:
-/// 1. Inflate the genesis state by generating accounts.
-/// 2. Patch the parachain id into the genesis config. This is necessary since the inherents
-/// also contain a parachain id and they need to match.
-fn patch_genesis(
-	mut input_value: Value,
-	num_accounts: Option<u64>,
-	chain_type: ChainType,
-	generate_accounts: Option<AccountType>,
-) -> Value {
-	// If we identified a parachain we should patch a parachain id into the genesis config.
-	// This ensures compatibility with the inherents that we provide to successfully build a
-	// block.
-	if let Parachain(para_id) = chain_type {
-		sc_chain_spec::json_patch::merge(
-			&mut input_value,
-			json!({
-				"parachainInfo": {
-					"parachainId": para_id,
-				}
-			}),
-		);
-		log::debug!("Genesis Config Json");
-		log::debug!("{}", input_value);
-	}
-
-	if let Some(num_accounts) = num_accounts {
-		// Attempt to patch balances
-		if let Some(balances) = input_value
-			.get_mut("balances")
-			.and_then(|info| info.get_mut("balances"))
-			.and_then(|balance| balance.as_array_mut())
-		{
-			let generated = match &generate_accounts {
-				None => Default::default(),
-				Some(AccountType::Sr25519) => generate_balances_sr25519(num_accounts),
-				Some(AccountType::ECDSA) => generate_balances_ecdsa(num_accounts),
-			};
-			balances.extend(generated);
-		} else {
-			log::warn!("No balances found.");
-		}
-	}
-	input_value
 }
 
 impl OverheadCmd {
@@ -425,19 +337,12 @@ impl OverheadCmd {
 			},
 		})?;
 
-		//let storage = self.storage(&code_bytes, chain_spec, &chain_type)?;
-		let chain_type_for_closure = chain_type.clone();
-		let num_accounts = self.params.generate_num_accounts;
-		let account_type = self.params.account_type.clone();
 		let storage = shared::genesis_state::genesis_storage::<HF>(
 			self.params.genesis_builder,
 			&self.params.runtime,
 			Some(&code_bytes),
 			&self.params.genesis_builder_preset,
 			&chain_spec,
-			Some(Box::new(move |val| {
-				patch_genesis(val, num_accounts, chain_type_for_closure, account_type)
-			})),
 		)?;
 
 		let genesis_block_builder = GenesisBlockBuilder::new_with_storage(
