@@ -425,7 +425,7 @@ pub fn get_public_from_string_or_panic<TPublic: Public>(
 	s: &str,
 ) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{}", s), None)
-		.expect("static values are valid; qed")
+		.expect("Function expects valid argument; qed")
 		.public()
 }
 
