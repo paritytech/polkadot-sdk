@@ -27,7 +27,10 @@ use sc_executor_common::{
 	wasm_runtime::{HeapAllocStrategy, WasmModule as _},
 };
 use sc_executor_wasmtime::{Config, DeterministicStackLimit, Semantics, WasmtimeRuntime};
-use sp_core::storage::{ChildInfo, TrackedStorageKey};
+use sp_core::{
+	storage::{ChildInfo, TrackedStorageKey},
+	traits::CallContext,
+};
 use sp_externalities::MultiRemovalResults;
 use std::any::{Any, TypeId};
 
@@ -98,7 +101,7 @@ pub const DEFAULT_CONFIG: Config = Config {
 
 /// Executes the given PVF in the form of a compiled artifact and returns the result of
 /// execution upon success.
-///
+//
 /// # Safety
 ///
 /// The caller must ensure that the compiled artifact passed here was:
@@ -119,7 +122,7 @@ pub unsafe fn execute_artifact(
 
 	match sc_executor::with_externalities_safe(&mut ext, || {
 		let runtime = create_runtime_from_artifact_bytes(compiled_artifact_blob, executor_params)?;
-		runtime.new_instance()?.call("validate_block", params)
+		runtime.new_instance()?.call("validate_block", params, CallContext::Onchain)
 	}) {
 		Ok(Ok(ok)) => Ok(ok),
 		Ok(Err(err)) | Err(err) => Err(err),

@@ -93,6 +93,7 @@ pub struct WasmExecutorBuilder<H = sp_io::SubstrateHostFunctions> {
 	cache_path: Option<PathBuf>,
 	allow_missing_host_functions: bool,
 	runtime_cache_size: u8,
+	context: CallContext,
 }
 
 impl<H> WasmExecutorBuilder<H> {
@@ -110,6 +111,7 @@ impl<H> WasmExecutorBuilder<H> {
 			runtime_cache_size: 4,
 			allow_missing_host_functions: false,
 			cache_path: None,
+			context: CallContext::Onchain,
 		}
 	}
 
@@ -193,6 +195,14 @@ impl<H> WasmExecutorBuilder<H> {
 		self
 	}
 
+	/// Create the was executor and set the call context for the created instance.
+	///
+	/// By default this value is set to `CallContext::Onchain`.
+	pub fn with_context(mut self, context: CallContext) -> Self {
+		self.context = context;
+		self
+	}
+
 	/// Build the configured [`WasmExecutor`].
 	pub fn build(self) -> WasmExecutor<H> {
 		WasmExecutor {
@@ -211,6 +221,7 @@ impl<H> WasmExecutorBuilder<H> {
 			)),
 			cache_path: self.cache_path,
 			allow_missing_host_functions: self.allow_missing_host_functions,
+			context: self.context,
 			phantom: PhantomData,
 		}
 	}
@@ -234,6 +245,8 @@ pub struct WasmExecutor<H = sp_io::SubstrateHostFunctions> {
 	cache_path: Option<PathBuf>,
 	/// Ignore missing function imports.
 	allow_missing_host_functions: bool,
+	/// The call context in which the wasm code executor is instantiated.
+	context: CallContext,
 	phantom: PhantomData<H>,
 }
 
@@ -248,6 +261,7 @@ impl<H> Clone for WasmExecutor<H> {
 			cache_path: self.cache_path.clone(),
 			allow_missing_host_functions: self.allow_missing_host_functions,
 			phantom: self.phantom,
+			context: self.context,
 		}
 	}
 }
@@ -284,6 +298,7 @@ impl<H> WasmExecutor<H> {
 		max_runtime_instances: usize,
 		cache_path: Option<PathBuf>,
 		runtime_cache_size: u8,
+		context: CallContext,
 	) -> Self {
 		WasmExecutor {
 			method,
@@ -302,6 +317,7 @@ impl<H> WasmExecutor<H> {
 			cache_path,
 			allow_missing_host_functions: false,
 			phantom: PhantomData,
+			context,
 		}
 	}
 
@@ -339,6 +355,7 @@ where
 		runtime_code: &RuntimeCode,
 		ext: &mut dyn Externalities,
 		heap_alloc_strategy: HeapAllocStrategy,
+		context: CallContext,
 		f: F,
 	) -> Result<R>
 	where
@@ -355,6 +372,7 @@ where
 			self.method,
 			heap_alloc_strategy,
 			self.allow_missing_host_functions,
+			context,
 			|module, instance, version, ext| {
 				let module = AssertUnwindSafe(module);
 				let instance = AssertUnwindSafe(instance);
@@ -382,6 +400,7 @@ where
 		allow_missing_host_functions: bool,
 		export_name: &str,
 		call_data: &[u8],
+		context: CallContext,
 	) -> std::result::Result<Vec<u8>, Error> {
 		self.uncached_call_impl(
 			runtime_blob,
@@ -390,6 +409,7 @@ where
 			export_name,
 			call_data,
 			&mut None,
+			context,
 		)
 	}
 
@@ -402,6 +422,7 @@ where
 		allow_missing_host_functions: bool,
 		export_name: &str,
 		call_data: &[u8],
+		context: CallContext,
 	) -> (std::result::Result<Vec<u8>, Error>, Option<AllocationStats>) {
 		let mut allocation_stats = None;
 		let result = self.uncached_call_impl(
@@ -411,6 +432,7 @@ where
 			export_name,
 			call_data,
 			&mut allocation_stats,
+			context,
 		);
 		(result, allocation_stats)
 	}
@@ -423,6 +445,7 @@ where
 		export_name: &str,
 		call_data: &[u8],
 		allocation_stats_out: &mut Option<AllocationStats>,
+		context: CallContext,
 	) -> std::result::Result<Vec<u8>, Error> {
 		let module = crate::wasm_runtime::create_wasm_runtime_with_code::<H>(
 			self.method,
@@ -442,7 +465,7 @@ where
 
 		with_externalities_safe(&mut **ext, move || {
 			let (result, allocation_stats) =
-				instance.call_with_allocation_stats(export_name.into(), call_data);
+				instance.call_with_allocation_stats(export_name.into(), call_data, context);
 			**allocation_stats_out = allocation_stats;
 			result
 		})
@@ -483,6 +506,7 @@ where
 			true,
 			"Core_version",
 			&[],
+			CallContext::Onchain,
 		)
 		.map_err(|e| e.to_string())
 	}
@@ -526,8 +550,11 @@ where
 			runtime_code,
 			ext,
 			heap_alloc_strategy,
+			context,
 			|_, mut instance, _on_chain_version, mut ext| {
-				with_externalities_safe(&mut **ext, move || instance.call_export(method, data))
+				with_externalities_safe(&mut **ext, move || {
+					instance.call_export(method, data, context)
+				})
 			},
 		);
 
@@ -557,6 +584,7 @@ where
 			runtime_code,
 			ext,
 			on_chain_heap_pages,
+			CallContext::Onchain,
 			|_module, _instance, version, _ext| {
 				Ok(version.cloned().ok_or_else(|| Error::ApiError("Unknown version".into())))
 			},
@@ -697,6 +725,7 @@ impl<D: NativeExecutionDispatch + 'static> CodeExecutor for NativeElseWasmExecut
 			runtime_code,
 			ext,
 			heap_alloc_strategy,
+			context,
 			|_, mut instance, on_chain_version, mut ext| {
 				let on_chain_version =
 					on_chain_version.ok_or_else(|| Error::ApiError("Unknown version".into()))?;
@@ -725,7 +754,9 @@ impl<D: NativeExecutionDispatch + 'static> CodeExecutor for NativeElseWasmExecut
 						);
 					}
 
-					with_externalities_safe(&mut **ext, move || instance.call_export(method, data))
+					with_externalities_safe(&mut **ext, move || {
+						instance.call_export(method, data, context)
+					})
 				}
 			},
 		);

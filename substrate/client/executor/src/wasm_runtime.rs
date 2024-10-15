@@ -30,7 +30,7 @@ use sc_executor_common::{
 	wasm_runtime::{HeapAllocStrategy, WasmInstance, WasmModule},
 };
 use schnellru::{ByLength, LruMap};
-use sp_core::traits::{Externalities, FetchRuntimeCode, RuntimeCode};
+use sp_core::traits::{CallContext, Externalities, FetchRuntimeCode, RuntimeCode};
 use sp_version::RuntimeVersion;
 use sp_wasm_interface::HostFunctions;
 
@@ -222,6 +222,7 @@ impl RuntimeCache {
 		wasm_method: WasmExecutionMethod,
 		heap_alloc_strategy: HeapAllocStrategy,
 		allow_missing_func_imports: bool,
+		context: CallContext,
 		f: F,
 	) -> Result<Result<R, Error>, Error>
 	where
@@ -255,6 +256,7 @@ impl RuntimeCache {
 				allow_missing_func_imports,
 				self.max_runtime_instances,
 				self.cache_path.as_deref(),
+				context,
 			);
 
 			match result {
@@ -389,6 +391,7 @@ fn create_versioned_wasm_runtime<H>(
 	allow_missing_func_imports: bool,
 	max_instances: usize,
 	cache_path: Option<&Path>,
+	context: CallContext,
 ) -> Result<VersionedRuntime, WasmError>
 where
 	H: HostFunctions,
@@ -423,7 +426,7 @@ where
 			// runtime will be dropped.
 			let runtime = AssertUnwindSafe(runtime.as_ref());
 			crate::executor::with_externalities_safe(&mut **ext, move || {
-				runtime.new_instance()?.call("Core_version".into(), &[])
+				runtime.new_instance()?.call("Core_version".into(), &[], context)
 			})
 			.map_err(|_| WasmError::Instantiation("panic in call to get runtime version".into()))?
 		};
