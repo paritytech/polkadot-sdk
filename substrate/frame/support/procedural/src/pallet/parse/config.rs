@@ -452,6 +452,12 @@ impl ConfigDef {
 					//
 					// They must provide a type item that implements `TypeInfo`.
 					(PalletAttrType::IncludeMetadata(_), syn::TraitItem::Type(ref typ)) => {
+						if already_collected_associated_type.is_some() {
+							return Err(syn::Error::new(
+								pallet_attr._bracket.span.join(),
+								"Duplicate #[pallet::include_metadata] attribute not allowed.",
+							));
+						}
 						already_collected_associated_type = Some(pallet_attr._bracket.span.join());
 						associated_types_metadata.push(AssociatedTypeMetadataDef::from(AssociatedTypeMetadataDef::from(typ)));
 					}
