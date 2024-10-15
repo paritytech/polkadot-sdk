@@ -466,8 +466,7 @@ where
 
 	// Assigned parachains are determined by:
 	// 1. If there is something scheduled on the core - this is the first assignment.
-	// 2. Next assigments are whatever is in the claim queue for the core.
-	//     2.1 If the claim queue is
+	// 2. Next assigments are whatever is in the claim queue for the core. 2.1 If the claim queue is
 	//    not available and the core is occupied the next assignemnt is taken from
 	//    `next_up_on_available`
 	//

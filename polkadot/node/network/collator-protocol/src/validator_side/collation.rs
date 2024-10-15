@@ -222,7 +222,8 @@ pub struct Collations {
 	/// This is the currently last started fetch, which did not exceed `MAX_UNSHARED_DOWNLOAD_TIME`
 	/// yet.
 	pub fetching_from: Option<(CollatorId, Option<CandidateHash>)>,
-	/// Collation that were advertised to us, but we did not yet request or fetch. Grouped by `ParaId`.
+	/// Collation that were advertised to us, but we did not yet request or fetch. Grouped by
+	/// `ParaId`.
 	waiting_queue: BTreeMap<ParaId, VecDeque<(PendingCollation, CollatorId)>>,
 	/// Number of seconded candidates and claims in the claim queue per `ParaId`.
 	candidates_state: BTreeMap<ParaId, CandidatesStatePerPara>,
@@ -304,7 +305,8 @@ impl Collations {
 		}
 	}
 
-	// Returns the number of seconded and likely soon to be seconded collations for the specified `ParaId`.
+	// Returns the number of seconded and likely soon to be seconded collations for the specified
+	// `ParaId`.
 	pub(super) fn seconded_and_pending_for_para(&self, para_id: &ParaId) -> usize {
 		let seconded_for_para = self
 			.candidates_state
