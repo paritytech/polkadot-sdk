@@ -43,7 +43,6 @@ pub mod tests;
 use composite::{keyword::CompositeKeyword, CompositeDef};
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use quote::ToTokens;
-use std::collections::HashMap;
 use syn::spanned::Spanned;
 
 /// Parsed definition of a pallet.
@@ -700,26 +699,29 @@ impl syn::parse::Parse for PalletAttr {
 					inside_config.parse_terminated(ConfigValue::parse, syn::Token![,])?;
 				let config_values = fields.iter().collect::<Vec<_>>();
 
-				let frequencies = config_values.iter().fold(HashMap::new(), |mut map, val| {
-					let string_name = match val {
-						ConfigValue::WithDefault(_) => "with_default",
-						ConfigValue::WithoutAutomaticMetadata(_) => "without_automatic_metadata",
+				let mut with_default = false;
+				let mut without_automatic_metadata = false;
+				for config in config_values {
+					match config {
+						ConfigValue::WithDefault(_) => {
+							if with_default {
+								return Err(syn::Error::new(
+									span,
+									"Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates: with_default.",
+								));
+							}
+							with_default = true;
+						},
+						ConfigValue::WithoutAutomaticMetadata(_) => {
+							if without_automatic_metadata {
+								return Err(syn::Error::new(
+									span,
+									"Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates: without_automatic_metadata.",
+								));
+							}
+							without_automatic_metadata = true;
+						},
 					}
-					.to_string();
-					map.entry(string_name).and_modify(|frq| *frq += 1).or_insert(1);
-					map
-				});
-				let with_default = frequencies.get("with_default").copied().unwrap_or(0) > 0;
-				let without_automatic_metadata =
-					frequencies.get("without_automatic_metadata").copied().unwrap_or(0) > 0;
-
-				let duplicates = frequencies
-					.into_iter()
-					.filter_map(|(name, frq)| if frq > 1 { Some(name) } else { None })
-					.collect::<Vec<_>>();
-				if !duplicates.is_empty() {
-					let msg = format!("Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates: {}.", duplicates.join(", "));
-					return Err(syn::Error::new(span, msg));
 				}
 
 				Ok(PalletAttr::Config { span, with_default, without_automatic_metadata })
