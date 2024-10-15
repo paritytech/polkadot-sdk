@@ -360,7 +360,9 @@ fn contains_type_info_bound(ty: &TraitItemType) -> bool {
 	ty.bounds.iter().any(|bound| {
 		let syn::TypeParamBound::Trait(bound) = bound else { return false };
 
-		KNOWN_TYPE_INFO_BOUNDS.iter().any(|known| bound.path.is_ident(known))
+		KNOWN_TYPE_INFO_BOUNDS
+			.iter()
+			.any(|known| bound.path.segments.last().map_or(false, |last| last.ident == *known))
 	})
 }
 
