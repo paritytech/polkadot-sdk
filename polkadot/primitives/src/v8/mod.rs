@@ -2094,7 +2094,7 @@ pub struct SchedulerParams<BlockNumber> {
 	/// How many cores are managed by the coretime chain.
 	pub num_cores: u32,
 	/// Deprecated and no longer used by the runtime.
-	/// Removal is tracked by https://github.com/paritytech/polkadot-sdk/issues/6067.
+	/// Removal is tracked by <https://github.com/paritytech/polkadot-sdk/issues/6067>.
 	#[deprecated]
 	pub max_availability_timeouts: u32,
 	/// The maximum queue size of the pay as you go module.
@@ -2107,7 +2107,7 @@ pub struct SchedulerParams<BlockNumber> {
 	/// The minimum amount needed to claim a slot in the spot pricing queue.
 	pub on_demand_base_fee: Balance,
 	/// Deprecated and no longer used by the runtime.
-	/// Removal is tracked by https://github.com/paritytech/polkadot-sdk/issues/6067.
+	/// Removal is tracked by <https://github.com/paritytech/polkadot-sdk/issues/6067>.
 	#[deprecated]
 	pub ttl: BlockNumber,
 }
