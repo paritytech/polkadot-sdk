@@ -84,6 +84,7 @@ mod tests {
 				true,
 				"test_empty_return",
 				&[],
+				Default::default(),
 			)
 			.unwrap();
 		assert_eq!(res, vec![0u8; 0]);
