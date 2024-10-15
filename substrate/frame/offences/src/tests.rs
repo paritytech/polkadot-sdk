@@ -38,7 +38,6 @@ fn should_get_reports_with_storagemap_getter_and_deprecated_getter() {
 		Reports::<Runtime>::insert(report_id, offence_details.clone());
 
 		// when
-		#[allow(deprecated)]
 		let stored_offence_details = Offences::reports(report_id);
 		// then
 		assert_eq!(stored_offence_details, Some(offence_details.clone()));
