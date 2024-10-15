@@ -80,21 +80,6 @@ pub mod pallet {
 		OffenceDetails<T::AccountId, T::IdentificationTuple>,
 	>;
 
-	impl<T: Config> Pallet<T> {
-		#[deprecated(note = "Use Reports::<T>::get(id) instead.")]
-		pub fn reports<KArg>(
-			k: KArg,
-		) -> Option<OffenceDetails<T::AccountId, T::IdentificationTuple>>
-		where
-			KArg: frame_support::__private::codec::EncodeLike<ReportIdOf<T>>,
-		{
-			<Reports<T> as frame_support::storage::StorageMap<
-				ReportIdOf<T>,
-				OffenceDetails<T::AccountId, T::IdentificationTuple>,
-			>>::get(k)
-		}
-	}
-
 	/// A vector of reports of the same kind that happened at the same time slot.
 	#[pallet::storage]
 	pub type ConcurrentReportsIndex<T: Config> = StorageDoubleMap<
@@ -166,6 +151,13 @@ where
 }
 
 impl<T: Config> Pallet<T> {
+	/// Get the offence details from reports of given ID.
+	pub fn reports(
+		report_id: ReportIdOf<T>,
+	) -> Option<OffenceDetails<T::AccountId, T::IdentificationTuple>> {
+		Reports::<T>::get(report_id)
+	}
+
 	/// Compute the ID for the given report properties.
 	///
 	/// The report id depends on the offence kind, time slot and the id of offender.
