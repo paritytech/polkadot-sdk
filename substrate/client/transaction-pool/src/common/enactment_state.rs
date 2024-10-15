@@ -34,7 +34,7 @@ const SKIP_MAINTENANCE_THRESHOLD: u16 = 20;
 /// is to figure out which phases (enactment / finalization) of transaction pool
 /// maintenance are needed.
 ///
-/// Given the following chain:
+/// Example: given the following chain:
 ///
 ///   B1-C1-D1-E1
 ///  /
@@ -42,8 +42,8 @@ const SKIP_MAINTENANCE_THRESHOLD: u16 = 20;
 ///  \
 ///   B2-C2-D2-E2
 ///
-/// Some scenarios and expected behavior for sequence of `NewBestBlock` (`nbb`) and `Finalized`
-/// (`f`) events:
+/// the list presents scenarios and expected behavior for sequence of `NewBestBlock` (`nbb`)
+/// and `Finalized` (`f`) events. true/false means if enactiment is required:
 ///
 /// - `nbb(C1)`, `f(C1)` -> false (enactment was already performed in `nbb(C1))`
 /// - `f(C1)`, `nbb(C1)` -> false (enactment was already performed in `f(C1))`
@@ -103,7 +103,7 @@ where
 		let new_hash = event.hash();
 		let finalized = event.is_finalized();
 
-		// do not proceed with txpool maintain if block distance is to high
+		// do not proceed with txpool maintain if block distance is too high
 		let skip_maintenance =
 			match (hash_to_number(new_hash), hash_to_number(self.recent_best_block)) {
 				(Ok(Some(new)), Ok(Some(current))) =>
@@ -112,14 +112,14 @@ where
 			};
 
 		if skip_maintenance {
-			log::debug!(target: LOG_TARGET, "skip maintain: tree_route would be too long");
+			log::trace!(target: LOG_TARGET, "skip maintain: tree_route would be too long");
 			self.force_update(event);
 			return Ok(EnactmentAction::Skip)
 		}
 
 		// block was already finalized
 		if self.recent_finalized_block == new_hash {
-			log::debug!(target: LOG_TARGET, "handle_enactment: block already finalized");
+			log::trace!(target: LOG_TARGET, "handle_enactment: block already finalized");
 			return Ok(EnactmentAction::Skip)
 		}
 
@@ -127,7 +127,7 @@ where
 		// it instead of tree_route provided with event
 		let tree_route = tree_route(self.recent_best_block, new_hash)?;
 
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET,
 			"resolve hash: {new_hash:?} finalized: {finalized:?} \
 			 tree_route: (common {:?}, last {:?}) best_block: {:?} finalized_block:{:?}",
@@ -141,7 +141,7 @@ where
 		// happening if we first received a finalization event and then a new
 		// best event for some old stale best head.
 		if tree_route.retracted().iter().any(|x| x.hash == self.recent_finalized_block) {
-			log::debug!(
+			log::trace!(
 				target: LOG_TARGET,
 				"Recently finalized block {} would be retracted by ChainEvent {}, skipping",
 				self.recent_finalized_block,
@@ -180,7 +180,7 @@ where
 			ChainEvent::NewBestBlock { hash, .. } => self.recent_best_block = *hash,
 			ChainEvent::Finalized { hash, .. } => self.recent_finalized_block = *hash,
 		};
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET,
 			"forced update: {:?}, {:?}",
 			self.recent_best_block,
@@ -296,7 +296,7 @@ mod enactment_state_tests {
 		use super::*;
 
 		/// asserts that tree routes are equal
-		fn assert_treeroute_eq(
+		fn assert_tree_route_eq(
 			expected: Result<TreeRoute<Block>, String>,
 			result: Result<TreeRoute<Block>, String>,
 		) {
@@ -323,56 +323,56 @@ mod enactment_state_tests {
 		fn tree_route_mock_test_01() {
 			let result = tree_route(b1().hash, a().hash);
 			let expected = TreeRoute::new(vec![b1(), a()], 1);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 
 		#[test]
 		fn tree_route_mock_test_02() {
 			let result = tree_route(a().hash, b1().hash);
 			let expected = TreeRoute::new(vec![a(), b1()], 0);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 
 		#[test]
 		fn tree_route_mock_test_03() {
 			let result = tree_route(a().hash, c2().hash);
 			let expected = TreeRoute::new(vec![a(), b2(), c2()], 0);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 
 		#[test]
 		fn tree_route_mock_test_04() {
 			let result = tree_route(e2().hash, a().hash);
 			let expected = TreeRoute::new(vec![e2(), d2(), c2(), b2(), a()], 4);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 
 		#[test]
 		fn tree_route_mock_test_05() {
 			let result = tree_route(d1().hash, b1().hash);
 			let expected = TreeRoute::new(vec![d1(), c1(), b1()], 2);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 
 		#[test]
 		fn tree_route_mock_test_06() {
 			let result = tree_route(d2().hash, b2().hash);
 			let expected = TreeRoute::new(vec![d2(), c2(), b2()], 2);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 
 		#[test]
 		fn tree_route_mock_test_07() {
 			let result = tree_route(b1().hash, d1().hash);
 			let expected = TreeRoute::new(vec![b1(), c1(), d1()], 0);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 
 		#[test]
 		fn tree_route_mock_test_08() {
 			let result = tree_route(b2().hash, d2().hash);
 			let expected = TreeRoute::new(vec![b2(), c2(), d2()], 0);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 
 		#[test]
@@ -380,7 +380,7 @@ mod enactment_state_tests {
 			let result = tree_route(e2().hash, e1().hash);
 			let expected =
 				TreeRoute::new(vec![e2(), d2(), c2(), b2(), a(), b1(), c1(), d1(), e1()], 4);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 
 		#[test]
@@ -388,55 +388,55 @@ mod enactment_state_tests {
 			let result = tree_route(e1().hash, e2().hash);
 			let expected =
 				TreeRoute::new(vec![e1(), d1(), c1(), b1(), a(), b2(), c2(), d2(), e2()], 4);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 		#[test]
 		fn tree_route_mock_test_11() {
 			let result = tree_route(b1().hash, c2().hash);
 			let expected = TreeRoute::new(vec![b1(), a(), b2(), c2()], 1);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 
 		#[test]
 		fn tree_route_mock_test_12() {
 			let result = tree_route(d2().hash, b1().hash);
 			let expected = TreeRoute::new(vec![d2(), c2(), b2(), a(), b1()], 3);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 
 		#[test]
 		fn tree_route_mock_test_13() {
 			let result = tree_route(c2().hash, e1().hash);
 			let expected = TreeRoute::new(vec![c2(), b2(), a(), b1(), c1(), d1(), e1()], 2);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 
 		#[test]
 		fn tree_route_mock_test_14() {
 			let result = tree_route(b1().hash, b1().hash);
 			let expected = TreeRoute::new(vec![b1()], 0);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 
 		#[test]
 		fn tree_route_mock_test_15() {
 			let result = tree_route(b2().hash, b2().hash);
 			let expected = TreeRoute::new(vec![b2()], 0);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 
 		#[test]
 		fn tree_route_mock_test_16() {
 			let result = tree_route(a().hash, a().hash);
 			let expected = TreeRoute::new(vec![a()], 0);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 
 		#[test]
 		fn tree_route_mock_test_17() {
 			let result = tree_route(x2().hash, b1().hash);
 			let expected = TreeRoute::new(vec![x2(), e2(), d2(), c2(), b2(), a(), b1()], 5);
-			assert_treeroute_eq(result, expected);
+			assert_tree_route_eq(result, expected);
 		}
 	}
 

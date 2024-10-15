@@ -66,8 +66,13 @@ impl Default for TestSetup {
 		let client = Arc::new(substrate_test_runtime_client::TestClientBuilder::new().build());
 
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 		TestSetup { client, keystore, pool }
 	}
 }
