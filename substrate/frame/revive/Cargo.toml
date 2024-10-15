@@ -19,8 +19,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 environmental = { workspace = true }
 paste = { workspace = true }
-polkavm = { git = "https://github.com/xermicus/polkavm", branch = "cl/blob-length", default-features = false }
-polkavm-common = { git = "https://github.com/xermicus/polkavm", branch = "cl/blob-length", default-features = false }
+polkavm = { version = "0.13.0", default-features = false }
+polkavm-common = { version = "0.13.0", default-features = false }
 bitflags = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }

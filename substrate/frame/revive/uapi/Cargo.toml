@@ -21,7 +21,7 @@ codec = { features = [
 ], optional = true, workspace = true }
 
 [target.'cfg(target_arch = "riscv32")'.dependencies]
-polkavm-derive = { version = "0.12.0" }
+polkavm-derive = { version = "0.13.0" }
 
 [package.metadata.docs.rs]
 default-target = ["wasm32-unknown-unknown"]
