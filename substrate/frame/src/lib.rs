@@ -74,11 +74,8 @@
 //! }
 //! ```
 //!
-//! See: .
-//!
 //! If not in preludes, one can look into the domain-specific modules. Finally, if an import is
 //! still not feasible, one can look into [`deps`].
-//!
 //!
 //! ## Naming
 //!
@@ -218,8 +215,11 @@ pub mod try_runtime {
 pub mod benchmarking {
 	mod shared {
 		pub use frame_benchmarking::{add_benchmark, v1::account, whitelist, whitelisted_caller};
-		// all benchmarking host functions.
+		//. all benchmarking host functions.
 		pub use frame_benchmarking::benchmarking::*;
+		// The system origin, which is very often needed in benchmarking code. Might be tricky only
+		// if the pallet defines its own `#[pallet::origin]` and call it `RawOrigin`.
+		pub use frame_system::RawOrigin;
 	}
 
 	#[deprecated(note = "use the syntax in `frame::benchmarking::v2`")]
@@ -524,6 +524,8 @@ pub mod deps {
 	#[cfg(feature = "runtime")]
 	pub use sp_consensus_grandpa;
 	#[cfg(feature = "runtime")]
+	pub use sp_genesis_builder;
+	#[cfg(feature = "runtime")]
 	pub use sp_inherents;
 	#[cfg(feature = "runtime")]
 	pub use sp_offchain;
@@ -531,8 +533,6 @@ pub mod deps {
 	pub use sp_storage;
 	#[cfg(feature = "runtime")]
 	pub use sp_version;
-	#[cfg(feature = "runtime")]
-	pub use sp_genesis_builder;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub use frame_benchmarking;

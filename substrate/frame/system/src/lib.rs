@@ -2267,9 +2267,6 @@ impl<T: Config> Lookup for ChainContext<T> {
 pub mod pallet_prelude {
 	pub use crate::{ensure_none, ensure_root, ensure_signed, ensure_signed_or_root};
 
-	#[doc(inline)]
-	pub use super::RawOrigin;
-
 	/// Type alias for the `Origin` associated type of system config.
 	pub type OriginFor<T> = <T as crate::Config>::RuntimeOrigin;
 

@@ -91,8 +91,9 @@ mod benchmarks {
 		// ... and "real" is the traditional caller. This is not a typo.
 		let real: T::AccountId = whitelisted_caller();
 		let real_lookup = T::Lookup::unlookup(real);
-		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
-	
+		let call: <T as Config>::RuntimeCall =
+			frame_system::Call::<T>::remark { remark: vec![] }.into();
+
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), real_lookup, Some(T::ProxyType::default()), Box::new(call));
 
@@ -100,10 +101,12 @@ mod benchmarks {
 
 		Ok(())
 	}
-		
 
 	#[benchmark]
-	fn proxy_announced(a: Linear<0, { T::MaxPending::get() - 1 }>, p: Linear<1, { T::MaxProxies::get() - 1 }>) -> Result<(), BenchmarkError> {
+	fn proxy_announced(
+		a: Linear<0, { T::MaxPending::get() - 1 }>,
+		p: Linear<1, { T::MaxProxies::get() - 1 }>,
+	) -> Result<(), BenchmarkError> {
 		add_proxies::<T>(p, None)?;
 		// In this case the caller is the "target" proxy
 		let caller: T::AccountId = account("pure", 0, SEED);
@@ -113,24 +116,34 @@ mod benchmarks {
 		// ... and "real" is the traditional caller. This is not a typo.
 		let real: T::AccountId = whitelisted_caller();
 		let real_lookup = T::Lookup::unlookup(real);
-		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
+		let call: <T as Config>::RuntimeCall =
+			frame_system::Call::<T>::remark { remark: vec![] }.into();
 		Proxy::<T>::announce(
 			RawOrigin::Signed(delegate.clone()).into(),
 			real_lookup.clone(),
 			T::CallHasher::hash_of(&call),
 		)?;
 		add_announcements::<T>(a, Some(delegate.clone()), None)?;
-		
+
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), delegate_lookup, real_lookup, Some(T::ProxyType::default()), Box::new(call));
-	
+		_(
+			RawOrigin::Signed(caller),
+			delegate_lookup,
+			real_lookup,
+			Some(T::ProxyType::default()),
+			Box::new(call),
+		);
+
 		assert_last_event::<T>(Event::ProxyExecuted { result: Ok(()) }.into());
 
 		Ok(())
 	}
-	
+
 	#[benchmark]
-	fn remove_announcement(a: Linear<0, { T::MaxPending::get() - 1 }>, p: Linear<1, { T::MaxProxies::get() - 1 }>) -> Result<(), BenchmarkError> {
+	fn remove_announcement(
+		a: Linear<0, { T::MaxPending::get() - 1 }>,
+		p: Linear<1, { T::MaxProxies::get() - 1 }>,
+	) -> Result<(), BenchmarkError> {
 		add_proxies::<T>(p, None)?;
 		// In this case the caller is the "target" proxy
 		let caller: T::AccountId = account("target", p - 1, SEED);
@@ -138,7 +151,8 @@ mod benchmarks {
 		// ... and "real" is the traditional caller. This is not a typo.
 		let real: T::AccountId = whitelisted_caller();
 		let real_lookup = T::Lookup::unlookup(real);
-		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
+		let call: <T as Config>::RuntimeCall =
+			frame_system::Call::<T>::remark { remark: vec![] }.into();
 		Proxy::<T>::announce(
 			RawOrigin::Signed(caller.clone()).into(),
 			real_lookup.clone(),
@@ -156,7 +170,10 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn reject_announcement(a: Linear<0, { T::MaxPending::get() - 1 }>, p: Linear<1, { T::MaxProxies::get() - 1 }>) -> Result<(), BenchmarkError> {
+	fn reject_announcement(
+		a: Linear<0, { T::MaxPending::get() - 1 }>,
+		p: Linear<1, { T::MaxProxies::get() - 1 }>,
+	) -> Result<(), BenchmarkError> {
 		add_proxies::<T>(p, None)?;
 		// In this case the caller is the "target" proxy
 		let caller: T::AccountId = account("target", p - 1, SEED);
@@ -165,14 +182,15 @@ mod benchmarks {
 		// ... and "real" is the traditional caller. This is not a typo.
 		let real: T::AccountId = whitelisted_caller();
 		let real_lookup = T::Lookup::unlookup(real.clone());
-		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
+		let call: <T as Config>::RuntimeCall =
+			frame_system::Call::<T>::remark { remark: vec![] }.into();
 		Proxy::<T>::announce(
 			RawOrigin::Signed(caller.clone()).into(),
 			real_lookup,
 			T::CallHasher::hash_of(&call),
 		)?;
 		add_announcements::<T>(a, Some(caller.clone()), None)?;
-		
+
 		#[extrinsic_call]
 		_(RawOrigin::Signed(real), caller_lookup, T::CallHasher::hash_of(&call));
 
@@ -183,7 +201,10 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn announce(a: Linear<0, { T::MaxPending::get() - 1 }>, p: Linear<1, { T::MaxProxies::get() - 1 }>) -> Result<(), BenchmarkError> {
+	fn announce(
+		a: Linear<0, { T::MaxPending::get() - 1 }>,
+		p: Linear<1, { T::MaxProxies::get() - 1 }>,
+	) -> Result<(), BenchmarkError> {
 		add_proxies::<T>(p, None)?;
 		// In this case the caller is the "target" proxy
 		let caller: T::AccountId = account("target", p - 1, SEED);
@@ -192,9 +213,10 @@ mod benchmarks {
 		let real: T::AccountId = whitelisted_caller();
 		let real_lookup = T::Lookup::unlookup(real.clone());
 		add_announcements::<T>(a, Some(caller.clone()), None)?;
-		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
+		let call: <T as Config>::RuntimeCall =
+			frame_system::Call::<T>::remark { remark: vec![] }.into();
 		let call_hash = T::CallHasher::hash_of(&call);
-		
+
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), real_lookup, call_hash);
 
@@ -208,13 +230,13 @@ mod benchmarks {
 		add_proxies::<T>(p, None)?;
 		let caller: T::AccountId = whitelisted_caller();
 		let real = T::Lookup::unlookup(account("target", T::MaxProxies::get(), SEED));
-		
+
 		#[extrinsic_call]
 		_(
 			RawOrigin::Signed(caller.clone()),
 			real,
 			T::ProxyType::default(),
-			BlockNumberFor::<T>::zero()
+			BlockNumberFor::<T>::zero(),
 		);
 
 		let (proxies, _) = Proxies::<T>::get(caller);
@@ -228,13 +250,13 @@ mod benchmarks {
 		add_proxies::<T>(p, None)?;
 		let caller: T::AccountId = whitelisted_caller();
 		let delegate = T::Lookup::unlookup(account("target", 0, SEED));
-		
+
 		#[extrinsic_call]
 		_(
 			RawOrigin::Signed(caller.clone()),
 			delegate,
 			T::ProxyType::default(),
-			BlockNumberFor::<T>::zero()
+			BlockNumberFor::<T>::zero(),
 		);
 
 		let (proxies, _) = Proxies::<T>::get(caller);
@@ -267,16 +289,19 @@ mod benchmarks {
 			RawOrigin::Signed(caller.clone()),
 			T::ProxyType::default(),
 			BlockNumberFor::<T>::zero(),
-			0
+			0,
 		);
 
 		let pure_account = Pallet::<T>::pure_account(&caller, &T::ProxyType::default(), 0, None);
-		assert_last_event::<T>(Event::PureCreated {
-			pure: pure_account,
-			who: caller,
-			proxy_type: T::ProxyType::default(),
-			disambiguation_index: 0,
-		}.into());
+		assert_last_event::<T>(
+			Event::PureCreated {
+				pure: pure_account,
+				who: caller,
+				proxy_type: T::ProxyType::default(),
+				disambiguation_index: 0,
+			}
+			.into(),
+		);
 
 		Ok(())
 	}
@@ -290,7 +315,7 @@ mod benchmarks {
 			RawOrigin::Signed(whitelisted_caller()).into(),
 			T::ProxyType::default(),
 			BlockNumberFor::<T>::zero(),
-			0
+			0,
 		)?;
 		let height = frame_system::Pallet::<T>::block_number();
 		let ext_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or(0);
@@ -300,7 +325,14 @@ mod benchmarks {
 		ensure!(Proxies::<T>::contains_key(&pure_account), "pure proxy not created");
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(pure_account.clone()), caller_lookup, T::ProxyType::default(), 0, height, ext_index);
+		_(
+			RawOrigin::Signed(pure_account.clone()),
+			caller_lookup,
+			T::ProxyType::default(),
+			0,
+			height,
+			ext_index,
+		);
 
 		assert!(!Proxies::<T>::contains_key(&pure_account));
 

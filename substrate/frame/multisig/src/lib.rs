@@ -54,7 +54,8 @@ use frame::{
 	prelude::*,
 	traits::{Currency, ReservableCurrency},
 };
-use weights::WeightInfo;
+use frame_system::RawOrigin;
+pub use weights::WeightInfo;
 
 /// Re-export all pallet items.
 pub use pallet::*;
