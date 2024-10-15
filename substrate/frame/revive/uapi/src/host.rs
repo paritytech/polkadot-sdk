@@ -279,7 +279,7 @@ pub trait HostFn: private::Sealed {
 	/// not being executed as an RPC. For example, they could allow users to disable logging
 	/// through compile time flags (cargo features) for on-chain deployment. Additionally, the
 	/// return value of this function can be cached in order to prevent further calls at runtime.
-	fn debug_message(str: &[u8]) -> Result;
+	fn trace(str: &[u8]) -> Result;
 
 	/// Execute code in the context (storage, caller, value) of the current contract.
 	///

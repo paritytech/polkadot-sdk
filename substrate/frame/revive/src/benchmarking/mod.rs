@@ -839,18 +839,18 @@ mod benchmarks {
 		);
 	}
 
-	// Benchmark debug_message call
+	// Benchmark trace call
 	// Whereas this function is used in RPC mode only, it still should be secured
 	// against an excessive use.
 	//
 	// i: size of input in bytes up to maximum allowed contract memory or maximum allowed debug
 	// buffer size, whichever is less.
 	#[benchmark]
-	fn seal_debug_message(
+	fn seal_trace(
 		i: Linear<0, { (limits::code::BLOB_BYTES).min(limits::DEBUG_BUFFER_BYTES) }>,
 	) {
 		let mut setup = CallSetup::<T>::default();
-		setup.enable_debug_message();
+		setup.enable_trace();
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		// Fill memory with printable ASCII bytes.
@@ -859,10 +859,10 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = runtime.bench_debug_message(memory.as_mut_slice(), 0, i);
+			result = runtime.bench_trace(memory.as_mut_slice(), 0, i);
 		}
 		assert_ok!(result);
-		assert_eq!(setup.debug_message().unwrap().len() as u32, i);
+		assert_eq!(setup.trace().unwrap().len() as u32, i);
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]

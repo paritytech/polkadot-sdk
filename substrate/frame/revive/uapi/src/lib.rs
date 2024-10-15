@@ -83,7 +83,7 @@ define_error_codes! {
 	CodeNotFound = 5,
 	/// The account that was called is no contract.
 	NotCallable = 6,
-	/// The call to `debug_message` had no effect because debug message
+	/// The call to `trace` had no effect because debug message
 	/// recording was disabled.
 	LoggingDisabled = 7,
 	/// The call dispatched by `call_runtime` was executed but returned an error.

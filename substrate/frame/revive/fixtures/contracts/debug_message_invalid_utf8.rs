@@ -29,5 +29,5 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	api::debug_message(b"\xFC").unwrap();
+	api::trace(b"\xFC").unwrap();
 }

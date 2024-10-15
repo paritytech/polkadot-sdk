@@ -74,7 +74,7 @@ pub struct ContractResult<R, Balance, EventRecord> {
 	///
 	/// The debug message is never generated during on-chain execution. It is reserved for
 	/// RPC calls.
-	pub debug_message: Vec<u8>,
+	pub trace: Vec<u8>,
 	/// The execution result of the wasm code.
 	pub result: Result<R, DispatchError>,
 	/// The events that were emitted during execution. It is an option as event collection is

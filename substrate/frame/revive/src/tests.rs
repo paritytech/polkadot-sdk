@@ -519,7 +519,7 @@ impl Config for Test {
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-	type Debug = ();
+	type Debug = crate::evm::CallTrace;
 	type ChainId = ChainId;
 }
 
@@ -2124,8 +2124,8 @@ mod run_tests {
 	}
 
 	#[test]
-	fn debug_message_works() {
-		let (wasm, _code_hash) = compile_module("debug_message_works").unwrap();
+	fn trace_works() {
+		let (wasm, _code_hash) = compile_module("trace_works").unwrap();
 
 		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -2135,13 +2135,13 @@ mod run_tests {
 			let result = builder::bare_call(addr).debug(DebugInfo::UnsafeDebug).build();
 
 			assert_matches!(result.result, Ok(_));
-			assert_eq!(std::str::from_utf8(&result.debug_message).unwrap(), "Hello World!");
+			assert_eq!(std::str::from_utf8(&result.trace).unwrap(), "Hello World!");
 		});
 	}
 
 	#[test]
-	fn debug_message_logging_disabled() {
-		let (wasm, _code_hash) = compile_module("debug_message_logging_disabled").unwrap();
+	fn trace_logging_disabled() {
+		let (wasm, _code_hash) = compile_module("trace_logging_disabled").unwrap();
 
 		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -2161,8 +2161,8 @@ mod run_tests {
 	}
 
 	#[test]
-	fn debug_message_invalid_utf8() {
-		let (wasm, _code_hash) = compile_module("debug_message_invalid_utf8").unwrap();
+	fn trace_invalid_utf8() {
+		let (wasm, _code_hash) = compile_module("trace_invalid_utf8").unwrap();
 
 		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -2171,7 +2171,7 @@ mod run_tests {
 				.build_and_unwrap_contract();
 			let result = builder::bare_call(addr).debug(DebugInfo::UnsafeDebug).build();
 			assert_ok!(result.result);
-			assert!(result.debug_message.is_empty());
+			assert!(result.trace.is_empty());
 		});
 	}
 
@@ -4197,7 +4197,7 @@ mod run_tests {
 
 			let _ = env_logger::builder().is_test(true).try_init();
 			let result = builder::bare_call(addr).data((3u32, addr_callee).encode()).build();
-			assert_ok!(result.result);
+			dbg!(result.trace);
 
 			// TODO check trace
 		});

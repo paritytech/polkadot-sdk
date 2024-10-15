@@ -323,7 +323,7 @@ pub enum RuntimeCosts {
 	Terminate(u32),
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
 	DepositEvent { num_topic: u32, len: u32 },
-	/// Weight of calling `seal_debug_message` per byte of passed message.
+	/// Weight of calling `seal_trace` per byte of passed message.
 	DebugMessage(u32),
 	/// Weight of calling `seal_set_storage` for the given storage item sizes.
 	SetStorage { old_bytes: u32, new_bytes: u32 },
@@ -464,7 +464,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
 			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
-			DebugMessage(len) => T::WeightInfo::seal_debug_message(len),
+			DebugMessage(len) => T::WeightInfo::seal_trace(len),
 			SetStorage { new_bytes, old_bytes } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
 			},
@@ -1781,9 +1781,9 @@ pub mod env {
 	}
 
 	/// Emit a custom debug message.
-	/// See [`pallet_revive_uapi::HostFn::debug_message`].
+	/// See [`pallet_revive_uapi::HostFn::trace`].
 	#[api_version(0)]
-	fn debug_message(
+	fn trace(
 		&mut self,
 		memory: &mut M,
 		str_ptr: u32,

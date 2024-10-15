@@ -94,7 +94,7 @@ pub type BalanceOf<T> =
 type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
 type EventRecordOf<T> =
 	EventRecord<<T as frame_system::Config>::RuntimeEvent, <T as frame_system::Config>::Hash>;
-type DebugBuffer = BoundedVec<u8, ConstU32<{ limits::DEBUG_BUFFER_BYTES }>>;
+//type DebugBuffer = BoundedVec<u8, ConstU32<{ limits::DEBUG_BUFFER_BYTES }>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 
 /// Used as a sentinel value when reading and writing contract memory.
@@ -1043,11 +1043,9 @@ where
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>, EventRecordOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
-		let mut debug_message = if matches!(debug, DebugInfo::UnsafeDebug) {
-			Some(DebugBuffer::default())
-		} else {
-			None
-		};
+		let mut trace: Option<crate::debug::TraceOf<T>> =
+			if matches!(debug, DebugInfo::UnsafeDebug) { Some(Default::default()) } else { None };
+
 		let try_call = || {
 			let origin = Origin::from_runtime_origin(origin)?;
 			let mut storage_meter = StorageMeter::new(&origin, storage_deposit_limit, value)?;
@@ -1058,7 +1056,7 @@ where
 				&mut storage_meter,
 				value,
 				data,
-				debug_message.as_mut(),
+				trace.as_mut(),
 			)?;
 			storage_deposit = storage_meter.try_into_deposit(&origin)?;
 			Ok(result)
@@ -1074,7 +1072,7 @@ where
 			gas_consumed: gas_meter.gas_consumed(),
 			gas_required: gas_meter.gas_required(),
 			storage_deposit,
-			debug_message: debug_message.unwrap_or_default().to_vec(),
+			trace: Default::default(), //trace.unwrap_or_default().to_vec(),
 			events,
 		}
 	}
@@ -1098,8 +1096,9 @@ where
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>, EventRecordOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
-		let mut debug_message =
-			if debug == DebugInfo::UnsafeDebug { Some(DebugBuffer::default()) } else { None };
+		let mut trace: Option<crate::debug::TraceOf<T>> =
+			if debug == DebugInfo::UnsafeDebug { Some(Default::default()) } else { None };
+
 		let try_instantiate = || {
 			let instantiate_account = T::InstantiateOrigin::ensure_origin(origin.clone())?;
 			let (executable, upload_deposit) = match code {
@@ -1124,7 +1123,7 @@ where
 				value,
 				data,
 				salt.as_ref(),
-				debug_message.as_mut(),
+				trace.as_mut(),
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin)?
@@ -1144,7 +1143,7 @@ where
 			gas_consumed: gas_meter.gas_consumed(),
 			gas_required: gas_meter.gas_required(),
 			storage_deposit,
-			debug_message: debug_message.unwrap_or_default().to_vec(),
+			trace: Default::default(), //trace.unwrap_or_default().to_vec(),
 			events,
 		}
 	}

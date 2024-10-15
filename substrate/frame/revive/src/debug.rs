@@ -30,78 +30,59 @@ pub trait Debugger<T: Config>: Tracing<T> + CallInterceptor<T> {}
 
 impl<T: Config, V> Debugger<T> for V where V: Tracing<T> + CallInterceptor<T> {}
 
-pub type TraceOf<T> = <<T as Config>::Debug as Tracing<T>>::Trace;
+pub type TraceOf<T> = <T as Config>::Debug;
 
 /// Defines methods to capture contract calls, enabling external observers to
 /// measure, trace, and react to contract interactions.
-pub trait Tracing<T: Config> {
-	/// The type of [`Trace`] that is created by this trait.
-	type Trace: Trace + Default;
-
-	/// Creates a new call span to encompass the upcoming contract execution.
-	///
-	/// This method should be invoked just before the execution of a contract and
-	/// marks the beginning of a traceable span of execution.
-	fn new_call_span(
+pub trait Tracing<T: Config>: Default {
+	fn enter_child_span(
+		&mut self,
 		from: &H160,
 		to: &H160,
 		is_delegate_call: bool,
 		is_read_only: bool,
-		value: &BalanceOf<T>,
+		value: &crate::BalanceOf<T>,
 		gas_limit: &Weight,
 		input_data: &[u8],
-	) -> Self::Trace;
-}
+	) -> &mut Self;
 
-/// Defines a span of execution for a contract call.
-pub trait Trace {
-	/// Called just after the execution of a contract.
-	///
-	/// # Arguments
-	///
-	/// * `output` - The raw output of the call.
-	fn after_call(self, output: &ExecReturnValue);
+	fn after_call(&mut self, output: &ExecReturnValue);
 }
 
 impl<T: Config> Tracing<T> for () {
-	type Trace = ();
-
-	fn new_call_span(
+	fn enter_child_span(
+		&mut self,
 		from: &H160,
 		to: &H160,
 		is_delegate_call: bool,
 		is_read_only: bool,
-		value: &BalanceOf<T>,
+		value: &crate::BalanceOf<T>,
 		gas_limit: &Weight,
 		input_data: &[u8],
-	) {
-		log::trace!(target: LOG_TARGET, "call (delegate: {is_delegate_call:?}, read_only: {is_read_only:?}) from: {from:?}, to: {to:?} value: {value:?} gas_limit: {gas_limit:?} input_data: {input_data:?}")
+	) -> &mut Self {
+		log::trace!(target: LOG_TARGET, "call (delegate: {is_delegate_call:?}, read_only: {is_read_only:?}) from: {from:?}, to: {to:?} value: {value:?} gas_limit: {gas_limit:?} input_data: {input_data:?}");
+		self
 	}
-}
 
-impl Trace for () {
-	fn after_call(self, output: &ExecReturnValue) {
+	fn after_call(&mut self, output: &ExecReturnValue) {
 		log::trace!(target: LOG_TARGET, "call result {output:?}")
 	}
 }
 
-pub struct Tracer;
-
-impl<T: Config> Tracing<T> for Tracer
+impl<T: Config> Tracing<T> for CallTrace
 where
 	BalanceOf<T>: Into<U256>,
 {
-	type Trace = CallTrace;
-
-	fn new_call_span(
+	fn enter_child_span(
+		&mut self,
 		from: &H160,
 		to: &H160,
 		is_delegate_call: bool,
 		is_read_only: bool,
-		value: &BalanceOf<T>,
+		value: &crate::BalanceOf<T>,
 		_gas_limit: &Weight,
 		input: &[u8],
-	) -> Self::Trace {
+	) -> &mut Self {
 		let call_type = if is_read_only {
 			CallType::StaticCall
 		} else if is_delegate_call {
@@ -110,19 +91,20 @@ where
 			CallType::Call
 		};
 
-		CallTrace {
+		let child_trace = CallTrace {
 			from: *from,
 			to: *to,
 			value: (*value).into(),
 			call_type,
 			input: input.to_vec(),
 			..Default::default()
-		}
-	}
-}
+		};
 
-impl Trace for crate::evm::CallTrace {
-	fn after_call(self, output: &ExecReturnValue) {
+		self.calls.push(child_trace);
+		self.calls.last_mut().unwrap()
+	}
+
+	fn after_call(&mut self, output: &ExecReturnValue) {
 		log::trace!(target: LOG_TARGET, "call result {output:?}")
 	}
 }
@@ -145,14 +127,6 @@ pub trait CallInterceptor<T: Config> {
 	/// is returned.
 	/// * `None` - otherwise, i.e. the call should be executed normally.
 	fn intercept_call(
-		contract_address: &H160,
-		entry_point: ExportedFunction,
-		input_data: &[u8],
-	) -> Option<ExecResult>;
-}
-
-impl<T: Config> CallInterceptor<T> for () {
-	fn intercept_call(
 		_contract_address: &H160,
 		_entry_point: ExportedFunction,
 		_input_data: &[u8],
@@ -160,3 +134,6 @@ impl<T: Config> CallInterceptor<T> for () {
 		None
 	}
 }
+
+impl<T: Config> CallInterceptor<T> for () {}
+impl<T: Config> CallInterceptor<T> for CallTrace {}

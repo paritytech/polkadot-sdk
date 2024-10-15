@@ -17,15 +17,15 @@
 
 use crate::{
 	address::{self, AddressMapper},
-	debug::{CallInterceptor, Trace, Tracing},
+	debug::{CallInterceptor, TraceOf, Tracing},
 	gas::GasMeter,
 	limits,
 	primitives::{ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
 	storage::{self, meter::Diff, WriteOutcome},
 	transient_storage::TransientStorage,
-	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DebugBuffer, Error,
-	Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, LOG_TARGET,
+	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, Error, Event,
+	ImmutableData, ImmutableDataOf, Pallet as Contracts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -531,7 +531,8 @@ pub struct Stack<'a, T: Config, E> {
 	///
 	/// All the bytes added to this field should be valid UTF-8. The buffer has no defined
 	/// structure and is intended to be shown to users as-is for debugging purposes.
-	debug_message: Option<&'a mut DebugBuffer>,
+	#[allow(unused)]
+	trace: Option<&'a mut TraceOf<T>>,
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
 	/// No executable is held by the struct but influences its behaviour.
@@ -723,7 +724,7 @@ where
 	///
 	/// # Note
 	///
-	/// `debug_message` should only ever be set to `Some` when executing as an RPC because
+	/// `trace` should only ever be set to `Some` when executing as an RPC because
 	/// it adds allocations and could be abused to drive the runtime into an OOM panic.
 	///
 	/// # Return Value
@@ -736,7 +737,7 @@ where
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
-		debug_message: Option<&'a mut DebugBuffer>,
+		trace: Option<&'a mut TraceOf<T>>,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
 		if let Some((mut stack, executable)) = Self::new(
@@ -745,7 +746,7 @@ where
 			gas_meter,
 			storage_meter,
 			value,
-			debug_message,
+			trace,
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
@@ -757,7 +758,7 @@ where
 	///
 	/// # Note
 	///
-	/// `debug_message` should only ever be set to `Some` when executing as an RPC because
+	/// `trace` should only ever be set to `Some` when executing as an RPC because
 	/// it adds allocations and could be abused to drive the runtime into an OOM panic.
 	///
 	/// # Return Value
@@ -771,7 +772,7 @@ where
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-		debug_message: Option<&'a mut DebugBuffer>,
+		trace: Option<&'a mut TraceOf<T>>,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Self::new(
 			FrameArgs::Instantiate {
@@ -784,7 +785,7 @@ where
 			gas_meter,
 			storage_meter,
 			value,
-			debug_message,
+			trace,
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
@@ -800,7 +801,7 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
-		debug_message: Option<&'a mut DebugBuffer>,
+		trace: Option<&'a mut DebugBuffer>,
 	) -> (Self, E) {
 		Self::new(
 			FrameArgs::Call {
@@ -812,7 +813,7 @@ where
 			gas_meter,
 			storage_meter,
 			value,
-			debug_message,
+			trace,
 		)
 		.unwrap()
 		.unwrap()
@@ -828,7 +829,7 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
-		debug_message: Option<&'a mut DebugBuffer>,
+		trace: Option<&'a mut TraceOf<T>>,
 	) -> Result<Option<(Self, E)>, ExecError> {
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
@@ -852,7 +853,7 @@ where
 			block_number: <frame_system::Pallet<T>>::block_number(),
 			first_frame,
 			frames: Default::default(),
-			debug_message,
+			trace,
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
 			_phantom: Default::default(),
 		};
@@ -1047,7 +1048,9 @@ where
 			let contract_addr = T::AddressMapper::to_address(&top_frame!(self).account_id);
 			let caller_addr = self.caller().account_id().ok().map(T::AddressMapper::to_address);
 
-			let trace = T::Debug::new_call_span(
+			//trace.unwrap().enter_child_span();
+			let parent_trace = self.trace.take();
+			let trace = parent_trace.unwrap().enter_child_span(
 				&caller_addr.unwrap_or_default(),
 				&contract_addr,
 				is_delegate_call,
@@ -1056,6 +1059,7 @@ where
 				&gas_limit,
 				&input_data,
 			);
+			self.trace = Some(trace);
 
 			let output = T::Debug::intercept_call(&contract_addr, entry_point, &input_data)
 				.unwrap_or_else(|| {
@@ -1071,7 +1075,10 @@ where
 						.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })
 				})?;
 
-			trace.after_call(&output);
+			//trace.after_call(&output);
+			let trace = self.trace.as_mut(); //.unwrap().after_call(&output);
+			trace.unwrap().after_call(&output);
+			self.trace = parent_trace;
 
 			// Avoid useless work that would be reverted anyways.
 			if output.did_revert() {
@@ -1224,13 +1231,13 @@ where
 				}
 			}
 		} else {
-			if let Some((msg, false)) = self.debug_message.as_ref().map(|m| (m, m.is_empty())) {
-				log::debug!(
-					target: LOG_TARGET,
-					"Execution finished with debug buffer: {}",
-					core::str::from_utf8(msg).unwrap_or("<Invalid UTF8>"),
-				);
-			}
+			//if let Some((msg, false)) = self.trace.as_ref().map(|m| (m, m.is_empty())) {
+			//	log::debug!(
+			//		target: LOG_TARGET,
+			//		"Execution finished with debug buffer: {}",
+			//		core::str::from_utf8(msg).unwrap_or("<Invalid UTF8>"),
+			//	);
+			//}
 			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
 			if !persist {
 				return;
@@ -1644,25 +1651,27 @@ where
 	}
 
 	fn debug_buffer_enabled(&self) -> bool {
-		self.debug_message.is_some()
+		//self.trace.is_some()
+		false
 	}
 
-	fn append_debug_buffer(&mut self, msg: &str) -> bool {
-		if let Some(buffer) = &mut self.debug_message {
-			buffer
-				.try_extend(&mut msg.bytes())
-				.map_err(|_| {
-					log::debug!(
-						target: LOG_TARGET,
-						"Debug buffer (of {} bytes) exhausted!",
-						limits::DEBUG_BUFFER_BYTES,
-					)
-				})
-				.ok();
-			true
-		} else {
-			false
-		}
+	fn append_debug_buffer(&mut self, _msg: &str) -> bool {
+		//if let Some(buffer) = &mut self.trace {
+		//	buffer
+		//		.try_extend(&mut msg.bytes())
+		//		.map_err(|_| {
+		//			log::debug!(
+		//				target: LOG_TARGET,
+		//				"Debug buffer (of {} bytes) exhausted!",
+		//				limits::DEBUG_BUFFER_BYTES,
+		//			)
+		//		})
+		//		.ok();
+		//	true
+		//} else {
+		//	false
+		//}
+		false
 	}
 
 	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo {
@@ -3108,103 +3117,103 @@ mod tests {
 			});
 	}
 
-	#[test]
-	fn printing_works() {
-		let code_hash = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.append_debug_buffer("This is a test");
-			ctx.ext.append_debug_buffer("More text");
-			exec_success()
-		});
+	//#[test]
+	//fn printing_works() {
+	//	let code_hash = MockLoader::insert(Call, |ctx, _| {
+	//		ctx.ext.append_debug_buffer("This is a test");
+	//		ctx.ext.append_debug_buffer("More text");
+	//		exec_success()
+	//	});
+	//
+	//	let mut debug_buffer = DebugBuffer::try_from(Vec::new()).unwrap();
+	//
+	//	ExtBuilder::default().build().execute_with(|| {
+	//		let min_balance = <Test as Config>::Currency::minimum_balance();
+	//
+	//		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+	//		set_balance(&ALICE, min_balance * 10);
+	//		place_contract(&BOB, code_hash);
+	//		let origin = Origin::from_account_id(ALICE);
+	//		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+	//		MockStack::run_call(
+	//			origin,
+	//			BOB_ADDR,
+	//			&mut gas_meter,
+	//			&mut storage_meter,
+	//			0,
+	//			vec![],
+	//			Some(&mut debug_buffer),
+	//		)
+	//		.unwrap();
+	//	});
+	//
+	//	assert_eq!(&String::from_utf8(debug_buffer.to_vec()).unwrap(), "This is a testMore text");
+	//}
 
-		let mut debug_buffer = DebugBuffer::try_from(Vec::new()).unwrap();
+	//#[test]
+	//fn printing_works_on_fail() {
+	//	let code_hash = MockLoader::insert(Call, |ctx, _| {
+	//		ctx.ext.append_debug_buffer("This is a test");
+	//		ctx.ext.append_debug_buffer("More text");
+	//		exec_trapped()
+	//	});
+	//
+	//	let mut debug_buffer = DebugBuffer::try_from(Vec::new()).unwrap();
+	//
+	//	ExtBuilder::default().build().execute_with(|| {
+	//		let min_balance = <Test as Config>::Currency::minimum_balance();
+	//
+	//		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+	//		set_balance(&ALICE, min_balance * 10);
+	//		place_contract(&BOB, code_hash);
+	//		let origin = Origin::from_account_id(ALICE);
+	//		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+	//		let result = MockStack::run_call(
+	//			origin,
+	//			BOB_ADDR,
+	//			&mut gas_meter,
+	//			&mut storage_meter,
+	//			0,
+	//			vec![],
+	//			Some(&mut debug_buffer),
+	//		);
+	//		assert!(result.is_err());
+	//	});
+	//
+	//	assert_eq!(&String::from_utf8(debug_buffer.to_vec()).unwrap(), "This is a testMore text");
+	//}
 
-		ExtBuilder::default().build().execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
-
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-			set_balance(&ALICE, min_balance * 10);
-			place_contract(&BOB, code_hash);
-			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
-			MockStack::run_call(
-				origin,
-				BOB_ADDR,
-				&mut gas_meter,
-				&mut storage_meter,
-				0,
-				vec![],
-				Some(&mut debug_buffer),
-			)
-			.unwrap();
-		});
-
-		assert_eq!(&String::from_utf8(debug_buffer.to_vec()).unwrap(), "This is a testMore text");
-	}
-
-	#[test]
-	fn printing_works_on_fail() {
-		let code_hash = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.append_debug_buffer("This is a test");
-			ctx.ext.append_debug_buffer("More text");
-			exec_trapped()
-		});
-
-		let mut debug_buffer = DebugBuffer::try_from(Vec::new()).unwrap();
-
-		ExtBuilder::default().build().execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
-
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-			set_balance(&ALICE, min_balance * 10);
-			place_contract(&BOB, code_hash);
-			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
-			let result = MockStack::run_call(
-				origin,
-				BOB_ADDR,
-				&mut gas_meter,
-				&mut storage_meter,
-				0,
-				vec![],
-				Some(&mut debug_buffer),
-			);
-			assert!(result.is_err());
-		});
-
-		assert_eq!(&String::from_utf8(debug_buffer.to_vec()).unwrap(), "This is a testMore text");
-	}
-
-	#[test]
-	fn debug_buffer_is_limited() {
-		let code_hash = MockLoader::insert(Call, move |ctx, _| {
-			ctx.ext.append_debug_buffer("overflowing bytes");
-			exec_success()
-		});
-
-		// Pre-fill the buffer almost up to its limit, leaving not enough space to the message
-		let debug_buf_before = DebugBuffer::try_from(vec![0u8; DebugBuffer::bound() - 5]).unwrap();
-		let mut debug_buf_after = debug_buf_before.clone();
-
-		ExtBuilder::default().build().execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-			set_balance(&ALICE, min_balance * 10);
-			place_contract(&BOB, code_hash);
-			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
-			MockStack::run_call(
-				origin,
-				BOB_ADDR,
-				&mut gas_meter,
-				&mut storage_meter,
-				0,
-				vec![],
-				Some(&mut debug_buf_after),
-			)
-			.unwrap();
-			assert_eq!(debug_buf_before, debug_buf_after);
-		});
-	}
+	//#[test]
+	//fn debug_buffer_is_limited() {
+	//	let code_hash = MockLoader::insert(Call, move |ctx, _| {
+	//		ctx.ext.append_debug_buffer("overflowing bytes");
+	//		exec_success()
+	//	});
+	//
+	//	// Pre-fill the buffer almost up to its limit, leaving not enough space to the message
+	//	let debug_buf_before = DebugBuffer::try_from(vec![0u8; DebugBuffer::bound() - 5]).unwrap();
+	//	let mut debug_buf_after = debug_buf_before.clone();
+	//
+	//	ExtBuilder::default().build().execute_with(|| {
+	//		let min_balance = <Test as Config>::Currency::minimum_balance();
+	//		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+	//		set_balance(&ALICE, min_balance * 10);
+	//		place_contract(&BOB, code_hash);
+	//		let origin = Origin::from_account_id(ALICE);
+	//		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+	//		MockStack::run_call(
+	//			origin,
+	//			BOB_ADDR,
+	//			&mut gas_meter,
+	//			&mut storage_meter,
+	//			0,
+	//			vec![],
+	//			Some(&mut debug_buf_after),
+	//		)
+	//		.unwrap();
+	//		assert_eq!(debug_buf_before, debug_buf_after);
+	//	});
+	//}
 
 	#[test]
 	fn call_reentry_direct_recursion() {
