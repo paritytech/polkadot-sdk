@@ -20,8 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-#[allow(deprecated)]
-use frame::benchmarking::v1::*;
+use frame::benchmarking::prelude::*;
 
 use crate::Pallet as Multisig;
 
@@ -46,10 +45,13 @@ fn setup_multi<T: Config>(
 	Ok((signatories, Box::new(call)))
 }
 
-benchmarks! {
-	as_multi_threshold_1 {
-		// Transaction Length
-		let z in 0 .. 10_000;
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	// `z`: Transaction Length
+	#[benchmark]
+	fn as_multi_threshold_1(z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let max_signatories = T::MaxSignatories::get().into();
 		let (mut signatories, _) = setup_multi::<T>(max_signatories, z)?;
 		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark {
@@ -61,16 +63,18 @@ benchmarks! {
 		// Whitelist caller account from further DB operations.
 		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
 		add_to_whitelist(caller_key.into());
-	}: _(RawOrigin::Signed(caller.clone()), signatories, Box::new(call))
-	verify {
+		
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), signatories, Box::new(call));
+
 		// If the benchmark resolves, then the call was dispatched successfully.
+		Ok(())
 	}
 
-	as_multi_create {
-		// Signatories, need at least 2 total people
-		let s in 2 .. T::MaxSignatories::get();
-		// Transaction Length
-		let z in 0 .. 10_000;
+	// `z`: Transaction Length
+	// `s`: Signatories, need at least 2 people
+	#[benchmark]
+	fn as_multi_create(s: Linear<2, { T::MaxSignatories::get() }>, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let (mut signatories, call) = setup_multi::<T>(s, z)?;
 		let call_hash = call.using_encoded(blake2_256);
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
@@ -78,16 +82,19 @@ benchmarks! {
 		// Whitelist caller account from further DB operations.
 		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
 		add_to_whitelist(caller_key.into());
-	}: as_multi(RawOrigin::Signed(caller), s as u16, signatories, None, call, Weight::zero())
-	verify {
+
+		#[extrinsic_call]
+		as_multi(RawOrigin::Signed(caller), s as u16, signatories, None, call, Weight::zero());
+
 		assert!(Multisigs::<T>::contains_key(multi_account_id, call_hash));
+
+		Ok(())
 	}
 
-	as_multi_approve {
-		// Signatories, need at least 3 people (so we don't complete the multisig)
-		let s in 3 .. T::MaxSignatories::get();
-		// Transaction Length
-		let z in 0 .. 10_000;
+	// `z`: Transaction Length
+	// `s`: Signatories, need at least 3 people (so we don't complete the multisig)
+	#[benchmark]
+	fn as_multi_approve(s: Linear<3, { T::MaxSignatories::get() }>, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let (mut signatories, call) = setup_multi::<T>(s, z)?;
 		let call_hash = call.using_encoded(blake2_256);
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
@@ -101,17 +108,20 @@ benchmarks! {
 		// Whitelist caller account from further DB operations.
 		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller2);
 		add_to_whitelist(caller_key.into());
-	}: as_multi(RawOrigin::Signed(caller2), s as u16, signatories2, Some(timepoint), call, Weight::zero())
-	verify {
+		
+		#[extrinsic_call]
+		as_multi(RawOrigin::Signed(caller2), s as u16, signatories2, Some(timepoint), call, Weight::zero());
+
 		let multisig = Multisigs::<T>::get(multi_account_id, call_hash).ok_or("multisig not created")?;
 		assert_eq!(multisig.approvals.len(), 2);
+
+		Ok(())
 	}
 
-	as_multi_complete {
-		// Signatories, need at least 2 people
-		let s in 2 .. T::MaxSignatories::get();
-		// Transaction Length
-		let z in 0 .. 10_000;
+	// `z`: Transaction Length
+	// `s`: Signatories, need at least 2 people
+	#[benchmark]
+	fn as_multi_complete(s: Linear<2, { T::MaxSignatories::get() }>, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let (mut signatories, call) = setup_multi::<T>(s, z)?;
 		let call_hash = call.using_encoded(blake2_256);
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
@@ -133,16 +143,19 @@ benchmarks! {
 		// Whitelist caller account from further DB operations.
 		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller2);
 		add_to_whitelist(caller_key.into());
-	}: as_multi(RawOrigin::Signed(caller2), s as u16, signatories2, Some(timepoint), call, Weight::MAX)
-	verify {
+		
+		#[extrinsic_call]
+		as_multi(RawOrigin::Signed(caller2), s as u16, signatories2, Some(timepoint), call, Weight::MAX);
+
 		assert!(!Multisigs::<T>::contains_key(&multi_account_id, call_hash));
+
+		Ok(())
 	}
 
-	approve_as_multi_create {
-		// Signatories, need at least 2 people
-		let s in 2 .. T::MaxSignatories::get();
-		// Transaction Length, not a component
-		let z = 10_000;
+	// `z`: Transaction Length, not a component
+	// `s`: Signatories, need at least 2 people
+	#[benchmark]
+	fn approve_as_multi_create(s: Linear<2, { T::MaxSignatories::get() }>, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let (mut signatories, call) = setup_multi::<T>(s, z)?;
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
 		let caller = signatories.pop().ok_or("signatories should have len 2 or more")?;
@@ -150,17 +163,20 @@ benchmarks! {
 		// Whitelist caller account from further DB operations.
 		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
 		add_to_whitelist(caller_key.into());
+				
 		// Create the multi
-	}: approve_as_multi(RawOrigin::Signed(caller), s as u16, signatories, None, call_hash, Weight::zero())
-	verify {
+		#[extrinsic_call]
+		approve_as_multi(RawOrigin::Signed(caller), s as u16, signatories, None, call_hash, Weight::zero());
+
 		assert!(Multisigs::<T>::contains_key(multi_account_id, call_hash));
+
+		Ok(())
 	}
 
-	approve_as_multi_approve {
-		// Signatories, need at least 2 people
-		let s in 2 .. T::MaxSignatories::get();
-		// Transaction Length, not a component
-		let z = 10_000;
+	// `z`: Transaction Length, not a component
+	// `s`: Signatories, need at least 2 people
+	#[benchmark]
+	fn approve_as_multi_approve(s: Linear<2, { T::MaxSignatories::get() }>, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let (mut signatories, call) = setup_multi::<T>(s, z)?;
 		let mut signatories2 = signatories.clone();
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
@@ -181,17 +197,20 @@ benchmarks! {
 		// Whitelist caller account from further DB operations.
 		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller2);
 		add_to_whitelist(caller_key.into());
-	}: approve_as_multi(RawOrigin::Signed(caller2), s as u16, signatories2, Some(timepoint), call_hash, Weight::zero())
-	verify {
+
+		#[extrinsic_call]
+		approve_as_multi(RawOrigin::Signed(caller2), s as u16, signatories2, Some(timepoint), call_hash, Weight::zero());
+
 		let multisig = Multisigs::<T>::get(multi_account_id, call_hash).ok_or("multisig not created")?;
 		assert_eq!(multisig.approvals.len(), 2);
+
+		Ok(())
 	}
 
-	cancel_as_multi {
-		// Signatories, need at least 2 people
-		let s in 2 .. T::MaxSignatories::get();
-		// Transaction Length, not a component
-		let z = 10_000;
+	// `z`: Transaction Length, not a component
+	// `s`: Signatories, need at least 2 people
+	#[benchmark]
+	fn cancel_as_multi(s: Linear<2, { T::MaxSignatories::get() } >, z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let (mut signatories, call) = setup_multi::<T>(s, z)?;
 		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
 		let caller = signatories.pop().ok_or("signatories should have len 2 or more")?;
@@ -204,9 +223,13 @@ benchmarks! {
 		// Whitelist caller account from further DB operations.
 		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
 		add_to_whitelist(caller_key.into());
-	}: _(RawOrigin::Signed(caller), s as u16, signatories, timepoint, call_hash)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), s as u16, signatories, timepoint, call_hash);
+
 		assert!(!Multisigs::<T>::contains_key(multi_account_id, call_hash));
+
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(Multisig, crate::tests::new_test_ext(), crate::tests::Test);
