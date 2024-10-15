@@ -38,14 +38,9 @@
 
 use crate::{configuration, initializer::SessionChangeNotification, paras};
 use alloc::{
-	collections::{
-		btree_map::{self, BTreeMap},
-		btree_set::BTreeSet,
-		vec_deque::VecDeque,
-	},
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
 	vec::Vec,
 };
-use core::iter::Peekable;
 use frame_support::{pallet_prelude::*, traits::Defensive};
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use polkadot_core_primitives::v2::BlockNumber;
@@ -120,28 +115,6 @@ pub mod pallet {
 		/// The block number the core times out. If `timed_out` is true, this will correspond to
 		/// now (current block number).
 		pub live_until: BlockNumber,
-	}
-}
-
-struct ClaimQueueIterator<E> {
-	next_idx: u32,
-	queue: Peekable<btree_map::IntoIter<CoreIndex, VecDeque<E>>>,
-}
-
-impl<E> Iterator for ClaimQueueIterator<E> {
-	type Item = (CoreIndex, VecDeque<E>);
-
-	fn next(&mut self) -> Option<Self::Item> {
-		let (idx, _) = self.queue.peek()?;
-		let val = if idx != &CoreIndex(self.next_idx) {
-			log::trace!(target: LOG_TARGET, "idx did not match claim queue idx: {:?} vs {:?}", idx, self.next_idx);
-			(CoreIndex(self.next_idx), VecDeque::new())
-		} else {
-			let (idx, q) = self.queue.next()?;
-			(idx, q)
-		};
-		self.next_idx += 1;
-		Some(val)
 	}
 }
 
@@ -366,21 +339,6 @@ impl<T: Config> Pallet<T> {
 
 				Self::fill_claim_queue(core_idx, n_lookahead);
 			}
-		}
-	}
-
-	/// Get an iterator into the claim queues.
-	///
-	/// This iterator will have an item for each and every core index up to the maximum core index
-	/// found in the claim queue. In other words there will be no holes/missing core indices,
-	/// between core 0 and the maximum, even if the claim queue was missing entries for particular
-	/// indices in between. (The iterator will return an empty `VecDeque` for those indices.
-	pub(crate) fn claim_queue_iterator() -> impl Iterator<Item = (CoreIndex, VecDeque<Assignment>)>
-	{
-		let queues = ClaimQueue::<T>::get();
-		return ClaimQueueIterator::<Assignment> {
-			next_idx: 0,
-			queue: queues.into_iter().peekable(),
 		}
 	}
 

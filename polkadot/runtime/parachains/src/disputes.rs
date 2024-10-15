@@ -395,7 +395,7 @@ pub mod pallet {
 
 	/// All ongoing or concluded disputes for the last several sessions.
 	#[pallet::storage]
-	pub(super) type Disputes<T: Config> = StorageDoubleMap<
+	pub(crate) type Disputes<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		SessionIndex,
@@ -407,7 +407,7 @@ pub mod pallet {
 	/// Backing votes stored for each dispute.
 	/// This storage is used for slashing.
 	#[pallet::storage]
-	pub(super) type BackersOnDisputes<T: Config> = StorageDoubleMap<
+	pub(crate) type BackersOnDisputes<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		SessionIndex,
@@ -419,7 +419,7 @@ pub mod pallet {
 	/// All included blocks on the chain, as well as the block number in this chain that
 	/// should be reverted back to if the candidate is disputed and determined to be invalid.
 	#[pallet::storage]
-	pub(super) type Included<T: Config> = StorageDoubleMap<
+	pub(crate) type Included<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		SessionIndex,

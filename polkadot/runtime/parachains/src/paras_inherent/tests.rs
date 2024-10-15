@@ -18,6 +18,7 @@ use super::*;
 
 use crate::{
 	configuration::{self, HostConfiguration},
+	disputes,
 	mock::MockGenesisConfig,
 };
 use polkadot_primitives::SchedulerParams;
@@ -36,6 +37,13 @@ fn default_config() -> MockGenesisConfig {
 		},
 		..Default::default()
 	}
+}
+
+// Clear the on-chain dispute data.
+fn clear_dispute_storage<Test: disputes::Config>() {
+	let _ = disputes::Disputes::<Test>::clear(u32::MAX, None);
+	let _ = disputes::BackersOnDisputes::<Test>::clear(u32::MAX, None);
+	let _ = disputes::Included::<Test>::clear(u32::MAX, None);
 }
 
 // In order to facilitate benchmarks as tests we have a benchmark feature gated `WeightInfo` impl
@@ -756,6 +764,8 @@ mod enter {
 				&expected_para_inherent_data.disputes[..2],
 			);
 
+			clear_dispute_storage::<Test>();
+
 			assert_ok!(Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
 				multi_dispute_inherent_data,
@@ -824,6 +834,8 @@ mod enter {
 			assert_eq!(limit_inherent_data.disputes.len(), 2);
 			assert_eq!(limit_inherent_data.disputes[0].session, 1);
 			assert_eq!(limit_inherent_data.disputes[1].session, 2);
+
+			clear_dispute_storage::<Test>();
 
 			assert_ok!(Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
@@ -907,6 +919,8 @@ mod enter {
 			// over weight
 			assert_eq!(limit_inherent_data.backed_candidates.len(), 0);
 
+			clear_dispute_storage::<Test>();
+
 			assert_ok!(Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
 				limit_inherent_data,
@@ -974,7 +988,6 @@ mod enter {
 
 			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
 
-			// Nothing is filtered out (including the backed candidates.)
 			let limit_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
 			assert_ne!(limit_inherent_data, expected_para_inherent_data);
@@ -995,9 +1008,11 @@ mod enter {
 			// over weight
 			assert_eq!(limit_inherent_data.backed_candidates.len(), 0);
 
+			clear_dispute_storage::<Test>();
+
 			assert_ok!(Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
-				limit_inherent_data,
+				limit_inherent_data
 			));
 
 			assert_eq!(
@@ -1272,6 +1287,8 @@ mod enter {
 				.collect();
 			scheduler::ClaimQueue::<Test>::set(cores);
 
+			clear_dispute_storage::<Test>();
+
 			assert_ok!(Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
 				limit_inherent_data,
@@ -1531,7 +1548,6 @@ mod enter {
 	}
 
 	// Ensure that overweight parachain inherents are always rejected by the runtime.
-	// Runtime should panic and return `InherentOverweight` error.
 	#[rstest]
 	#[case(true)]
 	#[case(false)]
@@ -1632,7 +1648,6 @@ mod enter {
 	}
 
 	// Ensure that overweight parachain inherents are always rejected by the runtime.
-	// Runtime should panic and return `InherentOverweight` error.
 	#[test]
 	fn inherent_create_weight_invariant() {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
@@ -1683,7 +1698,7 @@ mod enter {
 			.unwrap_err()
 			.error;
 
-			assert_eq!(dispatch_error, Error::<Test>::InherentOverweight.into());
+			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
 		});
 	}
 
@@ -1752,7 +1767,7 @@ mod enter {
 
 			// We expect `enter` to fail because the inherent data contains backed candidates with
 			// v2 descriptors.
-			assert_eq!(dispatch_error, Error::<Test>::CandidatesFilteredDuringExecution.into());
+			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
 		});
 	}
 
@@ -1819,7 +1834,7 @@ mod enter {
 
 			// We expect `enter` to fail because the inherent data contains backed candidates with
 			// v2 descriptors.
-			assert_eq!(dispatch_error, Error::<Test>::CandidatesFilteredDuringExecution.into());
+			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
 		});
 	}
 
@@ -1886,7 +1901,7 @@ mod enter {
 
 			// We expect `enter` to fail because the inherent data contains backed candidates with
 			// v2 descriptors.
-			assert_eq!(dispatch_error, Error::<Test>::CandidatesFilteredDuringExecution.into());
+			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
 		});
 	}
 	#[test]

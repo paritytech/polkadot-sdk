@@ -934,7 +934,9 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let mut core_idx = 0u32;
 		let elastic_paras = &builder.elastic_paras;
 
-		let mut occupied_cores = inclusion::Pallet::<T>::get_occupied_cores().collect::<Vec<_>>();
+		let mut occupied_cores = inclusion::Pallet::<T>::get_occupied_cores()
+			.map(|(core, candidate)| (core, candidate.candidate_descriptor().para_id()))
+			.collect::<Vec<_>>();
 		occupied_cores.sort_by(|(core_a, _), (core_b, _)| core_a.0.cmp(&core_b.0));
 
 		let mut expected_cores = all_cores

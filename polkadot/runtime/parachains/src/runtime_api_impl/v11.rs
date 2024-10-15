@@ -85,59 +85,30 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 			},
 		};
 
-	let occupied_cores: BTreeMap<CoreIndex, ParaId> =
+	let occupied_cores: BTreeMap<CoreIndex, inclusion::CandidatePendingAvailability<_, _>> =
 		inclusion::Pallet::<T>::get_occupied_cores().collect();
 	let n_cores = scheduler::Pallet::<T>::num_validator_groups();
 
 	(0..n_cores)
 		.map(|core_idx| {
 			let core_idx = CoreIndex(core_idx as u32);
-			if let Some(para_id) = occupied_cores.get(&core_idx) {
-				// Due to https://github.com/paritytech/polkadot-sdk/issues/64, using the new storage types would cause
-				// this runtime API to panic. We explicitly handle the storage for version 0 to
-				// prevent that. When removing the inclusion v0 -> v1 migration, this bit of code
-				// can also be removed.
-				let pending_availability = if inclusion::Pallet::<T>::on_chain_storage_version() ==
-					StorageVersion::new(0)
-				{
-					inclusion::migration::v0::PendingAvailability::<T>::get(para_id)
-						.expect("Occupied core always has pending availability; qed")
-				} else {
-					let candidate =
-						inclusion::Pallet::<T>::pending_availability_with_core(*para_id, core_idx)
-							.expect("Occupied core always has pending availability; qed");
-
-					// Translate to the old candidate format, as we don't need the commitments now.
-					inclusion::migration::v0::CandidatePendingAvailability {
-						core: candidate.core_occupied(),
-						hash: candidate.candidate_hash(),
-						descriptor: candidate.candidate_descriptor().clone(),
-						availability_votes: candidate.availability_votes().clone(),
-						backers: candidate.backers().clone(),
-						relay_parent_number: candidate.relay_parent_number(),
-						backed_in_number: candidate.backed_in_number(),
-						backing_group: candidate.backing_group(),
-					}
-				};
-
-				let backed_in_number = pending_availability.backed_in_number;
-
+			if let Some(pending_availability) = occupied_cores.get(&core_idx) {
 				// Use the same block number for determining the responsible group as what the
 				// backing subsystem would use when it calls validator_groups api.
 				let backing_group_allocation_time =
-					pending_availability.relay_parent_number + One::one();
+					pending_availability.relay_parent_number() + One::one();
 				CoreState::Occupied(OccupiedCore {
 					next_up_on_available: scheduler::Pallet::<T>::next_up_on_available(core_idx),
-					occupied_since: backed_in_number,
-					time_out_at: time_out_for(backed_in_number).live_until,
+					occupied_since: pending_availability.backed_in_number(),
+					time_out_at: time_out_for(pending_availability.backed_in_number()).live_until,
 					next_up_on_time_out: scheduler::Pallet::<T>::next_up_on_available(core_idx),
-					availability: pending_availability.availability_votes.clone(),
+					availability: pending_availability.availability_votes().clone(),
 					group_responsible: group_responsible_for(
 						backing_group_allocation_time,
-						pending_availability.core,
+						pending_availability.core_occupied(),
 					),
-					candidate_hash: pending_availability.hash,
-					candidate_descriptor: pending_availability.descriptor,
+					candidate_hash: pending_availability.candidate_hash(),
+					candidate_descriptor: pending_availability.candidate_descriptor().clone(),
 				})
 			} else {
 				if let Some(assignment) = scheduler::Pallet::<T>::peek_claim_queue(&core_idx) {
@@ -179,13 +150,12 @@ where
 			build()
 		},
 		OccupiedCoreAssumption::TimedOut => build(),
-		OccupiedCoreAssumption::Free => {
-			if <inclusion::Pallet<Config>>::pending_availability(para_id).is_some() {
+		OccupiedCoreAssumption::Free =>
+			if !<inclusion::Pallet<Config>>::candidates_pending_availability(para_id).is_empty() {
 				None
 			} else {
 				build()
-			}
-		},
+			},
 	}
 }
 
@@ -224,10 +194,12 @@ pub fn assumed_validation_data<T: initializer::Config>(
 	let persisted_validation_data = make_validation_data().or_else(|| {
 		// Try again with force enacting the pending candidates. This check only makes sense if
 		// there are any pending candidates.
-		inclusion::Pallet::<T>::pending_availability(para_id).and_then(|_| {
-			inclusion::Pallet::<T>::force_enact(para_id);
-			make_validation_data()
-		})
+		(!inclusion::Pallet::<T>::candidates_pending_availability(para_id).is_empty())
+			.then_some(())
+			.and_then(|_| {
+				inclusion::Pallet::<T>::force_enact(para_id);
+				make_validation_data()
+			})
 	});
 	// If we were successful, also query current validation code hash.
 	persisted_validation_data.zip(paras::CurrentCodeHash::<T>::get(&para_id))
@@ -303,7 +275,7 @@ pub fn validation_code<T: initializer::Config>(
 pub fn candidate_pending_availability<T: initializer::Config>(
 	para_id: ParaId,
 ) -> Option<CommittedCandidateReceipt<T::Hash>> {
-	inclusion::Pallet::<T>::candidate_pending_availability(para_id)
+	inclusion::Pallet::<T>::first_candidate_pending_availability(para_id)
 }
 
 /// Implementation for the `candidate_events` function of the runtime API.

@@ -119,37 +119,6 @@ fn next_assignments() -> impl Iterator<Item = (CoreIndex, Assignment)> {
 }
 
 #[test]
-fn claim_queue_iterator_handles_holes_correctly() {
-	let mut queue = BTreeMap::new();
-	queue.insert(CoreIndex(1), ["abc"].into_iter().collect());
-	queue.insert(CoreIndex(4), ["cde"].into_iter().collect());
-	let queue = queue.into_iter().peekable();
-	let mut i = ClaimQueueIterator { next_idx: 0, queue };
-
-	let (idx, e) = i.next().unwrap();
-	assert_eq!(idx, CoreIndex(0));
-	assert!(e.is_empty());
-
-	let (idx, e) = i.next().unwrap();
-	assert_eq!(idx, CoreIndex(1));
-	assert!(e.len() == 1);
-
-	let (idx, e) = i.next().unwrap();
-	assert_eq!(idx, CoreIndex(2));
-	assert!(e.is_empty());
-
-	let (idx, e) = i.next().unwrap();
-	assert_eq!(idx, CoreIndex(3));
-	assert!(e.is_empty());
-
-	let (idx, e) = i.next().unwrap();
-	assert_eq!(idx, CoreIndex(4));
-	assert!(e.len() == 1);
-
-	assert!(i.next().is_none());
-}
-
-#[test]
 fn session_change_shuffles_validators() {
 	let mut config = default_config();
 	// Need five cores for this test
@@ -665,6 +634,7 @@ fn session_change_increasing_number_of_cores() {
 					ValidatorId::from(Sr25519Keyring::Alice.public()),
 					ValidatorId::from(Sr25519Keyring::Bob.public()),
 					ValidatorId::from(Sr25519Keyring::Charlie.public()),
+					ValidatorId::from(Sr25519Keyring::Dave.public()),
 				],
 				..Default::default()
 			}),

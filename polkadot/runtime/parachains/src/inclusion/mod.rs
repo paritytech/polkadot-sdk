@@ -161,16 +161,6 @@ impl<H, N> CandidatePendingAvailability<H, N> {
 		self.relay_parent_number.clone()
 	}
 
-	/// Get the candidate backing group.
-	pub(crate) fn backing_group(&self) -> GroupIndex {
-		self.backing_group
-	}
-
-	/// Get the candidate's backers.
-	pub(crate) fn backers(&self) -> &BitVec<u8, BitOrderLsb0> {
-		&self.backers
-	}
-
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub(crate) fn new(
 		core: CoreIndex,
@@ -496,12 +486,11 @@ impl<T: Config> Pallet<T> {
 		T::MessageQueue::sweep_queue(AggregateMessageOrigin::Ump(UmpQueueId::Para(para)));
 	}
 
-	pub(crate) fn get_occupied_cores() -> impl Iterator<Item = (CoreIndex, ParaId)> {
+	pub(crate) fn get_occupied_cores(
+	) -> impl Iterator<Item = (CoreIndex, CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>)>
+	{
 		PendingAvailability::<T>::iter_values().flat_map(|pending_candidates| {
-			pending_candidates
-				.iter()
-				.map(|c| (c.core, c.descriptor.para_id()))
-				.collect::<Vec<_>>()
+			pending_candidates.into_iter().map(|c| (c.core, c.clone()))
 		})
 	}
 
@@ -1162,7 +1151,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns the first `CommittedCandidateReceipt` pending availability for the para provided, if
 	/// any.
-	pub(crate) fn candidate_pending_availability(
+	pub(crate) fn first_candidate_pending_availability(
 		para: ParaId,
 	) -> Option<CommittedCandidateReceipt<T::Hash>> {
 		PendingAvailability::<T>::get(&para).and_then(|p| {
@@ -1189,24 +1178,6 @@ impl<T: Config> Pallet<T> {
 					.collect()
 			})
 			.unwrap_or_default()
-	}
-
-	/// Returns the metadata around the first candidate pending availability for the
-	/// para provided, if any.
-	pub(crate) fn pending_availability(
-		para: ParaId,
-	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
-		PendingAvailability::<T>::get(&para).and_then(|p| p.get(0).cloned())
-	}
-
-	/// Returns the metadata around the candidate pending availability occupying the supplied core,
-	/// if any.
-	pub(crate) fn pending_availability_with_core(
-		para: ParaId,
-		core: CoreIndex,
-	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
-		PendingAvailability::<T>::get(&para)
-			.and_then(|p| p.iter().find(|c| c.core == core).cloned())
 	}
 }
 
