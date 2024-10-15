@@ -1,4 +1,4 @@
-// This file is part of Substrate.
+// This file is part of Substrateself..
 
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
@@ -68,7 +68,7 @@
 //!   sizes.
 
 use crate::{Error, Memory, MAX_WASM_PAGES, PAGE_SIZE};
-pub use sp_core::MAX_POSSIBLE_ALLOCATION;
+pub use sp_core::{traits::CallContext, MAX_POSSIBLE_ALLOCATION, MAX_POSSIBLE_ALLOCATION_OFFCHAIN};
 use sp_wasm_interface::{Pointer, WordSize};
 use std::{
 	cmp::{max, min},
@@ -93,20 +93,22 @@ fn error(msg: &'static str) -> Error {
 
 const LOG_TARGET: &str = "wasm-heap";
 
-// The minimum possible allocation size is chosen to be 8 bytes because in that case we would have
-// easier time to provide the guaranteed alignment of 8.
-//
-// The maximum possible allocation size is set in the primitives to 32MiB.
-//
-// N_ORDERS - represents the number of orders supported.
-//
-// This number corresponds to the number of powers between the minimum possible allocation and
-// maximum possible allocation, or: 2^3...2^25 (both ends inclusive, hence 23).
-const N_ORDERS: usize = 23; // TODO(remove)
+/// The maximum possible allocation size is set in the primitives to 32MiB for onchain allocations
+/// and 4GiB for offchain allocations.
+///
+/// N_ORDERS_ONCHAIN - represents the number of orders supported for onchain allocations.
+/// N_ORDERS_OFFCHAIN - represents the number of orders supported for offchain allocations.
+///
+/// This number corresponds to the number of powers between the minimum possible allocation and
+/// maximum possible allocation, or: 2^3...2^25 (both ends inclusive, hence 23) for onchain
+/// allocation.
 const N_ORDERS_ONCHAIN: usize = 23;
-// TODO(rustdoc)
-const N_ORDERS_OFFCHAIN: usize = 27;
 
+/// Same as `N_ORDERS_ONCHAIN` but for offchain allocations.
+const N_ORDERS_OFFCHAIN: usize = 29;
+
+/// The minimum possible allocation size is chosen to be 8 bytes because in that case we would have
+/// easier time to provide the guaranteed alignment of 8.
 const MIN_POSSIBLE_ALLOCATION: u32 = 8; // 2^3 bytes, 8 bytes
 
 /// The exponent for the power of two sized block adjusted to the minimum size.
@@ -130,8 +132,8 @@ impl Order {
 	/// Create `Order` object from a raw order.
 	///
 	/// Returns `Err` if it is greater than the maximum supported order.
-	fn from_raw(order: u32) -> Result<Self, Error> {
-		if order < N_ORDERS as u32 {
+	fn from_raw(order: u32, max_orders: u32) -> Result<Self, Error> {
+		if order < max_orders {
 			Ok(Self(order))
 		} else {
 			Err(error("invalid order"))
@@ -142,9 +144,9 @@ impl Order {
 	///
 	/// The size is clamped, so that the following holds:
 	///
-	/// `MIN_POSSIBLE_ALLOCATION <= size <= MAX_POSSIBLE_ALLOCATION`
-	fn from_size(size: u32) -> Result<Self, Error> {
-		let clamped_size = if size > MAX_POSSIBLE_ALLOCATION {
+	/// `MIN_POSSIBLE_ALLOCATION <= size <= `max_allocation`.
+	fn from_size(size: u32, max_allocation: u32) -> Result<Self, Error> {
+		let clamped_size = if size > max_allocation {
 			log::warn!(target: LOG_TARGET, "going to fail due to allocating {:?}", size);
 			return Err(Error::RequestedAllocationTooLarge)
 		} else if size < MIN_POSSIBLE_ALLOCATION {
@@ -242,7 +244,7 @@ impl Header {
 	///
 	/// Returns an error if the `header_ptr` is out of bounds of the linear memory or if the read
 	/// header is corrupted (e.g. the order is incorrect).
-	fn read_from(memory: &impl Memory, header_ptr: u32) -> Result<Self, Error> {
+	fn read_from(memory: &impl Memory, header_ptr: u32, max_orders: u32) -> Result<Self, Error> {
 		let raw_header = memory.read_le_u64(header_ptr)?;
 
 		// Check if the header represents an occupied or free allocation and extract the header data
@@ -251,7 +253,7 @@ impl Header {
 		let header_data = raw_header as u32;
 
 		Ok(if occupied {
-			Self::Occupied(Order::from_raw(header_data)?)
+			Self::Occupied(Order::from_raw(header_data, max_orders)?)
 		} else {
 			Self::Free(Link::from_raw(header_data))
 		})
@@ -391,6 +393,8 @@ pub struct FreeingBumpHeapAllocator {
 	poisoned: bool,
 	last_observed_memory_size: u64,
 	stats: AllocationStats,
+	max_allocation: u32,
+	max_orders: u32,
 }
 
 impl Drop for FreeingBumpHeapAllocator {
@@ -405,17 +409,20 @@ impl FreeingBumpHeapAllocator {
 	/// # Arguments
 	///
 	/// - `heap_base` - the offset from the beginning of the linear memory where the heap starts.
-	pub fn new(heap_base: u32) -> Self {
+	pub fn new(heap_base: u32, context: CallContext) -> Self {
 		let aligned_heap_base = (heap_base + ALIGNMENT - 1) / ALIGNMENT * ALIGNMENT;
 
-		use sp_core::traits::CallContext;
-
-		// get from input.
-		let context = CallContext::Onchain;
-
-		let free_lists = match context {
-			CallContext::Onchain => LinkedLists::Onchain(FreeLists::<N_ORDERS_ONCHAIN>::new()),
-			CallContext::Offchain => LinkedLists::Offchain(FreeLists::<N_ORDERS_OFFCHAIN>::new()),
+		let (free_lists, max_allocation, max_orders) = match context {
+			CallContext::Onchain => (
+				LinkedLists::Onchain(FreeLists::<N_ORDERS_ONCHAIN>::new()),
+				MAX_POSSIBLE_ALLOCATION,
+				N_ORDERS_ONCHAIN as u32,
+			),
+			CallContext::Offchain => (
+				LinkedLists::Offchain(FreeLists::<N_ORDERS_OFFCHAIN>::new()),
+				MAX_POSSIBLE_ALLOCATION_OFFCHAIN,
+				N_ORDERS_OFFCHAIN as u32,
+			),
 		};
 
 		FreeingBumpHeapAllocator {
@@ -425,6 +432,8 @@ impl FreeingBumpHeapAllocator {
 			poisoned: false,
 			last_observed_memory_size: 0,
 			stats: AllocationStats::default(),
+			max_allocation,
+			max_orders,
 		}
 	}
 
@@ -455,7 +464,7 @@ impl FreeingBumpHeapAllocator {
 		let bomb = PoisonBomb { poisoned: &mut self.poisoned };
 
 		Self::observe_memory_size(&mut self.last_observed_memory_size, mem)?;
-		let order = Order::from_size(size)?;
+		let order = Order::from_size(size, self.max_allocation)?;
 
 		let header_ptr: u32 = match self.free_lists.get(order) {
 			Link::Ptr(header_ptr) => {
@@ -466,7 +475,7 @@ impl FreeingBumpHeapAllocator {
 				}
 
 				// Remove this header from the free list.
-				let next_free = Header::read_from(mem, header_ptr)?
+				let next_free = Header::read_from(mem, header_ptr, self.max_orders)?
 					.into_free()
 					.ok_or_else(|| error("free list points to a occupied header"))?;
 
@@ -522,7 +531,7 @@ impl FreeingBumpHeapAllocator {
 			.checked_sub(HEADER_SIZE)
 			.ok_or_else(|| error("Invalid pointer for deallocation"))?;
 
-		let order = Header::read_from(mem, header_ptr)?
+		let order = Header::read_from(mem, header_ptr, self.max_orders)?
 			.into_occupied()
 			.ok_or_else(|| error("the allocation points to an empty header"))?;
 
@@ -756,7 +765,7 @@ mod tests {
 	fn should_allocate_properly() {
 		// given
 		let mut mem = MemoryInstance::with_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(0);
+		let mut heap = FreeingBumpHeapAllocator::new(0, CallContext::Onchain);
 
 		// when
 		let ptr = heap.allocate(&mut mem, 1).unwrap();
@@ -770,7 +779,7 @@ mod tests {
 	fn should_always_align_pointers_to_multiples_of_8() {
 		// given
 		let mut mem = MemoryInstance::with_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(13);
+		let mut heap = FreeingBumpHeapAllocator::new(13, CallContext::Onchain);
 
 		// when
 		let ptr = heap.allocate(&mut mem, 1).unwrap();
@@ -785,7 +794,7 @@ mod tests {
 	fn should_increment_pointers_properly() {
 		// given
 		let mut mem = MemoryInstance::with_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(0);
+		let mut heap = FreeingBumpHeapAllocator::new(0, CallContext::Onchain);
 
 		// when
 		let ptr1 = heap.allocate(&mut mem, 1).unwrap();
@@ -808,7 +817,7 @@ mod tests {
 	fn should_free_properly() {
 		// given
 		let mut mem = MemoryInstance::with_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(0);
+		let mut heap = FreeingBumpHeapAllocator::new(0, CallContext::Onchain);
 		let ptr1 = heap.allocate(&mut mem, 1).unwrap();
 		// the prefix of 8 bytes is prepended to the pointer
 		assert_eq!(ptr1, to_pointer(HEADER_SIZE));
@@ -831,7 +840,7 @@ mod tests {
 		// given
 		let mut mem = MemoryInstance::with_pages(1);
 		let padded_offset = 16;
-		let mut heap = FreeingBumpHeapAllocator::new(13);
+		let mut heap = FreeingBumpHeapAllocator::new(13, CallContext::Onchain);
 
 		let ptr1 = heap.allocate(&mut mem, 1).unwrap();
 		// the prefix of 8 bytes is prepended to the pointer
@@ -850,14 +859,14 @@ mod tests {
 		// then
 		// should have re-allocated
 		assert_eq!(ptr3, to_pointer(padded_offset + 16 + HEADER_SIZE));
-		assert_eq!(heap.free_lists.heads(), [Link::Nil; N_ORDERS].to_vec());
+		assert_eq!(heap.free_lists.heads(), [Link::Nil; N_ORDERS_ONCHAIN].to_vec());
 	}
 
 	#[test]
 	fn should_build_linked_list_of_free_areas_properly() {
 		// given
 		let mut mem = MemoryInstance::with_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(0);
+		let mut heap = FreeingBumpHeapAllocator::new(0, CallContext::Onchain);
 
 		let ptr1 = heap.allocate(&mut mem, 8).unwrap();
 		let ptr2 = heap.allocate(&mut mem, 8).unwrap();
@@ -882,7 +891,7 @@ mod tests {
 		// given
 		let mut mem = MemoryInstance::with_pages(1);
 		mem.set_max_wasm_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(13);
+		let mut heap = FreeingBumpHeapAllocator::new(13, CallContext::Onchain);
 
 		// when
 		let ptr = heap.allocate(&mut mem, PAGE_SIZE - 13);
@@ -896,7 +905,7 @@ mod tests {
 		// given
 		let mut mem = MemoryInstance::with_pages(1);
 		mem.set_max_wasm_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(0);
+		let mut heap = FreeingBumpHeapAllocator::new(0, CallContext::Onchain);
 		let ptr1 = heap.allocate(&mut mem, (PAGE_SIZE / 2) - HEADER_SIZE).unwrap();
 		assert_eq!(ptr1, to_pointer(HEADER_SIZE));
 
@@ -915,10 +924,10 @@ mod tests {
 	fn should_allocate_max_possible_allocation_size() {
 		// given
 		let mut mem = MemoryInstance::with_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(0);
+		let mut heap = FreeingBumpHeapAllocator::new(0, CallContext::Onchain);
 
 		// when
-		let ptr = heap.allocate(&mut mem, MAX_POSSIBLE_ALLOCATION).unwrap();
+		let ptr = heap.allocate(&mut mem, heap.max_allocation).unwrap();
 
 		// then
 		assert_eq!(ptr, to_pointer(HEADER_SIZE));
@@ -928,10 +937,10 @@ mod tests {
 	fn should_not_allocate_if_requested_size_too_large() {
 		// given
 		let mut mem = MemoryInstance::with_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(0);
+		let mut heap = FreeingBumpHeapAllocator::new(0, CallContext::Onchain);
 
 		// when
-		let ptr = heap.allocate(&mut mem, MAX_POSSIBLE_ALLOCATION + 1);
+		let ptr = heap.allocate(&mut mem, heap.max_allocation + 1);
 
 		// then
 		assert_eq!(Error::RequestedAllocationTooLarge, ptr.unwrap_err());
@@ -942,7 +951,7 @@ mod tests {
 		// given
 		let mut mem = MemoryInstance::with_pages(1);
 		mem.set_max_wasm_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(0);
+		let mut heap = FreeingBumpHeapAllocator::new(0, CallContext::Onchain);
 
 		let mut ptrs = Vec::new();
 		for _ in 0..(PAGE_SIZE as usize / 40) {
@@ -978,7 +987,7 @@ mod tests {
 	fn should_include_prefixes_in_total_heap_size() {
 		// given
 		let mut mem = MemoryInstance::with_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(1);
+		let mut heap = FreeingBumpHeapAllocator::new(1, CallContext::Onchain);
 
 		// when
 		// an item size of 16 must be used then
@@ -992,7 +1001,7 @@ mod tests {
 	fn should_calculate_total_heap_size_to_zero() {
 		// given
 		let mut mem = MemoryInstance::with_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(13);
+		let mut heap = FreeingBumpHeapAllocator::new(13, CallContext::Onchain);
 
 		// when
 		let ptr = heap.allocate(&mut mem, 42).unwrap();
@@ -1007,7 +1016,7 @@ mod tests {
 	fn should_calculate_total_size_of_zero() {
 		// given
 		let mut mem = MemoryInstance::with_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(19);
+		let mut heap = FreeingBumpHeapAllocator::new(19, CallContext::Onchain);
 
 		// when
 		for _ in 1..10 {
@@ -1038,28 +1047,40 @@ mod tests {
 		let raw_order = 0;
 
 		// when
-		let item_size = Order::from_raw(raw_order).unwrap().size();
+		let item_size = Order::from_raw(raw_order, N_ORDERS_ONCHAIN as u32).unwrap().size();
 
 		// then
 		assert_eq!(item_size, 8);
 	}
 
 	#[test]
-	fn should_get_max_item_size_from_index() {
+	fn should_get_max_item_size_from_index_onchain() {
 		// given
 		let raw_order = 22;
 
 		// when
-		let item_size = Order::from_raw(raw_order).unwrap().size();
+		let item_size = Order::from_raw(raw_order, N_ORDERS_ONCHAIN as u32).unwrap().size();
 
 		// then
 		assert_eq!(item_size as u32, MAX_POSSIBLE_ALLOCATION);
 	}
 
 	#[test]
+	fn should_get_max_item_size_from_index_offchain() {
+		// given
+		let raw_order = 28;
+
+		// when
+		let item_size = Order::from_raw(raw_order, N_ORDERS_OFFCHAIN as u32).unwrap().size();
+
+		// then
+		assert_eq!(item_size as u32, MAX_POSSIBLE_ALLOCATION_OFFCHAIN);
+	}
+
+	#[test]
 	fn deallocate_needs_to_maintain_linked_list() {
 		let mut mem = MemoryInstance::with_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(0);
+		let mut heap = FreeingBumpHeapAllocator::new(0, CallContext::Onchain);
 
 		// Allocate and free some pointers
 		let ptrs = (0..4).map(|_| heap.allocate(&mut mem, 8).unwrap()).collect::<Vec<_>>();
@@ -1076,7 +1097,7 @@ mod tests {
 			let mut memory = MemoryInstance::with_pages(1);
 			header.write_into(&mut memory, 0).unwrap();
 
-			let read_header = Header::read_from(&memory, 0).unwrap();
+			let read_header = Header::read_from(&memory, 0, N_ORDERS_ONCHAIN as u32).unwrap();
 			assert_eq!(header, read_header);
 		};
 
@@ -1093,7 +1114,7 @@ mod tests {
 		let mut mem = MemoryInstance::with_pages(1);
 		mem.set_max_wasm_pages(1);
 
-		let mut heap = FreeingBumpHeapAllocator::new(0);
+		let mut heap = FreeingBumpHeapAllocator::new(0, CallContext::Onchain);
 
 		// when
 		let alloc_ptr = heap.allocate(&mut mem, PAGE_SIZE / 2).unwrap();
@@ -1105,18 +1126,23 @@ mod tests {
 	}
 
 	#[test]
-	fn test_n_orders() {
-		// Test that N_ORDERS is consistent with min and max possible allocation.
+	fn test_n_orders_onchain_offchain() {
+		// Test that N_ORDERS_* is consistent with min and max possible allocation.
 		assert_eq!(
-			MIN_POSSIBLE_ALLOCATION * 2u32.pow(N_ORDERS as u32 - 1),
+			MIN_POSSIBLE_ALLOCATION * 2u32.pow(N_ORDERS_ONCHAIN as u32 - 1),
 			MAX_POSSIBLE_ALLOCATION
+		);
+
+		assert_eq!(
+			MIN_POSSIBLE_ALLOCATION * 2u32.pow(N_ORDERS_OFFCHAIN as u32 - 1),
+			MAX_POSSIBLE_ALLOCATION_OFFCHAIN
 		);
 	}
 
 	#[test]
 	fn accepts_growing_memory() {
 		let mut mem = MemoryInstance::with_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(0);
+		let mut heap = FreeingBumpHeapAllocator::new(0, CallContext::Onchain);
 
 		heap.allocate(&mut mem, PAGE_SIZE / 2).unwrap();
 		heap.allocate(&mut mem, PAGE_SIZE / 2).unwrap();
@@ -1129,7 +1155,7 @@ mod tests {
 	#[test]
 	fn doesnt_accept_shrinking_memory() {
 		let mut mem = MemoryInstance::with_pages(2);
-		let mut heap = FreeingBumpHeapAllocator::new(0);
+		let mut heap = FreeingBumpHeapAllocator::new(0, CallContext::Onchain);
 
 		heap.allocate(&mut mem, PAGE_SIZE / 2).unwrap();
 
@@ -1144,7 +1170,7 @@ mod tests {
 	#[test]
 	fn should_grow_memory_when_running_out_of_memory() {
 		let mut mem = MemoryInstance::with_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(0);
+		let mut heap = FreeingBumpHeapAllocator::new(0, CallContext::Onchain);
 
 		assert_eq!(1, mem.pages());
 
@@ -1156,7 +1182,7 @@ mod tests {
 	#[test]
 	fn modifying_the_header_leads_to_an_error() {
 		let mut mem = MemoryInstance::with_pages(1);
-		let mut heap = FreeingBumpHeapAllocator::new(0);
+		let mut heap = FreeingBumpHeapAllocator::new(0, CallContext::Onchain);
 
 		let ptr = heap.allocate(&mut mem, 5).unwrap();
 

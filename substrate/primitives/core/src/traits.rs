@@ -36,6 +36,12 @@ pub enum CallContext {
 	Onchain,
 }
 
+impl Default for CallContext {
+	fn default() -> Self {
+		Self::Onchain
+	}
+}
+
 /// Code execution engine.
 pub trait CodeExecutor: Sized + Send + Sync + ReadRuntimeVersion + Clone + 'static {
 	/// Externalities error type.
