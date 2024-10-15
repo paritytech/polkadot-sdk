@@ -80,7 +80,7 @@ where
 			ExtrinsicFormat::Bare => {
 				let inherent_validation = I::validate_unsigned(source, &self.function)?;
 				#[allow(deprecated)]
-				let legacy_validation = Extension::validate_bare_compat(&self.function, info, len)?;
+				let legacy_validation = Extension::bare_validate(&self.function, info, len)?;
 				Ok(legacy_validation.combine_with(inherent_validation))
 			},
 			ExtrinsicFormat::Signed(ref signer, ref extension) => {
@@ -100,19 +100,15 @@ where
 		match self.format {
 			ExtrinsicFormat::Bare => {
 				I::pre_dispatch(&self.function)?;
-				// TODO: Remove below once `ValidateUnsigned` is deprecated and the only `Bare`
-				// extrinsics left are inherents.
-				#[allow(deprecated)]
-				Extension::validate_bare_compat(&self.function, info, len)?;
-				#[allow(deprecated)]
-				Extension::pre_dispatch_bare_compat(&self.function, info, len)?;
+				// TODO: Separate logic from `TransactionExtension` into a new `InherentExtension`
+				// interface.
+				Extension::bare_validate_and_prepare(&self.function, info, len)?;
 				let res = self.function.dispatch(None.into());
-				let post_info = res.unwrap_or_else(|err| err.post_info);
+				let mut post_info = res.unwrap_or_else(|err| err.post_info);
 				let pd_res = res.map(|_| ()).map_err(|e| e.error);
-				// TODO: Remove below once `ValidateUnsigned` is deprecated and the only `Bare`
-				// extrinsics left are inherents.
-				#[allow(deprecated)]
-				Extension::post_dispatch_bare_compat(info, &post_info, len, &pd_res)?;
+				// TODO: Separate logic from `TransactionExtension` into a new `InherentExtension`
+				// interface.
+				Extension::bare_post_dispatch(info, &mut post_info, len, &pd_res)?;
 				Ok(res)
 			},
 			ExtrinsicFormat::Signed(signer, extension) =>

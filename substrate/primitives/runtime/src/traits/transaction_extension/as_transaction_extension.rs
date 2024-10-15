@@ -103,7 +103,7 @@ where
 		Ok(Weight::zero())
 	}
 
-	fn validate_bare_compat(
+	fn bare_validate(
 		call: &SE::Call,
 		info: &DispatchInfoOf<SE::Call>,
 		len: usize,
@@ -111,7 +111,7 @@ where
 		SE::validate_unsigned(call, info, len)
 	}
 
-	fn pre_dispatch_bare_compat(
+	fn bare_validate_and_prepare(
 		call: &SE::Call,
 		info: &DispatchInfoOf<SE::Call>,
 		len: usize,
@@ -119,9 +119,9 @@ where
 		SE::pre_dispatch_unsigned(call, info, len)
 	}
 
-	fn post_dispatch_bare_compat(
+	fn bare_post_dispatch(
 		info: &DispatchInfoOf<SE::Call>,
-		post_info: &PostDispatchInfoOf<SE::Call>,
+		post_info: &mut PostDispatchInfoOf<SE::Call>,
 		len: usize,
 		result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {

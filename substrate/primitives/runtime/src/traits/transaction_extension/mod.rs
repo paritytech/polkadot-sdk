@@ -340,12 +340,10 @@ pub trait TransactionExtension<Call: Dispatchable>:
 		Ok(())
 	}
 
-	/// Compatibility function for supporting the `SignedExtension::validate_unsigned` function.
+	/// Validation logic for bare extrinsics.
 	///
-	/// DO NOT USE! THIS MAY BE REMOVED AT ANY TIME!
-	#[deprecated = "Only for compatibility. DO NOT USE."]
-	#[doc(hidden)]
-	fn validate_bare_compat(
+	/// NOTE: This function will be migrated to a separate `InherentExtension` interface.
+	fn bare_validate(
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
@@ -353,12 +351,10 @@ pub trait TransactionExtension<Call: Dispatchable>:
 		Ok(ValidTransaction::default())
 	}
 
-	/// Compatibility function for supporting the `SignedExtension::pre_dispatch_unsigned` function.
+	/// All pre-flight logic run before dispatching bare extrinsics.
 	///
-	/// DO NOT USE! THIS MAY BE REMOVED AT ANY TIME!
-	#[deprecated = "Only for compatibility. DO NOT USE."]
-	#[doc(hidden)]
-	fn pre_dispatch_bare_compat(
+	/// NOTE: This function will be migrated to a separate `InherentExtension` interface.
+	fn bare_validate_and_prepare(
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
@@ -366,15 +362,12 @@ pub trait TransactionExtension<Call: Dispatchable>:
 		Ok(())
 	}
 
-	/// Compatibility function for supporting the `SignedExtension::post_dispatch` function where
-	/// `pre` is `None`.
+	/// Post dispatch logic run after dispatching bare extrinsics.
 	///
-	/// DO NOT USE! THIS MAY BE REMOVED AT ANY TIME!
-	#[deprecated = "Only for compatibility. DO NOT USE."]
-	#[doc(hidden)]
-	fn post_dispatch_bare_compat(
+	/// NOTE: This function will be migrated to a separate `InherentExtension` interface.
+	fn bare_post_dispatch(
 		_info: &DispatchInfoOf<Call>,
-		_post_info: &PostDispatchInfoOf<Call>,
+		_post_info: &mut PostDispatchInfoOf<Call>,
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
@@ -572,6 +565,34 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 		result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
 		for_tuples!( #( Tuple::post_dispatch(pre.Tuple, info, post_info, len, result)?; )* );
+		Ok(())
+	}
+
+	fn bare_validate(call: &Call, info: &DispatchInfoOf<Call>, len: usize) -> TransactionValidity {
+		let valid = ValidTransaction::default();
+		for_tuples!(#(
+			let item_valid = Tuple::bare_validate(call, info, len)?;
+			let valid = valid.combine_with(item_valid);
+		)* );
+		Ok(valid)
+	}
+
+	fn bare_validate_and_prepare(
+		call: &Call,
+		info: &DispatchInfoOf<Call>,
+		len: usize,
+	) -> Result<(), TransactionValidityError> {
+		for_tuples!( #( Tuple::bare_validate_and_prepare(call, info, len)?; )* );
+		Ok(())
+	}
+
+	fn bare_post_dispatch(
+		info: &DispatchInfoOf<Call>,
+		post_info: &mut PostDispatchInfoOf<Call>,
+		len: usize,
+		result: &DispatchResult,
+	) -> Result<(), TransactionValidityError> {
+		for_tuples!( #( Tuple::bare_post_dispatch(info, post_info, len, result)?; )* );
 		Ok(())
 	}
 }

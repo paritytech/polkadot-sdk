@@ -133,6 +133,32 @@ where
 		crate::BlockWeight::<T>::put(next_weight);
 		Ok(())
 	}
+
+	pub fn do_post_dispatch(
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
+	) -> Result<(), TransactionValidityError> {
+		let unspent = post_info.calc_unspent(info);
+		if unspent.any_gt(Weight::zero()) {
+			crate::BlockWeight::<T>::mutate(|current_weight| {
+				current_weight.reduce(unspent, info.class);
+			})
+		}
+
+		log::trace!(
+			target: LOG_TARGET,
+			"Used block weight: {:?}",
+			crate::BlockWeight::<T>::get(),
+		);
+
+		log::trace!(
+			target: LOG_TARGET,
+			"Used block length: {:?}",
+			Pallet::<T>::all_extrinsics_len(),
+		);
+
+		Ok(())
+	}
 }
 
 /// Checks if the current extrinsic can fit into the block with respect to block weight limits.
@@ -251,26 +277,34 @@ where
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		let unspent = post_info.calc_unspent(info);
-		if unspent.any_gt(Weight::zero()) {
-			crate::BlockWeight::<T>::mutate(|current_weight| {
-				current_weight.reduce(unspent, info.class);
-			})
-		}
-
-		log::trace!(
-			target: LOG_TARGET,
-			"Used block weight: {:?}",
-			crate::BlockWeight::<T>::get(),
-		);
-
-		log::trace!(
-			target: LOG_TARGET,
-			"Used block length: {:?}",
-			Pallet::<T>::all_extrinsics_len(),
-		);
-
+		Self::do_post_dispatch(info, post_info)?;
 		Ok(Weight::zero())
+	}
+
+	fn bare_validate(
+		_call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+	) -> frame_support::pallet_prelude::TransactionValidity {
+		Ok(Self::do_validate(info, len)?.0)
+	}
+
+	fn bare_validate_and_prepare(
+		_call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+	) -> Result<(), TransactionValidityError> {
+		let (_, next_len) = Self::do_validate(info, len)?;
+		Self::do_prepare(info, len, next_len)
+	}
+
+	fn bare_post_dispatch(
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &mut PostDispatchInfoOf<T::RuntimeCall>,
+		_len: usize,
+		_result: &DispatchResult,
+	) -> Result<(), TransactionValidityError> {
+		Self::do_post_dispatch(info, post_info)
 	}
 }
 
