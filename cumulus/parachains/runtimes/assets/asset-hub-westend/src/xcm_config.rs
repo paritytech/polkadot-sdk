@@ -701,7 +701,8 @@ pub mod bridging {
 				.collect();
 		}
 
-		pub type EthereumNetworkExportTable = xcm_builder::NetworkExportTable<EthereumBridgeTable>;
+		pub type EthereumNetworkExportTable =
+			xcm_builder::NetworkWithXcmExportTable<EthereumBridgeTable, ()>;
 
 		pub type IsTrustedBridgedReserveLocationForForeignAsset =
 			IsForeignConcreteAsset<FromNetwork<UniversalLocation, EthereumNetwork>>;

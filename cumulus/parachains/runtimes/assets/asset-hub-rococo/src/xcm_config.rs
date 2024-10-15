@@ -574,8 +574,7 @@ pub mod bridging {
 
 	pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
 
-	pub type EthereumNetworkExportTable =
-		xcm_builder::NetworkWithXcmExportTable<EthereumBridgeTable, ()>;
+	pub type EthereumNetworkExportTable = xcm_builder::NetworkExportTable<EthereumBridgeTable>;
 
 	pub mod to_westend {
 		use super::*;

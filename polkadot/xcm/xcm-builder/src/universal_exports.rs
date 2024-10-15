@@ -16,16 +16,13 @@
 
 //! Traits and utilities to help with origin mutation and bridging.
 
-use crate::{HandleFee, InspectMessageQueues};
+use crate::InspectMessageQueues;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::{convert::TryInto, marker::PhantomData};
-use frame_support::{
-	ensure,
-	traits::{Contains, Get},
-};
+use frame_support::{ensure, traits::Get};
 use xcm::prelude::*;
-use xcm_executor::traits::{validate_export, ExportXcm, FeeReason};
+use xcm_executor::traits::{validate_export, ExportXcm};
 use SendError::*;
 
 /// Returns the network ID and consensus location within that network of the remote
