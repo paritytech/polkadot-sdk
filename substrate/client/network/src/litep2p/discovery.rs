@@ -463,7 +463,16 @@ impl Discovery {
 			None => {
 				let oldest = (self.address_confirmations.len() >=
 					self.address_confirmations.limiter().max_length() as usize)
-					.then(|| self.address_confirmations.pop_oldest().map(|(address, _)| address))
+					.then(|| {
+						self.address_confirmations.pop_oldest().map(|(address, peers)| {
+							if peers.len() >= MIN_ADDRESS_CONFIRMATIONS {
+								return Some(address)
+							} else {
+								None
+							}
+						})
+					})
+					.flatten()
 					.flatten();
 
 				self.address_confirmations.insert(address.clone(), Default::default());
