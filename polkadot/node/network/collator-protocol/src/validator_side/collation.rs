@@ -22,10 +22,10 @@
 //!       based on the entries there. A parachain can't have more fetched collations than the
 //!       entries in the claim queue at a specific relay parent. When calculating this limit the
 //!       validator counts all advertisements within its view not just at the relay parent.
-//!    2. If the advertisement was accepted, it's queued for fetch (per relay parent).
-//!    3. Once it's requested, the collation is said to be Pending.
-//!    4. Pending collation becomes Fetched once received, we send it to backing for validation.
-//!    5. If it turns to be invalid or async backing allows seconding another candidate, carry on
+//!    3. If the advertisement was accepted, it's queued for fetch (per relay parent).
+//!    4. Once it's requested, the collation is said to be Pending.
+//!    5. Pending collation becomes Fetched once received, we send it to backing for validation.
+//!    6. If it turns to be invalid or async backing allows seconding another candidate, carry on
 //!       with the next advertisement, otherwise we're done with this relay parent.
 //!
 //!    ┌───────────────────────────────────┐
@@ -222,7 +222,7 @@ pub struct Collations {
 	/// This is the currently last started fetch, which did not exceed `MAX_UNSHARED_DOWNLOAD_TIME`
 	/// yet.
 	pub fetching_from: Option<(CollatorId, Option<CandidateHash>)>,
-	/// Collation that were advertised to us, but we did not yet fetch. Grouped by `ParaId`.
+	/// Collation that were advertised to us, but we did not yet request or fetch. Grouped by `ParaId`.
 	waiting_queue: BTreeMap<ParaId, VecDeque<(PendingCollation, CollatorId)>>,
 	/// Number of seconded candidates and claims in the claim queue per `ParaId`.
 	candidates_state: BTreeMap<ParaId, CandidatesStatePerPara>,
@@ -293,7 +293,7 @@ impl Collations {
 		None
 	}
 
-	// Returns `true` if there is a  pending collation for the specified `ParaId`.
+	// Returns `true` if there is a pending collation for the specified `ParaId`.
 	fn is_pending_for_para(&self, para_id: &ParaId) -> bool {
 		match self.status {
 			CollationStatus::Fetching(pending_para_id) if pending_para_id == *para_id => true,
@@ -304,7 +304,7 @@ impl Collations {
 		}
 	}
 
-	// Returns the number of seconded collations for the specified `ParaId`.
+	// Returns the number of seconded and likely soon to be seconded collations for the specified `ParaId`.
 	pub(super) fn seconded_and_pending_for_para(&self, para_id: &ParaId) -> usize {
 		let seconded_for_para = self
 			.candidates_state

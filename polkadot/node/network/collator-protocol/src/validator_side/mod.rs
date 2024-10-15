@@ -145,7 +145,6 @@ enum InsertAdvertisementError {
 	/// No prior declare message received.
 	UndeclaredCollator,
 	/// A limit for announcements per peer is reached.
-	#[allow(dead_code)]
 	PeerLimitReached,
 }
 
@@ -467,7 +466,8 @@ where
 
 	// Assigned parachains are determined by:
 	// 1. If there is something scheduled on the core - this is the first assignment.
-	// 2. Next assigments are whatever is in the claim queue for the core. 2.1 If the claim queue is
+	// 2. Next assigments are whatever is in the claim queue for the core.
+	//     2.1 If the claim queue is
 	//    not available and the core is occupied the next assignemnt is taken from
 	//    `next_up_on_available`
 	//
@@ -1110,7 +1110,7 @@ where
 		// Check if backing subsystem allows to second this candidate.
 		//
 		// This is also only important when async backing or elastic scaling is enabled.
-		let seconding_not_allowed = !can_second(
+		let can_second = can_second(
 			sender,
 			collator_para_id,
 			relay_parent,
@@ -1119,7 +1119,7 @@ where
 		)
 		.await;
 
-		if seconding_not_allowed {
+		if !can_second {
 			return Err(AdvertisementError::BlockedByBacking)
 		}
 	}
@@ -2072,7 +2072,7 @@ fn seconded_and_pending_for_para_in_view(
 		.unwrap_or(0)
 }
 
-// Returns the claim queue with out fetched or pending advertisement. The resulting `Vec` keeps the
+// Returns the claim queue without fetched or pending advertisement. The resulting `Vec` keeps the
 // order in the claim queue so the earlier an element is located in the `Vec` the higher its
 // priority is.
 fn unfulfilled_claim_queue_entries(
