@@ -25,6 +25,7 @@ sp-runtime.workspace = true
 xcm.workspace = true
 pallet-xcm.workspace = true
 xcm-executor.workspace = true
+xcm-runtime-apis.workspace = true
 pallet-bridge-messages.workspace = true
 pallet-xcm-bridge-hub.workspace = true
 cumulus-pallet-xcmp-queue.workspace = true
