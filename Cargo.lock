@@ -2228,6 +2228,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "testnet-parachains-constants",
+ "xcm-runtime-apis",
 ]
 
 [[package]]
@@ -2421,6 +2422,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "testnet-parachains-constants",
+ "xcm-runtime-apis",
 ]
 
 [[package]]
@@ -11466,7 +11468,7 @@ dependencies = [
  "sp-npos-elections",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
- "strum 0.26.2",
+ "strum 0.26.3",
 ]
 
 [[package]]
@@ -12176,14 +12178,9 @@ dependencies = [
 name = "pallet-parachain-template"
 version = "0.0.0"
 dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -13045,57 +13042,16 @@ version = "0.0.0"
 dependencies = [
  "clap 4.5.13",
  "color-print",
- "cumulus-client-cli",
- "cumulus-client-collator",
- "cumulus-client-consensus-aura",
- "cumulus-client-consensus-common",
- "cumulus-client-consensus-proposer",
- "cumulus-client-service",
- "cumulus-primitives-core",
- "cumulus-primitives-parachain-inherent",
- "cumulus-relay-chain-interface",
  "docify",
- "frame-benchmarking",
- "frame-benchmarking-cli",
  "futures",
  "jsonrpsee 0.24.3",
  "log",
- "pallet-transaction-payment-rpc",
  "parachain-template-runtime",
  "parity-scale-codec",
- "polkadot-cli",
- "polkadot-primitives",
- "sc-basic-authorship",
- "sc-chain-spec",
- "sc-cli",
- "sc-client-api",
- "sc-consensus",
- "sc-executor 0.32.0",
- "sc-network",
- "sc-network-sync",
- "sc-offchain",
- "sc-rpc",
- "sc-service",
- "sc-sysinfo",
- "sc-telemetry",
+ "polkadot-sdk",
  "sc-tracing",
- "sc-transaction-pool",
- "sc-transaction-pool-api",
  "serde",
  "serde_json",
- "sp-api 26.0.0",
- "sp-block-builder",
- "sp-blockchain",
- "sp-consensus-aura",
- "sp-core 28.0.0",
- "sp-genesis-builder",
- "sp-io 30.0.0",
- "sp-keystore 0.34.0",
- "sp-runtime 31.0.1",
- "sp-timestamp",
- "staging-xcm",
- "substrate-build-script-utils",
- "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
 ]
 
@@ -13103,60 +13059,16 @@ dependencies = [
 name = "parachain-template-runtime"
 version = "0.0.0"
 dependencies = [
- "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
- "cumulus-pallet-session-benchmarking",
- "cumulus-pallet-xcm",
- "cumulus-pallet-xcmp-queue",
- "cumulus-primitives-aura",
- "cumulus-primitives-core",
- "cumulus-primitives-storage-weight-reclaim",
- "cumulus-primitives-utility",
  "docify",
- "frame-benchmarking",
- "frame-executive",
- "frame-metadata-hash-extension",
- "frame-support",
- "frame-system",
- "frame-system-benchmarking",
- "frame-system-rpc-runtime-api",
- "frame-try-runtime",
  "hex-literal",
  "log",
- "pallet-aura",
- "pallet-authorship",
- "pallet-balances",
- "pallet-collator-selection",
- "pallet-message-queue",
  "pallet-parachain-template",
- "pallet-session",
- "pallet-sudo",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
- "pallet-xcm",
- "parachains-common",
  "parity-scale-codec",
- "polkadot-parachain-primitives",
- "polkadot-runtime-common",
+ "polkadot-sdk",
  "scale-info",
  "serde_json",
  "smallvec",
- "sp-api 26.0.0",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-core 28.0.0",
- "sp-genesis-builder",
- "sp-inherents",
- "sp-offchain",
- "sp-runtime 31.0.1",
- "sp-session",
- "sp-transaction-pool",
- "sp-version 29.0.0",
- "staging-parachain-info",
- "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
  "substrate-wasm-builder",
 ]
 
@@ -13242,7 +13154,7 @@ checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
  "rand",
- "rand_core 0.5.1",
+ "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
 ]
@@ -14312,6 +14224,7 @@ dependencies = [
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
  "polkadot-node-subsystem-util",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "polkadot-statement-table",
@@ -14532,6 +14445,7 @@ dependencies = [
  "slotmap",
  "sp-core 28.0.0",
  "sp-maybe-compressed-blob 11.0.0",
+ "strum 0.26.3",
  "tempfile",
  "test-parachain-adder",
  "test-parachain-halt",
@@ -14700,7 +14614,7 @@ dependencies = [
  "sc-network",
  "sc-network-types",
  "sp-runtime 31.0.1",
- "strum 0.26.2",
+ "strum 0.26.3",
  "thiserror",
  "tracing-gum",
 ]
@@ -14784,6 +14698,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus-babe",
  "sp-runtime 31.0.1",
+ "strum 0.26.3",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
@@ -15918,7 +15833,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-timestamp",
  "sp-tracing 16.0.0",
- "strum 0.26.2",
+ "strum 0.26.3",
  "substrate-prometheus-endpoint",
  "tikv-jemallocator",
  "tokio",
@@ -21662,7 +21577,7 @@ dependencies = [
  "sp-mmr-primitives",
  "sp-runtime 31.0.1",
  "sp-weights 27.0.0",
- "strum 0.26.2",
+ "strum 0.26.3",
  "w3f-bls",
 ]
 
@@ -22234,7 +22149,7 @@ version = "31.0.0"
 dependencies = [
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
- "strum 0.26.2",
+ "strum 0.26.3",
 ]
 
 [[package]]
@@ -23561,11 +23476,11 @@ checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
 
 [[package]]
 name = "strum"
-version = "0.26.2"
+version = "0.26.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d8cec3501a5194c432b2b7976db6b7d10ec95c253208b45f83f7136aa985e29"
+checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
 dependencies = [
- "strum_macros 0.26.2",
+ "strum_macros 0.26.4",
 ]
 
 [[package]]
@@ -23596,11 +23511,11 @@ dependencies = [
 
 [[package]]
 name = "strum_macros"
-version = "0.26.2"
+version = "0.26.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6cf59daf282c0a494ba14fd21610a0325f9f90ec9d1231dea26bcb1d696c946"
+checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
 dependencies = [
- "heck 0.4.1",
+ "heck 0.5.0",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "rustversion",
@@ -23796,7 +23711,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-trie 29.0.0",
  "structopt",
- "strum 0.26.2",
+ "strum 0.26.3",
  "thiserror",
 ]
 
@@ -23989,7 +23904,7 @@ dependencies = [
  "sp-maybe-compressed-blob 11.0.0",
  "sp-tracing 16.0.0",
  "sp-version 29.0.0",
- "strum 0.26.2",
+ "strum 0.26.3",
  "tempfile",
  "toml 0.8.12",
  "walkdir",
@@ -26341,6 +26256,7 @@ dependencies = [
 name = "westend-runtime"
 version = "7.0.0"
 dependencies = [
+ "approx",
  "binary-merkle-tree",
  "bitvec",
  "frame-benchmarking",
