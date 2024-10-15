@@ -17,7 +17,7 @@ doc:
       Implementation of the Stage 3 for the New Disabling Strategy: https://github.com/paritytech/polkadot-sdk/issues/4359
 
       This PR changes when an active validator node gets disabled within parachain consensus (reduced responsibilities and
-      reduced rewards) for comitting offences. This should not affect active validators on a dato-day basis and will only
+      reduced rewards) for comitting offences. This should not affect active validators on a day-to-day basis and will only
       be relevant when the network is under attack or there is a wide spread malfunction causing slashes. In that case
       lowest offenders might get eventually re-enabled (back to normal responsibilities and normal rewards).
 
