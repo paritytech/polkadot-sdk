@@ -102,7 +102,11 @@ const LOG_TARGET: &str = "wasm-heap";
 //
 // This number corresponds to the number of powers between the minimum possible allocation and
 // maximum possible allocation, or: 2^3...2^25 (both ends inclusive, hence 23).
-const N_ORDERS: usize = 23;
+const N_ORDERS: usize = 23; // TODO(remove)
+const N_ORDERS_ONCHAIN: usize = 23;
+// TODO(rustdoc)
+const N_ORDERS_OFFCHAIN: usize = 27;
+
 const MIN_POSSIBLE_ALLOCATION: u32 = 8; // 2^3 bytes, 8 bytes
 
 /// The exponent for the power of two sized block adjusted to the minimum size.
@@ -283,12 +287,36 @@ impl Header {
 	}
 }
 
+#[derive(Debug)]
+enum LinkedLists {
+	Onchain(FreeLists<N_ORDERS_ONCHAIN>),
+	Offchain(FreeLists<N_ORDERS_OFFCHAIN>),
+}
+
+impl LinkedLists {
+	fn get(&self, order: Order) -> Link {
+		match self {
+			Self::Onchain(list) => list[order],
+			Self::Offchain(list) => list[order],
+		}
+	}
+
+	#[cfg(test)]
+	fn heads(&self) -> Vec<Link> {
+		match self {
+			Self::Onchain(list) => list.heads.to_vec(),
+			Self::Offchain(list) => list.heads.to_vec(),
+		}
+	}
+}
+
 /// This struct represents a collection of intrusive linked lists for each order.
-struct FreeLists {
+#[derive(Debug)]
+struct FreeLists<const N_ORDERS: usize> {
 	heads: [Link; N_ORDERS],
 }
 
-impl FreeLists {
+impl<const N_ORDERS: usize> FreeLists<N_ORDERS> {
 	/// Creates the free empty lists.
 	fn new() -> Self {
 		Self { heads: [Link::Nil; N_ORDERS] }
@@ -302,14 +330,14 @@ impl FreeLists {
 	}
 }
 
-impl Index<Order> for FreeLists {
+impl<const N_ORDERS: usize> Index<Order> for FreeLists<N_ORDERS> {
 	type Output = Link;
 	fn index(&self, index: Order) -> &Link {
 		&self.heads[index.0 as usize]
 	}
 }
 
-impl IndexMut<Order> for FreeLists {
+impl<const N_ORDERS: usize> IndexMut<Order> for FreeLists<N_ORDERS> {
 	fn index_mut(&mut self, index: Order) -> &mut Link {
 		&mut self.heads[index.0 as usize]
 	}
@@ -359,7 +387,7 @@ fn pages_from_size(size: u64) -> Option<u32> {
 pub struct FreeingBumpHeapAllocator {
 	original_heap_base: u32,
 	bumper: u32,
-	free_lists: FreeLists,
+	free_lists: LinkedLists,
 	poisoned: bool,
 	last_observed_memory_size: u64,
 	stats: AllocationStats,
@@ -380,10 +408,20 @@ impl FreeingBumpHeapAllocator {
 	pub fn new(heap_base: u32) -> Self {
 		let aligned_heap_base = (heap_base + ALIGNMENT - 1) / ALIGNMENT * ALIGNMENT;
 
+		use sp_core::traits::CallContext;
+
+		// get from input.
+		let context = CallContext::Onchain;
+
+		let free_lists = match context {
+			CallContext::Onchain => LinkedLists::Onchain(FreeLists::<N_ORDERS_ONCHAIN>::new()),
+			CallContext::Offchain => LinkedLists::Offchain(FreeLists::<N_ORDERS_OFFCHAIN>::new()),
+		};
+
 		FreeingBumpHeapAllocator {
 			original_heap_base: aligned_heap_base,
 			bumper: aligned_heap_base,
-			free_lists: FreeLists::new(),
+			free_lists,
 			poisoned: false,
 			last_observed_memory_size: 0,
 			stats: AllocationStats::default(),
@@ -419,7 +457,7 @@ impl FreeingBumpHeapAllocator {
 		Self::observe_memory_size(&mut self.last_observed_memory_size, mem)?;
 		let order = Order::from_size(size)?;
 
-		let header_ptr: u32 = match self.free_lists[order] {
+		let header_ptr: u32 = match self.free_lists.get(order) {
 			Link::Ptr(header_ptr) => {
 				if (u64::from(header_ptr) + u64::from(order.size()) + u64::from(HEADER_SIZE)) >
 					mem.size()
@@ -431,7 +469,11 @@ impl FreeingBumpHeapAllocator {
 				let next_free = Header::read_from(mem, header_ptr)?
 					.into_free()
 					.ok_or_else(|| error("free list points to a occupied header"))?;
-				self.free_lists[order] = next_free;
+
+				match self.free_lists {
+					LinkedLists::Onchain(ref mut list) => list[order] = next_free,
+					LinkedLists::Offchain(ref mut list) => list[order] = next_free,
+				};
 
 				header_ptr
 			},
@@ -485,7 +527,11 @@ impl FreeingBumpHeapAllocator {
 			.ok_or_else(|| error("the allocation points to an empty header"))?;
 
 		// Update the just freed header and knit it back to the free list.
-		let prev_head = self.free_lists.replace(order, Link::Ptr(header_ptr));
+		let prev_head = match self.free_lists {
+			LinkedLists::Onchain(ref mut l) => l.replace(order, Link::Ptr(header_ptr)),
+			LinkedLists::Offchain(ref mut l) => l.replace(order, Link::Ptr(header_ptr)),
+		};
+
 		Header::Free(prev_head).write_into(mem, header_ptr)?;
 
 		self.stats.bytes_allocated = self
@@ -777,7 +823,7 @@ mod tests {
 		// then
 		// then the heads table should contain a pointer to the
 		// prefix of ptr2 in the leftmost entry
-		assert_eq!(heap.free_lists.heads[0], Link::Ptr(u32::from(ptr2) - HEADER_SIZE));
+		assert_eq!(heap.free_lists.get(Order(0)), Link::Ptr(u32::from(ptr2) - HEADER_SIZE));
 	}
 
 	#[test]
@@ -804,7 +850,7 @@ mod tests {
 		// then
 		// should have re-allocated
 		assert_eq!(ptr3, to_pointer(padded_offset + 16 + HEADER_SIZE));
-		assert_eq!(heap.free_lists.heads, [Link::Nil; N_ORDERS]);
+		assert_eq!(heap.free_lists.heads(), [Link::Nil; N_ORDERS].to_vec());
 	}
 
 	#[test]
@@ -823,12 +869,12 @@ mod tests {
 		heap.deallocate(&mut mem, ptr3).unwrap();
 
 		// then
-		assert_eq!(heap.free_lists.heads[0], Link::Ptr(u32::from(ptr3) - HEADER_SIZE));
+		assert_eq!(heap.free_lists.get(Order(0)), Link::Ptr(u32::from(ptr3) - HEADER_SIZE));
 
 		let ptr4 = heap.allocate(&mut mem, 8).unwrap();
 		assert_eq!(ptr4, ptr3);
 
-		assert_eq!(heap.free_lists.heads[0], Link::Ptr(u32::from(ptr2) - HEADER_SIZE));
+		assert_eq!(heap.free_lists.get(Order(0)), Link::Ptr(u32::from(ptr2) - HEADER_SIZE));
 	}
 
 	#[test]
