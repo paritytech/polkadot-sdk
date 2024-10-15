@@ -940,7 +940,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 						// Litep2p requires the peer ID to be present in the address.
 						let address = if !std::matches!(address.iter().last(), Some(Protocol::P2p(_))) {
-							address.with(Protocol::P2p(local_peer_id.as_ref()))
+							address.with(Protocol::P2p(*local_peer_id.as_ref()))
 						} else {
 							address
 						};
