@@ -16,9 +16,7 @@
 
 mod mock;
 
-use frame_support::sp_runtime::{
-	testing::H256,
-};
+use frame_support::sp_runtime::testing::H256;
 use mock::*;
 use sp_api::ProvideRuntimeApi;
 use xcm::prelude::*;
