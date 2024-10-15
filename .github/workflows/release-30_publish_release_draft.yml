@@ -96,7 +96,7 @@ jobs:
             echo "REF2: ${REF2}"
           else
             export REF2="${{ inputs.version }}"
-            echo "REF2: ${REF2}
+            echo "REF2: ${REF2}"
           fi
           echo "REL_TAG=$REF2" >> $GITHUB_ENV
           export VERSION=$(echo "$REF2" | sed -E 's/.*(stable[0-9]+).*$/\1/')
