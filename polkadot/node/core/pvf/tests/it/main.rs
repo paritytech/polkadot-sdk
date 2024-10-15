@@ -28,7 +28,7 @@ use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
 use polkadot_node_subsystem::messages::PvfExecKind;
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationResult};
 use polkadot_primitives::{
-	BlockNumber, ExecutorParam, ExecutorParams, Hash, PersistedValidationData,
+	BlockNumber, ExecutorParam, ExecutorParams, PersistedValidationData,
 	PvfExecKind as RuntimePvfExecKind, PvfPrepKind,
 };
 use sp_core::H256;
