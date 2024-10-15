@@ -29,20 +29,20 @@ for arg, config in common_args.items():
 subparsers = parser.add_subparsers(help='a command to run', dest='command')
 
 """
-BENCH 
+BENCH
 """
 
 bench_example = '''**Examples**:
- Runs all benchmarks 
+ Runs all benchmarks
  %(prog)s
 
  Runs benchmarks for pallet_balances and pallet_multisig for all runtimes which have these pallets. **--quiet** makes it to output nothing to PR but reactions
  %(prog)s --pallet pallet_balances pallet_xcm_benchmarks::generic --quiet
- 
+
  Runs bench for all pallets for westend runtime and continues even if some benchmarks fail
  %(prog)s --runtime westend --continue-on-fail
- 
- Does not output anything and cleans up the previous bot's & author command triggering comments in PR 
+
+ Does not output anything and cleans up the previous bot's & author command triggering comments in PR
  %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
 '''
 
@@ -55,14 +55,14 @@ parser_bench.add_argument('--runtime', help='Runtime(s) space separated', choice
 parser_bench.add_argument('--pallet', help='Pallet(s) space separated', nargs='*', default=[])
 
 """
-FMT 
+FMT
 """
 parser_fmt = subparsers.add_parser('fmt', help='Formats code (cargo +nightly-VERSION fmt) and configs (taplo format)')
 for arg, config in common_args.items():
     parser_fmt.add_argument(arg, **config)
 
 """
-Update UI 
+Update UI
 """
 parser_ui = subparsers.add_parser('update-ui', help='Updates UI tests')
 for arg, config in common_args.items():
@@ -161,7 +161,9 @@ def main():
                     print(f'-- package_dir: {package_dir}')
                     print(f'-- manifest_path: {manifest_path}')
                     output_path = os.path.join(package_dir, "src", "weights.rs")
-                    template = config['template']
+                    # TODO: we can remove once all pallets in dev runtime are migrated to polkadot-sdk-frame
+                    uses_polkadot_sdk_frame = "true" in os.popen(f"cargo metadata --locked --format-version 1 --no-deps | jq -r '.packages[] | select(.name == \"{pallet.replace('_', '-')}\") | .dependencies | any(.name == \"polkadot-sdk-frame\")'").read()
+                    template = config['template'] if not uses_polkadot_sdk_frame else "substrate/.maintain/frame-umbrella-weight-template.hbs"
                 else:
                     default_path = f"./{config['path']}/src/weights"
                     xcm_path = f"./{config['path']}/src/weights/xcm"
