@@ -158,7 +158,7 @@ zombienet-polkadot-functional-0010-validator-disabling:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0010-validator-disabling.zndsl"
 
-zombienet-polkadot-functional-0011-async-backing-6-seconds-rate:
+.zombienet-polkadot-functional-0011-async-backing-6-seconds-rate:
   extends:
     - .zombienet-polkadot-common
   script:

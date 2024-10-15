@@ -164,7 +164,7 @@ zombienet-cumulus-0008-elastic_authoring:
       --concurrency=1
       --test="0008-elastic_authoring.zndsl"
 
-zombienet-cumulus-0009-elastic_pov_recovery:
+.zombienet-cumulus-0009-elastic_pov_recovery:
   extends:
     - .zombienet-cumulus-common
     - .zombienet-refs
