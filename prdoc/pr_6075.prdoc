@@ -3,13 +3,8 @@ doc:
 - audience:
   - Node Dev
   description: |-
-    The lookahead collator was filling up the unincluded segment by producing one extra block every time when there is space in the unincluded segment.
+    Disable production of extra blocks in the lookahead collator when the unincluded segment has space.
 
-    This increases time to finality for given transactions and the benefit is questionable. In addition, if we use the full execution time of 2s for async-backing parachains and there is a relay chain fork, we will be producing blocks for 8s, which means that we are producing past our slot.
-
-    Alternatively, we could introduce a configuration to make users choose this value, however that makes this PR non-backporteable.
-
-    cc @bkchr @eskimor
 crates:
 - name: cumulus-client-consensus-aura
   bump: major
