@@ -542,7 +542,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Utility { .. } |
 						RuntimeCall::Multisig { .. } |
 						RuntimeCall::NftFractionalization { .. } |
-						RuntimeCall::Nfts { .. } | RuntimeCall::Uniques { .. }
+						RuntimeCall::Nfts { .. } |
+						RuntimeCall::Uniques { .. }
 				)
 			},
 			ProxyType::AssetOwner => matches!(
@@ -1327,16 +1328,17 @@ impl_runtime_apis! {
 	impl xcm_runtime_apis::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
 			let native_token = xcm_config::TokenLocation::get();
+			let native_token_v3 = xcm_config::TokenLocationV3::get();
 			// We accept the native token to pay fees.
 			let mut acceptable_assets = vec![AssetId(native_token.clone())];
 			// We also accept all assets in a pool with the native token.
 			acceptable_assets.extend(
 				pallet_asset_conversion::Pools::<Runtime>::iter_keys().filter_map(
 					|(asset_1, asset_2)| {
-						if asset_1 == native_token {
-							Some(asset_2.clone().into())
-						} else if asset_2 == native_token {
-							Some(asset_1.clone().into())
+						if asset_1 == native_token_v3 {
+							Some(AssetId(asset_2.try_into().unwrap()))
+						} else if asset_2 == native_token_v3 {
+							Some(AssetId(asset_1.try_into().unwrap()))
 						} else {
 							None
 						}
