@@ -52,6 +52,10 @@ sp-core = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
+serde = { features = [
+	"alloc",
+	"derive",
+], workspace = true, default-features = true }
 
 tower.workspace = true
 tower-http = { workspace = true, features = ["full"] }

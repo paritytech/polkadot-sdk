@@ -21,7 +21,7 @@ use super::*;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 
 #[rpc(server, client)]
-pub trait EthRpc {
+pub trait EthExecRpc {
 	/// Returns a list of addresses owned by client.
 	#[method(name = "eth_accounts")]
 	async fn accounts(&self) -> RpcResult<Vec<Address>>;

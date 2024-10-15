@@ -22,8 +22,8 @@ use jsonrpsee::{
 	server::{RpcModule, Server},
 };
 use pallet_revive_eth_rpc::{
-	client::Client, EthRpcClient, EthRpcServer, EthRpcServerImpl, MiscRpcServer, MiscRpcServerImpl,
-	LOG_TARGET,
+	client::Client, DebugRpcServer, DebugRpcServerImpl, EthExecRpcClient, EthExecRpcServer,
+	EthRpcServerImpl, LOG_TARGET,
 };
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
@@ -138,11 +138,11 @@ async fn run_server(client: Client, url: &str) -> anyhow::Result<SocketAddr> {
 			vec![]
 		})
 		.into_rpc();
-	let misc_api = MiscRpcServerImpl.into_rpc();
+	let debug_api = DebugRpcServerImpl.into_rpc();
 
 	let mut module = RpcModule::new(());
 	module.merge(eth_api)?;
-	module.merge(misc_api)?;
+	module.merge(debug_api)?;
 
 	let handle = server.start(module);
 	tokio::spawn(handle.stopped());

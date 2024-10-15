@@ -20,7 +20,6 @@
 use client::{ClientError, GAS_PRICE};
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
-	proc_macros::rpc,
 	types::{ErrorCode, ErrorObjectOwned},
 };
 pub use pallet_revive::{evm::*, EthContractResult};
@@ -30,18 +29,13 @@ pub mod client;
 pub mod example;
 pub mod subxt_client;
 
-mod rpc_methods_gen;
-pub use rpc_methods_gen::*;
+mod execution_apis;
+pub use execution_apis::*;
+
+mod debug_apis;
+pub use debug_apis::*;
 
 pub const LOG_TARGET: &str = "eth-rpc";
-
-/// Additional RPC methods, exposed on the RPC server on top of all the eth_xxx methods.
-#[rpc(server, client)]
-pub trait MiscRpc {
-	/// Returns the health status of the server.
-	#[method(name = "healthcheck")]
-	async fn healthcheck(&self) -> RpcResult<()>;
-}
 
 /// An EVM RPC server implementation.
 pub struct EthRpcServerImpl {
@@ -102,7 +96,7 @@ impl From<EthRpcError> for ErrorObjectOwned {
 }
 
 #[async_trait]
-impl EthRpcServer for EthRpcServerImpl {
+impl EthExecRpcServer for EthRpcServerImpl {
 	async fn net_version(&self) -> RpcResult<String> {
 		Ok(self.client.chain_id().to_string())
 	}
@@ -364,12 +358,24 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 }
 
-/// A [`MiscRpcServer`] RPC server implementation.
-pub struct MiscRpcServerImpl;
+/// A [`DebugRpcServer`] RPC server implementation.
+pub struct DebugRpcServerImpl;
 
 #[async_trait]
-impl MiscRpcServer for MiscRpcServerImpl {
-	async fn healthcheck(&self) -> RpcResult<()> {
-		Ok(())
+impl DebugRpcServer for DebugRpcServerImpl {
+	async fn trace_block_by_number(
+		&self,
+		_block: Option<BlockNumberOrTag>,
+		_tracer: Tracer,
+	) -> RpcResult<Vec<TransactionTrace>> {
+		unimplemented!()
+	}
+
+	async fn trace_transaction(
+		&self,
+		_transaction_hash: H256,
+		_tracer: Tracer,
+	) -> RpcResult<CallTrace> {
+		unimplemented!()
 	}
 }

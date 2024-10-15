@@ -175,7 +175,7 @@ impl TypeGenerator {
 
 		let mut code = LICENSE.to_string();
 		code.push_str(indoc! {r###"
-            //! Generated JSON-RPC methods.
+            //! Generated execution JSON-RPC apis.
             #![allow(missing_docs)]
 
             use super::*;
@@ -183,7 +183,7 @@ impl TypeGenerator {
             use jsonrpsee::proc_macros::rpc;
 
             #[rpc(server, client)]
-            pub trait EthRpc {
+            pub trait EthExecRpc {
         "###});
 
 		for method in methods {

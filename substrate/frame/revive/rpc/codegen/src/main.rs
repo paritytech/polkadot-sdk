@@ -20,8 +20,8 @@ fn main() -> anyhow::Result<()> {
 	.canonicalize()
 	.with_context(|| "Failed to find the api directory")?;
 
-	let out = out_dir.join("rpc_methods_gen.rs");
-	println!("Generating rpc_methods at {out:?}");
+	let out = out_dir.join("execution_apis.rs");
+	println!("Generating execution apis rpc methods at {out:?}");
 	format_and_write_file(&out, &generator.generate_rpc_methods(&specs))
 		.with_context(|| format!("Failed to generate code to {out:?}"))?;
 

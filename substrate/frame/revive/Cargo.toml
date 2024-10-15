@@ -59,6 +59,7 @@ subxt-signer = { workspace = true, optional = true, features = [
 ] }
 
 [dev-dependencies]
+env_logger = { workspace = true }
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }

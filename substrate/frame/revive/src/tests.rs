@@ -18,10 +18,10 @@
 #![cfg_attr(not(feature = "riscv"), allow(dead_code, unused_imports, unused_macros))]
 
 mod pallet_dummy;
-mod test_debug;
+//mod test_debug;
 
 use self::{
-	test_debug::TestDebug,
+	//test_debug::TestDebug,
 	test_utils::{ensure_stored, expected_deposit},
 };
 use crate::{
@@ -519,7 +519,7 @@ impl Config for Test {
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-	type Debug = TestDebug;
+	type Debug = ();
 	type ChainId = ChainId;
 }
 
@@ -4177,6 +4177,29 @@ mod run_tests {
 
 			let gas_per_recursion = gas_2.checked_sub(&gas_1).unwrap();
 			assert_eq!(gas_max, gas_0 + gas_per_recursion * limits::CALL_STACK_DEPTH as u64);
+		});
+	}
+
+	#[test]
+	fn tracing_works() {
+		let (code, _code_hash) = compile_module("tracing").unwrap();
+		let (wasm_callee, _) = compile_module("dummy").unwrap();
+		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let Contract { addr: addr_callee, .. } =
+				builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_contract();
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			log::info!(target: crate::LOG_TARGET, "== Tracing test ==");
+
+			let _ = env_logger::builder().is_test(true).try_init();
+			let result = builder::bare_call(addr).data((3u32, addr_callee).encode()).build();
+			assert_ok!(result.result);
+
+			// TODO check trace
 		});
 	}
 

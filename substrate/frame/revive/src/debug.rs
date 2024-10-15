@@ -16,42 +16,45 @@
 // limitations under the License.
 
 pub use crate::{
+	evm::{CallTrace, CallType},
 	exec::{ExecResult, ExportedFunction},
 	primitives::ExecReturnValue,
+	BalanceOf,
 };
 use crate::{Config, LOG_TARGET};
-use sp_core::H160;
+use sp_core::{H160, U256};
+use sp_weights::Weight;
 
 /// Umbrella trait for all interfaces that serves for debugging.
 pub trait Debugger<T: Config>: Tracing<T> + CallInterceptor<T> {}
 
 impl<T: Config, V> Debugger<T> for V where V: Tracing<T> + CallInterceptor<T> {}
 
+pub type TraceOf<T> = <<T as Config>::Debug as Tracing<T>>::Trace;
+
 /// Defines methods to capture contract calls, enabling external observers to
 /// measure, trace, and react to contract interactions.
 pub trait Tracing<T: Config> {
-	/// The type of [`CallSpan`] that is created by this trait.
-	type CallSpan: CallSpan;
+	/// The type of [`Trace`] that is created by this trait.
+	type Trace: Trace + Default;
 
 	/// Creates a new call span to encompass the upcoming contract execution.
 	///
 	/// This method should be invoked just before the execution of a contract and
 	/// marks the beginning of a traceable span of execution.
-	///
-	/// # Arguments
-	///
-	/// * `contract_address` - The address of the contract that is about to be executed.
-	/// * `entry_point` - Describes whether the call is the constructor or a regular call.
-	/// * `input_data` - The raw input data of the call.
 	fn new_call_span(
-		contract_address: &H160,
-		entry_point: ExportedFunction,
+		from: &H160,
+		to: &H160,
+		is_delegate_call: bool,
+		is_read_only: bool,
+		value: &BalanceOf<T>,
+		gas_limit: &Weight,
 		input_data: &[u8],
-	) -> Self::CallSpan;
+	) -> Self::Trace;
 }
 
 /// Defines a span of execution for a contract call.
-pub trait CallSpan {
+pub trait Trace {
 	/// Called just after the execution of a contract.
 	///
 	/// # Arguments
@@ -61,14 +64,64 @@ pub trait CallSpan {
 }
 
 impl<T: Config> Tracing<T> for () {
-	type CallSpan = ();
+	type Trace = ();
 
-	fn new_call_span(contract_address: &H160, entry_point: ExportedFunction, input_data: &[u8]) {
-		log::trace!(target: LOG_TARGET, "call {entry_point:?} address: {contract_address:?}, input_data: {input_data:?}")
+	fn new_call_span(
+		from: &H160,
+		to: &H160,
+		is_delegate_call: bool,
+		is_read_only: bool,
+		value: &BalanceOf<T>,
+		gas_limit: &Weight,
+		input_data: &[u8],
+	) {
+		log::trace!(target: LOG_TARGET, "call (delegate: {is_delegate_call:?}, read_only: {is_read_only:?}) from: {from:?}, to: {to:?} value: {value:?} gas_limit: {gas_limit:?} input_data: {input_data:?}")
 	}
 }
 
-impl CallSpan for () {
+impl Trace for () {
+	fn after_call(self, output: &ExecReturnValue) {
+		log::trace!(target: LOG_TARGET, "call result {output:?}")
+	}
+}
+
+pub struct Tracer;
+
+impl<T: Config> Tracing<T> for Tracer
+where
+	BalanceOf<T>: Into<U256>,
+{
+	type Trace = CallTrace;
+
+	fn new_call_span(
+		from: &H160,
+		to: &H160,
+		is_delegate_call: bool,
+		is_read_only: bool,
+		value: &BalanceOf<T>,
+		_gas_limit: &Weight,
+		input: &[u8],
+	) -> Self::Trace {
+		let call_type = if is_read_only {
+			CallType::StaticCall
+		} else if is_delegate_call {
+			CallType::DelegateCall
+		} else {
+			CallType::Call
+		};
+
+		CallTrace {
+			from: *from,
+			to: *to,
+			value: (*value).into(),
+			call_type,
+			input: input.to_vec(),
+			..Default::default()
+		}
+	}
+}
+
+impl Trace for crate::evm::CallTrace {
 	fn after_call(self, output: &ExecReturnValue) {
 		log::trace!(target: LOG_TARGET, "call result {output:?}")
 	}

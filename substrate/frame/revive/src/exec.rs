@@ -17,7 +17,7 @@
 
 use crate::{
 	address::{self, AddressMapper},
-	debug::{CallInterceptor, CallSpan, Tracing},
+	debug::{CallInterceptor, Trace, Tracing},
 	gas::GasMeter,
 	limits,
 	primitives::{ExecReturnValue, StorageDeposit},
@@ -820,7 +820,7 @@ where
 
 	/// Create a new call stack.
 	///
-	/// Returns `None` when calling a non existant contract. This is not an error case
+	/// Returns `None` when calling a non existent contract. This is not an error case
 	/// since this will result in a value transfer.
 	fn new(
 		args: FrameArgs<T, E>,
@@ -1000,8 +1000,9 @@ where
 	fn run(&mut self, executable: E, input_data: Vec<u8>) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
+		let is_delegate_call = frame.delegate_caller.is_some();
 		let delegated_code_hash =
-			if frame.delegate_caller.is_some() { Some(*executable.code_hash()) } else { None };
+			if is_delegate_call { Some(*executable.code_hash()) } else { None };
 
 		// The output of the caller frame will be replaced by the output of this run.
 		// It is also not accessible from nested frames.
@@ -1020,6 +1021,10 @@ where
 		let do_transaction = || {
 			let caller = self.caller();
 			let frame = top_frame_mut!(self);
+			let read_only = frame.read_only;
+			let value_transferred = frame.value_transferred.clone();
+			let gas_limit = frame.nested_gas.gas_left();
+			let account_id = &frame.account_id.clone();
 
 			// We need to charge the storage deposit before the initial transfer so that
 			// it can create the account in case the initial transfer is < ed.
@@ -1027,10 +1032,11 @@ where
 				// Root origin can't be used to instantiate a contract, so it is safe to assume that
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
+
 				frame.nested_storage.charge_instantiate(
 					origin,
-					&frame.account_id,
-					frame.contract_info.get(&frame.account_id),
+					&account_id,
+					frame.contract_info.get(&account_id),
 					executable.code_info(),
 				)?;
 				// Needs to be incremented before calling into the code so that it is visible
@@ -1038,25 +1044,34 @@ where
 				<System<T>>::inc_account_nonce(caller.account_id()?);
 			}
 
-			// Every non delegate call or instantiate also optionally transfers the balance.
-			// If it is a delegate call, then we've already transferred tokens in the
-			// last non-delegate frame.
-			if delegated_code_hash.is_none() {
-				Self::transfer_from_origin(&caller, &frame.account_id, frame.value_transferred)?;
-			}
+			let contract_addr = T::AddressMapper::to_address(&top_frame!(self).account_id);
+			let caller_addr = self.caller().account_id().ok().map(T::AddressMapper::to_address);
 
-			let contract_address = T::AddressMapper::to_address(&top_frame!(self).account_id);
+			let trace = T::Debug::new_call_span(
+				&caller_addr.unwrap_or_default(),
+				&contract_addr,
+				is_delegate_call,
+				read_only,
+				&value_transferred,
+				&gas_limit,
+				&input_data,
+			);
 
-			let call_span = T::Debug::new_call_span(&contract_address, entry_point, &input_data);
-
-			let output = T::Debug::intercept_call(&contract_address, entry_point, &input_data)
+			let output = T::Debug::intercept_call(&contract_addr, entry_point, &input_data)
 				.unwrap_or_else(|| {
+					// Every non delegate call or instantiate also optionally transfers the balance.
+					// If it is a delegate call, then we've already transferred tokens in the
+					// last non-delegate frame.
+					if !is_delegate_call {
+						Self::transfer_from_origin(&caller, &account_id, value_transferred)?;
+					}
+
 					executable
 						.execute(self, entry_point, input_data)
 						.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })
 				})?;
 
-			call_span.after_call(&output);
+			trace.after_call(&output);
 
 			// Avoid useless work that would be reverted anyways.
 			if output.did_revert() {
@@ -1090,11 +1105,9 @@ where
 					let contract = frame.contract_info.as_contract();
 					frame.nested_storage.enforce_subcall_limit(contract)?;
 
-					let caller = T::AddressMapper::to_address(self.caller().account_id()?);
-
 					// Deposit an instantiation event.
 					Contracts::<T>::deposit_event(Event::Instantiated {
-						deployer: caller,
+						deployer: caller_addr.unwrap_or_default(),
 						contract: account_id,
 					});
 				},

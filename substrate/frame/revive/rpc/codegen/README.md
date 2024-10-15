@@ -1,4 +1,4 @@
-Generates the Ethereum JSON-RPC API from the official specification.
+Generates the Ethereum JSON-RPC exexution-apis from the official openrpc specifications.
 
 - See <https://github.com/ethereum/execution-apis>
 - See building instructions to re-generate the openrpc.json <https://github.com/ethereum/execution-apis?tab=readme-ov-file#building>
