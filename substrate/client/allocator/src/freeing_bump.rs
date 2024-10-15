@@ -425,6 +425,14 @@ impl FreeingBumpHeapAllocator {
 			),
 		};
 
+		log::debug!(
+			target: LOG_TARGET,
+			"Allocator instantiated for {:?} context with {} max allocation ({} max orders).",
+			context,
+			max_allocation,
+			max_orders
+		);
+
 		FreeingBumpHeapAllocator {
 			original_heap_base: aligned_heap_base,
 			bumper: aligned_heap_base,
