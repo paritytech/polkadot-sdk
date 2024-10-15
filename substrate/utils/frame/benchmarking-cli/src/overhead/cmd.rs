@@ -389,8 +389,10 @@ impl OverheadCmd {
 
 			match ext_builder_provider {
 				Some(provider) => provider(metadata, genesis, runtime_version),
-				None => Box::new(SubstrateRemarkBuilder::new(metadata, genesis, runtime_version))
-					as Box<_>,
+				None => {
+					let genesis = subxt::utils::H256::from(genesis.to_fixed_bytes());
+					Box::new(SubstrateRemarkBuilder::new(metadata, genesis, runtime_version))
+					as Box<_>},
 			}
 		};
 

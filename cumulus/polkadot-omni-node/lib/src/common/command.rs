@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::common::spec::BaseNodeSpec;
+use crate::common::spec::{BaseNodeSpec};
 use cumulus_client_cli::ExportGenesisHeadCommand;
 #[cfg(any(feature = "runtime-benchmarks"))]
 use frame_benchmarking_cli::StorageCmd;
@@ -185,6 +185,6 @@ where
 				) -> Box<dyn ExtrinsicBuilder>,
 			>>
 	) -> SyncCmdResult {
-		cmd.run_with_extrinsic_builder::<<Self as NodeSpec>::Block, ()>(ext_builder)
+		cmd.run_with_extrinsic_builder::<<Self as BaseNodeSpec>::Block, ()>(ext_builder)
 	}
 }

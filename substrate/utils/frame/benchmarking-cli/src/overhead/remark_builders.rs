@@ -23,10 +23,10 @@ pub struct DynamicRemarkBuilder<C: Config> {
 	offline_client: OfflineClient<C>,
 }
 
-impl<C: Config> DynamicRemarkBuilder<C> {
+impl<C: Config<Hash = subxt::utils::H256>> DynamicRemarkBuilder<C> {
 	pub fn new_from_client<Client, Block>(client: Arc<Client>) -> sc_cli::Result<Self>
 	where
-		Block: BlockT<Hash = C::Hash>,
+		Block: BlockT<Hash = sp_core::H256>,
 		Client: UsageProvider<Block> + ProvideRuntimeApi<Block>,
 		Client::Api: Metadata<Block> + Core<Block>,
 	{
@@ -47,6 +47,7 @@ impl<C: Config> DynamicRemarkBuilder<C> {
 			.ok_or("Unable to decode metadata".to_string())?;
 		let metadata = subxt::Metadata::decode(&mut (*metadata).as_slice())?;
 
+		let genesis = subxt::utils::H256::from(genesis.to_fixed_bytes());
 		Ok(Self { offline_client: OfflineClient::new(genesis, runtime_version, metadata) })
 	}
 }
