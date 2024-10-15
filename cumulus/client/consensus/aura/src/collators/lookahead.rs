@@ -348,8 +348,8 @@ where
 
 			// Build in a loop until not allowed. Note that the authorities can change
 			// at any block, so we need to re-claim our slot every time.
-			let mut parent_hash = initial_parent.hash;
-			let mut parent_header = initial_parent.header;
+			let parent_hash = initial_parent.hash;
+			let parent_header = initial_parent.header;
 			let overseer_handle = &mut params.overseer_handle;
 
 			// Do not try to build upon an unknown, pruned or bad block
@@ -357,135 +357,126 @@ where
 				continue
 			}
 
-			// This needs to change to support elastic scaling, but for continuously
-			// scheduled chains this ensures that the backlog will grow steadily.
-			for n_built in 0..2 {
-				let slot_claim = match can_build_upon(parent_hash) {
-					Some(fut) => match fut.await {
-						None => break,
-						Some(c) => c,
-					},
+			let slot_claim = match can_build_upon(parent_hash) {
+				Some(fut) => match fut.await {
 					None => break,
-				};
+					Some(c) => c,
+				},
+				None => break,
+			};
 
-				tracing::debug!(
-					target: crate::LOG_TARGET,
-					?relay_parent,
-					unincluded_segment_len = initial_parent.depth + n_built,
-					"Slot claimed. Building"
-				);
+			tracing::debug!(
+				target: crate::LOG_TARGET,
+				?relay_parent,
+				unincluded_segment_len = initial_parent.depth,
+				"Slot claimed. Building"
+			);
 
-				let validation_data = PersistedValidationData {
-					parent_head: parent_header.encode().into(),
-					relay_parent_number: *relay_parent_header.number(),
-					relay_parent_storage_root: *relay_parent_header.state_root(),
-					max_pov_size,
-				};
+			let validation_data = PersistedValidationData {
+				parent_head: parent_header.encode().into(),
+				relay_parent_number: *relay_parent_header.number(),
+				relay_parent_storage_root: *relay_parent_header.state_root(),
+				max_pov_size,
+			};
 
-				// Build and announce collations recursively until
-				// `can_build_upon` fails or building a collation fails.
-				let (parachain_inherent_data, other_inherent_data) = match collator
-					.create_inherent_data(
-						relay_parent,
-						&validation_data,
-						parent_hash,
-						slot_claim.timestamp(),
-					)
-					.await
-				{
-					Err(err) => {
-						tracing::error!(target: crate::LOG_TARGET, ?err);
-						break
-					},
-					Ok(x) => x,
-				};
-
-				let Some(validation_code_hash) =
-					params.code_hash_provider.code_hash_at(parent_hash)
-				else {
-					tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-					break
-				};
-
-				super::check_validation_code_or_log(
-					&validation_code_hash,
-					params.para_id,
-					&params.relay_client,
+			// Build and announce collations recursively until
+			// `can_build_upon` fails or building a collation fails.
+			let (parachain_inherent_data, other_inherent_data) = match collator
+				.create_inherent_data(
 					relay_parent,
+					&validation_data,
+					parent_hash,
+					slot_claim.timestamp(),
 				)
-				.await;
+				.await
+			{
+				Err(err) => {
+					tracing::error!(target: crate::LOG_TARGET, ?err);
+					break
+				},
+				Ok(x) => x,
+			};
 
-				let allowed_pov_size = if cfg!(feature = "full-pov-size") {
-					validation_data.max_pov_size
-				} else {
-					// Set the block limit to 50% of the maximum PoV size.
+			let Some(validation_code_hash) = params.code_hash_provider.code_hash_at(parent_hash)
+			else {
+				tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
+				break
+			};
+
+			super::check_validation_code_or_log(
+				&validation_code_hash,
+				params.para_id,
+				&params.relay_client,
+				relay_parent,
+			)
+			.await;
+
+			let allowed_pov_size = if cfg!(feature = "full-pov-size") {
+				validation_data.max_pov_size
+			} else {
+				// Set the block limit to 50% of the maximum PoV size.
+				//
+				// TODO: This limit can be raised once we resolved all issues with PoV proof size
+				// tracking. This includes https://github.com/paritytech/polkadot-sdk/issues/6020 and
+				// https://github.com/paritytech/polkadot-sdk/issues/5229
+				validation_data.max_pov_size / 2
+			} as usize;
+
+			match collator
+				.collate(
+					&parent_header,
+					&slot_claim,
+					None,
+					(parachain_inherent_data, other_inherent_data),
+					params.authoring_duration,
+					allowed_pov_size,
+				)
+				.await
+			{
+				Ok(Some((collation, block_data, new_block_hash))) => {
+					// Here we are assuming that the import logic protects against equivocations
+					// and provides sybil-resistance, as it should.
+					collator.collator_service().announce_block(new_block_hash, None);
+
+					if let Some(ref export_pov) = export_pov {
+						export_pov_to_path::<Block>(
+							export_pov.clone(),
+							collation.proof_of_validity.clone().into_compressed(),
+							new_block_hash,
+							*block_data.header().number(),
+							parent_header.clone(),
+							*relay_parent_header.state_root(),
+							*relay_parent_header.number(),
+						);
+					}
+
+					// Send a submit-collation message to the collation generation subsystem,
+					// which then distributes this to validators.
 					//
-					// TODO: If we got benchmarking that includes the proof size,
-					// we should be able to use the maximum pov size.
-					validation_data.max_pov_size / 2
-				} as usize;
-
-				match collator
-					.collate(
-						&parent_header,
-						&slot_claim,
-						None,
-						(parachain_inherent_data, other_inherent_data),
-						params.authoring_duration,
-						allowed_pov_size,
-					)
-					.await
-				{
-					Ok(Some((collation, block_data, new_block_hash))) => {
-						// Here we are assuming that the import logic protects against equivocations
-						// and provides sybil-resistance, as it should.
-						collator.collator_service().announce_block(new_block_hash, None);
-
-						if let Some(ref export_pov) = export_pov {
-							export_pov_to_path::<Block>(
-								export_pov.clone(),
-								collation.proof_of_validity.clone().into_compressed(),
-								new_block_hash,
-								*block_data.header().number(),
-								parent_header.clone(),
-								*relay_parent_header.state_root(),
-								*relay_parent_header.number(),
-							);
-						}
-
-						// Send a submit-collation message to the collation generation subsystem,
-						// which then distributes this to validators.
-						//
-						// Here we are assuming that the leaf is imported, as we've gotten an
-						// import notification.
-						overseer_handle
-							.send_msg(
-								CollationGenerationMessage::SubmitCollation(
-									SubmitCollationParams {
-										relay_parent,
-										collation,
-										parent_head: parent_header.encode().into(),
-										validation_code_hash,
-										result_sender: None,
-										core_index,
-									},
-								),
-								"SubmitCollation",
-							)
-							.await;
-
-						parent_hash = new_block_hash;
-						parent_header = block_data.into_header();
-					},
-					Ok(None) => {
-						tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
-						break
-					},
-					Err(err) => {
-						tracing::error!(target: crate::LOG_TARGET, ?err);
-						break
-					},
-				}
+					// Here we are assuming that the leaf is imported, as we've gotten an
+					// import notification.
+					overseer_handle
+						.send_msg(
+							CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
+								relay_parent,
+								collation,
+								parent_head: parent_header.encode().into(),
+								validation_code_hash,
+								result_sender: None,
+								core_index,
+							}),
+							"SubmitCollation",
+						)
+						.await;			
+				},
+				Ok(None) => {
+					tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
+					break
+				},
+				Err(err) => {
+					tracing::error!(target: crate::LOG_TARGET, ?err);
+					break
+				},
 			}
 		}
 	}
