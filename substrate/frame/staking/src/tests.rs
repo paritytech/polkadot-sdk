@@ -101,7 +101,7 @@ fn set_staking_configs_works() {
 #[test]
 fn force_unstake_works() {
 	ExtBuilder::default().build_and_execute(|| {
-		// Account 11 (also controller) is stashed and locked
+		// Account 11 is stashed and locked
 		assert_eq!(Staking::bonded(&11), Some(11));
 		// Adds 2 slashing spans
 		add_slash(&11);
@@ -129,7 +129,7 @@ fn force_unstake_works() {
 #[test]
 fn kill_stash_works() {
 	ExtBuilder::default().build_and_execute(|| {
-		// Account 11 (also controller) is stashed and locked
+		// Account 11 is stashed and locked
 		assert_eq!(Staking::bonded(&11), Some(11));
 		// Adds 2 slashing spans
 		add_slash(&11);
@@ -148,9 +148,9 @@ fn kill_stash_works() {
 fn basic_setup_works() {
 	// Verifies initial conditions of mock
 	ExtBuilder::default().build_and_execute(|| {
-		// Account 11 is stashed and locked, and is the controller
+		// Account 11 is stashed and locked.
 		assert_eq!(Staking::bonded(&11), Some(11));
-		// Account 21 is stashed and locked and is the controller
+		// Account 21 is stashed and locked.
 		assert_eq!(Staking::bonded(&21), Some(21));
 		// Account 1 is not a stashed
 		assert_eq!(Staking::bonded(&1), None);
@@ -228,58 +228,9 @@ fn basic_setup_works() {
 		// Initial Era and session
 		assert_eq!(active_era(), 0);
 
-		// Account 10 has `balance_factor` free balance
-		assert_eq!(asset::stakeable_balance::<Test>(&10), 1);
-		assert_eq!(asset::stakeable_balance::<Test>(&10), 1);
-
 		// New era is not being forced
 		assert_eq!(Staking::force_era(), Forcing::NotForcing);
 	});
-}
-
-#[test]
-fn change_controller_works() {
-	ExtBuilder::default().build_and_execute(|| {
-		let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
-			0,
-			100,
-			RewardDestination::Staked,
-			false,
-		)
-		.unwrap();
-
-		// ensure `stash` and `controller` are bonded as stash controller pair.
-		assert_eq!(Staking::bonded(&stash), Some(controller));
-
-		// `controller` can control `stash` who is initially a validator.
-		assert_ok!(Staking::chill(RuntimeOrigin::signed(controller)));
-
-		// sets controller back to `stash`.
-		assert_ok!(Staking::set_controller(RuntimeOrigin::signed(stash)));
-		assert_eq!(Staking::bonded(&stash), Some(stash));
-		mock::start_active_era(1);
-
-		// fetch the ledger from storage and check if the controller is correct.
-		let ledger = Staking::ledger(StakingAccount::Stash(stash)).unwrap();
-		assert_eq!(ledger.controller(), Some(stash));
-
-		// same if we fetch the ledger by controller.
-		let ledger = Staking::ledger(StakingAccount::Controller(stash)).unwrap();
-		assert_eq!(ledger.controller, Some(stash));
-		assert_eq!(ledger.controller(), Some(stash));
-
-		// the raw storage ledger's controller is always `None`. however, we can still fetch the
-		// correct controller with `ledger.controller()`.
-		let raw_ledger = <Ledger<Test>>::get(&stash).unwrap();
-		assert_eq!(raw_ledger.controller, None);
-
-		// `controller` is no longer in control. `stash` is now controller.
-		assert_noop!(
-			Staking::validate(RuntimeOrigin::signed(controller), ValidatorPrefs::default()),
-			Error::<Test>::NotController,
-		);
-		assert_ok!(Staking::validate(RuntimeOrigin::signed(stash), ValidatorPrefs::default()));
-	})
 }
 
 #[test]
@@ -291,18 +242,13 @@ fn change_controller_already_paired_once_stash() {
 		// 11 is initially a validator.
 		assert_ok!(Staking::chill(RuntimeOrigin::signed(11)));
 
-		// Controller cannot change once matching with stash.
-		assert_noop!(
-			Staking::set_controller(RuntimeOrigin::signed(11)),
-			Error::<Test>::AlreadyPaired
-		);
 		assert_eq!(Staking::bonded(&11), Some(11));
 		mock::start_active_era(1);
 
 		// 10 is no longer in control.
 		assert_noop!(
 			Staking::validate(RuntimeOrigin::signed(10), ValidatorPrefs::default()),
-			Error::<Test>::NotController,
+			Error::<Test>::NotStash,
 		);
 		assert_ok!(Staking::validate(RuntimeOrigin::signed(11), ValidatorPrefs::default()));
 	})
@@ -425,7 +371,7 @@ fn rewards_should_work() {
 fn staking_should_work() {
 	ExtBuilder::default().nominate(false).build_and_execute(|| {
 		// remember + compare this along with the test.
-		assert_eq_uvec!(validator_controllers(), vec![21, 11]);
+		assert_eq_uvec!(validator_stashes(), vec![21, 11]);
 
 		// put some money in account that we'll use.
 		for i in 1..5 {
@@ -434,7 +380,7 @@ fn staking_should_work() {
 
 		// --- Block 2:
 		start_session(2);
-		// add a new candidate for being a validator. account 3 controlled by 4.
+		// add a new candidate for being a validator.
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 1500, RewardDestination::Account(3)));
 		assert_ok!(Staking::validate(RuntimeOrigin::signed(3), ValidatorPrefs::default()));
 		assert_ok!(Session::set_keys(
@@ -444,13 +390,13 @@ fn staking_should_work() {
 		));
 
 		// No effects will be seen so far.
-		assert_eq_uvec!(validator_controllers(), vec![21, 11]);
+		assert_eq_uvec!(validator_stashes(), vec![21, 11]);
 
 		// --- Block 3:
 		start_session(3);
 
 		// No effects will be seen so far. Era has not been yet triggered.
-		assert_eq_uvec!(validator_controllers(), vec![21, 11]);
+		assert_eq_uvec!(validator_stashes(), vec![21, 11]);
 
 		// --- Block 4: the validators will now be queued.
 		start_session(4);
@@ -462,21 +408,21 @@ fn staking_should_work() {
 		// --- Block 6: the validators will now be changed.
 		start_session(6);
 
-		assert_eq_uvec!(validator_controllers(), vec![21, 3]);
+		assert_eq_uvec!(validator_stashes(), vec![21, 3]);
 		// --- Block 6: Unstake 4 as a validator, freeing up the balance stashed in 3
 		// 4 will chill
 		Staking::chill(RuntimeOrigin::signed(3)).unwrap();
 
 		// --- Block 7: nothing. 3 is still there.
 		start_session(7);
-		assert_eq_uvec!(validator_controllers(), vec![21, 3]);
+		assert_eq_uvec!(validator_stashes(), vec![21, 3]);
 
 		// --- Block 8:
 		start_session(8);
 
 		// --- Block 9: 4 will not be a validator.
 		start_session(9);
-		assert_eq_uvec!(validator_controllers(), vec![21, 11]);
+		assert_eq_uvec!(validator_stashes(), vec![21, 11]);
 
 		// Note: the stashed value of 4 is still lock
 		assert_eq!(
@@ -532,12 +478,12 @@ fn less_than_needed_candidates_works() {
 		.build_and_execute(|| {
 			assert_eq!(Staking::validator_count(), 4);
 			assert_eq!(Staking::minimum_validator_count(), 1);
-			assert_eq_uvec!(validator_controllers(), vec![31, 21, 11]);
+			assert_eq_uvec!(validator_stashes(), vec![31, 21, 11]);
 
 			mock::start_active_era(1);
 
 			// Previous set is selected. NO election algorithm is even executed.
-			assert_eq_uvec!(validator_controllers(), vec![31, 21, 11]);
+			assert_eq_uvec!(validator_stashes(), vec![31, 21, 11]);
 
 			// But the exposure is updated in a simple way. No external votes exists.
 			// This is purely self-vote.
@@ -555,7 +501,7 @@ fn no_candidate_emergency_condition() {
 		.nominate(false)
 		.build_and_execute(|| {
 			// initial validators
-			assert_eq_uvec!(validator_controllers(), vec![11, 21, 31, 41]);
+			assert_eq_uvec!(validator_stashes(), vec![11, 21, 31, 41]);
 			let prefs = ValidatorPrefs { commission: Perbill::one(), ..Default::default() };
 			Validators::<Test>::insert(11, prefs.clone());
 
@@ -579,7 +525,7 @@ fn no_candidate_emergency_condition() {
 
 			// Previous ones are elected. chill is not effective in active era (as era hasn't
 			// changed)
-			assert_eq_uvec!(validator_controllers(), vec![11, 21, 31, 41]);
+			assert_eq_uvec!(validator_stashes(), vec![11, 21, 31, 41]);
 			// The chill is still pending.
 			assert!(!Validators::<Test>::contains_key(11));
 			// No new era is created.
@@ -596,13 +542,13 @@ fn nominating_and_rewards_should_work() {
 		.set_status(31, StakerStatus::Idle)
 		.build_and_execute(|| {
 			// initial validators.
-			assert_eq_uvec!(validator_controllers(), vec![41, 21]);
+			assert_eq_uvec!(validator_stashes(), vec![41, 21]);
 
 			// re-validate with 11 and 31.
 			assert_ok!(Staking::validate(RuntimeOrigin::signed(11), Default::default()));
 			assert_ok!(Staking::validate(RuntimeOrigin::signed(31), Default::default()));
 
-			// Set payee to controller.
+			// Set payee to the stash.
 			assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
 			assert_ok!(Staking::set_payee(RuntimeOrigin::signed(21), RewardDestination::Stash));
 			assert_ok!(Staking::set_payee(RuntimeOrigin::signed(31), RewardDestination::Stash));
@@ -633,7 +579,7 @@ fn nominating_and_rewards_should_work() {
 			mock::start_active_era(1);
 
 			// 10 and 20 have more votes, they will be chosen.
-			assert_eq_uvec!(validator_controllers(), vec![21, 11]);
+			assert_eq_uvec!(validator_stashes(), vec![21, 11]);
 
 			// old validators must have already received some rewards.
 			let initial_balance_41 = asset::total_balance::<Test>(&41);
@@ -781,16 +727,11 @@ fn double_staking_should_fail() {
 	// should test (in the same order):
 	// * an account already bonded as stash cannot be stashed again.
 	// * an account already bonded as stash cannot nominate.
-	// * an account already bonded as controller can nominate.
 	ExtBuilder::default().try_state(false).build_and_execute(|| {
 		let arbitrary_value = 5;
-		let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
-			0,
-			arbitrary_value,
-			RewardDestination::Staked,
-			false,
-		)
-		.unwrap();
+		let stash =
+			testing_utils::create_stash::<Test>(0, arbitrary_value, RewardDestination::Staked)
+				.unwrap();
 
 		// 4 = not used so far,  stash => not allowed.
 		assert_noop!(
@@ -801,32 +742,22 @@ fn double_staking_should_fail() {
 			),
 			Error::<Test>::AlreadyBonded,
 		);
-		// stash => attempting to nominate should fail.
-		assert_noop!(
-			Staking::nominate(RuntimeOrigin::signed(stash), vec![1]),
-			Error::<Test>::NotController
-		);
-		// controller => nominating should work.
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(controller), vec![1]));
+		// stash => nominating should work.
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed(stash), vec![1]));
 	});
 }
 
 #[test]
-fn double_controlling_attempt_should_fail() {
+fn double_stash_attempt_should_fail() {
 	// should test (in the same order):
-	// * an account already bonded as controller CANNOT be reused as the controller of another
-	//   account.
+	// * a stash already bonded CANNOT be reused as the stash of another account.
 	ExtBuilder::default().try_state(false).build_and_execute(|| {
 		let arbitrary_value = 5;
-		let (stash, _) = testing_utils::create_unique_stash_controller::<Test>(
-			0,
-			arbitrary_value,
-			RewardDestination::Staked,
-			false,
-		)
-		.unwrap();
+		let stash =
+			testing_utils::create_stash::<Test>(0, arbitrary_value, RewardDestination::Staked)
+				.unwrap();
 
-		// Note that controller (same as stash) is reused => no-op.
+		// Note that stash is reused => no-op.
 		assert_noop!(
 			Staking::bond(
 				RuntimeOrigin::signed(stash),
@@ -994,7 +925,7 @@ fn cannot_transfer_staked_balance() {
 		assert_eq!(Staking::bonded(&11), Some(11));
 		// Confirm account 11 has some free balance
 		assert_eq!(asset::stakeable_balance::<Test>(&11), 1000);
-		// Confirm account 11 (via controller) is totally staked
+		// Confirm account 11 is totally staked
 		assert_eq!(Staking::eras_stakers(active_era(), &11).total, 1000);
 		// Confirm account 11 cannot transfer as a result
 		assert_noop!(
@@ -1019,7 +950,7 @@ fn cannot_transfer_staked_balance_2() {
 		assert_eq!(Staking::bonded(&21), Some(21));
 		// Confirm account 21 has some free balance
 		assert_eq!(asset::stakeable_balance::<Test>(&21), 2000);
-		// Confirm account 21 (via controller) is totally staked
+		// Confirm account 21 is totally staked
 		assert_eq!(Staking::eras_stakers(active_era(), &21).total, 1000);
 		// Confirm account 21 can transfer at most 1000
 		assert_noop!(
@@ -1038,7 +969,7 @@ fn cannot_reserve_staked_balance() {
 		assert_eq!(Staking::bonded(&11), Some(11));
 		// Confirm account 11 has some free balance
 		assert_eq!(asset::stakeable_balance::<Test>(&11), 1000);
-		// Confirm account 11 (via controller 10) is totally staked
+		// Confirm account 11 is totally staked
 		assert_eq!(Staking::eras_stakers(active_era(), &11).own, 1000);
 		// Confirm account 11 cannot reserve as a result
 		assert_noop!(Balances::reserve(&11, 1), BalancesError::<Test, _>::LiquidityRestrictions);
@@ -1129,10 +1060,10 @@ fn reward_destination_works() {
 		// (era 1, page 0) is claimed
 		assert_eq!(Staking::claimed_rewards(1, &11), vec![0]);
 
-		// Change RewardDestination to Account
+		// Change RewardDestination to Account 11
 		<Payee<Test>>::insert(&11, RewardDestination::Account(11));
 
-		// Check controller balance
+		// Check reward destination balance
 		assert_eq!(asset::stakeable_balance::<Test>(&11), 23150);
 
 		// Compute total payout now for whole duration as other parameter won't change
@@ -1144,8 +1075,9 @@ fn reward_destination_works() {
 
 		// Check that RewardDestination is Account(11)
 		assert_eq!(Staking::payee(11.into()), Some(RewardDestination::Account(11)));
-		// Check that reward went to the controller account
+		// Check that reward went to the correct account
 		assert_eq!(asset::stakeable_balance::<Test>(&11), recorded_stash_balance + total_payout_2);
+
 		// Check that amount at stake is NOT increased
 		assert_eq!(
 			Staking::ledger(11.into()).unwrap(),
@@ -1232,7 +1164,7 @@ fn bond_extra_works() {
 		// Give account 11 some large free balance greater than total
 		let _ = asset::set_stakeable_balance::<Test>(&11, 1000000);
 
-		// Call the bond_extra function from controller, add only 100
+		// Call the bond_extra function, add only 100
 		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), 100));
 		// There should be 100 more `total` and `active` in the ledger
 		assert_eq!(
@@ -1986,7 +1918,7 @@ fn switching_roles() {
 			assert_ok!(Staking::set_payee(RuntimeOrigin::signed(*i), RewardDestination::Stash));
 		}
 
-		assert_eq_uvec!(validator_controllers(), vec![21, 11]);
+		assert_eq_uvec!(validator_stashes(), vec![21, 11]);
 
 		// put some money in account that we'll use.
 		for i in 1..7 {
@@ -2012,7 +1944,7 @@ fn switching_roles() {
 		mock::start_active_era(1);
 
 		// with current nominators 11 and 5 have the most stake
-		assert_eq_uvec!(validator_controllers(), vec![5, 11]);
+		assert_eq_uvec!(validator_stashes(), vec![5, 11]);
 
 		// 2 decides to be a validator. Consequences:
 		assert_ok!(Staking::validate(RuntimeOrigin::signed(1), ValidatorPrefs::default()));
@@ -2030,7 +1962,7 @@ fn switching_roles() {
 
 		mock::start_active_era(2);
 
-		assert_eq_uvec!(validator_controllers(), vec![1, 21]);
+		assert_eq_uvec!(validator_stashes(), vec![1, 21]);
 	});
 }
 
@@ -2038,7 +1970,6 @@ fn switching_roles() {
 fn wrong_vote_is_moot() {
 	ExtBuilder::default()
 		.add_staker(
-			61,
 			61,
 			500,
 			StakerStatus::Nominator(vec![
@@ -2051,7 +1982,7 @@ fn wrong_vote_is_moot() {
 			mock::start_active_era(1);
 
 			// new validators
-			assert_eq_uvec!(validator_controllers(), vec![21, 11]);
+			assert_eq_uvec!(validator_stashes(), vec![21, 11]);
 
 			// our new voter is taken into account
 			assert!(Staking::eras_stakers(active_era(), &11).others.iter().any(|i| i.who == 61));
@@ -2140,7 +2071,7 @@ fn bond_with_little_staked_value_bounded() {
 			mock::make_all_reward_payment(0);
 
 			// 1 is elected.
-			assert_eq_uvec!(validator_controllers(), vec![21, 11, 1]);
+			assert_eq_uvec!(validator_stashes(), vec![21, 11, 1]);
 			assert_eq!(Staking::eras_stakers(active_era(), &2).total, 0);
 
 			// Old ones are rewarded.
@@ -2158,7 +2089,7 @@ fn bond_with_little_staked_value_bounded() {
 			mock::start_active_era(2);
 			mock::make_all_reward_payment(1);
 
-			assert_eq_uvec!(validator_controllers(), vec![21, 11, 1]);
+			assert_eq_uvec!(validator_stashes(), vec![21, 11, 1]);
 			assert_eq!(Staking::eras_stakers(active_era(), &2).total, 0);
 
 			// 2 is now rewarded.
@@ -2282,11 +2213,11 @@ fn bond_with_duplicate_vote_should_be_ignored_by_election_provider_elected() {
 fn new_era_elects_correct_number_of_validators() {
 	ExtBuilder::default().nominate(true).validator_count(1).build_and_execute(|| {
 		assert_eq!(Staking::validator_count(), 1);
-		assert_eq!(validator_controllers().len(), 1);
+		assert_eq!(validator_stashes().len(), 1);
 
 		Session::on_initialize(System::block_number());
 
-		assert_eq!(validator_controllers().len(), 1);
+		assert_eq!(validator_stashes().len(), 1);
 	})
 }
 
@@ -2307,7 +2238,7 @@ fn phragmen_should_not_overflow() {
 
 		mock::start_active_era(1);
 
-		assert_eq_uvec!(validator_controllers(), vec![3, 5]);
+		assert_eq_uvec!(validator_stashes(), vec![3, 5]);
 
 		// We can safely convert back to values within [u64, u128].
 		assert!(Staking::eras_stakers(active_era(), &3).total > Votes::max_value() as Balance);
@@ -3970,7 +3901,7 @@ fn test_multi_page_payout_stakers_by_page() {
 		RewardOnUnbalanceWasCalled::set(false);
 		System::reset_events();
 
-		let controller_balance_before_p0_payout = asset::stakeable_balance::<Test>(&11);
+		let balance_before_p0_payout = asset::stakeable_balance::<Test>(&11);
 		// Payout rewards for first exposure page
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 1, 0));
 
@@ -3984,14 +3915,14 @@ fn test_multi_page_payout_stakers_by_page() {
 			]
 		));
 
-		let controller_balance_after_p0_payout = asset::stakeable_balance::<Test>(&11);
+		let balance_after_p0_payout = asset::stakeable_balance::<Test>(&11);
 
 		// verify rewards have been paid out but still some left
 		assert!(pallet_balances::TotalIssuance::<Test>::get() > pre_payout_total_issuance);
 		assert!(pallet_balances::TotalIssuance::<Test>::get() < pre_payout_total_issuance + payout);
 
 		// verify the validator has been rewarded
-		assert!(controller_balance_after_p0_payout > controller_balance_before_p0_payout);
+		assert!(balance_after_p0_payout > balance_before_p0_payout);
 
 		// Payout the second and last page of nominators
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 1, 1));
@@ -4008,7 +3939,7 @@ fn test_multi_page_payout_stakers_by_page() {
 			]
 		));
 		// verify the validator was not rewarded the second time
-		assert_eq!(asset::stakeable_balance::<Test>(&11), controller_balance_after_p0_payout);
+		assert_eq!(asset::stakeable_balance::<Test>(&11), balance_after_p0_payout);
 
 		// verify all rewards have been paid out
 		assert_eq_error_rate!(
@@ -4190,7 +4121,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		let pre_payout_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
 		RewardOnUnbalanceWasCalled::set(false);
 
-		let controller_balance_before_p0_payout = asset::stakeable_balance::<Test>(&11);
+		let balance_before_p0_payout = asset::stakeable_balance::<Test>(&11);
 		// Payout rewards for first exposure page
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, 1));
 		// page 0 is claimed
@@ -4199,14 +4130,14 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
 		);
 
-		let controller_balance_after_p0_payout = asset::stakeable_balance::<Test>(&11);
+		let balance_after_p0_payout = asset::stakeable_balance::<Test>(&11);
 
 		// verify rewards have been paid out but still some left
 		assert!(pallet_balances::TotalIssuance::<Test>::get() > pre_payout_total_issuance);
 		assert!(pallet_balances::TotalIssuance::<Test>::get() < pre_payout_total_issuance + payout);
 
 		// verify the validator has been rewarded
-		assert!(controller_balance_after_p0_payout > controller_balance_before_p0_payout);
+		assert!(balance_after_p0_payout > balance_before_p0_payout);
 
 		// This should payout the second and last page of nominators
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, 1));
@@ -4218,7 +4149,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		);
 
 		// verify the validator was not rewarded the second time
-		assert_eq!(asset::stakeable_balance::<Test>(&11), controller_balance_after_p0_payout);
+		assert_eq!(asset::stakeable_balance::<Test>(&11), balance_after_p0_payout);
 
 		// verify all rewards have been paid out
 		assert_eq_error_rate!(
@@ -4227,9 +4158,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 			2
 		);
 		assert!(RewardOnUnbalanceWasCalled::get());
-
-		// verify all nominators of validator 11 are paid out, including the validator
-		// Validator payout goes to controller.
+		// verify all nominators of validator 11 are paid out, including the validator;
 		assert!(asset::stakeable_balance::<Test>(&11) > balance);
 		for i in 0..100 {
 			assert!(asset::stakeable_balance::<Test>(&(1000 + i)) > balance + i as Balance);
@@ -4594,10 +4523,10 @@ fn test_commission_paid_across_pages() {
 		// Payout rewards for first exposure page
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 1, 0));
 
-		let controller_balance_after_p0_payout = asset::stakeable_balance::<Test>(&11);
+		let balance_after_p0_payout = asset::stakeable_balance::<Test>(&11);
 
 		// some commission is paid
-		assert!(initial_balance < controller_balance_after_p0_payout);
+		assert!(initial_balance < balance_after_p0_payout);
 
 		// payout all pages
 		for i in 1..4 {
@@ -4861,7 +4790,7 @@ fn payout_to_any_account_works() {
 		// Create a validator:
 		bond_validator(11, balance); // Default(64)
 
-		// Create a stash/controller pair
+		// Create a stash
 		bond_nominator(1234, 100, vec![11]);
 
 		// Update payout location
@@ -5153,9 +5082,9 @@ mod election_data_provider {
 	fn set_minimum_active_stake_is_correct() {
 		ExtBuilder::default()
 			.nominate(false)
-			.add_staker(61, 61, 2_000, StakerStatus::<AccountId>::Nominator(vec![21]))
-			.add_staker(71, 71, 10, StakerStatus::<AccountId>::Nominator(vec![21]))
-			.add_staker(81, 81, 50, StakerStatus::<AccountId>::Nominator(vec![21]))
+			.add_staker(61, 2_000, StakerStatus::<AccountId>::Nominator(vec![21]))
+			.add_staker(71, 10, StakerStatus::<AccountId>::Nominator(vec![21]))
+			.add_staker(81, 50, StakerStatus::<AccountId>::Nominator(vec![21]))
 			.build_and_execute(|| {
 				// default bounds are unbounded.
 				assert_ok!(<Staking as ElectionDataProvider>::electing_voters(
@@ -5220,7 +5149,7 @@ mod election_data_provider {
 		ExtBuilder::default()
 			.has_stakers(true)
 			.nominate(true)
-			.add_staker(61, 61, 2_000, StakerStatus::<AccountId>::Nominator(vec![21]))
+			.add_staker(61, 2_000, StakerStatus::<AccountId>::Nominator(vec![21]))
 			.build_and_execute(|| {
 				assert_eq!(Staking::weight_of(&101), 500);
 				let voters = <Staking as ElectionDataProvider>::electing_voters(
@@ -5280,24 +5209,9 @@ mod election_data_provider {
 			.nominate(false)
 			// the best way to invalidate a bunch of nominators is to have them nominate a lot of
 			// ppl, but then lower the MaxNomination limit.
-			.add_staker(
-				61,
-				61,
-				2_000,
-				StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]),
-			)
-			.add_staker(
-				71,
-				71,
-				2_000,
-				StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]),
-			)
-			.add_staker(
-				81,
-				81,
-				2_000,
-				StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]),
-			)
+			.add_staker(61, 2_000, StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]))
+			.add_staker(71, 2_000, StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]))
+			.add_staker(81, 2_000, StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]))
 			.build_and_execute(|| {
 				let bounds_builder = ElectionBoundsBuilder::default();
 				// all voters ordered by stake,
@@ -5445,7 +5359,6 @@ mod election_data_provider {
 			.nominate(false)
 			.add_staker(
 				61,
-				60,
 				300, // 300 bond has 16 nomination quota.
 				StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]),
 			)
@@ -5474,12 +5387,11 @@ mod election_data_provider {
 			.nominate(false)
 			.add_staker(
 				71,
-				70,
 				333,
 				StakerStatus::<AccountId>::Nominator(vec![16, 15, 14, 13, 12, 11, 10]),
 			)
 			.build_and_execute(|| {
-				// nominations of controller 70 won't be added due to voter size limit exceeded.
+				// nominations of stash 70 won't be added due to voter size limit exceeded.
 				let bounds = ElectionBoundsBuilder::default().voters_size(100.into()).build();
 				assert_eq!(
 					Staking::electing_voters(bounds.voters)
@@ -5835,23 +5747,16 @@ fn capped_stakers_works() {
 		// can create `max - validator_count` validators
 		let mut some_existing_validator = AccountId::default();
 		for i in 0..max - validator_count {
-			let (_, controller) = testing_utils::create_stash_controller::<Test>(
-				i + 10_000_000,
-				100,
-				RewardDestination::Stash,
-			)
-			.unwrap();
-			assert_ok!(Staking::validate(
-				RuntimeOrigin::signed(controller),
-				ValidatorPrefs::default()
-			));
-			some_existing_validator = controller;
+			let stash =
+				testing_utils::create_stash::<Test>(i + 10_000_000, 100, RewardDestination::Stash)
+					.unwrap();
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(stash), ValidatorPrefs::default()));
+			some_existing_validator = stash;
 		}
 
 		// but no more
-		let (_, last_validator) =
-			testing_utils::create_stash_controller::<Test>(1337, 100, RewardDestination::Stash)
-				.unwrap();
+		let last_validator =
+			testing_utils::create_stash::<Test>(1337, 100, RewardDestination::Stash).unwrap();
 
 		assert_noop!(
 			Staking::validate(RuntimeOrigin::signed(last_validator), ValidatorPrefs::default()),
@@ -5861,23 +5766,17 @@ fn capped_stakers_works() {
 		// same with nominators
 		let mut some_existing_nominator = AccountId::default();
 		for i in 0..max - nominator_count {
-			let (_, controller) = testing_utils::create_stash_controller::<Test>(
-				i + 20_000_000,
-				100,
-				RewardDestination::Stash,
-			)
-			.unwrap();
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(controller), vec![1]));
-			some_existing_nominator = controller;
+			let stash =
+				testing_utils::create_stash::<Test>(i + 20_000_000, 100, RewardDestination::Stash)
+					.unwrap();
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(stash), vec![1]));
+			some_existing_nominator = stash;
 		}
 
 		// one more is too many.
-		let (_, last_nominator) = testing_utils::create_stash_controller::<Test>(
-			30_000_000,
-			100,
-			RewardDestination::Stash,
-		)
-		.unwrap();
+		let last_nominator =
+			testing_utils::create_stash::<Test>(30_000_000, 100, RewardDestination::Stash).unwrap();
+
 		assert_noop!(
 			Staking::nominate(RuntimeOrigin::signed(last_nominator), vec![1]),
 			Error::<Test>::TooManyNominators
@@ -5967,8 +5866,8 @@ fn min_commission_works() {
 fn change_of_absolute_max_nominations() {
 	use frame_election_provider_support::ElectionDataProvider;
 	ExtBuilder::default()
-		.add_staker(61, 61, 10, StakerStatus::Nominator(vec![1]))
-		.add_staker(71, 71, 10, StakerStatus::Nominator(vec![1, 2, 3]))
+		.add_staker(61, 10, StakerStatus::Nominator(vec![1]))
+		.add_staker(71, 10, StakerStatus::Nominator(vec![1, 2, 3]))
 		.balance_factor(10)
 		.build_and_execute(|| {
 			// pre-condition
@@ -6065,10 +5964,10 @@ fn change_of_absolute_max_nominations() {
 fn nomination_quota_max_changes_decoding() {
 	use frame_election_provider_support::ElectionDataProvider;
 	ExtBuilder::default()
-		.add_staker(60, 61, 10, StakerStatus::Nominator(vec![1]))
-		.add_staker(70, 71, 10, StakerStatus::Nominator(vec![1, 2, 3]))
-		.add_staker(30, 330, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
-		.add_staker(50, 550, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
+		.add_staker(60, 10, StakerStatus::Nominator(vec![1]))
+		.add_staker(70, 10, StakerStatus::Nominator(vec![1, 2, 3]))
+		.add_staker(30, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
+		.add_staker(50, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
 		.balance_factor(10)
 		.build_and_execute(|| {
 			// pre-condition.
@@ -6465,8 +6364,8 @@ fn reducing_max_unlocking_chunks_abrupt() {
 		// when max unlocking chunks is reduced abruptly to a low value
 		MaxUnlockingChunks::set(1);
 		// then unbond, rebond ops are blocked with ledger in corrupt state
-		assert_noop!(Staking::unbond(RuntimeOrigin::signed(3), 20), Error::<Test>::NotController);
-		assert_noop!(Staking::rebond(RuntimeOrigin::signed(3), 100), Error::<Test>::NotController);
+		assert_noop!(Staking::unbond(RuntimeOrigin::signed(3), 20), Error::<Test>::NotController); // TODO: use `NotStash` once variant is removed from ledeger.
+		assert_noop!(Staking::rebond(RuntimeOrigin::signed(3), 100), Error::<Test>::NotController); // TODO: use `NotStash` once variant is removed from ledeger.
 
 		// reset the ledger corruption
 		MaxUnlockingChunks::set(2);
@@ -7068,29 +6967,6 @@ mod staking_interface {
 				assert_eq!(asset::staked::<Test>(&11), 0);
 			});
 	}
-
-	#[test]
-	fn status() {
-		ExtBuilder::default().build_and_execute(|| {
-			// stash of a validator is identified as a validator
-			assert_eq!(Staking::status(&11).unwrap(), StakerStatus::Validator);
-			// .. but not the controller.
-			assert!(Staking::status(&10).is_err());
-
-			// stash of nominator is identified as a nominator
-			assert_eq!(Staking::status(&101).unwrap(), StakerStatus::Nominator(vec![11, 21]));
-			// .. but not the controller.
-			assert!(Staking::status(&100).is_err());
-
-			// stash of chilled is identified as a chilled
-			assert_eq!(Staking::status(&41).unwrap(), StakerStatus::Idle);
-			// .. but not the controller.
-			assert!(Staking::status(&40).is_err());
-
-			// random other account.
-			assert!(Staking::status(&42).is_err());
-		})
-	}
 }
 
 mod staking_unchecked {
@@ -7403,7 +7279,7 @@ mod staking_unchecked {
 
 			// recover the ledger won't work for virtual staker
 			assert_noop!(
-				Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None),
+				Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None),
 				Error::<Test>::VirtualStakerNotAllowed
 			);
 
@@ -7411,7 +7287,7 @@ mod staking_unchecked {
 			<VirtualStakers<Test>>::remove(333);
 
 			// try restore again
-			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None));
 		})
 	}
 }
@@ -7422,17 +7298,17 @@ mod ledger {
 	fn paired_account_works() {
 		ExtBuilder::default().try_state(false).build_and_execute(|| {
 			assert_ok!(Staking::bond(
-				RuntimeOrigin::signed(10),
+				RuntimeOrigin::signed(61),
 				100,
-				RewardDestination::Account(10)
+				RewardDestination::Account(61)
 			));
 
-			assert_eq!(<Bonded<Test>>::get(&10), Some(10));
+			assert_eq!(<Bonded<Test>>::get(&61), Some(61));
 			assert_eq!(
-				StakingLedger::<Test>::paired_account(StakingAccount::Controller(10)),
-				Some(10)
+				StakingLedger::<Test>::paired_account(StakingAccount::Controller(61)),
+				Some(61)
 			);
-			assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(10)), Some(10));
+			assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(61)), Some(61));
 
 			assert_eq!(<Bonded<Test>>::get(&42), None);
 			assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Controller(42)), None);
@@ -7563,28 +7439,6 @@ mod ledger {
 	}
 
 	#[test]
-	fn bond_controller_cannot_be_stash_works() {
-		ExtBuilder::default().build_and_execute(|| {
-			let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
-				0,
-				10,
-				RewardDestination::Staked,
-				false,
-			)
-			.unwrap();
-
-			assert_eq!(Bonded::<Test>::get(stash), Some(controller));
-			assert_eq!(Ledger::<Test>::get(controller).map(|l| l.stash), Some(stash));
-
-			// existing controller should not be able become a stash.
-			assert_noop!(
-				Staking::bond(RuntimeOrigin::signed(controller), 10, RewardDestination::Staked),
-				Error::<Test>::AlreadyPaired,
-			);
-		})
-	}
-
-	#[test]
 	fn is_bonded_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			assert!(!StakingLedger::<Test>::is_bonded(StakingAccount::Stash(42)));
@@ -7612,281 +7466,6 @@ mod ledger {
 				Error::<Test>::ControllerDeprecated
 			);
 			assert_eq!(Payee::<Test>::get(&11), Some(RewardDestination::Staked));
-		})
-	}
-
-	#[test]
-	#[allow(deprecated)]
-	fn update_payee_migration_works() {
-		ExtBuilder::default().build_and_execute(|| {
-			// migrate a `Controller` variant to `Account` variant.
-			Payee::<Test>::insert(11, RewardDestination::Controller);
-			assert_eq!(Payee::<Test>::get(&11), Some(RewardDestination::Controller));
-			assert_ok!(Staking::update_payee(RuntimeOrigin::signed(11), 11));
-			assert_eq!(Payee::<Test>::get(&11), Some(RewardDestination::Account(11)));
-
-			// Do not migrate a variant if not `Controller`.
-			Payee::<Test>::insert(21, RewardDestination::Stash);
-			assert_eq!(Payee::<Test>::get(&21), Some(RewardDestination::Stash));
-			assert_noop!(
-				Staking::update_payee(RuntimeOrigin::signed(11), 21),
-				Error::<Test>::NotController
-			);
-			assert_eq!(Payee::<Test>::get(&21), Some(RewardDestination::Stash));
-		})
-	}
-
-	#[test]
-	fn deprecate_controller_batch_works_full_weight() {
-		ExtBuilder::default().try_state(false).build_and_execute(|| {
-			// Given:
-
-			let start = 1001;
-			let mut controllers: Vec<_> = vec![];
-			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
-				let ctlr: u64 = n.into();
-				let stash: u64 = (n + 10000).into();
-
-				Ledger::<Test>::insert(
-					ctlr,
-					StakingLedger {
-						controller: None,
-						total: (10 + ctlr).into(),
-						active: (10 + ctlr).into(),
-						..StakingLedger::default_from(stash)
-					},
-				);
-				Bonded::<Test>::insert(stash, ctlr);
-				Payee::<Test>::insert(stash, RewardDestination::Staked);
-
-				controllers.push(ctlr);
-			}
-
-			// When:
-
-			let bounded_controllers: BoundedVec<
-				_,
-				<Test as Config>::MaxControllersInDeprecationBatch,
-			> = BoundedVec::try_from(controllers).unwrap();
-
-			// Only `AdminOrigin` can sign.
-			assert_noop!(
-				Staking::deprecate_controller_batch(
-					RuntimeOrigin::signed(2),
-					bounded_controllers.clone()
-				),
-				BadOrigin
-			);
-
-			let result =
-				Staking::deprecate_controller_batch(RuntimeOrigin::root(), bounded_controllers);
-			assert_ok!(result);
-			assert_eq!(
-				result.unwrap().actual_weight.unwrap(),
-				<Test as Config>::WeightInfo::deprecate_controller_batch(
-					<Test as Config>::MaxControllersInDeprecationBatch::get()
-				)
-			);
-
-			// Then:
-
-			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
-				let ctlr: u64 = n.into();
-				let stash: u64 = (n + 10000).into();
-
-				// Ledger no longer keyed by controller.
-				assert_eq!(Ledger::<Test>::get(ctlr), None);
-				// Bonded now maps to the stash.
-				assert_eq!(Bonded::<Test>::get(stash), Some(stash));
-
-				// Ledger is now keyed by stash.
-				let ledger_updated = Ledger::<Test>::get(stash).unwrap();
-				assert_eq!(ledger_updated.stash, stash);
-
-				// Check `active` and `total` values match the original ledger set by controller.
-				assert_eq!(ledger_updated.active, (10 + ctlr).into());
-				assert_eq!(ledger_updated.total, (10 + ctlr).into());
-			}
-		})
-	}
-
-	#[test]
-	fn deprecate_controller_batch_works_half_weight() {
-		ExtBuilder::default().build_and_execute(|| {
-			// Given:
-
-			let start = 1001;
-			let mut controllers: Vec<_> = vec![];
-			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
-				let ctlr: u64 = n.into();
-
-				// Only half of entries are unique pairs.
-				let stash: u64 = if n % 2 == 0 { (n + 10000).into() } else { ctlr };
-
-				Ledger::<Test>::insert(
-					ctlr,
-					StakingLedger { controller: None, ..StakingLedger::default_from(stash) },
-				);
-				Bonded::<Test>::insert(stash, ctlr);
-				Payee::<Test>::insert(stash, RewardDestination::Staked);
-
-				controllers.push(ctlr);
-			}
-
-			// When:
-			let bounded_controllers: BoundedVec<
-				_,
-				<Test as Config>::MaxControllersInDeprecationBatch,
-			> = BoundedVec::try_from(controllers.clone()).unwrap();
-
-			let result =
-				Staking::deprecate_controller_batch(RuntimeOrigin::root(), bounded_controllers);
-			assert_ok!(result);
-			assert_eq!(
-				result.unwrap().actual_weight.unwrap(),
-				<Test as Config>::WeightInfo::deprecate_controller_batch(controllers.len() as u32)
-			);
-
-			// Then:
-
-			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
-				let unique_pair = n % 2 == 0;
-				let ctlr: u64 = n.into();
-				let stash: u64 = if unique_pair { (n + 10000).into() } else { ctlr };
-
-				// Side effect of migration for unique pair.
-				if unique_pair {
-					assert_eq!(Ledger::<Test>::get(ctlr), None);
-				}
-				// Bonded maps to the stash.
-				assert_eq!(Bonded::<Test>::get(stash), Some(stash));
-
-				// Ledger is keyed by stash.
-				let ledger_updated = Ledger::<Test>::get(stash).unwrap();
-				assert_eq!(ledger_updated.stash, stash);
-			}
-		})
-	}
-
-	#[test]
-	fn deprecate_controller_batch_skips_unmigrated_controller_payees() {
-		ExtBuilder::default().try_state(false).build_and_execute(|| {
-			// Given:
-
-			let stash: u64 = 1000;
-			let ctlr: u64 = 1001;
-
-			Ledger::<Test>::insert(
-				ctlr,
-				StakingLedger { controller: None, ..StakingLedger::default_from(stash) },
-			);
-			Bonded::<Test>::insert(stash, ctlr);
-			#[allow(deprecated)]
-			Payee::<Test>::insert(stash, RewardDestination::Controller);
-
-			// When:
-
-			let bounded_controllers: BoundedVec<
-				_,
-				<Test as Config>::MaxControllersInDeprecationBatch,
-			> = BoundedVec::try_from(vec![ctlr]).unwrap();
-
-			let result =
-				Staking::deprecate_controller_batch(RuntimeOrigin::root(), bounded_controllers);
-			assert_ok!(result);
-			assert_eq!(
-				result.unwrap().actual_weight.unwrap(),
-				<Test as Config>::WeightInfo::deprecate_controller_batch(1 as u32)
-			);
-
-			// Then:
-
-			// Esure deprecation did not happen.
-			assert_eq!(Ledger::<Test>::get(ctlr).is_some(), true);
-
-			// Bonded still keyed by controller.
-			assert_eq!(Bonded::<Test>::get(stash), Some(ctlr));
-
-			// Ledger is still keyed by controller.
-			let ledger_updated = Ledger::<Test>::get(ctlr).unwrap();
-			assert_eq!(ledger_updated.stash, stash);
-		})
-	}
-
-	#[test]
-	fn deprecate_controller_batch_with_bad_state_ok() {
-		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
-			setup_double_bonded_ledgers();
-
-			// now let's deprecate all the controllers for all the existing ledgers.
-			let bounded_controllers: BoundedVec<
-				_,
-				<Test as Config>::MaxControllersInDeprecationBatch,
-			> = BoundedVec::try_from(vec![333, 444, 555, 777]).unwrap();
-
-			assert_ok!(Staking::deprecate_controller_batch(
-				RuntimeOrigin::root(),
-				bounded_controllers
-			));
-
-			assert_eq!(
-				*staking_events().last().unwrap(),
-				Event::ControllerBatchDeprecated { failures: 0 }
-			);
-		})
-	}
-
-	#[test]
-	fn deprecate_controller_batch_with_bad_state_failures() {
-		ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
-			setup_double_bonded_ledgers();
-
-			// now let's deprecate all the controllers for all the existing ledgers.
-			let bounded_controllers: BoundedVec<
-				_,
-				<Test as Config>::MaxControllersInDeprecationBatch,
-			> = BoundedVec::try_from(vec![777, 555, 444, 333]).unwrap();
-
-			assert_ok!(Staking::deprecate_controller_batch(
-				RuntimeOrigin::root(),
-				bounded_controllers
-			));
-
-			assert_eq!(
-				*staking_events().last().unwrap(),
-				Event::ControllerBatchDeprecated { failures: 2 }
-			);
-		})
-	}
-
-	#[test]
-	fn set_controller_with_bad_state_ok() {
-		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
-			setup_double_bonded_ledgers();
-
-			// in this case, setting controller works due to the ordering of the calls.
-			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(333)));
-			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(444)));
-			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(555)));
-		})
-	}
-
-	#[test]
-	fn set_controller_with_bad_state_fails() {
-		ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
-			setup_double_bonded_ledgers();
-
-			// setting the controller of ledger associated with stash 555 fails since its stash is a
-			// controller of another ledger.
-			assert_noop!(
-				Staking::set_controller(RuntimeOrigin::signed(555)),
-				Error::<Test>::BadState
-			);
-			assert_noop!(
-				Staking::set_controller(RuntimeOrigin::signed(444)),
-				Error::<Test>::BadState
-			);
-			assert_ok!(Staking::set_controller(RuntimeOrigin::signed(333)));
 		})
 	}
 }
@@ -8079,7 +7658,7 @@ mod ledger_recovery {
 			assert!(Staking::do_try_state(System::block_number()).is_err());
 
 			// recover the ledger bonded by 333 stash.
-			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None));
 
 			// try-state checks are ok now.
 			assert_ok!(Staking::do_try_state(System::block_number()));
@@ -8123,20 +7702,19 @@ mod ledger_recovery {
 			assert!(Staking::do_try_state(System::block_number()).is_err());
 
 			// recover the ledger bonded by 333 stash.
-			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None));
 
 			// for the try-state checks to pass, we also need to recover the stash 444 which is
 			// corrupted too by proxy of kill(333). Currently, both the lock and the ledger of 444
 			// have been cleared so we need to provide the new amount to restore the ledger.
 			assert_noop!(
-				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None, None),
+				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None),
 				Error::<Test>::CannotRestoreLedger
 			);
 
 			assert_ok!(Staking::restore_ledger(
 				RuntimeOrigin::root(),
 				444,
-				None,
 				Some(total_444_before_corruption),
 				None,
 			));
@@ -8179,7 +7757,7 @@ mod ledger_recovery {
 			assert_ok!(StakingLedger::<Test>::kill(&444));
 
 			// recover the ledger bonded by 333 stash.
-			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None));
 
 			// 444 does not need recover in this case since it's been killed successfully.
 			assert_eq!(Staking::inspect_bond_state(&444), Err(Error::<Test>::NotStash));
@@ -8232,7 +7810,6 @@ mod ledger_recovery {
 			assert_ok!(Staking::restore_ledger(
 				RuntimeOrigin::root(),
 				333,
-				None,
 				Some(lock_333_before + 30),
 				None
 			));
@@ -8241,7 +7818,7 @@ mod ledger_recovery {
 			// of sync. in which case, we need to explicitly set the ledger's lock and amount,
 			// otherwise the ledger recover will fail.
 			assert_noop!(
-				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None, None),
+				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None),
 				Error::<Test>::CannotRestoreLedger
 			);
 
@@ -8249,7 +7826,6 @@ mod ledger_recovery {
 			assert_ok!(Staking::restore_ledger(
 				RuntimeOrigin::root(),
 				444,
-				None,
 				Some(lock_444_before + 40),
 				None
 			));

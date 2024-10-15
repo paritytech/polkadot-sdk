@@ -305,7 +305,7 @@ fn configure_accounts(
 	)>,
 	Vec<AccountId>,
 	usize,
-	Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
+	Vec<(AccountId, Balance, StakerStatus<AccountId>)>,
 ) {
 	let mut endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(|| {
 		vec![
@@ -338,7 +338,7 @@ fn configure_accounts(
 	let mut rng = rand::thread_rng();
 	let stakers = initial_authorities
 		.iter()
-		.map(|x| (x.0.clone(), x.0.clone(), stash, StakerStatus::Validator))
+		.map(|x| (x.0.clone(), stash, StakerStatus::Validator))
 		.chain(initial_nominators.iter().map(|x| {
 			use rand::{seq::SliceRandom, Rng};
 			let limit = (MaxNominations::get() as usize).min(initial_authorities.len());
@@ -349,7 +349,7 @@ fn configure_accounts(
 				.into_iter()
 				.map(|choice| choice.0.clone())
 				.collect::<Vec<_>>();
-			(x.clone(), x.clone(), stash, StakerStatus::Nominator(nominations))
+			(x.clone(), stash, StakerStatus::Nominator(nominations))
 		}))
 		.collect::<Vec<_>>();
 

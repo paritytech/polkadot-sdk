@@ -40,8 +40,7 @@
 //!   producing blocks or guaranteeing finality of the chain.
 //! - Nominating: The process of placing staked funds behind one or more validators in order to
 //!   share in any reward, and punishment, they take.
-//! - Stash account: The account holding an owner's funds used for staking.
-//! - Controller account (being deprecated): The account that controls an owner's funds for staking.
+//! - Stash account: The account holding and controlling an owner's funds used for staking.
 //! - Era: A (whole) number of sessions, which is the period that the validator set (and each
 //!   validator's active nominator set) is recalculated and where rewards are paid out.
 //! - Slash: The punishment of a staker by reducing its funds.
@@ -62,8 +61,7 @@
 //! Almost any interaction with the Staking pallet requires a process of _**bonding**_ (also known
 //! as being a _staker_). To become *bonded*, a fund-holding register known as the _stash account_,
 //! which holds some or all of the funds that become frozen in place as part of the staking process.
-//! The controller account, which this pallet now assigns the stash account to, issues instructions
-//! on how funds shall be used.
+//! The stash account issues instructions on how funds shall be used.
 //!
 //! An account can become a bonded stash account using the [`bond`](Call::bond) call.
 //!
@@ -249,11 +247,11 @@
 //!
 //! Any funds already placed into stash can be the target of the following operations:
 //!
-//! The controller account can free a portion (or all) of the funds using the
-//! [`unbond`](Call::unbond) call. Note that the funds are not immediately accessible. Instead, a
-//! duration denoted by [`Config::BondingDuration`] (in number of eras) must pass until the funds
-//! can actually be removed. Once the `BondingDuration` is over, the
-//! [`withdraw_unbonded`](Call::withdraw_unbonded) call can be used to actually withdraw the funds.
+//! The stash account can free a portion (or all) of the funds using the [`unbond`](Call::unbond)
+//! call. Note that the funds are not immediately accessible. Instead, a duration denoted by
+//! [`Config::BondingDuration`] (in number of eras) must pass until the funds can actually be
+//! removed. Once the `BondingDuration` is over, the [`withdraw_unbonded`](Call::withdraw_unbonded)
+//! call can be used to actually withdraw the funds.
 //!
 //! Note that there is a limitation to the number of fund-chunks that can be scheduled to be
 //! unlocked in the future via [`unbond`](Call::unbond). In case this maximum

@@ -184,7 +184,7 @@ impl sp_staking::StakingInterface for StakingMock {
 		Nominations::get()
 	}
 
-	fn stash_by_ctrl(_controller: &Self::AccountId) -> Result<Self::AccountId, DispatchError> {
+	fn stash(_who: &Self::AccountId) -> Result<Self::AccountId, DispatchError> {
 		unimplemented!("method currently not used in testing")
 	}
 

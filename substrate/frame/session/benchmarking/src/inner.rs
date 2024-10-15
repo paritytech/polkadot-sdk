@@ -55,32 +55,30 @@ benchmarks! {
 			true,
 			RewardDestination::Staked,
 		)?;
-		let v_controller = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
+		let v_stash = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
 
 		let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();
 		let proof: Vec<u8> = vec![0,1,2,3];
-		// Whitelist controller account from further DB operations.
-		let v_controller_key = frame_system::Account::<T>::hashed_key_for(&v_controller);
-		frame_benchmarking::benchmarking::add_to_whitelist(v_controller_key.into());
-	}: _(RawOrigin::Signed(v_controller), keys, proof)
+		// Whitelist stash account from further DB operations.
+		let v_stash_key = frame_system::Account::<T>::hashed_key_for(&v_stash);
+		frame_benchmarking::benchmarking::add_to_whitelist(v_stash_key.into());
+	}: _(RawOrigin::Signed(v_stash), keys, proof)
 
 	purge_keys {
 		let n = MaxNominationsOf::<T>::get();
 		let (v_stash, _) = create_validator_with_nominators::<T>(
 			n,
 			MaxNominationsOf::<T>::get(),
-			false,
-			true,
 			RewardDestination::Staked,
 		)?;
-		let v_controller = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
+		let v_stash = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
 		let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();
 		let proof: Vec<u8> = vec![0,1,2,3];
-		Session::<T>::set_keys(RawOrigin::Signed(v_controller.clone()).into(), keys, proof)?;
-		// Whitelist controller account from further DB operations.
-		let v_controller_key = frame_system::Account::<T>::hashed_key_for(&v_controller);
-		frame_benchmarking::benchmarking::add_to_whitelist(v_controller_key.into());
-	}: _(RawOrigin::Signed(v_controller))
+		Session::<T>::set_keys(RawOrigin::Signed(v_stash.clone()).into(), keys, proof)?;
+		// Whitelist stash account from further DB operations.
+		let v_stash_key = frame_system::Account::<T>::hashed_key_for(&v_stash);
+		frame_benchmarking::benchmarking::add_to_whitelist(v_stash_key.into());
+	}: _(RawOrigin::Signed(v_stash))
 
 	#[extra]
 	check_membership_proof_current_session {
@@ -129,7 +127,7 @@ fn check_membership_proof_setup<T: Config>(
 		use rand::{RngCore, SeedableRng};
 
 		let validator = T::Lookup::lookup(who).unwrap();
-		let controller = pallet_staking::Pallet::<T>::bonded(&validator).unwrap();
+		let stash = pallet_staking::Pallet::<T>::bonded(&validator).unwrap();
 
 		let keys = {
 			let mut keys = [0u8; 128];
@@ -146,7 +144,7 @@ fn check_membership_proof_setup<T: Config>(
 		let keys: T::Keys = Decode::decode(&mut &keys[..]).unwrap();
 		let proof: Vec<u8> = vec![];
 
-		Session::<T>::set_keys(RawOrigin::Signed(controller).into(), keys, proof).unwrap();
+		Session::<T>::set_keys(RawOrigin::Signed(stash).into(), keys, proof).unwrap();
 	}
 
 	Pallet::<T>::on_initialize(frame_system::pallet_prelude::BlockNumberFor::<T>::one());

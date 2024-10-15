@@ -39,7 +39,7 @@ use sp_runtime::{
 
 use sp_staking::{
 	EraIndex, Page, SessionIndex,
-	StakingAccount::{self, Controller, Stash},
+	StakingAccount::{self, Stash},
 	StakingInterface,
 };
 
@@ -282,9 +282,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxUnlockingChunks: Get<u32>;
 
-		/// The maximum amount of controller accounts that can be deprecated in one call.
-		type MaxControllersInDeprecationBatch: Get<u32>;
-
 		/// Something that listens to staking updates and performs actions based on the data it
 		/// receives.
 		///
@@ -340,7 +337,6 @@ pub mod pallet {
 			type NextNewSession = ();
 			type MaxExposurePageSize = ConstU32<64>;
 			type MaxUnlockingChunks = ConstU32<32>;
-			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
 			#[cfg(feature = "std")]
@@ -367,7 +363,7 @@ pub mod pallet {
 	#[pallet::unbounded]
 	pub type Invulnerables<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
-	/// Map from all locked "stash" accounts to the controller account.
+	/// Map from all locked "stash" accounts to the now-deprecated controller account.
 	///
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
@@ -393,6 +389,7 @@ pub mod pallet {
 
 	/// Map from all (unlocked) "controller" accounts to the info regarding the staking.
 	///
+	/// TODO: Map ledgers from "stash" accounts instead of controllers.
 	/// Note: All the reads and mutations to this storage *MUST* be done through the methods exposed
 	/// by [`StakingLedger`] to ensure data and lock consistency.
 	#[pallet::storage]
@@ -744,8 +741,7 @@ pub mod pallet {
 		pub force_era: Forcing,
 		pub slash_reward_fraction: Perbill,
 		pub canceled_payout: BalanceOf<T>,
-		pub stakers:
-			Vec<(T::AccountId, T::AccountId, BalanceOf<T>, crate::StakerStatus<T::AccountId>)>,
+		pub stakers: Vec<(T::AccountId, BalanceOf<T>, crate::StakerStatus<T::AccountId>)>,
 		pub min_nominator_bond: BalanceOf<T>,
 		pub min_validator_bond: BalanceOf<T>,
 		pub max_validator_count: Option<u32>,
@@ -770,7 +766,7 @@ pub mod pallet {
 				MaxNominatorsCount::<T>::put(x);
 			}
 
-			for &(ref stash, _, balance, ref status) in &self.stakers {
+			for &(ref stash, balance, ref status) in &self.stakers {
 				crate::log!(
 					trace,
 					"inserting genesis staker: {:?} => {:?} => {:?}",
@@ -861,8 +857,6 @@ pub mod pallet {
 		SnapshotTargetsSizeExceeded { size: u32 },
 		/// A new force era mode was set.
 		ForceEra { mode: Forcing },
-		/// Report of a controller batch deprecation.
-		ControllerBatchDeprecated { failures: u32 },
 	}
 
 	#[pallet::error]
@@ -988,8 +982,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Take the origin account as a stash and lock up `value` of its balance. `controller` will
-		/// be the account that controls it.
+		/// Take the origin account as a stash and lock up `value` of its balance.
 		///
 		/// `value` must be more than the `minimum_balance` specified by `T::Currency`.
 		///
@@ -1017,11 +1010,6 @@ pub mod pallet {
 				return Err(Error::<T>::AlreadyBonded.into())
 			}
 
-			// An existing controller cannot become a stash.
-			if StakingLedger::<T>::is_bonded(StakingAccount::Controller(stash.clone())) {
-				return Err(Error::<T>::AlreadyPaired.into())
-			}
-
 			// Reject a bond which is considered to be _dust_.
 			if value < asset::existential_deposit::<T>() {
 				return Err(Error::<T>::InsufficientBond.into())
@@ -1045,7 +1033,7 @@ pub mod pallet {
 		/// Add some extra amount that have appeared in the stash `free_balance` into the balance up
 		/// for staking.
 		///
-		/// The dispatch origin for this call must be _Signed_ by the stash, not the controller.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		///
 		/// Use this if there are additional funds in your stash account that you wish to bond.
 		/// Unlike [`bond`](Self::bond) or [`unbond`](Self::unbond) this function does not impose
@@ -1070,7 +1058,7 @@ pub mod pallet {
 		/// period ends. If this leaves an amount actively bonded less than
 		/// [`asset::existential_deposit`], then it is increased to the full amount.
 		///
-		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		///
 		/// Once the unlock period is done, you can call `withdraw_unbonded` to actually move
 		/// the funds out of management ready for transfer.
@@ -1093,17 +1081,16 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] value: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
-			let controller = ensure_signed(origin)?;
-			let unlocking =
-				Self::ledger(Controller(controller.clone())).map(|l| l.unlocking.len())?;
+			let stash = ensure_signed(origin)?;
+			let unlocking = Self::ledger(Stash(stash.clone())).map(|l| l.unlocking.len())?;
 
 			// if there are no unlocking chunks available, try to withdraw chunks older than
 			// `BondingDuration` to proceed with the unbonding.
 			let maybe_withdraw_weight = {
 				if unlocking == T::MaxUnlockingChunks::get() as usize {
 					let real_num_slashing_spans =
-						Self::slashing_spans(&controller).map_or(0, |s| s.iter().count());
-					Some(Self::do_withdraw_unbonded(&controller, real_num_slashing_spans as u32)?)
+						Self::slashing_spans(&stash).map_or(0, |s| s.iter().count());
+					Some(Self::do_withdraw_unbonded(&stash, real_num_slashing_spans as u32)?)
 				} else {
 					None
 				}
@@ -1111,7 +1098,7 @@ pub mod pallet {
 
 			// we need to fetch the ledger again because it may have been mutated in the call
 			// to `Self::do_withdraw_unbonded` above.
-			let mut ledger = Self::ledger(Controller(controller))?;
+			let mut ledger = Self::ledger(Stash(stash))?;
 			let mut value = value.min(ledger.active);
 			let stash = ledger.stash.clone();
 
@@ -1181,7 +1168,7 @@ pub mod pallet {
 		/// This essentially frees up that balance to be used by the stash account to do whatever
 		/// it wants.
 		///
-		/// The dispatch origin for this call must be _Signed_ by the controller.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		///
 		/// Emits `Withdrawn`.
 		///
@@ -1205,23 +1192,23 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			num_slashing_spans: u32,
 		) -> DispatchResultWithPostInfo {
-			let controller = ensure_signed(origin)?;
+			let stash = ensure_signed(origin)?;
 
-			let actual_weight = Self::do_withdraw_unbonded(&controller, num_slashing_spans)?;
+			let actual_weight = Self::do_withdraw_unbonded(&stash, num_slashing_spans)?;
 			Ok(Some(actual_weight).into())
 		}
 
-		/// Declare the desire to validate for the origin controller.
+		/// Declare the desire to validate for the given stash.
 		///
 		/// Effects will be felt at the beginning of the next era.
 		///
-		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::validate())]
 		pub fn validate(origin: OriginFor<T>, prefs: ValidatorPrefs) -> DispatchResult {
-			let controller = ensure_signed(origin)?;
+			let stash = ensure_signed(origin)?;
 
-			let ledger = Self::ledger(Controller(controller))?;
+			let ledger = Self::ledger(Stash(stash))?;
 
 			ensure!(ledger.active >= MinValidatorBond::<T>::get(), Error::<T>::InsufficientBond);
 			let stash = &ledger.stash;
@@ -1249,11 +1236,11 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Declare the desire to nominate `targets` for the origin controller.
+		/// Declare the desire to nominate `targets` for a stash.
 		///
 		/// Effects will be felt at the beginning of the next era.
 		///
-		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		///
 		/// ## Complexity
 		/// - The transaction's complexity is proportional to the size of `targets` (N)
@@ -1265,9 +1252,9 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			targets: Vec<AccountIdLookupOf<T>>,
 		) -> DispatchResult {
-			let controller = ensure_signed(origin)?;
+			let stash = ensure_signed(origin)?;
 
-			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
+			let ledger = Self::ledger(Stash(stash))?;
 
 			ensure!(ledger.active >= MinNominatorBond::<T>::get(), Error::<T>::InsufficientBond);
 			let stash = &ledger.stash;
@@ -1325,7 +1312,7 @@ pub mod pallet {
 		///
 		/// Effects will be felt at the beginning of the next era.
 		///
-		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		///
 		/// ## Complexity
 		/// - Independent of the arguments. Insignificant complexity.
@@ -1334,19 +1321,19 @@ pub mod pallet {
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::chill())]
 		pub fn chill(origin: OriginFor<T>) -> DispatchResult {
-			let controller = ensure_signed(origin)?;
+			let stash = ensure_signed(origin)?;
 
-			let ledger = Self::ledger(StakingAccount::Controller(controller))?;
+			let ledger = Self::ledger(StakingAccount::Stash(stash))?;
 
 			Self::chill_stash(&ledger.stash);
 			Ok(())
 		}
 
-		/// (Re-)set the payment target for a controller.
+		/// (Re-)set the payment target for a stash.
 		///
 		/// Effects will be felt instantly (as soon as this function is completed successfully).
 		///
-		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		///
 		/// ## Complexity
 		/// - O(1)
@@ -1360,8 +1347,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			payee: RewardDestination<T::AccountId>,
 		) -> DispatchResult {
-			let controller = ensure_signed(origin)?;
-			let ledger = Self::ledger(Controller(controller.clone()))?;
+			let stash = ensure_signed(origin)?;
+			let ledger = Self::ledger(Stash(stash.clone()))?;
 
 			ensure!(
 				(payee != {
@@ -1376,40 +1363,6 @@ pub mod pallet {
 				.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
 
 			Ok(())
-		}
-
-		/// (Re-)sets the controller of a stash to the stash itself. This function previously
-		/// accepted a `controller` argument to set the controller to an account other than the
-		/// stash itself. This functionality has now been removed, now only setting the controller
-		/// to the stash, if it is not already.
-		///
-		/// Effects will be felt instantly (as soon as this function is completed successfully).
-		///
-		/// The dispatch origin for this call must be _Signed_ by the stash, not the controller.
-		///
-		/// ## Complexity
-		/// O(1)
-		/// - Independent of the arguments. Insignificant complexity.
-		/// - Contains a limited number of reads.
-		/// - Writes are limited to the `origin` account key.
-		#[pallet::call_index(8)]
-		#[pallet::weight(T::WeightInfo::set_controller())]
-		pub fn set_controller(origin: OriginFor<T>) -> DispatchResult {
-			let stash = ensure_signed(origin)?;
-
-			Self::ledger(StakingAccount::Stash(stash.clone())).map(|ledger| {
-				let controller = ledger.controller()
-                    .defensive_proof("Ledger's controller field didn't exist. The controller should have been fetched using StakingLedger.")
-                    .ok_or(Error::<T>::NotController)?;
-
-				if controller == stash {
-					// Stash is already its own controller.
-					return Err(Error::<T>::AlreadyPaired.into())
-				}
-
-				let _ = ledger.set_controller_to_stash()?;
-				Ok(())
-			})?
 		}
 
 		/// Sets the ideal number of validators.
@@ -1636,7 +1589,7 @@ pub mod pallet {
 
 		/// Rebond a portion of the stash scheduled to be unlocked.
 		///
-		/// The dispatch origin must be signed by the controller.
+		/// The dispatch origin must be signed by the stash.
 		///
 		/// ## Complexity
 		/// - Time complexity: O(L), where L is unlocking chunks
@@ -1647,8 +1600,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] value: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
-			let controller = ensure_signed(origin)?;
-			let ledger = Self::ledger(Controller(controller))?;
+			let stash = ensure_signed(origin)?;
+			let ledger = Self::ledger(Stash(stash))?;
 			ensure!(!ledger.unlocking.is_empty(), Error::<T>::NoUnlockChunk);
 
 			let initial_unlocking = ledger.unlocking.len() as u32;
@@ -1729,7 +1682,7 @@ pub mod pallet {
 		///
 		/// Effects will be felt at the beginning of the next era.
 		///
-		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
+		/// The dispatch origin for this call must be _Signed_ by the stash.
 		///
 		/// - `who`: A list of nominator stash accounts who are nominating this validator which
 		///   should no longer be nominating this validator.
@@ -1739,8 +1692,8 @@ pub mod pallet {
 		#[pallet::call_index(21)]
 		#[pallet::weight(T::WeightInfo::kick(who.len() as u32))]
 		pub fn kick(origin: OriginFor<T>, who: Vec<AccountIdLookupOf<T>>) -> DispatchResult {
-			let controller = ensure_signed(origin)?;
-			let ledger = Self::ledger(Controller(controller))?;
+			let signed = ensure_signed(origin)?;
+			let ledger = &Self::ledger(Stash(signed))?;
 			let stash = &ledger.stash;
 
 			for nom_stash in who
@@ -1820,19 +1773,19 @@ pub mod pallet {
 			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
 			Ok(())
 		}
-		/// Declare a `controller` to stop participating as either a validator or nominator.
+		/// Declare a `stash` to stop participating as either a validator or nominator.
 		///
 		/// Effects will be felt at the beginning of the next era.
 		///
 		/// The dispatch origin for this call must be _Signed_, but can be called by anyone.
 		///
-		/// If the caller is the same as the controller being targeted, then no further checks are
+		/// If the caller is the same as the stash being targeted, then no further checks are
 		/// enforced, and this function behaves just like `chill`.
 		///
-		/// If the caller is different than the controller being targeted, the following conditions
+		/// If the caller is different than the stash being targeted, the following conditions
 		/// must be met:
 		///
-		/// * `controller` must belong to a nominator who has become non-decodable,
+		/// * `stash` must belong to a nominator who has become non-decodable,
 		///
 		/// Or:
 		///
@@ -1852,16 +1805,10 @@ pub mod pallet {
 			// Anyone can call this function.
 			let caller = ensure_signed(origin)?;
 			let ledger = Self::ledger(Stash(stash.clone()))?;
-			let controller = ledger
-				.controller()
-				.defensive_proof(
-					"Ledger's controller field didn't exist. The controller should have been fetched using StakingLedger.",
-				)
-				.ok_or(Error::<T>::NotController)?;
 
 			// In order for one user to chill another user, the following conditions must be met:
 			//
-			// * `controller` belongs to a nominator who has become non-decodable,
+			// * `stash` belongs to a nominator who has become non-decodable,
 			//
 			// Or
 			//
@@ -1873,14 +1820,14 @@ pub mod pallet {
 			//   determine this is a person that should be chilled because they have not met the
 			//   threshold bond required.
 			//
-			// Otherwise, if caller is the same as the controller, this is just like `chill`.
+			// Otherwise, if caller is the same as the stash, this is just like `chill`.
 
 			if Nominators::<T>::contains_key(&stash) && Nominators::<T>::get(&stash).is_none() {
 				Self::chill_stash(&stash);
 				return Ok(())
 			}
 
-			if caller != controller {
+			if caller != stash {
 				let threshold = ChillThreshold::<T>::get().ok_or(Error::<T>::CannotChillOther)?;
 				let min_active_bond = if Nominators::<T>::contains_key(&stash) {
 					let max_nominator_count =
@@ -1975,83 +1922,6 @@ pub mod pallet {
 			Self::do_payout_stakers_by_page(validator_stash, era, page)
 		}
 
-		/// Migrates an account's `RewardDestination::Controller` to
-		/// `RewardDestination::Account(controller)`.
-		///
-		/// Effects will be felt instantly (as soon as this function is completed successfully).
-		///
-		/// This will waive the transaction fee if the `payee` is successfully migrated.
-		#[pallet::call_index(27)]
-		#[pallet::weight(T::WeightInfo::update_payee())]
-		pub fn update_payee(
-			origin: OriginFor<T>,
-			controller: T::AccountId,
-		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
-			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
-
-			ensure!(
-				(Payee::<T>::get(&ledger.stash) == {
-					#[allow(deprecated)]
-					Some(RewardDestination::Controller)
-				}),
-				Error::<T>::NotController
-			);
-
-			let _ = ledger
-				.set_payee(RewardDestination::Account(controller))
-				.defensive_proof("ledger should have been previously retrieved from storage.")?;
-
-			Ok(Pays::No.into())
-		}
-
-		/// Updates a batch of controller accounts to their corresponding stash account if they are
-		/// not the same. Ignores any controller accounts that do not exist, and does not operate if
-		/// the stash and controller are already the same.
-		///
-		/// Effects will be felt instantly (as soon as this function is completed successfully).
-		///
-		/// The dispatch origin must be `T::AdminOrigin`.
-		#[pallet::call_index(28)]
-		#[pallet::weight(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32))]
-		pub fn deprecate_controller_batch(
-			origin: OriginFor<T>,
-			controllers: BoundedVec<T::AccountId, T::MaxControllersInDeprecationBatch>,
-		) -> DispatchResultWithPostInfo {
-			T::AdminOrigin::ensure_origin(origin)?;
-
-			// Ignore controllers that do not exist or are already the same as stash.
-			let filtered_batch_with_ledger: Vec<_> = controllers
-				.iter()
-				.filter_map(|controller| {
-					let ledger = Self::ledger(StakingAccount::Controller(controller.clone()));
-					ledger.ok().map_or(None, |ledger| {
-						// If the controller `RewardDestination` is still the deprecated
-						// `Controller` variant, skip deprecating this account.
-						let payee_deprecated = Payee::<T>::get(&ledger.stash) == {
-							#[allow(deprecated)]
-							Some(RewardDestination::Controller)
-						};
-
-						if ledger.stash != *controller && !payee_deprecated {
-							Some(ledger)
-						} else {
-							None
-						}
-					})
-				})
-				.collect();
-
-			// Update unique pairs.
-			let mut failures = 0;
-			for ledger in filtered_batch_with_ledger {
-				let _ = ledger.clone().set_controller_to_stash().map_err(|_| failures += 1);
-			}
-			Self::deposit_event(Event::<T>::ControllerBatchDeprecated { failures });
-
-			Ok(Some(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32)).into())
-		}
-
 		/// Restores the state of a ledger which is in an inconsistent state.
 		///
 		/// The requirements to restore a ledger are the following:
@@ -2068,7 +1938,6 @@ pub mod pallet {
 		pub fn restore_ledger(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
-			maybe_controller: Option<T::AccountId>,
 			maybe_total: Option<BalanceOf<T>>,
 			maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
 		) -> DispatchResult {
@@ -2082,7 +1951,7 @@ pub mod pallet {
 
 			let (new_controller, new_total) = match Self::inspect_bond_state(&stash) {
 				Ok(LedgerIntegrityState::Corrupted) => {
-					let new_controller = maybe_controller.unwrap_or(stash.clone());
+					let new_controller = stash.clone();
 
 					let new_total = if let Some(total) = maybe_total {
 						let new_total = total.min(stash_balance);

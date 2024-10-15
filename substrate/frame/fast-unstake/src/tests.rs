@@ -36,7 +36,7 @@ fn test_setup_works() {
 fn register_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		ErasToCheckPerBlock::<T>::put(1);
-		// Controller account registers for fast unstake.
+		// Stash account registers for fast unstake.
 		assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
 		// Ensure stash is in the queue.
 		assert_ne!(Queue::<T>::get(1), None);
@@ -50,7 +50,7 @@ fn register_insufficient_funds_fails() {
 		ErasToCheckPerBlock::<T>::put(1);
 		<T as Config>::Currency::make_free_balance_be(&1, 3);
 
-		// Controller account registers for fast unstake.
+		// Stash account registers for fast unstake.
 		assert_noop!(
 			FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)),
 			BalancesError::<T, _>::InsufficientBalance,
@@ -82,7 +82,7 @@ fn cannot_register_if_not_bonded() {
 		// Attempt to fast unstake.
 		assert_noop!(
 			FastUnstake::register_fast_unstake(RuntimeOrigin::signed(2)),
-			Error::<T>::NotController
+			Error::<T>::NotStash
 		);
 	});
 }
@@ -110,7 +110,7 @@ fn cannot_register_if_head() {
 			stashes: bounded_vec![(1, Deposit::get())],
 			checked: bounded_vec![],
 		});
-		// Controller attempts to register
+		// Stash attempts to register
 		assert_noop!(
 			FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)),
 			Error::<T>::AlreadyHead
@@ -140,11 +140,11 @@ fn deregister_works() {
 		// reserved balance prior to registering for fast unstake.
 		let pre_reserved = <T as Config>::Currency::reserved_balance(&1);
 
-		// Controller account registers for fast unstake.
+		// Stash account registers for fast unstake.
 		assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
 		assert_eq!(<T as Config>::Currency::reserved_balance(&1) - pre_reserved, Deposit::get());
 
-		// Controller then changes mind and deregisters.
+		// Stash then changes mind and deregisters.
 		assert_ok!(FastUnstake::deregister(RuntimeOrigin::signed(1)));
 		assert_eq!(<T as Config>::Currency::reserved_balance(&1) - pre_reserved, 0);
 
@@ -164,13 +164,13 @@ fn deregister_disabled_fails() {
 }
 
 #[test]
-fn cannot_deregister_if_not_controller() {
+fn cannot_deregister_if_not_stash() {
 	ExtBuilder::default().build_and_execute(|| {
 		ErasToCheckPerBlock::<T>::put(1);
-		// Controller (same as stash) account registers for fast unstake.
+		// Stash registers for fast unstake.
 		assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
 		// Another account tries to deregister.
-		assert_noop!(FastUnstake::deregister(RuntimeOrigin::signed(2)), Error::<T>::NotController);
+		assert_noop!(FastUnstake::deregister(RuntimeOrigin::signed(2)), Error::<T>::NotStash);
 	});
 }
 
@@ -178,7 +178,7 @@ fn cannot_deregister_if_not_controller() {
 fn cannot_deregister_if_not_queued() {
 	ExtBuilder::default().build_and_execute(|| {
 		ErasToCheckPerBlock::<T>::put(1);
-		// Controller tries to deregister without first registering
+		// Stash tries to deregister without first registering
 		assert_noop!(FastUnstake::deregister(RuntimeOrigin::signed(1)), Error::<T>::NotQueued);
 	});
 }
@@ -187,14 +187,14 @@ fn cannot_deregister_if_not_queued() {
 fn cannot_deregister_already_head() {
 	ExtBuilder::default().build_and_execute(|| {
 		ErasToCheckPerBlock::<T>::put(1);
-		// Controller attempts to register, should fail
+		// Stash attempts to register, should fail
 		assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
 		// Insert some Head item for stash.
 		Head::<T>::put(UnstakeRequest {
 			stashes: bounded_vec![(1, Deposit::get())],
 			checked: bounded_vec![],
 		});
-		// Controller attempts to deregister
+		// Stash attempts to deregister
 		assert_noop!(FastUnstake::deregister(RuntimeOrigin::signed(1)), Error::<T>::AlreadyHead);
 	});
 }

@@ -26,7 +26,7 @@ use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProv
 use frame_support::{
 	pallet_prelude::*,
 	storage::bounded_vec::BoundedVec,
-	traits::{Get, Imbalance, UnfilteredDispatchable},
+	traits::{Currency, Get, Imbalance, UnfilteredDispatchable},
 };
 use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
@@ -66,12 +66,10 @@ pub fn add_slashing_spans<T: Config>(who: &T::AccountId, spans: u32) {
 
 // This function clears all existing validators and nominators from the set, and generates one new
 // validator being nominated by n nominators, and returns the validator stash account and the
-// nominators' stash and controller. It also starts an era and creates pending payouts.
+// nominators' stash. It also starts an era and creates pending payouts.
 pub fn create_validator_with_nominators<T: Config>(
 	n: u32,
 	upper_bound: u32,
-	dead_controller: bool,
-	unique_controller: bool,
 	destination: RewardDestination<T::AccountId>,
 ) -> Result<(T::AccountId, Vec<(T::AccountId, T::AccountId)>), &'static str> {
 	// Clean up any existing state.
@@ -79,15 +77,11 @@ pub fn create_validator_with_nominators<T: Config>(
 	let mut points_total = 0;
 	let mut points_individual = Vec::new();
 
-	let (v_stash, v_controller) = if unique_controller {
-		create_unique_stash_controller::<T>(0, 100, destination.clone(), false)?
-	} else {
-		create_stash_controller::<T>(0, 100, destination.clone())?
-	};
+	let v_stash = create_stash::<T>(0, 100, destination.clone())?;
 
 	let validator_prefs =
 		ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
-	Staking::<T>::validate(RawOrigin::Signed(v_controller).into(), validator_prefs)?;
+	Staking::<T>::validate(RawOrigin::Signed(v_stash.clone()).into(), validator_prefs)?;
 	let stash_lookup = T::Lookup::unlookup(v_stash.clone());
 
 	points_total += 10;
@@ -98,17 +92,14 @@ pub fn create_validator_with_nominators<T: Config>(
 
 	// Give the validator n nominators, but keep total users in the system the same.
 	for i in 0..upper_bound {
-		let (n_stash, n_controller) = if !dead_controller {
-			create_stash_controller::<T>(u32::MAX - i, 100, destination.clone())?
-		} else {
-			create_unique_stash_controller::<T>(u32::MAX - i, 100, destination.clone(), true)?
-		};
+		let n_stash = create_stash::<T>(u32::MAX - i, 100, destination.clone())?;
+
 		if i < n {
 			Staking::<T>::nominate(
-				RawOrigin::Signed(n_controller.clone()).into(),
+				RawOrigin::Signed(n_stash.clone()).into(),
 				vec![stash_lookup.clone()],
 			)?;
-			nominators.push((n_stash, n_controller));
+			nominators.push((n_stash.clone(), n_stash));
 		}
 	}
 
@@ -143,8 +134,6 @@ pub fn create_validator_with_nominators<T: Config>(
 struct ListScenario<T: Config> {
 	/// Stash that is expected to be moved.
 	origin_stash1: T::AccountId,
-	/// Controller of the Stash that is expected to be moved.
-	origin_controller1: T::AccountId,
 	dest_weight: BalanceOf<T>,
 }
 
@@ -172,24 +161,24 @@ impl<T: Config> ListScenario<T> {
 
 		// create accounts with the origin weight
 
-		let (origin_stash1, origin_controller1) = create_stash_controller_with_balance::<T>(
+		let origin_stash1 = create_stash_with_balance::<T>(
 			USER_SEED + 2,
 			origin_weight,
 			RewardDestination::Staked,
 		)?;
 		Staking::<T>::nominate(
-			RawOrigin::Signed(origin_controller1.clone()).into(),
+			RawOrigin::Signed(origin_stash1.clone()).into(),
 			// NOTE: these don't really need to be validators.
 			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
 		)?;
 
-		let (_origin_stash2, origin_controller2) = create_stash_controller_with_balance::<T>(
+		let origin_stash2 = create_stash_with_balance::<T>(
 			USER_SEED + 3,
 			origin_weight,
 			RewardDestination::Staked,
 		)?;
 		Staking::<T>::nominate(
-			RawOrigin::Signed(origin_controller2).into(),
+			RawOrigin::Signed(origin_stash2).into(),
 			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
 		)?;
 
@@ -203,17 +192,14 @@ impl<T: Config> ListScenario<T> {
 			T::CurrencyToVote::to_currency(dest_weight_as_vote as u128, total_issuance);
 
 		// create an account with the worst case destination weight
-		let (_dest_stash1, dest_controller1) = create_stash_controller_with_balance::<T>(
-			USER_SEED + 1,
-			dest_weight,
-			RewardDestination::Staked,
-		)?;
+		let dest_stash1 =
+			create_stash_with_balance::<T>(USER_SEED + 1, dest_weight, RewardDestination::Staked)?;
 		Staking::<T>::nominate(
-			RawOrigin::Signed(dest_controller1).into(),
+			RawOrigin::Signed(dest_stash1).into(),
 			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
 		)?;
 
-		Ok(ListScenario { origin_stash1, origin_controller1, dest_weight })
+		Ok(ListScenario { origin_stash1, dest_weight })
 	}
 }
 
@@ -227,7 +213,6 @@ benchmarks! {
 		whitelist_account!(stash);
 	}: _(RawOrigin::Signed(stash.clone()), amount, reward_destination)
 	verify {
-		assert!(Bonded::<T>::contains_key(stash.clone()));
 		assert!(Ledger::<T>::contains_key(stash));
 	}
 
@@ -245,16 +230,15 @@ benchmarks! {
 		let max_additional = scenario.dest_weight - origin_weight;
 
 		let stash = scenario.origin_stash1.clone();
-		let controller = scenario.origin_controller1;
 		let original_bonded: BalanceOf<T>
-			= Ledger::<T>::get(&controller).map(|l| l.active).ok_or("ledger not created after")?;
+			= Ledger::<T>::get(&stash).map(|l| l.active).ok_or("ledger not created after")?;
 
 		let _ = asset::mint_existing::<T>(&stash, max_additional).unwrap();
 
 		whitelist_account!(stash);
-	}: _(RawOrigin::Signed(stash), max_additional)
+	}: _(RawOrigin::Signed(stash.clone()), max_additional)
 	verify {
-		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
+		let ledger = Ledger::<T>::get(&stash).ok_or("ledger not created after")?;
 		let new_bonded: BalanceOf<T> = ledger.active;
 		assert!(original_bonded < new_bonded);
 	}
@@ -273,15 +257,14 @@ benchmarks! {
 		let scenario = ListScenario::<T>::new(origin_weight, false)?;
 
 		let stash = scenario.origin_stash1.clone();
-		let controller = scenario.origin_controller1.clone();
 		let amount = origin_weight - scenario.dest_weight;
-		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
+		let ledger = Ledger::<T>::get(&stash).ok_or("ledger not created before")?;
 		let original_bonded: BalanceOf<T> = ledger.active;
 
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller.clone()), amount)
+		whitelist_account!(stash);
+	}: _(RawOrigin::Signed(stash.clone()), amount)
 	verify {
-		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
+		let ledger = Ledger::<T>::get(&stash).ok_or("ledger not created after")?;
 		let new_bonded: BalanceOf<T> = ledger.active;
 		assert!(original_bonded > new_bonded);
 	}
@@ -290,17 +273,17 @@ benchmarks! {
 	withdraw_unbonded_update {
 		// Slashing Spans
 		let s in 0 .. MAX_SPANS;
-		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
+		let stash = create_stash::<T>(0, 100, RewardDestination::Staked)?;
 		add_slashing_spans::<T>(&stash, s);
 		let amount = asset::existential_deposit::<T>() * 5u32.into(); // Half of total
-		Staking::<T>::unbond(RawOrigin::Signed(controller.clone()).into(), amount)?;
+		Staking::<T>::unbond(RawOrigin::Signed(stash.clone()).into(), amount)?;
 		CurrentEra::<T>::put(EraIndex::max_value());
-		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
+		let ledger = Ledger::<T>::get(&stash).ok_or("ledger not created before")?;
 		let original_total: BalanceOf<T> = ledger.total;
-		whitelist_account!(controller);
-	}: withdraw_unbonded(RawOrigin::Signed(controller.clone()), s)
+		whitelist_account!(stash);
+	}: withdraw_unbonded(RawOrigin::Signed(stash.clone()), s)
 	verify {
-		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
+		let ledger = Ledger::<T>::get(&stash).ok_or("ledger not created after")?;
 		let new_total: BalanceOf<T> = ledger.total;
 		assert!(original_total > new_total);
 	}
@@ -317,26 +300,25 @@ benchmarks! {
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
-		let controller = scenario.origin_controller1.clone();
 		let stash = scenario.origin_stash1;
 		add_slashing_spans::<T>(&stash, s);
 		assert!(T::VoterList::contains(&stash));
 
 		let ed = asset::existential_deposit::<T>();
-		let mut ledger = Ledger::<T>::get(&controller).unwrap();
+		let mut ledger = Ledger::<T>::get(&stash).unwrap();
 		ledger.active = ed - One::one();
-		Ledger::<T>::insert(&controller, ledger);
+		Ledger::<T>::insert(&stash, ledger);
 		CurrentEra::<T>::put(EraIndex::max_value());
 
-		whitelist_account!(controller);
-	}: withdraw_unbonded(RawOrigin::Signed(controller.clone()), s)
+		whitelist_account!(stash);
+	}: withdraw_unbonded(RawOrigin::Signed(stash.clone()), s)
 	verify {
-		assert!(!Ledger::<T>::contains_key(controller));
+		assert!(!Ledger::<T>::contains_key(stash));
 		assert!(!T::VoterList::contains(&stash));
 	}
 
 	validate {
-		let (stash, controller) = create_stash_controller::<T>(
+		let stash = create_stash::<T>(
 			MaxNominationsOf::<T>::get() - 1,
 			100,
 			RewardDestination::Staked,
@@ -345,8 +327,8 @@ benchmarks! {
 		assert!(!T::VoterList::contains(&stash));
 
 		let prefs = ValidatorPrefs::default();
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller), prefs)
+		whitelist_account!(stash);
+	}: _(RawOrigin::Signed(stash), prefs)
 	verify {
 		assert!(Validators::<T>::contains_key(&stash));
 		assert!(T::VoterList::contains(&stash));
@@ -364,7 +346,7 @@ benchmarks! {
 		let rest_of_validators = create_validators_with_seed::<T>(MaxNominationsOf::<T>::get() - 1, 100, 415)?;
 
 		// this is the validator that will be kicking.
-		let (stash, controller) = create_stash_controller::<T>(
+		let stash = create_stash::<T>(
 			MaxNominationsOf::<T>::get() - 1,
 			100,
 			RewardDestination::Staked,
@@ -372,14 +354,14 @@ benchmarks! {
 		let stash_lookup = T::Lookup::unlookup(stash.clone());
 
 		// they start validating.
-		Staking::<T>::validate(RawOrigin::Signed(controller.clone()).into(), Default::default())?;
+		Staking::<T>::validate(RawOrigin::Signed(stash.clone()).into(), Default::default())?;
 
 		// we now create the nominators. there will be `k` of them; each will nominate all
 		// validators. we will then kick each of the `k` nominators from the main validator.
 		let mut nominator_stashes = Vec::with_capacity(k as usize);
 		for i in 0 .. k {
 			// create a nominator stash.
-			let (n_stash, n_controller) = create_stash_controller::<T>(
+			let n_stash = create_stash::<T>(
 				MaxNominationsOf::<T>::get() + i,
 				100,
 				RewardDestination::Staked,
@@ -391,7 +373,7 @@ benchmarks! {
 			// optimisations/pessimisations.
 			nominations.insert(i as usize % (nominations.len() + 1), stash_lookup.clone());
 			// then we nominate.
-			Staking::<T>::nominate(RawOrigin::Signed(n_controller.clone()).into(), nominations)?;
+			Staking::<T>::nominate(RawOrigin::Signed(n_stash.clone()).into(), nominations)?;
 
 			nominator_stashes.push(n_stash);
 		}
@@ -406,8 +388,8 @@ benchmarks! {
 			.map(|n| T::Lookup::unlookup(n.clone()))
 			.collect::<Vec<_>>();
 
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller), kicks)
+		whitelist_account!(stash);
+	}: _(RawOrigin::Signed(stash), kicks)
 	verify {
 		// all nominators now should *not* be nominating our validator...
 		for n in nominator_stashes.iter() {
@@ -427,7 +409,7 @@ benchmarks! {
 		// setup a worst case list scenario. Note we don't care about the destination position, because
 		// we are just doing an insert into the origin position.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
-		let (stash, controller) = create_stash_controller_with_balance::<T>(
+		let stash = create_stash_with_balance::<T>(
 			SEED + MaxNominationsOf::<T>::get() + 1, // make sure the account does not conflict with others
 			origin_weight,
 			RewardDestination::Staked,
@@ -437,8 +419,8 @@ benchmarks! {
 		assert!(!T::VoterList::contains(&stash));
 
 		let validators = create_validators::<T>(n, 100).unwrap();
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller), validators)
+		whitelist_account!(stash);
+	}: _(RawOrigin::Signed(stash), validators)
 	verify {
 		assert!(Nominators::<T>::contains_key(&stash));
 		assert!(T::VoterList::contains(&stash))
@@ -453,48 +435,23 @@ benchmarks! {
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
-		let controller = scenario.origin_controller1.clone();
 		let stash = scenario.origin_stash1;
 		assert!(T::VoterList::contains(&stash));
 
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller))
+		whitelist_account!(stash);
+	}: _(RawOrigin::Signed(stash))
 	verify {
 		assert!(!T::VoterList::contains(&stash));
 	}
 
 	set_payee {
-		let (stash, controller) = create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
+		let stash = create_stash::<T>(USER_SEED, 100, RewardDestination::Staked)?;
+		let new_payee = create_funded_user::<T>("new_payee", USER_SEED + 4, 100);
 		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Staked));
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller.clone()), RewardDestination::Account(controller.clone()))
-	verify {
-		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Account(controller)));
-	}
-
-	update_payee {
-		let (stash, controller) = create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
-		Payee::<T>::insert(&stash, {
-			#[allow(deprecated)]
-			RewardDestination::Controller
-		});
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller.clone()), controller.clone())
-	verify {
-		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Account(controller)));
-	}
-
-	set_controller {
-		let (stash, ctlr) = create_unique_stash_controller::<T>(9000, 100, RewardDestination::Staked, false)?;
-		// ensure `ctlr` is the currently stored controller.
-		assert!(!Ledger::<T>::contains_key(&stash));
-		assert!(Ledger::<T>::contains_key(&ctlr));
-		assert_eq!(Bonded::<T>::get(&stash), Some(ctlr.clone()));
-
 		whitelist_account!(stash);
-	}: _(RawOrigin::Signed(stash.clone()))
+	}: _(RawOrigin::Signed(stash.clone()), RewardDestination::Account(new_payee.clone()))
 	verify {
-		assert!(Ledger::<T>::contains_key(&stash));
+		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Account(new_payee)));
 	}
 
 	set_validator_count {
@@ -525,39 +482,6 @@ benchmarks! {
 		assert_eq!(Invulnerables::<T>::get().len(), v as usize);
 	}
 
-	deprecate_controller_batch {
-		// We pass a dynamic number of controllers to the benchmark, up to
-		// `MaxControllersInDeprecationBatch`.
-		let i in 0 .. T::MaxControllersInDeprecationBatch::get();
-
-		let mut controllers: Vec<_> = vec![];
-		let mut stashes: Vec<_> = vec![];
-		for n in 0..i as u32 {
-			let (stash, controller) = create_unique_stash_controller::<T>(
-				n,
-				100,
-				RewardDestination::Staked,
-				false
-			)?;
-			controllers.push(controller);
-			stashes.push(stash);
-		}
-		let bounded_controllers: BoundedVec<_, T::MaxControllersInDeprecationBatch> =
-			BoundedVec::try_from(controllers.clone()).unwrap();
-	}: _(RawOrigin::Root, bounded_controllers)
-	verify {
-		for n in 0..i as u32 {
-			let stash = &stashes[n as usize];
-			let controller = &controllers[n as usize];
-			// Ledger no longer keyed by controller.
-			assert_eq!(Ledger::<T>::get(controller), None);
-			// Bonded now maps to the stash.
-			assert_eq!(Bonded::<T>::get(stash), Some(stash.clone()));
-			// Ledger is now keyed by stash.
-			assert_eq!(Ledger::<T>::get(stash).unwrap().stash, *stash);
-		}
-	}
-
 	force_unstake {
 		// Slashing Spans
 		let s in 0 .. MAX_SPANS;
@@ -569,14 +493,12 @@ benchmarks! {
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
-		let controller = scenario.origin_controller1.clone();
 		let stash = scenario.origin_stash1;
 		assert!(T::VoterList::contains(&stash));
 		add_slashing_spans::<T>(&stash, s);
-
 	}: _(RawOrigin::Root, stash.clone(), s)
 	verify {
-		assert!(!Ledger::<T>::contains_key(&controller));
+		assert!(!Ledger::<T>::contains_key(&stash));
 		assert!(!T::VoterList::contains(&stash));
 	}
 
@@ -601,8 +523,6 @@ benchmarks! {
 		let (validator, nominators) = create_validator_with_nominators::<T>(
 			n,
 			T::MaxExposurePageSize::get() as u32,
-			false,
-			true,
 			RewardDestination::Staked,
 		)?;
 
@@ -664,19 +584,18 @@ benchmarks! {
 		};
 
 		let stash = scenario.origin_stash1.clone();
-		let controller = scenario.origin_controller1;
-		let mut staking_ledger = Ledger::<T>::get(controller.clone()).unwrap();
+		let mut staking_ledger = Ledger::<T>::get(stash.clone()).unwrap();
 
 		for _ in 0 .. l {
 			staking_ledger.unlocking.try_push(unlock_chunk.clone()).unwrap()
 		}
-		Ledger::<T>::insert(controller.clone(), staking_ledger.clone());
+		Ledger::<T>::insert(stash.clone(), staking_ledger.clone());
 		let original_bonded: BalanceOf<T> = staking_ledger.active;
 
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller.clone()), rebond_amount)
+		whitelist_account!(stash);
+	}: _(RawOrigin::Signed(stash.clone()), rebond_amount)
 	verify {
-		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
+		let ledger = Ledger::<T>::get(&stash).ok_or("ledger not created after")?;
 		let new_bonded: BalanceOf<T> = ledger.active;
 		assert!(original_bonded < new_bonded);
 	}
@@ -691,7 +610,6 @@ benchmarks! {
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
-		let controller = scenario.origin_controller1.clone();
 		let stash = scenario.origin_stash1;
 
 		add_slashing_spans::<T>(&stash, s);
@@ -699,15 +617,14 @@ benchmarks! {
 			stash.clone(),
 			asset::existential_deposit::<T>() - One::one(),
 		);
-		Ledger::<T>::insert(&controller, l);
+		Ledger::<T>::insert(&stash, l);
 
 		assert!(Bonded::<T>::contains_key(&stash));
 		assert!(T::VoterList::contains(&stash));
 
-		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller), stash.clone(), s)
+		whitelist_account!(stash);
+	}: _(RawOrigin::Signed(stash), stash.clone(), s)
 	verify {
-		assert!(!Bonded::<T>::contains_key(&stash));
 		assert!(!T::VoterList::contains(&stash));
 	}
 
@@ -783,8 +700,8 @@ benchmarks! {
 	#[extra]
 	do_slash {
 		let l in 1 .. T::MaxUnlockingChunks::get() as u32;
-		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
-		let mut staking_ledger = Ledger::<T>::get(controller.clone()).unwrap();
+		let stash = create_stash::<T>(0, 100, RewardDestination::Staked)?;
+		let mut staking_ledger = Ledger::<T>::get(stash.clone()).unwrap();
 		let unlock_chunk = UnlockChunk::<BalanceOf<T>> {
 			value: 1u32.into(),
 			era: EraIndex::zero(),
@@ -792,7 +709,7 @@ benchmarks! {
 		for _ in 0 .. l {
 			staking_ledger.unlocking.try_push(unlock_chunk.clone()).unwrap();
 		}
-		Ledger::<T>::insert(controller, staking_ledger);
+		Ledger::<T>::insert(stash.clone(), staking_ledger);
 		let slash_amount = asset::existential_deposit::<T>() * 10u32.into();
 		let balance_before = asset::stakeable_balance::<T>(&stash);
 	}: {
@@ -895,7 +812,6 @@ benchmarks! {
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
-		let controller = scenario.origin_controller1.clone();
 		let stash = scenario.origin_stash1;
 		assert!(T::VoterList::contains(&stash));
 
@@ -921,11 +837,11 @@ benchmarks! {
 		clear_validators_and_nominators::<T>();
 
 		// Create a validator with a commission of 50%
-		let (stash, controller) =
-			create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
+		let stash =
+			create_stash::<T>(1, 1, RewardDestination::Staked)?;
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
-		Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
+		Staking::<T>::validate(RawOrigin::Signed(stash.clone()).into(), validator_prefs)?;
 
 		// Sanity check
 		assert_eq!(
@@ -953,9 +869,9 @@ benchmarks! {
 	}
 
 	restore_ledger {
-		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
+		let stash = create_stash::<T>(0, 100, RewardDestination::Staked)?;
 		// corrupt ledger.
-		Ledger::<T>::remove(controller);
+		Ledger::<T>::remove(stash.clone());
 	}: _(RawOrigin::Root, stash.clone(), None, None, None)
 	verify {
 		assert_eq!(Staking::<T>::inspect_bond_state(&stash), Ok(LedgerIntegrityState::Ok));
@@ -1009,8 +925,6 @@ mod tests {
 			let (validator_stash, nominators) = create_validator_with_nominators::<Test>(
 				n,
 				<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
-				false,
-				false,
 				RewardDestination::Staked,
 			)
 			.unwrap();
@@ -1038,11 +952,9 @@ mod tests {
 		ExtBuilder::default().build_and_execute(|| {
 			let n = 10;
 
-			let (validator_stash, _nominators) = create_validator_with_nominators::<Test>(
+			let (validator_stash, _) = create_validator_with_nominators::<Test>(
 				n,
 				<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
-				false,
-				false,
 				RewardDestination::Staked,
 			)
 			.unwrap();

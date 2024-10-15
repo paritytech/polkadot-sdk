@@ -252,10 +252,10 @@ pub mod pallet {
 	#[pallet::error]
 	#[cfg_attr(test, derive(PartialEq))]
 	pub enum Error<T> {
-		/// The provided Controller account was not found.
+		/// The provided stash account was not found.
 		///
 		/// This means that the given account is not bonded.
-		NotController,
+		NotStash,
 		/// The bonded account has already been queued.
 		AlreadyQueued,
 		/// The bonded account has active unlocking chunks.
@@ -331,11 +331,10 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::register_fast_unstake())]
 		pub fn register_fast_unstake(origin: OriginFor<T>) -> DispatchResult {
-			let ctrl = ensure_signed(origin)?;
+			let signed = ensure_signed(origin)?;
 
 			ensure!(ErasToCheckPerBlock::<T>::get() != 0, Error::<T>::CallNotAllowed);
-			let stash_account =
-				T::Staking::stash_by_ctrl(&ctrl).map_err(|_| Error::<T>::NotController)?;
+			let stash_account = T::Staking::stash(&signed).map_err(|_| Error::<T>::NotStash)?;
 			ensure!(!Queue::<T>::contains_key(&stash_account), Error::<T>::AlreadyQueued);
 			ensure!(!Self::is_head(&stash_account), Error::<T>::AlreadyHead);
 			ensure!(!T::Staking::is_unbonding(&stash_account)?, Error::<T>::NotFullyBonded);
@@ -372,12 +371,11 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::deregister())]
 		pub fn deregister(origin: OriginFor<T>) -> DispatchResult {
-			let ctrl = ensure_signed(origin)?;
+			let signed = ensure_signed(origin)?;
 
 			ensure!(ErasToCheckPerBlock::<T>::get() != 0, Error::<T>::CallNotAllowed);
 
-			let stash_account =
-				T::Staking::stash_by_ctrl(&ctrl).map_err(|_| Error::<T>::NotController)?;
+			let stash_account = T::Staking::stash(&signed).map_err(|_| Error::<T>::NotStash)?;
 			ensure!(Queue::<T>::contains_key(&stash_account), Error::<T>::NotQueued);
 			ensure!(!Self::is_head(&stash_account), Error::<T>::AlreadyHead);
 			let deposit = Queue::<T>::take(stash_account.clone());
