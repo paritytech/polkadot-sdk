@@ -25,7 +25,7 @@ use polkadot_node_core_pvf::{
 	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
-use polkadot_node_subsystem::{messages::PvfExecKind, ActivatedLeaf};
+use polkadot_node_subsystem::messages::PvfExecKind;
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationResult};
 use polkadot_primitives::{
 	BlockNumber, ExecutorParam, ExecutorParams, Hash, PersistedValidationData,
@@ -198,7 +198,6 @@ async fn execute_job_terminates_on_timeout() {
 #[tokio::test]
 async fn execute_job_terminates_on_execution_ttl() {
 	let host = TestHost::new().await;
-	let hash = Hash::random();
 	let pvd = PersistedValidationData {
 		parent_head: Default::default(),
 		relay_parent_number: 1u32,
