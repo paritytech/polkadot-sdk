@@ -134,8 +134,8 @@ impl TestHost {
 		result_rx.await.unwrap()
 	}
 
-	async fn update_active_leaf(&self, leaf: ActivatedLeaf) {
-		self.host.lock().await.update_active_leaf(leaf).await.unwrap();
+	async fn update_best_block(&self, leaf: ActivatedLeaf) {
+		self.host.lock().await.update_best_block(leaf).await.unwrap();
 	}
 
 	#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
@@ -213,7 +213,7 @@ async fn execute_job_terminates_on_execution_ttl() {
 	let pov = PoV { block_data: BlockData(Vec::new()) };
 	let exec_ttl = Some(9);
 
-	host.update_active_leaf(leaf).await;
+	host.update_best_block(leaf).await;
 
 	let start = std::time::Instant::now();
 	let result = host

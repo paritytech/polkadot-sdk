@@ -35,7 +35,7 @@ use polkadot_node_core_pvf_common::{
 	SecurityStatus,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem::{messages::PvfExecKind, ActivatedLeaf};
+use polkadot_node_subsystem::messages::PvfExecKind;
 use polkadot_primitives::{
 	BlockNumber, ExecutorParams, ExecutorParamsHash, PersistedValidationData,
 };
@@ -60,7 +60,7 @@ slotmap::new_key_type! { struct Worker; }
 
 #[derive(Debug)]
 pub enum ToQueue {
-	UpdateActiveLeaf { leaf: ActivatedLeaf },
+	UpdateBestBlock { block_number: BlockNumber },
 	Enqueue { artifact: ArtifactPathId, pending_execution_request: PendingExecutionRequest },
 }
 
@@ -178,7 +178,7 @@ struct Queue {
 	mux: Mux,
 
 	/// Current relay block number, used to check the viability of backing jobs.
-	relay_block_number: Option<BlockNumber>,
+	best_block_number: Option<BlockNumber>,
 }
 
 impl Queue {
@@ -209,7 +209,7 @@ impl Queue {
 				spawn_inflight: 0,
 				capacity: worker_capacity,
 			},
-			relay_block_number: None,
+			best_block_number: None,
 		}
 	}
 
@@ -287,7 +287,7 @@ impl Queue {
 
 		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
 		let exec_kind = job.exec_kind;
-		if let (Some(ttl), Some(now)) = (exec_kind.ttl(), self.relay_block_number) {
+		if let (Some(ttl), Some(now)) = (exec_kind.ttl(), self.best_block_number) {
 			gum::debug!(target: LOG_TARGET, ?priority, ?ttl, ?now, "Job has a deadline");
 			if now > ttl {
 				let _ = job.result_tx.send(Err(ValidationError::ExecutionDeadline));
@@ -311,8 +311,8 @@ impl Queue {
 	}
 
 	fn set_relay_block_number(&mut self, block_number: BlockNumber) {
-		self.relay_block_number =
-			self.relay_block_number.map(|v| v.max(block_number)).or(Some(block_number))
+		self.best_block_number =
+			self.best_block_number.map(|v| v.max(block_number)).or(Some(block_number))
 	}
 }
 
@@ -333,8 +333,8 @@ async fn purge_dead(metrics: &Metrics, workers: &mut Workers) {
 
 fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 	match to_queue {
-		ToQueue::UpdateActiveLeaf { leaf } => {
-			queue.set_relay_block_number(leaf.number);
+		ToQueue::UpdateBestBlock { block_number } => {
+			queue.set_relay_block_number(block_number);
 		},
 		ToQueue::Enqueue { artifact, pending_execution_request } => {
 			let PendingExecutionRequest {
@@ -1022,7 +1022,7 @@ mod tests {
 			to_queue_rx,
 			from_queue_tx,
 		);
-		queue.relay_block_number = Some(10);
+		queue.best_block_number = Some(10);
 		let mut result_rxs = vec![];
 		for _ in 0..10 {
 			let (result_tx, result_rx) = oneshot::channel();

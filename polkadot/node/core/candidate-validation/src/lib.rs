@@ -37,15 +37,15 @@ use polkadot_node_subsystem::{
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
 };
-use polkadot_node_subsystem_util::{self as util};
-use polkadot_overseer::{ActivatedLeaf, ActiveLeavesUpdate};
+use polkadot_node_subsystem_util as util;
+use polkadot_overseer::ActiveLeavesUpdate;
 use polkadot_parachain_primitives::primitives::ValidationResult as WasmValidationResult;
 use polkadot_primitives::{
 	executor_params::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
-	AuthorityDiscoveryId, CandidateCommitments, CandidateDescriptor, CandidateEvent,
+	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateDescriptor, CandidateEvent,
 	CandidateReceipt, ExecutorParams, Hash, PersistedValidationData,
 	PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
 	ValidationCodeHash, ValidatorId,
@@ -239,7 +239,7 @@ async fn run<Context>(
 				comm = ctx.recv().fuse() => {
 					match comm {
 						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update))) => {
-							maybe_update_active_leaf(validation_host.clone(), &update).await;
+							maybe_update_best_block(validation_host.clone(), &update).await;
 							maybe_prepare_validation(ctx.sender(), keystore.clone(), validation_host.clone(), update, &mut prepare_state).await;
 						},
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
@@ -512,12 +512,12 @@ where
 	Some(processed_code_hashes)
 }
 
-async fn maybe_update_active_leaf(
+async fn maybe_update_best_block(
 	mut validation_backend: impl ValidationBackend,
 	update: &ActiveLeavesUpdate,
 ) {
 	let Some(ref leaf) = update.activated else { return };
-	if let Err(err) = validation_backend.update_active_leaf(leaf.clone()).await {
+	if let Err(err) = validation_backend.update_best_block(leaf.number).await {
 		gum::warn!(
 			target: LOG_TARGET,
 			?leaf,
@@ -955,7 +955,7 @@ trait ValidationBackend {
 
 	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String>;
 
-	async fn update_active_leaf(&mut self, leaf: ActivatedLeaf) -> Result<(), String>;
+	async fn update_best_block(&mut self, block_number: BlockNumber) -> Result<(), String>;
 }
 
 #[async_trait]
@@ -1007,8 +1007,8 @@ impl ValidationBackend for ValidationHost {
 		self.heads_up(active_pvfs).await
 	}
 
-	async fn update_active_leaf(&mut self, leaf: ActivatedLeaf) -> Result<(), String> {
-		self.update_active_leaf(leaf).await
+	async fn update_best_block(&mut self, block_number: BlockNumber) -> Result<(), String> {
+		self.update_best_block(block_number).await
 	}
 }
 

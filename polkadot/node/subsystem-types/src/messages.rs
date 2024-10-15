@@ -195,9 +195,15 @@ pub enum PvfExecKind {
 	/// For approval requests
 	Approval,
 	/// For backing requests from system parachains.
-	BackingSystemParas { ttl: Option<BlockNumber> },
+	BackingSystemParas {
+		/// TTL for execution job
+		ttl: Option<BlockNumber>,
+	},
 	/// For backing requests.
-	Backing { ttl: Option<BlockNumber> },
+	Backing {
+		/// TTL for execution job
+		ttl: Option<BlockNumber>,
+	},
 }
 
 impl PvfExecKind {
