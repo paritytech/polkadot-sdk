@@ -14789,7 +14789,6 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus-babe",
  "sp-runtime 31.0.1",
- "strum 0.26.3",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]

@@ -688,6 +688,10 @@ pub fn start(
 	(to_queue_tx, from_queue_rx, run)
 }
 
+/// Priority of execution jobs based on PvfExecKind.
+///
+/// The order is important, because we iterate through the values and assume it is going from higher
+/// to lowest priority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]
 enum Priority {
 	Dispute,

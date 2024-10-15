@@ -499,8 +499,8 @@ async fn handle_to_host(
 		},
 		ToHost::HeadsUp { active_pvfs } =>
 			handle_heads_up(artifacts, prepare_queue, active_pvfs).await?,
-		ToHost::UpdateBestBlock { block_number: leaf } =>
-			handle_update_best_block(execute_queue, leaf).await?,
+		ToHost::UpdateBestBlock { block_number } =>
+			handle_update_best_block(execute_queue, block_number).await?,
 	}
 
 	Ok(())

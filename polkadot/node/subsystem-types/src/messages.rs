@@ -24,7 +24,6 @@
 
 use futures::channel::oneshot;
 use sc_network::{Multiaddr, ReputationChange};
-use strum::EnumIter;
 use thiserror::Error;
 
 pub use sc_network::IfDisconnected;
@@ -186,9 +185,7 @@ pub enum CandidateValidationMessage {
 
 /// Extends primitives::PvfExecKind, which is a runtime parameter we don't want to change,
 /// to separate and prioritize execution jobs by request type.
-/// The order is important, because we iterate through the values and assume it is going from higher
-/// to lowest priority.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]
+#[derive(Debug, Clone, Copy)]
 pub enum PvfExecKind {
 	/// For dispute requests
 	Dispute,
@@ -196,12 +193,12 @@ pub enum PvfExecKind {
 	Approval,
 	/// For backing requests from system parachains.
 	BackingSystemParas {
-		/// TTL for execution job
+		/// TTL for execution jobs
 		ttl: Option<BlockNumber>,
 	},
 	/// For backing requests.
 	Backing {
-		/// TTL for execution job
+		/// TTL for execution jobs
 		ttl: Option<BlockNumber>,
 	},
 }
@@ -223,12 +220,6 @@ impl PvfExecKind {
 			Self::BackingSystemParas { ttl } | Self::Backing { ttl } => ttl,
 			_ => None,
 		}
-	}
-
-	#[cfg(test)]
-	/// Returns if the kind matches `BackingSystemParas`
-	pub fn is_backing_system_paras(&self) -> bool {
-		exec_kind.is_backing_system_paras()
 	}
 }
 

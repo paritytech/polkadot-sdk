@@ -28,7 +28,7 @@ use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
 use polkadot_node_subsystem::{messages::PvfExecKind, ActivatedLeaf};
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationResult};
 use polkadot_primitives::{
-	ExecutorParam, ExecutorParams, Hash, PersistedValidationData,
+	BlockNumber, ExecutorParam, ExecutorParams, Hash, PersistedValidationData,
 	PvfExecKind as RuntimePvfExecKind, PvfPrepKind,
 };
 use sp_core::H256;
@@ -134,8 +134,8 @@ impl TestHost {
 		result_rx.await.unwrap()
 	}
 
-	async fn update_best_block(&self, leaf: ActivatedLeaf) {
-		self.host.lock().await.update_best_block(leaf).await.unwrap();
+	async fn update_best_block(&self, block_number: BlockNumber) {
+		self.host.lock().await.update_best_block(block_number).await.unwrap();
 	}
 
 	#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
@@ -199,11 +199,6 @@ async fn execute_job_terminates_on_timeout() {
 async fn execute_job_terminates_on_execution_ttl() {
 	let host = TestHost::new().await;
 	let hash = Hash::random();
-	let leaf = ActivatedLeaf {
-		hash,
-		number: 10,
-		unpin_handle: polkadot_node_subsystem_test_helpers::mock::dummy_unpin_handle(hash),
-	};
 	let pvd = PersistedValidationData {
 		parent_head: Default::default(),
 		relay_parent_number: 1u32,
@@ -213,7 +208,7 @@ async fn execute_job_terminates_on_execution_ttl() {
 	let pov = PoV { block_data: BlockData(Vec::new()) };
 	let exec_ttl = Some(9);
 
-	host.update_best_block(leaf).await;
+	host.update_best_block(10).await;
 
 	let start = std::time::Instant::now();
 	let result = host
