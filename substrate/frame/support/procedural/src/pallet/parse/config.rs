@@ -526,7 +526,7 @@ impl ConfigDef {
 					if !contains_type_info_bound(ty) {
 						let msg = format!(
 						"Invalid #[pallet::include_metadata] in #[pallet::config], collected type `{}` \
-						does not implement `scale::TypeInfo`",
+						does not implement `TypeInfo` or `Parameter`",
 						ty.ident,
 					);
 						return Err(syn::Error::new(span, msg));
