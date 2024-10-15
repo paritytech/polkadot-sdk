@@ -427,15 +427,17 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 		};
 		entries_builder.push(quote::quote_spanned!(storage.attr_span =>
 			#(#cfg_attrs)*
-			{
-				<#full_ident as #frame_support::storage::StorageEntryMetadataBuilder>::build_metadata(
-					#deprecation,
-					#frame_support::__private::vec![
-						#( #docs, )*
-					],
-					&mut entries,
-				);
-			}
+			(|entries: &mut #frame_support::__private::Vec<_>| {
+				{
+					<#full_ident as #frame_support::storage::StorageEntryMetadataBuilder>::build_metadata(
+						#deprecation,
+						#frame_support::__private::vec![
+							#( #docs, )*
+						],
+						entries,
+					);
+				}
+			})
 		))
 	}
 
@@ -911,7 +913,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 					entries: {
 						#[allow(unused_mut)]
 						let mut entries = #frame_support::__private::vec![];
-						#( #entries_builder )*
+						#( #entries_builder(&mut entries); )*
 						entries
 					},
 				}
