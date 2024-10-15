@@ -16,13 +16,16 @@
 
 //! Traits and utilities to help with origin mutation and bridging.
 
-use crate::InspectMessageQueues;
+use crate::{HandleFee, InspectMessageQueues};
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::{convert::TryInto, marker::PhantomData};
-use frame_support::{ensure, traits::Get};
+use frame_support::{
+	ensure,
+	traits::{Contains, Get},
+};
 use xcm::prelude::*;
-use xcm_executor::traits::{validate_export, ExportXcm};
+use xcm_executor::traits::{validate_export, ExportXcm, FeeReason};
 use SendError::*;
 
 /// Returns the network ID and consensus location within that network of the remote
@@ -708,5 +711,43 @@ mod tests {
 				remote_location,
 			)
 		}
+	}
+}
+
+/// Match xcm
+pub trait MatchesXcm {
+	fn matches(xcm: &Xcm<()>) -> bool;
+}
+
+/// For backward compatibility default `MatchesXcm` implementation that just return true
+impl MatchesXcm for () {
+	fn matches(_: &Xcm<()>) -> bool {
+		true
+	}
+}
+
+/// An adapter for the implementation of `ExporterFor`, which attempts to find the
+/// `(bridge_location, payment)` for the requested `network` and `remote_location` and `xcm`
+/// in the provided `T` table containing various exporters.
+pub struct NetworkWithXcmExportTable<T, M>(core::marker::PhantomData<(T, M)>);
+impl<T: Get<Vec<NetworkExportTableItem>>, M: MatchesXcm> ExporterFor
+	for NetworkWithXcmExportTable<T, M>
+{
+	fn exporter_for(
+		network: &NetworkId,
+		remote_location: &InteriorLocation,
+		xcm: &Xcm<()>,
+	) -> Option<(Location, Option<Asset>)> {
+		T::get()
+			.into_iter()
+			.find(|item| {
+				&item.remote_network == network &&
+					M::matches(xcm) && item
+					.remote_location_filter
+					.as_ref()
+					.map(|filters| filters.iter().any(|filter| filter == remote_location))
+					.unwrap_or(true)
+			})
+			.map(|item| (item.bridge, item.payment))
 	}
 }
