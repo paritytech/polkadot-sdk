@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
-
 use crate::imports::*;
 
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
