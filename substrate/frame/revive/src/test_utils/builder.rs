@@ -21,11 +21,8 @@ use crate::{
 	ContractExecResult, ContractInstantiateResult, DebugInfo, EventRecordOf, ExecReturnValue,
 	InstantiateReturnValue, OriginFor, Pallet, Weight,
 };
-use codec::{Encode, HasCompact};
-use core::fmt::Debug;
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use paste::paste;
-use scale_info::TypeInfo;
 use sp_core::H160;
 
 /// Helper macro to generate a builder for contract API calls.
@@ -53,7 +50,9 @@ macro_rules! builder {
 		#[allow(dead_code)]
 		impl<T: Config> $name<T>
 		where
-			<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
+			BalanceOf<T>: Into<sp_core::U256> + TryFrom<sp_core::U256>,
+			crate::MomentOf<T>: Into<sp_core::U256>,
+			T::Hash: frame_support::traits::IsType<sp_core::H256>,
 		{
 			$(
 				#[doc = concat!("Set the ", stringify!($field))]

@@ -13,47 +13,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # changes:
-  #   # TODO: remove once migration is complete or this workflow is fully stable
-  #   if: contains(github.event.label.name, 'GHA-migration')
-  #   permissions:
-  #     pull-requests: read
-  #   uses: ./.github/workflows/reusable-check-changed-files.yml
-
-  set-image:
-    # GitHub Actions allows using 'env' in a container context.
-    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
-    # This workaround sets the container image for each job using 'set-image' job output.
-    runs-on: ubuntu-latest
-    outputs:
-      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
-      OLDLINUXRUNNER: ${{ steps.set_runner.outputs.OLDLINUXRUNNER }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - id: set_image
-        run: cat .github/env >> $GITHUB_OUTPUT
-      # By default we use spot machines that can be terminated at any time.
-      # Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
-      - id: set_runner
-        run: |
-          # Run merge queues on persistent runners
-          if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
-            echo "OLDLINUXRUNNER=oldlinux-persistent" >> $GITHUB_OUTPUT
-          else
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
-            echo "OLDLINUXRUNNER=oldlinux" >> $GITHUB_OUTPUT
-          fi
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
 
   test-linux-stable-int:
-    needs: [set-image]
-    # if: ${{ needs.changes.outputs.rust }}
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       RUSTFLAGS: "-C debug-assertions -D warnings"
       RUST_BACKTRACE: 1
@@ -69,12 +38,12 @@ jobs:
 
   # https://github.com/paritytech/ci_cd/issues/864
   test-linux-stable-runtime-benchmarks:
-    needs: [set-image]
-    # if: ${{ needs.changes.outputs.rust }}
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       RUST_TOOLCHAIN: stable
       # Enable debug assertions since we are running optimized builds for testing
@@ -84,11 +53,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: script
-        run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+        run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --cargo-quiet
 
   test-linux-stable:
-    needs: [set-image]
-    # if: ${{ needs.changes.outputs.rust }}
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ matrix.runners }}
     timeout-minutes: 60
     strategy:
@@ -97,11 +66,11 @@ jobs:
         partition: [1/3, 2/3, 3/3]
         runners:
           [
-            "${{ needs.set-image.outputs.RUNNER }}",
-            "${{ needs.set-image.outputs.OLDLINUXRUNNER }}",
+            "${{ needs.preflight.outputs.RUNNER }}",
+            "${{ needs.preflight.outputs.RUNNER_OLDLINUX }}",
           ]
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
       # needed for tests that use unshare syscall
       options: --security-opt seccomp=unconfined
     env:
@@ -121,12 +90,48 @@ jobs:
             --locked \
             --release \
             --no-fail-fast \
+            --cargo-quiet \
             --features try-runtime,experimental,riscv,ci-only-tests \
             --partition count:${{ matrix.partition }}
       # run runtime-api tests with `enable-staging-api` feature on the 1st node
       - name: runtime-api tests
         if: ${{ matrix.partition == '1/3' }}
-        run: forklift cargo nextest run -p sp-api-test --features enable-staging-api
+        run: forklift cargo nextest run -p sp-api-test --features enable-staging-api --cargo-quiet
+
+  # some tests do not run with `try-runtime` feature enabled
+  # https://github.com/paritytech/polkadot-sdk/pull/4251#discussion_r1624282143
+  #
+  # all_security_features_work and nonexistent_cache_dir are currently skipped
+  # becuase runners don't have the necessary permissions to run them
+  test-linux-stable-no-try-runtime:
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1/2, 2/2]
+    env:
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: |
+          forklift cargo nextest run --workspace \
+                   --locked \
+                   --release \
+                   --no-fail-fast \
+                   --cargo-quiet \
+                   --features experimental,riscv,ci-only-tests \
+                   --filter-expr " !test(/all_security_features_work/) - test(/nonexistent_cache_dir/)" \
+                   --partition count:${{ matrix.partition }} \
 
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
@@ -137,6 +142,16 @@ jobs:
         test-linux-stable-int,
         test-linux-stable-runtime-benchmarks,
         test-linux-stable,
+        test-linux-stable-no-try-runtime,
       ]
+    if: always() && !cancelled()
     steps:
-      - run: echo '### Good job! All the tests passed 🚀' >> $GITHUB_STEP_SUMMARY
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi

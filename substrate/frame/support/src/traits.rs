@@ -23,7 +23,8 @@ pub mod tokens;
 pub use tokens::{
 	currency::{
 		ActiveIssuanceOf, Currency, InspectLockableCurrency, LockIdentifier, LockableCurrency,
-		NamedReservableCurrency, ReservableCurrency, TotalIssuanceOf, VestingSchedule,
+		NamedReservableCurrency, ReservableCurrency, TotalIssuanceOf, VestedTransfer,
+		VestingSchedule,
 	},
 	fungible, fungibles,
 	imbalance::{Imbalance, OnUnbalanced, SignedImbalance},
@@ -131,6 +132,9 @@ pub mod dynamic_params;
 
 pub mod tasks;
 pub use tasks::Task;
+
+mod proving;
+pub use proving::*;
 
 #[cfg(feature = "try-runtime")]
 mod try_runtime;

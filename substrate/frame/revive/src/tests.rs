@@ -33,7 +33,6 @@ use crate::{
 	},
 	exec::Key,
 	limits,
-	migration::codegen::LATEST_MIGRATION_VERSION,
 	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	test_utils::*,
@@ -41,8 +40,8 @@ use crate::{
 	wasm::Memory,
 	weights::WeightInfo,
 	BalanceOf, Code, CodeInfoOf, CollectEvents, Config, ContractInfo, ContractInfoOf, DebugInfo,
-	DefaultAddressMapper, DeletionQueueCounter, Error, HoldReason, MigrationInProgress, Origin,
-	Pallet, PristineCode, H160,
+	DefaultAddressMapper, DeletionQueueCounter, Error, HoldReason, Origin, Pallet, PristineCode,
+	H160,
 };
 
 use crate::test_utils::builder::Contract;
@@ -51,7 +50,6 @@ use codec::{Decode, Encode};
 use frame_support::{
 	assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_noop, assert_ok,
 	derive_impl,
-	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
 	storage::child,
@@ -142,9 +140,18 @@ pub mod test_utils {
 	pub fn contract_info_storage_deposit(addr: &H160) -> BalanceOf<Test> {
 		let contract_info = self::get_contract(&addr);
 		let info_size = contract_info.encoded_size() as u64;
-		DepositPerByte::get()
+		let info_deposit = DepositPerByte::get()
 			.saturating_mul(info_size)
-			.saturating_add(DepositPerItem::get())
+			.saturating_add(DepositPerItem::get());
+		let immutable_size = contract_info.immutable_data_len() as u64;
+		if immutable_size > 0 {
+			let immutable_deposit = DepositPerByte::get()
+				.saturating_mul(immutable_size)
+				.saturating_add(DepositPerItem::get());
+			info_deposit.saturating_add(immutable_deposit)
+		} else {
+			info_deposit
+		}
 	}
 	pub fn expected_deposit(code_len: usize) -> u64 {
 		// For code_info, the deposit for max_encoded_len is taken.
@@ -159,6 +166,12 @@ pub mod test_utils {
 		assert!(CodeInfoOf::<Test>::contains_key(&code_hash));
 		// Assert that contract code is stored, and get its size.
 		PristineCode::<Test>::try_get(&code_hash).unwrap().len()
+	}
+	pub fn u256_bytes(u: u64) -> [u8; 32] {
+		let mut buffer = [0u8; 32];
+		let bytes = u.to_le_bytes();
+		buffer[..8].copy_from_slice(&bytes);
+		buffer
 	}
 }
 
@@ -408,6 +421,7 @@ parameter_types! {
 	pub static DepositPerByte: BalanceOf<Test> = 1;
 	pub const DepositPerItem: BalanceOf<Test> = 2;
 	pub static CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+	pub static ChainId: u64 = 384;
 }
 
 impl Convert<Weight, BalanceOf<Self>> for Test {
@@ -490,9 +504,9 @@ impl Config for Test {
 	type UnsafeUnstableInterface = UnstableInterface;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
-	type Migrations = crate::migration::codegen::BenchMigrations;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Debug = TestDebug;
+	type ChainId = ChainId;
 }
 
 pub struct ExtBuilder {
@@ -522,10 +536,6 @@ impl ExtBuilder {
 	}
 	pub fn set_associated_consts(&self) {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
-	}
-	pub fn set_storage_version(mut self, version: u16) -> Self {
-		self.storage_version = Some(StorageVersion::new(version));
-		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
@@ -593,86 +603,17 @@ impl Default for Origin<Test> {
 mod run_tests {
 	use super::*;
 	use pretty_assertions::{assert_eq, assert_ne};
+	use sp_core::U256;
 
-	// Perform a call to a plain account.
-	// The actual transfer fails because we can only call contracts.
-	// Then we check that at least the base costs where charged (no runtime gas costs.)
 	#[test]
-	fn calling_plain_account_fails() {
+	fn calling_plain_account_is_balance_transfer() {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
-			let base_cost = <<Test as Config>::WeightInfo as WeightInfo>::call();
-
-			assert_eq!(
-				builder::call(BOB_ADDR).build(),
-				Err(DispatchErrorWithPostInfo {
-					error: Error::<Test>::ContractNotFound.into(),
-					post_info: PostDispatchInfo {
-						actual_weight: Some(base_cost),
-						pays_fee: Default::default(),
-					},
-				})
-			);
-		});
-	}
-
-	#[test]
-	fn migration_on_idle_hooks_works() {
-		// Defines expectations of how many migration steps can be done given the weight limit.
-		let tests = [
-			(Weight::zero(), LATEST_MIGRATION_VERSION - 2),
-			(<Test as Config>::WeightInfo::migrate() + 1.into(), LATEST_MIGRATION_VERSION - 1),
-			(Weight::MAX, LATEST_MIGRATION_VERSION),
-		];
-
-		for (weight, expected_version) in tests {
-			ExtBuilder::default()
-				.set_storage_version(LATEST_MIGRATION_VERSION - 2)
-				.build()
-				.execute_with(|| {
-					MigrationInProgress::<Test>::set(Some(Default::default()));
-					Contracts::on_idle(System::block_number(), weight);
-					assert_eq!(StorageVersion::get::<Pallet<Test>>(), expected_version);
-				});
-		}
-	}
-
-	#[test]
-	fn migration_in_progress_works() {
-		let (wasm, code_hash) = compile_module("dummy").unwrap();
-
-		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-			MigrationInProgress::<Test>::set(Some(Default::default()));
-
-			assert_err!(
-				Contracts::upload_code(
-					RuntimeOrigin::signed(ALICE),
-					vec![],
-					deposit_limit::<Test>(),
-				),
-				Error::<Test>::MigrationInProgress,
-			);
-			assert_err!(
-				Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash),
-				Error::<Test>::MigrationInProgress,
-			);
-			assert_err!(
-				Contracts::set_code(RuntimeOrigin::signed(ALICE), BOB_ADDR, code_hash),
-				Error::<Test>::MigrationInProgress,
-			);
-			assert_err_ignore_postinfo!(
-				builder::call(BOB_ADDR).build(),
-				Error::<Test>::MigrationInProgress
-			);
-			assert_err_ignore_postinfo!(
-				builder::instantiate_with_code(wasm).value(100_000).build(),
-				Error::<Test>::MigrationInProgress,
-			);
-			assert_err_ignore_postinfo!(
-				builder::instantiate(code_hash).value(100_000).build(),
-				Error::<Test>::MigrationInProgress,
-			);
+			assert!(!<ContractInfoOf<Test>>::contains_key(BOB_ADDR));
+			assert_eq!(test_utils::get_balance(&BOB_CONTRACT_ID), 0);
+			let result = builder::bare_call(BOB_ADDR).value(42).build_and_unwrap_result();
+			assert_eq!(test_utils::get_balance(&BOB_CONTRACT_ID), 42);
+			assert_eq!(result, Default::default());
 		});
 	}
 
@@ -743,7 +684,8 @@ mod run_tests {
 						phase: Phase::Initialization,
 						event: RuntimeEvent::Contracts(crate::Event::ContractEmitted {
 							contract: addr,
-							data: vec![1, 2, 3, 4]
+							data: vec![1, 2, 3, 4],
+							topics: vec![H256::repeat_byte(42)],
 						}),
 						topics: vec![],
 					},
@@ -1536,6 +1478,8 @@ mod run_tests {
 
 	#[test]
 	fn call_return_code() {
+		use test_utils::u256_bytes;
+
 		let (caller_code, _caller_hash) = compile_module("call_return_code").unwrap();
 		let (callee_code, _callee_hash) = compile_module("ok_trap_revert").unwrap();
 		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
@@ -1545,28 +1489,60 @@ mod run_tests {
 
 			let bob = builder::bare_instantiate(Code::Upload(caller_code))
 				.value(min_balance * 100)
-				.data(vec![0])
 				.build_and_unwrap_contract();
-			<Test as Config>::Currency::set_balance(&bob.account_id, min_balance);
 
 			// Contract calls into Django which is no valid contract
+			// This will be a balance transfer into a new account
+			// with more than the contract has which will make the transfer fail
 			let result = builder::bare_call(bob.addr)
-				.data(AsRef::<[u8]>::as_ref(&DJANGO).to_vec())
+				.data(
+					AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
+						.iter()
+						.chain(&u256_bytes(min_balance * 200))
+						.cloned()
+						.collect(),
+				)
 				.build_and_unwrap_result();
-			assert_return_code!(result, RuntimeReturnCode::NotCallable);
+			assert_return_code!(result, RuntimeReturnCode::TransferFailed);
+
+			// Sending less than the minimum balance will also make the transfer fail
+			let result = builder::bare_call(bob.addr)
+				.data(
+					AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
+						.iter()
+						.chain(&u256_bytes(42))
+						.cloned()
+						.collect(),
+				)
+				.build_and_unwrap_result();
+			assert_return_code!(result, RuntimeReturnCode::TransferFailed);
+
+			// Sending at least the minimum balance should result in success but
+			// no code called.
+			assert_eq!(test_utils::get_balance(&ETH_DJANGO), 0);
+			let result = builder::bare_call(bob.addr)
+				.data(
+					AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
+						.iter()
+						.chain(&u256_bytes(55))
+						.cloned()
+						.collect(),
+				)
+				.build_and_unwrap_result();
+			assert_return_code!(result, RuntimeReturnCode::Success);
+			assert_eq!(test_utils::get_balance(&ETH_DJANGO), 55);
 
 			let django = builder::bare_instantiate(Code::Upload(callee_code))
 				.origin(RuntimeOrigin::signed(CHARLIE))
 				.value(min_balance * 100)
-				.data(vec![0])
 				.build_and_unwrap_contract();
-			<Test as Config>::Currency::set_balance(&django.account_id, min_balance);
 
-			// Contract has only the minimal balance so any transfer will fail.
+			// Sending more than the contract has will make the transfer fail.
 			let result = builder::bare_call(bob.addr)
 				.data(
 					AsRef::<[u8]>::as_ref(&django.addr)
 						.iter()
+						.chain(&u256_bytes(min_balance * 300))
 						.chain(&0u32.to_le_bytes())
 						.cloned()
 						.collect(),
@@ -1580,6 +1556,7 @@ mod run_tests {
 				.data(
 					AsRef::<[u8]>::as_ref(&django.addr)
 						.iter()
+						.chain(&u256_bytes(5))
 						.chain(&1u32.to_le_bytes())
 						.cloned()
 						.collect(),
@@ -1592,6 +1569,7 @@ mod run_tests {
 				.data(
 					AsRef::<[u8]>::as_ref(&django.addr)
 						.iter()
+						.chain(&u256_bytes(5))
 						.chain(&2u32.to_le_bytes())
 						.cloned()
 						.collect(),
@@ -3402,7 +3380,7 @@ mod run_tests {
 			assert_err_ignore_postinfo!(
 				builder::call(addr_caller)
 					.storage_deposit_limit(13)
-					.data((100u32, &addr_callee, 0u64).encode())
+					.data((100u32, &addr_callee, U256::from(0u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3416,7 +3394,7 @@ mod run_tests {
 			assert_err_ignore_postinfo!(
 				builder::call(addr_caller)
 					.storage_deposit_limit(14)
-					.data((101u32, &addr_callee, 0u64).encode())
+					.data((101u32, &addr_callee, U256::from(0u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3429,7 +3407,7 @@ mod run_tests {
 			assert_err_ignore_postinfo!(
 				builder::call(addr_caller)
 					.storage_deposit_limit(16)
-					.data((102u32, &addr_callee, 1u64).encode())
+					.data((102u32, &addr_callee, U256::from(1u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3440,7 +3418,7 @@ mod run_tests {
 			assert_err_ignore_postinfo!(
 				builder::call(addr_caller)
 					.storage_deposit_limit(0)
-					.data((87u32, &addr_callee, 0u64).encode())
+					.data((87u32, &addr_callee, U256::from(0u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3450,7 +3428,9 @@ mod run_tests {
 			// Require more than the sender's balance.
 			// We don't set a special limit for the nested call.
 			assert_err_ignore_postinfo!(
-				builder::call(addr_caller).data((512u32, &addr_callee, 1u64).encode()).build(),
+				builder::call(addr_caller)
+					.data((512u32, &addr_callee, U256::from(1u64)).encode())
+					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
 
@@ -3459,7 +3439,7 @@ mod run_tests {
 			// enforced as callee frees up storage. This should pass.
 			assert_ok!(builder::call(addr_caller)
 				.storage_deposit_limit(1)
-				.data((87u32, &addr_callee, 1u64).encode())
+				.data((87u32, &addr_callee, U256::from(1u64)).encode())
 				.build());
 		});
 	}
@@ -3500,7 +3480,7 @@ mod run_tests {
 				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 1)
-					.data((0u32, &code_hash_callee, 0u64).encode())
+					.data((0u32, &code_hash_callee, U256::from(0u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3514,7 +3494,7 @@ mod run_tests {
 				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 2)
-					.data((1u32, &code_hash_callee, 0u64).encode())
+					.data((1u32, &code_hash_callee, U256::from(0u64)).encode())
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3528,7 +3508,10 @@ mod run_tests {
 				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 2)
-					.data((0u32, &code_hash_callee, callee_info_len + 2 + ED + 1).encode())
+					.data(
+						(0u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 1))
+							.encode()
+					)
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3543,7 +3526,10 @@ mod run_tests {
 				builder::call(addr_caller)
 					.origin(RuntimeOrigin::signed(BOB))
 					.storage_deposit_limit(callee_info_len + 2 + ED + 3) // enough parent limit
-					.data((1u32, &code_hash_callee, callee_info_len + 2 + ED + 2).encode())
+					.data(
+						(1u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 2))
+							.encode()
+					)
 					.build(),
 				<Error<Test>>::StorageDepositLimitExhausted,
 			);
@@ -3553,8 +3539,11 @@ mod run_tests {
 			// Set enough deposit limit for the child instantiate. This should succeed.
 			let result = builder::bare_call(addr_caller)
 				.origin(RuntimeOrigin::signed(BOB))
-				.storage_deposit_limit(callee_info_len + 2 + ED + 4)
-				.data((1u32, &code_hash_callee, callee_info_len + 2 + ED + 3).encode())
+				.storage_deposit_limit(callee_info_len + 2 + ED + 4 + 2)
+				.data(
+					(1u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 3 + 2))
+						.encode(),
+				)
 				.build();
 
 			let returned = result.result.unwrap();
@@ -3571,6 +3560,7 @@ mod run_tests {
 			//  - callee instantiation deposit = (callee_info_len + 2)
 			//  - callee account ED
 			//  - for writing an item of 1 byte to storage = 3 Balance
+			//  - Immutable data storage item deposit
 			assert_eq!(
 				<Test as Config>::Currency::free_balance(&BOB),
 				1_000_000 - (callee_info_len + 2 + ED + 3)
@@ -4089,6 +4079,31 @@ mod run_tests {
 	}
 
 	#[test]
+	fn balance_of_api() {
+		let (wasm, _code_hash) = compile_module("balance_of").unwrap();
+		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+			let _ = Balances::set_balance(&ALICE, 1_000_000);
+			let _ = Balances::set_balance(&ETH_ALICE, 1_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(wasm.to_vec())).build_and_unwrap_contract();
+
+			// The fixture asserts a non-zero returned free balance of the account;
+			// The ETH_ALICE account is endowed;
+			// Hence we should not revert
+			assert_ok!(builder::call(addr).data(ALICE_ADDR.0.to_vec()).build());
+
+			// The fixture asserts a non-zero returned free balance of the account;
+			// The ETH_BOB account is not endowed;
+			// Hence we should revert
+			assert_err_ignore_postinfo!(
+				builder::call(addr).data(BOB_ADDR.0.to_vec()).build(),
+				<Error<Test>>::ContractTrapped
+			);
+		});
+	}
+
+	#[test]
 	fn balance_api_returns_free_balance() {
 		let (wasm, _code_hash) = compile_module("balance").unwrap();
 		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
@@ -4230,6 +4245,201 @@ mod run_tests {
 				builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_contract();
 
 			assert_ok!(builder::call(addr_caller).data(addr_callee.encode()).build());
+		});
+	}
+
+	#[test]
+	fn create1_with_value_works() {
+		let (code, code_hash) = compile_module("create1_with_value").unwrap();
+		let value = 42;
+		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Create the contract: Constructor does nothing.
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Call the contract: Deploys itself using create1 and the expected value
+			assert_ok!(builder::call(addr).value(value).data(code_hash.encode()).build());
+
+			// We should see the expected balance at the expected account
+			let address = crate::address::create1(&addr, 0);
+			let account_id = <Test as Config>::AddressMapper::to_account_id(&address);
+			let usable_balance = <Test as Config>::Currency::usable_balance(&account_id);
+			assert_eq!(usable_balance, value);
+		});
+	}
+
+	#[test]
+	fn static_data_limit_is_enforced() {
+		let (oom_rw_trailing, _) = compile_module("oom_rw_trailing").unwrap();
+		let (oom_rw_included, _) = compile_module("oom_rw_included").unwrap();
+		let (oom_ro, _) = compile_module("oom_ro").unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = Balances::set_balance(&ALICE, 1_000_000);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					oom_rw_trailing,
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::StaticMemoryTooLarge
+			);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					oom_rw_included,
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::BlobTooLarge
+			);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					oom_ro,
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::BlobTooLarge
+			);
+		});
+	}
+
+	#[test]
+	fn call_diverging_out_len_works() {
+		let (code, _) = compile_module("call_diverging_out_len").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Create the contract: Constructor does nothing
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Call the contract: It will issue calls and deploys, asserting on
+			// correct output if the supplied output length was smaller than
+			// than what the callee returned.
+			assert_ok!(builder::call(addr).build());
+		});
+	}
+
+	#[test]
+	fn chain_id_works() {
+		let (code, _) = compile_module("chain_id").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let chain_id = U256::from(<Test as Config>::ChainId::get());
+			let received = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_result();
+			assert_eq!(received.result.data, chain_id.encode());
+		});
+	}
+
+	#[test]
+	fn return_data_api_works() {
+		let (code_return_data_api, _) = compile_module("return_data_api").unwrap();
+		let (code_return_with_data, hash_return_with_data) =
+			compile_module("return_with_data").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Upload the io echoing fixture for later use
+			assert_ok!(Contracts::upload_code(
+				RuntimeOrigin::signed(ALICE),
+				code_return_with_data,
+				deposit_limit::<Test>(),
+			));
+
+			// Create fixture: Constructor does nothing
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code_return_data_api))
+					.build_and_unwrap_contract();
+
+			// Call the contract: It will issue calls and deploys, asserting on
+			assert_ok!(builder::call(addr)
+				.value(10 * 1024)
+				.data(hash_return_with_data.encode())
+				.build());
+		});
+	}
+
+	#[test]
+	fn immutable_data_works() {
+		let (code, _) = compile_module("immutable_data").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let data = [0xfe; 8];
+
+			// Create fixture: Constructor sets the immtuable data
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+				.data(data.to_vec())
+				.build_and_unwrap_contract();
+
+			// Storing immmutable data charges storage deposit; verify it explicitly.
+			assert_eq!(
+				test_utils::get_balance_on_hold(
+					&HoldReason::StorageDepositReserve.into(),
+					&<Test as Config>::AddressMapper::to_account_id(&addr)
+				),
+				test_utils::contract_info_storage_deposit(&addr)
+			);
+			assert_eq!(test_utils::get_contract(&addr).immutable_data_len(), data.len() as u32);
+
+			// Call the contract: Asserts the input to equal the immutable data
+			assert_ok!(builder::call(addr).data(data.to_vec()).build());
+		});
+	}
+
+	#[test]
+	fn sbrk_cannot_be_deployed() {
+		let (code, _) = compile_module("sbrk").unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = Balances::set_balance(&ALICE, 1_000_000);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					code.clone(),
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::InvalidInstruction
+			);
+
+			assert_err!(
+				builder::bare_instantiate(Code::Upload(code)).build().result,
+				<Error<Test>>::InvalidInstruction
+			);
+		});
+	}
+
+	#[test]
+	fn overweight_basic_block_cannot_be_deployed() {
+		let (code, _) = compile_module("basic_block").unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = Balances::set_balance(&ALICE, 1_000_000);
+
+			assert_err!(
+				Contracts::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					code.clone(),
+					deposit_limit::<Test>(),
+				),
+				<Error<Test>>::BasicBlockTooLarge
+			);
+
+			assert_err!(
+				builder::bare_instantiate(Code::Upload(code)).build().result,
+				<Error<Test>>::BasicBlockTooLarge
+			);
 		});
 	}
 }

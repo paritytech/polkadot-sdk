@@ -20,8 +20,8 @@ use crate::{BridgedChainOf, Config, InboundLanes, OutboundLanes, Pallet, LOG_TAR
 
 use bp_messages::{
 	target_chain::MessageDispatch, BaseMessagesProofInfo, ChainWithMessages, InboundLaneData,
-	LaneId, MessageNonce, MessagesCallInfo, ReceiveMessagesDeliveryProofInfo,
-	ReceiveMessagesProofInfo, UnrewardedRelayerOccupation,
+	MessageNonce, MessagesCallInfo, ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo,
+	UnrewardedRelayerOccupation,
 };
 use bp_runtime::{AccountIdOf, OwnedBridgeModule};
 use frame_support::{dispatch::CallableCallFor, traits::IsSubType};
@@ -39,7 +39,7 @@ impl<T: Config<I>, I: 'static> CallHelper<T, I> {
 	///
 	/// - call is `receive_messages_delivery_proof` and all messages confirmations have been
 	///   received.
-	pub fn was_successful(info: &MessagesCallInfo) -> bool {
+	pub fn was_successful(info: &MessagesCallInfo<T::LaneId>) -> bool {
 		match info {
 			MessagesCallInfo::ReceiveMessagesProof(info) => {
 				let inbound_lane_data = match InboundLanes::<T, I>::get(info.base.lane_id) {
@@ -75,19 +75,21 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 	IsSubType<CallableCallFor<Pallet<T, I>, T>>
 {
 	/// Create a new instance of `ReceiveMessagesProofInfo` from a `ReceiveMessagesProof` call.
-	fn receive_messages_proof_info(&self) -> Option<ReceiveMessagesProofInfo>;
+	fn receive_messages_proof_info(&self) -> Option<ReceiveMessagesProofInfo<T::LaneId>>;
 
 	/// Create a new instance of `ReceiveMessagesDeliveryProofInfo` from
 	/// a `ReceiveMessagesDeliveryProof` call.
-	fn receive_messages_delivery_proof_info(&self) -> Option<ReceiveMessagesDeliveryProofInfo>;
+	fn receive_messages_delivery_proof_info(
+		&self,
+	) -> Option<ReceiveMessagesDeliveryProofInfo<T::LaneId>>;
 
 	/// Create a new instance of `MessagesCallInfo` from a `ReceiveMessagesProof`
 	/// or a `ReceiveMessagesDeliveryProof` call.
-	fn call_info(&self) -> Option<MessagesCallInfo>;
+	fn call_info(&self) -> Option<MessagesCallInfo<T::LaneId>>;
 
 	/// Create a new instance of `MessagesCallInfo` from a `ReceiveMessagesProof`
 	/// or a `ReceiveMessagesDeliveryProof` call, if the call is for the provided lane.
-	fn call_info_for(&self, lane_id: LaneId) -> Option<MessagesCallInfo>;
+	fn call_info_for(&self, lane_id: T::LaneId) -> Option<MessagesCallInfo<T::LaneId>>;
 
 	/// Ensures that a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call:
 	///
@@ -114,7 +116,7 @@ impl<
 		I: 'static,
 	> CallSubType<T, I> for T::RuntimeCall
 {
-	fn receive_messages_proof_info(&self) -> Option<ReceiveMessagesProofInfo> {
+	fn receive_messages_proof_info(&self) -> Option<ReceiveMessagesProofInfo<T::LaneId>> {
 		if let Some(crate::Call::<T, I>::receive_messages_proof { ref proof, .. }) =
 			self.is_sub_type()
 		{
@@ -135,7 +137,9 @@ impl<
 		None
 	}
 
-	fn receive_messages_delivery_proof_info(&self) -> Option<ReceiveMessagesDeliveryProofInfo> {
+	fn receive_messages_delivery_proof_info(
+		&self,
+	) -> Option<ReceiveMessagesDeliveryProofInfo<T::LaneId>> {
 		if let Some(crate::Call::<T, I>::receive_messages_delivery_proof {
 			ref proof,
 			ref relayers_state,
@@ -159,7 +163,7 @@ impl<
 		None
 	}
 
-	fn call_info(&self) -> Option<MessagesCallInfo> {
+	fn call_info(&self) -> Option<MessagesCallInfo<T::LaneId>> {
 		if let Some(info) = self.receive_messages_proof_info() {
 			return Some(MessagesCallInfo::ReceiveMessagesProof(info))
 		}
@@ -171,7 +175,7 @@ impl<
 		None
 	}
 
-	fn call_info_for(&self, lane_id: LaneId) -> Option<MessagesCallInfo> {
+	fn call_info_for(&self, lane_id: T::LaneId) -> Option<MessagesCallInfo<T::LaneId>> {
 		self.call_info().filter(|info| {
 			let actual_lane_id = match info {
 				MessagesCallInfo::ReceiveMessagesProof(info) => info.base.lane_id,
@@ -250,10 +254,6 @@ mod tests {
 		OutboundLaneData, UnrewardedRelayer, UnrewardedRelayersState,
 	};
 	use sp_std::ops::RangeInclusive;
-
-	fn test_lane_id() -> LaneId {
-		LaneId::new(1, 2)
-	}
 
 	fn fill_unrewarded_relayers() {
 		let mut inbound_lane_state = InboundLanes::<TestRuntime>::get(test_lane_id()).unwrap();

@@ -21,9 +21,6 @@
 //! of others. It uses this information to determine when candidates and blocks have
 //! been sufficiently approved to finalize.
 
-use itertools::Itertools;
-use jaeger::{hash_to_trace_identifier, PerLeafSpan};
-use polkadot_node_jaeger as jaeger;
 use polkadot_node_primitives::{
 	approval::{
 		v1::{BlockApprovalMeta, DelayTranche},
@@ -41,7 +38,7 @@ use polkadot_node_subsystem::{
 		ApprovalVotingMessage, AssignmentCheckError, AssignmentCheckResult,
 		AvailabilityRecoveryMessage, BlockDescription, CandidateValidationMessage, ChainApiMessage,
 		ChainSelectionMessage, CheckedIndirectAssignment, CheckedIndirectSignedApprovalVote,
-		DisputeCoordinatorMessage, HighestApprovedAncestorBlock, RuntimeApiMessage,
+		DisputeCoordinatorMessage, HighestApprovedAncestorBlock, PvfExecKind, RuntimeApiMessage,
 		RuntimeApiRequest,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
@@ -56,8 +53,8 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	ApprovalVoteMultipleCandidates, ApprovalVotingParams, BlockNumber, CandidateHash,
-	CandidateIndex, CandidateReceipt, CoreIndex, ExecutorParams, GroupIndex, Hash, PvfExecKind,
-	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
+	CandidateIndex, CandidateReceipt, CoreIndex, ExecutorParams, GroupIndex, Hash, SessionIndex,
+	SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
@@ -165,7 +162,8 @@ pub struct ApprovalVotingSubsystem {
 	db: Arc<dyn Database>,
 	mode: Mode,
 	metrics: Metrics,
-	clock: Box<dyn Clock + Send + Sync>,
+	clock: Arc<dyn Clock + Send + Sync>,
+	spawner: Arc<dyn overseer::gen::Spawner + 'static>,
 }
 
 #[derive(Clone)]
@@ -484,6 +482,7 @@ impl ApprovalVotingSubsystem {
 		keystore: Arc<LocalKeystore>,
 		sync_oracle: Box<dyn SyncOracle + Send>,
 		metrics: Metrics,
+		spawner: Arc<dyn overseer::gen::Spawner + 'static>,
 	) -> Self {
 		ApprovalVotingSubsystem::with_config_and_clock(
 			config,
@@ -491,7 +490,8 @@ impl ApprovalVotingSubsystem {
 			keystore,
 			sync_oracle,
 			metrics,
-			Box::new(SystemClock {}),
+			Arc::new(SystemClock {}),
+			spawner,
 		)
 	}
 
@@ -502,7 +502,8 @@ impl ApprovalVotingSubsystem {
 		keystore: Arc<LocalKeystore>,
 		sync_oracle: Box<dyn SyncOracle + Send>,
 		metrics: Metrics,
-		clock: Box<dyn Clock + Send + Sync>,
+		clock: Arc<dyn Clock + Send + Sync>,
+		spawner: Arc<dyn overseer::gen::Spawner + 'static>,
 	) -> Self {
 		ApprovalVotingSubsystem {
 			keystore,
@@ -512,6 +513,7 @@ impl ApprovalVotingSubsystem {
 			mode: Mode::Syncing(sync_oracle),
 			metrics,
 			clock,
+			spawner,
 		}
 	}
 
@@ -551,12 +553,21 @@ fn db_sanity_check(db: Arc<dyn Database>, config: DatabaseConfig) -> SubsystemRe
 
 #[overseer::subsystem(ApprovalVoting, error = SubsystemError, prefix = self::overseer)]
 impl<Context: Send> ApprovalVotingSubsystem {
-	fn start(self, ctx: Context) -> SpawnedSubsystem {
+	fn start(self, mut ctx: Context) -> SpawnedSubsystem {
 		let backend = DbBackend::new(self.db.clone(), self.db_config);
-		let future =
-			run::<DbBackend, Context>(ctx, self, Box::new(RealAssignmentCriteria), backend)
-				.map_err(|e| SubsystemError::with_origin("approval-voting", e))
-				.boxed();
+		let to_other_subsystems = ctx.sender().clone();
+		let to_approval_distr = ctx.sender().clone();
+
+		let future = run::<DbBackend, _, _, _>(
+			ctx,
+			to_other_subsystems,
+			to_approval_distr,
+			self,
+			Box::new(RealAssignmentCriteria),
+			backend,
+		)
+		.map_err(|e| SubsystemError::with_origin("approval-voting", e))
+		.boxed();
 
 		SpawnedSubsystem { name: "approval-voting-subsystem", future }
 	}
@@ -620,11 +631,7 @@ impl Wakeups {
 		self.wakeups.entry(tick).or_default().push((block_hash, candidate_hash));
 	}
 
-	fn prune_finalized_wakeups(
-		&mut self,
-		finalized_number: BlockNumber,
-		spans: &mut HashMap<Hash, PerLeafSpan>,
-	) {
+	fn prune_finalized_wakeups(&mut self, finalized_number: BlockNumber) {
 		let after = self.block_numbers.split_off(&(finalized_number + 1));
 		let pruned_blocks: HashSet<_> = std::mem::replace(&mut self.block_numbers, after)
 			.into_iter()
@@ -648,9 +655,6 @@ impl Wakeups {
 				}
 			}
 		}
-
-		// Remove all spans that are associated with pruned blocks.
-		spans.retain(|h, _| !pruned_blocks.contains(h));
 	}
 
 	// Get the wakeup for a particular block/candidate combo, if any.
@@ -825,9 +829,8 @@ where
 struct State {
 	keystore: Arc<LocalKeystore>,
 	slot_duration_millis: u64,
-	clock: Box<dyn Clock + Send + Sync>,
+	clock: Arc<dyn Clock + Send + Sync>,
 	assignment_criteria: Box<dyn AssignmentCriteria + Send + Sync>,
-	spans: HashMap<Hash, jaeger::PerLeafSpan>,
 	// Per block, candidate records about how long we take until we gather enough
 	// assignments, this is relevant because it gives us a good idea about how many
 	// tranches we trigger and why.
@@ -961,20 +964,20 @@ impl State {
 	}
 
 	// Returns the approval voting params from the RuntimeApi.
-	#[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
-	async fn get_approval_voting_params_or_default<Context>(
+	async fn get_approval_voting_params_or_default<Sender: SubsystemSender<RuntimeApiMessage>>(
 		&self,
-		ctx: &mut Context,
+		sender: &mut Sender,
 		session_index: SessionIndex,
 		block_hash: Hash,
 	) -> Option<ApprovalVotingParams> {
 		let (s_tx, s_rx) = oneshot::channel();
 
-		ctx.send_message(RuntimeApiMessage::Request(
-			block_hash,
-			RuntimeApiRequest::ApprovalVotingParams(session_index, s_tx),
-		))
-		.await;
+		sender
+			.send_message(RuntimeApiMessage::Request(
+				block_hash,
+				RuntimeApiRequest::ApprovalVotingParams(session_index, s_tx),
+			))
+			.await;
 
 		match s_rx.await {
 			Ok(Ok(params)) => {
@@ -1143,9 +1146,36 @@ enum Action {
 	Conclude,
 }
 
+/// Trait for providing approval voting subsystem with work.
+#[async_trait::async_trait]
+pub trait ApprovalVotingWorkProvider {
+	async fn recv(&mut self) -> SubsystemResult<FromOrchestra<ApprovalVotingMessage>>;
+}
+
+#[async_trait::async_trait]
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
-async fn run<B, Context>(
-	mut ctx: Context,
+impl<Context> ApprovalVotingWorkProvider for Context {
+	async fn recv(&mut self) -> SubsystemResult<FromOrchestra<ApprovalVotingMessage>> {
+		self.recv().await
+	}
+}
+
+#[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
+async fn run<
+	B,
+	WorkProvider: ApprovalVotingWorkProvider,
+	Sender: SubsystemSender<ChainApiMessage>
+		+ SubsystemSender<RuntimeApiMessage>
+		+ SubsystemSender<ChainSelectionMessage>
+		+ SubsystemSender<AvailabilityRecoveryMessage>
+		+ SubsystemSender<DisputeCoordinatorMessage>
+		+ SubsystemSender<CandidateValidationMessage>
+		+ Clone,
+	ADSender: SubsystemSender<ApprovalDistributionMessage>,
+>(
+	mut work_provider: WorkProvider,
+	mut to_other_subsystems: Sender,
+	mut to_approval_distr: ADSender,
 	mut subsystem: ApprovalVotingSubsystem,
 	assignment_criteria: Box<dyn AssignmentCriteria + Send + Sync>,
 	mut backend: B,
@@ -1162,26 +1192,17 @@ where
 		slot_duration_millis: subsystem.slot_duration_millis,
 		clock: subsystem.clock,
 		assignment_criteria,
-		spans: HashMap::new(),
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),
 		no_show_stats: NoShowStats::default(),
 	};
 
-	// `None` on start-up. Gets initialized/updated on leaf update
-	let mut session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
-		keystore: None,
-		session_cache_lru_size: DISPUTE_WINDOW.get(),
-	});
-	let mut wakeups = Wakeups::default();
-	let mut currently_checking_set = CurrentlyCheckingSet::default();
-	let mut delayed_approvals_timers = DelayedApprovalTimer::default();
-	let mut approvals_cache = LruMap::new(ByLength::new(APPROVAL_CACHE_SIZE));
-
 	let mut last_finalized_height: Option<BlockNumber> = {
 		let (tx, rx) = oneshot::channel();
-		ctx.send_message(ChainApiMessage::FinalizedBlockNumber(tx)).await;
+		to_other_subsystems
+			.send_message(ChainApiMessage::FinalizedBlockNumber(tx))
+			.await;
 		match rx.await? {
 			Ok(number) => Some(number),
 			Err(err) => {
@@ -1191,13 +1212,24 @@ where
 		}
 	};
 
+	// `None` on start-up. Gets initialized/updated on leaf update
+	let mut session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
+		keystore: None,
+		session_cache_lru_size: DISPUTE_WINDOW.get(),
+	});
+
+	let mut wakeups = Wakeups::default();
+	let mut currently_checking_set = CurrentlyCheckingSet::default();
+	let mut delayed_approvals_timers = DelayedApprovalTimer::default();
+	let mut approvals_cache = LruMap::new(ByLength::new(APPROVAL_CACHE_SIZE));
+
 	loop {
 		let mut overlayed_db = OverlayedBackend::new(&backend);
 		let actions = futures::select! {
 			(_tick, woken_block, woken_candidate) = wakeups.next(&*state.clock).fuse() => {
 				subsystem.metrics.on_wakeup();
 				process_wakeup(
-					&mut ctx,
+					&mut to_other_subsystems,
 					&mut state,
 					&mut overlayed_db,
 					&mut session_info_provider,
@@ -1207,9 +1239,11 @@ where
 					&wakeups,
 				).await?
 			}
-			next_msg = ctx.recv().fuse() => {
+			next_msg = work_provider.recv().fuse() => {
 				let mut actions = handle_from_overseer(
-					&mut ctx,
+					&mut to_other_subsystems,
+					&mut to_approval_distr,
+					&subsystem.spawner,
 					&mut state,
 					&mut overlayed_db,
 					&mut session_info_provider,
@@ -1269,7 +1303,8 @@ where
 					&mut overlayed_db,
 					&mut session_info_provider,
 					&state,
-					&mut ctx,
+					&mut to_other_subsystems,
+					&mut to_approval_distr,
 					block_hash,
 					validator_index,
 					&subsystem.metrics,
@@ -1291,7 +1326,9 @@ where
 		};
 
 		if handle_actions(
-			&mut ctx,
+			&mut to_other_subsystems,
+			&mut to_approval_distr,
+			&subsystem.spawner,
 			&mut state,
 			&mut overlayed_db,
 			&mut session_info_provider,
@@ -1318,6 +1355,63 @@ where
 	Ok(())
 }
 
+// Starts a worker thread that runs the approval voting subsystem.
+pub async fn start_approval_worker<
+	WorkProvider: ApprovalVotingWorkProvider + Send + 'static,
+	Sender: SubsystemSender<ChainApiMessage>
+		+ SubsystemSender<RuntimeApiMessage>
+		+ SubsystemSender<ChainSelectionMessage>
+		+ SubsystemSender<AvailabilityRecoveryMessage>
+		+ SubsystemSender<DisputeCoordinatorMessage>
+		+ SubsystemSender<CandidateValidationMessage>
+		+ Clone,
+	ADSender: SubsystemSender<ApprovalDistributionMessage>,
+>(
+	work_provider: WorkProvider,
+	to_other_subsystems: Sender,
+	to_approval_distr: ADSender,
+	config: Config,
+	db: Arc<dyn Database>,
+	keystore: Arc<LocalKeystore>,
+	sync_oracle: Box<dyn SyncOracle + Send>,
+	metrics: Metrics,
+	spawner: Arc<dyn overseer::gen::Spawner + 'static>,
+	task_name: &'static str,
+	group_name: &'static str,
+	clock: Arc<dyn Clock + Send + Sync>,
+) -> SubsystemResult<()> {
+	let approval_voting = ApprovalVotingSubsystem::with_config_and_clock(
+		config,
+		db.clone(),
+		keystore,
+		sync_oracle,
+		metrics,
+		clock,
+		spawner,
+	);
+	let backend = DbBackend::new(db.clone(), approval_voting.db_config);
+	let spawner = approval_voting.spawner.clone();
+	spawner.spawn_blocking(
+		task_name,
+		Some(group_name),
+		Box::pin(async move {
+			if let Err(err) = run(
+				work_provider,
+				to_other_subsystems,
+				to_approval_distr,
+				approval_voting,
+				Box::new(RealAssignmentCriteria),
+				backend,
+			)
+			.await
+			{
+				gum::error!(target: LOG_TARGET, ?err, "Approval voting worker stopped processing messages");
+			};
+		}),
+	);
+	Ok(())
+}
+
 // Handle actions is a function that accepts a set of instructions
 // and subsequently updates the underlying approvals_db in accordance
 // with the linear set of instructions passed in. Therefore, actions
@@ -1338,8 +1432,19 @@ where
 //
 // returns `true` if any of the actions was a `Conclude` command.
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
-async fn handle_actions<Context>(
-	ctx: &mut Context,
+async fn handle_actions<
+	Sender: SubsystemSender<ChainApiMessage>
+		+ SubsystemSender<RuntimeApiMessage>
+		+ SubsystemSender<ChainSelectionMessage>
+		+ SubsystemSender<AvailabilityRecoveryMessage>
+		+ SubsystemSender<DisputeCoordinatorMessage>
+		+ SubsystemSender<CandidateValidationMessage>
+		+ Clone,
+	ADSender: SubsystemSender<ApprovalDistributionMessage>,
+>(
+	sender: &mut Sender,
+	approval_voting_sender: &mut ADSender,
+	spawn_handle: &Arc<dyn overseer::gen::Spawner + 'static>,
 	state: &mut State,
 	overlayed_db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
@@ -1371,7 +1476,8 @@ async fn handle_actions<Context>(
 				// Note that chaining these iterators is O(n) as we must consume
 				// the prior iterator.
 				let next_actions: Vec<Action> = issue_approval(
-					ctx,
+					sender,
+					approval_voting_sender,
 					state,
 					overlayed_db,
 					session_info_provider,
@@ -1407,25 +1513,17 @@ async fn handle_actions<Context>(
 					continue
 				}
 
-				let mut launch_approval_span = state
-					.spans
-					.get(&relay_block_hash)
-					.map(|span| span.child("launch-approval"))
-					.unwrap_or_else(|| jaeger::Span::new(candidate_hash, "launch-approval"))
-					.with_trace_id(candidate_hash)
-					.with_candidate(candidate_hash)
-					.with_stage(jaeger::Stage::ApprovalChecking);
-
 				metrics.on_assignment_produced(assignment_tranche);
 				let block_hash = indirect_cert.block_hash;
-				launch_approval_span.add_string_tag("block-hash", format!("{:?}", block_hash));
 				let validator_index = indirect_cert.validator;
 
 				if distribute_assignment {
-					ctx.send_unbounded_message(ApprovalDistributionMessage::DistributeAssignment(
-						indirect_cert,
-						claimed_candidate_indices,
-					));
+					approval_voting_sender.send_unbounded_message(
+						ApprovalDistributionMessage::DistributeAssignment(
+							indirect_cert,
+							claimed_candidate_indices,
+						),
+					);
 				}
 
 				match approvals_cache.get(&candidate_hash) {
@@ -1440,7 +1538,8 @@ async fn handle_actions<Context>(
 						actions_iter = new_actions.into_iter();
 					},
 					None => {
-						let ctx = &mut *ctx;
+						let sender = sender.clone();
+						let spawn_handle = spawn_handle.clone();
 
 						currently_checking_set
 							.insert_relay_block_hash(
@@ -1449,7 +1548,8 @@ async fn handle_actions<Context>(
 								relay_block_hash,
 								async move {
 									launch_approval(
-										ctx,
+										sender,
+										spawn_handle,
 										metrics.clone(),
 										session,
 										candidate,
@@ -1458,7 +1558,6 @@ async fn handle_actions<Context>(
 										backing_group,
 										executor_params,
 										core_index,
-										&launch_approval_span,
 									)
 									.await
 								},
@@ -1469,22 +1568,13 @@ async fn handle_actions<Context>(
 				}
 			},
 			Action::NoteApprovedInChainSelection(block_hash) => {
-				let _span = state
-					.spans
-					.get(&block_hash)
-					.map(|span| span.child("note-approved-in-chain-selection"))
-					.unwrap_or_else(|| {
-						jaeger::Span::new(block_hash, "note-approved-in-chain-selection")
-					})
-					.with_string_tag("block-hash", format!("{:?}", block_hash))
-					.with_stage(jaeger::Stage::ApprovalChecking);
-				ctx.send_message(ChainSelectionMessage::Approved(block_hash)).await;
+				sender.send_message(ChainSelectionMessage::Approved(block_hash)).await;
 			},
 			Action::BecomeActive => {
 				*mode = Mode::Active;
 
 				let (messages, next_actions) = distribution_messages_for_activation(
-					ctx,
+					sender,
 					overlayed_db,
 					state,
 					delayed_approvals_timers,
@@ -1492,7 +1582,7 @@ async fn handle_actions<Context>(
 				)
 				.await?;
 
-				ctx.send_messages(messages.into_iter()).await;
+				approval_voting_sender.send_messages(messages.into_iter()).await;
 				let next_actions: Vec<Action> =
 					next_actions.into_iter().map(|v| v.clone()).chain(actions_iter).collect();
 
@@ -1566,8 +1656,8 @@ fn get_assignment_core_indices(
 }
 
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
-async fn distribution_messages_for_activation<Context>(
-	ctx: &mut Context,
+async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApiMessage>>(
+	sender: &mut Sender,
 	db: &OverlayedBackend<'_, impl Backend>,
 	state: &State,
 	delayed_approvals_timers: &mut DelayedApprovalTimer,
@@ -1582,15 +1672,6 @@ async fn distribution_messages_for_activation<Context>(
 	messages.push(ApprovalDistributionMessage::NewBlocks(Vec::new())); // dummy value.
 
 	for block_hash in all_blocks {
-		let mut distribution_message_span = state
-			.spans
-			.get(&block_hash)
-			.map(|span| span.child("distribution-messages-for-activation"))
-			.unwrap_or_else(|| {
-				jaeger::Span::new(block_hash, "distribution-messages-for-activation")
-			})
-			.with_stage(jaeger::Stage::ApprovalChecking)
-			.with_string_tag("block-hash", format!("{:?}", block_hash));
 		let block_entry = match db.load_block_entry(&block_hash)? {
 			Some(b) => b,
 			None => {
@@ -1600,9 +1681,6 @@ async fn distribution_messages_for_activation<Context>(
 			},
 		};
 
-		distribution_message_span.add_string_tag("block-hash", &block_hash.to_string());
-		distribution_message_span
-			.add_string_tag("parent-hash", &block_entry.parent_hash().to_string());
 		approval_meta.push(BlockApprovalMeta {
 			hash: block_hash,
 			number: block_entry.block_number(),
@@ -1634,8 +1712,6 @@ async fn distribution_messages_for_activation<Context>(
 		});
 		let mut signatures_queued = HashSet::new();
 		for (core_index, candidate_hash) in block_entry.candidates() {
-			let _candidate_span =
-				distribution_message_span.child("candidate").with_candidate(*candidate_hash);
 			let candidate_entry = match db.load_candidate_entry(&candidate_hash)? {
 				Some(c) => c,
 				None => {
@@ -1693,7 +1769,7 @@ async fn distribution_messages_for_activation<Context>(
 										let ExtendedSessionInfo { ref executor_params, .. } =
 											match get_extended_session_info(
 												session_info_provider,
-												ctx.sender(),
+												sender,
 												block_entry.block_hash(),
 												block_entry.session(),
 											)
@@ -1791,9 +1867,16 @@ async fn distribution_messages_for_activation<Context>(
 }
 
 // Handle an incoming signal from the overseer. Returns true if execution should conclude.
-#[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
-async fn handle_from_overseer<Context>(
-	ctx: &mut Context,
+async fn handle_from_overseer<
+	Sender: SubsystemSender<ChainApiMessage>
+		+ SubsystemSender<RuntimeApiMessage>
+		+ SubsystemSender<ChainSelectionMessage>
+		+ Clone,
+	ADSender: SubsystemSender<ApprovalDistributionMessage>,
+>(
+	sender: &mut Sender,
+	approval_voting_sender: &mut ADSender,
+	spawn_handle: &Arc<dyn overseer::gen::Spawner + 'static>,
 	state: &mut State,
 	db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
@@ -1807,11 +1890,9 @@ async fn handle_from_overseer<Context>(
 			let mut actions = Vec::new();
 			if let Some(activated) = update.activated {
 				let head = activated.hash;
-				let approval_voting_span =
-					jaeger::PerLeafSpan::new(activated.span, "approval-voting");
-				state.spans.insert(head, approval_voting_span);
 				match import::handle_new_head(
-					ctx,
+					sender,
+					approval_voting_sender,
 					state,
 					db,
 					session_info_provider,
@@ -1879,7 +1960,7 @@ async fn handle_from_overseer<Context>(
 
 			// `prune_finalized_wakeups` prunes all finalized block hashes. We prune spans
 			// accordingly.
-			wakeups.prune_finalized_wakeups(block_number, &mut state.spans);
+			wakeups.prune_finalized_wakeups(block_number);
 			state.cleanup_assignments_gathering_timestamp(block_number);
 
 			// // `prune_finalized_wakeups` prunes all finalized block hashes. We prune spans
@@ -1894,14 +1975,9 @@ async fn handle_from_overseer<Context>(
 		},
 		FromOrchestra::Communication { msg } => match msg {
 			ApprovalVotingMessage::ImportAssignment(checked_assignment, tx) => {
-				let (check_outcome, actions) = import_assignment(
-					ctx.sender(),
-					state,
-					db,
-					session_info_provider,
-					checked_assignment,
-				)
-				.await?;
+				let (check_outcome, actions) =
+					import_assignment(sender, state, db, session_info_provider, checked_assignment)
+						.await?;
 				// approval-distribution makes sure this assignment is valid and expected,
 				// so this import should never fail, if it does it might mean one of two things,
 				// there is a bug in the code or the two subsystems got out of sync.
@@ -1912,16 +1988,9 @@ async fn handle_from_overseer<Context>(
 				actions
 			},
 			ApprovalVotingMessage::ImportApproval(a, tx) => {
-				let result = import_approval(
-					ctx.sender(),
-					state,
-					db,
-					session_info_provider,
-					metrics,
-					a,
-					&wakeups,
-				)
-				.await?;
+				let result =
+					import_approval(sender, state, db, session_info_provider, metrics, a, &wakeups)
+						.await?;
 				// approval-distribution makes sure this vote is valid and expected,
 				// so this import should never fail, if it does it might mean one of two things,
 				// there is a bug in the code or the two subsystems got out of sync.
@@ -1933,23 +2002,8 @@ async fn handle_from_overseer<Context>(
 				result.0
 			},
 			ApprovalVotingMessage::ApprovedAncestor(target, lower_bound, res) => {
-				let mut approved_ancestor_span = state
-					.spans
-					.get(&target)
-					.map(|span| span.child("approved-ancestor"))
-					.unwrap_or_else(|| jaeger::Span::new(target, "approved-ancestor"))
-					.with_stage(jaeger::Stage::ApprovalChecking)
-					.with_string_tag("leaf", format!("{:?}", target));
-				match handle_approved_ancestor(
-					ctx,
-					db,
-					target,
-					lower_bound,
-					wakeups,
-					&mut approved_ancestor_span,
-					&metrics,
-				)
-				.await
+				match handle_approved_ancestor(sender, db, target, lower_bound, wakeups, &metrics)
+					.await
 				{
 					Ok(v) => {
 						let _ = res.send(v);
@@ -1964,7 +2018,14 @@ async fn handle_from_overseer<Context>(
 			},
 			ApprovalVotingMessage::GetApprovalSignaturesForCandidate(candidate_hash, tx) => {
 				metrics.on_candidate_signatures_request();
-				get_approval_signatures_for_candidate(ctx, db, candidate_hash, tx).await?;
+				get_approval_signatures_for_candidate(
+					approval_voting_sender.clone(),
+					spawn_handle,
+					db,
+					candidate_hash,
+					tx,
+				)
+				.await?;
 				Vec::new()
 			},
 		},
@@ -1978,8 +2039,11 @@ async fn handle_from_overseer<Context>(
 /// This involves an unbounded message send to approval-distribution, the caller has to ensure that
 /// calls to this function are infrequent and bounded.
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
-async fn get_approval_signatures_for_candidate<Context>(
-	ctx: &mut Context,
+async fn get_approval_signatures_for_candidate<
+	Sender: SubsystemSender<ApprovalDistributionMessage>,
+>(
+	mut sender: Sender,
+	spawn_handle: &Arc<dyn overseer::gen::Spawner + 'static>,
 	db: &OverlayedBackend<'_, impl Backend>,
 	candidate_hash: CandidateHash,
 	tx: oneshot::Sender<HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>>,
@@ -2038,7 +2102,6 @@ async fn get_approval_signatures_for_candidate<Context>(
 		}
 	}
 
-	let mut sender = ctx.sender().clone();
 	let get_approvals = async move {
 		let (tx_distribution, rx_distribution) = oneshot::channel();
 		sender.send_unbounded_message(ApprovalDistributionMessage::GetApprovalSignatures(
@@ -2118,32 +2181,33 @@ async fn get_approval_signatures_for_candidate<Context>(
 		?candidate_hash,
 		"Spawning task for fetching signatures from approval-distribution"
 	);
-	ctx.spawn("get-approval-signatures", Box::pin(get_approvals))
+	spawn_handle.spawn(
+		"get-approval-signatures",
+		Some("approval-voting-subsystem"),
+		Box::pin(get_approvals),
+	);
+	Ok(())
 }
 
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
-async fn handle_approved_ancestor<Context>(
-	ctx: &mut Context,
+async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
+	sender: &mut Sender,
 	db: &OverlayedBackend<'_, impl Backend>,
 	target: Hash,
 	lower_bound: BlockNumber,
 	wakeups: &Wakeups,
-	span: &mut jaeger::Span,
 	metrics: &Metrics,
 ) -> SubsystemResult<Option<HighestApprovedAncestorBlock>> {
 	const MAX_TRACING_WINDOW: usize = 200;
 	const ABNORMAL_DEPTH_THRESHOLD: usize = 5;
 	const LOGGING_DEPTH_THRESHOLD: usize = 10;
-	let mut span = span
-		.child("handle-approved-ancestor")
-		.with_stage(jaeger::Stage::ApprovalChecking);
 
 	let mut all_approved_max = None;
 
 	let target_number = {
 		let (tx, rx) = oneshot::channel();
 
-		ctx.send_message(ChainApiMessage::BlockNumber(target, tx)).await;
+		sender.send_message(ChainApiMessage::BlockNumber(target, tx)).await;
 
 		match rx.await {
 			Ok(Ok(Some(n))) => n,
@@ -2152,8 +2216,6 @@ async fn handle_approved_ancestor<Context>(
 		}
 	};
 
-	span.add_uint_tag("leaf-number", target_number as u64);
-	span.add_uint_tag("lower-bound", lower_bound as u64);
 	if target_number <= lower_bound {
 		return Ok(None)
 	}
@@ -2164,12 +2226,13 @@ async fn handle_approved_ancestor<Context>(
 	let ancestry = if target_number > lower_bound + 1 {
 		let (tx, rx) = oneshot::channel();
 
-		ctx.send_message(ChainApiMessage::Ancestors {
-			hash: target,
-			k: (target_number - (lower_bound + 1)) as usize,
-			response_channel: tx,
-		})
-		.await;
+		sender
+			.send_message(ChainApiMessage::Ancestors {
+				hash: target,
+				k: (target_number - (lower_bound + 1)) as usize,
+				response_channel: tx,
+			})
+			.await;
 
 		match rx.await {
 			Ok(Ok(a)) => a,
@@ -2184,9 +2247,6 @@ async fn handle_approved_ancestor<Context>(
 
 	let mut bits: BitVec<u8, Lsb0> = Default::default();
 	for (i, block_hash) in std::iter::once(target).chain(ancestry).enumerate() {
-		let mut entry_span =
-			span.child("load-block-entry").with_stage(jaeger::Stage::ApprovalChecking);
-		entry_span.add_string_tag("block-hash", format!("{:?}", block_hash));
 		// Block entries should be present as the assumption is that
 		// nothing here is finalized. If we encounter any missing block
 		// entries we can fail.
@@ -2253,7 +2313,6 @@ async fn handle_approved_ancestor<Context>(
 				)
 			}
 			metrics.on_unapproved_candidates_in_unfinalized_chain(unapproved.len());
-			entry_span.add_uint_tag("unapproved-candidates", unapproved.len() as u64);
 			for candidate_hash in unapproved {
 				match db.load_candidate_entry(&candidate_hash)? {
 					None => {
@@ -2374,15 +2433,6 @@ async fn handle_approved_ancestor<Context>(
 			number: block_number,
 			descriptions: block_descriptions,
 		});
-	match all_approved_max {
-		Some(HighestApprovedAncestorBlock { ref hash, ref number, .. }) => {
-			span.add_uint_tag("highest-approved-number", *number as u64);
-			span.add_string_fmt_debug_tag("highest-approved-hash", hash);
-		},
-		None => {
-			span.add_string_tag("reached-lower-bound", "true");
-		},
-	}
 
 	Ok(all_approved_max)
 }
@@ -2415,7 +2465,12 @@ fn schedule_wakeup_action(
 				last_assignment_tick.map(|l| l + APPROVAL_DELAY).filter(|t| t > &tick_now),
 				next_no_show,
 			)
-			.map(|tick| Action::ScheduleWakeup { block_hash, block_number, candidate_hash, tick })
+			.map(|tick| Action::ScheduleWakeup {
+				block_hash,
+				block_number,
+				candidate_hash,
+				tick,
+			})
 		},
 		RequiredTranches::Pending { considered, next_no_show, clock_drift, .. } => {
 			// select the minimum of `next_no_show`, or the tick of the next non-empty tranche
@@ -2484,17 +2539,6 @@ where
 	let assignment = checked_assignment.assignment();
 	let candidate_indices = checked_assignment.candidate_indices();
 	let tranche = checked_assignment.tranche();
-	let mut import_assignment_span = state
-		.spans
-		.get(&assignment.block_hash)
-		.map(|span| span.child("import-assignment"))
-		.unwrap_or_else(|| jaeger::Span::new(assignment.block_hash, "import-assignment"))
-		.with_relay_parent(assignment.block_hash)
-		.with_stage(jaeger::Stage::ApprovalChecking);
-
-	for candidate_index in candidate_indices.iter_ones() {
-		import_assignment_span.add_uint_tag("candidate-index", candidate_index as u64);
-	}
 
 	let block_entry = match db.load_block_entry(&assignment.block_hash)? {
 		Some(b) => b,
@@ -2574,13 +2618,6 @@ where
 				)), // no candidate at core.
 		};
 
-		import_assignment_span
-			.add_string_tag("candidate-hash", format!("{:?}", assigned_candidate_hash));
-		import_assignment_span.add_string_tag(
-			"traceID",
-			format!("{:?}", jaeger::hash_to_trace_identifier(assigned_candidate_hash.0)),
-		);
-
 		if candidate_entry.approval_entry_mut(&assignment.block_hash).is_none() {
 			return Ok((
 				AssignmentCheckResult::Bad(AssignmentCheckError::Internal(
@@ -2638,7 +2675,6 @@ where
 			};
 			is_duplicate &= approval_entry.is_assigned(assignment.validator);
 			approval_entry.import_assignment(tranche, assignment.validator, tick_now);
-			import_assignment_span.add_uint_tag("tranche", tranche as u64);
 
 			// We've imported a new assignment, so we need to schedule a wake-up for when that might
 			// no-show.
@@ -2712,14 +2748,6 @@ where
 			return Ok((Vec::new(), $e))
 		}};
 	}
-	let mut span = state
-		.spans
-		.get(&approval.block_hash)
-		.map(|span| span.child("import-approval"))
-		.unwrap_or_else(|| jaeger::Span::new(approval.block_hash, "import-approval"))
-		.with_string_fmt_debug_tag("candidate-index", approval.candidate_indices.clone())
-		.with_relay_parent(approval.block_hash)
-		.with_stage(jaeger::Stage::ApprovalChecking);
 
 	let block_entry = match db.load_block_entry(&approval.block_hash)? {
 		Some(b) => b,
@@ -2748,20 +2776,6 @@ where
 			respond_early!(ApprovalCheckResult::Bad(err))
 		},
 	};
-
-	span.add_string_tag("candidate-hashes", format!("{:?}", approved_candidates_info));
-	span.add_string_tag(
-		"traceIDs",
-		format!(
-			"{:?}",
-			approved_candidates_info
-				.iter()
-				.map(|(_, approved_candidate_hash)| hash_to_trace_identifier(
-					approved_candidate_hash.0
-				))
-				.collect_vec()
-		),
-	);
 
 	gum::trace!(
 		target: LOG_TARGET,
@@ -3107,9 +3121,8 @@ fn should_trigger_assignment(
 	}
 }
 
-#[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
-async fn process_wakeup<Context>(
-	ctx: &mut Context,
+async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
+	sender: &mut Sender,
 	state: &mut State,
 	db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
@@ -3118,16 +3131,6 @@ async fn process_wakeup<Context>(
 	metrics: &Metrics,
 	wakeups: &Wakeups,
 ) -> SubsystemResult<Vec<Action>> {
-	let mut span = state
-		.spans
-		.get(&relay_block)
-		.map(|span| span.child("process-wakeup"))
-		.unwrap_or_else(|| jaeger::Span::new(candidate_hash, "process-wakeup"))
-		.with_trace_id(candidate_hash)
-		.with_relay_parent(relay_block)
-		.with_candidate(candidate_hash)
-		.with_stage(jaeger::Stage::ApprovalChecking);
-
 	let block_entry = db.load_block_entry(&relay_block)?;
 	let candidate_entry = db.load_candidate_entry(&candidate_hash)?;
 
@@ -3140,7 +3143,7 @@ async fn process_wakeup<Context>(
 	let ExtendedSessionInfo { ref session_info, ref executor_params, .. } =
 		match get_extended_session_info(
 			session_info_provider,
-			ctx.sender(),
+			sender,
 			block_entry.block_hash(),
 			block_entry.session(),
 		)
@@ -3156,7 +3159,7 @@ async fn process_wakeup<Context>(
 		Slot::from(u64::from(session_info.no_show_slots)),
 	);
 	let tranche_now = state.clock.tranche_now(state.slot_duration_millis, block_entry.slot());
-	span.add_uint_tag("tranche", tranche_now as u64);
+
 	gum::trace!(
 		target: LOG_TARGET,
 		tranche = tranche_now,
@@ -3282,7 +3285,7 @@ async fn process_wakeup<Context>(
 	// Note that this function also schedules a wakeup as necessary.
 	actions.extend(
 		advance_approval_state(
-			ctx.sender(),
+			sender,
 			state,
 			db,
 			session_info_provider,
@@ -3303,8 +3306,14 @@ async fn process_wakeup<Context>(
 // spawned. When the background work is no longer needed, the `AbortHandle` should be dropped
 // to cancel the background work and any requests it has spawned.
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
-async fn launch_approval<Context>(
-	ctx: &mut Context,
+async fn launch_approval<
+	Sender: SubsystemSender<RuntimeApiMessage>
+		+ SubsystemSender<AvailabilityRecoveryMessage>
+		+ SubsystemSender<DisputeCoordinatorMessage>
+		+ SubsystemSender<CandidateValidationMessage>,
+>(
+	mut sender: Sender,
+	spawn_handle: Arc<dyn overseer::gen::Spawner + 'static>,
 	metrics: Metrics,
 	session_index: SessionIndex,
 	candidate: CandidateReceipt,
@@ -3313,7 +3322,6 @@ async fn launch_approval<Context>(
 	backing_group: GroupIndex,
 	executor_params: ExecutorParams,
 	core_index: Option<CoreIndex>,
-	span: &jaeger::Span,
 ) -> SubsystemResult<RemoteHandle<ApprovalState>> {
 	let (a_tx, a_rx) = oneshot::channel();
 	let (code_tx, code_rx) = oneshot::channel();
@@ -3347,39 +3355,29 @@ async fn launch_approval<Context>(
 	let para_id = candidate.descriptor.para_id;
 	gum::trace!(target: LOG_TARGET, ?candidate_hash, ?para_id, "Recovering data.");
 
-	let request_validation_data_span = span
-		.child("request-validation-data")
-		.with_trace_id(candidate_hash)
-		.with_candidate(candidate_hash)
-		.with_string_tag("block-hash", format!("{:?}", block_hash))
-		.with_stage(jaeger::Stage::ApprovalChecking);
-
 	let timer = metrics.time_recover_and_approve();
-	ctx.send_message(AvailabilityRecoveryMessage::RecoverAvailableData(
-		candidate.clone(),
-		session_index,
-		Some(backing_group),
-		core_index,
-		a_tx,
-	))
-	.await;
+	sender
+		.send_message(AvailabilityRecoveryMessage::RecoverAvailableData(
+			candidate.clone(),
+			session_index,
+			Some(backing_group),
+			core_index,
+			a_tx,
+		))
+		.await;
 
-	let request_validation_result_span = span
-		.child("request-validation-result")
-		.with_trace_id(candidate_hash)
-		.with_candidate(candidate_hash)
-		.with_string_tag("block-hash", format!("{:?}", block_hash))
-		.with_stage(jaeger::Stage::ApprovalChecking);
-
-	ctx.send_message(RuntimeApiMessage::Request(
-		block_hash,
-		RuntimeApiRequest::ValidationCodeByHash(candidate.descriptor.validation_code_hash, code_tx),
-	))
-	.await;
+	sender
+		.send_message(RuntimeApiMessage::Request(
+			block_hash,
+			RuntimeApiRequest::ValidationCodeByHash(
+				candidate.descriptor.validation_code_hash,
+				code_tx,
+			),
+		))
+		.await;
 
 	let candidate = candidate.clone();
 	let metrics_guard = StaleGuard(Some(metrics));
-	let mut sender = ctx.sender().clone();
 	let background = async move {
 		// Force the move of the timer into the background task.
 		let _timer = timer;
@@ -3431,7 +3429,6 @@ async fn launch_approval<Context>(
 				return ApprovalState::failed(validator_index, candidate_hash)
 			},
 		};
-		drop(request_validation_data_span);
 
 		let validation_code = match code_rx.await {
 			Err(_) => return ApprovalState::failed(validator_index, candidate_hash),
@@ -3503,20 +3500,24 @@ async fn launch_approval<Context>(
 					"Failed to validate candidate due to internal error",
 				);
 				metrics_guard.take().on_approval_error();
-				drop(request_validation_result_span);
 				return ApprovalState::failed(validator_index, candidate_hash)
 			},
 		}
 	};
 	let (background, remote_handle) = background.remote_handle();
-	ctx.spawn("approval-checks", Box::pin(background)).map(move |()| remote_handle)
+	spawn_handle.spawn("approval-checks", Some("approval-voting-subsystem"), Box::pin(background));
+	Ok(remote_handle)
 }
 
 // Issue and import a local approval vote. Should only be invoked after approval checks
 // have been done.
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
-async fn issue_approval<Context>(
-	ctx: &mut Context,
+async fn issue_approval<
+	Sender: SubsystemSender<RuntimeApiMessage>,
+	ADSender: SubsystemSender<ApprovalDistributionMessage>,
+>(
+	sender: &mut Sender,
+	approval_voting_sender: &mut ADSender,
 	state: &mut State,
 	db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
@@ -3526,17 +3527,6 @@ async fn issue_approval<Context>(
 	ApprovalVoteRequest { validator_index, block_hash }: ApprovalVoteRequest,
 	wakeups: &Wakeups,
 ) -> SubsystemResult<Vec<Action>> {
-	let mut issue_approval_span = state
-		.spans
-		.get(&block_hash)
-		.map(|span| span.child("issue-approval"))
-		.unwrap_or_else(|| jaeger::Span::new(block_hash, "issue-approval"))
-		.with_trace_id(candidate_hash)
-		.with_string_tag("block-hash", format!("{:?}", block_hash))
-		.with_candidate(candidate_hash)
-		.with_validator_index(validator_index)
-		.with_stage(jaeger::Stage::ApprovalChecking);
-
 	let mut block_entry = match db.load_block_entry(&block_hash)? {
 		Some(b) => b,
 		None => {
@@ -3561,7 +3551,6 @@ async fn issue_approval<Context>(
 		},
 		Some(idx) => idx,
 	};
-	issue_approval_span.add_int_tag("candidate_index", candidate_index as i64);
 
 	let candidate_hash = match block_entry.candidate(candidate_index as usize) {
 		Some((_, h)) => *h,
@@ -3595,7 +3584,7 @@ async fn issue_approval<Context>(
 
 	let session_info = match get_session_info(
 		session_info_provider,
-		ctx.sender(),
+		sender,
 		block_entry.parent_hash(),
 		block_entry.session(),
 	)
@@ -3637,7 +3626,7 @@ async fn issue_approval<Context>(
 	);
 
 	let actions = advance_approval_state(
-		ctx.sender(),
+		sender,
 		state,
 		db,
 		session_info_provider,
@@ -3654,7 +3643,8 @@ async fn issue_approval<Context>(
 		db,
 		session_info_provider,
 		state,
-		ctx,
+		sender,
+		approval_voting_sender,
 		block_hash,
 		validator_index,
 		metrics,
@@ -3673,11 +3663,15 @@ async fn issue_approval<Context>(
 
 // Create signature for the approved candidates pending signatures
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
-async fn maybe_create_signature<Context>(
+async fn maybe_create_signature<
+	Sender: SubsystemSender<RuntimeApiMessage>,
+	ADSender: SubsystemSender<ApprovalDistributionMessage>,
+>(
 	db: &mut OverlayedBackend<'_, impl Backend>,
 	session_info_provider: &mut RuntimeInfo,
 	state: &State,
-	ctx: &mut Context,
+	sender: &mut Sender,
+	approval_voting_sender: &mut ADSender,
 	block_hash: Hash,
 	validator_index: ValidatorIndex,
 	metrics: &Metrics,
@@ -3696,7 +3690,7 @@ async fn maybe_create_signature<Context>(
 	};
 
 	let approval_params = state
-		.get_approval_voting_params_or_default(ctx, block_entry.session(), block_hash)
+		.get_approval_voting_params_or_default(sender, block_entry.session(), block_hash)
 		.await
 		.unwrap_or_default();
 
@@ -3716,7 +3710,7 @@ async fn maybe_create_signature<Context>(
 
 	let session_info = match get_session_info(
 		session_info_provider,
-		ctx.sender(),
+		sender,
 		block_entry.parent_hash(),
 		block_entry.session(),
 	)
@@ -3797,7 +3791,7 @@ async fn maybe_create_signature<Context>(
 
 	metrics.on_approval_produced();
 
-	ctx.send_unbounded_message(ApprovalDistributionMessage::DistributeApproval(
+	approval_voting_sender.send_unbounded_message(ApprovalDistributionMessage::DistributeApproval(
 		IndirectSignedApprovalVoteV2 {
 			block_hash: block_entry.block_hash(),
 			candidate_indices: candidates_indices,
@@ -3838,7 +3832,7 @@ fn issue_local_invalid_statement<Sender>(
 	candidate_hash: CandidateHash,
 	candidate: CandidateReceipt,
 ) where
-	Sender: overseer::ApprovalVotingSenderTrait,
+	Sender: SubsystemSender<DisputeCoordinatorMessage>,
 {
 	// We need to send an unbounded message here to break a cycle:
 	// DisputeCoordinatorMessage::IssueLocalStatement ->

@@ -49,7 +49,6 @@ cumulus-primitives-proof-size-hostfunction = { workspace = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
-lazy_static = { workspace = true }
 trie-standardmap = { workspace = true }
 rand = { workspace = true, default-features = true }
 futures = { workspace = true }
@@ -122,3 +121,5 @@ try-runtime = [
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+
+experimental-ump-signals = []

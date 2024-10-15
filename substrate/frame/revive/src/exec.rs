@@ -25,7 +25,7 @@ use crate::{
 	storage::{self, meter::Diff, WriteOutcome},
 	transient_storage::TransientStorage,
 	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DebugBuffer, Error,
-	Event, Pallet as Contracts, LOG_TARGET,
+	Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -49,7 +49,7 @@ use frame_system::{
 use sp_core::{
 	ecdsa::Public as ECDSAPublic,
 	sr25519::{Public as SR25519Public, Signature as SR25519Signature},
-	ConstU32, Get, H160, H256,
+	ConstU32, Get, H160, H256, U256,
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
@@ -61,11 +61,10 @@ pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
 pub type ExecResult = Result<ExecReturnValue, ExecError>;
 
-/// A type that represents a topic of an event. At the moment a hash is used.
-pub type TopicOf<T> = <T as frame_system::Config>::Hash;
-
 /// Type for variable sized storage key. Used for transparent hashing.
 type VarSizedKey = BoundedVec<u8, ConstU32<{ limits::STORAGE_KEY_BYTES }>>;
+
+const FRAME_ALWAYS_EXISTS_ON_INSTANTIATE: &str = "The return value is only `None` if no contract exists at the specified address. This cannot happen on instantiate or delegate; qed";
 
 /// Combined key type for both fixed and variable sized storage keys.
 pub enum Key {
@@ -184,22 +183,18 @@ pub trait Ext: sealing::Sealed {
 	fn call(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<Self::T>,
+		deposit_limit: U256,
 		to: &H160,
-		value: BalanceOf<Self::T>,
+		value: U256,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
 		read_only: bool,
-	) -> Result<ExecReturnValue, ExecError>;
+	) -> Result<(), ExecError>;
 
 	/// Execute code in the current frame.
 	///
 	/// Returns the code size of the called contract.
-	fn delegate_call(
-		&mut self,
-		code: H256,
-		input_data: Vec<u8>,
-	) -> Result<ExecReturnValue, ExecError>;
+	fn delegate_call(&mut self, code: H256, input_data: Vec<u8>) -> Result<(), ExecError>;
 
 	/// Instantiate a contract from the given code.
 	///
@@ -209,12 +204,12 @@ pub trait Ext: sealing::Sealed {
 	fn instantiate(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<Self::T>,
+		deposit_limit: U256,
 		code: H256,
-		value: BalanceOf<Self::T>,
+		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-	) -> Result<(H160, ExecReturnValue), ExecError>;
+	) -> Result<H160, ExecError>;
 
 	/// Transfer all funds to `beneficiary` and delete the contract.
 	///
@@ -226,7 +221,7 @@ pub trait Ext: sealing::Sealed {
 	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult;
 
 	/// Transfer some amount of funds into the specified account.
-	fn transfer(&mut self, to: &H160, value: BalanceOf<Self::T>) -> DispatchResult;
+	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult;
 
 	/// Returns the storage entry of the executing account by the given `key`.
 	///
@@ -301,33 +296,50 @@ pub trait Ext: sealing::Sealed {
 		<Self::T as Config>::AddressMapper::to_address(self.account_id())
 	}
 
+	/// Returns the immutable data of the current contract.
+	///
+	/// Returns `Err(InvalidImmutableAccess)` if called from a constructor.
+	fn get_immutable_data(&mut self) -> Result<ImmutableData, DispatchError>;
+
+	/// Set the the immutable data of the current contract.
+	///
+	/// Returns `Err(InvalidImmutableAccess)` if not called from a constructor.
+	///
+	/// Note: Requires &mut self to access the contract info.
+	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError>;
+
 	/// Returns the balance of the current contract.
 	///
 	/// The `value_transferred` is already added.
-	fn balance(&self) -> BalanceOf<Self::T>;
+	fn balance(&self) -> U256;
+
+	/// Returns the balance of the supplied account.
+	///
+	/// The `value_transferred` is already added.
+	fn balance_of(&self, address: &H160) -> U256;
 
 	/// Returns the value transferred along with this call.
-	fn value_transferred(&self) -> BalanceOf<Self::T>;
+	fn value_transferred(&self) -> U256;
 
-	/// Returns a reference to the timestamp of the current block
-	fn now(&self) -> &MomentOf<Self::T>;
+	/// Returns the timestamp of the current block
+	fn now(&self) -> U256;
 
 	/// Returns the minimum balance that is required for creating an account.
-	fn minimum_balance(&self) -> BalanceOf<Self::T>;
+	fn minimum_balance(&self) -> U256;
 
 	/// Deposit an event with the given topics.
 	///
 	/// There should not be any duplicates in `topics`.
-	fn deposit_event(&mut self, topics: Vec<TopicOf<Self::T>>, data: Vec<u8>);
+	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>);
 
 	/// Returns the current block number.
-	fn block_number(&self) -> BlockNumberFor<Self::T>;
+	fn block_number(&self) -> U256;
 
 	/// Returns the maximum allowed size of a storage item.
 	fn max_value_size(&self) -> u32;
 
 	/// Returns the price for the specified amount of weight.
-	fn get_weight_price(&self, weight: Weight) -> BalanceOf<Self::T>;
+	fn get_weight_price(&self, weight: Weight) -> U256;
 
 	/// Get an immutable reference to the nested gas meter.
 	fn gas_meter(&self) -> &GasMeter<Self::T>;
@@ -373,7 +385,7 @@ pub trait Ext: sealing::Sealed {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn transient_storage(&mut self) -> &mut TransientStorage<Self::T>;
 
-	/// Sets new code hash for existing contract.
+	/// Sets new code hash and immutable data for an existing contract.
 	fn set_code_hash(&mut self, hash: H256) -> DispatchResult;
 
 	/// Returns the number of times the specified contract exists on the call stack. Delegated calls
@@ -423,6 +435,12 @@ pub trait Ext: sealing::Sealed {
 
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
+
+	/// Returns an immutable reference to the output of the last executed call frame.
+	fn last_frame_output(&self) -> &ExecReturnValue;
+
+	/// Returns a mutable reference to the output of the last executed call frame.
+	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -543,6 +561,8 @@ struct Frame<T: Config> {
 	read_only: bool,
 	/// The caller of the currently executing frame which was spawned by `delegate_call`.
 	delegate_caller: Option<Origin<T>>,
+	/// The output of the last executed call frame.
+	last_frame_output: ExecReturnValue,
 }
 
 /// Used in a delegate call frame arguments in order to override the executable and caller.
@@ -592,26 +612,6 @@ enum CachedContract<T: Config> {
 	/// In this case a reload is neither allowed nor possible. Please note that recursive
 	/// calls cannot remove a contract as this is checked and denied.
 	Terminated,
-}
-
-impl<T: Config> CachedContract<T> {
-	/// Return `Some(ContractInfo)` if the contract is in cached state. `None` otherwise.
-	fn into_contract(self) -> Option<ContractInfo<T>> {
-		if let CachedContract::Cached(contract) = self {
-			Some(contract)
-		} else {
-			None
-		}
-	}
-
-	/// Return `Some(&mut ContractInfo)` if the contract is in cached state. `None` otherwise.
-	fn as_contract(&mut self) -> Option<&mut ContractInfo<T>> {
-		if let CachedContract::Cached(contract) = self {
-			Some(contract)
-		} else {
-			None
-		}
-	}
 }
 
 impl<T: Config> Frame<T> {
@@ -671,6 +671,24 @@ macro_rules! top_frame_mut {
 }
 
 impl<T: Config> CachedContract<T> {
+	/// Return `Some(ContractInfo)` if the contract is in cached state. `None` otherwise.
+	fn into_contract(self) -> Option<ContractInfo<T>> {
+		if let CachedContract::Cached(contract) = self {
+			Some(contract)
+		} else {
+			None
+		}
+	}
+
+	/// Return `Some(&mut ContractInfo)` if the contract is in cached state. `None` otherwise.
+	fn as_contract(&mut self) -> Option<&mut ContractInfo<T>> {
+		if let CachedContract::Cached(contract) = self {
+			Some(contract)
+		} else {
+			None
+		}
+	}
+
 	/// Load the `contract_info` from storage if necessary.
 	fn load(&mut self, account_id: &T::AccountId) {
 		if let CachedContract::Invalidated = self {
@@ -697,6 +715,8 @@ impl<T: Config> CachedContract<T> {
 impl<'a, T, E> Stack<'a, T, E>
 where
 	T: Config,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
 	E: Executable<T>,
 {
 	/// Create and run a new call stack by calling into `dest`.
@@ -717,20 +737,20 @@ where
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
 		debug_message: Option<&'a mut DebugBuffer>,
-	) -> Result<ExecReturnValue, ExecError> {
-		let (mut stack, executable) = Self::new(
-			FrameArgs::Call {
-				dest: T::AddressMapper::to_account_id(&dest),
-				cached_info: None,
-				delegated_call: None,
-			},
-			origin,
+	) -> ExecResult {
+		let dest = T::AddressMapper::to_account_id(&dest);
+		if let Some((mut stack, executable)) = Self::new(
+			FrameArgs::Call { dest: dest.clone(), cached_info: None, delegated_call: None },
+			origin.clone(),
 			gas_meter,
 			storage_meter,
 			value,
 			debug_message,
-		)?;
-		stack.run(executable, input_data)
+		)? {
+			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
+		} else {
+			Self::transfer_no_contract(&origin, &dest, value)
+		}
 	}
 
 	/// Create and run a new call stack by instantiating a new contract.
@@ -765,9 +785,12 @@ where
 			storage_meter,
 			value,
 			debug_message,
-		)?;
+		)?
+		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
-		stack.run(executable, input_data).map(|ret| (address, ret))
+		stack
+			.run(executable, input_data)
+			.map(|_| (address, stack.first_frame.last_frame_output))
 	}
 
 	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
@@ -792,9 +815,13 @@ where
 			debug_message,
 		)
 		.unwrap()
+		.unwrap()
 	}
 
 	/// Create a new call stack.
+	///
+	/// Returns `None` when calling a non existant contract. This is not an error case
+	/// since this will result in a value transfer.
 	fn new(
 		args: FrameArgs<T, E>,
 		origin: Origin<T>,
@@ -802,8 +829,8 @@ where
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
 		debug_message: Option<&'a mut DebugBuffer>,
-	) -> Result<(Self, E), ExecError> {
-		let (first_frame, executable) = Self::new_frame(
+	) -> Result<Option<(Self, E)>, ExecError> {
+		let Some((first_frame, executable)) = Self::new_frame(
 			args,
 			value,
 			gas_meter,
@@ -811,7 +838,10 @@ where
 			storage_meter,
 			BalanceOf::<T>::zero(),
 			false,
-		)?;
+		)?
+		else {
+			return Ok(None);
+		};
 
 		let stack = Self {
 			origin,
@@ -826,7 +856,7 @@ where
 			_phantom: Default::default(),
 		};
 
-		Ok((stack, executable))
+		Ok(Some((stack, executable)))
 	}
 
 	/// Construct a new frame.
@@ -841,15 +871,20 @@ where
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
-	) -> Result<(Frame<T>, E), ExecError> {
+	) -> Result<Option<(Frame<T>, E)>, ExecError> {
 		let (account_id, contract_info, executable, delegate_caller, entry_point) = match frame_args
 		{
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
 				let contract = if let Some(contract) = cached_info {
 					contract
 				} else {
-					<ContractInfoOf<T>>::get(T::AddressMapper::to_address(&dest))
-						.ok_or(<Error<T>>::ContractNotFound)?
+					if let Some(contract) =
+						<ContractInfoOf<T>>::get(T::AddressMapper::to_address(&dest))
+					{
+						contract
+					} else {
+						return Ok(None);
+					}
 				};
 
 				let (executable, delegate_caller) =
@@ -894,9 +929,10 @@ where
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
 			read_only,
+			last_frame_output: Default::default(),
 		};
 
-		Ok((frame, executable))
+		Ok(Some((frame, executable)))
 	}
 
 	/// Create a subsequent nested frame.
@@ -907,7 +943,7 @@ where
 		gas_limit: Weight,
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
-	) -> Result<E, ExecError> {
+	) -> Result<Option<E>, ExecError> {
 		if self.frames.len() as u32 == limits::CALL_STACK_DEPTH {
 			return Err(Error::<T>::MaxCallDepthReached.into());
 		}
@@ -929,7 +965,7 @@ where
 		let frame = top_frame_mut!(self);
 		let nested_gas = &mut frame.nested_gas;
 		let nested_storage = &mut frame.nested_storage;
-		let (frame, executable) = Self::new_frame(
+		if let Some((frame, executable)) = Self::new_frame(
 			frame_args,
 			value_transferred,
 			nested_gas,
@@ -937,30 +973,47 @@ where
 			nested_storage,
 			deposit_limit,
 			read_only,
-		)?;
-		self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
-		Ok(executable)
+		)? {
+			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
+			Ok(Some(executable))
+		} else {
+			Ok(None)
+		}
 	}
 
 	/// Run the current (top) frame.
 	///
 	/// This can be either a call or an instantiate.
-	fn run(&mut self, executable: E, input_data: Vec<u8>) -> Result<ExecReturnValue, ExecError> {
+	fn run(&mut self, executable: E, input_data: Vec<u8>) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
 		let delegated_code_hash =
 			if frame.delegate_caller.is_some() { Some(*executable.code_hash()) } else { None };
 
+		// The output of the caller frame will be replaced by the output of this run.
+		// It is also not accessible from nested frames.
+		// Hence we drop it early to save the memory.
+		let frames_len = self.frames.len();
+		if let Some(caller_frame) = match frames_len {
+			0 => None,
+			1 => Some(&mut self.first_frame.last_frame_output),
+			_ => self.frames.get_mut(frames_len - 2).map(|frame| &mut frame.last_frame_output),
+		} {
+			*caller_frame = Default::default();
+		}
+
 		self.transient_storage.start_transaction();
 
 		let do_transaction = || {
+			let caller = self.caller();
+			let frame = top_frame_mut!(self);
+
 			// We need to charge the storage deposit before the initial transfer so that
 			// it can create the account in case the initial transfer is < ed.
 			if entry_point == ExportedFunction::Constructor {
 				// Root origin can't be used to instantiate a contract, so it is safe to assume that
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
-				let frame = top_frame_mut!(self);
 				frame.nested_storage.charge_instantiate(
 					origin,
 					&frame.account_id,
@@ -969,11 +1022,15 @@ where
 				)?;
 				// Needs to be incremented before calling into the code so that it is visible
 				// in case of recursion.
-				<System<T>>::inc_account_nonce(self.caller().account_id()?);
+				<System<T>>::inc_account_nonce(caller.account_id()?);
 			}
 
 			// Every non delegate call or instantiate also optionally transfers the balance.
-			self.initial_transfer()?;
+			// If it is a delegate call, then we've already transferred tokens in the
+			// last non-delegate frame.
+			if delegated_code_hash.is_none() {
+				Self::transfer_from_origin(&caller, &frame.account_id, frame.value_transferred)?;
+			}
 
 			let contract_address = T::AddressMapper::to_address(&top_frame!(self).account_id);
 
@@ -1083,7 +1140,9 @@ where
 		}
 
 		self.pop_frame(success);
-		output
+		output.map(|output| {
+			self.top_frame_mut().last_frame_output = output;
+		})
 	}
 
 	/// Remove the current (top) frame from the stack.
@@ -1166,40 +1225,40 @@ where
 	}
 
 	/// Transfer some funds from `from` to `to`.
-	fn transfer(
-		preservation: Preservation,
-		from: &T::AccountId,
-		to: &T::AccountId,
-		value: BalanceOf<T>,
-	) -> DispatchResult {
-		if !value.is_zero() && from != to {
-			T::Currency::transfer(from, to, value, preservation)
+	fn transfer(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) -> DispatchResult {
+		// this avoids events to be emitted for zero balance transfers
+		if !value.is_zero() {
+			T::Currency::transfer(from, to, value, Preservation::Preserve)
 				.map_err(|_| Error::<T>::TransferFailed)?;
 		}
 		Ok(())
 	}
 
-	// The transfer as performed by a call or instantiate.
-	fn initial_transfer(&self) -> DispatchResult {
-		let frame = self.top_frame();
-
-		// If it is a delegate call, then we've already transferred tokens in the
-		// last non-delegate frame.
-		if frame.delegate_caller.is_some() {
-			return Ok(());
-		}
-
-		let value = frame.value_transferred;
-
-		// Get the account id from the caller.
-		// If the caller is root there is no account to transfer from, and therefore we can't take
-		// any `value` other than 0.
-		let caller = match self.caller() {
+	/// Same as `transfer` but `from` is an `Origin`.
+	fn transfer_from_origin(
+		from: &Origin<T>,
+		to: &T::AccountId,
+		value: BalanceOf<T>,
+	) -> DispatchResult {
+		// If the from address is root there is no account to transfer from, and therefore we can't
+		// take any `value` other than 0.
+		let from = match from {
 			Origin::Signed(caller) => caller,
 			Origin::Root if value.is_zero() => return Ok(()),
 			Origin::Root => return DispatchError::RootNotAllowed.into(),
 		};
-		Self::transfer(Preservation::Preserve, &caller, &frame.account_id, value)
+		Self::transfer(from, to, value)
+	}
+
+	/// Same as `transfer_from_origin` but creates an `ExecReturnValue` on success.
+	fn transfer_no_contract(
+		from: &Origin<T>,
+		to: &T::AccountId,
+		value: BalanceOf<T>,
+	) -> ExecResult {
+		Self::transfer_from_origin(from, to, value)
+			.map(|_| ExecReturnValue::default())
+			.map_err(Into::into)
 	}
 
 	/// Reference to the current (top) frame.
@@ -1234,31 +1293,46 @@ where
 	fn allows_reentry(&self, id: &T::AccountId) -> bool {
 		!self.frames().any(|f| &f.account_id == id && !f.allows_reentry)
 	}
+
+	/// Returns the *free* balance of the supplied AccountId.
+	fn account_balance(&self, who: &T::AccountId) -> U256 {
+		T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite).into()
+	}
+
+	/// Certain APIs, e.g. `{set,get}_immutable_data` behave differently depending
+	/// on the configured entry point. Thus, we allow setting the export manually.
+	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
+	pub(crate) fn override_export(&mut self, export: ExportedFunction) {
+		self.top_frame_mut().entry_point = export;
+	}
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
 where
 	T: Config,
 	E: Executable<T>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
 {
 	type T = T;
 
 	fn call(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<T>,
+		deposit_limit: U256,
 		dest: &H160,
-		value: BalanceOf<T>,
+		value: U256,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
 		read_only: bool,
-	) -> Result<ExecReturnValue, ExecError> {
+	) -> Result<(), ExecError> {
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
 		self.top_frame_mut().allows_reentry = allows_reentry;
 
 		let dest = T::AddressMapper::to_account_id(dest);
+		let value = value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?;
 
 		let try_call = || {
 			if !self.allows_reentry(&dest) {
@@ -1275,15 +1349,23 @@ where
 					CachedContract::Cached(contract) => Some(contract.clone()),
 					_ => None,
 				});
-			let executable = self.push_frame(
-				FrameArgs::Call { dest, cached_info, delegated_call: None },
+			if let Some(executable) = self.push_frame(
+				FrameArgs::Call { dest: dest.clone(), cached_info, delegated_call: None },
 				value,
 				gas_limit,
-				deposit_limit,
+				deposit_limit.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 				// Enable read-only access if requested; cannot disable it if already set.
 				read_only || self.is_read_only(),
-			)?;
-			self.run(executable, input_data)
+			)? {
+				self.run(executable, input_data)
+			} else {
+				Self::transfer_no_contract(
+					&Origin::from_account_id(self.account_id().clone()),
+					&dest,
+					value,
+				)?;
+				Ok(())
+			}
 		};
 
 		// We need to make sure to reset `allows_reentry` even on failure.
@@ -1295,11 +1377,7 @@ where
 		result
 	}
 
-	fn delegate_call(
-		&mut self,
-		code_hash: H256,
-		input_data: Vec<u8>,
-	) -> Result<ExecReturnValue, ExecError> {
+	fn delegate_call(&mut self, code_hash: H256, input_data: Vec<u8>) -> Result<(), ExecError> {
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let top_frame = self.top_frame_mut();
 		let contract_info = top_frame.contract_info().clone();
@@ -1316,18 +1394,18 @@ where
 			BalanceOf::<T>::zero(),
 			self.is_read_only(),
 		)?;
-		self.run(executable, input_data)
+		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data)
 	}
 
 	fn instantiate(
 		&mut self,
 		gas_limit: Weight,
-		deposit_limit: BalanceOf<Self::T>,
+		deposit_limit: U256,
 		code_hash: H256,
-		value: BalanceOf<T>,
+		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-	) -> Result<(H160, ExecReturnValue), ExecError> {
+	) -> Result<H160, ExecError> {
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let sender = &self.top_frame().account_id;
 		let executable = self.push_frame(
@@ -1337,13 +1415,14 @@ where
 				salt,
 				input_data: input_data.as_ref(),
 			},
-			value,
+			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			gas_limit,
-			deposit_limit,
+			deposit_limit.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			self.is_read_only(),
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
-		self.run(executable, input_data).map(|ret| (address, ret))
+		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data)
+			.map(|_| address)
 	}
 
 	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult {
@@ -1358,6 +1437,7 @@ where
 		info.queue_trie_for_deletion();
 		let account_address = T::AddressMapper::to_address(&frame.account_id);
 		ContractInfoOf::<T>::remove(&account_address);
+		ImmutableDataOf::<T>::remove(&account_address);
 		Self::decrement_refcount(info.code_hash);
 
 		for (code_hash, deposit) in info.delegate_dependencies() {
@@ -1374,12 +1454,11 @@ where
 		Ok(())
 	}
 
-	fn transfer(&mut self, to: &H160, value: BalanceOf<T>) -> DispatchResult {
+	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult {
 		Self::transfer(
-			Preservation::Preserve,
 			&self.top_frame().account_id,
 			&T::AddressMapper::to_account_id(to),
-			value,
+			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 		)
 	}
 
@@ -1462,46 +1541,68 @@ where
 		self.caller_is_origin() && self.origin == Origin::Root
 	}
 
-	fn balance(&self) -> BalanceOf<T> {
-		T::Currency::reducible_balance(
-			&self.top_frame().account_id,
-			Preservation::Preserve,
-			Fortitude::Polite,
-		)
+	fn get_immutable_data(&mut self) -> Result<ImmutableData, DispatchError> {
+		if self.top_frame().entry_point == ExportedFunction::Constructor {
+			return Err(Error::<T>::InvalidImmutableAccess.into());
+		}
+
+		let address = T::AddressMapper::to_address(self.account_id());
+		Ok(<ImmutableDataOf<T>>::get(address).ok_or_else(|| Error::<T>::InvalidImmutableAccess)?)
 	}
 
-	fn value_transferred(&self) -> BalanceOf<T> {
-		self.top_frame().value_transferred
+	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError> {
+		if self.top_frame().entry_point == ExportedFunction::Call {
+			return Err(Error::<T>::InvalidImmutableAccess.into());
+		}
+
+		let account_id = self.account_id().clone();
+		let len = data.len() as u32;
+		let amount = self.top_frame_mut().contract_info().set_immutable_data_len(len)?;
+		self.top_frame_mut().nested_storage.charge_deposit(account_id.clone(), amount);
+
+		<ImmutableDataOf<T>>::insert(T::AddressMapper::to_address(&account_id), &data);
+
+		Ok(())
 	}
 
-	fn now(&self) -> &MomentOf<T> {
-		&self.timestamp
+	fn balance(&self) -> U256 {
+		self.account_balance(&self.top_frame().account_id)
 	}
 
-	fn minimum_balance(&self) -> BalanceOf<T> {
-		T::Currency::minimum_balance()
+	fn balance_of(&self, address: &H160) -> U256 {
+		self.account_balance(&<Self::T as Config>::AddressMapper::to_account_id(address))
 	}
 
-	fn deposit_event(&mut self, topics: Vec<T::Hash>, data: Vec<u8>) {
-		Contracts::<Self::T>::deposit_indexed_event(
+	fn value_transferred(&self) -> U256 {
+		self.top_frame().value_transferred.into()
+	}
+
+	fn now(&self) -> U256 {
+		self.timestamp.into()
+	}
+
+	fn minimum_balance(&self) -> U256 {
+		T::Currency::minimum_balance().into()
+	}
+
+	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
+		Contracts::<Self::T>::deposit_event(Event::ContractEmitted {
+			contract: T::AddressMapper::to_address(self.account_id()),
+			data,
 			topics,
-			Event::ContractEmitted {
-				contract: T::AddressMapper::to_address(self.account_id()),
-				data,
-			},
-		);
+		});
 	}
 
-	fn block_number(&self) -> BlockNumberFor<T> {
-		self.block_number
+	fn block_number(&self) -> U256 {
+		self.block_number.into()
 	}
 
 	fn max_value_size(&self) -> u32 {
 		limits::PAYLOAD_BYTES
 	}
 
-	fn get_weight_price(&self, weight: Weight) -> BalanceOf<Self::T> {
-		T::WeightPrice::convert(weight)
+	fn get_weight_price(&self, weight: Weight) -> U256 {
+		T::WeightPrice::convert(weight).into()
 	}
 
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
@@ -1570,6 +1671,21 @@ where
 		&mut self.transient_storage
 	}
 
+	/// TODO: This should be changed to run the constructor of the supplied `hash`.
+	///
+	/// Because the immutable data is attached to a contract and not a code,
+	/// we need to update the immutable data too.
+	///
+	/// Otherwise we open a massive footgun:
+	/// If the immutables changed in the new code, the contract will brick.
+	///
+	/// A possible implementation strategy is to add a flag to `FrameArgs::Instantiate`,
+	/// so that `fn run()` will roll back any changes if this flag is set.
+	///
+	/// After running the constructor, the new immutable data is already stored in
+	/// `self.immutable_data` at the address of the (reverted) contract instantiation.
+	///
+	/// The `set_code_hash` contract API stays disabled until this change is implemented.
 	fn set_code_hash(&mut self, hash: H256) -> DispatchResult {
 		let frame = top_frame_mut!(self);
 
@@ -1650,6 +1766,14 @@ where
 
 	fn is_read_only(&self) -> bool {
 		self.top_frame().read_only
+	}
+
+	fn last_frame_output(&self) -> &ExecReturnValue {
+		&self.top_frame().last_frame_output
+	}
+
+	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
+		&mut self.top_frame_mut().last_frame_output
 	}
 }
 
@@ -1852,7 +1976,7 @@ mod tests {
 			set_balance(&ALICE, 100);
 			set_balance(&BOB, 0);
 
-			MockStack::transfer(Preservation::Preserve, &ALICE, &BOB, 55).unwrap();
+			MockStack::transfer(&ALICE, &BOB, 55).unwrap();
 
 			assert_eq!(get_balance(&ALICE), 45);
 			assert_eq!(get_balance(&BOB), 55);
@@ -1864,7 +1988,7 @@ mod tests {
 		let value = 55;
 
 		let success_ch = MockLoader::insert(Call, move |ctx, _| {
-			assert_eq!(ctx.ext.value_transferred(), value);
+			assert_eq!(ctx.ext.value_transferred(), U256::from(value));
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
 
@@ -1896,12 +2020,12 @@ mod tests {
 		let value = 35;
 
 		let success_ch = MockLoader::insert(Call, move |ctx, _| {
-			assert_eq!(ctx.ext.value_transferred(), value);
+			assert_eq!(ctx.ext.value_transferred(), U256::from(value));
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
 
 		let delegate_ch = MockLoader::insert(Call, move |ctx, _| {
-			assert_eq!(ctx.ext.value_transferred(), value);
+			assert_eq!(ctx.ext.value_transferred(), U256::from(value));
 			let _ = ctx.ext.delegate_call(success_ch, Vec::new())?;
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
@@ -1972,7 +2096,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			set_balance(&origin, 0);
 
-			let result = MockStack::transfer(Preservation::Preserve, &origin, &dest, 100);
+			let result = MockStack::transfer(&origin, &dest, 100);
 
 			assert_eq!(result, Err(Error::<Test>::TransferFailed.into()));
 			assert_eq!(get_balance(&origin), 0);
@@ -2112,9 +2236,9 @@ mod tests {
 			// Try to call into yourself.
 			let r = ctx.ext.call(
 				Weight::zero(),
-				BalanceOf::<Test>::zero(),
+				U256::zero(),
 				&BOB_ADDR,
-				0,
+				U256::zero(),
 				vec![],
 				true,
 				false,
@@ -2175,9 +2299,9 @@ mod tests {
 			assert_matches!(
 				ctx.ext.call(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					U256::zero(),
 					&CHARLIE_ADDR,
-					0,
+					U256::zero(),
 					vec![],
 					true,
 					false
@@ -2314,15 +2438,17 @@ mod tests {
 			// ALICE is the origin of the call stack
 			assert!(ctx.ext.caller_is_origin());
 			// BOB calls CHARLIE
-			ctx.ext.call(
-				Weight::zero(),
-				BalanceOf::<Test>::zero(),
-				&CHARLIE_ADDR,
-				0,
-				vec![],
-				true,
-				false,
-			)
+			ctx.ext
+				.call(
+					Weight::zero(),
+					U256::zero(),
+					&CHARLIE_ADDR,
+					U256::zero(),
+					vec![],
+					true,
+					false,
+				)
+				.map(|_| ctx.ext.last_frame_output().clone())
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2408,15 +2534,17 @@ mod tests {
 			// root is the origin of the call stack.
 			assert!(ctx.ext.caller_is_root());
 			// BOB calls CHARLIE.
-			ctx.ext.call(
-				Weight::zero(),
-				BalanceOf::<Test>::zero(),
-				&CHARLIE_ADDR,
-				0,
-				vec![],
-				true,
-				false,
-			)
+			ctx.ext
+				.call(
+					Weight::zero(),
+					U256::zero(),
+					&CHARLIE_ADDR,
+					U256::zero(),
+					vec![],
+					true,
+					false,
+				)
+				.map(|_| ctx.ext.last_frame_output().clone())
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -2448,9 +2576,9 @@ mod tests {
 			assert_matches!(
 				ctx.ext.call(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					U256::zero(),
 					&CHARLIE_ADDR,
-					0,
+					U256::zero(),
 					vec![],
 					true,
 					false
@@ -2621,12 +2749,13 @@ mod tests {
 					.ext
 					.instantiate(
 						Weight::zero(),
-						BalanceOf::<Test>::zero(),
+						U256::zero(),
 						dummy_ch,
-						<Test as Config>::Currency::minimum_balance(),
+						<Test as Config>::Currency::minimum_balance().into(),
 						vec![],
 						Some(&[48; 32]),
 					)
+					.map(|address| (address, ctx.ext.last_frame_output().clone()))
 					.unwrap();
 
 				*instantiated_contract_address.borrow_mut() = Some(address);
@@ -2699,9 +2828,9 @@ mod tests {
 				assert_matches!(
 					ctx.ext.instantiate(
 						Weight::zero(),
-						BalanceOf::<Test>::zero(),
+						U256::zero(),
 						dummy_ch,
-						<Test as Config>::Currency::minimum_balance(),
+						<Test as Config>::Currency::minimum_balance().into(),
 						vec![],
 						Some(&[0; 32]),
 					),
@@ -2802,15 +2931,17 @@ mod tests {
 				assert_eq!(info.storage_byte_deposit, 0);
 				info.storage_byte_deposit = 42;
 				assert_eq!(
-					ctx.ext.call(
-						Weight::zero(),
-						BalanceOf::<Test>::zero(),
-						&CHARLIE_ADDR,
-						0,
-						vec![],
-						true,
-						false
-					),
+					ctx.ext
+						.call(
+							Weight::zero(),
+							U256::zero(),
+							&CHARLIE_ADDR,
+							U256::zero(),
+							vec![],
+							true,
+							false
+						)
+						.map(|_| ctx.ext.last_frame_output().clone()),
 					exec_trapped()
 				);
 				assert_eq!(ctx.ext.contract_info().storage_byte_deposit, 42);
@@ -2820,15 +2951,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(
-					Weight::zero(),
-					BalanceOf::<Test>::zero(),
-					&BOB_ADDR,
-					0,
-					vec![99],
-					true,
-					false
-				)
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
 				.is_ok());
 			exec_trapped()
 		});
@@ -2854,15 +2977,35 @@ mod tests {
 	}
 
 	#[test]
-	fn recursive_call_during_constructor_fails() {
+	fn recursive_call_during_constructor_is_balance_transfer() {
 		let code = MockLoader::insert(Constructor, |ctx, _| {
 			let account_id = ctx.ext.account_id().clone();
 			let addr = <Test as Config>::AddressMapper::to_address(&account_id);
+			let balance = ctx.ext.balance();
 
-			assert_matches!(
-						   ctx.ext.call(Weight::zero(), BalanceOf::<Test>::zero(), &addr, 0, vec![],
-			true, false), 				Err(ExecError{error, ..}) if error == <Error<Test>>::ContractNotFound.into()
-					   );
+			// Calling ourselves during the constructor will trigger a balance
+			// transfer since no contract exist yet.
+			assert_ok!(ctx.ext.call(
+				Weight::zero(),
+				U256::zero(),
+				&addr,
+				(balance - 1).into(),
+				vec![],
+				true,
+				false
+			));
+
+			// Should also work with call data set as it is ignored when no
+			// contract is deployed.
+			assert_ok!(ctx.ext.call(
+				Weight::zero(),
+				U256::zero(),
+				&addr,
+				1u32.into(),
+				vec![1, 2, 3, 4],
+				true,
+				false
+			));
 			exec_success()
 		});
 
@@ -2885,12 +3028,57 @@ mod tests {
 					executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					min_balance,
+					10,
 					vec![],
 					Some(&[0; 32]),
 					None,
 				);
 				assert_matches!(result, Ok(_));
+			});
+	}
+
+	#[test]
+	fn cannot_send_more_balance_than_available_to_self() {
+		let code_hash = MockLoader::insert(Call, |ctx, _| {
+			let account_id = ctx.ext.account_id().clone();
+			let addr = <Test as Config>::AddressMapper::to_address(&account_id);
+			let balance = ctx.ext.balance();
+
+			assert_err!(
+				ctx.ext.call(
+					Weight::zero(),
+					U256::zero(),
+					&addr,
+					(balance + 1).into(),
+					vec![],
+					true,
+					false
+				),
+				<Error<Test>>::TransferFailed
+			);
+			exec_success()
+		});
+
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.build()
+			.execute_with(|| {
+				let min_balance = <Test as Config>::Currency::minimum_balance();
+				let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+				set_balance(&ALICE, min_balance * 10);
+				place_contract(&BOB, code_hash);
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut gas_meter,
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap();
 			});
 	}
 
@@ -2998,7 +3186,8 @@ mod tests {
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			let dest = H160::from_slice(ctx.input_data.as_ref());
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), &dest, 0, vec![], false, false)
+				.call(Weight::zero(), U256::zero(), &dest, U256::zero(), vec![], false, false)
+				.map(|_| ctx.ext.last_frame_output().clone())
 		});
 
 		let code_charlie = MockLoader::insert(Call, |_, _| exec_success());
@@ -3041,15 +3230,17 @@ mod tests {
 	fn call_deny_reentry() {
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			if ctx.input_data[0] == 0 {
-				ctx.ext.call(
-					Weight::zero(),
-					BalanceOf::<Test>::zero(),
-					&CHARLIE_ADDR,
-					0,
-					vec![],
-					false,
-					false,
-				)
+				ctx.ext
+					.call(
+						Weight::zero(),
+						U256::zero(),
+						&CHARLIE_ADDR,
+						U256::zero(),
+						vec![],
+						false,
+						false,
+					)
+					.map(|_| ctx.ext.last_frame_output().clone())
 			} else {
 				exec_success()
 			}
@@ -3057,15 +3248,9 @@ mod tests {
 
 		// call BOB with input set to '1'
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.call(
-				Weight::zero(),
-				BalanceOf::<Test>::zero(),
-				&BOB_ADDR,
-				0,
-				vec![1],
-				true,
-				false,
-			)
+			ctx.ext
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![1], true, false)
+				.map(|_| ctx.ext.last_frame_output().clone())
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -3251,7 +3436,7 @@ mod tests {
 			ctx.ext
 				.instantiate(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					U256::zero(),
 					fail_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
@@ -3264,11 +3449,11 @@ mod tests {
 			let alice_nonce = System::account_nonce(&ALICE);
 			assert_eq!(System::account_nonce(ctx.ext.account_id()), 0);
 			assert_eq!(ctx.ext.caller().account_id().unwrap(), &ALICE);
-			let (addr, _) = ctx
+			let addr = ctx
 				.ext
 				.instantiate(
 					Weight::zero(),
-					BalanceOf::<Test>::zero(),
+					U256::zero(),
 					success_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
@@ -3284,7 +3469,7 @@ mod tests {
 
 			// a plain call should not influence the account counter
 			ctx.ext
-				.call(Weight::zero(), BalanceOf::<Test>::zero(), &addr, 0, vec![], false, false)
+				.call(Weight::zero(), U256::zero(), &addr, U256::zero(), vec![], false, false)
 				.unwrap();
 
 			assert_eq!(System::account_nonce(ALICE), alice_nonce);
@@ -3820,15 +4005,17 @@ mod tests {
 					Ok(WriteOutcome::New)
 				);
 				assert_eq!(
-					ctx.ext.call(
-						Weight::zero(),
-						BalanceOf::<Test>::zero(),
-						&CHARLIE_ADDR,
-						0,
-						vec![],
-						true,
-						false,
-					),
+					ctx.ext
+						.call(
+							Weight::zero(),
+							U256::zero(),
+							&CHARLIE_ADDR,
+							U256::zero(),
+							vec![],
+							true,
+							false,
+						)
+						.map(|_| ctx.ext.last_frame_output().clone()),
 					exec_success()
 				);
 				assert_eq!(ctx.ext.get_transient_storage(storage_key_1), Some(vec![3]));
@@ -3849,15 +4036,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(
-					Weight::zero(),
-					BalanceOf::<Test>::zero(),
-					&BOB_ADDR,
-					0,
-					vec![99],
-					true,
-					false
-				)
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
 				.is_ok());
 			// CHARLIE can not read BOB`s storage.
 			assert_eq!(ctx.ext.get_transient_storage(storage_key_1), None);
@@ -3932,15 +4111,17 @@ mod tests {
 					Ok(WriteOutcome::New)
 				);
 				assert_eq!(
-					ctx.ext.call(
-						Weight::zero(),
-						BalanceOf::<Test>::zero(),
-						&CHARLIE_ADDR,
-						0,
-						vec![],
-						true,
-						false
-					),
+					ctx.ext
+						.call(
+							Weight::zero(),
+							U256::zero(),
+							&CHARLIE_ADDR,
+							U256::zero(),
+							vec![],
+							true,
+							false
+						)
+						.map(|_| ctx.ext.last_frame_output().clone()),
 					exec_trapped()
 				);
 				assert_eq!(ctx.ext.get_transient_storage(storage_key), Some(vec![1, 2]));
@@ -3957,15 +4138,7 @@ mod tests {
 		let code_charlie = MockLoader::insert(Call, |ctx, _| {
 			assert!(ctx
 				.ext
-				.call(
-					Weight::zero(),
-					BalanceOf::<Test>::zero(),
-					&BOB_ADDR,
-					0,
-					vec![99],
-					true,
-					false
-				)
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
 				.is_ok());
 			exec_trapped()
 		});
@@ -4021,5 +4194,361 @@ mod tests {
 			);
 			assert_matches!(result, Ok(_));
 		});
+	}
+
+	#[test]
+	fn last_frame_output_works_on_instantiate() {
+		let ok_ch = MockLoader::insert(Constructor, move |_, _| {
+			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] })
+		});
+		let revert_ch = MockLoader::insert(Constructor, move |_, _| {
+			Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: vec![70] })
+		});
+		let trap_ch = MockLoader::insert(Constructor, |_, _| Err("It's a trap!".into()));
+		let instantiator_ch = MockLoader::insert(Call, {
+			move |ctx, _| {
+				let value = <Test as Config>::Currency::minimum_balance().into();
+
+				// Successful instantiation should set the output
+				let address = ctx
+					.ext
+					.instantiate(Weight::zero(), U256::zero(), ok_ch, value, vec![], None)
+					.unwrap();
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
+				);
+
+				// Plain transfers should not set the output
+				ctx.ext.transfer(&address, U256::from(1)).unwrap();
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
+				);
+
+				// Reverted instantiation should set the output
+				ctx.ext
+					.instantiate(Weight::zero(), U256::zero(), revert_ch, value, vec![], None)
+					.unwrap();
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::REVERT, data: vec![70] }
+				);
+
+				// Trapped instantiation should clear the output
+				ctx.ext
+					.instantiate(Weight::zero(), U256::zero(), trap_ch, value, vec![], None)
+					.unwrap_err();
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![] }
+				);
+
+				exec_success()
+			}
+		});
+
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.existential_deposit(15)
+			.build()
+			.execute_with(|| {
+				set_balance(&ALICE, 1000);
+				set_balance(&BOB_CONTRACT_ID, 100);
+				place_contract(&BOB, instantiator_ch);
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap()
+			});
+	}
+
+	#[test]
+	fn last_frame_output_works_on_nested_call() {
+		// Call stack: BOB -> CHARLIE(revert) -> BOB' (success)
+		let code_bob = MockLoader::insert(Call, |ctx, _| {
+			if ctx.input_data.is_empty() {
+				// We didn't do anything yet
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![] }
+				);
+
+				ctx.ext
+					.call(
+						Weight::zero(),
+						U256::zero(),
+						&CHARLIE_ADDR,
+						U256::zero(),
+						vec![],
+						true,
+						false,
+					)
+					.unwrap();
+				assert_eq!(
+					ctx.ext.last_frame_output(),
+					&ExecReturnValue { flags: ReturnFlags::REVERT, data: vec![70] }
+				);
+			}
+
+			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] })
+		});
+		let code_charlie = MockLoader::insert(Call, |ctx, _| {
+			// We didn't do anything yet
+			assert_eq!(
+				ctx.ext.last_frame_output(),
+				&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![] }
+			);
+
+			assert!(ctx
+				.ext
+				.call(Weight::zero(), U256::zero(), &BOB_ADDR, U256::zero(), vec![99], true, false)
+				.is_ok());
+			assert_eq!(
+				ctx.ext.last_frame_output(),
+				&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
+			);
+
+			Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: vec![70] })
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			place_contract(&BOB, code_bob);
+			place_contract(&CHARLIE, code_charlie);
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+
+			let result = MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut storage_meter,
+				0,
+				vec![0],
+				None,
+			);
+			assert_matches!(result, Ok(_));
+		});
+	}
+
+	#[test]
+	fn immutable_data_access_checks_work() {
+		let dummy_ch = MockLoader::insert(Constructor, move |ctx, _| {
+			// Calls can not store immutable data
+			assert_eq!(
+				ctx.ext.get_immutable_data(),
+				Err(Error::<Test>::InvalidImmutableAccess.into())
+			);
+			exec_success()
+		});
+		let instantiator_ch = MockLoader::insert(Call, {
+			move |ctx, _| {
+				let value = <Test as Config>::Currency::minimum_balance().into();
+
+				assert_eq!(
+					ctx.ext.set_immutable_data(vec![0, 1, 2, 3].try_into().unwrap()),
+					Err(Error::<Test>::InvalidImmutableAccess.into())
+				);
+
+				// Constructors can not access the immutable data
+				ctx.ext
+					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.unwrap();
+
+				exec_success()
+			}
+		});
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.existential_deposit(15)
+			.build()
+			.execute_with(|| {
+				set_balance(&ALICE, 1000);
+				set_balance(&BOB_CONTRACT_ID, 100);
+				place_contract(&BOB, instantiator_ch);
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap()
+			});
+	}
+
+	#[test]
+	fn correct_immutable_data_in_delegate_call() {
+		let charlie_ch = MockLoader::insert(Call, |ctx, _| {
+			Ok(ExecReturnValue {
+				flags: ReturnFlags::empty(),
+				data: ctx.ext.get_immutable_data()?.to_vec(),
+			})
+		});
+		let bob_ch = MockLoader::insert(Call, move |ctx, _| {
+			// In a regular call, we should witness the callee immutable data
+			assert_eq!(
+				ctx.ext
+					.call(
+						Weight::zero(),
+						U256::zero(),
+						&CHARLIE_ADDR,
+						U256::zero(),
+						vec![],
+						true,
+						false,
+					)
+					.map(|_| ctx.ext.last_frame_output().data.clone()),
+				Ok(vec![2]),
+			);
+
+			// In a delegate call, we should witness the caller immutable data
+			assert_eq!(
+				ctx.ext.delegate_call(charlie_ch, Vec::new()).map(|_| ctx
+					.ext
+					.last_frame_output()
+					.data
+					.clone()),
+				Ok(vec![1])
+			);
+
+			exec_success()
+		});
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.existential_deposit(15)
+			.build()
+			.execute_with(|| {
+				place_contract(&BOB, bob_ch);
+				place_contract(&CHARLIE, charlie_ch);
+
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+
+				// Place unique immutable data for each contract
+				<ImmutableDataOf<Test>>::insert::<_, ImmutableData>(
+					BOB_ADDR,
+					vec![1].try_into().unwrap(),
+				);
+				<ImmutableDataOf<Test>>::insert::<_, ImmutableData>(
+					CHARLIE_ADDR,
+					vec![2].try_into().unwrap(),
+				);
+
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap()
+			});
+	}
+
+	#[test]
+	fn immutable_data_set_works_only_once() {
+		let dummy_ch = MockLoader::insert(Constructor, move |ctx, _| {
+			// Calling `set_immutable_data` the first time should work
+			assert_ok!(ctx.ext.set_immutable_data(vec![0, 1, 2, 3].try_into().unwrap()));
+			// Calling `set_immutable_data` the second time should error out
+			assert_eq!(
+				ctx.ext.set_immutable_data(vec![0, 1, 2, 3].try_into().unwrap()),
+				Err(Error::<Test>::InvalidImmutableAccess.into())
+			);
+			exec_success()
+		});
+		let instantiator_ch = MockLoader::insert(Call, {
+			move |ctx, _| {
+				let value = <Test as Config>::Currency::minimum_balance().into();
+				ctx.ext
+					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.unwrap();
+
+				exec_success()
+			}
+		});
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.existential_deposit(15)
+			.build()
+			.execute_with(|| {
+				set_balance(&ALICE, 1000);
+				set_balance(&BOB_CONTRACT_ID, 100);
+				place_contract(&BOB, instantiator_ch);
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap()
+			});
+	}
+
+	#[test]
+	fn immutable_data_set_errors_with_empty_data() {
+		let dummy_ch = MockLoader::insert(Constructor, move |ctx, _| {
+			// Calling `set_immutable_data` with empty data should error out
+			assert_eq!(
+				ctx.ext.set_immutable_data(Default::default()),
+				Err(Error::<Test>::InvalidImmutableAccess.into())
+			);
+			exec_success()
+		});
+		let instantiator_ch = MockLoader::insert(Call, {
+			move |ctx, _| {
+				let value = <Test as Config>::Currency::minimum_balance().into();
+				ctx.ext
+					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.unwrap();
+
+				exec_success()
+			}
+		});
+		ExtBuilder::default()
+			.with_code_hashes(MockLoader::code_hashes())
+			.existential_deposit(15)
+			.build()
+			.execute_with(|| {
+				set_balance(&ALICE, 1000);
+				set_balance(&BOB_CONTRACT_ID, 100);
+				place_contract(&BOB, instantiator_ch);
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				)
+				.unwrap()
+			});
 	}
 }

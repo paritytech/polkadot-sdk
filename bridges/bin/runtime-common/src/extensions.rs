@@ -374,7 +374,7 @@ mod tests {
 	use super::*;
 	use crate::mock::*;
 	use bp_header_chain::StoredHeaderDataBuilder;
-	use bp_messages::{InboundLaneData, LaneId, MessageNonce, OutboundLaneData};
+	use bp_messages::{InboundLaneData, MessageNonce, OutboundLaneData};
 	use bp_parachains::{BestParaHeadHash, ParaInfo};
 	use bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};
 	use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
@@ -390,17 +390,16 @@ mod tests {
 	};
 
 	parameter_types! {
-		pub MsgProofsRewardsAccount: RewardsAccountParams = RewardsAccountParams::new(
+		pub MsgProofsRewardsAccount: RewardsAccountParams<TestLaneIdType> = RewardsAccountParams::new(
 			test_lane_id(),
 			TEST_BRIDGED_CHAIN_ID,
 			RewardsAccountOwner::ThisChain,
 		);
-		pub MsgDeliveryProofsRewardsAccount: RewardsAccountParams = RewardsAccountParams::new(
+		pub MsgDeliveryProofsRewardsAccount: RewardsAccountParams<TestLaneIdType> = RewardsAccountParams::new(
 			test_lane_id(),
 			TEST_BRIDGED_CHAIN_ID,
 			RewardsAccountOwner::BridgedChain,
 		);
-		pub TestLaneId: LaneId = test_lane_id();
 	}
 
 	pub struct MockCall {
@@ -474,10 +473,6 @@ mod tests {
 			Self::post_dispatch_called_with(!has_failed);
 			assert_eq!(to_post_dispatch, 2);
 		}
-	}
-
-	fn test_lane_id() -> LaneId {
-		LaneId::new(1, 2)
 	}
 
 	fn initial_balance_of_relayer_account_at_this_chain() -> ThisChainBalance {

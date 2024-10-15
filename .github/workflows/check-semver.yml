@@ -13,12 +13,15 @@ env:
   TOOLCHAIN: nightly-2024-06-01
 
 jobs:
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
   check-semver:
     runs-on: ubuntu-latest
+    needs: [preflight]
     container:
-      image: docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
         with:
           fetch-depth: 2
 
@@ -35,10 +38,6 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           echo "This is a backport into stable."
-
-          wget -q https://github.com/cli/cli/releases/download/v2.51.0/gh_2.51.0_linux_amd64.tar.gz -O gh.tar.gz && \
-          tar -xzf gh.tar.gz && mv gh_2.51.0_linux_amd64/bin/gh /usr/local/bin/gh && rm gh.tar.gz
-          chmod +x /usr/local/bin/gh
 
             cat > msg.txt <<EOF
             This pull request is amending an existing release. Please proceed with extreme caution,
@@ -73,7 +72,7 @@ jobs:
 
       - name: install parity-publish
         # Set the target dir to cache the build.
-        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.8.0 -q
+        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.8.0 --locked -q
 
       - name: check semver
         run: |
