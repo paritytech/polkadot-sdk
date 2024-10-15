@@ -1997,6 +1997,7 @@ dependencies = [
  "pallet-bridge-messages",
  "pallet-message-queue",
  "pallet-xcm",
+ "pallet-xcm-bridge-hub",
  "parachains-common",
  "parity-scale-codec",
  "rococo-system-emulated-network",
@@ -2012,6 +2013,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "testnet-parachains-constants",
+ "xcm-runtime-apis",
 ]
 
 [[package]]
@@ -2179,11 +2181,14 @@ dependencies = [
  "pallet-bridge-messages",
  "pallet-message-queue",
  "pallet-xcm",
+ "pallet-xcm-bridge-hub",
  "parachains-common",
  "rococo-westend-system-emulated-network",
+ "sp-core",
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
+ "xcm-runtime-apis",
 ]
 
 [[package]]
