@@ -18,7 +18,6 @@ mod mock;
 
 use frame_support::sp_runtime::{
 	testing::H256,
-	traits::{IdentifyAccount, Verify},
 };
 use mock::*;
 use sp_api::ProvideRuntimeApi;
