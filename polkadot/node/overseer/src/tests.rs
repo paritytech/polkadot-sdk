@@ -25,14 +25,14 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem_test_helpers::mock::{dummy_unpin_handle, new_leaf};
 use polkadot_node_subsystem_types::messages::{
-	NetworkBridgeEvent, ReportPeerMessage, RuntimeApiRequest,
+	NetworkBridgeEvent, PvfExecKind, ReportPeerMessage, RuntimeApiRequest,
 };
 use polkadot_primitives::{
 	CandidateHash, CandidateReceipt, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
-	PvfExecKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
+	PersistedValidationData, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_candidate_descriptor, dummy_candidate_receipt, dummy_hash,
+	dummy_candidate_descriptor, dummy_candidate_receipt, dummy_hash, dummy_validation_code,
 };
 
 use crate::{
@@ -104,7 +104,9 @@ where
 						};
 
 						let (tx, _) = oneshot::channel();
-						ctx.send_message(CandidateValidationMessage::ValidateFromChainState {
+						ctx.send_message(CandidateValidationMessage::ValidateFromExhaustive {
+							validation_data: PersistedValidationData { ..Default::default() },
+							validation_code: dummy_validation_code(),
 							candidate_receipt,
 							pov: PoV { block_data: BlockData(Vec::new()) }.into(),
 							executor_params: Default::default(),
@@ -802,7 +804,9 @@ fn test_candidate_validation_msg() -> CandidateValidationMessage {
 		commitments_hash: Hash::zero(),
 	};
 
-	CandidateValidationMessage::ValidateFromChainState {
+	CandidateValidationMessage::ValidateFromExhaustive {
+		validation_data: PersistedValidationData { ..Default::default() },
+		validation_code: dummy_validation_code(),
 		candidate_receipt,
 		pov,
 		executor_params: Default::default(),

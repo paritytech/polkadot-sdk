@@ -1,0 +1,26 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add PVF execution priority
+
+doc:
+  - audience: Node Dev
+    description: |
+      The new logic optimizes the distribution of execution jobs for disputes, approvals, and backings.
+      The main goal is to create back pressure for backing in the presence of disputes or numerous approval jobs.
+
+crates:
+  - name: polkadot-node-core-pvf
+    bump: major
+  - name: polkadot-overseer
+    bump: patch
+  - name: polkadot-node-subsystem-types
+    bump: patch
+  - name: polkadot-node-core-approval-voting
+    bump: patch
+  - name: polkadot-node-core-backing
+    bump: patch
+  - name: polkadot-node-core-candidate-validation
+    bump: patch
+  - name: polkadot-node-core-dispute-coordinator
+    bump: patch
