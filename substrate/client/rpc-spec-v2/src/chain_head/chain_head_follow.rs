@@ -55,7 +55,7 @@ const MAX_FINALIZED_BLOCKS: usize = 16;
 
 /// Maximum amount of events buffered by submit_events
 /// before dropping the stream.
-const MAX_BUFFERED_EVENTS: usize = 4;
+const MAX_BUFFERED_EVENTS: usize = 512;
 
 /// Generates the events of the `chainHead_follow` method.
 pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
@@ -717,8 +717,7 @@ where
 		EventStream: Stream<Item = NotificationType<Block>> + Unpin + Send,
 	{
 		// make the stream abortable
-		let (stream, handle) = futures::stream::abortable(stream);
-		let cancel_handle = handle.clone();
+		let (stream, cancel_handle) = futures::stream::abortable(stream);
 
 		// create a channel to propagate error messages
 		let (tx_send, mut tx_receive) = futures::channel::mpsc::channel(1);
@@ -751,7 +750,10 @@ where
 					let result = match event {
 						Ok(events) => stream::iter(events),
 						Err(err) => {
-							tx_send.send(err).await.expect("shouldn't happpen.");
+							tx_send
+								.send(err)
+								.await
+								.expect("mpsc::{Sender, Receiver} are not dropped; qed");
 							stream::iter(vec![])
 						},
 					};
@@ -769,7 +771,7 @@ where
 		tokio::pin!(sink_future);
 		let result = tokio::select! {
 			err =  tx_receive.next() => {
-				Err(err.expect("should not happen.qed"))
+				Err(err.expect("mpsc::{Sender, Receiver} are not dropped; qed"))
 			}
 			_ = rx_stop => Ok(()),
 			_ = sink_future => Ok(()),

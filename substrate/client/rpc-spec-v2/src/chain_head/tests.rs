@@ -4056,10 +4056,10 @@ async fn events_are_backpressured() {
 
 	let mut parent_hash = client.chain_info().genesis_hash;
 	let mut header = VecDeque::new();
-	let mut sub = api.subscribe("chainHead_v1_follow", [false], 17).await.unwrap();
+	let mut sub = api.subscribe("chainHead_v1_follow", [false], 511).await.unwrap();
 
 	// insert more events than the user can consume
-	for i in 0..=18 {
+	for i in 0..=512 {
 		let block = BlockBuilderBuilder::new(&*client)
 			.on_parent_block(parent_hash)
 			.with_parent_block_number(i)
@@ -4080,6 +4080,6 @@ async fn events_are_backpressured() {
 		events.push(event);
 	}
 
-	assert_eq!(events.len(), 19);
+	assert_eq!(events.len(), 64);
 	assert_matches!(events.pop().unwrap().map(|x| x.0), Ok(FollowEvent::Stop));
 }
