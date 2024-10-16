@@ -311,6 +311,86 @@ pub use v1::*;
 /// 	}
 /// }
 /// ```
+///
+/// ## Migrate from v1 to v2
+///
+/// If you want to migrate your code from benchmarking v1 to benchmarking v2, you may follow these
+/// steps:
+/// 1. Change the import from `frame_benchmarking::v1::` to `frame_benchmarking::v2::*`, or
+///    `frame::benchmarking::prelude::*` under the umbrella crate;
+/// 2. Move every benchmark inside the v1 `benchmarks! { ... }` block to the v2 benchmarks module
+///    `mod benchmarks { ... }` under the benchmarks macro (`#[benchmarks]` or
+///    `#[instance_benchmarks]`);
+/// 2.1 Move each v1 benchmark to a function inside the v2 benchmarks module, either with a blank
+/// return type or a return type compatible with `Result<(), BenchmarkError>`. For instance, `foo {
+/// ... }` can become `fn foo() -> Result<(), BenchmarkError>`;
+/// 2.2 Move all the v1 complexity parameters as [ParamRange](`v2::ParamRange`) arguments to the v2
+/// function, and their setup code to the body of the function. For instance, `let y in 0 .. 10 =>
+/// setup(y)?;` from v1 will give a `y: Linear<0, 10>` argument to the corresponding function in v2,
+/// while `setup(y)?;` will be moved to the body of the function;
+/// 2.3 Move all the v1 setup code to the body of the v2 function;
+/// 2.4 Move the benchmarked code to the body of the v2 function under the appropriate macro
+/// attribute: `#[extrinsic_call]` for extrinsic pallet calls and `#[block]` for blocks of code; 2.5
+/// Move the verify code block at the end of the v1 benchmark after the benchmarked code, in the
+/// body of the v2 function. 2.6 If the function is supposed to return a `Result<(),
+/// BenchmarkError>`, end the body with an `Ok(())` expression.
+///
+/// As an example migration, the following v1 code
+///
+/// ```ignore
+/// #![cfg(feature = "runtime-benchmarks")]
+///
+/// use frame_benchmarking::v1::*;
+///
+/// benchmarks! {
+///
+///   // first dispatchable: sort; this is a user dispatchable that sorts a `u8` vector of
+///   // size `l`
+///   sort {
+///     let caller = funded_account::<T>(b"caller", 0);
+///     let l in 1 .. 10_000 => initialize_l(l);
+///     let mut m = Vec::<u32>::new();
+///     for i in (0..l).rev() {
+///       m.push(i);
+///     }
+///   }: {
+///     _(RuntimeOrigin::Signed(caller), m)
+///   } verify {
+///     ensure!(m[0] == 0, "You forgot to sort!")
+///   }
+/// }
+/// ```
+///
+/// would become the following v2 code:
+///
+/// ```ignore
+/// #![cfg(feature = "runtime-benchmarks")]
+///
+/// use frame_benchmarking::v2::*;
+///
+/// #[benchmarks]
+/// mod benchmarks {
+///   use super::*;
+///
+///   // first dispatchable: sort; this is a user dispatchable that sorts a `u8` vector of
+///   // size `l`
+///   #[benchmark]
+///   fn sort(l: Linear<1 .. 10_000>) -> Result<(), BenchmarkError> {
+///     let caller = funded_account::<T>(b"caller", 0);
+///     initialize_l(l);
+///     let mut m = Vec::<u32>::new();
+///     for i in (0..l).rev() {
+///       m.push(i);
+///     }
+///
+///     #[extrinsic_call]
+///     _(RuntimeOrigin::Signed(caller), m);
+///     
+///     ensure!(m[0] == 0, "You forgot to sort!")
+///     Ok(())
+///   }
+/// }
+/// ```
 pub mod v2 {
 	pub use super::*;
 	pub use frame_support_procedural::{
