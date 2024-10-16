@@ -2609,7 +2609,7 @@ impl<T: Config> Pallet<T> {
 		location: VersionedLocation,
 	) -> Result<bool, TrustQueryApiError> {
 		let location: Location = location.try_into().map_err(|e| {
-			log::trace!(
+			tracing::debug!(
 				target: "xcm::pallet_xcm::is_trusted_reserve",
 				"Asset version conversion failed with error: {:?}",
 				e,
@@ -2618,7 +2618,7 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		let a: Asset = asset.try_into().map_err(|e| {
-			log::trace!(
+			tracing::debug!(
 				target: "xcm::pallet_xcm::is_trusted_reserve",
 				"Location version conversion failed with error: {:?}",
 				e,
@@ -2634,7 +2634,7 @@ impl<T: Config> Pallet<T> {
 		location: VersionedLocation,
 	) -> Result<bool, TrustQueryApiError> {
 		let location: Location = location.try_into().map_err(|e| {
-			log::trace!(
+			tracing::debug!(
 				target: "xcm::pallet_xcm::is_trusted_teleporter",
 				"Asset version conversion failed with error: {:?}",
 				e,
@@ -2642,7 +2642,7 @@ impl<T: Config> Pallet<T> {
 			TrustQueryApiError::VersionedLocationConversionFailed
 		})?;
 		let a: Asset = asset.try_into().map_err(|e| {
-			log::trace!(
+			tracing::debug!(
 				target: "xcm::pallet_xcm::is_trusted_teleporter",
 				"Location version conversion failed with error: {:?}",
 				e,
