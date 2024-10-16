@@ -1331,13 +1331,17 @@ where
 		// is caught by it.
 		self.top_frame_mut().allows_reentry = allows_reentry;
 
-		let dest = T::AddressMapper::to_account_id(dest);
-		let value = value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?;
+		// We reset the return data now, so it is cleared out even if no new frame was executed.
+		// This is for example the case for balance transfers or when creating the frame fails.
+		*self.last_frame_output_mut() = Default::default();
 
 		let try_call = || {
+			let dest = T::AddressMapper::to_account_id(dest);
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
 			}
+
+			let value = value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?;
 
 			// We ignore instantiate frames in our search for a cached contract.
 			// Otherwise it would be possible to recursively call a contract from its own
@@ -1378,6 +1382,10 @@ where
 	}
 
 	fn delegate_call(&mut self, code_hash: H256, input_data: Vec<u8>) -> Result<(), ExecError> {
+		// We reset the return data now, so it is cleared out even if no new frame was executed.
+		// This is for example the case for unknown code hashes or creating the frame fails.
+		*self.last_frame_output_mut() = Default::default();
+
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let top_frame = self.top_frame_mut();
 		let contract_info = top_frame.contract_info().clone();
@@ -1406,6 +1414,10 @@ where
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 	) -> Result<H160, ExecError> {
+		// We reset the return data now, so it is cleared out even if no new frame was executed.
+		// This is for example the case when creating the frame fails.
+		*self.last_frame_output_mut() = Default::default();
+
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let sender = &self.top_frame().account_id;
 		let executable = self.push_frame(
@@ -4334,6 +4346,72 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![0],
+				None,
+			);
+			assert_matches!(result, Ok(_));
+		});
+	}
+
+	#[test]
+	fn last_frame_output_is_always_reset() {
+		let code_bob = MockLoader::insert(Call, |ctx, _| {
+			let invalid_code_hash = H256::from_low_u64_le(u64::MAX);
+			let output_revert = || ExecReturnValue { flags: ReturnFlags::REVERT, data: vec![1] };
+
+			// A value of u256::MAX to fail the call on the first condition.
+			*ctx.ext.last_frame_output_mut() = output_revert();
+			assert_eq!(
+				ctx.ext.call(
+					Weight::zero(),
+					U256::zero(),
+					&H160::zero(),
+					U256::max_value(),
+					vec![],
+					true,
+					false,
+				),
+				Err(Error::<Test>::BalanceConversionFailed.into())
+			);
+			assert_eq!(ctx.ext.last_frame_output(), &Default::default());
+
+			// An unknown code hash to fail the delegate_call on the first condition.
+			*ctx.ext.last_frame_output_mut() = output_revert();
+			assert_eq!(
+				ctx.ext.delegate_call(invalid_code_hash, Default::default()),
+				Err(Error::<Test>::CodeNotFound.into())
+			);
+			assert_eq!(ctx.ext.last_frame_output(), &Default::default());
+
+			// An unknown code hash to fail instantiation on the first condition.
+			*ctx.ext.last_frame_output_mut() = output_revert();
+			assert_eq!(
+				ctx.ext.instantiate(
+					Weight::zero(),
+					U256::zero(),
+					invalid_code_hash,
+					U256::zero(),
+					vec![],
+					None,
+				),
+				Err(Error::<Test>::CodeNotFound.into())
+			);
+			assert_eq!(ctx.ext.last_frame_output(), &Default::default());
+
+			exec_success()
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			place_contract(&BOB, code_bob);
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+
+			let result = MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut storage_meter,
+				0,
+				vec![],
 				None,
 			);
 			assert_matches!(result, Ok(_));
