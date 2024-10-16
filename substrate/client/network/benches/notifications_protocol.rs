@@ -8,23 +8,17 @@ use sc_network::{
 	NetworkWorker, NotificationMetrics, NotificationService, Roles,
 };
 use sc_network_common::sync::message::BlockAnnouncesHandshake;
-use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Zero;
-use std::sync::Arc;
-use substrate_test_runtime_client::{runtime, TestClientBuilder, TestClientBuilderExt};
+use substrate_test_runtime_client::runtime;
 
 pub fn create_network_worker(
 ) -> (NetworkWorker<runtime::Block, runtime::Hash>, Box<dyn NotificationService>) {
-	let protocol_id = ProtocolId::from("bench-protocol-name");
 	let role = Role::Full;
-	let network_config = NetworkConfiguration::new_local();
-	let full_net_config = FullNetworkConfiguration::new(&network_config, None);
-	let client = Arc::new(TestClientBuilder::with_default_backend().build_with_longest_chain().0);
-	let genesis_hash = client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
+	let genesis_hash = runtime::Hash::zero();
 	let (block_announce_config, notification_service) = NonDefaultSetConfig::new(
-		format!("/{}/block-announces/1", array_bytes::bytes2hex("", genesis_hash.as_ref())).into(),
-		std::iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into()).collect(),
-		1024 * 1024,
+		"/block-announces/1".into(),
+		vec!["/bench-notifications-protocol/block-announces/1".into()],
+		2u64.pow(MAX_EXPONENT),
 		Some(NotificationHandshake::new(BlockAnnouncesHandshake::<runtime::Block>::build(
 			Roles::from(&role),
 			Zero::zero(),
@@ -34,7 +28,7 @@ pub fn create_network_worker(
 		SetConfig {
 			in_peers: 1,
 			out_peers: 1,
-			reserved_nodes: Vec::new(),
+			reserved_nodes: vec![],
 			non_reserved_mode: NonReservedPeerMode::Accept,
 		},
 	);
@@ -49,8 +43,8 @@ pub fn create_network_worker(
 			tokio::spawn(f);
 		}),
 		genesis_hash,
-		network_config: full_net_config,
-		protocol_id,
+		network_config: FullNetworkConfiguration::new(&NetworkConfiguration::new_local(), None),
+		protocol_id: ProtocolId::from("bench-protocol-name"),
 		fork_id: None,
 		metrics_registry: None,
 		bitswap_config: None,
@@ -138,7 +132,7 @@ async fn run_with_backpressure(size: usize, limit: usize) {
 	let network1_run = worker1.run();
 	let network2_run = worker2.run();
 
-	let one = tokio::spawn(async move {
+	let network1 = tokio::spawn(async move {
 		let mut sent_counter = 0;
 		tokio::pin!(network1_run);
 		loop {
@@ -165,8 +159,7 @@ async fn run_with_backpressure(size: usize, limit: usize) {
 			}
 		}
 	});
-
-	let two = tokio::spawn(async move {
+	let network2 = tokio::spawn(async move {
 		let mut received_counter = 0;
 		tokio::pin!(network2_run);
 		loop {
@@ -193,16 +186,18 @@ async fn run_with_backpressure(size: usize, limit: usize) {
 		}
 	});
 
-	let _ = tokio::join!(one, two);
+	let _ = tokio::join!(network1, network2);
 }
+
+const MAX_EXPONENT: u32 = 27;
 
 fn run_benchmark(c: &mut Criterion) {
 	let rt = tokio::runtime::Runtime::new().unwrap();
 	let mut group = c.benchmark_group("notifications_benchmark");
 
-	for exponent in 1..4 {
-		let notifications = 10usize;
+	for exponent in 0..=MAX_EXPONENT {
 		let size = 2usize.pow(exponent);
+		let notifications = 2usize.pow((MAX_EXPONENT - exponent).max(10).min(20));
 		group.throughput(Throughput::Bytes(notifications as u64 * size as u64));
 		group.bench_with_input(
 			format!("consistently/{}/{}", notifications, size),
