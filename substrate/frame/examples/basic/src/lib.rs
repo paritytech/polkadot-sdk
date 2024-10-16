@@ -443,19 +443,20 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-// Similar to other FRAME pallets, your pallet can also define a signed extension and perform some
-// checks and [pre/post]processing [before/after] the transaction. A signed extension can be any
-// decodable type that implements `TransactionExtension`. See the trait definition for the full list
-// of bounds. As a convention, you can follow this approach to create an extension for your pallet:
+// Similar to other FRAME pallets, your pallet can also define a transaction extension and perform
+// some checks and [pre/post]processing [before/after] the transaction. A transaction extension can
+// be any decodable type that implements `TransactionExtension`. See the trait definition for the
+// full list of bounds. As a convention, you can follow this approach to create an extension for
+// your pallet:
 //   - If the extension does not carry any data, then use a tuple struct with just a `marker`
 //     (needed for the compiler to accept `T: Config`) will suffice.
 //   - Otherwise, create a tuple struct which contains the external data. Of course, for the entire
 //     struct to be decodable, each individual item also needs to be decodable.
 //
-// Note that a signed extension can also indicate that a particular data must be present in the
-// _signing payload_ of a transaction by providing an implementation for the `additional_signed`
-// method. This example will not cover this type of extension. See `CheckSpecVersion` in
-// [FRAME System](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/system#signed-extensions)
+// Note that a transaction extension can also indicate that a particular data must be present in the
+// _signing payload_ of a transaction by providing an implementation for the `implicit` method. This
+// example will not cover this type of extension. See `CheckSpecVersion` in [FRAME
+// System](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/system#signed-extensions)
 // for an example.
 //
 // Using the extension, you can add some hooks to the life cycle of each transaction. Note that by
@@ -466,19 +467,19 @@ impl<T: Config> Pallet<T> {
 // Some extra information, such as encoded length, some static dispatch info like weight and the
 // sender of the transaction (if signed) are also provided.
 //
-// The full list of hooks that can be added to a signed extension can be found
-// [here](https://paritytech.github.io/polkadot-sdk/master/sp_runtime/traits/trait.TransactionExtension.html).
+// The full list of hooks that can be added to a transaction extension can be found in the
+// `TransactionExtension` trait definition.
 //
-// The signed extensions are aggregated in the runtime file of a substrate chain. All extensions
-// should be aggregated in a tuple and passed to the `CheckedExtrinsic` and `UncheckedExtrinsic`
-// types defined in the runtime. Lookup `pub type TxExtension = (...)` in `node/runtime` and
-// `node-template` for an example of this.
+// The transaction extensions are aggregated in the runtime file of a substrate chain. All
+// extensions should be aggregated in a tuple and passed to the `CheckedExtrinsic` and
+// `UncheckedExtrinsic` types defined in the runtime. Lookup `pub type TxExtension = (...)` in
+// `node/runtime` and `node-template` for an example of this.
 
-/// A simple signed extension that checks for the `set_dummy` call. In that case, it increases the
-/// priority and prints some log.
+/// A simple transaction extension that checks for the `set_dummy` call. In that case, it increases
+/// the priority and prints some log.
 ///
 /// Additionally, it drops any transaction with an encoded length higher than 200 bytes. No
-/// particular reason why, just to demonstrate the power of signed extensions.
+/// particular reason why, just to demonstrate the power of transaction extensions.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct WatchDummy<T: Config + Send + Sync>(PhantomData<T>);
