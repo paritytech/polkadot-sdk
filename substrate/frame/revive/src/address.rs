@@ -81,7 +81,7 @@ mod private {
 	impl<T> Sealed for super::H160Mapper<T> {}
 }
 
-/// The mapper to be used if [`Config::AccountID`] is `AccountId32.
+/// The mapper to be used if the account id is `AccountId32`.
 ///
 /// It converts between addresses by either truncating the last 12 bytes or
 /// suffixing them. The suffix is queried from [`AddressSuffix`] and will fall
@@ -90,7 +90,7 @@ mod private {
 /// account.
 pub struct AccountId32Mapper<T>(PhantomData<T>);
 
-/// The mapper to be used if [`Config::AccountID`] is `H160`.
+/// The mapper to be used if the account id is `H160`.
 ///
 /// It just trivially returns its inputs and doesn't make use of any state.
 pub struct H160Mapper<T>(PhantomData<T>);
