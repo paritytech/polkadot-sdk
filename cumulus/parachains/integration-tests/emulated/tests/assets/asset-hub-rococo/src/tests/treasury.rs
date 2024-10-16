@@ -71,11 +71,11 @@ fn spend_roc_on_asset_hub() {
 		let teleport_call = RuntimeCall::Utility(pallet_utility::Call::<Runtime>::dispatch_as {
 			as_origin: bx!(RococoOriginCaller::system(RawOrigin::Signed(treasury_account))),
 			call: bx!(RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::teleport_assets {
-				dest: bx!(VersionedLocation::V5(asset_hub_location.clone())),
-				beneficiary: bx!(VersionedLocation::V5(treasury_location)),
-				assets: bx!(VersionedAssets::V5(
-					Asset { id: native_asset.clone().into(), fun: treasury_balance.into() }.into()
-				)),
+				dest: bx!(VersionedLocation::from(asset_hub_location.clone())),
+				beneficiary: bx!(VersionedLocation::from(treasury_location)),
+				assets: bx!(VersionedAssets::from(Assets::from(
+					Asset { id: native_asset.clone().into(), fun: treasury_balance.into() }
+				))),
 				fee_asset_item: 0,
 			})),
 		});
@@ -115,7 +115,7 @@ fn spend_roc_on_asset_hub() {
 				asset_id: native_asset.into(),
 			}),
 			amount: treasury_spend_balance,
-			beneficiary: bx!(VersionedLocation::V5(alice_location)),
+			beneficiary: bx!(VersionedLocation::from(alice_location)),
 			valid_from: None,
 		});
 
@@ -173,7 +173,7 @@ fn create_and_claim_treasury_spend_in_usdt() {
 	let asset_hub_location =
 		v3::Location::new(0, v3::Junction::Parachain(AssetHubRococo::para_id().into()));
 	let root = <Rococo as Chain>::RuntimeOrigin::root();
-	// asset kind to be spend from the treasury.
+	// asset kind to be spent from the treasury.
 	let asset_kind = VersionedLocatableAsset::V3 {
 		location: asset_hub_location,
 		asset_id: v3::AssetId::Concrete(

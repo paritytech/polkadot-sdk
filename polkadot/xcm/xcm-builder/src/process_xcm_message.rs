@@ -181,7 +181,7 @@ mod tests {
 
 		type Processor = ProcessXcmMessage<Junction, MockedExecutor, ()>;
 
-		let xcm = VersionedXcm::V5(xcm::latest::Xcm::<()>(vec![
+		let xcm = VersionedXcm::from(xcm::latest::Xcm::<()>(vec![
 			xcm::latest::Instruction::<()>::ClearOrigin,
 		]));
 		assert_err!(

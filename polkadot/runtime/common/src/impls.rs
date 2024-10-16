@@ -280,9 +280,9 @@ pub mod benchmarks {
 			}
 		}
 		fn create_beneficiary(seed: [u8; 32]) -> VersionedLocation {
-			VersionedLocation::V5(xcm::v5::Location::new(
+			VersionedLocation::from(xcm::latest::Location::new(
 				0,
-				[xcm::v5::Junction::AccountId32 { network: None, id: seed }],
+				[xcm::latest::Junction::AccountId32 { network: None, id: seed }],
 			))
 		}
 	}
