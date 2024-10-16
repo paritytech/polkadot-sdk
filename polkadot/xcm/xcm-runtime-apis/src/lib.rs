@@ -31,5 +31,6 @@ pub mod dry_run;
 /// Given an XCM program, it will return the fees needed to execute it properly or send it.
 pub mod fees;
 
-// Exposes runtime API for querying whether a Location is trusted as a reserve or teleporter for a given Asset.
+// Exposes runtime API for querying whether a Location is trusted as a reserve or teleporter for a
+// given Asset.
 pub mod trust_query;
