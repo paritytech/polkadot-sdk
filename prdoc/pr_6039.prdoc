@@ -22,7 +22,8 @@ doc:
 
   - audience: Runtime User
     description: |
-      Now you can query any runtime to check if pair<Asset, Location> is either a trusted reserve or trusted teleporter.
+      There's a new runtime API to check if a chain trust a Location as a reserve or teleporter for a given Asset.
+      It's implemented in all the relays and system parachains in Westend and Rococo.
 
 crates:
   - name: asset-hub-westend-runtime
