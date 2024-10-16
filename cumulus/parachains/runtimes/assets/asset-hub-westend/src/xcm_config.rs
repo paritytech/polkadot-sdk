@@ -658,13 +658,10 @@ pub mod bridging {
 	pub mod to_ethereum {
 		use super::*;
 		use assets_common::matching::FromNetwork;
-		use core::ops::ControlFlow;
-		use frame_support::traits::ProcessMessageError;
 		use sp_std::collections::btree_set::BTreeSet;
 		use testnet_parachains_constants::westend::snowbridge::{
 			EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
 		};
-		use xcm_builder::{CreateMatcher, MatchXcm};
 
 		parameter_types! {
 			/// User fee for ERC20 token transfer back to Ethereum.
@@ -725,28 +722,10 @@ pub mod bridging {
 				.collect();
 		}
 
-		pub struct XcmForSnowbridgeV2;
-
-		impl Contains<Xcm<()>> for XcmForSnowbridgeV2 {
-			fn contains(xcm: &Xcm<()>) -> bool {
-				let mut instructions = xcm.clone().0;
-				let result = instructions.matcher().match_next_inst_while(
-					|_| true,
-					|inst| {
-						return match inst {
-							AliasOrigin(..) => Err(ProcessMessageError::Yield),
-							_ => Ok(ControlFlow::Continue(())),
-						}
-					},
-				);
-				result.is_err()
-			}
-		}
-
 		pub type EthereumNetworkExportTableV2 =
 			snowbridge_router_primitives::outbound::NetworkWithXcmExportTable<
 				EthereumBridgeTableV2,
-				XcmForSnowbridgeV2,
+				snowbridge_router_primitives::outbound::XcmForSnowbridgeV2,
 			>;
 
 		pub type EthereumNetworkExportTable = xcm_builder::NetworkExportTable<EthereumBridgeTable>;

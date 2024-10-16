@@ -5,13 +5,13 @@
 #[cfg(test)]
 mod tests;
 
-use core::slice::Iter;
-
 use codec::{Decode, Encode};
+use core::slice::Iter;
+use sp_std::ops::ControlFlow;
 
 use frame_support::{
 	ensure,
-	traits::{Contains, Get},
+	traits::{Contains, Get, ProcessMessageError},
 };
 use snowbridge_core::{
 	outbound::{AgentExecuteCommand, Command, Message, SendMessage},
@@ -21,7 +21,9 @@ use sp_core::{H160, H256};
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
-use xcm_builder::{ExporterFor, NetworkExportTable, NetworkExportTableItem};
+use xcm_builder::{
+	CreateMatcher, ExporterFor, MatchXcm, NetworkExportTable, NetworkExportTableItem,
+};
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
 
 pub struct EthereumBlobExporter<
@@ -430,5 +432,23 @@ impl<T: Get<Vec<NetworkExportTableItem>>, M: Contains<Xcm<()>>> ExporterFor
 		}
 		// check `network` and `remote_location`
 		NetworkExportTable::<T>::exporter_for(network, remote_location, xcm)
+	}
+}
+
+/// Xcm for SnowbridgeV2 which requires XCMV5
+pub struct XcmForSnowbridgeV2;
+impl Contains<Xcm<()>> for XcmForSnowbridgeV2 {
+	fn contains(xcm: &Xcm<()>) -> bool {
+		let mut instructions = xcm.clone().0;
+		let result = instructions.matcher().match_next_inst_while(
+			|_| true,
+			|inst| {
+				return match inst {
+					AliasOrigin(..) => Err(ProcessMessageError::Yield),
+					_ => Ok(ControlFlow::Continue(())),
+				}
+			},
+		);
+		result.is_err()
 	}
 }
