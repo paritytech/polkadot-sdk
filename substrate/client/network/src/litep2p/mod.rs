@@ -924,16 +924,14 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 					Some(DiscoveryEvent::ExternalAddressExpired{ address }) => {
-						let local_peer_id = self.litep2p.local_peer_id();
+						// Older versions of litep2p (prev 0.7) do not have the external
+						// addresses propagated through individual protocols (ie `/identify`).
+						//
+						// The `/p2p` sufix is not added to the address, since this is
+						// the exact reported address by peers.
+						let mut addresses = self.external_addresses.write();
 
-						// Litep2p requires the peer ID to be present in the address.
-						let address = if !std::matches!(address.iter().last(), Some(Protocol::P2p(_))) {
-							address.with(Protocol::P2p(*local_peer_id.as_ref()))
-						} else {
-							address
-						};
-
-						if self.litep2p.public_addresses().remove_address(&address) {
+						if addresses.remove(&address) {
 							log::info!(target: LOG_TARGET, "🔍 Expired external address for our node: {address}");
 						} else {
 							log::warn!(
