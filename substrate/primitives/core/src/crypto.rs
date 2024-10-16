@@ -964,7 +964,7 @@ pub trait Pair: CryptoType + Sized {
 /// in different trait to provide default behavoir
 pub trait ProofOfPossessionGenerator: Pair
 where
-	Self::Public: Encode,
+	Self::Public: CryptoType,
 {
 	/// The proof of possession generator is supposed to
 	/// to produce a "signature" with unique hash context that should
@@ -976,9 +976,9 @@ where
 	///   signatures against rogue-key attacks. In , Annual {{International Conference}} on the
 	///   {{Theory}} and {{Applications}} of {{Cryptographic Techniques} (pp. 228–245). : Springer.
 	fn generate_proof_of_possession(&mut self) -> Vec<u8> {
-		let pub_key_scaled = self.public().as_slice().encode();
+		let pub_key_as_bytes = self.public().to_raw_vec();
 		let pop_context_tag: &[u8] = b"POP_";
-		let pop_statement = [pop_context_tag, pub_key_scaled.as_slice()].concat();
+		let pop_statement = [pop_context_tag, pub_key_as_bytes.as_slice()].concat();
 		self.sign(pop_statement.as_slice()).to_raw_vec()
 	}
 }
@@ -989,7 +989,7 @@ where
 /// in different trait (than Public Key) to provide default behavoir
 pub trait ProofOfPossessionVerifier: Pair
 where
-	Self::Public: Encode,
+	Self::Public: CryptoType,
 {
 	/// The proof of possession verifier is supposed to
 	/// to verify a signature with unique hash context that is
@@ -999,9 +999,9 @@ where
 		proof_of_possesion: &[u8],
 		allegedly_possessesd_pubkey: &Self::Public,
 	) -> bool {
-		let pub_key_scaled = allegedly_possessesd_pubkey.encode();
+		let pub_key_as_bytes = allegedly_possessesd_pubkey.to_raw_vec();
 		let pop_context_tag = b"POP_";
-		let pop_statement = [pop_context_tag, pub_key_scaled.as_slice()].concat();
+		let pop_statement = [pop_context_tag, pub_key_as_bytes.as_slice()].concat();
 		let proof_of_possesion_as_signature: Option<Self::Signature> =
 			<Self::Signature as ByteArray>::from_slice(proof_of_possesion).ok();
 

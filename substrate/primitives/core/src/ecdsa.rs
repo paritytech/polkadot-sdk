@@ -632,4 +632,13 @@ mod test {
 		let key = sig.recover_prehashed(&msg).unwrap();
 		assert_ne!(pair.public(), key);
 	}
+
+	#[test]
+	fn good_proof_of_possession_should_work_bad_pop_should_fail() {
+		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
+		let pop = pair.generate_proof_of_possession();
+		assert!(Pair::verify_proof_of_possession(pop.as_slice(), &pair.public()));
+		assert_eq!(Pair::verify_proof_of_possession(pop.as_slice(), &other_pair.public()), false);
+	}
 }
