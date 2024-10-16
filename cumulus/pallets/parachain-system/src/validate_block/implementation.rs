@@ -29,7 +29,10 @@ use polkadot_parachain_primitives::primitives::{
 use alloc::vec::Vec;
 use codec::Encode;
 
-use frame_support::traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType};
+use frame_support::{
+	traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType},
+	BoundedVec,
+};
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
@@ -89,7 +92,7 @@ pub fn validate_block<
 >(
 	MemoryOptimizedValidationParams {
 		block_data,
-		parent_head,
+		parent_head: parachain_head,
 		relay_parent_number,
 		relay_parent_storage_root,
 	}: MemoryOptimizedValidationParams,
@@ -98,46 +101,6 @@ where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as Extrinsic>::Call: IsSubType<crate::Call<PSC>>,
 {
-	let block_data = codec::decode_from_bytes::<ParachainBlockData<B>>(block_data)
-		.expect("Invalid parachain block data");
-
-	let parent_header =
-		codec::decode_from_bytes::<B::Header>(parent_head.clone()).expect("Invalid parent head");
-
-	let (header, extrinsics, storage_proof) = block_data.deconstruct();
-
-	let block = B::new(header, extrinsics);
-	assert!(parent_header.hash() == *block.header().parent_hash(), "Invalid parent hash");
-
-	let inherent_data = extract_parachain_inherent_data(&block);
-
-	validate_validation_data(
-		&inherent_data.validation_data,
-		relay_parent_number,
-		relay_parent_storage_root,
-		parent_head,
-	);
-
-	// Create the db
-	let db = match storage_proof.to_memory_db(Some(parent_header.state_root())) {
-		Ok((db, _)) => db,
-		Err(_) => panic!("Compact proof decoding failure."),
-	};
-
-	core::mem::drop(storage_proof);
-
-	let mut recorder = SizeOnlyRecorderProvider::new();
-	let cache_provider = trie_cache::CacheProvider::new();
-	// We use the storage root of the `parent_head` to ensure that it is the correct root.
-	// This is already being done above while creating the in-memory db, but let's be paranoid!!
-	let backend = sp_state_machine::TrieBackendBuilder::new_with_cache(
-		db,
-		*parent_header.state_root(),
-		cache_provider,
-	)
-	.with_recorder(recorder.clone())
-	.build();
-
 	let _guard = (
 		// Replace storage calls with our own implementations
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
@@ -179,59 +142,117 @@ where
 			.replace_implementation(host_storage_proof_size),
 	);
 
-	run_with_externalities_and_recorder::<B, _, _>(&backend, &mut recorder, || {
-		let relay_chain_proof = crate::RelayChainStateProof::new(
-			PSC::SelfParaId::get(),
-			inherent_data.validation_data.relay_parent_storage_root,
-			inherent_data.relay_chain_state.clone(),
+	let block_data = codec::decode_from_bytes::<ParachainBlockData<B>>(block_data)
+		.expect("Invalid parachain block data");
+
+	let mut parent_header =
+		codec::decode_from_bytes::<B::Header>(parachain_head.clone()).expect("Invalid parent head");
+
+	let blocks_and_proofs = block_data.into_inner();
+
+	assert_eq!(
+		*blocks_and_proofs
+			.first()
+			.expect("BlockData should have at least one block")
+			.0
+			.header()
+			.parent_hash(),
+		parent_header.hash(),
+		"Parachain head needs to be the parent of the first block"
+	);
+
+	let mut processed_downward_messages = 0;
+	let mut upward_messages = BoundedVec::default();
+	let mut horizontal_messages = BoundedVec::default();
+	let mut hrmp_watermark = Default::default();
+	let mut head_data = None;
+	let mut new_validation_code = None;
+
+	for (block, storage_proof) in blocks_and_proofs {
+		let inherent_data = extract_parachain_inherent_data(&block);
+
+		validate_validation_data(
+			&inherent_data.validation_data,
+			relay_parent_number,
+			relay_parent_storage_root,
+			&parachain_head,
+		);
+
+		// Create the db
+		let db = match storage_proof.to_memory_db(Some(parent_header.state_root())) {
+			Ok((db, _)) => db,
+			Err(_) => panic!("Compact proof decoding failure."),
+		};
+
+		core::mem::drop(storage_proof);
+
+		let mut recorder = SizeOnlyRecorderProvider::new();
+		let cache_provider = trie_cache::CacheProvider::new();
+		// We use the storage root of the `parent_head` to ensure that it is the correct root.
+		// This is already being done above while creating the in-memory db, but let's be paranoid!!
+		let backend = sp_state_machine::TrieBackendBuilder::new_with_cache(
+			db,
+			*parent_header.state_root(),
+			cache_provider,
 		)
-		.expect("Invalid relay chain state proof");
+		.with_recorder(recorder.clone())
+		.build();
 
-		#[allow(deprecated)]
-		let res = CI::check_inherents(&block, &relay_chain_proof);
+		run_with_externalities_and_recorder::<B, _, _>(&backend, &mut recorder, || {
+			let relay_chain_proof = crate::RelayChainStateProof::new(
+				PSC::SelfParaId::get(),
+				inherent_data.validation_data.relay_parent_storage_root,
+				inherent_data.relay_chain_state.clone(),
+			)
+			.expect("Invalid relay chain state proof");
 
-		if !res.ok() {
-			if log::log_enabled!(log::Level::Error) {
-				res.into_errors().for_each(|e| {
-					log::error!("Checking inherent with identifier `{:?}` failed", e.0)
-				});
+			#[allow(deprecated)]
+			let res = CI::check_inherents(&block, &relay_chain_proof);
+
+			if !res.ok() {
+				if log::log_enabled!(log::Level::Error) {
+					res.into_errors().for_each(|e| {
+						log::error!("Checking inherent with identifier `{:?}` failed", e.0)
+					});
+				}
+
+				panic!("Checking inherents failed");
 			}
+		});
 
-			panic!("Checking inherents failed");
-		}
-	});
+		run_with_externalities_and_recorder::<B, _, _>(&backend, &mut recorder, || {
+			parent_header = block.header().clone();
 
-	run_with_externalities_and_recorder::<B, _, _>(&backend, &mut recorder, || {
-		let head_data = HeadData(block.header().encode());
+			E::execute_block(block);
 
-		E::execute_block(block);
+			new_validation_code =
+				new_validation_code.take().or(crate::NewValidationCode::<PSC>::get());
+			upward_messages
+				.try_extend(crate::UpwardMessages::<PSC>::get().into_iter())
+				.expect(
+					"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
+				);
+			processed_downward_messages += crate::ProcessedDownwardMessages::<PSC>::get();
+			horizontal_messages.try_extend(crate::HrmpOutboundMessages::<PSC>::get().into_iter()).expect(
+				"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
+			);
+			hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
 
-		let new_validation_code = crate::NewValidationCode::<PSC>::get();
-		let upward_messages = crate::UpwardMessages::<PSC>::get().try_into().expect(
-			"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
-		);
-		let processed_downward_messages = crate::ProcessedDownwardMessages::<PSC>::get();
-		let horizontal_messages = crate::HrmpOutboundMessages::<PSC>::get().try_into().expect(
-			"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
-		);
-		let hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
+			head_data = Some(
+				crate::CustomValidationHeadData::<PSC>::get()
+					.map_or_else(|| HeadData(parent_header.encode()), HeadData),
+			);
+		})
+	}
 
-		let head_data =
-			if let Some(custom_head_data) = crate::CustomValidationHeadData::<PSC>::get() {
-				HeadData(custom_head_data)
-			} else {
-				head_data
-			};
-
-		ValidationResult {
-			head_data,
-			new_validation_code: new_validation_code.map(Into::into),
-			upward_messages,
-			processed_downward_messages,
-			horizontal_messages,
-			hrmp_watermark,
-		}
-	})
+	ValidationResult {
+		head_data: head_data.expect("HeadData not set"),
+		new_validation_code: new_validation_code.map(Into::into),
+		upward_messages,
+		processed_downward_messages,
+		horizontal_messages,
+		hrmp_watermark,
+	}
 }
 
 /// Extract the [`ParachainInherentData`].
@@ -263,7 +284,7 @@ fn validate_validation_data(
 	validation_data: &PersistedValidationData,
 	relay_parent_number: RelayChainBlockNumber,
 	relay_parent_storage_root: RHash,
-	parent_head: bytes::Bytes,
+	parent_head: &[u8],
 ) {
 	assert_eq!(parent_head, validation_data.parent_head.0, "Parent head doesn't match");
 	assert_eq!(

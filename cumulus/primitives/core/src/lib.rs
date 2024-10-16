@@ -42,6 +42,7 @@ pub use sp_runtime::{
 	ConsensusEngineId,
 };
 
+use sp_trie::CompactProof;
 pub use xcm::latest::prelude::*;
 
 /// A module that re-exports relevant relay chain definitions.
@@ -201,53 +202,46 @@ pub enum ServiceQuality {
 /// This is send as PoV (proof of validity block) to the relay-chain validators. There it will be
 /// passed to the parachain validation Wasm blob to be validated.
 #[derive(codec::Encode, codec::Decode, Clone)]
-pub struct ParachainBlockData<B: BlockT> {
-	/// The header of the parachain block.
-	header: B::Header,
-	/// The extrinsics of the parachain block.
-	extrinsics: alloc::vec::Vec<B::Extrinsic>,
-	/// The data that is required to emulate the storage accesses executed by all extrinsics.
-	storage_proof: sp_trie::CompactProof,
+pub struct ParachainBlockData<Block: BlockT> {
+	blocks: Vec<(Block, CompactProof)>,
 }
 
-impl<B: BlockT> ParachainBlockData<B> {
+impl<Block: BlockT> ParachainBlockData<Block> {
 	/// Creates a new instance of `Self`.
-	pub fn new(
-		header: <B as BlockT>::Header,
-		extrinsics: alloc::vec::Vec<<B as BlockT>::Extrinsic>,
-		storage_proof: sp_trie::CompactProof,
-	) -> Self {
-		Self { header, extrinsics, storage_proof }
+	pub fn new(blocks: Vec<(Block, CompactProof)>) -> Self {
+		Self { blocks }
 	}
 
-	/// Convert `self` into the stored block.
-	pub fn into_block(self) -> B {
-		B::new(self.header, self.extrinsics)
+	pub fn blocks(&self) -> impl Iterator<Item = &Block> {
+		self.blocks.iter().map(|e| &e.0)
 	}
 
-	/// Convert `self` into the stored header.
-	pub fn into_header(self) -> B::Header {
-		self.header
+	pub fn blocks_mut(&mut self) -> impl Iterator<Item = &mut Block> {
+		self.blocks.iter_mut().map(|e| &mut e.0)
 	}
 
-	/// Returns the header.
-	pub fn header(&self) -> &B::Header {
-		&self.header
+	pub fn into_blocks(self) -> impl Iterator<Item = Block> {
+		self.blocks.into_iter().map(|d| d.0)
 	}
 
-	/// Returns the extrinsics.
-	pub fn extrinsics(&self) -> &[B::Extrinsic] {
-		&self.extrinsics
-	}
-
-	/// Returns the [`CompactProof`](sp_trie::CompactProof).
-	pub fn storage_proof(&self) -> &sp_trie::CompactProof {
-		&self.storage_proof
+	pub fn proofs(&self) -> impl Iterator<Item = &CompactProof> {
+		self.blocks.iter().map(|d| &d.1)
 	}
 
 	/// Deconstruct into the inner parts.
-	pub fn deconstruct(self) -> (B::Header, alloc::vec::Vec<B::Extrinsic>, sp_trie::CompactProof) {
-		(self.header, self.extrinsics, self.storage_proof)
+	pub fn into_inner(self) -> Vec<(Block, CompactProof)> {
+		self.blocks
+	}
+
+	/// Log the size of the individual components (header, extrinsics, storage proof) as info.
+	pub fn log_size_info(&self) {
+		tracing::info!(
+			target: "cumulus",
+			"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}",
+			self.blocks().map(|b| b.header().encoded_size()).sum::<usize>() as f64 / 1024f64,
+			self.blocks().map(|b| b.extrinsics().encoded_size()).sum::<usize>() as f64 / 1024f64,
+			self.proofs().map(|p| p.encoded_size()).sum::<usize>() as f64 / 1024f64,
+		);
 	}
 }
 

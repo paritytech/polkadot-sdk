@@ -688,9 +688,7 @@ async fn single_pending_candidate_recovery_success(#[case] runtime_version: u32)
 					AvailableData {
 						pov: Arc::new(PoV {
 							block_data: ParachainBlockData::<Block>::new(
-								header.clone(),
-								vec![],
-								CompactProof {encoded_nodes: vec![]}
+								vec![(Block::new(header.clone(), vec![]), CompactProof { encoded_nodes: vec![] })]
 							).encode().into()
 						}),
 						validation_data: dummy_pvd(),
@@ -792,9 +790,7 @@ async fn single_pending_candidate_recovery_retry_succeeds() {
 					AvailableData {
 						pov: Arc::new(PoV {
 							block_data: ParachainBlockData::<Block>::new(
-								header.clone(),
-								vec![],
-								CompactProof {encoded_nodes: vec![]}
+								vec![(Block::new(header.clone(), Vec::new()), CompactProof { encoded_nodes: vec![] })]
 							).encode().into()
 						}),
 						validation_data: dummy_pvd(),
@@ -1098,11 +1094,10 @@ async fn candidate_is_imported_while_awaiting_recovery() {
 	recovery_response_tx
 		.send(Ok(AvailableData {
 			pov: Arc::new(PoV {
-				block_data: ParachainBlockData::<Block>::new(
-					header.clone(),
-					vec![],
+				block_data: ParachainBlockData::<Block>::new(vec![(
+					Block::new(header.clone(), vec![]),
 					CompactProof { encoded_nodes: vec![] },
-				)
+				)])
 				.encode()
 				.into(),
 			}),
@@ -1196,11 +1191,10 @@ async fn candidate_is_finalized_while_awaiting_recovery() {
 	recovery_response_tx
 		.send(Ok(AvailableData {
 			pov: Arc::new(PoV {
-				block_data: ParachainBlockData::<Block>::new(
-					header.clone(),
-					vec![],
+				block_data: ParachainBlockData::<Block>::new(vec![(
+					Block::new(header.clone(), vec![]),
 					CompactProof { encoded_nodes: vec![] },
-				)
+				)])
 				.encode()
 				.into(),
 			}),
@@ -1285,9 +1279,7 @@ async fn chained_recovery_success() {
 					.send(Ok(AvailableData {
 						pov: Arc::new(PoV {
 							block_data: ParachainBlockData::<Block>::new(
-								header.clone(),
-								vec![],
-								CompactProof { encoded_nodes: vec![] },
+								vec![(Block::new(header.clone(), vec![]), CompactProof { encoded_nodes: vec![] })]
 							)
 							.encode()
 							.into(),
@@ -1401,11 +1393,10 @@ async fn chained_recovery_child_succeeds_before_parent() {
 		recovery_response_sender
 			.send(Ok(AvailableData {
 				pov: Arc::new(PoV {
-					block_data: ParachainBlockData::<Block>::new(
-						header.clone(),
-						vec![],
+					block_data: ParachainBlockData::<Block>::new(vec![(
+						Block::new(header.clone(), vec![]),
 						CompactProof { encoded_nodes: vec![] },
-					)
+					)])
 					.encode()
 					.into(),
 				}),

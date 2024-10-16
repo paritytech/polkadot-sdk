@@ -219,7 +219,7 @@ where
 		block_hash: Block::Hash,
 		candidate: ParachainCandidate<Block>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
-		let (header, extrinsics) = candidate.block.deconstruct();
+		let block = candidate.block;
 
 		let compact_proof = match candidate
 			.proof
@@ -234,7 +234,7 @@ where
 
 		// Create the parachain block data for the validators.
 		let collation_info = self
-			.fetch_collation_info(block_hash, &header)
+			.fetch_collation_info(block_hash, block.header())
 			.map_err(|e| {
 				tracing::error!(
 					target: LOG_TARGET,
@@ -245,7 +245,7 @@ where
 			.ok()
 			.flatten()?;
 
-		let block_data = ParachainBlockData::<Block>::new(header, extrinsics, compact_proof);
+		let block_data = ParachainBlockData::<Block>::new(vec![(block, compact_proof)]);
 
 		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
 			block_data: BlockData(block_data.encode()),

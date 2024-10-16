@@ -24,10 +24,7 @@ use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
 use sc_block_builder::BlockBuilderBuilder;
 use sp_api::ProvideRuntimeApi;
 use sp_consensus_aura::Slot;
-use sp_runtime::{
-	traits::{Block as BlockT, Header as HeaderT},
-	Digest, DigestItem,
-};
+use sp_runtime::{traits::Header as HeaderT, Digest, DigestItem};
 
 /// A struct containing a block builder and support data required to build test scenarios.
 pub struct BlockBuilderAndSupportData<'a> {
@@ -195,7 +192,6 @@ impl<'a> BuildParachainBlockData for sc_block_builder::BlockBuilder<'a, Block, C
 			.into_compact_proof::<<Header as HeaderT>::Hashing>(parent_state_root)
 			.expect("Creates the compact proof");
 
-		let (header, extrinsics) = built_block.block.deconstruct();
-		ParachainBlockData::new(header, extrinsics, storage_proof)
+		ParachainBlockData::new(vec![(built_block.block, storage_proof)])
 	}
 }

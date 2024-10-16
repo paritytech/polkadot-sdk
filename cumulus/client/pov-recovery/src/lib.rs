@@ -398,9 +398,33 @@ where
 			},
 		};
 
-		let block = block_data.into_block();
+		let blocks_and_proofs = block_data.into_inner();
 
-		let parent = *block.header().parent_hash();
+		if let Some((block, _)) = blocks_and_proofs.last() {
+			let last_block_hash = block.hash();
+			if last_block_hash != block_hash {
+				tracing::debug!(
+					target: LOG_TARGET,
+					expected_block_hash = ?block_hash,
+					got_block_hash = ?last_block_hash,
+					"Recovered candidate doesn't contain the expected block.",
+				);
+
+				self.reset_candidate(block_hash);
+				return;
+			}
+		}
+
+		let Some(parent) = blocks_and_proofs.first().map(|(b, _)| *b.header().parent_hash()) else {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?block_hash,
+				"Recovered candidate doesn't contain any blocks.",
+			);
+
+			self.reset_candidate(block_hash);
+			return;
+		};
 
 		match self.parachain_client.block_status(parent) {
 			Ok(BlockStatus::Unknown) => {
@@ -418,7 +442,12 @@ where
 						"Waiting for recovery of parent.",
 					);
 
-					self.waiting_for_parent.entry(parent).or_default().push(block);
+					blocks_and_proofs.into_iter().for_each(|(b, _)| {
+						self.waiting_for_parent
+							.entry(*b.header().parent_hash())
+							.or_default()
+							.push(b);
+					});
 					return
 				} else {
 					tracing::debug!(
@@ -447,17 +476,16 @@ where
 			_ => (),
 		}
 
-		self.import_block(block);
+		self.import_blocks(blocks_and_proofs.into_iter().map(|d| d.0));
 	}
 
-	/// Import the given `block`.
+	/// Import the given `blocks`.
 	///
 	/// This will also recursively drain `waiting_for_parent` and import them as well.
-	fn import_block(&mut self, block: Block) {
-		let mut blocks = VecDeque::new();
+	fn import_blocks(&mut self, blocks: impl Iterator<Item = Block>) {
+		let mut blocks = VecDeque::from_iter(blocks);
 
-		tracing::debug!(target: LOG_TARGET, block_hash = ?block.hash(), "Importing block retrieved using pov_recovery");
-		blocks.push_back(block);
+		tracing::trace!(target: LOG_TARGET, blocks = ?blocks.iter().map(|b| b.hash()), "Importing blocks retrieved using pov_recovery");
 
 		let mut incoming_blocks = Vec::new();
 
@@ -586,7 +614,7 @@ where
 						if let Some(waiting_blocks) = self.waiting_for_parent.remove(&imported.hash) {
 							for block in waiting_blocks {
 								tracing::debug!(target: LOG_TARGET, block_hash = ?block.hash(), resolved_parent = ?imported.hash, "Found new waiting child block during import, queuing.");
-								self.import_block(block);
+								self.import_blocks(std::iter::once(block));
 							}
 						};
 

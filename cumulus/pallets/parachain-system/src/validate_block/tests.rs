@@ -115,7 +115,7 @@ fn validate_block_works() {
 		build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
 
 	let block = seal_block(block, slot, &client);
-	let header = block.header().clone();
+	let header = block.blocks().nth(0).unwrap().header().clone();
 	let res_header =
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
 			.expect("Calls `validate_block`");
@@ -140,7 +140,7 @@ fn validate_block_with_extra_extrinsics() {
 		Default::default(),
 	);
 	let block = seal_block(block, slot, &client);
-	let header = block.header().clone();
+	let header = block.blocks().nth(0).unwrap().header().clone();
 
 	let res_header =
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
@@ -173,7 +173,7 @@ fn validate_block_returns_custom_head_data() {
 		parent_head.clone(),
 		Default::default(),
 	);
-	let header = block.header().clone();
+	let header = block.blocks().nth(0).unwrap().header().clone();
 	assert_ne!(expected_header, header.encode());
 
 	let block = seal_block(block, slot, &client);
@@ -192,13 +192,16 @@ fn validate_block_invalid_parent_hash() {
 
 	if env::var("RUN_TEST").is_ok() {
 		let (client, parent_head) = create_test_client();
-		let TestBlockData { block, validation_data, .. } =
+		let TestBlockData { mut block, validation_data, .. } =
 			build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
-		let (mut header, extrinsics, witness) = block.deconstruct();
-		header.set_parent_hash(Hash::from_low_u64_be(1));
+		block
+			.blocks_mut()
+			.nth(0)
+			.unwrap()
+			.header
+			.set_parent_hash(Hash::from_low_u64_be(1));
 
-		let block_data = ParachainBlockData::new(header, extrinsics, witness);
-		call_validate_block(parent_head, block_data, validation_data.relay_parent_storage_root)
+		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
 			.unwrap_err();
 	} else {
 		let output = Command::new(env::current_exe().unwrap())
@@ -208,7 +211,8 @@ fn validate_block_invalid_parent_hash() {
 			.expect("Runs the test");
 		assert!(output.status.success());
 
-		assert!(dbg!(String::from_utf8(output.stderr).unwrap()).contains("Invalid parent hash"));
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("Parachain head needs to be the parent of the first block"));
 	}
 }
 
@@ -242,19 +246,18 @@ fn check_inherents_are_unsigned_and_before_all_other_extrinsics() {
 	if env::var("RUN_TEST").is_ok() {
 		let (client, parent_head) = create_test_client();
 
-		let TestBlockData { block, validation_data, .. } =
+		let TestBlockData { mut block, validation_data, .. } =
 			build_block_with_witness(&client, Vec::new(), parent_head.clone(), Default::default());
 
-		let (header, mut extrinsics, proof) = block.deconstruct();
+		block
+			.blocks_mut()
+			.nth(0)
+			.unwrap()
+			.extrinsics
+			.insert(0, transfer(&client, Alice, Bob, 69));
 
-		extrinsics.insert(0, transfer(&client, Alice, Bob, 69));
-
-		call_validate_block(
-			parent_head,
-			ParachainBlockData::new(header, extrinsics, proof),
-			validation_data.relay_parent_storage_root,
-		)
-		.unwrap_err();
+		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
+			.unwrap_err();
 	} else {
 		let output = Command::new(env::current_exe().unwrap())
 			.args([
@@ -319,7 +322,8 @@ fn validate_block_works_with_child_tries() {
 		parent_head.clone(),
 		Default::default(),
 	);
-	let block = block.into_block();
+
+	let block = block.blocks().nth(0).unwrap().clone();
 
 	futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 
@@ -333,7 +337,7 @@ fn validate_block_works_with_child_tries() {
 	);
 
 	let block = seal_block(block, slot, &client);
-	let header = block.header().clone();
+	let header = block.blocks().nth(0).unwrap().header().clone();
 	let res_header =
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
 			.expect("Calls `validate_block`");

@@ -238,19 +238,28 @@ pub fn seal_block(
 	parachain_slot: Slot,
 	client: &Client,
 ) -> ParachainBlockData {
-	let parent_hash = block.header().parent_hash;
-	let authorities = client.runtime_api().authorities(parent_hash).unwrap();
-	let expected_author = slot_author::<<AuraId as AppCrypto>::Pair>(parachain_slot, &authorities)
-		.expect("Should be able to find author");
+	ParachainBlockData::new(
+		block
+			.into_inner()
+			.into_iter()
+			.map(|(mut block, proof)| {
+				let parent_hash = block.header.parent_hash;
+				let authorities = client.runtime_api().authorities(parent_hash).unwrap();
+				let expected_author =
+					slot_author::<<AuraId as AppCrypto>::Pair>(parachain_slot, &authorities)
+						.expect("Should be able to find author");
 
-	let (mut header, extrinsics, proof) = block.deconstruct();
-	let keystore = get_keystore();
-	let seal_digest = seal::<_, sp_consensus_aura::sr25519::AuthorityPair>(
-		&header.hash(),
-		expected_author,
-		&keystore,
+				let keystore = get_keystore();
+				let seal_digest = seal::<_, sp_consensus_aura::sr25519::AuthorityPair>(
+					&block.header.hash(),
+					expected_author,
+					&keystore,
+				)
+				.expect("Should be able to create seal");
+				block.header.digest_mut().push(seal_digest);
+
+				(block, proof)
+			})
+			.collect::<Vec<_>>(),
 	)
-	.expect("Should be able to create seal");
-	header.digest_mut().push(seal_digest);
-	ParachainBlockData::new(header, extrinsics, proof)
 }

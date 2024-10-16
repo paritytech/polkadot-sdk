@@ -4512,6 +4512,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-trie 29.0.0",
  "staging-xcm",
+ "tracing",
 ]
 
 [[package]]
