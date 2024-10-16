@@ -212,18 +212,22 @@ impl<Block: BlockT> ParachainBlockData<Block> {
 		Self { blocks }
 	}
 
+	/// Returns an iterator yielding references to the stored blocks.
 	pub fn blocks(&self) -> impl Iterator<Item = &Block> {
 		self.blocks.iter().map(|e| &e.0)
 	}
 
+	/// Returns an iterator yielding mutable references to the stored blocks.
 	pub fn blocks_mut(&mut self) -> impl Iterator<Item = &mut Block> {
 		self.blocks.iter_mut().map(|e| &mut e.0)
 	}
 
+	/// Returns an iterator yielding the stored blocks.
 	pub fn into_blocks(self) -> impl Iterator<Item = Block> {
 		self.blocks.into_iter().map(|d| d.0)
 	}
 
+	/// Returns an iterator yielding references to the stored proofs.
 	pub fn proofs(&self) -> impl Iterator<Item = &CompactProof> {
 		self.blocks.iter().map(|d| &d.1)
 	}
