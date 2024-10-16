@@ -206,11 +206,13 @@ fn bench_call_instance(c: &mut Criterion) {
 	let thread_counts = [1, 2, 4, 8, 16];
 
 	fn test_call_empty_function(instance: &mut Box<dyn WasmInstance>) {
-		instance.call_export("test_empty_return", &[0]).unwrap();
+		instance.call_export("test_empty_return", &[0], Default::default()).unwrap();
 	}
 
 	fn test_dirty_1mb_of_memory(instance: &mut Box<dyn WasmInstance>) {
-		instance.call_export("test_dirty_plenty_memory", &(0, 16).encode()).unwrap();
+		instance
+			.call_export("test_dirty_plenty_memory", &(0, 16, Default::default()).encode())
+			.unwrap();
 	}
 
 	let testcases = [
