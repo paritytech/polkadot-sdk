@@ -74,7 +74,10 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMort
 
 	fn weight(&self, _: &T::RuntimeCall) -> sp_weights::Weight {
 		if self.0.is_immortal() {
+			// All immortal transactions will always read the hash of the genesis block, so to avoid
+			// charging this multiple times in a block we manually set the proof size to 0.
 			<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality_immortal_transaction()
+				.set_proof_size(0)
 		} else {
 			<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality_mortal_transaction()
 		}
