@@ -98,7 +98,7 @@ mod smoke {
 		// wait 6 blocks of the para
 		let collator = network.get_node("collator")?;
 		assert!(collator
-			.wait_metric("block_height{status=\"best\"}", |b| b > 5_f64)
+			.wait_metric("block_height{status=\"finalized\"}", |b| b > 5_f64)
 			.await
 			.is_ok());
 
@@ -120,7 +120,10 @@ mod smoke {
 
 		// wait 6 blocks
 		let alice = network.get_node("alice")?;
-		assert!(alice.wait_metric("block_height{status=\"best\"}", |b| b > 5_f64).await.is_ok());
+		assert!(alice
+			.wait_metric("block_height{status=\"finalized\"}", |b| b > 5_f64)
+			.await
+			.is_ok());
 
 		Ok(())
 	}
@@ -140,7 +143,10 @@ mod smoke {
 
 		// wait 6 blocks
 		let alice = network.get_node("alice")?;
-		assert!(alice.wait_metric("block_height{status=\"best\"}", |b| b > 5_f64).await.is_ok());
+		assert!(alice
+			.wait_metric("block_height{status=\"finalized\"}", |b| b > 5_f64)
+			.await
+			.is_ok());
 
 		Ok(())
 	}
