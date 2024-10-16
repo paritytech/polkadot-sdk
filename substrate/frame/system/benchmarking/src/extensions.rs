@@ -100,6 +100,8 @@ mod benchmarks {
 		let prev_block: BlockNumberFor<T> = 16u32.into();
 		let default_hash: T::Hash = Default::default();
 		frame_system::BlockHash::<T>::insert(prev_block, default_hash);
+		let genesis_block: BlockNumberFor<T> = 0u32.into();
+		frame_system::BlockHash::<T>::insert(genesis_block, default_hash);
 		let caller = account("caller", 0, 0);
 		let info = DispatchInfo {
 			call_weight: Weight::from_parts(100, 0),
