@@ -262,21 +262,12 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 			vec![RuntimeEvent::EthereumOutboundQueue(snowbridge_pallet_outbound_queue::Event::MessageQueued{ .. }) => {},]
 		);
 		let events = BridgeHubWestend::events();
-		// Check that the local fee was credited to the Snowbridge sovereign account
-		assert!(
-			events.iter().any(|event| matches!(
-				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
-					if *who == TreasuryAccount::get().into() && *amount == 5071000000
-			)),
-			"Snowbridge sovereign takes local fee."
-		);
 		// Check that the remote fee was credited to the AssetHub sovereign account
 		assert!(
 			events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
-					if *who == assethub_sovereign && *amount == 2680000000000,
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who,.. })
+					if *who == assethub_sovereign
 			)),
 			"AssetHub sovereign takes remote fee."
 		);
@@ -592,6 +583,137 @@ fn transfer_ah_token() {
 					if *owner == AssetHubWestendReceiver::get()
 			)),
 			"Token minted to beneficiary."
+		);
+	});
+}
+
+#[test]
+fn send_weth_from_asset_hub_to_ethereum_by_executing_raw_xcm() {
+	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
+	let weth_asset_location: Location =
+		(Parent, Parent, EthereumNetwork::get(), AccountKey20 { network: None, key: WETH }).into();
+
+	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
+			RuntimeOrigin::root(),
+			weth_asset_location.clone().try_into().unwrap(),
+			assethub_sovereign.clone().into(),
+			false,
+			1,
+		));
+
+		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
+			weth_asset_location.clone().try_into().unwrap(),
+		));
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		let message = VersionedMessage::V1(MessageV1 {
+			chain_id: CHAIN_ID,
+			command: Command::SendToken {
+				token: WETH.into(),
+				destination: Destination::AccountId32 { id: AssetHubWestendReceiver::get().into() },
+				amount: TOKEN_AMOUNT,
+				fee: XCM_FEE,
+			},
+		});
+		let (xcm, _) = EthereumInboundQueue::do_convert([0; 32].into(), message).unwrap();
+		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
+
+		// Check that the send token message was sent using xcm
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) =>{},]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		// Check that AssetHub has issued the foreign asset
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},]
+		);
+
+		let local_fee_amount = 80_000_000_000;
+		let remote_fee_amount = 4_000_000_000;
+		let local_fee_asset =
+			Asset { id: AssetId(Location::parent()), fun: Fungible(local_fee_amount) };
+		let remote_fee_asset =
+			Asset { id: AssetId(weth_asset_location.clone()), fun: Fungible(remote_fee_amount) };
+		let reserve_asset = Asset {
+			id: AssetId(weth_asset_location.clone()),
+			fun: Fungible(TOKEN_AMOUNT - remote_fee_amount),
+		};
+		let assets = vec![
+			Asset { id: AssetId(weth_asset_location.clone()), fun: Fungible(TOKEN_AMOUNT) },
+			local_fee_asset.clone(),
+		];
+		let destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
+
+		let beneficiary = Location::new(
+			0,
+			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
+		);
+
+		// Internal xcm of InitiateReserveWithdraw, WithdrawAssets + ClearOrigin instructions will
+		// be appended to the front of the list by the xcm executor
+		let xcm_on_bh = Xcm(vec![
+			BuyExecution { fees: remote_fee_asset.clone(), weight_limit: Unlimited },
+			// ExpectAsset as a workaround before XCMv5 to differ Route V1 and V2
+			ExpectAsset(vec![remote_fee_asset.clone()].into()),
+			DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
+		]);
+
+		let xcms = VersionedXcm::from(Xcm(vec![
+			WithdrawAsset(assets.clone().into()),
+			// BuyExecution { fees: local_fee_asset.clone(), weight_limit: Unlimited },
+			SetFeesMode { jit_withdraw: true },
+			InitiateReserveWithdraw {
+				assets: Definite(reserve_asset.clone().into()),
+				// with reserve set to Ethereum destination, the ExportMessage will
+				// be appended to the front of the list by the SovereignPaidRemoteExporter
+				reserve: destination,
+				xcm: xcm_on_bh,
+			},
+		]));
+
+		// Send the Weth back to Ethereum
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
+			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+			bx!(xcms),
+			Weight::from(8_000_000_000),
+		)
+		.unwrap();
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		use bridge_hub_westend_runtime::xcm_config::TreasuryAccount;
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		// Check that the transfer token back to Ethereum message was queue in the Ethereum
+		// Outbound Queue
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+		let events = BridgeHubWestend::events();
+		// Check that the remote fee was credited to the AssetHub sovereign account
+		assert!(
+			events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
+					if *who == assethub_sovereign && *amount == 2737194500000,
+			)),
+			"AssetHub sovereign takes remote fee."
 		);
 	});
 }

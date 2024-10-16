@@ -112,7 +112,7 @@ where
 			},
 		};
 
-		let message = message.take().ok_or_else(|| {
+		let message = message.clone().ok_or_else(|| {
 			log::error!(target: "xcm::ethereum_blob_exporter", "xcm message not provided.");
 			SendError::MissingArgument
 		})?;
