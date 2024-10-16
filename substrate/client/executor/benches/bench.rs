@@ -211,7 +211,7 @@ fn bench_call_instance(c: &mut Criterion) {
 
 	fn test_dirty_1mb_of_memory(instance: &mut Box<dyn WasmInstance>) {
 		instance
-			.call_export("test_dirty_plenty_memory", &(0, 16, Default::default()).encode())
+			.call_export("test_dirty_plenty_memory", &(0, 16).encode(), Default::default())
 			.unwrap();
 	}
 
