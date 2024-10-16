@@ -415,7 +415,6 @@ impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 }
 
 sp_api::mock_impl_runtime_apis! {
-
 	impl TrustedQueryApi<Block> for RuntimeApi {
 		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, TrustedQueryApiError> {
 			XcmPallet::is_trusted_reserve(asset, location)
