@@ -31,7 +31,6 @@ log = { workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 impl-trait-for-tuples = { workspace = true }
 rlp = { workspace = true }
-hex-literal = { workspace = true }
 
 # Polkadot SDK Dependencies
 frame-benchmarking = { optional = true, workspace = true }

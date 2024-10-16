@@ -66,6 +66,9 @@ type VarSizedKey = BoundedVec<u8, ConstU32<{ limits::STORAGE_KEY_BYTES }>>;
 
 const FRAME_ALWAYS_EXISTS_ON_INSTANTIATE: &str = "The return value is only `None` if no contract exists at the specified address. This cannot happen on instantiate or delegate; qed";
 
+/// Code hash of existing account without code (keccak256 hash of empty data).
+const EMPTY_CODE_HASH: H256 = H256(sp_core::hex2array!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"));
+
 /// Combined key type for both fixed and variable sized storage keys.
 pub enum Key {
 	/// Variant for fixed sized keys.
@@ -1527,9 +1530,7 @@ where
 			.map(|contract| contract.code_hash)
 			.unwrap_or_else(|| {
 				if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) {
-					return H256::from(hex_literal::hex!(
-						"c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
-					));
+					return EMPTY_CODE_HASH;
 				}
 				H256::zero()
 			})
