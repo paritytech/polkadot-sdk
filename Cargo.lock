@@ -10541,6 +10541,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "object"
+version = "0.36.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aedf0a2d09c573ed1d8d85b30c119153926a2b36dce0ab28322c09a117a4683e"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "oid-registry"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12441,7 +12450,7 @@ dependencies = [
  "frame-system",
  "log",
  "parity-wasm",
- "polkavm-common 0.13.0",
+ "polkavm-linker 0.13.0",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -16389,6 +16398,21 @@ dependencies = [
  "log",
  "object 0.32.2",
  "polkavm-common 0.9.0",
+ "regalloc2 0.9.3",
+ "rustc-demangle",
+]
+
+[[package]]
+name = "polkavm-linker"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4aa6e5a396abf195289d6d63d70182e59a7c27b9b06d0b7361317df05c07c8a8"
+dependencies = [
+ "gimli 0.28.0",
+ "hashbrown 0.14.5",
+ "log",
+ "object 0.36.5",
+ "polkavm-common 0.13.0",
  "regalloc2 0.9.3",
  "rustc-demangle",
 ]
@@ -24071,7 +24095,7 @@ dependencies = [
  "merkleized-metadata",
  "parity-scale-codec",
  "parity-wasm",
- "polkavm-linker",
+ "polkavm-linker 0.9.2",
  "sc-executor 0.32.0",
  "shlex",
  "sp-core 28.0.0",
