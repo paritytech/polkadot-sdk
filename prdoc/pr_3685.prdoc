@@ -75,13 +75,13 @@ crates:
   - name: bp-runtime
     bump: major
   - name: snowbridge-pallet-inbound-queue
-    bump: minor
+    bump: major
   - name: snowbridge-pallet-outbound-queue
-    bump: minor
+    bump: major
   - name: snowbridge-pallet-system
-    bump: minor
+    bump: major
   - name: snowbridge-runtime-test-common
-    bump: minor
+    bump: major
   - name: parachain-template-runtime
     bump: major
   - name: asset-hub-rococo-runtime
@@ -121,9 +121,9 @@ crates:
   - name: cumulus-test-service
     bump: major
   - name: polkadot-sdk-docs
-    bump: minor
+    bump: major
   - name: polkadot-service
-    bump: minor
+    bump: major
   - name: polkadot-test-service
     bump: major
   - name: polkadot-runtime-common
@@ -149,47 +149,47 @@ crates:
   - name: node-testing
     bump: major
   - name: sc-client-api
-    bump: minor
+    bump: major
   - name: sc-client-db
-    bump: minor
+    bump: major
   - name: sc-network-gossip
-    bump: minor
+    bump: major
   - name: sc-network-sync
-    bump: minor
+    bump: major
   - name: sc-transaction-pool
-    bump: minor
+    bump: major
   - name: polkadot-sdk-frame
     bump: major
   - name: pallet-babe
-    bump: minor
+    bump: major
   - name: pallet-balances
-    bump: minor
+    bump: major
   - name: pallet-beefy
-    bump: minor
+    bump: major
   - name: pallet-collective
-    bump: minor
+    bump: major
   - name: pallet-election-provider-multi-phase
-    bump: minor
+    bump: major
   - name: pallet-elections-phragmen
-    bump: minor
+    bump: major
   - name: pallet-example-basic
     bump: major
   - name: pallet-example-offchain-worker
-    bump: minor
+    bump: major
   - name: frame-executive
-    bump: minor
+    bump: major
   - name: pallet-grandpa
-    bump: minor
+    bump: major
   - name: pallet-im-online
-    bump: minor
+    bump: major
   - name: frame-metadata-hash-extension
     bump: major
   - name: pallet-offences
-    bump: minor
+    bump: major
   - name: pallet-sassafras
-    bump: minor
+    bump: major
   - name: pallet-state-trie-migration
-    bump: minor
+    bump: major
   - name: pallet-sudo
     bump: major
   - name: frame-support-procedural
@@ -217,8 +217,8 @@ crates:
   - name: substrate-test-runtime
     bump: major
   - name: frame-benchmarking-cli
-    bump: minor
+    bump: major
   - name: frame-remote-externalities
-    bump: minor
+    bump: major
   - name: substrate-rpc-client
-    bump: minor
+    bump: major
