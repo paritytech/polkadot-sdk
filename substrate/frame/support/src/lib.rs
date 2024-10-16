@@ -1565,6 +1565,53 @@ pub mod pallet_macros {
 	/// * [`frame_support::derive_impl`].
 	/// * [`#[pallet::no_default]`](`no_default`)
 	/// * [`#[pallet::no_default_bounds]`](`no_default_bounds`)
+	///
+	/// ## Optional: `without_automatic_metadata`
+	///
+	/// By default, the associated types of the `Config` trait that require the `TypeInfo` or
+	/// `Parameter` bounds are included in the metadata of the pallet.
+	///
+	/// The optional `without_automatic_metadata` argument can be used to exclude these
+	/// associated types from the metadata collection.
+	///
+	/// Furthermore, the `without_automatic_metadata` argument can be used in combination with
+	/// the [`#[pallet::include_metadata]`](`include_metadata`) attribute to selectively
+	/// include only certain associated types in the metadata collection.
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	/// # 	use frame_support::pallet_prelude::*;
+	/// # 	use frame_system::pallet_prelude::*;
+	/// # 	use core::fmt::Debug;
+	/// # 	use frame_support::traits::Contains;
+	/// #
+	/// # 	pub trait SomeMoreComplexBound {}
+	/// #
+	/// 	#[pallet::pallet]
+	/// 	pub struct Pallet<T>(_);
+	///
+	/// 	#[pallet::config(with_default, without_automatic_metadata)] // <- with_default and without_automatic_metadata are optional
+	/// 	pub trait Config: frame_system::Config {
+	/// 		/// The overarching event type.
+	/// 		#[pallet::no_default_bounds] // Default with bounds is not supported for RuntimeEvent
+	/// 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	///
+	/// 		/// A simple type.
+	/// 		// Type that would have been included in metadata, but is now excluded.
+	/// 		type SimpleType: From<u32> + TypeInfo;
+	///
+	/// 		// The `pallet::include_metadata` is used to selectively include this type in metadata.
+	/// 		#[pallet::include_metadata]
+	/// 		type SelectivelyInclude: From<u32> + TypeInfo;
+	/// 	}
+	///
+	/// 	#[pallet::event]
+	/// 	pub enum Event<T: Config> {
+	/// 		SomeEvent(u16, u32),
+	/// 	}
+	/// }
+	/// ```
 	pub use frame_support_procedural::config;
 
 	/// Allows defining an enum that gets composed as an aggregate enum by `construct_runtime`.
@@ -1961,6 +2008,17 @@ pub mod pallet_macros {
 	///   `Event` itself. If both the `Event` and its variants are deprecated a compile error
 	///   will be returned.
 	pub use frame_support_procedural::event;
+
+	/// Selectively includes associated types in the metadata.
+	///
+	/// The optional attribute allows you to selectively include associated types in the
+	/// metadata. This can be attached to trait items that implement `TypeInfo`.
+	///
+	/// By default all collectable associated types are included in the metadata.
+	///
+	/// This attribute can be used in combination with the
+	/// [`#[pallet::config(without_automatic_metadata)]`](`config`).
+	pub use frame_support_procedural::include_metadata;
 
 	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*.
 	///
