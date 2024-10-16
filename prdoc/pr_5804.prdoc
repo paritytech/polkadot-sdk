@@ -6,7 +6,7 @@ title: Refactor get_account_id_from_seed / get_from_seed to one common place
 doc:
   - audience: Runtime Dev
     description: |
-      `get_account_id_from_seed / get_from_seed` are copied all over the place, causing code being bloated.
+      `get_account_id_from_seed / get_from_seed` were copied all over the place. This PR removes unnecessary code duplication.
       `Keyring::iter()` provides the same functionality and is used instead.
 
 crates: 
