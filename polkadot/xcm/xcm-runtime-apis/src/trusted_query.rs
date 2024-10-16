@@ -14,15 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Runtime API definition for getting XCM fees.
+//! Runtime API definition for checking if given <Asset, Location> is trusted reserve or teleporter.
 
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::TypeInfo;
 use xcm::{VersionedAsset, VersionedLocation};
 
 sp_api::decl_runtime_apis! {
+	// API for querying trusted reserves and trusted teleporters.
 	pub trait TrustedQueryApi {
+		/// Returns if the location is a trusted reserve for the asset.
+		///
+		/// # Arguments
+		///
+		/// * `asset`: `VersionedAsset`.
+		/// * `location`: `VersionedLocation`.
 		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, Error>;
+		/// Returns if the asset can be teleported to the location.
+		///
+		/// # Arguments
+		///
+		/// * `asset`: `VersionedAsset`.
+		/// * `location`: `VersionedLocation`.
 		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, Error>;
 	}
 }

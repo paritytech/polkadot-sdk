@@ -2604,6 +2604,8 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
+	/// Given an Asset and a Location, returns if the provided location is a trusted reserve for the
+	/// given asset.
 	pub fn is_trusted_reserve(
 		asset: VersionedAsset,
 		location: VersionedLocation,
@@ -2629,6 +2631,7 @@ impl<T: Config> Pallet<T> {
 		Ok(<T::XcmExecutor as XcmAssetTransfers>::IsReserve::contains(&a, &location))
 	}
 
+	/// Given an Asset and a Location, returns if the asset can be teleported to provided location.
 	pub fn is_trusted_teleporter(
 		asset: VersionedAsset,
 		location: VersionedLocation,
