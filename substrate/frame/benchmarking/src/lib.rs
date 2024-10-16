@@ -337,6 +337,8 @@ pub use v1::*;
 ///    5. If the function is supposed to return a `Result<(), BenchmarkError>`, end with an `Ok(())`
 ///       expression.
 ///
+/// As for tests, the code is the same as v1 (see [Benchmark Tests](#benchmark-tests)).
+///
 /// As an example migration, the following v1 code
 ///
 /// ```ignore
