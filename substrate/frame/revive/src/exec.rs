@@ -1526,6 +1526,8 @@ where
 		ContractInfoOf::<T>::contains_key(&address)
 	}
 
+	/// Retrieve the code hash for a specified contract address.
+	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
 	fn code_hash(&self, address: &H160) -> H256 {
 		<ContractInfoOf<T>>::get(&address)
 			.map(|contract| contract.code_hash)
@@ -2390,7 +2392,7 @@ mod tests {
 			// BOB is a contract (this function) and hence it has a code_hash.
 			// `MockLoader` uses contract index to generate the code hash.
 			assert_eq!(ctx.ext.code_hash(&BOB_ADDR), H256(keccak_256(&0u64.to_le_bytes())));
-			// [0xff;32] doesn't exist and returns hash zero
+			// [0xff;20] doesn't exist and returns hash zero
 			assert!(ctx.ext.code_hash(&H160([0xff; 20])).is_zero());
 
 			exec_success()
