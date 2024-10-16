@@ -26,7 +26,7 @@ jobs:
   build-runtimes:
     uses: "./.github/workflows/release-srtool.yml"
     with:
-       excluded_runtimes: "asset-hub-rococo bridge-hub-rococo contracts-rococo coretime-rococo people-rococo rococo substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template"
+       excluded_runtimes: "asset-hub-rococo bridge-hub-rococo contracts-rococo coretime-rococo people-rococo rococo rococo-parachain substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template"
        build_opts: "--features on-chain-release-build"
 
   build-binaries:
