@@ -248,6 +248,29 @@ impl<T: BlsBound> ProofOfPossessionGenerator for Pair<T> {
 		r.to_vec()
 	}
 }
+
+impl<T: BlsBound> ProofOfPossessionVerifier for Pair<T> {
+	fn verify_proof_of_possession(
+		proof_of_possession: &[u8],
+		allegedly_possessed_pubkey: &Self::Public,
+	) -> bool {
+		let proof_of_possession = BLSPoP::<T>::from_bytes(proof_of_possession);
+		let allegedly_possessed_pubkey_as_bls_pubkey =
+			match DoublePublicKey::<T>::from_bytes(&allegedly_possessed_pubkey.0) {
+				Ok(pk) => pk,
+				Err(_) => return false,
+			};
+
+		match proof_of_possession.ok() {
+			Some(proof_of_possession) => BlsProofOfPossession::<T, Sha256, _>::verify(
+				&proof_of_possession,
+				&allegedly_possessed_pubkey_as_bls_pubkey,
+			),
+			_ => false,
+		}
+	}
+}
+
 impl<T: BlsBound> CryptoType for Pair<T> {
 	type Pair = Pair<T>;
 }
@@ -577,40 +600,44 @@ mod tests {
 		must_generate_proof_of_possession::<bls377::BlsEngine>();
 	}
 
-	// #[test]
-	// fn must_generate_proof_of_possession_for_bls381() {
-	// 	must_generate_proof_of_possession::<bls381::BlsEngine>();
-	// }
+	#[test]
+	fn must_generate_proof_of_possession_for_bls381() {
+		must_generate_proof_of_possession::<bls381::BlsEngine>();
+	}
 
-	// fn good_proof_of_possession_must_verify<E: BlsBound>() {
-	// 	let pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
-	// 	pair.generate_proof_of_possession();
-	// }
+	fn good_proof_of_possession_must_verify<E: BlsBound>() {
+		let mut pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
+		let pop = pair.generate_proof_of_possession();
+		assert!(Pair::<E>::verify_proof_of_possession(pop.as_slice(), &pair.public()));
+	}
 
-	// #[test]
-	// fn good_proof_of_possession_must_verify_for_bls377() {
-	// 	good_proof_of_possession_must_verify::<bls377::BlsEngine>();
-	// }
+	#[test]
+	fn good_proof_of_possession_must_verify_for_bls377() {
+		good_proof_of_possession_must_verify::<bls377::BlsEngine>();
+	}
 
-	// #[test]
-	// fn good_proof_of_possession_must_verify_for_bls381() {
-	// 	good_proof_of_possession_must_verify::<bls381::BlsEngine>();
-	// }
+	#[test]
+	fn good_proof_of_possession_must_verify_for_bls381() {
+		good_proof_of_possession_must_verify::<bls381::BlsEngine>();
+	}
 
-	// fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key<E: BlsBound>() {
-	// 	let pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
-	// 	let other_pair = Pair::<E>::from_seed(b"23456789012345678901234567890123");
-	// 	let pop = pair.generate_proof_of_possession();
-	// 	assert_eq!(Pair::<E>::verify(pop, other_pair.public()), false);
-	// }
+	fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key<E: BlsBound>() {
+		let mut pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::<E>::from_seed(b"23456789012345678901234567890123");
+		let pop = pair.generate_proof_of_possession();
+		assert_eq!(
+			Pair::<E>::verify_proof_of_possession(pop.as_slice(), &other_pair.public()),
+			false
+		);
+	}
 
-	// #[test]
-	// fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key_for_bls377() {
-	// 	proof_of_possession_must_fail_if_prover_does_not_possess_secret_key::<bls377::BlsEngine>();
-	// }
+	#[test]
+	fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key_for_bls377() {
+		proof_of_possession_must_fail_if_prover_does_not_possess_secret_key::<bls377::BlsEngine>();
+	}
 
-	// #[test]
-	// fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key_for_bls381() {
-	// 	proof_of_possession_must_fail_if_prover_does_not_possess_secret_key::<bls381::BlsEngine>();
-	// }
+	#[test]
+	fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key_for_bls381() {
+		proof_of_possession_must_fail_if_prover_does_not_possess_secret_key::<bls381::BlsEngine>();
+	}
 }
