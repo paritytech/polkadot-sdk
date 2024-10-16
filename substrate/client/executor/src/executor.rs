@@ -195,7 +195,7 @@ impl<H> WasmExecutorBuilder<H> {
 		self
 	}
 
-	/// Create the was executor and set the call context for the created instance.
+	/// Create the wasm executor with given call context.
 	///
 	/// By default this value is set to `CallContext::Onchain`.
 	pub fn with_context(mut self, context: CallContext) -> Self {
