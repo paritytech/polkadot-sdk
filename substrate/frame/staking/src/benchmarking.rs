@@ -34,8 +34,8 @@ use sp_runtime::{
 };
 use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex};
 
-pub use frame_benchmarking::v1::{
-	account, benchmarks, impl_benchmark_test_suite, whitelist_account, whitelisted_caller,
+pub use frame_benchmarking::{
+	impl_benchmark_test_suite, v2::*, whitelist_account, whitelisted_caller, BenchmarkError,
 };
 use frame_system::RawOrigin;
 
@@ -219,19 +219,26 @@ impl<T: Config> ListScenario<T> {
 
 const USER_SEED: u32 = 999666;
 
-benchmarks! {
-	bond {
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn bond() {
 		let stash = create_funded_user::<T>("stash", USER_SEED, 100);
 		let reward_destination = RewardDestination::Staked;
 		let amount = asset::existential_deposit::<T>() * 10u32.into();
 		whitelist_account!(stash);
-	}: _(RawOrigin::Signed(stash.clone()), amount, reward_destination)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(stash.clone()), amount, reward_destination);
+
 		assert!(Bonded::<T>::contains_key(stash.clone()));
 		assert!(Ledger::<T>::contains_key(stash));
 	}
 
-	bond_extra {
+	#[benchmark]
+	fn bond_extra() -> Result<(), BenchmarkError> {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
@@ -246,25 +253,29 @@ benchmarks! {
 
 		let stash = scenario.origin_stash1.clone();
 		let controller = scenario.origin_controller1;
-		let original_bonded: BalanceOf<T>
-			= Ledger::<T>::get(&controller).map(|l| l.active).ok_or("ledger not created after")?;
+		let original_bonded: BalanceOf<T> = Ledger::<T>::get(&controller)
+			.map(|l| l.active)
+			.ok_or("ledger not created after")?;
 
 		let _ = asset::mint_existing::<T>(&stash, max_additional).unwrap();
 
 		whitelist_account!(stash);
-	}: _(RawOrigin::Signed(stash), max_additional)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(stash), max_additional);
+
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
 		let new_bonded: BalanceOf<T> = ledger.active;
 		assert!(original_bonded < new_bonded);
+
+		Ok(())
 	}
 
-	unbond {
+	#[benchmark]
+	fn unbond() -> Result<(), BenchmarkError> {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		// setup the worst case list scenario.
-		let total_issuance = asset::total_issuance::<T>();
 		// the weight the nominator will start at. The value used here is expected to be
 		// significantly higher than the first position in a list (e.g. the first bag threshold).
 		let origin_weight = BalanceOf::<T>::try_from(952_994_955_240_703u128)
@@ -272,24 +283,29 @@ benchmarks! {
 			.unwrap();
 		let scenario = ListScenario::<T>::new(origin_weight, false)?;
 
-		let stash = scenario.origin_stash1.clone();
 		let controller = scenario.origin_controller1.clone();
 		let amount = origin_weight - scenario.dest_weight;
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_bonded: BalanceOf<T> = ledger.active;
 
 		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller.clone()), amount)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(controller.clone()), amount);
+
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
 		let new_bonded: BalanceOf<T> = ledger.active;
 		assert!(original_bonded > new_bonded);
+
+		Ok(())
 	}
 
+	#[benchmark]
 	// Withdraw only updates the ledger
-	withdraw_unbonded_update {
+	fn withdraw_unbonded_update(
 		// Slashing Spans
-		let s in 0 .. MAX_SPANS;
+		s: Linear<0, MAX_SPANS>,
+	) -> Result<(), BenchmarkError> {
 		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		add_slashing_spans::<T>(&stash, s);
 		let amount = asset::existential_deposit::<T>() * 5u32.into(); // Half of total
@@ -298,17 +314,23 @@ benchmarks! {
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_total: BalanceOf<T> = ledger.total;
 		whitelist_account!(controller);
-	}: withdraw_unbonded(RawOrigin::Signed(controller.clone()), s)
-	verify {
+
+		#[extrinsic_call]
+		withdraw_unbonded(RawOrigin::Signed(controller.clone()), s);
+
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
 		let new_total: BalanceOf<T> = ledger.total;
 		assert!(original_total > new_total);
+
+		Ok(())
 	}
 
+	#[benchmark]
 	// Worst case scenario, everything is removed after the bonding duration
-	withdraw_unbonded_kill {
+	fn withdraw_unbonded_kill(
 		// Slashing Spans
-		let s in 0 .. MAX_SPANS;
+		s: Linear<0, MAX_SPANS>,
+	) -> Result<(), BenchmarkError> {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
@@ -329,13 +351,18 @@ benchmarks! {
 		CurrentEra::<T>::put(EraIndex::max_value());
 
 		whitelist_account!(controller);
-	}: withdraw_unbonded(RawOrigin::Signed(controller.clone()), s)
-	verify {
+
+		#[extrinsic_call]
+		withdraw_unbonded(RawOrigin::Signed(controller.clone()), s);
+
 		assert!(!Ledger::<T>::contains_key(controller));
 		assert!(!T::VoterList::contains(&stash));
+
+		Ok(())
 	}
 
-	validate {
+	#[benchmark]
+	fn validate() -> Result<(), BenchmarkError> {
 		let (stash, controller) = create_stash_controller::<T>(
 			MaxNominationsOf::<T>::get() - 1,
 			100,
@@ -346,22 +373,28 @@ benchmarks! {
 
 		let prefs = ValidatorPrefs::default();
 		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller), prefs)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(controller), prefs);
+
 		assert!(Validators::<T>::contains_key(&stash));
 		assert!(T::VoterList::contains(&stash));
+
+		Ok(())
 	}
 
-	kick {
+	#[benchmark]
+	fn kick(
 		// scenario: we want to kick `k` nominators from nominating us (we are a validator).
 		// we'll assume that `k` is under 128 for the purposes of determining the slope.
-		// each nominator should have `T::MaxNominations::get()` validators nominated, and our validator
-		// should be somewhere in there.
-		let k in 1 .. 128;
-
+		// each nominator should have `T::MaxNominations::get()` validators nominated, and our
+		// validator should be somewhere in there.
+		k: Linear<1, 128>,
+	) -> Result<(), BenchmarkError> {
 		// these are the other validators; there are `T::MaxNominations::get() - 1` of them, so
 		// there are a total of `T::MaxNominations::get()` validators in the system.
-		let rest_of_validators = create_validators_with_seed::<T>(MaxNominationsOf::<T>::get() - 1, 100, 415)?;
+		let rest_of_validators =
+			create_validators_with_seed::<T>(MaxNominationsOf::<T>::get() - 1, 100, 415)?;
 
 		// this is the validator that will be kicking.
 		let (stash, controller) = create_stash_controller::<T>(
@@ -377,7 +410,7 @@ benchmarks! {
 		// we now create the nominators. there will be `k` of them; each will nominate all
 		// validators. we will then kick each of the `k` nominators from the main validator.
 		let mut nominator_stashes = Vec::with_capacity(k as usize);
-		for i in 0 .. k {
+		for i in 0..k {
 			// create a nominator stash.
 			let (n_stash, n_controller) = create_stash_controller::<T>(
 				MaxNominationsOf::<T>::get() + i,
@@ -402,49 +435,60 @@ benchmarks! {
 		}
 
 		// we need the unlookuped version of the nominator stash for the kick.
-		let kicks = nominator_stashes.iter()
+		let kicks = nominator_stashes
+			.iter()
 			.map(|n| T::Lookup::unlookup(n.clone()))
 			.collect::<Vec<_>>();
 
 		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller), kicks)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(controller), kicks);
+
 		// all nominators now should *not* be nominating our validator...
 		for n in nominator_stashes.iter() {
 			assert!(!Nominators::<T>::get(n).unwrap().targets.contains(&stash));
 		}
+
+		Ok(())
 	}
 
+	#[benchmark]
 	// Worst case scenario, T::MaxNominations::get()
-	nominate {
-		let n in 1 .. MaxNominationsOf::<T>::get();
-
+	fn nominate(n: Linear<1, { MaxNominationsOf::<T>::get() }>) -> Result<(), BenchmarkError> {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
 		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
 
-		// setup a worst case list scenario. Note we don't care about the destination position, because
-		// we are just doing an insert into the origin position.
-		let scenario = ListScenario::<T>::new(origin_weight, true)?;
+		// setup a worst case list scenario. Note we don't care about the destination position,
+		// because we are just doing an insert into the origin position.
+		ListScenario::<T>::new(origin_weight, true)?;
 		let (stash, controller) = create_stash_controller_with_balance::<T>(
-			SEED + MaxNominationsOf::<T>::get() + 1, // make sure the account does not conflict with others
+			SEED + MaxNominationsOf::<T>::get() + 1, /* make sure the account does not conflict
+			                                          * with others */
 			origin_weight,
 			RewardDestination::Staked,
-		).unwrap();
+		)
+		.unwrap();
 
 		assert!(!Nominators::<T>::contains_key(&stash));
 		assert!(!T::VoterList::contains(&stash));
 
 		let validators = create_validators::<T>(n, 100).unwrap();
 		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller), validators)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(controller), validators);
+
 		assert!(Nominators::<T>::contains_key(&stash));
-		assert!(T::VoterList::contains(&stash))
+		assert!(T::VoterList::contains(&stash));
+
+		Ok(())
 	}
 
-	chill {
+	#[benchmark]
+	fn chill() -> Result<(), BenchmarkError> {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
@@ -458,97 +502,138 @@ benchmarks! {
 		assert!(T::VoterList::contains(&stash));
 
 		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller))
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(controller));
+
 		assert!(!T::VoterList::contains(&stash));
+
+		Ok(())
 	}
 
-	set_payee {
-		let (stash, controller) = create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
+	#[benchmark]
+	fn set_payee() -> Result<(), BenchmarkError> {
+		let (stash, controller) =
+			create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
 		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Staked));
 		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller.clone()), RewardDestination::Account(controller.clone()))
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(controller.clone()), RewardDestination::Account(controller.clone()));
+
 		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Account(controller)));
+
+		Ok(())
 	}
 
-	update_payee {
-		let (stash, controller) = create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
+	#[benchmark]
+	fn update_payee() -> Result<(), BenchmarkError> {
+		let (stash, controller) =
+			create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
 		Payee::<T>::insert(&stash, {
 			#[allow(deprecated)]
 			RewardDestination::Controller
 		});
 		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller.clone()), controller.clone())
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(controller.clone()), controller.clone());
+
 		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Account(controller)));
+
+		Ok(())
 	}
 
-	set_controller {
-		let (stash, ctlr) = create_unique_stash_controller::<T>(9000, 100, RewardDestination::Staked, false)?;
+	#[benchmark]
+	fn set_controller() -> Result<(), BenchmarkError> {
+		let (stash, ctlr) =
+			create_unique_stash_controller::<T>(9000, 100, RewardDestination::Staked, false)?;
 		// ensure `ctlr` is the currently stored controller.
 		assert!(!Ledger::<T>::contains_key(&stash));
 		assert!(Ledger::<T>::contains_key(&ctlr));
 		assert_eq!(Bonded::<T>::get(&stash), Some(ctlr.clone()));
 
 		whitelist_account!(stash);
-	}: _(RawOrigin::Signed(stash.clone()))
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(stash.clone()));
+
 		assert!(Ledger::<T>::contains_key(&stash));
+
+		Ok(())
 	}
 
-	set_validator_count {
+	#[benchmark]
+	fn set_validator_count() {
 		let validator_count = MaxValidators::<T>::get();
-	}: _(RawOrigin::Root, validator_count)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, validator_count);
+
 		assert_eq!(ValidatorCount::<T>::get(), validator_count);
 	}
 
-	force_no_eras {}: _(RawOrigin::Root)
-	verify { assert_eq!(ForceEra::<T>::get(), Forcing::ForceNone); }
+	#[benchmark]
+	fn force_no_eras() {
+		#[extrinsic_call]
+		_(RawOrigin::Root);
 
-	force_new_era {}: _(RawOrigin::Root)
-	verify { assert_eq!(ForceEra::<T>::get(), Forcing::ForceNew); }
+		assert_eq!(ForceEra::<T>::get(), Forcing::ForceNone);
+	}
 
-	force_new_era_always {}: _(RawOrigin::Root)
-	verify { assert_eq!(ForceEra::<T>::get(), Forcing::ForceAlways); }
+	#[benchmark]
+	fn force_new_era() {
+		#[extrinsic_call]
+		_(RawOrigin::Root);
 
+		assert_eq!(ForceEra::<T>::get(), Forcing::ForceNew);
+	}
+
+	#[benchmark]
+	fn force_new_era_always() {
+		#[extrinsic_call]
+		_(RawOrigin::Root);
+
+		assert_eq!(ForceEra::<T>::get(), Forcing::ForceAlways);
+	}
+
+	#[benchmark]
 	// Worst case scenario, the list of invulnerables is very long.
-	set_invulnerables {
-		let v in 0 .. MaxValidators::<T>::get();
+	fn set_invulnerables(v: Linear<0, { MaxValidators::<T>::get() }>) {
 		let mut invulnerables = Vec::new();
-		for i in 0 .. v {
+		for i in 0..v {
 			invulnerables.push(account("invulnerable", i, SEED));
 		}
-	}: _(RawOrigin::Root, invulnerables)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, invulnerables);
+
 		assert_eq!(Invulnerables::<T>::get().len(), v as usize);
 	}
 
-	deprecate_controller_batch {
+	#[benchmark]
+	fn deprecate_controller_batch(
 		// We pass a dynamic number of controllers to the benchmark, up to
 		// `MaxControllersInDeprecationBatch`.
-		let i in 0 .. T::MaxControllersInDeprecationBatch::get();
-
+		u: Linear<0, { T::MaxControllersInDeprecationBatch::get() }>,
+	) -> Result<(), BenchmarkError> {
 		let mut controllers: Vec<_> = vec![];
 		let mut stashes: Vec<_> = vec![];
-		for n in 0..i as u32 {
-			let (stash, controller) = create_unique_stash_controller::<T>(
-				n,
-				100,
-				RewardDestination::Staked,
-				false
-			)?;
+		for i in 0..u as u32 {
+			let (stash, controller) =
+				create_unique_stash_controller::<T>(i, 100, RewardDestination::Staked, false)?;
 			controllers.push(controller);
 			stashes.push(stash);
 		}
 		let bounded_controllers: BoundedVec<_, T::MaxControllersInDeprecationBatch> =
 			BoundedVec::try_from(controllers.clone()).unwrap();
-	}: _(RawOrigin::Root, bounded_controllers)
-	verify {
-		for n in 0..i as u32 {
-			let stash = &stashes[n as usize];
-			let controller = &controllers[n as usize];
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, bounded_controllers);
+
+		for i in 0..u as u32 {
+			let stash = &stashes[i as usize];
+			let controller = &controllers[i as usize];
 			// Ledger no longer keyed by controller.
 			assert_eq!(Ledger::<T>::get(controller), None);
 			// Bonded now maps to the stash.
@@ -556,11 +641,15 @@ benchmarks! {
 			// Ledger is now keyed by stash.
 			assert_eq!(Ledger::<T>::get(stash).unwrap().stash, *stash);
 		}
+
+		Ok(())
 	}
 
-	force_unstake {
+	#[benchmark]
+	fn force_unstake(
 		// Slashing Spans
-		let s in 0 .. MAX_SPANS;
+		s: Linear<0, MAX_SPANS>,
+	) -> Result<(), BenchmarkError> {
 		// Clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
@@ -574,30 +663,38 @@ benchmarks! {
 		assert!(T::VoterList::contains(&stash));
 		add_slashing_spans::<T>(&stash, s);
 
-	}: _(RawOrigin::Root, stash.clone(), s)
-	verify {
+		#[extrinsic_call]
+		_(RawOrigin::Root, stash.clone(), s);
+
 		assert!(!Ledger::<T>::contains_key(&controller));
 		assert!(!T::VoterList::contains(&stash));
+
+		Ok(())
 	}
 
-	cancel_deferred_slash {
-		let s in 1 .. MAX_SLASHES;
+	#[benchmark]
+	fn cancel_deferred_slash(s: Linear<1, MAX_SLASHES>) {
 		let mut unapplied_slashes = Vec::new();
 		let era = EraIndex::one();
 		let dummy = || T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap();
-		for _ in 0 .. MAX_SLASHES {
-			unapplied_slashes.push(UnappliedSlash::<T::AccountId, BalanceOf<T>>::default_from(dummy()));
+		for _ in 0..MAX_SLASHES {
+			unapplied_slashes
+				.push(UnappliedSlash::<T::AccountId, BalanceOf<T>>::default_from(dummy()));
 		}
 		UnappliedSlashes::<T>::insert(era, &unapplied_slashes);
 
-		let slash_indices: Vec<u32> = (0 .. s).collect();
-	}: _(RawOrigin::Root, era, slash_indices)
-	verify {
+		let slash_indices: Vec<u32> = (0..s).collect();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, era, slash_indices);
+
 		assert_eq!(UnappliedSlashes::<T>::get(&era).len(), (MAX_SLASHES - s) as usize);
 	}
 
-	payout_stakers_alive_staked {
-		let n in 0 .. T::MaxExposurePageSize::get() as u32;
+	#[benchmark]
+	fn payout_stakers_alive_staked(
+		n: Linear<0, { T::MaxExposurePageSize::get() as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		let (validator, nominators) = create_validator_with_nominators::<T>(
 			n,
 			T::MaxExposurePageSize::get() as u32,
@@ -608,7 +705,11 @@ benchmarks! {
 
 		let current_era = CurrentEra::<T>::get().unwrap();
 		// set the commission for this particular era as well.
-		<ErasValidatorPrefs<T>>::insert(current_era, validator.clone(), <Staking<T>>::validators(&validator));
+		<ErasValidatorPrefs<T>>::insert(
+			current_era,
+			validator.clone(),
+			<Staking<T>>::validators(&validator),
+		);
 
 		let caller = whitelisted_caller();
 		let balance_before = asset::stakeable_balance::<T>(&validator);
@@ -617,25 +718,29 @@ benchmarks! {
 			let balance = asset::stakeable_balance::<T>(stash);
 			nominator_balances_before.push(balance);
 		}
-	}: payout_stakers(RawOrigin::Signed(caller), validator.clone(), current_era)
-	verify {
+
+		#[extrinsic_call]
+		payout_stakers(RawOrigin::Signed(caller), validator.clone(), current_era);
+
 		let balance_after = asset::stakeable_balance::<T>(&validator);
 		ensure!(
 			balance_before < balance_after,
 			"Balance of validator stash should have increased after payout.",
 		);
-		for ((stash, _), balance_before) in nominators.iter().zip(nominator_balances_before.iter()) {
+		for ((stash, _), balance_before) in nominators.iter().zip(nominator_balances_before.iter())
+		{
 			let balance_after = asset::stakeable_balance::<T>(stash);
 			ensure!(
 				balance_before < &balance_after,
 				"Balance of nominator stash should have increased after payout.",
 			);
 		}
+
+		Ok(())
 	}
 
-	rebond {
-		let l in 1 .. T::MaxUnlockingChunks::get() as u32;
-
+	#[benchmark]
+	fn rebond(l: Linear<1, { T::MaxUnlockingChunks::get() as u32 }>) -> Result<(), BenchmarkError> {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
@@ -658,31 +763,31 @@ benchmarks! {
 		// so the sum of unlocking chunks puts voter into the dest bag.
 		assert!(value * l.into() + origin_weight > origin_weight);
 		assert!(value * l.into() + origin_weight <= dest_weight);
-		let unlock_chunk = UnlockChunk::<BalanceOf<T>> {
-			value,
-			era: EraIndex::zero(),
-		};
+		let unlock_chunk = UnlockChunk::<BalanceOf<T>> { value, era: EraIndex::zero() };
 
-		let stash = scenario.origin_stash1.clone();
 		let controller = scenario.origin_controller1;
 		let mut staking_ledger = Ledger::<T>::get(controller.clone()).unwrap();
 
-		for _ in 0 .. l {
+		for _ in 0..l {
 			staking_ledger.unlocking.try_push(unlock_chunk.clone()).unwrap()
 		}
 		Ledger::<T>::insert(controller.clone(), staking_ledger.clone());
 		let original_bonded: BalanceOf<T> = staking_ledger.active;
 
 		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller.clone()), rebond_amount)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(controller.clone()), rebond_amount);
+
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
 		let new_bonded: BalanceOf<T> = ledger.active;
 		assert!(original_bonded < new_bonded);
+
+		Ok(())
 	}
 
-	reap_stash {
-		let s in 1 .. MAX_SPANS;
+	#[benchmark]
+	fn reap_stash(s: Linear<1, MAX_SPANS>) -> Result<(), BenchmarkError> {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
@@ -695,26 +800,26 @@ benchmarks! {
 		let stash = scenario.origin_stash1;
 
 		add_slashing_spans::<T>(&stash, s);
-		let l = StakingLedger::<T>::new(
-			stash.clone(),
-			asset::existential_deposit::<T>() - One::one(),
-		);
+		let l =
+			StakingLedger::<T>::new(stash.clone(), asset::existential_deposit::<T>() - One::one());
 		Ledger::<T>::insert(&controller, l);
 
 		assert!(Bonded::<T>::contains_key(&stash));
 		assert!(T::VoterList::contains(&stash));
 
 		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller), stash.clone(), s)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(controller), stash.clone(), s);
+
 		assert!(!Bonded::<T>::contains_key(&stash));
 		assert!(!T::VoterList::contains(&stash));
+
+		Ok(())
 	}
 
-	new_era {
-		let v in 1 .. 10;
-		let n in 0 .. 100;
-
+	#[benchmark]
+	fn new_era(v: Linear<1, 10>, n: Linear<0, 100>) -> Result<(), BenchmarkError> {
 		create_validators_with_nominators_for_era::<T>(
 			v,
 			n,
@@ -723,16 +828,21 @@ benchmarks! {
 			None,
 		)?;
 		let session_index = SessionIndex::one();
-	}: {
-		let validators = Staking::<T>::try_trigger_new_era(session_index, true)
-			.ok_or("`new_era` failed")?;
+
+		let validators;
+		#[block]
+		{
+			validators =
+				Staking::<T>::try_trigger_new_era(session_index, true).ok_or("`new_era` failed")?;
+		}
+
 		assert!(validators.len() == v as usize);
+
+		Ok(())
 	}
 
-	#[extra]
-	payout_all {
-		let v in 1 .. 10;
-		let n in 0 .. 100;
+	#[benchmark(extra)]
+	fn payout_all(v: Linear<1, 10>, n: Linear<0, 100>) -> Result<(), BenchmarkError> {
 		create_validators_with_nominators_for_era::<T>(
 			v,
 			n,
@@ -769,94 +879,135 @@ benchmarks! {
 
 		let caller: T::AccountId = whitelisted_caller();
 		let origin = RawOrigin::Signed(caller);
-		let calls: Vec<_> = payout_calls_arg.iter().map(|arg|
-			Call::<T>::payout_stakers_by_page { validator_stash: arg.0.clone(), era: arg.1, page: 0 }.encode()
-		).collect();
-	}: {
-		for call in calls {
-			<Call<T> as Decode>::decode(&mut &*call)
-				.expect("call is encoded above, encoding must be correct")
-				.dispatch_bypass_filter(origin.clone().into())?;
+		let calls: Vec<_> = payout_calls_arg
+			.iter()
+			.map(|arg| {
+				Call::<T>::payout_stakers_by_page {
+					validator_stash: arg.0.clone(),
+					era: arg.1,
+					page: 0,
+				}
+				.encode()
+			})
+			.collect();
+
+		#[block]
+		{
+			for call in calls {
+				<Call<T> as Decode>::decode(&mut &*call)
+					.expect("call is encoded above, encoding must be correct")
+					.dispatch_bypass_filter(origin.clone().into())?;
+			}
 		}
+
+		Ok(())
 	}
 
-	#[extra]
-	do_slash {
-		let l in 1 .. T::MaxUnlockingChunks::get() as u32;
+	#[benchmark(extra)]
+	fn do_slash(
+		l: Linear<1, { T::MaxUnlockingChunks::get() as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		let mut staking_ledger = Ledger::<T>::get(controller.clone()).unwrap();
-		let unlock_chunk = UnlockChunk::<BalanceOf<T>> {
-			value: 1u32.into(),
-			era: EraIndex::zero(),
-		};
-		for _ in 0 .. l {
+		let unlock_chunk =
+			UnlockChunk::<BalanceOf<T>> { value: 1u32.into(), era: EraIndex::zero() };
+		for _ in 0..l {
 			staking_ledger.unlocking.try_push(unlock_chunk.clone()).unwrap();
 		}
 		Ledger::<T>::insert(controller, staking_ledger);
 		let slash_amount = asset::existential_deposit::<T>() * 10u32.into();
 		let balance_before = asset::stakeable_balance::<T>(&stash);
-	}: {
-		crate::slashing::do_slash::<T>(
-			&stash,
-			slash_amount,
-			&mut BalanceOf::<T>::zero(),
-			&mut NegativeImbalanceOf::<T>::zero(),
-			EraIndex::zero()
-		);
-	} verify {
+
+		#[block]
+		{
+			crate::slashing::do_slash::<T>(
+				&stash,
+				slash_amount,
+				&mut BalanceOf::<T>::zero(),
+				&mut NegativeImbalanceOf::<T>::zero(),
+				EraIndex::zero(),
+			);
+		}
+
 		let balance_after = asset::stakeable_balance::<T>(&stash);
 		assert!(balance_before > balance_after);
+
+		Ok(())
 	}
 
-	get_npos_voters {
+	#[benchmark]
+	fn get_npos_voters(
 		// number of validator intention. we will iterate all of them.
-		let v in (MaxValidators::<T>::get() / 2) .. MaxValidators::<T>::get();
-		// number of nominator intention. we will iterate all of them.
-		let n in (MaxNominators::<T>::get() / 2) .. MaxNominators::<T>::get();
+		v: Linear<{ MaxValidators::<T>::get() / 2 }, { MaxValidators::<T>::get() }>,
 
-		let validators = create_validators_with_nominators_for_era::<T>(
-			v, n, MaxNominationsOf::<T>::get() as usize, false, None
-		)?
-		.into_iter()
-		.map(|v| T::Lookup::lookup(v).unwrap())
-		.collect::<Vec<_>>();
+		// number of nominator intention. we will iterate all of them.
+		n: Linear<{ MaxNominators::<T>::get() / 2 }, { MaxNominators::<T>::get() }>,
+	) -> Result<(), BenchmarkError> {
+		create_validators_with_nominators_for_era::<T>(
+			v,
+			n,
+			MaxNominationsOf::<T>::get() as usize,
+			false,
+			None,
+		)?;
 
 		assert_eq!(Validators::<T>::count(), v);
 		assert_eq!(Nominators::<T>::count(), n);
 
 		let num_voters = (v + n) as usize;
-	}: {
+
 		// default bounds are unbounded.
-		let voters = <Staking<T>>::get_npos_voters(DataProviderBounds::default());
+		let voters;
+		#[block]
+		{
+			voters = <Staking<T>>::get_npos_voters(DataProviderBounds::default());
+		}
+
 		assert_eq!(voters.len(), num_voters);
+
+		Ok(())
 	}
 
-	get_npos_targets {
+	#[benchmark]
+	fn get_npos_targets(
 		// number of validator intention.
-		let v in (MaxValidators::<T>::get() / 2) .. MaxValidators::<T>::get();
+		v: Linear<{ MaxValidators::<T>::get() / 2 }, { MaxValidators::<T>::get() }>,
+	) -> Result<(), BenchmarkError> {
 		// number of nominator intention.
 		let n = MaxNominators::<T>::get();
 
-		let _ = create_validators_with_nominators_for_era::<T>(
-			v, n, MaxNominationsOf::<T>::get() as usize, false, None
-		)?;
-	}: {
+		#[block]
+		{
+			create_validators_with_nominators_for_era::<T>(
+				v,
+				n,
+				MaxNominationsOf::<T>::get() as usize,
+				false,
+				None,
+			)?;
+		}
+
 		// default bounds are unbounded.
 		let targets = <Staking<T>>::get_npos_targets(DataProviderBounds::default());
 		assert_eq!(targets.len() as u32, v);
+
+		Ok(())
 	}
 
-	set_staking_configs_all_set {
-	}: set_staking_configs(
-		RawOrigin::Root,
-		ConfigOp::Set(BalanceOf::<T>::max_value()),
-		ConfigOp::Set(BalanceOf::<T>::max_value()),
-		ConfigOp::Set(u32::MAX),
-		ConfigOp::Set(u32::MAX),
-		ConfigOp::Set(Percent::max_value()),
-		ConfigOp::Set(Perbill::max_value()),
-		ConfigOp::Set(Percent::max_value())
-	) verify {
+	#[benchmark]
+	fn set_staking_configs_all_set() {
+		#[extrinsic_call]
+		set_staking_configs(
+			RawOrigin::Root,
+			ConfigOp::Set(BalanceOf::<T>::max_value()),
+			ConfigOp::Set(BalanceOf::<T>::max_value()),
+			ConfigOp::Set(u32::MAX),
+			ConfigOp::Set(u32::MAX),
+			ConfigOp::Set(Percent::max_value()),
+			ConfigOp::Set(Perbill::max_value()),
+			ConfigOp::Set(Percent::max_value()),
+		);
+
 		assert_eq!(MinNominatorBond::<T>::get(), BalanceOf::<T>::max_value());
 		assert_eq!(MinValidatorBond::<T>::get(), BalanceOf::<T>::max_value());
 		assert_eq!(MaxNominatorsCount::<T>::get(), Some(u32::MAX));
@@ -866,17 +1017,20 @@ benchmarks! {
 		assert_eq!(MaxStakedRewards::<T>::get(), Some(Percent::from_percent(100)));
 	}
 
-	set_staking_configs_all_remove {
-	}: set_staking_configs(
-		RawOrigin::Root,
-		ConfigOp::Remove,
-		ConfigOp::Remove,
-		ConfigOp::Remove,
-		ConfigOp::Remove,
-		ConfigOp::Remove,
-		ConfigOp::Remove,
-		ConfigOp::Remove
-	) verify {
+	#[benchmark]
+	fn set_staking_configs_all_remove() {
+		#[extrinsic_call]
+		set_staking_configs(
+			RawOrigin::Root,
+			ConfigOp::Remove,
+			ConfigOp::Remove,
+			ConfigOp::Remove,
+			ConfigOp::Remove,
+			ConfigOp::Remove,
+			ConfigOp::Remove,
+			ConfigOp::Remove,
+		);
+
 		assert!(!MinNominatorBond::<T>::exists());
 		assert!(!MinValidatorBond::<T>::exists());
 		assert!(!MaxNominatorsCount::<T>::exists());
@@ -886,7 +1040,8 @@ benchmarks! {
 		assert!(!MaxStakedRewards::<T>::exists());
 	}
 
-	chill_other {
+	#[benchmark]
+	fn chill_other() -> Result<(), BenchmarkError> {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
@@ -895,7 +1050,6 @@ benchmarks! {
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
-		let controller = scenario.origin_controller1.clone();
 		let stash = scenario.origin_stash1;
 		assert!(T::VoterList::contains(&stash));
 
@@ -911,18 +1065,22 @@ benchmarks! {
 		)?;
 
 		let caller = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), stash.clone())
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), stash.clone());
+
 		assert!(!T::VoterList::contains(&stash));
+
+		Ok(())
 	}
 
-	force_apply_min_commission {
+	#[benchmark]
+	fn force_apply_min_commission() -> Result<(), BenchmarkError> {
 		// Clean up any existing state
 		clear_validators_and_nominators::<T>();
 
 		// Create a validator with a commission of 50%
-		let (stash, controller) =
-			create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
+		let (stash, controller) = create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
 		Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
@@ -936,29 +1094,41 @@ benchmarks! {
 		// Set the min commission to 75%
 		MinCommission::<T>::set(Perbill::from_percent(75));
 		let caller = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), stash.clone())
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), stash.clone());
+
 		// The validators commission has been bumped to 75%
 		assert_eq!(
 			Validators::<T>::get(&stash),
 			ValidatorPrefs { commission: Perbill::from_percent(75), ..Default::default() }
 		);
+
+		Ok(())
 	}
 
-	set_min_commission {
+	#[benchmark]
+	fn set_min_commission() {
 		let min_commission = Perbill::max_value();
-	}: _(RawOrigin::Root, min_commission)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, min_commission);
+
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 	}
 
-	restore_ledger {
+	#[benchmark]
+	fn restore_ledger() -> Result<(), BenchmarkError> {
 		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		// corrupt ledger.
 		Ledger::<T>::remove(controller);
-	}: _(RawOrigin::Root, stash.clone(), None, None, None)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, stash.clone(), None, None, None);
+
 		assert_eq!(Staking::<T>::inspect_bond_state(&stash), Ok(LedgerIntegrityState::Ok));
+
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(
@@ -1063,27 +1233,6 @@ mod tests {
 			for i in 0..num_of_slashing_spans {
 				assert!(!SpanSlash::<Test>::contains_key((&validator_stash, i)));
 			}
-		});
-	}
-
-	#[test]
-	fn test_payout_all() {
-		ExtBuilder::default().build_and_execute(|| {
-			let v = 10;
-			let n = 100;
-
-			let selected_benchmark = SelectedBenchmark::payout_all;
-			let c = vec![
-				(frame_benchmarking::BenchmarkParameter::v, v),
-				(frame_benchmarking::BenchmarkParameter::n, n),
-			];
-
-			assert_ok!(
-				<SelectedBenchmark as frame_benchmarking::BenchmarkingSetup<Test>>::unit_test_instance(
-					&selected_benchmark,
-					&c,
-				)
-			);
 		});
 	}
 }

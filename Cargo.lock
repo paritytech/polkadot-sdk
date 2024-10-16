@@ -12993,7 +12993,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-assets",
  "pallet-balances",
  "parity-scale-codec",
@@ -13007,6 +13006,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
  "xcm-runtime-apis",
 ]
 
@@ -13757,9 +13757,9 @@ checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 
 [[package]]
 name = "platforms"
-version = "3.0.2"
+version = "3.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3d7ddaed09e0eb771a79ab0fd64609ba0afb0a8366421957936ad14cbd13630"
+checksum = "0e4c7666f2019727f9e8e14bf14456e99c707d780922869f1ba473eee101fa49"
 
 [[package]]
 name = "plotters"
@@ -18438,6 +18438,7 @@ dependencies = [
  "sc-service",
  "sc-telemetry",
  "sc-tracing",
+ "sc-transaction-pool",
  "sc-utils",
  "serde",
  "serde_json",
@@ -19782,6 +19783,8 @@ dependencies = [
  "criterion",
  "futures",
  "futures-timer",
+ "indexmap 2.2.3",
+ "itertools 0.11.0",
  "linked-hash-map",
  "log",
  "parity-scale-codec",
@@ -19804,6 +19807,8 @@ dependencies = [
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
  "thiserror",
+ "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
@@ -23907,6 +23912,7 @@ name = "substrate-test-runtime-transaction-pool"
 version = "2.0.0"
 dependencies = [
  "futures",
+ "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "sc-transaction-pool",
@@ -24852,9 +24858,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-test"
-version = "0.4.3"
+version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e89b3cbabd3ae862100094ae433e1def582cf86451b4e9bf83aa7ac1d8a7d719"
+checksum = "2468baabc3311435b55dd935f702f42cd1b8abb7e754fb7dfb16bd36aa88f9f7"
 dependencies = [
  "async-stream",
  "bytes",
@@ -26301,6 +26307,7 @@ dependencies = [
 name = "westend-runtime"
 version = "7.0.0"
 dependencies = [
+ "approx",
  "binary-merkle-tree",
  "bitvec",
  "frame-benchmarking",

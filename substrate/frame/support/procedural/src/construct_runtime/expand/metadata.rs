@@ -49,6 +49,7 @@ pub fn expand_runtime_metadata(
 			let event = expand_pallet_metadata_events(&filtered_names, runtime, decl);
 			let constants = expand_pallet_metadata_constants(runtime, decl);
 			let errors = expand_pallet_metadata_errors(runtime, decl);
+			let associated_types = expand_pallet_metadata_associated_types(runtime, decl);
 			let docs = expand_pallet_metadata_docs(runtime, decl);
 			let attr = decl.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
 				let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
@@ -70,6 +71,7 @@ pub fn expand_runtime_metadata(
 					constants: #constants,
 					error: #errors,
 					docs: #docs,
+					associated_types: #associated_types,
 					deprecation_info: #deprecation_info,
 				}
 			}
@@ -263,5 +265,14 @@ fn expand_pallet_metadata_docs(runtime: &Ident, decl: &Pallet) -> TokenStream {
 
 	quote! {
 		#path::Pallet::<#runtime #(, #path::#instance)*>::pallet_documentation_metadata()
+	}
+}
+
+fn expand_pallet_metadata_associated_types(runtime: &Ident, decl: &Pallet) -> TokenStream {
+	let path = &decl.path;
+	let instance = decl.instance.as_ref().into_iter();
+
+	quote! {
+		#path::Pallet::<#runtime #(, #path::#instance)*>::pallet_associated_types_metadata()
 	}
 }

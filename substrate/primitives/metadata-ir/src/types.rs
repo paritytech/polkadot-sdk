@@ -133,6 +133,8 @@ pub struct PalletMetadataIR<T: Form = MetaForm> {
 	pub constants: Vec<PalletConstantMetadataIR<T>>,
 	/// Pallet error metadata.
 	pub error: Option<PalletErrorMetadataIR<T>>,
+	/// Config's trait associated types.
+	pub associated_types: Vec<PalletAssociatedTypeMetadataIR<T>>,
 	/// Define the index of the pallet, this index will be used for the encoding of pallet event,
 	/// call and origin variants.
 	pub index: u8,
@@ -153,6 +155,7 @@ impl IntoPortable for PalletMetadataIR {
 			event: self.event.map(|event| event.into_portable(registry)),
 			constants: registry.map_into_portable(self.constants),
 			error: self.error.map(|error| error.into_portable(registry)),
+			associated_types: registry.map_into_portable(self.associated_types),
 			index: self.index,
 			docs: registry.map_into_portable(self.docs),
 			deprecation_info: self.deprecation_info.into_portable(registry),
@@ -194,6 +197,29 @@ impl IntoPortable for ExtrinsicMetadataIR {
 			signature_ty: registry.register_type(&self.signature_ty),
 			extra_ty: registry.register_type(&self.extra_ty),
 			extensions: registry.map_into_portable(self.extensions),
+		}
+	}
+}
+
+/// Metadata of a pallet's associated type.
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+pub struct PalletAssociatedTypeMetadataIR<T: Form = MetaForm> {
+	/// The name of the associated type.
+	pub name: T::String,
+	/// The type of the associated type.
+	pub ty: T::Type,
+	/// The documentation of the associated type.
+	pub docs: Vec<T::String>,
+}
+
+impl IntoPortable for PalletAssociatedTypeMetadataIR {
+	type Output = PalletAssociatedTypeMetadataIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		PalletAssociatedTypeMetadataIR {
+			name: self.name.into_portable(registry),
+			ty: registry.register_type(&self.ty),
+			docs: registry.map_into_portable(self.docs),
 		}
 	}
 }
