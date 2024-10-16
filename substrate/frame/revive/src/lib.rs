@@ -984,7 +984,7 @@ pub mod pallet {
 		/// This will error if the origin is already mapped or is a eth native `Address20`. It will
 		/// take a deposit that can be released by calling [`Self::unmap_account`].
 		#[pallet::call_index(6)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::map_account())]
 		pub fn map_account(origin: OriginFor<T>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			T::AddressMapper::map(&origin)
@@ -995,7 +995,7 @@ pub mod pallet {
 		/// There is no reason to ever call this function other than freeing up the deposit.
 		/// This is only useful when the account should no longer be used.
 		#[pallet::call_index(7)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::unmap_account())]
 		pub fn unmap_account(origin: OriginFor<T>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			T::AddressMapper::unmap(&origin)
@@ -1010,7 +1010,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			(
-				dispatch_info.weight,
+				T::WeightInfo::dispatch_as_fallback_account().saturating_add(dispatch_info.weight),
 				dispatch_info.class
 			)
 		})]
