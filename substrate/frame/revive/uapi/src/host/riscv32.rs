@@ -81,6 +81,8 @@ mod sys {
 		pub fn address(out_ptr: *mut u8);
 		pub fn weight_to_fee(ref_time: u64, proof_size: u64, out_ptr: *mut u8);
 		pub fn weight_left(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn get_immutable_data(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn set_immutable_data(ptr: *const u8, len: u32);
 		pub fn balance(out_ptr: *mut u8);
 		pub fn balance_of(addr_ptr: *const u8, out_ptr: *mut u8);
 		pub fn chain_id(out_ptr: *mut u8);
@@ -500,6 +502,16 @@ impl HostFn for HostFnImpl {
 	fn is_contract(address: &[u8; 20]) -> bool {
 		let ret_val = unsafe { sys::is_contract(address.as_ptr()) };
 		ret_val.into_bool()
+	}
+
+	fn get_immutable_data(output: &mut &mut [u8]) {
+		let mut output_len = output.len() as u32;
+		unsafe { sys::get_immutable_data(output.as_mut_ptr(), &mut output_len) };
+		extract_from_slice(output, output_len as usize);
+	}
+
+	fn set_immutable_data(data: &[u8]) {
+		unsafe { sys::set_immutable_data(data.as_ptr(), data.len() as u32) }
 	}
 
 	fn balance_of(address: &[u8; 20], output: &mut [u8; 32]) {
