@@ -575,9 +575,8 @@ struct VerifierAdapter<B: BlockT> {
 impl<B: BlockT> Verifier<B> for VerifierAdapter<B> {
 	async fn verify(&self, block: BlockImportParams<B>) -> Result<BlockImportParams<B>, String> {
 		let hash = block.header.hash();
-		self.verifier.lock().await.verify(block).await.map_err(|e| {
+		self.verifier.lock().await.verify(block).await.inspect_err(|e| {
 			self.failed_verifications.lock().insert(hash, e.clone());
-			e
 		})
 	}
 }

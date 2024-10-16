@@ -17,8 +17,8 @@
 //! Helpers for generating message storage proofs, that are used by tests and by benchmarks.
 
 use bp_messages::{
-	storage_keys, ChainWithMessages, InboundLaneData, LaneId, MessageKey, MessageNonce,
-	MessagePayload, OutboundLaneData,
+	storage_keys, ChainWithMessages, InboundLaneData, MessageKey, MessageNonce, MessagePayload,
+	OutboundLaneData,
 };
 use bp_runtime::{
 	grow_storage_value, record_all_trie_keys, AccountIdOf, Chain, HashOf, HasherOf,
@@ -47,7 +47,11 @@ pub fn encode_lane_data(d: &OutboundLaneData) -> Vec<u8> {
 ///
 /// Returns state trie root and nodes with prepared messages.
 #[allow(clippy::too_many_arguments)]
-pub fn prepare_messages_storage_proof<BridgedChain: Chain, ThisChain: ChainWithMessages>(
+pub fn prepare_messages_storage_proof<
+	BridgedChain: Chain,
+	ThisChain: ChainWithMessages,
+	LaneId: Encode + Copy,
+>(
 	lane: LaneId,
 	message_nonces: RangeInclusive<MessageNonce>,
 	outbound_lane_data: Option<OutboundLaneData>,
@@ -135,7 +139,11 @@ where
 /// Prepare storage proof of given messages delivery.
 ///
 /// Returns state trie root and nodes with prepared messages.
-pub fn prepare_message_delivery_storage_proof<BridgedChain: Chain, ThisChain: ChainWithMessages>(
+pub fn prepare_message_delivery_storage_proof<
+	BridgedChain: Chain,
+	ThisChain: ChainWithMessages,
+	LaneId: Encode,
+>(
 	lane: LaneId,
 	inbound_lane_data: InboundLaneData<AccountIdOf<ThisChain>>,
 	proof_params: UnverifiedStorageProofParams,

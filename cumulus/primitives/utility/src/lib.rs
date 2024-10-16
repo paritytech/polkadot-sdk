@@ -385,7 +385,8 @@ impl<
 		FungiblesAssetMatcher,
 		OnUnbalanced,
 		AccountId,
-	> where
+	>
+where
 	Fungibles::Balance: Into<u128>,
 {
 	fn new() -> Self {
@@ -545,7 +546,8 @@ impl<
 		FungiblesAssetMatcher,
 		OnUnbalanced,
 		AccountId,
-	> where
+	>
+where
 	Fungibles::Balance: Into<u128>,
 {
 	fn drop(&mut self) {
