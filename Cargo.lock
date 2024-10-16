@@ -17924,6 +17924,7 @@ dependencies = [
 name = "sc-executor-common"
 version = "0.29.0"
 dependencies = [
+ "log",
  "polkavm 0.9.3",
  "sc-allocator",
  "sp-core",
