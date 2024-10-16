@@ -4,7 +4,7 @@ on:
   # This trigger can be problematic, see: https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/
   # In our case it is fine since we only run it on merged Pull Requests and do not execute any of the repo code itself.
   pull_request_target:
-    types: [ closed, labeled ]
+    types: [closed, labeled]
 
 permissions:
   contents: write # so it can comment
@@ -66,7 +66,7 @@ jobs:
         with:
           script: |
             const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
-            
+
             for (const pullNumber of pullNumbers) {
               await github.rest.issues.addLabels({
                 issue_number: parseInt(pullNumber),
@@ -84,7 +84,7 @@ jobs:
           script: |
             const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
             const reviewer = '${{ github.event.pull_request.user.login }}';
-            
+
             for (const pullNumber of pullNumbers) {
               await github.pulls.createReviewRequest({
                 owner: context.repo.owner,
