@@ -18,6 +18,7 @@ jobs:
 
   test-doc:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
     needs: [preflight]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -29,6 +30,7 @@ jobs:
 
   build-rustdoc:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 40
     if: ${{ needs.preflight.outputs.changes_rust }}
     needs: [preflight]
     container:
