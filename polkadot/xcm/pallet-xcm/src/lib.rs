@@ -2583,7 +2583,7 @@ impl<T: Config> Pallet<T> {
 			TrustQueryApiError::VersionedLocationConversionFailed
 		})?;
 
-		let ass: Asset = asset.try_into().map_err(|e| {
+		let a: Asset = asset.try_into().map_err(|e| {
 			log::error!(
 				target: "xcm::TrustedQueryApi::is_trusted_reserve",
 				"Location version conversion failed with error: {:?}",
@@ -2592,7 +2592,7 @@ impl<T: Config> Pallet<T> {
 			TrustQueryApiError::VersionedAssetConversionFailed
 		})?;
 
-		Ok(<T::XcmExecutor as XcmAssetTransfers>::IsReserve::contains(&ass, &location))
+		Ok(<T::XcmExecutor as XcmAssetTransfers>::IsReserve::contains(&a, &location))
 	}
 
 	pub fn is_trusted_teleporter(
@@ -2601,21 +2601,21 @@ impl<T: Config> Pallet<T> {
 	) -> Result<bool, TrustQueryApiError> {
 		let location: Location = location.try_into().map_err(|e| {
 			log::error!(
-				target: "xcm::TrustedQueryApi::is_trusted_teleporter",
+				target: "xcm::pallet_xcm::is_trusted_teleporter",
 				"Asset version conversion failed with error: {:?}",
 				e,
 			);
 			TrustQueryApiError::VersionedLocationConversionFailed
 		})?;
-		let ass: Asset = asset.try_into().map_err(|e| {
+		let a: Asset = asset.try_into().map_err(|e| {
 			log::error!(
-				target: "xcm::TrustedQueryApi::is_trusted_teleporter",
+				target: "xcm::pallet_xcm::is_trusted_teleporter",
 				"Location version conversion failed with error: {:?}",
 				e,
 			);
 			TrustQueryApiError::VersionedAssetConversionFailed
 		})?;
-		Ok(<T::XcmExecutor as XcmAssetTransfers>::IsTeleporter::contains(&ass, &location))
+		Ok(<T::XcmExecutor as XcmAssetTransfers>::IsTeleporter::contains(&a, &location))
 	}
 
 	pub fn query_delivery_fees(
