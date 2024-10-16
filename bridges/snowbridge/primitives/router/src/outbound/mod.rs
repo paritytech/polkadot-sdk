@@ -21,7 +21,7 @@ use sp_core::{H160, H256};
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
-use xcm_builder::{ExporterFor, NetworkExportTableItem};
+use xcm_builder::{ExporterFor, NetworkExportTable, NetworkExportTableItem};
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
 
 pub struct EthereumBlobExporter<
@@ -424,16 +424,11 @@ impl<T: Get<Vec<NetworkExportTableItem>>, M: Contains<Xcm<()>>> ExporterFor
 		remote_location: &InteriorLocation,
 		xcm: &Xcm<()>,
 	) -> Option<(Location, Option<Asset>)> {
-		T::get()
-			.into_iter()
-			.find(|item| {
-				&item.remote_network == network &&
-					M::contains(xcm) &&
-					item.remote_location_filter
-						.as_ref()
-						.map(|filters| filters.iter().any(|filter| filter == remote_location))
-						.unwrap_or(true)
-			})
-			.map(|item| (item.bridge, item.payment))
+		// check the XCM
+		if !M::contains(xcm) {
+			return None
+		}
+		// check `network` and `remote_location`
+		NetworkExportTable::<T>::exporter_for(network, remote_location, xcm)
 	}
 }
