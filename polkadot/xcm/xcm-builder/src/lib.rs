@@ -135,7 +135,7 @@ pub use transactional::FrameTransactionalProcessor;
 mod universal_exports;
 pub use universal_exports::{
 	ensure_is_remote, BridgeBlobDispatcher, BridgeMessage, DispatchBlob, DispatchBlobError,
-	ExporterFor, HaulBlob, HaulBlobError, HaulBlobExporter, NetworkExportTable,
+	ExporterFor, HaulBlob, HaulBlobError, HaulBlobExporter, MatchesXcm, NetworkExportTable,
 	NetworkExportTableItem, NetworkWithXcmExportTable, SovereignPaidRemoteExporter,
 	UnpaidLocalExporter, UnpaidRemoteExporter,
 };

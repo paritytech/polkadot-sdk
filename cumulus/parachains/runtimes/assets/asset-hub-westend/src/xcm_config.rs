@@ -494,7 +494,10 @@ pub type XcmRouter = WithUniqueTopic<(
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Ethereum
 	// GlobalConsensus
 	SovereignPaidRemoteExporter<
-		bridging::to_ethereum::EthereumNetworkExportTable,
+		(
+			bridging::to_ethereum::EthereumNetworkExportTableV2,
+			bridging::to_ethereum::EthereumNetworkExportTable,
+		),
 		XcmpQueue,
 		UniversalLocation,
 	>,
@@ -655,10 +658,13 @@ pub mod bridging {
 	pub mod to_ethereum {
 		use super::*;
 		use assets_common::matching::FromNetwork;
+		use core::ops::ControlFlow;
+		use frame_support::traits::ProcessMessageError;
 		use sp_std::collections::btree_set::BTreeSet;
 		use testnet_parachains_constants::westend::snowbridge::{
 			EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
 		};
+		use xcm_builder::{CreateMatcher, MatchXcm};
 
 		parameter_types! {
 			/// User fee for ERC20 token transfer back to Ethereum.
@@ -666,7 +672,9 @@ pub mod bridging {
 			/// Needs to be more than fee calculated from DefaultFeeConfig FeeConfigRecord in snowbridge:parachain/pallets/outbound-queue/src/lib.rs
 			/// Polkadot uses 10 decimals, Kusama,Rococo,Westend 12 decimals.
 			pub const DefaultBridgeHubEthereumBaseFee: Balance = 2_750_872_500_000;
+			pub const DefaultBridgeHubEthereumBaseFeeV2: Balance = 4_000_000_000;
 			pub storage BridgeHubEthereumBaseFee: Balance = DefaultBridgeHubEthereumBaseFee::get();
+			pub storage BridgeHubEthereumBaseFeeV2: Balance = DefaultBridgeHubEthereumBaseFeeV2::get();
 			pub SiblingBridgeHubWithEthereumInboundQueueInstance: Location = Location::new(
 				1,
 				[
@@ -689,6 +697,18 @@ pub mod bridging {
 				),
 			];
 
+			pub BridgeTableV2: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+				NetworkExportTableItem::new(
+					EthereumNetwork::get(),
+					Some(sp_std::vec![Junctions::Here]),
+					SiblingBridgeHub::get(),
+					Some((
+						XcmBridgeHubRouterFeeAssetId::get(),
+						BridgeHubEthereumBaseFeeV2::get(),
+					).into())
+				),
+			];
+
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
 				sp_std::vec![
@@ -699,7 +719,32 @@ pub mod bridging {
 			pub EthereumBridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec::Vec::new().into_iter()
 				.chain(BridgeTable::get())
 				.collect();
+
+			pub EthereumBridgeTableV2: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec::Vec::new().into_iter()
+				.chain(BridgeTableV2::get())
+				.collect();
 		}
+
+		pub struct SnowbridgeV2;
+
+		impl xcm_builder::MatchesXcm for SnowbridgeV2 {
+			fn matches(xcm: &Xcm<()>) -> bool {
+				let mut instructions = xcm.clone().0;
+				let result = instructions.matcher().match_next_inst_while(
+					|_| true,
+					|inst| {
+						return match inst {
+							AliasOrigin(..) => Err(ProcessMessageError::Unsupported),
+							_ => Ok(ControlFlow::Continue(())),
+						}
+					},
+				);
+				result.is_err()
+			}
+		}
+
+		pub type EthereumNetworkExportTableV2 =
+			xcm_builder::NetworkWithXcmExportTable<EthereumBridgeTableV2, SnowbridgeV2>;
 
 		pub type EthereumNetworkExportTable =
 			xcm_builder::NetworkWithXcmExportTable<EthereumBridgeTable, ()>;
