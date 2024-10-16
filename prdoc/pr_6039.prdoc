@@ -8,7 +8,7 @@ doc:
     description: |
       Added is_trusted_reserve and is_trusted_teleporter API calls to all the runtimes.
       Given an asset and a location, they return if the chain trusts that location as a reserve or teleporter for that asset respectively.
-      You can implement them on your runtime by just calling a helper function on `pallet-xcm`.
+      You can implement them on your runtime by simply calling a helper function on `pallet-xcm`.
       ```rust
       	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
         fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trusted_query::Error> {
