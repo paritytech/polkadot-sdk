@@ -165,6 +165,6 @@
 //! **The most important lesson here is that the node and the runtime must have matching consensus
 //! components.**
 //!
-//! [`templates`]: (crate::polkadot_sdk::templates)
-//! [`parachain-template`]: (https://github.com/paritytech/polkadot-sdk-parachain-template)
-//! [`--dev-block-time`]: (polkadot_omni_node_lib::cli::Cli::dev_block_time)
+//! [`templates`]: crate::polkadot_sdk::templates
+//! [`parachain-template`]: https://github.com/paritytech/polkadot-sdk-parachain-template
+//! [`--dev-block-time`]: polkadot_omni_node_lib::cli::Cli::dev_block_time

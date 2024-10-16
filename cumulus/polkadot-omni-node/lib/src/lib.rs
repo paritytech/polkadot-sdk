@@ -50,7 +50,7 @@
 
 #![deny(missing_docs)]
 
-mod cli;
+pub mod cli;
 mod command;
 mod common;
 mod fake_runtime_api;
