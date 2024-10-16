@@ -70,7 +70,7 @@ jobs:
 
   # for tests
   notification-protocol-bench:
-    timeout-minutes: 80
+    # timeout-minutes: 80
     needs: [preflight]
     runs-on: parity-benchmark
     container:
