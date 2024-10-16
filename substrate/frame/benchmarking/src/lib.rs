@@ -330,10 +330,11 @@ pub use v1::*;
 /// while `setup(y)?;` will be moved to the body of the function;
 /// 2.3 Move all the v1 setup code to the body of the v2 function;
 /// 2.4 Move the benchmarked code to the body of the v2 function under the appropriate macro
-/// attribute: `#[extrinsic_call]` for extrinsic pallet calls and `#[block]` for blocks of code; 2.5
-/// Move the verify code block at the end of the v1 benchmark after the benchmarked code, in the
-/// body of the v2 function. 2.6 If the function is supposed to return a `Result<(),
-/// BenchmarkError>`, end the body with an `Ok(())` expression.
+/// attribute: `#[extrinsic_call]` for extrinsic pallet calls and `#[block]` for blocks of code;
+/// 2.5 Move the verify code block at the end of the v1 benchmark after the benchmarked code, in the
+/// body of the v2 function.
+/// 2.6 If the function is supposed to return a `Result<(), BenchmarkError>`, end the body with an
+/// `Ok(())` expression.
 ///
 /// As an example migration, the following v1 code
 ///
