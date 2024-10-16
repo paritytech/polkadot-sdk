@@ -271,7 +271,12 @@ where
 		ensure!(reserve_assets.len() == 1, TooManyAssets);
 		let reserve_asset = reserve_assets.get(0).ok_or(AssetResolutionFailed)?;
 
-		// If there was a fee specified verify it.
+		// Enough Fees are collected on Asset Hub, up front and directly from the user, to cover the
+		// complete cost of the transfer. Any additional fees provided in the XCM program are
+		// refunded to the beneficairy. We only validate the fee here if its provided to make sure
+		// the XCM program is well formed. Another way to think about this from an XCM perspective
+		// would be that the user offered to pay X amount in fees, but we charge 0 of that X amount
+		// (no fee) and refund X to the user.
 		if let Some(fee_asset) = fee_asset {
 			// The fee asset must be the same as the reserve asset.
 			if fee_asset.id != reserve_asset.id || fee_asset.fun > reserve_asset.fun {
@@ -377,7 +382,12 @@ where
 		ensure!(reserve_assets.len() == 1, TooManyAssets);
 		let reserve_asset = reserve_assets.get(0).ok_or(AssetResolutionFailed)?;
 
-		// If there was a fee specified verify it.
+		// Enough Fees are collected on Asset Hub, up front and directly from the user, to cover the
+		// complete cost of the transfer. Any additional fees provided in the XCM program are
+		// refunded to the beneficairy. We only validate the fee here if its provided to make sure
+		// the XCM program is well formed. Another way to think about this from an XCM perspective
+		// would be that the user offered to pay X amount in fees, but we charge 0 of that X amount
+		// (no fee) and refund X to the user.
 		if let Some(fee_asset) = fee_asset {
 			// The fee asset must be the same as the reserve asset.
 			if fee_asset.id != reserve_asset.id || fee_asset.fun > reserve_asset.fun {
