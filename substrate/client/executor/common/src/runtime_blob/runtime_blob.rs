@@ -171,10 +171,12 @@ impl RuntimeBlob {
 				},
 			};
 
+			/*
 			// enforce max pages.
 			let old_max = max;
 			let max = Some(65536);
 			log::info!(target: "blob", "********** Setup allocator with forced max {:?} (set to {:?})", max, old_max);
+			*/
 
 			*memory_ty = MemoryType::new(min, max);
 		}

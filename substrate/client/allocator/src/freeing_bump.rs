@@ -102,9 +102,7 @@ const LOG_TARGET: &str = "wasm-heap";
 //
 // This number corresponds to the number of powers between the minimum possible allocation and
 // maximum possible allocation, or: 2^3...2^25 (both ends inclusive, hence 23).
-//const N_ORDERS: usize = 23;
-// increase mem allocated
-const N_ORDERS: usize = 26;
+const N_ORDERS: usize = 23;
 const MIN_POSSIBLE_ALLOCATION: u32 = 8; // 2^3 bytes, 8 bytes
 
 /// The exponent for the power of two sized block adjusted to the minimum size.

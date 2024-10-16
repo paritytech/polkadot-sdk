@@ -23,7 +23,7 @@ sc-allocator = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 sp-wasm-interface = { workspace = true, default-features = true }
 polkavm = { workspace = true }
-log = { workspace = true }
+#log = { workspace = true }
 
 [features]
 default = []
