@@ -67,7 +67,8 @@ type VarSizedKey = BoundedVec<u8, ConstU32<{ limits::STORAGE_KEY_BYTES }>>;
 const FRAME_ALWAYS_EXISTS_ON_INSTANTIATE: &str = "The return value is only `None` if no contract exists at the specified address. This cannot happen on instantiate or delegate; qed";
 
 /// Code hash of existing account without code (keccak256 hash of empty data).
-const EMPTY_CODE_HASH: H256 = H256(sp_core::hex2array!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"));
+const EMPTY_CODE_HASH: H256 =
+	H256(sp_core::hex2array!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"));
 
 /// Combined key type for both fixed and variable sized storage keys.
 pub enum Key {
@@ -1816,9 +1817,9 @@ mod tests {
 	use frame_system::{AccountInfo, EventRecord, Phase};
 	use pallet_revive_uapi::ReturnFlags;
 	use pretty_assertions::assert_eq;
+	use sp_io::hashing::keccak_256;
 	use sp_runtime::{traits::Hash, DispatchError};
 	use std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};
-	use sp_io::hashing::keccak_256;
 
 	type System = frame_system::Pallet<Test>;
 
@@ -2399,11 +2400,7 @@ mod tests {
 			// add alice account info to test case EOA code hash
 			frame_system::Account::<Test>::insert(
 				<Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR),
-				AccountInfo {
-					consumers: 1,
-					providers: 1,
-					..Default::default()
-				}
+				AccountInfo { consumers: 1, providers: 1, ..Default::default() },
 			);
 			place_contract(&BOB, bob_code_hash);
 			let origin = Origin::from_account_id(ALICE);

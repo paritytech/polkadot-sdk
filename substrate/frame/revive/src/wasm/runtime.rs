@@ -1406,12 +1406,7 @@ pub mod env {
 	/// Retrieve the code hash for a specified contract address.
 	/// See [`pallet_revive_uapi::HostFn::code_hash`].
 	#[api_version(0)]
-	fn code_hash(
-		&mut self,
-		memory: &mut M,
-		addr_ptr: u32,
-		out_ptr: u32,
-	) -> Result<(), TrapReason> {
+	fn code_hash(&mut self, memory: &mut M, addr_ptr: u32, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::CodeHash)?;
 		let mut address = H160::zero();
 		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
