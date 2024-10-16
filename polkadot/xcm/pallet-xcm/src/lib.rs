@@ -70,7 +70,7 @@ use xcm_executor::{
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
-	trusted_query::Error as TrustQueryApiError,
+	trusted_query::Error as TrustedQueryApiError,
 };
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -2609,14 +2609,14 @@ impl<T: Config> Pallet<T> {
 	pub fn is_trusted_reserve(
 		asset: VersionedAsset,
 		location: VersionedLocation,
-	) -> Result<bool, TrustQueryApiError> {
+	) -> Result<bool, TrustedQueryApiError> {
 		let location: Location = location.try_into().map_err(|e| {
 			tracing::debug!(
 				target: "xcm::pallet_xcm::is_trusted_reserve",
 				"Asset version conversion failed with error: {:?}",
 				e,
 			);
-			TrustQueryApiError::VersionedLocationConversionFailed
+			TrustedQueryApiError::VersionedLocationConversionFailed
 		})?;
 
 		let a: Asset = asset.try_into().map_err(|e| {
@@ -2625,7 +2625,7 @@ impl<T: Config> Pallet<T> {
 				"Location version conversion failed with error: {:?}",
 				e,
 			);
-			TrustQueryApiError::VersionedAssetConversionFailed
+			TrustedQueryApiError::VersionedAssetConversionFailed
 		})?;
 
 		Ok(<T::XcmExecutor as XcmAssetTransfers>::IsReserve::contains(&a, &location))
@@ -2635,14 +2635,14 @@ impl<T: Config> Pallet<T> {
 	pub fn is_trusted_teleporter(
 		asset: VersionedAsset,
 		location: VersionedLocation,
-	) -> Result<bool, TrustQueryApiError> {
+	) -> Result<bool, TrustedQueryApiError> {
 		let location: Location = location.try_into().map_err(|e| {
 			tracing::debug!(
 				target: "xcm::pallet_xcm::is_trusted_teleporter",
 				"Asset version conversion failed with error: {:?}",
 				e,
 			);
-			TrustQueryApiError::VersionedLocationConversionFailed
+			TrustedQueryApiError::VersionedLocationConversionFailed
 		})?;
 		let a: Asset = asset.try_into().map_err(|e| {
 			tracing::debug!(
@@ -2650,7 +2650,7 @@ impl<T: Config> Pallet<T> {
 				"Location version conversion failed with error: {:?}",
 				e,
 			);
-			TrustQueryApiError::VersionedAssetConversionFailed
+			TrustedQueryApiError::VersionedAssetConversionFailed
 		})?;
 		Ok(<T::XcmExecutor as XcmAssetTransfers>::IsTeleporter::contains(&a, &location))
 	}
