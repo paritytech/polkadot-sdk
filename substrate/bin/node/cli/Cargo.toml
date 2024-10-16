@@ -169,12 +169,7 @@ clap_complete = { optional = true, workspace = true }
 
 node-inspect = { optional = true, workspace = true, default-features = true }
 
-polkadot-sdk = { features = [
-	"frame-benchmarking-cli",
-	"sc-cli",
-	"sc-storage-monitor",
-	"substrate-build-script-utils",
-], optional = true, workspace = true, default-features = true }
+polkadot-sdk = { features = ["frame-benchmarking-cli", "sc-cli", "sc-storage-monitor", "substrate-build-script-utils"], optional = true, workspace = true, default-features = true }
 
 [features]
 default = ["cli"]

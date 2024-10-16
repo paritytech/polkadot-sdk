@@ -17,8 +17,9 @@
 
 //! A set of well-known keys used for testing.
 
-use crate::ParseKeyringError;
 pub use sp_core::bandersnatch;
+
+use crate::ParseKeyringError;
 #[cfg(feature = "std")]
 use sp_core::bandersnatch::Signature;
 use sp_core::{

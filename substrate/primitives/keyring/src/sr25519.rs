@@ -17,8 +17,9 @@
 
 //! Support code for the runtime. A set of test accounts.
 
-use crate::ParseKeyringError;
 pub use sp_core::sr25519;
+
+use crate::ParseKeyringError;
 #[cfg(feature = "std")]
 use sp_core::sr25519::Signature;
 use sp_core::{
