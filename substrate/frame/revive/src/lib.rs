@@ -50,6 +50,7 @@ use crate::{
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
 };
+use alloc::boxed::Box;
 use codec::{Codec, Decode, Encode};
 use environmental::*;
 use frame_support::{
