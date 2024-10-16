@@ -462,55 +462,29 @@ where
 		return Ok(GroupAssignments { current: Vec::new() })
 	};
 
-	// Assigned parachains are determined by:
-	// 1. If there is something scheduled on the core - this is the first assignment.
-	// 2. Next assigments are whatever is in the claim queue for the core. 2.1 If the claim queue is
-	//    not available and the core is occupied the next assignemnt is taken from
-	//    `next_up_on_available`
-	//
-	// Step 1 is needed to unify the assignments with the way backing and prospective parachains
-	// subsystems handle async backing parameters. Until
-	// https://github.com/paritytech/polkadot-sdk/issues/5079 is completed the current view consists
-	// of the latest known relay parent plus its `lookahead` number of ancestors. When #5079 is
-	// merged everything will be deduced from the claim queue and this logic will be simplified.
-	let assigned_paras = {
-		let from_core: VecDeque<_> =
-			if let Some(CoreState::Scheduled(core_state)) = cores.get(core_now.0 as usize) {
-				vec![core_state.para_id].into_iter().collect()
-			} else {
-				vec![].into_iter().collect()
-			};
+	let assigned_paras = match fetch_claim_queue(sender, relay_parent)
+		.await
+		.map_err(Error::Runtime)?
+	{
+		// Runtime supports claim queue - use it
+		Some(mut claim_queue) => claim_queue.0.remove(&core_now),
+		// Should never happen since claim queue is released everywhere.
+		None => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?relay_parent,
+				"Claim queue is not available, falling back to availability cores",
+			);
 
-		let from_claim_queue =
-			match fetch_claim_queue(sender, relay_parent).await.map_err(Error::Runtime)? {
-				// Runtime supports claim queue - use it
-				Some(mut claim_queue) => claim_queue.0.remove(&core_now),
-				// Should never happen since claim queue is released everywhere.
-				None => {
-					gum::warn!(
-						target: LOG_TARGET,
-						?relay_parent,
-						"Claim queue is not available, assigning from availability cores only",
-					);
-
-					if let Some(CoreState::Occupied(core_state)) = cores.get(core_now.0 as usize) {
-						core_state.next_up_on_available.as_ref().map(|scheduled_core| {
-							vec![scheduled_core.para_id].into_iter().collect()
-						})
-					} else {
-						None
-					}
-				},
-			};
-
-		let from_claim_queue = from_claim_queue.unwrap_or_else(|| VecDeque::new());
-
-		// The order is important - first from core, then from claim queue.
-		from_core
-			.into_iter()
-			.chain(from_claim_queue.into_iter())
-			.collect::<VecDeque<_>>()
+			cores.get(core_now.0 as usize).and_then(|c| match c {
+				CoreState::Occupied(core) =>
+					core.next_up_on_available.as_ref().map(|c| [c.para_id].into_iter().collect()),
+				CoreState::Scheduled(core) => Some([core.para_id].into_iter().collect()),
+				CoreState::Free => None,
+			})
+		},
 	};
+	let assigned_paras = assigned_paras.unwrap_or_else(|| VecDeque::new());
 
 	for para_id in assigned_paras.iter() {
 		let entry = current_assignments.entry(*para_id).or_default();
@@ -1088,6 +1062,7 @@ where
 		&state.per_relay_parent,
 		&relay_parent,
 		&para_id,
+		assignment.current.len(),
 	);
 
 	gum::trace!(
@@ -2048,6 +2023,7 @@ fn seconded_and_pending_for_para_in_view(
 	per_relay_parent: &HashMap<Hash, PerRelayParent>,
 	relay_parent: &Hash,
 	para_id: &ParaId,
+	claim_queue_len: usize,
 ) -> usize {
 	// `known_allowed_relay_parents_under` returns all leaves within the view for the specified
 	// block hash including the block hash itself.
@@ -2061,7 +2037,7 @@ fn seconded_and_pending_for_para_in_view(
 				?para_id,
 				"seconded_and_pending_for_para_in_view"
 			);
-			ancestors.iter().fold(0, |res, anc| {
+			ancestors.iter().take(claim_queue_len).fold(0, |res, anc| {
 				res + per_relay_parent
 					.get(&anc)
 					.map(|rp| rp.collations.seconded_and_pending_for_para(para_id))
@@ -2091,6 +2067,7 @@ fn unfulfilled_claim_queue_entries(
 					per_relay_parent,
 					relay_parent,
 					para_id,
+					relay_parent_state.assignment.current.len(),
 				),
 			)
 		})
