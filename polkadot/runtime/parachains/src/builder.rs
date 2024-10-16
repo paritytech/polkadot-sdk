@@ -901,7 +901,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let bitfields = builder.create_availability_bitfields(
 			&builder.backed_and_concluding_paras,
 			&builder.elastic_paras,
-			used_cores,
+			max_cores,
 		);
 
 		let mut backed_in_inherent = BTreeMap::new();

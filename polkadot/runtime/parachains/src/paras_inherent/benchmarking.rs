@@ -43,7 +43,8 @@ benchmarks! {
 	// Variant over `v`, the number of dispute statements in a dispute statement set. This gives the
 	// weight of a single dispute statement set.
 	enter_variable_disputes {
-		let v in 10..BenchBuilder::<T>::fallback_max_validators();
+		// The number of statements needs to be at least a third of the validator set size.
+		let v in 400..BenchBuilder::<T>::fallback_max_validators();
 
 		let scenario = BenchBuilder::<T>::new()
 			.set_dispute_sessions(&[2])
