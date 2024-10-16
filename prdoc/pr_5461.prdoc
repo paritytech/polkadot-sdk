@@ -10,6 +10,8 @@ doc:
 crates:
 - name: polkadot-runtime-parachains
   bump: major
+- name: polkadot-primitives
+  bump: major
 - name: rococo-runtime
   bump: major
 - name: westend-runtime
