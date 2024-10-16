@@ -10,4 +10,5 @@ doc:
       however when status is on_idle, do not throw a defensive message, only return weight of 0
 
 crates:
-  - name: MQ pallet
+  - name: pallet-message-queue
+    bump: patch
