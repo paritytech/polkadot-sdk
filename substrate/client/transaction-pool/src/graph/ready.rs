@@ -24,7 +24,7 @@ use std::{
 };
 
 use crate::LOG_TARGET;
-use log::{debug, trace};
+use log::trace;
 use sc_transaction_pool_api::error;
 use serde::Serialize;
 use sp_runtime::{traits::Member, transaction_validity::TransactionTag as Tag};
@@ -84,7 +84,7 @@ pub struct ReadyTx<Hash, Ex> {
 	/// How many required tags are provided inherently
 	///
 	/// Some transactions might be already pruned from the queue,
-	/// so when we compute ready set we may consider this transactions ready earlier.
+	/// so when we compute ready set we may consider these transactions ready earlier.
 	pub requires_offset: usize,
 }
 
@@ -106,7 +106,7 @@ qed
 "#;
 
 /// Validated transactions that are block ready with all their dependencies met.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ReadyTransactions<Hash: hash::Hash + Eq, Ex> {
 	/// Next free insertion id (used to indicate when a transaction was inserted into the pool).
 	insertion_id: u64,
@@ -521,9 +521,9 @@ impl<Hash: hash::Hash + Member, Ex> BestIterator<Hash, Ex> {
 	/// When invoked on a fully drained iterator it has no effect either.
 	pub fn report_invalid(&mut self, tx: &Arc<Transaction<Hash, Ex>>) {
 		if let Some(to_report) = self.all.get(&tx.hash) {
-			debug!(
+			trace!(
 				target: LOG_TARGET,
-				"[{:?}] Reported as invalid. Will skip sub-chains while iterating.",
+				"[{:?}] best-iterator: Reported as invalid. Will skip sub-chains while iterating.",
 				to_report.transaction.transaction.hash
 			);
 			for hash in &to_report.unlocks {
@@ -544,7 +544,7 @@ impl<Hash: hash::Hash + Member, Ex> Iterator for BestIterator<Hash, Ex> {
 
 			// Check if the transaction was marked invalid.
 			if self.invalid.contains(hash) {
-				debug!(
+				trace!(
 					target: LOG_TARGET,
 					"[{:?}] Skipping invalid child transaction while iterating.", hash,
 				);
@@ -703,7 +703,7 @@ mod tests {
 		tx6.requires = vec![tx5.provides[0].clone()];
 		tx6.provides = vec![];
 		let tx7 = Transaction {
-			data: vec![7],
+			data: vec![7].into(),
 			bytes: 1,
 			hash: 7,
 			priority: 1,
