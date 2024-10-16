@@ -53,10 +53,6 @@ use std::{
 /// `Initialized` event.
 const MAX_FINALIZED_BLOCKS: usize = 16;
 
-/// Maximum amount of events buffered by submit_events
-/// before dropping the stream.
-const MAX_BUFFERED_EVENTS: usize = 512;
-
 /// Generates the events of the `chainHead_follow` method.
 pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	/// Substrate client.
@@ -716,9 +712,6 @@ where
 	where
 		EventStream: Stream<Item = NotificationType<Block>> + Unpin + Send,
 	{
-		// make the stream abortable
-		let (stream, cancel_handle) = futures::stream::abortable(stream);
-
 		// create a channel to propagate error messages
 		let (tx_send, mut tx_receive) = futures::channel::mpsc::channel(1);
 		let mut events = move |event| {
@@ -765,7 +758,7 @@ where
 		tokio::pin!(stream);
 
 		let sink_future =
-			sink.pipe_from_stream(stream, sc_rpc::utils::BoundedVecDeque::new(MAX_BUFFERED_EVENTS));
+			sink.pipe_from_stream(stream, sc_rpc::utils::BoundedVecDeque::new(MAX_PINNED_BLOCKS));
 
 		let result = tokio::select! {
 			err = tx_receive.next() => {
@@ -774,13 +767,6 @@ where
 			_ = rx_stop => Ok(()),
 			_ = sink_future => Ok(()),
 		};
-
-		cancel_handle.abort();
-
-		// // If we got here either:
-		// // - the substrate streams have closed
-		// // - the `Stop` receiver was triggered internally (cannot hold the pinned block
-		// guarantee) // - the client disconnected.
 		let _ = sink.send(&FollowEvent::<String>::Stop).await;
 		result
 	}
