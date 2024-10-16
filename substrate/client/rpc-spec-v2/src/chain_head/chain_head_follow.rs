@@ -763,14 +763,12 @@ where
 			.flatten();
 
 		tokio::pin!(stream);
-		tokio::pin!(rx_stop);
 
 		let sink_future =
 			sink.pipe_from_stream(stream, sc_rpc::utils::BoundedVecDeque::new(MAX_BUFFERED_EVENTS));
 
-		tokio::pin!(sink_future);
 		let result = tokio::select! {
-			err =  tx_receive.next() => {
+			err = tx_receive.next() => {
 				Err(err.expect("mpsc::{Sender, Receiver} are not dropped; qed"))
 			}
 			_ = rx_stop => Ok(()),

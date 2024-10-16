@@ -15,4 +15,4 @@ crates:
   - name: sc-rpc-spec-v2
     bump: patch
   - name: sc-rpc
-    bump: patch
+    bump: major
