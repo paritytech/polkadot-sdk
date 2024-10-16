@@ -983,6 +983,9 @@ where
 	}
 }
 
+///The context which attached to pop message to attest its purpose
+const POP_CONTEXT_TAG: &[u8; 4] = b"POP_";
+
 /// Pair which is able to generate proof of possession. While you don't need a keypair
 /// to verify a proof of possession (you only need a public key) we constrain on Pair
 /// to use the Public  and Signature types associated to Pair. This is implemented
@@ -1000,8 +1003,7 @@ where
 		allegedly_possessesd_pubkey: &Self::Public,
 	) -> bool {
 		let pub_key_as_bytes = allegedly_possessesd_pubkey.to_raw_vec();
-		let pop_context_tag = b"POP_";
-		let pop_statement = [pop_context_tag, pub_key_as_bytes.as_slice()].concat();
+		let pop_statement = [POP_CONTEXT_TAG, pub_key_as_bytes.as_slice()].concat();
 		let proof_of_possesion_as_signature: Option<Self::Signature> =
 			<Self::Signature as ByteArray>::from_slice(proof_of_possesion).ok();
 

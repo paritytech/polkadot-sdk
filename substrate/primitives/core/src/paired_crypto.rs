@@ -20,8 +20,9 @@
 use core::marker::PhantomData;
 
 use crate::crypto::{
-	ByteArray, CryptoType, DeriveError, DeriveJunction, Pair as PairT, Public as PublicT,
-	PublicBytes, SecretStringError, Signature as SignatureT, SignatureBytes, UncheckedFrom,
+	ByteArray, CryptoType, DeriveError, DeriveJunction, Pair as PairT, ProofOfPossessionGenerator,
+	ProofOfPossessionVerifier, Public as PublicT, PublicBytes, SecretStringError,
+	Signature as SignatureT, SignatureBytes, UncheckedFrom,
 };
 
 use alloc::vec::Vec;
@@ -387,6 +388,68 @@ where
 	}
 }
 
+impl<
+		LeftPair: PairT + ProofOfPossessionGenerator,
+		RightPair: PairT + ProofOfPossessionGenerator,
+		const PUBLIC_KEY_LEN: usize,
+		const SIGNATURE_LEN: usize,
+		SubTag: PairedCryptoSubTagBound,
+	> ProofOfPossessionGenerator for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>
+where
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>: CryptoType,
+	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
+	Signature<SIGNATURE_LEN, SubTag>: SignatureT,
+	LeftPair::Seed: From<Seed> + Into<Seed>,
+	RightPair::Seed: From<Seed> + Into<Seed>,
+{
+	fn generate_proof_of_possession(&mut self) -> Vec<u8> {
+		[self.left.generate_proof_of_possession(), self.right.generate_proof_of_possession()]
+			.concat()
+	}
+}
+
+///This requires that the PoP of LEFT is of LeftPair::Signature
+///This is the case for current implemented cases but does not
+///holds in general
+impl<
+		LeftPair: PairT + ProofOfPossessionVerifier,
+		RightPair: PairT + ProofOfPossessionVerifier,
+		const PUBLIC_KEY_LEN: usize,
+		const SIGNATURE_LEN: usize,
+		SubTag: PairedCryptoSubTagBound,
+	> ProofOfPossessionVerifier for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>
+where
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>: CryptoType,
+	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
+	Signature<SIGNATURE_LEN, SubTag>: SignatureT,
+	LeftPair::Seed: From<Seed> + Into<Seed>,
+	RightPair::Seed: From<Seed> + Into<Seed>,
+{
+	fn verify_proof_of_possession(
+		proof_of_possession: &[u8],
+		allegedly_possessed_pubkey: &Self::Public,
+	) -> bool {
+		if proof_of_possession.len() < LeftPair::Signature::LEN {
+			return false
+		};
+
+		let Ok(left_pub) = allegedly_possessed_pubkey.0[..LeftPair::Public::LEN].try_into() else {
+			return false
+		};
+		let left_pop = &proof_of_possession[0..LeftPair::Signature::LEN];
+
+		if !LeftPair::verify_proof_of_possession(&left_pop, &left_pub) {
+			return false
+		}
+
+		let Ok(right_pub) = allegedly_possessed_pubkey.0[LeftPair::Public::LEN..].try_into() else {
+			return false
+		};
+		let right_pop = &proof_of_possession[LeftPair::Signature::LEN..];
+		RightPair::verify_proof_of_possession(&right_pop, &right_pub)
+	}
+}
+
 // Test set exercising the (ECDSA,BLS12-377) implementation
 #[cfg(all(test, feature = "bls-experimental"))]
 mod tests {
@@ -627,5 +690,14 @@ mod tests {
 		let encoded_signature = signature.encode();
 		let decoded_signature = Signature::decode(&mut encoded_signature.as_slice()).unwrap();
 		assert_eq!(signature, decoded_signature)
+	}
+
+	#[test]
+	fn good_proof_of_possession_should_work_bad_pop_should_fail() {
+		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
+		let pop = pair.generate_proof_of_possession();
+		assert!(Pair::verify_proof_of_possession(pop.as_slice(), &pair.public()));
+		assert_eq!(Pair::verify_proof_of_possession(pop.as_slice(), &other_pair.public()), false);
 	}
 }
