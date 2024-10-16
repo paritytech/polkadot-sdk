@@ -725,10 +725,10 @@ pub mod bridging {
 				.collect();
 		}
 
-		pub struct SnowbridgeV2;
+		pub struct XcmForSnowbridgeV2;
 
-		impl xcm_builder::MatchesXcm for SnowbridgeV2 {
-			fn matches(xcm: &Xcm<()>) -> bool {
+		impl Contains<Xcm<()>> for XcmForSnowbridgeV2 {
+			fn contains(xcm: &Xcm<()>) -> bool {
 				let mut instructions = xcm.clone().0;
 				let result = instructions.matcher().match_next_inst_while(
 					|_| true,
@@ -743,11 +743,19 @@ pub mod bridging {
 			}
 		}
 
+		pub struct XcmForSnowbridgeV1;
+
+		impl Contains<Xcm<()>> for XcmForSnowbridgeV1 {
+			fn contains(_: &Xcm<()>) -> bool {
+				true
+			}
+		}
+
 		pub type EthereumNetworkExportTableV2 =
-			xcm_builder::NetworkWithXcmExportTable<EthereumBridgeTableV2, SnowbridgeV2>;
+			xcm_builder::NetworkWithXcmExportTable<EthereumBridgeTableV2, XcmForSnowbridgeV2>;
 
 		pub type EthereumNetworkExportTable =
-			xcm_builder::NetworkWithXcmExportTable<EthereumBridgeTable, ()>;
+			xcm_builder::NetworkWithXcmExportTable<EthereumBridgeTable, XcmForSnowbridgeV1>;
 
 		pub type IsTrustedBridgedReserveLocationForForeignAsset =
 			IsForeignConcreteAsset<FromNetwork<UniversalLocation, EthereumNetwork>>;

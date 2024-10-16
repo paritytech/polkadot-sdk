@@ -20,7 +20,10 @@ use crate::InspectMessageQueues;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::{convert::TryInto, marker::PhantomData};
-use frame_support::{ensure, traits::Get};
+use frame_support::{
+	ensure,
+	traits::{Contains, Get},
+};
 use xcm::prelude::*;
 use xcm_executor::traits::{validate_export, ExportXcm};
 use SendError::*;
@@ -711,23 +714,11 @@ mod tests {
 	}
 }
 
-/// Match xcm
-pub trait MatchesXcm {
-	fn matches(xcm: &Xcm<()>) -> bool;
-}
-
-/// For backward compatibility default `MatchesXcm` implementation that just return true
-impl MatchesXcm for () {
-	fn matches(_: &Xcm<()>) -> bool {
-		true
-	}
-}
-
 /// An adapter for the implementation of `ExporterFor`, which attempts to find the
 /// `(bridge_location, payment)` for the requested `network` and `remote_location` and `xcm`
 /// in the provided `T` table containing various exporters.
 pub struct NetworkWithXcmExportTable<T, M>(core::marker::PhantomData<(T, M)>);
-impl<T: Get<Vec<NetworkExportTableItem>>, M: MatchesXcm> ExporterFor
+impl<T: Get<Vec<NetworkExportTableItem>>, M: Contains<Xcm<()>>> ExporterFor
 	for NetworkWithXcmExportTable<T, M>
 {
 	fn exporter_for(
@@ -739,11 +730,11 @@ impl<T: Get<Vec<NetworkExportTableItem>>, M: MatchesXcm> ExporterFor
 			.into_iter()
 			.find(|item| {
 				&item.remote_network == network &&
-					M::matches(xcm) && item
-					.remote_location_filter
-					.as_ref()
-					.map(|filters| filters.iter().any(|filter| filter == remote_location))
-					.unwrap_or(true)
+					M::contains(xcm) &&
+					item.remote_location_filter
+						.as_ref()
+						.map(|filters| filters.iter().any(|filter| filter == remote_location))
+						.unwrap_or(true)
 			})
 			.map(|item| (item.bridge, item.payment))
 	}
