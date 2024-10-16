@@ -51,6 +51,7 @@ fn call_wasm_method_with_result<HF: HostFunctionsT>(
 		false,
 		method,
 		&[],
+		Default::default(),
 	);
 	let result = result
 		.map_err(|e| format!("Failed to execute `{}`: {}", method, e))

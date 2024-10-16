@@ -214,6 +214,7 @@ pub fn validate_block(
 			false,
 			"validate_block",
 			&validation_params.encode(),
+			Default::default(),
 		)
 		.map(|v| ValidationResult::decode(&mut &v[..]).expect("Decode `ValidationResult`."))
 }
