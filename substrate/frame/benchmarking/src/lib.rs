@@ -318,23 +318,24 @@ pub use v1::*;
 /// steps:
 /// 1. Change the import from `frame_benchmarking::v1::` to `frame_benchmarking::v2::*`, or
 ///    `frame::benchmarking::prelude::*` under the umbrella crate;
-/// 2. Move every benchmark inside the v1 `benchmarks! { ... }` block to the v2 benchmarks module
-///    `mod benchmarks { ... }` under the benchmarks macro (`#[benchmarks]` or
-///    `#[instance_benchmarks]`);
-/// 2.1 Move each v1 benchmark to a function inside the v2 benchmarks module, either with a blank
-/// return type or a return type compatible with `Result<(), BenchmarkError>`. For instance, `foo {
-/// ... }` can become `fn foo() -> Result<(), BenchmarkError>`;
-/// 2.2 Move all the v1 complexity parameters as [ParamRange](`v2::ParamRange`) arguments to the v2
-/// function, and their setup code to the body of the function. For instance, `let y in 0 .. 10 =>
-/// setup(y)?;` from v1 will give a `y: Linear<0, 10>` argument to the corresponding function in v2,
-/// while `setup(y)?;` will be moved to the body of the function;
-/// 2.3 Move all the v1 setup code to the body of the v2 function;
-/// 2.4 Move the benchmarked code to the body of the v2 function under the appropriate macro
-/// attribute: `#[extrinsic_call]` for extrinsic pallet calls and `#[block]` for blocks of code;
-/// 2.5 Move the verify code block at the end of the v1 benchmark after the benchmarked code, in the
-/// body of the v2 function.
-/// 2.6 If the function is supposed to return a `Result<(), BenchmarkError>`, end the body with an
-/// `Ok(())` expression.
+/// 2. Move the code inside the v1 `benchmarks! { ... }` block to the v2 benchmarks module `mod
+///    benchmarks { ... }` under the benchmarks macro (`#[benchmarks]` or `#[instance_benchmarks]`);
+/// 3. Turn each v1 benchmark into a function inside the v2 benchmarks module with the same name,
+///    having either with a blank return type or a return type compatible with `Result<(),
+///    BenchmarkError>`. For instance, `foo { ... }` can become `fn foo() -> Result<(),
+///    BenchmarkError>`. More in detail:
+///   3.1 Move all the v1 complexity parameters as [ParamRange](`v2::ParamRange`) arguments to the
+/// v2 function, and their setup code to the body of the function. For instance, `let y in 0 .. 10
+/// => setup(y)?;` from v1 will give a `y: Linear<0, 10>` argument to the corresponding function in
+/// v2, while `setup(y)?;` will be moved to the body of the function;
+///   3.2 Move all the v1 setup
+/// code to the body of the v2 function;   
+///   3.3 Move the benchmarked code to the body of the v2
+/// function under the appropriate macro attribute: `#[extrinsic_call]` for extrinsic pallet calls
+/// and `#[block]` for blocks of code;   
+///   3.4 Move the v1 verify code block to the body of the v2 function, after the benchmarked code.
+///   3.5 If the function is supposed to return a `Result<(), BenchmarkError>`, end with an `Ok(())`
+/// expression.
 ///
 /// As an example migration, the following v1 code
 ///
