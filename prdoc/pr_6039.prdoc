@@ -27,27 +27,27 @@ doc:
 
 crates:
   - name: asset-hub-westend-runtime
-    bump: patch
+    bump: minor
   - name: bridge-hub-rococo-runtime
-    bump: patch
+    bump: minor
   - name: bridge-hub-westend-runtime
-    bump: patch
+    bump: minor
   - name: collectives-westend-runtime
-    bump: patch
+    bump: minor
   - name: contracts-rococo-runtime
-    bump: patch
+    bump: minor
   - name: coretime-rococo-runtime
-    bump: patch
+    bump: minor
   - name: coretime-westend-runtime
     bump: minor
   - name: people-rococo-runtime
-    bump: patch
+    bump: minor
   - name: people-westend-runtime
-    bump: patch
+    bump: minor
   - name: penpal-runtime
-    bump: patch
+    bump: minor
   - name: asset-hub-rococo-runtime
-    bump: patch
+    bump: minor
   - name: pallet-xcm
     bump: minor
   - name: xcm-runtime-apis
