@@ -17,6 +17,7 @@
 
 //! Support code for the runtime. A set of test accounts.
 
+use crate::ParseKeyringError;
 pub use sp_core::ed25519;
 #[cfg(feature = "std")]
 use sp_core::ed25519::Signature;
@@ -27,7 +28,7 @@ use sp_core::{
 use sp_runtime::AccountId32;
 
 extern crate alloc;
-use alloc::{fmt, format, str::FromStr, string::String, vec::Vec};
+use alloc::{format, str::FromStr, string::String, vec::Vec};
 
 /// Set of test accounts.
 #[derive(
@@ -134,34 +135,25 @@ impl From<Keyring> for sp_runtime::MultiSigner {
 	}
 }
 
-#[derive(Debug)]
-pub struct ParseKeyringError;
-
-impl fmt::Display for ParseKeyringError {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "ParseKeyringError")
-	}
-}
-
 impl FromStr for Keyring {
 	type Err = ParseKeyringError;
 
 	fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
 		match s {
-			"Alice" => Ok(Keyring::Alice),
-			"Bob" => Ok(Keyring::Bob),
-			"Charlie" => Ok(Keyring::Charlie),
-			"Dave" => Ok(Keyring::Dave),
-			"Eve" => Ok(Keyring::Eve),
-			"Ferdie" => Ok(Keyring::Ferdie),
+			"Alice" | "alice" => Ok(Keyring::Alice),
+			"Bob" | "bob" => Ok(Keyring::Bob),
+			"Charlie" | "charlie" => Ok(Keyring::Charlie),
+			"Dave" | "dave" => Ok(Keyring::Dave),
+			"Eve" | "eve" => Ok(Keyring::Eve),
+			"Ferdie" | "ferdie" => Ok(Keyring::Ferdie),
 			"Alice//stash" => Ok(Keyring::AliceStash),
 			"Bob//stash" => Ok(Keyring::BobStash),
 			"Charlie//stash" => Ok(Keyring::CharlieStash),
 			"Dave//stash" => Ok(Keyring::DaveStash),
 			"Eve//stash" => Ok(Keyring::EveStash),
 			"Ferdie//stash" => Ok(Keyring::FerdieStash),
-			"One" => Ok(Keyring::One),
-			"Two" => Ok(Keyring::Two),
+			"One" | "one" => Ok(Keyring::One),
+			"Two" | "two" => Ok(Keyring::Two),
 			_ => Err(ParseKeyringError),
 		}
 	}

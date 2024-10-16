@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use crate::imports::*;
+use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;

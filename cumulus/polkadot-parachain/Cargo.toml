@@ -22,10 +22,7 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 
 # Local
-polkadot-omni-node-lib = { features = [
-	"rococo-native",
-	"westend-native",
-], workspace = true }
+polkadot-omni-node-lib = { features = ["rococo-native", "westend-native"], workspace = true }
 rococo-parachain-runtime = { workspace = true }
 glutton-westend-runtime = { workspace = true }
 asset-hub-rococo-runtime = { workspace = true, default-features = true }

@@ -18,9 +18,9 @@
 //! Cryptographic utilities.
 
 use crate::{ed25519, sr25519};
+use alloc::{format, str, vec::Vec};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
-use alloc::{format, string::String, vec};
-use alloc::{str, vec::Vec};
+use alloc::{string::String, vec};
 use bip39::{Language, Mnemonic};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::hash::Hash;
@@ -422,7 +422,6 @@ pub fn set_default_ss58_version(new_default: Ss58AddressFormat) {
 /// Interprets the string `s` in order to generate a public key without password.
 ///
 /// Function will panic when invalid string is provided.
-#[cfg(feature = "serde")]
 pub fn get_public_from_string_or_panic<TPublic: Public>(
 	s: &str,
 ) -> <TPublic::Pair as Pair>::Public {

@@ -148,22 +148,13 @@ nix = { features = ["signal"], workspace = true }
 regex = { workspace = true }
 platforms = { workspace = true }
 soketto = { workspace = true }
-criterion = { features = [
-	"async_tokio",
-], workspace = true, default-features = true }
-tokio = { features = [
-	"macros",
-	"parking_lot",
-	"time",
-], workspace = true, default-features = true }
+criterion = { features = ["async_tokio"], workspace = true, default-features = true }
+tokio = { features = ["macros", "parking_lot", "time"], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }
 wait-timeout = { workspace = true }
 wat = { workspace = true }
 serde_json = { workspace = true, default-features = true }
-scale-info = { features = [
-	"derive",
-	"serde",
-], workspace = true, default-features = true }
+scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
 sp-keyring = { workspace = true }
 pretty_assertions.workspace = true
 

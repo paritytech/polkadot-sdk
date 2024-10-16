@@ -15,7 +15,7 @@ crates:
   - name: polkadot-service
     bump: major
   - name: sp-keyring
-    bump: patch
+    bump: major
   - name: rococo-runtime
     bump: patch
   - name: westend-runtime

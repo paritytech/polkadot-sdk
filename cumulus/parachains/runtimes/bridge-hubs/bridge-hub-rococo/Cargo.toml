@@ -17,9 +17,7 @@ codec = { features = ["derive"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, features = [
-	"derive",
-], workspace = true, default-features = true }
+serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 serde_json = { features = ["alloc"], workspace = true }
 
 # Substrate
@@ -125,7 +123,6 @@ bridge-runtime-common = { features = [
 	"integrity-test",
 ], workspace = true, default-features = true }
 pallet-bridge-relayers = { features = ["integrity-test"], workspace = true }
-sp-keyring = { workspace = true, default-features = true }
 snowbridge-runtime-test-common = { workspace = true, default-features = true }
 
 [features]
@@ -209,6 +206,7 @@ std = [
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",
+	"sp-keyring/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",

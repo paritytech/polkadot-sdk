@@ -17,6 +17,7 @@
 
 //! Support code for the runtime. A set of test accounts.
 
+use crate::ParseKeyringError;
 pub use sp_core::sr25519;
 #[cfg(feature = "std")]
 use sp_core::sr25519::Signature;
@@ -28,7 +29,7 @@ use sp_core::{
 use sp_runtime::AccountId32;
 
 extern crate alloc;
-use alloc::{fmt, format, str::FromStr, string::String, vec::Vec};
+use alloc::{format, str::FromStr, string::String, vec::Vec};
 
 /// Set of test accounts.
 #[derive(
@@ -142,15 +143,6 @@ impl From<Keyring> for &'static str {
 impl From<Keyring> for sp_runtime::MultiSigner {
 	fn from(x: Keyring) -> Self {
 		sp_runtime::MultiSigner::Sr25519(x.into())
-	}
-}
-
-#[derive(Debug)]
-pub struct ParseKeyringError;
-
-impl fmt::Display for ParseKeyringError {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "ParseKeyringError")
 	}
 }
 
