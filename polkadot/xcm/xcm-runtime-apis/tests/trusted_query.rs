@@ -66,13 +66,6 @@ fn query_trusted_reserve() {
 				location: (Parent, Parachain(1000)).into(),
 				expected: Err(Error::VersionedAssetConversionFailed),
 			},
-			// TestCase {
-			// 	name: "Invalid location conversion",
-			// 	asset: Asset{ id: AssetId(Location::new(11, [GeneralIndex(3212122222),
-			// PalletInstance(50)]).into()), fun: Fungible(100) }.into(), 	location:
-			// Location::new(11, [GeneralIndex(3212122222), PalletInstance(50)]).into(),
-			// 	expected: Err(Error::VersionedLocationConversionFailed),
-			// },
 		];
 
 		for tc in test_cases {
@@ -135,12 +128,6 @@ fn query_trusted_teleporter() {
 				location: (Parent, Parachain(1000)).into(),
 				expected: Err(Error::VersionedAssetConversionFailed),
 			},
-			// TestCase {
-			// 	name: "Invalid asset conversion",
-			// 	asset: VersionedAsset::V2(InvalidAsset), // Assuming V2 is invalid for this context
-			// 	location: VersionedLocation::V1(Location::from((Parent, Parachain(1002)))),
-			// 	expected: Err(Error::VersionedAssetConversionFailed),
-			// },
 		];
 
 		for tc in test_cases {
