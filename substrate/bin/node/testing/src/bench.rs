@@ -576,14 +576,19 @@ impl BenchKeyring {
 					None::<()>,
 				);
 				let key = self.accounts.get(&signed).expect("Account id not found in keyring");
-				let signature = payload.using_encoded(|b| key.sign(&blake2_256(b)));
+				let signature = payload.using_encoded(|b| {
+					if b.len() > 256 {
+						key.sign(&blake2_256(b))
+					} else {
+						key.sign(b)
+					}
+				});
 				UncheckedExtrinsic {
 					preamble: Preamble::Signed(
 						sp_runtime::MultiAddress::Id(signed),
 						signature,
 						0,
 						tx_ext,
-						EXTRINSIC_FORMAT_VERSION,
 					),
 					function: payload.0,
 				}

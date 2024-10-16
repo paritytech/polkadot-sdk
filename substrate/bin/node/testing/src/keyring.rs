@@ -106,14 +106,22 @@ pub fn sign(
 				metadata_hash,
 			);
 			let key = AccountKeyring::from_account_id(&signed).unwrap();
-			let signature = payload.using_encoded(|b| key.sign(&blake2_256(b))).into();
+			let signature =
+				payload
+					.using_encoded(|b| {
+						if b.len() > 256 {
+							key.sign(&blake2_256(b))
+						} else {
+							key.sign(b)
+						}
+					})
+					.into();
 			UncheckedExtrinsic {
 				preamble: sp_runtime::generic::Preamble::Signed(
 					sp_runtime::MultiAddress::Id(signed),
 					signature,
 					0,
 					tx_ext,
-					EXTRINSIC_FORMAT_VERSION,
 				),
 				function: payload.0,
 			}
