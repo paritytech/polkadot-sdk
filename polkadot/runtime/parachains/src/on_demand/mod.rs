@@ -256,6 +256,8 @@ pub mod pallet {
 		/// - `OnDemandOrderPlaced`
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::place_order_allow_death(QueueStatus::<T>::get().size()))]
+		#[allow(deprecated)]
+		#[deprecated(note = "This will be removed in favor of using `place_order_with_credits`")]
 		pub fn place_order_allow_death(
 			origin: OriginFor<T>,
 			max_amount: BalanceOf<T>,
@@ -288,6 +290,8 @@ pub mod pallet {
 		/// - `OnDemandOrderPlaced`
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::place_order_keep_alive(QueueStatus::<T>::get().size()))]
+		#[allow(deprecated)]
+		#[deprecated(note = "This will be removed in favor of using `place_order_with_credits`")]
 		pub fn place_order_keep_alive(
 			origin: OriginFor<T>,
 			max_amount: BalanceOf<T>,
