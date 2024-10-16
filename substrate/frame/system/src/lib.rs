@@ -995,6 +995,11 @@ pub mod pallet {
 	#[pallet::unbounded]
 	pub type LastRuntimeUpgrade<T: Config> = StorageValue<_, LastRuntimeUpgradeInfo>;
 
+	/// At which block a runtime upgrade is scheduled at.
+	/// At the moment, we only allow one upgrade to be scheduled at the next block after pending code is set.
+	#[pallet::storage]
+	pub(super) type UpgradeScheduledAt<T: Config> = StorageValue<_, Option<BlockNumberFor<T>>, ValueQuery>;
+
 	/// True if we have upgraded so that `type RefCount` is `u32`. False (default) if not.
 	#[pallet::storage]
 	pub(super) type UpgradedToU32RefCount<T: Config> = StorageValue<_, bool, ValueQuery>;
@@ -1453,9 +1458,11 @@ impl<T: Config> Pallet<T> {
 	pub fn update_pending_code_in_storage(code: &[u8]) {
 		let current_number = Pallet::<T>::block_number();
 		let scheduled_at = current_number + One::one();
-		let value: (BlockNumberFor<T>, Vec<u8>) = (scheduled_at, code.to_vec());
 
-		storage::unhashed::put(well_known_keys::PENDING_CODE, &value);
+		UpgradeScheduledAt::<T>::put(Some(scheduled_at));
+		storage::unhashed::put_raw(well_known_keys::PENDING_CODE, code);
+
+		// TODO: should we emit an event here or in the next block?
 		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
 		Self::deposit_event(Event::CodeUpdated);
 	}
@@ -1467,13 +1474,19 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns `true` if the pending code upgrade was applied.
 	pub fn maybe_apply_pending_code_upgrade() -> bool {
-		let maybe_pending_code: Option<(BlockNumberFor<T>, Vec<u8>)> =
-			storage::unhashed::get(well_known_keys::PENDING_CODE);
+	    let maybe_pending_upgrade = UpgradeScheduledAt::<T>::get();
 
-		if let Some((scheduled_at, new_code)) = maybe_pending_code {
+		if let Some(scheduled_at) = maybe_pending_upgrade {
 			let current_number = Pallet::<T>::block_number();
 			// Only enact the pending code upgrade if it is scheduled to be enacted in this block.
 			if scheduled_at == current_number {
+    			UpgradeScheduledAt::<T>::put(None::<BlockNumberFor<T>>);
+    			let new_code = storage::unhashed::get_raw(well_known_keys::PENDING_CODE);
+                let Some(new_code) = new_code else {
+                    // should never happen
+                    defensive!("UpgradeScheduledAt is set but no pending code found");
+                    return false
+                };
 				storage::unhashed::put_raw(well_known_keys::CODE, &new_code);
 				storage::unhashed::kill(well_known_keys::PENDING_CODE);
 
