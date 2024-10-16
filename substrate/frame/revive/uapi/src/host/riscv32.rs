@@ -528,9 +528,8 @@ impl HostFn for HostFnImpl {
 		ret_val.into()
 	}
 
-	fn code_hash(address: &[u8; 20], output: &mut [u8; 32]) -> Result {
-		let ret_val = unsafe { sys::code_hash(address.as_ptr(), output.as_mut_ptr()) };
-		ret_val.into()
+	fn code_hash(address: &[u8; 20], output: &mut [u8; 32]) {
+		unsafe { sys::code_hash(address.as_ptr(), output.as_mut_ptr()) }
 	}
 
 	fn own_code_hash(output: &mut [u8; 32]) {
