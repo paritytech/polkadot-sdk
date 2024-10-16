@@ -48,7 +48,7 @@ use xcm_runtime_apis::{
 	conversions::{Error as LocationToAccountApiError, LocationToAccountApi},
 	dry_run::{CallDryRunEffects, DryRunApi, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::{Error as XcmPaymentApiError, XcmPaymentApi},
-	trust_query::{Error as TrustedQueryApiError, TrustedQueryApi},
+	trusted_query::{Error as TrustedQueryApiError, TrustedQueryApi},
 };
 
 construct_runtime! {

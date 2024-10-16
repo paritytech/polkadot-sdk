@@ -19,9 +19,8 @@ mod mock;
 use frame_support::sp_runtime::testing::H256;
 use mock::*;
 use sp_api::ProvideRuntimeApi;
-use xcm::prelude::*;
-use xcm::v3;
-use xcm_runtime_apis::trust_query::{Error, TrustedQueryApi};
+use xcm::{prelude::*, v3};
+use xcm_runtime_apis::trusted_query::{Error, TrustedQueryApi};
 
 #[test]
 fn query_trusted_reserve() {
@@ -60,7 +59,7 @@ fn query_trusted_reserve() {
 			},
 			TestCase {
 				name: "Invalid asset conversion",
-				asset: VersionedAsset::V3(v3::MultiAsset{
+				asset: VersionedAsset::V3(v3::MultiAsset {
 					id: v3::AssetId::Abstract([1; 32]),
 					fun: v3::Fungibility::Fungible(1),
 				}),
@@ -129,7 +128,7 @@ fn query_trusted_teleporter() {
 			},
 			TestCase {
 				name: "Invalid asset conversion",
-				asset: VersionedAsset::V3(v3::MultiAsset{
+				asset: VersionedAsset::V3(v3::MultiAsset {
 					id: v3::AssetId::Abstract([1; 32]),
 					fun: v3::Fungibility::Fungible(1),
 				}),

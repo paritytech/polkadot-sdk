@@ -70,7 +70,7 @@ use xcm_executor::{
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
-	trust_query::Error as TrustQueryApiError,
+	trusted_query::Error as TrustQueryApiError,
 };
 
 #[cfg(any(feature = "try-runtime", test))]

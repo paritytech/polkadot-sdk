@@ -33,4 +33,4 @@ pub mod fees;
 
 // Exposes runtime API for querying whether a Location is trusted as a reserve or teleporter for a
 // given Asset.
-pub mod trust_query;
+pub mod trusted_query;
