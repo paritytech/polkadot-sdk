@@ -66,9 +66,9 @@ fn fellowship_treasury_spend() {
 			call: bx!(RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::teleport_assets {
 				dest: bx!(VersionedLocation::from(asset_hub_location.clone())),
 				beneficiary: bx!(VersionedLocation::from(treasury_location)),
-				assets: bx!(VersionedAssets::from(
-					Asset { id: native_asset.clone().into(), fun: treasury_balance.into() }.into()
-				)),
+				assets: bx!(VersionedAssets::from(Assets::from(
+					Asset { id: native_asset.clone().into(), fun: treasury_balance.into() }
+				))),
 				fee_asset_item: 0,
 			})),
 		});
