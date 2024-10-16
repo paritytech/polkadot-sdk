@@ -242,6 +242,7 @@ fetch_release_artifacts() {
 # - GITHUB_TOKEN
 # - REPO in the form paritytech/polkadot
 fetch_release_artifacts_from_s3() {
+  BINARY=$1
   echo "Version    : $VERSION"
   echo "Repo       : $REPO"
   echo "Binary     : $BINARY"
@@ -461,7 +462,7 @@ function get_polkadot_node_version_from_code() {
 
 validate_stable_tag() {
     tag="$1"
-    pattern='^stable[0-9]+(-[0-9]+)?$'
+    pattern="^stable[0-9]{4}(-[0-9]+)?(-rc[0-9]+)?$"
 
     if [[ $tag =~ $pattern ]]; then
         echo $tag
