@@ -344,19 +344,15 @@ pub use v1::*;
 ///
 /// benchmarks! {
 ///
-///   // first dispatchable: sort; this is a user dispatchable that sorts a `u8` vector of
+///   // first dispatchable: this is a user dispatchable and operates on a `u8` vector of
 ///   // size `l`
-///   sort {
+///   foo {
 ///     let caller = funded_account::<T>(b"caller", 0);
 ///     let l in 1 .. 10_000 => initialize_l(l);
-///     let mut m = Vec::<u32>::new();
-///     for i in (0..l).rev() {
-///       m.push(i);
-///     }
 ///   }: {
-///     _(RuntimeOrigin::Signed(caller), m)
+///     _(RuntimeOrigin::Signed(caller), vec![0u8; l])
 ///   } verify {
-///     ensure!(m[0] == 0, "You forgot to sort!")
+///     assert_last_event::<T>(Event::FooExecuted { result: Ok(()) }.into());
 ///   }
 /// }
 /// ```
@@ -372,21 +368,17 @@ pub use v1::*;
 /// mod benchmarks {
 ///   use super::*;
 ///
-///   // first dispatchable: sort; this is a user dispatchable that sorts a `u8` vector of
+///   // first dispatchable: foo; this is a user dispatchable and operates on a `u8` vector of
 ///   // size `l`
 ///   #[benchmark]
-///   fn sort(l: Linear<1 .. 10_000>) -> Result<(), BenchmarkError> {
+///   fn foo(l: Linear<1 .. 10_000>) -> Result<(), BenchmarkError> {
 ///     let caller = funded_account::<T>(b"caller", 0);
 ///     initialize_l(l);
-///     let mut m = Vec::<u32>::new();
-///     for i in (0..l).rev() {
-///       m.push(i);
-///     }
 ///
 ///     #[extrinsic_call]
-///     _(RuntimeOrigin::Signed(caller), m);
+///     _(RuntimeOrigin::Signed(caller), vec![0u8; l]);
 ///     
-///     ensure!(m[0] == 0, "You forgot to sort!")
+///     assert_last_event::<T>(Event::FooExecuted { result: Ok(()) }.into());
 ///     Ok(())
 ///   }
 /// }
