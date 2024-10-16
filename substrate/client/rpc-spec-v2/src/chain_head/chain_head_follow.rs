@@ -714,7 +714,7 @@ where
 	{
 		// create a channel to propagate error messages
 		let (tx_send, mut tx_receive) = futures::channel::mpsc::channel(1);
-		let mut events = move |event| {
+		let mut handle_events = move |event| {
 			match event {
 				NotificationType::InitialEvents(events) => Ok(events),
 				NotificationType::NewBlock(notification) =>
@@ -734,9 +734,10 @@ where
 		};
 
 		let stream = stream
-			.map(move |event| events(event))
 			.then(|event| {
 				let tx_send = tx_send.clone();
+				let event = handle_events(event);
+
 				async move {
 					let mut tx_send = tx_send.clone();
 
