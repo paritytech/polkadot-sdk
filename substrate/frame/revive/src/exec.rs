@@ -272,9 +272,7 @@ pub trait Ext: sealing::Sealed {
 	fn is_contract(&self, address: &H160) -> bool;
 
 	/// Returns the code hash of the contract for the given `address`.
-	///
-	/// Returns `None` if the `address` does not belong to a contract.
-	fn code_hash(&self, address: &H160) -> Option<H256>;
+	fn code_hash(&self, address: &H160) -> H256;
 
 	/// Returns the code hash of the contract being executed.
 	fn own_code_hash(&mut self) -> &H256;
@@ -1524,8 +1522,17 @@ where
 		ContractInfoOf::<T>::contains_key(&address)
 	}
 
-	fn code_hash(&self, address: &H160) -> Option<H256> {
-		<ContractInfoOf<T>>::get(&address).map(|contract| contract.code_hash)
+	fn code_hash(&self, address: &H160) -> H256 {
+		<ContractInfoOf<T>>::get(&address)
+			.map(|contract| contract.code_hash)
+			.unwrap_or_else(|| {
+				if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) {
+					return H256::from(hex_literal::hex!(
+						"c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+					));
+				}
+				H256::zero()
+			})
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
@@ -1859,7 +1866,7 @@ mod tests {
 		) -> H256 {
 			Loader::mutate(|loader| {
 				// Generate code hashes as monotonically increasing values.
-				let hash = <Test as frame_system::Config>::Hash::from_low_u64_be(loader.counter);
+				let hash = <Test as frame_system::Config>::Hash::from_low_u64_be(loader.counter + 1);
 				loader.counter += 1;
 				loader.map.insert(
 					hash,
@@ -2376,9 +2383,9 @@ mod tests {
 	fn code_hash_returns_proper_values() {
 		let code_bob = MockLoader::insert(Call, |ctx, _| {
 			// ALICE is not a contract and hence they do not have a code_hash
-			assert!(ctx.ext.code_hash(&ALICE_ADDR).is_none());
+			assert!(ctx.ext.code_hash(&ALICE_ADDR).is_zero());
 			// BOB is a contract and hence it has a code_hash
-			assert!(ctx.ext.code_hash(&BOB_ADDR).is_some());
+			assert!(!ctx.ext.code_hash(&BOB_ADDR).is_zero());
 			exec_success()
 		});
 
@@ -2403,7 +2410,7 @@ mod tests {
 	#[test]
 	fn own_code_hash_returns_proper_values() {
 		let bob_ch = MockLoader::insert(Call, |ctx, _| {
-			let code_hash = ctx.ext.code_hash(&BOB_ADDR).unwrap();
+			let code_hash = ctx.ext.code_hash(&BOB_ADDR);
 			assert_eq!(*ctx.ext.own_code_hash(), code_hash);
 			exec_success()
 		});

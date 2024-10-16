@@ -74,7 +74,7 @@ mod sys {
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32);
 		pub fn caller(out_ptr: *mut u8);
 		pub fn is_contract(account_ptr: *const u8) -> ReturnCode;
-		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
+		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn own_code_hash(out_ptr: *mut u8);
 		pub fn caller_is_origin() -> ReturnCode;
 		pub fn caller_is_root() -> ReturnCode;

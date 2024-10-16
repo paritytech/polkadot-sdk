@@ -1411,22 +1411,17 @@ pub mod env {
 		memory: &mut M,
 		addr_ptr: u32,
 		out_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
+	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::CodeHash)?;
 		let mut address = H160::zero();
 		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
-		if let Some(value) = self.ext.code_hash(&address) {
-			self.write_fixed_sandbox_output(
-				memory,
-				out_ptr,
-				&value.as_bytes(),
-				false,
-				already_charged,
-			)?;
-			Ok(ReturnErrorCode::Success)
-		} else {
-			Ok(ReturnErrorCode::KeyNotFound)
-		}
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&self.ext.code_hash(&address).as_bytes(),
+			false,
+			already_charged,
+		)?)
 	}
 
 	/// Retrieve the code hash of the currently executing contract.
