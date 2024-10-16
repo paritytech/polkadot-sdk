@@ -101,7 +101,7 @@ pub const DEFAULT_CONFIG: Config = Config {
 
 /// Executes the given PVF in the form of a compiled artifact and returns the result of
 /// execution upon success.
-//
+///
 /// # Safety
 ///
 /// The caller must ensure that the compiled artifact passed here was:

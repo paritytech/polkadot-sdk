@@ -1,4 +1,4 @@
-// This file is part of Substrateself..
+// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
@@ -289,13 +289,20 @@ impl Header {
 	}
 }
 
+/// Wrapper around `FreeLists` with different memory management configs.
+///
+/// An allocator instantiated to be used when executing onchain calls must be set with a limit of
+/// `N_ORDERS_ONCHAIN` orders. In the offchain context, the `N_ORDERS_OFFCHAIN` is used.
 #[derive(Debug)]
 enum LinkedLists {
+	/// Linked list for onchain executions.
 	Onchain(FreeLists<N_ORDERS_ONCHAIN>),
+	/// Linked list for offchain executions.
 	Offchain(FreeLists<N_ORDERS_OFFCHAIN>),
 }
 
 impl LinkedLists {
+	/// Get the link associated with `order`.
 	fn get(&self, order: Order) -> Link {
 		match self {
 			Self::Onchain(list) => list[order],
