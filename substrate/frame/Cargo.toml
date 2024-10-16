@@ -100,7 +100,7 @@ std = [
 	"sp-consensus-aura?/std",
 	"sp-consensus-grandpa?/std",
 	"sp-core/std",
-	"sp-genesis-builder/std",
+	"sp-genesis-builder?/std",
 	"sp-inherents?/std",
 	"sp-io/std",
 	"sp-offchain?/std",

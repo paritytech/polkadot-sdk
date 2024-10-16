@@ -211,7 +211,7 @@ pub mod try_runtime {
 /// ```
 ///
 /// It already includes `polkadot_sdk_frame::prelude::*` and `polkadot_sdk_frame::testing_prelude`.
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking {
 	mod shared {
 		pub use frame_benchmarking::{add_benchmark, v1::account, whitelist, whitelisted_caller};

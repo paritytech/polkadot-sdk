@@ -59,7 +59,7 @@ use xcm_executor::traits::TransactAsset;
 use snowbridge_core::{
 	inbound::{Message, VerificationError, Verifier},
 	sibling_sovereign_account, BasicOperatingMode, Channel, ChannelId, ParaId, PricingParameters,
-	StaticLookup,
+	StaticLookup as SnowBridgeStaticLookup,
 };
 use snowbridge_router_primitives::inbound::{
 	ConvertMessage, ConvertMessageError, VersionedMessage,
@@ -118,7 +118,7 @@ pub mod pallet {
 		>;
 
 		/// Lookup a channel descriptor
-		type ChannelLookup: StaticLookup<Source = ChannelId, Target = Channel>;
+		type ChannelLookup: SnowBridgeStaticLookup<Source = ChannelId, Target = Channel>;
 
 		/// Lookup pricing parameters
 		type PricingParameters: Get<PricingParameters<BalanceOf<Self>>>;

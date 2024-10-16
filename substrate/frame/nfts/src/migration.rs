@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use super::*;
-use frame_support::traits::OnRuntimeUpgrade;
 use log;
 
 #[cfg(feature = "try-runtime")]

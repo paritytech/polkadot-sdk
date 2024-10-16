@@ -58,7 +58,7 @@ use frame_support::traits::{
 };
 use frame_system::Config as SystemConfig;
 use sp_runtime::{
-	traits::{IdentifyAccount, Saturating, StaticLookup, Verify, Zero},
+	traits::{IdentifyAccount, StaticLookup, Verify, Zero},
 	RuntimeDebug,
 };
 
