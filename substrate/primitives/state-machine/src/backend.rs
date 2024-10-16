@@ -392,7 +392,7 @@ pub trait AsTrieBackend<H: Hasher, C = sp_trie::cache::LocalTrieCache<H>> {
 	fn as_trie_backend(&self) -> &TrieBackend<Self::TrieBackendStorage, H, C>;
 }
 
-/// Whether to ignore `:pending_code` storage value
+/// Whether to to take `:pending_code` into account
 /// when fetching the runtime code.
 ///
 /// We want to use `:pending_code` in block production and import
@@ -400,18 +400,18 @@ pub trait AsTrieBackend<H: Hasher, C = sp_trie::cache::LocalTrieCache<H>> {
 ///
 /// See <https://github.com/paritytech/polkadot-sdk/issues/64> for more details.
 #[cfg(feature = "std")]
-pub enum IgnorePendingCode {
+pub enum TryPendingCode {
 	/// Used by runtime api calls.
-	Yes,
-	/// Used by block import and production.
 	No,
+	/// Used by block import and production.
+	Yes,
 }
 
 /// Wrapper to create a [`RuntimeCode`] from a type that implements [`Backend`].
 #[cfg(feature = "std")]
 pub struct BackendRuntimeCode<'a, B, H> {
 	backend: &'a B,
-	ignore_pending_code: IgnorePendingCode,
+	try_pending_code: TryPendingCode,
 	_marker: PhantomData<H>,
 }
 
@@ -420,7 +420,7 @@ impl<'a, B: Backend<H>, H: Hasher> sp_core::traits::FetchRuntimeCode
 	for BackendRuntimeCode<'a, B, H>
 {
 	fn fetch_runtime_code(&self) -> Option<std::borrow::Cow<[u8]>> {
-		if matches!(self.ignore_pending_code, IgnorePendingCode::No) {
+		if matches!(self.try_pending_code, TryPendingCode::Yes) {
 			let pending_code = self
 				.backend
 				.storage(sp_core::storage::well_known_keys::PENDING_CODE)
@@ -446,16 +446,16 @@ where
 	H::Out: Encode,
 {
 	/// Create a new instance.
-	pub fn new(backend: &'a B, ignore_pending_code: IgnorePendingCode) -> Self {
-		Self { backend, ignore_pending_code, _marker: PhantomData }
+	pub fn new(backend: &'a B, try_pending_code: TryPendingCode) -> Self {
+		Self { backend, try_pending_code, _marker: PhantomData }
 	}
 
 	/// Return the [`RuntimeCode`] build from the wrapped `backend`.
 	/// This method takes `:pending_code` into account.
 	pub fn runtime_code(&self) -> Result<RuntimeCode, &'static str> {
-		let maybe_pending_code_hash = match self.ignore_pending_code {
-			IgnorePendingCode::Yes => None,
-			IgnorePendingCode::No => self
+		let maybe_pending_code_hash = match self.try_pending_code {
+			TryPendingCode::No => None,
+			TryPendingCode::Yes => self
 				.backend
 				.storage_hash(sp_core::storage::well_known_keys::PENDING_CODE)
 				.ok()

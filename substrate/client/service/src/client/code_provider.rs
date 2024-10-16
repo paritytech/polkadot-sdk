@@ -21,7 +21,7 @@ use sc_client_api::backend;
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
 use sp_core::traits::{FetchRuntimeCode, RuntimeCode};
 use sp_runtime::traits::Block as BlockT;
-use sp_state_machine::{backend::IgnorePendingCode, Ext, OverlayedChanges};
+use sp_state_machine::{backend::TryPendingCode, Ext, OverlayedChanges};
 use std::sync::Arc;
 
 /// Provider for fetching `:code` of a block.
@@ -82,9 +82,9 @@ where
 		let state = self.backend.state_at(block)?;
 
 		// TODO: make sure this is correct
-		let ignore_pending_code = IgnorePendingCode::No;
+		let try_pending_code = TryPendingCode::Yes;
 		let state_runtime_code =
-			sp_state_machine::backend::BackendRuntimeCode::new(&state, ignore_pending_code);
+			sp_state_machine::backend::BackendRuntimeCode::new(&state, try_pending_code);
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
 
