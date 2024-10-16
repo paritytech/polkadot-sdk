@@ -40,6 +40,7 @@ subkey = { workspace = true, default-features = true }
 frame-system = { workspace = true }
 frame-support = { workspace = true }
 frame-executive = { workspace = true }
+frame-benchmarking = { workspace = true }
 pallet-example-single-block-migrations = { workspace = true, default-features = true }
 frame-metadata-hash-extension = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
@@ -111,6 +112,7 @@ sp-arithmetic = { workspace = true, default-features = true }
 sp-genesis-builder = { workspace = true, default-features = true }
 sp-offchain = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
+sp-weights = { workspace = true, default-features = true }
 
 
 # XCM

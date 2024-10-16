@@ -75,7 +75,6 @@ pub mod frame_system_accounts;
 pub mod development_environment_advice;
 
 /// Learn about benchmarking and weight.
-// TODO: @shawntabrizi @ggwpez https://github.com/paritytech/polkadot-sdk-docs/issues/50
 pub mod frame_benchmarking_weight;
 
 /// Learn about the token-related logic in FRAME and how to apply it to your use case.
