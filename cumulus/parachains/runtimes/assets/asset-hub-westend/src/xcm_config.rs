@@ -659,7 +659,7 @@ pub mod bridging {
 		use super::*;
 		use assets_common::matching::FromNetwork;
 		use core::ops::ControlFlow;
-		use frame_support::traits::ProcessMessageError;
+		use frame_support::traits::{EverythingBut, ProcessMessageError};
 		use sp_std::collections::btree_set::BTreeSet;
 		use testnet_parachains_constants::westend::snowbridge::{
 			EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
@@ -743,19 +743,13 @@ pub mod bridging {
 			}
 		}
 
-		pub struct XcmForSnowbridgeV1;
-
-		impl Contains<Xcm<()>> for XcmForSnowbridgeV1 {
-			fn contains(_: &Xcm<()>) -> bool {
-				true
-			}
-		}
-
 		pub type EthereumNetworkExportTableV2 =
 			xcm_builder::NetworkWithXcmExportTable<EthereumBridgeTableV2, XcmForSnowbridgeV2>;
 
-		pub type EthereumNetworkExportTable =
-			xcm_builder::NetworkWithXcmExportTable<EthereumBridgeTable, XcmForSnowbridgeV1>;
+		pub type EthereumNetworkExportTable = xcm_builder::NetworkWithXcmExportTable<
+			EthereumBridgeTable,
+			EverythingBut<XcmForSnowbridgeV2>,
+		>;
 
 		pub type IsTrustedBridgedReserveLocationForForeignAsset =
 			IsForeignConcreteAsset<FromNetwork<UniversalLocation, EthereumNetwork>>;
