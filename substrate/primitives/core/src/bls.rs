@@ -24,16 +24,21 @@
 //! curve.
 
 use crate::crypto::{
-	CryptoType, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes, SecretStringError,
-	SignatureBytes, UncheckedFrom,
+	CryptoType, DeriveError, DeriveJunction, Pair as TraitPair, ProofOfPossessionGenerator,
+	ProofOfPossessionVerifier, PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom,
 };
 
 use alloc::vec::Vec;
 
 use w3f_bls::{
-	DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
-	ProofOfPossession, SecretKey, SerializableToBytes, TinyBLS381,
+	BLSPoP, DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
+	ProofOfPossession as BlsProofOfPossession,
+	ProofOfPossessionGenerator as BlsProofOfPossessionGenerator, SecretKey, SerializableToBytes,
+	TinyBLS381,
 };
+
+/// Required to generate PoP
+use sha2::Sha256;
 
 /// BLS-377 specialized types
 pub mod bls377 {
@@ -98,6 +103,10 @@ pub const PUBLIC_KEY_SERIALIZED_SIZE: usize =
 /// Signature serialized size
 pub const SIGNATURE_SERIALIZED_SIZE: usize =
 	<DoubleSignature<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
+
+/// Signature serialized size
+pub const POP_SERIALIZED_SIZE: usize =
+	<BLSPoP<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
 /// A secret seed.
 ///
@@ -227,6 +236,18 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 	}
 }
 
+impl<T: BlsBound> ProofOfPossessionGenerator for Pair<T> {
+	fn generate_proof_of_possession(&mut self) -> Vec<u8> {
+		let r: [u8; POP_SERIALIZED_SIZE] =
+			<Keypair<T> as BlsProofOfPossessionGenerator<T, Sha256, _, BLSPoP<T>>>::generate_pok(
+				&mut self.0,
+			)
+			.to_bytes()
+			.try_into()
+			.expect("Signature serializer returns vectors of POP_SERIALIZED_SIZE size");
+		r.to_vec()
+	}
+}
 impl<T: BlsBound> CryptoType for Pair<T> {
 	type Pair = Pair<T>;
 }
@@ -524,6 +545,7 @@ mod tests {
 	fn signature_serialization_works_for_bls381() {
 		signature_serialization_works::<bls381::BlsEngine>();
 	}
+
 	fn signature_serialization_doesnt_panic<E: BlsBound>() {
 		fn deserialize_signature<E: BlsBound>(
 			text: &str,
@@ -544,4 +566,51 @@ mod tests {
 	fn signature_serialization_doesnt_panic_for_bls381() {
 		signature_serialization_doesnt_panic::<bls381::BlsEngine>();
 	}
+
+	fn must_generate_proof_of_possession<E: BlsBound>() {
+		let mut pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
+		pair.generate_proof_of_possession();
+	}
+
+	#[test]
+	fn must_generate_proof_of_possession_for_bls377() {
+		must_generate_proof_of_possession::<bls377::BlsEngine>();
+	}
+
+	// #[test]
+	// fn must_generate_proof_of_possession_for_bls381() {
+	// 	must_generate_proof_of_possession::<bls381::BlsEngine>();
+	// }
+
+	// fn good_proof_of_possession_must_verify<E: BlsBound>() {
+	// 	let pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
+	// 	pair.generate_proof_of_possession();
+	// }
+
+	// #[test]
+	// fn good_proof_of_possession_must_verify_for_bls377() {
+	// 	good_proof_of_possession_must_verify::<bls377::BlsEngine>();
+	// }
+
+	// #[test]
+	// fn good_proof_of_possession_must_verify_for_bls381() {
+	// 	good_proof_of_possession_must_verify::<bls381::BlsEngine>();
+	// }
+
+	// fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key<E: BlsBound>() {
+	// 	let pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
+	// 	let other_pair = Pair::<E>::from_seed(b"23456789012345678901234567890123");
+	// 	let pop = pair.generate_proof_of_possession();
+	// 	assert_eq!(Pair::<E>::verify(pop, other_pair.public()), false);
+	// }
+
+	// #[test]
+	// fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key_for_bls377() {
+	// 	proof_of_possession_must_fail_if_prover_does_not_possess_secret_key::<bls377::BlsEngine>();
+	// }
+
+	// #[test]
+	// fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key_for_bls381() {
+	// 	proof_of_possession_must_fail_if_prover_does_not_possess_secret_key::<bls381::BlsEngine>();
+	// }
 }

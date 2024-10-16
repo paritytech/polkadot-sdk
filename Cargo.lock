@@ -21843,6 +21843,7 @@ dependencies = [
  "secrecy",
  "serde",
  "serde_json",
+ "sha2 0.10.8",
  "sp-crypto-hashing 0.1.0",
  "sp-crypto-pubkeycrypto-proc-macro",
  "sp-debug-derive 14.0.0",
@@ -25815,9 +25816,9 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "w3f-bls"
-version = "0.1.3"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7335e4c132c28cc43caef6adb339789e599e39adbe78da0c4d547fad48cbc331"
+checksum = "6a48c48447120a85b0bdb897ba9426a7aa15b4229498a2e19103e8c9368dd4b2"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
