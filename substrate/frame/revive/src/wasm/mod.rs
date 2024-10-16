@@ -35,6 +35,7 @@ use crate::{
 	address::AddressMapper,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
+	limits,
 	storage::meter::Diff,
 	weights::WeightInfo,
 	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, Event, ExecError,
@@ -56,7 +57,7 @@ use sp_runtime::DispatchError;
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
 pub struct WasmBlob<T: Config> {
-	code: CodeVec<T>,
+	code: CodeVec,
 	// This isn't needed for contract execution and is not stored alongside it.
 	#[codec(skip)]
 	code_info: CodeInfo<T>,
@@ -128,12 +129,11 @@ where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
 	/// We only check for size and nothing else when the code is uploaded.
-	pub fn from_code(
-		code: Vec<u8>,
-		owner: AccountIdOf<T>,
-	) -> Result<Self, (DispatchError, &'static str)> {
-		let code: CodeVec<T> =
-			code.try_into().map_err(|_| (<Error<T>>::CodeTooLarge.into(), ""))?;
+	pub fn from_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
+		// We do size checks when new code is deployed. This allows us to increase
+		// the limits later without affecting already deployed code.
+		let code = limits::code::enforce::<T>(code)?;
+
 		let code_len = code.len() as u32;
 		let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
 		let deposit = Diff { bytes_added, items_added: 2, ..Default::default() }
@@ -283,16 +283,17 @@ impl<T: Config> WasmBlob<T> {
 		entry_point: ExportedFunction,
 		api_version: ApiVersion,
 	) -> Result<PreparedCall<E>, ExecError> {
-		let code = self.code.as_slice();
-
 		let mut config = polkavm::Config::default();
 		config.set_backend(Some(polkavm::BackendKind::Interpreter));
 		let engine =
 			polkavm::Engine::new(&config).expect("interpreter is available on all plattforms; qed");
 
 		let mut module_config = polkavm::ModuleConfig::new();
+		module_config.set_page_size(limits::PAGE_SIZE);
 		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
-		let module = polkavm::Module::new(&engine, &module_config, code.into()).map_err(|err| {
+		module_config.set_allow_sbrk(false);
+		let module = polkavm::Module::new(&engine, &module_config, self.code.into_inner().into())
+			.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
 			Error::<T>::CodeRejected
 		})?;

@@ -1,0 +1,20 @@
+[package]
+name = "template-zombienet-tests"
+description = "Zombienet test for templates."
+version = "0.0.0"
+license = "Unlicense"
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+env_logger = { workspace = true }
+log = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+anyhow = { workspace = true }
+zombienet-sdk = { workspace = true }
+
+[features]
+zombienet = []

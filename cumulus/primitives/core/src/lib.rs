@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -32,6 +32,7 @@ pub use polkadot_parachain_primitives::primitives::{
 	XcmpMessageHandler,
 };
 pub use polkadot_primitives::{
+	vstaging::{ClaimQueueOffset, CoreSelector},
 	AbridgedHostConfiguration, AbridgedHrmpChannel, PersistedValidationData,
 };
 
@@ -332,6 +333,10 @@ pub mod rpsr_digest {
 	}
 }
 
+/// The default claim queue offset to be used if it's not configured/accessible in the parachain
+/// runtime
+pub const DEFAULT_CLAIM_QUEUE_OFFSET: u8 = 0;
+
 /// Information about a collation.
 ///
 /// This was used in version 1 of the [`CollectCollationInfo`] runtime api.
@@ -394,5 +399,11 @@ sp_api::decl_runtime_apis! {
 		/// The given `header` is the header of the built block for that
 		/// we are collecting the collation info for.
 		fn collect_collation_info(header: &Block::Header) -> CollationInfo;
+	}
+
+	/// Runtime api used to select the core for which the next block will be built.
+	pub trait GetCoreSelectorApi {
+		/// Retrieve core selector and claim queue offset for the next block.
+		fn core_selector() -> (CoreSelector, ClaimQueueOffset);
 	}
 }

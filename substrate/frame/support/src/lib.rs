@@ -915,7 +915,10 @@ pub mod pallet_prelude {
 	pub use scale_info::TypeInfo;
 	pub use sp_inherents::MakeFatalError;
 	pub use sp_runtime::{
-		traits::{MaybeSerializeDeserialize, Member, ValidateUnsigned},
+		traits::{
+			CheckedAdd, CheckedConversion, CheckedDiv, CheckedMul, CheckedShl, CheckedShr,
+			CheckedSub, MaybeSerializeDeserialize, Member, One, ValidateUnsigned, Zero,
+		},
 		transaction_validity::{
 			InvalidTransaction, TransactionLongevity, TransactionPriority, TransactionSource,
 			TransactionTag, TransactionValidity, TransactionValidityError, UnknownTransaction,
@@ -2523,6 +2526,8 @@ pub use frame_support_procedural::register_default_impl;
 sp_core::generate_feature_enabled_macro!(std_enabled, feature = "std", $);
 // Generate a macro that will enable/disable code based on `try-runtime` feature being active.
 sp_core::generate_feature_enabled_macro!(try_runtime_enabled, feature = "try-runtime", $);
+sp_core::generate_feature_enabled_macro!(try_runtime_or_std_enabled, any(feature = "try-runtime", feature = "std"), $);
+sp_core::generate_feature_enabled_macro!(try_runtime_and_std_not_enabled, all(not(feature = "try-runtime"), not(feature = "std")), $);
 
 // Helper for implementing GenesisBuilder runtime API
 pub mod genesis_builder_helper;

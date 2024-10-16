@@ -14,45 +14,18 @@ concurrency:
 # Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
 
 jobs:
-  #changes:
-  #  permissions:
-  #    pull-requests: read
-  #  uses: ./.github/workflows/reusable-check-changed-files.yml
-
-  set-image:
-    # needs: [ changes ]
-    # if: needs.changes.outputs.rust || needs.changes.outputs.current-workflow
-    # GitHub Actions allows using 'env' in a container context.
-    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
-    # This workaround sets the container image for each job using 'set-image' job output.
-    runs-on: ubuntu-latest
-    outputs:
-      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-      RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - id: set_image
-        run: cat .github/env >> $GITHUB_OUTPUT
-      # By default, we use spot machines that can be terminated at any time.
-      # Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
-      - id: set_runner
-        run: |
-          # Run merge queues on persistent runners
-          if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
-          else
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
-          fi
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
 
   # more information about this job can be found here:
   # https://github.com/paritytech/substrate/pull/3778
   test-full-crypto-feature:
-    needs: [set-image]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       # Enable debug assertions since we are running optimized builds for testing
       # but still want to have debug assertions.
@@ -72,10 +45,11 @@ jobs:
   test-frame-examples-compile-to-wasm:
     timeout-minutes: 20
     # into one job
-    needs: [set-image, test-full-crypto-feature]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight, test-full-crypto-feature]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       # Enable debug assertions since we are running optimized builds for testing
       # but still want to have debug assertions.
@@ -93,17 +67,17 @@ jobs:
 
   test-frame-ui:
     timeout-minutes: 60
-    needs: [set-image]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       # Enable debug assertions since we are running optimized builds for testing
       # but still want to have debug assertions.
       RUSTFLAGS: "-C debug-assertions -D warnings"
       RUST_BACKTRACE: 1
-      WASM_BUILD_NO_COLOR: 1
-      WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
+      SKIP_WASM_BUILD: 1
       # Ensure we run the UI tests.
       RUN_UI_TESTS: 1
     steps:
@@ -111,20 +85,22 @@ jobs:
         uses: actions/checkout@v4
       - name: script
         run: |
-          forklift cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental
-          forklift cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,frame-feature-testing-2,no-metadata-docs,try-runtime,experimental
-          forklift cargo test --locked -q --profile testnet -p xcm-procedural
-          forklift cargo test --locked -q --profile testnet -p frame-election-provider-solution-type
-          forklift cargo test --locked -q --profile testnet -p sp-api-test
+          cargo version
+          forklift cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,no-metadata-docs,try-runtime,experimental ui
+          forklift cargo test --locked -q --profile testnet -p frame-support-test --features=frame-feature-testing,frame-feature-testing-2,no-metadata-docs,try-runtime,experimental ui
+          forklift cargo test --locked -q --profile testnet -p xcm-procedural ui
+          forklift cargo test --locked -q --profile testnet -p frame-election-provider-solution-type ui
+          forklift cargo test --locked -q --profile testnet -p sp-api-test ui
           # There is multiple version of sp-runtime-interface in the repo. So we point to the manifest.
-          forklift cargo test --locked -q --profile testnet --manifest-path substrate/primitives/runtime-interface/Cargo.toml
+          forklift cargo test --locked -q --profile testnet --manifest-path substrate/primitives/runtime-interface/Cargo.toml ui
 
   test-deterministic-wasm:
     timeout-minutes: 20
-    needs: [set-image, test-frame-examples-compile-to-wasm]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight, test-frame-examples-compile-to-wasm]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       WASM_BUILD_NO_COLOR: 1
     steps:
@@ -143,15 +119,15 @@ jobs:
           sha256sum -c checksum.sha256
 
   cargo-check-benches:
-    needs: [set-image]
+    needs: [preflight]
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
     timeout-minutes: 60
     strategy:
       matrix:
         branch: [master, current]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -181,9 +157,8 @@ jobs:
   node-bench-regression-guard:
     timeout-minutes: 20
     if: always() && !cancelled()
-    # runs-on: arc-runners-polkadot-sdk
     runs-on: ubuntu-latest
-    needs: [set-image, cargo-check-benches]
+    needs: [preflight, cargo-check-benches]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -219,11 +194,12 @@ jobs:
           fi
 
   test-node-metrics:
-    needs: [set-image]
+    needs: [preflight]
     timeout-minutes: 30
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -252,10 +228,11 @@ jobs:
   # https://github.com/paritytech/substrate/pull/6916
   check-tracing:
     timeout-minutes: 20
-    needs: [set-image, test-node-metrics]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight, test-node-metrics]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -267,10 +244,11 @@ jobs:
 
   check-metadata-hash:
     timeout-minutes: 20
-    needs: [set-image, check-tracing]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight, check-tracing]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -279,52 +257,54 @@ jobs:
         run: |
           forklift cargo build --locked -p westend-runtime --features metadata-hash
 
-  cargo-hfuzz:
-    timeout-minutes: 20
-    needs: [set-image, check-metadata-hash]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
-    container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
-    env:
-      # max 10s per iteration, 60s per file
-      HFUZZ_RUN_ARGS: |
-        --exit_upon_crash
-        --exit_code_upon_crash 1
-        --timeout 10
-        --run_time 60
+  # disabled until https://github.com/paritytech/polkadot-sdk/issues/5812 is resolved
+  # cargo-hfuzz:
+  #   timeout-minutes: 20
+  #   needs: [preflight, check-metadata-hash]
+  #   runs-on: ${{ needs.preflight.outputs.RUNNER }}
+  #   container:
+  #     image: ${{ needs.preflight.outputs.IMAGE }}
+  #   env:
+  #     # max 10s per iteration, 60s per file
+  #     HFUZZ_RUN_ARGS: |
+  #       --exit_upon_crash
+  #       --exit_code_upon_crash 1
+  #       --timeout 10
+  #       --run_time 60
 
-      # use git version of honggfuzz-rs until v0.5.56 is out, we need a few recent changes:
-      # https://github.com/rust-fuzz/honggfuzz-rs/pull/75 to avoid breakage on debian
-      # https://github.com/rust-fuzz/honggfuzz-rs/pull/81 fix to the above pr
-      # https://github.com/rust-fuzz/honggfuzz-rs/pull/82 fix for handling absolute CARGO_TARGET_DIR
-      HFUZZ_BUILD_ARGS: |
-        --config=patch.crates-io.honggfuzz.git="https://github.com/altaua/honggfuzz-rs"
-        --config=patch.crates-io.honggfuzz.rev="205f7c8c059a0d98fe1cb912cdac84f324cb6981"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  #     # use git version of honggfuzz-rs until v0.5.56 is out, we need a few recent changes:
+  #     # https://github.com/rust-fuzz/honggfuzz-rs/pull/75 to avoid breakage on debian
+  #     # https://github.com/rust-fuzz/honggfuzz-rs/pull/81 fix to the above pr
+  #     # https://github.com/rust-fuzz/honggfuzz-rs/pull/82 fix for handling absolute CARGO_TARGET_DIR
+  #     HFUZZ_BUILD_ARGS: |
+  #       --config=patch.crates-io.honggfuzz.git="https://github.com/altaua/honggfuzz-rs"
+  #       --config=patch.crates-io.honggfuzz.rev="205f7c8c059a0d98fe1cb912cdac84f324cb6981"
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
 
-      - name: Run honggfuzz
-        run: |
-          cd substrate/primitives/arithmetic/fuzzer
-          forklift cargo hfuzz build
-          for target in $(cargo read-manifest | jq -r '.targets | .[] | .name');
-          do
-            forklift cargo hfuzz run "$target" || { printf "fuzzing failure for %s\n" "$target"; exit 1; };
-          done
+  #     - name: Run honggfuzz
+  #       run: |
+  #         cd substrate/primitives/arithmetic/fuzzer
+  #         forklift cargo hfuzz build
+  #         for target in $(cargo read-manifest | jq -r '.targets | .[] | .name');
+  #         do
+  #           forklift cargo hfuzz run "$target" || { printf "fuzzing failure for %s\n" "$target"; exit 1; };
+  #         done
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4.3.6
-        with:
-          path: substrate/primitives/arithmetic/fuzzer/hfuzz_workspace/
-          name: hfuzz-${{ github.sha }}
+  #     - name: Upload artifacts
+  #       uses: actions/upload-artifact@v4.3.6
+  #       with:
+  #         path: substrate/primitives/arithmetic/fuzzer/hfuzz_workspace/
+  #         name: hfuzz-${{ github.sha }}
 
   cargo-check-each-crate:
     timeout-minutes: 140
-    needs: [set-image]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       RUSTFLAGS: "-D warnings"
       CI_JOB_NAME: cargo-check-each-crate
@@ -348,7 +328,9 @@ jobs:
 
   cargo-check-all-crate-macos:
     timeout-minutes: 30
-    runs-on: parity-macos
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER_MACOS }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     env:
       SKIP_WASM_BUILD: 1
     steps:
@@ -361,7 +343,7 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
       - name: Install rust ${{ env.RUST_VERSION }}
-        uses: actions-rust-lang/setup-rust-toolchain@1fbea72663f6d4c03efaab13560c8a24cfd2a7cc # v1.9.0
+        uses: actions-rust-lang/setup-rust-toolchain@4d1965c9142484e48d40c19de54b5cba84953a06 # v1.10.0
         with:
           cache: false
           toolchain: ${{ env.RUST_VERSION }}
@@ -392,6 +374,7 @@ jobs:
       - check-tracing
       - cargo-check-each-crate
       - test-deterministic-wasm
+      - cargo-check-all-crate-macos
       # - cargo-hfuzz remove from required for now, as it's flaky
     if: always() && !cancelled()
     steps:
