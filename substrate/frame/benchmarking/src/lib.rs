@@ -324,16 +324,18 @@ pub use v1::*;
 ///    having either with a blank return type or a return type compatible with `Result<(),
 ///    BenchmarkError>`. For instance, `foo { ... }` can become `fn foo() -> Result<(),
 ///    BenchmarkError>`. More in detail:
-///   3.1 Move all the v1 complexity parameters as [ParamRange](`v2::ParamRange`) arguments to the
-/// v2 function, and their setup code to the body of the function. For instance, `let y in 0 .. 10
-/// => setup(y)?;` from v1 will give a `y: Linear<0, 10>` argument to the corresponding function in
-/// v2, while `setup(y)?;` will be moved to the body of the function;
-///   3.2 Move all the v1 setup code to the body of the v2 function;   
-///   3.3 Move the benchmarked code to the body of the v2 function under the appropriate macro
-/// attribute: `#[extrinsic_call]` for extrinsic pallet calls and `#[block]` for blocks of code;   
-///   3.4 Move the v1 verify code block to the body of the v2 function, after the benchmarked code.
-///   3.5 If the function is supposed to return a `Result<(), BenchmarkError>`, end with an `Ok(())`
-/// expression.
+///    1. Move all the v1 complexity parameters as [ParamRange](`v2::ParamRange`) arguments to the
+///       v2 function, and their setup code to the body of the function. For instance, `let y in 0
+///       .. 10 => setup(y)?;` from v1 will give a `y: Linear<0, 10>` argument to the corresponding
+///       function in v2, while `setup(y)?;` will be moved to the body of the function;
+///    2. Move all the v1 setup code to the body of the v2 function;
+///    3. Move the benchmarked code to the body of the v2 function under the appropriate macro
+///       attribute: `#[extrinsic_call]` for extrinsic pallet calls and `#[block]` for blocks of
+///       code;
+///    4. Move the v1 verify code block to the body of the v2 function, after the #[extrinsic_call]
+///       or #[block] attribute.
+///    5. If the function is supposed to return a `Result<(), BenchmarkError>`, end with an `Ok(())`
+///       expression.
 ///
 /// As an example migration, the following v1 code
 ///
@@ -378,6 +380,7 @@ pub use v1::*;
 ///     #[extrinsic_call]
 ///     _(RuntimeOrigin::Signed(caller), vec![0u8; l]);
 ///     
+///     // Everything onwards will be treated as test.
 ///     assert_last_event::<T>(Event::FooExecuted { result: Ok(()) }.into());
 ///     Ok(())
 ///   }
