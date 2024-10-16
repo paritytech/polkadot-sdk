@@ -81,8 +81,11 @@ mod sys {
 		pub fn address(out_ptr: *mut u8);
 		pub fn weight_to_fee(ref_time: u64, proof_size: u64, out_ptr: *mut u8);
 		pub fn weight_left(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn get_immutable_data(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn set_immutable_data(ptr: *const u8, len: u32);
 		pub fn balance(out_ptr: *mut u8);
 		pub fn balance_of(addr_ptr: *const u8, out_ptr: *mut u8);
+		pub fn chain_id(out_ptr: *mut u8);
 		pub fn value_transferred(out_ptr: *mut u8);
 		pub fn now(out_ptr: *mut u8);
 		pub fn minimum_balance(out_ptr: *mut u8);
@@ -130,6 +133,8 @@ mod sys {
 			msg_len: u32,
 			out_ptr: *mut u8,
 		) -> ReturnCode;
+		pub fn return_data_size(out_ptr: *mut u8);
+		pub fn return_data_copy(out_ptr: *mut u8, out_len_ptr: *mut u32, offset: u32);
 	}
 }
 
@@ -447,7 +452,7 @@ impl HostFn for HostFnImpl {
 	}
 
 	impl_wrapper_for! {
-		[u8; 32] => block_number, balance, value_transferred, now, minimum_balance;
+		[u8; 32] => block_number, balance, value_transferred, now, minimum_balance, chain_id;
 		[u8; 20] => address, caller;
 	}
 
@@ -499,6 +504,16 @@ impl HostFn for HostFnImpl {
 		ret_val.into_bool()
 	}
 
+	fn get_immutable_data(output: &mut &mut [u8]) {
+		let mut output_len = output.len() as u32;
+		unsafe { sys::get_immutable_data(output.as_mut_ptr(), &mut output_len) };
+		extract_from_slice(output, output_len as usize);
+	}
+
+	fn set_immutable_data(data: &[u8]) {
+		unsafe { sys::set_immutable_data(data.as_ptr(), data.len() as u32) }
+	}
+
 	fn balance_of(address: &[u8; 20], output: &mut [u8; 32]) {
 		unsafe { sys::balance_of(address.as_ptr(), output.as_mut_ptr()) };
 	}
@@ -546,5 +561,17 @@ impl HostFn for HostFnImpl {
 			)
 		};
 		ret_code.into()
+	}
+
+	fn return_data_size(output: &mut [u8; 32]) {
+		unsafe { sys::return_data_size(output.as_mut_ptr()) };
+	}
+
+	fn return_data_copy(output: &mut &mut [u8], offset: u32) {
+		let mut output_len = output.len() as u32;
+		{
+			unsafe { sys::return_data_copy(output.as_mut_ptr(), &mut output_len, offset) };
+		}
+		extract_from_slice(output, output_len as usize);
 	}
 }

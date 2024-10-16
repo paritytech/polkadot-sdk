@@ -36,20 +36,69 @@ fn tracker_earliest_block_number() {
 
 	// Push a single block into the tracker, suppose max capacity is 1.
 	let max_ancestry_len = 0;
-	tracker.update(Hash::zero(), Hash::zero(), 0, max_ancestry_len);
+	tracker.update(Hash::zero(), Hash::zero(), Default::default(), 0, max_ancestry_len);
 	assert_eq!(tracker.hypothetical_earliest_block_number(now, max_ancestry_len), now);
 
 	// Test a greater capacity.
 	let max_ancestry_len = 4;
 	let now = 4;
 	for i in 1..now {
-		tracker.update(Hash::zero(), Hash::zero(), i, max_ancestry_len);
+		tracker.update(Hash::zero(), Hash::zero(), Default::default(), i, max_ancestry_len);
 		assert_eq!(tracker.hypothetical_earliest_block_number(i + 1, max_ancestry_len), 0);
 	}
 
 	// Capacity exceeded.
-	tracker.update(Hash::zero(), Hash::zero(), now, max_ancestry_len);
+	tracker.update(Hash::zero(), Hash::zero(), Default::default(), now, max_ancestry_len);
 	assert_eq!(tracker.hypothetical_earliest_block_number(now + 1, max_ancestry_len), 1);
+}
+
+#[test]
+fn tracker_claim_queue_remap() {
+	let mut tracker = AllowedRelayParentsTracker::<Hash, u32>::default();
+
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(CoreIndex(0), vec![Id::from(0), Id::from(1), Id::from(2)].into());
+	claim_queue.insert(CoreIndex(1), vec![Id::from(0), Id::from(0), Id::from(100)].into());
+	claim_queue.insert(CoreIndex(2), vec![Id::from(1), Id::from(2), Id::from(100)].into());
+
+	tracker.update(Hash::zero(), Hash::zero(), claim_queue, 1u32, 3u32);
+
+	let (info, _block_num) = tracker.acquire_info(Hash::zero(), None).unwrap();
+	assert_eq!(
+		info.claim_queue.get(&Id::from(0)).unwrap()[&0],
+		vec![CoreIndex(0), CoreIndex(1)].into_iter().collect::<BTreeSet<_>>()
+	);
+	assert_eq!(
+		info.claim_queue.get(&Id::from(1)).unwrap()[&0],
+		vec![CoreIndex(2)].into_iter().collect::<BTreeSet<_>>()
+	);
+	assert_eq!(info.claim_queue.get(&Id::from(2)).unwrap().get(&0), None);
+	assert_eq!(info.claim_queue.get(&Id::from(100)).unwrap().get(&0), None);
+
+	assert_eq!(
+		info.claim_queue.get(&Id::from(0)).unwrap()[&1],
+		vec![CoreIndex(1)].into_iter().collect::<BTreeSet<_>>()
+	);
+	assert_eq!(
+		info.claim_queue.get(&Id::from(1)).unwrap()[&1],
+		vec![CoreIndex(0)].into_iter().collect::<BTreeSet<_>>()
+	);
+	assert_eq!(
+		info.claim_queue.get(&Id::from(2)).unwrap()[&1],
+		vec![CoreIndex(2)].into_iter().collect::<BTreeSet<_>>()
+	);
+	assert_eq!(info.claim_queue.get(&Id::from(100)).unwrap().get(&1), None);
+
+	assert_eq!(info.claim_queue.get(&Id::from(0)).unwrap().get(&2), None);
+	assert_eq!(info.claim_queue.get(&Id::from(1)).unwrap().get(&2), None);
+	assert_eq!(
+		info.claim_queue.get(&Id::from(2)).unwrap()[&2],
+		vec![CoreIndex(0)].into_iter().collect::<BTreeSet<_>>()
+	);
+	assert_eq!(
+		info.claim_queue.get(&Id::from(100)).unwrap()[&2],
+		vec![CoreIndex(1), CoreIndex(2)].into_iter().collect::<BTreeSet<_>>()
+	);
 }
 
 #[test]
@@ -65,20 +114,20 @@ fn tracker_acquire_info() {
 	];
 
 	let (relay_parent, state_root) = blocks[0];
-	tracker.update(relay_parent, state_root, 0, max_ancestry_len);
+	tracker.update(relay_parent, state_root, Default::default(), 0, max_ancestry_len);
 	assert_matches!(
 		tracker.acquire_info(relay_parent, None),
-		Some((s, b)) if s == state_root && b == 0
+		Some((s, b)) if s.state_root == state_root && b == 0
 	);
 
 	let (relay_parent, state_root) = blocks[1];
-	tracker.update(relay_parent, state_root, 1u32, max_ancestry_len);
+	tracker.update(relay_parent, state_root, Default::default(), 1u32, max_ancestry_len);
 	let (relay_parent, state_root) = blocks[2];
-	tracker.update(relay_parent, state_root, 2u32, max_ancestry_len);
+	tracker.update(relay_parent, state_root, Default::default(), 2u32, max_ancestry_len);
 	for (block_num, (rp, state_root)) in blocks.iter().enumerate().take(2) {
 		assert_matches!(
 			tracker.acquire_info(*rp, None),
-			Some((s, b)) if &s == state_root && b == block_num as u32
+			Some((s, b)) if &s.state_root == state_root && b == block_num as u32
 		);
 
 		assert!(tracker.acquire_info(*rp, Some(2)).is_none());
@@ -87,7 +136,7 @@ fn tracker_acquire_info() {
 	for (block_num, (rp, state_root)) in blocks.iter().enumerate().skip(1) {
 		assert_matches!(
 			tracker.acquire_info(*rp, Some(block_num as u32 - 1)),
-			Some((s, b)) if &s == state_root && b == block_num as u32
+			Some((s, b)) if &s.state_root == state_root && b == block_num as u32
 		);
 	}
 }
