@@ -180,7 +180,13 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 						raw_horizontal_messages: vec![],
 						additional_key_values: None,
 					};
-					Ok((sp_timestamp::InherentDataProvider::from_system_time(), mocked_parachain))
+					Ok((
+						// This is intentional, as the runtime that we expect to against this will
+						// never receive the aura-related inherents/digests, and providing real
+						// timestamps would cause aura <> timestamp checking to fail.
+						sp_timestamp::InherentDataProvider::new(sp_timestamp::Timestamp::new(0)),
+						mocked_parachain,
+					))
 				}
 			},
 		};

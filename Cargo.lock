@@ -10096,18 +10096,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nix"
-version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
-dependencies = [
- "bitflags 2.6.0",
- "cfg-if",
- "cfg_aliases 0.2.1",
- "libc",
-]
-
-[[package]]
 name = "no-std-compat"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -15600,7 +15588,6 @@ dependencies = [
  "kitchensink-runtime",
  "log",
  "minimal-template-runtime",
- "nix 0.29.0",
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-tx-payment",
  "pallet-assets",
@@ -15637,6 +15624,7 @@ dependencies = [
  "polkadot-sdk-docs-first-pallet",
  "polkadot-sdk-docs-first-runtime",
  "polkadot-sdk-frame",
+ "rand",
  "sc-chain-spec",
  "sc-cli",
  "sc-client-db",
@@ -15652,6 +15640,7 @@ dependencies = [
  "sc-rpc-api",
  "sc-service",
  "scale-info",
+ "serde_json",
  "simple-mermaid 0.1.1",
  "solochain-template-runtime",
  "sp-api 26.0.0",

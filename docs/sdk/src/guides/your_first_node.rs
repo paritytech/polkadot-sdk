@@ -18,6 +18,12 @@
 //! cargo install polkadot-omni-node
 //! ```
 //!
+//! Next, we need to install the [`chain-spec-builder`]. This is the tool that helps us interact
+//! with the genesis related APIs of the runtime, as described in
+//! [`super::your_first_runtime#genesis-configuration`].
+//!
+//!
+//!
 //! Dump:
 //! ```text
 //! ./chain-spec-builder create --para-id 42 --relay-chain dontcare --runtime polkadot_sdk_docs_first_runtime.wasm named-preset development
@@ -33,59 +39,92 @@
 
 #[cfg(test)]
 mod tests {
-	use nix::{
-		sys::signal::{kill, Signal::SIGINT},
-		unistd::Pid,
-	};
+	use assert_cmd::Command;
+	use rand::Rng;
+	use sc_chain_spec::{DEV_RUNTIME_PRESET, LOCAL_TESTNET_RUNTIME_PRESET};
 	use sp_genesis_builder::PresetId;
-	use std::{
-		env,
-		io::{BufRead, BufReader},
-		path::Path,
-		process,
-	};
+	use std::path::PathBuf;
 
-	const PARA_RUNTIME_PATH: &'static str =
-		"target/release/wbuild/parachain-template-runtime/parachain_template_runtime.wasm";
-	const FIRST_RUNTIME_PATH: &'static str =
-		"target/release/wbuild/polkadot-sdk-docs-first-runtime/polkadot_sdk_docs_first_runtime.wasm";
+	const PARA_RUNTIME: &'static str = "parachain-template-runtime";
+	const FIRST_RUNTIME: &'static str = "polkadot-sdk-docs-first-runtime";
+	const MINIMAL_RUNTIME: &'static str = "minimal-template-runtime";
 
-	// TODO: `CARGO_MANIFEST_DIR`
-	// TODO: minimal runtime should also be tested.
+	const CHAIN_SPEC_BUILDER: &'static str = "chain-spec-builder";
+	const OMNI_NODE: &'static str = "polkadot-omni-node";
 
-	const CHAIN_SPEC_BUILDER: &'static str = "target/release/chain-spec-builder";
-	const OMNI_NODE: &'static str = "target/release/polkadot-omni-node";
+	fn cargo() -> Command {
+		Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string()))
+	}
+
+	fn get_target_directory() -> Option<PathBuf> {
+		let output = cargo().arg("metadata").arg("--format-version=1").output().ok()?;
+
+		if !output.status.success() {
+			return None;
+		}
+
+		let metadata: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
+		let target_directory = metadata["target_directory"].as_str()?;
+
+		Some(PathBuf::from(target_directory))
+	}
+
+	fn find_release_binary(name: &str) -> Option<PathBuf> {
+		let target_dir = get_target_directory()?;
+		let release_path = target_dir.join("release").join(name);
+
+		if release_path.exists() {
+			Some(release_path)
+		} else {
+			None
+		}
+	}
+
+	fn find_wasm(runtime_name: &str) -> Option<PathBuf> {
+		let target_dir = get_target_directory()?;
+		let wasm_path = target_dir
+			.join("release")
+			.join("wbuild")
+			.join(runtime_name)
+			.join(format!("{}.wasm", runtime_name.replace('-', "_")));
+
+		if wasm_path.exists() {
+			Some(wasm_path)
+		} else {
+			None
+		}
+	}
 
 	fn maybe_build_runtimes() {
-		if !Path::new(PARA_RUNTIME_PATH).exists() {
-			println!("Building parachain runtime...");
-			assert_cmd::Command::new("cargo")
+		if find_wasm(&PARA_RUNTIME).is_none() {
+			println!("Building parachain-template-runtime...");
+			Command::new("cargo")
 				.arg("build")
 				.arg("--release")
 				.arg("-p")
-				.arg("parachain-template-runtime")
+				.arg(PARA_RUNTIME)
 				.assert()
 				.success();
 		}
-		if !Path::new(FIRST_RUNTIME_PATH).exists() {
-			println!("Building first runtime...");
-			assert_cmd::Command::new("cargo")
+		if find_wasm(&FIRST_RUNTIME).is_none() {
+			println!("Building polkadot-sdk-docs-first-runtime...");
+			Command::new("cargo")
 				.arg("build")
 				.arg("--release")
 				.arg("-p")
-				.arg("polkadot-sdk-docs-first-runtime")
+				.arg(FIRST_RUNTIME)
 				.assert()
 				.success();
 		}
-		assert!(Path::new(FIRST_RUNTIME_PATH).exists(), "runtime must now exist!");
-		assert!(Path::new(PARA_RUNTIME_PATH).exists(), "runtime must now exist!");
+
+		assert!(find_wasm(PARA_RUNTIME).is_some());
+		assert!(find_wasm(FIRST_RUNTIME).is_some());
 	}
 
 	fn maybe_build_chain_spec_builder() {
-		// build chain-spec-builder if it does not exist
-		if !Path::new(CHAIN_SPEC_BUILDER).exists() {
+		if find_release_binary(CHAIN_SPEC_BUILDER).is_none() {
 			println!("Building chain-spec-builder...");
-			assert_cmd::Command::new("cargo")
+			Command::new("cargo")
 				.arg("build")
 				.arg("--release")
 				.arg("-p")
@@ -93,14 +132,13 @@ mod tests {
 				.assert()
 				.success();
 		}
-		assert!(Path::new(CHAIN_SPEC_BUILDER).exists(), "chain-spec-builder must now exist!");
+		assert!(find_release_binary(CHAIN_SPEC_BUILDER).is_some());
 	}
 
 	fn maybe_build_omni_node() {
-		// build polkadot-omni-node if it does not exist
-		if !Path::new(OMNI_NODE).exists() {
-			println!("Building omni-node...");
-			assert_cmd::Command::new("cargo")
+		if find_release_binary(OMNI_NODE).is_none() {
+			println!("Building polkadot-omni-node...");
+			Command::new("cargo")
 				.arg("build")
 				.arg("--release")
 				.arg("-p")
@@ -108,80 +146,84 @@ mod tests {
 				.assert()
 				.success();
 		}
-		assert!(Path::new(OMNI_NODE).exists(), "dev-omni-node must now exist!");
 	}
 
-	fn ensure_node_process_works(node_cmd: &mut process::Command) {
-		let mut node_process = node_cmd.spawn().unwrap();
-
-		std::thread::sleep(std::time::Duration::from_secs(15));
-		let stderr = node_process.stderr.take().unwrap();
-
-		kill(Pid::from_raw(node_process.id().try_into().unwrap()), SIGINT).unwrap();
-		let exit_status = node_process.wait().unwrap();
-		println!("Exit status: {:?}", exit_status);
-
-		// ensure in stderr there is at least one line containing: "Imported #10"
-		assert!(
-			BufReader::new(stderr).lines().any(|l| { l.unwrap().contains("Imported #10") }),
-			"failed to find 10 imported blocks in the output.",
-		);
-	}
-
-	fn test_runtime_preset(runtime: &'static str, maybe_preset: Option<PresetId>) {
-		// set working directory to project root, 2 parents
-		std::env::set_current_dir(std::env::current_dir().unwrap().join("../..")).unwrap();
-		// last segment of cwd must now be `polkadot-sdk`
-		assert!(dbg!(std::env::current_dir().unwrap()).ends_with("polkadot-sdk"));
-
+	fn test_runtime_preset(runtime: &'static str, block_time: u64, maybe_preset: Option<PresetId>) {
+		sp_tracing::try_init_simple();
 		maybe_build_runtimes();
 		maybe_build_chain_spec_builder();
 		maybe_build_omni_node();
 
-		process::Command::new(CHAIN_SPEC_BUILDER)
+		let chain_spec_builder =
+			find_release_binary(&CHAIN_SPEC_BUILDER).expect("we built it above; qed");
+		let omni_node = find_release_binary(OMNI_NODE).expect("we built it above; qed");
+		let runtime_path = find_wasm(runtime).expect("we built it above; qed");
+
+		let random_seed: u32 = rand::thread_rng().gen();
+		let chain_spec_file = std::env::current_dir()
+			.unwrap()
+			.join(format!("{}_{}_{}.json", runtime, block_time, random_seed));
+
+		Command::new(chain_spec_builder)
+			.args(["-c", chain_spec_file.to_str().unwrap()])
 			.arg("create")
-			.args(["-r", runtime])
+			.args(&["--para-id", "1000", "--relay-chain", "dontcare"])
+			.args(["-r", runtime_path.to_str().unwrap()])
 			.args(match maybe_preset {
 				Some(preset) => vec!["named-preset".to_string(), preset.to_string()],
 				None => vec!["default".to_string()],
 			})
-			.stderr(process::Stdio::piped())
-			.spawn()
+			.assert()
+			.success();
+
+		let output = Command::new(omni_node)
+			.arg("--tmp")
+			.args(["--chain", chain_spec_file.to_str().unwrap()])
+			.args(["--dev-block-time", block_time.to_string().as_str()])
+			.timeout(std::time::Duration::from_secs(10))
+			.output()
 			.unwrap();
 
-		// join current dir and chain_spec.json
-		let chain_spec_file = std::env::current_dir().unwrap().join("chain_spec.json");
-
-		let mut binding = process::Command::new(OMNI_NODE);
-		let node_cmd = &mut binding
-			.arg("--tmp")
-			.arg("--dev-block-time 500")
-			.args(["--chain", chain_spec_file.to_str().unwrap()])
-			.stderr(process::Stdio::piped());
-
-		ensure_node_process_works(node_cmd);
-
-		// delete chain_spec.json
 		std::fs::remove_file(chain_spec_file).unwrap();
+
+		// uncomment for debugging.
+		// println!("output: {:?}", output);
+
+		let expected_blocks = (10_000 / block_time).saturating_div(2);
+		assert!(expected_blocks > 0, "test configuration is bad, should give it more time");
+		assert!(String::from_utf8(output.stderr)
+			.unwrap()
+			.contains(format!("Imported #{}", expected_blocks).to_string().as_str()));
+	}
+
+	#[test]
+	fn works_with_different_block_times() {
+		test_runtime_preset(PARA_RUNTIME, 100, Some(DEV_RUNTIME_PRESET.into()));
+		test_runtime_preset(PARA_RUNTIME, 3000, Some(DEV_RUNTIME_PRESET.into()));
 	}
 
 	#[test]
 	fn parachain_runtime_works() {
-		test_runtime_preset(PARA_RUNTIME_PATH, None);
-		test_runtime_preset(PARA_RUNTIME_PATH, Some(sp_genesis_builder::DEV_RUNTIME_PRESET));
-		test_runtime_preset(
-			PARA_RUNTIME_PATH,
-			Some(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
-		);
+		// TODO: None doesn't work. But maybe it should? it would be misleading as many users might
+		// use it.
+		[Some(DEV_RUNTIME_PRESET.into()), Some(LOCAL_TESTNET_RUNTIME_PRESET.into())]
+			.into_iter()
+			.for_each(|preset| {
+				test_runtime_preset(PARA_RUNTIME, 1000, preset);
+			});
+	}
+
+	#[test]
+	fn minimal_runtime_works() {
+		[None, Some(DEV_RUNTIME_PRESET.into())].into_iter().for_each(|preset| {
+			test_runtime_preset(MINIMAL_RUNTIME, 1000, preset);
+		});
 	}
 
 	#[test]
 	fn guide_first_runtime_works() {
-		test_runtime_preset(PARA_RUNTIME_PATH, None);
-		test_runtime_preset(PARA_RUNTIME_PATH, Some(sp_genesis_builder::DEV_RUNTIME_PRESET));
-		test_runtime_preset(
-			PARA_RUNTIME_PATH,
-			Some(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
-		);
+		[Some(DEV_RUNTIME_PRESET.into())].into_iter().for_each(|preset| {
+			test_runtime_preset(FIRST_RUNTIME, 1000, preset);
+		});
 	}
 }

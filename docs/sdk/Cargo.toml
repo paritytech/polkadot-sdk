@@ -29,6 +29,7 @@ pallet-example-offchain-worker = { workspace = true, default-features = true }
 # How we build docs in rust-docs
 simple-mermaid = "0.1.1"
 docify = { workspace = true }
+serde_json = { workspace = true }
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
 polkadot-sdk = { features = ["runtime-full"], workspace = true, default-features = true }
@@ -135,4 +136,4 @@ first-pallet = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_cmd = "2.0.14"
-nix = { version = "0.29.0", features = ["signal"] }
+rand = "0.8"
