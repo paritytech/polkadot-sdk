@@ -1813,11 +1813,12 @@ mod tests {
 	};
 	use assert_matches::assert_matches;
 	use frame_support::{assert_err, assert_ok, parameter_types};
-	use frame_system::{EventRecord, Phase};
+	use frame_system::{AccountInfo, EventRecord, Phase};
 	use pallet_revive_uapi::ReturnFlags;
 	use pretty_assertions::assert_eq;
 	use sp_runtime::{traits::Hash, DispatchError};
 	use std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};
+	use sp_io::hashing::keccak_256;
 
 	type System = frame_system::Pallet<Test>;
 
@@ -1866,8 +1867,8 @@ mod tests {
 			f: impl Fn(MockCtx, &MockExecutable) -> ExecResult + 'static,
 		) -> H256 {
 			Loader::mutate(|loader| {
-				// Generate code hashes as monotonically increasing values.
-				let hash = <Test as frame_system::Config>::Hash::from_low_u64_be(loader.counter + 1);
+				// Generate code hashes from contract index value.
+				let hash = H256(keccak_256(&loader.counter.to_le_bytes()));
 				loader.counter += 1;
 				loader.map.insert(
 					hash,
@@ -2382,16 +2383,29 @@ mod tests {
 
 	#[test]
 	fn code_hash_returns_proper_values() {
-		let code_bob = MockLoader::insert(Call, |ctx, _| {
-			// ALICE is not a contract and hence they do not have a code_hash
-			assert!(ctx.ext.code_hash(&ALICE_ADDR).is_zero());
-			// BOB is a contract and hence it has a code_hash
-			assert!(!ctx.ext.code_hash(&BOB_ADDR).is_zero());
+		let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
+			// ALICE is not a contract but account exists so it returns hash of empty data
+			assert_eq!(ctx.ext.code_hash(&ALICE_ADDR), EMPTY_CODE_HASH);
+			// BOB is a contract (this function) and hence it has a code_hash.
+			// `MockLoader` uses contract index to generate the code hash.
+			assert_eq!(ctx.ext.code_hash(&BOB_ADDR), H256(keccak_256(&0u64.to_le_bytes())));
+			// [0xff;32] doesn't exist and returns hash zero
+			assert!(ctx.ext.code_hash(&H160([0xff; 20])).is_zero());
+
 			exec_success()
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			place_contract(&BOB, code_bob);
+			// add alice account info to test case EOA code hash
+			frame_system::Account::<Test>::insert(
+				<Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR),
+				AccountInfo {
+					consumers: 1,
+					providers: 1,
+					..Default::default()
+				}
+			);
+			place_contract(&BOB, bob_code_hash);
 			let origin = Origin::from_account_id(ALICE);
 			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
 			// ALICE (not contract) -> BOB (contract)
