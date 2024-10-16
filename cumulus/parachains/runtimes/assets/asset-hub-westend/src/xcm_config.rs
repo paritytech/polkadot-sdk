@@ -744,12 +744,16 @@ pub mod bridging {
 		}
 
 		pub type EthereumNetworkExportTableV2 =
-			xcm_builder::NetworkWithXcmExportTable<EthereumBridgeTableV2, XcmForSnowbridgeV2>;
+			snowbridge_router_primitives::outbound::NetworkWithXcmExportTable<
+				EthereumBridgeTableV2,
+				XcmForSnowbridgeV2,
+			>;
 
-		pub type EthereumNetworkExportTable = xcm_builder::NetworkWithXcmExportTable<
-			EthereumBridgeTable,
-			EverythingBut<XcmForSnowbridgeV2>,
-		>;
+		pub type EthereumNetworkExportTable =
+			snowbridge_router_primitives::outbound::NetworkWithXcmExportTable<
+				EthereumBridgeTable,
+				EverythingBut<XcmForSnowbridgeV2>,
+			>;
 
 		pub type IsTrustedBridgedReserveLocationForForeignAsset =
 			IsForeignConcreteAsset<FromNetwork<UniversalLocation, EthereumNetwork>>;

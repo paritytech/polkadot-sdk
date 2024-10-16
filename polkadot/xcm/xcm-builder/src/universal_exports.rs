@@ -20,10 +20,7 @@ use crate::InspectMessageQueues;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::{convert::TryInto, marker::PhantomData};
-use frame_support::{
-	ensure,
-	traits::{Contains, Get},
-};
+use frame_support::{ensure, traits::Get};
 use xcm::prelude::*;
 use xcm_executor::traits::{validate_export, ExportXcm};
 use SendError::*;
@@ -711,31 +708,5 @@ mod tests {
 				remote_location,
 			)
 		}
-	}
-}
-
-/// An adapter for the implementation of `ExporterFor`, which attempts to find the
-/// `(bridge_location, payment)` for the requested `network` and `remote_location` and `xcm`
-/// in the provided `T` table containing various exporters.
-pub struct NetworkWithXcmExportTable<T, M>(core::marker::PhantomData<(T, M)>);
-impl<T: Get<Vec<NetworkExportTableItem>>, M: Contains<Xcm<()>>> ExporterFor
-	for NetworkWithXcmExportTable<T, M>
-{
-	fn exporter_for(
-		network: &NetworkId,
-		remote_location: &InteriorLocation,
-		xcm: &Xcm<()>,
-	) -> Option<(Location, Option<Asset>)> {
-		T::get()
-			.into_iter()
-			.find(|item| {
-				&item.remote_network == network &&
-					M::contains(xcm) &&
-					item.remote_location_filter
-						.as_ref()
-						.map(|filters| filters.iter().any(|filter| filter == remote_location))
-						.unwrap_or(true)
-			})
-			.map(|item| (item.bridge, item.payment))
 	}
 }

@@ -9,7 +9,10 @@ use core::slice::Iter;
 
 use codec::{Decode, Encode};
 
-use frame_support::{ensure, traits::Get};
+use frame_support::{
+	ensure,
+	traits::{Contains, Get},
+};
 use snowbridge_core::{
 	outbound::{AgentExecuteCommand, Command, Message, SendMessage},
 	AgentId, ChannelId, ParaId, TokenId, TokenIdOf,
@@ -18,6 +21,7 @@ use sp_core::{H160, H256};
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
+use xcm_builder::{ExporterFor, NetworkExportTableItem};
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
 
 pub struct EthereumBlobExporter<
@@ -405,5 +409,31 @@ where
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
 
 		Ok((Command::MintForeignToken { token_id, recipient, amount }, *topic_id))
+	}
+}
+
+/// An adapter for the implementation of `ExporterFor`, which attempts to find the
+/// `(bridge_location, payment)` for the requested `network` and `remote_location` and `xcm`
+/// in the provided `T` table containing various exporters.
+pub struct NetworkWithXcmExportTable<T, M>(core::marker::PhantomData<(T, M)>);
+impl<T: Get<Vec<NetworkExportTableItem>>, M: Contains<Xcm<()>>> ExporterFor
+	for NetworkWithXcmExportTable<T, M>
+{
+	fn exporter_for(
+		network: &NetworkId,
+		remote_location: &InteriorLocation,
+		xcm: &Xcm<()>,
+	) -> Option<(Location, Option<Asset>)> {
+		T::get()
+			.into_iter()
+			.find(|item| {
+				&item.remote_network == network &&
+					M::contains(xcm) &&
+					item.remote_location_filter
+						.as_ref()
+						.map(|filters| filters.iter().any(|filter| filter == remote_location))
+						.unwrap_or(true)
+			})
+			.map(|item| (item.bridge, item.payment))
 	}
 }
