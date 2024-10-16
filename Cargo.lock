@@ -5757,9 +5757,9 @@ dependencies = [
 
 [[package]]
 name = "ethabi-decode"
-version = "1.1.0"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9af52ec57c5147716872863c2567c886e7d62f539465b94352dbc0108fe5293"
+checksum = "52029c4087f9f01108f851d0d02df9c21feb5660a19713466724b7f95bd2d773"
 dependencies = [
  "ethereum-types",
  "tiny-keccak",
