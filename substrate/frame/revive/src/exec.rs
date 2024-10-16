@@ -276,6 +276,7 @@ pub trait Ext: sealing::Sealed {
 	fn is_contract(&self, address: &H160) -> bool;
 
 	/// Returns the code hash of the contract for the given `address`.
+	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
 	fn code_hash(&self, address: &H160) -> H256;
 
 	/// Returns the code hash of the contract being executed.
@@ -1526,8 +1527,6 @@ where
 		ContractInfoOf::<T>::contains_key(&address)
 	}
 
-	/// Retrieve the code hash for a specified contract address.
-	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
 	fn code_hash(&self, address: &H160) -> H256 {
 		<ContractInfoOf<T>>::get(&address)
 			.map(|contract| contract.code_hash)
