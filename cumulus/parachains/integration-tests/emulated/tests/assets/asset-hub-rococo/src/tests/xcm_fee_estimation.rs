@@ -180,8 +180,9 @@ fn multi_hop_works() {
 		.unwrap();
 
 		// We have to do this to turn `VersionedXcm<()>` into `VersionedXcm<RuntimeCall>`.
-		let xcm_program =
-			VersionedXcm::from(Xcm::<RuntimeCall>::from(remote_message.clone().try_into().unwrap()));
+		let xcm_program = VersionedXcm::from(Xcm::<RuntimeCall>::from(
+			remote_message.clone().try_into().unwrap(),
+		));
 
 		// Now we get the delivery fees to the final destination.
 		let result =
@@ -213,9 +214,11 @@ fn multi_hop_works() {
 		type Runtime = <PenpalA as Chain>::Runtime;
 
 		let weight = Runtime::query_xcm_weight(intermediate_remote_message.clone()).unwrap();
-		final_execution_fees =
-			Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(AssetId(Location::parent())))
-				.unwrap();
+		final_execution_fees = Runtime::query_weight_to_asset_fee(
+			weight,
+			VersionedAssetId::from(AssetId(Location::parent())),
+		)
+		.unwrap();
 	});
 
 	// Dry-running is done.

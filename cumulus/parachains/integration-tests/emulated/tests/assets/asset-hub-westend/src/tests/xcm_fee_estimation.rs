@@ -182,8 +182,9 @@ fn multi_hop_works() {
 		.unwrap();
 
 		// We have to do this to turn `VersionedXcm<()>` into `VersionedXcm<RuntimeCall>`.
-		let xcm_program =
-			VersionedXcm::from(Xcm::<RuntimeCall>::from(remote_message.clone().try_into().unwrap()));
+		let xcm_program = VersionedXcm::from(Xcm::<RuntimeCall>::from(
+			remote_message.clone().try_into().unwrap(),
+		));
 
 		// Now we get the delivery fees to the final destination.
 		let result =

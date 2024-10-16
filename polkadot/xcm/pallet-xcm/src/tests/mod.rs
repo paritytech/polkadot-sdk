@@ -509,9 +509,10 @@ fn claim_assets_works() {
 		assert_ok!(XcmPallet::claim_assets(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(VersionedAssets::from(Assets::from((Here, SEND_AMOUNT)))),
-			Box::new(VersionedLocation::from(
-				Location::from(AccountId32 { network: None, id: ALICE.clone().into() })
-			)),
+			Box::new(VersionedLocation::from(Location::from(AccountId32 {
+				network: None,
+				id: ALICE.clone().into()
+			}))),
 		));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
