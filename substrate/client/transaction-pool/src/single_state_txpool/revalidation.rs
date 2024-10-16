@@ -24,10 +24,7 @@ use std::{
 	sync::Arc,
 };
 
-use crate::{
-	graph::{BlockHash, ChainApi, ExtrinsicHash, Pool, ValidatedTransaction},
-	LOG_TARGET,
-};
+use crate::graph::{BlockHash, ChainApi, ExtrinsicHash, Pool, ValidatedTransaction};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::{
 	generic::BlockId, traits::SaturatedConversion, transaction_validity::TransactionValidityError,
@@ -39,6 +36,8 @@ use std::time::Duration;
 const BACKGROUND_REVALIDATION_INTERVAL: Duration = Duration::from_millis(200);
 
 const MIN_BACKGROUND_REVALIDATION_BATCH_SIZE: usize = 20;
+
+const LOG_TARGET: &str = "txpool::revalidation";
 
 /// Payload from queue to worker.
 struct WorkerPayload<Api: ChainApi> {
@@ -75,11 +74,11 @@ async fn batch_revalidate<Api: ChainApi>(
 	let block_number = match api.block_id_to_number(&BlockId::Hash(at)) {
 		Ok(Some(n)) => n,
 		Ok(None) => {
-			log::debug!(target: LOG_TARGET, "revalidation skipped at block {at:?}, could not get block number.");
+			log::trace!(target: LOG_TARGET, "revalidation skipped at block {at:?}, could not get block number.");
 			return
 		},
 		Err(e) => {
-			log::debug!(target: LOG_TARGET, "revalidation skipped at block {at:?}: {e:?}.");
+			log::trace!(target: LOG_TARGET, "revalidation skipped at block {at:?}: {e:?}.");
 			return
 		},
 	};
@@ -98,7 +97,7 @@ async fn batch_revalidate<Api: ChainApi>(
 	for (validation_result, ext_hash, ext) in validation_results {
 		match validation_result {
 			Ok(Err(TransactionValidityError::Invalid(err))) => {
-				log::debug!(
+				log::trace!(
 					target: LOG_TARGET,
 					"[{:?}]: Revalidation: invalid {:?}",
 					ext_hash,
@@ -130,7 +129,7 @@ async fn batch_revalidate<Api: ChainApi>(
 				);
 			},
 			Err(validation_err) => {
-				log::debug!(
+				log::trace!(
 					target: LOG_TARGET,
 					"[{:?}]: Removing due to error during revalidation: {}",
 					ext_hash,
@@ -256,7 +255,7 @@ impl<Api: ChainApi> RevalidationWorker<Api> {
 					batch_revalidate(this.pool.clone(), this.api.clone(), this.best_block, next_batch).await;
 
 					if batch_len > 0 || this.len() > 0 {
-						log::debug!(
+						log::trace!(
 							target: LOG_TARGET,
 							"Revalidated {} transactions. Left in the queue for revalidation: {}.",
 							batch_len,
@@ -273,7 +272,7 @@ impl<Api: ChainApi> RevalidationWorker<Api> {
 							this.push(worker_payload);
 
 							if this.members.len() > 0 {
-								log::debug!(
+								log::trace!(
 									target: LOG_TARGET,
 									"Updated revalidation queue at {:?}. Transactions: {:?}",
 									this.best_block,
@@ -359,6 +358,10 @@ where
 				log::warn!(target: LOG_TARGET, "Failed to update background worker: {:?}", e);
 			}
 		} else {
+			log::debug!(
+				target: LOG_TARGET,
+				"batch_revalidate direct call"
+			);
 			let pool = self.pool.clone();
 			let api = self.api.clone();
 			batch_revalidate(pool, api, at, transactions).await
@@ -370,8 +373,8 @@ where
 mod tests {
 	use super::*;
 	use crate::{
+		common::tests::{uxt, TestApi},
 		graph::Pool,
-		tests::{uxt, TestApi},
 	};
 	use futures::executor::block_on;
 	use sc_transaction_pool_api::TransactionSource;
@@ -391,13 +394,16 @@ mod tests {
 			nonce: 0,
 		});
 
-		let hash_of_block0 = api.expect_hash_from_number(0);
+		let han_of_block0 = api.expect_hash_and_number(0);
 
-		let uxt_hash =
-			block_on(pool.submit_one(hash_of_block0, TransactionSource::External, uxt.clone()))
-				.expect("Should be valid");
+		let uxt_hash = block_on(pool.submit_one(
+			&han_of_block0,
+			TransactionSource::External,
+			uxt.clone().into(),
+		))
+		.expect("Should be valid");
 
-		block_on(queue.revalidate_later(hash_of_block0, vec![uxt_hash]));
+		block_on(queue.revalidate_later(han_of_block0.hash, vec![uxt_hash]));
 
 		// revalidated in sync offload 2nd time
 		assert_eq!(api.validation_requests().len(), 2);
@@ -424,21 +430,23 @@ mod tests {
 			nonce: 1,
 		});
 
-		let hash_of_block0 = api.expect_hash_from_number(0);
+		let han_of_block0 = api.expect_hash_and_number(0);
 		let unknown_block = H256::repeat_byte(0x13);
 
-		let uxt_hashes =
-			block_on(pool.submit_at(hash_of_block0, TransactionSource::External, vec![uxt0, uxt1]))
-				.expect("Should be valid")
-				.into_iter()
-				.map(|r| r.expect("Should be valid"))
-				.collect::<Vec<_>>();
+		let uxt_hashes = block_on(pool.submit_at(
+			&han_of_block0,
+			TransactionSource::External,
+			vec![uxt0.into(), uxt1.into()],
+		))
+		.into_iter()
+		.map(|r| r.expect("Should be valid"))
+		.collect::<Vec<_>>();
 
 		assert_eq!(api.validation_requests().len(), 2);
 		assert_eq!(pool.validated_pool().status().ready, 2);
 
 		// revalidation works fine for block 0:
-		block_on(queue.revalidate_later(hash_of_block0, uxt_hashes.clone()));
+		block_on(queue.revalidate_later(han_of_block0.hash, uxt_hashes.clone()));
 		assert_eq!(api.validation_requests().len(), 4);
 		assert_eq!(pool.validated_pool().status().ready, 2);
 

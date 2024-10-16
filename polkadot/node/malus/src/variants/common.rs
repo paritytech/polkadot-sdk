@@ -241,7 +241,7 @@ where
 					},
 			} => {
 				match self.fake_validation {
-					x if x.misbehaves_valid() && x.should_misbehave(exec_kind) => {
+					x if x.misbehaves_valid() && x.should_misbehave(exec_kind.into()) => {
 						// Behave normally if the `PoV` is not known to be malicious.
 						if pov.block_data.0.as_slice() != MALICIOUS_POV {
 							return Some(FromOrchestra::Communication {
@@ -296,7 +296,7 @@ where
 							},
 						}
 					},
-					x if x.misbehaves_invalid() && x.should_misbehave(exec_kind) => {
+					x if x.misbehaves_invalid() && x.should_misbehave(exec_kind.into()) => {
 						// Set the validation result to invalid with probability `p` and trigger a
 						// dispute
 						let behave_maliciously = self.distribution.sample(&mut rand::thread_rng());

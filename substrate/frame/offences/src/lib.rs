@@ -73,7 +73,6 @@ pub mod pallet {
 
 	/// The primary structure that holds all offence records keyed by report identifiers.
 	#[pallet::storage]
-	#[pallet::getter(fn reports)]
 	pub type Reports<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -152,6 +151,13 @@ where
 }
 
 impl<T: Config> Pallet<T> {
+	/// Get the offence details from reports of given ID.
+	pub fn reports(
+		report_id: ReportIdOf<T>,
+	) -> Option<OffenceDetails<T::AccountId, T::IdentificationTuple>> {
+		Reports::<T>::get(report_id)
+	}
+
 	/// Compute the ID for the given report properties.
 	///
 	/// The report id depends on the offence kind, time slot and the id of offender.

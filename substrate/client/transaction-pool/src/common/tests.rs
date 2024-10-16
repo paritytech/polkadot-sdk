@@ -18,11 +18,11 @@
 
 //! Testing related primitives for internal usage in this crate.
 
-use crate::graph::{BlockHash, ChainApi, ExtrinsicFor, NumberFor, Pool};
+use crate::graph::{BlockHash, ChainApi, ExtrinsicFor, NumberFor, Pool, RawExtrinsicFor};
 use codec::Encode;
 use parking_lot::Mutex;
 use sc_transaction_pool_api::error;
-use sp_blockchain::TreeRoute;
+use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Hash},
@@ -58,6 +58,10 @@ impl TestApi {
 	pub fn expect_hash_from_number(&self, n: BlockNumber) -> H256 {
 		self.block_id_to_hash(&BlockId::Number(n)).unwrap().unwrap()
 	}
+
+	pub fn expect_hash_and_number(&self, n: BlockNumber) -> HashAndNumber<Block> {
+		HashAndNumber { hash: self.expect_hash_from_number(n), number: n }
+	}
 }
 
 impl ChainApi for TestApi {
@@ -73,6 +77,7 @@ impl ChainApi for TestApi {
 		_source: TransactionSource,
 		uxt: ExtrinsicFor<Self>,
 	) -> Self::ValidationFuture {
+		let uxt = (*uxt).clone();
 		self.validation_requests.lock().push(uxt.clone());
 		let hash = self.hash_and_length(&uxt).0;
 		let block_number = self.block_id_to_number(&BlockId::Hash(at)).unwrap().unwrap();
@@ -176,7 +181,7 @@ impl ChainApi for TestApi {
 	}
 
 	/// Hash the extrinsic.
-	fn hash_and_length(&self, uxt: &ExtrinsicFor<Self>) -> (BlockHash<Self>, usize) {
+	fn hash_and_length(&self, uxt: &RawExtrinsicFor<Self>) -> (BlockHash<Self>, usize) {
 		let encoded = uxt.encode();
 		let len = encoded.len();
 		(Hashing::hash(&encoded), len)

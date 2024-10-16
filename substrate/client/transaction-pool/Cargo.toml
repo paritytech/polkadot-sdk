@@ -20,6 +20,8 @@ async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
+indexmap = { workspace = true }
+itertools = { workspace = true }
 linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
@@ -36,6 +38,8 @@ sp-crypto-hashing = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }
+tokio-stream = { workspace = true }
+tokio = { workspace = true, default-features = true, features = ["macros", "time"] }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }

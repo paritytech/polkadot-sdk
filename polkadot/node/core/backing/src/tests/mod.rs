@@ -30,7 +30,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
 	node_features, CandidateDescriptor, GroupRotationInfo, HeadData, PersistedValidationData,
-	PvfExecKind, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+	ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
@@ -434,7 +434,7 @@ async fn assert_validate_from_exhaustive(
 		) if validation_data == *assert_pvd &&
 			validation_code == *assert_validation_code &&
 			*pov == *assert_pov && &candidate_receipt.descriptor == assert_candidate.descriptor() &&
-			exec_kind == PvfExecKind::Backing &&
+			exec_kind == PvfExecKind::BackingSystemParas &&
 			candidate_receipt.commitments_hash == assert_candidate.commitments.hash() =>
 		{
 			response_sender.send(Ok(ValidationResult::Valid(
@@ -651,7 +651,7 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 			) if validation_data == pvd_ab &&
 				validation_code == validation_code_ab &&
 				*pov == pov_ab && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				exec_kind == PvfExecKind::BackingSystemParas &&
 				candidate_receipt.commitments_hash == candidate_a_commitments_hash =>
 			{
 				response_sender.send(Ok(
@@ -1287,7 +1287,7 @@ fn backing_works_while_validation_ongoing() {
 			) if validation_data == pvd_abc &&
 				validation_code == validation_code_abc &&
 				*pov == pov_abc && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				exec_kind == PvfExecKind::BackingSystemParas &&
 				candidate_a_commitments_hash == candidate_receipt.commitments_hash =>
 			{
 				// we never validate the candidate. our local node
@@ -1454,7 +1454,7 @@ fn backing_misbehavior_works() {
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
 				*pov == pov_a && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				exec_kind == PvfExecKind::BackingSystemParas &&
 				candidate_a_commitments_hash == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Ok(
@@ -1621,7 +1621,7 @@ fn backing_dont_second_invalid() {
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
 				*pov == pov_block_a && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				exec_kind == PvfExecKind::BackingSystemParas &&
 				candidate_a.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::BadReturn))).unwrap();
@@ -1661,7 +1661,7 @@ fn backing_dont_second_invalid() {
 			) if validation_data == pvd_b &&
 				validation_code == validation_code_b &&
 				*pov == pov_block_b && &candidate_receipt.descriptor == candidate_b.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				exec_kind == PvfExecKind::BackingSystemParas &&
 				candidate_b.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Ok(
@@ -1788,7 +1788,7 @@ fn backing_second_after_first_fails_works() {
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
 				*pov == pov_a && &candidate_receipt.descriptor == candidate.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				exec_kind == PvfExecKind::BackingSystemParas &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::BadReturn))).unwrap();
@@ -1932,7 +1932,7 @@ fn backing_works_after_failed_validation() {
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
 				*pov == pov_a && &candidate_receipt.descriptor == candidate.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				exec_kind == PvfExecKind::BackingSystemParas &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Err(ValidationFailed("Internal test error".into()))).unwrap();
@@ -2211,7 +2211,7 @@ fn retry_works() {
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
 				*pov == pov_a && &candidate_receipt.descriptor == candidate.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				exec_kind == PvfExecKind::BackingSystemParas &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash
 		);
 		virtual_overseer
@@ -2753,7 +2753,7 @@ fn validator_ignores_statements_from_disabled_validators() {
 			) if validation_data == pvd &&
 				validation_code == expected_validation_code &&
 				*pov == expected_pov && &candidate_receipt.descriptor == candidate.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				exec_kind == PvfExecKind::BackingSystemParas &&
 				candidate_commitments_hash == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Ok(

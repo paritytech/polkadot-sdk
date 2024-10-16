@@ -96,7 +96,7 @@ class TestCmd(unittest.TestCase):
             command='bench',
             runtime=list(map(lambda x: x['name'], mock_runtimes_matrix)),
             pallet=['pallet_balances'],
-            continue_on_fail=False,
+            fail_fast=True,
             quiet=False,
             clean=False,
             image=None
@@ -153,7 +153,7 @@ class TestCmd(unittest.TestCase):
             command='bench',
             runtime=['westend'],
             pallet=['pallet_balances', 'pallet_staking'],
-            continue_on_fail=False,
+            fail_fast=True,
             quiet=False,
             clean=False,
             image=None
@@ -196,7 +196,7 @@ class TestCmd(unittest.TestCase):
             command='bench',
             runtime=['westend'],
             pallet=['pallet_xcm_benchmarks::generic'],
-            continue_on_fail=False,
+            fail_fast=True,
             quiet=False,
             clean=False,
             image=None
@@ -232,7 +232,7 @@ class TestCmd(unittest.TestCase):
             command='bench',
             runtime=['westend', 'rococo'],
             pallet=['pallet_balances', 'pallet_staking'],
-            continue_on_fail=False,
+            fail_fast=True,
             quiet=False,
             clean=False,
             image=None
@@ -290,7 +290,7 @@ class TestCmd(unittest.TestCase):
             command='bench',
             runtime=['dev'],
             pallet=['pallet_balances'],
-            continue_on_fail=False,
+            fail_fast=True,
             quiet=False,
             clean=False,
             image=None
@@ -327,7 +327,7 @@ class TestCmd(unittest.TestCase):
             command='bench',
             runtime=['asset-hub-westend'],
             pallet=['pallet_assets'],
-            continue_on_fail=False,
+            fail_fast=True,
             quiet=False,
             clean=False,
             image=None
@@ -362,7 +362,7 @@ class TestCmd(unittest.TestCase):
             command='bench',
             runtime=['asset-hub-westend'],
             pallet=['pallet_xcm_benchmarks::generic', 'pallet_assets'],
-            continue_on_fail=False,
+            fail_fast=True,
             quiet=False,
             clean=False,
             image=None
@@ -400,7 +400,7 @@ class TestCmd(unittest.TestCase):
 
             self.mock_system.assert_has_calls(expected_calls, any_order=True)
 
-    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='fmt', continue_on_fail=False), []))
+    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='fmt'), []))
     @patch('os.system', return_value=0)
     def test_fmt_command(self, mock_system, mock_parse_args):
         with patch('sys.exit') as mock_exit:
@@ -410,7 +410,7 @@ class TestCmd(unittest.TestCase):
             mock_system.assert_any_call('cargo +nightly fmt')
             mock_system.assert_any_call('taplo format --config .config/taplo.toml')
 
-    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='update-ui', continue_on_fail=False), []))
+    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='update-ui'), []))
     @patch('os.system', return_value=0)
     def test_update_ui_command(self, mock_system, mock_parse_args):
         with patch('sys.exit') as mock_exit:
@@ -419,7 +419,7 @@ class TestCmd(unittest.TestCase):
             mock_exit.assert_not_called()
             mock_system.assert_called_with('sh ./scripts/update-ui-tests.sh')
 
-    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='prdoc', continue_on_fail=False), []))
+    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='prdoc'), []))
     @patch('os.system', return_value=0)
     def test_prdoc_command(self, mock_system, mock_parse_args):
         with patch('sys.exit') as mock_exit:

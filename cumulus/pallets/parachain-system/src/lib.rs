@@ -1627,7 +1627,11 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 			.map(|encoded_message| VersionedXcm::<()>::decode(&mut &encoded_message[..]).unwrap())
 			.collect();
 
-		vec![(VersionedLocation::V4(Parent.into()), messages)]
+		if messages.is_empty() {
+			vec![]
+		} else {
+			vec![(VersionedLocation::from(Location::parent()), messages)]
+		}
 	}
 }
 

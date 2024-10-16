@@ -534,3 +534,12 @@ fn send_back_wnds_from_penpal_rococo_through_asset_hub_rococo_to_asset_hub_weste
 	assert!(receiver_wnds_after > receiver_wnds_before);
 	assert!(receiver_wnds_after <= receiver_wnds_before + amount);
 }
+
+#[test]
+fn dry_run_transfer_to_westend_sends_xcm_to_bridge_hub() {
+	test_dry_run_transfer_across_pk_bridge!(
+		AssetHubRococo,
+		BridgeHubRococo,
+		asset_hub_westend_location()
+	);
+}

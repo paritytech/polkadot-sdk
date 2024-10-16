@@ -29,6 +29,7 @@ sp-runtime = { workspace = true }
 xcm = { workspace = true }
 pallet-xcm = { workspace = true }
 xcm-executor = { workspace = true }
+xcm-runtime-apis = { workspace = true }
 
 # Bridges
 pallet-bridge-messages = { workspace = true }

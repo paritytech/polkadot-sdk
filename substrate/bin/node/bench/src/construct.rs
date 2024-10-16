@@ -35,7 +35,7 @@ use sc_transaction_pool_api::{
 };
 use sp_consensus::{Environment, Proposer};
 use sp_inherents::InherentDataProvider;
-use sp_runtime::{traits::NumberFor, OpaqueExtrinsic};
+use sp_runtime::OpaqueExtrinsic;
 
 use crate::{
 	common::SizeType,
@@ -165,18 +165,18 @@ impl core::Benchmark for ConstructionBenchmark {
 
 #[derive(Clone, Debug)]
 pub struct PoolTransaction {
-	data: OpaqueExtrinsic,
+	data: Arc<OpaqueExtrinsic>,
 	hash: node_primitives::Hash,
 }
 
 impl From<OpaqueExtrinsic> for PoolTransaction {
 	fn from(e: OpaqueExtrinsic) -> Self {
-		PoolTransaction { data: e, hash: node_primitives::Hash::zero() }
+		PoolTransaction { data: Arc::from(e), hash: node_primitives::Hash::zero() }
 	}
 }
 
 impl sc_transaction_pool_api::InPoolTransaction for PoolTransaction {
-	type Transaction = OpaqueExtrinsic;
+	type Transaction = Arc<OpaqueExtrinsic>;
 	type Hash = node_primitives::Hash;
 
 	fn data(&self) -> &Self::Transaction {
@@ -261,7 +261,7 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 
 	fn ready_at(
 		&self,
-		_at: NumberFor<Self::Block>,
+		_at: Self::Hash,
 	) -> Pin<
 		Box<
 			dyn Future<
@@ -303,6 +303,21 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 	}
 
 	fn ready_transaction(&self, _hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>> {
+		unimplemented!()
+	}
+
+	fn ready_at_with_timeout(
+		&self,
+		_at: Self::Hash,
+		_timeout: std::time::Duration,
+	) -> Pin<
+		Box<
+			dyn Future<
+					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
+				> + Send
+				+ '_,
+		>,
+	> {
 		unimplemented!()
 	}
 }
