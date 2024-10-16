@@ -55,9 +55,7 @@
 //!
 //! Recall that in [`crate::guides::your_first_pallet`], we provided `type AccountId = u64` to
 //! `frame_system`, while in this case we rely on whatever is provided by
-//! [`SolochainDefaultConfig`](struct@
-//! frame_system::pallet::config_preludes::SolochainDefaultConfig), which is indeed a "real" 32 byte
-//! account id.
+//! [`SolochainDefaultConfig`], which is indeed a "real" 32 byte account id.
 //!
 //! Then, a familiar instance of `construct_runtime` amalgamates all of the pallets:
 #![doc = docify::embed!("./packages/guides/first-runtime/src/lib.rs", cr)]
@@ -167,3 +165,5 @@
 //!    [`crate::reference_docs::custom_runtime_api_rpc`].
 //! 5. To see a complete example of a runtime+pallet that is similar to this guide, please see
 //!    [`crate::polkadot_sdk::templates`].
+//!
+//! [`SolochainDefaultConfig`]: struct@frame_system::pallet::config_preludes::SolochainDefaultConfig

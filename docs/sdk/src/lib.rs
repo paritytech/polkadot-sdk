@@ -19,6 +19,9 @@
 //! - Finally, <https://paritytech.github.io> is the parent website of this crate that contains the
 //!   list of further tools related to the Polkadot SDK.
 //!
+//! ## How to Read
+//!  TODO
+//!
 //! ## Information Architecture
 //!
 //! This section paints a picture over the high-level information architecture of this crate.

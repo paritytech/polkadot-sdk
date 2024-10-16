@@ -109,7 +109,8 @@
 //! 	* `polkadot-omni-node` (notably, with [`--dev-block-time`]). References:
 //! 		* [`crate::guides::your_first_node`]
 //! 	* External tools such as `chopsticks`, `zombienet`.
-//! * For production `polkadot-omni-node` can be used as a starting point.
+//! 		* See the `README.md` file of the `polkadot-sdk-parachain-template`.
+//! * For production `polkadot-omni-node` can be used out of the box.
 //! * For further customization [`polkadot_omni_node_lib`] can be used.
 //!
 //! ## Appendix

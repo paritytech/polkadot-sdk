@@ -12,18 +12,13 @@
 //!
 //! > By this step, you have already launched a full Polkadot-Sdk-based blockchain!
 //!
-//! * [`your_first_parachain`], where you convert an exiting blockchain to a Polkadot parachain.
+//! Once done, feel free to step up into one of our templates: [`crate::polkadot_sdk::templates`].
 //!
 //! [`your_first_pallet`]: crate::guides::your_first_pallet
 //! [`your_first_runtime`]: crate::guides::your_first_runtime
 //! [`your_first_node`]: crate::guides::your_first_node
-//! [`your_first_parachain`]: crate::guides::your_first_parachain
 //!
 //! Other guides are related to other miscellaneous topics and are listed as modules below.
-//!
-//! ## How to Read
-//!
-//! TODO: how to read, find the code, etc.
 
 /// Write your first simple pallet, learning the most most basic features of FRAME along the way.
 pub mod your_first_pallet;
@@ -37,7 +32,7 @@ pub mod your_first_node;
 
 /// How to enhance a given runtime and node to be cumulus-enabled, run it as a parachain
 /// and connect it to a relay-chain.
-pub mod your_first_parachain;
+// pub mod your_first_parachain;
 
 /// How to enable storage weight reclaiming in a parachain node and runtime.
 pub mod enable_pov_reclaim;

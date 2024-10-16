@@ -9,7 +9,12 @@
 //! executed with a node that also expects no consensus ([`sc_consensus_manual_seal`]).
 //! `polkadot_omni_node`'s [`--dev-block-time`] precisely does this.
 //!
+//! > All of the following steps are coded as unit tests of this module. Please see `Source` of the
+//! > page for more information.
+//!
 //! ## Running The Omni Node
+//!
+//! ### Installs
 //!
 //! The `polkadot-omni-node` can either be downloaded from the latest [Release](https://github.com/paritytech/polkadot-sdk/releases/) of `polkadot-sdk`,
 //! or installed using `cargo`:
@@ -20,16 +25,71 @@
 //!
 //! Next, we need to install the [`chain-spec-builder`]. This is the tool that helps us interact
 //! with the genesis related APIs of the runtime, as described in
-//! [`super::your_first_runtime#genesis-configuration`].
+//! [`crate::guides::your_first_runtime#genesis-configuration`].
 //!
-//!
-//!
-//! Dump:
 //! ```text
-//! ./chain-spec-builder create --para-id 42 --relay-chain dontcare --runtime polkadot_sdk_docs_first_runtime.wasm named-preset development
-//! ./polkadot-omni-node --tmp --dev-block-time 100 --chain polkadot_sdk_docs_first_runtime.json
-//! ./
+//! cargo install staging-chain-spec-builder
 //! ```
+//!
+//! ### Building Runtime
+//!
+//! Next, we need to build the corresponding runtime that we wish to interact with.
+//!
+//! ```text
+//! cargo build --release -p path-to-runtime
+//! ```
+//! Equivalent code in tests:
+#![doc = docify::embed!("./src/guides/your_first_node.rs", build_runtime)]
+//!
+//! This creates the wasm file under `./target/wbuild/release` directory.
+//!
+//! ### Building Chain Spec
+//!
+//! Next, we can generate the corresponding chain-spec file. For this example, we will use the
+//! `development` (`sp_genesis_config::DEVELOPMENT`) preset.
+//!
+//! Note that we intend to run this chain-spec with `polkadot-omni-node`, which is tailored for
+//! running parachains. This requires the chain-spec to always contain the `--para-id` and a
+//! `--relay-chain` fields, which are provided below.
+//!
+//! ```text
+//! chain-spec-builder \
+//! 	-c <path-to-output> \
+//! 	create \
+//! 	--para-id 42 \
+//! 	--relay-chain dontcare \
+//! 	--runtime polkadot_sdk_docs_first_runtime.wasm \
+//! 	named-preset development
+//! ```
+//!
+//! Equivalent code in tests:
+#![doc = docify::embed!("./src/guides/your_first_node.rs", csb)]
+//!
+//!
+//! ### Running `polkadot-omni-node`
+//!
+//! Finally, we can run the node with the generated chain-spec file. We can also specify the block
+//! time using the `--dev-block-time` flag.
+//!
+//! ```text
+//! polkadot-omni-node \
+//! 	--tmp \
+//! 	--dev-block-time 100 \
+//! 	--chain <chain_spec_file>.json
+//! ```
+//!
+//! > Note that we always prefer to use `--tmp` for testing, as it will save the chain state to a
+//! > temporary folder, allowing the chain-to be easily restarted without `purge-chain`. TODO: link
+//! > to flags.
+//!
+//! This will start the node and import the blocks. Note whole using `--dev-block-time`, the node
+//! will use the testing-specific manual-seal consensus. This is an efficient way to test the
+//! application logic of your runtime, without needing to yet care about consensus, block
+//! production, relay-chain and so on.
+//!
+//! ### Next Steps
+//!
+//! * See the rest of the steps in [`crate::reference_docs::omni_node#user-journey`].
 //!
 //! [`runtime`]: crate::reference_docs::glossary#runtime
 //! [`node`]: crate::reference_docs::glossary#node
@@ -42,6 +102,7 @@ mod tests {
 	use assert_cmd::Command;
 	use rand::Rng;
 	use sc_chain_spec::{DEV_RUNTIME_PRESET, LOCAL_TESTNET_RUNTIME_PRESET};
+	use scale_info::build;
 	use sp_genesis_builder::PresetId;
 	use std::path::PathBuf;
 
@@ -108,13 +169,17 @@ mod tests {
 		}
 		if find_wasm(&FIRST_RUNTIME).is_none() {
 			println!("Building polkadot-sdk-docs-first-runtime...");
-			Command::new("cargo")
-				.arg("build")
-				.arg("--release")
-				.arg("-p")
-				.arg(FIRST_RUNTIME)
-				.assert()
-				.success();
+			#[docify::export_content]
+			fn build_runtime() {
+				Command::new("cargo")
+					.arg("build")
+					.arg("--release")
+					.arg("-p")
+					.arg(FIRST_RUNTIME)
+					.assert()
+					.success();
+			}
+			build_runtime()
 		}
 
 		assert!(find_wasm(PARA_RUNTIME).is_some());
@@ -200,6 +265,24 @@ mod tests {
 	fn works_with_different_block_times() {
 		test_runtime_preset(PARA_RUNTIME, 100, Some(DEV_RUNTIME_PRESET.into()));
 		test_runtime_preset(PARA_RUNTIME, 3000, Some(DEV_RUNTIME_PRESET.into()));
+
+		// we need this snippet just for docs
+		#[docify::export_content(csb)]
+		fn build_para_chain_spec_works() {
+			let chain_spec_builder = find_release_binary(&CHAIN_SPEC_BUILDER).unwrap();
+			let runtime_path = find_wasm(PARA_RUNTIME).unwrap();
+			let output = "/tmp/demo-chain-spec.json";
+			Command::new(chain_spec_builder)
+				.args(["-c", output])
+				.arg("create")
+				.args(&["--para-id", "1000", "--relay-chain", "dontcare"])
+				.args(["-r", runtime_path.to_str().unwrap()])
+				.args(vec!["named-preset", "development"])
+				.assert()
+				.success();
+			std::fs::remove_file(output).unwrap();
+		}
+		build_para_chain_spec_works();
 	}
 
 	#[test]
