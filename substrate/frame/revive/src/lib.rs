@@ -1265,8 +1265,8 @@ where
 				Code::Upload(code.to_vec()),
 				data.to_vec(),
 				None,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
+				debug,
+				collect_events,
 			);
 
 			let transact_kind = EthTransactKind::InstantiateWithCode { code_len, data_len };
