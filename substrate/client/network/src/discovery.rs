@@ -319,9 +319,6 @@ pub struct DiscoveryBehaviour {
 	/// to these peers.
 	records_to_publish: HashMap<QueryId, Record>,
 	/// The chain based kademlia protocol name (including genesis hash and fork id).
-	///
-	/// Remove when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
-	/// <https://github.com/paritytech/polkadot-sdk/issues/504>.
 	kademlia_protocol: Option<StreamProtocol>,
 }
 
@@ -381,10 +378,6 @@ impl DiscoveryBehaviour {
 			}
 
 			// The supported protocols must include the chain-based Kademlia protocol.
-			//
-			// Extract the chain-based Kademlia protocol from `kademlia.protocol_name()`
-			// when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
-			// https://github.com/paritytech/polkadot-sdk/issues/504.
 			if !supported_protocols.iter().any(|p| {
 				p == self
 					.kademlia_protocol
