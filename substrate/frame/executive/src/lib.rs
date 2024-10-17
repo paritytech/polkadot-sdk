@@ -703,7 +703,6 @@ where
 		sp_io::init_tracing();
 		sp_tracing::enter_span!(sp_tracing::Level::TRACE, "finalize_block");
 
-		<frame_system::Pallet<System>>::maybe_apply_pending_code_upgrade();
 		// In this case there were no transactions to trigger this state transition:
 		if !<frame_system::Pallet<System>>::inherents_applied() {
 			Self::inherents_applied();
@@ -766,6 +765,7 @@ where
 	/// Run the `on_finalize` hook of all pallet.
 	fn on_finalize_hook(block_number: NumberFor<Block>) {
 		<AllPalletsWithSystem as OnFinalize<BlockNumberFor<System>>>::on_finalize(block_number);
+		<frame_system::Pallet<System>>::maybe_apply_pending_code_upgrade();
 	}
 
 	/// Apply extrinsic outside of the block execution function.

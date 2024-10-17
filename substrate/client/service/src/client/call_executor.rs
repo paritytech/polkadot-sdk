@@ -27,7 +27,7 @@ use sp_externalities::Extensions;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, HashingFor},
-;
+};
 use sp_state_machine::{
 	backend::{AsTrieBackend, TryPendingCode},
 	OverlayedChanges, StateMachine, StorageProof,
