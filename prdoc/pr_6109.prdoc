@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove the legacy kademlia protocol support
+
+doc:
+  - audience: [ Node Dev, Node Operator ]
+    description: |
+     This PR removes the legacy /kad kademlia protocol.
+     Instead, nodes use the genesis based kademlia protocol for the discovery process.
+
+crates:
+  - name: sc-network
+    bump: patch
