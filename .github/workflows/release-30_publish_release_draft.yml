@@ -87,6 +87,7 @@ jobs:
           GLUTTON_WESTEND_DIGEST: ${{ github.workspace}}/glutton-westend-runtime/glutton-westend-srtool-digest.json
           PEOPLE_WESTEND_DIGEST: ${{ github.workspace}}/people-westend-runtime/people-westend-srtool-digest.json
           WESTEND_DIGEST: ${{ github.workspace}}/westend-runtime/westend-srtool-digest.json
+        shell: bash
         run: |
           . ./.github/scripts/common/lib.sh
 
