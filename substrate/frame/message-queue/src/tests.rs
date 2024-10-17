@@ -2035,20 +2035,18 @@ fn process_message_ok_true_keeps_storage_changes() {
 	});
 }
 
-/// A custom next queue selector can be used to starve other queues.
-///
-/// This demonstrates that it is very powerful and must be used with care.
 #[test]
-fn queue_selector_can_starve_other_queues() {
+fn force_set_head_can_starve_other_queues() {
 	use MessageOrigin::*;
 	build_and_execute::<Test>(|| {
-		// enqueue 2 messages to Here with weight 1
+		// Enqueue messages to three queues.
 		for _ in 0..2 {
 			MessageQueue::enqueue_message(msg("A"), Here);
 			MessageQueue::enqueue_message(msg("B"), There);
 			MessageQueue::enqueue_message(msg("C"), Everywhere(0));
 		}
 
+		// Servicing will only touch `Here` and `There`.
 		MessageQueue::service_queues(4.into_weight());
 		assert_eq!(
 			MessagesProcessed::take(),
@@ -2063,13 +2061,13 @@ fn queue_selector_can_starve_other_queues() {
 		// Some more traffic on our favorite queue.
 		MessageQueue::enqueue_message(msg("A"), Here);
 
-		// Hypothetically, it would proceed with `Everywhere(0)`:
+		// Hypothetically, it would proceed with `Everywhere(0)`, not our favorite queue:
 		frame_support::hypothetically! {{
 			MessageQueue::service_queues(1.into_weight());
 			assert_eq!(MessagesProcessed::take(), vec![(b"C".to_vec(), Everywhere(0))]);
 		}};
 
-		// But we won't let that happen and instead prioritize `Here`:
+		// But we won't let that happen and instead prioritize it:
 		assert!(Pallet::<Test>::force_set_head(&mut WeightMeter::new(), &Here).unwrap());
 
 		MessageQueue::service_queues(1.into_weight());

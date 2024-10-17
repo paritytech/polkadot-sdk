@@ -240,8 +240,8 @@ fn stress_test_force_set_head() {
 }
 
 /// Check that our AHM prioritization does not affect liveness. This does not really check the AHM
-/// prioritization works itself, but rather that it does not break things. The actual test is in a
-/// unit test.
+/// prioritization works itself, but rather that it does not break things. The actual test is in
+/// another test below.
 #[test]
 #[ignore] // Only run in the CI, otherwise its too slow.
 fn stress_test_prioritize_queue() {
