@@ -1308,26 +1308,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				}
 				result
 			},
-			PayFees { asset } => {
-				// Record old holding in case we need to rollback.
-				let old_holding = self.holding.clone();
-				// The max we're willing to pay for fees is decided by the `asset` operand.
-				let max_fee =
-					self.holding.try_take(asset.into()).map_err(|_| XcmError::NotHoldingFees)?;
-				// Pay for execution fees.
-				let result = Config::TransactionalProcessor::process(|| {
-					let unspent =
-						self.trader.buy_weight(self.message_weight, max_fee, &self.context)?;
-					// Move unspent to the `fees` register.
-					self.fees.subsume_assets(unspent);
-					Ok(())
-				});
-				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
-					// Rollback.
-					self.holding = old_holding;
-				}
-				result
-			},
 			RefundSurplus => self.refund_surplus(),
 			SetErrorHandler(mut handler) => {
 				let handler_weight = Config::Weigher::weight(&mut handler)
