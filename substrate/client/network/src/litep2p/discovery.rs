@@ -207,11 +207,6 @@ pub struct Discovery {
 	duration_to_next_find_query: Duration,
 }
 
-/// Legacy (fallback) Kademlia protocol name based on `protocol_id`.
-fn legacy_kademlia_protocol_name(id: &ProtocolId) -> ProtocolName {
-	ProtocolName::from(format!("/{}/kad", id.as_ref()))
-}
-
 /// Kademlia protocol name based on `genesis_hash` and `fork_id`.
 fn kademlia_protocol_name<Hash: AsRef<[u8]>>(
 	genesis_hash: Hash,
@@ -261,7 +256,6 @@ impl Discovery {
 		let (kademlia_config, kademlia_handle) = {
 			let protocol_names = vec![
 				kademlia_protocol_name(genesis_hash.clone(), fork_id),
-				legacy_kademlia_protocol_name(protocol_id),
 			];
 
 			KademliaConfigBuilder::new()
