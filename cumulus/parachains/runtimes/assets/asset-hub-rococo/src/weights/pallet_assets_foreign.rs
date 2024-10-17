@@ -541,4 +541,24 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+
+	fn mint_distribution() -> Weight {
+		Weight::default()
+	}
+
+	fn claim_distribution() -> Weight {
+		Weight::default()
+	}
+
+	fn trie_hash(_h: u32) -> Weight {
+		Weight::default()
+	}
+
+	fn end_distribution() -> Weight {
+		Weight::default()
+	}
+
+	fn destroy_distribution(_n: u32) -> Weight {
+		Weight::default()
+	}
 }

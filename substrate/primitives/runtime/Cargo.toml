@@ -75,6 +75,7 @@ std = [
 	"sp-trie/std",
 	"sp-weights/std",
 	"tracing/std",
+	"binary-merkle-tree/std",
 ]
 
 # Serde support without relying on std features.

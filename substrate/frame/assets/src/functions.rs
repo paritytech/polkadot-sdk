@@ -438,6 +438,137 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
+	/// Creates a distribution in storage for asset `id`, which can be claimed via
+	/// `do_claim_distribution`.
+	pub(super) fn do_mint_distribution(
+		id: T::AssetId,
+		merkle_root: DistributionHashOf<T, I>,
+		maybe_check_issuer: Option<T::AccountId>,
+	) -> DispatchResult {
+		let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+
+		if let Some(check_issuer) = maybe_check_issuer {
+			ensure!(check_issuer == details.issuer, Error::<T, I>::NoPermission);
+		}
+
+		let info = DistributionInfo {
+			asset_id: id.clone(),
+			merkle_root: merkle_root.clone(),
+			active: true,
+		};
+
+		let distribution_id: u32 = CountForMerklizedDistribution::<T, I>::get();
+		MerklizedDistribution::<T, I>::insert(&distribution_id, info);
+		CountForMerklizedDistribution::<T, I>::put(
+			distribution_id.checked_add(1).ok_or(ArithmeticError::Overflow)?,
+		);
+
+		Self::deposit_event(Event::DistributionIssued {
+			distribution_id,
+			asset_id: id,
+			merkle_root,
+		});
+
+		Ok(())
+	}
+
+	/// A wrapper around `do_mint`, allowing a `merkle_proof` to control the amount minted and to
+	/// whom.
+	pub(super) fn do_claim_distribution(
+		distribution_id: DistributionCounter,
+		merkle_proof: Vec<u8>,
+		hashes: u32,
+	) -> DispatchResult {
+		let proof =
+			codec::Decode::decode(&mut &merkle_proof[..]).map_err(|_| Error::<T, I>::BadProof)?;
+
+		let expected_hashes = T::VerifyExistenceProof::proof_to_hashes(&proof)
+			.map_err(|_| Error::<T, I>::BadProof)?;
+
+		ensure!(hashes >= expected_hashes, Error::<T, I>::TooManyHashes);
+
+		let DistributionInfo { asset_id, merkle_root, active } =
+			MerklizedDistribution::<T, I>::get(distribution_id).ok_or(Error::<T, I>::Unknown)?;
+
+		ensure!(active, Error::<T, I>::DistributionEnded);
+
+		let leaf = T::VerifyExistenceProof::verify_proof(proof, &merkle_root)?;
+		let (beneficiary, amount) =
+			codec::Decode::decode(&mut &leaf[..]).map_err(|_| Error::<T, I>::CannotDecodeLeaf)?;
+
+		ensure!(
+			!MerklizedDistributionTracker::<T, I>::contains_key(distribution_id, &beneficiary),
+			Error::<T, I>::AlreadyClaimed
+		);
+
+		Self::do_mint(asset_id, &beneficiary, amount, None)?;
+		MerklizedDistributionTracker::<T, I>::insert(&distribution_id, &beneficiary, ());
+
+		Ok(())
+	}
+
+	/// Ends the asset distribution of `distribution_id`.
+	pub(super) fn do_end_distribution(
+		distribution_id: DistributionCounter,
+		maybe_check_issuer: Option<T::AccountId>,
+	) -> DispatchResult {
+		let mut info =
+			MerklizedDistribution::<T, I>::get(&distribution_id).ok_or(Error::<T, I>::Unknown)?;
+		let details = Asset::<T, I>::get(&info.asset_id).ok_or(Error::<T, I>::Unknown)?;
+
+		if let Some(check_issuer) = maybe_check_issuer {
+			ensure!(check_issuer == details.issuer, Error::<T, I>::NoPermission);
+		}
+
+		info.active = false;
+
+		MerklizedDistribution::<T, I>::insert(&distribution_id, info);
+
+		Self::deposit_event(Event::DistributionEnded { distribution_id });
+
+		Ok(())
+	}
+
+	/// Cleans up the distribution tracker of `distribution_id`.
+	/// Iterates and cleans up data in the `MerklizedDistributionTracker` map `RemoveItemsLimit` at
+	/// a time. This function may need to be called multiple times to complete successfully.
+	pub(super) fn do_destroy_distribution(
+		distribution_id: DistributionCounter,
+	) -> DispatchResultWithPostInfo {
+		let info =
+			MerklizedDistribution::<T, I>::get(&distribution_id).ok_or(Error::<T, I>::Unknown)?;
+
+		ensure!(!info.active, Error::<T, I>::DistributionActive);
+
+		let mut refund_count = 0u32;
+		let distribution_iterator =
+			MerklizedDistributionTracker::<T, I>::iter_key_prefix(&distribution_id);
+
+		let mut all_refunded = true;
+		for who in distribution_iterator {
+			if refund_count >= T::RemoveItemsLimit::get() {
+				// Not everyone was able to be refunded this time around.
+				all_refunded = false;
+				break
+			}
+
+			MerklizedDistributionTracker::<T, I>::remove(&distribution_id, &who);
+			refund_count += 1;
+		}
+
+		if all_refunded {
+			MerklizedDistribution::<T, I>::remove(&distribution_id);
+			Self::deposit_event(Event::<T, I>::DistributionCleaned { distribution_id });
+			// Refund weight only the amount we actually used.
+			Ok(Some(T::WeightInfo::destroy_distribution(refund_count)).into())
+		} else {
+			Self::deposit_event(Event::<T, I>::DistributionPartiallyCleaned { distribution_id });
+			// No weight to refund since we did not finish the loop.
+			Ok(().into())
+		}
+	}
+
 	/// Increases the asset `id` balance of `beneficiary` by `amount`.
 	///
 	/// LOW-LEVEL: Does not alter the supply of asset or emit an event. Use `do_mint` if you need

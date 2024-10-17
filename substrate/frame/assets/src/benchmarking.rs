@@ -26,7 +26,7 @@ use frame_benchmarking::v1::{
 };
 use frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable};
 use frame_system::RawOrigin as SystemOrigin;
-use sp_runtime::traits::Bounded;
+use sp_runtime::traits::{Bounded, Hash};
 
 use crate::Pallet as Assets;
 
@@ -562,6 +562,77 @@ benchmarks_instance_pallet! {
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), target_lookup, false)
 	verify {
 		assert_last_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
+	}
+
+	// This function is O(1), so placing any hash as a merkle root should work.
+	mint_distribution {
+		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
+		let before_count = CountForMerklizedDistribution::<T, I>::get();
+	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), DistributionHashOf::<T, I>::default())
+	verify {
+		let count = CountForMerklizedDistribution::<T, I>::get();
+		assert_eq!(count, before_count + 1);
+		assert_last_event::<T, I>(Event::DistributionIssued { distribution_id: before_count, asset_id: asset_id.into(), merkle_root: DistributionHashOf::<T, I>::default() }.into());
+	}
+
+	// Calculate the cost of `h` hashes.
+	trie_hash {
+		let h in 0 .. 1_000;
+		let mut hash = T::Hash::default();
+	}: {
+		for _ in 0..h {
+			// Our hashes will be composed of two sub-hashes.
+			hash = T::Hashing::hash_of(&(hash, hash))
+		}
+	} verify {
+		if h > 0 {
+			assert!(hash != T::Hash::default());
+		}
+	}
+
+	// This function is O(1), so ending any distribution should work.
+	end_distribution {
+		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
+		let before_count = CountForMerklizedDistribution::<T, I>::get();
+		Assets::<T, I>::mint_distribution(
+			SystemOrigin::Signed(caller.clone()).into(),
+			asset_id.clone(),
+			DistributionHashOf::<T, I>::default(),
+		)?;
+		let count = CountForMerklizedDistribution::<T, I>::get();
+		assert_eq!(count, before_count + 1);
+		assert_last_event::<T, I>(Event::DistributionIssued { distribution_id: before_count, asset_id: asset_id.into(), merkle_root: DistributionHashOf::<T, I>::default() }.into());
+	}: _(SystemOrigin::Signed(caller.clone()), before_count)
+	verify {
+		assert_last_event::<T, I>(Event::DistributionEnded { distribution_id: before_count }.into());
+	}
+
+	// This function is O(N), where N is the number of items destroyed in one extrinsic call.
+	// This benchmark cheats a little to avoid having to do hundreds or thousands of merkle proofs.
+	// Instead we call low level storage to populate the `MerklizedDistributionTracker` for our needs.
+	// If the logic of the `do_destroy_distribution` function changes, then this also needs to be updated.
+	destroy_distribution {
+		let c in 0 .. T::RemoveItemsLimit::get();
+		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
+		let before_count = CountForMerklizedDistribution::<T, I>::get();
+		Assets::<T, I>::mint_distribution(
+			SystemOrigin::Signed(caller.clone()).into(),
+			asset_id.clone(),
+			DistributionHashOf::<T, I>::default(),
+		)?;
+		Assets::<T, I>::end_distribution(
+			SystemOrigin::Signed(caller.clone()).into(),
+			before_count,
+		)?;
+		for i in 0..c {
+			let account_id: T::AccountId = account("target", i, SEED);
+			MerklizedDistributionTracker::<T, I>::insert(before_count, account_id, ());
+		}
+		assert_eq!(MerklizedDistributionTracker::<T, I>::iter().count() as u32, c);
+	}: _(SystemOrigin::Signed(caller.clone()), before_count)
+	verify {
+		assert_last_event::<T, I>(Event::DistributionCleaned { distribution_id: before_count }.into());
+		assert_eq!(MerklizedDistributionTracker::<T, I>::iter().count() as u32, 0);
 	}
 
 	impl_benchmark_test_suite!(Assets, crate::mock::new_test_ext(), crate::mock::Test)

@@ -189,7 +189,8 @@ use frame_support::{
 			WithdrawConsequence,
 		},
 		BalanceStatus::Reserved,
-		Currency, EnsureOriginWithArg, Incrementable, ReservableCurrency, StoredMap,
+		Currency, EnsureOriginWithArg, Incrementable, ProofToHashes, ReservableCurrency, StoredMap,
+		VerifyExistenceProof,
 	},
 };
 use frame_system::Config as SystemConfig;
@@ -298,6 +299,7 @@ pub mod pallet {
 			type Extra = ();
 			type CallbackHandle = ();
 			type WeightInfo = ();
+			type VerifyExistenceProof = NoTrie<sp_core::H256>;
 			#[cfg(feature = "runtime-benchmarks")]
 			type BenchmarkHelper = ();
 		}
@@ -321,7 +323,8 @@ pub mod pallet {
 			+ MaxEncodedLen
 			+ TypeInfo;
 
-		/// Max number of items to destroy per `destroy_accounts` and `destroy_approvals` call.
+		/// Max number of items to destroy per `destroy_accounts`, `destroy_approvals`,
+		/// `destroy_distribution` call.
 		///
 		/// Must be configured to result in a weight that makes each call fit in a block.
 		#[pallet::constant]
@@ -404,6 +407,11 @@ pub mod pallet {
 		/// used to set up auto-incrementing asset IDs for this collection.
 		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId>;
 
+		/// A type used to verify merkle proofs used for distributions.
+		#[pallet::no_default_bounds]
+		type VerifyExistenceProof: VerifyExistenceProof<Hash = Self::Hash>
+			+ ProofToHashes<Proof = DistributionProofOf<Self, I>>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
@@ -454,6 +462,33 @@ pub mod pallet {
 		T::AssetId,
 		AssetMetadata<DepositBalanceOf<T, I>, BoundedVec<u8, T::StringLimit>>,
 		ValueQuery,
+	>;
+
+	#[pallet::storage]
+	/// Merklized distribution of an asset.
+	pub(super) type CountForMerklizedDistribution<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, u32, ValueQuery>;
+
+	#[pallet::storage]
+	/// Merklized distribution of an asset.
+	pub(super) type MerklizedDistribution<T: Config<I>, I: 'static = ()> = StorageMap<
+		_,
+		Blake2_128Concat,
+		DistributionCounter,
+		DistributionInfo<T::AssetId, DistributionHashOf<T, I>>,
+		OptionQuery,
+	>;
+
+	#[pallet::storage]
+	/// Tracks the merklized distribution of an asset so that assets are only claimed once.
+	pub(super) type MerklizedDistributionTracker<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		DistributionCounter,
+		Blake2_128Concat,
+		T::AccountId,
+		(),
+		OptionQuery,
 	>;
 
 	/// The asset ID enforced for the next asset creation, if any present. Otherwise, this storage
@@ -639,6 +674,18 @@ pub mod pallet {
 		Deposited { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
 		/// Some assets were withdrawn from the account (e.g. for transaction fees).
 		Withdrawn { asset_id: T::AssetId, who: T::AccountId, amount: T::Balance },
+		/// A distribution of assets were issued.
+		DistributionIssued {
+			distribution_id: DistributionCounter,
+			asset_id: T::AssetId,
+			merkle_root: DistributionHashOf<T, I>,
+		},
+		/// A distribution has ended.
+		DistributionEnded { distribution_id: DistributionCounter },
+		/// A distribution has been partially cleaned. There are still more items to clean up.
+		DistributionPartiallyCleaned { distribution_id: DistributionCounter },
+		/// A distribution has been fully cleaned.
+		DistributionCleaned { distribution_id: DistributionCounter },
 	}
 
 	#[pallet::error]
@@ -688,6 +735,18 @@ pub mod pallet {
 		CallbackFailed,
 		/// The asset ID must be equal to the [`NextAssetId`].
 		BadAssetId,
+		/// The asset distribution was already claimed!
+		AlreadyClaimed,
+		/// The asset distribution is no longer active.
+		DistributionEnded,
+		/// The asset distribution is still active.
+		DistributionActive,
+		/// The proof provided could not be verified.
+		BadProof,
+		/// The leaf node was extracted from the proof, but it did not match the expected format.
+		CannotDecodeLeaf,
+		/// The proof will require more hashes than expected.
+		TooManyHashes,
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -1797,6 +1856,94 @@ pub mod pallet {
 				keep_alive,
 			)?;
 			Ok(())
+		}
+
+		/// Mint a distribution of assets of a particular class.
+		///
+		/// The origin must be Signed and the sender must be the Issuer of the asset `id`.
+		///
+		/// - `id`: The identifier of the asset to have some amount minted.
+		/// - `merkle_root`: The merkle root of a compact base-16 merkle trie used to authorize
+		///   minting.
+		///
+		/// Emits `DistributionIssued` event when successful.
+		///
+		/// Weight: `O(1)`
+		#[pallet::call_index(33)]
+		pub fn mint_distribution(
+			origin: OriginFor<T>,
+			id: T::AssetIdParameter,
+			merkle_root: DistributionHashOf<T, I>,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			let id: T::AssetId = id.into();
+			Self::do_mint_distribution(id, merkle_root, Some(origin))?;
+			Ok(())
+		}
+
+		/// Claim a distribution of assets of a particular class.
+		///
+		/// Any signed origin may call this function.
+		///
+		/// - `distribution_id`: The identifier of the distribution.
+		/// - `merkle_proof`: The merkle proof of the account and balance in a compact base-16
+		///   merkle trie used to authorize minting.
+		///
+		/// Emits `Issued` event when successful.
+		///
+		/// Weight: `O(P)` where `P` is the size of the merkle proof.
+		#[pallet::call_index(34)]
+		#[pallet::weight(T::WeightInfo::trie_hash(*hashes))]
+		pub fn claim_distribution(
+			origin: OriginFor<T>,
+			distribution_id: DistributionCounter,
+			merkle_proof: Vec<u8>,
+			hashes: u32,
+		) -> DispatchResult {
+			ensure_signed(origin)?;
+			Self::do_claim_distribution(distribution_id, merkle_proof, hashes)?;
+			Ok(())
+		}
+
+		/// End the distribution of assets by distribution id.
+		///
+		/// The origin must be Signed and the sender must be the Issuer of the asset `id`.
+		///
+		/// - `distribution_id`: The identifier of the distribution.
+		///
+		/// Emits `DistributionEnded` event when successful.
+		///
+		/// Weight: `O(1)`
+		#[pallet::call_index(35)]
+		pub fn end_distribution(
+			origin: OriginFor<T>,
+			distribution_id: DistributionCounter,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			Self::do_end_distribution(distribution_id, Some(origin))?;
+			Ok(())
+		}
+
+		/// Clean up the distribution tracker of an ended distribution. This function might need to
+		/// be called multiple times to remove all the items from the distribution tracker.
+		///
+		/// Any signed origin may call this function.
+		///
+		/// - `distribution_id`: The identifier of the distribution to clean. It cannot be active.
+		///
+		/// Emits `DistributionPartiallyCleaned` event when some elements have been removed, but
+		/// there are still some left. Emits `DistributionCleaned` when all of the distribution
+		/// history has been removed.
+		///
+		/// Weight: `O(N)` where `N` is the maximum number of elements that can be removed at once.
+		#[pallet::call_index(36)]
+		#[pallet::weight(T::WeightInfo::destroy_distribution(T::RemoveItemsLimit::get()))] // TODO
+		pub fn destroy_distribution(
+			origin: OriginFor<T>,
+			distribution_id: DistributionCounter,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+			Self::do_destroy_distribution(distribution_id)
 		}
 	}
 

@@ -28,7 +28,7 @@ pub use sp_runtime::proving_trie::*;
 /// Something that can verify the existence of some data in a given proof.
 pub trait VerifyExistenceProof {
 	/// The proof type.
-	type Proof;
+	type Proof: Encode + Decode;
 	/// The hash type.
 	type Hash;
 
@@ -116,6 +116,15 @@ impl<H: Hasher> ProofToHashes for SixteenPatriciaMerkleTreeProver<H> {
 	fn proof_to_hashes(proof: &Self::Proof) -> Result<u32, DispatchError> {
 		let depth = proof.proof.len();
 		Ok(depth as u32)
+	}
+}
+
+impl VerifyExistenceProof for () {
+	type Proof = ();
+	type Hash = ();
+
+	fn verify_proof(_proof: Self::Proof, _root: &Self::Hash) -> Result<Vec<u8>, DispatchError> {
+		Err(DispatchError::Unavailable)
 	}
 }
 

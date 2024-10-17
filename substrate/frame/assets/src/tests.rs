@@ -19,6 +19,7 @@
 
 use super::*;
 use crate::{mock::*, Error};
+use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::GetDispatchInfo,
@@ -1919,5 +1920,86 @@ fn asset_id_cannot_be_reused() {
 
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 7, 1, false, 1));
 		assert!(Asset::<Test>::contains_key(7));
+	});
+}
+
+#[test]
+fn merklized_distribution_works() {
+	new_test_ext().execute_with(|| {
+		use alloc::collections::BTreeMap;
+
+		// Create asset id 0 controlled by user 1, sufficient so it does not need ED.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+
+		// Offchain, user 1 creates a distribution of tokens.
+		let mut distribution = BTreeMap::<AccountId, Balance>::new();
+		for i in 0..100u64 {
+			distribution.insert(i, i.into());
+		}
+
+		// Maybe the owner gives himself a little extra ;)
+		distribution.insert(1, 1337);
+
+		let flat_distribution: Vec<Vec<u8>> =
+			distribution.into_iter().map(|item| item.encode()).collect();
+
+		let root = binary_merkle_tree::merkle_root::<<Test as frame_system::Config>::Hashing, _>(
+			flat_distribution.clone(),
+		);
+
+		let proof_for_69 = binary_merkle_tree::merkle_proof::<
+			<Test as frame_system::Config>::Hashing,
+			_,
+			_,
+		>(flat_distribution.clone(), 69);
+		let proof_for_1 = binary_merkle_tree::merkle_proof::<
+			<Test as frame_system::Config>::Hashing,
+			_,
+			_,
+		>(flat_distribution.clone(), 1);
+		let proof_for_6 = binary_merkle_tree::merkle_proof::<
+			<Test as frame_system::Config>::Hashing,
+			_,
+			_,
+		>(flat_distribution, 6);
+
+		let hashes =
+			<Test as crate::Config>::VerifyExistenceProof::proof_to_hashes(&proof_for_1).unwrap();
+
+		// Use this trie root for the distribution
+		assert_ok!(Assets::mint_distribution(RuntimeOrigin::signed(1), 0, root));
+
+		// Now users claim their distributions permissionlessly with a proof.
+		assert_ok!(Assets::claim_distribution(
+			RuntimeOrigin::signed(1),
+			0,
+			proof_for_1.encode(),
+			hashes
+		));
+		assert_eq!(Assets::balance(0, 1), 1337);
+
+		// Other users can claim their tokens.
+		assert_ok!(Assets::claim_distribution(
+			RuntimeOrigin::signed(55),
+			0,
+			proof_for_69.encode(),
+			hashes
+		));
+		assert_eq!(Assets::balance(0, 69), 69);
+
+		// Owner (or anyone) can also distribute on behalf of the other users.
+		assert_ok!(Assets::claim_distribution(
+			RuntimeOrigin::signed(1),
+			0,
+			proof_for_6.encode(),
+			hashes
+		));
+		assert_eq!(Assets::balance(0, 6), 6);
+
+		// You cannot double claim.
+		assert_noop!(
+			Assets::claim_distribution(RuntimeOrigin::signed(6), 0, proof_for_6.encode(), hashes),
+			Error::<Test>::AlreadyClaimed
+		);
 	});
 }
