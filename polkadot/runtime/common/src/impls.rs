@@ -145,10 +145,7 @@ pub enum VersionedLocatableAsset {
 /// A conversion from latest xcm to `VersionedLocatableAsset`.
 impl From<(xcm::latest::Location, xcm::latest::AssetId)> for VersionedLocatableAsset {
 	fn from(value: (xcm::latest::Location, xcm::latest::AssetId)) -> Self {
-		VersionedLocatableAsset::V5 {
-			location: value.0,
-			asset_id: value.1,
-		}
+		VersionedLocatableAsset::V5 { location: value.0, asset_id: value.1 }
 	}
 }
 
@@ -253,12 +250,10 @@ pub mod benchmarks {
 				Location::new(0, [Parachain(seed)]),
 				AssetId(Location::new(
 					0,
-					[
-						PalletInstance(seed.try_into().unwrap()),
-						GeneralIndex(seed.into()),
-					],
-				))
-			).into()
+					[PalletInstance(seed.try_into().unwrap()), GeneralIndex(seed.into())],
+				)),
+			)
+				.into()
 		}
 	}
 
@@ -274,24 +269,16 @@ pub mod benchmarks {
 	{
 		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
 			(
-				Location::new(
-					Parents::get(),
-					[Junction::Parachain(ParaId::get())],
-				),
+				Location::new(Parents::get(), [Junction::Parachain(ParaId::get())]),
 				AssetId(Location::new(
 					0,
-					[
-						PalletInstance(seed.try_into().unwrap()),
-						GeneralIndex(seed.into()),
-					],
+					[PalletInstance(seed.try_into().unwrap()), GeneralIndex(seed.into())],
 				)),
-			).into()
+			)
+				.into()
 		}
 		fn create_beneficiary(seed: [u8; 32]) -> VersionedLocation {
-			VersionedLocation::from(Location::new(
-				0,
-				[AccountId32 { network: None, id: seed }],
-			))
+			VersionedLocation::from(Location::new(0, [AccountId32 { network: None, id: seed }]))
 		}
 	}
 }
