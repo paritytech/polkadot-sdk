@@ -319,7 +319,8 @@ pub use v1::*;
 /// 1. Change the import from `frame_benchmarking::v1::` to `frame_benchmarking::v2::*`, or
 ///    `frame::benchmarking::prelude::*` under the umbrella crate;
 /// 2. Move the code inside the v1 `benchmarks! { ... }` block to the v2 benchmarks module `mod
-///    benchmarks { ... }` under the benchmarks macro (`#[benchmarks]` or `#[instance_benchmarks]`);
+///    benchmarks { ... }` under the benchmarks macro (`#[benchmarks]` for a regular module, or
+///    `#[instance_benchmarks]` to set up the module in instance benchmarking mode);
 /// 3. Turn each v1 benchmark into a function inside the v2 benchmarks module with the same name,
 ///    having either a blank return type or a return type compatible with `Result<(),
 ///    BenchmarkError>`. For instance, `foo { ... }` can become `fn foo() -> Result<(),
