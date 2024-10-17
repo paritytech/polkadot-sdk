@@ -16,7 +16,6 @@ assert_matches = { workspace = true }
 
 # Substrate
 sp-runtime = { workspace = true }
-sp-keyring = { workspace = true }
 sp-core = { workspace = true }
 frame-metadata-hash-extension = { workspace = true, default-features = true }
 frame-support = { workspace = true }
