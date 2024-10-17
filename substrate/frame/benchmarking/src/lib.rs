@@ -334,8 +334,7 @@ pub use v1::*;
 ///       code;
 ///    4. Move the v1 verify code block to the body of the v2 function, after the #[extrinsic_call]
 ///       or #[block] attribute.
-///    5. If the function is supposed to return a `Result<(), BenchmarkError>`, end with an `Ok(())`
-///       expression.
+///    5. If the function returns a `Result<(), BenchmarkError>`, end with `Ok(())`.
 ///
 /// As for tests, the code is the same as v1 (see [Benchmark Tests](#benchmark-tests)).
 ///
