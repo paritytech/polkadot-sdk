@@ -58,7 +58,6 @@ impl Config for Test {
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
 	type IdleMaxServiceWeight = ServiceWeight;
-	type QueueNextSelector = MockedNextQueueSelector;
 }
 
 /// Mocked `WeightInfo` impl with allows to set the weight per call.
@@ -265,6 +264,7 @@ impl ProcessMessage for CountingMessageProcessor {
 					return Err(ProcessMessageError::Corrupt)
 				}
 			}
+
 			NumMessagesProcessed::set(NumMessagesProcessed::get() + 1);
 			Ok(true)
 		} else {
@@ -319,9 +319,11 @@ pub fn build_and_execute<T: Config>(test: impl FnOnce() -> ())
 where
 	BlockNumberFor<T>: From<u32>,
 {
-	new_test_ext::<T>().execute_with(|| {
+	let mut ext = new_test_ext::<T>();
+	ext.execute_with(|| {
 		test();
-		MessageQueue::do_try_state().expect("All invariants must hold after a test");
+		pallet_message_queue::Pallet::<T>::do_try_state()
+			.expect("All invariants must hold after a test");
 	});
 }
 

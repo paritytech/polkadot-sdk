@@ -462,6 +462,17 @@ impl<Id> OnQueueChanged<Id> for () {
 	fn on_queue_changed(_: Id, _: QueueFootprint) {}
 }
 
+/// Allows to force the processing head to a specific queue.
+pub trait ForceSetHead<O> {
+	/// Set the `ServiceHead` to `origin`.
+	///
+	/// This function:
+	/// - `Err`: Queue did not exist, not enough weight or other error.
+	/// - `Ok(true)`: The service head was updated.
+	/// - `Ok(false)`: The service head was not updated since the queue is empty.
+	fn force_set_head(weight: &mut WeightMeter, origin: &O) -> Result<bool, ()>;
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -543,48 +554,6 @@ pub mod pallet {
 		/// If `None`, it will not call `ServiceQueues::service_queues` in `on_idle`.
 		#[pallet::constant]
 		type IdleMaxServiceWeight: Get<Option<Weight>>;
-
-		// The relative amount of weight to allocate to a specific weight.
-		//
-		// This is relative to the weight still left in the block and not in absolute terms. It does
-		// not affect the round-robin scheduling of the queues. If you want to run this queue
-		// exclusively, then you have to implement a custom message processor that returns
-		// `QueuePaused` for all other queues. This mechanism is still useful for cases where you
-		// want to somewhat prioritize a queue without starving all others. In that case you could
-		// return `1.0` for your prioritized queue and `0.25` for all others. This would mean that
-		// when your prioritized queue is ready, it will use all the remaining weight. This is also
-		// the default behaviour. Now for all other queues they will only get 25% of what is left
-		// in each block, to ensure that your queue will be served sooner (since it is still round
-		// robin). type QueuePriority: Convert<MessageOriginOf<T>, Perbill>;
-
-		/// FAIL-CI
-		type QueueNextSelector: NextQueueSelector<MessageOriginOf<Self>>;
-	}
-
-	/// FAIL-CI
-	pub trait NextQueueSelector<Origin> {
-		/// FAIL-CI
-		fn next_queue(weight: &mut WeightMeter) -> NextQueueSelection<Origin>;
-	}
-
-	impl<Origin> NextQueueSelector<Origin> for () {
-		fn next_queue(_: &mut WeightMeter) -> NextQueueSelection<Origin> {
-			NextQueueSelection::RoundRobin
-		}
-	}
-
-	/// FAIL-CI
-	pub enum NextQueueSelection<Origin> {
-		/// FAIL-CI
-		RoundRobin,
-		/// FAIL-CI
-		Queue(Origin),
-	}
-
-	impl<T> Default for NextQueueSelection<T> {
-		fn default() -> Self {
-			NextQueueSelection::RoundRobin
-		}
 	}
 
 	#[pallet::event]
@@ -668,16 +637,16 @@ pub mod pallet {
 
 	/// The index of the first and last (non-empty) pages.
 	#[pallet::storage]
-	pub(super) type BookStateFor<T: Config> =
+	pub type BookStateFor<T: Config> =
 		StorageMap<_, Twox64Concat, MessageOriginOf<T>, BookState<MessageOriginOf<T>>, ValueQuery>;
 
 	/// The origin at which we should begin servicing.
 	#[pallet::storage]
-	pub(super) type ServiceHead<T: Config> = StorageValue<_, MessageOriginOf<T>, OptionQuery>;
+	pub type ServiceHead<T: Config> = StorageValue<_, MessageOriginOf<T>, OptionQuery>;
 
 	/// The map of page indices to pages.
 	#[pallet::storage]
-	pub(super) type Pages<T: Config> = StorageDoubleMap<
+	pub type Pages<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		MessageOriginOf<T>,
@@ -888,10 +857,26 @@ impl<T: Config> Pallet<T> {
 				ServiceHead::<T>::put(&head_neighbours.next);
 				Some(head)
 			} else {
+				defensive!("The head must point to a queue in the ready ring");
 				None
 			}
 		} else {
 			None
+		}
+	}
+
+	fn set_service_head(weight: &mut WeightMeter, queue: &MessageOriginOf<T>) -> Result<bool, ()> {
+		// FAIL-CI
+		if weight.try_consume(T::WeightInfo::bump_service_head()).is_err() {
+			return Err(())
+		}
+
+		let queue_state = BookStateFor::<T>::get(queue);
+		if queue_state.ready_neighbours.is_some() {
+			ServiceHead::<T>::put(queue);
+			Ok(true)
+		} else {
+			Ok(false)
 		}
 	}
 
@@ -1342,10 +1327,17 @@ impl<T: Config> Pallet<T> {
 			"Memory Corruption in BookStateFor"
 		);
 		// Checking memory corruption for Pages
-		ensure!(
+		/*ensure!(
 			Pages::<T>::iter_keys().count() == Pages::<T>::iter_values().count(),
 			"Memory Corruption in Pages"
-		);
+		);*/
+		if Pages::<T>::iter_keys().count() != Pages::<T>::iter_values().count() {
+			panic!(
+				"Memory Corruption in Pages: {} vs {}",
+				Pages::<T>::iter_keys().count(),
+				Pages::<T>::iter_values().count()
+			);
+		}
 
 		// Basic checks for each book
 		for book in BookStateFor::<T>::iter_values() {
@@ -1555,6 +1547,12 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+impl<T: Config> ForceSetHead<MessageOriginOf<T>> for Pallet<T> {
+	fn force_set_head(weight: &mut WeightMeter, origin: &MessageOriginOf<T>) -> Result<bool, ()> {
+		Pallet::<T>::set_service_head(weight, origin)
+	}
+}
+
 /// Run a closure that errors on re-entrance. Meant to be used by anything that services queues.
 pub(crate) fn with_service_mutex<F: FnOnce() -> R, R>(f: F) -> Result<R, ()> {
 	// Holds the singleton token instance.
@@ -1631,12 +1629,9 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 		});
 
 		match with_service_mutex(|| {
-			let mut next = match T::QueueNextSelector::next_queue(&mut weight) {
-				NextQueueSelection::RoundRobin => match Self::bump_service_head(&mut weight) {
-					Some(h) => h,
-					None => return weight.consumed(),
-				},
-				NextQueueSelection::Queue(this) => this,
+			let mut next = match Self::bump_service_head(&mut weight) {
+				Some(h) => h,
+				None => return weight.consumed(),
 			};
 
 			// The last queue that did not make any progress.
