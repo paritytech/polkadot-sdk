@@ -111,10 +111,7 @@ fn spend_roc_on_asset_hub() {
 		let native_asset = Location::parent();
 
 		let treasury_spend_call = RuntimeCall::Treasury(pallet_treasury::Call::<Runtime>::spend {
-			asset_kind: bx!(VersionedLocatableAsset::V5 {
-				location: asset_hub_location.clone(),
-				asset_id: native_asset.into(),
-			}),
+			asset_kind: bx!(VersionedLocatableAsset::from((asset_hub_location.clone(), native_asset.into()))),
 			amount: treasury_spend_balance,
 			beneficiary: bx!(VersionedLocation::from(alice_location)),
 			valid_from: None,
@@ -172,15 +169,10 @@ fn create_and_claim_treasury_spend_in_usdt() {
 	let treasury_account =
 		ahr_xcm_config::LocationToAccountId::convert_location(&treasury_location).unwrap();
 	let asset_hub_location =
-		v3::Location::new(0, v3::Junction::Parachain(AssetHubRococo::para_id().into()));
+		Location::new(0, Parachain(AssetHubRococo::para_id().into()));
 	let root = <Rococo as Chain>::RuntimeOrigin::root();
 	// asset kind to be spent from the treasury.
-	let asset_kind = VersionedLocatableAsset::V3 {
-		location: asset_hub_location,
-		asset_id: v3::AssetId::Concrete(
-			(v3::Junction::PalletInstance(50), v3::Junction::GeneralIndex(USDT_ID.into())).into(),
-		),
-	};
+	let asset_kind: VersionedLocatableAsset = (asset_hub_location, AssetId((PalletInstance(50), GeneralIndex(USDT_ID.into())).into())).into();
 	// treasury spend beneficiary.
 	let alice: AccountId = Rococo::account_id_of(ALICE);
 	let bob: AccountId = Rococo::account_id_of(BOB);
