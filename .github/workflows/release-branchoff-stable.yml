@@ -13,14 +13,13 @@ on:
         required: true
 
 jobs:
-  # TODO: Activate this job when the pipeline is moved to the fork in the `paritytech-release` org
-  # check-workflow-can-run:
-  #   uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
+  check-workflow-can-run:
+    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
 
 
   prepare-tooling:
-    # needs: [check-workflow-can-run]
-    # if: needs.check-workflow-can-run.outputs.checks_passed == 'true'
+    needs: [check-workflow-can-run]
+    if: needs.check-workflow-can-run.outputs.checks_passed == 'true'
     runs-on: ubuntu-latest
     outputs:
       node_version: ${{ steps.validate_inputs.outputs.node_version }}
