@@ -28,7 +28,6 @@ mod imports {
 	// Polkadot
 	pub use xcm::{
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v3,
 	};
 	pub use xcm_executor::traits::TransferType;
 
