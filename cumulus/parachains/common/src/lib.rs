@@ -17,7 +17,6 @@
 
 extern crate alloc;
 
-pub mod genesis_config_helpers;
 pub mod impls;
 pub mod message_queue;
 pub mod xcm_config;

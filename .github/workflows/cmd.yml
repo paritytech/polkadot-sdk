@@ -152,15 +152,15 @@ jobs:
         id: get-pr-comment
         with:
           text: ${{ github.event.comment.body }}
-          regex: '^(\/cmd )([-\/\s\w.=:]+)$' # see explanation in docs/contributor/commands-readme.md#examples
+          regex: "^(\\/cmd )([-\\/\\s\\w.=:]+)$" # see explanation in docs/contributor/commands-readme.md#examples
 
       - name: Save output of help
         id: help
         env:
           CMD: ${{ steps.get-pr-comment.outputs.group2 }} # to avoid "" around the command
         run: |
-          echo 'help<<EOF' >> $GITHUB_OUTPUT
           python3 -m pip install -r .github/scripts/generate-prdoc.requirements.txt
+          echo 'help<<EOF' >> $GITHUB_OUTPUT
           python3 .github/scripts/cmd/cmd.py $CMD >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
 
@@ -283,6 +283,7 @@ jobs:
     env:
       JOB_NAME: "cmd"
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    timeout-minutes: 4320 # 72 hours -> 3 days; as it could take a long time to run all the runtimes/pallets
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
@@ -291,7 +292,18 @@ jobs:
         id: get-pr-comment
         with:
           text: ${{ github.event.comment.body }}
-          regex: '^(\/cmd )([-\/\s\w.=:]+)$' # see explanation in docs/contributor/commands-readme.md#examples
+          regex: "^(\\/cmd )([-\\/\\s\\w.=:]+)$" # see explanation in docs/contributor/commands-readme.md#examples
+
+      # In order to run prdoc without specifying the PR number, we need to add the PR number as an argument automatically
+      - name: Prepare PR Number argument
+        id: pr-arg
+        run: |
+          CMD="${{ steps.get-pr-comment.outputs.group2 }}"
+          if echo "$CMD" | grep -q "prdoc" && ! echo "$CMD" | grep -qE "\-\-pr[[:space:]=][0-9]+"; then
+            echo "arg=--pr ${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+          else
+            echo "arg=" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build workflow link
         if: ${{ !contains(github.event.comment.body, '--quiet') }}
@@ -314,7 +326,8 @@ jobs:
           echo "run_url=$runLink" >> $GITHUB_OUTPUT
 
       - name: Comment PR (Start)
-        if: ${{ !contains(github.event.comment.body, '--quiet') }}
+        # No need to comment on prdoc start or if --quiet
+        if: ${{ !contains(github.event.comment.body, '--quiet') && !contains(github.event.comment.body, 'prdoc') }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -344,16 +357,34 @@ jobs:
         id: cmd
         env:
           CMD: ${{ steps.get-pr-comment.outputs.group2 }} # to avoid "" around the command
+          PR_ARG: ${{ steps.pr-arg.outputs.arg }}
         run: |
-          echo "Running command: '$CMD' on '${{ needs.set-image.outputs.RUNNER }}' runner, container: '${{ needs.set-image.outputs.IMAGE }}'"
+          echo "Running command: '$CMD $PR_ARG' on '${{ needs.set-image.outputs.RUNNER }}' runner, container: '${{ needs.set-image.outputs.IMAGE }}'"
           echo "RUST_NIGHTLY_VERSION: $RUST_NIGHTLY_VERSION"
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
           git remote -v
           python3 -m pip install -r .github/scripts/generate-prdoc.requirements.txt
-          python3 .github/scripts/cmd/cmd.py $CMD
+          python3 .github/scripts/cmd/cmd.py $CMD $PR_ARG
           git status
           git diff
+
+          if [ -f /tmp/cmd/command_output.log ]; then
+            CMD_OUTPUT=$(cat /tmp/cmd/command_output.log)
+            # export to summary to display in the PR
+            echo "$CMD_OUTPUT" >> $GITHUB_STEP_SUMMARY
+            # should be multiline, otherwise it captures the first line only
+            echo 'cmd_output<<EOF' >> $GITHUB_OUTPUT
+            echo "$CMD_OUTPUT" >> $GITHUB_OUTPUT
+            echo 'EOF' >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload command output
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: command-output
+          path: /tmp/cmd/command_output.log
 
       - name: Commit changes
         run: |
@@ -395,39 +426,55 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Comment PR (End)
-        if: ${{ !failure() && !contains(github.event.comment.body, '--quiet') }}
+        # No need to comment on prdoc success or --quiet
+        if: ${{ !failure() && !contains(github.event.comment.body, '--quiet') && !contains(github.event.comment.body, 'prdoc') }}
         uses: actions/github-script@v7
         env:
           SUBWEIGHT: "${{ steps.subweight.outputs.result }}"
+          CMD_OUTPUT: "${{ steps.cmd.outputs.cmd_output }}"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             let runUrl = ${{ steps.build-link.outputs.run_url }}
             let subweight = process.env.SUBWEIGHT;
+            let cmdOutput = process.env.CMD_OUTPUT;
+            console.log(cmdOutput);
 
-            let subweightCollapsed = subweight 
+            let subweightCollapsed = subweight.trim() !== '' 
               ? `<details>\n\n<summary>Subweight results:</summary>\n\n${subweight}\n\n</details>` 
+              : '';
+
+            let cmdOutputCollapsed = cmdOutput.trim() !== ''
+              ? `<details>\n\n<summary>Command output:</summary>\n\n${cmdOutput}\n\n</details>` 
               : '';
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Command "${{ steps.get-pr-comment.outputs.group2 }}" has finished ✅ [See logs here](${runUrl})${subweightCollapsed}`
+              body: `Command "${{ steps.get-pr-comment.outputs.group2 }}" has finished ✅ [See logs here](${runUrl})${subweightCollapsed}${cmdOutputCollapsed}`
             })
 
       - name: Comment PR (Failure)
         if: ${{ failure() && !contains(github.event.comment.body, '--quiet') }}
         uses: actions/github-script@v7
+        env:
+          CMD_OUTPUT: "${{ steps.cmd.outputs.cmd_output }}"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             let jobUrl = ${{ steps.build-link.outputs.job_url }}
+            let cmdOutput = process.env.CMD_OUTPUT;
+
+            let cmdOutputCollapsed = cmdOutput.trim() !== ''
+              ? `<details>\n\n<summary>Command output:</summary>\n\n${cmdOutput}\n\n</details>` 
+              : '';
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Command "${{ steps.get-pr-comment.outputs.group2 }}" has failed ❌! [See logs here](${jobUrl})`
+              body: `Command "${{ steps.get-pr-comment.outputs.group2 }}" has failed ❌! [See logs here](${jobUrl})${cmdOutputCollapsed}`
             })
 
       - name: Add 😕 reaction on failure

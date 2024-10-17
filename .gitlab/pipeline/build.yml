@@ -100,49 +100,6 @@ build-templates-node:
     - mv ./target/release/minimal-template-node ./artifacts/.
     - mv ./target/release/solochain-template-node ./artifacts/.
 
-build-rustdoc:
-  stage: build
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-  variables:
-    SKIP_WASM_BUILD: 1
-    RUSTDOCFLAGS: "-Dwarnings --default-theme=ayu --html-in-header ./docs/sdk/assets/header.html --extend-css ./docs/sdk/assets/theme.css --html-after-content ./docs/sdk/assets/after-content.html"
-  artifacts:
-    name: "${CI_JOB_NAME}_${CI_COMMIT_REF_NAME}-doc"
-    when: on_success
-    expire_in: 1 days
-    paths:
-      - ./crate-docs/
-  script:
-    - time cargo doc --all-features --workspace --no-deps
-    - rm -f ./target/doc/.lock
-    - mv ./target/doc ./crate-docs
-    # Inject Simple Analytics (https://www.simpleanalytics.com/) privacy preserving tracker into
-    # all .html files
-    - >
-      inject_simple_analytics() {
-        local path="$1";
-        local script_content="<script async defer src=\"https://apisa.parity.io/latest.js\"></script><noscript><img src=\"https://apisa.parity.io/latest.js\" alt=\"\" referrerpolicy=\"no-referrer-when-downgrade\" /></noscript>";
-
-        # Function that inject script into the head of an html file using sed.
-        process_file() {
-            local file="$1";
-            echo "Adding Simple Analytics script to $file";
-            sed -i "s|</head>|$script_content</head>|" "$file";
-        };
-        export -f process_file;
-        # xargs runs process_file in separate shells without access to outer variables.
-        # make script_content available inside process_file, export it as an env var here.
-        export script_content;
-
-        # Modify .html files in parallel using xargs, otherwise it can take a long time.
-        find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'process_file "$@"' _ {};
-      };
-      inject_simple_analytics "./crate-docs";
-    - echo "<meta http-equiv=refresh content=0;url=polkadot_sdk_docs/index.html>" > ./crate-docs/index.html
-
 build-implementers-guide:
   stage: build
   extends:
@@ -159,19 +116,6 @@ build-implementers-guide:
     - mdbook build ./polkadot/roadmap/implementers-guide
     - mkdir -p artifacts
     - mv polkadot/roadmap/implementers-guide/book artifacts/
-
-build-short-benchmark:
-  stage: build
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .collect-artifacts
-  script:
-    - cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build --bin polkadot --workspace
-    - mkdir -p artifacts
-    - target/release/polkadot --version
-    - cp ./target/release/polkadot ./artifacts/
 
 build-polkadot-zombienet-tests:
   stage: build
@@ -190,7 +134,6 @@ build-polkadot-zombienet-tests:
     - cargo nextest --manifest-path polkadot/zombienet-sdk-tests/Cargo.toml archive --features zombie-metadata --archive-file polkadot-zombienet-tests.tar.zst
     - mkdir -p artifacts
     - cp polkadot-zombienet-tests.tar.zst ./artifacts
-
 
 # build jobs from cumulus
 
@@ -234,92 +177,6 @@ build-test-parachain:
     - mkdir -p ./artifacts/zombienet
     - mv ./target/release/wbuild/cumulus-test-runtime/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm ./artifacts/zombienet/.
 
-# build runtime only if files in $RUNTIME_PATH/$RUNTIME_NAME were changed
-.build-runtime-template: &build-runtime-template
-  stage: build
-  extends:
-    - .docker-env
-    - .test-refs-no-trigger-prs-only
-    - .run-immediately
-  variables:
-    RUNTIME_PATH: "parachains/runtimes/assets"
-  script:
-    - cd ${RUNTIME_PATH}
-    - for directory in $(echo */); do
-      echo "_____Running cargo check for ${directory} ______";
-      cd ${directory};
-      pwd;
-      SKIP_WASM_BUILD=1 cargo check --locked;
-      cd ..;
-      done
-
-# DAG: build-runtime-assets -> build-runtime-collectives -> build-runtime-bridge-hubs
-# DAG: build-runtime-assets -> build-runtime-collectives -> build-runtime-contracts
-# DAG: build-runtime-assets -> build-runtime-coretime
-# DAG: build-runtime-assets -> build-runtime-testing
-build-runtime-assets:
-  <<: *build-runtime-template
-  variables:
-    RUNTIME_PATH: "cumulus/parachains/runtimes/assets"
-
-build-runtime-collectives:
-  <<: *build-runtime-template
-  variables:
-    RUNTIME_PATH: "cumulus/parachains/runtimes/collectives"
-  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
-  needs:
-    - job: build-runtime-assets
-      artifacts: false
-
-build-runtime-coretime:
-  <<: *build-runtime-template
-  variables:
-    RUNTIME_PATH: "cumulus/parachains/runtimes/coretime"
-  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
-  needs:
-    - job: build-runtime-assets
-      artifacts: false
-
-build-runtime-bridge-hubs:
-  <<: *build-runtime-template
-  variables:
-    RUNTIME_PATH: "cumulus/parachains/runtimes/bridge-hubs"
-  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
-  needs:
-    - job: build-runtime-collectives
-      artifacts: false
-
-build-runtime-contracts:
-  <<: *build-runtime-template
-  variables:
-    RUNTIME_PATH: "cumulus/parachains/runtimes/contracts"
-  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
-  needs:
-    - job: build-runtime-collectives
-      artifacts: false
-
-build-runtime-testing:
-  <<: *build-runtime-template
-  variables:
-    RUNTIME_PATH: "cumulus/parachains/runtimes/testing"
-  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
-  needs:
-    - job: build-runtime-assets
-      artifacts: false
-
-build-short-benchmark-cumulus:
-  stage: build
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .collect-artifacts
-  script:
-    - cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build -p polkadot-parachain-bin --bin polkadot-parachain --workspace
-    - mkdir -p artifacts
-    - target/release/polkadot-parachain --version
-    - cp ./target/release/polkadot-parachain ./artifacts/
-
 # substrate
 
 build-linux-substrate:
@@ -340,7 +197,7 @@ build-linux-substrate:
     # tldr: we need to checkout the branch HEAD explicitly because of our dynamic versioning approach while building the substrate binary
     # see https://github.com/paritytech/ci_cd/issues/682#issuecomment-1340953589
     - git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA"
-    - !reference [ .forklift-cache, before_script ]
+    - !reference [.forklift-cache, before_script]
   script:
     - time WASM_BUILD_NO_COLOR=1 cargo build --locked --release -p staging-node-cli
     - mv $CARGO_TARGET_DIR/release/substrate-node ./artifacts/substrate/substrate
