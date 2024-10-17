@@ -28,8 +28,7 @@ use crate::chain_head::{
 };
 use futures::{
 	channel::oneshot,
-	stream::{self, Stream, StreamExt},
-	SinkExt,
+	stream::{self, Stream, StreamExt, TryStreamExt},
 };
 use log::debug;
 use sc_client_api::{
@@ -713,60 +712,38 @@ where
 		EventStream: Stream<Item = NotificationType<Block>> + Unpin + Send,
 	{
 		// create a channel to propagate error messages
-		let (tx_send, mut tx_receive) = futures::channel::mpsc::channel(1);
-		let mut handle_events = move |event| {
-			match event {
-				NotificationType::InitialEvents(events) => Ok(events),
-				NotificationType::NewBlock(notification) =>
-					self.handle_import_blocks(notification, &startup_point),
-				NotificationType::Finalized(notification) =>
-					self.handle_finalized_blocks(notification, &startup_point),
-				NotificationType::MethodResponse(notification) => Ok(vec![notification]),
-			}
-			.inspect_err(|e| {
-				debug!(
-					target: LOG_TARGET,
-					"[follow][id={:?}] Failed to handle stream notification {:?}",
-					&self.sub_id,
-					e
-				);
-			})
+		let mut handle_events = |event| match event {
+			NotificationType::InitialEvents(events) => Ok(events),
+			NotificationType::NewBlock(notification) =>
+				self.handle_import_blocks(notification, &startup_point),
+			NotificationType::Finalized(notification) =>
+				self.handle_finalized_blocks(notification, &startup_point),
+			NotificationType::MethodResponse(notification) => Ok(vec![notification]),
 		};
 
 		let stream = stream
-			.then(|event| {
-				let tx_send = tx_send.clone();
-				let event = handle_events(event);
-
-				async move {
-					let mut tx_send = tx_send.clone();
-
-					let result = match event {
-						Ok(events) => stream::iter(events),
-						Err(err) => {
-							tx_send
-								.send(err)
-								.await
-								.expect("mpsc::{Sender, Receiver} are not dropped; qed");
-							stream::iter(vec![])
-						},
-					};
-					result
-				}
-			})
-			.flatten();
+			.map(|event| handle_events(event))
+			.map_ok(|items| stream::iter(items).map(Ok))
+			.try_flatten();
 
 		tokio::pin!(stream);
 
-		let sink_future =
-			sink.pipe_from_stream(stream, sc_rpc::utils::BoundedVecDeque::new(MAX_PINNED_BLOCKS));
+		let sink_future = sink
+			.pipe_from_try_stream(stream, sc_rpc::utils::BoundedVecDeque::new(MAX_PINNED_BLOCKS));
 
 		let result = tokio::select! {
-			err = tx_receive.next() => {
-				Err(err.expect("mpsc::{Sender, Receiver} are not dropped; qed"))
-			}
 			_ = rx_stop => Ok(()),
-			_ = sink_future => Ok(()),
+			result = sink_future => {
+				if let Err(ref e) = result {
+					debug!(
+						target: LOG_TARGET,
+						"[follow][id={:?}] Failed to handle stream notification {:?}",
+						&self.sub_id,
+						e
+					);
+				};
+				result
+			}
 		};
 		let _ = sink.send(&FollowEvent::<String>::Stop).await;
 		result

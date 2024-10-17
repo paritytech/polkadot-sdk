@@ -21,7 +21,7 @@
 use crate::SubscriptionTaskExecutor;
 use futures::{
 	future::{self, Either, Fuse, FusedFuture},
-	Future, FutureExt, Stream, StreamExt,
+	Future, FutureExt, Stream, StreamExt, TryStream, TryStreamExt,
 };
 use jsonrpsee::{
 	types::SubscriptionId, DisconnectError, PendingSubscriptionSink, SubscriptionMessage,
@@ -234,6 +234,77 @@ impl Subscription {
 				},
 				// Subscription was closed.
 				Either::Left(_) => return,
+			}
+		}
+	}
+
+	/// Feed items to the subscription from the underlying stream
+	/// with specified buffer strategy.
+	pub async fn pipe_from_try_stream<S, T, B, E>(&self, mut stream: S, mut buf: B) -> Result<(), E>
+	where
+		S: TryStream<Ok = T, Error = E> + Unpin,
+		T: Serialize + Send,
+		B: Buffer<Item = T>,
+	{
+		let mut next_fut = Box::pin(Fuse::terminated());
+		let mut next_item = stream.try_next();
+		let closed = self.0.closed();
+
+		futures::pin_mut!(closed);
+
+		loop {
+			if next_fut.is_terminated() {
+				if let Some(v) = buf.pop() {
+					let val = self.to_sub_message(&v);
+					next_fut.set(async { self.0.send(val).await }.fuse());
+				}
+			}
+
+			match future::select(closed, future::select(next_fut, next_item)).await {
+				// Send operation finished.
+				Either::Right((Either::Left((_, n)), c)) => {
+					next_item = n;
+					closed = c;
+					next_fut = Box::pin(Fuse::terminated());
+				},
+				// New item from the stream
+				Either::Right((Either::Right((Ok(Some(v)), n)), c)) => {
+					if buf.push(v).is_err() {
+						log::debug!(
+							target: "rpc",
+							"Subscription buffer full for subscription={} conn_id={}; dropping subscription",
+							self.0.method_name(),
+							self.0.connection_id().0
+						);
+						return Ok(());
+					}
+
+					next_fut = n;
+					closed = c;
+					next_item = stream.try_next();
+				},
+				// Error occured while processing the stream.
+				//
+				// terminate the stream.
+				Either::Right((Either::Right((Err(e), _)), _)) => return Err(e),
+				// Stream "finished".
+				//
+				// Process remaining items and terminate.
+				Either::Right((Either::Right((Ok(None), pending_fut)), _)) => {
+					if !pending_fut.is_terminated() && pending_fut.await.is_err() {
+						return Ok(());
+					}
+
+					while let Some(v) = buf.pop() {
+						if self.send(&v).await.is_err() {
+							return Ok(());
+						}
+					}
+
+					return Ok(());
+				},
+				// Subscription was closed.
+				Either::Left(_) => return Ok(()),
 			}
 		}
 	}
