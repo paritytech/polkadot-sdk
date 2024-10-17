@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix for issue #4762
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      When the status of the queue is on_initialize, throw a defensive message and return weight of 0, 
+      however when status is on_idle, do not throw a defensive message, only return weight of 0
+
+crates:
+  - name: pallet-message-queue
+    bump: patch
