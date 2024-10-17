@@ -132,6 +132,10 @@ pub struct OverheadParams {
 	/// a para-id and patch the state accordingly.
 	#[arg(long)]
 	pub para_id: Option<u32>,
+
+	/// Runtime name to insert into the weight file template.
+	#[arg(long, default_value_t = Default::default())]
+	pub runtime_name: String,
 }
 
 /// Type of a benchmark.
@@ -309,7 +313,7 @@ impl OverheadCmd {
 		};
 
 		self.run(
-			"Overhead Benchmark".to_string(),
+			self.params.runtime_name.clone(),
 			client,
 			inherent_data,
 			Default::default(),
