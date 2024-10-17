@@ -750,6 +750,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
+	#[builder(pays_fees)]
 	BuyExecution { fees: Asset, weight_limit: WeightLimit },
 
 	/// Refund any surplus weight previously bought with `BuyExecution`.
@@ -1410,6 +1411,9 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			UnpaidExecution { weight_limit, check_origin } => Self::UnpaidExecution {
 				weight_limit,
 				check_origin: check_origin.map(|origin| origin.try_into()).transpose()?,
+			},
+			PayFees { .. } => {
+				return Err(());
 			},
 		})
 	}

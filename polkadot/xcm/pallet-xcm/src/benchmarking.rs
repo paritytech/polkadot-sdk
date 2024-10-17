@@ -382,8 +382,8 @@ benchmarks! {
 			asset.clone().into(),
 			&XcmContext { origin: None, message_id: [0u8; 32], topic: None }
 		);
-		let versioned_assets = VersionedAssets::V5(asset.into());
-	}: _<RuntimeOrigin<T>>(claim_origin.into(), Box::new(versioned_assets), Box::new(VersionedLocation::V5(claim_location)))
+		let versioned_assets = VersionedAssets::from(Assets::from(asset));
+	}: _<RuntimeOrigin<T>>(claim_origin.into(), Box::new(versioned_assets), Box::new(VersionedLocation::from(claim_location)))
 
 	impl_benchmark_test_suite!(
 		Pallet,
