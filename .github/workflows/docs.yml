@@ -14,22 +14,11 @@ concurrency:
 
 jobs:
   preflight:
-    if: contains(github.event.label.name, 'GHA-migration')
     uses: ./.github/workflows/reusable-preflight.yml
 
-  test-rustdoc:
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust }}
-    needs: [preflight]
-    container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
-    steps:
-      - uses: actions/checkout@v4
-      - run: forklift cargo doc --workspace --all-features --no-deps
-        env:
-          SKIP_WASM_BUILD: 1
   test-doc:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
     needs: [preflight]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -41,8 +30,9 @@ jobs:
 
   build-rustdoc:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 40
     if: ${{ needs.preflight.outputs.changes_rust }}
-    needs: [preflight, test-rustdoc]
+    needs: [preflight]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
@@ -88,6 +78,23 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+  confirm-required-jobs-passed:
+    runs-on: ubuntu-latest
+    name: All docs jobs passed
+    # If any new job gets added, be sure to add it to this array
+    needs: [test-doc, build-rustdoc, build-implementers-guide]
+    if: always() && !cancelled()
+    steps:
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi
+
   publish-rustdoc:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
@@ -121,13 +128,30 @@ jobs:
       - run: mkdir -p book
       - name: Move book files
         run: mv /tmp/book/html/* book/
-      - name: Push to GH-Pages branch
-        uses: github-actions-x/commit@v2.9
-        with:
-          github-token: ${{ steps.app-token.outputs.token }}
-          push-branch: "gh-pages"
-          commit-message: "___Updated docs for ${{ github.head_ref || github.ref_name }}___"
-          force-add: "true"
-          files: ${{ github.head_ref || github.ref_name }}/ book/
-          name: devops-parity
-          email: devops-team@parity.io
+      - name: Push changes to gh-pages
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_NAME: "paritytech-upd-ghpages-polkadotsdk"
+          REF_NAME: ${{ github.head_ref || github.ref_name }}
+          Green: "\e[32m"
+          NC: "\e[0m"
+        run: |
+          echo "${Green}Git add${NC}"
+          git add book/
+          git add ${REF_NAME}/
+
+          echo "${Green}git status | wc -l${NC}"
+          git status | wc -l
+
+          echo "${Green}Add new remote with gh app token${NC}"
+          git remote set-url origin $(git config remote.origin.url | sed "s/github.com/${APP_NAME}:${TOKEN}@github.com/g")
+
+          echo "${Green}Remove http section that causes issues with gh app auth token${NC}"
+          sed -i.bak '/\[http/d' ./.git/config
+          sed -i.bak '/extraheader/d' ./.git/config
+
+          echo "${Green}Git push${NC}"
+          git config user.email "ci@parity.io"
+          git config user.name "${APP_NAME}"
+          git commit --amend -m "___Updated docs" || echo "___Nothing to commit___"
+          git push origin gh-pages --force

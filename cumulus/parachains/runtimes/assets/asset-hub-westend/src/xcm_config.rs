@@ -383,8 +383,8 @@ impl xcm_executor::Config for XcmConfig {
 	// held). On Westend Asset Hub, we allow Rococo Asset Hub to act as reserve for any asset native
 	// to the Rococo or Ethereum ecosystems.
 	type IsReserve = (
-		bridging::to_rococo::RococoOrEthereumAssetFromAssetHubRococo,
-		bridging::to_ethereum::IsTrustedBridgedReserveLocationForForeignAsset,
+		bridging::to_rococo::RococoAssetFromAssetHubRococo,
+		bridging::to_ethereum::EthereumAssetFromEthereum,
 	);
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
@@ -540,6 +540,7 @@ pub type ForeignCreatorsSovereignAccountOf = (
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	ParentIsPreset<AccountId>,
 	GlobalConsensusEthereumConvertsFor<AccountId>,
+	GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
 );
 
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
@@ -604,10 +605,8 @@ pub mod bridging {
 			);
 
 			pub const RococoNetwork: NetworkId = NetworkId::Rococo;
-			pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 			pub RococoEcosystem: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
 			pub RocLocation: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
-			pub EthereumEcosystem: Location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 			pub AssetHubRococo: Location = Location::new(2, [
 				GlobalConsensus(RococoNetwork::get()),
 				Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)
@@ -644,12 +643,9 @@ pub mod bridging {
 			}
 		}
 
-		/// Allow any asset native to the Rococo or Ethereum ecosystems if it comes from Rococo
-		/// Asset Hub.
-		pub type RococoOrEthereumAssetFromAssetHubRococo = matching::RemoteAssetFromLocation<
-			(StartsWith<RococoEcosystem>, StartsWith<EthereumEcosystem>),
-			AssetHubRococo,
-		>;
+		/// Allow any asset native to the Rococo ecosystem if it comes from Rococo Asset Hub.
+		pub type RococoAssetFromAssetHubRococo =
+			matching::RemoteAssetFromLocation<StartsWith<RococoEcosystem>, AssetHubRococo>;
 	}
 
 	pub mod to_ethereum {
@@ -703,7 +699,7 @@ pub mod bridging {
 
 		pub type EthereumNetworkExportTable = xcm_builder::NetworkExportTable<EthereumBridgeTable>;
 
-		pub type IsTrustedBridgedReserveLocationForForeignAsset =
+		pub type EthereumAssetFromEthereum =
 			IsForeignConcreteAsset<FromNetwork<UniversalLocation, EthereumNetwork>>;
 
 		impl Contains<(Location, Junction)> for UniversalAliases {
