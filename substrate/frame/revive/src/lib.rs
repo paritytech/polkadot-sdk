@@ -32,6 +32,9 @@ mod storage;
 mod transient_storage;
 mod wasm;
 
+#[cfg(test)]
+mod tests;
+
 pub mod chain_extension;
 pub mod debug;
 pub mod evm;
@@ -39,12 +42,6 @@ pub mod test_utils;
 pub mod weights;
 
 pub use crate::exec::MomentOf;
-use frame_support::traits::IsType;
-pub use primitives::*;
-use sp_core::U256;
-
-#[cfg(test)]
-mod tests;
 use crate::{
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
 	gas::GasMeter,
@@ -61,7 +58,7 @@ use frame_support::{
 	ensure,
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
-		ConstU32, ConstU64, Contains, EnsureOrigin, Get, Time,
+		ConstU32, ConstU64, Contains, EnsureOrigin, Get, IsType, Time,
 	},
 	weights::{Weight, WeightMeter},
 	BoundedVec, RuntimeDebugNoBound,
@@ -71,8 +68,9 @@ use frame_system::{
 	pallet_prelude::{BlockNumberFor, OriginFor},
 	EventRecord, Pallet as System,
 };
+pub use primitives::*;
 use scale_info::TypeInfo;
-use sp_core::{H160, H256};
+use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	traits::{BadOrigin, Convert, Dispatchable, Saturating},
 	DispatchError,
