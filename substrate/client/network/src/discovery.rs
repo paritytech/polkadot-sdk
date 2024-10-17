@@ -475,7 +475,7 @@ impl DiscoveryBehaviour {
 
 	/// Returns the number of nodes in each Kademlia kbucket for each Kademlia instance.
 	///
-	/// Identifies Kademlia instances by their [`ProtocolId`] and kbuckets by the base 2 logarithm
+	/// Identifies Kademlia instances by their `ProtocolId` and kbuckets by the base 2 logarithm
 	/// of their lower bound.
 	pub fn num_entries_per_kbucket(&mut self) -> Option<Vec<(u32, usize)>> {
 		self.kademlia.as_mut().map(|kad| {
