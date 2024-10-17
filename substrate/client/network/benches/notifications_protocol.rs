@@ -1,4 +1,7 @@
-use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{
+	criterion_group, criterion_main, AxisScale, BenchmarkId, Criterion, PlotConfiguration,
+	Throughput,
+};
 use sc_network::{
 	config::{
 		FullNetworkConfiguration, MultiaddrWithPeerId, NetworkConfiguration, NonDefaultSetConfig,
@@ -11,6 +14,20 @@ use sc_network_common::sync::message::BlockAnnouncesHandshake;
 use sp_runtime::traits::Zero;
 use substrate_test_runtime_client::runtime;
 
+const MAX_SIZE: u64 = 2u64.pow(30);
+const SAMPLE_SIZE: usize = 10;
+const NOTIFICATIONS: usize = 2usize.pow(5);
+const EXPONENTS: &[(u32, &'static str)] = &[
+	(6, "64B"),
+	(9, "512B"),
+	(12, "4KB"),
+	(15, "64KB"),
+	(18, "256KB"),
+	(21, "2MB"),
+	(24, "16MB"),
+	(27, "128MB"),
+];
+
 pub fn create_network_worker(
 ) -> (NetworkWorker<runtime::Block, runtime::Hash>, Box<dyn NotificationService>) {
 	let role = Role::Full;
@@ -18,7 +35,7 @@ pub fn create_network_worker(
 	let (block_announce_config, notification_service) = NonDefaultSetConfig::new(
 		"/block-announces/1".into(),
 		vec!["/bench-notifications-protocol/block-announces/1".into()],
-		2u64.pow(MAX_EXPONENT),
+		MAX_SIZE,
 		Some(NotificationHandshake::new(BlockAnnouncesHandshake::<runtime::Block>::build(
 			Roles::from(&role),
 			Zero::zero(),
@@ -119,6 +136,7 @@ async fn run_consistently(size: usize, limit: usize) {
 	}
 }
 
+#[allow(dead_code)]
 async fn run_with_backpressure(size: usize, limit: usize) {
 	let (worker1, mut notification_service1) = create_network_worker();
 	let (mut worker2, mut notification_service2) = create_network_worker();
@@ -189,32 +207,29 @@ async fn run_with_backpressure(size: usize, limit: usize) {
 	let _ = tokio::join!(network1, network2);
 }
 
-const MAX_EXPONENT: u32 = 27;
-
 fn run_benchmark(c: &mut Criterion) {
 	let rt = tokio::runtime::Runtime::new().unwrap();
+	let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
 	let mut group = c.benchmark_group("notifications_benchmark");
+	group.plot_config(plot_config);
 
-	for exponent in 0..=MAX_EXPONENT {
+	for &(exponent, label) in EXPONENTS.iter() {
 		let size = 2usize.pow(exponent);
-		let notifications = 2usize.pow((MAX_EXPONENT - exponent).max(10).min(20));
-		group.throughput(Throughput::Bytes(notifications as u64 * size as u64));
+		group.throughput(Throughput::Bytes(NOTIFICATIONS as u64 * size as u64));
 		group.bench_with_input(
-			format!("consistently/{}/{}", notifications, size),
-			&(size, notifications),
+			BenchmarkId::new("consistently", label),
+			&(size, NOTIFICATIONS),
 			|b, &(size, limit)| {
 				b.to_async(&rt).iter(|| run_consistently(size, limit));
 			},
 		);
-		group.bench_with_input(
-			format!("backpressure/{}/{}", notifications, size),
-			&(size, notifications),
-			|b, &(size, limit)| {
-				b.to_async(&rt).iter(|| run_with_backpressure(size, limit));
-			},
-		);
+		// TODO: Add runnning with backpressure
 	}
 }
 
-criterion_group!(benches, run_benchmark);
+criterion_group! {
+	name = benches;
+	config = Criterion::default().sample_size(SAMPLE_SIZE);
+	targets = run_benchmark
+}
 criterion_main!(benches);

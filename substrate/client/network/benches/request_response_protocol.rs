@@ -1,4 +1,7 @@
-use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{
+	criterion_group, criterion_main, AxisScale, BenchmarkId, Criterion, PlotConfiguration,
+	Throughput,
+};
 use sc_network::{
 	config::{
 		FullNetworkConfiguration, IncomingRequest, NetworkConfiguration, NonDefaultSetConfig,
@@ -6,12 +9,26 @@ use sc_network::{
 		SetConfig,
 	},
 	IfDisconnected, NetworkBackend, NetworkRequest, NetworkWorker, NotificationMetrics,
-	NotificationService, Roles, MAX_RESPONSE_SIZE,
+	NotificationService, Roles,
 };
 use sc_network_common::sync::message::BlockAnnouncesHandshake;
 use sp_runtime::traits::Zero;
 use std::time::Duration;
 use substrate_test_runtime_client::runtime;
+
+const MAX_SIZE: u64 = 2u64.pow(30);
+const SAMPLE_SIZE: usize = 10;
+const REQUESTS: usize = 2usize.pow(5);
+const EXPONENTS: &[(u32, &'static str)] = &[
+	(6, "64B"),
+	(9, "512B"),
+	(12, "4KB"),
+	(15, "64KB"),
+	(18, "256KB"),
+	(21, "2MB"),
+	(24, "16MB"),
+	(27, "128MB"),
+];
 
 pub fn create_network_worker() -> (
 	NetworkWorker<runtime::Block, runtime::Hash>,
@@ -23,8 +40,8 @@ pub fn create_network_worker() -> (
 		NetworkWorker::<runtime::Block, runtime::Hash>::request_response_config(
 			"/request-response/1".into(),
 			vec![],
-			MAX_RESPONSE_SIZE,
-			MAX_RESPONSE_SIZE,
+			MAX_SIZE,
+			MAX_SIZE,
 			Duration::from_secs(2),
 			Some(tx),
 		);
@@ -100,7 +117,7 @@ async fn run_consistently(size: usize, limit: usize) {
 				.request(
 					peer_id2.into(),
 					"/request-response/1".into(),
-					vec![0; 8],
+					vec![0; 2],
 					None,
 					IfDisconnected::TryConnect,
 				)
@@ -131,23 +148,82 @@ async fn run_consistently(size: usize, limit: usize) {
 	}
 }
 
+#[allow(dead_code)]
+async fn run_with_backpressure(size: usize, limit: usize) {
+	sp_tracing::try_init_simple();
+	let (mut worker1, _rx1, _notification_service1) = create_network_worker();
+	let service1 = worker1.service().clone();
+	let (mut worker2, rx2, _notification_service2) = create_network_worker();
+	let peer_id2 = *worker2.local_peer_id();
+	let listen_address2 = get_listen_address(&mut worker2).await;
+
+	worker1.add_known_address(peer_id2, listen_address2);
+
+	let requests = (0..limit).into_iter().map(|_| {
+		let (tx, rx) = futures::channel::oneshot::channel();
+		service1.start_request(
+			peer_id2.into(),
+			"/request-response/1".into(),
+			vec![0; 8],
+			None,
+			tx,
+			IfDisconnected::TryConnect,
+		);
+		rx
+	});
+
+	let requests = futures::future::join_all(requests);
+	let network1_run = worker1.run();
+	let network2_run = worker2.run();
+	tokio::pin!(requests);
+	tokio::pin!(network1_run);
+	tokio::pin!(network2_run);
+
+	loop {
+		tokio::select! {
+			_ = &mut network1_run => {},
+			_ = &mut network2_run => {},
+			responses = &mut requests => {
+				for res in responses {
+					res.unwrap().unwrap();
+				}
+				break;
+			},
+			res = rx2.recv() => {
+				let IncomingRequest { pending_response, .. } = res.unwrap();
+				pending_response.send(OutgoingResponse {
+					result: Ok(vec![0; size]),
+					reputation_changes: vec![],
+					sent_feedback: None,
+				}).unwrap();
+			},
+		}
+	}
+}
+
 fn run_benchmark(c: &mut Criterion) {
 	let rt = tokio::runtime::Runtime::new().unwrap();
+	let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
 	let mut group = c.benchmark_group("request_response_benchmark");
+	group.plot_config(plot_config);
 
-	for exponent in 1..4 {
-		let notifications = 10usize;
+	for &(exponent, label) in EXPONENTS.iter() {
 		let size = 2usize.pow(exponent);
-		group.throughput(Throughput::Bytes(notifications as u64 * size as u64));
+		group.throughput(Throughput::Bytes(REQUESTS as u64 * size as u64));
 		group.bench_with_input(
-			format!("{}/{}", notifications, size),
-			&(size, notifications),
+			BenchmarkId::new("consistently", label),
+			&(size, REQUESTS),
 			|b, &(size, limit)| {
 				b.to_async(&rt).iter(|| run_consistently(size, limit));
 			},
 		);
+		// TODO: Add runnning with backpressure
 	}
 }
 
-criterion_group!(benches, run_benchmark);
+criterion_group! {
+	name = benches;
+	config = Criterion::default().sample_size(SAMPLE_SIZE);
+	targets = run_benchmark
+}
 criterion_main!(benches);
