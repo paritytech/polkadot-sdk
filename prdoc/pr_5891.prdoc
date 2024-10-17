@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add benchmark overhead command to frame-omni-bencher
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This adds the benchmark overhead command to the `frame-omni-bencher` library. This allows
+      para- and relay chain teams to generate extrinsic and block base weights.
+
+crates: [ ]
