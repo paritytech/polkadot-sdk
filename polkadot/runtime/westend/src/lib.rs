@@ -1784,6 +1784,9 @@ pub mod migrations {
 			Runtime,
 			MaxAgentsToMigrate,
 		>,
+
+		// permanent
+		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);
 }
 
