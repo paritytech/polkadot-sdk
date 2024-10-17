@@ -83,9 +83,6 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 		} = Self::new_partial(&config)?;
 		let select_chain = LongestChain::new(backend.clone());
 
-		// Since this is a dev node, prevent it from connecting to peers.
-		config.network.default_peers_set.in_peers = 0;
-		config.network.default_peers_set.out_peers = 0;
 		let mut net_config = sc_network::config::FullNetworkConfiguration::<_, _, Net>::new(
 			&config.network,
 			config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
