@@ -15,7 +15,6 @@ env:
   COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
-
   #
   #
   #
@@ -24,7 +23,7 @@ jobs:
     if: contains(github.event.label.name, 'GHA-migration') || contains(github.event.pull_request.labels.*.name, 'GHA-migration')
     uses: ./.github/workflows/reusable-preflight.yml
 
-### Build ########################
+  ### Build ########################
 
   #
   #
@@ -240,7 +239,7 @@ jobs:
         with:
           # tldr: we need to checkout the branch HEAD explicitly because of our dynamic versioning approach while building the substrate binary
           # see https://github.com/paritytech/ci_cd/issues/682#issuecomment-1340953589
-          ref:  ${{ github.head_ref || github.ref_name }}
+          ref: ${{ github.head_ref || github.ref_name }}
       - name: build
         run: |
           mkdir -p ./artifacts/substrate/
@@ -299,14 +298,14 @@ jobs:
           path: artifacts.tar
           retention-days: 1
 
-### Publish ########################
+  ### Publish ########################
 
   #
   #
   #
   build-push-image-test-parachain:
     needs: [preflight, build-test-parachain]
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ${{ needs.preflight.outputs.RUNNER_DEFAULT }}
     timeout-minutes: 60
     steps:
       - name: Checkout
@@ -330,7 +329,7 @@ jobs:
   #
   build-push-image-polkadot-debug:
     needs: [preflight, build-linux-stable]
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ${{ needs.preflight.outputs.RUNNER_DEFAULT }}
     timeout-minutes: 60
     steps:
       - name: Checkout
@@ -349,13 +348,12 @@ jobs:
           image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/polkadot-debug"
           dockerfile: "docker/dockerfiles/polkadot/polkadot_injected_debug.Dockerfile"
 
-
   #
   #
   #
   build-push-image-colander:
     needs: [preflight, build-test-collators]
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ${{ needs.preflight.outputs.RUNNER_DEFAULT }}
     timeout-minutes: 60
     steps:
       - name: Checkout
@@ -374,13 +372,12 @@ jobs:
           image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/colander"
           dockerfile: "docker/dockerfiles/collator_injected.Dockerfile"
 
-
   #
   #
   #
   build-push-image-malus:
     needs: [preflight, build-malus]
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ${{ needs.preflight.outputs.RUNNER_DEFAULT }}
     timeout-minutes: 60
     steps:
       - name: Checkout
@@ -399,13 +396,12 @@ jobs:
           image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/malus"
           dockerfile: "docker/dockerfiles/malus_injected.Dockerfile"
 
-
   #
   #
   #
   build-push-image-substrate-pr:
     needs: [preflight, build-linux-substrate]
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ${{ needs.preflight.outputs.RUNNER_DEFAULT }}
     timeout-minutes: 60
     steps:
       - name: Checkout
@@ -424,15 +420,20 @@ jobs:
           image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/substrate"
           dockerfile: "docker/dockerfiles/substrate_injected.Dockerfile"
 
-
   #
   #
   #
   # unlike other images, bridges+zombienet image is based on Zombienet image that pulls required binaries
   # from other fresh images (polkadot and cumulus)
   build-push-image-bridges-zombienet-tests:
-    needs: [preflight, build-linux-stable, build-linux-stable-cumulus, prepare-bridges-zombienet-artifacts]
-    runs-on: arc-runners-polkadot-sdk
+    needs:
+      [
+        preflight,
+        build-linux-stable,
+        build-linux-stable-cumulus,
+        prepare-bridges-zombienet-artifacts,
+      ]
+    runs-on: ${{ needs.preflight.outputs.RUNNER_DEFAULT }}
     timeout-minutes: 60
     steps:
       - name: Checkout
@@ -443,24 +444,24 @@ jobs:
           name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
       - name: tar
         run: |
-         tar -xvf artifacts.tar
-         rm artifacts.tar
+          tar -xvf artifacts.tar
+          rm artifacts.tar
 
       - uses: actions/download-artifact@v4.1.8
         with:
           name: build-linux-stable-cumulus-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
       - name: tar
         run: |
-         tar -xvf artifacts.tar
-         rm artifacts.tar
+          tar -xvf artifacts.tar
+          rm artifacts.tar
 
       - uses: actions/download-artifact@v4.1.8
         with:
           name: prepare-bridges-zombienet-artifacts-${{ needs.preflight.outputs.SOURCE_REF_NAME }}
       - name: tar
         run: |
-         tar -xvf artifacts.tar
-         rm artifacts.tar
+          tar -xvf artifacts.tar
+          rm artifacts.tar
 
       - name: build and push image
         uses: ./.github/actions/build-push-image
@@ -468,13 +469,12 @@ jobs:
           image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/bridges-zombienet-tests"
           dockerfile: "docker/dockerfiles/bridges_zombienet_tests_injected.Dockerfile"
 
-
   #
   #
   #
   build-push-image-polkadot-parachain-debug:
     needs: [preflight, build-linux-stable-cumulus]
-    runs-on: arc-runners-polkadot-sdk
+    runs-on: ${{ needs.preflight.outputs.RUNNER_DEFAULT }}
     timeout-minutes: 60
     steps:
       - name: Checkout
