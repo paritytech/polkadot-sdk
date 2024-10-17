@@ -91,6 +91,15 @@ impl ChainApi for TestApi {
 		})))
 	}
 
+	fn validate_transaction_blocking(
+		&self,
+		_at: <Self::Block as BlockT>::Hash,
+		_source: TransactionSource,
+		_uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
+	) -> sc_transaction_pool_api::error::Result<TransactionValidity> {
+		unimplemented!();
+	}
+
 	fn block_id_to_number(
 		&self,
 		at: &BlockId<Self::Block>,
