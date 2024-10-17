@@ -655,8 +655,8 @@ mod tests {
 			assert_eq!(
 				XcmBridgeHubRouter::get_messages(),
 				vec![(
-					VersionedLocation::V5((Parent, Parachain(1002)).into()),
-					vec![VersionedXcm::V5(
+					VersionedLocation::from(Location::new(1, Parachain(1002))),
+					vec![VersionedXcm::from(
 						Xcm::builder()
 							.withdraw_asset((Parent, 1_002_000))
 							.buy_execution((Parent, 1_002_000), Unlimited)

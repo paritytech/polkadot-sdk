@@ -403,3 +403,227 @@ macro_rules! test_chain_can_claim_assets {
 		}
 	};
 }
+
+#[macro_export]
+macro_rules! test_can_estimate_and_pay_exact_fees {
+	( $sender_para:ty, $asset_hub:ty, $receiver_para:ty, ($asset_id:expr, $amount:expr), $owner_prefix:ty ) => {
+		$crate::macros::paste::paste! {
+			// We first define the call we'll use throughout the test.
+			fn get_call(
+				estimated_local_fees: impl Into<Asset>,
+				estimated_intermediate_fees: impl Into<Asset>,
+				estimated_remote_fees: impl Into<Asset>,
+			) -> <$sender_para as Chain>::RuntimeCall {
+				type RuntimeCall = <$sender_para as Chain>::RuntimeCall;
+
+				let beneficiary = [<$receiver_para Receiver>]::get();
+				let xcm_in_destination = Xcm::<()>::builder_unsafe()
+					.pay_fees(estimated_remote_fees)
+					.deposit_asset(AllCounted(1), beneficiary)
+					.build();
+				let ah_to_receiver = $asset_hub::sibling_location_of($receiver_para::para_id());
+				let xcm_in_reserve = Xcm::<()>::builder_unsafe()
+					.pay_fees(estimated_intermediate_fees)
+					.deposit_reserve_asset(
+						AllCounted(1),
+						ah_to_receiver,
+						xcm_in_destination,
+					)
+					.build();
+				let sender_to_ah = $sender_para::sibling_location_of($asset_hub::para_id());
+				let local_xcm = Xcm::<<$sender_para as Chain>::RuntimeCall>::builder()
+					.withdraw_asset(($asset_id, $amount))
+					.pay_fees(estimated_local_fees)
+					.initiate_reserve_withdraw(AllCounted(1), sender_to_ah, xcm_in_reserve)
+					.build();
+
+				RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
+					message: bx!(VersionedXcm::from(local_xcm)),
+					max_weight: Weight::from_parts(10_000_000_000, 500_000),
+				})
+			}
+
+			let destination = $sender_para::sibling_location_of($receiver_para::para_id());
+			let sender = [<$sender_para Sender>]::get();
+			let sender_as_seen_by_ah = $asset_hub::sibling_location_of($sender_para::para_id());
+			let sov_of_sender_on_ah = $asset_hub::sovereign_account_id_of(sender_as_seen_by_ah.clone());
+			let asset_owner = [<$owner_prefix AssetOwner>]::get();
+
+			// Fund parachain's sender account.
+			$sender_para::mint_foreign_asset(
+				<$sender_para as Chain>::RuntimeOrigin::signed(asset_owner.clone()),
+				$asset_id.clone().into(),
+				sender.clone(),
+				$amount * 2,
+			);
+
+			// Fund the parachain origin's SA on Asset Hub with the native tokens.
+			$asset_hub::fund_accounts(vec![(sov_of_sender_on_ah.clone(), $amount * 2)]);
+
+			let beneficiary_id = [<$receiver_para Receiver>]::get();
+
+			let test_args = TestContext {
+				sender: sender.clone(),
+				receiver: beneficiary_id.clone(),
+				args: TestArgs::new_para(
+					destination,
+					beneficiary_id.clone(),
+					$amount,
+					($asset_id, $amount).into(),
+					None,
+					0,
+				),
+			};
+			let mut test = ParaToParaThroughAHTest::new(test_args);
+
+			// We get these from the closure.
+			let mut local_execution_fees = 0;
+			let mut local_delivery_fees = 0;
+			let mut remote_message = VersionedXcm::from(Xcm::<()>(Vec::new()));
+			<$sender_para as TestExt>::execute_with(|| {
+				type Runtime = <$sender_para as Chain>::Runtime;
+				type OriginCaller = <$sender_para as Chain>::OriginCaller;
+
+				let call = get_call(
+					(Parent, 100_000_000_000u128),
+					(Parent, 100_000_000_000u128),
+					(Parent, 100_000_000_000u128),
+				);
+				let origin = OriginCaller::system(RawOrigin::Signed(sender.clone()));
+				let result = Runtime::dry_run_call(origin, call).unwrap();
+				let local_xcm = result.local_xcm.unwrap().clone();
+				let local_xcm_weight = Runtime::query_xcm_weight(local_xcm).unwrap();
+				local_execution_fees = Runtime::query_weight_to_asset_fee(
+					local_xcm_weight,
+					VersionedAssetId::from(AssetId(Location::parent())),
+				)
+				.unwrap();
+				// We filter the result to get only the messages we are interested in.
+				let (destination_to_query, messages_to_query) = &result
+					.forwarded_xcms
+					.iter()
+					.find(|(destination, _)| {
+						*destination == VersionedLocation::from(Location::new(1, [Parachain(1000)]))
+					})
+					.unwrap();
+				assert_eq!(messages_to_query.len(), 1);
+				remote_message = messages_to_query[0].clone();
+				let delivery_fees =
+					Runtime::query_delivery_fees(destination_to_query.clone(), remote_message.clone())
+						.unwrap();
+				local_delivery_fees = $crate::xcm_helpers::get_amount_from_versioned_assets(delivery_fees);
+			});
+
+			// These are set in the AssetHub closure.
+			let mut intermediate_execution_fees = 0;
+			let mut intermediate_delivery_fees = 0;
+			let mut intermediate_remote_message = VersionedXcm::from(Xcm::<()>(Vec::new()));
+			<$asset_hub as TestExt>::execute_with(|| {
+				type Runtime = <$asset_hub as Chain>::Runtime;
+				type RuntimeCall = <$asset_hub as Chain>::RuntimeCall;
+
+				// First we get the execution fees.
+				let weight = Runtime::query_xcm_weight(remote_message.clone()).unwrap();
+				intermediate_execution_fees = Runtime::query_weight_to_asset_fee(
+					weight,
+					VersionedAssetId::from(AssetId(Location::new(1, []))),
+				)
+				.unwrap();
+
+				// We have to do this to turn `VersionedXcm<()>` into `VersionedXcm<RuntimeCall>`.
+				let xcm_program =
+					VersionedXcm::from(Xcm::<RuntimeCall>::from(remote_message.clone().try_into().unwrap()));
+
+				// Now we get the delivery fees to the final destination.
+				let result =
+					Runtime::dry_run_xcm(sender_as_seen_by_ah.clone().into(), xcm_program).unwrap();
+				let (destination_to_query, messages_to_query) = &result
+					.forwarded_xcms
+					.iter()
+					.find(|(destination, _)| {
+						*destination == VersionedLocation::from(Location::new(1, [Parachain(2001)]))
+					})
+					.unwrap();
+				// There's actually two messages here.
+				// One created when the message we sent from `$sender_para` arrived and was executed.
+				// The second one when we dry-run the xcm.
+				// We could've gotten the message from the queue without having to dry-run, but
+				// offchain applications would have to dry-run, so we do it here as well.
+				intermediate_remote_message = messages_to_query[0].clone();
+				let delivery_fees = Runtime::query_delivery_fees(
+					destination_to_query.clone(),
+					intermediate_remote_message.clone(),
+				)
+				.unwrap();
+				intermediate_delivery_fees = $crate::xcm_helpers::get_amount_from_versioned_assets(delivery_fees);
+			});
+
+			// Get the final execution fees in the destination.
+			let mut final_execution_fees = 0;
+			<$receiver_para as TestExt>::execute_with(|| {
+				type Runtime = <$sender_para as Chain>::Runtime;
+
+				let weight = Runtime::query_xcm_weight(intermediate_remote_message.clone()).unwrap();
+				final_execution_fees =
+					Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(AssetId(Location::parent())))
+						.unwrap();
+			});
+
+			// Dry-running is done.
+			$sender_para::reset_ext();
+			$asset_hub::reset_ext();
+			$receiver_para::reset_ext();
+
+			// Fund accounts again.
+			$sender_para::mint_foreign_asset(
+				<$sender_para as Chain>::RuntimeOrigin::signed(asset_owner),
+				$asset_id.clone().into(),
+				sender.clone(),
+				$amount * 2,
+			);
+			$asset_hub::fund_accounts(vec![(sov_of_sender_on_ah, $amount * 2)]);
+
+			// Actually run the extrinsic.
+			let sender_assets_before = $sender_para::execute_with(|| {
+				type ForeignAssets = <$sender_para as [<$sender_para Pallet>]>::ForeignAssets;
+				<ForeignAssets as Inspect<_>>::balance($asset_id.clone().into(), &sender)
+			});
+			let receiver_assets_before = $receiver_para::execute_with(|| {
+				type ForeignAssets = <$receiver_para as [<$receiver_para Pallet>]>::ForeignAssets;
+				<ForeignAssets as Inspect<_>>::balance($asset_id.clone().into(), &beneficiary_id)
+			});
+
+			test.set_assertion::<$sender_para>(sender_assertions);
+			test.set_assertion::<$asset_hub>(hop_assertions);
+			test.set_assertion::<$receiver_para>(receiver_assertions);
+			let call = get_call(
+				(Parent, local_execution_fees + local_delivery_fees),
+				(Parent, intermediate_execution_fees + intermediate_delivery_fees),
+				(Parent, final_execution_fees),
+			);
+			test.set_call(call);
+			test.assert();
+
+			let sender_assets_after = $sender_para::execute_with(|| {
+				type ForeignAssets = <$sender_para as [<$sender_para Pallet>]>::ForeignAssets;
+				<ForeignAssets as Inspect<_>>::balance($asset_id.clone().into(), &sender)
+			});
+			let receiver_assets_after = $receiver_para::execute_with(|| {
+				type ForeignAssets = <$receiver_para as [<$receiver_para Pallet>]>::ForeignAssets;
+				<ForeignAssets as Inspect<_>>::balance($asset_id.into(), &beneficiary_id)
+			});
+
+			// We know the exact fees on every hop.
+			assert_eq!(sender_assets_after, sender_assets_before - $amount);
+			assert_eq!(
+				receiver_assets_after,
+				receiver_assets_before + $amount -
+					local_execution_fees -
+					local_delivery_fees -
+					intermediate_execution_fees -
+					intermediate_delivery_fees -
+					final_execution_fees
+			);
+		}
+	};
+}

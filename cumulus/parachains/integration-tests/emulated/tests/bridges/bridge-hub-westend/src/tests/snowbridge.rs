@@ -221,14 +221,14 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 			)),
 			fun: Fungible(TOKEN_AMOUNT),
 		}];
-		let versioned_assets = VersionedAssets::V5(Assets::from(assets));
+		let versioned_assets = VersionedAssets::from(Assets::from(assets));
 
-		let destination = VersionedLocation::V5(Location::new(
+		let destination = VersionedLocation::from(Location::new(
 			2,
 			[GlobalConsensus(Ethereum { chain_id: CHAIN_ID })],
 		));
 
-		let beneficiary = VersionedLocation::V5(Location::new(
+		let beneficiary = VersionedLocation::from(Location::new(
 			0,
 			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
 		));
