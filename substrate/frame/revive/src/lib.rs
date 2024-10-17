@@ -746,7 +746,6 @@ pub mod pallet {
 		/// * `gas_limit`: The gas limit enforced during contract execution.
 		/// * `storage_deposit_limit`: The maximum balance that can be charged to the caller for
 		///   storage usage.
-		/// * `transact_kind`: The type of transaction to execute.
 		///
 		/// # Note
 		///
@@ -756,19 +755,12 @@ pub mod pallet {
 		/// signer and validating the transaction.
 		#[allow(unused_variables)]
 		#[pallet::call_index(0)]
-		#[pallet::weight(
-			match transact_kind {
-				EthTransactKind::Call => T::WeightInfo::call().saturating_add(*gas_limit),
-				EthTransactKind::InstantiateWithCode{code_len, data_len} => T::WeightInfo::instantiate_with_code(*code_len, *data_len)
-					.saturating_add(*gas_limit)
-			}
-		)]
+		#[pallet::weight(Weight::MAX)]
 		pub fn eth_transact(
 			origin: OriginFor<T>,
 			payload: Vec<u8>,
 			gas_limit: Weight,
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
-			transact_kind: EthTransactKind,
 		) -> DispatchResultWithPostInfo {
 			Err(frame_system::Error::CallFiltered::<T>.into())
 		}
@@ -1192,17 +1184,14 @@ where
 				collect_events,
 			);
 
-			let transact_kind = EthTransactKind::Call;
 			let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
 				payload,
 				gas_limit: result.gas_required,
 				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-				transact_kind,
 			}
 			.into();
 
 			EthContractResultDetails {
-				transact_kind,
 				dispatch_info: dispatch_call.get_dispatch_info(),
 				len: dispatch_call.encode().len() as u32,
 				gas_limit: result.gas_required,
@@ -1231,20 +1220,14 @@ where
 
 			let Some((code, data)) = blob else {
 				log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
-				let transact_kind = EthTransactKind::InstantiateWithCode {
-					code_len: tx.input.0.len() as u32,
-					data_len: 0,
-				};
 
 				let dispatch_call = crate::Call::<T>::eth_transact {
 					payload,
 					gas_limit: Default::default(),
 					storage_deposit_limit: 0u32.into(),
-					transact_kind,
 				};
 
 				return EthContractResultDetails {
-					transact_kind,
 					dispatch_info: dispatch_call.get_dispatch_info(),
 					gas_limit: Default::default(),
 					storage_deposit: Default::default(),
@@ -1253,8 +1236,6 @@ where
 				}
 			};
 
-			let code_len = code.len() as u32;
-			let data_len = data.len() as u32;
 			let result = crate::Pallet::<T>::bare_instantiate(
 				T::RuntimeOrigin::signed(origin),
 				value,
@@ -1267,17 +1248,14 @@ where
 				collect_events,
 			);
 
-			let transact_kind = EthTransactKind::InstantiateWithCode { code_len, data_len };
 			let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
 				payload,
-				transact_kind,
 				gas_limit: result.gas_required,
 				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
 			}
 			.into();
 
 			EthContractResultDetails {
-				transact_kind,
 				dispatch_info: dispatch_call.get_dispatch_info(),
 				len: dispatch_call.encode().len() as u32,
 				gas_limit: result.gas_required,

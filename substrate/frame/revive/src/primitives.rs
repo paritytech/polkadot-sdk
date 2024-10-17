@@ -84,8 +84,6 @@ pub struct ContractResult<R, Balance, EventRecord> {
 
 /// The result of the execution of a `eth_transact` call.
 pub struct EthContractResultDetails<Balance> {
-	/// The kind of transaction that was executed.
-	pub transact_kind: EthTransactKind,
 	/// The call's dispatch info.
 	pub dispatch_info: DispatchInfo,
 	/// Length of the encoded call.
@@ -110,7 +108,6 @@ impl<Balance: From<u32>> EthContractResultDetails<Balance> {
 		compute_fee: impl FnOnce(u32, &DispatchInfo, Balance) -> Balance,
 	) -> EthContractResult<Balance> {
 		EthContractResult {
-			transact_kind: self.transact_kind,
 			result: self.result,
 			gas_limit: self.gas_limit,
 			storage_deposit: self.storage_deposit,
@@ -122,8 +119,6 @@ impl<Balance: From<u32>> EthContractResultDetails<Balance> {
 /// Similar to `EthContractResultDetails` but with the fee instead of dispatch info and len.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct EthContractResult<Balance> {
-	/// The kind of transaction that was executed.
-	pub transact_kind: EthTransactKind,
 	/// The fee charged for the execution.
 	pub fee: Balance,
 	/// Gas limit of the transaction.
@@ -163,20 +158,6 @@ impl ExecReturnValue {
 	pub fn did_revert(&self) -> bool {
 		self.flags.contains(ReturnFlags::REVERT)
 	}
-}
-
-/// Describes the type of an [`crate::Call::eth_transact`] call.
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub enum EthTransactKind {
-	/// A Call to an existing contract.
-	Call,
-	/// The instantiation of a new contract.
-	InstantiateWithCode {
-		#[codec(compact)]
-		code_len: u32,
-		#[codec(compact)]
-		data_len: u32,
-	},
 }
 
 /// The result of a successful contract instantiation.
