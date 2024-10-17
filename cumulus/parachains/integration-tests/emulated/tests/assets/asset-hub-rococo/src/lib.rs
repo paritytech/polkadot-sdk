@@ -26,9 +26,7 @@ mod imports {
 	};
 
 	// Polkadot
-	pub use xcm::{
-		prelude::{AccountId32 as AccountId32Junction, *},
-	};
+	pub use xcm::prelude::{AccountId32 as AccountId32Junction, *};
 	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
