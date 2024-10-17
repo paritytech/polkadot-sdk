@@ -60,6 +60,10 @@ crates:
     bump: major
   - name: bp-bridge-hub-cumulus
     bump: major
+  - name: bp-bridge-hub-rococo
+    bump: major
+  - name: bp-bridge-hub-westend
+    bump: major
   - name: bp-kusama
     bump: major
   - name: bp-polkadot-bulletin
@@ -70,9 +74,17 @@ crates:
     bump: major
   - name: bp-westend
     bump: major
+  - name: pallet-bridge-relayers
+    bump: major
   - name: bp-polkadot-core
     bump: major
+  - name: bp-relayers
+    bump: major
   - name: bp-runtime
+    bump: major
+  - name: substrate-relay-helper
+    bump: major
+  - name: snowbridge-pallet-ethereum-client
     bump: major
   - name: snowbridge-pallet-inbound-queue
     bump: major
@@ -83,6 +95,8 @@ crates:
   - name: snowbridge-runtime-test-common
     bump: major
   - name: parachain-template-runtime
+    bump: major
+  - name: cumulus-pallet-parachain-system
     bump: major
   - name: asset-hub-rococo-runtime
     bump: major
@@ -106,9 +120,13 @@ crates:
     bump: major
   - name: people-westend-runtime
     bump: major
+  - name: parachains-runtimes-test-utils
+    bump: major
   - name: penpal-runtime
     bump: major
   - name: rococo-parachain-runtime
+    bump: major
+  - name: polkadot-omni-node
     bump: major
   - name: polkadot-parachain-bin
     bump: major
@@ -128,13 +146,25 @@ crates:
     bump: major
   - name: polkadot-runtime-common
     bump: major
+  - name: polkadot-runtime-parachains
+    bump: major
   - name: rococo-runtime
     bump: major
   - name: polkadot-test-runtime
     bump: major
   - name: westend-runtime
     bump: major
+  - name: pallet-xcm-benchmarks
+    bump: major
+  - name: pallet-xcm
+    bump: major
   - name: staging-xcm-builder
+    bump: major
+  - name: staging-xcm-executor
+    bump: major
+  - name: xcm-runtime-apis
+    bump: major
+  - name: xcm-simulator
     bump: major
   - name: minimal-template-runtime
     bump: major
@@ -160,6 +190,12 @@ crates:
     bump: major
   - name: polkadot-sdk-frame
     bump: major
+  - name: pallet-alliance
+    bump: major
+  - name: pallet-assets
+    bump: major
+  - name: pallet-asset-conversion
+    bump: major
   - name: pallet-babe
     bump: major
   - name: pallet-balances
@@ -168,13 +204,19 @@ crates:
     bump: major
   - name: pallet-collective
     bump: major
+  - name: pallet-contracts
+    bump: major
   - name: pallet-election-provider-multi-phase
     bump: major
   - name: pallet-elections-phragmen
     bump: major
   - name: pallet-example-basic
     bump: major
+  - name: pallet-example-tasks
+    bump: major
   - name: pallet-example-offchain-worker
+    bump: major
+  - name: pallet-examples
     bump: major
   - name: frame-executive
     bump: major
@@ -182,11 +224,25 @@ crates:
     bump: major
   - name: pallet-im-online
     bump: major
+  - name: pallet-lottery
+    bump: major
   - name: frame-metadata-hash-extension
+    bump: major
+  - name: pallet-mixnet
+    bump: major
+  - name: pallet-multisig
     bump: major
   - name: pallet-offences
     bump: major
+  - name: pallet-proxy
+    bump: major
+  - name: pallet-recovery
+    bump: major
+  - name: pallet-revive
+    bump: major
   - name: pallet-sassafras
+    bump: major
+  - name: pallet-scheduler
     bump: major
   - name: pallet-state-trie-migration
     bump: major
@@ -195,6 +251,8 @@ crates:
   - name: frame-support-procedural
     bump: major
   - name: frame-support
+    bump: major
+  - name: frame-support-test
     bump: major
   - name: frame-system
     bump: major
@@ -208,17 +266,35 @@ crates:
     bump: major
   - name: pallet-skip-feeless-payment
     bump: major
+  - name: pallet-utility
+    bump: major
+  - name: pallet-whitelist
+    bump: major
   - name: sp-inherents
     bump: major
   - name: sp-metadata-ir
     bump: major
   - name: sp-runtime
     bump: major
+  - name: sp-storage
+    bump: major
+  - name: sp-test-primitives
+    bump: major
   - name: substrate-test-runtime
+    bump: major
+  - name: substrate-test-utils
     bump: major
   - name: frame-benchmarking-cli
     bump: major
   - name: frame-remote-externalities
     bump: major
   - name: substrate-rpc-client
+    bump: major
+  - name: minimal-template-runtime
+    bump: major
+  - name: parachain-template-runtime
+    bump: major
+  - name: solochain-template-node
+    bump: major
+  - name: polkadot-sdk
     bump: major
