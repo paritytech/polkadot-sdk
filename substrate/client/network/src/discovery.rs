@@ -1071,7 +1071,6 @@ fn kademlia_protocol_name<Hash: AsRef<[u8]>>(
 #[cfg(test)]
 mod tests {
 	use super::{kademlia_protocol_name, DiscoveryConfig, DiscoveryOut};
-	use crate::config::ProtocolId;
 	use futures::prelude::*;
 	use libp2p::{
 		core::{
@@ -1246,7 +1245,6 @@ mod tests {
 		let remote_peer_id = predictable_peer_id(b"00000000000000000000000000000001");
 		let remote_addr: Multiaddr = "/memory/1".parse().unwrap();
 		let another_peer_id = predictable_peer_id(b"00000000000000000000000000000002");
-		let another_addr: Multiaddr = "/memory/2".parse().unwrap();
 
 		// Try adding remote peers with unsupported protocols.
 		discovery.add_self_reported_address(
