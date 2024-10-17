@@ -24,10 +24,6 @@ use subxt::config::{signed_extensions, Config, PolkadotConfig};
 		with = "::subxt::utils::Static<::pallet_revive::EthContractResult<A>>"
 	),
 	substitute_type(
-		path = "pallet_revive::primitives::EthTransactKind",
-		with = "::subxt::utils::Static<::pallet_revive::EthTransactKind>"
-	),
-	substitute_type(
 		path = "sp_weights::weight_v2::Weight",
 		with = "::subxt::utils::Static<::sp_weights::Weight>"
 	)
