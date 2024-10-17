@@ -257,7 +257,7 @@ mod tests {
 	}
 
 	#[test]
-	fn verfity_well_known() {
+	fn verify_well_known() {
 		assert_eq!(
 			Keyring::well_known().collect::<Vec<Keyring>>(),
 			vec![
