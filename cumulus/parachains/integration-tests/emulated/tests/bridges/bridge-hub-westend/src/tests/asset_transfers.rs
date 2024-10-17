@@ -555,6 +555,15 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 	assert!(receiver_rocs_after <= receiver_rocs_before + amount);
 }
 
+#[test]
+fn dry_run_transfer_to_rococo_sends_xcm_to_bridge_hub() {
+	test_dry_run_transfer_across_pk_bridge!(
+		AssetHubWestend,
+		BridgeHubWestend,
+		asset_hub_rococo_location()
+	);
+}
+
 fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 	wnds: (Location, u128),
 	pens: (Location, u128),

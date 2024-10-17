@@ -193,17 +193,43 @@ pub mod ump_constants {
 
 /// Trait for selecting the next core to build the candidate for.
 pub trait SelectCore {
-	fn select_core_for_child() -> (CoreSelector, ClaimQueueOffset);
+	/// Core selector information for the current block.
+	fn selected_core() -> (CoreSelector, ClaimQueueOffset);
+	/// Core selector information for the next block.
+	fn select_next_core() -> (CoreSelector, ClaimQueueOffset);
 }
 
 /// The default core selection policy.
 pub struct DefaultCoreSelector<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
-	fn select_core_for_child() -> (CoreSelector, ClaimQueueOffset) {
+	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
+		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
+
+		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+	}
+
+	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
 		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
 
 		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+	}
+}
+
+/// Core selection policy that builds on claim queue offset 1.
+pub struct LookaheadCoreSelector<T>(PhantomData<T>);
+
+impl<T: frame_system::Config> SelectCore for LookaheadCoreSelector<T> {
+	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
+		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
+
+		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
+	}
+
+	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
+		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
+
+		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
 	}
 }
 
@@ -364,6 +390,11 @@ pub mod pallet {
 
 				UpwardMessages::<T>::put(&up[..num as usize]);
 				*up = up.split_off(num as usize);
+
+				// Send the core selector UMP signal. This is experimental until relay chain
+				// validators are upgraded to handle ump signals.
+				#[cfg(feature = "experimental-ump-signals")]
+				Self::send_ump_signal();
 
 				// If the total size of the pending messages is less than the threshold,
 				// we decrease the fee factor, since the queue is less congested.
@@ -1397,9 +1428,9 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Returns the core selector.
+	/// Returns the core selector for the next block.
 	pub fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
-		T::SelectCore::select_core_for_child()
+		T::SelectCore::select_next_core()
 	}
 
 	/// Set a custom head data that should be returned as result of `validate_block`.
@@ -1416,6 +1447,20 @@ impl<T: Config> Pallet<T> {
 	/// your Parachain.
 	pub fn set_custom_validation_head_data(head_data: Vec<u8>) {
 		CustomValidationHeadData::<T>::put(head_data);
+	}
+
+	/// Send the ump signals
+	#[cfg(feature = "experimental-ump-signals")]
+	fn send_ump_signal() {
+		use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
+
+		UpwardMessages::<T>::mutate(|up| {
+			up.push(UMP_SEPARATOR);
+
+			// Send the core selector signal.
+			let core_selector = T::SelectCore::selected_core();
+			up.push(UMPSignal::SelectCore(core_selector.0, core_selector.1).encode());
+		});
 	}
 
 	/// Open HRMP channel for using it in benchmarks or tests.
@@ -1582,7 +1627,11 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 			.map(|encoded_message| VersionedXcm::<()>::decode(&mut &encoded_message[..]).unwrap())
 			.collect();
 
-		vec![(VersionedLocation::V5(Parent.into()), messages)]
+		if messages.is_empty() {
+			vec![]
+		} else {
+			vec![(VersionedLocation::from(Location::parent()), messages)]
+		}
 	}
 }
 

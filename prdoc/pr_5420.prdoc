@@ -58,3 +58,5 @@ crates:
     bump: minor
   - name: pallet-xcm-benchmarks
     bump: minor
+  - name: snowbridge-pallet-system
+    bump: patch

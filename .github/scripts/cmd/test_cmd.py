@@ -7,13 +7,45 @@ import argparse
 
 # Mock data for runtimes-matrix.json
 mock_runtimes_matrix = [
-    {"name": "dev", "package": "kitchensink-runtime", "path": "substrate/frame", "header": "substrate/HEADER-APACHE2",  "template": "substrate/.maintain/frame-weight-template.hbs", "bench_features": "runtime-benchmarks,riscv"},
-    {"name": "westend", "package": "westend-runtime", "path": "polkadot/runtime/westend", "header": "polkadot/file_header.txt", "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs", "bench_features": "runtime-benchmarks"},
-    {"name": "rococo", "package": "rococo-runtime", "path": "polkadot/runtime/rococo", "header": "polkadot/file_header.txt", "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs", "bench_features": "runtime-benchmarks"},
-    {"name": "asset-hub-westend", "package": "asset-hub-westend-runtime", "path": "cumulus/parachains/runtimes/assets/asset-hub-westend", "header": "cumulus/file_header.txt", "template": "cumulus/templates/xcm-bench-template.hbs", "bench_features": "runtime-benchmarks"},
+    {
+        "name": "dev",
+        "package": "kitchensink-runtime",
+        "path": "substrate/frame",
+        "header": "substrate/HEADER-APACHE2",
+        "template": "substrate/.maintain/frame-weight-template.hbs",
+        "bench_features": "runtime-benchmarks,riscv",
+        "bench_flags": "--flag1 --flag2"
+    },
+    {
+        "name": "westend",
+        "package": "westend-runtime",
+        "path": "polkadot/runtime/westend",
+        "header": "polkadot/file_header.txt",
+        "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs",
+        "bench_features": "runtime-benchmarks",
+        "bench_flags": "--flag3 --flag4"
+    },
+    {
+        "name": "rococo",
+        "package": "rococo-runtime",
+        "path": "polkadot/runtime/rococo",
+        "header": "polkadot/file_header.txt",
+        "template": "polkadot/xcm/pallet-xcm-benchmarks/template.hbs",
+        "bench_features": "runtime-benchmarks",
+        "bench_flags": ""
+    },
+    {
+        "name": "asset-hub-westend",
+        "package": "asset-hub-westend-runtime",
+        "path": "cumulus/parachains/runtimes/assets/asset-hub-westend",
+        "header": "cumulus/file_header.txt",
+        "template": "cumulus/templates/xcm-bench-template.hbs",
+        "bench_features": "runtime-benchmarks",
+        "bench_flags": "--flag7 --flag8"
+    }
 ]
 
-def get_mock_bench_output(runtime, pallets, output_path, header, template = None):
+def get_mock_bench_output(runtime, pallets, output_path, header, bench_flags, template = None):
     return f"frame-omni-bencher v1 benchmark pallet --extrinsic=* " \
            f"--runtime=target/release/wbuild/{runtime}-runtime/{runtime.replace('-', '_')}_runtime.wasm " \
            f"--pallet={pallets} --header={header} " \
@@ -21,7 +53,8 @@ def get_mock_bench_output(runtime, pallets, output_path, header, template = None
            f"--wasm-execution=compiled " \
            f"--steps=50 --repeat=20 --heap-pages=4096 " \
            f"{f'--template={template} ' if template else ''}" \
-           f"--no-storage-info --no-min-squares --no-median-slopes"
+           f"--no-storage-info --no-min-squares --no-median-slopes " \
+           f"{bench_flags}"
 
 class TestCmd(unittest.TestCase):
 
@@ -63,7 +96,7 @@ class TestCmd(unittest.TestCase):
             command='bench',
             runtime=list(map(lambda x: x['name'], mock_runtimes_matrix)),
             pallet=['pallet_balances'],
-            continue_on_fail=False,
+            fail_fast=True,
             quiet=False,
             clean=False,
             image=None
@@ -89,10 +122,29 @@ class TestCmd(unittest.TestCase):
                 call("forklift cargo build -p rococo-runtime --profile release --features=runtime-benchmarks"),
                 call("forklift cargo build -p asset-hub-westend-runtime --profile release --features=runtime-benchmarks"),
                 
-                call(get_mock_bench_output('kitchensink', 'pallet_balances', './substrate/frame/balances/src/weights.rs', os.path.abspath('substrate/HEADER-APACHE2'), "substrate/.maintain/frame-weight-template.hbs")),
-                call(get_mock_bench_output('westend', 'pallet_balances', './polkadot/runtime/westend/src/weights', os.path.abspath('polkadot/file_header.txt'))),
+                call(get_mock_bench_output(
+                    runtime='kitchensink',
+                    pallets='pallet_balances',
+                    output_path='./substrate/frame/balances/src/weights.rs',
+                    header=os.path.abspath('substrate/HEADER-APACHE2'),
+                    bench_flags='--flag1 --flag2',
+                    template="substrate/.maintain/frame-weight-template.hbs"
+                )),
+                call(get_mock_bench_output(
+                    runtime='westend',
+                    pallets='pallet_balances',
+                    output_path='./polkadot/runtime/westend/src/weights',
+                    header=os.path.abspath('polkadot/file_header.txt'),
+                    bench_flags='--flag3 --flag4'
+                )),
                 # skips rococo benchmark
-                call(get_mock_bench_output('asset-hub-westend', 'pallet_balances', './cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights', os.path.abspath('cumulus/file_header.txt'))),
+                call(get_mock_bench_output(
+                    runtime='asset-hub-westend',
+                    pallets='pallet_balances',
+                    output_path='./cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights',
+                    header=os.path.abspath('cumulus/file_header.txt'),
+                    bench_flags='--flag7 --flag8'
+                )),
             ]
             self.mock_system.assert_has_calls(expected_calls, any_order=True)
 
@@ -101,7 +153,7 @@ class TestCmd(unittest.TestCase):
             command='bench',
             runtime=['westend'],
             pallet=['pallet_balances', 'pallet_staking'],
-            continue_on_fail=False,
+            fail_fast=True,
             quiet=False,
             clean=False,
             image=None
@@ -121,8 +173,20 @@ class TestCmd(unittest.TestCase):
                 call("forklift cargo build -p westend-runtime --profile release --features=runtime-benchmarks"),
                 
                 # Westend runtime calls
-                call(get_mock_bench_output('westend', 'pallet_balances', './polkadot/runtime/westend/src/weights', header_path)),
-                call(get_mock_bench_output('westend', 'pallet_staking', './polkadot/runtime/westend/src/weights', header_path)),
+                call(get_mock_bench_output(
+                    runtime='westend',
+                    pallets='pallet_balances',
+                    output_path='./polkadot/runtime/westend/src/weights',
+                    header=header_path,
+                    bench_flags='--flag3 --flag4'
+                )),
+                call(get_mock_bench_output(
+                    runtime='westend',
+                    pallets='pallet_staking',
+                    output_path='./polkadot/runtime/westend/src/weights',
+                    header=header_path,
+                    bench_flags='--flag3 --flag4'
+                )),
             ]
             self.mock_system.assert_has_calls(expected_calls, any_order=True)
 
@@ -132,7 +196,7 @@ class TestCmd(unittest.TestCase):
             command='bench',
             runtime=['westend'],
             pallet=['pallet_xcm_benchmarks::generic'],
-            continue_on_fail=False,
+            fail_fast=True,
             quiet=False,
             clean=False,
             image=None
@@ -153,11 +217,12 @@ class TestCmd(unittest.TestCase):
                 
                 # Westend runtime calls
                 call(get_mock_bench_output(
-                    'westend', 
-                    'pallet_xcm_benchmarks::generic', 
-                    './polkadot/runtime/westend/src/weights/xcm', 
-                    header_path, 
-                    "polkadot/xcm/pallet-xcm-benchmarks/template.hbs"
+                    runtime='westend',
+                    pallets='pallet_xcm_benchmarks::generic',
+                    output_path='./polkadot/runtime/westend/src/weights/xcm',
+                    header=header_path,
+                    bench_flags='--flag3 --flag4',
+                    template="polkadot/xcm/pallet-xcm-benchmarks/template.hbs"
                 )),
             ]
             self.mock_system.assert_has_calls(expected_calls, any_order=True)
@@ -167,7 +232,7 @@ class TestCmd(unittest.TestCase):
             command='bench',
             runtime=['westend', 'rococo'],
             pallet=['pallet_balances', 'pallet_staking'],
-            continue_on_fail=False,
+            fail_fast=True,
             quiet=False,
             clean=False,
             image=None
@@ -188,11 +253,35 @@ class TestCmd(unittest.TestCase):
                 call("forklift cargo build -p westend-runtime --profile release --features=runtime-benchmarks"),
                 call("forklift cargo build -p rococo-runtime --profile release --features=runtime-benchmarks"),
                 # Westend runtime calls
-                call(get_mock_bench_output('westend', 'pallet_staking', './polkadot/runtime/westend/src/weights', header_path)),
-                call(get_mock_bench_output('westend', 'pallet_balances', './polkadot/runtime/westend/src/weights', header_path)),
+                call(get_mock_bench_output(
+                    runtime='westend',
+                    pallets='pallet_staking',
+                    output_path='./polkadot/runtime/westend/src/weights',
+                    header=header_path,
+                    bench_flags='--flag3 --flag4'
+                )),
+                call(get_mock_bench_output(
+                    runtime='westend',
+                    pallets='pallet_balances',
+                    output_path='./polkadot/runtime/westend/src/weights',
+                    header=header_path,
+                    bench_flags='--flag3 --flag4'
+                )),
                 # Rococo runtime calls
-                call(get_mock_bench_output('rococo', 'pallet_staking', './polkadot/runtime/rococo/src/weights', header_path)),
-                call(get_mock_bench_output('rococo', 'pallet_balances', './polkadot/runtime/rococo/src/weights', header_path)),
+                call(get_mock_bench_output(
+                    runtime='rococo',
+                    pallets='pallet_staking',
+                    output_path='./polkadot/runtime/rococo/src/weights',
+                    header=header_path,
+                    bench_flags=''
+                )),
+                call(get_mock_bench_output(
+                    runtime='rococo',
+                    pallets='pallet_balances',
+                    output_path='./polkadot/runtime/rococo/src/weights',
+                    header=header_path,
+                    bench_flags=''
+                )),
             ]
             self.mock_system.assert_has_calls(expected_calls, any_order=True)
 
@@ -201,7 +290,7 @@ class TestCmd(unittest.TestCase):
             command='bench',
             runtime=['dev'],
             pallet=['pallet_balances'],
-            continue_on_fail=False,
+            fail_fast=True,
             quiet=False,
             clean=False,
             image=None
@@ -223,11 +312,12 @@ class TestCmd(unittest.TestCase):
                 call("forklift cargo build -p kitchensink-runtime --profile release --features=runtime-benchmarks,riscv"),
                 # Westend runtime calls
                 call(get_mock_bench_output(
-                    'kitchensink', 
-                    'pallet_balances', 
-                    manifest_dir + "/src/weights.rs", 
-                    header_path, 
-                    "substrate/.maintain/frame-weight-template.hbs"
+                    runtime='kitchensink',
+                    pallets='pallet_balances',
+                    output_path=manifest_dir + "/src/weights.rs",
+                    header=header_path,
+                    bench_flags='--flag1 --flag2',
+                    template="substrate/.maintain/frame-weight-template.hbs"
                 )),
             ]
             self.mock_system.assert_has_calls(expected_calls, any_order=True)
@@ -237,7 +327,7 @@ class TestCmd(unittest.TestCase):
             command='bench',
             runtime=['asset-hub-westend'],
             pallet=['pallet_assets'],
-            continue_on_fail=False,
+            fail_fast=True,
             quiet=False,
             clean=False,
             image=None
@@ -257,10 +347,11 @@ class TestCmd(unittest.TestCase):
                 call("forklift cargo build -p asset-hub-westend-runtime --profile release --features=runtime-benchmarks"),
                 # Asset-hub-westend runtime calls
                 call(get_mock_bench_output(
-                    'asset-hub-westend', 
-                    'pallet_assets', 
-                    './cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights', 
-                    header_path
+                    runtime='asset-hub-westend',
+                    pallets='pallet_assets',
+                    output_path='./cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights',
+                    header=header_path,
+                    bench_flags='--flag7 --flag8'
                 )),
             ]
 
@@ -271,7 +362,7 @@ class TestCmd(unittest.TestCase):
             command='bench',
             runtime=['asset-hub-westend'],
             pallet=['pallet_xcm_benchmarks::generic', 'pallet_assets'],
-            continue_on_fail=False,
+            fail_fast=True,
             quiet=False,
             clean=False,
             image=None
@@ -291,23 +382,25 @@ class TestCmd(unittest.TestCase):
                 call("forklift cargo build -p asset-hub-westend-runtime --profile release --features=runtime-benchmarks"),
                 # Asset-hub-westend runtime calls
                 call(get_mock_bench_output(
-                    'asset-hub-westend', 
-                    'pallet_xcm_benchmarks::generic', 
-                    './cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights/xcm', 
-                    header_path, 
-                    "cumulus/templates/xcm-bench-template.hbs"
+                    runtime='asset-hub-westend',
+                    pallets='pallet_xcm_benchmarks::generic',
+                    output_path='./cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights/xcm',
+                    header=header_path,
+                    bench_flags='--flag7 --flag8',
+                    template="cumulus/templates/xcm-bench-template.hbs"
                 )),
                 call(get_mock_bench_output(
-                    'asset-hub-westend', 
-                    'pallet_assets', 
-                    './cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights', 
-                    header_path
+                    runtime='asset-hub-westend',
+                    pallets='pallet_assets',
+                    output_path='./cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights',
+                    header=header_path,
+                    bench_flags='--flag7 --flag8'
                 )),
             ]
 
             self.mock_system.assert_has_calls(expected_calls, any_order=True)
 
-    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='fmt', continue_on_fail=False), []))
+    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='fmt'), []))
     @patch('os.system', return_value=0)
     def test_fmt_command(self, mock_system, mock_parse_args):
         with patch('sys.exit') as mock_exit:
@@ -317,7 +410,7 @@ class TestCmd(unittest.TestCase):
             mock_system.assert_any_call('cargo +nightly fmt')
             mock_system.assert_any_call('taplo format --config .config/taplo.toml')
 
-    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='update-ui', continue_on_fail=False), []))
+    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='update-ui'), []))
     @patch('os.system', return_value=0)
     def test_update_ui_command(self, mock_system, mock_parse_args):
         with patch('sys.exit') as mock_exit:
@@ -326,7 +419,7 @@ class TestCmd(unittest.TestCase):
             mock_exit.assert_not_called()
             mock_system.assert_called_with('sh ./scripts/update-ui-tests.sh')
 
-    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='prdoc', continue_on_fail=False), []))
+    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='prdoc'), []))
     @patch('os.system', return_value=0)
     def test_prdoc_command(self, mock_system, mock_parse_args):
         with patch('sys.exit') as mock_exit:
