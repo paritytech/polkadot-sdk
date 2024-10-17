@@ -121,6 +121,8 @@ where
 			anyhow::format_err!("Invalid laneId: {:?}!", invalid_lane_id)
 		})?;
 
+		Self::start_relay_guards(&target_client, target_client.can_start_version_guard()).await?;
+
 		crate::messages::run::<Self::MessagesLane, _, _>(MessagesRelayParams {
 			source_client,
 			source_transaction_params: TransactionParams {
@@ -215,5 +217,19 @@ where
 			lane_id,
 		)
 		.await
+	}
+
+	/// Add relay guards if required.
+	async fn start_relay_guards(
+		target_client: &impl Client<Self::Target>,
+		enable_version_guard: bool,
+	) -> relay_substrate_client::Result<()> {
+		if enable_version_guard {
+			relay_substrate_client::guard::abort_on_spec_version_change(
+				target_client.clone(),
+				target_client.simple_runtime_version().await?.spec_version,
+			);
+		}
+		Ok(())
 	}
 }
