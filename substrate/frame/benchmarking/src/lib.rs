@@ -321,7 +321,7 @@ pub use v1::*;
 /// 2. Move the code inside the v1 `benchmarks! { ... }` block to the v2 benchmarks module `mod
 ///    benchmarks { ... }` under the benchmarks macro (`#[benchmarks]` or `#[instance_benchmarks]`);
 /// 3. Turn each v1 benchmark into a function inside the v2 benchmarks module with the same name,
-///    having either with a blank return type or a return type compatible with `Result<(),
+///    having either a blank return type or a return type compatible with `Result<(),
 ///    BenchmarkError>`. For instance, `foo { ... }` can become `fn foo() -> Result<(),
 ///    BenchmarkError>`. More in detail:
 ///    1. Move all the v1 complexity parameters as [ParamRange](`v2::ParamRange`) arguments to the
