@@ -60,7 +60,7 @@ fn create_extrinsics(
 		let extrinsic: UncheckedExtrinsic = generate_extrinsic_with_pair(
 			client,
 			src.clone(),
-			BalancesCall::transfer_keep_alive { dest: AccountId::from(dst.public()), value: 10000 },
+			BalancesCall::transfer_keep_alive { dest: AccountId::from(dst.public()).into(), value: 10000 },
 			None,
 		);
 

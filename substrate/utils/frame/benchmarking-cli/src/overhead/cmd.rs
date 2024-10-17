@@ -40,7 +40,7 @@ use log::info;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sc_block_builder::BlockBuilderApi;
 use sc_chain_spec::{ChainSpec, ChainSpecExtension, GenericChainSpec, GenesisBlockBuilder};
-use sc_cli::{CliConfiguration, ImportParams, Result, SharedParams};
+use sc_cli::{CliConfiguration, Database, ImportParams, Result, SharedParams};
 use sc_client_api::{execution_extensions::ExecutionExtensions, UsageProvider};
 use sc_client_db::{BlocksPruning, DatabaseSettings, DatabaseSource};
 use sc_executor::WasmExecutor;
@@ -327,6 +327,12 @@ impl OverheadCmd {
 	) -> Result<Arc<OverheadClient<Block, HF>>> {
 		let extensions = ExecutionExtensions::new(None, Arc::new(executor.clone()));
 
+		let base_path = match &self.shared_params.base_path {
+			None => BasePath::new_temp_dir()?,
+			Some(path) => BasePath::from(path.clone())
+		};
+
+		self.database_config(&base_path.path().to_path_buf(), self.database_cache_size()?.unwrap_or(1024), self.database()?.unwrap_or(Database::RocksDb))?;
 		let backend = new_db_backend(DatabaseSettings {
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
 			state_pruning: None,
