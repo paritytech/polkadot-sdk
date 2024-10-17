@@ -28,9 +28,9 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(code_hash: &[u8; 32],);
+	input!(address: &[u8; 20],);
 
-	// Delegate call into passed code hash.
+	// Delegate call into passed address.
 	let input = [0u8; 0];
-	api::delegate_call(uapi::CallFlags::empty(), code_hash, &input, None).unwrap();
+	api::delegate_call(uapi::CallFlags::empty(), address, 0, 0, &input, None).unwrap();
 }

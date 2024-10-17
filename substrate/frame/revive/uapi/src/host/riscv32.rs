@@ -60,7 +60,7 @@ mod sys {
 		) -> ReturnCode;
 		pub fn transfer(address_ptr: *const u8, value_ptr: *const u8) -> ReturnCode;
 		pub fn call(ptr: *const u8) -> ReturnCode;
-		pub fn delegate_call(*const u8) -> ReturnCode;
+		pub fn delegate_call(ptr: *const u8) -> ReturnCode;
 		pub fn instantiate(ptr: *const u8) -> ReturnCode;
 		pub fn terminate(beneficiary_ptr: *const u8);
 		pub fn input(out_ptr: *mut u8, out_len_ptr: *mut u32);
