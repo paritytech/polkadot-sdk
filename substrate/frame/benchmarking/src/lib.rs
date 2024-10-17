@@ -314,7 +314,7 @@ pub use v1::*;
 ///
 /// ## Migrate from v1 to v2
 ///
-/// If you want to migrate your code from benchmarking v1 to benchmarking v2, you may follow these
+/// To migrate your code from benchmarking v1 to benchmarking v2, you may follow these
 /// steps:
 /// 1. Change the import from `frame_benchmarking::v1::` to `frame_benchmarking::v2::*`, or
 ///    `frame::benchmarking::prelude::*` under the umbrella crate;
