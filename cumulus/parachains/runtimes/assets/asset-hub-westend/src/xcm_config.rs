@@ -359,7 +359,14 @@ impl xcm_executor::Config for XcmConfig {
 	// as reserve locations (we trust the Bridge Hub to relay the message that a reserve is being
 	// held). On Westend Asset Hub, we allow Rococo Asset Hub to act as reserve for any asset native
 	// to the Rococo or Ethereum ecosystems.
+<<<<<<< HEAD
 	type IsReserve = (bridging::to_rococo::RococoOrEthereumAssetFromAssetHubRococo,);
+=======
+	type IsReserve = (
+		bridging::to_rococo::RococoAssetFromAssetHubRococo,
+		bridging::to_ethereum::EthereumAssetFromEthereum,
+	);
+>>>>>>> 9714796b ([AHs] Support registering assets on Asset Hubs over bridge (#5435))
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
@@ -505,6 +512,11 @@ pub type ForeignCreatorsSovereignAccountOf = (
 	SiblingParachainConvertsVia<Sibling, AccountId>,
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	ParentIsPreset<AccountId>,
+<<<<<<< HEAD
+=======
+	GlobalConsensusEthereumConvertsFor<AccountId>,
+	GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
+>>>>>>> 9714796b ([AHs] Support registering assets on Asset Hubs over bridge (#5435))
 );
 
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
@@ -569,10 +581,8 @@ pub mod bridging {
 			);
 
 			pub const RococoNetwork: NetworkId = NetworkId::Rococo;
-			pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 			pub RococoEcosystem: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
 			pub RocLocation: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
-			pub EthereumEcosystem: Location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 			pub AssetHubRococo: Location = Location::new(2, [
 				GlobalConsensus(RococoNetwork::get()),
 				Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)
@@ -609,6 +619,7 @@ pub mod bridging {
 			}
 		}
 
+<<<<<<< HEAD
 		/// Allow any asset native to the Rococo or Ethereum ecosystems if it comes from Rococo
 		/// Asset Hub.
 		pub type RococoOrEthereumAssetFromAssetHubRococo = matching::RemoteAssetFromLocation<
@@ -624,6 +635,70 @@ pub mod bridging {
 						pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
 					)
 				)
+=======
+		/// Allow any asset native to the Rococo ecosystem if it comes from Rococo Asset Hub.
+		pub type RococoAssetFromAssetHubRococo =
+			matching::RemoteAssetFromLocation<StartsWith<RococoEcosystem>, AssetHubRococo>;
+	}
+
+	pub mod to_ethereum {
+		use super::*;
+		use assets_common::matching::FromNetwork;
+		use sp_std::collections::btree_set::BTreeSet;
+		use testnet_parachains_constants::westend::snowbridge::{
+			EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
+		};
+
+		parameter_types! {
+			/// User fee for ERC20 token transfer back to Ethereum.
+			/// (initially was calculated by test `OutboundQueue::calculate_fees` - ETH/WND 1/400 and fee_per_gas 20 GWEI = 2200698000000 + *25%)
+			/// Needs to be more than fee calculated from DefaultFeeConfig FeeConfigRecord in snowbridge:parachain/pallets/outbound-queue/src/lib.rs
+			/// Polkadot uses 10 decimals, Kusama,Rococo,Westend 12 decimals.
+			pub const DefaultBridgeHubEthereumBaseFee: Balance = 2_750_872_500_000;
+			pub storage BridgeHubEthereumBaseFee: Balance = DefaultBridgeHubEthereumBaseFee::get();
+			pub SiblingBridgeHubWithEthereumInboundQueueInstance: Location = Location::new(
+				1,
+				[
+					Parachain(SiblingBridgeHubParaId::get()),
+					PalletInstance(INBOUND_QUEUE_PALLET_INDEX)
+				]
+			);
+
+			/// Set up exporters configuration.
+			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
+			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+				NetworkExportTableItem::new(
+					EthereumNetwork::get(),
+					Some(sp_std::vec![Junctions::Here]),
+					SiblingBridgeHub::get(),
+					Some((
+						XcmBridgeHubRouterFeeAssetId::get(),
+						BridgeHubEthereumBaseFee::get(),
+					).into())
+				),
+			];
+
+			/// Universal aliases
+			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
+				sp_std::vec![
+					(SiblingBridgeHubWithEthereumInboundQueueInstance::get(), GlobalConsensus(EthereumNetwork::get())),
+				]
+			);
+
+			pub EthereumBridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec::Vec::new().into_iter()
+				.chain(BridgeTable::get())
+				.collect();
+		}
+
+		pub type EthereumNetworkExportTable = xcm_builder::NetworkExportTable<EthereumBridgeTable>;
+
+		pub type EthereumAssetFromEthereum =
+			IsForeignConcreteAsset<FromNetwork<UniversalLocation, EthereumNetwork>>;
+
+		impl Contains<(Location, Junction)> for UniversalAliases {
+			fn contains(alias: &(Location, Junction)) -> bool {
+				UniversalAliases::get().contains(alias)
+>>>>>>> 9714796b ([AHs] Support registering assets on Asset Hubs over bridge (#5435))
 			}
 		}
 	}

@@ -410,7 +410,15 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type AssetIdParameter = xcm::v3::Location;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
+<<<<<<< HEAD
 		FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v3::Location>,
+=======
+		(
+			FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v4::Location>,
+			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork, xcm::v4::Location>,
+			xcm_config::bridging::to_rococo::RococoAssetFromAssetHubRococo,
+		),
+>>>>>>> 9714796b ([AHs] Support registering assets on Asset Hubs over bridge (#5435))
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,
 		xcm::v3::Location,
