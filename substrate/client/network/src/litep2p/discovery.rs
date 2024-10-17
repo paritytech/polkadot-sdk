@@ -19,7 +19,7 @@
 //! libp2p-related discovery code for litep2p backend.
 
 use crate::{
-	config::{NetworkConfiguration, ProtocolId},
+	config::NetworkConfiguration,
 	peer_store::PeerStoreProvider,
 };
 
@@ -231,7 +231,6 @@ impl Discovery {
 		config: &NetworkConfiguration,
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
-		protocol_id: &ProtocolId,
 		known_peers: HashMap<PeerId, Vec<Multiaddr>>,
 		listen_addresses: Arc<RwLock<HashSet<Multiaddr>>>,
 		_peerstore_handle: Arc<dyn PeerStoreProvider>,

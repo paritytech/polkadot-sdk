@@ -543,7 +543,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				&network_config,
 				params.genesis_hash,
 				params.fork_id.as_deref(),
-				&params.protocol_id,
 				known_addresses.clone(),
 				Arc::clone(&listen_addresses),
 				Arc::clone(&peer_store_handle),
