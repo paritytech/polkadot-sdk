@@ -60,14 +60,7 @@ mod sys {
 		) -> ReturnCode;
 		pub fn transfer(address_ptr: *const u8, value_ptr: *const u8) -> ReturnCode;
 		pub fn call(ptr: *const u8) -> ReturnCode;
-		pub fn delegate_call(
-			flags: u32,
-			code_hash_ptr: *const u8,
-			input_data_ptr: *const u8,
-			input_data_len: u32,
-			out_ptr: *mut u8,
-			out_len_ptr: *mut u32,
-		) -> ReturnCode;
+		pub fn delegate_call(*const u8) -> ReturnCode;
 		pub fn instantiate(ptr: *const u8) -> ReturnCode;
 		pub fn terminate(beneficiary_ptr: *const u8);
 		pub fn input(out_ptr: *mut u8, out_len_ptr: *mut u32);
@@ -304,23 +297,38 @@ impl HostFn for HostFnImpl {
 
 	fn delegate_call(
 		flags: CallFlags,
-		code_hash: &[u8; 32],
+		address: &[u8; 20],
+		ref_time_limit: u64,
+		proof_size_limit: u64,
 		input: &[u8],
 		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
-		let ret_code = {
-			unsafe {
-				sys::delegate_call(
-					flags.bits(),
-					code_hash.as_ptr(),
-					input.as_ptr(),
-					input.len() as u32,
-					output_ptr,
-					&mut output_len,
-				)
-			}
+
+		#[repr(packed)]
+		#[allow(dead_code)]
+		struct Args {
+			flags: u32,
+			address: *const u8,
+			ref_time_limit: u64,
+			proof_size_limit: u64,
+			input: *const u8,
+			input_len: u32,
+			output: *mut u8,
+			output_len: *mut u32,
+		}
+		let args = Args {
+			flags: flags.bits(),
+			address: address.as_ptr(),
+			ref_time_limit,
+			proof_size_limit,
+			input: input.as_ptr(),
+			input_len: input.len() as _,
+			output: output_ptr,
+			output_len: &mut output_len as *mut _,
 		};
+
+		let ret_code = { unsafe { sys::delegate_call(&args as *const Args as *const _) } };
 
 		if let Some(ref mut output) = output {
 			extract_from_slice(output, output_len as usize);
