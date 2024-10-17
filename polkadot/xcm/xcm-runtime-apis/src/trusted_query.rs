@@ -26,14 +26,12 @@ sp_api::decl_runtime_apis! {
 		/// Returns if the location is a trusted reserve for the asset.
 		///
 		/// # Arguments
-		///
 		/// * `asset`: `VersionedAsset`.
 		/// * `location`: `VersionedLocation`.
 		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, Error>;
 		/// Returns if the asset can be teleported to the location.
 		///
 		/// # Arguments
-		///
 		/// * `asset`: `VersionedAsset`.
 		/// * `location`: `VersionedLocation`.
 		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, Error>;
