@@ -17,6 +17,7 @@ use crate::imports::*;
 
 mod asset_transfers;
 mod claim_assets;
+mod register_bridged_assets;
 mod send_xcm;
 mod teleport;
 
@@ -47,15 +48,15 @@ pub(crate) fn bridged_roc_at_ah_westend() -> Location {
 }
 
 // USDT and wUSDT
-pub(crate) fn usdt_at_ah_rococo() -> Location {
+pub(crate) fn usdt_at_ah_westend() -> Location {
 	Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())])
 }
-pub(crate) fn bridged_usdt_at_ah_westend() -> Location {
+pub(crate) fn bridged_usdt_at_ah_rococo() -> Location {
 	Location::new(
 		2,
 		[
-			GlobalConsensus(Rococo),
-			Parachain(AssetHubRococo::para_id().into()),
+			GlobalConsensus(Westend),
+			Parachain(AssetHubWestend::para_id().into()),
 			PalletInstance(ASSETS_PALLET_ID),
 			GeneralIndex(USDT_ID.into()),
 		],
