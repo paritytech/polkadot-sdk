@@ -36,7 +36,7 @@ use sp_core::{
 		testing::{TestOffchainExt, TestTransactionPoolExt},
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
-	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt},
+	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt, WrappedRuntimeCode},
 	Hasher,
 };
 use sp_externalities::Extensions;
@@ -47,6 +47,7 @@ use sp_storage::{well_known_keys::CODE, Storage};
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::Recorder};
 use sp_wasm_interface::HostFunctions;
 use std::{
+	borrow::Cow,
 	collections::{BTreeMap, BTreeSet, HashMap},
 	fmt::Debug,
 	fs,
@@ -368,12 +369,12 @@ impl PalletCmd {
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							log::error!("Error executing and verifying runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Error executing and verifying runtime benchmark: {}", e);
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
 						Ok(Err(e)) => {
-							log::error!("Error executing and verifying runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Error executing and verifying runtime benchmark: {}", e);
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
@@ -408,12 +409,12 @@ impl PalletCmd {
 						"dispatch a benchmark",
 					) {
 						Err(e) => {
-							log::error!("Error executing runtime benchmark: {}", e);
+							log::error!(target: LOG_TARGET, "Error executing runtime benchmark: {}", e);
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
 						Ok(Err(e)) => {
-							log::error!("Benchmark {pallet}::{extrinsic} failed: {e}",);
+							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}",);
 							failed.push((pallet.clone(), extrinsic.clone()));
 							continue 'outer
 						},
@@ -502,33 +503,28 @@ impl PalletCmd {
 	}
 
 	fn select_benchmarks_to_run(&self, list: Vec<BenchmarkList>) -> Result<Vec<SelectedBenchmark>> {
-		let pallet = self.pallet.clone().unwrap_or_default();
-		let pallet = pallet.as_bytes();
-
 		let extrinsic = self.extrinsic.clone().unwrap_or_default();
 		let extrinsic_split: Vec<&str> = extrinsic.split(',').collect();
 		let extrinsics: Vec<_> = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
 
 		// Use the benchmark list and the user input to determine the set of benchmarks to run.
 		let mut benchmarks_to_run = Vec::new();
-		list.iter()
-			.filter(|item| pallet.is_empty() || pallet == &b"*"[..] || pallet == &item.pallet[..])
-			.for_each(|item| {
-				for benchmark in &item.benchmarks {
-					let benchmark_name = &benchmark.name;
-					if extrinsic.is_empty() ||
-						extrinsic.as_bytes() == &b"*"[..] ||
-						extrinsics.contains(&&benchmark_name[..])
-					{
-						benchmarks_to_run.push((
-							item.pallet.clone(),
-							benchmark.name.clone(),
-							benchmark.components.clone(),
-							benchmark.pov_modes.clone(),
-						))
-					}
+		list.iter().filter(|item| self.pallet_selected(&item.pallet)).for_each(|item| {
+			for benchmark in &item.benchmarks {
+				let benchmark_name = &benchmark.name;
+				if extrinsic.is_empty() ||
+					extrinsic.as_bytes() == &b"*"[..] ||
+					extrinsics.contains(&&benchmark_name[..])
+				{
+					benchmarks_to_run.push((
+						item.pallet.clone(),
+						benchmark.name.clone(),
+						benchmark.components.clone(),
+						benchmark.pov_modes.clone(),
+					))
 				}
-			});
+			}
+		});
 		// Convert `Vec<u8>` to `String` for better readability.
 		let benchmarks_to_run: Vec<_> = benchmarks_to_run
 			.into_iter()
@@ -558,6 +554,16 @@ impl PalletCmd {
 		Ok(benchmarks_to_run)
 	}
 
+	/// Whether this pallet should be run.
+	fn pallet_selected(&self, pallet: &Vec<u8>) -> bool {
+		let include = self.pallet.clone().unwrap_or_default();
+
+		let included = include.is_empty() || include == "*" || include.as_bytes() == pallet;
+		let excluded = self.exclude_pallets.iter().any(|p| p.as_bytes() == pallet);
+
+		included && !excluded
+	}
+
 	/// Build the genesis storage by either the Genesis Builder API, chain spec or nothing.
 	///
 	/// Behaviour can be controlled by the `--genesis-builder` flag.
@@ -566,12 +572,11 @@ impl PalletCmd {
 		chain_spec: &Option<Box<dyn ChainSpec>>,
 	) -> Result<sp_storage::Storage> {
 		Ok(match (self.genesis_builder, self.runtime.as_ref()) {
-			(Some(GenesisBuilderPolicy::None), Some(_)) => return Err("Cannot use `--genesis-builder=none` with `--runtime` since the runtime would be ignored.".into()),
-			(Some(GenesisBuilderPolicy::None), None) => Storage::default(),
+			(Some(GenesisBuilderPolicy::None), _) => Storage::default(),
 			(Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::Spec), Some(_)) =>
 					return Err("Cannot use `--genesis-builder=spec-genesis` with `--runtime` since the runtime would be ignored.".into()),
 			(Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::Spec), None) | (None, None) => {
-				log::warn!("{WARN_SPEC_GENESIS_CTOR}");
+				log::warn!(target: LOG_TARGET, "{WARN_SPEC_GENESIS_CTOR}");
 				let Some(chain_spec) = chain_spec else {
 					return Err("No chain spec specified to generate the genesis state".into());
 				};
@@ -593,7 +598,7 @@ impl PalletCmd {
 			},
 			(Some(GenesisBuilderPolicy::Runtime), None) => return Err("Cannot use `--genesis-builder=runtime` without `--runtime`".into()),
 			(Some(GenesisBuilderPolicy::Runtime), Some(runtime)) | (None, Some(runtime)) => {
-				log::info!("Loading WASM from {}", runtime.display());
+				log::info!(target: LOG_TARGET, "Loading WASM from {}", runtime.display());
 
 				let code = fs::read(&runtime).map_err(|e| {
 					format!(
@@ -613,7 +618,7 @@ impl PalletCmd {
 		&self,
 		chain_spec: &dyn ChainSpec,
 	) -> Result<Storage> {
-		log::info!("Building genesis state from chain spec runtime");
+		log::info!(target: LOG_TARGET, "Building genesis state from chain spec runtime");
 		let storage = chain_spec
 			.build_storage()
 			.map_err(|e| format!("{ERROR_CANNOT_BUILD_GENESIS}\nError: {e}"))?;
@@ -636,8 +641,9 @@ impl PalletCmd {
 			genesis_config_caller.get_storage_for_named_preset(preset).inspect_err(|e| {
 				let presets = genesis_config_caller.preset_names().unwrap_or_default();
 				log::error!(
+					target: LOG_TARGET,
 					"Please pick one of the available presets with \
-			`--genesis-builder-preset=<PRESET>`. Available presets ({}): {:?}. Error: {:?}",
+			`--genesis-builder-preset=<PRESET>` or use a different `--genesis-builder-policy`. Available presets ({}): {:?}. Error: {:?}",
 					presets.len(),
 					presets,
 					e
@@ -690,10 +696,25 @@ impl PalletCmd {
 		&self,
 		state: &'a BenchmarkingState<H>,
 	) -> Result<FetchedCode<'a, BenchmarkingState<H>, H>> {
-		log::info!("Loading WASM from state");
-		let state = sp_state_machine::backend::BackendRuntimeCode::new(state);
+		if let Some(runtime) = self.runtime.as_ref() {
+			log::info!(target: LOG_TARGET, "Loading WASM from file");
+			let code = fs::read(runtime).map_err(|e| {
+				format!(
+					"Could not load runtime file from path: {}, error: {}",
+					runtime.display(),
+					e
+				)
+			})?;
+			let hash = sp_core::blake2_256(&code).to_vec();
+			let wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
 
-		Ok(FetchedCode { state })
+			Ok(FetchedCode::FromFile { wrapped_code, heap_pages: self.heap_pages, hash })
+		} else {
+			log::info!(target: LOG_TARGET, "Loading WASM from state");
+			let state = sp_state_machine::backend::BackendRuntimeCode::new(state);
+
+			Ok(FetchedCode::FromGenesis { state })
+		}
 	}
 
 	/// Allocation strategy for pallet benchmarking.

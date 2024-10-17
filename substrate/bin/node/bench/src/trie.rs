@@ -18,12 +18,11 @@
 
 //! Trie benchmark (integrated).
 
-use lazy_static::lazy_static;
 use rand::Rng;
 use sp_runtime::traits::BlakeTwo256;
 use sp_state_machine::Backend as _;
 use sp_trie::trie_types::TrieDBMutBuilderV1;
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::LazyLock};
 
 use node_primitives::Hash;
 
@@ -55,10 +54,8 @@ pub enum DatabaseSize {
 	Huge,
 }
 
-lazy_static! {
-	static ref KUSAMA_STATE_DISTRIBUTION: SizePool =
-		SizePool::from_histogram(crate::state_sizes::KUSAMA_STATE_DISTRIBUTION);
-}
+static KUSAMA_STATE_DISTRIBUTION: LazyLock<SizePool> =
+	LazyLock::new(|| SizePool::from_histogram(crate::state_sizes::KUSAMA_STATE_DISTRIBUTION));
 
 impl DatabaseSize {
 	/// Should be multiple of SAMPLE_SIZE!

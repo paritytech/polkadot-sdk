@@ -41,7 +41,6 @@ trie-db = { workspace = true, default-features = true }
 tempfile = { workspace = true }
 fs_extra = { workspace = true }
 rand = { features = ["small_rng"], workspace = true, default-features = true }
-lazy_static = { workspace = true }
 parity-db = { workspace = true }
 sc-transaction-pool = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }

@@ -24,17 +24,15 @@ use schnellru::LruMap;
 use std::{
 	collections::{hash_map::Entry as SetEntry, HashMap},
 	hash::{BuildHasher, Hasher as _},
-	sync::Arc,
+	sync::{Arc, LazyLock},
 };
 use trie_db::{node::NodeOwned, node_db::Hasher, CachedValue};
 
-lazy_static::lazy_static! {
-	static ref RANDOM_STATE: ahash::RandomState = {
-		use rand::Rng;
-		let mut rng = rand::thread_rng();
-		ahash::RandomState::generate_with(rng.gen(), rng.gen(), rng.gen(), rng.gen())
-	};
-}
+static RANDOM_STATE: LazyLock<ahash::RandomState> = LazyLock::new(|| {
+	use rand::Rng;
+	let mut rng = rand::thread_rng();
+	ahash::RandomState::generate_with(rng.gen(), rng.gen(), rng.gen(), rng.gen())
+});
 
 pub struct SharedNodeCacheLimiter {
 	/// The maximum size (in bytes) the cache can hold inline.

@@ -23,7 +23,6 @@ harness = false
 [dependencies]
 ahash = { optional = true, workspace = true }
 codec = { workspace = true }
-lazy_static = { optional = true, workspace = true }
 nohash-hasher = { optional = true, workspace = true }
 parking_lot = { optional = true, workspace = true, default-features = true }
 rand = { optional = true, workspace = true, default-features = true }
@@ -46,7 +45,6 @@ default = ["std"]
 std = [
 	"ahash",
 	"codec/std",
-	"lazy_static",
 	"nohash-hasher",
 	"parking_lot",
 	"rand",
