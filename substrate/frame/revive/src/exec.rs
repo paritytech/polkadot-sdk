@@ -2395,7 +2395,7 @@ mod tests {
 			exec_success()
 		});
 		let charlie_ch = MockLoader::insert(Call, |ctx, _| {
-			// Record the caller for charlie.
+			// Record the origin for charlie.
 			WitnessedCallerCharlie::mutate(|witness| {
 				let origin = ctx.ext.origin();
 				*witness = Some(<Test as Config>::AddressMapper::to_address(
