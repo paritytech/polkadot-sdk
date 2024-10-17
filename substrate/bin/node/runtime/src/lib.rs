@@ -2597,8 +2597,12 @@ impl EthExtra for EthSignedExtra {
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic =
-	pallet_revive::evm::runtime::UncheckedExtrinsic<RuntimeCall, EthSignedExtra>;
+pub type UncheckedExtrinsic = pallet_revive::evm::runtime::UncheckedExtrinsic<
+	Address,
+	RuntimeCall,
+	Signature,
+	EthSignedExtra,
+>;
 
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;

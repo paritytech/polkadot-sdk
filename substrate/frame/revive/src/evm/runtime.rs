@@ -15,76 +15,62 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Runtime types for integrating `pallet-revive` with the EVM.
-#![allow(unused_imports, unused_variables)]
 use crate::{
-	evm::api::{TransactionLegacySigned, TransactionLegacyUnsigned, TransactionUnsigned},
-	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, Weight, LOG_TARGET,
+	evm::api::{TransactionLegacySigned, TransactionLegacyUnsigned},
+	AccountIdOf, AddressMapper, BalanceOf, MomentOf, Weight, LOG_TARGET,
 };
 use codec::{Decode, Encode};
-use core::marker::PhantomData;
 use frame_support::{
-	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
+	dispatch::{DispatchInfo, GetDispatchInfo},
 	traits::ExtrinsicCall,
-	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_arithmetic::Percent;
-use sp_core::{ecdsa, ed25519, sr25519, Get, H160, U256};
+use sp_core::{Get, U256};
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic},
 	traits::{
-		self, Checkable, Convert, DispatchInfoOf, Dispatchable, Extrinsic, ExtrinsicMetadata, Lazy,
-		Member, SignedExtension, Verify,
+		self, Checkable, Dispatchable, Extrinsic, ExtrinsicMetadata, IdentifyAccount, Member,
+		SignedExtension,
 	},
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
-	},
-	AccountId32, MultiSignature, MultiSigner, RuntimeDebug, Saturating,
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+	RuntimeDebug,
 };
 
-use alloc::{vec, vec::Vec};
-
-/// Some way of identifying an account on the chain.
-pub type AccountId = AccountId32;
-
-/// The type for looking up accounts. We don't expect more than 4 billion of them.
-pub type AccountIndex = u32;
-
-/// The address format for describing accounts.
-pub type MultiAddress = sp_runtime::MultiAddress<AccountId, AccountIndex>;
+use alloc::vec::Vec;
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
 /// [`crate::Call::eth_transact`] extrinsic.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(E))]
-pub struct UncheckedExtrinsic<Call, E: EthExtra>(
-	pub generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>,
+pub struct UncheckedExtrinsic<Address, Call, Signature, E: EthExtra>(
+	pub generic::UncheckedExtrinsic<Address, Call, Signature, E::Extra>,
 );
 
-impl<Call, E: EthExtra>
-	From<generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>>
-	for UncheckedExtrinsic<Call, E>
+impl<Address, Call, Signature, E: EthExtra>
+	From<generic::UncheckedExtrinsic<Address, Call, Signature, E::Extra>>
+	for UncheckedExtrinsic<Address, Call, Signature, E>
 {
-	fn from(
-		utx: generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>,
-	) -> Self {
+	fn from(utx: generic::UncheckedExtrinsic<Address, Call, Signature, E::Extra>) -> Self {
 		Self(utx)
 	}
 }
 
-impl<Call, E: EthExtra> From<UncheckedExtrinsic<Call, E>>
-	for generic::UncheckedExtrinsic<MultiAddress, Call, MultiSignature, E::Extra>
+impl<Address, Call, Signature, E: EthExtra> From<UncheckedExtrinsic<Address, Call, Signature, E>>
+	for generic::UncheckedExtrinsic<Address, Call, Signature, E::Extra>
 {
-	fn from(extrinsic: UncheckedExtrinsic<Call, E>) -> Self {
+	fn from(extrinsic: UncheckedExtrinsic<Address, Call, Signature, E>) -> Self {
 		extrinsic.0
 	}
 }
 
-impl<Call: TypeInfo, E: EthExtra> Extrinsic for UncheckedExtrinsic<Call, E> {
+impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, E: EthExtra> Extrinsic
+	for UncheckedExtrinsic<Address, Call, Signature, E>
+{
 	type Call = Call;
 
-	type SignaturePayload = (MultiAddress, MultiSignature, E::Extra);
+	type SignaturePayload = (Address, Signature, E::Extra);
 
 	fn is_signed(&self) -> Option<bool> {
 		self.0.is_signed()
@@ -99,36 +85,45 @@ impl<Call: TypeInfo, E: EthExtra> Extrinsic for UncheckedExtrinsic<Call, E> {
 	}
 }
 
-impl<Call, E: EthExtra> ExtrinsicMetadata for UncheckedExtrinsic<Call, E> {
-	const VERSION: u8 =
-		generic::UncheckedExtrinsic::<MultiAddress, Call, MultiSignature, E::Extra>::VERSION;
+impl<Address, Call, Signature, E: EthExtra> ExtrinsicMetadata
+	for UncheckedExtrinsic<Address, Call, Signature, E>
+{
+	const VERSION: u8 = generic::UncheckedExtrinsic::<Address, Call, Signature, E::Extra>::VERSION;
 	type SignedExtensions = E::Extra;
 }
 
-impl<Call: TypeInfo, E: EthExtra> ExtrinsicCall for UncheckedExtrinsic<Call, E> {
+impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
+	for UncheckedExtrinsic<Address, Call, Signature, E>
+{
 	fn call(&self) -> &Self::Call {
 		self.0.call()
 	}
 }
 
+use sp_runtime::traits::MaybeDisplay;
 type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
-impl<Call, E, Lookup> Checkable<Lookup> for UncheckedExtrinsic<Call, E>
+impl<LookupSource, Call, Signature, E, Lookup> Checkable<Lookup>
+	for UncheckedExtrinsic<LookupSource, Call, Signature, E>
 where
-	Call: Encode + Member,
 	E: EthExtra,
+	Self: Encode,
 	<E::Config as frame_system::Config>::Nonce: TryFrom<U256>,
 	<E::Config as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	OnChargeTransactionBalanceOf<E::Config>: Into<BalanceOf<E::Config>>,
 	BalanceOf<E::Config>: Into<U256> + TryFrom<U256>,
 	MomentOf<E::Config>: Into<U256>,
-
-	AccountIdOf<E::Config>: Into<AccountId32>,
 	Call: From<crate::Call<E::Config>> + TryInto<crate::Call<E::Config>>,
-	E::Extra: SignedExtension<AccountId = AccountId32>,
-	Lookup: traits::Lookup<Source = MultiAddress, Target = AccountId32>,
+
+	// required by Checkable for `generic::UncheckedExtrinsic`
+	LookupSource: Member + MaybeDisplay,
+	Call: Encode + Member,
+	Signature: Member + traits::Verify,
+	<Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountIdOf<E::Config>>,
+	E::Extra: SignedExtension<AccountId = AccountIdOf<E::Config>>,
+	Lookup: traits::Lookup<Source = LookupSource, Target = AccountIdOf<E::Config>>,
 {
-	type Checked = CheckedExtrinsic<AccountId32, Call, E::Extra>;
+	type Checked = CheckedExtrinsic<AccountIdOf<E::Config>, Call, E::Extra>;
 
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		if self.0.signature.is_none() {
@@ -158,7 +153,8 @@ where
 	}
 }
 
-impl<Call, E> GetDispatchInfo for UncheckedExtrinsic<Call, E>
+impl<Address, Call, Signature, E> GetDispatchInfo
+	for UncheckedExtrinsic<Address, Call, Signature, E>
 where
 	Call: GetDispatchInfo,
 	E: EthExtra,
@@ -168,7 +164,9 @@ where
 	}
 }
 
-impl<Call: Encode, E: EthExtra> serde::Serialize for UncheckedExtrinsic<Call, E> {
+impl<Address: Encode, Call: Encode, Signature: Encode, E: EthExtra> serde::Serialize
+	for UncheckedExtrinsic<Address, Call, Signature, E>
+{
 	fn serialize<S>(&self, seq: S) -> Result<S::Ok, S::Error>
 	where
 		S: ::serde::Serializer,
@@ -177,7 +175,9 @@ impl<Call: Encode, E: EthExtra> serde::Serialize for UncheckedExtrinsic<Call, E>
 	}
 }
 
-impl<'a, Call: Decode, E: EthExtra> serde::Deserialize<'a> for UncheckedExtrinsic<Call, E> {
+impl<'a, Address: Decode, Call: Decode, Signature: Decode, E: EthExtra> serde::Deserialize<'a>
+	for UncheckedExtrinsic<Address, Call, Signature, E>
+{
 	fn deserialize<D>(de: D) -> Result<Self, D::Error>
 	where
 		D: serde::Deserializer<'a>,
@@ -197,7 +197,7 @@ pub trait EthExtra {
 	/// It should include at least:
 	/// - [`frame_system::CheckNonce`] to ensure that the nonce from the Ethereum transaction is
 	///   correct.
-	type Extra: SignedExtension<AccountId = AccountId32>;
+	type Extra: SignedExtension<AccountId = AccountIdOf<Self::Config>>;
 
 	/// Get the signed extensions to apply to an unsigned [`crate::Call::eth_transact`] extrinsic.
 	///
@@ -219,12 +219,12 @@ pub trait EthExtra {
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<Self::Config>,
 		encoded_len: usize,
-	) -> Result<CheckedExtrinsic<AccountId32, Call, Self::Extra>, InvalidTransaction>
+	) -> Result<CheckedExtrinsic<AccountIdOf<Self::Config>, Call, Self::Extra>, InvalidTransaction>
 	where
 		<Self::Config as frame_system::Config>::Nonce: TryFrom<U256>,
 		BalanceOf<Self::Config>: Into<U256> + TryFrom<U256>,
 		MomentOf<Self::Config>: Into<U256>,
-		AccountIdOf<Self::Config>: Into<AccountId32>,
+		//AccountIdOf<Self::Config>: Into<AccountId32>,
 		<Self::Config as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 		OnChargeTransactionBalanceOf<Self::Config>: Into<BalanceOf<Self::Config>>,
 		Call: From<crate::Call<Self::Config>> + TryInto<crate::Call<Self::Config>>,
