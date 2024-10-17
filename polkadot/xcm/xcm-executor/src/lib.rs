@@ -586,7 +586,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				// or the one used in BuyExecution
 				self.asset_used_in_buy_execution.as_ref()
 			})
-			// if it is different than what we need
+			// if it is different from what we need
 			.filter(|&id| asset_needed_for_fees.id.ne(id))
 		else {
 			// either nothing to swap or we're already holding the right asset

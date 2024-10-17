@@ -495,7 +495,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 				let local_xcm_weight = Runtime::query_xcm_weight(local_xcm).unwrap();
 				local_execution_fees = Runtime::query_weight_to_asset_fee(
 					local_xcm_weight,
-					VersionedAssetId::V5(Location::parent().into()),
+					VersionedAssetId::from(AssetId(Location::parent())),
 				)
 				.unwrap();
 				// We filter the result to get only the messages we are interested in.
@@ -503,7 +503,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 					.forwarded_xcms
 					.iter()
 					.find(|(destination, _)| {
-						*destination == VersionedLocation::V5(Location::new(1, [Parachain(1000)]))
+						*destination == VersionedLocation::from(Location::new(1, [Parachain(1000)]))
 					})
 					.unwrap();
 				assert_eq!(messages_to_query.len(), 1);
@@ -517,7 +517,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 			// These are set in the AssetHub closure.
 			let mut intermediate_execution_fees = 0;
 			let mut intermediate_delivery_fees = 0;
-			let mut intermediate_remote_message = VersionedXcm::V5(Xcm::<()>(Vec::new()));
+			let mut intermediate_remote_message = VersionedXcm::from(Xcm::<()>(Vec::new()));
 			<$asset_hub as TestExt>::execute_with(|| {
 				type Runtime = <$asset_hub as Chain>::Runtime;
 				type RuntimeCall = <$asset_hub as Chain>::RuntimeCall;
@@ -526,13 +526,13 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 				let weight = Runtime::query_xcm_weight(remote_message.clone()).unwrap();
 				intermediate_execution_fees = Runtime::query_weight_to_asset_fee(
 					weight,
-					VersionedAssetId::V5(Location::new(1, []).into()),
+					VersionedAssetId::from(AssetId(Location::new(1, []))),
 				)
 				.unwrap();
 
 				// We have to do this to turn `VersionedXcm<()>` into `VersionedXcm<RuntimeCall>`.
 				let xcm_program =
-					VersionedXcm::V5(Xcm::<RuntimeCall>::from(remote_message.clone().try_into().unwrap()));
+					VersionedXcm::from(Xcm::<RuntimeCall>::from(remote_message.clone().try_into().unwrap()));
 
 				// Now we get the delivery fees to the final destination.
 				let result =
@@ -541,7 +541,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 					.forwarded_xcms
 					.iter()
 					.find(|(destination, _)| {
-						*destination == VersionedLocation::V5(Location::new(1, [Parachain(2001)]))
+						*destination == VersionedLocation::from(Location::new(1, [Parachain(2001)]))
 					})
 					.unwrap();
 				// There's actually two messages here.
@@ -565,7 +565,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 
 				let weight = Runtime::query_xcm_weight(intermediate_remote_message.clone()).unwrap();
 				final_execution_fees =
-					Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::V5(Parent.into()))
+					Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(AssetId(Location::parent())))
 						.unwrap();
 			});
 
