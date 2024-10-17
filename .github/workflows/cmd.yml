@@ -283,7 +283,7 @@ jobs:
     env:
       JOB_NAME: "cmd"
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
-    timeout-minutes: 1800 # 30 hours as it could take a long time to run all the runtimes/pallets
+    timeout-minutes: 4320 # 72 hours -> 3 days; as it could take a long time to run all the runtimes/pallets
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
     steps:

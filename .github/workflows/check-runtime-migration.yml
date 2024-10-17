@@ -36,14 +36,10 @@ jobs:
         network:
           [
             westend,
-            rococo,
             asset-hub-westend,
-            asset-hub-rococo,
             bridge-hub-westend,
-            bridge-hub-rococo,
-            contracts-rococo,
             collectives-westend,
-            coretime-rococo,
+            coretime-westend,
           ]
         include:
           - network: westend
@@ -52,49 +48,27 @@ jobs:
             uri: "wss://try-runtime-westend.polkadot.io:443"
             subcommand_extra_args: "--no-weight-warnings --blocktime 6000"
             command_extra_args: ""
-          - network: rococo
-            package: rococo-runtime
-            wasm: rococo_runtime.compact.compressed.wasm
-            uri: "wss://try-runtime-rococo.polkadot.io:443"
-            subcommand_extra_args: "--no-weight-warnings --blocktime 6000"
-            command_extra_args: ""
           - network: asset-hub-westend
             package: asset-hub-westend-runtime
             wasm: asset_hub_westend_runtime.compact.compressed.wasm
             uri: "wss://westend-asset-hub-rpc.polkadot.io:443"
             subcommand_extra_args: " --blocktime 6000"
             command_extra_args: ""
-          - network: "asset-hub-rococo"
-            package: "asset-hub-rococo-runtime"
-            wasm: "asset_hub_rococo_runtime.compact.compressed.wasm"
-            uri: "wss://rococo-asset-hub-rpc.polkadot.io:443"
-            subcommand_extra_args: " --blocktime 6000"
-            command_extra_args: ""
-          - network: "bridge-hub-westend"
-            package: "bridge-hub-westend-runtime"
-            wasm: "bridge_hub_westend_runtime.compact.compressed.wasm"
+          - network: bridge-hub-westend
+            package: bridge-hub-westend-runtime
+            wasm: bridge_hub_westend_runtime.compact.compressed.wasm
             uri: "wss://westend-bridge-hub-rpc.polkadot.io:443"
             subcommand_extra_args: " --blocktime 6000"
-          - network: "bridge-hub-rococo"
-            package: "bridge-hub-rococo-runtime"
-            wasm: "bridge_hub_rococo_runtime.compact.compressed.wasm"
-            uri: "wss://rococo-bridge-hub-rpc.polkadot.io:443"
-            subcommand_extra_args: " --blocktime 6000"
-          - network: "contracts-rococo"
-            package: "contracts-rococo-runtime"
-            wasm: "contracts_rococo_runtime.compact.compressed.wasm"
-            uri: "wss://rococo-contracts-rpc.polkadot.io:443"
-            subcommand_extra_args: " --blocktime 6000"
-          - network: "collectives-westend"
-            package: "collectives-westend-runtime"
-            wasm: "collectives_westend_runtime.compact.compressed.wasm"
+          - network: collectives-westend
+            package: collectives-westend-runtime
+            wasm: collectives_westend_runtime.compact.compressed.wasm
             uri: "wss://westend-collectives-rpc.polkadot.io:443"
             command_extra_args: "--disable-spec-name-check"
             subcommand_extra_args: " --blocktime 6000"
-          - network: "coretime-rococo"
-            package: "coretime-rococo-runtime"
-            wasm: "coretime_rococo_runtime.compact.compressed.wasm"
-            uri: "wss://rococo-coretime-rpc.polkadot.io:443"
+          - network: coretime-westend
+            package: coretime-westend-runtime
+            wasm: coretime_westend_runtime.compact.compressed.wasm
+            uri: "wss://westend-coretime-rpc.polkadot.io:443"
             subcommand_extra_args: " --blocktime 6000"
     steps:
       - name: Checkout
