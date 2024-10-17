@@ -131,8 +131,6 @@ pub enum ConvertMessageError {
 	UnsupportedVersion,
 	InvalidDestination,
 	InvalidToken,
-	/// The fee asset is not supported for conversion.
-	UnsupportedFeeAsset,
 	CannotReanchor,
 }
 
