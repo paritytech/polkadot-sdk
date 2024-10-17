@@ -122,6 +122,12 @@ impl crate::weights::WeightInfo for MockedWeightInfo {
 			.copied()
 			.unwrap_or(DefaultWeightForCall::get())
 	}
+	fn set_service_head() -> Weight {
+		WeightForCall::get()
+			.get("set_service_head")
+			.copied()
+			.unwrap_or(DefaultWeightForCall::get())
+	}
 	fn service_page_item() -> Weight {
 		WeightForCall::get()
 			.get("service_page_item")
