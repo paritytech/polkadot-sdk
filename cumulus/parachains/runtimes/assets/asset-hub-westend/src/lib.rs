@@ -416,8 +416,9 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
 		(
-			FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v5::Location>,
-			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork, xcm::v5::Location>,
+			FromSiblingParachain<parachain_info::Pallet<Runtime>, Location>,
+			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork, Location>,
+			xcm_config::bridging::to_rococo::RococoAssetFromAssetHubRococo,
 		),
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,
