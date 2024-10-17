@@ -114,7 +114,7 @@ use polkadot_primitives::{
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
 	},
 	CandidateCommitments, CandidateHash, CoreIndex, ExecutorParams, GroupIndex, GroupRotationInfo,
-	Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData, PvfExecKind,
+	Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData,
 	SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
 	ValidityAttestation,
 };
@@ -631,7 +631,7 @@ async fn request_candidate_validation(
 	executor_params: ExecutorParams,
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
-	let is_system = candidate_receipt.descriptor.para_id.is_system();
+	let is_system = candidate_receipt.descriptor.para_id().is_system();
 
 	sender
 		.send_message(CandidateValidationMessage::ValidateFromExhaustive {

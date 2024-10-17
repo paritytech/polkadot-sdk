@@ -33,7 +33,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::runtime::get_validation_code_by_hash;
 use polkadot_primitives::{
 	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash, Hash,
-	PvfExecKind, SessionIndex,
+	SessionIndex,
 };
 
 use crate::LOG_TARGET;

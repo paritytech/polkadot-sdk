@@ -54,7 +54,7 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	vstaging::CandidateReceiptV2 as CandidateReceipt, ApprovalVoteMultipleCandidates,
 	ApprovalVotingParams, BlockNumber, CandidateHash, CandidateIndex, CoreIndex, ExecutorParams,
-	GroupIndex, Hash, PvfExecKind, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
+	GroupIndex, Hash, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 	ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;

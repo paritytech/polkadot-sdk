@@ -52,7 +52,7 @@ use polkadot_primitives::{
 	CandidateIndex, CollatorId, CoreIndex, DisputeState, ExecutorParams, GroupIndex,
 	GroupRotationInfo, Hash, HeadData, Header as BlockHeader, Id as ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, MultiDisputeStatementSet, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, PvfExecKind, SessionIndex, SessionInfo,
+	PersistedValidationData, PvfCheckStatement, PvfExecKind as RuntimePvfExecKind, SessionIndex, SessionInfo,
 	SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash,
 	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
