@@ -420,6 +420,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 		(
 			FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v4::Location>,
 			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork, xcm::v4::Location>,
+			xcm_config::bridging::to_westend::WestendOrEthereumAssetFromAssetHubWestend,
 		),
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,
