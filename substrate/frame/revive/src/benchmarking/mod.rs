@@ -484,7 +484,6 @@ mod benchmarks {
 		);
 	}
 
-
 	#[benchmark(pov_mode = Measured)]
 	fn seal_origin() {
 		let len = H160::len_bytes();
