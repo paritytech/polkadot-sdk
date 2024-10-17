@@ -12,13 +12,18 @@ use sc_network::{
 	NotificationService, Roles,
 };
 use sc_network_common::sync::message::BlockAnnouncesHandshake;
+use sc_network_types::build_multiaddr;
 use sp_runtime::traits::Zero;
-use std::time::Duration;
+use std::{
+	net::{IpAddr, Ipv4Addr, TcpListener},
+	str::FromStr,
+	time::Duration,
+};
 use substrate_test_runtime_client::runtime;
 
 const MAX_SIZE: u64 = 2u64.pow(30);
-const SAMPLE_SIZE: usize = 10;
-const REQUESTS: usize = 2usize.pow(5);
+const SAMPLE_SIZE: usize = 50;
+const REQUESTS: usize = 50;
 const EXPONENTS: &[(u32, &'static str)] = &[
 	(6, "64B"),
 	(9, "512B"),
@@ -30,7 +35,18 @@ const EXPONENTS: &[(u32, &'static str)] = &[
 	(27, "128MB"),
 ];
 
-pub fn create_network_worker() -> (
+fn get_listen_address() -> sc_network::Multiaddr {
+	let ip = Ipv4Addr::from_str("127.0.0.1").unwrap();
+	let listener = TcpListener::bind((IpAddr::V4(ip), 0)).unwrap(); // Bind to a random port
+	let local_addr = listener.local_addr().unwrap();
+	let port = local_addr.port();
+
+	build_multiaddr!(Ip4(ip), Tcp(port))
+}
+
+pub fn create_network_worker(
+	listen_addr: sc_network::Multiaddr,
+) -> (
 	NetworkWorker<runtime::Block, runtime::Hash>,
 	async_channel::Receiver<IncomingRequest>,
 	Box<dyn NotificationService>,
@@ -45,8 +61,9 @@ pub fn create_network_worker() -> (
 			Duration::from_secs(2),
 			Some(tx),
 		);
-	let mut network_config =
-		FullNetworkConfiguration::new(&NetworkConfiguration::new_local(), None);
+	let mut net_conf = NetworkConfiguration::new_local();
+	net_conf.listen_addresses = vec![listen_addr];
+	let mut network_config = FullNetworkConfiguration::new(&net_conf, None);
 	network_config.add_request_response_protocol(request_response_config);
 	let (block_announce_config, notification_service) = NonDefaultSetConfig::new(
 		"/block-announces/1".into(),
@@ -88,27 +105,16 @@ pub fn create_network_worker() -> (
 	(worker, rx, notification_service)
 }
 
-async fn get_listen_address(
-	worker: &mut NetworkWorker<runtime::Block, runtime::Hash>,
-) -> sc_network::types::Multiaddr {
-	loop {
-		let _ = worker.next_action().await;
-		let mut listen_addresses = worker.listen_addresses().cloned().collect::<Vec<_>>();
-		if !listen_addresses.is_empty() {
-			return listen_addresses.pop().unwrap();
-		}
-	}
-}
-
 async fn run_consistently(size: usize, limit: usize) {
 	let mut received_counter = 0;
-	let (mut worker1, _rx1, _notification_service1) = create_network_worker();
+	let listen_address1 = get_listen_address();
+	let listen_address2 = get_listen_address();
+	let (mut worker1, _rx1, _notification_service1) = create_network_worker(listen_address1);
 	let service1 = worker1.service().clone();
-	let (mut worker2, rx2, _notification_service2) = create_network_worker();
+	let (worker2, rx2, _notification_service2) = create_network_worker(listen_address2.clone());
 	let peer_id2 = *worker2.local_peer_id();
-	let listen_address2 = get_listen_address(&mut worker2).await;
 
-	worker1.add_known_address(peer_id2, listen_address2);
+	worker1.add_known_address(peer_id2, listen_address2.into());
 
 	let requests = async move {
 		while received_counter < limit {
@@ -148,16 +154,15 @@ async fn run_consistently(size: usize, limit: usize) {
 	}
 }
 
-#[allow(dead_code)]
 async fn run_with_backpressure(size: usize, limit: usize) {
-	sp_tracing::try_init_simple();
-	let (mut worker1, _rx1, _notification_service1) = create_network_worker();
+	let listen_address1 = get_listen_address();
+	let listen_address2 = get_listen_address();
+	let (mut worker1, _rx1, _notification_service1) = create_network_worker(listen_address1);
 	let service1 = worker1.service().clone();
-	let (mut worker2, rx2, _notification_service2) = create_network_worker();
+	let (worker2, rx2, _notification_service2) = create_network_worker(listen_address2.clone());
 	let peer_id2 = *worker2.local_peer_id();
-	let listen_address2 = get_listen_address(&mut worker2).await;
 
-	worker1.add_known_address(peer_id2, listen_address2);
+	worker1.add_known_address(peer_id2, listen_address2.into());
 
 	let requests = (0..limit).into_iter().map(|_| {
 		let (tx, rx) = futures::channel::oneshot::channel();
@@ -217,7 +222,13 @@ fn run_benchmark(c: &mut Criterion) {
 				b.to_async(&rt).iter(|| run_consistently(size, limit));
 			},
 		);
-		// TODO: Add runnning with backpressure
+		group.bench_with_input(
+			BenchmarkId::new("with_backpressure", label),
+			&(size, REQUESTS),
+			|b, &(size, limit)| {
+				b.to_async(&rt).iter(|| run_with_backpressure(size, limit));
+			},
+		);
 	}
 }
 

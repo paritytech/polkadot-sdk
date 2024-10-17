@@ -11,12 +11,17 @@ use sc_network::{
 	NetworkWorker, NotificationMetrics, NotificationService, Roles,
 };
 use sc_network_common::sync::message::BlockAnnouncesHandshake;
+use sc_network_types::build_multiaddr;
 use sp_runtime::traits::Zero;
+use std::{
+	net::{IpAddr, Ipv4Addr, TcpListener},
+	str::FromStr,
+};
 use substrate_test_runtime_client::runtime;
 
 const MAX_SIZE: u64 = 2u64.pow(30);
-const SAMPLE_SIZE: usize = 10;
-const NOTIFICATIONS: usize = 2usize.pow(5);
+const SAMPLE_SIZE: usize = 50;
+const NOTIFICATIONS: usize = 50;
 const EXPONENTS: &[(u32, &'static str)] = &[
 	(6, "64B"),
 	(9, "512B"),
@@ -28,7 +33,17 @@ const EXPONENTS: &[(u32, &'static str)] = &[
 	(27, "128MB"),
 ];
 
+fn get_listen_address() -> sc_network::Multiaddr {
+	let ip = Ipv4Addr::from_str("127.0.0.1").unwrap();
+	let listener = TcpListener::bind((IpAddr::V4(ip), 0)).unwrap(); // Bind to a random port
+	let local_addr = listener.local_addr().unwrap();
+	let port = local_addr.port();
+
+	build_multiaddr!(Ip4(ip), Tcp(port))
+}
+
 pub fn create_network_worker(
+	listen_addr: sc_network::Multiaddr,
 ) -> (NetworkWorker<runtime::Block, runtime::Hash>, Box<dyn NotificationService>) {
 	let role = Role::Full;
 	let genesis_hash = runtime::Hash::zero();
@@ -49,6 +64,8 @@ pub fn create_network_worker(
 			non_reserved_mode: NonReservedPeerMode::Accept,
 		},
 	);
+	let mut net_conf = NetworkConfiguration::new_local();
+	net_conf.listen_addresses = vec![listen_addr];
 	let worker = NetworkWorker::<runtime::Block, runtime::Hash>::new(Params::<
 		runtime::Block,
 		runtime::Hash,
@@ -60,7 +77,7 @@ pub fn create_network_worker(
 			tokio::spawn(f);
 		}),
 		genesis_hash,
-		network_config: FullNetworkConfiguration::new(&NetworkConfiguration::new_local(), None),
+		network_config: FullNetworkConfiguration::new(&net_conf, None),
 		protocol_id: ProtocolId::from("bench-protocol-name"),
 		fork_id: None,
 		metrics_registry: None,
@@ -72,24 +89,13 @@ pub fn create_network_worker(
 	(worker, notification_service)
 }
 
-async fn get_listen_address(
-	worker: &mut NetworkWorker<runtime::Block, runtime::Hash>,
-) -> sc_network::Multiaddr {
-	loop {
-		let _ = worker.next_action().await;
-		let mut listen_addresses = worker.listen_addresses().cloned().collect::<Vec<_>>();
-		if !listen_addresses.is_empty() {
-			return listen_addresses.pop().unwrap().into();
-		}
-	}
-}
-
 async fn run_consistently(size: usize, limit: usize) {
 	let mut received_counter = 0;
-	let (worker1, mut notification_service1) = create_network_worker();
-	let (mut worker2, mut notification_service2) = create_network_worker();
+	let listen_address1 = get_listen_address();
+	let listen_address2 = get_listen_address();
+	let (worker1, mut notification_service1) = create_network_worker(listen_address1);
+	let (worker2, mut notification_service2) = create_network_worker(listen_address2.clone());
 	let peer_id2: sc_network::PeerId = (*worker2.local_peer_id()).into();
-	let listen_address2 = get_listen_address(&mut worker2).await;
 
 	worker1
 		.add_reserved_peer(MultiaddrWithPeerId { multiaddr: listen_address2, peer_id: peer_id2 })
@@ -136,12 +142,12 @@ async fn run_consistently(size: usize, limit: usize) {
 	}
 }
 
-#[allow(dead_code)]
 async fn run_with_backpressure(size: usize, limit: usize) {
-	let (worker1, mut notification_service1) = create_network_worker();
-	let (mut worker2, mut notification_service2) = create_network_worker();
+	let listen_address1 = get_listen_address();
+	let listen_address2 = get_listen_address();
+	let (worker1, mut notification_service1) = create_network_worker(listen_address1);
+	let (worker2, mut notification_service2) = create_network_worker(listen_address2.clone());
 	let peer_id2: sc_network::PeerId = (*worker2.local_peer_id()).into();
-	let listen_address2 = get_listen_address(&mut worker2).await;
 
 	worker1
 		.add_reserved_peer(MultiaddrWithPeerId { multiaddr: listen_address2, peer_id: peer_id2 })
@@ -223,7 +229,13 @@ fn run_benchmark(c: &mut Criterion) {
 				b.to_async(&rt).iter(|| run_consistently(size, limit));
 			},
 		);
-		// TODO: Add runnning with backpressure
+		group.bench_with_input(
+			BenchmarkId::new("with_backpressure", label),
+			&(size, NOTIFICATIONS),
+			|b, &(size, limit)| {
+				b.to_async(&rt).iter(|| run_with_backpressure(size, limit));
+			},
+		);
 	}
 }
 
