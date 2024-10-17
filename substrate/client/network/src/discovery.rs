@@ -46,7 +46,7 @@
 //! active mechanism that asks nodes for the addresses they are listening on. Whenever we learn
 //! of a node's address, you must call `add_self_reported_address`.
 
-use crate::{config::ProtocolId, utils::LruHashSet};
+use crate::utils::LruHashSet;
 
 use array_bytes::bytes2hex;
 use futures::prelude::*;
@@ -111,7 +111,6 @@ pub struct DiscoveryConfig {
 	enable_mdns: bool,
 	kademlia_disjoint_query_paths: bool,
 	kademlia_protocol: Option<StreamProtocol>,
-	kademlia_legacy_protocol: Option<StreamProtocol>,
 	kademlia_replication_factor: NonZeroUsize,
 }
 
@@ -128,7 +127,6 @@ impl DiscoveryConfig {
 			enable_mdns: false,
 			kademlia_disjoint_query_paths: false,
 			kademlia_protocol: None,
-			kademlia_legacy_protocol: None,
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
 				.expect("value is a constant; constant is non-zero; qed."),
 		}
@@ -182,10 +180,8 @@ impl DiscoveryConfig {
 		&mut self,
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
-		protocol_id: &ProtocolId,
 	) -> &mut Self {
 		self.kademlia_protocol = Some(kademlia_protocol_name(genesis_hash, fork_id));
-		self.kademlia_legacy_protocol = Some(legacy_kademlia_protocol_name(protocol_id));
 		self
 	}
 
@@ -214,7 +210,6 @@ impl DiscoveryConfig {
 			enable_mdns,
 			kademlia_disjoint_query_paths,
 			kademlia_protocol,
-			kademlia_legacy_protocol,
 			kademlia_replication_factor,
 		} = self;
 
@@ -222,15 +217,10 @@ impl DiscoveryConfig {
 			let mut config = KademliaConfig::default();
 
 			config.set_replication_factor(kademlia_replication_factor);
-			// Populate kad with both the legacy and the new protocol names.
-			// Remove the legacy protocol:
-			// https://github.com/paritytech/polkadot-sdk/issues/504
-			let kademlia_protocols = if let Some(legacy_protocol) = kademlia_legacy_protocol {
-				vec![kademlia_protocol.clone(), legacy_protocol]
-			} else {
-				vec![kademlia_protocol.clone()]
-			};
-			config.set_protocol_names(kademlia_protocols.into_iter().map(Into::into).collect());
+
+			config.set_protocol_names(
+				std::iter::once(kademlia_protocol.clone()).map(Into::into).collect(),
+			);
 
 			config.set_record_filtering(libp2p::kad::StoreInserts::FilterBoth);
 
@@ -1068,12 +1058,6 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
 		Poll::Pending
 	}
-}
-
-/// Legacy (fallback) Kademlia protocol name based on `protocol_id`.
-fn legacy_kademlia_protocol_name(id: &ProtocolId) -> StreamProtocol {
-	let name = format!("/{}/kad", id.as_ref());
-	StreamProtocol::try_from_owned(name).expect("protocol name is valid. qed")
 }
 
 /// Kademlia protocol name based on `genesis_hash` and `fork_id`.
