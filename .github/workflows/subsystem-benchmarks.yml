@@ -68,19 +68,6 @@ jobs:
           name: ${{matrix.features.bench}}
           path: ./charts
 
-  # for tests
-  notification-protocol-bench:
-    # timeout-minutes: 80
-    needs: [preflight]
-    runs-on: parity-benchmark
-    container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - run: forklift cargo bench -p sc-network --bench notifications_protocol
-
   publish-benchmarks:
     timeout-minutes: 60
     needs: [build]
