@@ -93,7 +93,7 @@ use assets_common::{
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm::{
 	latest::prelude::AssetId,
-	prelude::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
+	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -418,6 +418,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 		(
 			FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v4::Location>,
 			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork, xcm::v4::Location>,
+			xcm_config::bridging::to_rococo::RococoAssetFromAssetHubRococo,
 		),
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,
@@ -1367,7 +1368,23 @@ impl_runtime_apis! {
 
 	impl xcm_runtime_apis::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			let acceptable_assets = vec![AssetId(xcm_config::WestendLocation::get())];
+			let native_token = xcm_config::WestendLocation::get();
+			// We accept the native token to pay fees.
+			let mut acceptable_assets = vec![AssetId(native_token.clone())];
+			// We also accept all assets in a pool with the native token.
+			acceptable_assets.extend(
+				pallet_asset_conversion::Pools::<Runtime>::iter_keys().filter_map(
+					|(asset_1, asset_2)| {
+						if asset_1 == native_token {
+							Some(asset_2.clone().into())
+						} else if asset_2 == native_token {
+							Some(asset_1.clone().into())
+						} else {
+							None
+						}
+					},
+				),
+			);
 			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
 		}
 
@@ -1875,6 +1892,15 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			genesis_config_presets::preset_names()
+		}
+	}
+
+	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trusted_query::Error> {
+			PolkadotXcm::is_trusted_reserve(asset, location)
+		}
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trusted_query::Error> {
+			PolkadotXcm::is_trusted_teleporter(asset, location)
 		}
 	}
 }
