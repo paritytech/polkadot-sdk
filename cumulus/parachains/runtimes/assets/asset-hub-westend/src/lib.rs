@@ -123,7 +123,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("westmint"),
 	impl_name: create_runtime_str!("westmint"),
 	authoring_version: 1,
-	spec_version: 1_015_000,
+	spec_version: 1_016_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -213,6 +213,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<0>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -417,6 +418,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 		(
 			FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v4::Location>,
 			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork, xcm::v4::Location>,
+			xcm_config::bridging::to_rococo::RococoAssetFromAssetHubRococo,
 		),
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,
@@ -543,7 +545,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Utility { .. } |
 						RuntimeCall::Multisig { .. } |
 						RuntimeCall::NftFractionalization { .. } |
-						RuntimeCall::Nfts { .. } | RuntimeCall::Uniques { .. }
+						RuntimeCall::Nfts { .. } |
+						RuntimeCall::Uniques { .. }
 				)
 			},
 			ProxyType::AssetOwner => matches!(
@@ -859,7 +862,7 @@ impl pallet_nft_fractionalization::Config for Runtime {
 	type Assets = Assets;
 	type Nfts = Nfts;
 	type PalletId = NftFractionalizationPalletId;
-	type WeightInfo = pallet_nft_fractionalization::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_nft_fractionalization::WeightInfo<Runtime>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
@@ -1365,7 +1368,23 @@ impl_runtime_apis! {
 
 	impl xcm_runtime_apis::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			let acceptable_assets = vec![AssetId(xcm_config::WestendLocation::get())];
+			let native_token = xcm_config::WestendLocation::get();
+			// We accept the native token to pay fees.
+			let mut acceptable_assets = vec![AssetId(native_token.clone())];
+			// We also accept all assets in a pool with the native token.
+			acceptable_assets.extend(
+				pallet_asset_conversion::Pools::<Runtime>::iter_keys().filter_map(
+					|(asset_1, asset_2)| {
+						if asset_1 == native_token {
+							Some(asset_2.clone().into())
+						} else if asset_2 == native_token {
+							Some(asset_1.clone().into())
+						} else {
+							None
+						}
+					},
+				),
+			);
 			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
 		}
 

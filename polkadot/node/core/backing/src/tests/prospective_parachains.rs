@@ -275,8 +275,8 @@ async fn assert_validate_seconded_candidate(
 		}) if &validation_data == assert_pvd &&
 			&validation_code == assert_validation_code &&
 			&*pov == assert_pov &&
-			candidate_receipt.descriptor == candidate.descriptor &&
-			exec_kind == PvfExecKind::Backing &&
+			&candidate_receipt.descriptor == candidate.descriptor &&
+			exec_kind == PvfExecKind::BackingSystemParas &&
 			candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 		{
 			response_sender.send(Ok(ValidationResult::Valid(

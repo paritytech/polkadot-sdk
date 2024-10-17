@@ -16,14 +16,11 @@ env:
   ARTIFACTS_NAME: frame-omni-bencher-artifacts
 
 jobs:
-
   preflight:
-    # TODO: remove once migration is complete or this workflow is fully stable
-    if: contains(github.event.label.name, 'GHA-migration')
     uses: ./.github/workflows/reusable-preflight.yml
 
   quick-benchmarks-omni:
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER_BENCHMARK }}
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
     env:
@@ -31,6 +28,7 @@ jobs:
       RUST_BACKTRACE: "full"
       WASM_BUILD_NO_COLOR: 1
       WASM_BUILD_RUSTFLAGS: "-C debug-assertions"
+      RUST_LOG: "frame_omni_bencher=info,polkadot_sdk_frame=info"
     timeout-minutes: 30
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -42,33 +40,41 @@ jobs:
           forklift cargo build --locked --quiet --release -p asset-hub-westend-runtime --features runtime-benchmarks
           forklift cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.compact.compressed.wasm --all --steps 2 --repeat 1 --quiet
 
+  runtime-matrix:
+    runs-on: ubuntu-latest
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    timeout-minutes: 30
+    outputs:
+      runtime: ${{ steps.runtime.outputs.runtime }}
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    name: Extract runtimes from matrix
+    steps:
+      - uses: actions/checkout@v4
+      - id: runtime
+        run: |
+          RUNTIMES=$(jq '[.[] | select(.package != null)]' .github/workflows/runtimes-matrix.json)
+
+          RUNTIMES=$(echo $RUNTIMES | jq -c .)
+          echo "runtime=$RUNTIMES"
+          echo "runtime=$RUNTIMES" >> $GITHUB_OUTPUT
+
   run-frame-omni-bencher:
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    needs: [preflight] # , build-frame-omni-bencher ]
+    runs-on: ${{ needs.preflight.outputs.RUNNER_BENCHMARK }}
+    needs: [preflight, runtime-matrix]
     if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 30
     strategy:
       fail-fast: false # keep running other workflows even if one fails, to see the logs of all possible failures
       matrix:
-        runtime:
-          [
-            westend-runtime,
-            rococo-runtime,
-            asset-hub-rococo-runtime,
-            asset-hub-westend-runtime,
-            bridge-hub-rococo-runtime,
-            bridge-hub-westend-runtime,
-            collectives-westend-runtime,
-            coretime-rococo-runtime,
-            coretime-westend-runtime,
-            people-rococo-runtime,
-            people-westend-runtime,
-            glutton-westend-runtime,
-          ]
+        runtime: ${{ fromJSON(needs.runtime-matrix.outputs.runtime) }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
-      PACKAGE_NAME: ${{ matrix.runtime }}
+      PACKAGE_NAME: ${{ matrix.runtime.package }}
+      FLAGS: ${{ matrix.runtime.bench_flags }}
+      RUST_LOG: "frame_omni_bencher=info,polkadot_sdk_frame=info"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -77,14 +83,17 @@ jobs:
         run: |
           RUNTIME_BLOB_NAME=$(echo $PACKAGE_NAME | sed 's/-/_/g').compact.compressed.wasm
           RUNTIME_BLOB_PATH=./target/release/wbuild/$PACKAGE_NAME/$RUNTIME_BLOB_NAME
-          forklift cargo build --release --locked -p $PACKAGE_NAME -p frame-omni-bencher --features runtime-benchmarks
+          forklift cargo build --release --locked -p $PACKAGE_NAME -p frame-omni-bencher --features=${{ matrix.runtime.bench_features }} --quiet
           echo "Running short benchmarking for PACKAGE_NAME=$PACKAGE_NAME and RUNTIME_BLOB_PATH=$RUNTIME_BLOB_PATH"
           ls -lrt $RUNTIME_BLOB_PATH
-          ./target/release/frame-omni-bencher v1 benchmark pallet --runtime $RUNTIME_BLOB_PATH --all --steps 2 --repeat 1
+
+          cmd="./target/release/frame-omni-bencher v1 benchmark pallet --runtime $RUNTIME_BLOB_PATH --all --steps 2 --repeat 1 $FLAGS"
+          echo "Running command: $cmd"
+          eval "$cmd"
   confirm-frame-omni-benchers-passed:
     runs-on: ubuntu-latest
     name: All benchmarks passed
-    needs: run-frame-omni-bencher
+    needs: [quick-benchmarks-omni, run-frame-omni-bencher]
     if: always() && !cancelled()
     steps:
       - run: |

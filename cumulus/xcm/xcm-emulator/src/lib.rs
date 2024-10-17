@@ -18,12 +18,16 @@ extern crate alloc;
 
 pub use array_bytes;
 pub use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-pub use lazy_static::lazy_static;
 pub use log;
 pub use paste;
 pub use std::{
-	any::type_name, collections::HashMap, error::Error, fmt, marker::PhantomData, ops::Deref,
-	sync::Mutex,
+	any::type_name,
+	collections::HashMap,
+	error::Error,
+	fmt,
+	marker::PhantomData,
+	ops::Deref,
+	sync::{LazyLock, Mutex},
 };
 
 // Substrate
@@ -45,7 +49,9 @@ pub use frame_system::{
 pub use pallet_balances::AccountData;
 pub use pallet_message_queue;
 pub use sp_arithmetic::traits::Bounded;
-pub use sp_core::{parameter_types, sr25519, storage::Storage, Pair};
+pub use sp_core::{
+	crypto::get_public_from_string_or_panic, parameter_types, sr25519, storage::Storage, Pair,
+};
 pub use sp_crypto_hashing::blake2_256;
 pub use sp_io::TestExternalities;
 pub use sp_runtime::BoundedSlice;
@@ -222,7 +228,7 @@ pub trait Chain: TestExt {
 	type OriginCaller;
 
 	fn account_id_of(seed: &str) -> AccountId {
-		helpers::get_account_id_from_seed::<sr25519::Public>(seed)
+		get_public_from_string_or_panic::<sr25519::Public>(seed).into()
 	}
 
 	fn account_data_of(account: AccountIdOf<Self::Runtime>) -> AccountData<Balance>;
@@ -443,10 +449,8 @@ macro_rules! __impl_test_ext_for_relay_chain {
 				= $crate::RefCell::new($crate::TestExternalities::new($genesis));
 		}
 
-		$crate::lazy_static! {
-			pub static ref $global_ext: $crate::Mutex<$crate::RefCell<$crate::HashMap<String, $crate::TestExternalities>>>
-				= $crate::Mutex::new($crate::RefCell::new($crate::HashMap::new()));
-		}
+		pub static $global_ext: $crate::LazyLock<$crate::Mutex<$crate::RefCell<$crate::HashMap<String, $crate::TestExternalities>>>>
+			= $crate::LazyLock::new(|| $crate::Mutex::new($crate::RefCell::new($crate::HashMap::new())));
 
 		impl<$network: $crate::Network> $crate::TestExt for $name<$network> {
 			fn build_new_ext(storage: $crate::Storage) -> $crate::TestExternalities {
@@ -478,10 +482,10 @@ macro_rules! __impl_test_ext_for_relay_chain {
 					v.take()
 				});
 
-				// Get TestExternality from lazy_static
+				// Get TestExternality from LazyLock
 				let global_ext_guard = $global_ext.lock().unwrap();
 
-				// Replace TestExternality in lazy_static by TestExternality from thread_local
+				// Replace TestExternality in LazyLock by TestExternality from thread_local
 				global_ext_guard.deref().borrow_mut().insert(id.to_string(), local_ext);
 			}
 
@@ -490,10 +494,10 @@ macro_rules! __impl_test_ext_for_relay_chain {
 
 				let mut global_ext_unlocked = false;
 
-				// Keep the mutex unlocked until TesExternality from lazy_static
+				// Keep the mutex unlocked until TesExternality from LazyLock
 				// has been updated
 				while !global_ext_unlocked {
-					// Get TesExternality from lazy_static
+					// Get TesExternality from LazyLock
 					let global_ext_result = $global_ext.try_lock();
 
 					if let Ok(global_ext_guard) = global_ext_result {
@@ -506,10 +510,10 @@ macro_rules! __impl_test_ext_for_relay_chain {
 					}
 				}
 
-				// Now that we know that lazy_static TestExt has been updated, we lock its mutex
+				// Now that we know that TestExt has been updated, we lock its mutex
 				let mut global_ext_guard = $global_ext.lock().unwrap();
 
-				// and set TesExternality from lazy_static into TesExternality for local_thread
+				// and set TesExternality from LazyLock into TesExternality for local_thread
 				let global_ext = global_ext_guard.deref();
 
 				$local_ext.with(|v| {
@@ -744,10 +748,8 @@ macro_rules! __impl_test_ext_for_parachain {
 				= $crate::RefCell::new($crate::TestExternalities::new($genesis));
 		}
 
-		$crate::lazy_static! {
-			pub static ref $global_ext: $crate::Mutex<$crate::RefCell<$crate::HashMap<String, $crate::TestExternalities>>>
-				= $crate::Mutex::new($crate::RefCell::new($crate::HashMap::new()));
-		}
+		pub static $global_ext: $crate::LazyLock<$crate::Mutex<$crate::RefCell<$crate::HashMap<String, $crate::TestExternalities>>>>
+			= $crate::LazyLock::new(|| $crate::Mutex::new($crate::RefCell::new($crate::HashMap::new())));
 
 		impl<$network: $crate::Network> $crate::TestExt for $name<$network> {
 			fn build_new_ext(storage: $crate::Storage) -> $crate::TestExternalities {
@@ -777,10 +779,10 @@ macro_rules! __impl_test_ext_for_parachain {
 					v.take()
 				});
 
-				// Get TestExternality from lazy_static
+				// Get TestExternality from LazyLock
 				let global_ext_guard = $global_ext.lock().unwrap();
 
-				// Replace TestExternality in lazy_static by TestExternality from thread_local
+				// Replace TestExternality in LazyLock by TestExternality from thread_local
 				global_ext_guard.deref().borrow_mut().insert(id.to_string(), local_ext);
 			}
 
@@ -789,10 +791,10 @@ macro_rules! __impl_test_ext_for_parachain {
 
 				let mut global_ext_unlocked = false;
 
-				// Keep the mutex unlocked until TesExternality from lazy_static
+				// Keep the mutex unlocked until TesExternality from LazyLock
 				// has been updated
 				while !global_ext_unlocked {
-					// Get TesExternality from lazy_static
+					// Get TesExternality from LazyLock
 					let global_ext_result = $global_ext.try_lock();
 
 					if let Ok(global_ext_guard) = global_ext_result {
@@ -805,10 +807,10 @@ macro_rules! __impl_test_ext_for_parachain {
 					}
 				}
 
-				// Now that we know that lazy_static TestExt has been updated, we lock its mutex
+				// Now that we know that TestExt has been updated, we lock its mutex
 				let mut global_ext_guard = $global_ext.lock().unwrap();
 
-				// and set TesExternality from lazy_static into TesExternality for local_thread
+				// and set TesExternality from LazyLock into TesExternality for local_thread
 				let global_ext = global_ext_guard.deref();
 
 				$local_ext.with(|v| {
@@ -1607,18 +1609,5 @@ pub mod helpers {
 			within_threshold(threshold_size, expected_weight.proof_size(), weight.proof_size());
 
 		ref_time_within && proof_size_within
-	}
-
-	/// Helper function to generate an account ID from seed.
-	pub fn get_account_id_from_seed<TPublic: sp_core::Public>(seed: &str) -> AccountId
-	where
-		sp_runtime::MultiSigner:
-			From<<<TPublic as sp_runtime::CryptoType>::Pair as sp_core::Pair>::Public>,
-	{
-		use sp_runtime::traits::IdentifyAccount;
-		let pubkey = TPublic::Pair::from_string(&format!("//{}", seed), None)
-			.expect("static values are valid; qed")
-			.public();
-		sp_runtime::MultiSigner::from(pubkey).into_account()
 	}
 }

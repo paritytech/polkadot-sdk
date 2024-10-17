@@ -22,11 +22,9 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 
 # Local
-polkadot-parachain-lib = { features = ["rococo-native", "westend-native"], workspace = true }
+polkadot-omni-node-lib = { features = ["rococo-native", "westend-native"], workspace = true }
 rococo-parachain-runtime = { workspace = true }
-shell-runtime = { workspace = true }
 glutton-westend-runtime = { workspace = true }
-seedling-runtime = { workspace = true }
 asset-hub-rococo-runtime = { workspace = true, default-features = true }
 asset-hub-westend-runtime = { workspace = true }
 collectives-westend-runtime = { workspace = true }
@@ -39,13 +37,10 @@ penpal-runtime = { workspace = true }
 people-rococo-runtime = { workspace = true }
 people-westend-runtime = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
-testnet-parachains-constants = { features = [
-	"rococo",
-	"westend",
-], workspace = true }
 
 # Substrate
 sp-core = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
 sc-cli = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }
@@ -65,7 +60,7 @@ default = []
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
-	"polkadot-parachain-lib/runtime-benchmarks",
+	"polkadot-omni-node-lib/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 
 	"asset-hub-rococo-runtime/runtime-benchmarks",
@@ -83,7 +78,7 @@ runtime-benchmarks = [
 	"rococo-parachain-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"polkadot-parachain-lib/try-runtime",
+	"polkadot-omni-node-lib/try-runtime",
 
 	"asset-hub-rococo-runtime/try-runtime",
 	"asset-hub-westend-runtime/try-runtime",
@@ -97,7 +92,6 @@ try-runtime = [
 	"penpal-runtime/try-runtime",
 	"people-rococo-runtime/try-runtime",
 	"people-westend-runtime/try-runtime",
-	"shell-runtime/try-runtime",
 ]
 fast-runtime = [
 	"bridge-hub-rococo-runtime/fast-runtime",

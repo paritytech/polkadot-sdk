@@ -1435,7 +1435,7 @@ fn test_find_ancestor_path_and_find_backable_chain() {
 	// Now back all candidates. Back them in a random order. The result should always be the same.
 	let mut candidates_shuffled = candidates.clone();
 	candidates_shuffled.shuffle(&mut thread_rng());
-	for candidate in candidates.iter() {
+	for candidate in candidates_shuffled.iter() {
 		chain.candidate_backed(candidate);
 		storage.mark_backed(candidate);
 	}

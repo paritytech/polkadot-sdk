@@ -17,6 +17,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::*;
+use crate::PvfExecKind;
 use assert_matches::assert_matches;
 use futures::executor;
 use polkadot_node_core_pvf::PrepareError;
@@ -34,6 +35,58 @@ use polkadot_primitives_test_helpers::{
 use sp_core::{sr25519::Public, testing::TaskExecutor};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, Keystore};
+
+#[derive(Debug)]
+enum AssumptionCheckOutcome {
+	Matches(PersistedValidationData, ValidationCode),
+	DoesNotMatch,
+	BadRequest,
+}
+
+async fn check_assumption_validation_data<Sender>(
+	sender: &mut Sender,
+	descriptor: &CandidateDescriptor,
+	assumption: OccupiedCoreAssumption,
+) -> AssumptionCheckOutcome
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	let validation_data = {
+		let (tx, rx) = oneshot::channel();
+		let d = runtime_api_request(
+			sender,
+			descriptor.relay_parent,
+			RuntimeApiRequest::PersistedValidationData(descriptor.para_id, assumption, tx),
+			rx,
+		)
+		.await;
+
+		match d {
+			Ok(None) | Err(RuntimeRequestFailed) => return AssumptionCheckOutcome::BadRequest,
+			Ok(Some(d)) => d,
+		}
+	};
+
+	let persisted_validation_data_hash = validation_data.hash();
+
+	if descriptor.persisted_validation_data_hash == persisted_validation_data_hash {
+		let (code_tx, code_rx) = oneshot::channel();
+		let validation_code = runtime_api_request(
+			sender,
+			descriptor.relay_parent,
+			RuntimeApiRequest::ValidationCode(descriptor.para_id, assumption, code_tx),
+			code_rx,
+		)
+		.await;
+
+		match validation_code {
+			Ok(None) | Err(RuntimeRequestFailed) => AssumptionCheckOutcome::BadRequest,
+			Ok(Some(v)) => AssumptionCheckOutcome::Matches(validation_data, v),
+		}
+	} else {
+		AssumptionCheckOutcome::DoesNotMatch
+	}
+}
 
 #[test]
 fn correctly_checks_included_assumption() {
@@ -394,6 +447,7 @@ impl ValidationBackend for MockValidateCandidateBackend {
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		// This is expected to panic if called more times than expected, indicating an error in the
 		// test.
@@ -985,6 +1039,7 @@ impl ValidationBackend for MockPreCheckBackend {
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}
@@ -1139,6 +1194,7 @@ impl ValidationBackend for MockHeadsUp {
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}
@@ -1177,7 +1233,6 @@ fn dummy_active_leaves_update(hash: Hash) -> ActiveLeavesUpdate {
 			hash,
 			number: 10,
 			unpin_handle: polkadot_node_subsystem_test_helpers::mock::dummy_unpin_handle(hash),
-			span: Arc::new(overseer::jaeger::Span::Disabled),
 		}),
 		..Default::default()
 	}

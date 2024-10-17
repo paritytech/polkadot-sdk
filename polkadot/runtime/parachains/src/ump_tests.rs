@@ -465,10 +465,11 @@ fn verify_relay_dispatch_queue_size_is_externally_accessible() {
 
 fn assert_queue_size(para: ParaId, count: u32, size: u32) {
 	#[allow(deprecated)]
-	let raw_queue_size = sp_io::storage::get(&well_known_keys::relay_dispatch_queue_size(para)).expect(
-		"enqueuing a message should create the dispatch queue\
+	let raw_queue_size = sp_io::storage::get(&well_known_keys::relay_dispatch_queue_size(para))
+		.expect(
+			"enqueuing a message should create the dispatch queue\
 				and it should be accessible via the well known keys",
-	);
+		);
 	let (c, s) = <(u32, u32)>::decode(&mut &raw_queue_size[..])
 		.expect("the dispatch queue size should be decodable into (u32, u32)");
 	assert_eq!((c, s), (count, size));

@@ -57,7 +57,6 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::AvailableData;
 use polkadot_node_subsystem::{
 	errors::RecoveryError,
-	jaeger,
 	messages::{AvailabilityRecoveryMessage, AvailabilityStoreMessage},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemContext, SubsystemError,
@@ -387,9 +386,6 @@ async fn handle_recover<Context>(
 ) -> Result<()> {
 	let candidate_hash = receipt.hash();
 
-	let span = jaeger::Span::new(candidate_hash, "availability-recovery")
-		.with_stage(jaeger::Stage::AvailabilityRecovery);
-
 	if let Some(result) =
 		state.availability_lru.get(&candidate_hash).cloned().map(|v| v.into_result())
 	{
@@ -403,13 +399,11 @@ async fn handle_recover<Context>(
 		return Ok(())
 	}
 
-	let _span = span.child("not-cached");
 	let session_info_res = state
 		.runtime_info
 		.get_session_info_by_index(ctx.sender(), state.live_block.1, session_index)
 		.await;
 
-	let _span = span.child("session-info-ctx-received");
 	match session_info_res {
 		Ok(ExtendedSessionInfo { session_info, node_features, .. }) => {
 			let mut backer_group = None;

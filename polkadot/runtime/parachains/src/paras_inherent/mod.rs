@@ -1297,18 +1297,19 @@ fn filter_backed_statements_from_disabled_validators<
 
 		// Get relay parent block number of the candidate. We need this to get the group index
 		// assigned to this core at this block number
-		let relay_parent_block_number =
-			match allowed_relay_parents.acquire_info(bc.descriptor().relay_parent(), None) {
-				Some((_, block_num)) => block_num,
-				None => {
-					log::debug!(
-						target: LOG_TARGET,
-						"Relay parent {:?} for candidate is not in the allowed relay parents. Dropping the candidate.",
-						bc.descriptor().relay_parent()
-					);
-					return false
-				},
-			};
+		let relay_parent_block_number = match allowed_relay_parents
+			.acquire_info(bc.descriptor().relay_parent(), None)
+		{
+			Some((_, block_num)) => block_num,
+			None => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Relay parent {:?} for candidate is not in the allowed relay parents. Dropping the candidate.",
+					bc.descriptor().relay_parent()
+				);
+				return false
+			},
+		};
 
 		// Get the group index for the core
 		let group_idx = match scheduler::Pallet::<T>::group_assigned_to_core(
