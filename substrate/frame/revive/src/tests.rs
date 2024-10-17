@@ -4442,4 +4442,18 @@ mod run_tests {
 			);
 		});
 	}
+
+	#[test]
+	fn origin_api_works() {
+		let (code, _) = compile_module("origin").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Create fixture: Constructor tests the origin to be equal the input data
+			builder::bare_instantiate(Code::Upload(code))
+				.data(ALICE_ADDR.0.to_vec())
+				.build_and_unwrap_contract();
+		});
+	}
 }
