@@ -17,6 +17,8 @@
 //! The generated subxt client.
 use subxt::config::{signed_extensions, Config, PolkadotConfig};
 
+// Generated with
+// subxt metadata --url ws://localhost:9944 -o rpc/kitchensink.scale
 #[subxt::subxt(
 	runtime_metadata_path = "kitchensink.scale",
 	substitute_type(

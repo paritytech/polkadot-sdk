@@ -18,7 +18,7 @@ use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::evm::{Account, BlockTag, Bytes, ReceiptInfo};
 use pallet_revive_eth_rpc::{
 	example::{send_transaction, wait_for_receipt},
-	EthRpcClient,
+	EthExecRpcClient,
 };
 
 #[tokio::main]

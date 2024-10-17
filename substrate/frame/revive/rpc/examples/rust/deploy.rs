@@ -21,7 +21,7 @@ use pallet_revive::{
 };
 use pallet_revive_eth_rpc::{
 	example::{send_transaction, wait_for_receipt},
-	EthRpcClient,
+	EthExecRpcClient,
 };
 
 #[tokio::main]

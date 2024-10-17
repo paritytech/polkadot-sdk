@@ -46,6 +46,8 @@ use sp_core::U256;
 #[cfg(test)]
 mod tests;
 use crate::{
+	debug::Tracer,
+	evm::CallTrace,
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -69,7 +71,7 @@ use frame_support::{
 use frame_system::{
 	ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
-	EventRecord, Pallet as System,
+	Pallet as System,
 };
 use scale_info::TypeInfo;
 use sp_core::{H160, H256};
@@ -92,9 +94,7 @@ type TrieId = BoundedVec<u8, ConstU32<128>>;
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
-type EventRecordOf<T> =
-	EventRecord<<T as frame_system::Config>::RuntimeEvent, <T as frame_system::Config>::Hash>;
-//type DebugBuffer = BoundedVec<u8, ConstU32<{ limits::DEBUG_BUFFER_BYTES }>>;
+type DebugBuffer = BoundedVec<u8, ConstU32<{ limits::DEBUG_BUFFER_BYTES }>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 
 /// Used as a sentinel value when reading and writing contract memory.
@@ -267,9 +267,9 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
-		/// For most production chains, it's recommended to use the `()` implementation of this
-		/// trait. This implementation offers additional logging when the log target
-		/// "runtime::revive" is set to trace.
+		/// Debugging utilities for contracts.
+		/// For production chains, it's recommended to use the `()` implementation of this
+		/// trait.
 		#[pallet::no_default_bounds]
 		type Debug: Debugger<Self>;
 
@@ -809,8 +809,7 @@ pub mod pallet {
 				gas_limit,
 				storage_deposit_limit,
 				data,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
+				Tracer::Disabled,
 			);
 			if let Ok(return_value) = &output.result {
 				if return_value.did_revert() {
@@ -847,8 +846,7 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
+				Tracer::Disabled,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -913,8 +911,7 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
+				Tracer::Disabled,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -1038,13 +1035,10 @@ where
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
-		debug: DebugInfo,
-		collect_events: CollectEvents,
-	) -> ContractResult<ExecReturnValue, BalanceOf<T>, EventRecordOf<T>> {
+		mut tracer: Tracer,
+	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
-		let mut trace: Option<crate::debug::TraceOf<T>> =
-			if matches!(debug, DebugInfo::UnsafeDebug) { Some(Default::default()) } else { None };
 
 		let try_call = || {
 			let origin = Origin::from_runtime_origin(origin)?;
@@ -1056,24 +1050,18 @@ where
 				&mut storage_meter,
 				value,
 				data,
-				trace.as_mut(),
+				&mut tracer,
 			)?;
 			storage_deposit = storage_meter.try_into_deposit(&origin)?;
 			Ok(result)
 		};
 		let result = Self::run_guarded(try_call);
-		let events = if matches!(collect_events, CollectEvents::UnsafeCollect) {
-			Some(System::<T>::read_events_no_consensus().map(|e| *e).collect())
-		} else {
-			None
-		};
 		ContractResult {
 			result: result.map_err(|r| r.error),
 			gas_consumed: gas_meter.gas_consumed(),
 			gas_required: gas_meter.gas_required(),
 			storage_deposit,
-			trace: Default::default(), //trace.unwrap_or_default().to_vec(),
-			events,
+			tracer,
 		}
 	}
 
@@ -1081,8 +1069,8 @@ where
 	///
 	/// Identical to [`Self::instantiate`] or [`Self::instantiate_with_code`] but tailored towards
 	/// being called by other code within the runtime as opposed to from an extrinsic. It returns
-	/// more information and allows the enablement of features that are not suitable for an
-	/// extrinsic (debugging, event collection).
+	/// more information and allows the enablement of debugging features that are not suitable for
+	/// an extrinsic.
 	pub fn bare_instantiate(
 		origin: OriginFor<T>,
 		value: BalanceOf<T>,
@@ -1091,13 +1079,10 @@ where
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		debug: DebugInfo,
-		collect_events: CollectEvents,
-	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>, EventRecordOf<T>> {
+		mut tracer: Tracer,
+	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
-		let mut trace: Option<crate::debug::TraceOf<T>> =
-			if debug == DebugInfo::UnsafeDebug { Some(Default::default()) } else { None };
 
 		let try_instantiate = || {
 			let instantiate_account = T::InstantiateOrigin::ensure_origin(origin.clone())?;
@@ -1123,7 +1108,7 @@ where
 				value,
 				data,
 				salt.as_ref(),
-				trace.as_mut(),
+				&mut tracer,
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin)?
@@ -1131,11 +1116,6 @@ where
 			result
 		};
 		let output = Self::run_guarded(try_instantiate);
-		let events = if matches!(collect_events, CollectEvents::UnsafeCollect) {
-			Some(System::<T>::read_events_no_consensus().map(|e| *e).collect())
-		} else {
-			None
-		};
 		ContractResult {
 			result: output
 				.map(|(addr, result)| InstantiateReturnValue { result, addr })
@@ -1143,8 +1123,7 @@ where
 			gas_consumed: gas_meter.gas_consumed(),
 			gas_required: gas_meter.gas_required(),
 			storage_deposit,
-			trace: Default::default(), //trace.unwrap_or_default().to_vec(),
-			events,
+			tracer,
 		}
 	}
 
@@ -1156,8 +1135,7 @@ where
 		input: Vec<u8>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
-		debug: DebugInfo,
-		collect_events: CollectEvents,
+		tracer: Tracer,
 	) -> EthContractResultDetails<BalanceOf<T>>
 	where
 		<T as Config>::RuntimeCall: From<crate::Call<T>>,
@@ -1189,8 +1167,7 @@ where
 				gas_limit,
 				storage_deposit_limit,
 				tx.input.0,
-				debug,
-				collect_events,
+				tracer,
 			);
 
 			let transact_kind = EthTransactKind::Call;
@@ -1254,7 +1231,7 @@ where
 					storage_deposit: Default::default(),
 					len: dispatch_call.encode().len() as u32,
 					result: Err(<Error<T>>::DecodingFailed.into()),
-				}
+				};
 			};
 
 			let code_len = code.len() as u32;
@@ -1267,8 +1244,7 @@ where
 				Code::Upload(code.to_vec()),
 				data.to_vec(),
 				None,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
+				tracer,
 			);
 
 			let transact_kind = EthTransactKind::InstantiateWithCode { code_len, data_len };
@@ -1363,11 +1339,10 @@ environmental!(executing_contract: bool);
 sp_api::decl_runtime_apis! {
 	/// The API used to dry-run contract interactions.
 	#[api_version(1)]
-	pub trait ReviveApi<AccountId, Balance, BlockNumber, EventRecord> where
+	pub trait ReviveApi<AccountId, Balance, BlockNumber> where
 		AccountId: Codec,
 		Balance: Codec,
 		BlockNumber: Codec,
-		EventRecord: Codec,
 	{
 		/// Perform a call from a specified account to a given contract.
 		///
@@ -1379,7 +1354,7 @@ sp_api::decl_runtime_apis! {
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
 			input_data: Vec<u8>,
-		) -> ContractResult<ExecReturnValue, Balance, EventRecord>;
+		) -> ContractResult<ExecReturnValue, Balance>;
 
 		/// Instantiate a new contract.
 		///
@@ -1392,7 +1367,7 @@ sp_api::decl_runtime_apis! {
 			code: Code,
 			data: Vec<u8>,
 			salt: Option<[u8; 32]>,
-		) -> ContractResult<InstantiateReturnValue, Balance, EventRecord>;
+		) -> ContractResult<InstantiateReturnValue, Balance>;
 
 
 		/// Perform an Ethereum call.
@@ -1425,5 +1400,12 @@ sp_api::decl_runtime_apis! {
 			address: H160,
 			key: [u8; 32],
 		) -> GetStorageResult;
+
+
+
+		/// Replay the transaction with the given hash, and return the trace.
+		fn trace_tx(
+			tx: H256
+		) -> Result<CallTrace, sp_runtime::DispatchError>;
 	}
 }

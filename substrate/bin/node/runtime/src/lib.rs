@@ -92,7 +92,7 @@ use sp_consensus_beefy::{
 	mmr::MmrLeafVersion,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	create_runtime_str,
@@ -3039,7 +3039,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_revive::ReviveApi<Block, AccountId, Balance, BlockNumber, EventRecord> for Runtime
+	impl pallet_revive::ReviveApi<Block, AccountId, Balance, BlockNumber> for Runtime
 	{
 		fn eth_transact(
 			from: H160,
@@ -3060,8 +3060,7 @@ impl_runtime_apis! {
 				input,
 				gas_limit.unwrap_or(blockweights.max_block),
 				storage_deposit_limit.unwrap_or(u128::MAX),
-				pallet_revive::DebugInfo::UnsafeDebug,
-				pallet_revive::CollectEvents::UnsafeCollect,
+				pallet_revive::debug::Tracer::new_call_tracer(),
 			).map(pallet_transaction_payment::Pallet::<Runtime>::compute_fee)
 		}
 
@@ -3072,7 +3071,7 @@ impl_runtime_apis! {
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
 			input_data: Vec<u8>,
-		) -> pallet_revive::ContractResult<pallet_revive::ExecReturnValue, Balance, EventRecord> {
+		) -> pallet_revive::ContractResult<pallet_revive::ExecReturnValue, Balance> {
 			Revive::bare_call(
 				RuntimeOrigin::signed(origin),
 				dest,
@@ -3080,8 +3079,7 @@ impl_runtime_apis! {
 				gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block),
 				storage_deposit_limit.unwrap_or(u128::MAX),
 				input_data,
-				pallet_revive::DebugInfo::UnsafeDebug,
-				pallet_revive::CollectEvents::UnsafeCollect,
+				pallet_revive::debug::Tracer::new_call_tracer(),
 			)
 		}
 
@@ -3093,7 +3091,7 @@ impl_runtime_apis! {
 			code: pallet_revive::Code,
 			data: Vec<u8>,
 			salt: Option<[u8; 32]>,
-		) -> pallet_revive::ContractResult<pallet_revive::InstantiateReturnValue, Balance, EventRecord>
+		) -> pallet_revive::ContractResult<pallet_revive::InstantiateReturnValue, Balance>
 		{
 			Revive::bare_instantiate(
 				RuntimeOrigin::signed(origin),
@@ -3103,8 +3101,7 @@ impl_runtime_apis! {
 				code,
 				data,
 				salt,
-				pallet_revive::DebugInfo::UnsafeDebug,
-				pallet_revive::CollectEvents::UnsafeCollect,
+				pallet_revive::debug::Tracer::new_call_tracer(),
 			)
 		}
 
@@ -3129,6 +3126,12 @@ impl_runtime_apis! {
 				address,
 				key
 			)
+		}
+
+		fn trace_tx(
+			_tx: H256
+		) -> Result<pallet_revive::evm::CallTrace, sp_runtime::DispatchError> {
+			unimplemented!()
 		}
 	}
 

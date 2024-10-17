@@ -1783,7 +1783,7 @@ pub mod env {
 	/// Emit a custom debug message.
 	/// See [`pallet_revive_uapi::HostFn::trace`].
 	#[api_version(0)]
-	fn trace(
+	fn debug_message(
 		&mut self,
 		memory: &mut M,
 		str_ptr: u32,
@@ -1889,7 +1889,7 @@ pub mod env {
 				Ok(ReturnErrorCode::Success)
 			},
 			Err(e) => {
-				if self.ext.append_debug_buffer("") {
+				if self.ext.debug_buffer_enabled() {
 					self.ext.append_debug_buffer("seal0::xcm_send failed with: ");
 					self.ext.append_debug_buffer(e.into());
 				};

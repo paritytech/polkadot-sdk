@@ -18,7 +18,7 @@
 #![cfg_attr(not(feature = "riscv"), allow(dead_code, unused_imports, unused_macros))]
 
 mod pallet_dummy;
-//mod test_debug;
+mod test_debug;
 
 use self::{
 	//test_debug::TestDebug,
@@ -36,12 +36,14 @@ use crate::{
 	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	test_utils::*,
-	tests::test_utils::{get_contract, get_contract_checked},
+	tests::{
+		test_debug::TestDebug,
+		test_utils::{get_contract, get_contract_checked},
+	},
 	wasm::Memory,
 	weights::WeightInfo,
-	BalanceOf, Code, CodeInfoOf, CollectEvents, Config, ContractInfo, ContractInfoOf, DebugInfo,
-	DefaultAddressMapper, DeletionQueueCounter, Error, HoldReason, Origin, Pallet, PristineCode,
-	H160,
+	BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DefaultAddressMapper,
+	DeletionQueueCounter, Error, HoldReason, Origin, Pallet, PristineCode, H160,
 };
 
 use crate::test_utils::builder::Contract;
@@ -519,7 +521,7 @@ impl Config for Test {
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-	type Debug = crate::evm::CallTrace;
+	type Debug = TestDebug;
 	type ChainId = ChainId;
 }
 
@@ -2124,24 +2126,27 @@ mod run_tests {
 	}
 
 	#[test]
-	fn trace_works() {
-		let (wasm, _code_hash) = compile_module("trace_works").unwrap();
+	fn debug_message_works() {
+		let (wasm, _code_hash) = compile_module("debug_message_works").unwrap();
 
 		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
 				.value(30_000)
 				.build_and_unwrap_contract();
-			let result = builder::bare_call(addr).debug(DebugInfo::UnsafeDebug).build();
+			let result = builder::bare_call(addr).build();
 
 			assert_matches!(result.result, Ok(_));
-			assert_eq!(std::str::from_utf8(&result.trace).unwrap(), "Hello World!");
+			assert_eq!(
+				std::str::from_utf8(&result.tracer.as_call_tracer().unwrap().debug_buffer).unwrap(),
+				"Hello World!"
+			);
 		});
 	}
 
 	#[test]
-	fn trace_logging_disabled() {
-		let (wasm, _code_hash) = compile_module("trace_logging_disabled").unwrap();
+	fn debug_message_logging_disabled() {
+		let (wasm, _code_hash) = compile_module("debug_message_logging_disabled").unwrap();
 
 		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -2161,17 +2166,17 @@ mod run_tests {
 	}
 
 	#[test]
-	fn trace_invalid_utf8() {
-		let (wasm, _code_hash) = compile_module("trace_invalid_utf8").unwrap();
+	fn debug_message_invalid_utf8() {
+		let (wasm, _code_hash) = compile_module("debug_message_invalid_utf8").unwrap();
 
 		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
 				.value(30_000)
 				.build_and_unwrap_contract();
-			let result = builder::bare_call(addr).debug(DebugInfo::UnsafeDebug).build();
+			let result = builder::bare_call(addr).build();
 			assert_ok!(result.result);
-			assert!(result.trace.is_empty());
+			assert!(result.tracer.as_call_tracer().unwrap().debug_buffer.is_empty());
 		});
 	}
 
@@ -2390,81 +2395,6 @@ mod run_tests {
 			assert!(!result.did_revert());
 			assert_eq!(result.data, EXPECTED_COMPRESSED_PUBLIC_KEY);
 		})
-	}
-
-	#[test]
-	fn bare_instantiate_returns_events() {
-		let (wasm, _code_hash) = compile_module("transfer_return_code").unwrap();
-		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-			let min_balance = Contracts::min_balance();
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-
-			let result = builder::bare_instantiate(Code::Upload(wasm))
-				.value(min_balance * 100)
-				.collect_events(CollectEvents::UnsafeCollect)
-				.build();
-
-			let events = result.events.unwrap();
-			assert!(!events.is_empty());
-			assert_eq!(events, System::events());
-		});
-	}
-
-	#[test]
-	fn bare_instantiate_does_not_return_events() {
-		let (wasm, _code_hash) = compile_module("transfer_return_code").unwrap();
-		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-			let min_balance = Contracts::min_balance();
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-
-			let result =
-				builder::bare_instantiate(Code::Upload(wasm)).value(min_balance * 100).build();
-
-			let events = result.events;
-			assert!(!System::events().is_empty());
-			assert!(events.is_none());
-		});
-	}
-
-	#[test]
-	fn bare_call_returns_events() {
-		let (wasm, _code_hash) = compile_module("transfer_return_code").unwrap();
-		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-			let min_balance = Contracts::min_balance();
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-
-			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
-				.value(min_balance * 100)
-				.build_and_unwrap_contract();
-
-			let result =
-				builder::bare_call(addr).collect_events(CollectEvents::UnsafeCollect).build();
-
-			let events = result.events.unwrap();
-			assert_return_code!(&result.result.unwrap(), RuntimeReturnCode::Success);
-			assert!(!events.is_empty());
-			assert_eq!(events, System::events());
-		});
-	}
-
-	#[test]
-	fn bare_call_does_not_return_events() {
-		let (wasm, _code_hash) = compile_module("transfer_return_code").unwrap();
-		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-			let min_balance = Contracts::min_balance();
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-
-			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
-				.value(min_balance * 100)
-				.build_and_unwrap_contract();
-
-			let result = builder::bare_call(addr).build();
-
-			let events = result.events;
-			assert_return_code!(&result.result.unwrap(), RuntimeReturnCode::Success);
-			assert!(!System::events().is_empty());
-			assert!(events.is_none());
-		});
 	}
 
 	#[test]
@@ -3274,14 +3204,11 @@ mod run_tests {
 			// First call sets new code_hash and returns 1
 			let result = builder::bare_call(contract_addr)
 				.data(new_code_hash.as_ref().to_vec())
-				.debug(DebugInfo::UnsafeDebug)
 				.build_and_unwrap_result();
 			assert_return_code!(result, 1);
 
 			// Second calls new contract code that returns 2
-			let result = builder::bare_call(contract_addr)
-				.debug(DebugInfo::UnsafeDebug)
-				.build_and_unwrap_result();
+			let result = builder::bare_call(contract_addr).build_and_unwrap_result();
 			assert_return_code!(result, 2);
 
 			// Checking for the last event only
@@ -4182,6 +4109,8 @@ mod run_tests {
 
 	#[test]
 	fn tracing_works() {
+		use crate::evm::*;
+		use CallType::*;
 		let (code, _code_hash) = compile_module("tracing").unwrap();
 		let (wasm_callee, _) = compile_module("dummy").unwrap();
 		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
@@ -4197,9 +4126,73 @@ mod run_tests {
 
 			let _ = env_logger::builder().is_test(true).try_init();
 			let result = builder::bare_call(addr).data((3u32, addr_callee).encode()).build();
-			dbg!(result.trace);
+			let traces = result.tracer.as_call_tracer().unwrap().traces;
 
-			// TODO check trace
+			assert_eq!(
+				traces,
+				vec![CallTrace {
+					from: ALICE_ADDR,
+					to: addr,
+					input: (3u32, addr_callee).encode(),
+					call_type: Call,
+					calls: vec![
+						CallTrace {
+							from: addr,
+							to: addr_callee,
+							input: 2u32.encode(),
+							call_type: Call,
+							..Default::default()
+						},
+						CallTrace {
+							from: addr,
+							to: addr,
+							input: (2u32, addr_callee).encode(),
+							call_type: Call,
+							calls: vec![
+								CallTrace {
+									from: addr,
+									to: addr_callee,
+									input: 1u32.encode(),
+									call_type: Call,
+									..Default::default()
+								},
+								CallTrace {
+									from: addr,
+									to: addr,
+									input: (1u32, addr_callee).encode(),
+									call_type: Call,
+									calls: vec![
+										CallTrace {
+											from: addr,
+											to: addr_callee,
+											input: 0u32.encode(),
+											call_type: Call,
+											..Default::default()
+										},
+										CallTrace {
+											from: addr,
+											to: addr,
+											input: (0u32, addr_callee).encode(),
+											call_type: Call,
+											calls: vec![CallTrace {
+												from: addr,
+												to: addr_callee,
+												input: vec![255, 255, 255, 255,],
+												call_type: Call,
+												..Default::default()
+											}],
+											..Default::default()
+										},
+									],
+									..Default::default()
+								},
+							],
+							..Default::default()
+						},
+					],
+					..Default::default()
+				},]
+			);
 		});
 	}
 

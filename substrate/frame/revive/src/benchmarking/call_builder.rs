@@ -38,7 +38,7 @@ pub struct CallSetup<T: Config> {
 	gas_meter: GasMeter<T>,
 	storage_meter: Meter<T>,
 	value: BalanceOf<T>,
-	trace: Option<DebugBuffer>,
+	debug_message: Option<DebugBuffer>,
 	data: Vec<u8>,
 	transient_storage_size: u32,
 }
@@ -89,7 +89,7 @@ where
 			gas_meter: GasMeter::new(Weight::MAX),
 			storage_meter,
 			value: 0u32.into(),
-			trace: None,
+			debug_message: None,
 			data: vec![],
 			transient_storage_size: 0,
 		}
@@ -121,13 +121,13 @@ where
 	}
 
 	/// Set the debug message.
-	pub fn enable_trace(&mut self) {
-		self.trace = Some(Default::default());
+	pub fn enable_debug_message(&mut self) {
+		self.debug_message = Some(Default::default());
 	}
 
 	/// Get the debug message.
-	pub fn trace(&self) -> Option<DebugBuffer> {
-		self.trace.clone()
+	pub fn debug_message(&self) -> Option<DebugBuffer> {
+		self.debug_message.clone()
 	}
 
 	/// Get the call's input data.

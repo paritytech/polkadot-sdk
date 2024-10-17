@@ -17,7 +17,7 @@
 //! Example utilities
 #![cfg(feature = "example")]
 
-use crate::{EthRpcClient, ReceiptInfo};
+use crate::{EthExecRpcClient, ReceiptInfo};
 use anyhow::Context;
 use jsonrpsee::http_client::HttpClient;
 use pallet_revive::evm::{

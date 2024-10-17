@@ -17,7 +17,7 @@
 
 use crate::{
 	address::{self, AddressMapper},
-	debug::{CallInterceptor, TraceOf, Tracing},
+	debug::{CallInterceptor, Tracer, Tracing},
 	gas::GasMeter,
 	limits,
 	primitives::{ExecReturnValue, StorageDeposit},
@@ -527,12 +527,8 @@ pub struct Stack<'a, T: Config, E> {
 	frames: BoundedVec<Frame<T>, ConstU32<{ limits::CALL_STACK_DEPTH }>>,
 	/// Statically guarantee that each call stack has at least one frame.
 	first_frame: Frame<T>,
-	/// A text buffer used to output human readable information.
-	///
-	/// All the bytes added to this field should be valid UTF-8. The buffer has no defined
-	/// structure and is intended to be shown to users as-is for debugging purposes.
-	#[allow(unused)]
-	trace: Option<&'a mut TraceOf<T>>,
+	/// A tracer used to record the execution trace.
+	tracer: &'a mut Tracer,
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
 	/// No executable is held by the struct but influences its behaviour.
@@ -737,7 +733,7 @@ where
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
-		trace: Option<&'a mut TraceOf<T>>,
+		tracer: &'a mut Tracer,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
 		if let Some((mut stack, executable)) = Self::new(
@@ -746,7 +742,7 @@ where
 			gas_meter,
 			storage_meter,
 			value,
-			trace,
+			tracer,
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
@@ -772,7 +768,7 @@ where
 		value: BalanceOf<T>,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-		trace: Option<&'a mut TraceOf<T>>,
+		tracer: &'a mut Tracer,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Self::new(
 			FrameArgs::Instantiate {
@@ -785,7 +781,7 @@ where
 			gas_meter,
 			storage_meter,
 			value,
-			trace,
+			tracer,
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
@@ -829,7 +825,7 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
-		trace: Option<&'a mut TraceOf<T>>,
+		tracer: &'a mut Tracer,
 	) -> Result<Option<(Self, E)>, ExecError> {
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
@@ -853,7 +849,7 @@ where
 			block_number: <frame_system::Pallet<T>>::block_number(),
 			first_frame,
 			frames: Default::default(),
-			trace,
+			tracer,
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
 			_phantom: Default::default(),
 		};
@@ -1048,9 +1044,8 @@ where
 			let contract_addr = T::AddressMapper::to_address(&top_frame!(self).account_id);
 			let caller_addr = self.caller().account_id().ok().map(T::AddressMapper::to_address);
 
-			//trace.unwrap().enter_child_span();
-			let parent_trace = self.trace.take();
-			let trace = parent_trace.unwrap().enter_child_span(
+			<Tracer as Tracing<T>>::enter_child_span(
+				self.tracer,
 				&caller_addr.unwrap_or_default(),
 				&contract_addr,
 				is_delegate_call,
@@ -1059,7 +1054,6 @@ where
 				&gas_limit,
 				&input_data,
 			);
-			self.trace = Some(trace);
 
 			let output = T::Debug::intercept_call(&contract_addr, entry_point, &input_data)
 				.unwrap_or_else(|| {
@@ -1075,10 +1069,7 @@ where
 						.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })
 				})?;
 
-			//trace.after_call(&output);
-			let trace = self.trace.as_mut(); //.unwrap().after_call(&output);
-			trace.unwrap().after_call(&output);
-			self.trace = parent_trace;
+			<Tracer as Tracing<T>>::exit_child_span(self.tracer, &output);
 
 			// Avoid useless work that would be reverted anyways.
 			if output.did_revert() {
@@ -1651,27 +1642,11 @@ where
 	}
 
 	fn debug_buffer_enabled(&self) -> bool {
-		//self.trace.is_some()
-		false
+		self.tracer.debug_buffer_enabled()
 	}
 
-	fn append_debug_buffer(&mut self, _msg: &str) -> bool {
-		//if let Some(buffer) = &mut self.trace {
-		//	buffer
-		//		.try_extend(&mut msg.bytes())
-		//		.map_err(|_| {
-		//			log::debug!(
-		//				target: LOG_TARGET,
-		//				"Debug buffer (of {} bytes) exhausted!",
-		//				limits::DEBUG_BUFFER_BYTES,
-		//			)
-		//		})
-		//		.ok();
-		//	true
-		//} else {
-		//	false
-		//}
-		false
+	fn append_debug_buffer(&mut self, msg: &str) -> bool {
+		self.tracer.append_debug_buffer(msg)
 	}
 
 	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo {
@@ -1829,6 +1804,7 @@ mod sealing {
 mod tests {
 	use super::*;
 	use crate::{
+		debug::CallTracer,
 		exec::ExportedFunction::*,
 		gas::GasMeter,
 		test_utils::*,
@@ -1836,7 +1812,7 @@ mod tests {
 			test_utils::{get_balance, place_contract, set_balance},
 			ExtBuilder, RuntimeCall, RuntimeEvent as MetaEvent, Test, TestFilter,
 		},
-		AddressMapper, Error,
+		AddressMapper, DebugBuffer, Error,
 	};
 	use assert_matches::assert_matches;
 	use frame_support::{assert_err, assert_ok, parameter_types};
@@ -1994,7 +1970,7 @@ mod tests {
 					&mut storage_meter,
 					value,
 					vec![],
-					None,
+					&mut Tracer::Disabled,
 				),
 				Ok(_)
 			);
@@ -2041,7 +2017,7 @@ mod tests {
 				&mut storage_meter,
 				value,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			)
 			.unwrap();
 
@@ -2079,7 +2055,7 @@ mod tests {
 				&mut storage_meter,
 				value,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			)
 			.unwrap();
 
@@ -2111,7 +2087,7 @@ mod tests {
 				&mut storage_meter,
 				55,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			)
 			.unwrap();
 
@@ -2159,7 +2135,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			);
 
 			let output = result.unwrap();
@@ -2188,7 +2164,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			);
 
 			let output = result.unwrap();
@@ -2217,7 +2193,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![1, 2, 3, 4],
-				None,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2253,7 +2229,7 @@ mod tests {
 					min_balance,
 					vec![1, 2, 3, 4],
 					Some(&[0; 32]),
-					None,
+					&mut Tracer::Disabled,
 				);
 				assert_matches!(result, Ok(_));
 			});
@@ -2307,7 +2283,7 @@ mod tests {
 				&mut storage_meter,
 				value,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			);
 
 			assert_matches!(result, Ok(_));
@@ -2369,7 +2345,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			);
 
 			assert_matches!(result, Ok(_));
@@ -2401,7 +2377,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2429,7 +2405,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![0],
-				None,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2455,7 +2431,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![0],
-				None,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2499,7 +2475,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![0],
-				None,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2525,7 +2501,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![0],
-				None,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2551,7 +2527,7 @@ mod tests {
 				&mut storage_meter,
 				1,
 				vec![0],
-				None,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Err(_));
 		});
@@ -2595,7 +2571,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![0],
-				None,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2640,7 +2616,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			);
 
 			assert_matches!(result, Ok(_));
@@ -2666,7 +2642,7 @@ mod tests {
 					0, // <- zero value
 					vec![],
 					Some(&[0; 32]),
-					None,
+					&mut Tracer::Disabled,
 				),
 				Err(_)
 			);
@@ -2698,11 +2674,10 @@ mod tests {
 						executable,
 						&mut gas_meter,
 						&mut storage_meter,
-
 						min_balance,
 						vec![],
 						Some(&[0 ;32]),
-						None,
+				&mut Tracer::Disabled,
 					),
 					Ok((address, ref output)) if output.data == vec![80, 65, 83, 83] => address
 				);
@@ -2752,11 +2727,10 @@ mod tests {
 						executable,
 						&mut gas_meter,
 						&mut storage_meter,
-
 						min_balance,
 						vec![],
 						Some(&[0; 32]),
-						None,
+				&mut Tracer::Disabled,
 					),
 					Ok((address, ref output)) if output.data == vec![70, 65, 73, 76] => address
 				);
@@ -2819,7 +2793,7 @@ mod tests {
 						&mut storage_meter,
 						min_balance * 10,
 						vec![],
-						None,
+						&mut Tracer::Disabled,
 					),
 					Ok(_)
 				);
@@ -2898,7 +2872,7 @@ mod tests {
 						&mut storage_meter,
 						0,
 						vec![],
-						None,
+						&mut Tracer::Disabled,
 					),
 					Ok(_)
 				);
@@ -2940,8 +2914,8 @@ mod tests {
 						&mut storage_meter,
 						100,
 						vec![],
-						Some(&[0; 32]),
 						None,
+						&mut Tracer::Disabled,
 					),
 					Err(Error::<Test>::TerminatedInConstructor.into())
 				);
@@ -3005,7 +2979,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![0],
-				None,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -3065,8 +3039,8 @@ mod tests {
 					&mut storage_meter,
 					10,
 					vec![],
-					Some(&[0; 32]),
 					None,
+					&mut Tracer::Disabled,
 				);
 				assert_matches!(result, Ok(_));
 			});
@@ -3111,109 +3085,117 @@ mod tests {
 					&mut storage_meter,
 					0,
 					vec![],
-					None,
+					&mut Tracer::Disabled,
 				)
 				.unwrap();
 			});
 	}
 
-	//#[test]
-	//fn printing_works() {
-	//	let code_hash = MockLoader::insert(Call, |ctx, _| {
-	//		ctx.ext.append_debug_buffer("This is a test");
-	//		ctx.ext.append_debug_buffer("More text");
-	//		exec_success()
-	//	});
-	//
-	//	let mut debug_buffer = DebugBuffer::try_from(Vec::new()).unwrap();
-	//
-	//	ExtBuilder::default().build().execute_with(|| {
-	//		let min_balance = <Test as Config>::Currency::minimum_balance();
-	//
-	//		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-	//		set_balance(&ALICE, min_balance * 10);
-	//		place_contract(&BOB, code_hash);
-	//		let origin = Origin::from_account_id(ALICE);
-	//		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
-	//		MockStack::run_call(
-	//			origin,
-	//			BOB_ADDR,
-	//			&mut gas_meter,
-	//			&mut storage_meter,
-	//			0,
-	//			vec![],
-	//			Some(&mut debug_buffer),
-	//		)
-	//		.unwrap();
-	//	});
-	//
-	//	assert_eq!(&String::from_utf8(debug_buffer.to_vec()).unwrap(), "This is a testMore text");
-	//}
+	#[test]
+	fn printing_works() {
+		let code_hash = MockLoader::insert(Call, |ctx, _| {
+			ctx.ext.append_debug_buffer("This is a test");
+			ctx.ext.append_debug_buffer("More text");
+			exec_success()
+		});
 
-	//#[test]
-	//fn printing_works_on_fail() {
-	//	let code_hash = MockLoader::insert(Call, |ctx, _| {
-	//		ctx.ext.append_debug_buffer("This is a test");
-	//		ctx.ext.append_debug_buffer("More text");
-	//		exec_trapped()
-	//	});
-	//
-	//	let mut debug_buffer = DebugBuffer::try_from(Vec::new()).unwrap();
-	//
-	//	ExtBuilder::default().build().execute_with(|| {
-	//		let min_balance = <Test as Config>::Currency::minimum_balance();
-	//
-	//		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-	//		set_balance(&ALICE, min_balance * 10);
-	//		place_contract(&BOB, code_hash);
-	//		let origin = Origin::from_account_id(ALICE);
-	//		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
-	//		let result = MockStack::run_call(
-	//			origin,
-	//			BOB_ADDR,
-	//			&mut gas_meter,
-	//			&mut storage_meter,
-	//			0,
-	//			vec![],
-	//			Some(&mut debug_buffer),
-	//		);
-	//		assert!(result.is_err());
-	//	});
-	//
-	//	assert_eq!(&String::from_utf8(debug_buffer.to_vec()).unwrap(), "This is a testMore text");
-	//}
+		let mut tracer = Tracer::new_call_tracer();
 
-	//#[test]
-	//fn debug_buffer_is_limited() {
-	//	let code_hash = MockLoader::insert(Call, move |ctx, _| {
-	//		ctx.ext.append_debug_buffer("overflowing bytes");
-	//		exec_success()
-	//	});
-	//
-	//	// Pre-fill the buffer almost up to its limit, leaving not enough space to the message
-	//	let debug_buf_before = DebugBuffer::try_from(vec![0u8; DebugBuffer::bound() - 5]).unwrap();
-	//	let mut debug_buf_after = debug_buf_before.clone();
-	//
-	//	ExtBuilder::default().build().execute_with(|| {
-	//		let min_balance = <Test as Config>::Currency::minimum_balance();
-	//		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-	//		set_balance(&ALICE, min_balance * 10);
-	//		place_contract(&BOB, code_hash);
-	//		let origin = Origin::from_account_id(ALICE);
-	//		let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
-	//		MockStack::run_call(
-	//			origin,
-	//			BOB_ADDR,
-	//			&mut gas_meter,
-	//			&mut storage_meter,
-	//			0,
-	//			vec![],
-	//			Some(&mut debug_buf_after),
-	//		)
-	//		.unwrap();
-	//		assert_eq!(debug_buf_before, debug_buf_after);
-	//	});
-	//}
+		ExtBuilder::default().build().execute_with(|| {
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+
+			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+			set_balance(&ALICE, min_balance * 10);
+			place_contract(&BOB, code_hash);
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+			MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut gas_meter,
+				&mut storage_meter,
+				0,
+				vec![],
+				&mut tracer,
+			)
+			.unwrap();
+		});
+
+		assert_eq!(
+			&String::from_utf8(tracer.as_call_tracer().unwrap().debug_buffer.to_vec()).unwrap(),
+			"This is a testMore text"
+		);
+	}
+
+	#[test]
+	fn printing_works_on_fail() {
+		let code_hash = MockLoader::insert(Call, |ctx, _| {
+			ctx.ext.append_debug_buffer("This is a test");
+			ctx.ext.append_debug_buffer("More text");
+			exec_trapped()
+		});
+
+		let mut tracer = Tracer::new_call_tracer();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+
+			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+			set_balance(&ALICE, min_balance * 10);
+			place_contract(&BOB, code_hash);
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+			let result = MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut gas_meter,
+				&mut storage_meter,
+				0,
+				vec![],
+				&mut tracer,
+			);
+			assert!(result.is_err());
+		});
+
+		assert_eq!(
+			&String::from_utf8(tracer.as_call_tracer().unwrap().debug_buffer.to_vec()).unwrap(),
+			"This is a testMore text"
+		);
+	}
+
+	#[test]
+	fn debug_buffer_is_limited() {
+		let code_hash = MockLoader::insert(Call, move |ctx, _| {
+			ctx.ext.append_debug_buffer("overflowing bytes");
+			exec_success()
+		});
+
+		// Pre-fill the buffer almost up to its limit, leaving not enough space to the message
+		let debug_buf_before = DebugBuffer::try_from(vec![0u8; DebugBuffer::bound() - 5]).unwrap();
+		let mut tracer = CallTracer::default();
+		tracer.debug_buffer = debug_buf_before.clone();
+		let mut tracer = Tracer::CallTracer(tracer);
+
+		ExtBuilder::default().build().execute_with(|| {
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+			set_balance(&ALICE, min_balance * 10);
+			place_contract(&BOB, code_hash);
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+			MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut gas_meter,
+				&mut storage_meter,
+				0,
+				vec![],
+				&mut tracer,
+			)
+			.unwrap();
+			assert_eq!(debug_buf_before, tracer.as_call_tracer().unwrap().debug_buffer);
+		});
+	}
 
 	#[test]
 	fn call_reentry_direct_recursion() {
@@ -3241,7 +3223,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				CHARLIE_ADDR.as_bytes().to_vec(),
-				None,
+				&mut Tracer::Disabled,
 			));
 
 			// Calling into oneself fails
@@ -3253,7 +3235,7 @@ mod tests {
 					&mut storage_meter,
 					0,
 					BOB_ADDR.as_bytes().to_vec(),
-					None,
+					&mut Tracer::Disabled,
 				)
 				.map_err(|e| e.error),
 				<Error<Test>>::ReentranceDenied,
@@ -3303,7 +3285,7 @@ mod tests {
 					&mut storage_meter,
 					0,
 					vec![0],
-					None,
+					&mut Tracer::Disabled,
 				)
 				.map_err(|e| e.error),
 				<Error<Test>>::ReentranceDenied,
@@ -3337,7 +3319,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			)
 			.unwrap();
 
@@ -3421,7 +3403,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			)
 			.unwrap();
 
@@ -3544,7 +3526,7 @@ mod tests {
 					min_balance * 100,
 					vec![],
 					Some(&[0; 32]),
-					None,
+					&mut Tracer::Disabled,
 				)
 				.ok();
 				assert_eq!(System::account_nonce(&ALICE), 0);
@@ -3557,7 +3539,7 @@ mod tests {
 					min_balance * 100,
 					vec![],
 					Some(&[0; 32]),
-					None,
+					&mut Tracer::Disabled,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 1);
 
@@ -3569,7 +3551,7 @@ mod tests {
 					min_balance * 200,
 					vec![],
 					Some(&[0; 32]),
-					None,
+					&mut Tracer::Disabled,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 2);
 
@@ -3581,7 +3563,7 @@ mod tests {
 					min_balance * 200,
 					vec![],
 					Some(&[0; 32]),
-					None,
+					&mut Tracer::Disabled,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 3);
 			});
@@ -3649,7 +3631,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -3760,7 +3742,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -3799,7 +3781,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -3838,7 +3820,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -3891,7 +3873,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -3947,7 +3929,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -4022,7 +4004,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -4092,7 +4074,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![0],
-				None,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -4130,7 +4112,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -4192,7 +4174,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![0],
-				None,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -4225,7 +4207,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![],
-				None,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -4301,7 +4283,7 @@ mod tests {
 					&mut storage_meter,
 					0,
 					vec![],
-					None,
+					&mut Tracer::Disabled,
 				)
 				.unwrap()
 			});
@@ -4369,7 +4351,7 @@ mod tests {
 				&mut storage_meter,
 				0,
 				vec![0],
-				None,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -4420,7 +4402,7 @@ mod tests {
 					&mut storage_meter,
 					0,
 					vec![],
-					None,
+					&mut Tracer::Disabled,
 				)
 				.unwrap()
 			});
@@ -4491,7 +4473,7 @@ mod tests {
 					&mut storage_meter,
 					0,
 					vec![],
-					None,
+					&mut Tracer::Disabled,
 				)
 				.unwrap()
 			});
@@ -4537,7 +4519,7 @@ mod tests {
 					&mut storage_meter,
 					0,
 					vec![],
-					None,
+					&mut Tracer::Disabled,
 				)
 				.unwrap()
 			});
@@ -4581,7 +4563,7 @@ mod tests {
 					&mut storage_meter,
 					0,
 					vec![],
-					None,
+					&mut Tracer::Disabled,
 				)
 				.unwrap()
 			});

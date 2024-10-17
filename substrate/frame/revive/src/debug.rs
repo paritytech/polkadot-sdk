@@ -21,16 +21,22 @@ pub use crate::{
 	primitives::ExecReturnValue,
 	BalanceOf,
 };
-use crate::{Config, LOG_TARGET};
+use crate::{limits, Config, DebugBuffer, LOG_TARGET};
+use alloc::vec::Vec;
 use sp_core::{H160, U256};
 use sp_weights::Weight;
 
 /// Umbrella trait for all interfaces that serves for debugging.
-pub trait Debugger<T: Config>: Tracing<T> + CallInterceptor<T> {}
+pub trait Debugger<T: Config>: CallInterceptor<T> {}
 
-impl<T: Config, V> Debugger<T> for V where V: Tracing<T> + CallInterceptor<T> {}
+impl<T: Config, V> Debugger<T> for V where V: CallInterceptor<T> {}
 
-pub type TraceOf<T> = <T as Config>::Debug;
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub enum Tracer {
+	#[default]
+	Disabled,
+	CallTracer(CallTracer),
+}
 
 /// Defines methods to capture contract calls, enabling external observers to
 /// measure, trace, and react to contract interactions.
@@ -43,33 +49,50 @@ pub trait Tracing<T: Config>: Default {
 		is_read_only: bool,
 		value: &crate::BalanceOf<T>,
 		gas_limit: &Weight,
-		input_data: &[u8],
-	) -> &mut Self;
+		input: &[u8],
+	);
 
-	fn after_call(&mut self, output: &ExecReturnValue);
+	fn exit_child_span(&mut self, output: &ExecReturnValue);
 }
 
-impl<T: Config> Tracing<T> for () {
-	fn enter_child_span(
-		&mut self,
-		from: &H160,
-		to: &H160,
-		is_delegate_call: bool,
-		is_read_only: bool,
-		value: &crate::BalanceOf<T>,
-		gas_limit: &Weight,
-		input_data: &[u8],
-	) -> &mut Self {
-		log::trace!(target: LOG_TARGET, "call (delegate: {is_delegate_call:?}, read_only: {is_read_only:?}) from: {from:?}, to: {to:?} value: {value:?} gas_limit: {gas_limit:?} input_data: {input_data:?}");
-		self
+impl Tracer {
+	pub fn new_call_tracer() -> Self {
+		Tracer::CallTracer(CallTracer::default())
 	}
 
-	fn after_call(&mut self, output: &ExecReturnValue) {
-		log::trace!(target: LOG_TARGET, "call result {output:?}")
+	pub fn as_call_tracer(self) -> Option<CallTracer> {
+		match self {
+			Tracer::CallTracer(tracer) => Some(tracer),
+			_ => None,
+		}
+	}
+	pub fn append_debug_buffer(&mut self, msg: &str) -> bool {
+		match self {
+			Tracer::Disabled => false,
+			Tracer::CallTracer(CallTracer { debug_buffer, .. }) => {
+				debug_buffer
+					.try_extend(&mut msg.bytes())
+					.map_err(|_| {
+						log::debug!(
+							target: LOG_TARGET,
+							"Debug buffer (of {} bytes) exhausted!",
+							limits::DEBUG_BUFFER_BYTES,
+						)
+					})
+					.ok();
+				true
+			},
+		}
+	}
+	pub fn debug_buffer_enabled(&self) -> bool {
+		match self {
+			Tracer::Disabled => false,
+			_ => true,
+		}
 	}
 }
 
-impl<T: Config> Tracing<T> for CallTrace
+impl<T: Config> Tracing<T> for Tracer
 where
 	BalanceOf<T>: Into<U256>,
 {
@@ -80,9 +103,66 @@ where
 		is_delegate_call: bool,
 		is_read_only: bool,
 		value: &crate::BalanceOf<T>,
-		_gas_limit: &Weight,
+		gas_limit: &Weight,
 		input: &[u8],
-	) -> &mut Self {
+	) {
+		match self {
+			Tracer::CallTracer(tracer) => {
+				<CallTracer as Tracing<T>>::enter_child_span(
+					tracer,
+					from,
+					to,
+					is_delegate_call,
+					is_read_only,
+					value,
+					gas_limit,
+					input,
+				);
+			},
+			Tracer::Disabled => {
+				log::trace!(target: LOG_TARGET, "call (delegate: {is_delegate_call:?}, read_only: {is_read_only:?}) from: {from:?}, to: {to:?} value: {value:?} gas_limit: {gas_limit:?} input_data: {input:?}");
+			},
+		}
+	}
+
+	//fn after_call(&mut self, output: &ExecReturnValue);
+	fn exit_child_span(&mut self, output: &ExecReturnValue) {
+		match self {
+			Tracer::CallTracer(tracer) => {
+				<CallTracer as Tracing<T>>::exit_child_span(tracer, output);
+			},
+			Tracer::Disabled => {
+				log::trace!(target: LOG_TARGET, "call result {output:?}")
+			},
+		}
+	}
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub struct CallTracer {
+	/// TODO restore doc
+	pub debug_buffer: DebugBuffer,
+	/// Store all in-progress CallTrace instances
+	pub traces: Vec<CallTrace>,
+	/// Stack of indices to the current active traces
+	current_stack: Vec<usize>,
+}
+
+impl<T: Config> Tracing<T> for CallTracer
+where
+	BalanceOf<T>: Into<U256>,
+{
+	fn enter_child_span(
+		&mut self,
+		from: &H160,
+		to: &H160,
+		is_delegate_call: bool,
+		is_read_only: bool,
+		value: &crate::BalanceOf<T>,
+		gas_limit: &Weight,
+		input: &[u8],
+	) {
+		log::info!(target: LOG_TARGET, "call (delegate: {is_delegate_call:?}, read_only: {is_read_only:?}) from: {from:?}, to: {to:?} value: {value:?} gas_limit: {gas_limit:?} input_data: {input:?}");
 		let call_type = if is_read_only {
 			CallType::StaticCall
 		} else if is_delegate_call {
@@ -91,21 +171,28 @@ where
 			CallType::Call
 		};
 
-		let child_trace = CallTrace {
+		self.traces.push(CallTrace {
 			from: *from,
 			to: *to,
 			value: (*value).into(),
 			call_type,
 			input: input.to_vec(),
 			..Default::default()
-		};
+		});
 
-		self.calls.push(child_trace);
-		self.calls.last_mut().unwrap()
+		// Push the index onto the stack of the current active trace
+		self.current_stack.push(self.traces.len() - 1);
 	}
+	fn exit_child_span(&mut self, output: &ExecReturnValue) {
+		// Set the output of the current trace
+		let current_index = self.current_stack.pop().unwrap();
+		self.traces[current_index].output = output.data.clone();
 
-	fn after_call(&mut self, output: &ExecReturnValue) {
-		log::trace!(target: LOG_TARGET, "call result {output:?}")
+		//  move the current trace into its parent
+		if let Some(parent_index) = self.current_stack.last() {
+			let child_trace = self.traces.remove(current_index);
+			self.traces[*parent_index].calls.push(child_trace);
+		}
 	}
 }
 
@@ -136,4 +223,3 @@ pub trait CallInterceptor<T: Config> {
 }
 
 impl<T: Config> CallInterceptor<T> for () {}
-impl<T: Config> CallInterceptor<T> for CallTrace {}
