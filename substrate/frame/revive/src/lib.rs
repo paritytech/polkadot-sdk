@@ -41,7 +41,6 @@ pub mod evm;
 pub mod test_utils;
 pub mod weights;
 
-pub use crate::exec::MomentOf;
 use crate::{
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
 	gas::GasMeter,
@@ -68,7 +67,7 @@ use frame_system::{
 	pallet_prelude::{BlockNumberFor, OriginFor},
 	EventRecord, Pallet as System,
 };
-pub use primitives::*;
+use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
@@ -79,8 +78,10 @@ use sp_runtime::{
 pub use crate::{
 	address::{create1, create2, AddressMapper, DefaultAddressMapper},
 	debug::Tracing,
+	exec::MomentOf,
 	pallet::*,
 };
+pub use primitives::*;
 pub use weights::WeightInfo;
 
 #[cfg(doc)]
@@ -89,6 +90,7 @@ pub use crate::wasm::SyscallDoc;
 type TrieId = BoundedVec<u8, ConstU32<128>>;
 type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
 type EventRecordOf<T> =
 	EventRecord<<T as frame_system::Config>::RuntimeEvent, <T as frame_system::Config>::Hash>;
@@ -1149,10 +1151,14 @@ where
 		storage_deposit_limit: BalanceOf<T>,
 		debug: DebugInfo,
 		collect_events: CollectEvents,
-	) -> EthContractResultDetails<BalanceOf<T>>
+	) -> EthContractResult<BalanceOf<T>>
 	where
+		T: pallet_transaction_payment::Config,
+		<T as frame_system::Config>::RuntimeCall:
+			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
 		<T as Config>::RuntimeCall: From<crate::Call<T>>,
 		<T as Config>::RuntimeCall: Encode,
+		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		T::Nonce: Into<U256>,
 	{
 		use crate::evm::TransactionLegacyUnsigned;
@@ -1191,12 +1197,18 @@ where
 			}
 			.into();
 
-			EthContractResultDetails {
-				dispatch_info: dispatch_call.get_dispatch_info(),
-				len: dispatch_call.encode().len() as u32,
+			let dispatch_info = dispatch_call.get_dispatch_info();
+			let len = dispatch_call.encode().len() as u32;
+			EthContractResult {
 				gas_limit: result.gas_required,
 				storage_deposit: result.storage_deposit.charge_or_zero(),
 				result: result.result.map(|v| v.data),
+				fee: pallet_transaction_payment::Pallet::<T>::compute_fee(
+					len as u32,
+					&dispatch_info,
+					0u32.into(),
+				)
+				.into(),
 			}
 		} else {
 			let tx = TransactionLegacyUnsigned {
@@ -1227,12 +1239,18 @@ where
 					storage_deposit_limit: 0u32.into(),
 				};
 
-				return EthContractResultDetails {
-					dispatch_info: dispatch_call.get_dispatch_info(),
+				let dispatch_info = dispatch_call.get_dispatch_info();
+				let len = dispatch_call.encode().len() as u32;
+				return EthContractResult {
 					gas_limit: Default::default(),
 					storage_deposit: Default::default(),
-					len: dispatch_call.encode().len() as u32,
 					result: Err(<Error<T>>::DecodingFailed.into()),
+					fee: pallet_transaction_payment::Pallet::<T>::compute_fee(
+						len as u32,
+						&dispatch_info,
+						0u32.into(),
+					)
+					.into(),
 				}
 			};
 
@@ -1255,12 +1273,18 @@ where
 			}
 			.into();
 
-			EthContractResultDetails {
-				dispatch_info: dispatch_call.get_dispatch_info(),
-				len: dispatch_call.encode().len() as u32,
+			let dispatch_info = dispatch_call.get_dispatch_info();
+			let len = dispatch_call.encode().len() as u32;
+			EthContractResult {
 				gas_limit: result.gas_required,
 				storage_deposit: result.storage_deposit.charge_or_zero(),
 				result: result.result.map(|v| v.result.data),
+				fee: pallet_transaction_payment::Pallet::<T>::compute_fee(
+					len as u32,
+					&dispatch_info,
+					0u32.into(),
+				)
+				.into(),
 			}
 		}
 	}

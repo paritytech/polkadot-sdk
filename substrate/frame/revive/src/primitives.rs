@@ -20,7 +20,7 @@
 use crate::H160;
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{dispatch::DispatchInfo, weights::Weight};
+use frame_support::weights::Weight;
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -83,40 +83,6 @@ pub struct ContractResult<R, Balance, EventRecord> {
 }
 
 /// The result of the execution of a `eth_transact` call.
-pub struct EthContractResultDetails<Balance> {
-	/// The call's dispatch info.
-	pub dispatch_info: DispatchInfo,
-	/// Length of the encoded call.
-	pub len: u32,
-	/// Gas limit of the transaction.
-	pub gas_limit: Weight,
-	/// Storage deposit charged.
-	pub storage_deposit: Balance,
-	/// The execution result.
-	pub result: Result<Vec<u8>, DispatchError>,
-}
-
-impl<Balance: From<u32>> EthContractResultDetails<Balance> {
-	/// Map to a EthContractResult, using the provided compute_fee function.
-	///
-	/// # Parameters
-	///
-	/// - `compute_fee`: A function that takes the length of the encoded call, the dispatch info and
-	///   the tip and returns the fee.
-	pub fn map(
-		self,
-		compute_fee: impl FnOnce(u32, &DispatchInfo, Balance) -> Balance,
-	) -> EthContractResult<Balance> {
-		EthContractResult {
-			result: self.result,
-			gas_limit: self.gas_limit,
-			storage_deposit: self.storage_deposit,
-			fee: compute_fee(self.len, &self.dispatch_info, 0.into()),
-		}
-	}
-}
-
-/// Similar to `EthContractResultDetails` but with the fee instead of dispatch info and len.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct EthContractResult<Balance> {
 	/// The fee charged for the execution.

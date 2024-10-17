@@ -3066,7 +3066,7 @@ impl_runtime_apis! {
 				storage_deposit_limit.unwrap_or(u128::MAX),
 				pallet_revive::DebugInfo::UnsafeDebug,
 				pallet_revive::CollectEvents::UnsafeCollect,
-			).map(pallet_transaction_payment::Pallet::<Runtime>::compute_fee)
+			)
 		}
 
 		fn call(
