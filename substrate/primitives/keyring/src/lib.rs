@@ -47,6 +47,7 @@ pub mod test {
 }
 
 #[derive(Debug)]
+/// Represents an error that occurs when parsing a string into a `KeyRing`.
 pub struct ParseKeyringError;
 
 impl fmt::Display for ParseKeyringError {
