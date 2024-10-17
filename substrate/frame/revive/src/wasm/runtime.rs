@@ -296,6 +296,8 @@ pub enum RuntimeCosts {
 	CopyToContract(u32),
 	/// Weight of calling `seal_caller`.
 	Caller,
+	/// Weight of calling `seal_origin`.
+	Origin,
 	/// Weight of calling `seal_is_contract`.
 	IsContract,
 	/// Weight of calling `seal_code_hash`.
@@ -453,6 +455,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CopyToContract(len) => T::WeightInfo::seal_input(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
 			Caller => T::WeightInfo::seal_caller(),
+			Origin => T::WeightInfo::seal_origin(),
 			IsContract => T::WeightInfo::seal_is_contract(),
 			CodeHash => T::WeightInfo::seal_code_hash(),
 			OwnCodeHash => T::WeightInfo::seal_own_code_hash(),
@@ -1384,6 +1387,21 @@ pub mod env {
 	fn caller(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Caller)?;
 		let caller = <E::T as Config>::AddressMapper::to_address(self.ext.caller().account_id()?);
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			caller.as_bytes(),
+			false,
+			already_charged,
+		)?)
+	}
+
+	/// Stores the address of the call stack origin into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::caller`].
+	#[api_version(0)]
+	fn origin(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::Origin)?;
+		let caller = <E::T as Config>::AddressMapper::to_address(self.ext.origin().account_id()?);
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,

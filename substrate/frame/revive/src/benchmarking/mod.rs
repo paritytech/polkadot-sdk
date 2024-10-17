@@ -484,6 +484,25 @@ mod benchmarks {
 		);
 	}
 
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_origin() {
+		let len = H160::len_bytes();
+		build_runtime!(runtime, memory: [vec![0u8; len as _], ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_origin(memory.as_mut_slice(), 0);
+		}
+
+		assert_ok!(result);
+		assert_eq!(
+			<H160 as Decode>::decode(&mut &memory[..]).unwrap(),
+			T::AddressMapper::to_address(&runtime.ext().origin().account_id().unwrap())
+		);
+	}
+
 	#[benchmark(pov_mode = Measured)]
 	fn seal_is_contract() {
 		let Contract { account_id, .. } =
