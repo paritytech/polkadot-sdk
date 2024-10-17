@@ -625,18 +625,11 @@ async fn request_candidate_validation(
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
-	mode: ProspectiveParachainsMode,
+	allowed_ancestry_len: Option<usize>,
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
 	let is_system = candidate_receipt.descriptor.para_id.is_system();
-
-	let ttl = match mode {
-		ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. }
-			if allowed_ancestry_len > 0 =>
-			Some(validation_data.relay_parent_number + allowed_ancestry_len as BlockNumber),
-		_ => None,
-	};
-
+	let ttl = allowed_ancestry_len.map(|v| validation_data.relay_parent_number + v as BlockNumber);
 	sender
 		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
 			validation_data,
@@ -686,7 +679,7 @@ async fn validate_and_make_available(
 		impl Fn(BackgroundValidationResult) -> ValidatedCandidateCommand + Sync,
 	>,
 	core_index: CoreIndex,
-	mode: ProspectiveParachainsMode,
+	allowed_ancestry_len: Option<usize>,
 ) -> Result<(), Error> {
 	let BackgroundValidationParams {
 		mut sender,
@@ -763,7 +756,7 @@ async fn validate_and_make_available(
 			candidate.clone(),
 			pov.clone(),
 			executor_params,
-			mode,
+			allowed_ancestry_len,
 		)
 		.await?
 	};
@@ -1826,7 +1819,14 @@ async fn background_validate_and_make_available<Context>(
 	if rp_state.awaiting_validation.insert(candidate_hash) {
 		// spawn background task.
 		let bg = async move {
-			if let Err(error) = validate_and_make_available(params, core_index, mode).await {
+			let allowed_ancestry_len = match mode {
+				ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. } =>
+					Some(allowed_ancestry_len),
+				_ => None,
+			};
+			if let Err(error) =
+				validate_and_make_available(params, core_index, allowed_ancestry_len).await
+			{
 				if let Error::BackgroundValidationMpsc(error) = error {
 					gum::debug!(
 						target: LOG_TARGET,
