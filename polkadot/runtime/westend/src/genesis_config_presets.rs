@@ -77,7 +77,7 @@ fn get_authority_keys_from_seed_no_beefy(
 }
 
 fn testnet_accounts() -> Vec<AccountId> {
-	Sr25519Keyring::iter().take(12).map(|k| k.to_account_id()).collect()
+	Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect()
 }
 
 fn westend_session_keys(

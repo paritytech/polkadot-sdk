@@ -44,7 +44,7 @@ pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> GenericChainSpec 
 			(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
 			(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
 		],
-		Sr25519Keyring::iter().take(12).map(|k| k.to_account_id()).collect(),
+		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		id,
 	))
 	.build()

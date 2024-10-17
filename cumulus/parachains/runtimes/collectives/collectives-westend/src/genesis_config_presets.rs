@@ -76,7 +76,7 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<
 				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
 				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
 			],
-			Sr25519Keyring::iter().take(12).map(|k| k.to_account_id()).collect(),
+			Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 			1001.into(),
 		),
 		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => collectives_westend_genesis(

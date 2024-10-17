@@ -107,6 +107,14 @@ impl Keyring {
 	pub fn to_seed(self) -> String {
 		format!("//{}", self)
 	}
+
+	pub fn well_known() -> impl Iterator<Item = Keyring> {
+		Self::iter().take(12)
+	}
+
+	pub fn invulnerable() -> impl Iterator<Item = Keyring> {
+		Self::iter().take(6)
+	}
 }
 
 impl From<Keyring> for &'static str {
@@ -147,12 +155,12 @@ impl FromStr for Keyring {
 			"Dave" | "dave" => Ok(Keyring::Dave),
 			"Eve" | "eve" => Ok(Keyring::Eve),
 			"Ferdie" | "ferdie" => Ok(Keyring::Ferdie),
-			"Alice//stash" => Ok(Keyring::AliceStash),
-			"Bob//stash" => Ok(Keyring::BobStash),
-			"Charlie//stash" => Ok(Keyring::CharlieStash),
-			"Dave//stash" => Ok(Keyring::DaveStash),
-			"Eve//stash" => Ok(Keyring::EveStash),
-			"Ferdie//stash" => Ok(Keyring::FerdieStash),
+			"Alice//stash" | "alice//stash" => Ok(Keyring::AliceStash),
+			"Bob//stash" | "bob//stash" => Ok(Keyring::BobStash),
+			"Charlie//stash" | "charlie//stash" => Ok(Keyring::CharlieStash),
+			"Dave//stash" | "dave//stash" => Ok(Keyring::DaveStash),
+			"Eve//stash" | "eve//stash" => Ok(Keyring::EveStash),
+			"Ferdie//stash" | "ferdie//stash" => Ok(Keyring::FerdieStash),
 			"One" | "one" => Ok(Keyring::One),
 			"Two" | "two" => Ok(Keyring::Two),
 			_ => Err(ParseKeyringError),
@@ -246,5 +254,41 @@ mod tests {
 	#[test]
 	fn verify_static_public_keys() {
 		assert!(Keyring::iter().all(|k| { k.pair().public().as_ref() == <[u8; 32]>::from(k) }));
+	}
+
+	#[test]
+	fn verfity_well_known() {
+		assert_eq!(
+			Keyring::well_known().collect::<Vec<Keyring>>(),
+			vec![
+				Keyring::Alice,
+				Keyring::Bob,
+				Keyring::Charlie,
+				Keyring::Dave,
+				Keyring::Eve,
+				Keyring::Ferdie,
+				Keyring::AliceStash,
+				Keyring::BobStash,
+				Keyring::CharlieStash,
+				Keyring::DaveStash,
+				Keyring::EveStash,
+				Keyring::FerdieStash
+			]
+		);
+	}
+
+	#[test]
+	fn verify_invulnerable() {
+		assert_eq!(
+			Keyring::invulnerable().collect::<Vec<Keyring>>(),
+			vec![
+				Keyring::Alice,
+				Keyring::Bob,
+				Keyring::Charlie,
+				Keyring::Dave,
+				Keyring::Eve,
+				Keyring::Ferdie
+			]
+		);
 	}
 }

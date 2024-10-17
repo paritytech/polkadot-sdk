@@ -292,7 +292,7 @@ fn configure_accounts(
 	Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
 ) {
 	let mut endowed_accounts: Vec<AccountId> = endowed_accounts
-		.unwrap_or_else(|| Sr25519Keyring::iter().take(12).map(|k| k.to_account_id()).collect());
+		.unwrap_or_else(|| Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect());
 	// endow all authorities and nominators.
 	initial_authorities
 		.iter()

@@ -57,6 +57,10 @@ pub fn ferdie() -> AccountId {
 }
 
 /// Convert keyrings into `SessionKeys`.
+///
+/// # Panics
+///
+/// Function will panic when invalid string is provided.
 pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 	SessionKeys {
 		grandpa: get_public_from_string_or_panic::<ed25519::Public>(seed).into(),

@@ -88,11 +88,10 @@ pub fn testnet_genesis_with_default_endowed(
 	mut extra_endowed_accounts: Vec<AccountId>,
 	self_para_id: Option<ParaId>,
 ) -> serde_json::Value {
-	let mut endowed =
-		Sr25519Keyring::iter().take(12).map(|k| k.to_account_id()).collect::<Vec<_>>();
+	let mut endowed = Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect::<Vec<_>>();
 	endowed.append(&mut extra_endowed_accounts);
 	let invulnerables =
-		Sr25519Keyring::iter().take(6).map(|k| k.public().into()).collect::<Vec<_>>();
+		Sr25519Keyring::invulnerable().map(|k| k.public().into()).collect::<Vec<_>>();
 	testnet_genesis(Sr25519Keyring::Alice.to_account_id(), invulnerables, endowed, self_para_id)
 }
 

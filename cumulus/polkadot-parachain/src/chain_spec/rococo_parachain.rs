@@ -40,7 +40,7 @@ pub fn rococo_parachain_local_config() -> GenericChainSpec {
 			AuraId::from(Sr25519Keyring::Alice.public()),
 			AuraId::from(Sr25519Keyring::Bob.public()),
 		],
-		Sr25519Keyring::iter().take(12).map(|k| k.to_account_id()).collect(),
+		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		1000.into(),
 	))
 	.build()

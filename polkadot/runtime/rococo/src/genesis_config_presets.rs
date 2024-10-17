@@ -75,7 +75,7 @@ fn get_authority_keys_from_seed_no_beefy(
 }
 
 fn testnet_accounts() -> Vec<AccountId> {
-	Sr25519Keyring::iter().take(12).map(|x| x.to_account_id()).collect()
+	Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect()
 }
 
 fn rococo_session_keys(
