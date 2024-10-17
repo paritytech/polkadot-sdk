@@ -5,6 +5,7 @@ on:
     tags:
       # Catches v1.2.3 and v1.2.3-rc1
       - v[0-9]+.[0-9]+.[0-9]+*
+      # - polkadot-stable[0-9]+* Activate when the release process from release org is setteled
 
   workflow_dispatch:
     inputs:
@@ -25,7 +26,7 @@ jobs:
   build-runtimes:
     uses: "./.github/workflows/release-srtool.yml"
     with:
-       excluded_runtimes: "substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template"
+       excluded_runtimes: "asset-hub-rococo bridge-hub-rococo contracts-rococo coretime-rococo people-rococo rococo rococo-parachain substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template"
        build_opts: "--features on-chain-release-build"
 
   build-binaries:
@@ -79,30 +80,27 @@ jobs:
         env:
           RUSTC_STABLE: ${{ needs.get-rust-versions.outputs.rustc-stable }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ASSET_HUB_ROCOCO_DIGEST: ${{ github.workspace}}/asset-hub-rococo-runtime/asset-hub-rococo-srtool-digest.json
           ASSET_HUB_WESTEND_DIGEST: ${{ github.workspace}}/asset-hub-westend-runtime/asset-hub-westend-srtool-digest.json
-          BRIDGE_HUB_ROCOCO_DIGEST: ${{ github.workspace}}/bridge-hub-rococo-runtime/bridge-hub-rococo-srtool-digest.json
           BRIDGE_HUB_WESTEND_DIGEST: ${{ github.workspace}}/bridge-hub-westend-runtime/bridge-hub-westend-srtool-digest.json
           COLLECTIVES_WESTEND_DIGEST: ${{ github.workspace}}/collectives-westend-runtime/collectives-westend-srtool-digest.json
-          CONTRACTS_ROCOCO_DIGEST: ${{ github.workspace}}/contracts-rococo-runtime/contracts-rococo-srtool-digest.json
-          CORETIME_ROCOCO_DIGEST: ${{ github.workspace}}/coretime-rococo-runtime/coretime-rococo-srtool-digest.json
           CORETIME_WESTEND_DIGEST: ${{ github.workspace}}/coretime-westend-runtime/coretime-westend-srtool-digest.json
           GLUTTON_WESTEND_DIGEST: ${{ github.workspace}}/glutton-westend-runtime/glutton-westend-srtool-digest.json
-          PEOPLE_ROCOCO_DIGEST: ${{ github.workspace}}/people-rococo-runtime/people-rococo-srtool-digest.json
           PEOPLE_WESTEND_DIGEST: ${{ github.workspace}}/people-westend-runtime/people-westend-srtool-digest.json
-          ROCOCO_DIGEST: ${{ github.workspace}}/rococo-runtime/rococo-srtool-digest.json
           WESTEND_DIGEST: ${{ github.workspace}}/westend-runtime/westend-srtool-digest.json
+        shell: bash
         run: |
           . ./.github/scripts/common/lib.sh
 
           export REF1=$(get_latest_release_tag)
           if [[ -z "${{ inputs.version }}" ]]; then
             export REF2="${{ github.ref_name }}"
+            echo "REF2: ${REF2}"
           else
             export REF2="${{ inputs.version }}"
+            echo "REF2: ${REF2}"
           fi
           echo "REL_TAG=$REF2" >> $GITHUB_ENV
-          export VERSION=$(echo "$REF2" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
+          export VERSION=$(echo "$REF2" | sed -E 's/.*(stable[0-9]+).*$/\1/')
 
           ./scripts/release/build-changelogs.sh
 

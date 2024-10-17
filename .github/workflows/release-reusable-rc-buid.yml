@@ -183,7 +183,7 @@ jobs:
     needs: [build-rc]
     uses: ./.github/workflows/release-reusable-s3-upload.yml
     with:
-      package: ${{ inputs.binary }}
+      package: polkadot-parachain
       release_tag: ${{ inputs.release_tag }}
     secrets:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
