@@ -76,10 +76,6 @@ impl Config for Test {
 	type IdleMaxServiceWeight = ();
 }
 
-parameter_types! {
-	pub const AhmSimulationEnabled: bool = false;
-}
-
 /// The object that does the AHM message prioritization for us.
 #[derive(Debug, Default, codec::Encode, codec::Decode)]
 pub struct AhmPrioritizer {

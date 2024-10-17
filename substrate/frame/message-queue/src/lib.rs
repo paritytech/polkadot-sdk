@@ -881,13 +881,12 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn set_service_head(weight: &mut WeightMeter, queue: &MessageOriginOf<T>) -> Result<bool, ()> {
-		// FAIL-CI
-		if weight.try_consume(T::WeightInfo::bump_service_head()).is_err() {
+		if weight.try_consume(T::WeightInfo::set_service_head()).is_err() {
 			return Err(())
 		}
 
-		let queue_state = BookStateFor::<T>::get(queue);
-		if queue_state.ready_neighbours.is_some() {
+		// Ensure that we never set the head to an un-ready queue.
+		if BookStateFor::<T>::get(queue).ready_neighbours.is_some() {
 			ServiceHead::<T>::put(queue);
 			Ok(true)
 		} else {
@@ -1342,17 +1341,10 @@ impl<T: Config> Pallet<T> {
 			"Memory Corruption in BookStateFor"
 		);
 		// Checking memory corruption for Pages
-		/*ensure!(
+		ensure!(
 			Pages::<T>::iter_keys().count() == Pages::<T>::iter_values().count(),
 			"Memory Corruption in Pages"
-		);*/
-		if Pages::<T>::iter_keys().count() != Pages::<T>::iter_values().count() {
-			panic!(
-				"Memory Corruption in Pages: {} vs {}",
-				Pages::<T>::iter_keys().count(),
-				Pages::<T>::iter_values().count()
-			);
-		}
+		);
 
 		// Basic checks for each book
 		for book in BookStateFor::<T>::iter_values() {
