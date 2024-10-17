@@ -889,10 +889,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		// NOTE: there is an n+2 session delay for these actions to take effect.
 		// We are currently in Session 0, so these changes will take effect in Session 2.
 		Self::setup_para_ids(used_cores - extra_cores);
-		configuration::ActiveConfig::<T>::mutate(|c| {
-			c.scheduler_params.num_cores = max_cores as u32;
-		});
-		configuration::Pallet::<T>::set_coretime_cores_unchecked(max_cores as u32).unwrap();
+		configuration::Pallet::<T>::set_coretime_cores_unchecked(used_cores as u32).unwrap();
 
 		let validator_ids = generate_validator_pairs::<T>(self.max_validators());
 		let target_session = SessionIndex::from(self.target_session);
