@@ -11,7 +11,7 @@ edition = "2021"
 [dependencies]
 uapi = { package = 'pallet-revive-uapi', path = "", default-features = false }
 common = { package = 'pallet-revive-fixtures-common', path = "" }
-polkavm-derive = { version = "0.12.0" }
+polkavm-derive = { version = "0.13.0" }
 
 [profile.release]
 opt-level = 3

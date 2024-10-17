@@ -18,7 +18,7 @@
 #![allow(unused_imports, unused_variables)]
 use crate::{
 	evm::api::{TransactionLegacySigned, TransactionLegacyUnsigned, TransactionUnsigned},
-	AccountIdOf, AddressMapper, BalanceOf, Config, EthTransactKind, MomentOf, Weight, LOG_TARGET,
+	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, Weight, LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
@@ -133,18 +133,13 @@ where
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		if self.0.signature.is_none() {
 			if let Ok(call) = self.0.function.clone().try_into() {
-				if let crate::Call::eth_transact {
-					payload,
-					gas_limit,
-					storage_deposit_limit,
-					transact_kind,
-				} = call
+				if let crate::Call::eth_transact { payload, gas_limit, storage_deposit_limit } =
+					call
 				{
 					let checked = E::try_into_checked_extrinsic(
 						payload,
 						gas_limit,
 						storage_deposit_limit,
-						transact_kind,
 						self.encoded_size(),
 					)?;
 					return Ok(checked)
@@ -218,13 +213,11 @@ pub trait EthExtra {
 	/// - `payload`: The RLP-encoded Ethereum transaction.
 	/// - `gas_limit`: The gas limit for the extrinsic
 	/// - `storage_deposit_limit`: The storage deposit limit for the extrinsic,
-	/// - `transact_kind`: The kind of Ethereum transaction.
 	/// - `encoded_len`: The encoded length of the extrinsic.
 	fn try_into_checked_extrinsic<Call>(
 		payload: Vec<u8>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<Self::Config>,
-		transact_kind: EthTransactKind,
 		encoded_len: usize,
 	) -> Result<CheckedExtrinsic<AccountId32, Call, Self::Extra>, InvalidTransaction>
 	where
@@ -257,11 +250,6 @@ pub trait EthExtra {
 		}
 
 		let call = if let Some(dest) = to {
-			if !matches!(transact_kind, EthTransactKind::Call) {
-				log::debug!(target: LOG_TARGET, "Invalid transact_kind, expected Call");
-				return Err(InvalidTransaction::Call);
-			}
-
 			crate::Call::call::<Self::Config> {
 				dest,
 				value: value.try_into().map_err(|_| InvalidTransaction::Call)?,
@@ -270,12 +258,7 @@ pub trait EthExtra {
 				data: input.0,
 			}
 		} else {
-			let EthTransactKind::InstantiateWithCode { code_len, data_len } = transact_kind else {
-				log::debug!(target: LOG_TARGET, "Invalid transact_kind, expected InstantiateWithCode");
-				return Err(InvalidTransaction::Call);
-			};
-
-			let blob = match polkavm::ProgramParts::blob_length(&input.0) {
+			let blob = match polkavm::ProgramBlob::blob_length(&input.0) {
 				Some(blob_len) => blob_len
 					.try_into()
 					.ok()
@@ -287,11 +270,6 @@ pub trait EthExtra {
 				log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
 				return Err(InvalidTransaction::Call);
 			};
-
-			if code.len() as u32 != code_len || data.len() as u32 != data_len {
-				log::debug!(target: LOG_TARGET, "Invalid code or data length");
-				return Err(InvalidTransaction::Call);
-			}
 
 			crate::Call::instantiate_with_code::<Self::Config> {
 				value: value.try_into().map_err(|_| InvalidTransaction::Call)?,
@@ -416,7 +394,6 @@ mod test {
 		tx: TransactionLegacyUnsigned,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<Test>,
-		transact_kind: EthTransactKind,
 	}
 
 	impl UncheckedExtrinsicBuilder {
@@ -435,7 +412,6 @@ mod test {
 				},
 				gas_limit: Weight::zero(),
 				storage_deposit_limit: 0,
-				transact_kind: EthTransactKind::Call,
 			}
 		}
 
@@ -443,17 +419,12 @@ mod test {
 		fn call_with(dest: H160) -> Self {
 			let mut builder = Self::new();
 			builder.tx.to = Some(dest);
-			builder.transact_kind = EthTransactKind::Call;
 			builder
 		}
 
 		/// Create a new builder with an instantiate call.
 		fn instantiate_with(code: Vec<u8>, data: Vec<u8>) -> Self {
 			let mut builder = Self::new();
-			builder.transact_kind = EthTransactKind::InstantiateWithCode {
-				code_len: code.len() as u32,
-				data_len: data.len() as u32,
-			};
 			builder.tx.input = Bytes(code.into_iter().chain(data.into_iter()).collect());
 			builder
 		}
@@ -464,16 +435,9 @@ mod test {
 			self
 		}
 
-		/// Set the transact kind
-		fn transact_kind(mut self, kind: EthTransactKind) -> Self {
-			self.transact_kind = kind;
-			self
-		}
-
 		/// Call `check` on the unchecked extrinsic, and `pre_dispatch` on the signed extension.
 		fn check(&self) -> Result<RuntimeCall, TransactionValidityError> {
-			let UncheckedExtrinsicBuilder { tx, gas_limit, storage_deposit_limit, transact_kind } =
-				self.clone();
+			let UncheckedExtrinsicBuilder { tx, gas_limit, storage_deposit_limit } = self.clone();
 
 			// Fund the account.
 			let account = Account::default();
@@ -484,7 +448,6 @@ mod test {
 				payload,
 				gas_limit,
 				storage_deposit_limit,
-				transact_kind,
 			});
 
 			let encoded_len = call.encode().len();
@@ -586,37 +549,6 @@ mod test {
 			// Fail because the tx input fail to get the blob length
 			assert_eq!(
 				builder.clone().update(|tx| tx.input = Bytes(vec![1, 2, 3])).check(),
-				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
-			);
-
-			let (code, _) = compile_module("dummy").unwrap();
-			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
-				.transact_kind(EthTransactKind::InstantiateWithCode {
-					code_len: 0,
-					data_len: data.len() as u32,
-				});
-
-			// Fail because we are passing the wrong code length
-			assert_eq!(
-				builder
-					.clone()
-					.transact_kind(EthTransactKind::InstantiateWithCode {
-						code_len: 0,
-						data_len: data.len() as u32
-					})
-					.check(),
-				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
-			);
-
-			// Fail because we are passing the wrong data length
-			assert_eq!(
-				builder
-					.clone()
-					.transact_kind(EthTransactKind::InstantiateWithCode {
-						code_len: code.len() as u32,
-						data_len: 0
-					})
-					.check(),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 			);
 		});
