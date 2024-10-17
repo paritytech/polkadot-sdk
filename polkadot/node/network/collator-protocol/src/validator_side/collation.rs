@@ -71,10 +71,6 @@ pub struct FetchedCollation {
 	pub para_id: ParaId,
 	/// Candidate hash.
 	pub candidate_hash: CandidateHash,
-	/// Id of the collator the collation was fetched from.
-	/// This will be missing when we create the struct from
-	/// a v2 candidate receipt. instance
-	pub collator_id: Option<CollatorId>,
 }
 
 impl From<&CandidateReceipt<Hash>> for FetchedCollation {
@@ -84,7 +80,6 @@ impl From<&CandidateReceipt<Hash>> for FetchedCollation {
 			relay_parent: descriptor.relay_parent(),
 			para_id: descriptor.para_id(),
 			candidate_hash: receipt.hash(),
-			collator_id: descriptor.collator(),
 		}
 	}
 }

@@ -50,8 +50,8 @@ use polkadot_primitives::{
 		CandidateReceiptV2 as CandidateReceipt,
 	},
 	AuthorityDiscoveryId, CandidateCommitments, ExecutorParams, Hash, OccupiedCoreAssumption,
-	PersistedValidationData, PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
-	ValidationCodeHash, ValidatorId,
+	PersistedValidationData, PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex,
+	ValidationCode, ValidationCodeHash, ValidatorId,
 };
 use sp_application_crypto::{AppCrypto, ByteArray};
 use sp_keystore::KeystorePtr;

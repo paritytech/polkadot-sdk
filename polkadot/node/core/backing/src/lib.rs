@@ -114,8 +114,8 @@ use polkadot_primitives::{
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
 	},
 	CandidateCommitments, CandidateHash, CoreIndex, ExecutorParams, GroupIndex, GroupRotationInfo,
-	Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData,
-	SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
+	Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData, SessionIndex,
+	SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
 	ValidityAttestation,
 };
 use polkadot_statement_table::{
