@@ -68,7 +68,7 @@ fn sanity_check_teleport_assets_weight() {
 		weight_limit: Unlimited,
 	}
 	.get_dispatch_info()
-	.weight;
+	.call_weight;
 
 	assert!((weight * 50).all_lt(BlockWeights::get().max_block));
 }

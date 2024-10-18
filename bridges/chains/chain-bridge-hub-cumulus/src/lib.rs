@@ -26,7 +26,7 @@ pub use bp_polkadot_core::{
 };
 
 use bp_messages::*;
-use bp_polkadot_core::SuffixedCommonSignedExtension;
+use bp_polkadot_core::SuffixedCommonTransactionExtension;
 use bp_runtime::extensions::{
 	BridgeRejectObsoleteHeadersAndMessages, RefundBridgedParachainMessagesSchema,
 };
@@ -167,7 +167,7 @@ pub const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 1024;
 pub const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 4096;
 
 /// Signed extension that is used by all bridge hubs.
-pub type SignedExtension = SuffixedCommonSignedExtension<(
+pub type TransactionExtension = SuffixedCommonTransactionExtension<(
 	BridgeRejectObsoleteHeadersAndMessages,
 	RefundBridgedParachainMessagesSchema,
 )>;

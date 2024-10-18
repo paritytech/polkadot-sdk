@@ -53,7 +53,7 @@ use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, Extrinsic, NumberFor},
+	traits::{Block as BlockT, NumberFor},
 };
 use std::{
 	collections::{HashMap, HashSet},
@@ -1194,8 +1194,7 @@ where
 						None
 					})
 					.unwrap_or_default()
-					.into_iter()
-					.filter(|tx| tx.is_signed().unwrap_or(true));
+					.into_iter();
 
 				let mut resubmitted_to_report = 0;
 

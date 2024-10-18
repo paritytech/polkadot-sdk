@@ -27,19 +27,21 @@ use frame_support::{
 	storage::{unhashed, unhashed::contains_prefixed_key},
 	traits::{
 		ConstU32, GetCallIndex, GetCallName, GetStorageVersion, OnFinalize, OnGenesis,
-		OnInitialize, OnRuntimeUpgrade, PalletError, PalletInfoAccess, StorageVersion,
-		UnfilteredDispatchable,
+		OnInitialize, OnRuntimeUpgrade, PalletError, PalletInfoAccess, SignedTransactionBuilder,
+		StorageVersion, UnfilteredDispatchable,
 	},
 	weights::{RuntimeDbWeight, Weight},
 	OrdNoBound, PartialOrdNoBound,
 };
+use frame_system::offchain::{CreateSignedTransaction, CreateTransactionBase, SigningTypes};
 use scale_info::{meta_type, TypeInfo};
 use sp_io::{
 	hashing::{blake2_128, twox_128, twox_64},
 	TestExternalities,
 };
 use sp_runtime::{
-	traits::{Dispatchable, Extrinsic as ExtrinsicT, SignaturePayload as SignaturePayloadT},
+	testing::UintAuthorityId,
+	traits::{Block as BlockT, Dispatchable},
 	DispatchError, ModuleError,
 };
 
@@ -751,8 +753,51 @@ impl pallet5::Config for Runtime {
 
 pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-pub type UncheckedExtrinsic =
-	sp_runtime::testing::TestXt<RuntimeCall, frame_system::CheckNonZeroSender<Runtime>>;
+pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
+	u64,
+	RuntimeCall,
+	UintAuthorityId,
+	frame_system::CheckNonZeroSender<Runtime>,
+>;
+pub type UncheckedSignaturePayload = sp_runtime::generic::UncheckedSignaturePayload<
+	u64,
+	UintAuthorityId,
+	frame_system::CheckNonZeroSender<Runtime>,
+>;
+
+impl SigningTypes for Runtime {
+	type Public = UintAuthorityId;
+	type Signature = UintAuthorityId;
+}
+
+impl<LocalCall> CreateTransactionBase<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type RuntimeCall = RuntimeCall;
+	type Extrinsic = UncheckedExtrinsic;
+}
+
+impl<LocalCall> CreateSignedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_signed_transaction<
+		C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
+	>(
+		call: RuntimeCall,
+		_public: UintAuthorityId,
+		account: u64,
+		nonce: u64,
+	) -> Option<UncheckedExtrinsic> {
+		Some(UncheckedExtrinsic::new_signed(
+			call,
+			nonce,
+			account.into(),
+			frame_system::CheckNonZeroSender::new(),
+		))
+	}
+}
 
 frame_support::construct_runtime!(
 	pub struct Runtime {
@@ -814,7 +859,8 @@ fn call_expand() {
 	assert_eq!(
 		call_foo.get_dispatch_info(),
 		DispatchInfo {
-			weight: frame_support::weights::Weight::from_parts(3, 0),
+			call_weight: frame_support::weights::Weight::from_parts(3, 0),
+			extension_weight: Default::default(),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes
 		}
@@ -902,10 +948,8 @@ fn inherent_expand() {
 
 	let inherents = InherentData::new().create_extrinsics();
 
-	let expected = vec![UncheckedExtrinsic {
-		call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-		signature: None,
-	}];
+	let expected =
+		vec![UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {}))];
 	assert_eq!(expected, inherents);
 
 	let block = Block::new(
@@ -917,14 +961,11 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 0 }),
-				signature: None,
-			},
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
+				foo: 1,
+				bar: 0,
+			})),
 		],
 	);
 
@@ -939,14 +980,11 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 0, bar: 0 }),
-				signature: None,
-			},
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
+				foo: 0,
+				bar: 0,
+			})),
 		],
 	);
 
@@ -960,10 +998,9 @@ fn inherent_expand() {
 			BlakeTwo256::hash(b"test"),
 			Digest::default(),
 		),
-		vec![UncheckedExtrinsic {
-			call: RuntimeCall::Example(pallet::Call::foo_storage_layer { foo: 0 }),
-			signature: None,
-		}],
+		vec![UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_storage_layer {
+			foo: 0,
+		}))],
 	);
 
 	let mut inherent = InherentData::new();
@@ -978,10 +1015,12 @@ fn inherent_expand() {
 			BlakeTwo256::hash(b"test"),
 			Digest::default(),
 		),
-		vec![UncheckedExtrinsic {
-			call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-			signature: Some((1, Default::default())),
-		}],
+		vec![UncheckedExtrinsic::new_signed(
+			RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
+			1,
+			1.into(),
+			Default::default(),
+		)],
 	);
 
 	let mut inherent = InherentData::new();
@@ -997,14 +1036,13 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 1 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_storage_layer { foo: 0 }),
-				signature: None,
-			},
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
+				foo: 1,
+				bar: 1,
+			})),
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_storage_layer {
+				foo: 0,
+			})),
 		],
 	);
 
@@ -1019,18 +1057,14 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 1 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_storage_layer { foo: 0 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-				signature: None,
-			},
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
+				foo: 1,
+				bar: 1,
+			})),
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_storage_layer {
+				foo: 0,
+			})),
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
 		],
 	);
 
@@ -1045,18 +1079,17 @@ fn inherent_expand() {
 			Digest::default(),
 		),
 		vec![
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 1 }),
-				signature: None,
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 0 }),
-				signature: Some((1, Default::default())),
-			},
-			UncheckedExtrinsic {
-				call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-				signature: None,
-			},
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo {
+				foo: 1,
+				bar: 1,
+			})),
+			UncheckedExtrinsic::new_signed(
+				RuntimeCall::Example(pallet::Call::foo { foo: 1, bar: 0 }),
+				1,
+				1.into(),
+				Default::default(),
+			),
+			UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {})),
 		],
 	);
 
@@ -1838,18 +1871,22 @@ fn metadata() {
 	}
 
 	let extrinsic = ExtrinsicMetadata {
-		version: 4,
+		version: 5,
 		signed_extensions: vec![SignedExtensionMetadata {
 			identifier: "UnitSignedExtension",
 			ty: meta_type::<()>(),
 			additional_signed: meta_type::<()>(),
 		}],
-		address_ty: meta_type::<<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::SignatureAddress>(),
-		call_ty: meta_type::<<UncheckedExtrinsic as ExtrinsicT>::Call>(),
-		signature_ty: meta_type::<
-			<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::Signature
+		address_ty: meta_type::<
+			<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Address
 		>(),
-		extra_ty: meta_type::<<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::SignatureExtra>(),
+		call_ty: meta_type::<<Runtime as CreateTransactionBase<RuntimeCall>>::RuntimeCall>(),
+		signature_ty: meta_type::<
+			<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Signature
+		>(),
+		extra_ty: meta_type::<
+			<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Extension
+		>(),
 	};
 
 	let outer_enums = OuterEnums {
@@ -1929,21 +1966,28 @@ fn metadata_ir_pallet_runtime_docs() {
 fn extrinsic_metadata_ir_types() {
 	let ir = Runtime::metadata_ir().extrinsic;
 
-	assert_eq!(meta_type::<<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::SignatureAddress>(), ir.address_ty);
+	assert_eq!(
+		meta_type::<<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Address>(),
+		ir.address_ty
+	);
 	assert_eq!(meta_type::<u64>(), ir.address_ty);
 
-	assert_eq!(meta_type::<<UncheckedExtrinsic as ExtrinsicT>::Call>(), ir.call_ty);
+	assert_eq!(
+		meta_type::<<Runtime as CreateTransactionBase<RuntimeCall>>::RuntimeCall>(),
+		ir.call_ty
+	);
 	assert_eq!(meta_type::<RuntimeCall>(), ir.call_ty);
 
 	assert_eq!(
-		meta_type::<
-			<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::Signature,
-		>(),
+		meta_type::<<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Signature>(),
 		ir.signature_ty
 	);
-	assert_eq!(meta_type::<()>(), ir.signature_ty);
+	assert_eq!(meta_type::<UintAuthorityId>(), ir.signature_ty);
 
-	assert_eq!(meta_type::<<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::SignatureExtra>(), ir.extra_ty);
+	assert_eq!(
+		meta_type::<<<<Runtime as frame_system::Config>::Block as BlockT>::Extrinsic as SignedTransactionBuilder>::Extension>(),
+		ir.extra_ty
+	);
 	assert_eq!(meta_type::<frame_system::CheckNonZeroSender<Runtime>>(), ir.extra_ty);
 }
 

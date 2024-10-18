@@ -19,12 +19,12 @@
 //! Test accounts.
 
 use codec::Encode;
-use kitchensink_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
+use kitchensink_runtime::{CheckedExtrinsic, SessionKeys, TxExtension, UncheckedExtrinsic};
 use node_primitives::{AccountId, Balance, Nonce};
 use sp_core::{crypto::get_public_from_string_or_panic, ecdsa, ed25519, sr25519};
 use sp_crypto_hashing::blake2_256;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::generic::Era;
+use sp_runtime::generic::{Era, ExtrinsicFormat, EXTRINSIC_FORMAT_VERSION};
 
 /// Alice's account id.
 pub fn alice() -> AccountId {
@@ -73,7 +73,7 @@ pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 }
 
 /// Returns transaction extra.
-pub fn signed_extra(nonce: Nonce, extra_fee: Balance) -> SignedExtra {
+pub fn tx_ext(nonce: Nonce, extra_fee: Balance) -> TxExtension {
 	(
 		frame_system::CheckNonZeroSender::new(),
 		frame_system::CheckSpecVersion::new(),
@@ -97,11 +97,11 @@ pub fn sign(
 	genesis_hash: [u8; 32],
 	metadata_hash: Option<[u8; 32]>,
 ) -> UncheckedExtrinsic {
-	match xt.signed {
-		Some((signed, extra)) => {
+	match xt.format {
+		ExtrinsicFormat::Signed(signed, tx_ext) => {
 			let payload = (
 				xt.function,
-				extra.clone(),
+				tx_ext.clone(),
 				spec_version,
 				tx_version,
 				genesis_hash,
@@ -120,10 +120,22 @@ pub fn sign(
 					})
 					.into();
 			UncheckedExtrinsic {
-				signature: Some((sp_runtime::MultiAddress::Id(signed), signature, extra)),
+				preamble: sp_runtime::generic::Preamble::Signed(
+					sp_runtime::MultiAddress::Id(signed),
+					signature,
+					0,
+					tx_ext,
+				),
 				function: payload.0,
 			}
 		},
-		None => UncheckedExtrinsic { signature: None, function: xt.function },
+		ExtrinsicFormat::Bare => UncheckedExtrinsic {
+			preamble: sp_runtime::generic::Preamble::Bare(EXTRINSIC_FORMAT_VERSION),
+			function: xt.function,
+		},
+		ExtrinsicFormat::General(tx_ext) => UncheckedExtrinsic {
+			preamble: sp_runtime::generic::Preamble::General(0, tx_ext),
+			function: xt.function,
+		},
 	}
 }

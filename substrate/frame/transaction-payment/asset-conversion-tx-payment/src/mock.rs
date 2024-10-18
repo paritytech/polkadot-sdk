@@ -145,6 +145,14 @@ impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId,
 	}
 }
 
+pub struct MockTxPaymentWeights;
+
+impl pallet_transaction_payment::WeightInfo for MockTxPaymentWeights {
+	fn charge_transaction_payment() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+}
+
 pub struct DealWithFungiblesFees;
 impl OnUnbalanced<fungibles::Credit<AccountId, NativeAndAssets>> for DealWithFungiblesFees {
 	fn on_unbalanceds(
@@ -167,8 +175,8 @@ impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFees>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
-	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = ConstU8<5>;
+	type WeightInfo = MockTxPaymentWeights;
 }
 
 type AssetId = u32;
@@ -266,9 +274,95 @@ impl pallet_asset_conversion::Config for Runtime {
 	}
 }
 
+/// Weights used in testing.
+pub struct MockWeights;
+
+impl WeightInfo for MockWeights {
+	fn charge_asset_tx_payment_zero() -> Weight {
+		Weight::from_parts(0, 0)
+	}
+
+	fn charge_asset_tx_payment_native() -> Weight {
+		Weight::from_parts(15, 0)
+	}
+
+	fn charge_asset_tx_payment_asset() -> Weight {
+		Weight::from_parts(20, 0)
+	}
+}
+
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AssetId = NativeOrWithId<u32>;
 	type OnChargeAssetTransaction =
 		SwapAssetAdapter<Native, NativeAndAssets, AssetConversion, DealWithFungiblesFees>;
+	type WeightInfo = MockWeights;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = Helper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let base_weight = 5;
+	let balance_factor = 100;
+	crate::tests::ExtBuilder::default()
+		.balance_factor(balance_factor)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct Helper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelperTrait<u64, NativeOrWithId<u32>, NativeOrWithId<u32>> for Helper {
+	fn create_asset_id_parameter(id: u32) -> (NativeOrWithId<u32>, NativeOrWithId<u32>) {
+		(NativeOrWithId::WithId(id), NativeOrWithId::WithId(id))
+	}
+
+	fn setup_balances_and_pool(asset_id: NativeOrWithId<u32>, account: u64) {
+		use frame_support::{assert_ok, traits::fungibles::Mutate};
+		use sp_runtime::traits::StaticLookup;
+		let NativeOrWithId::WithId(asset_idx) = asset_id.clone() else { unimplemented!() };
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			asset_idx.into(),
+			42,   /* owner */
+			true, /* is_sufficient */
+			1,
+		));
+
+		let lp_provider = 12;
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), lp_provider, u64::MAX / 2));
+		let lp_provider_account = <Runtime as system::Config>::Lookup::unlookup(lp_provider);
+		assert_ok!(Assets::mint_into(asset_idx, &lp_provider_account, u64::MAX / 2));
+
+		let token_1 = Box::new(NativeOrWithId::Native);
+		let token_2 = Box::new(asset_id);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(lp_provider),
+			token_1.clone(),
+			token_2.clone()
+		));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(lp_provider),
+			token_1,
+			token_2,
+			(u32::MAX / 8).into(), // 1 desired
+			u32::MAX.into(),       // 2 desired
+			1,                     // 1 min
+			1,                     // 2 min
+			lp_provider_account,
+		));
+
+		use frame_support::traits::Currency;
+		let _ = Balances::deposit_creating(&account, u32::MAX.into());
+
+		let beneficiary = <Runtime as system::Config>::Lookup::unlookup(account);
+		let balance = 1000;
+
+		assert_ok!(Assets::mint_into(asset_idx, &beneficiary, balance));
+		assert_eq!(Assets::balance(asset_idx, account), balance);
+	}
 }
