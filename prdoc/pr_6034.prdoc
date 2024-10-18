@@ -1,0 +1,27 @@
+title: Adds multi-block election pallet and multi-block types
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds the `election-provider-multi-block` (EPM-MB) pallet, which is the multi-block
+      variant of the `election-provider-multi-phase` (EPM) pallet. In addition, it refactors the 
+      types and structs required to run an election and updates the EPM, staking pallet and all
+      dependent pallets to use the multi-block types.
+
+crates:
+ - name: frame-election-provider-support
+   bump: major
+ - name: pallet-election-provider-multi-phase
+   bump: major
+ - name: pallet-election-provider-multi-block
+   bump: major
+ - name: pallet-staking
+   bump: major
+ - name: pallet-fast-unstake
+   bump: minor
+ - name: pallet-delegated-staking
+   bump: minor
+ - name: sp-npos-election
+   bump: major
+ - name: sp-staking
+   bump: major
