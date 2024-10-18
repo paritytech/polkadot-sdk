@@ -49,39 +49,50 @@ pub mod v0 {
 /// This is send as PoV (proof of validity block) to the relay-chain validators. There it will be
 /// passed to the parachain validation Wasm blob to be validated.
 #[derive(codec::Encode, codec::Decode, Clone)]
-pub struct ParachainBlockData<Block: BlockT> {
-	blocks: Vec<(Block, CompactProof)>,
+pub enum ParachainBlockData<Block: BlockT> {
+	#[codec(index = 1)]
+	V1(Vec<(Block, CompactProof)>),
 }
 
 impl<Block: BlockT> ParachainBlockData<Block> {
 	/// Creates a new instance of `Self`.
 	pub fn new(blocks: Vec<(Block, CompactProof)>) -> Self {
-		Self { blocks }
+		Self::V1(blocks)
 	}
 
 	/// Returns an iterator yielding references to the stored blocks.
 	pub fn blocks(&self) -> impl Iterator<Item = &Block> {
-		self.blocks.iter().map(|e| &e.0)
+		match self {
+			Self::V1(blocks) => blocks.iter().map(|e| &e.0),
+		}
 	}
 
 	/// Returns an iterator yielding mutable references to the stored blocks.
 	pub fn blocks_mut(&mut self) -> impl Iterator<Item = &mut Block> {
-		self.blocks.iter_mut().map(|e| &mut e.0)
+		match self {
+			Self::V1(blocks) => blocks.iter_mut().map(|e| &mut e.0),
+		}
 	}
 
 	/// Returns an iterator yielding the stored blocks.
 	pub fn into_blocks(self) -> impl Iterator<Item = Block> {
-		self.blocks.into_iter().map(|d| d.0)
+		match self {
+			Self::V1(blocks) => blocks.into_iter().map(|e| e.0),
+		}
 	}
 
 	/// Returns an iterator yielding references to the stored proofs.
 	pub fn proofs(&self) -> impl Iterator<Item = &CompactProof> {
-		self.blocks.iter().map(|d| &d.1)
+		match self {
+			Self::V1(blocks) => blocks.iter().map(|e| &e.1),
+		}
 	}
 
 	/// Deconstruct into the inner parts.
 	pub fn into_inner(self) -> Vec<(Block, CompactProof)> {
-		self.blocks
+		match self {
+			Self::V1(blocks) => blocks,
+		}
 	}
 
 	/// Log the size of the individual components (header, extrinsics, storage proof) as info.
@@ -99,13 +110,21 @@ impl<Block: BlockT> ParachainBlockData<Block> {
 	///
 	/// Returns `None` if there is not exactly one block.
 	pub fn as_v0(&self) -> Option<v0::ParachainBlockData<Block>> {
-		if self.blocks.len() != 1 {
-			return None
-		}
+		match self {
+			Self::V1(blocks) => {
+				if blocks.len() != 1 {
+					return None
+				}
 
-		self.blocks.first().map(|(block, storage_proof)| {
-			let (header, extrinsics) = block.clone().deconstruct();
-			v0::ParachainBlockData { header, extrinsics, storage_proof: storage_proof.clone() }
-		})
+				blocks.first().map(|(block, storage_proof)| {
+					let (header, extrinsics) = block.clone().deconstruct();
+					v0::ParachainBlockData {
+						header,
+						extrinsics,
+						storage_proof: storage_proof.clone(),
+					}
+				})
+			},
+		}
 	}
 }
