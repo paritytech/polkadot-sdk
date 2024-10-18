@@ -4364,7 +4364,6 @@ dependencies = [
  "rand",
  "sc-client-api",
  "scale-info",
- "sp-consensus-slots",
  "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.25.0",
