@@ -26,6 +26,9 @@ use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 
+pub mod parachain_block_data;
+
+pub use parachain_block_data::ParachainBlockData;
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain_primitives::primitives::{
 	DmpMessageHandler, Id as ParaId, IsSystem, UpwardMessage, ValidationParams, XcmpMessageFormat,
@@ -35,14 +38,11 @@ pub use polkadot_primitives::{
 	vstaging::{ClaimQueueOffset, CoreSelector},
 	AbridgedHostConfiguration, AbridgedHrmpChannel, PersistedValidationData,
 };
-
 pub use sp_runtime::{
 	generic::{Digest, DigestItem},
 	traits::Block as BlockT,
 	ConsensusEngineId,
 };
-
-use sp_trie::CompactProof;
 pub use xcm::latest::prelude::*;
 
 /// A module that re-exports relevant relay chain definitions.
@@ -197,58 +197,6 @@ pub enum ServiceQuality {
 	Fast,
 }
 
-/// The parachain block that is created by a collator.
-///
-/// This is send as PoV (proof of validity block) to the relay-chain validators. There it will be
-/// passed to the parachain validation Wasm blob to be validated.
-#[derive(codec::Encode, codec::Decode, Clone)]
-pub struct ParachainBlockData<Block: BlockT> {
-	blocks: Vec<(Block, CompactProof)>,
-}
-
-impl<Block: BlockT> ParachainBlockData<Block> {
-	/// Creates a new instance of `Self`.
-	pub fn new(blocks: Vec<(Block, CompactProof)>) -> Self {
-		Self { blocks }
-	}
-
-	/// Returns an iterator yielding references to the stored blocks.
-	pub fn blocks(&self) -> impl Iterator<Item = &Block> {
-		self.blocks.iter().map(|e| &e.0)
-	}
-
-	/// Returns an iterator yielding mutable references to the stored blocks.
-	pub fn blocks_mut(&mut self) -> impl Iterator<Item = &mut Block> {
-		self.blocks.iter_mut().map(|e| &mut e.0)
-	}
-
-	/// Returns an iterator yielding the stored blocks.
-	pub fn into_blocks(self) -> impl Iterator<Item = Block> {
-		self.blocks.into_iter().map(|d| d.0)
-	}
-
-	/// Returns an iterator yielding references to the stored proofs.
-	pub fn proofs(&self) -> impl Iterator<Item = &CompactProof> {
-		self.blocks.iter().map(|d| &d.1)
-	}
-
-	/// Deconstruct into the inner parts.
-	pub fn into_inner(self) -> Vec<(Block, CompactProof)> {
-		self.blocks
-	}
-
-	/// Log the size of the individual components (header, extrinsics, storage proof) as info.
-	pub fn log_size_info(&self) {
-		tracing::info!(
-			target: "cumulus",
-			"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}",
-			self.blocks().map(|b| b.header().encoded_size()).sum::<usize>() as f64 / 1024f64,
-			self.blocks().map(|b| b.extrinsics().encoded_size()).sum::<usize>() as f64 / 1024f64,
-			self.proofs().map(|p| p.encoded_size()).sum::<usize>() as f64 / 1024f64,
-		);
-	}
-}
-
 /// A consensus engine ID indicating that this is a Cumulus Parachain.
 pub const CUMULUS_CONSENSUS_ID: ConsensusEngineId = *b"CMLS";
 
@@ -387,7 +335,11 @@ pub struct CollationInfo {
 
 sp_api::decl_runtime_apis! {
 	/// Runtime api to collect information about a collation.
-	#[api_version(2)]
+	///
+	/// Version history:
+	/// - Version 2: Changed [`Self::collect_collation_info`] signature
+	/// - Version 3: Signals to the node to use version 1 of [`ParachainBlockData`].
+	#[api_version(3)]
 	pub trait CollectCollationInfo {
 		/// Collect information about a collation.
 		#[changed_in(2)]
