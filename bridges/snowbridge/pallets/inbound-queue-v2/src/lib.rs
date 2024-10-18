@@ -41,7 +41,7 @@ use envelope::Envelope;
 use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate},
-		tokens::{Fortitude, Preservation},
+		tokens::{Fortitude, Precision, Preservation},
 	},
 	weights::WeightToFee,
 	PalletError,
@@ -49,22 +49,18 @@ use frame_support::{
 use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_core::H160;
-use sp_runtime::traits::Zero;
 use sp_std::vec;
 use xcm::prelude::{
-	send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, Xcm, XcmContext, XcmHash,
+	send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, Xcm, XcmHash,
 };
-use xcm_executor::traits::TransactAsset;
 
 use snowbridge_core::{
 	inbound::{Message, VerificationError, Verifier},
-	sibling_sovereign_account, BasicOperatingMode, Channel, ChannelId, ParaId, PricingParameters,
-	StaticLookup,
+	sibling_sovereign_account, BasicOperatingMode, ParaId,
 };
 use snowbridge_router_primitives_v2::inbound::{
 	ConvertMessage, ConvertMessageError, VersionedMessage,
 };
-use sp_runtime::{traits::Saturating, SaturatedConversion, TokenError};
 
 pub use weights::WeightInfo;
 
@@ -76,7 +72,7 @@ type BalanceOf<T> =
 
 pub use pallet::*;
 
-pub const LOG_TARGET: &str = "snowbridge-inbound-queue";
+pub const LOG_TARGET: &str = "snowbridge-inbound-queue:v2";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -101,7 +97,7 @@ pub mod pallet {
 		/// The verifier for inbound messages from Ethereum
 		type Verifier: Verifier;
 
-		/// Message relayers are rewarded with this asset
+		/// Burn fees from relayer
 		type Token: Mutate<Self::AccountId> + Inspect<Self::AccountId>;
 
 		/// XCM message sender
@@ -117,12 +113,6 @@ pub mod pallet {
 			Balance = BalanceOf<Self>,
 		>;
 
-		/// Lookup a channel descriptor
-		type ChannelLookup: StaticLookup<Source = ChannelId, Target = Channel>;
-
-		/// Lookup pricing parameters
-		type PricingParameters: Get<PricingParameters<BalanceOf<Self>>>;
-
 		type WeightInfo: WeightInfo;
 
 		#[cfg(feature = "runtime-benchmarks")]
@@ -136,9 +126,6 @@ pub mod pallet {
 
 		/// The upper limit here only used to estimate delivery cost
 		type MaxMessageSize: Get<u32>;
-
-		/// To withdraw and deposit an asset.
-		type AssetTransactor: TransactAsset;
 	}
 
 	#[pallet::hooks]
@@ -149,8 +136,6 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// A message was received from Ethereum
 		MessageReceived {
-			/// The message channel
-			channel_id: ChannelId,
 			/// The message nonce
 			nonce: u64,
 			/// ID of the XCM message which was forwarded to the final destination parachain
@@ -215,9 +200,9 @@ pub mod pallet {
 		}
 	}
 
-	/// The current nonce for each channel
+	/// The nonce of the message been processed or not
 	#[pallet::storage]
-	pub type Nonce<T: Config> = StorageMap<_, Twox64Concat, ChannelId, u64, ValueQuery>;
+	pub type Nonce<T: Config> = StorageMap<_, Identity, u64, bool, ValueQuery>;
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
@@ -244,36 +229,8 @@ pub mod pallet {
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == envelope.gateway, Error::<T>::InvalidGateway);
 
-			// Retrieve the registered channel for this message
-			let channel =
-				T::ChannelLookup::lookup(envelope.channel_id).ok_or(Error::<T>::InvalidChannel)?;
-
-			// Verify message nonce
-			<Nonce<T>>::try_mutate(envelope.channel_id, |nonce| -> DispatchResult {
-				if *nonce == u64::MAX {
-					return Err(Error::<T>::MaxNonceReached.into())
-				}
-				if envelope.nonce != nonce.saturating_add(1) {
-					Err(Error::<T>::InvalidNonce.into())
-				} else {
-					*nonce = nonce.saturating_add(1);
-					Ok(())
-				}
-			})?;
-
-			// Reward relayer from the sovereign account of the destination parachain, only if funds
-			// are available
-			let sovereign_account = sibling_sovereign_account::<T>(channel.para_id);
-			let delivery_cost = Self::calculate_delivery_cost(message.encode().len() as u32);
-			let amount = T::Token::reducible_balance(
-				&sovereign_account,
-				Preservation::Preserve,
-				Fortitude::Polite,
-			)
-			.min(delivery_cost);
-			if !amount.is_zero() {
-				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
-			}
+			// Verify the message has not been processed
+			ensure!(!<Nonce<T>>::contains_key(envelope.nonce), Error::<T>::InvalidNonce);
 
 			// Decode payload into `VersionedMessage`
 			let message = VersionedMessage::decode_all(&mut envelope.payload.as_ref())
@@ -290,13 +247,33 @@ pub mod pallet {
 			);
 
 			// Burning fees for teleport
-			Self::burn_fees(channel.para_id, fee)?;
+			T::Token::burn_from(
+				&who,
+				fee,
+				Preservation::Preserve,
+				Precision::BestEffort,
+				Fortitude::Polite,
+			)?;
 
 			// Attempt to send XCM to a dest parachain
-			let message_id = Self::send_xcm(xcm, channel.para_id)?;
+			let message_id = Self::send_xcm(xcm, envelope.para_id.into())?;
+
+			// Set nonce flag to true
+			<Nonce<T>>::try_mutate(envelope.nonce, |done| -> DispatchResult {
+				*done = true;
+				Ok(())
+			})?;
+
+			// Todo: Deposit fee to RewardLeger which should contains all of:
+			// a. The submit extrinsic cost on BH
+			// b. The delivery cost to AH
+			// c. The execution cost on AH
+			// d. The execution cost on destination chain(if any)
+			// e. The reward
+
+			// T::RewardLeger::deposit(envelope.reward_address.into(), envelope.fee.into())?;
 
 			Self::deposit_event(Event::MessageReceived {
-				channel_id: envelope.channel_id,
 				nonce: envelope.nonce,
 				message_id,
 				fee_burned: fee,
@@ -333,46 +310,6 @@ pub mod pallet {
 			let dest = Location::new(1, [Parachain(dest.into())]);
 			let (xcm_hash, _) = send_xcm::<T::XcmSender>(dest, xcm).map_err(Error::<T>::from)?;
 			Ok(xcm_hash)
-		}
-
-		pub fn calculate_delivery_cost(length: u32) -> BalanceOf<T> {
-			let weight_fee = T::WeightToFee::weight_to_fee(&T::WeightInfo::submit());
-			let len_fee = T::LengthToFee::weight_to_fee(&Weight::from_parts(length as u64, 0));
-			weight_fee
-				.saturating_add(len_fee)
-				.saturating_add(T::PricingParameters::get().rewards.local)
-		}
-
-		/// Burn the amount of the fee embedded into the XCM for teleports
-		pub fn burn_fees(para_id: ParaId, fee: BalanceOf<T>) -> DispatchResult {
-			let dummy_context =
-				XcmContext { origin: None, message_id: Default::default(), topic: None };
-			let dest = Location::new(1, [Parachain(para_id.into())]);
-			let fees = (Location::parent(), fee.saturated_into::<u128>()).into();
-			T::AssetTransactor::can_check_out(&dest, &fees, &dummy_context).map_err(|error| {
-				log::error!(
-					target: LOG_TARGET,
-					"XCM asset check out failed with error {:?}", error
-				);
-				TokenError::FundsUnavailable
-			})?;
-			T::AssetTransactor::check_out(&dest, &fees, &dummy_context);
-			T::AssetTransactor::withdraw_asset(&fees, &dest, None).map_err(|error| {
-				log::error!(
-					target: LOG_TARGET,
-					"XCM asset withdraw failed with error {:?}", error
-				);
-				TokenError::FundsUnavailable
-			})?;
-			Ok(())
-		}
-	}
-
-	/// API for accessing the delivery cost of a message
-	impl<T: Config> Get<BalanceOf<T>> for Pallet<T> {
-		fn get() -> BalanceOf<T> {
-			// Cost here based on MaxMessagePayloadSize(the worst case)
-			Self::calculate_delivery_cost(T::MaxMessageSize::get())
 		}
 	}
 }

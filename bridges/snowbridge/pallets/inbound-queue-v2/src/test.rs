@@ -36,8 +36,6 @@ fn test_submit_happy_path() {
 
 		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
 		expect_events(vec![InboundQueueEvent::MessageReceived {
-			channel_id: hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539")
-				.into(),
 			nonce: 1,
 			message_id: [
 				255, 125, 48, 71, 174, 185, 100, 26, 159, 43, 108, 6, 116, 218, 55, 155, 223, 143,
@@ -48,10 +46,6 @@ fn test_submit_happy_path() {
 		.into()]);
 
 		let delivery_cost = InboundQueue::calculate_delivery_cost(message.encode().len() as u32);
-		assert!(
-			Parameters::get().rewards.local < delivery_cost,
-			"delivery cost exceeds pure reward"
-		);
 
 		assert_eq!(Balances::balance(&relayer), delivery_cost, "relayer was rewarded");
 		assert!(
@@ -131,11 +125,6 @@ fn test_submit_with_invalid_nonce() {
 			},
 		};
 		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
-
-		let nonce: u64 = <Nonce<Test>>::get(ChannelId::from(hex!(
-			"c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539"
-		)));
-		assert_eq!(nonce, 1);
 
 		// Submit the same again
 		assert_noop!(

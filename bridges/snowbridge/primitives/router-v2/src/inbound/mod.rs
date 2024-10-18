@@ -24,13 +24,13 @@ const MINIMUM_DEPOSIT: u128 = 1;
 /// Instead having BridgeHub transcode the messages into XCM.
 #[derive(Clone, Encode, Decode, RuntimeDebug)]
 pub enum VersionedMessage {
-	V1(MessageV1),
+	V2(MessageV2),
 }
 
-/// For V1, the ethereum side sends messages which are transcoded into XCM. These messages are
+/// For V2, the ethereum side sends messages which are transcoded into XCM. These messages are
 /// self-contained, in that they can be transcoded using only information in the message.
 #[derive(Clone, Encode, Decode, RuntimeDebug)]
-pub struct MessageV1 {
+pub struct MessageV2 {
 	/// EIP-155 chain id of the origin Ethereum network
 	pub chain_id: u64,
 	/// The command originating from the Gateway contract
@@ -189,11 +189,11 @@ where
 		use Command::*;
 		use VersionedMessage::*;
 		match message {
-			V1(MessageV1 { chain_id, command: RegisterToken { token, fee } }) =>
+			V2(MessageV2 { chain_id, command: RegisterToken { token, fee } }) =>
 				Ok(Self::convert_register_token(message_id, chain_id, token, fee)),
-			V1(MessageV1 { chain_id, command: SendToken { token, destination, amount, fee } }) =>
+			V2(MessageV2 { chain_id, command: SendToken { token, destination, amount, fee } }) =>
 				Ok(Self::convert_send_token(message_id, chain_id, token, destination, amount, fee)),
-			V1(MessageV1 {
+			V2(MessageV2 {
 				chain_id,
 				command: SendNativeToken { token_id, destination, amount, fee },
 			}) => Self::convert_send_native_token(
