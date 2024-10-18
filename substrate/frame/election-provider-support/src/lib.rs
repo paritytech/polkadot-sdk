@@ -55,8 +55,22 @@
 //!
 //! To accommodate both type of elections in one trait, the traits lean toward **stateful
 //! election**, as it is more general than the stateless. This is why [`ElectionProvider::elect`]
-//! has no parameters. All value and type parameter must be provided by the [`ElectionDataProvider`]
-//! trait, even if the election happens immediately.
+//! does not receive election data as an input. All value and type parameter must be provided by the
+//! [`ElectionDataProvider`] trait, even if the election happens immediately.
+//!
+//! ## Multi-page election
+//!
+//! Both [`ElectionDataProvider`] and [`ElectionProvider`] traits are parameterized by page,
+//! supporting an election to be performed over multiple pages. This enables the
+//! [`ElectionDataProvider`] implementor to provide all the election data over multiple pages.
+//! Similarly [`ElectionProvider::elect`] is parameterized by page index.
+//!
+//! ## [`LockableElectionDataProvider`] for multi-page election
+//!
+//! The [`LockableElectionDataProvider`] trait exposes a way for election data providers to lock
+//! and unlock election data mutations. This is an useful trait to ensure that the results of
+//! calling [`ElectionDataProvider::electing_voters`] and
+//! [`ElectionDataProvider::electable_targets`] remain consistent over multiple pages.
 //!
 //! ## Election Data
 //!
@@ -103,17 +117,17 @@
 //!     impl<T: Config> ElectionDataProvider for Pallet<T> {
 //!         type AccountId = AccountId;
 //!         type BlockNumber = BlockNumber;
-//!         type MaxVotesPerVoter = ConstU32<1>;
+//!         type MaxVotesPerVoter = ConstU32<100>;
 //!
 //!         fn desired_targets() -> data_provider::Result<u32> {
 //!             Ok(1)
 //!         }
-//!         fn electing_voters(bounds: DataProviderBounds, _remaining_pages: PageIndex)
+//!         fn electing_voters(bounds: DataProviderBounds, _page: PageIndex)
 //!           -> data_provider::Result<Vec<VoterOf<Self>>>
 //!         {
 //!             Ok(Default::default())
 //!         }
-//!         fn electable_targets(bounds: DataProviderBounds, _remaining_pages: PageIndex) -> data_provider::Result<Vec<AccountId>> {
+//!         fn electable_targets(bounds: DataProviderBounds, _page: PageIndex) -> data_provider::Result<Vec<AccountId>> {
 //!             Ok(vec![10, 20, 30])
 //!         }
 //!         fn next_election_prediction(now: BlockNumber) -> BlockNumber {
@@ -145,7 +159,11 @@
 //!         type Pages = T::Pages;
 //!         type DataProvider = T::DataProvider;
 //!
-//!         fn elect(remaining_pages: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+//!         fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+//!             unimplemented!()
+//!         }
+//!
+//!         fn ongoing() -> bool {
 //!             unimplemented!()
 //!         }
 //!     }
@@ -245,6 +263,9 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+/// A page index for the multi-block elections pagination.
+pub type PageIndex = u32;
+
 /// The [`IndexAssignment`] type is an intermediate between the assignments list
 /// ([`&[Assignment<T>]`][Assignment]) and `SolutionOf<T>`.
 ///
@@ -306,29 +327,33 @@ pub trait ElectionDataProvider {
 	/// Maximum number of votes per voter that this data provider is providing.
 	type MaxVotesPerVoter: Get<u32>;
 
-	/// All possible targets for the election, i.e. the targets that could become elected, thus
-	/// "electable".
+	/// Returns the possible targets for the election associated with page `page`, i.e. the targets
+	/// that could become elected, thus "electable".
 	///
+	/// TODO(gpestana): remove self-weighing and return the weight.
 	/// This should be implemented as a self-weighing function. The implementor should register its
 	/// appropriate weight at the end of execution with the system pallet directly.
 	fn electable_targets(
 		bounds: DataProviderBounds,
-		remaining_pages: PageIndex,
+		page: PageIndex,
 	) -> data_provider::Result<Vec<Self::AccountId>>;
 
-	/// All the voters that participate in the election, thus "electing".
+	/// All the voters that participate in the election associated with page `page`, thus
+	/// "electing".
 	///
 	/// Note that if a notion of self-vote exists, it should be represented here.
 	///
+	/// TODO(gpestana): remove self-weighing and return the weight.
 	/// This should be implemented as a self-weighing function. The implementor should register its
 	/// appropriate weight at the end of execution with the system pallet directly.
 	fn electing_voters(
 		bounds: DataProviderBounds,
-		remaining_pages: PageIndex,
+		page: PageIndex,
 	) -> data_provider::Result<Vec<VoterOf<Self>>>;
 
 	/// The number of targets to elect.
 	///
+	/// TODO(gpestana): remove self-weighting ??
 	/// This should be implemented as a self-weighing function. The implementor should register its
 	/// appropriate weight at the end of execution with the system pallet directly.
 	///
@@ -384,10 +409,16 @@ pub trait ElectionDataProvider {
 	fn set_desired_targets(_count: u32) {}
 }
 
-/// An [`ElectionDataProvider`] that exposes for an external entity to request a lock/unlock on
+/// An [`ElectionDataProvider`] that exposes for an external entity to request lock/unlock on
 /// updates in the election data.
+///
+/// This functionality is useful when requesting multi-pages of election data, so that the data
+/// provided across pages (and potentially across blocks) is consistent.
 pub trait LockableElectionDataProvider: ElectionDataProvider {
+	/// Lock mutations in the election data provider.
 	fn set_lock() -> data_provider::Result<()>;
+
+	/// Unlocks mutations in the election data provider.
 	fn unlock();
 }
 
@@ -404,10 +435,16 @@ pub trait ElectionProvider {
 	type Error: Debug + PartialEq;
 
 	/// The maximum number of winners per page in results returned by this election provider.
+	///
+	/// A winner is an `AccountId` that is part of the final election result.
 	type MaxWinnersPerPage: Get<u32>;
 
 	/// The maximum number of backers that a single page may have in results returned by this
 	/// election provider.
+	///
+	/// A backer is an `AccountId` that "backs" one or more winners. For example, in the context of
+	/// nominated proof of stake, a backer is a voter that nominates a winner validator in the
+	/// election result.
 	type MaxBackersPerWinner: Get<u32>;
 
 	/// The number of pages that this election provider supports.
@@ -421,11 +458,15 @@ pub trait ElectionProvider {
 
 	/// Elect a new set of winners.
 	///
+	/// A complete election may require multiple calls to [`ElectionProvider::elect`] if
+	/// [`ElectionProvider::Pages`] is higher than one.
+	///
 	/// The result is returned in a target major format, namely as vector of supports.
 	///
+	/// TODO(gpestana): remove self-weighing?
 	/// This should be implemented as a self-weighing function. The implementor should register its
 	/// appropriate weight at the end of execution with the system pallet directly.
-	fn elect(remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error>;
+	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error>;
 
 	/// The index of the *most* significant page that this election provider supports.
 	fn msp() -> PageIndex {
@@ -449,7 +490,7 @@ pub trait ElectionProvider {
 		})
 	}
 
-	/// Indicate if this election provider is currently ongoing an asynchronous election or not.
+	/// Indicate whether this election provider is currently ongoing an asynchronous election.
 	fn ongoing() -> bool;
 }
 
@@ -484,7 +525,7 @@ where
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 
-	fn elect(_remaining_pages: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+	fn elect(_page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		Err("`NoElection` cannot do anything.")
 	}
 
@@ -751,6 +792,12 @@ impl<AccountId, Bound: Get<u32>> TryFrom<sp_npos_elections::Support<AccountId>>
 }
 
 /// A bounded vector of [`BoundedSupport`].
+///
+/// A [`BoundedSupports`] is a set of [`sp_npos_elections::Supports`] which are bounded in two
+/// dimensions. `BInner` corresponds to the bound of the maximum backers per voter and `BOuter`
+/// corresponds to the bound of the maximum winners that the bounded supports may contain.
+///
+/// With the bounds, we control the maximum size of a bounded supports instance.
 #[derive(Encode, Decode, TypeInfo, DefaultNoBound, MaxEncodedLen)]
 #[codec(mel_bound(AccountId: MaxEncodedLen, BOuter: Get<u32>, BInner: Get<u32>))]
 #[scale_info(skip_type_params(BOuter, BInner))]
@@ -837,28 +884,12 @@ impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>>
 	}
 }
 
-pub trait TryIntoSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>> {
-	fn try_into_supports(self) -> Result<Supports<AccountId>, ()>;
-}
-
-impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> TryIntoSupports<AccountId, BOuter, BInner>
-	for BoundedSupports<AccountId, BOuter, BInner>
-{
-	fn try_into_supports(self) -> Result<Supports<AccountId>, ()> {
-		// TODO
-		Ok(Default::default())
-	}
-}
-
 /// Same as `BoundedSupports` but parameterized by an `ElectionProvider`.
 pub type BoundedSupportsOf<E> = BoundedSupports<
 	<E as ElectionProvider>::AccountId,
 	<E as ElectionProvider>::MaxWinnersPerPage,
 	<E as ElectionProvider>::MaxBackersPerWinner,
 >;
-
-/// A page index for the multi-block elections pagination.
-pub type PageIndex = u32;
 
 sp_core::generate_feature_enabled_macro!(
 	runtime_benchmarks_enabled,

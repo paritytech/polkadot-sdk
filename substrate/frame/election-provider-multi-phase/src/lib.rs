@@ -1674,7 +1674,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// record the weight of the given `supports`.
-	fn weigh_supports(supports: &Supports<T::AccountId>) {
+	fn weigh_supports(
+		supports: &BoundedSupports<T::AccountId, T::MaxWinnersPerPage, T::MaxBackersPerWinner>,
+	) {
 		let active_voters = supports
 			.iter()
 			.map(|(_, x)| x)
@@ -1780,13 +1782,8 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 
 		match Self::do_elect() {
 			Ok(bounded_supports) => {
-				// TODO:remove the bounded_supports.clone()
-				use frame_election_provider_support::TryIntoSupports;
-				let supports: Supports<T::AccountId> =
-					bounded_supports.clone().try_into_supports().unwrap();
-
 				// All went okay, record the weight, put sign to be Off, clean snapshot, etc.
-				Self::weigh_supports(&supports);
+				Self::weigh_supports(&bounded_supports);
 				Self::rotate_round();
 				Ok(bounded_supports)
 			},
