@@ -70,6 +70,7 @@ use xcm_executor::{
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
+	trusted_query::Error as TrustedQueryApiError,
 };
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -2601,6 +2602,57 @@ impl<T: Config> Pallet<T> {
 			tracing::error!(target: "xcm::pallet_xcm::query_xcm_weight", ?message, "Error when querying XCM weight");
 			XcmPaymentApiError::WeightNotComputable
 		})
+	}
+
+	/// Given an Asset and a Location, returns if the provided location is a trusted reserve for the
+	/// given asset.
+	pub fn is_trusted_reserve(
+		asset: VersionedAsset,
+		location: VersionedLocation,
+	) -> Result<bool, TrustedQueryApiError> {
+		let location: Location = location.try_into().map_err(|e| {
+			tracing::debug!(
+				target: "xcm::pallet_xcm::is_trusted_reserve",
+				"Asset version conversion failed with error: {:?}",
+				e,
+			);
+			TrustedQueryApiError::VersionedLocationConversionFailed
+		})?;
+
+		let a: Asset = asset.try_into().map_err(|e| {
+			tracing::debug!(
+				target: "xcm::pallet_xcm::is_trusted_reserve",
+				"Location version conversion failed with error: {:?}",
+				e,
+			);
+			TrustedQueryApiError::VersionedAssetConversionFailed
+		})?;
+
+		Ok(<T::XcmExecutor as XcmAssetTransfers>::IsReserve::contains(&a, &location))
+	}
+
+	/// Given an Asset and a Location, returns if the asset can be teleported to provided location.
+	pub fn is_trusted_teleporter(
+		asset: VersionedAsset,
+		location: VersionedLocation,
+	) -> Result<bool, TrustedQueryApiError> {
+		let location: Location = location.try_into().map_err(|e| {
+			tracing::debug!(
+				target: "xcm::pallet_xcm::is_trusted_teleporter",
+				"Asset version conversion failed with error: {:?}",
+				e,
+			);
+			TrustedQueryApiError::VersionedLocationConversionFailed
+		})?;
+		let a: Asset = asset.try_into().map_err(|e| {
+			tracing::debug!(
+				target: "xcm::pallet_xcm::is_trusted_teleporter",
+				"Location version conversion failed with error: {:?}",
+				e,
+			);
+			TrustedQueryApiError::VersionedAssetConversionFailed
+		})?;
+		Ok(<T::XcmExecutor as XcmAssetTransfers>::IsTeleporter::contains(&a, &location))
 	}
 
 	pub fn query_delivery_fees(

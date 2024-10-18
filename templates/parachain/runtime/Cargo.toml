@@ -17,14 +17,10 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 docify = { workspace = true }
 
 [dependencies]
-codec = { features = [
-	"derive",
-], workspace = true }
+codec = { features = ["derive"], workspace = true }
 hex-literal = { optional = true, workspace = true, default-features = true }
 log = { workspace = true }
-scale-info = { features = [
-	"derive",
-], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 smallvec = { workspace = true, default-features = true }
 docify = { workspace = true }
 serde_json = { workspace = true, default-features = false, features = ["alloc"] }

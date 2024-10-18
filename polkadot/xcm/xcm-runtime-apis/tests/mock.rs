@@ -48,6 +48,7 @@ use xcm_runtime_apis::{
 	conversions::{Error as LocationToAccountApiError, LocationToAccountApi},
 	dry_run::{CallDryRunEffects, DryRunApi, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::{Error as XcmPaymentApiError, XcmPaymentApi},
+	trusted_query::{Error as TrustedQueryApiError, TrustedQueryApi},
 };
 
 construct_runtime! {
@@ -414,6 +415,16 @@ impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 }
 
 sp_api::mock_impl_runtime_apis! {
+	impl TrustedQueryApi<Block> for RuntimeApi {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, TrustedQueryApiError> {
+			XcmPallet::is_trusted_reserve(asset, location)
+		}
+
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, TrustedQueryApiError> {
+			XcmPallet::is_trusted_teleporter(asset, location)
+		}
+	}
+
 	impl LocationToAccountApi<Block, AccountId> for RuntimeApi {
 		fn convert_location(location: VersionedLocation) -> Result<AccountId, LocationToAccountApiError> {
 			let location = location.try_into().map_err(|_| LocationToAccountApiError::VersionedConversionFailed)?;
