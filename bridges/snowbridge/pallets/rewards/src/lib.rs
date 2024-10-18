@@ -2,11 +2,10 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod impls;
 pub mod weights;
 
 use frame_system::pallet_prelude::*;
-use crate::impls::RewardLedger;
+use snowbridge_core::rewards::RewardLedger;
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -14,7 +13,6 @@ pub use pallet::*;
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 #[frame_support::pallet]
 pub mod pallet {
-	use sp_core::U256;
 	use frame_support::pallet_prelude::*;
 
 	use super::*;
@@ -41,7 +39,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type RewardsMapping<T: Config> =
-	StorageMap<_, Identity, AccountIdOf<T>, U256, ValueQuery>;
+	StorageMap<_, Identity, AccountIdOf<T>, u128, ValueQuery>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -65,6 +63,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> RewardLedger<T> for Pallet<T> {
-		fn deposit(_account: AccountIdOf<T>, _value: U256) {}
+		fn deposit(_account: AccountIdOf<T>, _value: u128) {}
 	}
 }

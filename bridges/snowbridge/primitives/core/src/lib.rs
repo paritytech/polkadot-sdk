@@ -13,6 +13,7 @@ pub mod location;
 pub mod operating_mode;
 pub mod outbound;
 pub mod pricing;
+pub mod rewards;
 pub mod ringbuffer;
 
 pub use location::{AgentId, AgentIdOf, TokenId, TokenIdOf};
