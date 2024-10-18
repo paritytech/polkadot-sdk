@@ -35,7 +35,7 @@ use polkadot_runtime_common::{
 };
 use rococo_runtime_constants::{currency::CENTS, system_parachain::*};
 use sp_core::ConstU32;
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
@@ -51,7 +51,7 @@ use xcm_executor::XcmExecutor;
 parameter_types! {
 	pub TokenLocation: Location = Here.into_location();
 	pub RootLocation: Location = Location::here();
-	pub const ThisNetwork: NetworkId = NetworkId::Rococo;
+	pub const ThisNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 	pub UniversalLocation: InteriorLocation = ThisNetwork::get().into();
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	pub LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);

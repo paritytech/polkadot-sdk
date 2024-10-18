@@ -20,7 +20,7 @@ mod imports {
 	pub use frame_support::assert_ok;
 
 	// Polkadot
-	pub use xcm::prelude::*;
+	pub use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
 
 	// Cumulus
 	pub use emulated_integration_tests_common::xcm_emulator::{

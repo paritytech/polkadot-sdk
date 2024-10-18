@@ -22,9 +22,9 @@ mod imports {
 
 	// Polkadot
 	pub use xcm::{
-		latest::ParentThen,
+		latest::{ParentThen, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v5::{self, NetworkId::Rococo as RococoId},
+		v5,
 	};
 	pub use xcm_executor::traits::TransferType;
 

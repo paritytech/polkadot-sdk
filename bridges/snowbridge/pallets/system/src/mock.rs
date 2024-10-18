@@ -18,7 +18,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, Keccak256},
 	AccountId32, BuildStorage, FixedU128,
 };
-use xcm::prelude::*;
+use xcm::{latest::ROCOCO_GENESIS_HASH, prelude::*};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::BenchmarkHelper;

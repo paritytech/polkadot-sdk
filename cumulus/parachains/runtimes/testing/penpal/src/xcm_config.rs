@@ -45,7 +45,7 @@ use parachains_common::{xcm_config::AssetFeeAsExistentialDepositMultiplier, TREA
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::{impls::ToAuthor, xcm_sender::ExponentialPrice};
 use sp_runtime::traits::{AccountIdConversion, ConvertInto, Identity, TryConvertInto};
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
@@ -65,8 +65,8 @@ parameter_types! {
 	pub const PenpalNativeCurrency: Location = Location::here();
 	// The Penpal runtime is utilized for testing with various environment setups.
 	// This storage item allows us to customize the `NetworkId` where Penpal is deployed.
-	// By default, it is set to `NetworkId::Rococo` and can be changed using `System::set_storage`.
-	pub storage RelayNetworkId: NetworkId = NetworkId::Westend;
+	// By default, it is set to `Westend Network` and can be changed using `System::set_storage`.
+	pub storage RelayNetworkId: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
 	pub RelayNetwork: Option<NetworkId> = Some(RelayNetworkId::get());
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation = [
