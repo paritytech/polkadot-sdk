@@ -2597,8 +2597,12 @@ impl EthExtra for EthSignedExtra {
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic =
-	pallet_revive::evm::runtime::UncheckedExtrinsic<RuntimeCall, EthSignedExtra>;
+pub type UncheckedExtrinsic = pallet_revive::evm::runtime::UncheckedExtrinsic<
+	Address,
+	RuntimeCall,
+	Signature,
+	EthSignedExtra,
+>;
 
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
@@ -3062,7 +3066,7 @@ impl_runtime_apis! {
 				storage_deposit_limit.unwrap_or(u128::MAX),
 				pallet_revive::DebugInfo::UnsafeDebug,
 				pallet_revive::CollectEvents::UnsafeCollect,
-			).map(pallet_transaction_payment::Pallet::<Runtime>::compute_fee)
+			)
 		}
 
 		fn call(
