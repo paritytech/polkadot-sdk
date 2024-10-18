@@ -44,7 +44,7 @@ use alloc::vec::Vec;
 /// We use a fixed value for the gas price.
 /// This let us calculate the gas estimate for a transaction with the formula:
 /// `estimate_gas = substrate_fee / gas_price`.
-pub const GAS_PRICE: u128 = 1_000u128;
+pub const GAS_PRICE: u32 = 1_000u32;
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
 /// [`crate::Call::eth_transact`] extrinsic.
@@ -333,6 +333,8 @@ pub trait EthExtra {
 		if diff > Percent::from_percent(10) {
 			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee_no_tip:?} and the Ethereum gas fees {eth_fee_no_tip:?} should be no more than 10% got {diff:?}");
 			return Err(InvalidTransaction::Call.into())
+		} else {
+			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee_no_tip:?} and the Ethereum gas fees {eth_fee_no_tip:?}:  {diff:?}");
 		}
 
 		let tip = eth_fee.saturating_sub(eth_fee_no_tip);
