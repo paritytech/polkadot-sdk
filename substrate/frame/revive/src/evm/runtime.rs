@@ -316,6 +316,12 @@ pub trait EthExtra {
 			)
 			.into();
 
+		log::debug!(target: LOG_TARGET, "Checking Ethereum transaction fees:
+			dispatch_info: {info:?}
+			encoded_len: {encoded_len:?}
+			fees: {actual_fee_no_tip:?}
+		");
+
 		if eth_fee < actual_fee_no_tip {
 			log::debug!(target: LOG_TARGET, "fees {eth_fee:?} too low for the extrinsic {actual_fee_no_tip:?}");
 			return Err(InvalidTransaction::Payment.into())
@@ -324,8 +330,8 @@ pub trait EthExtra {
 		let min = actual_fee_no_tip.min(eth_fee_no_tip);
 		let max = actual_fee_no_tip.max(eth_fee_no_tip);
 		let diff = Percent::from_rational(max - min, min);
-		if diff > Percent::from_percent(5) {
-			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee_no_tip:?} and the Ethereum gas fees {eth_fee_no_tip:?} should be no more than 5% got {diff:?}");
+		if diff > Percent::from_percent(10) {
+			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee_no_tip:?} and the Ethereum gas fees {eth_fee_no_tip:?} should be no more than 10% got {diff:?}");
 			return Err(InvalidTransaction::Call.into())
 		}
 
@@ -478,7 +484,7 @@ mod test {
 				storage_deposit_limit,
 			});
 
-			let encoded_len = call.encode().len();
+			let encoded_len = call.encoded_size();
 			let result = Ex::new(call, None).unwrap().check(&TestContext {})?;
 			let (account_id, extra) = result.signed.unwrap();
 
@@ -589,12 +595,16 @@ mod test {
 				("Eth fees too low", Box::new(|tx| tx.gas_price /= 2), InvalidTransaction::Payment),
 				("Gas fees too high", Box::new(|tx| tx.gas *= 2), InvalidTransaction::Call),
 				("Gas fees too low", Box::new(|tx| tx.gas *= 2), InvalidTransaction::Call),
-				("Diff > 5%", Box::new(|tx| tx.gas = tx.gas * 106 / 100), InvalidTransaction::Call),
 				(
-					"Diff < 5%",
+					"Diff > 10%",
+					Box::new(|tx| tx.gas = tx.gas * 111 / 100),
+					InvalidTransaction::Call,
+				),
+				(
+					"Diff < 10%",
 					Box::new(|tx| {
 						tx.gas_price *= 2;
-						tx.gas = tx.gas * 94 / 100
+						tx.gas = tx.gas * 89 / 100
 					}),
 					InvalidTransaction::Call,
 				),
