@@ -245,10 +245,12 @@ pub trait HostFn: private::Sealed {
 	/// - `addr`: The address of the contract.
 	/// - `output`: A reference to the output data buffer to write the code hash.
 	///
-	/// # Errors
+	/// # Note
 	///
-	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
-	fn code_hash(addr: &[u8; 20], output: &mut [u8; 32]) -> Result;
+	/// If `addr` is not a contract but the account exists then the hash of empty data
+	/// `0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470` is written,
+	/// otherwise `zero`.
+	fn code_hash(addr: &[u8; 20], output: &mut [u8; 32]);
 
 	/// Checks whether there is a value stored under the given key.
 	///
