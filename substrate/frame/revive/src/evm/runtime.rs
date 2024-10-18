@@ -308,7 +308,7 @@ pub trait EthExtra {
 		let function: Call = call.into();
 
 		// Fees calculated from the extrinsic, without the tip.
-		let actual_fee_no_tip: BalanceOf<Self::Config> =
+		let actual_fee: BalanceOf<Self::Config> =
 			pallet_transaction_payment::Pallet::<Self::Config>::compute_fee(
 				encoded_len as u32,
 				&info,
@@ -322,19 +322,19 @@ pub trait EthExtra {
 			fees: {actual_fee_no_tip:?}
 		");
 
-		if eth_fee < actual_fee_no_tip {
+		if eth_fee < actual_fee {
 			log::debug!(target: LOG_TARGET, "fees {eth_fee:?} too low for the extrinsic {actual_fee_no_tip:?}");
 			return Err(InvalidTransaction::Payment.into())
 		}
 
-		let min = actual_fee_no_tip.min(eth_fee_no_tip);
-		let max = actual_fee_no_tip.max(eth_fee_no_tip);
+		let min = actual_fee.min(eth_fee_no_tip);
+		let max = actual_fee.max(eth_fee_no_tip);
 		let diff = Percent::from_rational(max - min, min);
 		if diff > Percent::from_percent(10) {
-			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee_no_tip:?} and the Ethereum gas fees {eth_fee_no_tip:?} should be no more than 10% got {diff:?}");
+			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?} should be no more than 10% got {diff:?}");
 			return Err(InvalidTransaction::Call.into())
 		} else {
-			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee_no_tip:?} and the Ethereum gas fees {eth_fee_no_tip:?}:  {diff:?}");
+			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?}:  {diff:?}");
 		}
 
 		let tip = eth_fee.saturating_sub(eth_fee_no_tip);
