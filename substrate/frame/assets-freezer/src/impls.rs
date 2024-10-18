@@ -23,6 +23,7 @@ use frame_support::traits::{
 };
 use pallet_assets::FrozenBalance;
 use sp_runtime::traits::Zero;
+use storage::StorageDoubleMap;
 
 // Implements [`FrozenBalance`] from [`pallet-assets`], so it can understand how much of an
 // account balance is frozen, and is able to signal to this pallet when to clear the state of an
@@ -37,6 +38,10 @@ impl<T: Config<I>, I: 'static> FrozenBalance<T::AssetId, T::AccountId, T::Balanc
 	fn died(asset: T::AssetId, who: &T::AccountId) {
 		FrozenBalances::<T, I>::remove(asset.clone(), who);
 		Freezes::<T, I>::remove(asset, who);
+	}
+
+	fn contains_freezes(asset: T::AssetId) -> bool {
+		Freezes::<T, I>::contains_prefix(asset)
 	}
 }
 

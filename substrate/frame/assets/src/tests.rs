@@ -837,8 +837,8 @@ fn transfer_all_works_3() {
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(0), 0, 2, 100));
 		// transfer all and allow death w/ frozen
 		assert_ok!(Assets::transfer_all(Some(1).into(), 0, 2, false));
-		assert_eq!(Assets::balance(0, &1), 110);
-		assert_eq!(Assets::balance(0, &2), 200);
+		assert_eq!(Assets::balance(0, &1), 100);
+		assert_eq!(Assets::balance(0, &2), 210);
 	});
 }
 
@@ -1302,6 +1302,118 @@ fn set_metadata_should_work() {
 	});
 }
 
+/// Calling on `dead_account` should be either unreachable, or fail if either a freeze or some
+/// balance on hold exists.
+///
+/// ### Case 1: Sufficient asset
+///
+/// This asserts for `dead_account` on `decrease_balance`, `transfer_and_die` and
+/// `do_destry_accounts`.
+#[test]
+fn calling_dead_account_fails_if_freezes_or_balances_on_hold_exist_1() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 50));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		set_frozen_balance(0, 1, 50);
+		// Cannot transfer out less than max(freezes, ed). This happens in
+		// `prep_debit` under `transfer_and_die`. Would not reach `dead_account`.
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		assert_noop!(
+			Assets::transfer_keep_alive(RuntimeOrigin::signed(1), 0, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		assert_noop!(
+			Assets::force_transfer(RuntimeOrigin::signed(1), 0, 1, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		// Cannot start destroying the asset, because some accounts contain freezes
+		assert_noop!(
+			Assets::start_destroy(RuntimeOrigin::signed(1), 0),
+			Error::<Test>::ContainsFreezes
+		);
+		clear_frozen_balance(0, 1);
+
+		set_balance_on_hold(0, 1, 50);
+		// Cannot transfer out less than max(freezes, ed). This happens in
+		// `prep_debit` under `transfer_and_die`. Would not reach `dead_account`.
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		assert_noop!(
+			Assets::transfer_keep_alive(RuntimeOrigin::signed(1), 0, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		assert_noop!(
+			Assets::force_transfer(RuntimeOrigin::signed(1), 0, 1, 2, 100),
+			Error::<Test>::BalanceLow
+		);
+		// Cannot start destroying the asset, because some accounts contain freezes
+		assert_noop!(
+			Assets::start_destroy(RuntimeOrigin::signed(1), 0),
+			Error::<Test>::ContainsHolds
+		);
+	})
+}
+
+/// Calling on `dead_account` should be either unreachable, or fail if either a freeze or some
+/// balance on hold exists.
+///
+/// ### Case 2: Inufficient asset
+///
+/// This asserts for `dead_account` on `do_refund` and `do_refund_other`.
+#[test]
+fn calling_dead_account_fails_if_freezes_or_balances_on_hold_exist_2() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		set_frozen_balance(0, 1, 50);
+		assert_noop!(
+			Assets::refund(RuntimeOrigin::signed(1), 0, true),
+			Error::<Test>::ContainsFreezes
+		);
+		clear_frozen_balance(0, 1);
+
+		set_balance_on_hold(0, 1, 50);
+		assert_noop!(
+			Assets::refund(RuntimeOrigin::signed(1), 0, true),
+			Error::<Test>::ContainsHolds
+		);
+		clear_balance_on_hold(0, 1);
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(1), 0, true));
+	});
+
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::touch_other(RuntimeOrigin::signed(1), 0, 2));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+
+		set_frozen_balance(0, 2, 100);
+		assert_noop!(
+			Assets::refund_other(RuntimeOrigin::signed(1), 0, 2),
+			Error::<Test>::WouldBurn
+		);
+		clear_frozen_balance(0, 2);
+
+		// Note: It's not possible to set balance on hold for the maximum balance,
+		// as it `WouldBurn` because of how setting the balance works on mock.
+		set_balance_on_hold(0, 2, 99);
+		assert_noop!(
+			Assets::refund_other(RuntimeOrigin::signed(1), 0, 2),
+			Error::<Test>::WouldBurn
+		);
+		clear_balance_on_hold(0, 2);
+	})
+}
+
 /// Destroying an asset calls the `FrozenBalance::died` hooks of all accounts.
 #[test]
 fn destroy_accounts_calls_died_hooks() {
@@ -1345,9 +1457,15 @@ fn freezer_should_work() {
 		// freeze 50 of it.
 		set_frozen_balance(0, 1, 50);
 
-		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 20));
-		// cannot transfer another 21 away as this would take the non-frozen balance (30) to below
-		// the minimum balance (10).
+		// Note: The amount to be transferred in this step changed deliberately from 20 to 30
+		// (https://github.com/paritytech/polkadot-sdk/pull/4530/commits/2ab35354d86904c035b21a2229452841b79b0457)
+		// to reflect the change in how `reducible_balance` is calculated: from untouchable = ed +
+		// frozen, to untouchalbe = max(ed, frozen)
+		//
+		// This is done in this line so most of the remaining test is preserved without changes
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 30));
+		// cannot transfer another 21 away as this would take the spendable balance (30) to below
+		// zero.
 		assert_noop!(
 			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 21),
 			Error::<Test>::BalanceLow
@@ -1370,8 +1488,52 @@ fn freezer_should_work() {
 
 		// and if we clear it, we can remove the account completely.
 		clear_frozen_balance(0, 1);
-		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 50));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 49));
 		assert_eq!(hooks(), vec![Hook::Died(0, 1)]);
+	});
+}
+
+#[test]
+fn freezing_and_holds_work() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_eq!(Assets::balance(0, 1), 100);
+
+		// Hold 50 of it
+		set_balance_on_hold(0, 1, 50);
+		assert_eq!(Assets::balance(0, 1), 50);
+		assert_eq!(TestHolder::balance_on_hold(0, &1), Some(50));
+
+		// Can freeze up to held + min_balance without affecting reducible
+		set_frozen_balance(0, 1, 59);
+		assert_eq!(Assets::reducible_balance(0, &1, true), Ok(40));
+		set_frozen_balance(0, 1, 61);
+		assert_eq!(Assets::reducible_balance(0, &1, true), Ok(39));
+
+		// Increasing hold is not necessarily restricted by the frozen balance
+		set_balance_on_hold(0, 1, 62);
+		assert_eq!(Assets::reducible_balance(0, &1, true), Ok(28));
+
+		// Transfers are bound to the spendable amount
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 29),
+			Error::<Test>::BalanceLow
+		);
+		// Approved transfers fail as well
+		Balances::make_free_balance_be(&1, 2);
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 29));
+		assert_noop!(
+			Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 2, 29),
+			Error::<Test>::BalanceLow
+		);
+		// Also forced transfers fail
+		assert_noop!(
+			Assets::force_transfer(RuntimeOrigin::signed(1), 0, 1, 2, 29),
+			Error::<Test>::BalanceLow
+		);
+		// ...but transferring up to spendable works
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 28));
 	});
 }
 
@@ -1732,6 +1894,31 @@ fn root_asset_create_should_work() {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
 		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_some());
 		assert!(storage::get(AssetsCallbackHandle::DESTROYED.as_bytes()).is_none());
+	});
+}
+
+#[test]
+fn asset_start_destroy_fails_if_there_are_holds_or_freezes() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		set_frozen_balance(0, 1, 50);
+		assert_noop!(
+			Assets::start_destroy(RuntimeOrigin::signed(1), 0),
+			Error::<Test>::ContainsFreezes
+		);
+
+		set_balance_on_hold(0, 1, 50);
+		assert_noop!(
+			Assets::start_destroy(RuntimeOrigin::signed(1), 0),
+			Error::<Test>::ContainsHolds
+		);
+
+		clear_frozen_balance(0, 1);
+		clear_balance_on_hold(0, 1);
+
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
 	});
 }
 
