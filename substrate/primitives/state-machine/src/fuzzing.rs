@@ -79,12 +79,8 @@ impl SimpleOverlay {
 		self.data.last_mut().expect("always at least one item").insert(key, value);
 	}
 
-	fn append<H>(
-		&mut self,
-		key: Vec<u8>,
-		value: Vec<u8>,
-		backend: &mut TrieBackend<H>,
-	) where
+	fn append<H>(&mut self, key: Vec<u8>, value: Vec<u8>, backend: &mut TrieBackend<H>)
+	where
 		H: Hasher + 'static,
 		H::Out: codec::Decode + codec::Encode + 'static,
 	{
