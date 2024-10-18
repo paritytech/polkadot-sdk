@@ -143,6 +143,11 @@ pub mod pallet {
 			]
 			.into();
 
+			// Deduct the reward from the claimable balance
+			RewardsMapping::<T>::mutate(account_id.clone(), |current_value| {
+				*current_value = current_value.saturating_sub(value);
+			});
+
 			let dest = Location::new(1, [Parachain(T::AssetHubParaId::get().into())]);
 			let (_xcm_hash, _) = send_xcm::<T::XcmSender>(dest, xcm).map_err(Error::<T>::from)?;
 
