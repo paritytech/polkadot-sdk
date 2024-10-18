@@ -9,16 +9,17 @@ on:
         type: string
 
       node_version:
-        description: Version of the polkadot node in the format vX.XX.X (e.g. 1.15.0)
+        description: Version of the polkadot node in the format X.XX.X (e.g. 1.15.0)
         required: true
 
 jobs:
-  # TODO: Activate this job when the pipeline is moved to the fork in the `paritytech-release` org
-  # check-workflow-can-run:
-  #   uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@latest
+  check-workflow-can-run:
+    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
 
 
   prepare-tooling:
+    needs: [check-workflow-can-run]
+    if: needs.check-workflow-can-run.outputs.checks_passed == 'true'
     runs-on: ubuntu-latest
     outputs:
       node_version: ${{ steps.validate_inputs.outputs.node_version }}
@@ -40,11 +41,9 @@ jobs:
           echo "stable_version=${stable_version}" >> $GITHUB_OUTPUT
 
   create-stable-branch:
-    # needs: [check-workflow-can-run, prepare-tooling]
     needs: [prepare-tooling]
-    # if: needs. check-workflow-can-run.outputs.checks_passed == 'true'
     runs-on: ubuntu-latest
-
+    environment: release
     env:
       PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
       PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
@@ -100,6 +99,6 @@ jobs:
           # Set new version for polkadot-parachain binary to match the polkadot node binary
           # set_polkadot_parachain_binary_version $NODE_VERSION "cumulus/polkadot-parachain/Cargo.toml"
 
-          reorder_prdocs $NODE_VERSION
+          reorder_prdocs $STABLE_BRANCH_NAME
 
           git push origin "$STABLE_BRANCH_NAME"

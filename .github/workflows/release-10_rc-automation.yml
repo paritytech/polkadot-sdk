@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Current release/rc version in format vX.X.X
+        description: Current release/rc version in format polkadot-stableYYMM
 
 jobs:
   tag_rc:
@@ -41,7 +41,7 @@ jobs:
           if [[ -z "${{ inputs.version }}" ]]; then
             version=v$(get_polkadot_node_version_from_code)
           else
-            version=$(filter_version_from_input ${{ inputs.version }})
+            version=$(validate_stable_tag ${{ inputs.version }})
           fi
           echo "$version"
           echo "version=$version" >> $GITHUB_OUTPUT

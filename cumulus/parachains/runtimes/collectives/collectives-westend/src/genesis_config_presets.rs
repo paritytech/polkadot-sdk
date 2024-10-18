@@ -18,9 +18,9 @@
 use crate::*;
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
-use parachains_common::{genesis_config_helpers::*, AccountId, AuraId};
-use sp_core::sr25519;
+use parachains_common::{AccountId, AuraId};
 use sp_genesis_builder::PresetId;
+use sp_keyring::Sr25519Keyring;
 use testnet_parachains_constants::westend::xcm_version::SAFE_XCM_VERSION;
 
 const COLLECTIVES_WESTEND_ED: Balance = ExistentialDeposit::get();
@@ -73,42 +73,20 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<
 		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => collectives_westend_genesis(
 			// initial collators.
 			vec![
-				(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed::<AuraId>("Alice"),
-				),
-				(
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_collator_keys_from_seed::<AuraId>("Bob"),
-				),
+				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
+				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
 			],
-			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie"),
-				get_account_id_from_seed::<sr25519::Public>("Dave"),
-				get_account_id_from_seed::<sr25519::Public>("Eve"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-			],
+			Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 			1001.into(),
 		),
 		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => collectives_westend_genesis(
 			// initial collators.
-			vec![(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_collator_keys_from_seed::<AuraId>("Alice"),
-			)],
+			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],
 			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+				Sr25519Keyring::Alice.to_account_id(),
+				Sr25519Keyring::Bob.to_account_id(),
+				Sr25519Keyring::AliceStash.to_account_id(),
+				Sr25519Keyring::BobStash.to_account_id(),
 			],
 			1001.into(),
 		),

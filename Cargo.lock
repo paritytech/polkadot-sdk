@@ -805,6 +805,7 @@ dependencies = [
  "parachains-common",
  "rococo-emulated-chain",
  "sp-core 28.0.0",
+ "sp-keyring",
  "staging-xcm",
  "testnet-parachains-constants",
 ]
@@ -830,6 +831,7 @@ dependencies = [
  "polkadot-runtime-common",
  "rococo-runtime-constants",
  "rococo-system-emulated-network",
+ "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "staging-xcm",
  "staging-xcm-executor",
@@ -904,6 +906,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-genesis-builder",
  "sp-inherents",
+ "sp-keyring",
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
@@ -931,6 +934,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core 28.0.0",
+ "sp-keyring",
  "staging-xcm",
  "testnet-parachains-constants",
  "westend-emulated-chain",
@@ -960,7 +964,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-runtime-common",
  "sp-core 28.0.0",
- "sp-keyring",
  "sp-runtime 31.0.1",
  "staging-xcm",
  "staging-xcm-executor",
@@ -1036,6 +1039,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-genesis-builder",
  "sp-inherents",
+ "sp-keyring",
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
@@ -2165,6 +2169,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core 28.0.0",
+ "sp-keyring",
  "staging-xcm",
  "testnet-parachains-constants",
 ]
@@ -2356,6 +2361,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core 28.0.0",
+ "sp-keyring",
  "staging-xcm",
  "testnet-parachains-constants",
 ]
@@ -3145,6 +3151,7 @@ dependencies = [
  "sp-genesis-builder",
  "sp-inherents",
  "sp-io 30.0.0",
+ "sp-keyring",
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
@@ -5521,6 +5528,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-beefy",
  "sp-core 28.0.0",
+ "sp-keyring",
  "sp-runtime 31.0.1",
  "staging-xcm",
  "xcm-emulator",
@@ -13409,6 +13417,7 @@ dependencies = [
  "parachains-common",
  "penpal-runtime",
  "sp-core 28.0.0",
+ "sp-keyring",
  "staging-xcm",
 ]
 
@@ -14964,6 +14973,7 @@ dependencies = [
  "serde_json",
  "sp-core 28.0.0",
  "sp-genesis-builder",
+ "sp-keyring",
  "staging-xcm",
  "substrate-build-script-utils",
 ]
@@ -17658,6 +17668,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-beefy",
  "sp-core 28.0.0",
+ "sp-keyring",
 ]
 
 [[package]]
@@ -18458,6 +18469,7 @@ dependencies = [
  "sc-service",
  "sc-telemetry",
  "sc-tracing",
+ "sc-transaction-pool",
  "sc-utils",
  "serde",
  "serde_json",
@@ -19802,6 +19814,8 @@ dependencies = [
  "criterion",
  "futures",
  "futures-timer",
+ "indexmap 2.6.0",
+ "itertools 0.11.0",
  "linked-hash-map",
  "log",
  "parity-scale-codec",
@@ -19824,6 +19838,8 @@ dependencies = [
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
  "thiserror",
+ "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
@@ -23309,6 +23325,7 @@ dependencies = [
  "serde",
  "serde_json",
  "soketto 0.8.0",
+ "sp-keyring",
  "staging-node-inspect",
  "substrate-cli-test-utils",
  "tempfile",
@@ -23894,6 +23911,7 @@ name = "substrate-test-runtime-transaction-pool"
 version = "2.0.0"
 dependencies = [
  "futures",
+ "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "sc-transaction-pool",
