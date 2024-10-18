@@ -36,7 +36,7 @@ use frame_support::{
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
-use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
+use sp_runtime::traits::{Block as BlockT, ExtrinsicLike, HashingFor, Header as HeaderT};
 use sp_trie::{MemoryDB, ProofSizeProvider};
 use trie_recorder::SizeOnlyRecorderProvider;
 
@@ -99,7 +99,7 @@ pub fn validate_block<
 ) -> ValidationResult
 where
 	B::Extrinsic: ExtrinsicCall,
-	<B::Extrinsic as Extrinsic>::Call: IsSubType<crate::Call<PSC>>,
+	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
 	let _guard = (
 		// Replace storage calls with our own implementations
@@ -264,16 +264,13 @@ fn extract_parachain_inherent_data<B: BlockT, PSC: crate::Config>(
 ) -> &ParachainInherentData
 where
 	B::Extrinsic: ExtrinsicCall,
-	<B::Extrinsic as Extrinsic>::Call: IsSubType<crate::Call<PSC>>,
+	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
 	block
 		.extrinsics()
 		.iter()
 		// Inherents are at the front of the block and are unsigned.
-		//
-		// If `is_signed` is returning `None`, we keep it safe and assume that it is "signed".
-		// We are searching for unsigned transactions anyway.
-		.take_while(|e| !e.is_signed().unwrap_or(true))
+		.take_while(|e| e.is_bare())
 		.filter_map(|e| e.call().is_sub_type())
 		.find_map(|c| match c {
 			crate::Call::set_validation_data { data: validation_data } => Some(validation_data),
