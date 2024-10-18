@@ -20,8 +20,49 @@ use crate::{
 	verifier::{impls::pallet::*, *},
 	Phase,
 };
-use frame_support::assert_noop;
+use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_npos_elections::ElectionScore;
+use sp_runtime::Perbill;
+
+#[test]
+fn ensure_score_quality_works() {
+	ExtBuilder::default()
+		.solution_improvements_threshold(Perbill::from_percent(10))
+		.build_and_execute(|| {
+			assert_eq!(MinimumScore::<T>::get(), Default::default());
+			assert!(<Pallet<T> as Verifier>::queued_score().is_none());
+
+			// if minimum score is not set and there's no queued score, any score has quality.
+			assert_ok!(Pallet::<T>::ensure_score_quality(ElectionScore {
+				minimal_stake: 1,
+				sum_stake: 1,
+				sum_stake_squared: 1
+			}));
+
+			// if minimum score is set, the score being evaluated must be higher than the minimum
+			// score.
+			MinimumScore::<T>::set(
+				ElectionScore { minimal_stake: 10, sum_stake: 20, sum_stake_squared: 300 }.into(),
+			);
+
+			// score is not higher than minimum score.
+			assert_err!(
+				Pallet::<T>::ensure_score_quality(ElectionScore {
+					minimal_stake: 1,
+					sum_stake: 1,
+					sum_stake_squared: 1,
+				}),
+				FeasibilityError::ScoreTooLow
+			);
+
+			// if score improves the current one by the minimum solution improvement, we're gold.
+			assert_ok!(Pallet::<T>::ensure_score_quality(ElectionScore {
+				minimal_stake: 11,
+				sum_stake: 22,
+				sum_stake_squared: 300
+			}));
+		})
+}
 
 mod solution {
 	use super::*;

@@ -313,7 +313,7 @@ impl<T: Config> Pallet<T> {
 					})?;
 
 				// submit page only if full score improves the current queued score.
-				if <T::Verifier as Verifier>::ensure_score_improves(full_score) {
+				if <T::Verifier as Verifier>::ensure_score_quality(full_score) {
 					OffchainWorkerMiner::<T>::submit_paged_call(
 						page,
 						partial_solution,
@@ -350,7 +350,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(page <= crate::Pallet::<T>::msp(), ());
 
 		// full solution score check.
-		ensure!(<T::Verifier as Verifier>::ensure_score_improves(*claimed_full_score), ());
+		ensure!(<T::Verifier as Verifier>::ensure_score_quality(*claimed_full_score), ());
 
 		Ok(())
 	}

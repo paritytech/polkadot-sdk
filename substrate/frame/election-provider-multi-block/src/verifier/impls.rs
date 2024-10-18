@@ -146,7 +146,6 @@ pub(crate) mod pallet {
 			Self::mutate_checked(|| {
 				QueuedValidVariant::<T>::mutate(|v| *v = v.other());
 				QueuedSolutionScore::<T>::put(score);
-				// TODO: should clear the invalid backings too?
 			})
 		}
 
@@ -324,7 +323,7 @@ impl<T: Config + impls::pallet::Config> Verifier for Pallet<T> {
 		QueuedSolution::<T>::queued_score()
 	}
 
-	fn ensure_score_improves(claimed_score: ElectionScore) -> bool {
+	fn ensure_score_quality(claimed_score: ElectionScore) -> bool {
 		Self::ensure_score_quality(claimed_score).is_ok()
 	}
 
@@ -639,6 +638,8 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		outcome
 	}
 
+	/// Checks if `score` improves the current queued score by `T::SolutionImprovementThreshold` and
+	/// that it is higher than `MinimumScore`.
 	pub fn ensure_score_quality(score: ElectionScore) -> Result<(), FeasibilityError> {
 		let is_improvement = <Self as Verifier>::queued_score().map_or(true, |best_score| {
 			score.strict_threshold_better(best_score, T::SolutionImprovementThreshold::get())
@@ -647,8 +648,8 @@ impl<T: impls::pallet::Config> Pallet<T> {
 
 		let is_greater_than_min_trusted = MinimumScore::<T>::get()
 			.map_or(true, |min_score| score.strict_threshold_better(min_score, Perbill::zero()));
-		ensure!(is_greater_than_min_trusted, FeasibilityError::ScoreTooLow);
 
+		ensure!(is_greater_than_min_trusted, FeasibilityError::ScoreTooLow);
 		Ok(())
 	}
 

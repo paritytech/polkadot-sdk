@@ -292,10 +292,9 @@ pub mod pallet {
 			debug_assert!(!SubmissionMetadataStorage::<T>::contains_key(round, who));
 
 			// the submission score must be higher than the minimum trusted score. Note that since
-			// there is no queued solution yet, the check is performed against the minimum score
-			// only. TODO: consider rename `ensure_score_improves`.
+			// there is no queued solution yet, the check is performed against the minimum score.
 			ensure!(
-				<T::Verifier as Verifier>::ensure_score_improves(metadata.claimed_score),
+				<T::Verifier as Verifier>::ensure_score_quality(metadata.claimed_score),
 				Error::<T>::SubmissionScoreTooLow,
 			);
 

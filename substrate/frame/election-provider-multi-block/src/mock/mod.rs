@@ -323,6 +323,11 @@ impl ExtBuilder {
 		self
 	}
 
+	pub(crate) fn solution_improvements_threshold(self, threshold: Perbill) -> Self {
+		SolutionImprovementThreshold::set(threshold);
+		self
+	}
+
 	pub(crate) fn verifier() -> Self {
 		ExtBuilder { with_verifier: true }
 	}

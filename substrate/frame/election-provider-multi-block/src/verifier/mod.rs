@@ -198,8 +198,9 @@ pub trait Verifier {
 	/// Returns `None` if not score is queued.
 	fn queued_score() -> Option<ElectionScore>;
 
-	/// Check if a claimed score improves the current queued score.
-	fn ensure_score_improves(claimed_score: ElectionScore) -> bool;
+	/// Check if a claimed score improves the current queued score or if it is higher than a
+	/// potential minimum score.
+	fn ensure_score_quality(claimed_score: ElectionScore) -> bool;
 
 	/// Returns the next missing solution page.
 	fn next_missing_solution_page() -> Option<PageIndex>;
