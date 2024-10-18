@@ -78,6 +78,18 @@ pub fn expand_runtime_metadata(
 		})
 		.collect::<Vec<_>>();
 
+	let queries = pallet_declarations.iter().map(|decl| {
+		let name = &decl.name;
+		let path = &decl.path;
+		let instance = decl.instance.as_ref().into_iter();
+
+		quote! {
+			#path::Pallet::<#runtime #(, #path::#instance)*>::pallet_queries_metadata(
+				::core::stringify!(#name)
+			)
+		}
+	});
+
 	quote! {
 		impl #runtime {
 			fn metadata_ir() -> #scrate::__private::metadata_ir::MetadataIR {
@@ -143,6 +155,12 @@ pub fn expand_runtime_metadata(
 							>(),
 						event_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeEvent>(),
 						error_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeError>(),
+					},
+					query: #scrate::__private::metadata_ir::RuntimeQueryIR {
+						ty: #scrate::__private::scale_info::meta_type::<
+							<#runtime as #system_path::Config>::RuntimeQuery
+						>(),
+						interfaces: #scrate::__private::sp_std::vec![ #(#queries),* ],
 					}
 				}
 			}

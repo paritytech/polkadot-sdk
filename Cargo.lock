@@ -11631,6 +11631,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-example-view-functions"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "pallet-examples"
 version = "4.0.0-dev"
 dependencies = [
@@ -11643,6 +11659,7 @@ dependencies = [
  "pallet-example-single-block-migrations",
  "pallet-example-split",
  "pallet-example-tasks",
+ "pallet-example-view-functions",
 ]
 
 [[package]]

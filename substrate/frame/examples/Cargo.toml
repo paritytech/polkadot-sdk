@@ -25,6 +25,8 @@ pallet-example-offchain-worker = { workspace = true }
 pallet-example-split = { workspace = true }
 pallet-example-single-block-migrations = { workspace = true }
 pallet-example-tasks = { workspace = true }
+pallet-example-view-functions = { workspace = true }
+
 
 [features]
 default = ["std"]
@@ -38,6 +40,7 @@ std = [
 	"pallet-example-single-block-migrations/std",
 	"pallet-example-split/std",
 	"pallet-example-tasks/std",
+	"pallet-example-view-functions/std",
 ]
 try-runtime = [
 	"pallet-default-config-example/try-runtime",
@@ -48,4 +51,5 @@ try-runtime = [
 	"pallet-example-single-block-migrations/try-runtime",
 	"pallet-example-split/try-runtime",
 	"pallet-example-tasks/try-runtime",
+	"pallet-example-view-functions/try-runtime",
 ]
