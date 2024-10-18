@@ -242,7 +242,7 @@ impl CoretimeInterface for CoretimeAllocator {
 			);
 
 			// Set the parts of the `Idle` assignment we injected at the start of the vec above.
-			assignment_truncated[0].1 = 57_600u16.saturating_sub(total_parts);
+			assignment_truncated[0].1 = PartsOf57600::FULL.saturating_sub(total_parts);
 			assignment_truncated
 		} else {
 			assignment
