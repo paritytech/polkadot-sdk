@@ -10,7 +10,7 @@ async function run(nodeName, networkInfo) {
 
     await new Promise(async (resolve, _) => {
         let block_count = 0;
-        const unsubscribe = await api.query.system.events((events) => {
+        const unsubscribe = await api.query.system.events(async (events, block_hash) => {
             block_count++;
 
             events.forEach((record) => {
@@ -21,11 +21,13 @@ async function run(nodeName, networkInfo) {
                 }
 
                 let included_para_id = parse_pjs_int(event.toHuman().data[0].descriptor.paraId);
+                let relay_parent = event.toHuman().data[0].descriptor.relayParent;
                 if (blocks_per_para[included_para_id] == undefined) {
                     blocks_per_para[included_para_id] = 1;
                 } else {
                     blocks_per_para[included_para_id]++;
                 }
+                console.log(`CandidateIncluded for ${included_para_id}: block_offset=${block_count} relay_parent=${relay_parent}`);
             });
 
             if (block_count == 12) {
@@ -36,7 +38,7 @@ async function run(nodeName, networkInfo) {
     });
 
     console.log(`Result: 2000: ${blocks_per_para[2000]}, 2001: ${blocks_per_para[2001]}`);
-    return (blocks_per_para[2000] == 6 && blocks_per_para[2001] == 1);
+    return (blocks_per_para[2000] == 3 * blocks_per_para[2001]);
 }
 
 module.exports = { run };

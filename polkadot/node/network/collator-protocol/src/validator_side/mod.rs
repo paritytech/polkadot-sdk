@@ -2035,6 +2035,7 @@ fn seconded_and_pending_for_para_in_view(
 				?ancestors,
 				?relay_parent,
 				?para_id,
+				claim_queue_len,
 				"seconded_and_pending_for_para_in_view"
 			);
 			ancestors.iter().take(claim_queue_len).fold(0, |res, anc| {

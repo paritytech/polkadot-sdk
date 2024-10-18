@@ -6,8 +6,9 @@ timeout = 1000
   allowed_ancestry_len = 2
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
-  max_validators_per_core = 1
-  num_cores = 4
+  max_validators_per_core = 4
+  num_cores = 1
+  lookahead = 3
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]
   needed_approvals = 3
@@ -19,7 +20,7 @@ command = "polkadot"
 
   [[relaychain.node_groups]]
   name = "validator"
-  args = ["-lparachain=info,parachain::collator-protocol=trace" ]
+  args = ["-lparachain=debug,parachain::collator-protocol=trace" ]
   count = 4
 
 {% for id in range(2000,2002) %}
