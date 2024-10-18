@@ -103,11 +103,11 @@ pub trait Config {
 impl<T: Config> OnChainExecution<T> {
 	fn elect_with(
 		bounds: ElectionBounds,
-		remaining: PageIndex,
+		page: PageIndex,
 	) -> Result<BoundedSupportsOf<Self>, Error> {
-		let (voters, targets) = T::DataProvider::electing_voters(bounds.voters, remaining)
+		let (voters, targets) = T::DataProvider::electing_voters(bounds.voters, page)
 			.and_then(|voters| {
-				Ok((voters, T::DataProvider::electable_targets(bounds.targets, remaining)?))
+				Ok((voters, T::DataProvider::electable_targets(bounds.targets, page)?))
 			})
 			.map_err(Error::DataProvider)?;
 
@@ -179,8 +179,8 @@ impl<T: Config> ElectionProvider for OnChainExecution<T> {
 	type Pages = sp_core::ConstU32<1>;
 	type DataProvider = T::DataProvider;
 
-	fn elect(remaining_pages: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		if remaining_pages > 0 {
+	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+		if page > 0 {
 			return Err(Error::SinglePageExpected)
 		}
 
@@ -285,7 +285,7 @@ mod tests {
 			type MaxVotesPerVoter = ConstU32<2>;
 			fn electing_voters(
 				_: DataProviderBounds,
-				_remaining_pages: PageIndex,
+				_page: PageIndex,
 			) -> data_provider::Result<Vec<VoterOf<Self>>> {
 				Ok(vec![
 					(1, 10, bounded_vec![10, 20]),
@@ -296,7 +296,7 @@ mod tests {
 
 			fn electable_targets(
 				_: DataProviderBounds,
-				_remaining_pages: PageIndex,
+				_page: PageIndex,
 			) -> data_provider::Result<Vec<AccountId>> {
 				Ok(vec![10, 20, 30])
 			}
