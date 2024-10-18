@@ -335,14 +335,14 @@ pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	crate::AssetConversion,
 	crate::NativeAndAssets,
 	(
-		TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance, xcm::v4::Location>,
+		TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance, xcm::v5::Location>,
 		ForeignAssetsConvertedConcreteId,
 		// `ForeignAssetsConvertedConcreteId` excludes the relay token, so we add it back here.
 		MatchedConvertedConcreteId<
-			xcm::v4::Location,
+			xcm::v5::Location,
 			Balance,
 			Equals<ParentLocation>,
-			WithLatestLocationConverter<xcm::v4::Location>,
+			WithLatestLocationConverter<xcm::v5::Location>,
 			TryConvertInto,
 		>,
 	),
@@ -361,8 +361,8 @@ impl xcm_executor::Config for XcmConfig {
 	// to the Westend ecosystem. We also allow Ethereum contracts to act as reserves for the foreign
 	// assets identified by the same respective contracts locations.
 	type IsReserve = (
-		bridging::to_westend::WestendAssetFromAssetHubWestend,
-		bridging::to_ethereum::IsTrustedBridgedReserveLocationForForeignAsset,
+		bridging::to_westend::WestendOrEthereumAssetFromAssetHubWestend,
+		bridging::to_ethereum::EthereumAssetFromEthereum,
 	);
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
@@ -517,6 +517,7 @@ pub type ForeignCreatorsSovereignAccountOf = (
 	AccountId32Aliases<RelayNetwork, AccountId>,
 	ParentIsPreset<AccountId>,
 	GlobalConsensusEthereumConvertsFor<AccountId>,
+	GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
 );
 
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
@@ -589,7 +590,9 @@ pub mod bridging {
 			);
 
 			pub const WestendNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
+			pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 			pub WestendEcosystem: Location = Location::new(2, [GlobalConsensus(WestendNetwork::get())]);
+			pub EthereumEcosystem: Location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 			pub WndLocation: Location = Location::new(2, [GlobalConsensus(WestendNetwork::get())]);
 			pub AssetHubWestend: Location = Location::new(2, [
 				GlobalConsensus(WestendNetwork::get()),
@@ -627,9 +630,12 @@ pub mod bridging {
 			}
 		}
 
-		/// Allow any asset native to the Westend ecosystem if it comes from Westend Asset Hub.
-		pub type WestendAssetFromAssetHubWestend =
-			matching::RemoteAssetFromLocation<StartsWith<WestendEcosystem>, AssetHubWestend>;
+		/// Allow any asset native to the Westend or Ethereum ecosystems if it comes from Westend
+		/// Asset Hub.
+		pub type WestendOrEthereumAssetFromAssetHubWestend = matching::RemoteAssetFromLocation<
+			(StartsWith<WestendEcosystem>, StartsWith<EthereumEcosystem>),
+			AssetHubWestend,
+		>;
 	}
 
 	pub mod to_ethereum {
@@ -672,7 +678,7 @@ pub mod bridging {
 			);
 		}
 
-		pub type IsTrustedBridgedReserveLocationForForeignAsset =
+		pub type EthereumAssetFromEthereum =
 			IsForeignConcreteAsset<FromNetwork<UniversalLocation, EthereumNetwork>>;
 
 		impl Contains<(Location, Junction)> for UniversalAliases {

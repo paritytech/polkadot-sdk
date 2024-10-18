@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -691,6 +691,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
+	#[builder(pays_fees)]
 	BuyExecution { fees: Asset, weight_limit: WeightLimit },
 
 	/// Refund any surplus weight previously bought with `BuyExecution`.
@@ -1039,6 +1040,13 @@ pub enum Instruction<Call> {
 	///
 	/// Errors: If the given origin is `Some` and not equal to the current Origin register.
 	UnpaidExecution { weight_limit: WeightLimit, check_origin: Option<Location> },
+
+	/// Pay Fees.
+	///
+	/// Successor to `BuyExecution`.
+	/// Defined in fellowship RFC 105.
+	#[builder(pays_fees)]
+	PayFees { asset: Asset },
 }
 
 impl<Call> Xcm<Call> {
@@ -1116,6 +1124,7 @@ impl<Call> Instruction<Call> {
 			AliasOrigin(location) => AliasOrigin(location),
 			UnpaidExecution { weight_limit, check_origin } =>
 				UnpaidExecution { weight_limit, check_origin },
+			PayFees { asset } => PayFees { asset },
 		}
 	}
 }
@@ -1185,6 +1194,7 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			AliasOrigin(location) => W::alias_origin(location),
 			UnpaidExecution { weight_limit, check_origin } =>
 				W::unpaid_execution(weight_limit, check_origin),
+			PayFees { asset } => W::pay_fees(asset),
 		}
 	}
 }

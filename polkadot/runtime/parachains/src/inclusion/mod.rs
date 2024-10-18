@@ -440,6 +440,11 @@ pub(crate) enum UmpAcceptanceCheckErr {
 	TotalSizeExceeded { total_size: u64, limit: u64 },
 	/// A para-chain cannot send UMP messages while it is offboarding.
 	IsOffboarding,
+	/// The allowed number of `UMPSignal` messages in the queue was exceeded.
+	/// Currenly only one such message is allowed.
+	TooManyUMPSignals { count: u32 },
+	/// The UMP queue contains an invalid `UMPSignal`
+	NoUmpSignal,
 }
 
 impl fmt::Debug for UmpAcceptanceCheckErr {
@@ -467,6 +472,12 @@ impl fmt::Debug for UmpAcceptanceCheckErr {
 			),
 			UmpAcceptanceCheckErr::IsOffboarding => {
 				write!(fmt, "upward message rejected because the para is off-boarding")
+			},
+			UmpAcceptanceCheckErr::TooManyUMPSignals { count } => {
+				write!(fmt, "the ump queue has too many `UMPSignal` messages ({} > 1 )", count)
+			},
+			UmpAcceptanceCheckErr::NoUmpSignal => {
+				write!(fmt, "Required UMP signal not found")
 			},
 		}
 	}
@@ -935,6 +946,27 @@ impl<T: Config> Pallet<T> {
 		para: ParaId,
 		upward_messages: &[UpwardMessage],
 	) -> Result<(), UmpAcceptanceCheckErr> {
+		// Filter any pending UMP signals and the separator.
+		let upward_messages = if let Some(separator_index) =
+			upward_messages.iter().position(|message| message.is_empty())
+		{
+			let (upward_messages, ump_signals) = upward_messages.split_at(separator_index);
+
+			if ump_signals.len() > 2 {
+				return Err(UmpAcceptanceCheckErr::TooManyUMPSignals {
+					count: ump_signals.len() as u32,
+				})
+			}
+
+			if ump_signals.len() == 1 {
+				return Err(UmpAcceptanceCheckErr::NoUmpSignal)
+			}
+
+			upward_messages
+		} else {
+			upward_messages
+		};
+
 		// Cannot send UMP messages while off-boarding.
 		if paras::Pallet::<T>::is_offboarding(para) {
 			ensure!(upward_messages.is_empty(), UmpAcceptanceCheckErr::IsOffboarding);
@@ -989,11 +1021,12 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn receive_upward_messages(para: ParaId, upward_messages: &[Vec<u8>]) {
 		let bounded = upward_messages
 			.iter()
+			// Stop once we hit the `UMPSignal` separator.
+			.take_while(|message| !message.is_empty())
 			.filter_map(|d| {
 				BoundedSlice::try_from(&d[..])
-					.map_err(|e| {
+					.inspect_err(|_| {
 						defensive!("Accepted candidate contains too long msg, len=", d.len());
-						e
 					})
 					.ok()
 			})
@@ -1258,17 +1291,17 @@ impl<T: Config> CandidateCheckContext<T> {
 		let relay_parent = backed_candidate_receipt.descriptor.relay_parent();
 
 		// Check that the relay-parent is one of the allowed relay-parents.
-		let (relay_parent_storage_root, relay_parent_number) = {
+		let (state_root, relay_parent_number) = {
 			match allowed_relay_parents.acquire_info(relay_parent, self.prev_context) {
 				None => return Err(Error::<T>::DisallowedRelayParent),
-				Some(info) => info,
+				Some((info, relay_parent_number)) => (info.state_root, relay_parent_number),
 			}
 		};
 
 		{
 			let persisted_validation_data = make_persisted_validation_data_with_parent::<T>(
 				relay_parent_number,
-				relay_parent_storage_root,
+				state_root,
 				parent_head_data,
 			);
 

@@ -1,0 +1,11 @@
+title: Fix storage in pallet section
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fix compilation of `pallet::storage` in a pallet section: a local binding definition was not
+      correctly referenced due to macro hygiene.
+
+crates:
+  - name: frame-support-procedural
+    bump: patch

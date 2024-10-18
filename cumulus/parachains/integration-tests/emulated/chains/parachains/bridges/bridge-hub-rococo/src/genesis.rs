@@ -14,13 +14,15 @@
 // limitations under the License.
 
 // Substrate
-use sp_core::{sr25519, storage::Storage};
+use sp_core::storage::Storage;
+use sp_keyring::Sr25519Keyring as Keyring;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators, get_account_id_from_seed, SAFE_XCM_VERSION,
+	accounts, build_genesis_storage, collators, SAFE_XCM_VERSION,
 };
 use parachains_common::Balance;
+use xcm::latest::prelude::*;
 
 pub const ASSETHUB_PARA_ID: u32 = 1000;
 pub const PARA_ID: u32 = 1013;
@@ -59,11 +61,22 @@ pub fn genesis() -> Storage {
 			..Default::default()
 		},
 		bridge_westend_grandpa: bridge_hub_rococo_runtime::BridgeWestendGrandpaConfig {
-			owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+			owner: Some(Keyring::Bob.to_account_id()),
 			..Default::default()
 		},
 		bridge_westend_messages: bridge_hub_rococo_runtime::BridgeWestendMessagesConfig {
-			owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+			owner: Some(Keyring::Bob.to_account_id()),
+			..Default::default()
+		},
+		xcm_over_bridge_hub_westend: bridge_hub_rococo_runtime::XcmOverBridgeHubWestendConfig {
+			opened_bridges: vec![
+				// open AHR -> AHW bridge
+				(
+					Location::new(1, [Parachain(1000)]),
+					Junctions::from([Westend.into(), Parachain(1000)]),
+					Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
+				),
+			],
 			..Default::default()
 		},
 		ethereum_system: bridge_hub_rococo_runtime::EthereumSystemConfig {

@@ -19,7 +19,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_messages::LaneId;
+use bp_messages::LaneIdType;
 use bp_runtime::{AccountIdOf, BalanceOf, Chain};
 pub use call_info::XcmBridgeHubCall;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -63,7 +63,6 @@ pub type XcmAsPlainPayload = sp_std::vec::Vec<u8>;
 	Ord,
 	PartialOrd,
 	PartialEq,
-	RuntimeDebug,
 	TypeInfo,
 	MaxEncodedLen,
 	Serialize,
@@ -87,6 +86,12 @@ impl BridgeId {
 				.using_encoded(blake2_256)
 				.into(),
 		)
+	}
+}
+
+impl core::fmt::Debug for BridgeId {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		core::fmt::Debug::fmt(&self.0, f)
 	}
 }
 
@@ -149,8 +154,8 @@ pub enum BridgeState {
 #[derive(
 	CloneNoBound, Decode, Encode, Eq, PartialEqNoBound, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound,
 )]
-#[scale_info(skip_type_params(ThisChain))]
-pub struct Bridge<ThisChain: Chain> {
+#[scale_info(skip_type_params(ThisChain, LaneId))]
+pub struct Bridge<ThisChain: Chain, LaneId: LaneIdType> {
 	/// Relative location of the bridge origin chain. This is expected to be **convertible** to the
 	/// `latest` XCM, so the check and migration needs to be ensured.
 	pub bridge_origin_relative_location: Box<VersionedLocation>,
@@ -204,6 +209,8 @@ pub enum BridgeLocationsError {
 	UnsupportedDestinationLocation,
 	/// The version of XCM location argument is unsupported.
 	UnsupportedXcmVersion,
+	/// The `LaneIdType` generator is not supported.
+	UnsupportedLaneIdType,
 }
 
 impl BridgeLocations {
@@ -318,7 +325,7 @@ impl BridgeLocations {
 	/// Generates the exact same `LaneId` on the both bridge hubs.
 	///
 	/// Note: Use this **only** when opening a new bridge.
-	pub fn calculate_lane_id(
+	pub fn calculate_lane_id<LaneId: LaneIdType>(
 		&self,
 		xcm_version: XcmVersion,
 	) -> Result<LaneId, BridgeLocationsError> {
@@ -341,10 +348,11 @@ impl BridgeLocations {
 				.into_version(xcm_version)
 				.map_err(|_| BridgeLocationsError::UnsupportedXcmVersion);
 
-		Ok(LaneId::new(
+		LaneId::try_new(
 			EncodedVersionedInteriorLocation(universal_location1.encode()),
 			EncodedVersionedInteriorLocation(universal_location2.encode()),
-		))
+		)
+		.map_err(|_| BridgeLocationsError::UnsupportedLaneIdType)
 	}
 }
 
@@ -591,6 +599,8 @@ mod tests {
 
 	#[test]
 	fn calculate_lane_id_works() {
+		type TestLaneId = bp_messages::HashedLaneId;
+
 		let from_local_to_remote = run_successful_test(SuccessfulTest {
 			here_universal_location: [GlobalConsensus(LOCAL_NETWORK), Parachain(LOCAL_BRIDGE_HUB)]
 				.into(),
@@ -632,12 +642,12 @@ mod tests {
 		});
 
 		assert_ne!(
-			from_local_to_remote.calculate_lane_id(xcm::latest::VERSION),
-			from_remote_to_local.calculate_lane_id(xcm::latest::VERSION - 1),
+			from_local_to_remote.calculate_lane_id::<TestLaneId>(xcm::latest::VERSION),
+			from_remote_to_local.calculate_lane_id::<TestLaneId>(xcm::latest::VERSION - 1),
 		);
 		assert_eq!(
-			from_local_to_remote.calculate_lane_id(xcm::latest::VERSION),
-			from_remote_to_local.calculate_lane_id(xcm::latest::VERSION),
+			from_local_to_remote.calculate_lane_id::<TestLaneId>(xcm::latest::VERSION),
+			from_remote_to_local.calculate_lane_id::<TestLaneId>(xcm::latest::VERSION),
 		);
 	}
 

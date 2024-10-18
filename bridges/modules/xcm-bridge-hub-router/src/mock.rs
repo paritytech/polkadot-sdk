@@ -130,6 +130,10 @@ impl SendXcm for TestToBridgeHubSender {
 }
 
 impl InspectMessageQueues for TestToBridgeHubSender {
+	fn clear_messages() {
+		SENT_XCM.with(|q| q.borrow_mut().clear());
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		SENT_XCM.with(|q| {
 			(*q.borrow())
@@ -137,8 +141,8 @@ impl InspectMessageQueues for TestToBridgeHubSender {
 				.iter()
 				.map(|(location, message)| {
 					(
-						VersionedLocation::V5(location.clone()),
-						vec![VersionedXcm::V5(message.clone())],
+						VersionedLocation::from(location.clone()),
+						vec![VersionedXcm::from(message.clone())],
 					)
 				})
 				.collect()

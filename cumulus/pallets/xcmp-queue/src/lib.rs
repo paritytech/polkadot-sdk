@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -1008,6 +1008,11 @@ impl<T: Config> SendXcm for Pallet<T> {
 }
 
 impl<T: Config> InspectMessageQueues for Pallet<T> {
+	fn clear_messages() {
+		// Best effort.
+		let _ = OutboundXcmpMessages::<T>::clear(u32::MAX, None);
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		use xcm::prelude::*;
 
@@ -1031,7 +1036,7 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 				}
 
 				(
-					VersionedLocation::V5((Parent, Parachain(para_id.into())).into()),
+					VersionedLocation::from(Location::new(1, Parachain(para_id.into()))),
 					decoded_messages,
 				)
 			})

@@ -17,9 +17,11 @@ use crate::imports::*;
 
 mod asset_transfers;
 mod claim_assets;
+mod register_bridged_assets;
 mod send_xcm;
-mod snowbridge;
 mod teleport;
+
+mod snowbridge;
 
 pub(crate) fn asset_hub_rococo_location() -> Location {
 	Location::new(
@@ -58,10 +60,10 @@ pub(crate) fn bridged_roc_at_ah_westend() -> Location {
 }
 
 // USDT and wUSDT
-pub(crate) fn usdt_at_ah_rococo() -> Location {
+pub(crate) fn usdt_at_ah_westend() -> Location {
 	Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())])
 }
-pub(crate) fn bridged_usdt_at_ah_westend() -> Location {
+pub(crate) fn bridged_usdt_at_ah_rococo() -> Location {
 	Location::new(
 		2,
 		[
@@ -257,17 +259,6 @@ pub(crate) fn open_bridge_between_asset_hub_rococo_and_asset_hub_westend() {
 			)),
 		)),
 	);
-	BridgeHubRococo::execute_with(|| {
-		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			BridgeHubRococo,
-			vec![
-				RuntimeEvent::XcmOverBridgeHubWestend(
-					pallet_xcm_bridge_hub::Event::BridgeOpened { .. }
-				) => {},
-			]
-		);
-	});
 
 	// open AHW -> AHR
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), WND * 5);
@@ -281,15 +272,4 @@ pub(crate) fn open_bridge_between_asset_hub_rococo_and_asset_hub_westend() {
 			)),
 		)),
 	);
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![
-				RuntimeEvent::XcmOverBridgeHubRococo(
-					pallet_xcm_bridge_hub::Event::BridgeOpened { .. }
-				) => {},
-			]
-		);
-	});
 }

@@ -138,6 +138,9 @@ impl<Call> XcmWeightInfo<Call> for CoretimeRococoXcmWeight<Call> {
 	fn buy_execution(_fees: &Asset, _weight_limit: &WeightLimit) -> Weight {
 		XcmGeneric::<Runtime>::buy_execution()
 	}
+	fn pay_fees(_asset: &Asset) -> Weight {
+		XcmGeneric::<Runtime>::pay_fees()
+	}
 	fn refund_surplus() -> Weight {
 		XcmGeneric::<Runtime>::refund_surplus()
 	}

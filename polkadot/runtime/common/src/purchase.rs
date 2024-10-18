@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Pallet to process purchase of DOTs.
 
@@ -479,7 +479,8 @@ where
 mod tests {
 	use super::*;
 
-	use sp_core::{crypto::AccountId32, ed25519, Pair, Public, H256};
+	use sp_core::{crypto::AccountId32, H256};
+	use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
 	// The testing primitives are very useful for avoiding having to work with signatures
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 	use crate::purchase;
@@ -488,10 +489,9 @@ mod tests {
 		traits::{Currency, WithdrawReasons},
 	};
 	use sp_runtime::{
-		traits::{BlakeTwo256, Dispatchable, IdentifyAccount, Identity, IdentityLookup, Verify},
+		traits::{BlakeTwo256, Dispatchable, Identity, IdentityLookup},
 		ArithmeticError, BuildStorage,
 		DispatchError::BadOrigin,
-		MultiSignature,
 	};
 
 	type Block = frame_system::mocking::MockBlock<Test>;
@@ -602,33 +602,16 @@ mod tests {
 		Balances::make_free_balance_be(&payment_account(), 100_000);
 	}
 
-	type AccountPublic = <MultiSignature as Verify>::Signer;
-
-	/// Helper function to generate a crypto pair from seed
-	fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-		TPublic::Pair::from_string(&format!("//{}", seed), None)
-			.expect("static values are valid; qed")
-			.public()
-	}
-
-	/// Helper function to generate an account ID from seed
-	fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-	where
-		AccountPublic: From<<TPublic::Pair as Pair>::Public>,
-	{
-		AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
-	}
-
 	fn alice() -> AccountId {
-		get_account_id_from_seed::<sr25519::Public>("Alice")
+		Sr25519Keyring::Alice.to_account_id()
 	}
 
 	fn alice_ed25519() -> AccountId {
-		get_account_id_from_seed::<ed25519::Public>("Alice")
+		Ed25519Keyring::Alice.to_account_id()
 	}
 
 	fn bob() -> AccountId {
-		get_account_id_from_seed::<sr25519::Public>("Bob")
+		Sr25519Keyring::Bob.to_account_id()
 	}
 
 	fn alice_signature() -> [u8; 64] {
