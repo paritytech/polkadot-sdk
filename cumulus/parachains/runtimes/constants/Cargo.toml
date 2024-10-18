@@ -17,23 +17,29 @@ smallvec = { workspace = true, default-features = true }
 
 # Substrate
 frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-balances = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Polkadot
 polkadot-core-primitives = { workspace = true }
+polkadot-runtime-common = { workspace = true }
 rococo-runtime-constants = { optional = true, workspace = true }
 westend-runtime-constants = { optional = true, workspace = true }
 xcm = { workspace = true }
 
 # Cumulus
 cumulus-primitives-core = { workspace = true }
+parachains-common = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
 	"cumulus-primitives-core/std",
 	"frame-support/std",
+	"parachains-common/std",
 	"polkadot-core-primitives/std",
+	"polkadot-runtime-common/std",
 	"rococo-runtime-constants?/std",
 	"sp-runtime/std",
 	"westend-runtime-constants?/std",
