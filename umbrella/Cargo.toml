@@ -716,7 +716,7 @@ version = "0.17.0"
 path = "../cumulus/pallets/parachain-system"
 default-features = false
 optional = true
-version = "0.17.0"
+version = "0.17.1"
 
 [dependencies.cumulus-pallet-parachain-system-proc-macro]
 path = "../cumulus/pallets/parachain-system/proc-macro"
@@ -1508,7 +1508,7 @@ version = "0.13.0"
 path = "../bridges/modules/xcm-bridge-hub-router"
 default-features = false
 optional = true
-version = "0.15.0"
+version = "0.15.1"
 
 [dependencies.parachains-common]
 path = "../cumulus/parachains/common"
@@ -1550,7 +1550,7 @@ version = "17.0.0"
 path = "../polkadot/runtime/parachains"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.0.1"
 
 [dependencies.polkadot-sdk-frame]
 path = "../substrate/frame"
@@ -1952,7 +1952,7 @@ version = "14.2.0"
 path = "../polkadot/xcm/xcm-builder"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.0.1"
 
 [dependencies.staging-xcm-executor]
 path = "../polkadot/xcm/xcm-executor"
@@ -2096,7 +2096,7 @@ version = "0.16.0"
 path = "../cumulus/parachains/integration-tests/emulated/common"
 default-features = false
 optional = true
-version = "14.0.0"
+version = "14.1.0"
 
 [dependencies.fork-tree]
 path = "../substrate/utils/fork-tree"
@@ -2348,7 +2348,7 @@ version = "18.0.0"
 path = "../polkadot/node/network/protocol"
 default-features = false
 optional = true
-version = "18.0.0"
+version = "18.0.1"
 
 [dependencies.polkadot-node-primitives]
 path = "../polkadot/node/primitives"
@@ -2576,7 +2576,7 @@ version = "0.15.0"
 path = "../substrate/client/network"
 default-features = false
 optional = true
-version = "0.45.0"
+version = "0.45.1"
 
 [dependencies.sc-network-common]
 path = "../substrate/client/network/common"
@@ -2594,7 +2594,7 @@ version = "0.45.0"
 path = "../substrate/client/network/light"
 default-features = false
 optional = true
-version = "0.44.0"
+version = "0.44.1"
 
 [dependencies.sc-network-statement]
 path = "../substrate/client/network/statement"
@@ -2606,13 +2606,13 @@ version = "0.27.0"
 path = "../substrate/client/network/sync"
 default-features = false
 optional = true
-version = "0.44.0"
+version = "0.44.1"
 
 [dependencies.sc-network-transactions]
 path = "../substrate/client/network/transactions"
 default-features = false
 optional = true
-version = "0.44.0"
+version = "0.44.1"
 
 [dependencies.sc-network-types]
 path = "../substrate/client/network/types"

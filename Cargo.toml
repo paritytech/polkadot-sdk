@@ -602,9 +602,9 @@ arrayvec = { version = "0.7.4" }
 assert_cmd = { version = "2.0.14" }
 assert_matches = { version = "1.5.0" }
 asset-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo", version = "0.1.0" }
-asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false, version = "0.22.0" }
+asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false, version = "0.22.1" }
 asset-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend", version = "0.1.0" }
-asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend", version = "0.26.0" }
+asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend", version = "0.26.1" }
 asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", default-features = false, version = "18.0.0" }
 assets-common = { path = "cumulus/parachains/runtimes/assets/common", default-features = false, version = "0.18.0" }
 async-channel = { version = "1.8.0" }
@@ -695,7 +695,7 @@ cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-fe
 cumulus-client-service = { path = "cumulus/client/service", default-features = false, version = "0.19.0" }
 cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false, version = "0.17.0" }
 cumulus-pallet-dmp-queue = { default-features = false, path = "cumulus/pallets/dmp-queue" }
-cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", default-features = false, version = "0.17.0" }
+cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", default-features = false, version = "0.17.1" }
 cumulus-pallet-parachain-system-proc-macro = { path = "cumulus/pallets/parachain-system/proc-macro", default-features = false, version = "0.6.0" }
 cumulus-pallet-session-benchmarking = { path = "cumulus/pallets/session-benchmarking", default-features = false, version = "19.0.0" }
 cumulus-pallet-solo-to-para = { path = "cumulus/pallets/solo-to-para", default-features = false, version = "0.17.0" }
@@ -730,7 +730,7 @@ dyn-clone = { version = "1.0.16" }
 ed25519-dalek = { version = "2.1", default-features = false }
 ed25519-zebra = { version = "4.0.3", default-features = false }
 either = { version = "1.8.1", default-features = false }
-emulated-integration-tests-common = { path = "cumulus/parachains/integration-tests/emulated/common", default-features = false, version = "14.0.0" }
+emulated-integration-tests-common = { path = "cumulus/parachains/integration-tests/emulated/common", default-features = false, version = "14.1.0" }
 enumflags2 = { version = "0.7.7" }
 enumn = { version = "0.1.13" }
 environmental = { version = "1.1.4", default-features = false }
@@ -992,7 +992,7 @@ pallet-whitelist = { path = "substrate/frame/whitelist", default-features = fals
 pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false, version = "17.0.0" }
 pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false, version = "17.0.0" }
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false, version = "0.13.0" }
-pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false, version = "0.15.0" }
+pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false, version = "0.15.1" }
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info", version = "0.17.0" }
 parachain-template-runtime = { path = "templates/parachain/runtime", version = "0.1.0" }
 parachains-common = { path = "cumulus/parachains/common", default-features = false, version = "18.0.0" }
@@ -1045,7 +1045,7 @@ polkadot-node-core-pvf-prepare-worker = { path = "polkadot/node/core/pvf/prepare
 polkadot-node-core-runtime-api = { path = "polkadot/node/core/runtime-api", default-features = false, version = "18.0.0" }
 polkadot-node-jaeger = { path = "polkadot/node/jaeger", default-features = false, version = "18.0.0" }
 polkadot-node-metrics = { path = "polkadot/node/metrics", default-features = false, version = "18.0.0" }
-polkadot-node-network-protocol = { path = "polkadot/node/network/protocol", default-features = false, version = "18.0.0" }
+polkadot-node-network-protocol = { path = "polkadot/node/network/protocol", default-features = false, version = "18.0.1" }
 polkadot-node-primitives = { path = "polkadot/node/primitives", default-features = false, version = "16.0.0" }
 polkadot-node-subsystem = { path = "polkadot/node/subsystem", default-features = false, version = "18.0.0" }
 polkadot-node-subsystem-test-helpers = { path = "polkadot/node/subsystem-test-helpers", version = "1.0.0" }
@@ -1059,7 +1059,7 @@ polkadot-primitives-test-helpers = { path = "polkadot/primitives/test-helpers", 
 polkadot-rpc = { path = "polkadot/rpc", default-features = false, version = "19.0.0" }
 polkadot-runtime-common = { path = "polkadot/runtime/common", default-features = false, version = "17.0.0" }
 polkadot-runtime-metrics = { path = "polkadot/runtime/metrics", default-features = false, version = "17.0.0" }
-polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false, version = "17.0.0" }
+polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false, version = "17.0.1" }
 polkadot-sdk = { path = "umbrella", default-features = false, version = "0.7.0" }
 polkadot-sdk-docs = { path = "docs/sdk" }
 polkadot-service = { path = "polkadot/node/service", default-features = false, version = "19.0.0" }
@@ -1145,14 +1145,14 @@ sc-executor-wasmtime = { path = "substrate/client/executor/wasmtime", default-fe
 sc-informant = { path = "substrate/client/informant", default-features = false, version = "0.44.0" }
 sc-keystore = { path = "substrate/client/keystore", default-features = false, version = "33.0.0" }
 sc-mixnet = { path = "substrate/client/mixnet", default-features = false, version = "0.15.0" }
-sc-network = { path = "substrate/client/network", default-features = false, version = "0.45.0" }
+sc-network = { path = "substrate/client/network", default-features = false, version = "0.45.1" }
 sc-network-common = { path = "substrate/client/network/common", default-features = false, version = "0.44.0" }
 sc-network-gossip = { path = "substrate/client/network-gossip", default-features = false, version = "0.45.0" }
-sc-network-light = { path = "substrate/client/network/light", default-features = false, version = "0.44.0" }
+sc-network-light = { path = "substrate/client/network/light", default-features = false, version = "0.44.1" }
 sc-network-statement = { default-features = false, path = "substrate/client/network/statement" }
-sc-network-sync = { path = "substrate/client/network/sync", default-features = false, version = "0.44.0" }
+sc-network-sync = { path = "substrate/client/network/sync", default-features = false, version = "0.44.1" }
 sc-network-test = { path = "substrate/client/network/test" }
-sc-network-transactions = { path = "substrate/client/network/transactions", default-features = false, version = "0.44.0" }
+sc-network-transactions = { path = "substrate/client/network/transactions", default-features = false, version = "0.44.1" }
 sc-network-types = { path = "substrate/client/network/types", default-features = false, version = "0.12.1" }
 sc-offchain = { path = "substrate/client/offchain", default-features = false, version = "40.0.0" }
 sc-proposer-metrics = { path = "substrate/client/proposer-metrics", default-features = false, version = "0.18.0" }
@@ -1356,7 +1356,7 @@ westend-runtime-constants = { path = "polkadot/runtime/westend/constants", defau
 westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/westend-system", version = "0.1.0" }
 x25519-dalek = { version = "2.0" }
 xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm", version = "14.2.0" }
-xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder", version = "17.0.0" }
+xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder", version = "17.0.1" }
 xcm-docs = { path = "polkadot/xcm/docs", version = "0.1.0" }
 xcm-emulator = { path = "cumulus/xcm/xcm-emulator", default-features = false, version = "0.16.0" }
 xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "17.0.0" }
