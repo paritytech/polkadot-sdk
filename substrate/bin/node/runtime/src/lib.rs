@@ -2580,7 +2580,7 @@ impl EthExtra for EthSignedExtra {
 	type Config = Runtime;
 	type Extra = SignedExtra;
 
-	fn get_eth_transact_extra(nonce: u32) -> Self::Extra {
+	fn get_eth_transact_extra(nonce: u32, tip: Balance) -> Self::Extra {
 		(
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
@@ -2589,7 +2589,7 @@ impl EthExtra for EthSignedExtra {
 			frame_system::CheckEra::from(crate::generic::Era::Immortal),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None)
+			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None)
 				.into(),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 		)

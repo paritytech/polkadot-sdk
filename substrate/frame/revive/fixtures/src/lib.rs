@@ -22,8 +22,11 @@ extern crate alloc;
 /// Load a given wasm module and returns a wasm binary contents along with it's hash.
 #[cfg(feature = "std")]
 pub fn compile_module(fixture_name: &str) -> anyhow::Result<(Vec<u8>, sp_core::H256)> {
-	let out_dir: std::path::PathBuf = env!("OUT_DIR").into();
-	let fixture_path = out_dir.join(format!("{fixture_name}.polkavm"));
+	let ws_dir: std::path::PathBuf = env!("CARGO_WORKSPACE_ROOT_DIR").into();
+	let fixture_path = ws_dir
+		.join("target")
+		.join("pallet-revive-fixtures")
+		.join(format!("{fixture_name}.polkavm"));
 	log::debug!("Loading fixture from {fixture_path:?}");
 	let binary = std::fs::read(fixture_path)?;
 	let code_hash = sp_io::hashing::keccak_256(&binary);
@@ -40,7 +43,12 @@ pub mod bench {
 	#[cfg(feature = "riscv")]
 	macro_rules! fixture {
 		($name: literal) => {
-			include_bytes!(concat!(env!("OUT_DIR"), "/", $name, ".polkavm"))
+			include_bytes!(concat!(
+				env!("CARGO_WORKSPACE_ROOT_DIR"),
+				"/target/pallet-revive-fixtures/",
+				$name,
+				".polkavm"
+			))
 		};
 	}
 	#[cfg(not(feature = "riscv"))]
