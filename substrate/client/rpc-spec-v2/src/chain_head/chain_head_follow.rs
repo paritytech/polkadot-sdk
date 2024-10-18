@@ -715,7 +715,7 @@ where
 	where
 		EventStream: Stream<Item = NotificationType<Block>> + Unpin + Send,
 	{
-		let buffer_cap = *&self.subscription_buffer_cap;
+		let buffer_cap = self.subscription_buffer_cap;
 		// create a channel to propagate error messages
 		let mut handle_events = |event| match event {
 			NotificationType::InitialEvents(events) => Ok(events),
