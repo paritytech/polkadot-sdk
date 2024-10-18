@@ -803,6 +803,8 @@ construct_runtime!(
 	}
 );
 
+type XcmTrustedQueryResult = Result<bool, xcm_runtime_apis::trusted_query::Error>;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
 	frame_benchmarking::define_benchmarks!(
@@ -1145,10 +1147,10 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
-		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trusted_query::Error> {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> XcmTrustedQueryResult {
 			PolkadotXcm::is_trusted_reserve(asset, location)
 		}
-		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trusted_query::Error> {
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> XcmTrustedQueryResult {
 			PolkadotXcm::is_trusted_teleporter(asset, location)
 		}
 	}
