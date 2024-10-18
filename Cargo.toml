@@ -631,7 +631,7 @@ bp-bridge-hub-kusama = { default-features = false, path = "bridges/chains/chain-
 bp-bridge-hub-polkadot = { path = "bridges/chains/chain-bridge-hub-polkadot", default-features = false, version = "0.17.0" }
 bp-bridge-hub-rococo = { path = "bridges/chains/chain-bridge-hub-rococo", default-features = false, version = "0.18.0" }
 bp-bridge-hub-westend = { path = "bridges/chains/chain-bridge-hub-westend", default-features = false, version = "0.14.0" }
-bp-header-chain = { path = "bridges/primitives/header-chain", default-features = false, version = "0.18.0" }
+bp-header-chain = { path = "bridges/primitives/header-chain", default-features = false, version = "0.18.1" }
 bp-kusama = { default-features = false, path = "bridges/chains/chain-kusama" }
 bp-messages = { path = "bridges/primitives/messages", default-features = false, version = "0.18.0" }
 bp-parachains = { path = "bridges/primitives/parachains", default-features = false, version = "0.18.0" }
@@ -929,7 +929,7 @@ pallet-indices = { path = "substrate/frame/indices", default-features = false, v
 pallet-insecure-randomness-collective-flip = { path = "substrate/frame/insecure-randomness-collective-flip", default-features = false, version = "26.0.0" }
 pallet-lottery = { default-features = false, path = "substrate/frame/lottery" }
 pallet-membership = { path = "substrate/frame/membership", default-features = false, version = "38.0.0" }
-pallet-message-queue = { path = "substrate/frame/message-queue", default-features = false, version = "41.0.0" }
+pallet-message-queue = { path = "substrate/frame/message-queue", default-features = false, version = "41.0.1" }
 pallet-migrations = { path = "substrate/frame/migrations", default-features = false, version = "8.0.0" }
 pallet-minimal-template = { path = "templates/minimal/pallets/template", default-features = false, version = "0.1.0" }
 pallet-mixnet = { default-features = false, path = "substrate/frame/mixnet" }

@@ -632,7 +632,7 @@ version = "15.0.1"
 path = "../bridges/primitives/header-chain"
 default-features = false
 optional = true
-version = "0.18.0"
+version = "0.18.1"
 
 [dependencies.bp-messages]
 path = "../bridges/primitives/messages"
@@ -1160,7 +1160,7 @@ version = "38.0.0"
 path = "../substrate/frame/message-queue"
 default-features = false
 optional = true
-version = "41.0.0"
+version = "41.0.1"
 
 [dependencies.pallet-migrations]
 path = "../substrate/frame/migrations"
