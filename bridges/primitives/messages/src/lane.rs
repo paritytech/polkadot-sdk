@@ -108,7 +108,7 @@ impl TypeId for LegacyLaneId {
 /// concatenation (separated by some binary data). I.e.:
 ///
 /// ```nocompile
-/// let endpoint1 = X2(GlobalConsensus(NetworkId::Rococo), Parachain(42));
+/// let endpoint1 = X2(GlobalConsensus(NetworkId::ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(42));
 /// let endpoint2 = X2(GlobalConsensus(NetworkId::Wococo), Parachain(777));
 ///
 /// let final_lane_key = if endpoint1 < endpoint2 {

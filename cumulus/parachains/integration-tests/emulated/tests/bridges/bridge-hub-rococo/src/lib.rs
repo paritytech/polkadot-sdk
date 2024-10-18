@@ -24,7 +24,7 @@ mod imports {
 	pub use xcm::{
 		latest::{ParentThen, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v5::{self, NetworkId::Westend as WestendId},
+		v5,
 	};
 	pub use xcm_executor::traits::TransferType;
 
