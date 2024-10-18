@@ -290,6 +290,12 @@ pub trait EthExtra {
 			}
 		};
 
+		let actual_len = call.encoded_size();
+		log::debug!(target: LOG_TARGET, "Checking Ethereum transaction fees:
+			encoded_len: {encoded_len:?}
+			actual_len: {actual_len:?}
+			");
+
 		let nonce = nonce.try_into().map_err(|_| InvalidTransaction::Call)?;
 
 		// Fees calculated with the fixed `GAS_PRICE` that should be used to estimate the gas.
