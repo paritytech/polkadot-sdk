@@ -319,11 +319,11 @@ pub trait EthExtra {
 		log::debug!(target: LOG_TARGET, "Checking Ethereum transaction fees:
 			dispatch_info: {info:?}
 			encoded_len: {encoded_len:?}
-			fees: {actual_fee_no_tip:?}
+			fees: {actual_fee:?}
 		");
 
 		if eth_fee < actual_fee {
-			log::debug!(target: LOG_TARGET, "fees {eth_fee:?} too low for the extrinsic {actual_fee_no_tip:?}");
+			log::debug!(target: LOG_TARGET, "fees {eth_fee:?} too low for the extrinsic {actual_fee:?}");
 			return Err(InvalidTransaction::Payment.into())
 		}
 
