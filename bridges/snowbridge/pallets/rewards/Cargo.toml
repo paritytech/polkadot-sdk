@@ -38,6 +38,7 @@ snowbridge-router-primitives = { workspace = true }
 [dev-dependencies]
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -54,6 +55,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-keyring/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
