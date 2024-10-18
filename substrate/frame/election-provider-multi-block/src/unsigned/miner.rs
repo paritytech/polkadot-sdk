@@ -317,7 +317,6 @@ impl<T: Config> Miner<T> {
 		desired_targets: u32,
 		page: PageIndex,
 	) -> Result<MinerSupportsOf<T>, FeasibilityError> {
-		// TODO: double check page index if tests ERR.
 		let voters_page: BoundedVec<MinerVoterOf<T>, <T as Config>::VoterSnapshotPerBlock> = voters
 			.get(page as usize)
 			.ok_or(FeasibilityError::Incomplete)

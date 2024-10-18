@@ -71,6 +71,7 @@ pub mod benchmarking;
 #[cfg(test)]
 mod tests;
 
+use crate::{PageIndex, SupportsOf};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::Get;
 use sp_npos_elections::{ElectionScore, ExtendedBalance};
@@ -81,8 +82,6 @@ pub use impls::pallet::{
 	Call, Config, Event, Pallet, __substrate_call_check, __substrate_event_check, tt_default_parts,
 	tt_default_parts_v2, tt_error_token,
 };
-
-use crate::{PageIndex, SupportsOf};
 
 /// Errors related to the solution feasibility checks.
 #[derive(Debug, Eq, PartialEq, codec::Encode, codec::Decode, scale_info::TypeInfo, Clone)]
@@ -136,7 +135,9 @@ impl Default for Status {
 /// Pointer to the current valid solution of `QueuedSolution`.
 #[derive(Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen, Debug, PartialEq)]
 pub enum SolutionPointer {
+	/// Solution pointer variant `X`.
 	X,
+	/// Solution pointer variant `Y`.
 	Y,
 }
 
@@ -147,6 +148,7 @@ impl Default for SolutionPointer {
 }
 
 impl SolutionPointer {
+	/// Returns the other variant of the current solution pointer in storage.
 	pub fn other(&self) -> SolutionPointer {
 		match *self {
 			SolutionPointer::X => SolutionPointer::Y,
@@ -166,6 +168,7 @@ pub struct PartialBackings {
 }
 
 impl sp_npos_elections::Backings for PartialBackings {
+	/// Returns the total backings of the winner.
 	fn total(&self) -> ExtendedBalance {
 		self.total
 	}

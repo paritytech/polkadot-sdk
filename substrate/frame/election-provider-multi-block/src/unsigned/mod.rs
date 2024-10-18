@@ -78,7 +78,7 @@ use frame_support::{
 	pallet_prelude::{TransactionValidity, ValidTransaction},
 	traits::Get,
 };
-use frame_system::{offchain::SendTransactionTypes, pallet_prelude::BlockNumberFor};
+use frame_system::{ensure_none, offchain::SendTransactionTypes, pallet_prelude::BlockNumberFor};
 use sp_npos_elections::ElectionScore;
 use sp_runtime::SaturatedConversion;
 
@@ -93,10 +93,7 @@ pub(crate) mod pallet {
 
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_system::{
-		ensure_none,
-		pallet_prelude::{BlockNumberFor, OriginFor},
-	};
+	use frame_system::pallet_prelude::OriginFor;
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]

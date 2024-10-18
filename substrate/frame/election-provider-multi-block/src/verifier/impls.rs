@@ -15,7 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// TODO(gpestana): clean up imports.
+use super::*;
+use crate::{unsigned::miner, verifier::weights::WeightInfo, MinerSupportsOf, SolutionOf};
+use pallet::*;
+
 use frame_election_provider_support::PageIndex;
 use frame_support::{
 	ensure,
@@ -25,11 +28,6 @@ use frame_support::{
 };
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
-
-use super::*;
-use pallet::*;
-
-use crate::{unsigned::miner, verifier::weights::WeightInfo, MinerSupportsOf, SolutionOf};
 
 #[frame_support::pallet(dev_mode)]
 pub(crate) mod pallet {
@@ -354,7 +352,7 @@ impl<T: Config + impls::pallet::Config> Verifier for Pallet<T> {
 		match Self::do_verify_sync(partial_solution, partial_score, page) {
 			Ok(supports) => {
 				sublog!(
-					info,
+					trace,
 					"verifier",
 					"queued sync solution with score {:?} (page {:?})",
 					partial_score,
@@ -366,7 +364,7 @@ impl<T: Config + impls::pallet::Config> Verifier for Pallet<T> {
 			},
 			Err(err) => {
 				sublog!(
-					info,
+					trace,
 					"verifier",
 					"sync verification failed with {:?} (page: {:?})",
 					err,
@@ -446,7 +444,6 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 
 	fn stop() {
 		sublog!(warn, "verifier", "stop signal received. clearing everything.");
-		// TODO(gpestana): debug asserts
 		QueuedSolution::<T>::clear_invalid_and_backings();
 
 		// if a verification is ongoing, signal the solution rejection to the solution data
