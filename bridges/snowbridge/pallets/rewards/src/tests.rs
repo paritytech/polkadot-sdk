@@ -56,6 +56,7 @@ fn test_claim() {
 		let result3 =
 			EthereumRewards::claim(RuntimeOrigin::signed(relayer.clone()), relayer.clone(), 2 * WETH, message_id);
 		assert_ok!(result3);
+		assert_eq!(<RewardsMapping<Test>>::get(relayer.clone()), 1 * WETH);
 
 		// Claim some rewards than available
 		let result4 =
@@ -64,7 +65,8 @@ fn test_claim() {
 
 		// Claim the remaining balance
 		let result5 =
-			EthereumRewards::claim(RuntimeOrigin::signed(relayer.clone()), relayer, 1 * WETH, message_id);
+			EthereumRewards::claim(RuntimeOrigin::signed(relayer.clone()), relayer.clone(), 1 * WETH, message_id);
 		assert_ok!(result5);
+		assert_eq!(<RewardsMapping<Test>>::get(relayer.clone()), 0);
 	});
 }
