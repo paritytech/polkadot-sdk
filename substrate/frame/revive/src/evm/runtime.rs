@@ -325,7 +325,7 @@ pub trait EthExtra {
 		let max = actual_fee_no_tip.max(eth_fee_no_tip);
 		let diff = Percent::from_rational(max - min, min);
 		if diff > Percent::from_percent(5) {
-			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee_no_tip:?} and the Ethereum gas fees {eth_fee_no_tip:?} should be no more than 5%");
+			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee_no_tip:?} and the Ethereum gas fees {eth_fee_no_tip:?} should be no more than 5% got {diff:?}");
 			return Err(InvalidTransaction::Call.into())
 		}
 
