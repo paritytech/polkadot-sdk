@@ -7,4 +7,4 @@ doc:
 
 crates:
   - name: polkadot-zombienet-sdk-tests
-    bump: bump
+    bump: patch
