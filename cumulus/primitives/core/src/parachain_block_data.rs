@@ -33,6 +33,15 @@ pub mod v0 {
 		/// The data that is required to emulate the storage accesses executed by all extrinsics.
 		pub storage_proof: sp_trie::CompactProof,
 	}
+
+	impl<Block: BlockT> From<ParachainBlockData<Block>> for super::ParachainBlockData<Block> {
+		fn from(block_data: ParachainBlockData<Block>) -> Self {
+			Self::new(alloc::vec![(
+				Block::new(block_data.header, block_data.extrinsics),
+				block_data.storage_proof,
+			)])
+		}
+	}
 }
 
 /// The parachain block that is created by a collator.

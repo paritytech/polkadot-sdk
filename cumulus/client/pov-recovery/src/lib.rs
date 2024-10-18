@@ -62,7 +62,7 @@ use polkadot_primitives::{
 use cumulus_primitives_core::ParachainBlockData;
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 
-use codec::Decode;
+use codec::{Decode, DecodeAll};
 use futures::{
 	channel::mpsc::Receiver, select, stream::FuturesUnordered, Future, FutureExt, Stream, StreamExt,
 };
@@ -349,6 +349,43 @@ where
 		self.clear_waiting_recovery(&hash);
 	}
 
+	/// Try to decode [`ParachainBlockData`] from `data`.
+	///
+	/// Internally it will handle the decoding of the different versions.
+	fn decode_parachain_block_data(
+		data: &[u8],
+		expected_block_hash: Block::Hash,
+	) -> Option<ParachainBlockData<Block>> {
+		if let Ok(block_data) = ParachainBlockData::<Block>::decode_all(&mut &data[..]) {
+			if block_data.blocks().last().map_or(false, |b| b.hash() == expected_block_hash) {
+				return Some(block_data)
+			}
+
+			tracing::debug!(
+				target: LOG_TARGET,
+				?expected_block_hash,
+				"Could not find the expected block hash as latest block in `ParachainBlockData`"
+			);
+		}
+
+		if let Ok(block_data) =
+			cumulus_primitives_core::parachain_block_data::v0::ParachainBlockData::<Block>::decode_all(
+				&mut &data[..],
+			) {
+			if block_data.header.hash() == expected_block_hash {
+				return Some(block_data.into())
+			}
+		}
+
+		tracing::warn!(
+			target: LOG_TARGET,
+			?expected_block_hash,
+			"Could not decode `ParachainBlockData` from recovered PoV",
+		);
+
+		None
+	}
+
 	/// Handle a recovered candidate.
 	async fn handle_candidate_recovered(&mut self, block_hash: Block::Hash, pov: Option<&PoV>) {
 		let pov = match pov {
@@ -384,36 +421,13 @@ where
 				},
 			};
 
-		let block_data = match ParachainBlockData::<Block>::decode(&mut &raw_block_data[..]) {
-			Ok(d) => d,
-			Err(error) => {
-				tracing::warn!(
-					target: LOG_TARGET,
-					?error,
-					"Failed to decode parachain block data from recovered PoV",
-				);
-
-				self.reset_candidate(block_hash);
-				return
-			},
+		let Some(block_data) = Self::decode_parachain_block_data(&raw_block_data, block_hash)
+		else {
+			self.reset_candidate(block_hash);
+			return
 		};
 
 		let blocks_and_proofs = block_data.into_inner();
-
-		if let Some((block, _)) = blocks_and_proofs.last() {
-			let last_block_hash = block.hash();
-			if last_block_hash != block_hash {
-				tracing::debug!(
-					target: LOG_TARGET,
-					expected_block_hash = ?block_hash,
-					got_block_hash = ?last_block_hash,
-					"Recovered candidate doesn't contain the expected block.",
-				);
-
-				self.reset_candidate(block_hash);
-				return;
-			}
-		}
 
 		let Some(parent) = blocks_and_proofs.first().map(|(b, _)| *b.header().parent_hash()) else {
 			tracing::debug!(
