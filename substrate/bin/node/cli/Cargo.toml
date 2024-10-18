@@ -155,6 +155,7 @@ wait-timeout = { workspace = true }
 wat = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
+sp-keyring = { workspace = true }
 pretty_assertions.workspace = true
 
 # These testing-only dependencies are not exported by the Polkadot-SDK crate:
@@ -172,12 +173,7 @@ polkadot-sdk = { features = ["frame-benchmarking-cli", "sc-cli", "sc-storage-mon
 
 [features]
 default = ["cli"]
-cli = [
-	"clap",
-	"clap_complete",
-	"node-inspect",
-	"polkadot-sdk",
-]
+cli = ["clap", "clap_complete", "node-inspect", "polkadot-sdk"]
 runtime-benchmarks = [
 	"kitchensink-runtime/runtime-benchmarks",
 	"node-inspect?/runtime-benchmarks",
@@ -188,10 +184,7 @@ try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
 ]
-riscv = [
-	"kitchensink-runtime/riscv",
-	"polkadot-sdk/riscv",
-]
+riscv = ["kitchensink-runtime/riscv", "polkadot-sdk/riscv"]
 
 [[bench]]
 name = "transaction_pool"

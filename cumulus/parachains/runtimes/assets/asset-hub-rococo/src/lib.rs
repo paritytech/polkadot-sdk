@@ -103,7 +103,7 @@ use xcm::latest::prelude::{
 };
 use xcm::{
 	latest::prelude::{AssetId, BodyId},
-	VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
+	VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
 };
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
@@ -422,6 +422,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 		(
 			FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v4::Location>,
 			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork, xcm::v4::Location>,
+			xcm_config::bridging::to_westend::WestendOrEthereumAssetFromAssetHubWestend,
 		),
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,
@@ -1101,6 +1102,8 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 	Migrations,
 >;
+
+type XcmTrustedQueryResult = Result<bool, xcm_runtime_apis::trusted_query::Error>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub struct AssetConversionTxHelper;
@@ -1870,6 +1873,15 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			genesis_config_presets::preset_names()
+		}
+	}
+
+	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_reserve(asset, location)
+		}
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_teleporter(asset, location)
 		}
 	}
 }

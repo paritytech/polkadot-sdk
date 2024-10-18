@@ -43,6 +43,7 @@ sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
+sp-keyring = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
@@ -119,7 +120,6 @@ snowbridge-runtime-common = { workspace = true }
 bridge-hub-test-utils = { workspace = true, default-features = true }
 bridge-runtime-common = { features = ["integrity-test"], workspace = true, default-features = true }
 pallet-bridge-relayers = { features = ["integrity-test"], workspace = true }
-sp-keyring = { workspace = true, default-features = true }
 snowbridge-runtime-test-common = { workspace = true, default-features = true }
 
 [features]
@@ -200,6 +200,7 @@ std = [
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",
+	"sp-keyring/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
