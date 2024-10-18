@@ -189,6 +189,13 @@
 //! Note that there could be an overlap between these sub-errors. For example, A
 //! `SnapshotUnavailable` can happen in both miner and feasibility check phase.
 //!
+//!	## Multi-page election support
+//!
+//!	Even though the [`frame_election_provider_support::ElectionDataProvider`] and
+//!	[`frame_election_provider_support::ElectionProvider`] traits support multi-paged election, this
+//!	pallet only supports a single page election flow. Thus, [`Config::Pages`] must be always set to
+//!	one, which is asserted by the [`frame_support::traits::Hooks::integrity_test`].
+//!
 //! ## Future Plans
 //!
 //! **Emergency-phase recovery script**: This script should be taken out of staking-miner in
@@ -271,6 +278,7 @@ mod mock;
 #[macro_use]
 pub mod helpers;
 
+/// This pallet only supports a single page election flow.
 pub(crate) const SINGLE_PAGE: u32 = 0;
 const LOG_TARGET: &str = "runtime::election-provider";
 
@@ -887,6 +895,9 @@ pub mod pallet {
 			// `SignedMaxSubmissions` is a red flag that the developer does not understand how to
 			// configure this pallet.
 			assert!(T::SignedMaxSubmissions::get() >= T::SignedMaxRefunds::get());
+
+			// This pallet only supports single-page elections.
+			assert!(T::Pages::get() == 1u32);
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -1777,8 +1788,9 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	type Pages = T::Pages;
 	type DataProvider = T::DataProvider;
 
-	fn elect(remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		defensive_assert!(remaining.is_zero());
+	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+		// this pallet **MUST** only by used in the single-block mode.
+		defensive_assert!(page.is_zero());
 
 		match Self::do_elect() {
 			Ok(bounded_supports) => {
