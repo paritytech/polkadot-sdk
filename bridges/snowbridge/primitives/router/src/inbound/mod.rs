@@ -16,7 +16,7 @@ use sp_runtime::{traits::MaybeEquivalence, MultiAddress};
 use sp_std::prelude::*;
 use xcm::prelude::{Junction::AccountKey20, *};
 use xcm_executor::traits::ConvertLocation;
-
+use snowbridge_core::location::convert_token_address;
 const MINIMUM_DEPOSIT: u128 = 1;
 
 /// Messages from Ethereum are versioned. This is because in future,
@@ -254,7 +254,7 @@ where
 		let bridge_location = Location::new(2, GlobalConsensus(network));
 
 		let owner = GlobalConsensusEthereumConvertsFor::<[u8; 32]>::from_chain_id(&chain_id);
-		let asset_id = Self::convert_token_address(network, token);
+		let asset_id = convert_token_address(network, token);
 		let create_call_index: [u8; 2] = CreateAssetCall::get();
 		let inbound_queue_pallet_index = InboundQueuePalletInstance::get();
 
@@ -309,7 +309,7 @@ where
 	) -> (Xcm<()>, Balance) {
 		let network = Ethereum { chain_id };
 		let asset_hub_fee_asset: Asset = (Location::parent(), asset_hub_fee).into();
-		let asset: Asset = (Self::convert_token_address(network, token), amount).into();
+		let asset: Asset = (convert_token_address(network, token), amount).into();
 
 		let (dest_para_id, beneficiary, dest_para_fee) = match destination {
 			// Final destination is a 32-byte account on AssetHub
@@ -390,13 +390,6 @@ where
 		(instructions.into(), total_fees.into())
 	}
 
-	// Convert ERC20 token address to a location that can be understood by Assets Hub.
-	fn convert_token_address(network: NetworkId, token: H160) -> Location {
-		Location::new(
-			2,
-			[GlobalConsensus(network), AccountKey20 { network: None, key: token.into() }],
-		)
-	}
 
 	/// Constructs an XCM message destined for AssetHub that withdraws assets from the sovereign
 	/// account of the Gateway contract and either deposits those assets into a recipient account or

@@ -8,6 +8,8 @@ pub use polkadot_parachain_primitives::primitives::{
 	Id as ParaId, IsSystem, Sibling as SiblingParaId,
 };
 pub use sp_core::U256;
+use sp_core::H160;
+use xcm::opaque::lts::NetworkId;
 
 use codec::Encode;
 use sp_core::H256;
@@ -202,4 +204,12 @@ mod tests {
 			);
 		}
 	}
+}
+
+// Convert ERC20 token address to a location that can be understood by Assets Hub.
+pub fn convert_token_address(network: NetworkId, token: H160) -> Location {
+	Location::new(
+		2,
+		[GlobalConsensus(network), AccountKey20 { network: None, key: token.into() }],
+	)
 }

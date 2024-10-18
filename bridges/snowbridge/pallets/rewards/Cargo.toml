@@ -33,6 +33,7 @@ xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
 snowbridge-core = { workspace = true }
+snowbridge-router-primitives = { workspace = true }
 
 [dev-dependencies]
 hex = { workspace = true, default-features = true }
@@ -48,6 +49,7 @@ std = [
 	"log/std",
 	"scale-info/std",
 	"snowbridge-core/std",
+	"snowbridge-router-primitives/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
