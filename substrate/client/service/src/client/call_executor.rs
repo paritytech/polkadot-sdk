@@ -106,7 +106,6 @@ where
 			self.backend.blockchain().expect_block_number_from_id(&BlockId::Hash(at_hash))?;
 		let state = self.backend.state_at(at_hash)?;
 
-		// TODO: is this correct?
 		let try_pending_code = match context {
 			CallContext::Onchain => TryPendingCode::Yes,
 			CallContext::Offchain => TryPendingCode::No,
@@ -149,7 +148,6 @@ where
 
 		let changes = &mut *changes.borrow_mut();
 
-		// TODO: is this correct?
 		let try_pending_code = match call_context {
 			CallContext::Onchain => TryPendingCode::Yes,
 			CallContext::Offchain => TryPendingCode::No,
@@ -206,7 +204,6 @@ where
 
 	fn runtime_version(&self, at_hash: Block::Hash) -> sp_blockchain::Result<RuntimeVersion> {
 		let state = self.backend.state_at(at_hash)?;
-		// TODO: is this correct?
 		let try_pending_code = TryPendingCode::No;
 		let state_runtime_code =
 			sp_state_machine::backend::BackendRuntimeCode::new(&state, try_pending_code);

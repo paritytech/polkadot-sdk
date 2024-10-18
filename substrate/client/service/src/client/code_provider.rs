@@ -81,7 +81,6 @@ where
 	pub fn code_at_ignoring_overrides(&self, block: Block::Hash) -> sp_blockchain::Result<Vec<u8>> {
 		let state = self.backend.state_at(block)?;
 
-		// TODO: make sure this is correct
 		let try_pending_code = TryPendingCode::Yes;
 		let state_runtime_code =
 			sp_state_machine::backend::BackendRuntimeCode::new(&state, try_pending_code);
