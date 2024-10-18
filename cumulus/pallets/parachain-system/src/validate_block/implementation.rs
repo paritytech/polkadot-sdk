@@ -167,8 +167,9 @@ where
 	let mut hrmp_watermark = Default::default();
 	let mut head_data = None;
 	let mut new_validation_code = None;
+	let num_blocks = blocks_and_proofs.len();
 
-	for (block, storage_proof) in blocks_and_proofs {
+	for (block_index, (block, storage_proof)) in blocks_and_proofs.into_iter().enumerate() {
 		let inherent_data = extract_parachain_inherent_data(&block);
 
 		validate_validation_data(
@@ -238,10 +239,12 @@ where
 			);
 			hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
 
-			head_data = Some(
-				crate::CustomValidationHeadData::<PSC>::get()
-					.map_or_else(|| HeadData(parent_header.encode()), HeadData),
-			);
+			if block_index + 1 == num_blocks {
+				head_data = Some(
+					crate::CustomValidationHeadData::<PSC>::get()
+						.map_or_else(|| HeadData(parent_header.encode()), HeadData),
+				);
+			}
 		})
 	}
 
