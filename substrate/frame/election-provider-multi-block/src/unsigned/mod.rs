@@ -88,7 +88,7 @@ pub use pallet::{
 	__substrate_validate_unsigned_check, tt_default_parts, tt_default_parts_v2, tt_error_token,
 };
 
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub(crate) mod pallet {
 
 	use super::*;

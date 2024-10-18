@@ -29,7 +29,7 @@ use frame_support::{
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub(crate) mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::{ValueQuery, *};
@@ -282,7 +282,8 @@ pub(crate) mod pallet {
 
 	// For unsigned page solutions only.
 	#[pallet::storage]
-	pub(crate) type RemainingUnsignedPages<T: Config> = StorageValue<_, Vec<PageIndex>, ValueQuery>;
+	pub(crate) type RemainingUnsignedPages<T: Config> =
+		StorageValue<_, BoundedVec<PageIndex, T::Pages>, ValueQuery>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -471,9 +472,12 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		match crate::Pallet::<T>::current_phase() {
 			// reset remaining unsigned pages after snapshot is created.
 			crate::Phase::Snapshot(page) if page == crate::Pallet::<T>::lsp() => {
-				RemainingUnsignedPages::<T>::put(
-					(crate::Pallet::<T>::lsp()..crate::Pallet::<T>::msp() + 1).collect::<Vec<_>>(),
-				);
+				RemainingUnsignedPages::<T>::mutate(|remaining| {
+					*remaining = BoundedVec::truncate_from(
+						(crate::Pallet::<T>::lsp()..crate::Pallet::<T>::msp() + 1)
+							.collect::<Vec<_>>(),
+					);
+				});
 
 				sublog!(
 					debug,

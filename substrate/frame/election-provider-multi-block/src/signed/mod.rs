@@ -99,7 +99,7 @@ pub struct SubmissionMetadata<T: Config> {
 	deposit: BalanceOf<T>,
 }
 
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub mod pallet {
 	use core::marker::PhantomData;
 
@@ -479,6 +479,7 @@ pub mod pallet {
 		///
 		/// The scores must be kept sorted in the `SortedScores` storage map.
 		#[pallet::call_index(1)]
+		#[pallet::weight(Weight::default())]
 		pub fn register(origin: OriginFor<T>, claimed_score: ElectionScore) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -507,6 +508,7 @@ pub mod pallet {
 		/// TODO: for security reasons, we have to ensure that ALL submitters "space" to
 		/// submit their pages and be verified.
 		#[pallet::call_index(2)]
+		#[pallet::weight(Weight::default())]
 		pub fn submit_page(
 			origin: OriginFor<T>,
 			page: PageIndex,
@@ -541,6 +543,7 @@ pub mod pallet {
 		/// before the signed phase ends. This may end up depriving other honest miners from
 		/// registering their solution.
 		#[pallet::call_index(3)]
+		#[pallet::weight(Weight::default())]
 		pub fn bail(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -570,6 +573,7 @@ pub mod pallet {
 		/// A successfull call will result in a reward that is taken from the cleared submission
 		/// deposit and the return of the call fees.
 		#[pallet::call_index(4)]
+		#[pallet::weight(Weight::default())]
 		pub fn force_clear_submission(
 			origin: OriginFor<T>,
 			submitter: T::AccountId,
