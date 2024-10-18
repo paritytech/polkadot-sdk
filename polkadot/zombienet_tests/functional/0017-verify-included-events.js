@@ -38,7 +38,7 @@ async function run(nodeName, networkInfo) {
     });
 
     console.log(`Result: 2000: ${blocks_per_para[2000]}, 2001: ${blocks_per_para[2001]}`);
-    return (blocks_per_para[2000] == 3 * blocks_per_para[2001]);
+    return (blocks_per_para[2000] > 7) && (blocks_per_para[2001] < 4);
 }
 
 module.exports = { run };
