@@ -136,8 +136,13 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 
 /// Returns an iterator of all assets in a pool with `asset`.
 ///
-/// Should only be used in runtime APIs since it iterates over the whole `pallet_asset_conversion::Pools` map.
-pub fn get_assets_in_pool_with<Runtime: pallet_asset_conversion::Config<PoolId = (xcm::v4::Location, xcm::v4::Location)>>(asset: &xcm::v4::Location) -> impl Iterator<Item = xcm::v4::Location> + '_ {
+/// Should only be used in runtime APIs since it iterates over the whole
+/// `pallet_asset_conversion::Pools` map.
+pub fn get_assets_in_pool_with<
+	Runtime: pallet_asset_conversion::Config<PoolId = (xcm::v4::Location, xcm::v4::Location)>,
+>(
+	asset: &xcm::v4::Location,
+) -> impl Iterator<Item = xcm::v4::Location> + '_ {
 	pallet_asset_conversion::Pools::<Runtime>::iter_keys().filter_map(move |(asset_1, asset_2)| {
 		if asset_1 == *asset {
 			Some(asset_2.clone().into())

@@ -34,8 +34,7 @@ mod imports {
 	pub use emulated_integration_tests_common::{
 		accounts::DUMMY_EMPTY,
 		test_parachain_is_trusted_teleporter, test_parachain_is_trusted_teleporter_for_relay,
-		test_relay_is_trusted_teleporter,
-		test_xcm_fee_querying_apis_work_for_asset_hub,
+		test_relay_is_trusted_teleporter, test_xcm_fee_querying_apis_work_for_asset_hub,
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test,
 			TestArgs, TestContext, TestExt,
