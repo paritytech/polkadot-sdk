@@ -17,7 +17,8 @@
 //! The [`EthRpcServer`] RPC server implementation
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-use client::{ClientError, GAS_PRICE};
+use crate::runtime::GAS_PRICE;
+use client::ClientError;
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
 	proc_macros::rpc,

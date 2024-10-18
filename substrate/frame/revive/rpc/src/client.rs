@@ -17,13 +17,11 @@
 //! The client connects to the source substrate chain
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 
-#![allow(unused_imports, unused_variables)]
 use crate::{
-	rlp,
-	subxt_client::{revive::calls::types::EthTransact, runtime_types::frame_system::EventRecord},
+	rlp, runtime::GAS_PRICE, subxt_client::revive::calls::types::EthTransact,
 	TransactionLegacySigned, LOG_TARGET,
 };
-use codec::{Decode, Encode};
+use codec::Encode;
 use futures::{stream, StreamExt};
 use jsonrpsee::types::{ErrorCode, ErrorObjectOwned};
 use pallet_revive::{
@@ -32,7 +30,7 @@ use pallet_revive::{
 		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes256, GenericTransaction, ReceiptInfo,
 		SyncingProgress, SyncingStatus, TransactionSigned, H160, H256, U256,
 	},
-	ContractResult, EthContractResult,
+	EthContractResult,
 };
 use sp_runtime::traits::Hash;
 use sp_weights::Weight;
@@ -49,7 +47,7 @@ use subxt::{
 			RpcClient,
 		},
 	},
-	config::{signed_extensions::CheckNonce, Header},
+	config::Header,
 	error::RpcError,
 	storage::Storage,
 	tx::TxClient,
@@ -66,7 +64,6 @@ use tokio::{
 use crate::subxt_client::{self, system::events::ExtrinsicSuccess, SrcChainConfig};
 
 pub mod primitives {
-	use sp_core::H160;
 	pub type Hashing = sp_runtime::traits::BlakeTwo256;
 	pub type AccountId = sp_runtime::AccountId32;
 	pub type AccountIndex = u32;
@@ -87,12 +84,6 @@ pub type Shared<T> = Arc<RwLock<T>>;
 
 /// The runtime balance type.
 pub type Balance = u128;
-
-/// The EVM gas price.
-/// We use a fixed value for the gas price.
-/// This let us calculate the gas estimate for a transaction with the formula:
-/// `estimate_gas = substrate_fee / gas_price`.
-pub const GAS_PRICE: u128 = 1u128;
 
 /// The cache maintains a buffer of the last N blocks,
 #[derive(Default)]
@@ -456,7 +447,6 @@ impl Client {
 
 	/// Get the syncing status of the chain.
 	pub async fn syncing(&self) -> Result<SyncingStatus, ClientError> {
-		use subxt::backend::rpc::RpcClientT;
 		let health = self.inner.rpc.system_health().await?;
 
 		let status = if health.is_syncing {
