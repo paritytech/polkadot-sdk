@@ -279,6 +279,7 @@ impl pallet_identity::Config for Test {
 	type Slashed = ();
 	type BasicDeposit = ConstU32<100>;
 	type ByteDeposit = ConstU32<10>;
+	type UsernameDeposit = ConstU32<10>;
 	type SubAccountDeposit = ConstU32<100>;
 	type MaxSubAccounts = ConstU32<2>;
 	type IdentityInformation = IdentityInfo<ConstU32<2>>;
@@ -289,6 +290,7 @@ impl pallet_identity::Config for Test {
 	type SigningPublicKey = <MultiSignature as Verify>::Signer;
 	type UsernameAuthorityOrigin = EnsureRoot<AccountId>;
 	type PendingUsernameExpiration = ConstU32<100>;
+	type UsernameGracePeriod = ConstU32<10>;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = ();
