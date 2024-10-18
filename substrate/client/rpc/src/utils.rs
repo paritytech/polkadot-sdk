@@ -21,7 +21,7 @@
 use crate::SubscriptionTaskExecutor;
 use futures::{
 	future::{self, Either, Fuse, FusedFuture},
-	Future, FutureExt, Stream, StreamExt,
+	Future, FutureExt, Stream, StreamExt, TryStream, TryStreamExt,
 };
 use jsonrpsee::{PendingSubscriptionSink, SubscriptionMessage, SubscriptionSink};
 use sp_runtime::Serialize;
@@ -30,15 +30,15 @@ use std::collections::VecDeque;
 const DEFAULT_BUF_SIZE: usize = 16;
 
 /// A simple bounded VecDeque.
-struct BoundedVecDeque<T> {
+pub struct BoundedVecDeque<T> {
 	inner: VecDeque<T>,
 	max_cap: usize,
 }
 
 impl<T> BoundedVecDeque<T> {
 	/// Create a new bounded VecDeque.
-	fn new() -> Self {
-		Self { inner: VecDeque::with_capacity(DEFAULT_BUF_SIZE), max_cap: DEFAULT_BUF_SIZE }
+	pub fn new(cap: usize) -> Self {
+		Self { inner: VecDeque::with_capacity(cap), max_cap: cap }
 	}
 
 	fn push_back(&mut self, item: T) -> Result<(), ()> {
@@ -55,6 +55,12 @@ impl<T> BoundedVecDeque<T> {
 	}
 }
 
+impl<T> Default for BoundedVecDeque<T> {
+	fn default() -> Self {
+		Self { inner: VecDeque::with_capacity(DEFAULT_BUF_SIZE), max_cap: DEFAULT_BUF_SIZE }
+	}
+}
+
 /// Feed items to the subscription from the underlying stream.
 ///
 /// This is bounded because the underlying streams in substrate are
@@ -67,7 +73,7 @@ where
 	S: Stream<Item = T> + Unpin + Send + 'static,
 	T: Serialize + Send + 'static,
 {
-	let mut buf = BoundedVecDeque::new();
+	let mut buf = BoundedVecDeque::default();
 	let accept_fut = pending.accept();
 
 	futures::pin_mut!(accept_fut);
@@ -158,6 +164,80 @@ async fn inner_pipe_from_stream<S, T>(
 			},
 			// Subscription was closed.
 			Either::Left(_) => return,
+		}
+	}
+}
+
+/// Feed items to the subscription from the underlying stream
+/// with specified buffer strategy.
+pub async fn pipe_from_try_stream<S, T, E>(
+	sink: &SubscriptionSink,
+	mut stream: S,
+	mut buf: BoundedVecDeque<T>,
+) -> Result<(), E>
+where
+	S: TryStream<Ok = T, Error = E> + Unpin,
+	T: Serialize + Send,
+{
+	let mut next_fut = Box::pin(Fuse::terminated());
+	let mut next_item = stream.try_next();
+	let closed = sink.closed();
+
+	futures::pin_mut!(closed);
+
+	loop {
+		if next_fut.is_terminated() {
+			if let Some(v) = buf.pop_front() {
+				let val = to_sub_message(sink, &v);
+				next_fut.set(async { sink.send(val).await }.fuse());
+			}
+			match future::select(closed, future::select(next_fut, next_item)).await {
+				// Send operation finished.
+				Either::Right((Either::Left((_, n)), c)) => {
+					next_item = n;
+					closed = c;
+					next_fut = Box::pin(Fuse::terminated());
+				},
+				// New item from the stream
+				Either::Right((Either::Right((Ok(Some(v)), n)), c)) => {
+					if buf.push_back(v).is_err() {
+						log::debug!(
+							target: "rpc",
+							"Subscription buffer full for subscription={} conn_id={}; dropping subscription",
+							sink.method_name(),
+							sink.connection_id().0
+						);
+						return Ok(());
+					}
+
+					next_fut = n;
+					closed = c;
+					next_item = stream.try_next();
+				},
+				// Error occured while processing the stream.
+				//
+				// terminate the stream.
+				Either::Right((Either::Right((Err(e), _)), _)) => return Err(e),
+				// Stream "finished".
+				//
+				// Process remaining items and terminate.
+				Either::Right((Either::Right((Ok(None), pending_fut)), _)) => {
+					if !pending_fut.is_terminated() && pending_fut.await.is_err() {
+						return Ok(());
+					}
+
+					while let Some(v) = buf.pop_front() {
+						let val = to_sub_message(&sink, &v);
+						if sink.send(val).await.is_err() {
+							return Ok(());
+						}
+					}
+
+					return Ok(());
+				},
+				// Subscription was closed.
+				Either::Left(_) => return Ok(()),
+			}
 		}
 	}
 }

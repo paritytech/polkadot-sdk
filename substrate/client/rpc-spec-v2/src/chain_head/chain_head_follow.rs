@@ -28,15 +28,14 @@ use crate::chain_head::{
 };
 use futures::{
 	channel::oneshot,
-	stream::{self, Stream, StreamExt},
+	stream::{self, Stream, StreamExt, TryStreamExt},
 };
-use futures_util::future::Either;
 use jsonrpsee::SubscriptionSink;
 use log::debug;
 use sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
 };
-use sc_rpc::utils::to_sub_message;
+use sc_rpc::utils::{pipe_from_try_stream, to_sub_message};
 use schnellru::{ByLength, LruMap};
 use sp_api::CallApiAt;
 use sp_blockchain::{
@@ -75,6 +74,8 @@ pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	/// Stop all subscriptions if the distance between the leaves and the current finalized
 	/// block is larger than this value.
 	max_lagging_distance: usize,
+	/// The maximum number of pending messages per subscription.
+	pub subscription_buffer_cap: usize,
 }
 
 impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Client> {
@@ -86,6 +87,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 		with_runtime: bool,
 		sub_id: String,
 		max_lagging_distance: usize,
+		subscription_buffer_cap: usize,
 	) -> Self {
 		Self {
 			client,
@@ -98,6 +100,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 				MAX_PINNED_BLOCKS.try_into().unwrap_or(u32::MAX),
 			)),
 			max_lagging_distance,
+			subscription_buffer_cap,
 		}
 	}
 }
@@ -596,75 +599,50 @@ where
 	async fn submit_events<EventStream>(
 		&mut self,
 		startup_point: &StartupPoint<Block>,
-		mut stream: EventStream,
+		stream: EventStream,
 		sink: SubscriptionSink,
 		rx_stop: oneshot::Receiver<()>,
 	) -> Result<(), SubscriptionManagementError>
 	where
-		EventStream: Stream<Item = NotificationType<Block>> + Unpin,
+		EventStream: Stream<Item = NotificationType<Block>> + Unpin + Send,
 	{
-		let mut stream_item = stream.next();
+		let buffer_cap = self.subscription_buffer_cap;
+		// create a channel to propagate error messages
+		let mut handle_events = |event| match event {
+			NotificationType::InitialEvents(events) => Ok(events),
+			NotificationType::NewBlock(notification) =>
+				self.handle_import_blocks(notification, &startup_point),
+			NotificationType::Finalized(notification) =>
+				self.handle_finalized_blocks(notification, &startup_point),
+			NotificationType::MethodResponse(notification) => Ok(vec![notification]),
+		};
 
-		// The stop event can be triggered by the chainHead logic when the pinned
-		// block guarantee cannot be hold. Or when the client is disconnected.
-		let connection_closed = sink.closed();
-		tokio::pin!(connection_closed);
-		let mut stop_event = futures_util::future::select(rx_stop, connection_closed);
+		let stream = stream
+			.map(|event| handle_events(event))
+			.map_ok(|items| stream::iter(items).map(Ok))
+			.try_flatten();
 
-		while let Either::Left((Some(event), next_stop_event)) =
-			futures_util::future::select(stream_item, stop_event).await
-		{
-			let events = match event {
-				NotificationType::InitialEvents(events) => Ok(events),
-				NotificationType::NewBlock(notification) =>
-					self.handle_import_blocks(notification, &startup_point),
-				NotificationType::Finalized(notification) =>
-					self.handle_finalized_blocks(notification, &startup_point),
-				NotificationType::MethodResponse(notification) => Ok(vec![notification]),
-			};
+		tokio::pin!(stream);
+		let sink_future =
+			pipe_from_try_stream(&sink, stream, sc_rpc::utils::BoundedVecDeque::new(buffer_cap));
 
-			let events = match events {
-				Ok(events) => events,
-				Err(err) => {
+		let result = tokio::select! {
+			_ = rx_stop => Ok(()),
+			result = sink_future => {
+				if let Err(ref e) = result {
 					debug!(
 						target: LOG_TARGET,
 						"[follow][id={:?}] Failed to handle stream notification {:?}",
-						self.sub_id,
-						err
+						&self.sub_id,
+						e
 					);
-					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-					let _ = sink.send(msg).await;
-					return Err(err)
-				},
-			};
-
-			for event in events {
-				let msg = to_sub_message(&sink, &event);
-				if let Err(err) = sink.send(msg).await {
-					// Failed to submit event.
-					debug!(
-						target: LOG_TARGET,
-						"[follow][id={:?}] Failed to send event {:?}", self.sub_id, err
-					);
-
-					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
-					let _ = sink.send(msg).await;
-					// No need to propagate this error further, the client disconnected.
-					return Ok(())
-				}
+				};
+				result
 			}
-
-			stream_item = stream.next();
-			stop_event = next_stop_event;
-		}
-
-		// If we got here either:
-		// - the substrate streams have closed
-		// - the `Stop` receiver was triggered internally (cannot hold the pinned block guarantee)
-		// - the client disconnected.
+		};
 		let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
 		let _ = sink.send(msg).await;
-		Ok(())
+		result
 	}
 
 	/// Generate the block events for the `chainHead_follow` method.
