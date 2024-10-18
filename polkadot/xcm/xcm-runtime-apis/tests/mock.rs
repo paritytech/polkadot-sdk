@@ -60,9 +60,16 @@ construct_runtime! {
 	}
 }
 
-pub type SignedExtra = (frame_system::CheckWeight<TestRuntime>,);
-pub type TestXt = sp_runtime::testing::TestXt<RuntimeCall, SignedExtra>;
-type Block = sp_runtime::testing::Block<TestXt>;
+pub type TxExtension = (frame_system::CheckWeight<TestRuntime>,);
+
+// we only use the hash type from this, so using the mock should be fine.
+pub(crate) type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<
+	u64,
+	RuntimeCall,
+	sp_runtime::testing::UintAuthorityId,
+	TxExtension,
+>;
+type Block = sp_runtime::testing::Block<Extrinsic>;
 type Balance = u128;
 type AssetIdForAssetsPallet = u32;
 type AccountId = u64;

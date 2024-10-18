@@ -19,7 +19,8 @@ use crate::{pallet_prelude::BlockNumberFor, Config, Pallet};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, SignedExtension, Zero},
+	impl_tx_ext_default,
+	traits::{TransactionExtension, Zero},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -46,30 +47,24 @@ impl<T: Config + Send + Sync> core::fmt::Debug for CheckGenesis<T> {
 }
 
 impl<T: Config + Send + Sync> CheckGenesis<T> {
-	/// Creates new `SignedExtension` to check genesis hash.
+	/// Creates new `TransactionExtension` to check genesis hash.
 	pub fn new() -> Self {
 		Self(core::marker::PhantomData)
 	}
 }
 
-impl<T: Config + Send + Sync> SignedExtension for CheckGenesis<T> {
-	type AccountId = T::AccountId;
-	type Call = <T as Config>::RuntimeCall;
-	type AdditionalSigned = T::Hash;
-	type Pre = ();
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckGenesis<T> {
 	const IDENTIFIER: &'static str = "CheckGenesis";
-
-	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
+	type Implicit = T::Hash;
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(<Pallet<T>>::block_hash(BlockNumberFor::<T>::zero()))
 	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
+	type Val = ();
+	type Pre = ();
+	fn weight(&self, _: &T::RuntimeCall) -> sp_weights::Weight {
+		// All transactions will always read the hash of the genesis block, so to avoid
+		// charging this multiple times in a block we manually set the proof size to 0.
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_genesis().set_proof_size(0)
 	}
+	impl_tx_ext_default!(T::RuntimeCall; validate prepare);
 }

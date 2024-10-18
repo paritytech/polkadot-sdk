@@ -68,12 +68,11 @@ pub fn extrinsic_set_time(client: &TestClient) -> OpaqueExtrinsic {
 	let best_number = client.usage_info().chain.best_number;
 
 	let timestamp = best_number as u64 * cumulus_test_runtime::MinimumPeriod::get();
-	cumulus_test_runtime::UncheckedExtrinsic {
-		signature: None,
-		function: cumulus_test_runtime::RuntimeCall::Timestamp(pallet_timestamp::Call::set {
+	cumulus_test_runtime::UncheckedExtrinsic::new_bare(
+		cumulus_test_runtime::RuntimeCall::Timestamp(pallet_timestamp::Call::set {
 			now: timestamp,
 		}),
-	}
+	)
 	.into()
 }
 
@@ -101,12 +100,11 @@ pub fn extrinsic_set_validation_data(
 		horizontal_messages: Default::default(),
 	};
 
-	cumulus_test_runtime::UncheckedExtrinsic {
-		signature: None,
-		function: cumulus_test_runtime::RuntimeCall::ParachainSystem(
+	cumulus_test_runtime::UncheckedExtrinsic::new_bare(
+		cumulus_test_runtime::RuntimeCall::ParachainSystem(
 			cumulus_pallet_parachain_system::Call::set_validation_data { data },
 		),
-	}
+	)
 	.into()
 }
 

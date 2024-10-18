@@ -56,28 +56,32 @@ use frame_support::{
 	},
 	traits::{Defensive, EstimateCallFee, Get},
 	weights::{Weight, WeightToFee},
+	RuntimeDebugNoBound,
 };
 pub use pallet::*;
 pub use payment::*;
 use sp_runtime::{
 	traits::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
-		Saturating, SignedExtension, Zero,
+		Saturating, TransactionExtension, Zero,
 	},
-	transaction_validity::{
-		TransactionPriority, TransactionValidity, TransactionValidityError, ValidTransaction,
-	},
+	transaction_validity::{TransactionPriority, TransactionValidityError, ValidTransaction},
 	FixedPointNumber, FixedU128, Perbill, Perquintill, RuntimeDebug,
 };
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
+pub use weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 mod payment;
 mod types;
+pub mod weights;
 
 /// Fee multiplier.
 pub type Multiplier = FixedU128;
@@ -334,6 +338,7 @@ pub mod pallet {
 			type RuntimeEvent = ();
 			type FeeMultiplierUpdate = ();
 			type OperationalFeeMultiplier = ();
+			type WeightInfo = ();
 		}
 	}
 
@@ -386,6 +391,9 @@ pub mod pallet {
 		/// transactions.
 		#[pallet::constant]
 		type OperationalFeeMultiplier: Get<u8>;
+
+		/// The weight information of this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::type_value]
@@ -496,7 +504,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// All dispatchables must be annotated with weight and will have some fee info. This function
 	/// always returns.
-	pub fn query_info<Extrinsic: sp_runtime::traits::Extrinsic + GetDispatchInfo>(
+	pub fn query_info<Extrinsic: sp_runtime::traits::ExtrinsicLike + GetDispatchInfo>(
 		unchecked_extrinsic: Extrinsic,
 		len: u32,
 	) -> RuntimeDispatchInfo<BalanceOf<T>>
@@ -510,20 +518,20 @@ impl<T: Config> Pallet<T> {
 		// a very very little potential gain in the future.
 		let dispatch_info = <Extrinsic as GetDispatchInfo>::get_dispatch_info(&unchecked_extrinsic);
 
-		let partial_fee = if unchecked_extrinsic.is_signed().unwrap_or(false) {
-			Self::compute_fee(len, &dispatch_info, 0u32.into())
-		} else {
-			// Unsigned extrinsics have no partial fee.
+		let partial_fee = if unchecked_extrinsic.is_bare() {
+			// Bare extrinsics have no partial fee.
 			0u32.into()
+		} else {
+			Self::compute_fee(len, &dispatch_info, 0u32.into())
 		};
 
-		let DispatchInfo { weight, class, .. } = dispatch_info;
+		let DispatchInfo { class, .. } = dispatch_info;
 
-		RuntimeDispatchInfo { weight, class, partial_fee }
+		RuntimeDispatchInfo { weight: dispatch_info.total_weight(), class, partial_fee }
 	}
 
 	/// Query the detailed fee of a given `call`.
-	pub fn query_fee_details<Extrinsic: sp_runtime::traits::Extrinsic + GetDispatchInfo>(
+	pub fn query_fee_details<Extrinsic: sp_runtime::traits::ExtrinsicLike + GetDispatchInfo>(
 		unchecked_extrinsic: Extrinsic,
 		len: u32,
 	) -> FeeDetails<BalanceOf<T>>
@@ -534,11 +542,11 @@ impl<T: Config> Pallet<T> {
 
 		let tip = 0u32.into();
 
-		if unchecked_extrinsic.is_signed().unwrap_or(false) {
-			Self::compute_fee_details(len, &dispatch_info, tip)
-		} else {
-			// Unsigned extrinsics have no inclusion fee.
+		if unchecked_extrinsic.is_bare() {
+			// Bare extrinsics have no inclusion fee.
 			FeeDetails { inclusion_fee: None, tip }
+		} else {
+			Self::compute_fee_details(len, &dispatch_info, tip)
 		}
 	}
 
@@ -548,10 +556,10 @@ impl<T: Config> Pallet<T> {
 		T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
 	{
 		let dispatch_info = <T::RuntimeCall as GetDispatchInfo>::get_dispatch_info(&call);
-		let DispatchInfo { weight, class, .. } = dispatch_info;
+		let DispatchInfo { class, .. } = dispatch_info;
 
 		RuntimeDispatchInfo {
-			weight,
+			weight: dispatch_info.total_weight(),
 			class,
 			partial_fee: Self::compute_fee(len, &dispatch_info, 0u32.into()),
 		}
@@ -589,7 +597,7 @@ impl<T: Config> Pallet<T> {
 	where
 		T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 	{
-		Self::compute_fee_raw(len, info.weight, tip, info.pays_fee, info.class)
+		Self::compute_fee_raw(len, info.total_weight(), tip, info.pays_fee, info.class)
 	}
 
 	/// Compute the actual post dispatch fee for a particular transaction.
@@ -722,7 +730,7 @@ where
 		who: &T::AccountId,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
+		fee: BalanceOf<T>,
 	) -> Result<
 		(
 			BalanceOf<T>,
@@ -731,12 +739,27 @@ where
 		TransactionValidityError,
 	> {
 		let tip = self.0;
-		let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
 
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
 			who, call, info, fee, tip,
 		)
 		.map(|i| (fee, i))
+	}
+
+	fn can_withdraw_fee(
+		&self,
+		who: &T::AccountId,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+	) -> Result<BalanceOf<T>, TransactionValidityError> {
+		let tip = self.0;
+		let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
+
+		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::can_withdraw_fee(
+			who, call, info, fee, tip,
+		)?;
+		Ok(fee)
 	}
 
 	/// Get an appropriate priority for a transaction with the given `DispatchInfo`, encoded length
@@ -764,7 +787,8 @@ where
 		let max_block_length = *T::BlockLength::get().max.get(info.class) as u64;
 
 		// bounded_weight is used as a divisor later so we keep it non-zero.
-		let bounded_weight = info.weight.max(Weight::from_parts(1, 1)).min(max_block_weight);
+		let bounded_weight =
+			info.total_weight().max(Weight::from_parts(1, 1)).min(max_block_weight);
 		let bounded_length = (len as u64).clamp(1, max_block_length);
 
 		// returns the scarce resource, i.e. the one that is limiting the number of transactions.
@@ -825,68 +849,130 @@ impl<T: Config> core::fmt::Debug for ChargeTransactionPayment<T> {
 	}
 }
 
-impl<T: Config> SignedExtension for ChargeTransactionPayment<T>
+/// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
+#[derive(RuntimeDebugNoBound)]
+pub enum Val<T: Config> {
+	Charge {
+		tip: BalanceOf<T>,
+		// who paid the fee
+		who: T::AccountId,
+		// transaction fee
+		fee: BalanceOf<T>,
+	},
+	NoCharge,
+}
+
+/// The info passed between the prepare and post-dispatch steps for the `ChargeAssetTxPayment`
+/// extension.
+pub enum Pre<T: Config> {
+	Charge {
+		tip: BalanceOf<T>,
+		// who paid the fee
+		who: T::AccountId,
+		// imbalance resulting from withdrawing the fee
+		imbalance: <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
+	},
+	NoCharge {
+		// weight initially estimated by the extension, to be refunded
+		refund: Weight,
+	},
+}
+
+impl<T: Config> core::fmt::Debug for Pre<T> {
+	#[cfg(feature = "std")]
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		match self {
+			Pre::Charge { tip, who, imbalance: _ } => {
+				write!(f, "Charge {{ tip: {:?}, who: {:?}, imbalance: <stripped> }}", tip, who)
+			},
+			Pre::NoCharge { refund } => write!(f, "NoCharge {{ refund: {:?} }}", refund),
+		}
+	}
+
+	#[cfg(not(feature = "std"))]
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		f.write_str("<wasm:stripped>")
+	}
+}
+
+impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeTransactionPayment<T>
 where
-	BalanceOf<T>: Send + Sync + From<u64>,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
 	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
-	type AccountId = T::AccountId;
-	type Call = T::RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = (
-		// tip
-		BalanceOf<T>,
-		// who paid the fee - this is an option to allow for a Default impl.
-		Self::AccountId,
-		// imbalance resulting from withdrawing the fee
-		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
-	);
-	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
-		Ok(())
+	type Implicit = ();
+	type Val = Val<T>;
+	type Pre = Pre<T>;
+
+	fn weight(&self, _: &T::RuntimeCall) -> Weight {
+		T::WeightInfo::charge_transaction_payment()
 	}
 
 	fn validate(
 		&self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
+		origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-	) -> TransactionValidity {
-		let (final_fee, _) = self.withdraw_fee(who, call, info, len)?;
+		_: (),
+		_implication: &impl Encode,
+	) -> Result<
+		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError,
+	> {
+		let Ok(who) = frame_system::ensure_signed(origin.clone()) else {
+			return Ok((ValidTransaction::default(), Val::NoCharge, origin));
+		};
+		let final_fee = self.can_withdraw_fee(&who, call, info, len)?;
 		let tip = self.0;
-		Ok(ValidTransaction {
-			priority: Self::get_priority(info, len, tip, final_fee),
-			..Default::default()
-		})
+		Ok((
+			ValidTransaction {
+				priority: Self::get_priority(info, len, tip, final_fee),
+				..Default::default()
+			},
+			Val::Charge { tip: self.0, who, fee: final_fee },
+			origin,
+		))
 	}
 
-	fn pre_dispatch(
+	fn prepare(
 		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
+		val: Self::Val,
+		_origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let (_fee, imbalance) = self.withdraw_fee(who, call, info, len)?;
-		Ok((self.0, who.clone(), imbalance))
+		match val {
+			Val::Charge { tip, who, fee } => {
+				// Mutating call to `withdraw_fee` to actually charge for the transaction.
+				let (_final_fee, imbalance) = self.withdraw_fee(&who, call, info, fee)?;
+				Ok(Pre::Charge { tip, who, imbalance })
+			},
+			Val::NoCharge => Ok(Pre::NoCharge { refund: self.weight(call) }),
+		}
 	}
 
-	fn post_dispatch(
-		maybe_pre: Option<Self::Pre>,
-		info: &DispatchInfoOf<Self::Call>,
-		post_info: &PostDispatchInfoOf<Self::Call>,
+	fn post_dispatch_details(
+		pre: Self::Pre,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		_result: &DispatchResult,
-	) -> Result<(), TransactionValidityError> {
-		if let Some((tip, who, imbalance)) = maybe_pre {
-			let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
-			T::OnChargeTransaction::correct_and_deposit_fee(
-				&who, info, post_info, actual_fee, tip, imbalance,
-			)?;
-			Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid { who, actual_fee, tip });
-		}
-		Ok(())
+	) -> Result<Weight, TransactionValidityError> {
+		let (tip, who, imbalance) = match pre {
+			Pre::Charge { tip, who, imbalance } => (tip, who, imbalance),
+			Pre::NoCharge { refund } => {
+				// No-op: Refund everything
+				return Ok(refund)
+			},
+		};
+		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, &post_info, tip);
+		T::OnChargeTransaction::correct_and_deposit_fee(
+			&who, info, &post_info, actual_fee, tip, imbalance,
+		)?;
+		Pallet::<T>::deposit_event(Event::<T>::TransactionFeePaid { who, actual_fee, tip });
+		Ok(Weight::zero())
 	}
 }
 

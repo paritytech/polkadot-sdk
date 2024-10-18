@@ -265,9 +265,9 @@ mod test {
 	use sc_network_common::sync::message;
 	use sc_network_types::PeerId;
 	use sp_core::H256;
-	use sp_runtime::testing::{Block as RawBlock, ExtrinsicWrapper};
+	use sp_runtime::testing::{Block as RawBlock, MockCallU64, TestXt};
 
-	type Block = RawBlock<ExtrinsicWrapper<u64>>;
+	type Block = RawBlock<TestXt<MockCallU64, ()>>;
 
 	fn is_empty(bc: &BlockCollection<Block>) -> bool {
 		bc.blocks.is_empty() && bc.peer_requests.is_empty()

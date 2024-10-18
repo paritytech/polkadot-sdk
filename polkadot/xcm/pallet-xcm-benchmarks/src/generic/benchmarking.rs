@@ -121,7 +121,7 @@ benchmarks! {
 
 		let instruction = Instruction::Transact {
 			origin_kind: OriginKind::SovereignAccount,
-			require_weight_at_most: noop_call.get_dispatch_info().weight,
+			require_weight_at_most: noop_call.get_dispatch_info().call_weight,
 			call: double_encoded_noop_call,
 		};
 		let xcm = Xcm(vec![instruction]);

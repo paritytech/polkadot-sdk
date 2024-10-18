@@ -113,9 +113,7 @@ try-runtime = [
 	"sp-debug-derive/force-debug",
 	"sp-runtime/try-runtime",
 ]
-experimental = [
-	"frame-support-procedural/experimental",
-]
+experimental = ["frame-support-procedural/experimental"]
 # By default some types have documentation, `no-metadata-docs` allows to reduce the documentation
 # in the metadata.
 no-metadata-docs = [

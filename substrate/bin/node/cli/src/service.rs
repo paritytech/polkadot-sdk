@@ -121,7 +121,7 @@ pub fn create_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let extra: kitchensink_runtime::SignedExtra =
+	let tx_ext: kitchensink_runtime::TxExtension =
 		(
 			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
@@ -143,7 +143,7 @@ pub fn create_extrinsic(
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
+		tx_ext.clone(),
 		(
 			(),
 			kitchensink_runtime::VERSION.spec_version,
@@ -162,7 +162,7 @@ pub fn create_extrinsic(
 		function,
 		sp_runtime::AccountId32::from(sender.public()).into(),
 		kitchensink_runtime::Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 }
 
@@ -866,7 +866,7 @@ mod tests {
 	use codec::Encode;
 	use kitchensink_runtime::{
 		constants::{currency::CENTS, time::SLOT_DURATION},
-		Address, BalancesCall, RuntimeCall, UncheckedExtrinsic,
+		Address, BalancesCall, RuntimeCall, TxExtension, UncheckedExtrinsic,
 	};
 	use node_primitives::{Block, DigestItem, Signature};
 	use polkadot_sdk::{sc_transaction_pool_api::MaintainedTransactionPool, *};
@@ -1070,7 +1070,7 @@ mod tests {
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
-				let extra = (
+				let tx_ext: TxExtension = (
 					check_non_zero_sender,
 					check_spec_version,
 					check_tx_version,
@@ -1083,7 +1083,7 @@ mod tests {
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
-					extra,
+					tx_ext,
 					(
 						(),
 						spec_version,
@@ -1097,9 +1097,9 @@ mod tests {
 					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
-				let (function, extra, _) = raw_payload.deconstruct();
+				let (function, tx_ext, _) = raw_payload.deconstruct();
 				index += 1;
-				UncheckedExtrinsic::new_signed(function, from.into(), signature.into(), extra)
+				UncheckedExtrinsic::new_signed(function, from.into(), signature.into(), tx_ext)
 					.into()
 			},
 		);

@@ -120,10 +120,9 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 }
 
 fn extrinsic_set_time(now: u64) -> OpaqueExtrinsic {
-	kitchensink_runtime::UncheckedExtrinsic {
-		signature: None,
-		function: kitchensink_runtime::RuntimeCall::Timestamp(pallet_timestamp::Call::set { now }),
-	}
+	kitchensink_runtime::UncheckedExtrinsic::new_bare(kitchensink_runtime::RuntimeCall::Timestamp(
+		pallet_timestamp::Call::set { now },
+	))
 	.into()
 }
 
