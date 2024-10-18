@@ -22,8 +22,8 @@ use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
 use syn::{
 	parse_quote, punctuated::Punctuated, spanned::Spanned, token::And, Attribute, Error, Expr,
-	ExprLit, FnArg, GenericArgument, Ident, ImplItem, ItemImpl, Lit, Meta, MetaNameValue, Pat,
-	Path, PathArguments, Result, ReturnType, Signature, Token, Type, TypePath,
+	ExprLit, FnArg, GenericArgument, Ident, ItemImpl, Lit, Meta, MetaNameValue, Pat, Path,
+	PathArguments, Result, ReturnType, Signature, Token, Type, TypePath,
 };
 
 /// Generates the access to the `sc_client` crate.
@@ -157,37 +157,6 @@ pub fn extract_parameter_names_types_and_borrows(
 /// Prefix the given function with the trait name.
 pub fn prefix_function_with_trait<F: ToString>(trait_: &Ident, function: &F) -> String {
 	format!("{}_{}", trait_, function.to_string())
-}
-
-/// Extract all types that appear in signatures in the given `ImplItem`'s.
-///
-/// If a type is a reference, the inner type is extracted (without the reference).
-pub fn extract_all_signature_types(items: &[ImplItem]) -> Vec<Type> {
-	items
-		.iter()
-		.filter_map(|i| match i {
-			ImplItem::Fn(method) => Some(&method.sig),
-			_ => None,
-		})
-		.flat_map(|sig| {
-			let ret_ty = match &sig.output {
-				ReturnType::Default => None,
-				ReturnType::Type(_, ty) => Some((**ty).clone()),
-			};
-
-			sig.inputs
-				.iter()
-				.filter_map(|i| match i {
-					FnArg::Typed(arg) => Some(&arg.ty),
-					_ => None,
-				})
-				.map(|ty| match &**ty {
-					Type::Reference(t) => (*t.elem).clone(),
-					_ => (**ty).clone(),
-				})
-				.chain(ret_ty)
-		})
-		.collect()
 }
 
 /// Extracts the block type from a trait path.

@@ -131,7 +131,7 @@ pub fn initialize_bridge_by_governance_works<Runtime, GrandpaPalletInstance>(
 		// execute XCM with Transacts to `initialize bridge` as governance does
 		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
 			initialize_call.encode(),
-			initialize_call.get_dispatch_info().weight,
+			initialize_call.get_dispatch_info().call_weight,
 		)
 		.ensure_complete());
 
@@ -172,7 +172,7 @@ pub fn change_bridge_grandpa_pallet_mode_by_governance_works<Runtime, GrandpaPal
 			// execute XCM with Transacts to `initialize bridge` as governance does
 			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
 				set_operating_mode_call.encode(),
-				set_operating_mode_call.get_dispatch_info().weight,
+				set_operating_mode_call.get_dispatch_info().call_weight,
 			)
 			.ensure_complete());
 
@@ -225,7 +225,7 @@ pub fn change_bridge_parachains_pallet_mode_by_governance_works<Runtime, Paracha
 			// execute XCM with Transacts to `initialize bridge` as governance does
 			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
 				set_operating_mode_call.encode(),
-				set_operating_mode_call.get_dispatch_info().weight,
+				set_operating_mode_call.get_dispatch_info().call_weight,
 			)
 			.ensure_complete());
 
@@ -278,7 +278,7 @@ pub fn change_bridge_messages_pallet_mode_by_governance_works<Runtime, MessagesP
 			// execute XCM with Transacts to `initialize bridge` as governance does
 			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
 				set_operating_mode_call.encode(),
-				set_operating_mode_call.get_dispatch_info().weight,
+				set_operating_mode_call.get_dispatch_info().call_weight,
 			)
 			.ensure_complete());
 
@@ -506,11 +506,12 @@ pub fn message_dispatch_routing_works<
 
 		// 2. this message is sent from other global consensus with destination of this Runtime
 		//    sibling parachain (HRMP)
-		let bridging_message = test_data::simulate_message_exporter_on_bridged_chain::<
-			BridgedNetwork,
-			NetworkWithParentCount<RuntimeNetwork, NetworkDistanceAsParentCount>,
-			AlwaysLatest,
-		>((RuntimeNetwork::get(), [Parachain(sibling_parachain_id)].into()));
+		let bridging_message =
+			test_data::simulate_message_exporter_on_bridged_chain::<
+				BridgedNetwork,
+				NetworkWithParentCount<RuntimeNetwork, NetworkDistanceAsParentCount>,
+				AlwaysLatest,
+			>((RuntimeNetwork::get(), [Parachain(sibling_parachain_id)].into()));
 
 		// 2.1. WITHOUT opened hrmp channel -> RoutingError
 		let result =

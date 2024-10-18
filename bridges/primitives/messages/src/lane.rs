@@ -71,7 +71,7 @@ impl LaneIdType for LegacyLaneId {
 	}
 }
 
-#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+#[cfg(feature = "std")]
 impl TryFrom<Vec<u8>> for LegacyLaneId {
 	type Error = ();
 
@@ -140,7 +140,7 @@ impl HashedLaneId {
 	/// There's no `From<H256>` implementation for the `LaneId`, because using this conversion
 	/// in a wrong way (i.e. computing hash of endpoints manually) may lead to issues. So we
 	/// want the call to be explicit.
-	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	#[cfg(feature = "std")]
 	pub const fn from_inner(inner: H256) -> Self {
 		Self(inner)
 	}
@@ -184,7 +184,7 @@ impl LaneIdType for HashedLaneId {
 	}
 }
 
-#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+#[cfg(feature = "std")]
 impl TryFrom<Vec<u8>> for HashedLaneId {
 	type Error = ();
 

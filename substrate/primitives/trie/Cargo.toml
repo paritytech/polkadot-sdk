@@ -24,7 +24,6 @@ harness = false
 ahash = { optional = true, workspace = true }
 codec = { workspace = true }
 hash-db = { workspace = true }
-lazy_static = { optional = true, workspace = true }
 memory-db = { workspace = true }
 nohash-hasher = { optional = true, workspace = true }
 parking_lot = { optional = true, workspace = true, default-features = true }
@@ -51,7 +50,6 @@ std = [
 	"ahash",
 	"codec/std",
 	"hash-db/std",
-	"lazy_static",
 	"memory-db/std",
 	"nohash-hasher",
 	"parking_lot",

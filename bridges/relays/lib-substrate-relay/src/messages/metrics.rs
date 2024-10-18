@@ -53,9 +53,8 @@ where
 	let token_decimals = client
 		.token_decimals()
 		.await?
-		.map(|token_decimals| {
+		.inspect(|token_decimals| {
 			log::info!(target: "bridge", "Read `tokenDecimals` for {}: {}", C::NAME, token_decimals);
-			token_decimals
 		})
 		.unwrap_or_else(|| {
 			// turns out it is normal not to have this property - e.g. when polkadot binary is

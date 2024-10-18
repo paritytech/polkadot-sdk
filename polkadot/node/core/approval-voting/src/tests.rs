@@ -17,6 +17,7 @@
 use self::test_helpers::mock::new_leaf;
 use super::*;
 use crate::backend::V1ReadBackend;
+use itertools::Itertools;
 use overseer::prometheus::{
 	prometheus::{IntCounter, IntCounterVec},
 	Histogram, HistogramOpts, HistogramVec, Opts,
@@ -253,7 +254,8 @@ where
 		_relay_vrf_story: polkadot_node_primitives::approval::v1::RelayVRFStory,
 		_assignment: &polkadot_node_primitives::approval::v2::AssignmentCertV2,
 		_backing_groups: Vec<polkadot_primitives::GroupIndex>,
-	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment> {
+	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment>
+	{
 		self.1(validator_index)
 	}
 }
@@ -4921,7 +4923,6 @@ fn test_gathering_assignments_statements() {
 		slot_duration_millis: 6_000,
 		clock: Arc::new(MockClock::default()),
 		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
-		spans: HashMap::new(),
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),
@@ -5016,7 +5017,6 @@ fn test_observe_assignment_gathering_status() {
 		slot_duration_millis: 6_000,
 		clock: Arc::new(MockClock::default()),
 		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
-		spans: HashMap::new(),
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),

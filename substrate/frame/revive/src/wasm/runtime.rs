@@ -46,9 +46,7 @@ const MAX_DECODE_NESTING: u32 = 256;
 
 /// Encode a `U256` into a 32 byte buffer.
 fn as_bytes(u: U256) -> [u8; 32] {
-	let mut bytes = [0u8; 32];
-	u.to_little_endian(&mut bytes);
-	bytes
+	u.to_little_endian()
 }
 
 #[derive(Clone, Copy)]
@@ -310,8 +308,8 @@ pub enum RuntimeCosts {
 	CallerIsRoot,
 	/// Weight of calling `seal_address`.
 	Address,
-	/// Weight of calling `seal_gas_left`.
-	GasLeft,
+	/// Weight of calling `seal_weight_left`.
+	WeightLeft,
 	/// Weight of calling `seal_balance`.
 	Balance,
 	/// Weight of calling `seal_balance_of`.
@@ -390,6 +388,10 @@ pub enum RuntimeCosts {
 	LockDelegateDependency,
 	/// Weight of calling `unlock_delegate_dependency`
 	UnlockDelegateDependency,
+	/// Weight of calling `get_immutable_dependency`
+	GetImmutableData(u32),
+	/// Weight of calling `set_immutable_dependency`
+	SetImmutableData(u32),
 }
 
 /// For functions that modify storage, benchmarks are performed with one item in the
@@ -457,7 +459,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallerIsOrigin => T::WeightInfo::seal_caller_is_origin(),
 			CallerIsRoot => T::WeightInfo::seal_caller_is_root(),
 			Address => T::WeightInfo::seal_address(),
-			GasLeft => T::WeightInfo::seal_gas_left(),
+			WeightLeft => T::WeightInfo::seal_weight_left(),
 			Balance => T::WeightInfo::seal_balance(),
 			BalanceOf => T::WeightInfo::seal_balance_of(),
 			ValueTransferred => T::WeightInfo::seal_value_transferred(),
@@ -507,6 +509,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
 			LockDelegateDependency => T::WeightInfo::lock_delegate_dependency(),
 			UnlockDelegateDependency => T::WeightInfo::unlock_delegate_dependency(),
+			GetImmutableData(len) => T::WeightInfo::seal_get_immutable_data(len),
+			SetImmutableData(len) => T::WeightInfo::seal_set_immutable_data(len),
 		}
 	}
 }
@@ -639,7 +643,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		run: impl FnOnce(&mut Self) -> DispatchResultWithPostInfo,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		use frame_support::dispatch::extract_actual_weight;
-		let charged = self.charge_gas(runtime_cost(dispatch_info.weight))?;
+		let charged = self.charge_gas(runtime_cost(dispatch_info.call_weight))?;
 		let result = run(self);
 		let actual_weight = extract_actual_weight(&result, &dispatch_info);
 		self.adjust_gas(charged, runtime_cost(actual_weight));
@@ -1402,27 +1406,17 @@ pub mod env {
 	/// Retrieve the code hash for a specified contract address.
 	/// See [`pallet_revive_uapi::HostFn::code_hash`].
 	#[api_version(0)]
-	fn code_hash(
-		&mut self,
-		memory: &mut M,
-		addr_ptr: u32,
-		out_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
+	fn code_hash(&mut self, memory: &mut M, addr_ptr: u32, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::CodeHash)?;
 		let mut address = H160::zero();
 		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
-		if let Some(value) = self.ext.code_hash(&address) {
-			self.write_fixed_sandbox_output(
-				memory,
-				out_ptr,
-				&value.as_bytes(),
-				false,
-				already_charged,
-			)?;
-			Ok(ReturnErrorCode::Success)
-		} else {
-			Ok(ReturnErrorCode::KeyNotFound)
-		}
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&self.ext.code_hash(&address).as_bytes(),
+			false,
+			already_charged,
+		)?)
 	}
 
 	/// Retrieve the code hash of the currently executing contract.
@@ -1501,7 +1495,7 @@ pub mod env {
 		out_ptr: u32,
 		out_len_ptr: u32,
 	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::GasLeft)?;
+		self.charge_gas(RuntimeCosts::WeightLeft)?;
 		let gas_left = &self.ext.gas_meter().gas_left().encode();
 		Ok(self.write_sandbox_output(
 			memory,
@@ -1511,6 +1505,36 @@ pub mod env {
 			false,
 			already_charged,
 		)?)
+	}
+
+	/// Stores the immutable data into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::get_immutable_data`].
+	#[api_version(0)]
+	fn get_immutable_data(
+		&mut self,
+		memory: &mut M,
+		out_ptr: u32,
+		out_len_ptr: u32,
+	) -> Result<(), TrapReason> {
+		let charged = self.charge_gas(RuntimeCosts::GetImmutableData(limits::IMMUTABLE_BYTES))?;
+		let data = self.ext.get_immutable_data()?;
+		self.adjust_gas(charged, RuntimeCosts::GetImmutableData(data.len() as u32));
+		self.write_sandbox_output(memory, out_ptr, out_len_ptr, &data, false, already_charged)?;
+		Ok(())
+	}
+
+	/// Attaches the supplied immutable data to the currently executing contract.
+	/// See [`pallet_revive_uapi::HostFn::set_immutable_data`].
+	#[api_version(0)]
+	fn set_immutable_data(&mut self, memory: &mut M, ptr: u32, len: u32) -> Result<(), TrapReason> {
+		if len > limits::IMMUTABLE_BYTES {
+			return Err(Error::<E::T>::OutOfBounds.into());
+		}
+		self.charge_gas(RuntimeCosts::SetImmutableData(len))?;
+		let buf = memory.read(ptr, len)?;
+		let data = buf.try_into().expect("bailed out earlier; qed");
+		self.ext.set_immutable_data(data)?;
+		Ok(())
 	}
 
 	/// Stores the *free* balance of the current account into the supplied buffer.
@@ -1811,7 +1835,7 @@ pub mod env {
 		let execute_weight =
 			<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
 		let weight = self.ext.gas_meter().gas_left().max(execute_weight);
-		let dispatch_info = DispatchInfo { weight, ..Default::default() };
+		let dispatch_info = DispatchInfo { call_weight: weight, ..Default::default() };
 
 		self.call_dispatchable::<XcmExecutionFailed>(
 			dispatch_info,
@@ -1930,7 +1954,9 @@ pub mod env {
 
 	/// Replace the contract code at the specified address with new code.
 	/// See [`pallet_revive_uapi::HostFn::set_code_hash`].
-	#[api_version(0)]
+	///
+	/// Disabled until the internal implementation takes care of collecting
+	/// the immutable data of the new code hash.
 	#[mutating]
 	fn set_code_hash(
 		&mut self,

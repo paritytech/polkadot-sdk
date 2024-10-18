@@ -53,6 +53,10 @@ pub struct PalletCmd {
 	#[arg(short, long, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
 	pub extrinsic: Option<String>,
 
+	/// Comma separated list of pallets that should be excluded from the benchmark.
+	#[arg(long, value_parser, num_args = 1.., value_delimiter = ',')]
+	pub exclude_pallets: Vec<String>,
+
 	/// Run benchmarks for all pallets and extrinsics.
 	///
 	/// This is equivalent to running `--pallet * --extrinsic *`.
