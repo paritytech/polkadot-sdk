@@ -1178,37 +1178,52 @@ where
 			};
 
 			let payload = tx.dummy_signed_payload();
-
+			let data = tx.input.0;
 			let result = crate::Pallet::<T>::bare_call(
 				T::RuntimeOrigin::signed(origin),
 				dest,
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				tx.input.0,
+				data.clone(),
 				debug,
 				collect_events,
 			);
 
-			let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
+			let eth_dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
 				payload,
 				gas_limit: result.gas_required,
 				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
 			}
 			.into();
-
+			let encoded_len = eth_dispatch_call.encoded_size() as u32;
+			let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
+				dest,
+				value,
+				gas_limit: result.gas_required,
+				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
+				data,
+			}
+			.into();
 			let dispatch_info = dispatch_call.get_dispatch_info();
-			let len = dispatch_call.encode().len() as u32;
+			let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
+				encoded_len,
+				&dispatch_info,
+				0u32.into(),
+			)
+			.into();
+
+			log::debug!(target: LOG_TARGET, "Dry run Result:
+				dispatch_info: {dispatch_info:?}
+				encoded_len: {encoded_len:?}
+				fee: {fee:?}"
+			);
+
 			EthContractResult {
 				gas_limit: result.gas_required,
 				storage_deposit: result.storage_deposit.charge_or_zero(),
 				result: result.result.map(|v| v.data),
-				fee: pallet_transaction_payment::Pallet::<T>::compute_fee(
-					len as u32,
-					&dispatch_info,
-					0u32.into(),
-				)
-				.into(),
+				fee,
 			}
 		} else {
 			let tx = TransactionLegacyUnsigned {
@@ -1221,37 +1236,17 @@ where
 				..Default::default()
 			};
 			let payload = tx.dummy_signed_payload();
-
-			let blob = match polkavm::ProgramBlob::blob_length(&tx.input.0) {
+			let data = tx.input.0;
+			let (code, data) = match polkavm::ProgramBlob::blob_length(&data) {
 				Some(blob_len) => blob_len
 					.try_into()
 					.ok()
-					.and_then(|blob_len| (tx.input.0.split_at_checked(blob_len))),
-				_ => None,
-			};
-
-			let Some((code, data)) = blob else {
-				log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
-
-				let dispatch_call = crate::Call::<T>::eth_transact {
-					payload,
-					gas_limit: Default::default(),
-					storage_deposit_limit: 0u32.into(),
-				};
-
-				let dispatch_info = dispatch_call.get_dispatch_info();
-				let len = dispatch_call.encode().len() as u32;
-				return EthContractResult {
-					gas_limit: Default::default(),
-					storage_deposit: Default::default(),
-					result: Err(<Error<T>>::DecodingFailed.into()),
-					fee: pallet_transaction_payment::Pallet::<T>::compute_fee(
-						len as u32,
-						&dispatch_info,
-						0u32.into(),
-					)
-					.into(),
-				}
+					.and_then(|blob_len| (data.split_at_checked(blob_len)))
+					.unwrap_or_else(|| (&data[..], &[][..])),
+				_ => {
+					log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
+					(&data[..], &[][..])
+				},
 			};
 
 			let result = crate::Pallet::<T>::bare_instantiate(
@@ -1266,25 +1261,38 @@ where
 				collect_events,
 			);
 
-			let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
+			let eth_dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
 				payload,
 				gas_limit: result.gas_required,
 				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
 			}
 			.into();
+			let encoded_len = eth_dispatch_call.encoded_size() as u32;
+
+			let dispatch_call: <T as Config>::RuntimeCall =
+				crate::Call::<T>::instantiate_with_code {
+					value,
+					gas_limit: result.gas_required,
+					storage_deposit_limit: result.storage_deposit.charge_or_zero(),
+					code: code.to_vec(),
+					data: data.to_vec(),
+					salt: None,
+				}
+				.into();
 
 			let dispatch_info = dispatch_call.get_dispatch_info();
-			let len = dispatch_call.encode().len() as u32;
+			let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
+				encoded_len,
+				&dispatch_info,
+				0u32.into(),
+			)
+			.into();
+
 			EthContractResult {
 				gas_limit: result.gas_required,
 				storage_deposit: result.storage_deposit.charge_or_zero(),
 				result: result.result.map(|v| v.result.data),
-				fee: pallet_transaction_payment::Pallet::<T>::compute_fee(
-					len as u32,
-					&dispatch_info,
-					0u32.into(),
-				)
-				.into(),
+				fee,
 			}
 		}
 	}
