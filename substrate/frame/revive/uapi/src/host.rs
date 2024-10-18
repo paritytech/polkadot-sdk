@@ -247,7 +247,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Note
 	///
-	/// If `addr` is not a contract but account exists then hash of empty data
+	/// If `addr` is not a contract but the account exists then the hash of empty data
 	/// `0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470` is written,
 	/// otherwise `zero`.
 	fn code_hash(addr: &[u8; 20], output: &mut [u8; 32]);

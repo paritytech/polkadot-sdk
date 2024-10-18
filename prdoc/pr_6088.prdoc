@@ -8,5 +8,7 @@ doc:
 crates:
   - name: pallet-revive
     bump: major
+  - name: pallet-revive-fixtures
+    bump: minor
   - name: pallet-revive-uapi
-    bump: major
+    bump: patch
