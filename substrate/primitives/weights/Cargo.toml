@@ -47,6 +47,4 @@ serde = [
 	"sp-arithmetic/serde",
 ]
 
-json-schema = [
-	"dep:schemars",
-]
+json-schema = ["dep:schemars"]

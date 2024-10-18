@@ -347,6 +347,7 @@ members = [
 	"substrate/frame/election-provider-support/solution-type/fuzzer",
 	"substrate/frame/elections-phragmen",
 	"substrate/frame/examples",
+	"substrate/frame/examples/authorization-tx-extension",
 	"substrate/frame/examples/basic",
 	"substrate/frame/examples/default-config",
 	"substrate/frame/examples/dev-mode",
@@ -442,6 +443,7 @@ members = [
 	"substrate/frame/tx-pause",
 	"substrate/frame/uniques",
 	"substrate/frame/utility",
+	"substrate/frame/verify-signature",
 	"substrate/frame/vesting",
 	"substrate/frame/whitelist",
 	"substrate/primitives/api",
@@ -915,6 +917,7 @@ pallet-dev-mode = { path = "substrate/frame/examples/dev-mode", default-features
 pallet-election-provider-multi-phase = { path = "substrate/frame/election-provider-multi-phase", default-features = false }
 pallet-election-provider-support-benchmarking = { path = "substrate/frame/election-provider-support/benchmarking", default-features = false }
 pallet-elections-phragmen = { path = "substrate/frame/elections-phragmen", default-features = false }
+pallet-example-authorization-tx-extension = { path = "substrate/frame/examples/authorization-tx-extension", default-features = false }
 pallet-example-basic = { path = "substrate/frame/examples/basic", default-features = false }
 pallet-example-frame-crate = { path = "substrate/frame/examples/frame-crate", default-features = false }
 pallet-example-kitchensink = { path = "substrate/frame/examples/kitchensink", default-features = false }
@@ -991,6 +994,7 @@ pallet-treasury = { path = "substrate/frame/treasury", default-features = false 
 pallet-tx-pause = { default-features = false, path = "substrate/frame/tx-pause" }
 pallet-uniques = { path = "substrate/frame/uniques", default-features = false }
 pallet-utility = { path = "substrate/frame/utility", default-features = false }
+pallet-verify-signature = { path = "substrate/frame/verify-signature", default-features = false }
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false }
 pallet-whitelist = { path = "substrate/frame/whitelist", default-features = false }
 pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false }

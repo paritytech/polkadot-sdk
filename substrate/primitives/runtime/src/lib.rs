@@ -26,7 +26,7 @@
 //! communication between the client and the runtime. This includes:
 //!
 //! - A set of traits to declare what any block/header/extrinsic type should provide.
-//! 	- [`traits::Block`], [`traits::Header`], [`traits::Extrinsic`]
+//! 	- [`traits::Block`], [`traits::Header`], [`traits::ExtrinsicLike`]
 //! - A set of types that implement these traits, whilst still providing a high degree of
 //!   configurability via generics.
 //! 	- [`generic::Block`], [`generic::Header`], [`generic::UncheckedExtrinsic`] and
@@ -131,6 +131,8 @@ pub use sp_arithmetic::{
 	FixedPointOperand, FixedU128, FixedU64, InnerOf, PerThing, PerU16, Perbill, Percent, Permill,
 	Perquintill, Rational128, Rounding, UpperOf,
 };
+/// Re-export this since it's part of the API of this crate.
+pub use sp_weights::Weight;
 
 pub use either::Either;
 
@@ -955,9 +957,10 @@ impl<'a> ::serde::Deserialize<'a> for OpaqueExtrinsic {
 	}
 }
 
-impl traits::Extrinsic for OpaqueExtrinsic {
-	type Call = ();
-	type SignaturePayload = ();
+impl traits::ExtrinsicLike for OpaqueExtrinsic {
+	fn is_bare(&self) -> bool {
+		false
+	}
 }
 
 /// Print something that implements `Printable` from the runtime.

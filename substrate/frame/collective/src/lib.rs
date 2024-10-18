@@ -629,7 +629,7 @@ pub mod pallet {
 			T::WeightInfo::execute(
 				*length_bound, // B
 				T::MaxMembers::get(), // M
-			).saturating_add(proposal.get_dispatch_info().weight), // P
+			).saturating_add(proposal.get_dispatch_info().call_weight), // P
 			DispatchClass::Operational
 		))]
 		pub fn execute(
@@ -681,7 +681,7 @@ pub mod pallet {
 				T::WeightInfo::propose_execute(
 					*length_bound, // B
 					T::MaxMembers::get(), // M
-				).saturating_add(proposal.get_dispatch_info().weight) // P1
+				).saturating_add(proposal.get_dispatch_info().call_weight) // P1
 			} else {
 				T::WeightInfo::propose_proposed(
 					*length_bound, // B
@@ -915,7 +915,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Result<(u32, DispatchResultWithPostInfo), DispatchError> {
 		let proposal_len = proposal.encoded_size();
 		ensure!(proposal_len <= length_bound as usize, Error::<T, I>::WrongProposalLength);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		ensure!(
 			proposal_weight.all_lte(T::MaxProposalWeight::get()),
 			Error::<T, I>::WrongProposalWeight
@@ -942,7 +942,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Result<(u32, u32), DispatchError> {
 		let proposal_len = proposal.encoded_size();
 		ensure!(proposal_len <= length_bound as usize, Error::<T, I>::WrongProposalLength);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		ensure!(
 			proposal_weight.all_lte(T::MaxProposalWeight::get()),
 			Error::<T, I>::WrongProposalWeight
@@ -1130,7 +1130,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			storage::read(&key, &mut [0; 0], 0).ok_or(Error::<T, I>::ProposalMissing)?;
 		ensure!(proposal_len <= length_bound, Error::<T, I>::WrongProposalLength);
 		let proposal = ProposalOf::<T, I>::get(hash).ok_or(Error::<T, I>::ProposalMissing)?;
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		ensure!(proposal_weight.all_lte(weight_bound), Error::<T, I>::WrongProposalWeight);
 		Ok((proposal, proposal_len as usize))
 	}
@@ -1157,7 +1157,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> (Weight, u32) {
 		Self::deposit_event(Event::Approved { proposal_hash });
 
-		let dispatch_weight = proposal.get_dispatch_info().weight;
+		let dispatch_weight = proposal.get_dispatch_info().call_weight;
 		let origin = RawOrigin::Members(yes_votes, seats).into();
 		let result = proposal.dispatch(origin);
 		Self::deposit_event(Event::Executed {

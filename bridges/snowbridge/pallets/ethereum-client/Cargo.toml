@@ -49,13 +49,7 @@ serde = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-fuzzing = [
-	"hex-literal",
-	"pallet-timestamp",
-	"serde",
-	"serde_json",
-	"sp-io",
-]
+fuzzing = ["hex-literal", "pallet-timestamp", "serde", "serde_json", "sp-io"]
 std = [
 	"codec/std",
 	"frame-support/std",
