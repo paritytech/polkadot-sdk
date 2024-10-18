@@ -15,14 +15,14 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-use crate::{
-	columns,
-	utils::{DatabaseType, NUM_COLUMNS},
-};
+use crate::{columns, utils::NUM_COLUMNS};
+use parity_db::Operation;
 /// A `Database` adapter for parity-db.
-use sp_database::{error::DatabaseError, Change, ColumnId, Database, Transaction};
+use sp_database::{
+	error::DatabaseError, Change, ColumnId, DBLocation, Database, StateCapabilities, Transaction,
+};
 
-struct DbAdapter(parity_db::Db);
+struct DbAdapter(parity_db::Db, bool);
 
 fn handle_err<T>(result: parity_db::Result<T>) -> T {
 	match result {
@@ -36,39 +36,43 @@ fn handle_err<T>(result: parity_db::Result<T>) -> T {
 /// Wrap parity-db database into a trait object that implements `sp_database::Database`
 pub fn open<H: Clone + AsRef<[u8]>>(
 	path: &std::path::Path,
-	db_type: DatabaseType,
 	create: bool,
 	upgrade: bool,
+	archive: bool,
+	multi_tree: bool,
 ) -> parity_db::Result<std::sync::Arc<dyn Database<H>>> {
 	let mut config = parity_db::Options::with_columns(path, NUM_COLUMNS as u8);
 
-	match db_type {
-		DatabaseType::Full => {
-			let compressed = [
-				columns::STATE,
-				columns::HEADER,
-				columns::BODY,
-				columns::BODY_INDEX,
-				columns::TRANSACTION,
-				columns::JUSTIFICATIONS,
-			];
+	let compressed = [
+		columns::STATE,
+		columns::HEADER,
+		columns::BODY,
+		columns::BODY_INDEX,
+		columns::TRANSACTION,
+		columns::JUSTIFICATIONS,
+	];
 
-			for i in compressed {
-				let column = &mut config.columns[i as usize];
-				column.compression = parity_db::CompressionType::Lz4;
-			}
-
-			let state_col = &mut config.columns[columns::STATE as usize];
-			state_col.ref_counted = true;
-			state_col.preimage = true;
-			state_col.uniform = true;
-
-			let tx_col = &mut config.columns[columns::TRANSACTION as usize];
-			tx_col.ref_counted = true;
-			tx_col.preimage = true;
-			tx_col.uniform = true;
-		},
+	for i in compressed {
+		let column = &mut config.columns[i as usize];
+		column.compression = parity_db::CompressionType::Lz4;
 	}
+
+	let state_col = &mut config.columns[columns::STATE as usize];
+	state_col.preimage = true;
+	state_col.uniform = true;
+	state_col.append_only = archive & multi_tree;
+	state_col.ref_counted = true & !state_col.append_only;
+
+	if multi_tree {
+		state_col.multitree = true;
+		state_col.allow_direct_node_access = true;
+		state_col.compression = parity_db::CompressionType::NoCompression;
+	}
+
+	let tx_col = &mut config.columns[columns::TRANSACTION as usize];
+	tx_col.ref_counted = true;
+	tx_col.preimage = true;
+	tx_col.uniform = true;
 
 	if upgrade {
 		log::info!("Upgrading database metadata.");
@@ -83,7 +87,7 @@ pub fn open<H: Clone + AsRef<[u8]>>(
 		parity_db::Db::open(&config)?
 	};
 
-	Ok(std::sync::Arc::new(DbAdapter(db)))
+	Ok(std::sync::Arc::new(DbAdapter(db, multi_tree)))
 }
 
 fn ref_counted_column(col: u32) -> bool {
@@ -93,40 +97,43 @@ fn ref_counted_column(col: u32) -> bool {
 impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 	fn commit(&self, transaction: Transaction<H>) -> Result<(), DatabaseError> {
 		let mut not_ref_counted_column = Vec::new();
-		let result = self.0.commit(transaction.0.into_iter().filter_map(|change| {
+		let result = self.0.commit_changes(transaction.0.into_iter().filter_map(|change| {
 			Some(match change {
-				Change::Set(col, key, value) => (col as u8, key, Some(value)),
-				Change::Remove(col, key) => (col as u8, key, None),
+				Change::Set(col, key, value) => (col as u8, Operation::Set(key, value)),
+				Change::Remove(col, key) => (col as u8, Operation::Dereference(key)),
 				Change::Store(col, key, value) =>
 					if ref_counted_column(col) {
-						(col as u8, key.as_ref().to_vec(), Some(value))
+						(col as u8, Operation::Set(key.as_ref().to_vec(), value))
 					} else {
 						if !not_ref_counted_column.contains(&col) {
 							not_ref_counted_column.push(col);
 						}
 						return None
 					},
-				Change::Reference(col, key) => {
+				Change::Reference(col, key) =>
 					if ref_counted_column(col) {
-						// FIXME accessing value is not strictly needed, optimize this in parity-db.
-						let value = <Self as Database<H>>::get(self, col, key.as_ref());
-						(col as u8, key.as_ref().to_vec(), value)
+						(col as u8, Operation::Reference(key.as_ref().to_vec()))
 					} else {
 						if !not_ref_counted_column.contains(&col) {
 							not_ref_counted_column.push(col);
 						}
 						return None
-					}
-				},
+					},
+				Change::ReferenceTree(col, key) =>
+					(col as u8, Operation::ReferenceTree(key.as_ref().to_vec())),
 				Change::Release(col, key) =>
 					if ref_counted_column(col) {
-						(col as u8, key.as_ref().to_vec(), None)
+						(col as u8, Operation::Dereference(key.as_ref().to_vec()))
 					} else {
 						if !not_ref_counted_column.contains(&col) {
 							not_ref_counted_column.push(col);
 						}
 						return None
 					},
+				Change::ReleaseTree(col, key) =>
+					(col as u8, Operation::DereferenceTree(key.as_ref().to_vec())),
+				Change::StoreTree(col, key, tree) =>
+					(col as u8, Operation::InsertTree(key.as_ref().to_vec(), tree)),
 			})
 		}));
 
@@ -152,11 +159,28 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 		handle_err(self.0.get_size(col as u8, key)).map(|s| s as usize)
 	}
 
-	fn supports_ref_counting(&self) -> bool {
-		true
+	fn get_node(
+		&self,
+		col: ColumnId,
+		key: &[u8],
+		location: DBLocation,
+	) -> Option<(Vec<u8>, Vec<DBLocation>)> {
+		if self.1 && col == columns::STATE {
+			if location == 0 {
+				handle_err(self.0.get_root(col as u8, key))
+			} else {
+				handle_err(self.0.get_node(col as u8, location))
+			}
+		} else {
+			handle_err(self.0.get(col as u8, key)).map(|v| (v, Default::default()))
+		}
 	}
 
-	fn sanitize_key(&self, key: &mut Vec<u8>) {
-		let _prefix = key.drain(0..key.len() - crate::DB_HASH_LEN);
+	fn state_capabilities(&self) -> StateCapabilities {
+		if self.1 {
+			StateCapabilities::TreeColumn
+		} else {
+			StateCapabilities::RefCounted
+		}
 	}
 }

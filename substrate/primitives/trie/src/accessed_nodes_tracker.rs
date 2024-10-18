@@ -21,7 +21,7 @@ use alloc::collections::BTreeSet;
 use core::hash::Hash;
 use scale_info::TypeInfo;
 use sp_core::{Decode, Encode};
-use trie_db::{RecordedForKey, TrieAccess, TrieRecorder};
+use trie_db::{Location, RecordedForKey, TrieAccess, TrieRecorder};
 
 /// Error associated with the `AccessedNodesTracker` module.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
@@ -55,8 +55,8 @@ impl<H: Hash> AccessedNodesTracker<H> {
 	}
 }
 
-impl<H: Hash + Ord> TrieRecorder<H> for AccessedNodesTracker<H> {
-	fn record(&mut self, access: TrieAccess<H>) {
+impl<H: Hash + Ord, L: Location> TrieRecorder<H, L> for AccessedNodesTracker<H> {
+	fn record(&mut self, access: TrieAccess<H, L>) {
 		match access {
 			TrieAccess::NodeOwned { hash, .. } |
 			TrieAccess::EncodedNode { hash, .. } |
@@ -75,12 +75,11 @@ impl<H: Hash + Ord> TrieRecorder<H> for AccessedNodesTracker<H> {
 #[cfg(test)]
 pub mod tests {
 	use super::*;
-	use crate::{tests::create_storage_proof, StorageProof};
-	use hash_db::Hasher;
-	use trie_db::{Trie, TrieDBBuilder};
+	use crate::{tests::create_storage_proof, DBLocation, StorageProof};
+	use trie_db::{node_db::Hasher, Trie, TrieDBBuilder};
 
 	type Hash = <sp_core::Blake2Hasher as Hasher>::Out;
-	type Layout = crate::LayoutV1<sp_core::Blake2Hasher>;
+	type Layout = crate::LayoutV1<sp_core::Blake2Hasher, DBLocation>;
 
 	const TEST_DATA: &[(&[u8], &[u8])] =
 		&[(b"key1", &[1; 64]), (b"key2", &[2; 64]), (b"key3", &[3; 64])];

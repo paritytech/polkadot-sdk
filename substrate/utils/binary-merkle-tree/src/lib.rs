@@ -38,7 +38,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use codec::{Decode, Encode};
-use hash_db::Hasher;
+use trie_db::node_db::Hasher;
 
 /// Construct a root hash of a Binary Merkle Tree created from given leaves.
 ///

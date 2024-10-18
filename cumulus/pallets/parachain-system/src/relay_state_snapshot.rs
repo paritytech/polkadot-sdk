@@ -16,7 +16,7 @@
 
 //! Relay chain state proof provides means for accessing part of relay chain storage for reads.
 
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
@@ -24,7 +24,7 @@ use cumulus_primitives_core::{
 use scale_info::TypeInfo;
 use sp_runtime::traits::HashingFor;
 use sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
-use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
+use sp_trie::{StorageProof, EMPTY_PREFIX};
 
 /// The capacity of the upward message queue of a parachain on the relay chain.
 // The field order should stay the same as the data can be found in the proof to ensure both are
@@ -152,8 +152,7 @@ where
 /// This state proof is extracted from the relay chain block we are building on top of.
 pub struct RelayChainStateProof {
 	para_id: ParaId,
-	trie_backend:
-		TrieBackend<MemoryDB<HashingFor<relay_chain::Block>>, HashingFor<relay_chain::Block>>,
+	trie_backend: TrieBackend<HashingFor<relay_chain::Block>>,
 }
 
 impl RelayChainStateProof {
@@ -170,7 +169,7 @@ impl RelayChainStateProof {
 		if !db.contains(&relay_parent_storage_root, EMPTY_PREFIX) {
 			return Err(Error::RootMismatch)
 		}
-		let trie_backend = TrieBackendBuilder::new(db, relay_parent_storage_root).build();
+		let trie_backend = TrieBackendBuilder::new(Box::new(db), relay_parent_storage_root).build();
 
 		Ok(Self { para_id, trie_backend })
 	}

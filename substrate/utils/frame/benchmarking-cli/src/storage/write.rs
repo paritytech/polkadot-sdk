@@ -19,10 +19,10 @@ use sc_cli::Result;
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sc_client_db::{DbHash, DbState, DbStateBuilder};
 use sp_blockchain::HeaderBackend;
-use sp_database::{ColumnId, Transaction};
+use sp_database::{ColumnId, StateCapabilities, Transaction};
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_state_machine::Backend as StateBackend;
-use sp_trie::PrefixedMemoryDB;
+use sp_trie::{MemoryDB, PrefixedMemoryDB};
 
 use log::{info, trace};
 use rand::prelude::*;
@@ -43,7 +43,7 @@ impl StorageCmd {
 		&self,
 		client: Arc<C>,
 		(db, state_col): (Arc<dyn sp_database::Database<DbHash>>, ColumnId),
-		storage: Arc<dyn sp_state_machine::Storage<HashingFor<Block>>>,
+		storage: sc_client_db::StorageDb<Block>,
 	) -> Result<BenchRecord>
 	where
 		Block: BlockT<Header = H, Hash = DbHash> + Debug,
@@ -57,7 +57,9 @@ impl StorageCmd {
 		let best_hash = client.usage_info().chain.best_hash;
 		let header = client.header(best_hash)?.ok_or("Header not found")?;
 		let original_root = *header.state_root();
-		let trie = DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root).build();
+		let trie =
+			DbStateBuilder::<HashingFor<Block>>::new(Box::new(storage.clone()), original_root)
+				.build();
 
 		info!("Preparing keys from block {}", best_hash);
 		// Load all KV pairs and randomly shuffle them.
@@ -162,21 +164,43 @@ impl StorageCmd {
 /// Converts a Trie transaction into a DB transaction.
 /// Removals are ignored and will not be included in the final tx.
 /// `invert_inserts` replaces all inserts with removals.
-fn convert_tx<B: BlockT>(
-	db: Arc<dyn sp_database::Database<DbHash>>,
+fn convert_tx_prefixed<B: BlockT>(
 	mut tx: PrefixedMemoryDB<HashingFor<B>>,
 	invert_inserts: bool,
 	col: ColumnId,
 ) -> Transaction<DbHash> {
 	let mut ret = Transaction::<DbHash>::default();
 
-	for (mut k, (v, rc)) in tx.drain().into_iter() {
+	for (k, (v, rc)) in tx.drain().into_iter() {
 		if rc > 0 {
-			db.sanitize_key(&mut k);
 			if invert_inserts {
 				ret.remove(col, &k);
 			} else {
 				ret.set(col, &k, &v);
+			}
+		}
+		// < 0 means removal - ignored.
+		// 0 means no modification.
+	}
+	ret
+}
+
+/// Converts a Trie transaction into a DB transaction.
+/// Removals are ignored and will not be included in the final tx.
+/// `invert_inserts` replaces all inserts with removals.
+fn convert_tx<B: BlockT>(
+	mut tx: MemoryDB<HashingFor<B>>,
+	invert_inserts: bool,
+	col: ColumnId,
+) -> Transaction<DbHash> {
+	let mut ret = Transaction::<DbHash>::default();
+
+	for (k, (v, rc)) in tx.drain().into_iter() {
+		if rc > 0 {
+			if invert_inserts {
+				ret.remove(col, k.as_ref());
+			} else {
+				ret.set(col, k.as_ref(), &v);
 			}
 		}
 		// < 0 means removal - ignored.
@@ -201,18 +225,56 @@ fn measure_write<Block: BlockT>(
 	// calculate the root hash of the Trie after the modification.
 	let replace = vec![(key.as_ref(), Some(new_v.as_ref()))];
 	let stx = match child_info {
-		Some(info) => trie.child_storage_root(info, replace.iter().cloned(), version).2,
-		None => trie.storage_root(replace.iter().cloned(), version).1,
+		Some(info) => trie.child_storage_root(info, replace.iter().cloned(), version).0,
+		None => trie.storage_root(replace.iter().cloned().map(|(k, v)| (k, v, None)), version),
 	};
-	// Only the keep the insertions, since we do not want to benchmark pruning.
-	let tx = convert_tx::<Block>(db.clone(), stx.clone(), false, col);
-	db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
-	let result = (new_v.len(), start.elapsed());
 
-	// Now undo the changes by removing what was added.
-	let tx = convert_tx::<Block>(db.clone(), stx.clone(), true, col);
-	db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
-	Ok(result)
+	match db.state_capabilities() {
+		StateCapabilities::TreeColumn => {
+			let mut tx = Transaction::<DbHash>::default();
+			let new_root = stx.root_hash();
+			sc_client_db::apply_tree_commit::<HashingFor<Block>>(
+				stx,
+				db.state_capabilities(),
+				&mut tx,
+			);
+
+			db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+			let result = (new_v.len(), start.elapsed());
+
+			// Now undo the changes by removing what was added.
+			let mut tx = Transaction::<DbHash>::default();
+			tx.release_tree(col, DbHash::from_slice(new_root.as_ref()));
+			db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+			Ok(result)
+		},
+		StateCapabilities::RefCounted => {
+			let mut mdb = MemoryDB::<HashingFor<Block>>::default();
+			stx.apply_to(&mut mdb);
+			// Only the keep the insertions, since we do not want to benchmark pruning.
+			let tx = convert_tx::<Block>(mdb.clone(), false, col);
+			db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+			let result = (new_v.len(), start.elapsed());
+
+			// Now undo the changes by removing what was added.
+			let tx = convert_tx::<Block>(mdb, true, col);
+			db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+			Ok(result)
+		},
+		StateCapabilities::None => {
+			let mut mdb = PrefixedMemoryDB::<HashingFor<Block>>::default();
+			stx.apply_to(&mut mdb);
+			// Only the keep the insertions, since we do not want to benchmark pruning.
+			let tx = convert_tx_prefixed::<Block>(mdb.clone(), false, col);
+			db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+			let result = (new_v.len(), start.elapsed());
+
+			// Now undo the changes by removing what was added.
+			let tx = convert_tx_prefixed::<Block>(mdb, true, col);
+			db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+			Ok(result)
+		},
+	}
 }
 
 /// Checks if a new value causes any collision in tree updates
@@ -228,18 +290,27 @@ fn check_new_value<Block: BlockT>(
 	child_info: Option<&ChildInfo>,
 ) -> bool {
 	let new_kv = vec![(key.as_ref(), Some(new_v.as_ref()))];
-	let mut stx = match child_info {
-		Some(info) => trie.child_storage_root(info, new_kv.iter().cloned(), version).2,
-		None => trie.storage_root(new_kv.iter().cloned(), version).1,
+	let stx = match child_info {
+		Some(info) => trie.child_storage_root(info, new_kv.iter().cloned(), version).0,
+		None => trie.storage_root(new_kv.iter().cloned().map(|(k, v)| (k, v, None)), version),
 	};
-	for (mut k, (_, rc)) in stx.drain().into_iter() {
-		if rc > 0 {
-			db.sanitize_key(&mut k);
-			if db.get(col, &k).is_some() {
-				trace!("Benchmark-store key creation: Key collision detected, retry");
-				return false
+	match db.state_capabilities() {
+		// cannot have collision with `TreeColumn`.
+		StateCapabilities::TreeColumn => (),
+		// collision are not an issue with `RefCounted`.
+		StateCapabilities::RefCounted => (),
+		StateCapabilities::None => {
+			let mut mdb = PrefixedMemoryDB::<HashingFor<Block>>::default();
+			stx.apply_to(&mut mdb);
+			for (k, (_, rc)) in mdb.drain().into_iter() {
+				if rc > 0 {
+					if db.get(col, k.as_ref()).is_some() {
+						trace!("Benchmark-store key creation: Key collision detected, retry");
+						return false
+					}
+				}
 			}
-		}
+		},
 	}
 	true
 }

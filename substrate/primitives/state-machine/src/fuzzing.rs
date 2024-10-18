@@ -22,12 +22,11 @@ use crate::ext::StorageAppend;
 use arbitrary::Arbitrary;
 #[cfg(test)]
 use codec::Encode;
-use hash_db::Hasher;
 use sp_core::{storage::StateVersion, traits::Externalities};
 #[cfg(test)]
 use sp_runtime::traits::BlakeTwo256;
-use sp_trie::PrefixedMemoryDB;
 use std::collections::BTreeMap;
+use trie_db::node_db::Hasher;
 
 #[derive(Arbitrary, Debug, Clone)]
 enum DataLength {
@@ -80,13 +79,9 @@ impl SimpleOverlay {
 		self.data.last_mut().expect("always at least one item").insert(key, value);
 	}
 
-	fn append<H>(
-		&mut self,
-		key: Vec<u8>,
-		value: Vec<u8>,
-		backend: &mut TrieBackend<PrefixedMemoryDB<H>, H>,
-	) where
-		H: Hasher,
+	fn append<H>(&mut self, key: Vec<u8>, value: Vec<u8>, backend: &mut TrieBackend<H>)
+	where
+		H: Hasher + 'static,
 		H::Out: codec::Decode + codec::Encode + 'static,
 	{
 		let current_value = self
@@ -137,7 +132,7 @@ struct FuzzAppendState<H: Hasher> {
 	reference: SimpleOverlay,
 
 	// trie backend
-	backend: TrieBackend<PrefixedMemoryDB<H>, H>,
+	backend: TrieBackend<H>,
 	// Standard Overlay
 	overlay: OverlayedChanges<H>,
 
@@ -147,7 +142,7 @@ struct FuzzAppendState<H: Hasher> {
 
 impl<H> FuzzAppendState<H>
 where
-	H: Hasher,
+	H: Hasher + 'static,
 	H::Out: codec::Decode + codec::Encode + 'static,
 {
 	fn process_item(&mut self, item: FuzzAppendItem) {
@@ -289,7 +284,7 @@ fn fuzz_scenarii() {
 /// Test append operation for a given fuzzing payload.
 pub fn fuzz_append<H>(payload: FuzzAppendPayload)
 where
-	H: Hasher,
+	H: Hasher + 'static,
 	H::Out: codec::Decode + codec::Encode + 'static,
 {
 	let FuzzAppendPayload(to_fuzz, initial) = payload;

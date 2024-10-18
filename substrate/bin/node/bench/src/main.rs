@@ -98,7 +98,11 @@ fn main() {
 			BlockType::RandomTransfersReaping,
 			BlockType::Noop,
 		] {
-			for database_type in [BenchDataBaseType::RocksDb, BenchDataBaseType::ParityDb] {
+			for database_type in [
+				BenchDataBaseType::RocksDb,
+				BenchDataBaseType::ParityDb,
+				BenchDataBaseType::ParityDbMulti,
+			] {
 				import_benchmarks.push((size, block_type, database_type));
 			}
 		}
@@ -119,7 +123,7 @@ fn main() {
 			]
 			.iter().flat_map(|size|
 			[
-				DatabaseType::RocksDb, DatabaseType::ParityDb
+				DatabaseType::RocksDb, DatabaseType::ParityDb, DatabaseType::ParityDbMulti,
 			]
 			.iter().map(move |db_type| (size, db_type)))
 			=> TrieReadBenchmarkDescription { database_size: *size, database_type: *db_type },
@@ -130,7 +134,8 @@ fn main() {
 			]
 			.iter().flat_map(|size|
 			[
-				DatabaseType::RocksDb, DatabaseType::ParityDb
+				DatabaseType::RocksDb, DatabaseType::ParityDb, DatabaseType::ParityDbMulti,
+
 			]
 			.iter().map(move |db_type| (size, db_type)))
 			=> TrieWriteBenchmarkDescription { database_size: *size, database_type: *db_type },

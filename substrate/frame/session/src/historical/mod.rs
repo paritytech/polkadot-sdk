@@ -40,8 +40,8 @@ use sp_runtime::{
 use sp_session::{MembershipProof, ValidatorCount};
 use sp_staking::SessionIndex;
 use sp_trie::{
-	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
-	LayoutV0, MemoryDB, Recorder, StorageProof, Trie, TrieMut, TrieRecorder,
+	trie_types::{TrieDBBuilderV0, TrieDBMutBuilderV0},
+	LayoutV0, MemoryDB, Recorder, StorageProof, Trie, TrieRecorder,
 };
 
 use frame_support::{
@@ -244,34 +244,30 @@ impl<T: Config> ProvingTrie<T> {
 		I: IntoIterator<Item = (T::ValidatorId, T::FullIdentification)>,
 	{
 		let mut db = MemoryDB::default();
-		let mut root = Default::default();
+		let mut trie = TrieDBMutBuilderV0::new(&mut db).build();
+		for (i, (validator, full_id)) in validators.into_iter().enumerate() {
+			let i = i as u32;
+			let keys = match <Session<T>>::load_keys(&validator) {
+				None => continue,
+				Some(k) => k,
+			};
 
-		{
-			let mut trie = TrieDBMutBuilderV0::new(&mut db, &mut root).build();
-			for (i, (validator, full_id)) in validators.into_iter().enumerate() {
-				let i = i as u32;
-				let keys = match <Session<T>>::load_keys(&validator) {
-					None => continue,
-					Some(k) => k,
-				};
+			let full_id = (validator, full_id);
 
-				let full_id = (validator, full_id);
+			// map each key to the owner index.
+			for key_id in T::Keys::key_ids() {
+				let key = keys.get_raw(*key_id);
+				let res = (key_id, key).using_encoded(|k| i.using_encoded(|v| trie.insert(k, v)));
 
-				// map each key to the owner index.
-				for key_id in T::Keys::key_ids() {
-					let key = keys.get_raw(*key_id);
-					let res =
-						(key_id, key).using_encoded(|k| i.using_encoded(|v| trie.insert(k, v)));
-
-					let _ = res.map_err(|_| "failed to insert into trie")?;
-				}
-
-				// map each owner index to the full identification.
-				let _ = i
-					.using_encoded(|k| full_id.using_encoded(|v| trie.insert(k, v)))
-					.map_err(|_| "failed to insert into trie")?;
+				let _ = res.map_err(|_| "failed to insert into trie")?;
 			}
+
+			// map each owner index to the full identification.
+			let _ = i
+				.using_encoded(|k| full_id.using_encoded(|v| trie.insert(k, v)))
+				.map_err(|_| "failed to insert into trie")?;
 		}
+		let root = trie.commit().apply_to(&mut db);
 
 		Ok(ProvingTrie { db, root })
 	}
@@ -282,7 +278,7 @@ impl<T: Config> ProvingTrie<T> {
 
 	/// Prove the full verification data for a given key and key ID.
 	pub fn prove(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<Vec<Vec<u8>>> {
-		let mut recorder = Recorder::<LayoutV0<T::Hashing>>::new();
+		let mut recorder = Recorder::<LayoutV0<T::Hashing, ()>>::new();
 		self.query(key_id, key_data, Some(&mut recorder));
 
 		Some(recorder.into_raw_storage_proof())
@@ -298,9 +294,9 @@ impl<T: Config> ProvingTrie<T> {
 		&self,
 		key_id: KeyTypeId,
 		key_data: &[u8],
-		recorder: Option<&mut dyn TrieRecorder<T::Hash>>,
+		recorder: Option<&mut dyn TrieRecorder<T::Hash, ()>>,
 	) -> Option<IdentificationTuple<T>> {
-		let trie = TrieDBBuilder::new(&self.db, &self.root)
+		let trie = TrieDBBuilderV0::<T::Hashing, ()>::new(&self.db, &self.root)
 			.with_optional_recorder(recorder)
 			.build();
 

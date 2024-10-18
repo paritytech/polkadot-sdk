@@ -1721,7 +1721,8 @@ pub(crate) mod remote_tests {
 		ext.state_version = sp_core::storage::StateVersion::V1;
 
 		let status =
-			substrate_state_trie_migration_rpc::migration_status(&ext.as_backend()).unwrap();
+			substrate_state_trie_migration_rpc::migration_status(&ext.as_backend().unwrap())
+				.unwrap();
 		assert!(
 			status.top_remaining_to_migrate > 0,
 			"no node needs migrating, this probably means that state was initialized with `StateVersion::V1`",
@@ -1737,7 +1738,7 @@ pub(crate) mod remote_tests {
 		);
 
 		loop {
-			let last_state_root = *ext.backend.root();
+			let last_state_root = ext.backend.root().0;
 			let ((finished, weight), proof) = ext.execute_and_prove(|| {
 				let weight = run_to_block::<Runtime>(now + One::one()).1;
 				if StateTrieMigration::<Runtime>::migration_process().finished() {
@@ -1782,7 +1783,8 @@ pub(crate) mod remote_tests {
 		});
 
 		let status =
-			substrate_state_trie_migration_rpc::migration_status(&ext.as_backend()).unwrap();
+			substrate_state_trie_migration_rpc::migration_status(&ext.as_backend().unwrap())
+				.unwrap();
 		assert_eq!(status.top_remaining_to_migrate, 0);
 		assert_eq!(status.child_remaining_to_migrate, 0);
 	}

@@ -30,7 +30,7 @@ use codec::MaxEncodedLen;
 use sp_std::vec::Vec;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1},
-	LayoutV1, MemoryDB, Trie, TrieMut,
+	LayoutV1, MemoryDB, Trie,
 };
 
 /// A helper structure for building a basic base-16 merkle trie and creating compact proofs for that
@@ -56,7 +56,7 @@ where
 	/// values of the proof, else the verifier will complain that extra nodes are provided in the
 	/// proof that are not needed.
 	pub fn create_multi_proof(&self, keys: &[Key]) -> Result<Vec<u8>, DispatchError> {
-		sp_trie::generate_trie_proof::<LayoutV1<Hashing>, _, _, _>(
+		sp_trie::generate_trie_proof::<LayoutV1<Hashing, ()>, _, _, _>(
 			&self.db,
 			self.root,
 			&keys.into_iter().map(|k| k.encode()).collect::<Vec<Vec<u8>>>(),
@@ -78,15 +78,12 @@ where
 		I: IntoIterator<Item = (Key, Value)>,
 	{
 		let mut db = MemoryDB::default();
-		let mut root = Default::default();
-
-		{
-			let mut trie = TrieDBMutBuilderV1::new(&mut db, &mut root).build();
-			for (key, value) in items.into_iter() {
-				key.using_encoded(|k| value.using_encoded(|v| trie.insert(k, v)))
-					.map_err(|_| "failed to insert into trie")?;
-			}
+		let mut trie = TrieDBMutBuilderV1::new(&mut db).build();
+		for (key, value) in items.into_iter() {
+			key.using_encoded(|k| value.using_encoded(|v| trie.insert(k, v)))
+				.map_err(|_| "failed to insert into trie")?;
 		}
+		let root = trie.commit().apply_to(&mut db);
 
 		Ok(Self { db, root, _phantom: Default::default() })
 	}
@@ -107,7 +104,7 @@ where
 
 	/// Create a compact merkle proof needed to prove a single key and its value are in the trie.
 	fn create_proof(&self, key: &Key) -> Result<Vec<u8>, DispatchError> {
-		sp_trie::generate_trie_proof::<LayoutV1<Hashing>, _, _, _>(
+		sp_trie::generate_trie_proof::<LayoutV1<Hashing, ()>, _, _, _>(
 			&self.db,
 			self.root,
 			&[key.encode()],
@@ -158,7 +155,7 @@ where
 {
 	let structured_proof: Vec<Vec<u8>> =
 		Decode::decode(&mut &proof[..]).map_err(|_| TrieError::DecodeError)?;
-	sp_trie::verify_trie_proof::<LayoutV1<Hashing>, _, _, _>(
+	sp_trie::verify_trie_proof::<LayoutV1<Hashing, ()>, _, _, _>(
 		&root,
 		&structured_proof,
 		&[(key.encode(), Some(value.encode()))],
@@ -184,7 +181,7 @@ where
 		.map(|(key, value)| (key.encode(), Some(value.encode())))
 		.collect::<Vec<(Vec<u8>, Option<Vec<u8>>)>>();
 
-	sp_trie::verify_trie_proof::<LayoutV1<Hashing>, _, _, _>(
+	sp_trie::verify_trie_proof::<LayoutV1<Hashing, ()>, _, _, _>(
 		&root,
 		&structured_proof,
 		&items_encoded,
@@ -204,7 +201,7 @@ mod tests {
 
 	// The expected root hash for an empty trie.
 	fn empty_root() -> H256 {
-		sp_trie::empty_trie_root::<LayoutV1<BlakeTwo256>>()
+		sp_trie::empty_trie_root::<LayoutV1<BlakeTwo256, ()>>()
 	}
 
 	fn create_balance_trie() -> BalanceTrie {

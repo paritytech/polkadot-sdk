@@ -1581,12 +1581,12 @@ name = "binary-merkle-tree"
 version = "13.0.0"
 dependencies = [
  "array-bytes",
- "hash-db",
  "log",
  "parity-scale-codec",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
+ "subtrie",
 ]
 
 [[package]]
@@ -2096,7 +2096,6 @@ version = "0.7.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "hash-db",
  "hex-literal",
  "impl-trait-for-tuples",
  "log",
@@ -2110,7 +2109,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-std 14.0.0",
  "sp-trie 29.0.0",
- "trie-db 0.29.1",
+ "subtrie",
 ]
 
 [[package]]
@@ -2561,6 +2560,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "staging-xcm",
  "static_assertions",
+ "subtrie",
  "tuplex",
 ]
 
@@ -4386,8 +4386,7 @@ dependencies = [
  "sp-version 29.0.0",
  "staging-xcm",
  "staging-xcm-builder",
- "trie-db 0.29.1",
- "trie-standardmap",
+ "subtrie",
 ]
 
 [[package]]
@@ -7090,6 +7089,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash256-std-hasher"
+version = "0.15.2"
+source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#620d6761d13d82638638c7429e88955f94a1091c"
+dependencies = [
+ "crunchy",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8375,17 +8382,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f6d5ed8676d904364de097082f4e7d240b571b67989ced0240f08b7f966f940"
 dependencies = [
  "cpufeatures",
-]
-
-[[package]]
-name = "keccak-hasher"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19ea4653859ca2266a86419d3f592d3f22e7a854b482f99180d2498507902048"
-dependencies = [
- "hash-db",
- "hash256-std-hasher",
- "tiny-keccak",
 ]
 
 [[package]]
@@ -10126,7 +10122,6 @@ dependencies = [
  "derive_more",
  "fs_extra",
  "futures",
- "hash-db",
  "kitchensink-runtime",
  "kvdb",
  "kvdb-rocksdb",
@@ -10137,6 +10132,7 @@ dependencies = [
  "rand",
  "sc-basic-authorship",
  "sc-client-api",
+ "sc-client-db",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
  "serde",
@@ -10149,6 +10145,7 @@ dependencies = [
  "sp-timestamp",
  "sp-tracing 16.0.0",
  "sp-trie 29.0.0",
+ "subtrie",
  "tempfile",
 ]
 
@@ -13175,9 +13172,9 @@ checksum = "16b56e3a2420138bdb970f84dfb9c774aea80fa0e7371549eedec0d80c209c67"
 
 [[package]]
 name = "parity-db"
-version = "0.4.12"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59e9ab494af9e6e813c72170f0d3c1de1500990d62c97cc05cc7576f91aa402f"
+checksum = "01f25df2bcb0aa931f200c5362b3329f51e6e404046ff9628cf4aa13affb5664"
 dependencies = [
  "blake2 0.10.6",
  "crc32fast",
@@ -13191,6 +13188,7 @@ dependencies = [
  "rand",
  "siphasher 0.3.11",
  "snap",
+ "winapi",
 ]
 
 [[package]]
@@ -18457,7 +18455,7 @@ version = "0.35.0"
 dependencies = [
  "array-bytes",
  "criterion",
- "hash-db",
+ "fs_extra",
  "kitchensink-runtime",
  "kvdb",
  "kvdb-memorydb",
@@ -18481,6 +18479,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie 29.0.0",
  "substrate-test-runtime-client",
+ "subtrie",
  "tempfile",
 ]
 
@@ -21258,7 +21257,6 @@ name = "sp-api"
 version = "26.0.0"
 dependencies = [
  "docify",
- "hash-db",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -21272,6 +21270,7 @@ dependencies = [
  "sp-test-primitives",
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
+ "subtrie",
  "thiserror",
 ]
 
@@ -21661,8 +21660,7 @@ dependencies = [
  "dyn-clonable",
  "ed25519-zebra 4.0.3",
  "futures",
- "hash-db",
- "hash256-std-hasher",
+ "hash256-std-hasher 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "impl-serde 0.4.0",
  "itertools 0.11.0",
  "k256",
@@ -21690,6 +21688,7 @@ dependencies = [
  "sp-storage 19.0.0",
  "ss58-registry",
  "substrate-bip39 0.4.7",
+ "subtrie",
  "thiserror",
  "tracing",
  "w3f-bls",
@@ -21711,7 +21710,7 @@ dependencies = [
  "ed25519-zebra 3.1.0",
  "futures",
  "hash-db",
- "hash256-std-hasher",
+ "hash256-std-hasher 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "impl-serde 0.4.0",
  "itertools 0.10.5",
  "k256",
@@ -21758,7 +21757,7 @@ dependencies = [
  "ed25519-zebra 3.1.0",
  "futures",
  "hash-db",
- "hash256-std-hasher",
+ "hash256-std-hasher 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "impl-serde 0.4.0",
  "itertools 0.10.5",
  "k256",
@@ -21805,7 +21804,7 @@ dependencies = [
  "ed25519-zebra 4.0.3",
  "futures",
  "hash-db",
- "hash256-std-hasher",
+ "hash256-std-hasher 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "impl-serde 0.4.0",
  "itertools 0.11.0",
  "k256",
@@ -21953,7 +21952,9 @@ name = "sp-database"
 version = "10.0.0"
 dependencies = [
  "kvdb",
+ "parity-db",
  "parking_lot 0.12.3",
+ "subtrie",
 ]
 
 [[package]]
@@ -22351,7 +22352,7 @@ dependencies = [
  "binary-merkle-tree",
  "docify",
  "either",
- "hash256-std-hasher",
+ "hash256-std-hasher 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "impl-trait-for-tuples",
  "log",
  "num-traits",
@@ -22385,7 +22386,7 @@ checksum = "ec3cb126971e7db2f0fcf8053dce740684c438c7180cfca1959598230f342c58"
 dependencies = [
  "docify",
  "either",
- "hash256-std-hasher",
+ "hash256-std-hasher 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
@@ -22410,7 +22411,7 @@ checksum = "a6b85cb874b78ebb17307a910fc27edf259a0455ac5155d87eaed8754c037e07"
 dependencies = [
  "docify",
  "either",
- "hash256-std-hasher",
+ "hash256-std-hasher 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
@@ -22435,7 +22436,7 @@ checksum = "1c2a6148bf0ba74999ecfea9b4c1ade544f0663e0baba19630bb7761b2142b19"
 dependencies = [
  "docify",
  "either",
- "hash256-std-hasher",
+ "hash256-std-hasher 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "impl-trait-for-tuples",
  "log",
  "num-traits",
@@ -22642,7 +22643,6 @@ dependencies = [
  "arbitrary",
  "array-bytes",
  "assert_matches",
- "hash-db",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -22654,9 +22654,9 @@ dependencies = [
  "sp-panic-handler 13.0.0",
  "sp-runtime 31.0.1",
  "sp-trie 29.0.0",
+ "subtrie",
  "thiserror",
  "tracing",
- "trie-db 0.29.1",
 ]
 
 [[package]]
@@ -22910,8 +22910,6 @@ dependencies = [
  "ahash 0.8.11",
  "array-bytes",
  "criterion",
- "hash-db",
- "memory-db",
  "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -22921,12 +22919,9 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-externalities 0.25.0",
  "sp-runtime 31.0.1",
+ "subtrie",
  "thiserror",
  "tracing",
- "trie-bench",
- "trie-db 0.29.1",
- "trie-root",
- "trie-standardmap",
 ]
 
 [[package]]
@@ -23776,7 +23771,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-trie 29.0.0",
- "trie-db 0.29.1",
+ "subtrie",
 ]
 
 [[package]]
@@ -23853,8 +23848,8 @@ dependencies = [
  "sp-version 29.0.0",
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
+ "subtrie",
  "tracing",
- "trie-db 0.29.1",
 ]
 
 [[package]]
@@ -23946,6 +23941,20 @@ name = "subtle-ng"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "734676eb262c623cec13c3155096e08d1f8f29adce39ba17948b18dad1e54142"
+
+[[package]]
+name = "subtrie"
+version = "0.0.1"
+source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#620d6761d13d82638638c7429e88955f94a1091c"
+dependencies = [
+ "criterion",
+ "hash256-std-hasher 0.15.2 (git+https://github.com/cheme/trie.git?branch=cheme/new-trie)",
+ "log",
+ "parity-scale-codec",
+ "rustc-hex",
+ "smallvec",
+ "tiny-keccak",
+]
 
 [[package]]
 name = "subwasmlib"
@@ -25152,22 +25161,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "trie-bench"
-version = "0.39.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3092f400e9f7e3ce8c1756016a8b6287163ab7a11dd47d82169260cb4cc2d680"
-dependencies = [
- "criterion",
- "hash-db",
- "keccak-hasher",
- "memory-db",
- "parity-scale-codec",
- "trie-db 0.29.1",
- "trie-root",
- "trie-standardmap",
-]
-
-[[package]]
 name = "trie-db"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -25199,16 +25192,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4ed310ef5ab98f5fa467900ed906cb9232dd5376597e00fd4cba2a449d06c0b"
 dependencies = [
  "hash-db",
-]
-
-[[package]]
-name = "trie-standardmap"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "684aafb332fae6f83d7fe10b3fbfdbe39a1b3234c4e2a618f030815838519516"
-dependencies = [
- "hash-db",
- "keccak-hasher",
 ]
 
 [[package]]

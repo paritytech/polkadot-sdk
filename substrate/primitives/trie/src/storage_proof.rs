@@ -18,8 +18,8 @@
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, Encode};
 use core::iter::{DoubleEndedIterator, IntoIterator};
-use hash_db::{HashDB, Hasher};
 use scale_info::TypeInfo;
+use trie_db::node_db::Hasher;
 
 // Note that `LayoutV1` usage here (proof compaction) is compatible
 // with `LayoutV0`.
@@ -131,7 +131,7 @@ impl StorageProof {
 		root: H::Out,
 	) -> Result<CompactProof, crate::CompactProofError<H::Out, crate::Error<H::Out>>> {
 		let db = self.into_memory_db();
-		crate::encode_compact::<Layout<H>, crate::MemoryDB<H>>(&db, &root)
+		crate::encode_compact::<Layout<H, ()>, crate::MemoryDB<H>>(&db, &root)
 	}
 
 	/// Encode as a compact proof with default trie layout.
@@ -140,7 +140,7 @@ impl StorageProof {
 		root: H::Out,
 	) -> Result<CompactProof, crate::CompactProofError<H::Out, crate::Error<H::Out>>> {
 		let db = self.to_memory_db();
-		crate::encode_compact::<Layout<H>, crate::MemoryDB<H>>(&db, &root)
+		crate::encode_compact::<Layout<H, ()>, crate::MemoryDB<H>>(&db, &root)
 	}
 
 	/// Returns the estimated encoded size of the compact proof.
@@ -189,7 +189,7 @@ impl CompactProof {
 		expected_root: Option<&H::Out>,
 	) -> Result<(StorageProof, H::Out), crate::CompactProofError<H::Out, crate::Error<H::Out>>> {
 		let mut db = crate::MemoryDB::<H>::new(&[]);
-		let root = crate::decode_compact::<Layout<H>, _, _>(
+		let root = crate::decode_compact::<Layout<H, ()>, _>(
 			&mut db,
 			self.iter_compact_encoded_nodes(),
 			expected_root,
@@ -217,7 +217,7 @@ impl CompactProof {
 	) -> Result<(crate::MemoryDB<H>, H::Out), crate::CompactProofError<H::Out, crate::Error<H::Out>>>
 	{
 		let mut db = crate::MemoryDB::<H>::new(&[]);
-		let root = crate::decode_compact::<Layout<H>, _, _>(
+		let root = crate::decode_compact::<Layout<H, ()>, _>(
 			&mut db,
 			self.iter_compact_encoded_nodes(),
 			expected_root,
@@ -230,9 +230,9 @@ impl CompactProof {
 #[cfg(test)]
 pub mod tests {
 	use super::*;
-	use crate::{tests::create_storage_proof, StorageProof};
+	use crate::{tests::create_storage_proof, DBLocation, StorageProof};
 
-	type Layout = crate::LayoutV1<sp_core::Blake2Hasher>;
+	type Layout = crate::LayoutV1<sp_core::Blake2Hasher, DBLocation>;
 
 	const TEST_DATA: &[(&[u8], &[u8])] =
 		&[(b"key1", &[1; 64]), (b"key2", &[2; 64]), (b"key3", &[3; 64]), (b"key11", &[4; 64])];

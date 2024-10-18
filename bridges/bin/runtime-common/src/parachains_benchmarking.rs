@@ -28,7 +28,7 @@ use bp_runtime::{grow_storage_value, record_all_trie_keys, Chain, UnverifiedStor
 use codec::Encode;
 use frame_support::traits::Get;
 use sp_std::prelude::*;
-use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
+use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB};
 
 /// Prepare proof of messages for the `receive_messages_proof` call.
 ///
@@ -51,31 +51,29 @@ where
 	// insert all heads to the trie
 	let mut parachain_heads = Vec::with_capacity(parachains.len());
 	let mut storage_keys = Vec::with_capacity(parachains.len());
-	let mut state_root = Default::default();
 	let mut mdb = MemoryDB::default();
-	{
-		let mut trie =
-			TrieDBMutBuilderV1::<RelayBlockHasher>::new(&mut mdb, &mut state_root).build();
+	let mut trie = TrieDBMutBuilderV1::<RelayBlockHasher>::new(&mdb).build();
 
-		// insert parachain heads
-		for (i, parachain) in parachains.into_iter().enumerate() {
-			let storage_key =
-				parachain_head_storage_key_at_source(R::ParasPalletName::get(), *parachain);
-			let leaf_data = if i == 0 {
-				grow_storage_value(parachain_head.encode(), &proof_params)
-			} else {
-				parachain_head.encode()
-			};
-			trie.insert(&storage_key.0, &leaf_data)
-				.map_err(|_| "TrieMut::insert has failed")
-				.expect("TrieMut::insert should not fail in benchmarks");
-			storage_keys.push(storage_key);
-			parachain_heads.push((*parachain, parachain_head.hash()))
-		}
+	// insert parachain heads
+	for (i, parachain) in parachains.into_iter().enumerate() {
+		let storage_key =
+			parachain_head_storage_key_at_source(R::ParasPalletName::get(), *parachain);
+		let leaf_data = if i == 0 {
+			grow_storage_value(parachain_head.encode(), &proof_params)
+		} else {
+			parachain_head.encode()
+		};
+		trie.insert(&storage_key.0, &leaf_data)
+			.map_err(|_| "TrieDBMut::insert has failed")
+			.expect("TrieDBMut::insert should not fail in benchmarks");
+		storage_keys.push(storage_key);
+		parachain_heads.push((*parachain, parachain_head.hash()))
 	}
 
+	let state_root = trie.commit().apply_to(&mut mdb);
+
 	// generate heads storage proof
-	let proof = record_all_trie_keys::<LayoutV1<RelayBlockHasher>, _>(&mdb, &state_root)
+	let proof = record_all_trie_keys::<LayoutV1<RelayBlockHasher, ()>>(&mdb, &state_root)
 		.map_err(|_| "record_all_trie_keys has failed")
 		.expect("record_all_trie_keys should not fail in benchmarks");
 
