@@ -630,7 +630,7 @@ impl Client {
 		block: BlockNumberOrTagOrHash,
 	) -> Result<U256, ClientError> {
 		let dry_run = self.dry_run(tx, block).await?;
-		Ok(U256::from(dry_run.fee / GAS_PRICE) + 1)
+		Ok(U256::from(dry_run.fee / GAS_PRICE as u128) + 1)
 	}
 
 	/// Get the nonce of the given address.
@@ -725,7 +725,7 @@ impl Client {
 	pub async fn evm_block(&self, block: Arc<SubstrateBlock>) -> Result<Block, ClientError> {
 		let runtime_api = self.inner.api.runtime_api().at(block.hash());
 		let max_fee = Self::weight_to_fee(&runtime_api, self.max_block_weight()).await?;
-		let gas_limit = U256::from(max_fee / GAS_PRICE);
+		let gas_limit = U256::from(max_fee / GAS_PRICE as u128);
 
 		let header = block.header();
 		let timestamp = extract_block_timestamp(&block).await.unwrap_or_default();
