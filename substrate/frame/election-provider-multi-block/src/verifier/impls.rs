@@ -16,7 +16,7 @@
 // limitations under the License.
 
 // TODO(gpestana): clean up imports.
-use frame_election_provider_support::{NposSolution, PageIndex, TryIntoBoundedSupports};
+use frame_election_provider_support::PageIndex;
 use frame_support::{
 	ensure,
 	pallet_prelude::Weight,
@@ -29,7 +29,7 @@ use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 use super::*;
 use pallet::*;
 
-use crate::{helpers, unsigned::miner, verifier::weights::WeightInfo, MinerSupportsOf, SolutionOf};
+use crate::{unsigned::miner, verifier::weights::WeightInfo, MinerSupportsOf, SolutionOf};
 
 #[frame_support::pallet(dev_mode)]
 pub(crate) mod pallet {
@@ -651,95 +651,9 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn feasibility_check_old(
-		partial_solution: SolutionOf<T::MinerConfig>,
-		page: PageIndex,
-	) -> Result<MinerSupportsOf<T::MinerConfig>, FeasibilityError> {
-		// Read the corresponding snapshots.
-		let snapshot_targets =
-			crate::Snapshot::<T>::targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
-		let snapshot_voters =
-			crate::Snapshot::<T>::voters(page).ok_or(FeasibilityError::SnapshotUnavailable)?;
-
-		let voter_cache = helpers::generate_voter_cache::<T::MinerConfig, _>(&snapshot_voters);
-		let voter_at = helpers::voter_at_fn::<T::MinerConfig>(&snapshot_voters);
-		let target_at = helpers::target_at_fn::<T::MinerConfig>(&snapshot_targets);
-		let voter_index = helpers::voter_index_fn_usize::<T::MinerConfig>(&voter_cache);
-
-		// Then convert solution -> assignment. This will fail if any of the indices are
-		// gibberish.
-		let assignments = partial_solution
-			.into_assignment(voter_at, target_at)
-			.map_err::<FeasibilityError, _>(Into::into)?;
-
-		// Ensure that assignments are all correct.
-		let _ = assignments
-			.iter()
-			.map(|ref assignment| {
-				// Check that assignment.who is actually a voter (defensive-only). NOTE: while
-				// using the index map from `voter_index` is better than a blind linear search,
-				// this *still* has room for optimization. Note that we had the index when we
-				// did `solution -> assignment` and we lost it. Ideal is to keep the index
-				// around.
-
-				// Defensive-only: must exist in the snapshot.
-				let snapshot_index =
-					voter_index(&assignment.who).ok_or(FeasibilityError::InvalidVoter)?;
-				// Defensive-only: index comes from the snapshot, must exist.
-				let (_voter, _stake, targets) =
-					snapshot_voters.get(snapshot_index).ok_or(FeasibilityError::InvalidVoter)?;
-				debug_assert!(*_voter == assignment.who);
-
-				// Check that all of the targets are valid based on the snapshot.
-				if assignment.distribution.iter().any(|(t, _)| !targets.contains(t)) {
-					return Err(FeasibilityError::InvalidVote)
-				}
-				Ok(())
-			})
-			.collect::<Result<(), FeasibilityError>>()?;
-
-		// ----- Start building support. First, we need one more closure.
-		let stake_of = helpers::stake_of_fn::<T::MinerConfig, _>(&snapshot_voters, &voter_cache);
-
-		// This might fail if the normalization fails. Very unlikely. See `integrity_test`.
-		let staked_assignments =
-			sp_npos_elections::assignment_ratio_to_staked_normalized(assignments, stake_of)
-				.map_err::<FeasibilityError, _>(Into::into)?;
-
-		let supports = sp_npos_elections::to_supports(&staked_assignments);
-
-		// Check the maximum number of backers per winner. If this is a single-page solution, this
-		// is enough to check `MaxBackersPerWinner`. Else, this is just a heuristic, and needs to be
-		// checked again at the end (via `QueuedSolutionBackings`).
-		ensure!(
-			supports
-				.iter()
-				.all(|(_, s)| (s.voters.len() as u32) <= T::MaxBackersPerWinner::get()),
-			FeasibilityError::TooManyBackings
-		);
-
-		// Ensure some heuristics. These conditions must hold in the **entire** support, this is
-		// just a single page. But, they must hold in a single page as well.
-		let desired_targets =
-			crate::Snapshot::<T>::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
-
-		// supports per page must not be higher than the desired targets, otherwise final solution
-		// will also be higher than desired_targets.
-		ensure!((supports.len() as u32) <= desired_targets, FeasibilityError::WrongWinnerCount);
-
-		// almost-defensive-only: `MaxBackersPerWinner` is already checked. A sane value of
-		// `MaxWinnersPerPage` should be more than any possible value of `desired_targets()`, which
-		// is ALSO checked, so this conversion can almost never fail.
-		let bounded_supports = supports.try_into_bounded_supports().map_err(|e| {
-			log!(info, "ERR: {:?}", e);
-			FeasibilityError::WrongWinnerCount
-		})?;
-
-		Ok(bounded_supports)
-	}
-
 	/// Returns the number backings/pages verified and stored.
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	#[allow(dead_code)]
 	pub(crate) fn pages_backed() -> usize {
 		QueuedSolutionBackings::<T>::iter_keys().count()
 	}

@@ -607,6 +607,7 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 	///
 	/// Mines a new solution with [`crate::Pallet::Pages`] pages and computes the partial score
 	/// of the page with `page` index.
+	#[allow(dead_code)]
 	pub fn mine(
 		page: PageIndex,
 	) -> Result<

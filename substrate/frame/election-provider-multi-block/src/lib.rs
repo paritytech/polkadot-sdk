@@ -19,7 +19,7 @@
 //!
 //! This pallet manages the NPoS election across its different phases, with the ability to accept
 //! both on-chain and off-chain solutions. The off-chain solutions may be submitted as a signed or
-//! unsigned transaction. Crucially, supports paginated, multi-block elections. The goal of
+//! unsigned transaction. Crucially, it supports paginated, multi-block elections. The goal of
 //! supporting paged elections is to scale the elections linearly with the number of blocks
 //! allocated to the election.
 //!
@@ -54,8 +54,8 @@
 //! - The [`signed`] pallet implements the signed phase, where off-chain entities commit to and
 //!   submit their election solutions. This pallet implements the
 //!   [`verifier::SolutionDataProvider`], which is used by the [`verifier`] pallet to fetch solution
-//!   data.
-//! - The [`unsigned`] pallet implements the unsigned phase, where block authors can calculate and
+//!   data to perform the solution verification.
+//! - The [`unsigned`] pallet implements the unsigned phase, where block authors can compute and
 //!   submit through inherent paged solutions. This pallet also implements the
 //!   [`verifier::SolutionDataProvider`] interface.
 //!
@@ -77,6 +77,8 @@
 //! This pallet manages the election phases which signal to the other sub-pallets which actions to
 //! take at a given block. The election phases are the following:
 //!
+//!
+//! // TODO(gpestana): use a diagram instead of text diagram.
 //! ```text
 //! //   -----------     -----------  --------------  ------------  --------
 //! //  |            |  |            |               |             |        |
@@ -86,22 +88,20 @@
 //! Each phase duration depends on the estimate block number election, which can be fetched from
 //! [`pallet::Config::DataProvider`].
 //!
-//! > to-finish
+//! TODO(gpestana): finish, add all info related to EPM-MB
 
 #![cfg_attr(not(feature = "std"), no_std)]
-// TODO: remove
-#![allow(dead_code)]
 
 use frame_election_provider_support::{
 	bounds::ElectionBoundsBuilder, BoundedSupportsOf, ElectionDataProvider, ElectionProvider,
-	LockableElectionDataProvider, PageIndex, VoterOf, Weight,
+	LockableElectionDataProvider, PageIndex, Weight,
 };
 use frame_support::{
 	defensive, ensure,
 	traits::{Defensive, DefensiveSaturating, Get},
 	BoundedVec,
 };
-use sp_runtime::traits::Zero;
+use sp_runtime::traits::{One, Zero};
 
 use frame_system::pallet_prelude::BlockNumberFor;
 
@@ -129,6 +129,7 @@ pub use crate::{unsigned::miner, verifier::Verifier, weights::WeightInfo};
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 use crate::verifier::Pallet as PalletVerifier;
 
+/// Log target for this the core EPM-MB pallet.
 const LOG_TARGET: &'static str = "runtime::multiblock-election";
 
 /// Page configured for the election.
@@ -146,7 +147,7 @@ pub trait BenchmarkingConfig {
 	const TARGETS_PER_PAGE: [u32; 2];
 }
 
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub mod pallet {
 
 	use super::*;
@@ -155,7 +156,6 @@ pub mod pallet {
 		sp_runtime::Saturating,
 		Twox64Concat,
 	};
-	use frame_system::pallet_prelude::BlockNumberFor;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -164,19 +164,38 @@ pub mod pallet {
 			+ TryInto<Event<Self>>;
 
 		/// Duration of the signed phase;
+		///
+		/// During the signed phase, staking miners may register their solutions and submit
+		/// paginated solutions.
 		#[pallet::constant]
 		type SignedPhase: Get<BlockNumberFor<Self>>;
 
 		/// Duration of the unsigned phase;
+		///
+		/// During the unsigned phase, offchain workers of block producing validators compute and
+		/// submit paginated solutions.
 		#[pallet::constant]
 		type UnsignedPhase: Get<BlockNumberFor<Self>>;
 
 		/// Duration of the signed validation phase.
 		///
-		/// The duration of this phase SHOULD NOT be less than `T::Pages` and there is no point in
-		/// it being more than the maximum number of pages per submission.
+		/// During the signed validation phase, the async verifier verifies one or all the queued
+		/// solution submitions during the signed phase. Once one solution is accepted, this phase
+		/// terminates.
+		///
+		/// The duration of this phase **SHOULD NOT** be less than `T::Pages` and there is no point
+		/// in it being more than the maximum number of pages per submission.
 		#[pallet::constant]
 		type SignedValidationPhase: Get<BlockNumberFor<Self>>;
+
+		/// The limit number of blocks that the `Phase::Export` will be open for.
+		///
+		/// During the export phase, this pallet is open to return paginated, verified solution
+		/// pages if at least one solution has been verified and accepted in the current era.
+		///
+		/// The export phase will terminate if it has been open for `T::ExportPhaseLimit` blocks or
+		/// the `EPM::call(0)` is called.
+		type ExportPhaseLimit: Get<BlockNumberFor<Self>>;
 
 		/// The number of blocks that the election should be ready before the election deadline.
 		#[pallet::constant]
@@ -194,7 +213,7 @@ pub mod pallet {
 		/// in one page of a solution.
 		type MaxWinnersPerPage: Get<u32>;
 
-		/// Maximum number of voters that can support a single target, across ALL the solution
+		/// Maximum number of voters that can support a single target, across **ALL(()) the solution
 		/// pages. Thus, this can only be verified when processing the last solution page.
 		///
 		/// This limit must be set so that the memory limits of the rest of the system are
@@ -203,15 +222,9 @@ pub mod pallet {
 
 		/// The number of pages.
 		///
-		/// A solution may contain at MOST this many pages.
+		/// A solution may contain at **MOST** this many pages.
 		#[pallet::constant]
 		type Pages: Get<PageIndex>;
-
-		/// The limit number of blocks that the `Phase::Export` will be open for.
-		///
-		/// The export phase will terminate if it has been open for `T::ExportPhaseLimit` blocks or
-		/// the `EPM::call(0)` is called.
-		type ExportPhaseLimit: Get<BlockNumberFor<Self>>;
 
 		/// Something that will provide the election data.
 		type DataProvider: LockableElectionDataProvider<
@@ -275,6 +288,8 @@ pub mod pallet {
 	}
 
 	/// Election failure strategy.
+	///
+	/// This strategy defines the actions of this pallet once an election fails.
 	#[pallet::storage]
 	pub(crate) type ElectionFailure<T: Config> =
 		StorageValue<_, ElectionFailureStrategy, ValueQuery>;
@@ -283,14 +298,15 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type CurrentPhase<T: Config> = StorageValue<_, Phase<BlockNumberFor<T>>, ValueQuery>;
 
-	/// Current round
+	/// Current round.
 	#[pallet::storage]
 	pub(crate) type Round<T: Config> = StorageValue<_, u32, ValueQuery>;
 
-	/// Paginated target snapshot.
+	/// Target snapshot.
+	///
+	/// Note: The target snapshot is single-paged.
 	#[pallet::storage]
-	pub(crate) type PagedTargetSnapshot<T: Config> =
-		StorageMap<_, Twox64Concat, PageIndex, BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>>;
+	pub(crate) type TargetSnapshot<T: Config> = StorageValue<_, TargetPageOf<T>, OptionQuery>;
 
 	/// Paginated voter snapshot.
 	#[pallet::storage]
@@ -320,8 +336,6 @@ pub mod pallet {
 			//  ---------- ---------- ---------- ----------- ---------- --------
 			// |         |          |          |            |          |        |
 			// Off       Snapshot   (Signed     SigValid)   Unsigned   Export  elect()
-
-			use sp_runtime::traits::One;
 
 			let export_deadline = T::ExportPhaseLimit::get().saturating_add(T::Lookhaead::get());
 			let unsigned_deadline = export_deadline.saturating_add(T::UnsignedPhase::get());
@@ -364,9 +378,9 @@ pub mod pallet {
 			match current_phase {
 				// start snapshot.
 				Phase::Off
+				    // allocate one extra block for the (single-page) target snapshot.
 					if remaining_blocks <= snapshot_deadline &&
 						remaining_blocks > signed_deadline =>
-				// allocate one extra block for the target snapshot.
 					Self::try_progress_snapshot(T::Pages::get() + 1),
 
 				// continue snapshot.
@@ -378,13 +392,13 @@ pub mod pallet {
 					T::WeightInfo::on_phase_transition()
 				},
 
-				// start signed phase. The `signed` pallet will take further actions now.
+				// start signed phase. The `signed` sub-pallet will take further actions now.
 				Phase::Snapshot(0)
 					if remaining_blocks <= signed_deadline &&
 						remaining_blocks > signed_validation_deadline =>
 					Self::start_signed_phase(),
 
-				// start signed validation. The `signed` pallet will take further actions now.
+				// start signed validation. The `signed` sub-pallet will take further actions now.
 				Phase::Signed
 					if remaining_blocks <= signed_validation_deadline &&
 						remaining_blocks > unsigned_deadline =>
@@ -393,7 +407,7 @@ pub mod pallet {
 					T::WeightInfo::on_phase_transition()
 				},
 
-				// start unsigned phase. The `unsigned` pallet will take further actions now.
+				// start unsigned phase. The `unsigned` sub-pallet will take further actions now.
 				Phase::Signed | Phase::SignedValidation(_) | Phase::Snapshot(0)
 					if remaining_blocks <= unsigned_deadline && remaining_blocks > Zero::zero() =>
 				{
@@ -401,7 +415,14 @@ pub mod pallet {
 					T::WeightInfo::on_phase_transition()
 				},
 
-				// EPM is "serving" the staking pallet with the election results.
+				// start export phase.
+				Phase::Unsigned(_) if now == next_election.saturating_sub(export_deadline) => {
+					Self::phase_transition(Phase::Export(now));
+					T::WeightInfo::on_phase_transition()
+				},
+
+				// election solution **MAY** be ready, start export phase to allow external pallets
+                // to request paged election solutions.
 				Phase::Export(started_at) => Self::do_export_phase(now, started_at),
 
 				_ => T::WeightInfo::on_initialize_do_nothing(),
@@ -429,7 +450,7 @@ pub mod pallet {
 /// It manages the following storage items:
 ///
 /// - [`PagedVoterSnapshot`]: Paginated map of voters.
-/// - [`PagedTargetSnapshot`]: Paginated map of targets.
+/// - [`TargetSnapshot`]: Single page, bounded list of targets.
 ///
 /// To ensure correctness and data consistency, all the reads and writes to storage items related
 /// to the snapshot and "wrapped" by this struct must be performed through the methods exposed by
@@ -438,24 +459,24 @@ pub(crate) struct Snapshot<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> Snapshot<T> {
 	/// Returns the targets snapshot.
 	///
-	/// TODO(gpestana): consider paginating targets (update: a lot of shenenigans on the assignments
-	/// converstion and target/voter index. Hard to ensure that no more than 1 snapshot page is
-	/// fetched when both voter and target snapshots are paged.)
-	fn targets() -> Option<BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>> {
-		PagedTargetSnapshot::<T>::get(Pallet::<T>::lsp())
+	/// The target snapshot is single paged.
+	fn targets() -> Option<TargetPageOf<T>> {
+		TargetSnapshot::<T>::get()
 	}
 
 	/// Sets a page of targets in the snapshot's storage.
-	fn set_targets(targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>) {
-		PagedTargetSnapshot::<T>::insert(Pallet::<T>::lsp(), targets);
+	///
+	/// The target snapshot is single paged.
+	fn set_targets(targets: TargetPageOf<T>) {
+		TargetSnapshot::<T>::set(Some(targets));
 	}
 
 	/// Returns whether the target snapshot exists in storage.
 	fn targets_snapshot_exists() -> bool {
-		!PagedTargetSnapshot::<T>::iter_keys().count().is_zero()
+		TargetSnapshot::<T>::get().is_some()
 	}
 
-	/// Return the number of desired targets, which is defined by [`T::DataProvider`].
+	/// Returns the number of desired targets, as defined by [`T::DataProvider`].
 	fn desired_targets() -> Option<u32> {
 		match T::DataProvider::desired_targets() {
 			Ok(desired) => Some(desired),
@@ -469,32 +490,29 @@ impl<T: Config> Snapshot<T> {
 		}
 	}
 
-	/// Returns the voters of a specific `page` index in the current snapshot.
+	/// Returns the voters of a specific `page` index of the current snapshot, if any.
 	fn voters(page: PageIndex) -> Option<VoterPageOf<T>> {
 		PagedVoterSnapshot::<T>::get(page)
 	}
 
 	/// Sets a single page of voters in the snapshot's storage.
-	fn set_voters(
-		page: PageIndex,
-		voters: BoundedVec<VoterOf<T::DataProvider>, T::VoterSnapshotPerBlock>,
-	) {
+	fn set_voters(page: PageIndex, voters: VoterPageOf<T>) {
 		PagedVoterSnapshot::<T>::insert(page, voters);
 	}
 
 	/// Clears all data related to a snapshot.
 	///
-	/// At the end of a round, all the snapshot related data must be cleared and the election phase
-	/// has transitioned to `Phase::Off`.
+	/// At the end of a round, all the snapshot related data must be cleared. Clearing the
+	/// snapshot data **MUST* only be performed only during `Phase::Off`.
 	fn kill() {
 		let _ = PagedVoterSnapshot::<T>::clear(u32::MAX, None);
-		let _ = PagedTargetSnapshot::<T>::clear(u32::MAX, None);
+		let _ = TargetSnapshot::<T>::kill();
 
 		debug_assert_eq!(<CurrentPhase<T>>::get(), Phase::Off);
 	}
 
-	#[allow(dead_code)]
 	#[cfg(any(test, debug_assertions))]
+	#[allow(dead_code)]
 	pub(crate) fn ensure() -> Result<(), &'static str> {
 		let pages = T::Pages::get();
 		ensure!(pages > 0, "number pages must be higer than 0.");
@@ -537,24 +555,26 @@ impl<T: Config> Pallet<T> {
 
 	/// Return the most significant page of the snapshot.
 	///
-	/// Based on the contract with `ElectionDataProvider`, tis is the first page to be filled.
+	/// Based on the contract with `ElectionDataProvider`, this is the first page to be requested
+	/// and filled.
 	pub fn msp() -> PageIndex {
 		T::Pages::get().checked_sub(1).defensive_unwrap_or_default()
 	}
 
 	/// Return the least significant page of the snapshot.
 	///
-	/// Based on the contract with `ElectionDataProvider`, tis is the last page to be filled.
+	/// Based on the contract with `ElectionDataProvider`, this is the last page to be requested
+	/// and filled.
 	pub fn lsp() -> PageIndex {
 		Zero::zero()
 	}
 
 	/// Creates and stores the target snapshot.
 	///
-	/// Note: currently, the pallet uses single page target page only.
+	/// Note: the target snapshot is single paged.
 	fn create_targets_snapshot() -> Result<u32, ElectionError<T>> {
 		let stored_count = Self::create_targets_snapshot_inner(T::TargetSnapshotPerBlock::get())?;
-		log!(info, "created target snapshot with {} targets.", stored_count);
+		log!(trace, "created target snapshot with {} targets.", stored_count);
 
 		Ok(stored_count)
 	}
@@ -569,13 +589,10 @@ impl<T: Config> Pallet<T> {
 		let targets: BoundedVec<_, T::TargetSnapshotPerBlock> =
 			T::DataProvider::electable_targets(bounds, Zero::zero())
 				.and_then(|t| {
-					t.try_into().map_err(|e| {
-						log!(error, "too many targets? err: {:?}", e);
-						"too many targets returned by the data provider."
-					})
+					t.try_into().map_err(|_| "too many targets returned by the data provider.")
 				})
 				.map_err(|e| {
-					log!(info, "error fetching electable targets from data provider: {:?}", e);
+					log!(error, "error fetching electable targets from data provider: {:?}", e);
 					ElectionError::<T>::DataProvider
 				})?;
 
@@ -591,7 +608,7 @@ impl<T: Config> Pallet<T> {
 
 		let paged_voters_count =
 			Self::create_voters_snapshot_inner(remaining_pages, T::VoterSnapshotPerBlock::get())?;
-		log!(info, "created voter snapshot with {} voters.", paged_voters_count);
+		log!(trace, "created voter snapshot with {} voters.", paged_voters_count);
 
 		Ok(paged_voters_count)
 	}
@@ -621,8 +638,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Tries to progress the snapshot.
 	///
-	/// The first (and only) target page is fetched from the [`DataProvider`] at the same block when
-	/// the msp of the voter snaphot.
+	/// The first call to this method will calculate and store the (single-paged) target snapshot.
+	/// The subsequent calls will fetch the voter pages. Thus, the caller must call this method
+	/// `T::Pages`..0 times.
 	fn try_progress_snapshot(remaining_pages: PageIndex) -> Weight {
 		let _ = <T::DataProvider as LockableElectionDataProvider>::set_lock();
 
@@ -636,7 +654,7 @@ impl<T: Config> Pallet<T> {
 			// first block for single target snapshot.
 			match Self::create_targets_snapshot() {
 				Ok(target_count) => {
-					log!(info, "target snapshot created with {} targets", target_count);
+					log!(trace, "target snapshot created with {} targets", target_count);
 					Self::phase_transition(Phase::Snapshot(remaining_pages.saturating_sub(1)));
 					T::WeightInfo::create_targets_snapshot_paged(T::TargetSnapshotPerBlock::get())
 				},
@@ -647,11 +665,11 @@ impl<T: Config> Pallet<T> {
 				},
 			}
 		} else {
-			// progress voter snapshot.
+			// try progress voter snapshot.
 			match Self::create_voters_snapshot(remaining_pages) {
 				Ok(voter_count) => {
 					log!(
-						info,
+						trace,
 						"voter snapshot progressed: page {} with {} voters",
 						remaining_pages,
 						voter_count,
@@ -668,15 +686,28 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Start the signed phase.
+	/// We expect the snapshot to be ready by now. Thus the the data provider lock should be
+	/// released and transition to the signed phase.
 	pub(crate) fn start_signed_phase() -> Weight {
-		// done with the snapshot, release the data provider lock.
+		debug_assert!(Snapshot::<T>::ensure().is_ok());
+
 		<T::DataProvider as LockableElectionDataProvider>::unlock();
 		Self::phase_transition(Phase::Signed);
 
 		T::WeightInfo::on_initialize_start_signed()
 	}
 
+	/// Export phase.
+	///
+	/// In practice, we just need to ensure the export phase does not remain open for too long.
+	/// During this phase, we expect the external entities to call [`ElectionProvider::elect`] for
+	/// all the solution pages. Once the least significant page is called, the phase should
+	/// transition to `Phase::Off`. Thus, if the export phase remains open for too long, it means
+	/// that the election failed.
 	pub(crate) fn do_export_phase(now: BlockNumberFor<T>, started_at: BlockNumberFor<T>) -> Weight {
+		debug_assert!(Pallet::<T>::current_phase().is_export());
+
 		if now > started_at + T::ExportPhaseLimit::get() {
 			log!(
 				error,
@@ -685,7 +716,7 @@ impl<T: Config> Pallet<T> {
 			);
 
 			match ElectionFailure::<T>::get() {
-				ElectionFailureStrategy::Restart => Self::reset_round(),
+				ElectionFailureStrategy::Restart => Self::reset_round_restart(),
 				ElectionFailureStrategy::Emergency => Self::phase_transition(Phase::Emergency),
 			}
 		}
@@ -698,6 +729,7 @@ impl<T: Config> Pallet<T> {
 	/// 1. Increment round.
 	/// 2. Change phase to [`Phase::Off`].
 	/// 3. Clear all snapshot data.
+	/// 4. Resets verifier.
 	fn rotate_round() {
 		<Round<T>>::mutate(|r| r.defensive_saturating_accrue(1));
 		Self::phase_transition(Phase::Off);
@@ -706,14 +738,18 @@ impl<T: Config> Pallet<T> {
 		<T::Verifier as Verifier>::kill();
 	}
 
-	/// Performs all tasks required after an unsuccessful election:
+	/// Performs all tasks required after an unsuccessful election which should be self-healing
+	/// (i.e. the election should restart without entering in emergency phase).
+	///
+	/// Note: the round should not restart as the previous election failed.
 	///
 	/// 1. Change phase to [`Phase::Off`].
 	/// 2. Clear all snapshot data.
-	fn reset_round() {
+	/// 3. Resets verifier.
+	fn reset_round_restart() {
 		Self::phase_transition(Phase::Off);
-		Snapshot::<T>::kill();
 
+		Snapshot::<T>::kill();
 		<T::Verifier as Verifier>::kill();
 	}
 }
@@ -727,8 +763,12 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	type Pages = T::Pages;
 	type DataProvider = T::DataProvider;
 
-	/// Important note: we do exect the caller of `elect` to reach page 0.
+	/// Important note: we do exect the caller of `elect` to call pages down to `lsp == 0`.
+	/// Otherwise the export phase will not explicitly finish which will result in a failed
+	/// election.
 	fn elect(remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+		ensure!(Pallet::<T>::current_phase().is_export(), ElectionError::ElectionNotReady);
+
 		T::Verifier::get_queued_solution(remaining)
 			.ok_or(ElectionError::<T>::SupportPageNotAvailable(remaining))
 			.or_else(|err| {
@@ -742,7 +782,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			})
 			.map(|supports| {
 				if remaining.is_zero() {
-					log!(info, "elect(): provided the last supports page, rotating round.");
+					log!(trace, "elect(): provided the last supports page, rotating round.");
 					Self::rotate_round();
 				} else {
 					// Phase::Export is on while the election is calling all pages of `elect`.
@@ -758,7 +798,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 
 				match ElectionFailure::<T>::get() {
 					// force emergency phase for testing.
-					ElectionFailureStrategy::Restart => Self::reset_round(),
+					ElectionFailureStrategy::Restart => Self::reset_round_restart(),
 					ElectionFailureStrategy::Emergency => Self::phase_transition(Phase::Emergency),
 				}
 				err
@@ -782,9 +822,6 @@ mod phase_transition {
 
 	#[test]
 	fn single_page() {
-		//  ----------      ----------   --------------   -----------
-		//            |  |            |                |             |
-		//    Snapshot Signed  SignedValidation    Unsigned       elect()
 		let (mut ext, _) = ExtBuilder::default()
 			.pages(1)
 			.signed_phase(3)
@@ -825,16 +862,13 @@ mod phase_transition {
             let start_unsigned = System::block_number();
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Unsigned(start_unsigned));
 
-            roll_to(next_election + 1);
-            assert_eq!(<CurrentPhase<T>>::get(), Phase::Unsigned(start_unsigned));
+			// roll to export phase to call elect().
+			roll_to_export();
 
-            // unsigned phase until elect() is called.
-            roll_to(next_election + 3);
-            assert_eq!(<CurrentPhase<T>>::get(), Phase::Unsigned(start_unsigned));
-
+			// elect() should work.
             assert_ok!(MultiPhase::elect(0));
 
-            // election done, go to off phase.
+            // one page only -- election done, go to off phase.
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Off);
 		})
 	}
@@ -872,6 +906,9 @@ mod phase_transition {
 
             roll_to(expected_snapshot + 1);
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Snapshot(0));
+
+            // ensure snapshot is sound by end of snapshot phase.
+            assert_ok!(Snapshot::<T>::ensure());
 
             roll_to(expected_signed);
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Signed);
@@ -944,15 +981,25 @@ mod snapshot {
 
 	#[test]
 	fn setters_getters_work() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().pages(2).build_and_execute(|| {
+			let t = BoundedVec::<_, _>::try_from(vec![]).unwrap();
 			let v = BoundedVec::<_, _>::try_from(vec![]).unwrap();
 
 			assert!(Snapshot::<T>::targets().is_none());
 			assert!(Snapshot::<T>::voters(0).is_none());
 			assert!(Snapshot::<T>::voters(1).is_none());
 
-			Snapshot::<T>::set_targets(v.clone());
+			Snapshot::<T>::set_targets(t.clone());
 			assert!(Snapshot::<T>::targets().is_some());
+
+			Snapshot::<T>::set_voters(0, v.clone());
+			Snapshot::<T>::set_voters(1, v.clone());
+
+			assert!(Snapshot::<T>::voters(0).is_some());
+			assert!(Snapshot::<T>::voters(1).is_some());
+
+			// ensure snapshot is sound.
+			assert_ok!(Snapshot::<T>::ensure());
 
 			Snapshot::<T>::kill();
 			assert!(Snapshot::<T>::targets().is_none());
@@ -1088,7 +1135,7 @@ mod election_provider {
 					bounded_vec![10, 20, 30, 40];
 
 				let all_voter_pages: BoundedVec<
-					BoundedVec<VoterOf<MockStaking>, VotersPerPage>,
+					BoundedVec<VoterOf<Runtime>, VotersPerPage>,
 					Pages,
 				> = bounded_vec![
 					bounded_vec![

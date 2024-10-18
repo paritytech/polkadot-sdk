@@ -16,10 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::{
-	mock::*, unsigned::miner::Config, PagedTargetSnapshot, PagedVoterSnapshot, Phase, Snapshot,
-	Verifier,
-};
+use crate::{mock::*, PagedVoterSnapshot, Phase, Snapshot, TargetSnapshot, Verifier};
 
 use frame_election_provider_support::ElectionProvider;
 use frame_support::assert_ok;
@@ -59,11 +56,10 @@ mod calls {
 			// roll to election prediction bn.
 			roll_to_with_ocw(election_prediction(), Some(pool.clone()));
 
-			// still in unsigned phase (after unsigned submissions have been submitted and before
-			// the election happened).
-			assert!(current_phase().is_unsigned());
+			// now in the export phase.
+			assert!(current_phase().is_export());
 
-			// elect() works as expected.
+			// thus, elect() works as expected.
 			assert!(call_elect().is_ok());
 
 			assert_eq!(current_phase(), Phase::Off);
@@ -85,11 +81,11 @@ mod calls {
 
 			// but snapshot exists.
 			assert!(PagedVoterSnapshot::<T>::get(crate::Pallet::<T>::lsp()).is_some());
-			assert!(PagedTargetSnapshot::<T>::get(crate::Pallet::<T>::lsp()).is_some());
+			assert!(TargetSnapshot::<T>::get().is_some());
 			// so let's clear it.
 			clear_snapshot();
 			assert!(PagedVoterSnapshot::<T>::get(crate::Pallet::<T>::lsp()).is_none());
-			assert!(PagedTargetSnapshot::<T>::get(crate::Pallet::<T>::lsp()).is_none());
+			assert!(TargetSnapshot::<T>::get().is_none());
 
 			// progress through unsigned phase just before the election.
 			roll_to_with_ocw(29, Some(pool.clone()));
@@ -108,7 +104,7 @@ mod calls {
 
 			// snapshot exists now.
 			assert!(PagedVoterSnapshot::<T>::get(crate::Pallet::<T>::lsp()).is_some());
-			assert!(PagedTargetSnapshot::<T>::get(crate::Pallet::<T>::lsp()).is_some());
+			assert!(TargetSnapshot::<T>::get().is_some());
 
 			roll_to_with_ocw(election_prediction() - 1, Some(pool.clone()));
 
@@ -139,8 +135,6 @@ mod calls {
 
 mod miner {
 	use super::*;
-
-	type OffchainSolver = <T as miner::Config>::Solver;
 
 	#[test]
 	fn snapshot_idx_based_works() {

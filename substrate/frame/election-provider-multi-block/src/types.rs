@@ -194,6 +194,8 @@ pub enum ElectionError<T: crate::Config> {
 	/// The requested page exceeds the number of election pages defined of the current election
 	/// config.
 	RequestedPageExceeded,
+	/// Election not ready yet.
+	ElectionNotReady,
 	/// The fallback election error'ed.
 	Fallback(FallbackErrorOf<T>),
 }

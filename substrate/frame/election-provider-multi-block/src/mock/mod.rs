@@ -451,7 +451,7 @@ pub(crate) fn roll_to(n: BlockNumber) {
 
 		// TODO: add try-checks for all pallets here too, as we progress the blocks.
 		log!(
-			info,
+			trace,
 			"Block: {}, Phase: {:?}, Round: {:?}, Election at {:?}",
 			bn,
 			<CurrentPhase<T>>::get(),
@@ -464,6 +464,12 @@ pub(crate) fn roll_to(n: BlockNumber) {
 // Fast forward until a given election phase.
 pub fn roll_to_phase(phase: Phase<BlockNumber>) {
 	while MultiPhase::current_phase() != phase {
+		roll_to(System::block_number() + 1);
+	}
+}
+
+pub fn roll_to_export() {
+	while !MultiPhase::current_phase().is_export() {
 		roll_to(System::block_number() + 1);
 	}
 }
@@ -530,7 +536,7 @@ pub fn assert_snapshots() -> Result<(), &'static str> {
 
 pub fn clear_snapshot() {
 	let _ = crate::PagedVoterSnapshot::<T>::clear(u32::MAX, None);
-	let _ = crate::PagedTargetSnapshot::<T>::clear(u32::MAX, None);
+	let _ = crate::TargetSnapshot::<T>::kill();
 }
 
 pub fn balances(who: AccountId) -> (Balance, Balance) {

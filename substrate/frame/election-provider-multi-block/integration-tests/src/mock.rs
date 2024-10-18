@@ -45,7 +45,6 @@ use frame_election_provider_support::{
 	bounds::ElectionBoundsBuilder, onchain, ElectionDataProvider, ExtendedBalance, PageIndex,
 	SequentialPhragmen, Weight,
 };
-use sp_npos_elections::ElectionScore;
 
 use pallet_election_provider_multi_block::{
 	self as epm_core_pallet,
@@ -869,10 +868,15 @@ parameter_types! {
 pub(crate) fn try_submit_paged_solution() -> Result<(), ()> {
 	let submit = || {
 		// TODO: to finish.
+		let voters_snapshot = Default::default();
+		let targets_snapshot = Default::default();
+		let round = Default::default();
+		let desired_targets = Default::default();
+
 		let (paged_solution, _) =
 			miner::Miner::<<T as Config>::MinerConfig>::mine_paged_solution_with_snapshot(
-				voters_snapshot,
-				targets_snapshot,
+				&voters_snapshot,
+				&targets_snapshot,
 				Pages::get(),
 				round,
 				desired_targets,
@@ -882,7 +886,7 @@ pub(crate) fn try_submit_paged_solution() -> Result<(), ()> {
 
 		let _ = SignedPallet::register(RuntimeOrigin::signed(10), paged_solution.score).unwrap();
 
-		for (idx, page) in paged_solution.solution_pages.into_iter().enumerate() {}
+		for (_idx, _page) in paged_solution.solution_pages.into_iter().enumerate() {}
 		log!(
 			info,
 			"submitter: successfully submitted {} pages with {:?} score in round {}.",

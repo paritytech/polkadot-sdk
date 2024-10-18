@@ -1,5 +1,5 @@
 [package]
-name = "pallet-election-tests"
+name = "pallet-epm-mb-integrity-tests"
 version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
