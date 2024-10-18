@@ -1752,7 +1752,7 @@ dependencies = [
 
 [[package]]
 name = "bp-header-chain"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "bp-runtime",
  "bp-test-utils",
@@ -10846,7 +10846,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-message-queue"
-version = "41.0.0"
+version = "41.0.1"
 dependencies = [
  "environmental",
  "frame-benchmarking",
