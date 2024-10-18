@@ -3057,6 +3057,13 @@ impl_runtime_apis! {
 			use pallet_revive::AddressMapper;
 			let blockweights: BlockWeights = <Runtime as frame_system::Config>::BlockWeights::get();
 			let origin = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id_contract(&from);
+
+			let encoded_size = |pallet_call| {
+				let call = RuntimeCall::Revive(pallet_call);
+				let uxt: UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic { function: call, signature: None }.into();
+				uxt.encoded_size() as u32
+			};
+
 			Revive::bare_eth_transact(
 				origin,
 				dest,
@@ -3064,6 +3071,7 @@ impl_runtime_apis! {
 				input,
 				gas_limit.unwrap_or(blockweights.max_block),
 				storage_deposit_limit.unwrap_or(u128::MAX),
+				encoded_size,
 				pallet_revive::DebugInfo::UnsafeDebug,
 				pallet_revive::CollectEvents::UnsafeCollect,
 			)

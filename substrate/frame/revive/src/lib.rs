@@ -1144,6 +1144,20 @@ where
 	}
 
 	/// A version of [`Self::eth_transact`] used to dry-run Ethereum calls.
+	///
+	/// # Parameters
+	///
+	/// - `origin`: The origin of the call.
+	/// - `dest`: The destination address of the call.
+	/// - `value`: The value to transfer.
+	/// - `input`: The input data.
+	/// - `gas_limit`: The gas limit enforced during contract execution.
+	/// - `storage_deposit_limit`: The maximum balance that can be charged to the caller for storage
+	///   usage.
+	/// - `utx_encoded_size`: A function that takes a call and returns the encoded size of the
+	///   unchecked extrinsic.
+	/// - `debug`: Debugging configuration.
+	/// - `collect_events`: Event collection configuration.
 	pub fn bare_eth_transact(
 		origin: T::AccountId,
 		dest: Option<H160>,
@@ -1151,6 +1165,7 @@ where
 		input: Vec<u8>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
+		utx_encoded_size: impl Fn(Call<T>) -> u32,
 		debug: DebugInfo,
 		collect_events: CollectEvents,
 	) -> EthContractResult<BalanceOf<T>>
@@ -1163,14 +1178,12 @@ where
 		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		T::Nonce: Into<U256>,
 	{
+		// Get the nonce to encode in the tx.
 		let nonce: T::Nonce = <System<T>>::account_nonce(&origin);
-		let max_block_weight = T::BlockWeights::get()
-			.get(DispatchClass::Normal)
-			.max_total
-			.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
+		// Use a big enough gas price to ensure that the encoded size is large enough.
 		let max_gas_fee: BalanceOf<T> =
-			(pallet_transaction_payment::Pallet::<T>::weight_to_fee(max_block_weight) /
+			(pallet_transaction_payment::Pallet::<T>::weight_to_fee(Weight::MAX) /
 				GAS_PRICE.into())
 			.into();
 
@@ -1199,14 +1212,12 @@ where
 				to: Some(dest),
 				..Default::default()
 			};
-			let payload = tx.dummy_signed_payload();
-			let eth_dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
-				payload,
+			let eth_dispatch_call = crate::Call::<T>::eth_transact {
+				payload: tx.dummy_signed_payload(),
 				gas_limit: result.gas_required,
 				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-			}
-			.into();
-			let encoded_len = eth_dispatch_call.encoded_size() as u32;
+			};
+			let encoded_len = utx_encoded_size(eth_dispatch_call);
 
 			// Get the dispatch info of the call.
 			let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
@@ -1272,16 +1283,12 @@ where
 				chain_id: Some(T::ChainId::get().into()),
 				..Default::default()
 			};
-
-			log::debug!(target: LOG_TARGET, "Instantiate dry run with: {tx:?}");
-			let payload = tx.dummy_signed_payload();
-			let eth_dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
-				payload,
+			let eth_dispatch_call = crate::Call::<T>::eth_transact {
+				payload: tx.dummy_signed_payload(),
 				gas_limit: result.gas_required,
 				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-			}
-			.into();
-			let encoded_len = eth_dispatch_call.encoded_size() as u32;
+			};
+			let encoded_len = utx_encoded_size(eth_dispatch_call);
 
 			// Get the dispatch info of the call.
 			let dispatch_call: <T as Config>::RuntimeCall =
