@@ -173,69 +173,15 @@ impl From<SubscriptionSink> for Subscription {
 impl Subscription {
 	/// Feed items to the subscription from the underlying stream
 	/// with specified buffer strategy.
-	pub async fn pipe_from_stream<S, T, B>(&self, mut stream: S, mut buf: B)
+	pub async fn pipe_from_stream<S, T, B>(&self, stream: S, buf: B)
 	where
 		S: Stream<Item = T> + Unpin,
 		T: Serialize + Send,
 		B: Buffer<Item = T>,
 	{
-		let mut next_fut = Box::pin(Fuse::terminated());
-		let mut next_item = stream.next();
-		let closed = self.0.closed();
-
-		futures::pin_mut!(closed);
-
-		loop {
-			if next_fut.is_terminated() {
-				if let Some(v) = buf.pop() {
-					let val = self.to_sub_message(&v);
-					next_fut.set(async { self.0.send(val).await }.fuse());
-				}
-			}
-
-			match future::select(closed, future::select(next_fut, next_item)).await {
-				// Send operation finished.
-				Either::Right((Either::Left((_, n)), c)) => {
-					next_item = n;
-					closed = c;
-					next_fut = Box::pin(Fuse::terminated());
-				},
-				// New item from the stream
-				Either::Right((Either::Right((Some(v), n)), c)) => {
-					if buf.push(v).is_err() {
-						log::debug!(
-							target: "rpc",
-							"Subscription buffer full for subscription={} conn_id={}; dropping subscription",
-							self.0.method_name(),
-							self.0.connection_id().0
-						);
-						return
-					}
-
-					next_fut = n;
-					closed = c;
-					next_item = stream.next();
-				},
-				// Stream "finished".
-				//
-				// Process remaining items and terminate.
-				Either::Right((Either::Right((None, pending_fut)), _)) => {
-					if !pending_fut.is_terminated() && pending_fut.await.is_err() {
-						return;
-					}
-
-					while let Some(v) = buf.pop() {
-						if self.send(&v).await.is_err() {
-							return;
-						}
-					}
-
-					return;
-				},
-				// Subscription was closed.
-				Either::Left(_) => return,
-			}
-		}
+		self.pipe_from_try_stream(stream.map(Ok::<T, ()>), buf)
+			.await
+			.expect("No Err will be ever encountered.qed");
 	}
 
 	/// Feed items to the subscription from the underlying stream
