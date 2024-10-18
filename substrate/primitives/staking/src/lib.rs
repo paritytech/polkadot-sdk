@@ -346,7 +346,7 @@ pub trait StakingUnchecked: StakingInterface {
 }
 
 /// The amount of exposure for an era that an individual nominator has (susceptible to slashing).
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Copy)]
 pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 	/// The stash account of the nominator in question.
 	pub who: AccountId,
@@ -434,41 +434,16 @@ impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
 	}
 }
 
+/// Returns an exposure page from a set of individual exposures.
 impl<A, B: HasCompact + Default + sp_std::ops::AddAssign + sp_std::ops::SubAssign + Clone>
 	From<Vec<IndividualExposure<A, B>>> for ExposurePage<A, B>
 {
 	fn from(exposures: Vec<IndividualExposure<A, B>>) -> Self {
-		let mut page: Self = Default::default();
-
-		let _ = exposures
-			.into_iter()
-			.map(|e| {
-				page.page_total += e.value.clone();
-				page.others.push(e)
-			})
-			.collect::<Vec<_>>();
-
-		page
-	}
-}
-
-impl<
-		A,
-		B: Default
-			+ HasCompact
-			+ core::fmt::Debug
-			+ sp_std::ops::AddAssign
-			+ sp_std::ops::SubAssign
-			+ Clone,
-	> ExposurePage<A, B>
-{
-	/// Split the current exposure page into two pages where the new page takes up to `num`
-	/// individual exposures. The remaining individual exposures are left in `self`.
-	pub fn from_split_others(&mut self, num: usize) -> Self {
-		let new: ExposurePage<_, _> = self.others.split_off(num).into();
-		self.page_total -= new.page_total.clone();
-
-		new
+		exposures.into_iter().fold(ExposurePage::default(), |mut page, e| {
+			page.page_total += e.value.clone();
+			page.others.push(e);
+			page
+		})
 	}
 }
 
@@ -511,17 +486,20 @@ where
 		+ sp_std::ops::Add<Output = Balance>
 		+ sp_std::ops::Sub<Output = Balance>
 		+ PartialEq
-		+ Copy,
+		+ Copy
+		+ sp_runtime::traits::Debug,
 {
+	/// Merge a paged exposure metadata page into self and return the result.
 	pub fn merge(self, other: Self) -> Self {
-		// TODO hm check this
+		// TODO(gpestana): re-enable assert.
 		//debug_assert!(self.own == other.own);
 
 		Self {
 			total: self.total + other.total - self.own,
 			own: self.own,
 			nominator_count: self.nominator_count + other.nominator_count,
-			// TODO: merge the pages correctly.
+			// TODO(gpestana): merge the pages efficiently so that we make sure all the slots in the
+			// page are filled.
 			page_count: self.page_count + other.page_count,
 		}
 	}
@@ -687,3 +665,30 @@ pub trait DelegationMigrator {
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn individual_exposures_to_exposure_works() {
+		let exposure_1 = IndividualExposure { who: 1, value: 10u32 };
+		let exposure_2 = IndividualExposure { who: 2, value: 20 };
+		let exposure_3 = IndividualExposure { who: 3, value: 30 };
+
+		let exposure_page: ExposurePage<u32, u32> = vec![exposure_1, exposure_2, exposure_3].into();
+
+		assert_eq!(
+			exposure_page,
+			ExposurePage { page_total: 60, others: vec![exposure_1, exposure_2, exposure_3] },
+		);
+	}
+
+	#[test]
+	fn empty_individual_exposures_to_exposure_works() {
+		let empty_exposures: Vec<IndividualExposure<u32, u32>> = vec![];
+
+		let exposure_page: ExposurePage<u32, u32> = empty_exposures.into();
+		assert_eq!(exposure_page, ExposurePage { page_total: 0, others: vec![] });
+	}
+}
