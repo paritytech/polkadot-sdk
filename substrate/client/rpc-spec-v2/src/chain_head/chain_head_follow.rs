@@ -73,6 +73,8 @@ pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	/// Stop all subscriptions if the distance between the leaves and the current finalized
 	/// block is larger than this value.
 	max_lagging_distance: usize,
+	/// The maximum number of pending messages per subscription.
+	pub subscription_buffer_cap: usize,
 }
 
 struct AnnouncedBlocks<Block: BlockT> {
@@ -147,6 +149,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 		with_runtime: bool,
 		sub_id: String,
 		max_lagging_distance: usize,
+		subscription_buffer_cap: usize,
 	) -> Self {
 		Self {
 			client,
@@ -160,6 +163,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 			)),
 			announced_blocks: AnnouncedBlocks::new(),
 			max_lagging_distance,
+			subscription_buffer_cap,
 		}
 	}
 }
@@ -711,6 +715,7 @@ where
 	where
 		EventStream: Stream<Item = NotificationType<Block>> + Unpin + Send,
 	{
+		let buffer_cap = *&self.subscription_buffer_cap;
 		// create a channel to propagate error messages
 		let mut handle_events = |event| match event {
 			NotificationType::InitialEvents(events) => Ok(events),
@@ -728,8 +733,8 @@ where
 
 		tokio::pin!(stream);
 
-		let sink_future = sink
-			.pipe_from_try_stream(stream, sc_rpc::utils::BoundedVecDeque::new(MAX_PINNED_BLOCKS));
+		let sink_future =
+			sink.pipe_from_try_stream(stream, sc_rpc::utils::BoundedVecDeque::new(buffer_cap));
 
 		let result = tokio::select! {
 			_ = rx_stop => Ok(()),
