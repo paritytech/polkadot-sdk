@@ -220,7 +220,7 @@ zombienet-polkadot-functional-0015-coretime-shared-core:
   before_script:
     - !reference [ .zombienet-polkadot-common, before_script ]
     - cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/functional
-    - cp --remove-destination ${LOCAL_DIR}/force-register-paras.js ${LOCAL_DIR}/functional
+    - cp --remove-destination ${LOCAL_DIR}/functional/force-register-paras.js ${LOCAL_DIR}/functional
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/functional"
