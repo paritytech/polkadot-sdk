@@ -307,8 +307,8 @@ pub mod pallet {
 			)
 		}
 
-		/// Same as the [`place_order_allow_death`](Self::place_order_allow_death) call, but paying for
-		/// order with credits on-demand credits.
+		/// Same as the [`place_order_allow_death`](Self::place_order_allow_death) call, but paying
+		/// for order with credits on-demand credits.
 		///
 		/// Parameters:
 		/// - `origin`: The sender of the call, funds will be withdrawn from this account.

@@ -102,10 +102,6 @@ mod benchmarks {
 		let who: T::AccountId = whitelisted_caller();
 
 		#[extrinsic_call]
-		_(
-			root_origin as <T as frame_system::Config>::RuntimeOrigin,
-			who,
-			1_000_000u32.into()
-		)
+		_(root_origin as <T as frame_system::Config>::RuntimeOrigin, who, 1_000_000u32.into())
 	}
 }

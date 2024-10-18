@@ -99,6 +99,7 @@ fn place_order_run_to_blocknumber(para_id: ParaId, blocknumber: Option<BlockNumb
 	if let Some(bn) = blocknumber {
 		run_to_block(bn, |n| if n == bn { Some(Default::default()) } else { None });
 	}
+	#[allow(deprecated)]
 	OnDemand::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id).unwrap()
 }
 
@@ -267,6 +268,7 @@ fn spot_traffic_decreases_between_idle_blocks() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn place_order_works() {
 	let alice = 1u64;
 	let amt = 10_000_000u128;
@@ -309,6 +311,7 @@ fn place_order_works() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn place_order_keep_alive_keeps_alive() {
 	let alice = 1u64;
 	let amt = 1u128; // The same as crate::mock's EXISTENTIAL_DEPOSIT
@@ -387,7 +390,11 @@ fn place_order_with_credits() {
 		// Insufficient credits:
 		Credits::<Test>::insert(alice, 1u128);
 		assert_noop!(
-			OnDemand::place_order_with_credits(RuntimeOrigin::signed(alice), 1_000_000u128, para_id),
+			OnDemand::place_order_with_credits(
+				RuntimeOrigin::signed(alice),
+				1_000_000u128,
+				para_id
+			),
 			Error::<Test>::InsufficientCredits
 		);
 	});
