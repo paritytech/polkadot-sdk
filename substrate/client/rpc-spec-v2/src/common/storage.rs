@@ -22,6 +22,7 @@ use std::{marker::PhantomData, sync::Arc};
 
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
 use sp_runtime::traits::Block as BlockT;
+use tokio::sync::mpsc;
 
 use super::events::{StorageResult, StorageResultType};
 use crate::hex_string;
@@ -33,6 +34,12 @@ pub struct Storage<Client, Block, BE> {
 	_phandom: PhantomData<(BE, Block)>,
 }
 
+impl<Client, Block, BE> Clone for Storage<Client, Block, BE> {
+	fn clone(&self) -> Self {
+		Self { client: self.client.clone(), _phandom: PhantomData }
+	}
+}
+
 impl<Client, Block, BE> Storage<Client, Block, BE> {
 	/// Constructs a new [`Storage`].
 	pub fn new(client: Arc<Client>) -> Self {
@@ -41,6 +48,7 @@ impl<Client, Block, BE> Storage<Client, Block, BE> {
 }
 
 /// Query to iterate over storage.
+#[derive(Debug)]
 pub struct QueryIter {
 	/// The key from which the iteration was started.
 	pub query_key: StorageKey,
@@ -51,6 +59,7 @@ pub struct QueryIter {
 }
 
 /// The query type of an iteration.
+#[derive(Debug)]
 pub enum IterQueryType {
 	/// Iterating over (key, value) pairs.
 	Value,
@@ -123,7 +132,7 @@ where
 		key: &StorageKey,
 		child_key: Option<&ChildInfo>,
 	) -> QueryResult {
-		let result = if let Some(child_key) = child_key {
+		let result = if let Some(ref child_key) = child_key {
 			self.client.child_closest_merkle_value(hash, child_key, key)
 		} else {
 			self.client.closest_merkle_value(hash, key)
@@ -144,6 +153,50 @@ where
 				}))
 			})
 			.unwrap_or_else(|error| QueryResult::Err(error.to_string()))
+	}
+
+	/// Iterate over the storage keys and send the results to the provided sender.
+	///
+	/// Because this relies on a bounded channel, it will pause the storage iteration
+	// if the channel is becomes full which in turn provides backpressure.
+	pub fn query_iter_pagination_with_producer(
+		&self,
+		query: QueryIter,
+		hash: Block::Hash,
+		child_key: Option<&ChildInfo>,
+		tx: &mpsc::Sender<QueryResult>,
+	) {
+		let QueryIter { ty, query_key, pagination_start_key } = query;
+
+		let maybe_storage = if let Some(child_key) = child_key {
+			self.client.child_storage_keys(
+				hash,
+				child_key.to_owned(),
+				Some(&query_key),
+				pagination_start_key.as_ref(),
+			)
+		} else {
+			self.client.storage_keys(hash, Some(&query_key), pagination_start_key.as_ref())
+		};
+
+		let keys_iter = match maybe_storage {
+			Ok(keys_iter) => keys_iter,
+			Err(error) => {
+				_ = tx.blocking_send(Err(error.to_string()));
+				return;
+			},
+		};
+
+		for key in keys_iter {
+			let result = match ty {
+				IterQueryType::Value => self.query_value(hash, &key, child_key),
+				IterQueryType::Hash => self.query_hash(hash, &key, child_key),
+			};
+
+			if tx.blocking_send(result).is_err() {
+				break;
+			}
+		}
 	}
 
 	/// Iterate over at most the provided number of keys.

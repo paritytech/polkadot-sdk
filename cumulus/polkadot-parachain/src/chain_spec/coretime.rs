@@ -15,7 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use cumulus_primitives_core::ParaId;
-use polkadot_parachain_lib::chain_spec::GenericChainSpec;
+use polkadot_omni_node_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::{ChainSpec, ChainType};
 use std::{borrow::Cow, str::FromStr};
 
@@ -146,13 +146,11 @@ pub fn chain_type_name(chain_type: &ChainType) -> Cow<str> {
 /// Sub-module for Rococo setup.
 pub mod rococo {
 	use super::{chain_type_name, CoretimeRuntimeType, ParaId};
-	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, SAFE_XCM_VERSION,
-	};
+	use crate::chain_spec::SAFE_XCM_VERSION;
 	use parachains_common::{AccountId, AuraId, Balance};
-	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
+	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
-	use sp_core::sr25519;
+	use sp_keyring::Sr25519Keyring;
 
 	pub(crate) const CORETIME_ROCOCO: &str = "coretime-rococo";
 	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-rococo-local";
@@ -187,15 +185,12 @@ pub mod rococo {
 		.with_chain_type(chain_type)
 		.with_genesis_config_patch(genesis(
 			// initial collators.
-			vec![(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_collator_keys_from_seed::<AuraId>("Alice"),
-			)],
+			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],
 			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+				Sr25519Keyring::Alice.to_account_id(),
+				Sr25519Keyring::Bob.to_account_id(),
+				Sr25519Keyring::AliceStash.to_account_id(),
+				Sr25519Keyring::BobStash.to_account_id(),
 			],
 			para_id,
 		))
@@ -235,7 +230,7 @@ pub mod rococo {
 				"safeXcmVersion": Some(SAFE_XCM_VERSION),
 			},
 			"sudo": {
-				"key": Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+				"key": Some(Sr25519Keyring::Alice.to_account_id()),
 			},
 		})
 	}
@@ -244,12 +239,10 @@ pub mod rococo {
 /// Sub-module for Westend setup.
 pub mod westend {
 	use super::{chain_type_name, CoretimeRuntimeType, GenericChainSpec, ParaId};
-	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, SAFE_XCM_VERSION,
-	};
+	use crate::chain_spec::SAFE_XCM_VERSION;
 	use parachains_common::{AccountId, AuraId, Balance};
-	use polkadot_parachain_lib::chain_spec::Extensions;
-	use sp_core::sr25519;
+	use polkadot_omni_node_lib::chain_spec::Extensions;
+	use sp_keyring::Sr25519Keyring;
 
 	pub(crate) const CORETIME_WESTEND: &str = "coretime-westend";
 	pub(crate) const CORETIME_WESTEND_LOCAL: &str = "coretime-westend-local";
@@ -277,15 +270,12 @@ pub mod westend {
 		.with_chain_type(chain_type)
 		.with_genesis_config_patch(genesis(
 			// initial collators.
-			vec![(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_collator_keys_from_seed::<AuraId>("Alice"),
-			)],
+			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],
 			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+				Sr25519Keyring::Alice.to_account_id(),
+				Sr25519Keyring::Bob.to_account_id(),
+				Sr25519Keyring::AliceStash.to_account_id(),
+				Sr25519Keyring::BobStash.to_account_id(),
 			],
 			para_id,
 		))

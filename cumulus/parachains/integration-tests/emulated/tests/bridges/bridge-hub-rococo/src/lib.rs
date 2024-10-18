@@ -16,6 +16,7 @@
 #[cfg(test)]
 mod imports {
 	// Substrate
+	pub use codec::Encode;
 	pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult};
 	pub use sp_runtime::DispatchError;
 
@@ -23,8 +24,7 @@ mod imports {
 	pub use xcm::{
 		latest::ParentThen,
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v5,
-		v5::NetworkId::Westend as WestendId,
+		v5::{self, NetworkId::Westend as WestendId},
 	};
 	pub use xcm_executor::traits::TransferType;
 
@@ -32,22 +32,23 @@ mod imports {
 	pub use emulated_integration_tests_common::{
 		accounts::ALICE,
 		impls::Inspect,
-		test_parachain_is_trusted_teleporter, test_parachain_is_trusted_teleporter_for_relay,
-		test_relay_is_trusted_teleporter,
+		test_dry_run_transfer_across_pk_bridge, test_parachain_is_trusted_teleporter,
+		test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, TestExt,
 		},
+		xcm_helpers::xcm_transact_paid_execution,
 		ASSETS_PALLET_ID, USDT_ID,
 	};
 	pub use parachains_common::AccountId;
 	pub use rococo_westend_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
 			asset_hub_rococo_runtime::xcm_config as ahr_xcm_config,
-			genesis::{AssetHubRococoAssetOwner, ED as ASSET_HUB_ROCOCO_ED},
-			AssetHubRococoParaPallet as AssetHubRococoPallet,
+			genesis::ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet as AssetHubRococoPallet,
 		},
 		asset_hub_westend_emulated_chain::{
-			genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
+			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
+			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_rococo_emulated_chain::{
 			genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoExistentialDeposit,
@@ -55,9 +56,12 @@ mod imports {
 			BridgeHubRococoXcmConfig, EthereumBeaconClient, EthereumInboundQueue,
 		},
 		penpal_emulated_chain::{
-			penpal_runtime::xcm_config::{
-				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
-				UniversalLocation as PenpalUniversalLocation,
+			penpal_runtime::{
+				self,
+				xcm_config::{
+					CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+					UniversalLocation as PenpalUniversalLocation,
+				},
 			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
 		},
@@ -72,11 +76,11 @@ mod imports {
 		BridgeHubRococoParaReceiver as BridgeHubRococoReceiver,
 		BridgeHubRococoParaSender as BridgeHubRococoSender,
 		BridgeHubWestendPara as BridgeHubWestend, PenpalAPara as PenpalA,
-		PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
-		RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
-		RococoRelaySender as RococoSender,
+		PenpalAParaSender as PenpalASender, RococoRelay as Rococo,
+		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 	};
 
+	pub const ASSET_ID: u32 = 1;
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
 }
 

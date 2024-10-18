@@ -203,6 +203,12 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		Weight::from_parts(31_989_000, 3612)
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(3))
+		//  Measured:  `147`
+		//  Estimated: `3612`
+		// Minimum execution time: 30_726_000 picoseconds.
+		Weight::from_parts(31_268_000, 3612)
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	/// Storage: `XcmPallet::VersionNotifyTargets` (r:0 w:1)
 	/// Proof: `XcmPallet::VersionNotifyTargets` (`max_values`: None, `max_size`: None, mode: `Measured`)

@@ -34,6 +34,7 @@ mod client;
 mod metrics;
 mod task_manager;
 
+use crate::config::Multiaddr;
 use std::{
 	collections::HashMap,
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
@@ -50,6 +51,7 @@ use sc_network::{
 };
 use sc_network_sync::SyncingService;
 use sc_network_types::PeerId;
+use sc_rpc_server::Server;
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_blockchain::HeaderMetadata;
 use sp_consensus::SyncOracle;
@@ -57,11 +59,11 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 pub use self::{
 	builder::{
-		build_network, gen_rpc_module, init_telemetry, new_client, new_db_backend, new_full_client,
-		new_full_parts, new_full_parts_record_import, new_full_parts_with_genesis_builder,
-		new_wasm_executor, propagate_transaction_notifications, spawn_tasks, BuildNetworkParams,
-		KeystoreContainer, NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor,
-		TFullClient,
+		build_network, build_polkadot_syncing_strategy, gen_rpc_module, init_telemetry, new_client,
+		new_db_backend, new_full_client, new_full_parts, new_full_parts_record_import,
+		new_full_parts_with_genesis_builder, new_wasm_executor,
+		propagate_transaction_notifications, spawn_tasks, BuildNetworkParams, KeystoreContainer,
+		NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor, TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
@@ -92,7 +94,7 @@ pub use sc_network_sync::WarpSyncConfig;
 pub use sc_network_transactions::config::{TransactionImport, TransactionImportFuture};
 pub use sc_rpc::{RandomIntegerSubscriptionId, RandomStringSubscriptionId};
 pub use sc_tracing::TracingReceiver;
-pub use sc_transaction_pool::Options as TransactionPoolOptions;
+pub use sc_transaction_pool::TransactionPoolOptions;
 pub use sc_transaction_pool_api::{error::IntoPoolError, InPoolTransaction, TransactionPool};
 #[doc(hidden)]
 pub use std::{ops::Deref, result::Result, sync::Arc};
@@ -101,14 +103,22 @@ use tokio::runtime::Handle;
 
 const DEFAULT_PROTOCOL_ID: &str = "sup";
 
-/// RPC handlers that can perform RPC queries.
+/// A running RPC service that can perform in-memory RPC queries.
 #[derive(Clone)]
-pub struct RpcHandlers(Arc<RpcModule<()>>);
+pub struct RpcHandlers {
+	// This is legacy and may be removed at some point, it was for WASM stuff before smoldot was a
+	// thing. https://github.com/paritytech/polkadot-sdk/pull/5038#discussion_r1694971805
+	rpc_module: Arc<RpcModule<()>>,
+
+	// This can be used to introspect the port the RPC server is listening on. SDK consumers are
+	// depending on this and it should be supported even if in-memory query support is removed.
+	listen_addresses: Vec<Multiaddr>,
+}
 
 impl RpcHandlers {
 	/// Create PRC handlers instance.
-	pub fn new(inner: Arc<RpcModule<()>>) -> Self {
-		Self(inner)
+	pub fn new(rpc_module: Arc<RpcModule<()>>, listen_addresses: Vec<Multiaddr>) -> Self {
+		Self { rpc_module, listen_addresses }
 	}
 
 	/// Starts an RPC query.
@@ -130,12 +140,17 @@ impl RpcHandlers {
 		// This limit is used to prevent panics and is large enough.
 		const TOKIO_MPSC_MAX_SIZE: usize = tokio::sync::Semaphore::MAX_PERMITS;
 
-		self.0.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE).await
+		self.rpc_module.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE).await
 	}
 
 	/// Provides access to the underlying `RpcModule`
 	pub fn handle(&self) -> Arc<RpcModule<()>> {
-		self.0.clone()
+		self.rpc_module.clone()
+	}
+
+	/// Provides access to listen addresses
+	pub fn listen_addresses(&self) -> &[Multiaddr] {
+		&self.listen_addresses[..]
 	}
 }
 
@@ -363,20 +378,6 @@ pub async fn build_system_rpc_future<
 	debug!("`NetworkWorker` has terminated, shutting down the system RPC future.");
 }
 
-// Wrapper for HTTP and WS servers that makes sure they are properly shut down.
-mod waiting {
-	pub struct Server(pub Option<sc_rpc_server::Server>);
-
-	impl Drop for Server {
-		fn drop(&mut self) {
-			if let Some(server) = self.0.take() {
-				// This doesn't not wait for the server to be stopped but fires the signal.
-				let _ = server.stop();
-			}
-		}
-	}
-}
-
 /// Starts RPC servers.
 pub fn start_rpc_servers<R>(
 	rpc_configuration: &RpcConfiguration,
@@ -384,7 +385,7 @@ pub fn start_rpc_servers<R>(
 	tokio_handle: &Handle,
 	gen_rpc_module: R,
 	rpc_id_provider: Option<Box<dyn sc_rpc_server::SubscriptionIdProvider>>,
-) -> Result<Box<dyn std::any::Any + Send + Sync>, error::Error>
+) -> Result<Server, error::Error>
 where
 	R: Fn() -> Result<RpcModule<()>, Error>,
 {
@@ -451,7 +452,7 @@ where
 	match tokio::task::block_in_place(|| {
 		tokio_handle.block_on(sc_rpc_server::start_server(server_config))
 	}) {
-		Ok(server) => Ok(Box::new(waiting::Server(Some(server)))),
+		Ok(server) => Ok(server),
 		Err(e) => Err(Error::Application(e)),
 	}
 }
@@ -483,7 +484,7 @@ where
 		.filter(|t| t.is_propagable())
 		.map(|t| {
 			let hash = t.hash().clone();
-			let ex: B::Extrinsic = t.data().clone();
+			let ex: B::Extrinsic = (**t.data()).clone();
 			(hash, ex)
 		})
 		.collect()
@@ -522,6 +523,7 @@ where
 			},
 		};
 
+		let start = std::time::Instant::now();
 		let import_future = self.pool.submit_one(
 			self.client.info().best_hash,
 			sc_transaction_pool_api::TransactionSource::External,
@@ -529,16 +531,16 @@ where
 		);
 		Box::pin(async move {
 			match import_future.await {
-				Ok(_) => TransactionImport::NewGood,
+				Ok(_) => {
+					let elapsed = start.elapsed();
+					debug!(target: sc_transaction_pool::LOG_TARGET, "import transaction: {elapsed:?}");
+					TransactionImport::NewGood
+				},
 				Err(e) => match e.into_pool_error() {
 					Ok(sc_transaction_pool_api::error::Error::AlreadyImported(_)) =>
 						TransactionImport::KnownGood,
-					Ok(e) => {
-						debug!("Error adding transaction to the pool: {:?}", e);
-						TransactionImport::Bad
-					},
-					Err(e) => {
-						debug!("Error converting pool error: {}", e);
+					Ok(_) => TransactionImport::Bad,
+					Err(_) => {
 						// it is not bad at least, just some internal node logic error, so peer is
 						// innocent.
 						TransactionImport::KnownGood
@@ -555,7 +557,7 @@ where
 	fn transaction(&self, hash: &H) -> Option<B::Extrinsic> {
 		self.pool.ready_transaction(hash).and_then(
 			// Only propagable transactions should be resolved for network service.
-			|tx| if tx.is_propagable() { Some(tx.data().clone()) } else { None },
+			|tx| if tx.is_propagable() { Some((**tx.data()).clone()) } else { None },
 		)
 	}
 }
@@ -577,8 +579,13 @@ mod tests {
 		let (client, longest_chain) = TestClientBuilder::new().build_with_longest_chain();
 		let client = Arc::new(client);
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 		let source = sp_runtime::transaction_validity::TransactionSource::External;
 		let best = block_on(longest_chain.best_chain()).unwrap();
 		let transaction = Transfer {

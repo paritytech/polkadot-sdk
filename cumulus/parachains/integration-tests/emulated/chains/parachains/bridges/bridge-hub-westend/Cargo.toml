@@ -14,7 +14,14 @@ workspace = true
 
 # Substrate
 sp-core = { workspace = true }
+sp-keyring = { workspace = true }
 frame-support = { workspace = true }
+
+# Polkadot Dependencies
+xcm = { workspace = true }
+
+# Bridge dependencies
+bp-messages = { workspace = true }
 
 # Cumulus
 parachains-common = { workspace = true, default-features = true }
