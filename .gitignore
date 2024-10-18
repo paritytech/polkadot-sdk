@@ -40,4 +40,4 @@ rls*.log
 runtime/wasm/target/
 substrate.code-workspace
 target/
-polkadot/zombienet-sdk-tests/metadata-files/*.scale
+*.scale
