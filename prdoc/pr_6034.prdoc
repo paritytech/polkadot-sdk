@@ -21,7 +21,7 @@ crates:
    bump: minor
  - name: pallet-delegated-staking
    bump: minor
- - name: sp-npos-election
+ - name: sp-npos-elections
    bump: major
  - name: sp-staking
    bump: major
