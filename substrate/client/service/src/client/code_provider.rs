@@ -21,7 +21,7 @@ use sc_client_api::backend;
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
 use sp_core::traits::{FetchRuntimeCode, RuntimeCode};
 use sp_runtime::traits::Block as BlockT;
-use sp_state_machine::{Ext, OverlayedChanges};
+use sp_state_machine::{backend::TryPendingCode, Ext, OverlayedChanges};
 use std::sync::Arc;
 
 /// Provider for fetching `:code` of a block.
@@ -75,13 +75,16 @@ where
 		Ok(Self { backend, executor, wasm_override: Arc::new(wasm_override), wasm_substitutes })
 	}
 
-	/// Returns the `:code` for the given `block`.
+	/// Returns the `:code` (or `:pending_code`) for the given `block`.
 	///
-	/// This takes into account potential overrides/substitutes.
+	/// This takes into account potential substitutes, but ignores overrides.
 	pub fn code_at_ignoring_overrides(&self, block: Block::Hash) -> sp_blockchain::Result<Vec<u8>> {
 		let state = self.backend.state_at(block)?;
 
-		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&state);
+		// TODO: make sure this is correct
+		let try_pending_code = TryPendingCode::Yes;
+		let state_runtime_code =
+			sp_state_machine::backend::BackendRuntimeCode::new(&state, try_pending_code);
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
 
