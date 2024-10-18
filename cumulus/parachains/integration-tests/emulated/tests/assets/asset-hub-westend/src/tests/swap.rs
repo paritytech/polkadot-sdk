@@ -389,3 +389,67 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 		);
 	});
 }
+
+#[test]
+fn xcm_fee_querying_apis_work() {
+	use emulated_integration_tests_common::USDT_ID;
+	use xcm_runtime_apis::fees::{Error as XcmPaymentApiError, runtime_decl_for_xcm_payment_api::XcmPaymentApiV1};
+
+	AssetHubWestend::execute_with(|| {
+		// Setup a pool between USDT and WND.
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
+		type AssetConversion = <AssetHubWestend as AssetHubWestendPallet>::AssetConversion;
+		let wnd = Location::new(1, []);
+		let usdt = Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())]);
+		let sender = AssetHubWestendSender::get();
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(wnd.clone()),
+			Box::new(usdt.clone()),
+		));
+
+		type Runtime = <AssetHubWestend as Chain>::Runtime;
+		let acceptable_payment_assets = Runtime::query_acceptable_payment_assets(4).unwrap();
+		assert_eq!(acceptable_payment_assets, vec![
+			VersionedAssetId::from(AssetId(wnd.clone())),
+			VersionedAssetId::from(AssetId(usdt.clone())),
+		]);
+
+		let program = Xcm::<()>::builder()
+			.withdraw_asset((Parent, 100u128))
+			.buy_execution((Parent, 10u128), Unlimited)
+			.deposit_asset(All, [0u8; 32])
+			.build();
+		let weight = Runtime::query_xcm_weight(VersionedXcm::from(program)).unwrap();
+		let fee_in_wnd = Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(AssetId(wnd.clone()))).unwrap();
+		// Assets not in a pool don't work.
+		assert!(Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(AssetId(Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(1)])))).is_err());
+		let fee_in_usdt_fail = Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(AssetId(usdt.clone())));
+		// Weight to asset fee fails because there's not enough asset in the pool.
+		// We just created it, there's none.
+		assert_eq!(fee_in_usdt_fail, Err(XcmPaymentApiError::AssetNotFound));
+		// We add some.
+		assert_ok!(Assets::mint(
+			RuntimeOrigin::signed(sender.clone()),
+			USDT_ID.into(),
+			sender.clone().into(),
+			5_000_000_000_000
+		));
+		// We make 1 WND = 4 USDT.
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(sender.clone()),
+			Box::new(wnd),
+			Box::new(usdt.clone()),
+			1_000_000_000_000,
+			4_000_000_000_000,
+			0,
+			0,
+			sender.into()
+		));
+		// Now it works.
+		let fee_in_usdt = Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(AssetId(usdt)));
+		assert_ok!(fee_in_usdt);
+		assert!(fee_in_usdt.unwrap() > fee_in_wnd);
+	});
+}
