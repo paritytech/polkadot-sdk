@@ -42,6 +42,7 @@ pub mod test_utils;
 pub mod weights;
 
 use crate::{
+	evm::{runtime::GAS_PRICE, TransactionLegacyUnsigned},
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -55,9 +56,10 @@ use frame_support::{
 		PostDispatchInfo, RawOrigin,
 	},
 	ensure,
+	pallet_prelude::DispatchClass,
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
-		ConstU32, ConstU64, Contains, EnsureOrigin, Get, IsType, Time,
+		ConstU32, ConstU64, Contains, EnsureOrigin, Get, IsType, OriginTrait, Time,
 	},
 	weights::{Weight, WeightMeter},
 	BoundedVec, RuntimeDebugNoBound,
@@ -1161,35 +1163,43 @@ where
 		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		T::Nonce: Into<U256>,
 	{
-		use crate::evm::TransactionLegacyUnsigned;
-		use frame_support::traits::OriginTrait;
 		let nonce: T::Nonce = <System<T>>::account_nonce(&origin);
+		let max_block_weight = T::BlockWeights::get()
+			.get(DispatchClass::Normal)
+			.max_total
+			.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
+		let max_gas_fee: BalanceOf<T> =
+			(pallet_transaction_payment::Pallet::<T>::weight_to_fee(max_block_weight) /
+				GAS_PRICE.into())
+			.into();
+
+		// A contract call.
 		if let Some(dest) = dest {
-			let tx = TransactionLegacyUnsigned {
-				value: value.into(),
-				input: input.into(),
-				nonce: nonce.into(),
-				chain_id: Some(T::ChainId::get().into()),
-				gas_price: 1u32.into(),
-				gas: u128::MAX.into(),
-				to: Some(dest),
-				..Default::default()
-			};
-
-			let payload = tx.dummy_signed_payload();
-			let data = tx.input.0;
+			// Dry run the call.
 			let result = crate::Pallet::<T>::bare_call(
 				T::RuntimeOrigin::signed(origin),
 				dest,
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				data.clone(),
+				input.clone(),
 				debug,
 				collect_events,
 			);
 
+			// Get the encoded size of the transaction.
+			let tx = TransactionLegacyUnsigned {
+				value: value.into(),
+				input: input.into(),
+				nonce: nonce.into(),
+				chain_id: Some(T::ChainId::get().into()),
+				gas_price: GAS_PRICE.into(),
+				gas: max_gas_fee.into(),
+				to: Some(dest),
+				..Default::default()
+			};
+			let payload = tx.dummy_signed_payload();
 			let eth_dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
 				payload,
 				gas_limit: result.gas_required,
@@ -1197,15 +1207,19 @@ where
 			}
 			.into();
 			let encoded_len = eth_dispatch_call.encoded_size() as u32;
+
+			// Get the dispatch info of the call.
 			let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
 				dest,
 				value,
 				gas_limit: result.gas_required,
 				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-				data,
+				data: tx.input.0,
 			}
 			.into();
 			let dispatch_info = dispatch_call.get_dispatch_info();
+
+			// Compute the fee.
 			let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
 				encoded_len,
 				&dispatch_info,
@@ -1213,42 +1227,29 @@ where
 			)
 			.into();
 
-			log::debug!(target: LOG_TARGET, "Dry run Result:
-				dispatch_info: {dispatch_info:?}
-				encoded_len: {encoded_len:?}
-				fee: {fee:?}"
-			);
-
+			log::debug!(target: LOG_TARGET, "Call dry run Result: dispatch_info: {dispatch_info:?} len: {encoded_len:?} fee: {fee:?}");
 			EthContractResult {
 				gas_limit: result.gas_required,
 				storage_deposit: result.storage_deposit.charge_or_zero(),
 				result: result.result.map(|v| v.data),
 				fee,
 			}
+			// A contract deployment
 		} else {
-			let tx = TransactionLegacyUnsigned {
-				value: value.into(),
-				input: input.into(),
-				nonce: nonce.into(),
-				chain_id: Some(T::ChainId::get().into()),
-				gas_price: 1u32.into(),
-				gas: u128::MAX.into(),
-				..Default::default()
-			};
-			let payload = tx.dummy_signed_payload();
-			let data = tx.input.0;
-			let (code, data) = match polkavm::ProgramBlob::blob_length(&data) {
+			// Extract code and data from the input.
+			let (code, data) = match polkavm::ProgramBlob::blob_length(&input) {
 				Some(blob_len) => blob_len
 					.try_into()
 					.ok()
-					.and_then(|blob_len| (data.split_at_checked(blob_len)))
-					.unwrap_or_else(|| (&data[..], &[][..])),
+					.and_then(|blob_len| (input.split_at_checked(blob_len)))
+					.unwrap_or_else(|| (&input[..], &[][..])),
 				_ => {
 					log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
-					(&data[..], &[][..])
+					(&input[..], &[][..])
 				},
 			};
 
+			// Dry run the call.
 			let result = crate::Pallet::<T>::bare_instantiate(
 				T::RuntimeOrigin::signed(origin),
 				value,
@@ -1261,6 +1262,19 @@ where
 				collect_events,
 			);
 
+			// Get the encoded size of the transaction.
+			let tx = TransactionLegacyUnsigned {
+				gas: max_gas_fee.into(),
+				nonce: nonce.into(),
+				value: value.into(),
+				input: input.clone().into(),
+				gas_price: GAS_PRICE.into(),
+				chain_id: Some(T::ChainId::get().into()),
+				..Default::default()
+			};
+
+			log::debug!(target: LOG_TARGET, "Instantiate dry run with: {tx:?}");
+			let payload = tx.dummy_signed_payload();
 			let eth_dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
 				payload,
 				gas_limit: result.gas_required,
@@ -1269,6 +1283,7 @@ where
 			.into();
 			let encoded_len = eth_dispatch_call.encoded_size() as u32;
 
+			// Get the dispatch info of the call.
 			let dispatch_call: <T as Config>::RuntimeCall =
 				crate::Call::<T>::instantiate_with_code {
 					value,
@@ -1279,8 +1294,9 @@ where
 					salt: None,
 				}
 				.into();
-
 			let dispatch_info = dispatch_call.get_dispatch_info();
+
+			// Compute the fee.
 			let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
 				encoded_len,
 				&dispatch_info,
@@ -1288,6 +1304,7 @@ where
 			)
 			.into();
 
+			log::debug!(target: LOG_TARGET, "Call dry run Result: dispatch_info: {dispatch_info:?} len: {encoded_len:?} fee: {fee:?}");
 			EthContractResult {
 				gas_limit: result.gas_required,
 				storage_deposit: result.storage_deposit.charge_or_zero(),
