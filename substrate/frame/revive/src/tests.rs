@@ -4461,9 +4461,6 @@ mod run_tests {
 			// code has of itself
 			assert_ok!(builder::call(addr).data((addr, self_code_hash).encode()).build());
 
-			// non-existing will return zero
-			assert_ok!(builder::call(addr).data((H160([0xff; 20]), H256::zero()).encode()).build());
-
 			// EOA doesn't exists
 			assert_err!(
 				builder::bare_call(addr)
@@ -4472,6 +4469,8 @@ mod run_tests {
 					.result,
 				Error::<Test>::ContractTrapped
 			);
+			// non-existing will return zero
+			assert_ok!(builder::call(addr).data((BOB_ADDR, H256::zero()).encode()).build());
 
 			// create EOA
 			let _ = <Test as Config>::Currency::set_balance(
