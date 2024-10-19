@@ -141,9 +141,8 @@ pub fn generate_extrinsic_with_pair(
 		frame_system::CheckGenesis::<Runtime>::new(),
 		frame_system::CheckEra::<Runtime>::from(Era::mortal(period, current_block)),
 		frame_system::CheckNonce::<Runtime>::from(nonce),
-		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<Runtime>::new(),
+		frame_system::CheckWeight::<Runtime>::new(),
 	)
 		.into();
 
@@ -152,7 +151,7 @@ pub fn generate_extrinsic_with_pair(
 	let raw_payload = SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
-		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
+		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| origin.sign(e));
 

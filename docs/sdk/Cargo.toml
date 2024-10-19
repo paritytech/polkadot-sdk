@@ -69,6 +69,7 @@ parachain-info = { workspace = true, default-features = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
 cumulus-client-service = { workspace = true, default-features = true }
 cumulus-primitives-storage-weight-reclaim = { workspace = true, default-features = true }
+cumulus-pallet-weight-reclaim = { workspace = true, default-features = true }
 
 # Pallets and FRAME internals
 pallet-aura = { workspace = true, default-features = true }
