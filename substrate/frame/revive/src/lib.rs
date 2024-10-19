@@ -1240,7 +1240,7 @@ where
 
 			log::debug!(target: LOG_TARGET, "Call dry run Result: dispatch_info: {dispatch_info:?} len: {encoded_len:?} fee: {fee:?}");
 			EthContractResult {
-				gas_limit: result.gas_required,
+				gas_required: result.gas_required,
 				storage_deposit: result.storage_deposit.charge_or_zero(),
 				result: result.result.map(|v| v.data),
 				fee,
@@ -1313,7 +1313,7 @@ where
 
 			log::debug!(target: LOG_TARGET, "Call dry run Result: dispatch_info: {dispatch_info:?} len: {encoded_len:?} fee: {fee:?}");
 			EthContractResult {
-				gas_limit: result.gas_required,
+				gas_required: result.gas_required,
 				storage_deposit: result.storage_deposit.charge_or_zero(),
 				result: result.result.map(|v| v.result.data),
 				fee,
