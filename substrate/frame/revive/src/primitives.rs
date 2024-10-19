@@ -87,8 +87,8 @@ pub struct ContractResult<R, Balance, EventRecord> {
 pub struct EthContractResult<Balance> {
 	/// The fee charged for the execution.
 	pub fee: Balance,
-	/// Gas limit of the transaction.
-	pub gas_limit: Weight,
+	/// The amount of gas that was necessary to execute the transaction.
+	pub gas_required: Weight,
 	/// Storage deposit charged.
 	pub storage_deposit: Balance,
 	/// The execution result.
