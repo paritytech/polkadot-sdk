@@ -9,7 +9,7 @@
     RUN_IN_CI: "1"
     KUBERNETES_CPU_REQUEST: "512m"
     KUBERNETES_MEMORY_REQUEST: "1Gi"
-    NODE_OPTIONS="--max_old_space_size=4096"
+    NODE_OPTIONS:"--max_old_space_size=4096"
   timeout: 60m
 
 include:
