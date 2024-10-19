@@ -39,7 +39,7 @@ extern crate alloc;
 extern crate self as frame_metadata_hash_extension;
 
 use codec::{Decode, Encode};
-use frame_support::DebugNoBound;
+use frame_support::{pallet_prelude::Weight, DebugNoBound};
 use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -68,12 +68,22 @@ enum MetadataHash {
 	Custom([u8; 32]),
 }
 
+const RUNTIME_METADATA: Option<[u8; 32]> = if let Some(hex) = option_env!("RUNTIME_METADATA_HASH") {
+	match const_hex::const_decode_to_array(hex.as_bytes()) {
+		Ok(hex) => Some(hex),
+		Err(_) => panic!("Invalid RUNTIME_METADATA_HASH environment variable: it must be a 32 \
+			bytes value in hexadecimal: e.g. 0x123ABCabd...123ABCabc. Upper case or lower case, \
+			0x prefix is optional."),
+	}
+} else {
+	None
+};
+
 impl MetadataHash {
 	/// Returns the metadata hash.
 	fn hash(&self) -> Option<[u8; 32]> {
 		match self {
-			Self::FetchFromEnv =>
-				option_env!("RUNTIME_METADATA_HASH").map(array_bytes::hex2array_unchecked),
+			Self::FetchFromEnv => RUNTIME_METADATA,
 			Self::Custom(hash) => Some(*hash),
 		}
 	}
@@ -155,5 +165,11 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMeta
 	type Val = ();
 	type Pre = ();
 
-	impl_tx_ext_default!(T::RuntimeCall; weight validate prepare);
+	fn weight(&self, _: &T::RuntimeCall) -> Weight {
+		// The weight is the weight of implicit, it consists of a few match operation, it is
+		// negligible.
+		Weight::zero()
+	}
+
+	impl_tx_ext_default!(T::RuntimeCall; validate prepare);
 }

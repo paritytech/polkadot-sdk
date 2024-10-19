@@ -6367,6 +6367,7 @@ name = "frame-metadata-hash-extension"
 version = "0.1.0"
 dependencies = [
  "array-bytes",
+ "const-hex",
  "docify",
  "frame-metadata 16.0.0",
  "frame-support",
