@@ -25,7 +25,7 @@ pub use staking::*;
 
 use crate::{
 	self as epm,
-	signed::{self as signed_pallet},
+	signed::{self as signed_pallet, HoldReason},
 	unsigned::{
 		self as unsigned_pallet,
 		miner::{self, Miner, MinerError, OffchainWorkerMiner},
@@ -33,7 +33,7 @@ use crate::{
 	verifier::{self as verifier_pallet},
 	Config, *,
 };
-use frame_support::{derive_impl, pallet_prelude::*, parameter_types};
+use frame_support::{derive_impl, pallet_prelude::*, parameter_types, traits::fungible::InspectHold};
 use parking_lot::RwLock;
 use sp_runtime::{
 	offchain::{
@@ -544,8 +544,12 @@ pub fn clear_snapshot() {
 	let _ = crate::TargetSnapshot::<T>::kill();
 }
 
+/// Returns the free balance, and the total on-hold for the election submissions.
 pub fn balances(who: AccountId) -> (Balance, Balance) {
-	(Balances::free_balance(who), Balances::reserved_balance(who))
+	(
+		Balances::free_balance(who),
+		Balances::balance_on_hold(&HoldReason::ElectionSolutionSubmission.into(), &who),
+	)
 }
 
 pub fn mine_full(pages: PageIndex) -> Result<PagedRawSolution<T>, MinerError> {

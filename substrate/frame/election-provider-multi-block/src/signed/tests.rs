@@ -19,6 +19,7 @@ use super::*;
 use crate::{mock::*, verifier::SolutionDataProvider, Phase, Verifier};
 use frame_support::{assert_noop, assert_ok, testing_prelude::*};
 use sp_npos_elections::ElectionScore;
+use sp_runtime::traits::Convert;
 
 mod calls {
 	use super::*;
@@ -179,7 +180,7 @@ mod calls {
 			));
 
 			assert_eq!(
-				Submissions::<T>::submission_for(10, current_round(), 0),
+				Submissions::<T>::page_submission_for(10, current_round(), 0),
 				Some(Default::default()),
 			);
 
@@ -204,6 +205,85 @@ mod calls {
 					Event::PageStored { round: 0, who: 10, page: 0 }
 				],
 			);
+		})
+	}
+
+	#[test]
+	fn bail_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// TODO
+		})
+	}
+
+	#[test]
+	fn force_clear_submission_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// TODO
+		})
+	}
+}
+
+mod deposit {
+	use super::*;
+
+	#[test]
+	fn register_submit_bail_deposit_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_eq!(<Runtime as crate::Config>::Pages::get(), 3);
+
+			roll_to_phase(Phase::Signed);
+			assert_ok!(assert_snapshots());
+
+			// expected base deposit with 0 submissions in the queue.
+			let base_deposit = <Runtime as Config>::DepositBase::convert(0);
+			let page_deposit = <Runtime as Config>::DepositPerPage::get();
+			assert!(base_deposit != 0 && page_deposit != 0 && base_deposit != page_deposit);
+
+			// 99 has 100 free balance and 0 held balance for elections.
+			assert_eq!(balances(99), (100, 0));
+
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
+
+			// free balance and held deposit updated as expected.
+			assert_eq!(balances(99), (100 - base_deposit, base_deposit));
+
+			// submit page 2.
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				2,
+				Some(Default::default())
+			));
+
+			// free balance and held deposit updated as expected.
+			assert_eq!(
+				balances(99),
+				(100 - base_deposit - page_deposit, base_deposit + page_deposit)
+			);
+
+			// submit remaining pages.
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				1,
+				Some(Default::default())
+			));
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				0,
+				Some(Default::default())
+			));
+
+			// free balance and held deposit updated as expected (ie. base_deposit + Pages *
+			// page_deposit)
+			assert_eq!(
+				balances(99),
+				(100 - base_deposit - (3 * page_deposit), base_deposit + (3 * page_deposit))
+			);
+
+			// now if 99 bails, all the deposits are released.
+			assert_ok!(SignedPallet::bail(RuntimeOrigin::signed(99)));
+
+			// the base deposit was burned after bail and all the pages deposit were released.
+			assert_eq!(balances(99), (100 - base_deposit, 0));
 		})
 	}
 }
@@ -281,7 +361,7 @@ mod e2e {
 					));
 
 					assert_eq!(
-						Submissions::<Runtime>::submission_for(10, current_round, page),
+						Submissions::<Runtime>::page_submission_for(10, current_round, page),
 						Some(solution.clone())
 					);
 				}

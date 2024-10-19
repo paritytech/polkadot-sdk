@@ -62,10 +62,11 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	traits::{
 		fungible::{
-			hold::Balanced as FnBalanced, Credit, Inspect as FnInspect, MutateHold as FnMutateHold,
+			hold::Balanced as FnBalanced, Credit, Inspect as FnInspect,
+			InspectHold as FnInspectHold, MutateHold as FnMutateHold,
 		},
 		tokens::Precision,
-		Defensive,
+		Defensive, DefensiveSaturating,
 	},
 	RuntimeDebugNoBound,
 };
@@ -84,6 +85,16 @@ pub use pallet::{
 type BalanceOf<T> = <<T as Config>::Currency as FnInspect<AccountIdOf<T>>>::Balance;
 /// Alias for the pallet's hold credit type.
 pub type CreditOf<T> = Credit<AccountIdOf<T>, <T as Config>::Currency>;
+
+/// Release strategy for currency held by this pallet.
+pub(crate) enum ReleaseStrategy {
+	/// Releases all currency.
+	All,
+	/// Releases only the base deposit,
+	BaseDeposit,
+	/// Releases only the pages deposit.
+	PageDeposit,
+}
 
 /// Metadata of a registered submission.
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Default, RuntimeDebugNoBound)]
@@ -108,7 +119,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::{ValueQuery, *},
-		traits::{Defensive, EstimateCallFee, OnUnbalanced},
+		traits::{tokens::Fortitude, Defensive, EstimateCallFee, OnUnbalanced},
 		Twox64Concat,
 	};
 	use frame_system::{
@@ -127,7 +138,8 @@ pub mod pallet {
 
 		/// The currency type.
 		type Currency: FnMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
-			+ FnBalanced<Self::AccountId>;
+			+ FnBalanced<Self::AccountId>
+			+ FnInspectHold<Self::AccountId>;
 
 		/// Something that can predict the fee of a call. Used to sensibly distribute rewards.
 		type EstimateCallFee: EstimateCallFee<Call<Self>, BalanceOf<Self>>;
@@ -137,7 +149,6 @@ pub mod pallet {
 
 		/// Something that calculates the signed base deposit based on the size of the current
 		/// queued solution proposals.
-		/// TODO: rename to `Deposit` or other?
 		type DepositBase: Convert<usize, BalanceOf<Self>>;
 
 		/// Per-page deposit for a signed solution.
@@ -229,6 +240,8 @@ pub mod pallet {
 		SubmissionScoreTooLow,
 		/// Bad timing for force clearing a stored submission.
 		CannotClear,
+		/// Error releasing held funds.
+		CannotReleaseFunds,
 	}
 
 	/// Wrapper for signed submissions.
@@ -243,7 +256,12 @@ pub mod pallet {
 	///    ID and round.
 	///
 	/// Invariants:
-	/// - TODO
+	/// - [`SortedScores`] must be strictly sorted or empty.
+	/// - All registered scores in [`SortedScores`] must be higher than the minimum score.
+	/// - An entry in [`SortedScores`] for a given round must have an associated entry in
+	/// [`SubmissionMetadataStorage`].
+	/// - For all registered submissions, there is a held deposit that matches that of the
+	///   submission metadata and the number of submitted pages.
 	pub(crate) struct Submissions<T: Config>(core::marker::PhantomData<T>);
 	impl<T: Config> Submissions<T> {
 		/// Generic mutation helper with checks.
@@ -282,7 +300,7 @@ pub mod pallet {
 			round: u32,
 			metadata: SubmissionMetadata<T>,
 		) -> DispatchResult {
-			let mut scores = SortedScores::<T>::get(round);
+			let mut scores = Submissions::<T>::scores_for(round);
 			scores.iter().try_for_each(|(account, _)| -> DispatchResult {
 				ensure!(account != who, Error::<T>::DuplicateRegister);
 				Ok(())
@@ -292,7 +310,8 @@ pub mod pallet {
 			debug_assert!(!SubmissionMetadataStorage::<T>::contains_key(round, who));
 
 			// the submission score must be higher than the minimum trusted score. Note that since
-			// there is no queued solution yet, the check is performed against the minimum score.
+			// there is no queued solution yet, the check is only performed against the minimum
+			// score.
 			ensure!(
 				<T::Verifier as Verifier>::ensure_score_quality(metadata.claimed_score),
 				Error::<T>::SubmissionScoreTooLow,
@@ -314,7 +333,7 @@ pub mod pallet {
 				Ok(Some((discarded, _s))) => {
 					let _ =
 						SubmissionStorage::<T>::clear_prefix((round, &discarded), u32::MAX, None);
-					// unreserve deposit
+					// unreserve full deposit
 					let _ = T::Currency::release_all(
 						&HoldReason::ElectionSolutionSubmission.into(),
 						&who,
@@ -326,6 +345,13 @@ pub mod pallet {
 				},
 				Err(_) => Err(Error::<T>::SubmissionsQueueFull),
 			}?;
+
+			// hold deposit for this submission.
+			T::Currency::hold(
+				&HoldReason::ElectionSolutionSubmission.into(),
+				&who,
+				metadata.deposit,
+			)?;
 
 			SortedScores::<T>::insert(round, scores);
 			SubmissionMetadataStorage::<T>::insert(round, who, metadata);
@@ -355,22 +381,26 @@ pub mod pallet {
 			page: PageIndex,
 			maybe_solution: Option<SolutionOf<T::MinerConfig>>,
 		) -> DispatchResult {
-			ensure!(
-				crate::Pallet::<T>::current_phase().is_signed(),
-				Error::<T>::NotAcceptingSubmissions
-			);
 			ensure!(page < T::Pages::get(), Error::<T>::BadPageIndex);
 
-			ensure!(
-				SubmissionMetadataStorage::<T>::contains_key(round, who),
-				Error::<T>::SubmissionNotRegistered
-			);
+			ensure!(Self::metadata_for(round, &who).is_some(), Error::<T>::SubmissionNotRegistered);
 
-			// TODO: update the held deposit to account for the paged submission deposit.
+			let should_hold_extra =
+				SubmissionStorage::<T>::mutate_exists((round, who, page), |maybe_old_solution| {
+					let exists = maybe_old_solution.is_some();
+					*maybe_old_solution = maybe_solution;
 
-			SubmissionStorage::<T>::mutate_exists((round, who, page), |maybe_old_solution| {
-				*maybe_old_solution = maybe_solution
-			});
+					!exists
+				});
+
+			// the deposit per page is held IFF it is a new page being stored.
+			if should_hold_extra {
+				T::Currency::hold(
+					&HoldReason::ElectionSolutionSubmission.into(),
+					&who,
+					T::DepositPerPage::get(),
+				)?;
+			};
 
 			Ok(())
 		}
@@ -388,7 +418,7 @@ pub mod pallet {
 							(round, &submitter),
 							u32::MAX,
 							None,
-						); // TODO: handle error.
+						);
 
 						SubmissionMetadataStorage::<T>::take(round, &submitter)
 							.map(|metadata| (submitter, metadata))
@@ -397,23 +427,57 @@ pub mod pallet {
 			})
 		}
 
-		/// Returns the leader submitter for the current round and corresponding claimed score.
-		pub(crate) fn leader(round: u32) -> Option<(T::AccountId, ElectionScore)> {
-			SortedScores::<T>::get(round).last().cloned()
-		}
-
-		/// Returns a submission page for a given round, submitter and page index.
-		pub(crate) fn get_page(
+		/// Clear the submission of a registered submission and its correponding pages and release
+		/// the held deposit based on the `release_strategy`.
+		///
+		/// The held deposit that is not released is burned as a penalty.
+		pub(crate) fn clear_submission_of(
 			who: &T::AccountId,
 			round: u32,
-			page: PageIndex,
-		) -> Option<SolutionOf<T::MinerConfig>> {
-			SubmissionStorage::<T>::get((round, who, page))
-		}
-	}
+			release_strategy: ReleaseStrategy,
+		) -> DispatchResult {
+			let reason = HoldReason::ElectionSolutionSubmission;
 
-	#[allow(dead_code)]
-	impl<T: Config> Submissions<T> {
+			let base_deposit = if let Some(metadata) = Self::metadata_for(round, &who) {
+				metadata.deposit
+			} else {
+				return Err(Error::<T>::SubmissionNotRegistered.into());
+			};
+
+			Self::mutate_checked(round, || {
+				SubmissionMetadataStorage::<T>::remove(round, who);
+				let _ = SubmissionStorage::<T>::clear_prefix((round, &who), u32::MAX, None);
+			});
+
+			let burn_deposit = match release_strategy {
+				ReleaseStrategy::All => Zero::zero(),
+				ReleaseStrategy::BaseDeposit => {
+					let burn = T::Currency::balance_on_hold(&reason.into(), &who)
+						.defensive_saturating_sub(base_deposit);
+					burn
+				},
+				ReleaseStrategy::PageDeposit => base_deposit,
+			};
+
+			T::Currency::burn_held(
+				&reason.into(),
+				&who,
+				burn_deposit,
+				Precision::Exact,
+				Fortitude::Force,
+			)?;
+
+			// release remaining.
+			T::Currency::release_all(&reason.into(), &who, Precision::Exact)?;
+
+			Ok(())
+		}
+
+		/// Returns the leader submitter for the current round and corresponding claimed score.
+		pub(crate) fn leader(round: u32) -> Option<(T::AccountId, ElectionScore)> {
+			Submissions::<T>::scores_for(round).last().cloned()
+		}
+
 		/// Returns the metadata of a submitter for a given account.
 		pub(crate) fn metadata_for(
 			round: u32,
@@ -430,17 +494,15 @@ pub mod pallet {
 		}
 
 		/// Returns the submission of a submitter for a given round and page.
-		pub(crate) fn submission_for(
+		pub(crate) fn page_submission_for(
 			who: T::AccountId,
 			round: u32,
 			page: PageIndex,
 		) -> Option<SolutionOf<T::MinerConfig>> {
 			SubmissionStorage::<T>::get((round, who, page))
 		}
-	}
 
-	#[cfg(debug_assertions)]
-	impl<T: Config> Submissions<T> {
+		#[cfg(debug_assertions)]
 		fn sanity_check_round(_round: u32) -> Result<(), &'static str> {
 			// TODO
 			Ok(())
@@ -453,11 +515,10 @@ pub mod pallet {
 			claimed_score: ElectionScore,
 			round: u32,
 		) -> DispatchResult {
+			// base deposit depends on the number of submissions for the current `round`.
 			let deposit = T::DepositBase::convert(
 				SubmissionMetadataStorage::<T>::iter_key_prefix(round).count(),
 			);
-
-			T::Currency::hold(&HoldReason::ElectionSolutionSubmission.into(), &who, deposit)?;
 
 			let pages: BoundedVec<_, T::Pages> = (0..T::Pages::get())
 				.map(|_| false)
@@ -489,7 +550,7 @@ pub mod pallet {
 
 			let round = crate::Pallet::<T>::current_round();
 			ensure!(
-				!SubmissionMetadataStorage::<T>::contains_key(round, who.clone()),
+				Submissions::<T>::metadata_for(round, &who).is_none(),
 				Error::<T>::DuplicateRegister
 			);
 
@@ -535,12 +596,10 @@ pub mod pallet {
 		/// Unregister a submission.
 		///
 		/// This will fully remove the solution and corresponding metadata from storage and refund
-		/// the submission deposit.
+		/// the page submissions deposit only.
 		///
-		/// NOTE: should we refund the deposit? there's an attack vector where an attacker can
-		/// register with a set of very high elections core and then retract all submission just
-		/// before the signed phase ends. This may end up depriving other honest miners from
-		/// registering their solution.
+		/// Note: the base deposit will be burned to prevent the attack where rogue submitters
+		/// deprive honest submitters submitting a solution.
 		#[pallet::call_index(3)]
 		#[pallet::weight(Weight::default())]
 		pub fn bail(origin: OriginFor<T>) -> DispatchResult {
@@ -551,14 +610,10 @@ pub mod pallet {
 				Error::<T>::NotAcceptingSubmissions
 			);
 
-			// TODO
-			// 1. clear all storage items related to `who`
-			// 2. return deposit
+			let round = crate::Pallet::<T>::current_round();
+			Submissions::<T>::clear_submission_of(&who, round, ReleaseStrategy::PageDeposit)?;
 
-			Self::deposit_event(Event::<T>::Bailed {
-				round: crate::Pallet::<T>::current_round(),
-				who,
-			});
+			Self::deposit_event(Event::<T>::Bailed { round, who });
 
 			Ok(())
 		}
@@ -644,7 +699,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 
 		Submissions::<T>::leader(round).map(|(who, _score)| {
 			sublog!(info, "signed", "returning page {} of leader's {:?} solution", page, who);
-			Submissions::<T>::get_page(&who, round, page).unwrap_or_default()
+			Submissions::<T>::page_submission_for(who, round, page).unwrap_or_default()
 		})
 	}
 
