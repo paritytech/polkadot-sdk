@@ -37,3 +37,27 @@ crates:
   bump: major
 - name: cumulus-primitives-storage-weight-reclaim
   bump: major
+- name: sp-runtime
+  bump: patch
+- name: polkadot-sdk
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: contracts-rococo-runtime
+  bump: major
