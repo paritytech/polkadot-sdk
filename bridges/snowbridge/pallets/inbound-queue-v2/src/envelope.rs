@@ -19,7 +19,7 @@ pub struct Envelope {
 	pub gateway: H160,
 	/// A nonce for enforcing replay protection and ordering.
 	pub nonce: u64,
-	/// Total fee paid on source chain
+	/// Total fee paid in Ether on Ethereum, should cover all the cost
 	pub fee: u128,
 	/// The inner payload generated from the source application.
 	pub payload: Vec<u8>,
