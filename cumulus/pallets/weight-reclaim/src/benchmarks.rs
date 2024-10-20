@@ -19,8 +19,7 @@
 use super::*;
 use frame_support::pallet_prelude::{DispatchClass, Pays};
 use frame_system::RawOrigin;
-use sp_runtime::traits::DispatchTransaction;
-use sp_runtime::traits::AsTransactionAuthorizedOrigin;
+use sp_runtime::traits::{AsTransactionAuthorizedOrigin, DispatchTransaction};
 
 #[frame_benchmarking::v2::benchmarks(
 	where T: Send + Sync,
@@ -35,7 +34,6 @@ mod bench {
 	#[benchmark]
 	fn storage_weight_reclaim() -> Result<(), frame_benchmarking::BenchmarkError> {
 		let ext = StorageWeightReclaim::<T, ()>::new(());
-
 
 		let origin = RawOrigin::Root.into();
 		let call = T::RuntimeCall::from(frame_system::Call::remark { remark: alloc::vec![] });
