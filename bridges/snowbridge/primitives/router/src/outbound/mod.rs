@@ -207,9 +207,9 @@ where
 
 	fn convert(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
 		let result = match self.peek() {
-			Ok(ReserveAssetDeposited { .. }) => self.send_native_tokens_message(),
+			Ok(ReserveAssetDeposited { .. }) => self.make_mint_foreign_token_command(),
 			// Get withdraw/deposit and make native tokens create message.
-			Ok(WithdrawAsset { .. }) => self.send_tokens_message(),
+			Ok(WithdrawAsset { .. }) => self.make_unlock_native_token_command(),
 			Err(e) => Err(e),
 			_ => return Err(XcmConverterError::UnexpectedInstruction),
 		}?;
@@ -222,7 +222,7 @@ where
 		Ok(result)
 	}
 
-	fn send_tokens_message(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
+	fn make_unlock_native_token_command(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
 		use XcmConverterError::*;
 
 		// Get the reserve assets from WithdrawAsset.
@@ -271,9 +271,9 @@ where
 		ensure!(reserve_assets.len() == 1, TooManyAssets);
 		let reserve_asset = reserve_assets.get(0).ok_or(AssetResolutionFailed)?;
 
-		// Enough Fees are collected on Asset Hub, up front and directly from the user, to cover the
+		// Fees are collected on AH, up front and directly from the user, to cover the
 		// complete cost of the transfer. Any additional fees provided in the XCM program are
-		// refunded to the beneficairy. We only validate the fee here if its provided to make sure
+		// refunded to the beneficiary. We only validate the fee here if its provided to make sure
 		// the XCM program is well formed. Another way to think about this from an XCM perspective
 		// would be that the user offered to pay X amount in fees, but we charge 0 of that X amount
 		// (no fee) and refund X to the user.
@@ -333,7 +333,7 @@ where
 	/// # BuyExecution
 	/// # DepositAsset
 	/// # SetTopic
-	fn send_native_tokens_message(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
+	fn make_mint_foreign_token_command(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
 		use XcmConverterError::*;
 
 		// Get the reserve assets.
@@ -382,9 +382,9 @@ where
 		ensure!(reserve_assets.len() == 1, TooManyAssets);
 		let reserve_asset = reserve_assets.get(0).ok_or(AssetResolutionFailed)?;
 
-		// Enough Fees are collected on Asset Hub, up front and directly from the user, to cover the
+		// Fees are collected on AH, up front and directly from the user, to cover the
 		// complete cost of the transfer. Any additional fees provided in the XCM program are
-		// refunded to the beneficairy. We only validate the fee here if its provided to make sure
+		// refunded to the beneficiary. We only validate the fee here if its provided to make sure
 		// the XCM program is well formed. Another way to think about this from an XCM perspective
 		// would be that the user offered to pay X amount in fees, but we charge 0 of that X amount
 		// (no fee) and refund X to the user.
