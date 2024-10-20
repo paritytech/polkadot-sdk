@@ -2617,7 +2617,7 @@ mod runtime {
 
 	#[runtime::pallet_index(80)]
 	pub type Revive = pallet_revive::Pallet<Runtime>;
-  
+
 	#[runtime::pallet_index(81)]
 	pub type VerifySignature = pallet_verify_signature::Pallet<Runtime>;
 
