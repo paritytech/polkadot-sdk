@@ -232,4 +232,29 @@ where
 
 		Ok(inner_refund)
 	}
+
+	fn bare_validate(
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+	) -> frame_support::pallet_prelude::TransactionValidity {
+		S::bare_validate(call, info, len)
+	}
+
+	fn bare_validate_and_prepare(
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+	) -> Result<(), TransactionValidityError> {
+		S::bare_validate_and_prepare(call, info, len)
+	}
+
+	fn bare_post_dispatch(
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &mut PostDispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+		result: &DispatchResult,
+	) -> Result<(), TransactionValidityError> {
+		S::bare_post_dispatch(info, post_info, len, result)
+	}
 }
