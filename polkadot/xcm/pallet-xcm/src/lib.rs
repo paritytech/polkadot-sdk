@@ -2744,7 +2744,7 @@ impl<T: Config> Pallet<T> {
 			.invert_target(&responder)
 			.map_err(|()| XcmError::LocationNotInvertible)?;
 		let notify: <T as Config>::RuntimeCall = notify.into();
-		let max_weight = notify.get_dispatch_info().weight;
+		let max_weight = notify.get_dispatch_info().call_weight;
 		let query_id = Self::new_notify_query(responder, notify, timeout, Here);
 		let response_info = QueryResponseInfo { destination, query_id, max_weight };
 		let report_error = Xcm(vec![ReportError(response_info)]);
@@ -3278,7 +3278,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 							<T as Config>::RuntimeCall::decode(&mut bytes)
 						}) {
 							Queries::<T>::remove(query_id);
-							let weight = call.get_dispatch_info().weight;
+							let weight = call.get_dispatch_info().call_weight;
 							if weight.any_gt(max_weight) {
 								let e = Event::NotifyOverweight {
 									query_id,
