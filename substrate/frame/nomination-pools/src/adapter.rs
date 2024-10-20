@@ -183,13 +183,11 @@ pub trait StakeStrategy {
 		num_slashing_spans: u32,
 	) -> DispatchResult;
 
-	/// Clean up ledger leftovers before reaping a dusted member.
-	// FIXME eagr better name?
-	fn member_dust(
+	/// Immediately withdraw the given amount from the pool account.
+	fn force_withdraw(
 		who: Member<Self::AccountId>,
 		pool_account: Pool<Self::AccountId>,
 		amount: Self::Balance,
-		num_slashing_spans: u32,
 	) -> DispatchResult;
 
 	/// Dissolve the pool account.
@@ -317,11 +315,10 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		Ok(())
 	}
 
-	fn member_dust(
+	fn force_withdraw(
 		_who: Member<Self::AccountId>,
 		pool_account: Pool<Self::AccountId>,
 		amount: Self::Balance,
-		_num_slashing_spans: u32,
 	) -> DispatchResult {
 		Staking::force_withdraw(&pool_account.0, amount)
 	}
@@ -476,14 +473,13 @@ impl<
 		Delegation::migrate_delegation(pool.into(), delegator.into(), value)
 	}
 
-	fn member_dust(
+	fn force_withdraw(
 		who: Member<Self::AccountId>,
 		pool: Pool<Self::AccountId>,
 		amount: Self::Balance,
-		num_slashing_spans: u32,
 	) -> DispatchResult {
 		Staking::force_withdraw(&pool.0, amount)?;
-		Delegation::withdraw_delegation(who.into(), pool.clone().into(), amount, num_slashing_spans)
+		Delegation::withdraw_delegation(who.into(), pool.clone().into(), amount, 0)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

@@ -1767,9 +1767,9 @@ fn reap_member_delegate() {
 		// <ED after slash, will be reaped
 		assert_eq!(PoolMembers::<Runtime>::get(21).unwrap().total_balance(), 2);
 
-		assert_ok!(Pools::reap_member(RuntimeOrigin::signed(21), 10, 0));
-		assert_ok!(Pools::reap_member(RuntimeOrigin::signed(21), 20, 0));
-		assert_ok!(Pools::reap_member(RuntimeOrigin::signed(21), 21, 0));
+		assert_ok!(Pools::apply_slash(RuntimeOrigin::signed(21), 10));
+		assert_ok!(Pools::apply_slash(RuntimeOrigin::signed(21), 20));
+		assert_ok!(Pools::apply_slash(RuntimeOrigin::signed(21), 21));
 
 		// balance of reaped member is subtracted from TVL
 		assert_eq!(tvl - TotalValueLocked::<Runtime>::get(), 2);
@@ -1778,7 +1778,6 @@ fn reap_member_delegate() {
 			staking_events_since_last_call(),
 			vec![
 				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 2 },
-				StakingEvent::Burnt { stash: POOL1_BONDED, amount: 2 },
 			],
 		);
 		assert_eq!(
@@ -1792,7 +1791,7 @@ fn reap_member_delegate() {
 
 		// member reaped
 		assert_noop!(
-			Pools::reap_member(RuntimeOrigin::signed(21), 21, 0),
+			Pools::apply_slash(RuntimeOrigin::signed(21), 21),
 			PoolsError::<Runtime>::PoolMemberNotFound
 		);
 	})

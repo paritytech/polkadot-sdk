@@ -863,8 +863,6 @@ pub mod pallet {
 		ForceEra { mode: Forcing },
 		/// Report of a controller batch deprecation.
 		ControllerBatchDeprecated { failures: u32 },
-		/// Certain amount of bonded fund has been burned.
-		Burnt { stash: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -888,6 +886,8 @@ pub mod pallet {
 		/// governance (see `MinValidatorBond` and `MinNominatorBond`). If unbonding is the
 		/// intention, `chill` first to remove one's role as validator/nominator.
 		InsufficientBond,
+		/// Invalid amount to withdraw.
+		InvalidWithdrawAmount,
 		/// Can not schedule more unlock chunks.
 		NoMoreChunks,
 		/// Can not rebond without unlocking chunks.

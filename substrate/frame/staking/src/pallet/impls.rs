@@ -1882,9 +1882,14 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn force_withdraw(stash: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+		ensure!(
+			amount > Zero::zero() && amount < T::Currency::minimum_balance(),
+			Error::<T>::InvalidWithdrawAmount,
+		);
+
 		let mut ledger = Self::ledger(Stash(stash.clone()))?;
 		ledger.active = ledger.active.saturating_sub(amount);
-		// FIXME eagr should we check if active >= ED before updating?
+		ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
 		ledger.total = ledger.total.saturating_sub(amount);
 		ledger.update()?;
 
@@ -1892,13 +1897,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			let _ = T::VoterList::on_update(stash, Self::weight_of(stash)).defensive();
 		}
 
-		// HACK Delegation relies on the `on_withdraw` event to increase agent's unclaimed
+		// Delegation relies on the `on_withdraw` event to increase agent's unclaimed
 		// withdrawals. We do this to maintain the ledger integrity.
 		T::EventListeners::on_withdraw(stash, amount);
 		Self::deposit_event(Event::<T>::Withdrawn { stash: stash.clone(), amount });
-
-		T::Currency::burn(amount);
-		Self::deposit_event(Event::<T>::Burnt { stash: stash.clone(), amount });
 
 		Ok(())
 	}
