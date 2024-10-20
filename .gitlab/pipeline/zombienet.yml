@@ -8,7 +8,7 @@
     RUST_LOG: "info,zombienet_orchestrator=debug"
     RUN_IN_CI: "1"
     KUBERNETES_CPU_REQUEST: "512m"
-    KUBERNETES_MEMORY_REQUEST: "512M"
+    KUBERNETES_MEMORY_REQUEST: "1Gi"
   timeout: 60m
 
 include:
