@@ -15208,6 +15208,7 @@ dependencies = [
  "cumulus-pallet-parachain-system-proc-macro",
  "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-solo-to-para",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
  "cumulus-ping",
