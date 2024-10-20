@@ -43,6 +43,8 @@ use alloc::vec::Vec;
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 /// The EVM gas price.
+/// This constant is used by the proxy to advertise it via the eth_gas_price RPC.
+///
 /// We use a fixed value for the gas price.
 /// This let us calculate the gas estimate for a transaction with the formula:
 /// `estimate_gas = substrate_fee / gas_price`.
