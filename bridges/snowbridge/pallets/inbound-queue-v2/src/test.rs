@@ -41,17 +41,8 @@ fn test_submit_happy_path() {
 				255, 125, 48, 71, 174, 185, 100, 26, 159, 43, 108, 6, 116, 218, 55, 155, 223, 143,
 				141, 22, 124, 110, 241, 18, 122, 217, 130, 29, 139, 76, 97, 201,
 			],
-			fee_burned: 110000000000,
 		}
 		.into()]);
-
-		let delivery_cost = InboundQueue::calculate_delivery_cost(message.encode().len() as u32);
-
-		assert_eq!(Balances::balance(&relayer), delivery_cost, "relayer was rewarded");
-		assert!(
-			Balances::balance(&channel_sovereign) <= initial_fund - delivery_cost,
-			"sovereign account paid reward"
-		);
 	});
 }
 

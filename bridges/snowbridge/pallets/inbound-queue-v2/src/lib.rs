@@ -39,10 +39,7 @@ mod test;
 use codec::{Decode, DecodeAll, Encode};
 use envelope::Envelope;
 use frame_support::{
-	traits::{
-		fungible::{Inspect, Mutate},
-		tokens::{Fortitude, Precision, Preservation},
-	},
+	traits::fungible::{Inspect, Mutate},
 	weights::WeightToFee,
 	PalletError,
 };
@@ -50,17 +47,16 @@ use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_core::H160;
 use sp_std::vec;
-use xcm::prelude::{
-	send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, Xcm, XcmHash,
+use xcm::{
+	prelude::{send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, Xcm, XcmHash},
+	VersionedXcm, MAX_XCM_DECODE_DEPTH,
 };
 
 use snowbridge_core::{
 	inbound::{Message, VerificationError, Verifier},
 	sibling_sovereign_account, BasicOperatingMode, ParaId,
 };
-use snowbridge_router_primitives_v2::inbound::{
-	ConvertMessage, ConvertMessageError, VersionedMessage,
-};
+use snowbridge_router_primitives_v2::inbound::Message as MessageV2;
 
 pub use weights::WeightInfo;
 
@@ -77,6 +73,7 @@ pub const LOG_TARGET: &str = "snowbridge-inbound-queue:v2";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::DecodeLimit;
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
@@ -107,12 +104,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type GatewayAddress: Get<H160>;
 
-		/// Convert inbound message to XCM
-		type MessageConverter: ConvertMessage<
-			AccountId = Self::AccountId,
-			Balance = BalanceOf<Self>,
-		>;
-
 		type WeightInfo: WeightInfo;
 
 		#[cfg(feature = "runtime-benchmarks")]
@@ -140,8 +131,6 @@ pub mod pallet {
 			nonce: u64,
 			/// ID of the XCM message which was forwarded to the final destination parachain
 			message_id: [u8; 32],
-			/// Fee burned for the teleport
-			fee_burned: BalanceOf<T>,
 		},
 		/// Set OperatingMode
 		OperatingModeChanged { mode: BasicOperatingMode },
@@ -169,8 +158,6 @@ pub mod pallet {
 		Verification(VerificationError),
 		/// XCMP send failure
 		Send(SendError),
-		/// Message conversion error
-		ConvertMessage(ConvertMessageError),
 	}
 
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo, PalletError)]
@@ -215,7 +202,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
 		pub fn submit(origin: OriginFor<T>, message: Message) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
 
 			// submit message to verifier for verification
@@ -233,30 +220,25 @@ pub mod pallet {
 			ensure!(!<Nonce<T>>::contains_key(envelope.nonce), Error::<T>::InvalidNonce);
 
 			// Decode payload into `VersionedMessage`
-			let message = VersionedMessage::decode_all(&mut envelope.payload.as_ref())
+			let message = MessageV2::decode_all(&mut envelope.payload.as_ref())
 				.map_err(|_| Error::<T>::InvalidPayload)?;
 
-			// Decode message into XCM
-			let (xcm, fee) = Self::do_convert(envelope.message_id, message.clone())?;
+			let versioned_xcm = VersionedXcm::<()>::decode_with_depth_limit(
+				MAX_XCM_DECODE_DEPTH,
+				&mut message.xcm.as_ref(),
+			)
+			.map_err(|_| Error::<T>::InvalidPayload)?;
+
+			let xcm: Xcm<()> = versioned_xcm.try_into().unwrap();
 
 			log::info!(
 				target: LOG_TARGET,
-				"💫 xcm decoded as {:?} with fee {:?}",
+				"💫 xcm decoded as {:?}",
 				xcm,
-				fee
 			);
 
-			// Burning fees for teleport
-			T::Token::burn_from(
-				&who,
-				fee,
-				Preservation::Preserve,
-				Precision::BestEffort,
-				Fortitude::Polite,
-			)?;
-
 			// Attempt to send XCM to a dest parachain
-			let message_id = Self::send_xcm(xcm, envelope.para_id.into())?;
+			let message_id = Self::send_xcm(xcm, 1000.into())?;
 
 			// Set nonce flag to true
 			<Nonce<T>>::try_mutate(envelope.nonce, |done| -> DispatchResult {
@@ -273,11 +255,7 @@ pub mod pallet {
 
 			// T::RewardLeger::deposit(envelope.reward_address.into(), envelope.fee.into())?;
 
-			Self::deposit_event(Event::MessageReceived {
-				nonce: envelope.nonce,
-				message_id,
-				fee_burned: fee,
-			});
+			Self::deposit_event(Event::MessageReceived { nonce: envelope.nonce, message_id });
 
 			Ok(())
 		}
@@ -297,15 +275,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn do_convert(
-			message_id: H256,
-			message: VersionedMessage,
-		) -> Result<(Xcm<()>, BalanceOf<T>), Error<T>> {
-			let (xcm, fee) = T::MessageConverter::convert(message_id, message)
-				.map_err(|e| Error::<T>::ConvertMessage(e))?;
-			Ok((xcm, fee))
-		}
-
 		pub fn send_xcm(xcm: Xcm<()>, dest: ParaId) -> Result<XcmHash, Error<T>> {
 			let dest = Location::new(1, [Parachain(dest.into())]);
 			let (xcm_hash, _) = send_xcm::<T::XcmSender>(dest, xcm).map_err(Error::<T>::from)?;

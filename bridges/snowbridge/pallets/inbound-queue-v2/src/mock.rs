@@ -11,7 +11,6 @@ use snowbridge_core::{
 	inbound::{Log, Proof, VerificationError},
 	TokenId,
 };
-use snowbridge_router_primitives_v2::inbound::MessageToXcm;
 use sp_core::{H160, H256};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
@@ -170,16 +169,6 @@ impl inbound_queue::Config for Test {
 	type XcmSender = MockXcmSender;
 	type WeightInfo = ();
 	type GatewayAddress = GatewayAddress;
-	type MessageConverter = MessageToXcm<
-		CreateAssetCall,
-		CreateAssetDeposit,
-		InboundQueuePalletInstance,
-		AccountId,
-		Balance,
-		MockTokenIdConvert,
-		UniversalLocation,
-		AssetHubFromEthereum,
-	>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
 	type WeightToFee = IdentityFee<u128>;
