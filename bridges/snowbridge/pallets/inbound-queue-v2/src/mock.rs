@@ -146,10 +146,6 @@ impl SendXcm for MockXcmSender {
 	}
 }
 
-parameter_types! {
-	pub const OwnParaId: ParaId = ParaId::new(1013);
-}
-
 pub const DOT: u128 = 10_000_000_000;
 
 pub struct MockTokenIdConvert;
@@ -165,15 +161,11 @@ impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
 impl inbound_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
-	type Token = Balances;
 	type XcmSender = MockXcmSender;
 	type WeightInfo = ();
 	type GatewayAddress = GatewayAddress;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
-	type WeightToFee = IdentityFee<u128>;
-	type LengthToFee = IdentityFee<u128>;
-	type MaxMessageSize = ConstU32<1024>;
 }
 
 pub fn last_events(n: usize) -> Vec<RuntimeEvent> {
@@ -192,16 +184,6 @@ pub fn expect_events(e: Vec<RuntimeEvent>) {
 
 pub fn setup() {
 	System::set_block_number(1);
-	Balances::mint_into(
-		&sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into()),
-		InitialFund::get(),
-	)
-	.unwrap();
-	Balances::mint_into(
-		&sibling_sovereign_account::<Test>(TEMPLATE_PARAID.into()),
-		InitialFund::get(),
-	)
-	.unwrap();
 }
 
 pub fn new_tester() -> sp_io::TestExternalities {

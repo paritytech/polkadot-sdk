@@ -38,23 +38,19 @@ mod test;
 
 use codec::{Decode, DecodeAll, Encode};
 use envelope::Envelope;
-use frame_support::{
-	traits::fungible::{Inspect, Mutate},
-	weights::WeightToFee,
-	PalletError,
-};
+use frame_support::PalletError;
 use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_core::H160;
 use sp_std::vec;
 use xcm::{
-	prelude::{send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, Xcm, XcmHash},
+	prelude::{send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, Xcm},
 	VersionedXcm, MAX_XCM_DECODE_DEPTH,
 };
 
 use snowbridge_core::{
 	inbound::{Message, VerificationError, Verifier},
-	sibling_sovereign_account, BasicOperatingMode, ParaId,
+	BasicOperatingMode,
 };
 use snowbridge_router_primitives_v2::inbound::Message as MessageV2;
 
@@ -62,9 +58,6 @@ pub use weights::WeightInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
 use snowbridge_beacon_primitives::BeaconHeader;
-
-type BalanceOf<T> =
-	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub use pallet::*;
 
@@ -94,13 +87,10 @@ pub mod pallet {
 		/// The verifier for inbound messages from Ethereum
 		type Verifier: Verifier;
 
-		/// Burn fees from relayer
-		type Token: Mutate<Self::AccountId> + Inspect<Self::AccountId>;
-
 		/// XCM message sender
 		type XcmSender: SendXcm;
 
-		// Address of the Gateway contract
+		/// Address of the Gateway contract
 		#[pallet::constant]
 		type GatewayAddress: Get<H160>;
 
@@ -108,15 +98,6 @@ pub mod pallet {
 
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
-
-		/// Convert a weight value into deductible balance type.
-		type WeightToFee: WeightToFee<Balance = BalanceOf<Self>>;
-
-		/// Convert a length value into deductible balance type
-		type LengthToFee: WeightToFee<Balance = BalanceOf<Self>>;
-
-		/// The upper limit here only used to estimate delivery cost
-		type MaxMessageSize: Get<u32>;
 	}
 
 	#[pallet::hooks]
@@ -202,7 +183,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
 		pub fn submit(origin: OriginFor<T>, message: Message) -> DispatchResult {
-			ensure_signed(origin)?;
+			let _who = ensure_signed(origin)?;
 			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
 
 			// submit message to verifier for verification
@@ -219,17 +200,17 @@ pub mod pallet {
 			// Verify the message has not been processed
 			ensure!(!<Nonce<T>>::contains_key(envelope.nonce), Error::<T>::InvalidNonce);
 
-			// Decode payload into `VersionedMessage`
+			// Decode payload into `MessageV2`
 			let message = MessageV2::decode_all(&mut envelope.payload.as_ref())
 				.map_err(|_| Error::<T>::InvalidPayload)?;
 
+			// Decode xcm
 			let versioned_xcm = VersionedXcm::<()>::decode_with_depth_limit(
 				MAX_XCM_DECODE_DEPTH,
 				&mut message.xcm.as_ref(),
 			)
 			.map_err(|_| Error::<T>::InvalidPayload)?;
-
-			let xcm: Xcm<()> = versioned_xcm.try_into().unwrap();
+			let xcm: Xcm<()> = versioned_xcm.try_into().map_err(|_| <Error<T>>::InvalidPayload)?;
 
 			log::info!(
 				target: LOG_TARGET,
@@ -237,23 +218,23 @@ pub mod pallet {
 				xcm,
 			);
 
-			// Attempt to send XCM to a dest parachain
-			let message_id = Self::send_xcm(xcm, 1000.into())?;
-
 			// Set nonce flag to true
 			<Nonce<T>>::try_mutate(envelope.nonce, |done| -> DispatchResult {
 				*done = true;
 				Ok(())
 			})?;
 
-			// Todo: Deposit fee to RewardLeger which should contains all of:
+			// Todo: Deposit fee(in Ether) to RewardLeger which should cover all of:
+			// T::RewardLeger::deposit(who, envelope.fee.into())?;
 			// a. The submit extrinsic cost on BH
 			// b. The delivery cost to AH
 			// c. The execution cost on AH
 			// d. The execution cost on destination chain(if any)
 			// e. The reward
 
-			// T::RewardLeger::deposit(envelope.reward_address.into(), envelope.fee.into())?;
+			// Attempt to forward XCM to AH
+			let dest = Location::new(1, [Parachain(1000)]);
+			let (message_id, _) = send_xcm::<T::XcmSender>(dest, xcm).map_err(Error::<T>::from)?;
 
 			Self::deposit_event(Event::MessageReceived { nonce: envelope.nonce, message_id });
 
@@ -271,14 +252,6 @@ pub mod pallet {
 			OperatingMode::<T>::set(mode);
 			Self::deposit_event(Event::OperatingModeChanged { mode });
 			Ok(())
-		}
-	}
-
-	impl<T: Config> Pallet<T> {
-		pub fn send_xcm(xcm: Xcm<()>, dest: ParaId) -> Result<XcmHash, Error<T>> {
-			let dest = Location::new(1, [Parachain(dest.into())]);
-			let (xcm_hash, _) = send_xcm::<T::XcmSender>(dest, xcm).map_err(Error::<T>::from)?;
-			Ok(xcm_hash)
 		}
 	}
 }

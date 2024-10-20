@@ -114,7 +114,6 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;
-	type Token = Balances;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type XcmSender = XcmRouter;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -122,9 +121,6 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type GatewayAddress = EthereumGatewayAddress;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
-	type WeightToFee = WeightToFee;
-	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
-	type MaxMessageSize = ConstU32<2048>;
 	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue_v2::WeightInfo<Runtime>;
 }
 

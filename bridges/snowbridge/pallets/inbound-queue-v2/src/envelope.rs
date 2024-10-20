@@ -9,7 +9,7 @@ use alloy_primitives::B256;
 use alloy_sol_types::{sol, SolEvent};
 
 sol! {
-	event OutboundMessageAccepted(uint64 indexed nonce, uint128 fee, bytes32 reward_address, bytes payload);
+	event OutboundMessageAccepted(uint64 indexed nonce, uint128 fee, bytes payload);
 }
 
 /// An inbound message that has had its outer envelope decoded.
@@ -21,8 +21,6 @@ pub struct Envelope {
 	pub nonce: u64,
 	/// Total fee paid on source chain
 	pub fee: u128,
-	/// The reward address
-	pub reward_address: [u8; 32],
 	/// The inner payload generated from the source application.
 	pub payload: Vec<u8>,
 }
@@ -43,7 +41,6 @@ impl TryFrom<&Log> for Envelope {
 			gateway: log.address,
 			nonce: event.nonce,
 			fee: event.fee,
-			reward_address: event.reward_address.clone().into(),
 			payload: event.payload,
 		})
 	}
