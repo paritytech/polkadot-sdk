@@ -252,9 +252,10 @@ where
 			let _ = self.next();
 		}
 
-		// Extract the fee asset item from BuyExecution
+		// Extract the fee asset item from BuyExecution|PayFees(V5)
 		let fee_asset = match_expression!(self.next()?, BuyExecution { fees, .. }, fees)
 			.ok_or(InvalidFeeAsset)?;
+		// Todo: Validate fee asset is WETH
 		let fee_amount = match fee_asset {
 			Asset { id: _, fun: Fungible(amount) } => Some(*amount),
 			_ => None,
@@ -317,7 +318,6 @@ where
 			id: (*topic_id).into(),
 			// Todo: from XCMV5 AliasOrigin
 			origin: H256::zero(),
-			// Todo: from XCMV5 PayFees
 			fee: fee_amount,
 			commands: BoundedVec::try_from(vec![Command::UnlockNativeToken {
 				agent_id: self.agent_id,
@@ -367,11 +367,15 @@ where
 			let _ = self.next();
 		}
 
-		// Get the fee asset item from BuyExecution or continue parsing.
-		let fee_asset = match_expression!(self.peek(), Ok(BuyExecution { fees, .. }), fees);
-		if fee_asset.is_some() {
-			let _ = self.next();
+		// Extract the fee asset item from BuyExecution|PayFees(V5)
+		let fee_asset = match_expression!(self.next()?, BuyExecution { fees, .. }, fees)
+			.ok_or(InvalidFeeAsset)?;
+		// Todo: Validate fee asset is WETH
+		let fee_amount = match fee_asset {
+			Asset { id: _, fun: Fungible(amount) } => Some(*amount),
+			_ => None,
 		}
+		.ok_or(AssetResolutionFailed)?;
 
 		let (deposit_assets, beneficiary) = match_expression!(
 			self.next()?,
@@ -403,14 +407,6 @@ where
 		ensure!(reserve_assets.len() == 1, TooManyAssets);
 		let reserve_asset = reserve_assets.get(0).ok_or(AssetResolutionFailed)?;
 
-		// If there was a fee specified verify it.
-		if let Some(fee_asset) = fee_asset {
-			// The fee asset must be the same as the reserve asset.
-			if fee_asset.id != reserve_asset.id || fee_asset.fun > reserve_asset.fun {
-				return Err(InvalidFeeAsset)
-			}
-		}
-
 		let (asset_id, amount) = match reserve_asset {
 			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
 				Some((inner_location.clone(), *amount)),
@@ -432,7 +428,7 @@ where
 
 		let message = Message {
 			origin: H256::zero(),
-			fee: 0,
+			fee: fee_amount,
 			id: (*topic_id).into(),
 			commands: BoundedVec::try_from(vec![Command::MintForeignToken {
 				token_id,

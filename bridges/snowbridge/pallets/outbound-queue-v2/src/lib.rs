@@ -237,7 +237,7 @@ pub mod pallet {
 	#[pallet::getter(fn message_leaves)]
 	pub(super) type MessageLeaves<T: Config> = StorageValue<_, Vec<H256>, ValueQuery>;
 
-	/// The current nonce for each message origin
+	/// The current nonce for the messages
 	#[pallet::storage]
 	pub type Nonce<T: Config> = StorageValue<_, u64, ValueQuery>;
 
