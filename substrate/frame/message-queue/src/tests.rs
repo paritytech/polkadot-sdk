@@ -279,7 +279,7 @@ fn service_queues_low_weight_defensive() {
 		assert!(MessageQueue::do_integrity_test().is_err());
 
 		MessageQueue::enqueue_message(msg("weight=0"), Here);
-		MessageQueue::service_queues(104.into_weight());
+		MessageQueue::service_queues_impl(104.into_weight(), ServiceQueuesContext::OnInitialize);
 	});
 }
 

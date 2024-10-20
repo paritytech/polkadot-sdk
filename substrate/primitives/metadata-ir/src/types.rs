@@ -133,6 +133,8 @@ pub struct PalletMetadataIR<T: Form = MetaForm> {
 	pub constants: Vec<PalletConstantMetadataIR<T>>,
 	/// Pallet error metadata.
 	pub error: Option<PalletErrorMetadataIR<T>>,
+	/// Config's trait associated types.
+	pub associated_types: Vec<PalletAssociatedTypeMetadataIR<T>>,
 	/// Define the index of the pallet, this index will be used for the encoding of pallet event,
 	/// call and origin variants.
 	pub index: u8,
@@ -153,6 +155,7 @@ impl IntoPortable for PalletMetadataIR {
 			event: self.event.map(|event| event.into_portable(registry)),
 			constants: registry.map_into_portable(self.constants),
 			error: self.error.map(|error| error.into_portable(registry)),
+			associated_types: registry.map_into_portable(self.associated_types),
 			index: self.index,
 			docs: registry.map_into_portable(self.docs),
 			deprecation_info: self.deprecation_info.into_portable(registry),
@@ -175,10 +178,11 @@ pub struct ExtrinsicMetadataIR<T: Form = MetaForm> {
 	pub call_ty: T::Type,
 	/// The type of the extrinsic's signature.
 	pub signature_ty: T::Type,
-	/// The type of the outermost Extra enum.
+	/// The type of the outermost Extra/Extensions enum.
+	// TODO: metadata-v16: remove this, the `implicit` type can be found in `extensions::implicit`.
 	pub extra_ty: T::Type,
-	/// The signed extensions in the order they appear in the extrinsic.
-	pub signed_extensions: Vec<SignedExtensionMetadataIR<T>>,
+	/// The transaction extensions in the order they appear in the extrinsic.
+	pub extensions: Vec<TransactionExtensionMetadataIR<T>>,
 }
 
 impl IntoPortable for ExtrinsicMetadataIR {
@@ -192,30 +196,53 @@ impl IntoPortable for ExtrinsicMetadataIR {
 			call_ty: registry.register_type(&self.call_ty),
 			signature_ty: registry.register_type(&self.signature_ty),
 			extra_ty: registry.register_type(&self.extra_ty),
-			signed_extensions: registry.map_into_portable(self.signed_extensions),
+			extensions: registry.map_into_portable(self.extensions),
+		}
+	}
+}
+
+/// Metadata of a pallet's associated type.
+#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+pub struct PalletAssociatedTypeMetadataIR<T: Form = MetaForm> {
+	/// The name of the associated type.
+	pub name: T::String,
+	/// The type of the associated type.
+	pub ty: T::Type,
+	/// The documentation of the associated type.
+	pub docs: Vec<T::String>,
+}
+
+impl IntoPortable for PalletAssociatedTypeMetadataIR {
+	type Output = PalletAssociatedTypeMetadataIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		PalletAssociatedTypeMetadataIR {
+			name: self.name.into_portable(registry),
+			ty: registry.register_type(&self.ty),
+			docs: registry.map_into_portable(self.docs),
 		}
 	}
 }
 
 /// Metadata of an extrinsic's signed extension.
 #[derive(Clone, PartialEq, Eq, Encode, Debug)]
-pub struct SignedExtensionMetadataIR<T: Form = MetaForm> {
+pub struct TransactionExtensionMetadataIR<T: Form = MetaForm> {
 	/// The unique signed extension identifier, which may be different from the type name.
 	pub identifier: T::String,
 	/// The type of the signed extension, with the data to be included in the extrinsic.
 	pub ty: T::Type,
-	/// The type of the additional signed data, with the data to be included in the signed payload
-	pub additional_signed: T::Type,
+	/// The type of the implicit data, with the data to be included in the signed payload.
+	pub implicit: T::Type,
 }
 
-impl IntoPortable for SignedExtensionMetadataIR {
-	type Output = SignedExtensionMetadataIR<PortableForm>;
+impl IntoPortable for TransactionExtensionMetadataIR {
+	type Output = TransactionExtensionMetadataIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		SignedExtensionMetadataIR {
+		TransactionExtensionMetadataIR {
 			identifier: self.identifier.into_portable(registry),
 			ty: registry.register_type(&self.ty),
-			additional_signed: registry.register_type(&self.additional_signed),
+			implicit: registry.register_type(&self.implicit),
 		}
 	}
 }

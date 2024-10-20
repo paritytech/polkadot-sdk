@@ -108,12 +108,13 @@ impl Def {
 			let pallet_attr: Option<PalletAttr> = helper::take_first_item_pallet_attr(item)?;
 
 			match pallet_attr {
-				Some(PalletAttr::Config(_, with_default)) if config.is_none() =>
+				Some(PalletAttr::Config{ with_default, without_automatic_metadata, ..}) if config.is_none() =>
 					config = Some(config::ConfigDef::try_from(
 						&frame_system,
 						index,
 						item,
 						with_default,
+						without_automatic_metadata,
 					)?),
 				Some(PalletAttr::Pallet(span)) if pallet_struct.is_none() => {
 					let p = pallet_struct::PalletStructDef::try_from(span, index, item)?;
@@ -547,6 +548,7 @@ mod keyword {
 	syn::custom_keyword!(event);
 	syn::custom_keyword!(config);
 	syn::custom_keyword!(with_default);
+	syn::custom_keyword!(without_automatic_metadata);
 	syn::custom_keyword!(hooks);
 	syn::custom_keyword!(inherent);
 	syn::custom_keyword!(error);
@@ -560,10 +562,37 @@ mod keyword {
 	syn::custom_keyword!(composite_enum);
 }
 
+/// The possible values for the `#[pallet::config]` attribute.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum ConfigValue {
+	/// `#[pallet::config(with_default)]`
+	WithDefault(keyword::with_default),
+	/// `#[pallet::config(without_automatic_metadata)]`
+	WithoutAutomaticMetadata(keyword::without_automatic_metadata),
+}
+
+impl syn::parse::Parse for ConfigValue {
+	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+		let lookahead = input.lookahead1();
+
+		if lookahead.peek(keyword::with_default) {
+			input.parse().map(ConfigValue::WithDefault)
+		} else if lookahead.peek(keyword::without_automatic_metadata) {
+			input.parse().map(ConfigValue::WithoutAutomaticMetadata)
+		} else {
+			Err(lookahead.error())
+		}
+	}
+}
+
 /// Parse attributes for item in pallet module
 /// syntax must be `pallet::` (e.g. `#[pallet::config]`)
 enum PalletAttr {
-	Config(proc_macro2::Span, bool),
+	Config {
+		span: proc_macro2::Span,
+		with_default: bool,
+		without_automatic_metadata: bool,
+	},
 	Pallet(proc_macro2::Span),
 	Hooks(proc_macro2::Span),
 	/// A `#[pallet::call]` with optional attributes to specialize the behaviour.
@@ -625,7 +654,7 @@ enum PalletAttr {
 impl PalletAttr {
 	fn span(&self) -> proc_macro2::Span {
 		match self {
-			Self::Config(span, _) => *span,
+			Self::Config { span, .. } => *span,
 			Self::Pallet(span) => *span,
 			Self::Hooks(span) => *span,
 			Self::Tasks(span) => *span,
@@ -660,13 +689,49 @@ impl syn::parse::Parse for PalletAttr {
 		let lookahead = content.lookahead1();
 		if lookahead.peek(keyword::config) {
 			let span = content.parse::<keyword::config>()?.span();
-			let with_default = content.peek(syn::token::Paren);
-			if with_default {
+			if content.peek(syn::token::Paren) {
 				let inside_config;
+
+				// Parse (with_default, without_automatic_metadata) attributes.
 				let _paren = syn::parenthesized!(inside_config in content);
-				inside_config.parse::<keyword::with_default>()?;
+
+				let fields: syn::punctuated::Punctuated<ConfigValue, syn::Token![,]> =
+					inside_config.parse_terminated(ConfigValue::parse, syn::Token![,])?;
+				let config_values = fields.iter().collect::<Vec<_>>();
+
+				let mut with_default = false;
+				let mut without_automatic_metadata = false;
+				for config in config_values {
+					match config {
+						ConfigValue::WithDefault(_) => {
+							if with_default {
+								return Err(syn::Error::new(
+									span,
+									"Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates: with_default.",
+								));
+							}
+							with_default = true;
+						},
+						ConfigValue::WithoutAutomaticMetadata(_) => {
+							if without_automatic_metadata {
+								return Err(syn::Error::new(
+									span,
+									"Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates: without_automatic_metadata.",
+								));
+							}
+							without_automatic_metadata = true;
+						},
+					}
+				}
+
+				Ok(PalletAttr::Config { span, with_default, without_automatic_metadata })
+			} else {
+				Ok(PalletAttr::Config {
+					span,
+					with_default: false,
+					without_automatic_metadata: false,
+				})
 			}
-			Ok(PalletAttr::Config(span, with_default))
 		} else if lookahead.peek(keyword::pallet) {
 			Ok(PalletAttr::Pallet(content.parse::<keyword::pallet>()?.span()))
 		} else if lookahead.peek(keyword::hooks) {

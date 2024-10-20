@@ -134,7 +134,7 @@ pub type Backend = TFullBackend<Block>;
 pub type ParachainBlockImport = TParachainBlockImport<Block, Arc<Client>, Backend>;
 
 /// Transaction pool type used by the test service
-pub type TransactionPool = Arc<sc_transaction_pool::FullPool<Block, Client>>;
+pub type TransactionPool = Arc<sc_transaction_pool::TransactionPoolHandle<Block, Client>>;
 
 /// Recovery handle that fails regularly to simulate unavailable povs.
 pub struct FailingRecoveryHandle {
@@ -183,7 +183,7 @@ pub type Service = PartialComponents<
 	Backend,
 	(),
 	sc_consensus::import_queue::BasicQueue<Block>,
-	sc_transaction_pool::FullPool<Block, Client>,
+	sc_transaction_pool::TransactionPoolHandle<Block, Client>,
 	ParachainBlockImport,
 >;
 
@@ -219,12 +219,15 @@ pub fn new_partial(
 
 	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
 
-	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-		config.transaction_pool.clone(),
-		config.role.is_authority().into(),
-		config.prometheus_registry(),
-		task_manager.spawn_essential_handle(),
-		client.clone(),
+	let transaction_pool = Arc::from(
+		sc_transaction_pool::Builder::new(
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+			config.role.is_authority().into(),
+		)
+		.with_options(config.transaction_pool.clone())
+		.with_prometheus(config.prometheus_registry())
+		.build(),
 	);
 
 	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
@@ -966,7 +969,7 @@ pub fn construct_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let extra: runtime::SignedExtra = (
+	let tx_ext: runtime::TxExtension = (
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckGenesis::<runtime::Runtime>::new(),
@@ -978,10 +981,11 @@ pub fn construct_extrinsic(
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
 		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<runtime::Runtime>::new(),
-	);
+	)
+		.into();
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
+		tx_ext.clone(),
 		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| caller.sign(e));
@@ -989,7 +993,7 @@ pub fn construct_extrinsic(
 		function,
 		caller.public().into(),
 		runtime::Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 }
 

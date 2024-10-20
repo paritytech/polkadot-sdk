@@ -291,8 +291,8 @@ pub mod runtime {
 
 		/// The block type, which should be fed into [`frame_system::Config`].
 		///
-		/// Should be parameterized with `T: frame_system::Config` and a tuple of `SignedExtension`.
-		/// When in doubt, use [`SystemSignedExtensionsOf`].
+		/// Should be parameterized with `T: frame_system::Config` and a tuple of
+		/// `TransactionExtension`. When in doubt, use [`SystemTransactionExtensionsOf`].
 		// Note that this cannot be dependent on `T` for block-number because it would lead to a
 		// circular dependency (self-referential generics).
 		pub type BlockOf<T, Extra = ()> = generic::Block<HeaderInner, ExtrinsicInner<T, Extra>>;
@@ -306,7 +306,7 @@ pub mod runtime {
 		/// Default set of signed extensions exposed from the `frame_system`.
 		///
 		/// crucially, this does NOT contain any tx-payment extension.
-		pub type SystemSignedExtensionsOf<T> = (
+		pub type SystemTransactionExtensionsOf<T> = (
 			frame_system::CheckNonZeroSender<T>,
 			frame_system::CheckSpecVersion<T>,
 			frame_system::CheckTxVersion<T>,

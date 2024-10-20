@@ -22,23 +22,25 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
-	traits::ExtrinsicCall,
+	traits::{ExtrinsicCall, InherentBuilder, SignedTransactionBuilder},
 };
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_arithmetic::Percent;
 use sp_core::{Get, U256};
 use sp_runtime::{
-	generic::{self, CheckedExtrinsic},
+	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, Checkable, Dispatchable, Extrinsic, ExtrinsicMetadata, IdentifyAccount, Member,
-		SignedExtension,
+		self, Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, Member,
+		TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	RuntimeDebug, Saturating,
 };
 
 use alloc::vec::Vec;
+
+type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 /// The EVM gas price.
 /// We use a fixed value for the gas price.
@@ -50,57 +52,42 @@ pub const GAS_PRICE: u32 = 1_000u32;
 /// [`crate::Call::eth_transact`] extrinsic.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(E))]
-pub struct UncheckedExtrinsic<Address, Call, Signature, E: EthExtra>(
-	pub generic::UncheckedExtrinsic<Address, Call, Signature, E::Extra>,
+pub struct UncheckedExtrinsic<Address, Signature, E: EthExtra>(
+	pub generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extra>,
 );
 
-impl<Address, Call, Signature, E: EthExtra>
-	From<generic::UncheckedExtrinsic<Address, Call, Signature, E::Extra>>
-	for UncheckedExtrinsic<Address, Call, Signature, E>
+impl<Address, Signature, E: EthExtra>
+	From<generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extra>>
+	for UncheckedExtrinsic<Address, Signature, E>
 {
-	fn from(utx: generic::UncheckedExtrinsic<Address, Call, Signature, E::Extra>) -> Self {
+	fn from(
+		utx: generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extra>,
+	) -> Self {
 		Self(utx)
 	}
 }
 
-impl<Address, Call, Signature, E: EthExtra> From<UncheckedExtrinsic<Address, Call, Signature, E>>
-	for generic::UncheckedExtrinsic<Address, Call, Signature, E::Extra>
+impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicLike
+	for UncheckedExtrinsic<Address, Signature, E>
 {
-	fn from(extrinsic: UncheckedExtrinsic<Address, Call, Signature, E>) -> Self {
-		extrinsic.0
+	fn is_bare(&self) -> bool {
+		ExtrinsicLike::is_bare(&self.0)
 	}
 }
 
-impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, E: EthExtra> Extrinsic
-	for UncheckedExtrinsic<Address, Call, Signature, E>
+impl<Address, Signature, E: EthExtra> ExtrinsicMetadata
+	for UncheckedExtrinsic<Address, Signature, E>
 {
-	type Call = Call;
-
-	type SignaturePayload = (Address, Signature, E::Extra);
-
-	fn is_signed(&self) -> Option<bool> {
-		self.0.is_signed()
-	}
-
-	fn new(function: Call, signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
-		Some(if let Some((address, signature, extra)) = signed_data {
-			Self(generic::UncheckedExtrinsic::new_signed(function, address, signature, extra))
-		} else {
-			Self(generic::UncheckedExtrinsic::new_unsigned(function))
-		})
-	}
+	const VERSION: u8 =
+		generic::UncheckedExtrinsic::<Address, CallOf<E::Config>, Signature, E::Extra>::VERSION;
+	type TransactionExtensions = E::Extra;
 }
 
-impl<Address, Call, Signature, E: EthExtra> ExtrinsicMetadata
-	for UncheckedExtrinsic<Address, Call, Signature, E>
+impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
+	for UncheckedExtrinsic<Address, Signature, E>
 {
-	const VERSION: u8 = generic::UncheckedExtrinsic::<Address, Call, Signature, E::Extra>::VERSION;
-	type SignedExtensions = E::Extra;
-}
+	type Call = CallOf<E::Config>;
 
-impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
-	for UncheckedExtrinsic<Address, Call, Signature, E>
-{
 	fn call(&self) -> &Self::Call {
 		self.0.call()
 	}
@@ -109,8 +96,8 @@ impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, E: EthExtra> Extrin
 use sp_runtime::traits::MaybeDisplay;
 type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
-impl<LookupSource, Call, Signature, E, Lookup> Checkable<Lookup>
-	for UncheckedExtrinsic<LookupSource, Call, Signature, E>
+impl<LookupSource, Signature, E, Lookup> Checkable<Lookup>
+	for UncheckedExtrinsic<LookupSource, Signature, E>
 where
 	E: EthExtra,
 	Self: Encode,
@@ -119,20 +106,20 @@ where
 	OnChargeTransactionBalanceOf<E::Config>: Into<BalanceOf<E::Config>>,
 	BalanceOf<E::Config>: Into<U256> + TryFrom<U256>,
 	MomentOf<E::Config>: Into<U256>,
-	Call: From<crate::Call<E::Config>> + TryInto<crate::Call<E::Config>>,
+	CallOf<E::Config>: From<crate::Call<E::Config>> + TryInto<crate::Call<E::Config>>,
 
 	// required by Checkable for `generic::UncheckedExtrinsic`
 	LookupSource: Member + MaybeDisplay,
-	Call: Encode + Member,
+	CallOf<E::Config>: Encode + Member + Dispatchable,
 	Signature: Member + traits::Verify,
 	<Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountIdOf<E::Config>>,
-	E::Extra: SignedExtension<AccountId = AccountIdOf<E::Config>>,
+	E::Extra: Encode + TransactionExtension<CallOf<E::Config>>,
 	Lookup: traits::Lookup<Source = LookupSource, Target = AccountIdOf<E::Config>>,
 {
-	type Checked = CheckedExtrinsic<AccountIdOf<E::Config>, Call, E::Extra>;
+	type Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extra>;
 
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
-		if self.0.signature.is_none() {
+		if !self.0.is_signed() {
 			if let Ok(call) = self.0.function.clone().try_into() {
 				if let crate::Call::eth_transact { payload, gas_limit, storage_deposit_limit } =
 					call
@@ -159,19 +146,17 @@ where
 	}
 }
 
-impl<Address, Call, Signature, E> GetDispatchInfo
-	for UncheckedExtrinsic<Address, Call, Signature, E>
+impl<Address, Signature, E: EthExtra> GetDispatchInfo for UncheckedExtrinsic<Address, Signature, E>
 where
-	Call: GetDispatchInfo,
-	E: EthExtra,
+	CallOf<E::Config>: GetDispatchInfo + Dispatchable,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		self.0.get_dispatch_info()
 	}
 }
 
-impl<Address: Encode, Call: Encode, Signature: Encode, E: EthExtra> serde::Serialize
-	for UncheckedExtrinsic<Address, Call, Signature, E>
+impl<Address: Encode, Signature: Encode, E: EthExtra> serde::Serialize
+	for UncheckedExtrinsic<Address, Signature, E>
 {
 	fn serialize<S>(&self, seq: S) -> Result<S::Ok, S::Error>
 	where
@@ -181,8 +166,8 @@ impl<Address: Encode, Call: Encode, Signature: Encode, E: EthExtra> serde::Seria
 	}
 }
 
-impl<'a, Address: Decode, Call: Decode, Signature: Decode, E: EthExtra> serde::Deserialize<'a>
-	for UncheckedExtrinsic<Address, Call, Signature, E>
+impl<'a, Address: Decode, Signature: Decode, E: EthExtra> serde::Deserialize<'a>
+	for UncheckedExtrinsic<Address, Signature, E>
 {
 	fn deserialize<D>(de: D) -> Result<Self, D::Error>
 	where
@@ -191,6 +176,40 @@ impl<'a, Address: Decode, Call: Decode, Signature: Decode, E: EthExtra> serde::D
 		let r = sp_core::bytes::deserialize(de)?;
 		Decode::decode(&mut &r[..])
 			.map_err(|e| serde::de::Error::custom(sp_runtime::format!("Decode error: {}", e)))
+	}
+}
+
+impl<Address, Signature, E: EthExtra> SignedTransactionBuilder
+	for UncheckedExtrinsic<Address, Signature, E>
+where
+	Address: TypeInfo,
+	CallOf<E::Config>: TypeInfo,
+	Signature: TypeInfo,
+	E::Extra: TypeInfo,
+{
+	type Address = Address;
+	type Signature = Signature;
+	type Extension = E::Extra;
+
+	fn new_signed_transaction(
+		call: Self::Call,
+		signed: Address,
+		signature: Signature,
+		tx_ext: E::Extra,
+	) -> Self {
+		generic::UncheckedExtrinsic::new_signed(call, signed, signature, tx_ext).into()
+	}
+}
+
+impl<Address, Signature, E: EthExtra> InherentBuilder for UncheckedExtrinsic<Address, Signature, E>
+where
+	Address: TypeInfo,
+	CallOf<E::Config>: TypeInfo,
+	Signature: TypeInfo,
+	E::Extra: TypeInfo,
+{
+	fn new_inherent(call: Self::Call) -> Self {
+		generic::UncheckedExtrinsic::new_bare(call).into()
 	}
 }
 
@@ -203,7 +222,7 @@ pub trait EthExtra {
 	/// It should include at least:
 	/// - [`frame_system::CheckNonce`] to ensure that the nonce from the Ethereum transaction is
 	///   correct.
-	type Extra: SignedExtension<AccountId = AccountIdOf<Self::Config>>;
+	type Extra: TransactionExtension<CallOf<Self::Config>>;
 
 	/// Get the signed extensions to apply to an unsigned [`crate::Call::eth_transact`] extrinsic.
 	///
@@ -224,19 +243,22 @@ pub trait EthExtra {
 	/// - `gas_limit`: The gas limit for the extrinsic
 	/// - `storage_deposit_limit`: The storage deposit limit for the extrinsic,
 	/// - `encoded_len`: The encoded length of the extrinsic.
-	fn try_into_checked_extrinsic<Call>(
+	fn try_into_checked_extrinsic(
 		payload: Vec<u8>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<Self::Config>,
 		encoded_len: usize,
-	) -> Result<CheckedExtrinsic<AccountIdOf<Self::Config>, Call, Self::Extra>, InvalidTransaction>
+	) -> Result<
+		CheckedExtrinsic<AccountIdOf<Self::Config>, CallOf<Self::Config>, Self::Extra>,
+		InvalidTransaction,
+	>
 	where
 		<Self::Config as frame_system::Config>::Nonce: TryFrom<U256>,
 		BalanceOf<Self::Config>: Into<U256> + TryFrom<U256>,
 		MomentOf<Self::Config>: Into<U256>,
 		<Self::Config as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 		OnChargeTransactionBalanceOf<Self::Config>: Into<BalanceOf<Self::Config>>,
-		Call: From<crate::Call<Self::Config>> + TryInto<crate::Call<Self::Config>>,
+		CallOf<Self::Config>: From<crate::Call<Self::Config>>,
 	{
 		let tx = rlp::decode::<TransactionLegacySigned>(&payload).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
@@ -305,7 +327,7 @@ pub trait EthExtra {
 			.map_err(|_| InvalidTransaction::Call)?;
 
 		let info = call.get_dispatch_info();
-		let function: Call = call.into();
+		let function: CallOf<Self::Config> = call.into();
 
 		// Fees calculated from the extrinsic, without the tip.
 		let actual_fee: BalanceOf<Self::Config> =
@@ -340,7 +362,10 @@ pub trait EthExtra {
 		let tip = eth_fee.saturating_sub(eth_fee_no_tip);
 		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce {nonce:?} and tip: {tip:?}");
 		Ok(CheckedExtrinsic {
-			signed: Some((signer.into(), Self::get_eth_transact_extra(nonce, tip))),
+			format: ExtrinsicFormat::Signed(
+				signer.into(),
+				Self::get_eth_transact_extra(nonce, tip),
+			),
 			function,
 		})
 	}

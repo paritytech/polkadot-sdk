@@ -42,6 +42,7 @@ use sc_network_sync::{strategy::warp::WarpSyncConfig, SyncingService};
 use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
 use sc_statement_store::Store as StatementStore;
 use sc_telemetry::{Telemetry, TelemetryWorker};
+use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_core::crypto::Pair;
@@ -80,7 +81,7 @@ type FullBeefyBlockImport<InnerBlockImport> = beefy::import::BeefyBlockImport<
 >;
 
 /// The transaction pool type definition.
-pub type TransactionPool = sc_transaction_pool::FullPool<Block, FullClient>;
+pub type TransactionPool = sc_transaction_pool::TransactionPoolHandle<Block, FullClient>;
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
@@ -120,7 +121,7 @@ pub fn create_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let extra: kitchensink_runtime::SignedExtra =
+	let tx_ext: kitchensink_runtime::TxExtension =
 		(
 			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
@@ -142,7 +143,7 @@ pub fn create_extrinsic(
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
+		tx_ext.clone(),
 		(
 			(),
 			kitchensink_runtime::VERSION.spec_version,
@@ -161,7 +162,7 @@ pub fn create_extrinsic(
 		function,
 		sp_runtime::AccountId32::from(sender.public()).into(),
 		kitchensink_runtime::Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 	.into()
 }
@@ -176,7 +177,7 @@ pub fn new_partial(
 		FullBackend,
 		FullSelectChain,
 		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::FullPool<Block, FullClient>,
+		sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
 		(
 			impl Fn(
 				sc_rpc::SubscriptionTaskExecutor,
@@ -227,12 +228,15 @@ pub fn new_partial(
 
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
-	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-		config.transaction_pool.clone(),
-		config.role.is_authority().into(),
-		config.prometheus_registry(),
-		task_manager.spawn_essential_handle(),
-		client.clone(),
+	let transaction_pool = Arc::from(
+		sc_transaction_pool::Builder::new(
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+			config.role.is_authority().into(),
+		)
+		.with_options(config.transaction_pool.clone())
+		.with_prometheus(config.prometheus_registry())
+		.build(),
 	);
 
 	let (grandpa_block_import, grandpa_link) = grandpa::block_import(
@@ -386,7 +390,7 @@ pub struct NewFullBase {
 	/// The syncing service of the node.
 	pub sync: Arc<SyncingService<Block>>,
 	/// The transaction pool of the node.
-	pub transaction_pool: Arc<TransactionPool>,
+	pub transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>,
 	/// The rpc handlers of the node.
 	pub rpc_handlers: RpcHandlers,
 }
@@ -863,17 +867,17 @@ mod tests {
 	use codec::Encode;
 	use kitchensink_runtime::{
 		constants::{currency::CENTS, time::SLOT_DURATION},
-		Address, BalancesCall, RuntimeCall, UncheckedExtrinsic,
+		Address, BalancesCall, RuntimeCall, TxExtension, UncheckedExtrinsic,
 	};
 	use node_primitives::{Block, DigestItem, Signature};
-	use polkadot_sdk::*;
+	use polkadot_sdk::{sc_transaction_pool_api::MaintainedTransactionPool, *};
 	use sc_client_api::BlockBackend;
 	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 	use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
 	use sc_consensus_epochs::descendent_query;
 	use sc_keystore::LocalKeystore;
 	use sc_service_test::TestNetNode;
-	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool};
+	use sc_transaction_pool_api::ChainEvent;
 	use sp_consensus::{BlockOrigin, Environment, Proposer};
 	use sp_core::crypto::Pair;
 	use sp_inherents::InherentDataProvider;
@@ -1067,7 +1071,7 @@ mod tests {
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
-				let extra = (
+				let tx_ext: TxExtension = (
 					check_non_zero_sender,
 					check_spec_version,
 					check_tx_version,
@@ -1080,7 +1084,7 @@ mod tests {
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
-					extra,
+					tx_ext,
 					(
 						(),
 						spec_version,
@@ -1094,17 +1098,15 @@ mod tests {
 					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
-				let (function, extra, _) = raw_payload.deconstruct();
+				let (function, tx_ext, _) = raw_payload.deconstruct();
 				index += 1;
-				let utx: UncheckedExtrinsic = generic::UncheckedExtrinsic::new_signed(
+				generic::UncheckedExtrinsic::new_signed(
 					function,
 					from.into(),
 					signature.into(),
-					extra,
+					tx_ext,
 				)
-				.into();
-
-				utx.0.into()
+				.into()
 			},
 		);
 	}
