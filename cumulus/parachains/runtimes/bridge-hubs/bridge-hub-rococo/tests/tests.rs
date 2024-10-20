@@ -58,12 +58,11 @@ fn construct_extrinsic(
 		frame_system::CheckNonce::<Runtime>::from(
 			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
 		),
-		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
+		frame_system::CheckWeight::<Runtime>::new(),
 	)
 		.into();
 	let payload = SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
