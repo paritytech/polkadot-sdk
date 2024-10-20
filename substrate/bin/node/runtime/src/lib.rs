@@ -3171,7 +3171,7 @@ impl_runtime_apis! {
 		{
 			use pallet_revive::AddressMapper;
 			let blockweights: BlockWeights = <Runtime as frame_system::Config>::BlockWeights::get();
-			let origin = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id_contract(&from);
+			let origin = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from);
 
 			let encoded_size = |pallet_call| {
 				let call = RuntimeCall::Revive(pallet_call);
