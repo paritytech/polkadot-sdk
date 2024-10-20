@@ -379,12 +379,15 @@ mod test {
 	use crate::{
 		evm::*,
 		test_utils::*,
-		tests::{ExtBuilder, RuntimeCall, Test},
+		tests::{ExtBuilder, RuntimeCall, RuntimeOrigin, Test},
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
 	use rlp::Encodable;
-	use sp_runtime::{traits::Checkable, MultiAddress, MultiSignature};
+	use sp_runtime::{
+		traits::{Checkable, DispatchTransaction},
+		MultiAddress, MultiSignature,
+	};
 	type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
 	/// A simple account that can sign transactions
@@ -436,8 +439,7 @@ mod test {
 		}
 	}
 
-	type Ex =
-		UncheckedExtrinsic<MultiAddress<AccountId32, u32>, RuntimeCall, MultiSignature, Extra>;
+	type Ex = UncheckedExtrinsic<MultiAddress<AccountId32, u32>, MultiSignature, Extra>;
 	struct TestContext;
 
 	impl traits::Lookup for TestContext {
@@ -514,11 +516,15 @@ mod test {
 			});
 
 			let encoded_len = call.encoded_size();
-			let result = Ex::new(call, None).unwrap().check(&TestContext {})?;
-			let (account_id, extra) = result.signed.unwrap();
+			let uxt: Ex = generic::UncheckedExtrinsic::new_bare(call).into();
+			let result: CheckedExtrinsic<_, _, _> = uxt.check(&TestContext {})?;
+			let (account_id, extra): (AccountId32, SignedExtra) = match result.format {
+				ExtrinsicFormat::Signed(signer, extra) => (signer, extra),
+				_ => unreachable!(),
+			};
 
-			extra.clone().pre_dispatch(
-				&account_id,
+			extra.clone().validate_and_prepare(
+				RuntimeOrigin::signed(account_id),
 				&result.function,
 				&result.function.get_dispatch_info(),
 				encoded_len,
