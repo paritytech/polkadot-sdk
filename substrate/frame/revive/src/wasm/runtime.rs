@@ -1397,7 +1397,7 @@ pub mod env {
 	}
 
 	/// Stores the address of the call stack origin into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::caller`].
+	/// See [`pallet_revive_uapi::HostFn::origin`].
 	#[api_version(0)]
 	fn origin(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Origin)?;
