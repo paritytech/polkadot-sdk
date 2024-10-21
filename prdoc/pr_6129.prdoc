@@ -6,10 +6,6 @@ title: "Improved TrustedQueryAPI signatures."
 doc:
   - audience: Runtime Dev
     description: |
-
-
-  - audience: Runtime User
-    description: |
       Changed returned type of API methods from `Result<bool, xcm_runtime_apis::trusted_query::Error>` to a typed one:
       `type XcmTrustedQueryResult = Result<bool, xcm_runtime_apis::trusted_query::Error>`
 
