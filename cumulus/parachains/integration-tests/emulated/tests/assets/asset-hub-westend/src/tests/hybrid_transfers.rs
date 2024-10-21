@@ -857,7 +857,7 @@ fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 		]);
 		<PenpalA as PenpalAPallet>::PolkadotXcm::execute(
 			t.signed_origin,
-			bx!(xcm::VersionedXcm::V5(xcm.into())),
+			bx!(xcm::VersionedXcm::from(xcm.into())),
 			Weight::MAX,
 		)
 		.unwrap();
@@ -891,7 +891,7 @@ fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 		]);
 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
 			t.signed_origin,
-			bx!(xcm::VersionedXcm::V5(xcm.into())),
+			bx!(xcm::VersionedXcm::from(xcm.into())),
 			Weight::MAX,
 		)
 		.unwrap();
