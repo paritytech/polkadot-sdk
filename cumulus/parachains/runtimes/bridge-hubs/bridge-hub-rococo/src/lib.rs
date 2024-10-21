@@ -618,8 +618,6 @@ pub type BridgeRococoBulletinMessages = BridgePolkadotBulletinMessages;
 /// Proper alias for bridge messages pallet used to bridge with the bulletin chain.
 pub type XcmOverRococoBulletin = XcmOverPolkadotBulletin;
 
-type XcmTrustedQueryResult = Result<bool, xcm_runtime_apis::trusted_query::Error>;
-
 bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	RuntimeCall, AccountId,
 	// Grandpa
@@ -1525,10 +1523,10 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
-		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> XcmTrustedQueryResult {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
 			PolkadotXcm::is_trusted_reserve(asset, location)
 		}
-		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> XcmTrustedQueryResult {
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
 			PolkadotXcm::is_trusted_teleporter(asset, location)
 		}
 	}
