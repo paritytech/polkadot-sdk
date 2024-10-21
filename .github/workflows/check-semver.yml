@@ -17,6 +17,7 @@ jobs:
     uses: ./.github/workflows/reusable-preflight.yml
   check-semver:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     needs: [preflight]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}

@@ -16,73 +16,49 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Transaction pool Prometheus metrics.
-
-use std::sync::Arc;
+//! Transaction pool Prometheus metrics for implementation of Chain API.
 
 use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
+use std::sync::Arc;
 
-#[derive(Clone, Default)]
-pub struct MetricsLink(Arc<Option<Metrics>>);
+use crate::LOG_TARGET;
 
-impl MetricsLink {
+/// Provides interface to register the specific metrics in the Prometheus register.
+pub(crate) trait MetricsRegistrant {
+	/// Registers the metrics at given Prometheus registry.
+	fn register(registry: &Registry) -> Result<Box<Self>, PrometheusError>;
+}
+
+/// Generic structure to keep a link to metrics register.
+pub(crate) struct GenericMetricsLink<M: MetricsRegistrant>(Arc<Option<Box<M>>>);
+
+impl<M: MetricsRegistrant> Default for GenericMetricsLink<M> {
+	fn default() -> Self {
+		Self(Arc::from(None))
+	}
+}
+
+impl<M: MetricsRegistrant> Clone for GenericMetricsLink<M> {
+	fn clone(&self) -> Self {
+		Self(self.0.clone())
+	}
+}
+
+impl<M: MetricsRegistrant> GenericMetricsLink<M> {
 	pub fn new(registry: Option<&Registry>) -> Self {
 		Self(Arc::new(registry.and_then(|registry| {
-			Metrics::register(registry)
+			M::register(registry)
 				.map_err(|err| {
-					log::warn!("Failed to register prometheus metrics: {}", err);
+					log::warn!(target: LOG_TARGET, "Failed to register prometheus metrics: {}", err);
 				})
 				.ok()
 		})))
 	}
 
-	pub fn report(&self, do_this: impl FnOnce(&Metrics)) {
+	pub fn report(&self, do_this: impl FnOnce(&M)) {
 		if let Some(metrics) = self.0.as_ref() {
-			do_this(metrics);
+			do_this(&**metrics);
 		}
-	}
-}
-
-/// Transaction pool Prometheus metrics.
-pub struct Metrics {
-	pub submitted_transactions: Counter<U64>,
-	pub validations_invalid: Counter<U64>,
-	pub block_transactions_pruned: Counter<U64>,
-	pub block_transactions_resubmitted: Counter<U64>,
-}
-
-impl Metrics {
-	pub fn register(registry: &Registry) -> Result<Self, PrometheusError> {
-		Ok(Self {
-			submitted_transactions: register(
-				Counter::new(
-					"substrate_sub_txpool_submitted_transactions",
-					"Total number of transactions submitted",
-				)?,
-				registry,
-			)?,
-			validations_invalid: register(
-				Counter::new(
-					"substrate_sub_txpool_validations_invalid",
-					"Total number of transactions that were removed from the pool as invalid",
-				)?,
-				registry,
-			)?,
-			block_transactions_pruned: register(
-				Counter::new(
-					"substrate_sub_txpool_block_transactions_pruned",
-					"Total number of transactions that was requested to be pruned by block events",
-				)?,
-				registry,
-			)?,
-			block_transactions_resubmitted: register(
-				Counter::new(
-					"substrate_sub_txpool_block_transactions_resubmitted",
-					"Total number of transactions that was requested to be resubmitted by block events",
-				)?,
-				registry,
-			)?,
-		})
 	}
 }
 

@@ -20,6 +20,7 @@ permissions:
 jobs:
   link-checker:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Restore lychee cache
         uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v3.3.2 (7. Sep 2023)
