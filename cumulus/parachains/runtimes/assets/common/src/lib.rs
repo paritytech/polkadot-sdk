@@ -26,6 +26,8 @@ pub mod runtime_api;
 extern crate alloc;
 
 use crate::matching::{LocalLocationPattern, ParentLocation};
+use codec::{Decode, EncodeLike};
+use core::cmp::PartialEq;
 use frame_support::traits::{Equals, EverythingBut};
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
 use sp_runtime::traits::TryConvertInto;
@@ -139,10 +141,11 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 /// Should only be used in runtime APIs since it iterates over the whole
 /// `pallet_asset_conversion::Pools` map.
 pub fn get_assets_in_pool_with<
-	Runtime: pallet_asset_conversion::Config<PoolId = (xcm::v4::Location, xcm::v4::Location)>,
+	Runtime: pallet_asset_conversion::Config<PoolId = (L, L)>,
+	L: TryInto<Location> + Clone + Decode + EncodeLike + PartialEq,
 >(
-	asset: &xcm::v4::Location,
-) -> impl Iterator<Item = xcm::v4::Location> + '_ {
+	asset: &L,
+) -> impl Iterator<Item = L> + '_ {
 	pallet_asset_conversion::Pools::<Runtime>::iter_keys().filter_map(move |(asset_1, asset_2)| {
 		if asset_1 == *asset {
 			Some(asset_2.clone().into())
