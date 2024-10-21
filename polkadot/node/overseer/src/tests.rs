@@ -29,11 +29,11 @@ use polkadot_node_subsystem_types::messages::{
 };
 use polkadot_primitives::{
 	vstaging::CandidateReceiptV2, CandidateHash, CollatorPair, Id as ParaId,
-	InvalidDisputeStatementKind, PvfExecKind, SessionIndex, ValidDisputeStatementKind,
+	InvalidDisputeStatementKind, PersistedValidationData, SessionIndex, ValidDisputeStatementKind,
 	ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_candidate_descriptor, dummy_candidate_receipt_v2, dummy_hash,
+	dummy_candidate_descriptor, dummy_candidate_receipt_v2, dummy_hash, dummy_validation_code,
 };
 
 use crate::{

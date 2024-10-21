@@ -471,7 +471,7 @@ pub enum CandidateReceiptError {
 
 macro_rules! impl_getter {
 	($field:ident, $type:ident) => {
-		/// Returns the value of `$field`` field.
+		/// Returns the value of `$field` field.
 		pub fn $field(&self) -> $type {
 			self.$field
 		}
