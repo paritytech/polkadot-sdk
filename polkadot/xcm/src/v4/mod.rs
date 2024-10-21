@@ -1368,9 +1368,6 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			SetErrorHandler(xcm) => Self::SetErrorHandler(xcm.try_into()?),
 			SetAppendix(xcm) => Self::SetAppendix(xcm.try_into()?),
 			ClearError => Self::ClearError,
-			SetAssetClaimer { .. } => {
-				return Err(());
-			},
 			ClaimAsset { assets, ticket } => {
 				let assets = assets.try_into()?;
 				let ticket = ticket.try_into()?;
@@ -1415,7 +1412,7 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 				weight_limit,
 				check_origin: check_origin.map(|origin| origin.try_into()).transpose()?,
 			},
-			PayFees { .. } | InitiateTransfer { .. } => {
+			InitiateTransfer { .. } | PayFees { .. } | SetAssetClaimer { .. } => {
 				log::debug!(target: "xcm::v5tov4", "`{new_instruction:?}` not supported by v4");
 				return Err(());
 			},
