@@ -4450,6 +4450,7 @@ mod run_tests {
 		});
 	}
 
+	#[test]
 	fn code_hash_works() {
 		let (code_hash_code, self_code_hash) = compile_module("code_hash").unwrap();
 		let (dummy_code, code_hash) = compile_module("dummy").unwrap();
