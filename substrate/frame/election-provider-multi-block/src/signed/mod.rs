@@ -17,33 +17,91 @@
 
 //! # Signed sub-pallet
 //!
-//! The main goal of the signed sub-pallet is to keep and manage a list of sorted score commitments
-//! and correponding paged solutions during the [`crate::Phase::Signed`].
+//! The main goal of the signed sub-pallet is to manage a solution submissions from list of sorted
+//! score commitments and correponding paged solutions during the [`crate::Phase::Signed`] and to
+//! implement the [`SolutionDataProvider`] trait which exposes an interface for external entities to
+//! fetch data related to signed submissions for the active round.
+//!
+//! ## Overview
+//!
+//!	The core logic of this pallet is only active during [`Phase::Signed`]. During the signed phase,
+//!	accounts can register a solution for the current round and submit the solution's pages, one per
+//!	extrindic call. The main flow is the following:
+//!
+//! 1. [`Phase::Signed`] is enacted in the parent EPM pallet;
+//! 2. Submitters call [`Call::register`] to register a solution with a given claimed score. This
+//!    pallet ensures that accepted submission registrations (encapsulated as
+//!    [`SubmissionMetadata`]) are kept sorted by claimed score in the [`SubmissionMetadata`]
+//!    storage map. This pallet accepts up to [`Config::MaxSubmissions`] active registrations per
+//!    round.
+//! 3. Submitters that have successfully registered, may submit the solution pages through
+//!    [`Call::submit_page`], one page per call.
+//! 4. Submitters may bail from a registered solution by calling [`Call::bail`]. Bailing from a
+//!    solution registration will result in a partial slash.
+//! 5. This pallet implements the trait [`SolutionDataProvider`] which exposes methods for external
+//!    entities (e.g. verifier pallet) to query the data and metadata of the current best submitted
+//!    solution.
+//! 6. Upon solution verification (performed by an external entity e.g. the verifier pallet),
+//!    [`SolutionDataProvider::report_result`] can be called to report the verification result of
+//!    the current best solution. Depending on the result, the corresponding submitter's deposit may
+//!    be fully slashed or the submitter may be rewarded with [`Config::Reward`].
 //!
 //! Accounts may submit up to [`Config::MaxSubmissions`] score commitments per election round and
 //! this pallet ensures that the scores are stored under the map `SortedScores` are sorted and keyed
 //! by the correct round number.
 //!
-//! Each submitter must hold a deposit per submission that is calculated based on the number of
-//! pages required for a full submission and the number of submissions in the queue. The deposit is
-//! returned in case the claimed score is correct after the solution verification. Note that if a
-//! commitment and corresponding solution are not verified during the verification phase, the
-//! submitter is not slashed and the deposits returned.
+//! ## Reporting the verification result
 //!
 //! When the time to evaluate the signed submission comes, the solutions are checked from best to
-//! worse, which may result in one of three scenarios:
+//! worse. The [`SolutionDataProvider`] trait exposes the submission data and metadata to an
+//! external entity that verifies the queued solutions until it accepts one solution (or none). The
+//! verifier entity reports the result of the solution verification which may result in one of three
+//! scenarios:
 //!
-//! 1. If the committed score and page submissions are correct, the submitter is rewarded.
-//! 2. Any queued score that was not evaluated, the hold deposit is returned.
-//! 3. Any invalid solution results in a 100% slash of the hold submission deposit.
+//! 1. If the *best* committed score and page submissions are correct, the submitter is rewarded.
+//! 2. Any queued score that was not evaluated, the held deposit is fully returned.
+//! 3. Any invalid solution results in a 100% slash of the held deposit.
 //!
-//! Once the [`crate::Phase::SignedValidation`] phase starts, the async verifier is notified to
-//! start verifying the best queued solution.
+//! ## Submission deposit
 //!
-//! TODO:
-//! - Be more efficient with cleaning up the submission storage by e.g. expose an extrinsic that
-//! allows anyone to clean up the submissions storage with a small reward from the submission
-//! deposit (clean up storage submissions and all corresponding metadata).
+//! Each submitter must hold a "base deposit" per submission that is calculated based on the number
+//! of the number of submissions in the queue. In addition, for each solution page submitted there
+//! is a fixed [`Config::PageDeposit`] deposit held. The held deposit may be returned or slashed at
+//! by the end of the round, depending on the following:
+//!
+//! 1. If a submission is verified and accepted, the deposit is returned.
+//! 2. If a submission is verified and not accepted, the whole deposit is slashed.
+//! 3. If a submission is not verified, the deposit is returned.
+//! 4. Bailing a registration will return the page deposit and burn the base balance.
+//!
+//! The deposit is burned when all the data from the submitter is cleared through the
+//! [`Call::force_clear_submission`].
+//!
+//! ## Submission reward
+//!
+//! Exposing [`SolutionDataProvider::report_result`] allows an external verifier to signal whether
+//! the current best solution is correct or not. If the solution is correct, the submitter is
+//! rewarded and the pallet can start clearing up the state of the current round.
+//!
+//! ## Storage management
+//!
+//! ### Storage mutations
+//!
+//! The [`Submissions`] wraps all the mutation and getters related to the sorted scores, metadata
+//! and submissions storage types. All the mutations to those storage items *MUST* be performed
+//! through [`Submissions`] to leverage the mutate checks and ensure the data consistency of the
+//! submissions data.
+//!
+//! ### Clearing up the storage
+//!
+//! The [`SortedScores`] of the *active* submissions in a
+//! given round. Each of the registered submissions may have one or more associated paged solution
+//! stored in [`SubmissionsStorage`] and its corresponding [`SubmissionMetadata`].
+//!
+//! This pallet never implicitly clears either the metadata or the paged submissions storage data.
+//! The data is kept in storage until [`Call::force_clear_submission`] extrinsic is called. At that
+//! time, the hold deposit may be slashed depending on the state of the `release_strategy`
+//! associated with the metadata.
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -60,13 +118,14 @@ use crate::{
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
+	defensive,
 	traits::{
 		fungible::{
 			hold::Balanced as FnBalanced, Credit, Inspect as FnInspect,
-			InspectHold as FnInspectHold, MutateHold as FnMutateHold,
+			InspectHold as FnInspectHold, Mutate as FnMutate, MutateHold as FnMutateHold,
 		},
 		tokens::Precision,
-		Defensive, DefensiveSaturating,
+		Defensive, DefensiveSaturating, Get,
 	},
 	RuntimeDebugNoBound,
 };
@@ -87,13 +146,22 @@ type BalanceOf<T> = <<T as Config>::Currency as FnInspect<AccountIdOf<T>>>::Bala
 pub type CreditOf<T> = Credit<AccountIdOf<T>, <T as Config>::Currency>;
 
 /// Release strategy for currency held by this pallet.
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, PartialEq)]
 pub(crate) enum ReleaseStrategy {
-	/// Releases all currency.
+	/// Releases all held deposit.
 	All,
 	/// Releases only the base deposit,
 	BaseDeposit,
 	/// Releases only the pages deposit.
 	PageDeposit,
+	/// Burn all held deposit.
+	BurnAll,
+}
+
+impl Default for ReleaseStrategy {
+	fn default() -> Self {
+		Self::All
+	}
 }
 
 /// Metadata of a registered submission.
@@ -108,6 +176,8 @@ pub struct SubmissionMetadata<T: Config> {
 	pages: BoundedVec<bool, PagesOf<T>>,
 	/// The amount held for this submission.
 	deposit: BalanceOf<T>,
+	/// Current release strategy for this metadata entry.
+	release_strategy: ReleaseStrategy,
 }
 
 #[frame_support::pallet]
@@ -139,7 +209,8 @@ pub mod pallet {
 		/// The currency type.
 		type Currency: FnMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ FnBalanced<Self::AccountId>
-			+ FnInspectHold<Self::AccountId>;
+			+ FnInspectHold<Self::AccountId>
+			+ FnMutate<Self::AccountId>;
 
 		/// Something that can predict the fee of a call. Used to sensibly distribute rewards.
 		type EstimateCallFee: EstimateCallFee<Call<Self>, BalanceOf<Self>>;
@@ -182,6 +253,12 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// A double-map from (`round`, `account_id`) to a submission metadata of a registered
+	/// solution commitment.
+	#[pallet::storage]
+	type SubmissionMetadataStorage<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, T::AccountId, SubmissionMetadata<T>>;
+
 	/// A triple-map from (round, account, page) to a submitted solution.
 	#[pallet::storage]
 	type SubmissionStorage<T: Config> = StorageNMap<
@@ -194,12 +271,6 @@ pub mod pallet {
 		SolutionOf<T::MinerConfig>,
 		OptionQuery,
 	>;
-
-	/// A double-map from (`round`, `account_id`) to a submission metadata of a registered
-	/// solution commitment.
-	#[pallet::storage]
-	type SubmissionMetadataStorage<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, T::AccountId, SubmissionMetadata<T>>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -331,8 +402,11 @@ pub mod pallet {
 				Ok(None) => Ok(()),
 				// entry inserted but queue was full, clear the discarded submission.
 				Ok(Some((discarded, _s))) => {
-					let _ =
-						SubmissionStorage::<T>::clear_prefix((round, &discarded), u32::MAX, None);
+					let _ = SubmissionStorage::<T>::clear_prefix(
+						(round, &discarded),
+						u32::max_value(),
+						None,
+					);
 					// unreserve full deposit
 					let _ = T::Currency::release_all(
 						&HoldReason::ElectionSolutionSubmission.into(),
@@ -405,30 +479,45 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Clears all the stored data from the leader.
-		///
-		/// Returns the submission metadata of the cleared submission, if any.
-		pub(crate) fn take_leader_data(
+		/// Set metadata for submitter.
+		pub(crate) fn set_metadata(
 			round: u32,
-		) -> Option<(T::AccountId, SubmissionMetadata<T>)> {
+			who: &T::AccountId,
+			metadata: SubmissionMetadata<T>,
+		) {
+			debug_assert!(SortedScores::<T>::get(round).iter().any(|(account, _)| who == account));
+
+			Self::mutate_checked(round, || {
+				SubmissionMetadataStorage::<T>::insert(round, who, metadata);
+			});
+		}
+
+		/// Clears the leader's score data, effectively disabling the submittion.
+		///
+		/// Returns the submission metadata of the disabled.
+		pub(crate) fn take_leader_score(
+			round: u32,
+		) -> Option<(T::AccountId, Option<SubmissionMetadata<T>>)> {
 			Self::mutate_checked(round, || {
 				SortedScores::<T>::mutate(round, |scores| scores.pop()).and_then(
-					|(submitter, _score)| {
-						let _ = SubmissionStorage::<T>::clear_prefix(
-							(round, &submitter),
-							u32::MAX,
-							None,
-						);
-
-						SubmissionMetadataStorage::<T>::take(round, &submitter)
-							.map(|metadata| (submitter, metadata))
+					|(submitter, _)| {
+						Some((submitter.clone(), Self::metadata_for(round, &submitter)))
 					},
 				)
 			})
 		}
 
-		/// Clear the submission of a registered submission and its correponding pages and release
-		/// the held deposit based on the `release_strategy`.
+		/// Clear the registed metadata of a submission and its score and release the held deposit
+		/// based on the `release_strategy`.
+		///
+		/// Clearing a submission only clears the metadata and stored score of a solution. The
+		/// paged submissions must be cleared by explicitly calling
+		/// [`Call::force_clear_submission`].
+		///
+		/// Note: the deposit can never be released completely or burned completely since
+		/// an account may have lingering held deposit from previous or subsequent rounds. Thus, the
+		/// amount to release and burn must always be calculated explicitly based on the round's
+		/// metadata and release strategy.
 		///
 		/// The held deposit that is not released is burned as a penalty.
 		pub(crate) fn clear_submission_of(
@@ -438,37 +527,41 @@ pub mod pallet {
 		) -> DispatchResult {
 			let reason = HoldReason::ElectionSolutionSubmission;
 
+			// calculates current base held deposit for this round, if any.
 			let base_deposit = if let Some(metadata) = Self::metadata_for(round, &who) {
 				metadata.deposit
 			} else {
 				return Err(Error::<T>::SubmissionNotRegistered.into());
 			};
 
+			// calculates current held page deposit for this round.
+			let page_deposit = T::DepositPerPage::get().defensive_saturating_mul(
+				Submissions::<T>::page_count_submission_for(round, who).into(),
+			);
+
 			Self::mutate_checked(round, || {
 				SubmissionMetadataStorage::<T>::remove(round, who);
-				let _ = SubmissionStorage::<T>::clear_prefix((round, &who), u32::MAX, None);
+				SortedScores::<T>::get(round).retain(|(submitter, _)| submitter != who);
 			});
 
-			let burn_deposit = match release_strategy {
-				ReleaseStrategy::All => Zero::zero(),
-				ReleaseStrategy::BaseDeposit => {
-					let burn = T::Currency::balance_on_hold(&reason.into(), &who)
-						.defensive_saturating_sub(base_deposit);
-					burn
-				},
-				ReleaseStrategy::PageDeposit => base_deposit,
+			let (burn, release) = match release_strategy {
+				ReleaseStrategy::All =>
+					(Zero::zero(), base_deposit.defensive_saturating_add(page_deposit)),
+				ReleaseStrategy::BurnAll =>
+					(base_deposit.defensive_saturating_add(page_deposit), Zero::zero()),
+				ReleaseStrategy::BaseDeposit => (page_deposit, base_deposit),
+				ReleaseStrategy::PageDeposit => (base_deposit, page_deposit),
 			};
 
-			T::Currency::burn_held(
-				&reason.into(),
-				&who,
-				burn_deposit,
-				Precision::Exact,
-				Fortitude::Force,
-			)?;
+			T::Currency::burn_held(&reason.into(), who, burn, Precision::Exact, Fortitude::Force)?;
 
-			// release remaining.
-			T::Currency::release_all(&reason.into(), &who, Precision::Exact)?;
+			T::Currency::release(&reason.into(), who, release, Precision::Exact)?;
+
+			// clear the submission metadata for `who` in `round`. May be a noop.
+			Self::mutate_checked(round, || {
+				let _ = SubmissionMetadataStorage::<T>::remove(round, who);
+				SortedScores::<T>::get(round).retain(|(submitter, _)| submitter != who);
+			});
 
 			Ok(())
 		}
@@ -495,11 +588,15 @@ pub mod pallet {
 
 		/// Returns the submission of a submitter for a given round and page.
 		pub(crate) fn page_submission_for(
-			who: T::AccountId,
 			round: u32,
+			who: T::AccountId,
 			page: PageIndex,
 		) -> Option<SolutionOf<T::MinerConfig>> {
 			SubmissionStorage::<T>::get((round, who, page))
+		}
+
+		pub(crate) fn page_count_submission_for(round: u32, who: &T::AccountId) -> u32 {
+			SubmissionStorage::<T>::iter_key_prefix((round, who)).count() as u32
 		}
 
 		#[cfg(debug_assertions)]
@@ -526,7 +623,13 @@ pub mod pallet {
 				.try_into()
 				.expect("bounded vec constructed from bound; qed.");
 
-			let metadata = SubmissionMetadata { pages, claimed_score, deposit };
+			let metadata = SubmissionMetadata {
+				pages,
+				claimed_score,
+				deposit,
+				// new submissions should receive back all held deposit.
+				release_strategy: ReleaseStrategy::All,
+			};
 
 			let _ = Submissions::<T>::try_register(&who, round, metadata)?;
 			Ok(())
@@ -564,9 +667,6 @@ pub mod pallet {
 		///
 		/// To submit a solution page successfull, the submitter must have registered the
 		/// commitment before.
-		///
-		/// TODO: for security reasons, we have to ensure that ALL submitters "space" to
-		/// submit their pages and be verified.
 		#[pallet::call_index(2)]
 		#[pallet::weight(Weight::default())]
 		pub fn submit_page(
@@ -618,72 +718,72 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Force clean submissions storage.
+		/// Force clean submissions storage for a given (`sumitter`, `round`) tuple.
 		///
-		/// Allows any account to receive a reward for requesting the submission storage and
-		/// corresponding metadata to be cleaned. This extrinsic will fail if the signed or signed
-		/// validated phases are active to prevent disruption in the election progress.
-		///
-		/// A successfull call will result in a reward that is taken from the cleared submission
-		/// deposit and the return of the call fees.
+		/// This pallet expects that submitted pages for `round` may exist IFF a corresponding
+		/// metadata exists.
 		#[pallet::call_index(4)]
 		#[pallet::weight(Weight::default())]
 		pub fn force_clear_submission(
 			origin: OriginFor<T>,
+			round: u32,
 			submitter: T::AccountId,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let _who = ensure_signed(origin);
 
-			// prevent cleaning up submissions storage during the signed and signed validation
-			// phase.
-			ensure!(
-				!crate::Pallet::<T>::current_phase().is_signed() &&
-					!crate::Pallet::<T>::current_phase().is_signed_validation_open_at(None),
-				Error::<T>::CannotClear,
-			);
+			// force clearing submissions may happen only during phase off.
+			ensure!(crate::Pallet::<T>::current_phase().is_off(), Error::<T>::CannotClear);
 
-			// TODO:
-			// 1. clear the submission, if it exists
-			// 2. clear the submission metadata
-			// 3. reward caller as a portions of the submittion's deposit
-			let reward = Default::default();
-			// 4. return fees.
+			if let Some(metadata) = Submissions::<T>::metadata_for(round, &submitter) {
+				Submissions::<T>::mutate_checked(round, || {
+					// clear submission metadata from submitter for `round`.
+					let _ = Submissions::<T>::clear_submission_of(
+						&submitter,
+						round,
+						metadata.release_strategy,
+					);
+
+					// clear all pages from submitter in `round`.
+					let _ = SubmissionStorage::<T>::clear_prefix(
+						(round, &submitter),
+						u32::max_value(),
+						None,
+					);
+				});
+			} else {
+				debug_assert!(
+					Submissions::<T>::page_count_submission_for(round, &submitter).is_zero()
+				);
+
+				return Err(Error::<T>::CannotClear.into())
+			}
 
 			Self::deposit_event(Event::<T>::SubmissionCleared {
 				round: crate::Pallet::<T>::current_round(),
 				submitter,
-				reward,
+				reward: None,
 			});
 
-			Ok(())
+			Ok(Pays::No.into())
 		}
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// The `on_initialize` signals the [`AsyncVerifier`] whenever it should start or stop the
-		/// asynchronous verification of the stored submissions.
+		/// asynchronous verification of stored submissions.
 		///
 		/// - Start async verification at the beginning of the [`crate::Phase::SignedValidation`].
-		/// - Stopns async verification at the beginning of the [`crate::Phase::Unsigned`].
+		/// - Stops async verification at the beginning of the [`crate::Phase::Unsigned`].
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			// TODO: match
 			if crate::Pallet::<T>::current_phase().is_signed_validation_open_at(Some(now)) {
+				sublog!(debug, "signed", "signed validation phase started, signaling the verifier to start async verifiacton.");
 				let _ = <T::Verifier as AsyncVerifier>::start().defensive();
 			};
 
 			if crate::Pallet::<T>::current_phase().is_unsigned_open_at(now) {
-				sublog!(info, "signed", "signed validation phase ended, signaling the verifier.");
+				sublog!(debug, "signed", "signed validation phase ended, signaling the verifier to stop async verifiacton.");
 				<T::Verifier as AsyncVerifier>::stop();
-			}
-
-			if crate::Pallet::<T>::current_phase() == crate::Phase::Off {
-				sublog!(info, "signed", "clear up storage for pallets.");
-
-				// TODO: optimize.
-				let _ = SubmissionMetadataStorage::<T>::clear(u32::MAX, None);
-				let _ = SubmissionStorage::<T>::clear(u32::MAX, None);
-				let _ = SortedScores::<T>::clear(u32::MAX, None);
 			}
 
 			Weight::default()
@@ -694,40 +794,62 @@ pub mod pallet {
 impl<T: Config> SolutionDataProvider for Pallet<T> {
 	type Solution = SolutionOf<T::MinerConfig>;
 
+	/// Returns a paged solution of the *best* solution in the queue.
 	fn get_paged_solution(page: PageIndex) -> Option<Self::Solution> {
 		let round = crate::Pallet::<T>::current_round();
 
 		Submissions::<T>::leader(round).map(|(who, _score)| {
 			sublog!(info, "signed", "returning page {} of leader's {:?} solution", page, who);
-			Submissions::<T>::page_submission_for(who, round, page).unwrap_or_default()
+			Submissions::<T>::page_submission_for(round, who, page).unwrap_or_default()
 		})
 	}
 
+	/// Returns the score of the *best* solution in the queueu.
 	fn get_score() -> Option<ElectionScore> {
 		let round = crate::Pallet::<T>::current_round();
 		Submissions::<T>::leader(round).map(|(_who, score)| score)
 	}
 
+	/// Called by an external entity to report a verification result of the current *best*
+	/// solution.
+	///
+	/// If the verification is rejected, update the leader's metadata to be slashed (i.e. set
+	/// release strategy to [`ReleaseStrategy::BurnAll`] in the leader's metadata). If successful
+	/// (represented by the variant [``VerificationResult::Queued]), reward the submitter and
+	/// signal the verifier to stop the async election verification.
 	fn report_result(result: VerificationResult) {
 		let round = crate::Pallet::<T>::current_round();
-		match result {
-			VerificationResult::Queued => {},
-			VerificationResult::Rejected => {
-				if let Some((_offender, _metadata)) = Submissions::<T>::take_leader_data(round) {
-					// TODO: slash offender
-				} else {
-					// no signed submission in storage, signal async verifier to stop and move on.
-					let _ = <T::Verifier as AsyncVerifier>::stop();
-				};
 
-				if crate::Pallet::<T>::current_phase().is_signed_validation_open_at(None) &&
-					Submissions::<T>::leader(round).is_some()
-				{
-					let _ = <T::Verifier as AsyncVerifier>::start().defensive();
-				}
+		let (leader, mut metadata) =
+			if let Some((leader, maybe_metadata)) = Submissions::<T>::take_leader_score(round) {
+				let metadata = match maybe_metadata {
+					Some(m) => m,
+					None => {
+						defensive!("unexpected: leader with inconsistent data (no metadata).");
+						return;
+					},
+				};
+				(leader, metadata)
+			} else {
+				// TODO(gpestana): turn into defensive.
+				sublog!(error, "signed", "unexpected: leader called without active submissions.");
+				return
+			};
+
+		match result {
+			VerificationResult::Queued => {
+				// solution was accepted by the verifier, reward leader and stop async
+				// verification.
+				// TODO(gpestana): think better about the reward minting process -- should we keep
+				// a pot for rewards instead of minting it in staking?
+				let _ = T::Currency::mint_into(&leader, T::Reward::get()).defensive();
+				let _ = <T::Verifier as AsyncVerifier>::stop();
 			},
-			VerificationResult::DataUnavailable => {
-				// signed pallet did not have the required data.
+			VerificationResult::Rejected | VerificationResult::DataUnavailable => {
+				// updates metadata release strategy so that all the deposit is burned when the
+				// leader's data is cleared.
+				metadata.release_strategy = ReleaseStrategy::BurnAll;
+				Submissions::<T>::set_metadata(round, &leader, metadata);
 			},
 		}
 	}

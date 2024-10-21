@@ -153,6 +153,10 @@ impl<Bn> Default for Phase<Bn> {
 }
 
 impl<Bn: PartialEq + Eq> Phase<Bn> {
+	pub(crate) fn is_off(&self) -> bool {
+		matches!(self, Phase::Off)
+	}
+
 	pub(crate) fn is_signed(&self) -> bool {
 		matches!(self, Phase::Signed)
 	}

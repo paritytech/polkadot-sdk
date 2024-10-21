@@ -21,6 +21,11 @@ use frame_support::{assert_noop, assert_ok, testing_prelude::*};
 use sp_npos_elections::ElectionScore;
 use sp_runtime::traits::Convert;
 
+#[test]
+fn clear_submission_of_works() {
+	ExtBuilder::default().build_and_execute(|| {});
+}
+
 mod calls {
 	use super::*;
 	use sp_core::bounded_vec;
@@ -43,6 +48,7 @@ mod calls {
 					claimed_score: score,
 					deposit: 10,
 					pages: bounded_vec![false, false, false],
+					release_strategy: Default::default(),
 				}
 			);
 
@@ -172,6 +178,9 @@ mod calls {
 			let score = ElectionScore { minimal_stake: 10, ..Default::default() };
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(10), score));
 
+			// 0 pages submitted so far.
+			assert_eq!(Submissions::<T>::page_count_submission_for(current_round(), &10), 0);
+
 			// now submission works since there is a registered commitment.
 			assert_ok!(SignedPallet::submit_page(
 				RuntimeOrigin::signed(10),
@@ -180,15 +189,21 @@ mod calls {
 			));
 
 			assert_eq!(
-				Submissions::<T>::page_submission_for(10, current_round(), 0),
+				Submissions::<T>::page_submission_for(current_round(), 10, 0),
 				Some(Default::default()),
 			);
+
+			// 1 page submitted so far.
+			assert_eq!(Submissions::<T>::page_count_submission_for(current_round(), &10), 1);
 
 			// tries to submit a page out of bounds.
 			assert_noop!(
 				SignedPallet::submit_page(RuntimeOrigin::signed(10), 10, Some(Default::default())),
 				Error::<T>::BadPageIndex,
 			);
+
+			// 1 successful page submitted so far.
+			assert_eq!(Submissions::<T>::page_count_submission_for(current_round(), &10), 1);
 
 			assert_eq!(
 				signed_events(),
@@ -345,6 +360,7 @@ mod e2e {
 						claimed_score,
 						deposit: 10,
 						pages: bounded_vec![false, false, false],
+						release_strategy: Default::default(),
 					})
 				);
 				let expected_scores: BoundedVec<(AccountId, ElectionScore), MaxSubmissions> =
@@ -361,7 +377,7 @@ mod e2e {
 					));
 
 					assert_eq!(
-						Submissions::<Runtime>::page_submission_for(10, current_round, page),
+						Submissions::<Runtime>::page_submission_for(current_round, 10, page),
 						Some(solution.clone())
 					);
 				}
