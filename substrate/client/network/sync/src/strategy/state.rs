@@ -124,9 +124,7 @@ impl<B: BlockT> StateStrategy<B> {
 	}
 
 	// Create a new instance with a custom state sync provider.
-	// Used in tests.
-	#[cfg(test)]
-	fn new_with_provider(
+	pub fn new_with_provider(
 		state_sync_provider: Box<dyn StateSyncProvider<B>>,
 		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
 		protocol_name: ProtocolName,
