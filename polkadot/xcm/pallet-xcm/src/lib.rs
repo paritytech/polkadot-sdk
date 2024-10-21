@@ -2887,7 +2887,7 @@ impl<T: Config> xcm_executor::traits::Enact for UnlockTicket<T> {
 		let mut maybe_remove_index = None;
 		let mut locked = BalanceOf::<T>::zero();
 		let mut found = false;
-		// We could just as well do with with an into_iter, filter_map and collect, however this way
+		// We could just as well do with an into_iter, filter_map and collect, however this way
 		// avoids making an allocation.
 		for (i, x) in locks.iter_mut().enumerate() {
 			if x.1.try_as::<_>().defensive() == Ok(&self.unlocker) {
@@ -3268,7 +3268,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 					});
 					return Weight::zero()
 				}
-				return match maybe_notify {
+				match maybe_notify {
 					Some((pallet_index, call_index)) => {
 						// This is a bit horrible, but we happen to know that the `Call` will
 						// be built by `(pallet_index: u8, call_index: u8, QueryId, Response)`.
