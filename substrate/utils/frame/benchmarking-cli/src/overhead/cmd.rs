@@ -18,7 +18,7 @@
 //! Contains the [`OverheadCmd`] as entry point for the CLI to execute
 //! the *overhead* benchmarks.
 
-use super::remark_builders::*;
+use super::runtime_utilities::*;
 use crate::{
 	extrinsic::{
 		bench::{Benchmark, BenchmarkParams as ExtrinsicBenchmarkParams},
@@ -243,6 +243,7 @@ impl OverheadCmd {
 
 		Ok(chain_type)
 	}
+
 	fn chain_spec_from_path<HF: HostFunctions>(
 		&self,
 	) -> Result<(Option<Box<dyn ChainSpec>>, Option<u32>)> {

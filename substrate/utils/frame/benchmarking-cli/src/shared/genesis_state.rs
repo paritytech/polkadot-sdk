@@ -21,6 +21,7 @@ use std::{fs, path::PathBuf};
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 /// Build the genesis storage by either the Genesis Builder API, chain spec or nothing.
 ///
 /// Behaviour can be controlled by the `genesis_builder` parameter.
