@@ -1372,6 +1372,9 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 			SetErrorHandler(xcm) => Self::SetErrorHandler(xcm.try_into()?),
 			SetAppendix(xcm) => Self::SetAppendix(xcm.try_into()?),
 			ClearError => Self::ClearError,
+			SetAssetClaimer { .. } => {
+				return Err(());
+			},
 			ClaimAsset { assets, ticket } => {
 				let assets = assets.try_into()?;
 				let ticket = ticket.try_into()?;
