@@ -45,7 +45,7 @@ pub mod prelude {
 		Backend, ExecutorDispatch, TestClient, TestClientBuilder, WasmExecutionMethod,
 	};
 	// Keyring
-	pub use super::{AccountKeyring, Sr25519Keyring};
+	pub use super::Sr25519Keyring;
 }
 
 /// Test client database backend.

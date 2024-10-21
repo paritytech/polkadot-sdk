@@ -48,8 +48,8 @@ use substrate_test_runtime_client::{
 		genesismap::{insert_genesis_block, GenesisStorageBuilder},
 		Block, BlockNumber, Digest, Hash, Header, RuntimeApi, Transfer,
 	},
-	AccountKeyring, BlockBuilderExt, ClientBlockImportExt, ClientExt, DefaultTestClientBuilderExt,
-	Sr25519Keyring, TestClientBuilder, TestClientBuilderExt,
+	BlockBuilderExt, ClientBlockImportExt, ClientExt, DefaultTestClientBuilderExt, Sr25519Keyring,
+	TestClientBuilder, TestClientBuilderExt,
 };
 
 mod db;
@@ -126,8 +126,8 @@ fn block1(genesis_hash: Hash, backend: &InMemoryBackend<BlakeTwo256>) -> Vec<u8>
 		1,
 		genesis_hash,
 		vec![Transfer {
-			from: AccountKeyring::One.into(),
-			to: AccountKeyring::Two.into(),
+			from: Sr25519Keyring::One.into(),
+			to: Sr25519Keyring::Two.into(),
 			amount: 69 * DOLLARS,
 			nonce: 0,
 		}],
@@ -158,7 +158,7 @@ fn finality_notification_check(
 fn construct_genesis_should_work_with_native() {
 	let mut storage = GenesisStorageBuilder::new(
 		vec![Sr25519Keyring::One.public().into(), Sr25519Keyring::Two.public().into()],
-		vec![AccountKeyring::One.into(), AccountKeyring::Two.into()],
+		vec![Sr25519Keyring::One.into(), Sr25519Keyring::Two.into()],
 		1000 * DOLLARS,
 	)
 	.build();
@@ -189,7 +189,7 @@ fn construct_genesis_should_work_with_native() {
 fn construct_genesis_should_work_with_wasm() {
 	let mut storage = GenesisStorageBuilder::new(
 		vec![Sr25519Keyring::One.public().into(), Sr25519Keyring::Two.public().into()],
-		vec![AccountKeyring::One.into(), AccountKeyring::Two.into()],
+		vec![Sr25519Keyring::One.into(), Sr25519Keyring::Two.into()],
 		1000 * DOLLARS,
 	)
 	.build();
@@ -223,14 +223,14 @@ fn client_initializes_from_genesis_ok() {
 	assert_eq!(
 		client
 			.runtime_api()
-			.balance_of(client.chain_info().best_hash, AccountKeyring::Alice.into())
+			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Alice.into())
 			.unwrap(),
 		1000 * DOLLARS
 	);
 	assert_eq!(
 		client
 			.runtime_api()
-			.balance_of(client.chain_info().best_hash, AccountKeyring::Ferdie.into())
+			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Ferdie.into())
 			.unwrap(),
 		0 * DOLLARS
 	);
@@ -266,8 +266,8 @@ fn block_builder_works_with_transactions() {
 
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 42 * DOLLARS,
 			nonce: 0,
 		})
@@ -301,14 +301,14 @@ fn block_builder_works_with_transactions() {
 	assert_eq!(
 		client
 			.runtime_api()
-			.balance_of(client.chain_info().best_hash, AccountKeyring::Alice.into())
+			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Alice.into())
 			.unwrap(),
 		958 * DOLLARS
 	);
 	assert_eq!(
 		client
 			.runtime_api()
-			.balance_of(client.chain_info().best_hash, AccountKeyring::Ferdie.into())
+			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Ferdie.into())
 			.unwrap(),
 		42 * DOLLARS
 	);
@@ -325,8 +325,8 @@ fn block_builder_does_not_include_invalid() {
 
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 42 * DOLLARS,
 			nonce: 0,
 		})
@@ -334,8 +334,8 @@ fn block_builder_does_not_include_invalid() {
 
 	assert!(builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 30 * DOLLARS,
 			nonce: 0,
 		})
@@ -491,8 +491,8 @@ fn uncles_with_multiple_forks() {
 	// this push is required as otherwise B2 has the same hash as A2 and won't get imported
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41 * DOLLARS,
 			nonce: 0,
 		})
@@ -531,8 +531,8 @@ fn uncles_with_multiple_forks() {
 	// this push is required as otherwise C3 has the same hash as B3 and won't get imported
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 1 * DOLLARS,
 			nonce: 1,
 		})
@@ -549,8 +549,8 @@ fn uncles_with_multiple_forks() {
 	// this push is required as otherwise D2 has the same hash as B2 and won't get imported
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 1 * DOLLARS,
 			nonce: 0,
 		})
@@ -691,8 +691,8 @@ fn finality_target_on_longest_chain_with_multiple_forks() {
 	// this push is required as otherwise B2 has the same hash as A2 and won't get imported
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41 * DOLLARS,
 			nonce: 0,
 		})
@@ -732,8 +732,8 @@ fn finality_target_on_longest_chain_with_multiple_forks() {
 	// this push is required as otherwise C3 has the same hash as B3 and won't get imported
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 1 * DOLLARS,
 			nonce: 1,
 		})
@@ -751,8 +751,8 @@ fn finality_target_on_longest_chain_with_multiple_forks() {
 	// this push is required as otherwise D2 has the same hash as B2 and won't get imported
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 1 * DOLLARS,
 			nonce: 0,
 		})
@@ -982,8 +982,8 @@ fn finality_target_with_best_not_on_longest_chain() {
 	// this push is required as otherwise B2 has the same hash as A2 and won't get imported
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41 * DOLLARS,
 			nonce: 0,
 		})
@@ -1134,8 +1134,8 @@ fn importing_diverged_finalized_block_should_trigger_reorg() {
 		.unwrap();
 	// needed to make sure B1 gets a different hash from A1
 	b1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 1 * DOLLARS,
 		nonce: 0,
 	})
@@ -1195,8 +1195,8 @@ fn finalizing_diverged_block_should_trigger_reorg() {
 		.unwrap();
 	// needed to make sure B1 gets a different hash from A1
 	b1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 1 * DOLLARS,
 		nonce: 0,
 	})
@@ -1303,8 +1303,8 @@ fn finality_notifications_content() {
 		.unwrap();
 	// needed to make sure B1 gets a different hash from A1
 	b1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 1,
 		nonce: 0,
 	})
@@ -1329,8 +1329,8 @@ fn finality_notifications_content() {
 		.unwrap();
 	// needed to make sure B1 gets a different hash from A1
 	c1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 2 * DOLLARS,
 		nonce: 0,
 	})
@@ -1346,8 +1346,8 @@ fn finality_notifications_content() {
 
 	// needed to make sure D3 gets a different hash from A3
 	d3.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 2 * DOLLARS,
 		nonce: 0,
 	})
@@ -1415,7 +1415,7 @@ fn state_reverted_on_reorg() {
 	let current_balance = |client: &substrate_test_runtime_client::TestClient| {
 		client
 			.runtime_api()
-			.balance_of(client.chain_info().best_hash, AccountKeyring::Alice.into())
+			.balance_of(client.chain_info().best_hash, Sr25519Keyring::Alice.into())
 			.unwrap()
 	};
 
@@ -1428,8 +1428,8 @@ fn state_reverted_on_reorg() {
 		.build()
 		.unwrap();
 	a1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Bob.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Bob.into(),
 		amount: 10 * DOLLARS,
 		nonce: 0,
 	})
@@ -1443,8 +1443,8 @@ fn state_reverted_on_reorg() {
 		.build()
 		.unwrap();
 	b1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 50 * DOLLARS,
 		nonce: 0,
 	})
@@ -1460,8 +1460,8 @@ fn state_reverted_on_reorg() {
 		.build()
 		.unwrap();
 	a2.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Charlie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Charlie.into(),
 		amount: 10 * DOLLARS,
 		nonce: 1,
 	})
@@ -1530,8 +1530,8 @@ fn doesnt_import_blocks_that_revert_finality() {
 
 	// needed to make sure B1 gets a different hash from A1
 	b1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 1 * DOLLARS,
 		nonce: 0,
 	})
@@ -1580,8 +1580,8 @@ fn doesnt_import_blocks_that_revert_finality() {
 
 	// needed to make sure C1 gets a different hash from A1 and B1
 	c1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 2 * DOLLARS,
 		nonce: 0,
 	})
@@ -1788,8 +1788,8 @@ fn returns_status_for_pruned_blocks() {
 
 	// b1 is created, but not imported
 	b1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 1 * DOLLARS,
 		nonce: 0,
 	})
@@ -2191,8 +2191,8 @@ fn reorg_triggers_a_notification_even_for_sources_that_should_not_trigger_notifi
 
 	// needed to make sure B1 gets a different hash from A1
 	b1.push_transfer(Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 1 * DOLLARS,
 		nonce: 0,
 	})

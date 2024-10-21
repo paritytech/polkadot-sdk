@@ -35,7 +35,6 @@ sp-weights = { workspace = true }
 sp-debug-derive = { workspace = true }
 sp-metadata-ir = { workspace = true }
 sp-trie = { workspace = true }
-sp-keyring = { optional = true, workspace = true }
 tt-call = { workspace = true }
 macro_magic = { workspace = true }
 frame-support-procedural = { workspace = true }
@@ -92,7 +91,6 @@ std = [
 	"sp-tracing/std",
 	"sp-trie/std",
 	"sp-weights/std",
-	"sp-keyring/std",
 ]
 runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
