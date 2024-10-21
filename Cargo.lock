@@ -6235,6 +6235,7 @@ dependencies = [
  "comfy-table",
  "cumulus-client-parachain-inherent",
  "cumulus-primitives-proof-size-hostfunction",
+ "cumulus-test-runtime",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -6417,13 +6418,17 @@ dependencies = [
 name = "frame-omni-bencher"
 version = "0.1.0"
 dependencies = [
+ "assert_cmd",
  "clap 4.5.13",
  "cumulus-primitives-proof-size-hostfunction",
+ "cumulus-test-runtime",
  "frame-benchmarking-cli",
  "log",
  "sc-cli",
  "sp-runtime 31.0.1",
  "sp-statement-store",
+ "sp-tracing 16.0.0",
+ "tempfile",
  "tracing-subscriber 0.3.18",
 ]
 

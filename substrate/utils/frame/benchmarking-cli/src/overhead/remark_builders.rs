@@ -129,8 +129,8 @@ impl ExtrinsicBuilder for DynamicRemarkBuilder<SubstrateConfig> {
 
 struct BasicCodeFetcher<'a>(Cow<'a, [u8]>);
 impl<'a> FetchRuntimeCode for BasicCodeFetcher<'a> {
-	fn fetch_runtime_code(&self) -> Option<Cow<'a, [u8]>> {
-		Some(self.0.clone())
+	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
+		Some(self.0.as_ref().into())
 	}
 }
 impl<'a> BasicCodeFetcher<'a> {
@@ -194,4 +194,20 @@ pub fn fetch_latest_metadata_from_blob<HF: HostFunctions>(
 	};
 
 	Ok(subxt::Metadata::decode(&mut (*opaque_metadata).as_slice())?)
+}
+
+#[cfg(test)]
+mod tests {
+	use crate::overhead::cmd::ParachainHostFunctions;
+	use sc_executor::WasmExecutor;
+
+	#[test]
+	fn test_fetch_latest_metadata_from_blob_fetches_metadata() {
+		let executor: WasmExecutor<ParachainHostFunctions> = WasmExecutor::builder().build();
+		let code_bytes = cumulus_test_runtime::WASM_BINARY
+			.expect("To run this test, build the wasm binary of cumulus-test-runtime")
+			.to_vec();
+		let metadata = super::fetch_latest_metadata_from_blob(&executor, &code_bytes).unwrap();
+		assert!(metadata.pallet_by_name("ParachainInfo").is_some());
+	}
 }
