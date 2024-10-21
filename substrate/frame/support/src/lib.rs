@@ -2588,8 +2588,11 @@ sp_core::generate_feature_enabled_macro!(try_runtime_enabled, feature = "try-run
 sp_core::generate_feature_enabled_macro!(try_runtime_or_std_enabled, any(feature = "try-runtime", feature = "std"), $);
 sp_core::generate_feature_enabled_macro!(try_runtime_and_std_not_enabled, all(not(feature = "try-runtime"), not(feature = "std")), $);
 
-// Helper for implementing GenesisBuilder runtime API
+/// Helper for implementing GenesisBuilder runtime API
 pub mod genesis_builder_helper;
+
+/// Helper for generating the `RuntimeGenesisConfig` instance for presets.
+pub mod generate_genesis_config;
 
 #[cfg(test)]
 mod test {

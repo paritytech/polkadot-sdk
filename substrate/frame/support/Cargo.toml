@@ -23,6 +23,7 @@ codec = { features = [
 	"derive",
 	"max-encoded-len",
 ], workspace = true }
+Inflector = { workspace = true, optional = true }
 scale-info = { features = [
 	"derive",
 ], workspace = true }
@@ -81,6 +82,7 @@ std = [
 	"frame-metadata/std",
 	"frame-support-procedural/std",
 	"frame-system/std",
+	"Inflector",
 	"k256/std",
 	"log/std",
 	"scale-info/std",

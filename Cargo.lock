@@ -6424,6 +6424,7 @@ dependencies = [
 name = "frame-support"
 version = "28.0.0"
 dependencies = [
+ "Inflector",
  "aquamarine",
  "array-bytes",
  "assert_matches",
