@@ -76,13 +76,13 @@ sp-crypto-hashing = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
+	"Inflector",
 	"binary-merkle-tree/std",
 	"codec/std",
 	"environmental/std",
 	"frame-metadata/std",
 	"frame-support-procedural/std",
 	"frame-system/std",
-	"Inflector",
 	"k256/std",
 	"log/std",
 	"scale-info/std",
