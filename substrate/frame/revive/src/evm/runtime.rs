@@ -221,7 +221,7 @@ where
 	Address: Encode,
 	Signature: Encode,
 	CallOf<E::Config>: Encode,
-	E::Extra: Encode,
+	E::Extension: Encode,
 {
 	fn from(extrinsic: UncheckedExtrinsic<Address, Signature, E>) -> Self {
 		Self::from_bytes(extrinsic.encode().as_slice()).expect(
