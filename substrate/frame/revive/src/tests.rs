@@ -4442,4 +4442,46 @@ mod run_tests {
 			);
 		});
 	}
+
+	#[test]
+	fn code_hash_works() {
+		let (code_hash_code, self_code_hash) = compile_module("code_hash").unwrap();
+		let (dummy_code, code_hash) = compile_module("dummy").unwrap();
+
+		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code_hash_code)).build_and_unwrap_contract();
+			let Contract { addr: dummy_addr, .. } =
+				builder::bare_instantiate(Code::Upload(dummy_code)).build_and_unwrap_contract();
+
+			// code hash of dummy contract
+			assert_ok!(builder::call(addr).data((dummy_addr, code_hash).encode()).build());
+			// code has of itself
+			assert_ok!(builder::call(addr).data((addr, self_code_hash).encode()).build());
+
+			// EOA doesn't exists
+			assert_err!(
+				builder::bare_call(addr)
+					.data((BOB_ADDR, crate::exec::EMPTY_CODE_HASH).encode())
+					.build()
+					.result,
+				Error::<Test>::ContractTrapped
+			);
+			// non-existing will return zero
+			assert_ok!(builder::call(addr).data((BOB_ADDR, H256::zero()).encode()).build());
+
+			// create EOA
+			let _ = <Test as Config>::Currency::set_balance(
+				&<Test as Config>::AddressMapper::to_account_id(&BOB_ADDR),
+				1_000_000,
+			);
+
+			// EOA returns empty code hash
+			assert_ok!(builder::call(addr)
+				.data((BOB_ADDR, crate::exec::EMPTY_CODE_HASH).encode())
+				.build());
+		});
+	}
 }
