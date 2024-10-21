@@ -7,7 +7,7 @@
 //!
 //! [`your_first_runtime`] is a runtime with no consensus related code, and therefore can only be
 //! executed with a node that also expects no consensus ([`sc_consensus_manual_seal`]).
-//! `polkadot_omni_node`'s [`--dev-block-time`] precisely does this.
+//! `polkadot-omni-node`'s [`--dev-block-time`] precisely does this.
 //!
 //! > All of the following steps are coded as unit tests of this module. Please see `Source` of the
 //! > page for more information.

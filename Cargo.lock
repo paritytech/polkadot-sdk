@@ -23296,7 +23296,6 @@ dependencies = [
  "clap 4.5.13",
  "clap_complete",
  "criterion",
- "docify",
  "futures",
  "jsonrpsee 0.24.3",
  "kitchensink-runtime",

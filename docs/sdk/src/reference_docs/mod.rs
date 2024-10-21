@@ -106,5 +106,5 @@ pub mod umbrella_crate;
 /// Learn about how to create custom RPC endpoints and runtime APIs.
 pub mod custom_runtime_api_rpc;
 
-/// The `polkadot-omni-node` and its related binaries.
+/// The [`polkadot-omni-node`](https://crates.io/crates/polkadot-omni-node) and its related binaries.
 pub mod omni_node;

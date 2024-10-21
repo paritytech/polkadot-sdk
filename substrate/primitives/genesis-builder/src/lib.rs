@@ -29,8 +29,12 @@
 //!    [`PresetId`]. All runtimes are encouraged to expose at least [`DEV_RUNTIME_PRESET`] and
 //!    [`LOCAL_TESTNET_RUNTIME_PRESET`] presets for consistency.
 //! 2. [`GenesisBuilder::get_preset`]: Given a `PresetId`, this the runtime returns the JSON blob
-//! 	representation of the `RuntimeGenesisConfig` for that preset. This JSON blob is often mixed
-//! 	into the broader `chain_spec`.
+//!    representation of the `RuntimeGenesisConfig` for that preset. This JSON blob is often mixed
+//!    into the broader `chain_spec`. If `None` is given, [`GenesisBuilder::get_preset`] provides a
+//!    JSON represention of the default `RuntimeGenesisConfig` (by simply serializing the
+//!    `RuntimeGenesisConfig::default()` value into JSON format). This is used as a base for
+//!    applying patches / presets.
+
 //! 3. [`GenesisBuilder::build_state`]: Given a JSON blob, this method should deserialize it and
 //!    enact it, essentially writing it to the state.
 //!
@@ -47,7 +51,7 @@
 //! to as presets.
 //!
 //! This allows the runtime to provide a number of predefined configs (e.g. for different testnets
-//! or development) without neccessity to leak the runtime types outside the itself (e.g. node or
+//! or development) without necessarily to leak the runtime types outside itself (e.g. node or
 //! chain-spec related tools).
 //!
 //! ## FRAME vs. non-FRAME
@@ -60,6 +64,12 @@
 //! for non-FRAME runtimes may be understood as the "runtime-side entity representing initial
 //! runtime genesis configuration". The representation of the preset is an arbitrary `Vec<u8>` and
 //! does not necessarily have to represent a JSON blob.
+//!
+//! ## Genesis Block State
+//!
+//! Providing externalities with an empty storage and putting `RuntimeGenesisConfig` into storage
+//! (by calling `build_state`) allows to construct the raw storage of `RuntimeGenesisConfig`
+//! which is the foundation for genesis block.
 
 extern crate alloc;
 use alloc::vec::Vec;

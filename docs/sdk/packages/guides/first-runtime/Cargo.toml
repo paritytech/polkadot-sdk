@@ -31,9 +31,9 @@ pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 sp-keyring = { workspace = true }
 
 # local pallet templates
-first-pallet = { package = "polkadot-sdk-docs-first-pallet", workspace = true }
+first-pallet = { workspace = true }
 
-docify = { version = "0.2.7" }
+docify = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { workspace = true , optional = true }

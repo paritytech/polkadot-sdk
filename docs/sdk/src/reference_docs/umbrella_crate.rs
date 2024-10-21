@@ -5,7 +5,6 @@
 //! crate. This helps with selecting the right combination of crate versions, since otherwise 3rd
 //! party tools are needed to select a compatible set of versions.
 //!
-//! TODO: revise this
 //!
 //! ## Features
 //!
