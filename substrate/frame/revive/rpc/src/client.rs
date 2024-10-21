@@ -359,16 +359,16 @@ impl Client {
 		let rpc = inner.as_ref().rpc_client.clone();
 		loop {
 			let reconnected = rpc.reconnect_initiated().await;
-			log::info!("RPC client connection lost");
+			log::info!(target: LOG_TARGET, "RPC client connection lost");
 			let now = std::time::Instant::now();
 			reconnected.await;
-			log::info!("RPC client reconnection took `{}s`", now.elapsed().as_secs());
+			log::info!(target: LOG_TARGET, "RPC client reconnection took `{}s`", now.elapsed().as_secs());
 		}
 	}
 
 	/// Subscribe to new blocks and update the cache.
 	async fn subscribe_blocks(inner: Arc<ClientInner>, tx: Sender<()>) -> Result<(), ClientError> {
-		log::info!("Subscribing to new blocks");
+		log::info!(target: LOG_TARGET, "Subscribing to new blocks");
 		let mut block_stream =
 			inner.as_ref().api.blocks().subscribe_finalized().await.inspect_err(|err| {
 				log::error!("Failed to subscribe to blocks: {err:?}");
@@ -390,7 +390,7 @@ impl Client {
 				},
 			};
 
-			log::debug!("Pushing block: {}", block.number());
+			log::trace!(target: LOG_TARGET, "Pushing block: {}", block.number());
 			let mut cache = inner.cache.write().await;
 
 			let receipts = inner
@@ -402,7 +402,7 @@ impl Client {
 				.unwrap_or_default();
 
 			if !receipts.is_empty() {
-				log::debug!("Adding {} receipts", receipts.len());
+				log::debug!(target: LOG_TARGET, "Adding {} receipts", receipts.len());
 				let values = receipts
 					.iter()
 					.map(|(hash, (_, receipt))| (receipt.transaction_index, *hash))
@@ -423,7 +423,7 @@ impl Client {
 			tx.send_replace(());
 		}
 
-		log::info!("Block subscription ended");
+		log::info!(target: LOG_TARGET, "Block subscription ended");
 		Ok(())
 	}
 

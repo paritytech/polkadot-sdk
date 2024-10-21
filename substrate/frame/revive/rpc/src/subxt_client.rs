@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! The generated subxt client.
+//! Generated with
+//! subxt metadata  --url ws://localhost:9944 -o rpc/kitchensink.scale
 use subxt::config::{signed_extensions, Config, PolkadotConfig};
 
 #[subxt::subxt(
