@@ -72,6 +72,7 @@ std = ["solochain-template-runtime/std"]
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"solochain-template-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",

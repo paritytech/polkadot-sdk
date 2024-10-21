@@ -975,6 +975,15 @@ pub fn event(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
+/// Documentation for this macro can be found at `frame_support::pallet_macros::include_metadata`.
+#[proc_macro_attribute]
+pub fn include_metadata(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::generate_deposit`.
 #[proc_macro_attribute]
 pub fn generate_deposit(_: TokenStream, _: TokenStream) -> TokenStream {

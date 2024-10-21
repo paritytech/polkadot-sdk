@@ -417,7 +417,7 @@ pub struct BuildNetworkParams<
 	pub net_config:
 		sc_network::config::FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Network>,
 	pub client: Arc<Client>,
-	pub transaction_pool: Arc<sc_transaction_pool::FullPool<Block, Client>>,
+	pub transaction_pool: Arc<sc_transaction_pool::TransactionPoolHandle<Block, Client>>,
 	pub para_id: ParaId,
 	pub relay_chain_interface: RCInterface,
 	pub spawn_handle: SpawnTaskHandle,
