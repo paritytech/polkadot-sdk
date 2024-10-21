@@ -199,58 +199,56 @@ pub fn retain_initialized_fields(
 /// #[derive(Default, serde::Serialize, serde::Deserialize)]
 /// #[serde(rename_all = "camelCase")]
 /// struct B {
-///     i_field: u32,
-///     j_field: u32,
+/// 	i_field: u32,
+/// 	j_field: u32,
 /// }
 ///
 /// impl B {
-/// 		fn new() -> Self {
-/// 			Self { i_field: 0, j_field: 2 }
-/// 		}
+/// 	fn new() -> Self {
+/// 		Self { i_field: 0, j_field: 2 }
 /// 	}
+/// }
 ///
 /// assert_eq!(
-///     generate_config! ( RuntimeGenesisConfig {
-///         b_field: B {
-///             i_field: 2,
-///         }
-///     }),
+/// 	generate_config! ( RuntimeGenesisConfig {
+/// 		b_field: B {
+/// 			i_field: 2,
+/// 		}
+/// 	}),
 ///
-///     serde_json::json!({
-///         "bField": {"iField": 2}
-///     })
+/// 	serde_json::json!({
+/// 		"bField": {"iField": 2}
+/// 	})
 /// );
 ///
 /// assert_eq!(
-///     generate_config! ( RuntimeGenesisConfig {
-///         a_field: 66,
-///
-///     }),
-///     serde_json::json!({
+/// 	generate_config! ( RuntimeGenesisConfig {
+/// 		a_field: 66,
+/// 	}),
+/// 	serde_json::json!({
 /// 			"aField": 66,
-///     })
+/// 	})
 /// );
 ///
 /// assert_eq!(
-///     generate_config! ( RuntimeGenesisConfig {
-///         a_field: 66,
-///         b_field: B::new()
-///
-///     }),
-///     serde_json::json!({
-/// 			"aField": 66,
-///         "bField": {"iField": 0, "jField": 2}
-///     })
+/// 	generate_config! ( RuntimeGenesisConfig {
+/// 		a_field: 66,
+/// 		b_field: B::new()
+/// 	}),
+/// 	serde_json::json!({
+/// 		"aField": 66,
+/// 		"bField": {"iField": 0, "jField": 2}
+/// 	})
 /// );
 /// ```
 ///
 /// In this example:
 /// ```ignore
-///     generate_config! ( RuntimeGenesisConfig {
-///         b_field: B {
-///             i_field: 2,
-///         }
-///     }),
+/// 	generate_config! ( RuntimeGenesisConfig {
+/// 		b_field: B {
+/// 			i_field: 2,
+/// 		}
+/// 	}),
 /// ```
 /// `b_field` is partially initialized, it will be expanded to:
 /// ```ignore
@@ -266,7 +264,7 @@ pub fn retain_initialized_fields(
 /// only the provided fields.
 #[macro_export]
 macro_rules! generate_config {
-    (
+	(
 		$struct_type:ident { $($tail:tt)* }
 	) => {
 		{
@@ -281,7 +279,7 @@ macro_rules! generate_config {
 			json_value
 		}
 	};
-    ($struct_type:ident, $all_keys:ident @ { $($tail:tt)* }) => {
+	($struct_type:ident, $all_keys:ident @ { $($tail:tt)* }) => {
 		$struct_type {
 			..generate_config!($struct_type, $all_keys @ $($tail)*)
 		}
@@ -443,15 +441,15 @@ mod test {
 	}
 
 	macro_rules! test {
-        ($struct:ident { $($v:tt)* }, { $($j:tt)* } ) => {{
+		($struct:ident { $($v:tt)* }, { $($j:tt)* } ) => {{
 			println!("--");
-            let expected = serde_json::json!({ $($j)* });
-            println!("json: {}", serde_json::to_string_pretty(&expected).unwrap());
-            let value = generate_config!($struct { $($v)* });
-            println!("gc: {}", serde_json::to_string_pretty(&value).unwrap());
+			let expected = serde_json::json!({ $($j)* });
+			println!("json: {}", serde_json::to_string_pretty(&expected).unwrap());
+			let value = generate_config!($struct { $($v)* });
+			println!("gc: {}", serde_json::to_string_pretty(&value).unwrap());
 			assert_eq!(value, expected);
-        }};
-    }
+		}};
+	}
 
 	#[test]
 	fn test_generate_config_macro() {
