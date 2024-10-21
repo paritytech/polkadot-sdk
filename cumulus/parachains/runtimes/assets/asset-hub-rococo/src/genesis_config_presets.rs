@@ -18,14 +18,13 @@
 use crate::*;
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
+use frame_support::generate_config;
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
 use sp_core::crypto::UncheckedInto;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use testnet_parachains_constants::rococo::{currency::UNITS as ROC, xcm_version::SAFE_XCM_VERSION};
-
-use frame_support::runtime_genesis_config_json;
 
 const ASSET_HUB_ROCOCO_ED: Balance = ExistentialDeposit::get();
 
@@ -35,15 +34,14 @@ fn asset_hub_rococo_genesis(
 	endowment: Balance,
 	id: ParaId,
 ) -> serde_json::Value {
-	runtime_genesis_config_json!({
+	generate_config!({
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
 		},
-		parachain_info: ParachainInfoConfig { parachain_id: id, ..Default::default() },
+		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: ASSET_HUB_ROCOCO_ED * 16,
-			..Default::default()
 		},
 		session: SessionConfig {
 			keys: invulnerables
@@ -56,11 +54,9 @@ fn asset_hub_rococo_genesis(
 					)
 				})
 				.collect(),
-			..Default::default()
 		},
 		polkadot_xcm: PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
-			..Default::default()
 		},
 	})
 }
