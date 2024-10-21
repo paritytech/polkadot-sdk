@@ -112,18 +112,17 @@ for PALLET in "${PALLETS[@]}"; do
   TEMPLATE_FILE="./.maintain/${TEMPLATE_FILE_NAME}"
 
   # Special handling of custom weight paths.
-  if [ "$PALLET" == "frame_system_extensions" ] || [ "$PALLET" == "frame-system-extensions" ]
-  then
+  if [ "$PALLET" == "frame_system_extensions" ] || [ "$PALLET" == "frame-system-extensions" ]; then
     WEIGHT_FILE="./frame/system/src/extensions/weights.rs"
-  elif [ "$PALLET" == "pallet_asset_conversion_tx_payment" ] || [ "$PALLET" == "pallet-asset-conversion-tx-payment" ]
-  then
+  elif [ "$PALLET" == "pallet_asset_conversion_tx_payment" ] || [ "$PALLET" == "pallet-asset-conversion-tx-payment" ]; then
     WEIGHT_FILE="./frame/transaction-payment/asset-conversion-tx-payment/src/weights.rs"
-  elif [ "$PALLET" == "pallet_asset_tx_payment" ] || [ "$PALLET" == "pallet-asset-tx-payment" ]
-  then
+  elif [ "$PALLET" == "pallet_asset_tx_payment" ] || [ "$PALLET" == "pallet-asset-tx-payment" ]; then
     WEIGHT_FILE="./frame/transaction-payment/asset-tx-payment/src/weights.rs"
+  elif [ "$PALLET" == "pallet_asset_conversion_ops" ] || [ "$PALLET" == "pallet-asset-conversion-ops" ]; then
+    WEIGHT_FILE="./frame/asset-conversion/ops/src/weights.rs"
   fi
 
-  echo "[+] Benchmarking $PALLET with weight file $WEIGHT_FILE";
+  echo "[+] Benchmarking $PALLET with weight file $WEIGHT_FILE"
 
   OUTPUT=$(
     $SUBSTRATE benchmark pallet \
