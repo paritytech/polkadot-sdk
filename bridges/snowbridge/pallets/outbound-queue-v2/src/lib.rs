@@ -119,9 +119,12 @@ use snowbridge_core::{
 	BasicOperatingMode,
 };
 use sp_core::H256;
-use sp_runtime::{traits::Hash, ArithmeticError, DigestItem};
+use sp_runtime::{
+	traits::{BlockNumberProvider, Hash, Zero},
+	ArithmeticError, DigestItem,
+};
 use sp_std::prelude::*;
-pub use types::{CommittedMessage, ProcessMessageOriginOf};
+pub use types::{CommittedMessage, FeeWithBlockNumber, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -248,7 +251,8 @@ pub mod pallet {
 
 	/// Fee locked by nonce
 	#[pallet::storage]
-	pub type LockedFee<T: Config> = StorageMap<_, Twox64Concat, u64, u128, ValueQuery>;
+	pub type LockedFee<T: Config> =
+		StorageMap<_, Twox64Concat, u64, FeeWithBlockNumber<BlockNumberFor<T>>, OptionQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
@@ -307,8 +311,8 @@ pub mod pallet {
 			ensure!(<LockedFee<T>>::contains_key(nonce), Error::<T>::PendingNonceNotExist);
 
 			// Todo: Reward relayer
-			// let fee = <LockedFee<T>>::get(nonce);
-			// T::RewardLeger::deposit(envelope.reward_address.into(), fee.into())?;
+			// let locked = <LockedFee<T>>::get(nonce);
+			// T::RewardLeger::deposit(envelope.reward_address.into(), locked.fee.into())?;
 			<LockedFee<T>>::remove(nonce);
 
 			Self::deposit_event(Event::MessageDeliveryProofReceived { nonce });
@@ -381,8 +385,15 @@ pub mod pallet {
 			Messages::<T>::append(Box::new(committed_message.clone()));
 			MessageLeaves::<T>::append(message_abi_encoded_hash);
 
-			<LockedFee<T>>::try_mutate(nonce, |amount| -> DispatchResult {
-				*amount = amount.checked_add(message.fee).ok_or(ArithmeticError::Overflow)?;
+			<LockedFee<T>>::try_mutate(nonce, |maybe_locked| -> DispatchResult {
+				let mut locked = maybe_locked.clone().unwrap_or_else(|| FeeWithBlockNumber {
+					fee: 0,
+					block_number: BlockNumberFor::<T>::zero(),
+				});
+				locked.block_number = frame_system::Pallet::<T>::current_block_number();
+				locked.fee =
+					locked.fee.checked_add(message.fee).ok_or(ArithmeticError::Overflow)?;
+				*maybe_locked = Some(locked);
 				Ok(())
 			})
 			.map_err(|_| Unsupported)?;

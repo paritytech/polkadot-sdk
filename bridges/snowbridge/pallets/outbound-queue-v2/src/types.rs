@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use ethabi::Token;
 use frame_support::{pallet_prelude::ConstU32, traits::ProcessMessage, BoundedVec};
 use scale_info::TypeInfo;
@@ -43,4 +43,13 @@ impl From<CommittedMessage> for Token {
 		let message = header.into_iter().chain(body.into_iter()).collect();
 		Token::Tuple(message)
 	}
+}
+
+/// Fee with block number for easy fetch the pending message on relayer side
+#[derive(Encode, Decode, TypeInfo, Clone, Eq, PartialEq, RuntimeDebug, MaxEncodedLen)]
+pub struct FeeWithBlockNumber<BlockNumber> {
+	/// The address of the outbound queue on Ethereum that emitted this message as an event log
+	pub fee: u128,
+	/// A nonce for enforcing replay protection and ordering.
+	pub block_number: BlockNumber,
 }
