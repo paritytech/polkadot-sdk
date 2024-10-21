@@ -53,7 +53,7 @@ use sp_core::{
 use sp_crypto_hashing::blake2_256;
 use sp_inherents::InherentData;
 use sp_runtime::{
-	generic::{generic, ExtrinsicFormat, Preamble, EXTRINSIC_FORMAT_VERSION},
+	generic::{self, ExtrinsicFormat, Preamble, EXTRINSIC_FORMAT_VERSION},
 	traits::{Block as BlockT, IdentifyAccount, Verify},
 	OpaqueExtrinsic,
 };
