@@ -171,7 +171,7 @@ fn westend_testnet_genesis(
 	const ENDOWMENT: u128 = 1_000_000 * WND;
 	const STASH: u128 = 100 * WND;
 
-	let config = generate_config!(RuntimeGenesisConfig {
+	generate_config!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
 		},
@@ -209,9 +209,7 @@ fn westend_testnet_genesis(
 		sudo: SudoConfig { key: Some(root_key) },
 		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
 		registrar: RegistrarConfig { next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID },
-	});
-
-	serde_json::to_value(config).expect("Could not build genesis config.")
+	})
 }
 
 // staging_testnet
