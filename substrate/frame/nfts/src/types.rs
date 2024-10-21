@@ -46,8 +46,7 @@ pub type ApprovalsOf<T, I = ()> = BoundedBTreeMap<
 pub type ItemAttributesApprovals<T, I = ()> =
 	BoundedBTreeSet<<T as SystemConfig>::AccountId, <T as Config<I>>::ItemAttributesApprovalsLimit>;
 /// A type that holds the deposit for a single item.
-pub type ItemDepositOf<T, I> =
-	ItemDeposit<DepositBalanceOf<T, I>, <T as SystemConfig>::AccountId>;
+pub type ItemDepositOf<T, I> = ItemDeposit<DepositBalanceOf<T, I>, <T as SystemConfig>::AccountId>;
 /// A type that holds the deposit amount for an item's attribute.
 pub type AttributeDepositOf<T, I> =
 	AttributeDeposit<DepositBalanceOf<T, I>, <T as SystemConfig>::AccountId>;
