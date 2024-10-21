@@ -16,5 +16,5 @@ crates:
     bump: major
   - name: westend-runtime
     bump: major
-  - name polkadot
+  - name: polkadot
     bump: none
