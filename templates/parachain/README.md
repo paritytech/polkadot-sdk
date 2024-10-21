@@ -62,7 +62,7 @@ cargo build --workspace --release
 ```
 
 🐳 Alternatively, build the docker image which builds all the workspace members,
-and has as entry point the node binary:
+and has the node binary:
 
 ```sh
 docker build . -t polkadot-sdk-minimal-template
@@ -107,6 +107,47 @@ Development chains:
 * 🧹 Do not persist the state.
 * 💰 Are preconfigured with a genesis state that includes several prefunded development accounts.
 * 🧑‍⚖️ Development accounts are used as validators, collators, and `sudo` accounts.
+
+### Omni-Node based local development
+
+The previous steps can work too when using the Omni-Node (TODO: add link to omni node docs) instead of the regular `parachain-template-node`.
+
+* 󰇚 Omni-node is represented by a binary called `polkadot-parachain`, which can be downloaded from
+[Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
+
+*   Once built, add it to the `PATH` environment variable like so:
+
+
+```sh
+export PATH="<path-to-binaries>:$PATH"
+```
+
+*   The omni-node needs a runtime chainspec to run it, and in minimal case, we need to build the `minimal-runtime`,
+and then generate a chain spec based on it.
+
+
+```sh
+# Build the minimal runtime.
+cargo build -p minimal-template-runtime --release
+# Install chain-spec-builder if not installed already.
+cargo install staging-chain-spec-builder
+# Use chain-spec-builder to generate the chain_spec.json file based on the development preset.
+chain-spec-builder create -r <path/to/minimal-template-runtime.wasm> named-preset development
+```
+
+*  The chain spec needs a few more fields before using it. You can notice below that we're adding
+`relay_chain` and `para_id` fields, which are mandatory for all chain specs.
+
+
+```sh
+jq '. + {"relay_chain": "rococo-local", "para_id": 1000 }' <path/to/chain_spec.json> > tmp.json && mv tmp.json <path/to/chain_spec.json>
+```
+
+* 󰅕 Start omni-node with parachain template runtime based chain spec.
+
+```sh
+polkadot-parachain --chain <path/to/chain_spec.json> --tmp
+```
 
 ### Connect with the Polkadot-JS Apps Front-End
 

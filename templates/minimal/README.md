@@ -91,11 +91,12 @@ will overlap with the block production at a certain height, at which point they 
 each others blocks anymore (stopping from being peers). They will continue to participate in blocks production
 of their own fork and possibly of other nodes too.
 
-### Running minimal runtime with polkadot-parachain 
+### Omni-node based development chain 
 
-Minimal template can run as a single-node chain based on (Omni Node)[../../cumulus/polkadot-omni-node/].
+Minimal template can run as a single-node chain based on (Omni Node)[../../cumulus/polkadot-omni-node/] too.
 
-*   The polkadot-parachain binary can be downloaded from [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
+* 󰇚 Omni-node (TODO: add link to omni-node docs) is represented by a binary called `polkadot-parachain`, which can be downloaded from
+[Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
 
 *   Once built, add it to the `PATH` environment variable like so:
 
@@ -117,10 +118,18 @@ cargo install staging-chain-spec-builder
 chain-spec-builder create -r <path/to/minimal-template-runtime.wasm> named-preset development
 ```
 
+*  The chain spec needs a few more fields before using it. You can notice below that we're adding
+`relay_chain` and `para_id` fields, which are mandatory for all chain specs.
+
+
+```sh
+jq '. + {"relay_chain": "dev", "para_id": 1000 }' <path/to/chain_spec.json> > tmp.json && mv tmp.json <path/to/chain_spec.json>
+```
+
 * 󰅕 Start omni-node with manual seal (3 seconds block times) and minimal template runtime based chain spec.
 
 ```sh
-polkadot-parachain --chain <path/to/chain_spec.json> --dev-block-time 3000 
+polkadot-parachain --chain <path/to/chain_spec.json> --dev-block-time 3000 --tmp
 ```
 
 ### Connect with the Polkadot-JS Apps Front-End
