@@ -1092,7 +1092,7 @@ prometheus = { version = "0.13.0", default-features = false }
 prometheus-endpoint = { path = "substrate/utils/prometheus", default-features = false, package = "substrate-prometheus-endpoint" }
 prometheus-parse = { version = "0.2.2" }
 prost = { version = "0.12.4" }
-prost-build = { version = "0.12.4" }
+prost-build = { version = "0.13.2" }
 pyroscope = { version = "0.5.7" }
 pyroscope_pprofrs = { version = "0.2.7" }
 quick_cache = { version = "0.3" }
@@ -1316,7 +1316,7 @@ test-parachain-halt = { path = "polkadot/parachain/test-parachains/halt" }
 test-parachain-undying = { path = "polkadot/parachain/test-parachains/undying" }
 test-runtime-constants = { path = "polkadot/runtime/test-runtime/constants", default-features = false }
 testnet-parachains-constants = { path = "cumulus/parachains/runtimes/constants", default-features = false }
-thiserror = { version = "1.0.48" }
+thiserror = { version = "1.0.64" }
 thousands = { version = "0.2.0" }
 threadpool = { version = "1.7" }
 tikv-jemalloc-ctl = { version = "0.5.0" }
