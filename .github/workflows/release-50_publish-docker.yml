@@ -194,14 +194,12 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          release="${{ needs.validate-inputs.outputs.stable_tag }}" && \
-          echo "release=${release}" >> $GITHUB_OUTPUT
+          echo "release=${{ needs.validate-inputs.outputs.stable_tag }}" >> $GITHUB_OUTPUT
 
           commit=$(git rev-parse --short HEAD) && \
           echo "commit=${commit}" >> $GITHUB_OUTPUT
 
-          tag="${{ needs.validate-inputs.outputs.version }}" && \
-          echo "tag=${tag}" >> $GITHUB_OUTPUT
+          echo "tag=${{ needs.validate-inputs.outputs.version }}" >> $GITHUB_OUTPUT
 
       - name: Fetch release tags
         working-directory: release-artifacts
