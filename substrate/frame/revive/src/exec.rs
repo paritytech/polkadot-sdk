@@ -269,7 +269,7 @@ pub trait Ext: sealing::Sealed {
 	fn caller(&self) -> Origin<Self::T>;
 
 	/// Return the origin of the whole call stack.
-	fn origin(&self) -> Origin<Self::T>;
+	fn origin(&self) -> &Origin<Self::T>;
 
 	/// Check if a contract lives at the specified `address`.
 	fn is_contract(&self, address: &H160) -> bool;
@@ -1122,8 +1122,9 @@ where
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let output = do_transaction();
 				match &output {
-					Ok(result) if !result.did_revert() =>
-						TransactionOutcome::Commit(Ok((true, output))),
+					Ok(result) if !result.did_revert() => {
+						TransactionOutcome::Commit(Ok((true, output)))
+					},
 					_ => TransactionOutcome::Rollback(Ok((false, output))),
 				}
 			});
@@ -1535,8 +1536,8 @@ where
 		}
 	}
 
-	fn origin(&self) -> Origin<T> {
-		self.origin.clone()
+	fn origin(&self) -> &Origin<T> {
+		&self.origin
 	}
 
 	fn is_contract(&self, address: &H160) -> bool {

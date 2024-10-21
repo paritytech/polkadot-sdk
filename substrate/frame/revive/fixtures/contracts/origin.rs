@@ -16,26 +16,47 @@
 // limitations under the License.
 
 //! Tests that the `origin` syscall works.
+//! The fixture returns the observed origin if the caller is not the origin,
+//! otherwise call itself recursively and assert the returned origin to match.
 
 #![no_std]
 #![no_main]
 
-use common::input;
+extern crate common;
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {
-	call()
-}
+pub extern "C" fn deploy() {}
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(expected: &[u8; 20],);
+	let mut caller = [0; 20];
+	api::caller(&mut caller);
 
-	let mut received = [0; 20];
-	api::origin(&mut received);
+	let mut origin = [0; 20];
+	api::origin(&mut origin);
 
-	assert_eq!(expected, &received);
+	if caller != origin {
+		api::return_value(Default::default(), &origin);
+	}
+
+	let mut addr = [0u8; 20];
+	api::address(&mut addr);
+
+	let mut buf = [0u8; 20];
+	api::call(
+		uapi::CallFlags::ALLOW_REENTRY,
+		&addr,
+		0u64,
+		0u64,
+		None,
+		&[0; 32],
+		&[],
+		Some(&mut &mut buf[..]),
+	)
+	.unwrap();
+
+	assert_eq!(buf, origin);
 }

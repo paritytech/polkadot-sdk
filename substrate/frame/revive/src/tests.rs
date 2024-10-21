@@ -158,8 +158,8 @@ pub mod test_utils {
 		let code_info_len = CodeInfo::<Test>::max_encoded_len() as u64;
 		// Calculate deposit to be reserved.
 		// We add 2 storage items: one for code, other for code_info
-		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len) +
-			DepositPerItem::get().saturating_mul(2)
+		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len)
+			+ DepositPerItem::get().saturating_mul(2)
 	}
 	pub fn ensure_stored(code_hash: sp_core::H256) -> usize {
 		// Assert that code_info is stored
@@ -4450,10 +4450,12 @@ mod run_tests {
 		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-			// Create fixture: Constructor tests the origin to be equal the input data
-			builder::bare_instantiate(Code::Upload(code))
-				.data(ALICE_ADDR.0.to_vec())
-				.build_and_unwrap_contract();
+			// Create fixture: Constructor does nothing
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Call the contract: Asserts the input to equal the immutable data
+			assert_ok!(builder::call(addr).build());
 		});
 	}
 }
