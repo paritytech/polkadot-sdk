@@ -22,7 +22,7 @@ use alloc::vec::Vec;
 use rlp::{Decodable, Encodable};
 
 impl TransactionLegacyUnsigned {
-	/// Get a rlp encoded bytes of a signed transaction with a dummy 65 bytes signature.
+	/// Get the rlp encoded bytes of a signed transaction with a dummy 65 bytes signature.
 	pub fn dummy_signed_payload(&self) -> Vec<u8> {
 		let mut s = rlp::RlpStream::new();
 		s.append(self);
