@@ -127,13 +127,6 @@ fn test_set_asset_claimer_between_the_chains() {
 	let balance = <BridgeHubWestend as Chain>::account_data_of(alice_bh_acc.clone()).free;
 	assert_eq!(balance, 0);
 
-	let alice_bh_sibling = Location::new(
-		1,
-		[
-			Parachain(AssetHubWestend::para_id().into()),
-			Junction::AccountId32 { network: Some(Westend), id: alice.clone().into() },
-		],
-	);
 	let pay_fees = 6_000_000_000_000u128;
 	let xcm_on_bh = Xcm::<()>::builder_unsafe()
 		.claim_asset(assets.clone(), Here)
@@ -149,7 +142,7 @@ fn test_set_asset_claimer_between_the_chains() {
 		));
 	});
 
-	let al_bh_acc = LocationToAccountId::convert_location(&alice_bh_sibling).unwrap();
-	let balance = <BridgeHubWestend as Chain>::account_data_of(al_bh_acc).free;
+	let alice_bh_acc = LocationToAccountId::convert_location(&alice_bh_sibling).unwrap();
+	let balance = <BridgeHubWestend as Chain>::account_data_of(alice_bh_acc).free;
 	assert_eq!(balance, trap_amount - pay_fees);
 }
