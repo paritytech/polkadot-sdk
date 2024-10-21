@@ -42,6 +42,7 @@ sp-storage = { workspace = true }
 sp-version = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-block-builder = { workspace = true }
+sp-keyring = { workspace = true }
 
 pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
@@ -255,6 +256,7 @@ runtime-benchmarks = [
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-tips/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
