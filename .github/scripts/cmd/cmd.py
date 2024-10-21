@@ -340,6 +340,8 @@ def main():
                 header_path = os.path.abspath(config['header'])
                 template = None
 
+                chain = runtime['name'] if runtime == 'dev' else f"{config['name']}-dev"
+
                 print(f'-- config: {config}')
                 if runtime == 'dev':
                     # to support sub-modules (https://github.com/paritytech/command-bot/issues/275)
@@ -367,7 +369,7 @@ def main():
                 print(f'-- benchmarking {pallet} in {runtime} into {output_path}')
                 cmd = f"target/{profile}/{config['old_bin']} benchmark pallet " \
                     f"--extrinsic=* " \
-                    f"--chain={config['name']} " \
+                    f"--chain={chain} " \
                     f"--pallet={pallet} " \
                     f"--header={header_path} " \
                     f"--output={output_path} " \
