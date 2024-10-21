@@ -691,3 +691,24 @@ fn send_token_from_ethereum_to_non_existent_account_on_asset_hub_with_sufficient
 		);
 	});
 }
+
+#[test]
+fn claim_rewards(
+) {
+	BridgeHubRococo::execute_with(|| {
+		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
+
+		let relayer = BridgeHubRococoSender;
+		type EthereumRewards =
+		<BridgeHubRococo as BridgeHubRococoPallet>::EthereumRewards;
+		assert_ok!(EthereumRewards::deposit(relayer, 1 * ETH));
+
+		// Check that the message was sent
+		assert_expected_events!(
+			BridgeHubRococo,
+			vec![
+				RuntimeEvent::EthereumRewards(snowbridge_pallet_rewards::Event::RewardDeposited { .. }) => {},
+			]
+		);
+	});
+}

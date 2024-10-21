@@ -193,6 +193,22 @@ impl snowbridge_pallet_system::Config for Runtime {
 	type EthereumLocation = EthereumLocation;
 }
 
+parameter_types! {
+	pub WethAddress: H160 = H160(hex_literal::hex!("0xfff9976782d46cc05630d1f6ebab18b2324d6b14"));
+}
+
+impl snowbridge_pallet_rewards::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type AssetHubParaId = ConstU32<ASSET_HUB_ID>;
+	type EthereumNetwork = EthereumNetwork;
+	type WethAddress = WethAddress;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type XcmSender = XcmRouter;
+	#[cfg(feature = "runtime-benchmarks")]
+	type XcmSender = DoNothingRouter;
+	type WeightInfo = (); // TODO generate weights
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
 	use crate::{EthereumBeaconClient, Runtime, RuntimeOrigin};
