@@ -20,6 +20,7 @@ use codec::{Decode, Encode};
 use frame_support::pallet_prelude::TypeInfo;
 use xcm::{VersionedAsset, VersionedLocation};
 
+/// Result of [`TrustedQueryApi`] functions.
 pub type XcmTrustedQueryResult = Result<bool, Error>;
 
 sp_api::decl_runtime_apis! {
