@@ -89,11 +89,11 @@ bench_example = '''**Examples**:
 parser_bench_old = subparsers.add_parser('bench-old', help='Runs benchmarks (Old CLI)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
 
 for arg, config in common_args.items():
-    parser_bench.add_argument(arg, **config)
+    parser_bench_old.add_argument(arg, **config)
 
-parser_bench.add_argument('--runtime', help='Runtime(s) space separated', choices=runtimeNames, nargs='*', default=runtimeNames)
-parser_bench.add_argument('--pallet', help='Pallet(s) space separated', nargs='*', default=[])
-parser_bench.add_argument('--fail-fast', help='Fail fast on first failed benchmark', action='store_true')
+parser_bench_old.add_argument('--runtime', help='Runtime(s) space separated', choices=runtimeNames, nargs='*', default=runtimeNames)
+parser_bench_old.add_argument('--pallet', help='Pallet(s) space separated', nargs='*', default=[])
+parser_bench_old.add_argument('--fail-fast', help='Fail fast on first failed benchmark', action='store_true')
 
 
 """
