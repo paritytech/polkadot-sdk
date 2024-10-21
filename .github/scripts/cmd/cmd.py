@@ -67,6 +67,35 @@ parser_bench.add_argument('--runtime', help='Runtime(s) space separated', choice
 parser_bench.add_argument('--pallet', help='Pallet(s) space separated', nargs='*', default=[])
 parser_bench.add_argument('--fail-fast', help='Fail fast on first failed benchmark', action='store_true')
 
+
+"""
+BENCH OLD
+"""
+
+bench_example = '''**Examples**:
+ Runs all benchmarks 
+ %(prog)s
+
+ Runs benchmarks for pallet_balances and pallet_multisig for all runtimes which have these pallets. **--quiet** makes it to output nothing to PR but reactions
+ %(prog)s --pallet pallet_balances pallet_xcm_benchmarks::generic --quiet
+ 
+ Runs bench for all pallets for westend runtime and fails fast on first failed benchmark
+ %(prog)s --runtime westend --fail-fast
+ 
+ Does not output anything and cleans up the previous bot's & author command triggering comments in PR 
+ %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
+'''
+
+parser_bench_old = subparsers.add_parser('bench-old', help='Runs benchmarks (Old CLI)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
+
+for arg, config in common_args.items():
+    parser_bench.add_argument(arg, **config)
+
+parser_bench.add_argument('--runtime', help='Runtime(s) space separated', choices=runtimeNames, nargs='*', default=runtimeNames)
+parser_bench.add_argument('--pallet', help='Pallet(s) space separated', nargs='*', default=[])
+parser_bench.add_argument('--fail-fast', help='Fail fast on first failed benchmark', action='store_true')
+
+
 """
 FMT
 """
