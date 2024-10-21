@@ -257,7 +257,7 @@ pub mod dynamic_params {
 	use super::*;
 
 	/// Parameters used to calculate era payouts, see
-	/// [`polkadot_runtime_common::impls::EraPayoutParams`].
+	/// [`polkadot_runtime_common::impls::EraPayoutParams`] and [`crate::EraPayout`].
 	#[dynamic_pallet_params]
 	#[codec(index = 0)]
 	pub mod inflation {
@@ -281,6 +281,11 @@ pub mod dynamic_params {
 		/// the `legacy_auction_proportion` of 60% will be used in the calculation of era payouts.
 		#[codec(index = 4)]
 		pub static UseAuctionSlots: bool = false;
+
+		/// Minimum percentage of the total era inflation that is sent to the treasury. 15% as per
+		/// Polkadot ref 1139.
+		#[codec(index = 5)]
+		pub static MinTreasuryEraInflation: FixedU128 = FixedU128::from_rational(15, 100);
 	}
 }
 
@@ -687,6 +692,8 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 		_total_issuance: Balance,
 		era_duration_millis: u64,
 	) -> (Balance, Balance) {
+		use crate::dynamic_params::inflation::MinTreasuryEraInflation;
+
 		const MILLISECONDS_PER_YEAR: u64 = (1000 * 3600 * 24 * 36525) / 100;
 		// A normal-sized era will have 1 / 365.25 here:
 		let relative_era_len =
@@ -699,7 +706,7 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 
 		let era_emission = relative_era_len.saturating_mul_int(yearly_emission);
 		// 15% to treasury, as per Polkadot ref 1139.
-		let to_treasury = FixedU128::from_rational(15, 100).saturating_mul_int(era_emission);
+		let to_treasury = MinTreasuryEraInflation::get().saturating_mul_int(era_emission);
 		let to_stakers = era_emission.saturating_sub(to_treasury);
 
 		(to_stakers.saturated_into(), to_treasury.saturated_into())
