@@ -53,7 +53,7 @@ pub fn create_funded_user<T: Config>(
 	balance_factor: u32,
 ) -> T::AccountId {
 	let user = account(string, n, SEED);
-	let balance = asset::existential_deposit::<T>() * balance_factor.into();
+	let balance = asset::existential_deposit::<T>().max(1u32.into()) * balance_factor.into();
 	let _ = asset::set_stakeable_balance::<T>(&user, balance);
 	user
 }
