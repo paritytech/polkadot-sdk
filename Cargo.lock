@@ -15586,7 +15586,6 @@ dependencies = [
  "pallet-xcm",
  "parachain-template-runtime",
  "parity-scale-codec",
- "polkadot-omni-node",
  "polkadot-omni-node-lib",
  "polkadot-sdk",
  "polkadot-sdk-docs-first-pallet",

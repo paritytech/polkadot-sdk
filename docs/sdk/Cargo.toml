@@ -72,8 +72,7 @@ cumulus-primitives-proof-size-hostfunction = { workspace = true, default-feature
 cumulus-client-service = { workspace = true, default-features = true }
 cumulus-primitives-storage-weight-reclaim = { workspace = true, default-features = true }
 
-# Omni Nodes
-polkadot-omni-node = { workspace = true, default-features = true }
+# Omni Node
 polkadot-omni-node-lib = { workspace = true, default-features = true }
 
 # Pallets and FRAME internals
