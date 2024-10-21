@@ -213,7 +213,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Parameters
 	///
-	/// - `output`: A reference to the output data buffer to write the caller address.
+	/// - `output`: A reference to the output data buffer to write the origin's address.
 	fn origin(output: &mut [u8; 20]);
 
 	/// Checks whether the caller of the current contract is the origin of the whole call stack.

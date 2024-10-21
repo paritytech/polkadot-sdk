@@ -1401,11 +1401,11 @@ pub mod env {
 	#[api_version(0)]
 	fn origin(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::Origin)?;
-		let caller = <E::T as Config>::AddressMapper::to_address(self.ext.origin().account_id()?);
+		let origin = <E::T as Config>::AddressMapper::to_address(self.ext.origin().account_id()?);
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			caller.as_bytes(),
+			origin.as_bytes(),
 			false,
 			already_charged,
 		)?)
