@@ -979,7 +979,7 @@ pub mod pallet {
 			})
 		}
 
-		/// Register the callers account id so to so that it can be used in contract interactions.
+		/// Register the callers account id so that it can be used in contract interactions.
 		///
 		/// This will error if the origin is already mapped or is a eth native `Address20`. It will
 		/// take a deposit that can be released by calling [`Self::unmap_account`].
