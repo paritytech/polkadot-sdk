@@ -57,8 +57,6 @@ polkadot-sdk = { features = [
 	"generate-bags",
 	"mmr-gadget",
 	"mmr-rpc",
-	"pallet-contracts-mock-network",
-	"pallet-revive-mock-network",
 	"pallet-transaction-payment-rpc",
 	"sc-allocator",
 	"sc-authority-discovery",
