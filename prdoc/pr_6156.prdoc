@@ -2,25 +2,8 @@ title: "Use bool::then instead of then_some with function calls"
 doc:
 - audience: Node Dev
   description: |-
-    I noticed that hardware benchmarks are being run even though we pass the --no-hardware-benchmarks cli flag. After some debugging, the cause is an incorrect usage of the `then_some` method.
+    Fix misusage of `bool::then_some`.
 
-    From [std docs](https://doc.rust-lang.org/std/primitive.bool.html#method.then_some):
-
-    > Arguments passed to then_some are eagerly evaluated; if you are passing the result of a function call, it is recommended to use [then](https://doc.rust-lang.org/std/primitive.bool.html#method.then), which is lazily evaluated.
-
-    ```rust
-    let mut a = 0;
-    let mut function_with_side_effects = || { a += 1; };
-
-    true.then_some(function_with_side_effects());
-    false.then_some(function_with_side_effects());
-
-    // `a` is incremented twice because the value passed to `then_some` is
-    // evaluated eagerly.
-    assert_eq!(a, 2);
-    ```
-
-    This PR fixes all the similar usages of the `then_some` method across the codebase.
 crates:
 - name: polkadot-omni-node-lib
   bump: patch
