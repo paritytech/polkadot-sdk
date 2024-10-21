@@ -56,8 +56,6 @@ mod benchmarks {
 		let (mut signatories, _) = setup_multi::<T>(max_signatories, z)?;
 		let call: <T as Config>::RuntimeCall =
 			frame_system::Call::<T>::remark { remark: vec![0; z as usize] }.into();
-		let call_hash = call.using_encoded(blake2_256);
-		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, 1);
 		let caller = signatories.pop().ok_or("signatories should have len 2 or more")?;
 		// Whitelist caller account from further DB operations.
 		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
