@@ -39,6 +39,7 @@ use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed}
 use sp_consensus::BlockOrigin;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
+	generic,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	AccountId32, MultiAddress, OpaqueExtrinsic,
 };
@@ -120,7 +121,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 }
 
 fn extrinsic_set_time(now: u64) -> OpaqueExtrinsic {
-	kitchensink_runtime::UncheckedExtrinsic::new_bare(kitchensink_runtime::RuntimeCall::Timestamp(
+	generic::UncheckedExtrinsic::new_bare(kitchensink_runtime::RuntimeCall::Timestamp(
 		pallet_timestamp::Call::set { now },
 	))
 	.into()

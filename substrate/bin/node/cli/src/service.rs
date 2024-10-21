@@ -867,7 +867,7 @@ mod tests {
 	use codec::Encode;
 	use kitchensink_runtime::{
 		constants::{currency::CENTS, time::SLOT_DURATION},
-		Address, BalancesCall, RuntimeCall, TxExtension, UncheckedExtrinsic,
+		Address, BalancesCall, RuntimeCall, TxExtension,
 	};
 	use node_primitives::{Block, DigestItem, Signature};
 	use polkadot_sdk::{sc_transaction_pool_api::MaintainedTransactionPool, *};
@@ -1100,13 +1100,16 @@ mod tests {
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
 				let (function, tx_ext, _) = raw_payload.deconstruct();
 				index += 1;
-				generic::UncheckedExtrinsic::new_signed(
-					function,
-					from.into(),
-					signature.into(),
-					tx_ext,
-				)
-				.into()
+				let utx: kitchensink_runtime::UncheckedExtrinsic =
+					generic::UncheckedExtrinsic::new_signed(
+						function,
+						from.into(),
+						signature.into(),
+						tx_ext,
+					)
+					.into();
+
+				utx.into()
 			},
 		);
 	}

@@ -23,6 +23,7 @@ use sp_application_crypto::AppCrypto;
 use sp_core::offchain::{testing::TestTransactionPoolExt, TransactionPoolExt};
 use sp_keyring::sr25519::Keyring::Alice;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
+use sp_runtime::generic;
 
 pub mod common;
 use self::common::*;
@@ -44,7 +45,7 @@ fn should_submit_unsigned_transaction() {
 		};
 
 		let call = pallet_im_online::Call::heartbeat { heartbeat: heartbeat_data, signature };
-		let xt = UncheckedExtrinsic::new_bare(call.into());
+		let xt = generic::UncheckedExtrinsic::new_bare(call.into()).into();
 		SubmitTransaction::<Runtime, pallet_im_online::Call<Runtime>>::submit_transaction(xt)
 			.unwrap();
 
