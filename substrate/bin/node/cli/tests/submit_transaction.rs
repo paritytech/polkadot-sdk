@@ -44,10 +44,9 @@ fn should_submit_unsigned_transaction() {
 		};
 
 		let call = pallet_im_online::Call::heartbeat { heartbeat: heartbeat_data, signature };
-		SubmitTransaction::<Runtime, pallet_im_online::Call<Runtime>>::submit_unsigned_transaction(
-			call.into(),
-		)
-		.unwrap();
+		let xt = UncheckedExtrinsic::new_bare(call.into());
+		SubmitTransaction::<Runtime, pallet_im_online::Call<Runtime>>::submit_transaction(xt)
+			.unwrap();
 
 		assert_eq!(state.read().transactions.len(), 1)
 	});
@@ -131,7 +130,7 @@ fn should_submit_signed_twice_from_the_same_account() {
 		// now check that the transaction nonces are not equal
 		let s = state.read();
 		fn nonce(tx: UncheckedExtrinsic) -> frame_system::CheckNonce<Runtime> {
-			let extra = tx.signature.unwrap().2;
+			let extra = tx.preamble.to_signed().unwrap().2;
 			extra.5
 		}
 		let nonce1 = nonce(UncheckedExtrinsic::decode(&mut &*s.transactions[0]).unwrap());
@@ -180,7 +179,7 @@ fn should_submit_signed_twice_from_all_accounts() {
 		// now check that the transaction nonces are not equal
 		let s = state.read();
 		fn nonce(tx: UncheckedExtrinsic) -> frame_system::CheckNonce<Runtime> {
-			let extra = tx.signature.unwrap().2;
+			let extra = tx.preamble.to_signed().unwrap().2;
 			extra.5
 		}
 		let nonce1 = nonce(UncheckedExtrinsic::decode(&mut &*s.transactions[0]).unwrap());
@@ -237,7 +236,7 @@ fn submitted_transaction_should_be_valid() {
 		let source = TransactionSource::External;
 		let extrinsic = UncheckedExtrinsic::decode(&mut &*tx0).unwrap();
 		// add balance to the account
-		let author = extrinsic.signature.clone().unwrap().0;
+		let author = extrinsic.preamble.clone().to_signed().clone().unwrap().0;
 		let address = Indices::lookup(author).unwrap();
 		let data = pallet_balances::AccountData { free: 5_000_000_000_000, ..Default::default() };
 		let account = frame_system::AccountInfo { providers: 1, data, ..Default::default() };
