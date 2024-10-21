@@ -2630,13 +2630,13 @@ pub type TxExtension = (
 );
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct EthSignedExtra;
+pub struct EthExtraImpl;
 
-impl EthExtra for EthSignedExtra {
+impl EthExtra for EthExtraImpl {
 	type Config = Runtime;
-	type Extra = TxExtension;
+	type Extension = TxExtension;
 
-	fn get_eth_transact_extra(nonce: u32, tip: Balance) -> Self::Extra {
+	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::Extension {
 		(
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
@@ -2654,11 +2654,10 @@ impl EthExtra for EthSignedExtra {
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	pallet_revive::evm::runtime::UncheckedExtrinsic<Address, Signature, EthSignedExtra>;
+	pallet_revive::evm::runtime::UncheckedExtrinsic<Address, Signature, EthExtraImpl>;
 /// Unchecked signature payload type as expected by this runtime.
 pub type UncheckedSignaturePayload =
 	generic::UncheckedSignaturePayload<Address, Signature, TxExtension>;
-
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
 /// Extrinsic type that has already been checked.

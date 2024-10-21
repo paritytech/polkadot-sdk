@@ -55,15 +55,15 @@ pub const GAS_PRICE: u32 = 1_000u32;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(E))]
 pub struct UncheckedExtrinsic<Address, Signature, E: EthExtra>(
-	pub generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extra>,
+	pub generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>,
 );
 
 impl<Address, Signature, E: EthExtra>
-	From<generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extra>>
+	From<generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>>
 	for UncheckedExtrinsic<Address, Signature, E>
 {
 	fn from(
-		utx: generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extra>,
+		utx: generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>,
 	) -> Self {
 		Self(utx)
 	}
@@ -81,8 +81,8 @@ impl<Address, Signature, E: EthExtra> ExtrinsicMetadata
 	for UncheckedExtrinsic<Address, Signature, E>
 {
 	const VERSION: u8 =
-		generic::UncheckedExtrinsic::<Address, CallOf<E::Config>, Signature, E::Extra>::VERSION;
-	type TransactionExtensions = E::Extra;
+		generic::UncheckedExtrinsic::<Address, CallOf<E::Config>, Signature, E::Extension>::VERSION;
+	type TransactionExtensions = E::Extension;
 }
 
 impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
@@ -115,10 +115,10 @@ where
 	CallOf<E::Config>: Encode + Member + Dispatchable,
 	Signature: Member + traits::Verify,
 	<Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountIdOf<E::Config>>,
-	E::Extra: Encode + TransactionExtension<CallOf<E::Config>>,
+	E::Extension: Encode + TransactionExtension<CallOf<E::Config>>,
 	Lookup: traits::Lookup<Source = LookupSource, Target = AccountIdOf<E::Config>>,
 {
-	type Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extra>;
+	type Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>;
 
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		if !self.0.is_signed() {
@@ -187,17 +187,17 @@ where
 	Address: TypeInfo,
 	CallOf<E::Config>: TypeInfo,
 	Signature: TypeInfo,
-	E::Extra: TypeInfo,
+	E::Extension: TypeInfo,
 {
 	type Address = Address;
 	type Signature = Signature;
-	type Extension = E::Extra;
+	type Extension = E::Extension;
 
 	fn new_signed_transaction(
 		call: Self::Call,
 		signed: Address,
 		signature: Signature,
-		tx_ext: E::Extra,
+		tx_ext: E::Extension,
 	) -> Self {
 		generic::UncheckedExtrinsic::new_signed(call, signed, signature, tx_ext).into()
 	}
@@ -208,7 +208,7 @@ where
 	Address: TypeInfo,
 	CallOf<E::Config>: TypeInfo,
 	Signature: TypeInfo,
-	E::Extra: TypeInfo,
+	E::Extension: TypeInfo,
 {
 	fn new_inherent(call: Self::Call) -> Self {
 		generic::UncheckedExtrinsic::new_bare(call).into()
@@ -236,21 +236,22 @@ pub trait EthExtra {
 	/// The Runtime configuration.
 	type Config: crate::Config + pallet_transaction_payment::Config;
 
-	/// The Runtime's signed extension.
+	/// The Runtime's transaction extension.
 	/// It should include at least:
 	/// - [`frame_system::CheckNonce`] to ensure that the nonce from the Ethereum transaction is
 	///   correct.
-	type Extra: TransactionExtension<CallOf<Self::Config>>;
+	type Extension: TransactionExtension<CallOf<Self::Config>>;
 
-	/// Get the signed extensions to apply to an unsigned [`crate::Call::eth_transact`] extrinsic.
+	/// Get the transaction extension to apply to an unsigned [`crate::Call::eth_transact`]
+	/// extrinsic.
 	///
 	/// # Parameters
 	/// - `nonce`: The nonce extracted from the Ethereum transaction.
 	/// - `tip`: The transaction tip calculated from the Ethereum transaction.
-	fn get_eth_transact_extra(
+	fn get_eth_extension(
 		nonce: <Self::Config as frame_system::Config>::Nonce,
 		tip: BalanceOf<Self::Config>,
-	) -> Self::Extra;
+	) -> Self::Extension;
 
 	/// Convert the unsigned [`crate::Call::eth_transact`] into a [`CheckedExtrinsic`].
 	/// and ensure that the fees from the Ethereum transaction correspond to the fees computed from
@@ -267,7 +268,7 @@ pub trait EthExtra {
 		storage_deposit_limit: BalanceOf<Self::Config>,
 		encoded_len: usize,
 	) -> Result<
-		CheckedExtrinsic<AccountIdOf<Self::Config>, CallOf<Self::Config>, Self::Extra>,
+		CheckedExtrinsic<AccountIdOf<Self::Config>, CallOf<Self::Config>, Self::Extension>,
 		InvalidTransaction,
 	>
 	where
@@ -380,10 +381,7 @@ pub trait EthExtra {
 		let tip = eth_fee.saturating_sub(eth_fee_no_tip);
 		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce {nonce:?} and tip: {tip:?}");
 		Ok(CheckedExtrinsic {
-			format: ExtrinsicFormat::Signed(
-				signer.into(),
-				Self::get_eth_transact_extra(nonce, tip),
-			),
+			format: ExtrinsicFormat::Signed(signer.into(), Self::get_eth_extension(nonce, tip)),
 			function,
 		})
 	}
@@ -448,9 +446,9 @@ mod test {
 	use pallet_transaction_payment::ChargeTransactionPayment;
 	impl EthExtra for Extra {
 		type Config = Test;
-		type Extra = SignedExtra;
+		type Extension = SignedExtra;
 
-		fn get_eth_transact_extra(nonce: u32, tip: BalanceOf<Test>) -> Self::Extra {
+		fn get_eth_extension(nonce: u32, tip: BalanceOf<Test>) -> Self::Extension {
 			(frame_system::CheckNonce::from(nonce), ChargeTransactionPayment::from(tip))
 		}
 	}
