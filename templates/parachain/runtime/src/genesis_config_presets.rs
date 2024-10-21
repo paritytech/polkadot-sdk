@@ -15,6 +15,8 @@ use sp_keyring::Sr25519Keyring;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
+/// Parachain id used for gensis config presets of parachain template.
+const PARACHAIN_ID: u8 = 1000;
 
 /// Generate the session keys from individual elements.
 ///
@@ -76,7 +78,7 @@ fn local_testnet_genesis() -> Value {
 		],
 		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		Sr25519Keyring::Alice.to_account_id(),
-		1000.into(),
+		PARACHAIN_ID.into(),
 	)
 }
 
@@ -89,7 +91,7 @@ fn development_config_genesis() -> Value {
 		],
 		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		Sr25519Keyring::Alice.to_account_id(),
-		1000.into(),
+		PARACHAIN_ID.into(),
 	)
 }
 
