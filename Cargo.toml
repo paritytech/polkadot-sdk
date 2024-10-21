@@ -349,6 +349,7 @@ members = [
 	"substrate/frame/election-provider-support/solution-type/fuzzer",
 	"substrate/frame/elections-phragmen",
 	"substrate/frame/examples",
+	"substrate/frame/examples/authorization-tx-extension",
 	"substrate/frame/examples/basic",
 	"substrate/frame/examples/default-config",
 	"substrate/frame/examples/dev-mode",
@@ -444,6 +445,7 @@ members = [
 	"substrate/frame/tx-pause",
 	"substrate/frame/uniques",
 	"substrate/frame/utility",
+	"substrate/frame/verify-signature",
 	"substrate/frame/vesting",
 	"substrate/frame/whitelist",
 	"substrate/primitives/api",
@@ -683,6 +685,7 @@ color-print = { version = "0.3.4" }
 colored = { version = "2.0.4" }
 comfy-table = { version = "7.1.0", default-features = false }
 console = { version = "0.15.8" }
+const-hex = { version = "1.10.0", default-features = false }
 contracts-rococo-runtime = { path = "cumulus/parachains/runtimes/contracts/contracts-rococo" }
 coretime-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-rococo" }
 coretime-rococo-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-rococo" }
@@ -806,7 +809,7 @@ hyper-rustls = { version = "0.24.2" }
 hyper-util = { version = "0.1.5", default-features = false }
 # TODO: remove hyper v0.14 https://github.com/paritytech/polkadot-sdk/issues/4896
 hyperv14 = { package = "hyper", version = "0.14.29", default-features = false }
-impl-serde = { version = "0.4.0", default-features = false }
+impl-serde = { version = "0.5.0", default-features = false }
 impl-trait-for-tuples = { version = "0.2.2" }
 indexmap = { version = "2.0.0" }
 indicatif = { version = "0.17.7" }
@@ -917,6 +920,7 @@ pallet-dev-mode = { path = "substrate/frame/examples/dev-mode", default-features
 pallet-election-provider-multi-phase = { path = "substrate/frame/election-provider-multi-phase", default-features = false }
 pallet-election-provider-support-benchmarking = { path = "substrate/frame/election-provider-support/benchmarking", default-features = false }
 pallet-elections-phragmen = { path = "substrate/frame/elections-phragmen", default-features = false }
+pallet-example-authorization-tx-extension = { path = "substrate/frame/examples/authorization-tx-extension", default-features = false }
 pallet-example-basic = { path = "substrate/frame/examples/basic", default-features = false }
 pallet-example-frame-crate = { path = "substrate/frame/examples/frame-crate", default-features = false }
 pallet-example-kitchensink = { path = "substrate/frame/examples/kitchensink", default-features = false }
@@ -993,6 +997,7 @@ pallet-treasury = { path = "substrate/frame/treasury", default-features = false 
 pallet-tx-pause = { default-features = false, path = "substrate/frame/tx-pause" }
 pallet-uniques = { path = "substrate/frame/uniques", default-features = false }
 pallet-utility = { path = "substrate/frame/utility", default-features = false }
+pallet-verify-signature = { path = "substrate/frame/verify-signature", default-features = false }
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false }
 pallet-whitelist = { path = "substrate/frame/whitelist", default-features = false }
 pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false }
@@ -1193,7 +1198,7 @@ separator = { version = "0.4.1" }
 serde = { version = "1.0.210", default-features = false }
 serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }
-serde_json = { version = "1.0.128", default-features = false }
+serde_json = { version = "1.0.132", default-features = false }
 serde_yaml = { version = "0.9" }
 serial_test = { version = "2.0.0" }
 sha1 = { version = "0.10.6" }
@@ -1304,7 +1309,7 @@ substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
 subxt = { version = "0.37", default-features = false }
 subxt-signer = { version = "0.37" }
-syn = { version = "2.0.79" }
+syn = { version = "2.0.82" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }
@@ -1315,7 +1320,7 @@ test-parachain-halt = { path = "polkadot/parachain/test-parachains/halt" }
 test-parachain-undying = { path = "polkadot/parachain/test-parachains/undying" }
 test-runtime-constants = { path = "polkadot/runtime/test-runtime/constants", default-features = false }
 testnet-parachains-constants = { path = "cumulus/parachains/runtimes/constants", default-features = false }
-thiserror = { version = "1.0.48" }
+thiserror = { version = "1.0.64" }
 thousands = { version = "0.2.0" }
 threadpool = { version = "1.7" }
 tikv-jemalloc-ctl = { version = "0.5.0" }

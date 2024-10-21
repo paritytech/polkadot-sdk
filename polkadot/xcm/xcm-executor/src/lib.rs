@@ -861,7 +861,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					"Dispatching with origin",
 				);
 
-				let weight = message_call.get_dispatch_info().weight;
+				let weight = message_call.get_dispatch_info().call_weight;
 
 				if !weight.all_lte(require_weight_at_most) {
 					tracing::trace!(
