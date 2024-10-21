@@ -294,8 +294,7 @@ def main():
                 f"--no-median-slopes " \
                 f"--all " \
                 f"--list " \
-                f"--runtime=target/{profile}/wbuild/{runtime['package']}/{runtime['package'].replace('-', '_')}.wasm " \
-                f"{runtime['bench_flags']}"
+                f"--chain={runtime['name']}"
             ).read()
             raw_pallets = output.strip().split('\n')
 
@@ -367,7 +366,7 @@ def main():
                 print(f'-- benchmarking {pallet} in {runtime} into {output_path}')
                 cmd = f"target/{profile}/{config['old_bin']} benchmark pallet " \
                     f"--extrinsic=* " \
-                    f"--runtime=target/{profile}/wbuild/{config['package']}/{config['package'].replace('-', '_')}.wasm " \
+                    f"--chain={config['name']} " \
                     f"--pallet={pallet} " \
                     f"--header={header_path} " \
                     f"--output={output_path} " \
@@ -376,8 +375,7 @@ def main():
                     f"--repeat=20 " \
                     f"--heap-pages=4096 " \
                     f"{f'--template={template} ' if template else ''}" \
-                    f"--no-storage-info --no-min-squares --no-median-slopes " \
-                    f"{config['bench_flags']}"
+                    f"--no-storage-info --no-min-squares --no-median-slopes "
                 print(f'-- Running: {cmd} \n')
                 status = os.system(cmd)
 
