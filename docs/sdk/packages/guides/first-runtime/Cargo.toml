@@ -13,9 +13,9 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { workspace =  true }
-scale-info = { workspace =  true }
-serde_json = { workspace =  true }
+codec = { workspace = true }
+scale-info = { workspace = true }
+serde_json = { workspace = true }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
 frame = { workspace = true, features = ["experimental", "runtime"] }
@@ -36,7 +36,7 @@ first-pallet = { workspace = true }
 docify = { workspace = true }
 
 [build-dependencies]
-substrate-wasm-builder = { workspace = true , optional = true }
+substrate-wasm-builder = { workspace = true, optional = true }
 
 [features]
 default = ["std"]
