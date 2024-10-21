@@ -34,7 +34,7 @@ fn asset_hub_rococo_genesis(
 	endowment: Balance,
 	id: ParaId,
 ) -> serde_json::Value {
-	generate_config!({
+	generate_config!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
 		},
@@ -55,9 +55,7 @@ fn asset_hub_rococo_genesis(
 				})
 				.collect(),
 		},
-		polkadot_xcm: PolkadotXcmConfig {
-			safe_xcm_version: Some(SAFE_XCM_VERSION),
-		},
+		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
 	})
 }
 
