@@ -20,8 +20,8 @@
 //!
 //! ## Overview
 //!
-//! This pallet provides a `SignedExtension` with an optional `AssetId` that specifies the asset
-//! to be used for payment (defaulting to the native token on `None`). It expects an
+//! This pallet provides a `TransactionExtension` with an optional `AssetId` that specifies the
+//! asset to be used for payment (defaulting to the native token on `None`). It expects an
 //! [`OnChargeAssetTransaction`] implementation analogous to [`pallet-transaction-payment`]. The
 //! included [`SwapAssetAdapter`] (implementing [`OnChargeAssetTransaction`]) determines the
 //! fee amount by converting the fee calculated by [`pallet-transaction-payment`] in the native
@@ -31,7 +31,7 @@
 //!
 //! This pallet does not have any dispatchable calls or storage. It wraps FRAME's Transaction
 //! Payment pallet and functions as a replacement. This means you should include both pallets in
-//! your `construct_runtime` macro, but only include this pallet's [`SignedExtension`]
+//! your `construct_runtime` macro, but only include this pallet's [`TransactionExtension`]
 //! ([`ChargeAssetTxPayment`]).
 //!
 //! ## Terminology
@@ -50,21 +50,29 @@ use frame_support::{
 	traits::IsType,
 	DefaultNoBound,
 };
-use pallet_transaction_payment::OnChargeTransaction;
+use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, Zero},
-	transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
+	traits::{
+		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, RefundWeight,
+		TransactionExtension, ValidateResult, Zero,
+	},
+	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
 
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod weights;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 
 mod payment;
-use frame_support::traits::tokens::AssetId;
+use frame_support::{pallet_prelude::Weight, traits::tokens::AssetId};
 pub use payment::*;
+pub use weights::WeightInfo;
 
 /// Balance type alias for balances of the chain's native asset.
 pub(crate) type BalanceOf<T> = <OnChargeTransactionOf<T> as OnChargeTransaction<T>>::Balance;
@@ -112,10 +120,29 @@ pub mod pallet {
 			Balance = BalanceOf<Self>,
 			AssetId = Self::AssetId,
 		>;
+		/// The weight information of this pallet.
+		type WeightInfo: WeightInfo;
+		#[cfg(feature = "runtime-benchmarks")]
+		/// Benchmark helper
+		type BenchmarkHelper: BenchmarkHelperTrait<
+			Self::AccountId,
+			Self::AssetId,
+			<<Self as Config>::OnChargeAssetTransaction as OnChargeAssetTransaction<Self>>::AssetId,
+		>;
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+
+	#[cfg(feature = "runtime-benchmarks")]
+	/// Helper trait to benchmark the `ChargeAssetTxPayment` transaction extension.
+	pub trait BenchmarkHelperTrait<AccountId, FunAssetIdParameter, AssetIdParameter> {
+		/// Returns the `AssetId` to be used in the liquidity pool by the benchmarking code.
+		fn create_asset_id_parameter(id: u32) -> (FunAssetIdParameter, AssetIdParameter);
+		/// Create a liquidity pool for a given asset and sufficiently endow accounts to benchmark
+		/// the extension.
+		fn setup_balances_and_pool(asset_id: FunAssetIdParameter, account: AccountId);
+	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -168,9 +195,8 @@ where
 		who: &T::AccountId,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
+		fee: BalanceOf<T>,
 	) -> Result<(BalanceOf<T>, InitialPayment<T>), TransactionValidityError> {
-		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
 		debug_assert!(self.tip <= fee, "tip should be included in the computed fee");
 		if fee.is_zero() {
 			Ok((fee, InitialPayment::Nothing))
@@ -189,6 +215,28 @@ where
 				.map(|payment| (fee, InitialPayment::Native(payment)))
 		}
 	}
+
+	/// Fee withdrawal logic dry-run that dispatches to either `OnChargeAssetTransaction` or
+	/// `OnChargeTransaction`.
+	fn can_withdraw_fee(
+		&self,
+		who: &T::AccountId,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		fee: BalanceOf<T>,
+	) -> Result<(), TransactionValidityError> {
+		debug_assert!(self.tip <= fee, "tip should be included in the computed fee");
+		if fee.is_zero() {
+			Ok(())
+		} else if let Some(asset_id) = &self.asset_id {
+			T::OnChargeAssetTransaction::can_withdraw_fee(who, asset_id.clone(), fee.into())
+		} else {
+			<OnChargeTransactionOf<T> as OnChargeTransaction<T>>::can_withdraw_fee(
+				who, call, info, fee, self.tip,
+			)
+			.map_err(|_| -> TransactionValidityError { InvalidTransaction::Payment.into() })
+		}
+	}
 }
 
 impl<T: Config> core::fmt::Debug for ChargeAssetTxPayment<T> {
@@ -202,108 +250,179 @@ impl<T: Config> core::fmt::Debug for ChargeAssetTxPayment<T> {
 	}
 }
 
-impl<T: Config> SignedExtension for ChargeAssetTxPayment<T>
+/// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
+pub enum Val<T: Config> {
+	Charge {
+		tip: BalanceOf<T>,
+		// who paid the fee
+		who: T::AccountId,
+		// transaction fee
+		fee: BalanceOf<T>,
+	},
+	NoCharge,
+}
+
+/// The info passed between the prepare and post-dispatch steps for the `ChargeAssetTxPayment`
+/// extension.
+pub enum Pre<T: Config> {
+	Charge {
+		tip: BalanceOf<T>,
+		// who paid the fee
+		who: T::AccountId,
+		// imbalance resulting from withdrawing the fee
+		initial_payment: InitialPayment<T>,
+		// weight used by the extension
+		weight: Weight,
+	},
+	NoCharge {
+		// weight initially estimated by the extension, to be refunded
+		refund: Weight,
+	},
+}
+
+impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeAssetTxPayment<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-	BalanceOf<T>: Send + Sync,
+	BalanceOf<T>: Send + Sync + From<u64>,
 	T::AssetId: Send + Sync,
+	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {
 	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
-	type AccountId = T::AccountId;
-	type Call = T::RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = (
-		// tip
-		BalanceOf<T>,
-		// who paid the fee
-		Self::AccountId,
-		// imbalance resulting from withdrawing the fee
-		InitialPayment<T>,
-	);
+	type Implicit = ();
+	type Val = Val<T>;
+	type Pre = Pre<T>;
 
-	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
-		Ok(())
+	fn weight(&self, _: &T::RuntimeCall) -> Weight {
+		if self.asset_id.is_some() {
+			<T as Config>::WeightInfo::charge_asset_tx_payment_asset()
+		} else {
+			<T as Config>::WeightInfo::charge_asset_tx_payment_native()
+		}
 	}
 
 	fn validate(
 		&self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
+		origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-	) -> TransactionValidity {
-		use pallet_transaction_payment::ChargeTransactionPayment;
-		let (fee, _) = self.withdraw_fee(who, call, info, len)?;
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+	) -> ValidateResult<Self::Val, T::RuntimeCall> {
+		let Some(who) = origin.as_system_origin_signer() else {
+			return Ok((ValidTransaction::default(), Val::NoCharge, origin))
+		};
+		// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
+		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
+		self.can_withdraw_fee(&who, call, info, fee)?;
 		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
-		Ok(ValidTransaction { priority, ..Default::default() })
+		let validity = ValidTransaction { priority, ..Default::default() };
+		let val = Val::Charge { tip: self.tip, who: who.clone(), fee };
+		Ok((validity, val, origin))
 	}
 
-	fn pre_dispatch(
+	fn prepare(
 		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
+		val: Self::Val,
+		_origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let (_fee, initial_payment) = self.withdraw_fee(who, call, info, len)?;
-		Ok((self.tip, who.clone(), initial_payment))
+		match val {
+			Val::Charge { tip, who, fee } => {
+				// Mutating call of `withdraw_fee` to actually charge for the transaction.
+				let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, fee)?;
+				Ok(Pre::Charge { tip, who, initial_payment, weight: self.weight(call) })
+			},
+			Val::NoCharge => Ok(Pre::NoCharge { refund: self.weight(call) }),
+		}
 	}
 
-	fn post_dispatch(
-		pre: Option<Self::Pre>,
-		info: &DispatchInfoOf<Self::Call>,
-		post_info: &PostDispatchInfoOf<Self::Call>,
+	fn post_dispatch_details(
+		pre: Self::Pre,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		_result: &DispatchResult,
-	) -> Result<(), TransactionValidityError> {
-		if let Some((tip, who, initial_payment)) = pre {
-			match initial_payment {
-				InitialPayment::Native(already_withdrawn) => {
-					let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
-						len as u32, info, post_info, tip,
-					);
-					T::OnChargeTransaction::correct_and_deposit_fee(
-						&who,
-						info,
-						post_info,
-						actual_fee,
-						tip,
-						already_withdrawn,
-					)?;
-					pallet_transaction_payment::Pallet::<T>::deposit_fee_paid_event(
-						who, actual_fee, tip,
-					);
-				},
-				InitialPayment::Asset((asset_id, already_withdrawn)) => {
-					let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
-						len as u32, info, post_info, tip,
-					);
-					let converted_fee = T::OnChargeAssetTransaction::correct_and_deposit_fee(
-						&who,
-						info,
-						post_info,
-						actual_fee,
-						tip,
-						asset_id.clone(),
-						already_withdrawn,
-					)?;
-					Pallet::<T>::deposit_event(Event::<T>::AssetTxFeePaid {
-						who,
-						actual_fee: converted_fee,
-						tip,
-						asset_id,
-					});
-				},
-				InitialPayment::Nothing => {
-					// `actual_fee` should be zero here for any signed extrinsic. It would be
-					// non-zero here in case of unsigned extrinsics as they don't pay fees but
-					// `compute_actual_fee` is not aware of them. In both cases it's fine to just
-					// move ahead without adjusting the fee, though, so we do nothing.
-					debug_assert!(tip.is_zero(), "tip should be zero if initial fee was zero.");
-				},
-			}
-		}
+	) -> Result<Weight, TransactionValidityError> {
+		let (tip, who, initial_payment, extension_weight) = match pre {
+			Pre::Charge { tip, who, initial_payment, weight } =>
+				(tip, who, initial_payment, weight),
+			Pre::NoCharge { refund } => {
+				// No-op: Refund everything
+				return Ok(refund)
+			},
+		};
 
-		Ok(())
+		match initial_payment {
+			InitialPayment::Native(already_withdrawn) => {
+				// Take into account the weight used by this extension before calculating the
+				// refund.
+				let actual_ext_weight = <T as Config>::WeightInfo::charge_asset_tx_payment_native();
+				let unspent_weight = extension_weight.saturating_sub(actual_ext_weight);
+				let mut actual_post_info = *post_info;
+				actual_post_info.refund(unspent_weight);
+				let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
+					len as u32,
+					info,
+					&actual_post_info,
+					tip,
+				);
+				T::OnChargeTransaction::correct_and_deposit_fee(
+					&who,
+					info,
+					&actual_post_info,
+					actual_fee,
+					tip,
+					already_withdrawn,
+				)?;
+				pallet_transaction_payment::Pallet::<T>::deposit_fee_paid_event(
+					who, actual_fee, tip,
+				);
+				Ok(unspent_weight)
+			},
+			InitialPayment::Asset((asset_id, already_withdrawn)) => {
+				// Take into account the weight used by this extension before calculating the
+				// refund.
+				let actual_ext_weight = <T as Config>::WeightInfo::charge_asset_tx_payment_asset();
+				let unspent_weight = extension_weight.saturating_sub(actual_ext_weight);
+				let mut actual_post_info = *post_info;
+				actual_post_info.refund(unspent_weight);
+				let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
+					len as u32,
+					info,
+					&actual_post_info,
+					tip,
+				);
+				let converted_fee = T::OnChargeAssetTransaction::correct_and_deposit_fee(
+					&who,
+					info,
+					&actual_post_info,
+					actual_fee,
+					tip,
+					asset_id.clone(),
+					already_withdrawn,
+				)?;
+
+				Pallet::<T>::deposit_event(Event::<T>::AssetTxFeePaid {
+					who,
+					actual_fee: converted_fee,
+					tip,
+					asset_id,
+				});
+
+				Ok(unspent_weight)
+			},
+			InitialPayment::Nothing => {
+				// `actual_fee` should be zero here for any signed extrinsic. It would be
+				// non-zero here in case of unsigned extrinsics as they don't pay fees but
+				// `compute_actual_fee` is not aware of them. In both cases it's fine to just
+				// move ahead without adjusting the fee, though, so we do nothing.
+				debug_assert!(tip.is_zero(), "tip should be zero if initial fee was zero.");
+				Ok(extension_weight
+					.saturating_sub(<T as Config>::WeightInfo::charge_asset_tx_payment_zero()))
+			},
+		}
 	}
 }

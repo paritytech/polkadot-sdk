@@ -102,19 +102,27 @@ impl<
 pub struct RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>(
 	core::marker::PhantomData<(AssetsAllowedNetworks, OriginLocation)>,
 );
-impl<AssetsAllowedNetworks: Contains<Location>, OriginLocation: Get<Location>>
-	ContainsPair<Asset, Location> for RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>
+impl<
+		L: TryInto<Location> + Clone,
+		AssetsAllowedNetworks: Contains<Location>,
+		OriginLocation: Get<Location>,
+	> ContainsPair<L, L> for RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>
 {
-	fn contains(asset: &Asset, origin: &Location) -> bool {
+	fn contains(asset: &L, origin: &L) -> bool {
+		let Ok(asset) = asset.clone().try_into() else {
+			return false;
+		};
+		let Ok(origin) = origin.clone().try_into() else {
+			return false;
+		};
 		let expected_origin = OriginLocation::get();
 		// ensure `origin` is expected `OriginLocation`
-		if !expected_origin.eq(origin) {
+		if !expected_origin.eq(&origin) {
 			log::trace!(
 				target: "xcm::contains",
-				"RemoteAssetFromLocation asset: {:?}, origin: {:?} is not from expected {:?}",
-				asset, origin, expected_origin,
+				"RemoteAssetFromLocation asset: {asset:?}, origin: {origin:?} is not from expected {expected_origin:?}"
 			);
-			return false
+			return false;
 		} else {
 			log::trace!(
 				target: "xcm::contains",
@@ -123,7 +131,14 @@ impl<AssetsAllowedNetworks: Contains<Location>, OriginLocation: Get<Location>>
 		}
 
 		// ensure `asset` is from remote consensus listed in `AssetsAllowedNetworks`
-		AssetsAllowedNetworks::contains(&asset.id.0)
+		AssetsAllowedNetworks::contains(&asset)
+	}
+}
+impl<AssetsAllowedNetworks: Contains<Location>, OriginLocation: Get<Location>>
+	ContainsPair<Asset, Location> for RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>
+{
+	fn contains(asset: &Asset, origin: &Location) -> bool {
+		<Self as ContainsPair<Location, Location>>::contains(&asset.id.0, origin)
 	}
 }
 

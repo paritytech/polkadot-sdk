@@ -82,6 +82,10 @@ pub enum InvalidTransaction {
 	MandatoryValidation,
 	/// The sending address is disabled or known to be invalid.
 	BadSigner,
+	/// The implicit data was unable to be calculated.
+	IndeterminateImplicit,
+	/// The transaction extension did not authorize any origin.
+	UnknownOrigin,
 }
 
 impl InvalidTransaction {
@@ -113,6 +117,10 @@ impl From<InvalidTransaction> for &'static str {
 				"Transaction dispatch is mandatory; transactions must not be validated.",
 			InvalidTransaction::Custom(_) => "InvalidTransaction custom error",
 			InvalidTransaction::BadSigner => "Invalid signing address",
+			InvalidTransaction::IndeterminateImplicit =>
+				"The implicit data was unable to be calculated",
+			InvalidTransaction::UnknownOrigin =>
+				"The transaction extension did not authorize any origin",
 		}
 	}
 }
@@ -338,7 +346,7 @@ pub struct ValidTransactionBuilder {
 impl ValidTransactionBuilder {
 	/// Set the priority of a transaction.
 	///
-	/// Note that the final priority for `FRAME` is combined from all `SignedExtension`s.
+	/// Note that the final priority for `FRAME` is combined from all `TransactionExtension`s.
 	/// Most likely for unsigned transactions you want the priority to be higher
 	/// than for regular transactions. We recommend exposing a base priority for unsigned
 	/// transactions as a runtime module parameter, so that the runtime can tune inter-module
