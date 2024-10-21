@@ -29,8 +29,8 @@ use node_primitives::{AccountId, Balance};
 use sc_cli::Result;
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keyring::Sr25519Keyring;
+use sp_runtime::OpaqueExtrinsic;
 
-use sp_runtime::{generic, OpaqueExtrinsic};
 use std::{sync::Arc, time::Duration};
 
 /// Generates `System::Remark` extrinsics for the benchmarks.
@@ -58,15 +58,15 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
 
 	fn build(&self, nonce: u32) -> std::result::Result<OpaqueExtrinsic, &'static str> {
 		let acc = Sr25519Keyring::Bob.pair();
-		let extrinsic: generic::UncheckedExtrinsic<_, _, _, _> = create_extrinsic(
+		let extrinsic: OpaqueExtrinsic = create_extrinsic(
 			self.client.as_ref(),
 			acc,
 			SystemCall::remark { remark: vec![] },
 			Some(nonce),
 		)
-		.0;
+		.into();
 
-		Ok(extrinsic.into())
+		Ok(extrinsic)
 	}
 }
 
@@ -97,7 +97,7 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
 
 	fn build(&self, nonce: u32) -> std::result::Result<OpaqueExtrinsic, &'static str> {
 		let acc = Sr25519Keyring::Bob.pair();
-		let extrinsic: generic::UncheckedExtrinsic<_, _, _, _> = create_extrinsic(
+		let extrinsic: OpaqueExtrinsic = create_extrinsic(
 			self.client.as_ref(),
 			acc,
 			BalancesCall::transfer_keep_alive {
@@ -106,9 +106,9 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
 			},
 			Some(nonce),
 		)
-		.0;
+		.into();
 
-		Ok(extrinsic.into())
+		Ok(extrinsic)
 	}
 }
 

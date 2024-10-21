@@ -35,7 +35,7 @@ use sp_runtime::{
 		TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	RuntimeDebug, Saturating,
+	OpaqueExtrinsic, RuntimeDebug, Saturating,
 };
 
 use alloc::vec::Vec;
@@ -212,6 +212,22 @@ where
 {
 	fn new_inherent(call: Self::Call) -> Self {
 		generic::UncheckedExtrinsic::new_bare(call).into()
+	}
+}
+
+impl<Address, Signature, E: EthExtra> From<UncheckedExtrinsic<Address, Signature, E>>
+	for OpaqueExtrinsic
+where
+	Address: Encode,
+	Signature: Encode,
+	CallOf<E::Config>: Encode,
+	E::Extra: Encode,
+{
+	fn from(extrinsic: UncheckedExtrinsic<Address, Signature, E>) -> Self {
+		Self::from_bytes(extrinsic.encode().as_slice()).expect(
+			"both OpaqueExtrinsic and UncheckedExtrinsic have encoding that is compatible with \
+				raw Vec<u8> encoding; qed",
+		)
 	}
 }
 
