@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::imports::*;
+use xcm::opaque::v5;
 
 mod asset_transfers;
 mod claim_assets;
@@ -117,7 +118,7 @@ pub(crate) fn set_up_pool_with_wnd_on_ah_westend(asset: v5::Location, is_foreign
 			));
 		} else {
 			let asset_id = match asset.interior.last() {
-				Some(v4::Junction::GeneralIndex(id)) => *id as u32,
+				Some(GeneralIndex(id)) => *id as u32,
 				_ => unreachable!(),
 			};
 			assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::mint(
