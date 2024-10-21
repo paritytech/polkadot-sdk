@@ -142,7 +142,9 @@ def main():
 
         # loop over remaining runtimes to collect available pallets
         for runtime in runtimesMatrix.values():
-            os.system(f"forklift cargo build -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}")
+            build_command = f"forklift cargo build -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}"
+            print(f'-- building "{runtime["name"]}" with `{build_command}`')
+            os.system(build_command)
             print(f'-- listing pallets for benchmark for {runtime["name"]}')
             wasm_file = f"target/{profile}/wbuild/{runtime['package']}/{runtime['package'].replace('-', '_')}.wasm"
             list_command = f"frame-omni-bencher v1 benchmark pallet " \
@@ -284,7 +286,9 @@ def main():
 
         # loop over remaining runtimes to collect available pallets
         for runtime in runtimesMatrix.values():
-            os.system(f"forklift cargo build -p {runtime['old_package']} --profile {profile} --features={runtime['bench_features']}")
+            build_command = f"forklift cargo build -p {runtime['old_package']} --profile {profile} --features={runtime['bench_features']}"
+            print(f'-- building {runtime["name"]} with `{build_command}`')
+            os.system(build_command)
             print(f'-- listing pallets for benchmark for {runtime["name"]}')
             list_command = f"target/{profile}/{runtime['old_bin']} " \
                 f"benchmark pallet " \
