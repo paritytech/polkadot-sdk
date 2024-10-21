@@ -307,15 +307,17 @@ impl<T: Config> Pallet<T> {
 		.map(|para_id| ScheduledCore { para_id, collator: None })
 	}
 
-	pub(crate) fn peek_claim_queue(core_idx: &CoreIndex) -> Option<Assignment> {
-		// Since this is being called from a runtime API, we need to workaround for #64.
+	// Since this is being called from a runtime API, we need to workaround for #64.
+	pub(crate) fn get_claim_queue() -> BTreeMap<CoreIndex, VecDeque<Assignment>> {
 		if Self::on_chain_storage_version() == StorageVersion::new(2) {
 			migration::v2::ClaimQueue::<T>::get()
-				.get(core_idx)?
-				.front()
-				.map(|entry| entry.assignment.clone())
+				.into_iter()
+				.map(|(core_index, entries)| {
+					(core_index, entries.into_iter().map(|e| e.assignment).collect())
+				})
+				.collect()
 		} else {
-			ClaimQueue::<T>::get().get(core_idx)?.front().cloned()
+			ClaimQueue::<T>::get()
 		}
 	}
 

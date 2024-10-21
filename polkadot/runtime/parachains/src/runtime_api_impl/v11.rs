@@ -85,6 +85,7 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 			},
 		};
 
+	let claim_queue = scheduler::Pallet::<T>::get_claim_queue();
 	let occupied_cores: BTreeMap<CoreIndex, inclusion::CandidatePendingAvailability<_, _>> =
 		inclusion::Pallet::<T>::get_occupied_cores().collect();
 	let n_cores = scheduler::Pallet::<T>::num_availability_cores();
@@ -111,7 +112,7 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 					candidate_descriptor: pending_availability.candidate_descriptor().clone(),
 				})
 			} else {
-				if let Some(assignment) = scheduler::Pallet::<T>::peek_claim_queue(&core_idx) {
+				if let Some(assignment) = claim_queue.get(&core_idx).and_then(|q| q.front()) {
 					CoreState::Scheduled(polkadot_primitives::ScheduledCore {
 						para_id: assignment.para_id(),
 						collator: None,
@@ -527,32 +528,15 @@ pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaI
 	let config = configuration::ActiveConfig::<T>::get();
 	// Extra sanity, config should already never be smaller than 1:
 	let n_lookahead = config.scheduler_params.lookahead.max(1);
-	// Workaround for issue #64.
-	if scheduler::Pallet::<T>::on_chain_storage_version() == StorageVersion::new(2) {
-		scheduler::migration::v2::ClaimQueue::<T>::get()
-			.into_iter()
-			.map(|(core_index, entries)| {
-				(
-					core_index,
-					entries
-						.into_iter()
-						.map(|e| e.assignment.para_id())
-						.take(n_lookahead as usize)
-						.collect(),
-				)
-			})
-			.collect()
-	} else {
-		scheduler::ClaimQueue::<T>::get()
-			.into_iter()
-			.map(|(core_index, entries)| {
-				(
-					core_index,
-					entries.into_iter().map(|e| e.para_id()).take(n_lookahead as usize).collect(),
-				)
-			})
-			.collect()
-	}
+	scheduler::Pallet::<T>::get_claim_queue()
+		.into_iter()
+		.map(|(core_index, entries)| {
+			(
+				core_index,
+				entries.into_iter().map(|e| e.para_id()).take(n_lookahead as usize).collect(),
+			)
+		})
+		.collect()
 }
 
 /// Returns all the candidates that are pending availability for a given `ParaId`.

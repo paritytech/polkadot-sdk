@@ -49,7 +49,7 @@ mod enter {
 
 	use crate::{
 		builder::{junk_collator, junk_collator_signature, Bench, BenchBuilder, CandidateModifier},
-		disputes,
+		disputes::clear_dispute_storage,
 		initializer::BufferedSessionChange,
 		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, RuntimeOrigin, Test},
 		scheduler::common::{Assignment, AssignmentProvider},
@@ -125,13 +125,6 @@ mod enter {
 		} else {
 			builder.build()
 		}
-	}
-
-	// Clear the on-chain dispute data.
-	fn clear_dispute_storage<Test: disputes::Config>() {
-		let _ = disputes::Disputes::<Test>::clear(u32::MAX, None);
-		let _ = disputes::BackersOnDisputes::<Test>::clear(u32::MAX, None);
-		let _ = disputes::Included::<Test>::clear(u32::MAX, None);
 	}
 
 	#[rstest]

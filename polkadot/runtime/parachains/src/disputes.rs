@@ -395,7 +395,7 @@ pub mod pallet {
 
 	/// All ongoing or concluded disputes for the last several sessions.
 	#[pallet::storage]
-	pub(crate) type Disputes<T: Config> = StorageDoubleMap<
+	pub(super) type Disputes<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		SessionIndex,
@@ -407,7 +407,7 @@ pub mod pallet {
 	/// Backing votes stored for each dispute.
 	/// This storage is used for slashing.
 	#[pallet::storage]
-	pub(crate) type BackersOnDisputes<T: Config> = StorageDoubleMap<
+	pub(super) type BackersOnDisputes<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		SessionIndex,
@@ -419,7 +419,7 @@ pub mod pallet {
 	/// All included blocks on the chain, as well as the block number in this chain that
 	/// should be reverted back to if the candidate is disputed and determined to be invalid.
 	#[pallet::storage]
-	pub(crate) type Included<T: Config> = StorageDoubleMap<
+	pub(super) type Included<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		SessionIndex,
@@ -1308,4 +1308,12 @@ fn check_signature(
 	METRICS.on_signature_check_complete(end.saturating_sub(start)); // ns
 
 	res
+}
+
+#[cfg(test)]
+// Test helper for clearing the on-chain dispute data.
+pub(crate) fn clear_dispute_storage<T: Config>() {
+	let _ = Disputes::<T>::clear(u32::MAX, None);
+	let _ = BackersOnDisputes::<T>::clear(u32::MAX, None);
+	let _ = Included::<T>::clear(u32::MAX, None);
 }

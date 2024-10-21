@@ -1151,6 +1151,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns the first `CommittedCandidateReceipt` pending availability for the para provided, if
 	/// any.
+	/// A para_id could have more than one candidates pending availability, if it's using elastic
+	/// scaling. These candidates form a chain. This function returns the first in the chain.
 	pub(crate) fn first_candidate_pending_availability(
 		para: ParaId,
 	) -> Option<CommittedCandidateReceipt<T::Hash>> {
