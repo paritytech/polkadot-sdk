@@ -32,7 +32,7 @@ use crate::{
 	shared::{self, GenesisBuilderPolicy, HostInfoParams, WeightParams},
 };
 use clap::{Args, Parser};
-use codec::{Decode, Encode};
+use codec::Encode;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use fake_runtime_api::RuntimeApi as FakeRuntimeApi;
 use frame_support::Deserialize;
@@ -56,8 +56,12 @@ use sp_runtime::{
 	DigestItem, OpaqueExtrinsic,
 };
 use sp_wasm_interface::HostFunctions;
-use std::{fmt::Debug, path::PathBuf, sync::Arc};
-use subxt::{ext::futures, Metadata};
+use std::{
+	fmt::{Debug, Display, Formatter},
+	path::PathBuf,
+	sync::Arc,
+};
+use subxt::{client::RuntimeVersion, ext::futures, Metadata};
 
 const DEFAULT_PARA_ID: u32 = 100;
 
@@ -223,21 +227,21 @@ impl OverheadCmd {
 		let parachain_system_exists = metadata.pallet_by_name("ParachainSystem").is_some();
 		let para_inherent_exists = metadata.pallet_by_name("ParaInherent").is_some();
 
-		log::info!("Identifying chain type based on metadata.");
-		log::info!("{} ParachainSystem", if parachain_system_exists { "✅" } else { "❌" });
-		log::info!("{} ParachainInfo", if parachain_info_exists { "✅" } else { "❌" });
-		log::info!("{} ParaInherent", if para_inherent_exists { "✅" } else { "❌" });
+		log::debug!("{} ParachainSystem", if parachain_system_exists { "✅" } else { "❌" });
+		log::debug!("{} ParachainInfo", if parachain_info_exists { "✅" } else { "❌" });
+		log::debug!("{} ParaInherent", if para_inherent_exists { "✅" } else { "❌" });
 
-		if parachain_system_exists && parachain_info_exists {
-			log::info!("Parachain Identified");
-			Ok(Parachain(para_id.or(self.params.para_id).unwrap_or(DEFAULT_PARA_ID)))
+		let chain_type = if parachain_system_exists && parachain_info_exists {
+			Parachain(para_id.or(self.params.para_id).unwrap_or(DEFAULT_PARA_ID))
 		} else if para_inherent_exists {
-			log::info!("Relaychain Identified");
-			Ok(Relaychain)
+			Relaychain
 		} else {
-			log::info!("Found Custom chain");
-			Ok(Unknown)
-		}
+			Unknown
+		};
+
+		log::info!("Identified Chain type from metadata: {}", chain_type);
+
+		Ok(chain_type)
 	}
 	fn chain_spec_from_path<HF: HostFunctions>(
 		&self,
@@ -258,32 +262,29 @@ impl OverheadCmd {
 	}
 
 	/// Run the benchmark overhead command.
-	pub fn run_with_extrinsic_builder<Block, ExtraHF>(
+	pub fn run_with_extrinsic_builder_and_spec<Block, ExtraHF>(
 		&self,
 		ext_builder_provider: Option<
-			Box<
-				dyn FnOnce(
-					subxt::Metadata,
-					H256,
-					subxt::client::RuntimeVersion,
-				) -> Box<dyn ExtrinsicBuilder>,
-			>,
+			Box<dyn FnOnce(Metadata, H256, RuntimeVersion) -> Box<dyn ExtrinsicBuilder>>,
 		>,
+		chain_spec: Option<Box<dyn ChainSpec>>,
 	) -> Result<()>
 	where
 		Block: BlockT<Extrinsic = OpaqueExtrinsic, Hash = H256>,
 		ExtraHF: HostFunctions,
 	{
-		let (chain_spec, para_id_from_chain_spec) =
-			self.chain_spec_from_path::<(ParachainHostFunctions, ExtraHF)>()?;
+		let (chain_spec, para_id_from_chain_spec) = match chain_spec {
+			spec @ Some(_) => (spec, None),
+			None => self.chain_spec_from_path::<(ParachainHostFunctions, ExtraHF)>()?,
+		};
+
 		let code_bytes = shared::genesis_state::get_code_bytes(&chain_spec, &self.params.runtime)?;
 
 		let executor = WasmExecutor::<(ParachainHostFunctions, ExtraHF)>::builder()
 			.with_allow_missing_host_functions(true)
 			.build();
 
-		let opaque_metadata = fetch_latest_metadata_from_blob(&executor, &code_bytes)?;
-		let metadata = Metadata::decode(&mut (*opaque_metadata).as_slice())?;
+		let metadata = fetch_latest_metadata_from_blob(&executor, &code_bytes)?;
 		let chain_type = self.identify_chain(&metadata, para_id_from_chain_spec)?;
 
 		let client = self.build_client_components::<Block, (ParachainHostFunctions, ExtraHF)>(
@@ -298,7 +299,7 @@ impl OverheadCmd {
 		let ext_builder = {
 			let genesis = client.usage_info().chain.best_hash;
 			let version = client.runtime_api().version(genesis).unwrap();
-			let runtime_version = subxt::client::RuntimeVersion {
+			let runtime_version = RuntimeVersion {
 				spec_version: version.spec_version,
 				transaction_version: version.transaction_version,
 			};
@@ -308,7 +309,8 @@ impl OverheadCmd {
 				None => {
 					let genesis = subxt::utils::H256::from(genesis.to_fixed_bytes());
 					Box::new(SubstrateRemarkBuilder::new(metadata, genesis, runtime_version))
-					as Box<_>},
+						as Box<_>
+				},
 			}
 		};
 
@@ -322,6 +324,20 @@ impl OverheadCmd {
 		)
 	}
 
+	/// Run the benchmark overhead command.
+	pub fn run_with_extrinsic_builder<Block, ExtraHF>(
+		&self,
+		ext_builder_provider: Option<
+			Box<dyn FnOnce(Metadata, H256, RuntimeVersion) -> Box<dyn ExtrinsicBuilder>>,
+		>,
+	) -> Result<()>
+	where
+		Block: BlockT<Extrinsic = OpaqueExtrinsic, Hash = H256>,
+		ExtraHF: HostFunctions,
+	{
+		self.run_with_extrinsic_builder_and_spec::<Block, ExtraHF>(ext_builder_provider, None)
+	}
+
 	fn build_client_components<Block: BlockT, HF: HostFunctions>(
 		&self,
 		chain_spec: Option<Box<dyn ChainSpec>>,
@@ -333,10 +349,14 @@ impl OverheadCmd {
 
 		let base_path = match &self.shared_params.base_path {
 			None => BasePath::new_temp_dir()?,
-			Some(path) => BasePath::from(path.clone())
+			Some(path) => BasePath::from(path.clone()),
 		};
 
-		self.database_config(&base_path.path().to_path_buf(), self.database_cache_size()?.unwrap_or(1024), self.database()?.unwrap_or(Database::RocksDb))?;
+		self.database_config(
+			&base_path.path().to_path_buf(),
+			self.database_cache_size()?.unwrap_or(1024),
+			self.database()?.unwrap_or(Database::RocksDb),
+		)?;
 		let backend = new_db_backend(DatabaseSettings {
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
 			state_pruning: None,
@@ -476,6 +496,16 @@ enum ChainType {
 	Parachain(u32),
 	Relaychain,
 	Unknown,
+}
+
+impl Display for ChainType {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		match self {
+			ChainType::Parachain(id) => write!(f, "Parachain(paraid = {})", id),
+			ChainType::Relaychain => write!(f, "Relaychain"),
+			ChainType::Unknown => write!(f, "Unknown"),
+		}
+	}
 }
 
 impl ChainType {

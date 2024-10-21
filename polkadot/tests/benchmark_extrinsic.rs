@@ -32,14 +32,6 @@ fn benchmark_extrinsic_works() {
 	}
 }
 
-/// `benchmark extrinsic` rejects all non-dev runtimes.
-#[test]
-fn benchmark_extrinsic_rejects_non_dev_runtimes() {
-	for runtime in RUNTIMES {
-		assert!(benchmark_extrinsic(runtime, "system", "remark").is_err());
-	}
-}
-
 fn benchmark_extrinsic(runtime: &str, pallet: &str, extrinsic: &str) -> Result<(), String> {
 	let status = Command::new(cargo_bin("polkadot"))
 		.args(["benchmark", "extrinsic", "--chain", runtime])

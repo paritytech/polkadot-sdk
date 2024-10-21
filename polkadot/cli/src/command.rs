@@ -391,10 +391,21 @@ pub fn run() -> Result<()> {
 
 					cmd.run(client.clone()).map_err(Error::SubstrateCli)
 				}),
-				BenchmarkCmd::Overhead(cmd) => cmd
-					.run_with_extrinsic_builder::<polkadot_service::Block, ()>(None)
-					.map_err(Error::SubstrateCli),
-				// These commands are very similar and can be handled in nearly the same way.
+				BenchmarkCmd::Overhead(cmd) => runner.sync_run(|config| {
+					if cmd.params.runtime.is_some() {
+						return Err(sc_cli::Error::Input(
+							"Polkadot binary does not support `--runtime` flag for `benchmark overhead`. Please provide a chain spec or use the omni-bencher."
+								.into(),
+						)
+						.into())
+					}
+
+					cmd.run_with_extrinsic_builder_and_spec::<polkadot_service::Block, ()>(
+						None,
+						Some(config.chain_spec),
+					)
+					.map_err(Error::SubstrateCli)
+				}),
 				BenchmarkCmd::Extrinsic(cmd) => runner.sync_run(|mut config| {
 					let (client, _, _, _) = polkadot_service::new_chain_ops(&mut config)?;
 					let header = client.header(client.info().genesis_hash).unwrap().unwrap();

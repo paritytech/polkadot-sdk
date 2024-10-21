@@ -26,7 +26,6 @@ use sp_core::{
 };
 use sp_runtime::{traits::Block as BlockT, OpaqueExtrinsic};
 use sp_state_machine::BasicExternalities;
-use sp_version::RuntimeVersion;
 use sp_wasm_interface::HostFunctions;
 use std::{borrow::Cow, sync::Arc};
 use subxt::{
@@ -49,19 +48,41 @@ impl<C: Config<Hash = subxt::utils::H256>> DynamicRemarkBuilder<C> {
 	{
 		let genesis = client.usage_info().chain.best_hash;
 		let api = client.runtime_api();
-		let mut supported_metadata_versions = api.metadata_versions(genesis).unwrap();
-		let latest = supported_metadata_versions
-			.pop()
-			.ok_or("No runtime version supported".to_string())?;
+		if let Ok(mut supported_metadata_versions) = api.metadata_versions(genesis) {
+			let latest = supported_metadata_versions
+				.pop()
+				.ok_or("No metadata version supported".to_string())?;
+
+			let version =
+				api.version(genesis).map_err(|_| "No runtime version supported".to_string())?;
+
+			let runtime_version = SubxtRuntimeVersion {
+				spec_version: version.spec_version,
+				transaction_version: version.transaction_version,
+			};
+			let metadata = api
+				.metadata_at_version(genesis, latest)
+				.map_err(|e| format!("Unable to fetch metadata: {:?}", e))?
+				.ok_or("Unable to decode metadata".to_string())?;
+
+			let metadata = subxt::Metadata::decode(&mut (*metadata).as_slice())?;
+
+			let genesis = subxt::utils::H256::from(genesis.to_fixed_bytes());
+			return Ok(Self {
+				offline_client: OfflineClient::new(genesis, runtime_version, metadata),
+			})
+		}
+
+		log::warn!("No metadata versions found, falling back to deprecated metadata runtime api.");
+		let metadata = api
+			.metadata(genesis)
+			.map_err(|e| format!("Unable to fetch metadata: {:?}", e))?;
 		let version = api.version(genesis).unwrap();
 		let runtime_version = SubxtRuntimeVersion {
 			spec_version: version.spec_version,
 			transaction_version: version.transaction_version,
 		};
-		let metadata = api
-			.metadata_at_version(genesis, latest)
-			.map_err(|e| format!("Unable to fetch metadata: {:?}", e))?
-			.ok_or("Unable to decode metadata".to_string())?;
+
 		let metadata = subxt::Metadata::decode(&mut (*metadata).as_slice())?;
 
 		let genesis = subxt::utils::H256::from(genesis.to_fixed_bytes());
@@ -122,37 +143,10 @@ impl<'a> BasicCodeFetcher<'a> {
 	}
 }
 
-pub fn fetch_relevant_runtime_data<HF: HostFunctions>(
-	code_bytes: &Vec<u8>,
-) -> Result<(SubxtRuntimeVersion, subxt::Metadata), String> {
-	let executor = WasmExecutor::<HF>::builder().with_allow_missing_host_functions(true).build();
-	let version = fetch_version(&executor, code_bytes).unwrap();
-	let opaque_metadata = fetch_latest_metadata_from_blob(&executor, code_bytes).unwrap();
-	let metadata = subxt::Metadata::decode(&mut (*opaque_metadata).as_slice()).unwrap();
-	Ok((version, metadata))
-}
-
-pub fn fetch_version<HF: HostFunctions>(
-	executor: &WasmExecutor<HF>,
-	code_bytes: &Vec<u8>,
-) -> sc_cli::Result<SubxtRuntimeVersion> {
-	let mut ext = BasicExternalities::default();
-	let fetcher = BasicCodeFetcher(code_bytes.into());
-	let version_result = executor
-		.call(&mut ext, &fetcher.runtime_code(), "Core_version", &[], CallContext::Offchain)
-		.0
-		.map_err(|e| format!("Unable to fetch version from blob: {e}"))?;
-	let version = RuntimeVersion::decode(&mut version_result.as_slice())?;
-	Ok(SubxtRuntimeVersion {
-		spec_version: version.spec_version,
-		transaction_version: version.transaction_version,
-	})
-}
-
 pub fn fetch_latest_metadata_from_blob<HF: HostFunctions>(
 	executor: &WasmExecutor<HF>,
 	code_bytes: &Vec<u8>,
-) -> sc_cli::Result<OpaqueMetadata> {
+) -> sc_cli::Result<subxt::Metadata> {
 	let mut ext = BasicExternalities::default();
 	let fetcher = BasicCodeFetcher(code_bytes.into());
 	let version_result = executor
@@ -165,7 +159,7 @@ pub fn fetch_latest_metadata_from_blob<HF: HostFunctions>(
 		)
 		.0;
 
-	let opaque_metadata: Option<OpaqueMetadata> = match version_result {
+	let opaque_metadata: OpaqueMetadata = match version_result {
 		Ok(supported_versions) => {
 			let versions = Vec::<u32>::decode(&mut supported_versions.as_slice())
 				.map_err(|e| format!("Error {e}"))?;
@@ -181,7 +175,8 @@ pub fn fetch_latest_metadata_from_blob<HF: HostFunctions>(
 				)
 				.0
 				.map_err(|e| format!("Unable to fetch metadata from blob: {e}"))?;
-			Decode::decode(&mut encoded.as_slice())?
+			let opaque: Option<OpaqueMetadata> = Decode::decode(&mut encoded.as_slice())?;
+			opaque.ok_or_else(|| "Metadata not found".to_string())?
 		},
 		Err(_) => {
 			let encoded = executor
@@ -198,5 +193,5 @@ pub fn fetch_latest_metadata_from_blob<HF: HostFunctions>(
 		},
 	};
 
-	opaque_metadata.ok_or_else(|| "Metadata not found".into())
+	Ok(subxt::Metadata::decode(&mut (*opaque_metadata).as_slice())?)
 }
