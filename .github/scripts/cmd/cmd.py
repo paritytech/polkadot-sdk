@@ -294,7 +294,7 @@ def main():
                 f"--no-median-slopes " \
                 f"--all " \
                 f"--list " \
-                f"--runtime={runtime['name']} " \
+                f"--runtime=target/{profile}/wbuild/{runtime['package']}/{runtime['package'].replace('-', '_')}.wasm " \
                 f"{runtime['bench_flags']}"
             ).read()
             raw_pallets = output.strip().split('\n')
@@ -367,7 +367,7 @@ def main():
                 print(f'-- benchmarking {pallet} in {runtime} into {output_path}')
                 cmd = f"target/{profile}/{config['old_bin']} benchmark pallet " \
                     f"--extrinsic=* " \
-                    f"--runtime={runtime['name']} " \
+                    f"--runtime=target/{profile}/wbuild/{config['package']}/{config['package'].replace('-', '_')}.wasm " \
                     f"--pallet={pallet} " \
                     f"--header={header_path} " \
                     f"--output={output_path} " \
