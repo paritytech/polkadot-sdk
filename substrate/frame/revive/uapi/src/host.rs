@@ -209,7 +209,8 @@ pub trait HostFn: private::Sealed {
 	/// Stores the origin address (initator of the call stack) into the supplied buffer.
 	///
 	/// If there is no address associated with the origin (e.g. because the origin is root) then
-	/// it traps with `BadOrigin`.
+	/// it traps with `BadOrigin`. This can only happen through on-chain governance actions or
+	/// customized runtimes.
 	///
 	/// # Parameters
 	///
