@@ -801,6 +801,140 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
 
 [[package]]
+name = "asset-hub-next-westend-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "asset-hub-next-westend-runtime",
+ "bp-bridge-hub-westend",
+ "cumulus-primitives-core",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "parachains-common",
+ "sp-core 28.0.0",
+ "sp-keyring",
+ "staging-xcm",
+ "testnet-parachains-constants",
+ "westend-emulated-chain",
+]
+
+[[package]]
+name = "asset-hub-next-westend-integration-tests"
+version = "1.0.0"
+dependencies = [
+ "assert_matches",
+ "asset-test-utils",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcmp-queue",
+ "emulated-integration-tests-common",
+ "frame-metadata-hash-extension",
+ "frame-support",
+ "frame-system",
+ "pallet-asset-conversion",
+ "pallet-asset-tx-payment",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-message-queue",
+ "pallet-transaction-payment",
+ "pallet-treasury",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-runtime-common",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm",
+ "staging-xcm-executor",
+ "westend-system-emulated-network",
+ "xcm-runtime-apis",
+]
+
+[[package]]
+name = "asset-hub-next-westend-runtime"
+version = "0.15.0"
+dependencies = [
+ "asset-test-utils",
+ "assets-common",
+ "bp-asset-hub-next-westend",
+ "bp-asset-hub-rococo",
+ "bp-bridge-hub-rococo",
+ "bp-bridge-hub-westend",
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-session-benchmarking",
+ "cumulus-pallet-xcm",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-primitives-aura",
+ "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
+ "cumulus-primitives-utility",
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-metadata-hash-extension",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
+ "hex-literal",
+ "log",
+ "pallet-asset-conversion",
+ "pallet-asset-conversion-ops",
+ "pallet-asset-conversion-tx-payment",
+ "pallet-assets",
+ "pallet-assets-freezer",
+ "pallet-aura",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-collator-selection",
+ "pallet-message-queue",
+ "pallet-multisig",
+ "pallet-nft-fractionalization",
+ "pallet-nfts",
+ "pallet-nfts-runtime-api",
+ "pallet-proxy",
+ "pallet-session",
+ "pallet-state-trie-migration",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-uniques",
+ "pallet-utility",
+ "pallet-xcm",
+ "pallet-xcm-benchmarks",
+ "pallet-xcm-bridge-hub-router",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
+ "primitive-types 0.13.1",
+ "scale-info",
+ "serde_json",
+ "snowbridge-router-primitives",
+ "sp-api 26.0.0",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core 28.0.0",
+ "sp-genesis-builder",
+ "sp-inherents",
+ "sp-keyring",
+ "sp-offchain",
+ "sp-runtime 31.0.1",
+ "sp-session",
+ "sp-std 14.0.0",
+ "sp-storage 19.0.0",
+ "sp-transaction-pool",
+ "sp-version 29.0.0",
+ "staging-parachain-info",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "substrate-wasm-builder",
+ "testnet-parachains-constants",
+ "westend-runtime-constants",
+ "xcm-runtime-apis",
+]
+
+[[package]]
 name = "asset-hub-rococo-emulated-chain"
 version = "0.0.0"
 dependencies = [
@@ -851,6 +985,7 @@ version = "0.11.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
+ "bp-asset-hub-next-westend",
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
  "bp-bridge-hub-rococo",
@@ -1840,6 +1975,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68534a48cbf63a4b1323c433cf21238c9ec23711e0df13b08c33e5c2082663ce"
 dependencies = [
  "thiserror",
+]
+
+[[package]]
+name = "bp-asset-hub-next-westend"
+version = "0.3.0"
+dependencies = [
+ "bp-xcm-bridge-hub-router",
+ "frame-support",
+ "parity-scale-codec",
+ "scale-info",
 ]
 
 [[package]]
@@ -26448,6 +26593,7 @@ dependencies = [
 name = "westend-system-emulated-network"
 version = "0.0.0"
 dependencies = [
+ "asset-hub-next-westend-emulated-chain",
  "asset-hub-westend-emulated-chain",
  "bridge-hub-westend-emulated-chain",
  "collectives-westend-emulated-chain",

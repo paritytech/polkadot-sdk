@@ -17,11 +17,11 @@ use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
 	CollatorSelection, FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo,
 	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	ToWestendXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee,
+	ToRococoXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee,
 	XcmpQueue,
 };
 use assets_common::{
-	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
+	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
 	TrustBackedAssetsAsLocation,
 };
 use frame_support::{
@@ -36,7 +36,7 @@ use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	xcm_config::{
 		AllSiblingSystemParachains, AssetFeeAsExistentialDepositMultiplier,
-		ConcreteAssetFromSystem, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
+		ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
 };
@@ -44,9 +44,6 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_router_primitives::inbound::GlobalConsensusEthereumConvertsFor;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto, TryConvertInto};
-use testnet_parachains_constants::rococo::snowbridge::{
-	EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
-};
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
@@ -65,11 +62,11 @@ use xcm_builder::{
 use xcm_executor::XcmExecutor;
 
 parameter_types! {
-	pub const TokenLocation: Location = Location::parent();
-	pub const RelayNetwork: NetworkId = NetworkId::Rococo;
+	pub const WestendLocation: Location = Location::parent();
+	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Westend);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
-		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
+		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub UniversalLocationNetworkId: NetworkId = UniversalLocation::get().global_consensus().unwrap();
 	pub TrustBackedAssetsPalletLocation: Location =
 		PalletInstance(TrustBackedAssetsPalletIndex::get()).into();
@@ -81,10 +78,9 @@ parameter_types! {
 	pub UniquesPalletLocation: Location =
 		PalletInstance(<Uniques as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-	pub const GovernanceLocation: Location = Location::parent();
 	pub StakingPot: AccountId = CollatorSelection::account_id();
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
-	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
+	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -112,7 +108,7 @@ pub type FungibleTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
-	IsConcrete<TokenLocation>,
+	IsConcrete<WestendLocation>,
 	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
@@ -167,10 +163,10 @@ pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConverte
 	(
 		// Ignore `TrustBackedAssets` explicitly
 		StartsWith<TrustBackedAssetsPalletLocation>,
-		// Ignore assets that start explicitly with our `GlobalConsensus(NetworkId)`, means:
+		// Ignore asset which starts explicitly with our `GlobalConsensus(NetworkId)`, means:
 		// - foreign assets from our consensus should be: `Location {parents: 1, X*(Parachain(xyz),
-		//   ..)}`
-		// - foreign assets outside our consensus with the same `GlobalConsensus(NetworkId)` won't
+		//   ..)}
+		// - foreign assets outside our consensus with the same `GlobalConsensus(NetworkId)` wont
 		//   be accepted here
 		StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,
 	),
@@ -261,6 +257,25 @@ impl Contains<Location> for ParentOrParentsPlurality {
 	}
 }
 
+pub struct FellowshipEntities;
+impl Contains<Location> for FellowshipEntities {
+	fn contains(location: &Location) -> bool {
+		matches!(
+			location.unpack(),
+			(1, [Parachain(1001), Plurality { id: BodyId::Technical, .. }]) |
+				(1, [Parachain(1001), PalletInstance(64)]) |
+				(1, [Parachain(1001), PalletInstance(65)])
+		)
+	}
+}
+
+pub struct AmbassadorEntities;
+impl Contains<Location> for AmbassadorEntities {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, [Parachain(1001), PalletInstance(74)]))
+	}
+}
+
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
 		DenyReserveTransferToRelayChain,
@@ -280,9 +295,11 @@ pub type Barrier = TrailingSetTopicAsId<
 						ParentOrParentsPlurality,
 						Equals<RelayTreasuryLocation>,
 						Equals<bridging::SiblingBridgeHub>,
+						FellowshipEntities,
+						AmbassadorEntities,
 					)>,
 					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
+					AllowSubscriptionsFrom<Everything>,
 					// HRMP notifications from the relay chain are OK.
 					AllowHrmpNotificationsFromRelayChain,
 				),
@@ -293,7 +310,11 @@ pub type Barrier = TrailingSetTopicAsId<
 	>,
 >;
 
-/// Multiplier used for dedicated `TakeFirstAssetTrader` with `Assets` instance.
+// TODO: This calls into the Assets pallet's default `BalanceToAssetBalance` implementation, which
+// uses the ratio of minimum balances and requires asset sufficiency. This means that purchasing
+// weight within XCM programs will still use the old way, and paying fees via asset conversion will
+// only be possible when transacting locally. We should add an impl of this trait that does asset
+// conversion.
 pub type AssetFeeAsExistentialDepositMultiplierFeeCharger = AssetFeeAsExistentialDepositMultiplier<
 	Runtime,
 	WeightToFee,
@@ -316,14 +337,16 @@ pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
 pub type WaivedLocations = (
 	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 	Equals<RelayTreasuryLocation>,
+	FellowshipEntities,
+	AmbassadorEntities,
 );
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
-/// - ROC with the parent Relay Chain and sibling system parachains; and
+/// - WND with the parent Relay Chain and sibling system parachains; and
 /// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
 pub type TrustedTeleporters = (
-	ConcreteAssetFromSystem<TokenLocation>,
+	ConcreteAssetFromSystem<WestendLocation>,
 	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
 );
 
@@ -357,32 +380,30 @@ impl xcm_executor::Config for XcmConfig {
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	// Asset Hub trusts only particular, pre-configured bridged locations from a different consensus
 	// as reserve locations (we trust the Bridge Hub to relay the message that a reserve is being
-	// held). On Rococo Asset Hub, we allow Westend Asset Hub to act as reserve for any asset native
-	// to the Westend ecosystem. We also allow Ethereum contracts to act as reserves for the foreign
-	// assets identified by the same respective contracts locations.
+	// held). On Westend Asset Hub, we allow Rococo Asset Hub to act as reserve for any asset native
+	// to the Rococo or Ethereum ecosystems.
 	type IsReserve = (
-		bridging::to_westend::WestendOrEthereumAssetFromAssetHubWestend,
-		bridging::to_westend::WestendOrEthereumAssetFromAssetHubNextWestend,
+		bridging::to_rococo::RococoAssetFromAssetHubRococo,
 		bridging::to_ethereum::EthereumAssetFromEthereum,
 	);
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::AssetHubRococoXcmWeight<RuntimeCall>,
+		crate::weights::xcm::AssetHubNextWestendXcmWeight<RuntimeCall>,
 		RuntimeCall,
 		MaxInstructions,
 	>;
 	type Trader = (
 		UsingComponents<
 			WeightToFee,
-			TokenLocation,
+			WestendLocation,
 			AccountId,
 			Balances,
 			ResolveTo<StakingPot, Balances>,
 		>,
 		cumulus_primitives_utility::SwapFirstAssetTrader<
-			TokenLocation,
+			WestendLocation,
 			crate::AssetConversion,
 			WeightToFee,
 			crate::NativeAndAssets,
@@ -438,7 +459,7 @@ impl xcm_executor::Config for XcmConfig {
 	>;
 	type MessageExporter = ();
 	type UniversalAliases =
-		(bridging::to_westend::UniversalAliases, bridging::to_ethereum::UniversalAliases);
+		(bridging::to_rococo::UniversalAliases, bridging::to_ethereum::UniversalAliases);
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
@@ -449,8 +470,7 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmRecorder = PolkadotXcm;
 }
 
-/// Converts a local signed origin into an XCM location.
-/// Forms the basis for local origins sending/executing XCMs.
+/// Local origins on this chain are allowed to dispatch XCM sends/executions.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
 pub type PriceForParentDelivery =
@@ -468,27 +488,29 @@ type LocalXcmRouter = (
 /// queues.
 pub type XcmRouter = WithUniqueTopic<(
 	LocalXcmRouter,
-	// Router which wraps and sends xcm to BridgeHub to be delivered to the Westend
+	// Router which wraps and sends xcm to BridgeHub to be delivered to the Rococo
 	// GlobalConsensus
-	ToWestendXcmRouter,
+	ToRococoXcmRouter,
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Ethereum
 	// GlobalConsensus
-	SovereignPaidRemoteExporter<bridging::EthereumNetworkExportTable, XcmpQueue, UniversalLocation>,
+	SovereignPaidRemoteExporter<
+		bridging::to_ethereum::EthereumNetworkExportTable,
+		XcmpQueue,
+		UniversalLocation,
+	>,
 )>;
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	// We want to disallow users sending (arbitrary) XCMs from this chain.
-	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
+	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmRouter = XcmRouter;
-	// We support local origins dispatching XCM executions.
 	type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmExecuteFilter = Everything;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
 	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::AssetHubRococoXcmWeight<RuntimeCall>,
+		crate::weights::xcm::AssetHubNextWestendXcmWeight<RuntimeCall>,
 		RuntimeCall,
 		MaxInstructions,
 	>;
@@ -536,82 +558,67 @@ pub mod bridging {
 	use alloc::collections::btree_set::BTreeSet;
 	use assets_common::matching;
 
-	// common/shared parameters
 	parameter_types! {
-		/// Base price of every byte of the Rococo -> Westend message. Can be adjusted via
+		/// Base price of every byte of the Westend -> Rococo message. Can be adjusted via
 		/// governance `set_storage` call.
 		///
 		/// Default value is our estimation of the:
 		///
-		/// 1) an approximate cost of XCM execution (`ExportMessage` and surroundings) at Rococo bridge hub;
+		/// 1) an approximate cost of XCM execution (`ExportMessage` and surroundings) at Westend bridge hub;
 		///
-		/// 2) the approximate cost of Rococo -> Westend message delivery transaction on Westend Bridge Hub,
-		///    converted into ROCs using 1:1 conversion rate;
+		/// 2) the approximate cost of Westend -> Rococo message delivery transaction on Rococo Bridge Hub,
+		///    converted into WNDs using 1:1 conversion rate;
 		///
-		/// 3) the approximate cost of Rococo -> Westend message confirmation transaction on Rococo Bridge Hub.
+		/// 3) the approximate cost of Westend -> Rococo message confirmation transaction on Westend Bridge Hub.
 		pub storage XcmBridgeHubRouterBaseFee: Balance =
-			bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs::get()
-				.saturating_add(bp_bridge_hub_westend::BridgeHubWestendBaseDeliveryFeeInWnds::get())
-				.saturating_add(bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs::get());
-		/// Price of every byte of the Rococo -> Westend message. Can be adjusted via
+			bp_bridge_hub_westend::BridgeHubWestendBaseXcmFeeInWnds::get()
+				.saturating_add(bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs::get())
+				.saturating_add(bp_bridge_hub_westend::BridgeHubWestendBaseConfirmationFeeInWnds::get());
+		/// Price of every byte of the Westend -> Rococo message. Can be adjusted via
 		/// governance `set_storage` call.
 		pub storage XcmBridgeHubRouterByteFee: Balance = TransactionByteFee::get();
 
-		pub SiblingBridgeHubParaId: u32 = bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID;
+		pub SiblingBridgeHubParaId: u32 = bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID;
 		pub SiblingBridgeHub: Location = Location::new(1, [Parachain(SiblingBridgeHubParaId::get())]);
 		/// Router expects payment with this `AssetId`.
 		/// (`AssetId` has to be aligned with `BridgeTable`)
-		pub XcmBridgeHubRouterFeeAssetId: AssetId = TokenLocation::get().into();
+		pub XcmBridgeHubRouterFeeAssetId: AssetId = WestendLocation::get().into();
 
 		pub BridgeTable: alloc::vec::Vec<NetworkExportTableItem> =
 			alloc::vec::Vec::new().into_iter()
-			.chain(to_westend::BridgeTable::get())
-			.collect();
-
-		pub EthereumBridgeTable: alloc::vec::Vec<NetworkExportTableItem> =
-			alloc::vec::Vec::new().into_iter()
-			.chain(to_ethereum::BridgeTable::get())
+			.chain(to_rococo::BridgeTable::get())
 			.collect();
 	}
 
 	pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
 
-	pub type EthereumNetworkExportTable = xcm_builder::NetworkExportTable<EthereumBridgeTable>;
-
-	pub mod to_westend {
+	pub mod to_rococo {
 		use super::*;
 
 		parameter_types! {
-			pub SiblingBridgeHubWithBridgeHubWestendInstance: Location = Location::new(
+			pub SiblingBridgeHubWithBridgeHubRococoInstance: Location = Location::new(
 				1,
 				[
 					Parachain(SiblingBridgeHubParaId::get()),
-					PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)
+					PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)
 				]
 			);
 
-			pub const WestendNetwork: NetworkId = NetworkId::Westend;
-			pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
-			pub WestendEcosystem: Location = Location::new(2, [GlobalConsensus(WestendNetwork::get())]);
-			pub EthereumEcosystem: Location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
-			pub WndLocation: Location = Location::new(2, [GlobalConsensus(WestendNetwork::get())]);
-			pub AssetHubWestend: Location = Location::new(2, [
-				GlobalConsensus(WestendNetwork::get()),
-				Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)
-			]);
-			pub AssetHubNextWestend: Location = Location::new(2, [
-				GlobalConsensus(WestendNetwork::get()),
-				Parachain(bp_asset_hub_next_westend::ASSET_HUB_NEXT_WESTEND_PARACHAIN_ID)
+			pub const RococoNetwork: NetworkId = NetworkId::Rococo;
+			pub RococoEcosystem: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
+			pub RocLocation: Location = Location::new(2, [GlobalConsensus(RococoNetwork::get())]);
+			pub AssetHubRococo: Location = Location::new(2, [
+				GlobalConsensus(RococoNetwork::get()),
+				Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)
 			]);
 
 			/// Set up exporters configuration.
 			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
 			pub BridgeTable: alloc::vec::Vec<NetworkExportTableItem> = alloc::vec![
 				NetworkExportTableItem::new(
-					WestendNetwork::get(),
+					RococoNetwork::get(),
 					Some(alloc::vec![
-						AssetHubWestend::get().interior.split_global().expect("invalid configuration for AssetHubWestend").1,
-						AssetHubNextWestend::get().interior.split_global().expect("invalid configuration for AssetHubNextWestend").1,
+						AssetHubRococo::get().interior.split_global().expect("invalid configuration for AssetHubRococo").1,
 					]),
 					SiblingBridgeHub::get(),
 					// base delivery fee to local `BridgeHub`
@@ -625,7 +632,7 @@ pub mod bridging {
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
 				alloc::vec![
-					(SiblingBridgeHubWithBridgeHubWestendInstance::get(), GlobalConsensus(WestendNetwork::get()))
+					(SiblingBridgeHubWithBridgeHubRococoInstance::get(), GlobalConsensus(RococoNetwork::get()))
 				]
 			);
 		}
@@ -636,27 +643,24 @@ pub mod bridging {
 			}
 		}
 
-		/// Allow any asset native to the Westend or Ethereum ecosystems if it comes from Westend
-		/// Asset Hub.
-		pub type WestendOrEthereumAssetFromAssetHubWestend = matching::RemoteAssetFromLocation<
-			(StartsWith<WestendEcosystem>, StartsWith<EthereumEcosystem>),
-			AssetHubWestend,
-		>;
-
-		pub type WestendOrEthereumAssetFromAssetHubNextWestend = matching::RemoteAssetFromLocation<
-			(StartsWith<WestendEcosystem>, StartsWith<EthereumEcosystem>),
-			AssetHubNextWestend,
-		>;
+		/// Allow any asset native to the Rococo ecosystem if it comes from Rococo Asset Hub.
+		pub type RococoAssetFromAssetHubRococo =
+			matching::RemoteAssetFromLocation<StartsWith<RococoEcosystem>, AssetHubRococo>;
 	}
 
 	pub mod to_ethereum {
 		use super::*;
+		use assets_common::matching::FromNetwork;
+		use sp_std::collections::btree_set::BTreeSet;
+		use testnet_parachains_constants::westend::snowbridge::{
+			EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
+		};
 
 		parameter_types! {
 			/// User fee for ERC20 token transfer back to Ethereum.
-			/// (initially was calculated by test `OutboundQueue::calculate_fees` - ETH/ROC 1/400 and fee_per_gas 20 GWEI = 2200698000000 + *25%)
+			/// (initially was calculated by test `OutboundQueue::calculate_fees` - ETH/WND 1/400 and fee_per_gas 20 GWEI = 2200698000000 + *25%)
 			/// Needs to be more than fee calculated from DefaultFeeConfig FeeConfigRecord in snowbridge:parachain/pallets/outbound-queue/src/lib.rs
-			/// Polkadot uses 10 decimals, Kusama and Rococo 12 decimals.
+			/// Polkadot uses 10 decimals, Kusama,Rococo,Westend 12 decimals.
 			pub const DefaultBridgeHubEthereumBaseFee: Balance = 2_750_872_500_000;
 			pub storage BridgeHubEthereumBaseFee: Balance = DefaultBridgeHubEthereumBaseFee::get();
 			pub SiblingBridgeHubWithEthereumInboundQueueInstance: Location = Location::new(
@@ -669,10 +673,10 @@ pub mod bridging {
 
 			/// Set up exporters configuration.
 			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
-			pub BridgeTable: alloc::vec::Vec<NetworkExportTableItem> = alloc::vec![
+			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
 				NetworkExportTableItem::new(
 					EthereumNetwork::get(),
-					Some(alloc::vec![Junctions::Here]),
+					Some(sp_std::vec![Junctions::Here]),
 					SiblingBridgeHub::get(),
 					Some((
 						XcmBridgeHubRouterFeeAssetId::get(),
@@ -683,11 +687,17 @@ pub mod bridging {
 
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
-				alloc::vec![
+				sp_std::vec![
 					(SiblingBridgeHubWithEthereumInboundQueueInstance::get(), GlobalConsensus(EthereumNetwork::get())),
 				]
 			);
+
+			pub EthereumBridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec::Vec::new().into_iter()
+				.chain(BridgeTable::get())
+				.collect();
 		}
+
+		pub type EthereumNetworkExportTable = xcm_builder::NetworkExportTable<EthereumBridgeTable>;
 
 		pub type EthereumAssetFromEthereum =
 			IsForeignConcreteAsset<FromNetwork<UniversalLocation, EthereumNetwork>>;
@@ -707,17 +717,15 @@ pub mod bridging {
 	impl BridgingBenchmarksHelper {
 		pub fn prepare_universal_alias() -> Option<(Location, Junction)> {
 			let alias =
-				to_westend::UniversalAliases::get()
-					.into_iter()
-					.find_map(|(location, junction)| {
-						match to_westend::SiblingBridgeHubWithBridgeHubWestendInstance::get()
-							.eq(&location)
-						{
-							true => Some((location, junction)),
-							false => None,
-						}
-					});
-			Some(alias.expect("we expect here BridgeHubRococo to Westend mapping at least"))
+				to_rococo::UniversalAliases::get().into_iter().find_map(|(location, junction)| {
+					match to_rococo::SiblingBridgeHubWithBridgeHubRococoInstance::get()
+						.eq(&location)
+					{
+						true => Some((location, junction)),
+						false => None,
+					}
+				});
+			Some(alias.expect("we expect here BridgeHubWestend to Rococo mapping at least"))
 		}
 	}
 }
