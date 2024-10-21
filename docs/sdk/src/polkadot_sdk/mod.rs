@@ -106,9 +106,10 @@
 //! A list of projects and tools in the blockchain ecosystem that one way or another use parts of
 //! the Polkadot SDK:
 //!
-//! * [Polygon's spin-off, Avail](https://github.com/availproject/avail)
+//! * [Avail](https://github.com/availproject/avail)
 //! * [Cardano Partner Chains](https://iohk.io/en/blog/posts/2023/11/03/partner-chains-are-coming-to-cardano/)
 //! * [Starknet's Madara Sequencer](https://github.com/keep-starknet-strange/madara)
+//! * [Polymesh](https://polymesh.network/)
 //!
 //! [`substrate`]: crate::polkadot_sdk::substrate
 //! [`frame`]: crate::polkadot_sdk::frame_runtime
