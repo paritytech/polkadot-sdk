@@ -211,34 +211,40 @@ pub mod pallet {
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-	#[pallet::config]
+	#[pallet::config(with_default)]
 	/// The module configuration trait.
 	pub trait Config: frame_system::Config {
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-		/// A lockable currency.
 		// TODO: We should really use a trait which can handle multiple currencies.
+		#[pallet::no_default]
+		/// A lockable currency.
 		type Currency: LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>;
 
 		/// The `Asset` matcher for `Currency`.
+		#[pallet::no_default_bounds]
 		type CurrencyMatcher: MatchesFungible<BalanceOf<Self>>;
 
+		// TODO: Would love to add a default for this, but I need access to `RuntimeOrigin`
+		// from the derive_impl
+		#[pallet::no_default_bounds]
 		/// Required origin for sending XCM messages. If successful, it resolves to `Location`
 		/// which exists as an interior location within this chain's XCM context.
 		type SendXcmOrigin: EnsureOrigin<<Self as SysConfig>::RuntimeOrigin, Success = Location>;
 
+		#[pallet::no_default]
 		/// The type used to actually dispatch an XCM to its destination.
 		type XcmRouter: SendXcm;
 
+		#[pallet::no_default]
 		/// Required origin for executing XCM messages, including the teleport functionality. If
 		/// successful, then it resolves to `Location` which exists as an interior location
 		/// within this chain's XCM context.
 		type ExecuteXcmOrigin: EnsureOrigin<<Self as SysConfig>::RuntimeOrigin, Success = Location>;
 
+		#[pallet::no_default_bounds]
 		/// Our XCM filter which messages to be executed using `XcmExecutor` must pass.
 		type XcmExecuteFilter: Contains<(Location, Xcm<<Self as Config>::RuntimeCall>)>;
 
+		#[pallet::no_default]
 		/// Something to execute an XCM message.
 		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + XcmAssetTransfers;
 
@@ -249,29 +255,21 @@ pub mod pallet {
 		/// must pass.
 		type XcmReserveTransferFilter: Contains<(Location, Vec<Asset>)>;
 
+		#[pallet::no_default]
 		/// Means of measuring the weight consumed by an XCM message locally.
 		type Weigher: WeightBounds<<Self as Config>::RuntimeCall>;
 
+		#[pallet::no_default]
 		/// This chain's Universal Location.
 		type UniversalLocation: Get<InteriorLocation>;
 
-		/// The runtime `Origin` type.
-		type RuntimeOrigin: From<Origin> + From<<Self as SysConfig>::RuntimeOrigin>;
-
-		/// The runtime `Call` type.
-		type RuntimeCall: Parameter
-			+ GetDispatchInfo
-			+ Dispatchable<
-				RuntimeOrigin = <Self as Config>::RuntimeOrigin,
-				PostInfo = PostDispatchInfo,
-			>;
-
 		const VERSION_DISCOVERY_QUEUE_SIZE: u32;
 
-		/// The latest supported version that we advertise. Generally just set it to
-		/// `pallet_xcm::CurrentXcmVersion`.
+		/// The latest supported version that we advertise.
+		/// Its default is `pallet_xcm::CurrentXcmVersion`.
 		type AdvertisedXcmVersion: Get<XcmVersion>;
 
+		#[pallet::no_default]
 		/// The origin that is allowed to call privileged operations on the XCM pallet
 		type AdminOrigin: EnsureOrigin<<Self as SysConfig>::RuntimeOrigin>;
 
@@ -279,6 +277,7 @@ pub mod pallet {
 		/// lock.
 		type TrustedLockers: ContainsPair<Location, Asset>;
 
+		#[pallet::no_default]
 		/// How to get an `AccountId` value from a `Location`, useful for handling asset locks.
 		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
 
@@ -293,6 +292,92 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// The overarching event type.
+		#[pallet::no_default_bounds]
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// The runtime `Origin` type.
+		#[pallet::no_default_bounds]
+		type RuntimeOrigin: From<Origin> + From<<Self as SysConfig>::RuntimeOrigin>;
+
+		/// The runtime `Call` type.
+		#[pallet::no_default_bounds]
+		type RuntimeCall: Parameter
+			+ GetDispatchInfo
+			+ Dispatchable<
+				RuntimeOrigin = <Self as Config>::RuntimeOrigin,
+				PostInfo = PostDispatchInfo,
+			>;
+	}
+
+	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`]
+	pub mod config_preludes {
+		use super::*;
+		use frame_support::{
+			derive_impl, register_default_impl,
+			traits::{Everything, ConstU32, Equals},
+		};
+		use xcm_builder::{
+			IsConcrete,
+			LocationWithAssetFilters,
+		};
+
+		pub struct TestDefaultConfig<RuntimeOrigin, AccountId>(core::marker::PhantomData<(RuntimeOrigin, AccountId)>);
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		impl<RuntimeOrigin, AccountId> frame_system::DefaultConfig for TestDefaultConfig<RuntimeOrigin, AccountId> {}
+
+		// TODO: These make sense for an actual runtime, not for a test one maybe
+		parameter_types! {
+			/// We hold a native token locally, in `Here`
+			pub TokenLocation: Location = Here.into_location();
+			/// We don't allow any assets to be teleported
+			pub AllowedAssetsToTeleport: Vec<AssetFilter> = vec![];
+			/// We only allow reserve asset depositing the native token
+			pub AllowedAssetsToReserveTransfer: Vec<AssetFilter> = vec![
+				Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) }),
+			];
+			pub AnyNetwork: Option<NetworkId> = None;
+		}
+
+		#[register_default_impl(TestDefaultConfig)]
+		impl<RuntimeOrigin, AccountId> DefaultConfig for TestDefaultConfig<RuntimeOrigin, AccountId> {
+			// This default config only handles the native token
+			type CurrencyMatcher = IsConcrete<TokenLocation>;
+
+			type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, xcm_builder::SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>>;
+
+			// We don't filter any specific message
+			type XcmExecuteFilter = Everything;
+
+			type XcmTeleportFilter = LocationWithAssetFilters<
+				Equals<TokenLocation>,
+				AllowedAssetsToTeleport,
+			>;
+			type XcmReserveTransferFilter = LocationWithAssetFilters<
+				Equals<TokenLocation>,
+				AllowedAssetsToReserveTransfer,
+			>;
+
+			// Use latest version by default
+			type AdvertisedXcmVersion = CurrentXcmVersion;
+			const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
+
+			type TrustedLockers = ();
+			type MaxLockers = ConstU32<0>;
+			type MaxRemoteLockConsumers = ConstU32<0>;
+			type RemoteLockConsumerIdentifier = ();
+
+			type WeightInfo = TestWeightInfo;
+
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+			#[inject_runtime_type]
+			type RuntimeOrigin = ();
+			#[inject_runtime_type]
+			type RuntimeCall = ();
+		}
 	}
 
 	impl<T: Config> ExecuteControllerWeightInfo for Pallet<T> {
