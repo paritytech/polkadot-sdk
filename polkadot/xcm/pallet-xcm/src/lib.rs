@@ -2835,6 +2835,34 @@ impl<T: Config> Pallet<T> {
 			);
 		}
 
+		// Take minimal version from `SafeXcmVersion` or `T::AdvertisedXcmVersion` and ensure that the operational data is stored at least at that version, for example, to prevent issues when removing older XCM versions.
+		let minimal_allowed_xcm_version = if let Some(safe_xcm_version) = SafeXcmVersion::<T>::get() {
+			T::AdvertisedXcmVersion::get().min(safe_xcm_version)
+		} else {
+			T::AdvertisedXcmVersion::get()
+		};
+		tracing::warn!(
+			target: "runtime",
+			?minimal_allowed_xcm_version,
+			"Checking xcm version for `pallet_xcm`'s operational data",
+		);
+
+		// check `Queries`
+		ensure!(
+			Queries::<T>::iter_values().all(|query| match query {
+				QueryStatus::Pending { responder, maybe_match_querier, .. } =>
+					responder.identify_version() >= minimal_allowed_xcm_version
+						&& maybe_match_querier
+							.map(|v| v.identify_version() >= minimal_allowed_xcm_version)
+							.unwrap_or(true),
+				QueryStatus::VersionNotifier { origin, .. } =>
+					origin.identify_version() >= minimal_allowed_xcm_version,
+				QueryStatus::Ready { response, .. } =>
+					response.identify_version() >= minimal_allowed_xcm_version,
+			}),
+			TryRuntimeError::Other("`Queries` data should be migrated to the higher xcm version!")
+		);
+
 		Ok(())
 	}
 }
