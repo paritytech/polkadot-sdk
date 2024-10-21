@@ -93,7 +93,7 @@ fn account_and_location(account: &str) -> (AccountId32, Location) {
 // 2. Alice on AssetHub sends an XCM to BridgeHub to claim assets, pay fees and deposit
 // remaining to her sibling account on BridgeHub.
 #[test]
-fn test_sac_between_the_chains() {
+fn test_set_asset_claimer_between_the_chains() {
 	let alice = AssetHubWestend::account_id_of(ALICE);
 	let alice_bh_sibling = Location::new(
 		1,
