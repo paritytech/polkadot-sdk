@@ -32,11 +32,10 @@ use crate::{
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
-use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicBuilder, SUBSTRATE_REFERENCE_HARDWARE};
+use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
 use sc_cli::{Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
-use sp_core::H256;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
 
@@ -47,19 +46,6 @@ pub struct RunConfig {
 	pub chain_spec_loader: Box<dyn LoadSpec>,
 	/// A custom runtime resolver.
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
-	/// Extrinsic builder to use in benchmarks.
-	///
-	/// Some benchmarks attempt to build blocks. This extrinsic builder
-	/// is used to populate these blocks with extrinsics.
-	pub extrinsic_builder: Option<
-			Box<
-				dyn FnOnce(
-					subxt::Metadata,
-					H256,
-					subxt::client::RuntimeVersion,
-				) -> Box<dyn ExtrinsicBuilder>,
-			>,
-		>,
 }
 
 impl RunConfig {
@@ -68,7 +54,7 @@ impl RunConfig {
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
 	) -> Self {
-		RunConfig { chain_spec_loader, runtime_resolver, extrinsic_builder: None }
+		RunConfig { chain_spec_loader, runtime_resolver }
 	}
 }
 
@@ -221,14 +207,6 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				}),
 				BenchmarkCmd::Machine(cmd) =>
 					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())),
-				BenchmarkCmd::Overhead(cmd) => runner.sync_run(|config| {
-					let node = new_node_spec(
-						&config,
-						&cmd_config.runtime_resolver,
-						&cli.node_extra_args(),
-					)?;
-					node.run_benchmark_overhead_cmd(cmd, cmd_config.extrinsic_builder)
-				}),
 				#[allow(unreachable_patterns)]
 				_ => Err("Benchmarking sub-command unsupported or compilation feature missing. \
 					Make sure to compile with --features=runtime-benchmarks \
