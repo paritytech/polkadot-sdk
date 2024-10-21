@@ -54,6 +54,7 @@ pub const BOB_CONTRACT_ID: AccountId32 = ee_suffix(BOB_ADDR);
 
 pub const CHARLIE: AccountId32 = AccountId32::new([3u8; 32]);
 pub const CHARLIE_ADDR: H160 = H160([3u8; 20]);
+pub const CHARLIE_CONTRACT_ID: AccountId32 = ee_suffix(CHARLIE_ADDR);
 
 pub const DJANGO: AccountId32 = AccountId32::new([4u8; 32]);
 pub const DJANGO_ADDR: H160 = H160([4u8; 20]);

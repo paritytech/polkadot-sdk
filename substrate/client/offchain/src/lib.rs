@@ -446,8 +446,13 @@ mod tests {
 
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 		let network = Arc::new(TestNetwork());
 		let header = client.header(client.chain_info().genesis_hash).unwrap().unwrap();
 

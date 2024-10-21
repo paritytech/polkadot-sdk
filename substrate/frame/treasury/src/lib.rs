@@ -73,6 +73,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+pub mod migration;
 #[cfg(test)]
 mod tests;
 pub mod weights;

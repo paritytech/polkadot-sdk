@@ -12,7 +12,6 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-parity-util-mem = { optional = true, workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = [
 	"derive",
@@ -42,7 +41,6 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"parity-util-mem",
 	"scale-info/std",
 	"serde",
 	"sp-core/std",

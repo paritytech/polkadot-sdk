@@ -60,7 +60,7 @@ impl<T: crate::Config> UncheckedOnRuntimeUpgrade for InnerMigrateV0ToV1<T> {
 	///
 	/// - If the value doesn't exist, there is nothing to do.
 	/// - If the value exists, it is read and then written back to storage inside a
-	/// [`crate::CurrentAndPreviousValue`].
+	///   [`crate::CurrentAndPreviousValue`].
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		// Read the old value from storage
 		if let Some(old_value) = v0::Value::<T>::take() {

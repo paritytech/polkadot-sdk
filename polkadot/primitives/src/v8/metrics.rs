@@ -91,18 +91,6 @@ pub type RuntimeMetricLabelValue = RuntimeMetricLabel;
 /// A set of metric label values.
 pub type RuntimeMetricLabelValues = RuntimeMetricLabels;
 
-/// Trait for converting Vec<u8> to `&str`.
-pub trait AsStr {
-	/// Return a str reference.
-	fn as_str(&self) -> Option<&str>;
-}
-
-impl AsStr for RuntimeMetricLabel {
-	fn as_str(&self) -> Option<&str> {
-		alloc::str::from_utf8(&self.0).ok()
-	}
-}
-
 impl From<&'static str> for RuntimeMetricLabel {
 	fn from(s: &'static str) -> Self {
 		Self(s.as_bytes().to_vec())
