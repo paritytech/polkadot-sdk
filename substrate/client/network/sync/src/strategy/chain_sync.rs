@@ -42,7 +42,6 @@ use crate::{
 	LOG_TARGET,
 };
 
-use codec::Encode;
 use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
 use sc_client_api::{blockchain::BlockGap, BlockBackend, ProofProvider};
@@ -57,8 +56,7 @@ use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::{BlockOrigin, BlockStatus};
 use sp_runtime::{
 	traits::{
-		Block as BlockT, CheckedSub, Hash, HashingFor, Header as HeaderT, NumberFor, One,
-		SaturatedConversion, Zero,
+		Block as BlockT, CheckedSub, Header as HeaderT, NumberFor, One, SaturatedConversion, Zero,
 	},
 	EncodedJustification, Justifications,
 };
@@ -2301,24 +2299,6 @@ pub fn validate_blocks<Block: BlockT>(
 					peer_id,
 					b.hash,
 					hash,
-				);
-				return Err(BadPeer(*peer_id, rep::BAD_BLOCK));
-			}
-		}
-		if let (Some(header), Some(body)) = (&b.header, &b.body) {
-			let expected = *header.extrinsics_root();
-			let got = HashingFor::<Block>::ordered_trie_root(
-				body.iter().map(Encode::encode).collect(),
-				sp_runtime::StateVersion::V0,
-			);
-			if expected != got {
-				debug!(
-					target: LOG_TARGET,
-					"Bad extrinsic root for a block {} received from {}. Expected {:?}, got {:?}",
-					b.hash,
-					peer_id,
-					expected,
-					got,
 				);
 				return Err(BadPeer(*peer_id, rep::BAD_BLOCK));
 			}
