@@ -1,0 +1,11 @@
+title: Parameterises Westend minimum era infaltion to treasury
+
+doc:
+  - audience: Runtime User
+    description: |
+      Parameterises the minimum era inflation percentage that should be automatically minted into
+      the treasury. This parameterisation exposes the config directly to governance.
+
+crates:
+  - name: westend-runtime
+    bump: patch
