@@ -36,8 +36,8 @@ use syn::{
 	parse_macro_input, parse_quote,
 	spanned::Spanned,
 	visit_mut::{self, VisitMut},
-	Attribute, GenericArgument, Ident, ImplItem, ItemImpl, LitInt, LitStr,
-	ParenthesizedGenericArguments, Path, Signature, Type, TypePath,
+	Attribute, GenericArgument, Ident, ImplItem, ItemImpl, LitInt, LitStr, Path, Signature, Type,
+	TypePath,
 };
 
 use std::collections::HashMap;
@@ -789,11 +789,13 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 	))
 }
 
-/// replaces `Self`` with explicit `Runtime`.
-struct ReplaceSelfImpl {}
+/// replaces `Self` with explicit `ItemImpl.self_ty`.
+struct ReplaceSelfImpl {
+	self_ty: Box<Type>,
+}
 
 impl ReplaceSelfImpl {
-	/// Replace `Self` with `Runtime`
+	/// Replace `Self` with `ItemImpl.self_ty`
 	fn replace(&mut self, trait_: &mut ItemImpl) {
 		visit_mut::visit_item_impl_mut(self, trait_)
 	}
@@ -801,21 +803,24 @@ impl ReplaceSelfImpl {
 
 impl VisitMut for ReplaceSelfImpl {
 	fn visit_generic_argument_mut(&mut self, i: &mut syn::GenericArgument) {
-		if let GenericArgument::Type(Type::Path(p)) = i {
-			if let Some(ident) = p.path.get_ident() {
-				if ident == "Self" {
-					p.path = parse_quote! { Runtime };
-				};
-			}
+		let typ = match i {
+			GenericArgument::Type(Type::Path(p))
+				if p.path.get_ident().is_some_and(|ident| ident == "Self") =>
+				Some(GenericArgument::Type(*self.self_ty.clone())),
+			_ => None,
+		};
+		if let Some(typ) = typ {
+			*i = typ;
 		}
 	}
 }
 
-/// Rename `Self` to `Runtime` in all items.
+/// Rename `Self` to `ItemImpl.self_ty` in all items.
 fn rename_self_in_trait_impls(impls: &mut [ItemImpl]) -> Result<()> {
-	let mut checker = ReplaceSelfImpl {};
-
-	impls.iter_mut().for_each(|i| checker.replace(i));
+	impls.iter_mut().for_each(|i| {
+		let mut checker = ReplaceSelfImpl { self_ty: i.self_ty.clone() };
+		checker.replace(i);
+	});
 
 	Ok(())
 }
