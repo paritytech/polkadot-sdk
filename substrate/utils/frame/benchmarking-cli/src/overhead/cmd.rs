@@ -42,7 +42,7 @@ use sc_block_builder::BlockBuilderApi;
 use sc_chain_spec::{ChainSpec, ChainSpecExtension, GenericChainSpec, GenesisBlockBuilder};
 use sc_cli::{CliConfiguration, Database, ImportParams, Result, SharedParams};
 use sc_client_api::{execution_extensions::ExecutionExtensions, UsageProvider};
-use sc_client_db::{BlocksPruning, DatabaseSettings, DatabaseSource};
+use sc_client_db::{BlocksPruning, DatabaseSettings};
 use sc_executor::WasmExecutor;
 use sc_service::{new_client, new_db_backend, BasePath, ClientConfig, TFullClient, TaskManager};
 use serde::Serialize;
@@ -126,12 +126,6 @@ pub struct OverheadParams {
 	/// provided chain spec or a runtime-provided genesis preset.
 	#[arg(long, value_enum, conflicts_with = "runtime")]
 	pub genesis_builder: Option<GenesisBuilderPolicy>,
-
-	/// Inflate the genesis state by generating accounts.
-	///
-	/// Can be used together with `--account_type` to specify the type of accounts to generate.
-	#[arg(long)]
-	pub generate_num_accounts: Option<u64>,
 
 	/// Parachain Id to use for parachains. If not specified, the benchmark code will choose
 	/// a para-id and patch the state accordingly.
@@ -357,19 +351,17 @@ impl OverheadCmd {
 			Some(path) => BasePath::from(path.clone()),
 		};
 
-		self.database_config(
+		let database_source = self.database_config(
 			&base_path.path().to_path_buf(),
 			self.database_cache_size()?.unwrap_or(1024),
 			self.database()?.unwrap_or(Database::RocksDb),
 		)?;
+
 		let backend = new_db_backend(DatabaseSettings {
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
 			state_pruning: None,
 			blocks_pruning: BlocksPruning::KeepAll,
-			source: DatabaseSource::RocksDb {
-				cache_size: self.database_cache_size()?.unwrap_or(1024),
-				path: BasePath::new_temp_dir()?.path().into(),
-			},
+			source: database_source,
 		})?;
 
 		let storage = shared::genesis_state::genesis_storage::<HF>(

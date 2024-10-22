@@ -357,6 +357,14 @@ where
 			.map_err(|e| Error::Application(Box::new(e)))
 	}
 
+	/// Get the current proof size of the internal recorder.
+	///
+	/// This is a lot more expensive than the provided size estimation functions and should
+	/// be used with care.
+	pub fn current_proof_size(&self) -> Option<usize> {
+		self.api.proof_recorder().map(|pr| pr.to_storage_proof().encoded_size())
+	}
+
 	/// Estimate the size of the block in the current state.
 	///
 	/// If `include_proof` is `true`, the estimated size of the storage proof will be added

@@ -153,8 +153,15 @@ where
 		let ext_builder = if let Some(ext_builder) = ext_builder {
 			ext_builder
 		} else {
-			let proof_size = builder.estimate_block_size(true) - builder.estimate_block_size(false);
-			return Ok((builder.build()?.block, None, proof_size as u64))
+			let proof_size = builder.current_proof_size();
+			return Ok((
+				builder.build()?.block,
+				None,
+				proof_size
+					.unwrap_or(0)
+					.try_into()
+					.map_err(|_| "Proof size is too large".to_string())?,
+			))
 		};
 
 		// Put as many extrinsics into the block as possible and count them.
@@ -175,10 +182,17 @@ where
 			return Err("A Block must hold at least one extrinsic".into())
 		}
 		info!("Extrinsics per block: {}", num_ext);
-		let proof_size = builder.estimate_block_size(true) - builder.estimate_block_size(false);
+		let proof_size = builder.current_proof_size();
 		let block = builder.build()?.block;
 
-		Ok((block, Some(num_ext), proof_size as u64))
+		Ok((
+			block,
+			Some(num_ext),
+			proof_size
+				.unwrap_or(0)
+				.try_into()
+				.map_err(|_| "Proof size is too large".to_string())?,
+		))
 	}
 
 	/// Measures the time that it take to execute a block or an extrinsic.
