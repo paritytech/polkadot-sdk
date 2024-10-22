@@ -170,7 +170,7 @@ mod v2 {
 	pub struct CommandWrapper {
 		pub kind: u8,
 		pub max_dispatch_gas: u64,
-		pub command: Command,
+		pub command: Vec<u8>,
 	}
 
 	/// ABI-encoded form for delivery to the Gateway contract on Ethereum
@@ -179,7 +179,7 @@ mod v2 {
 			Token::Tuple(vec![
 				Token::Uint(x.kind.into()),
 				Token::Uint(x.max_dispatch_gas.into()),
-				Token::Bytes(x.command.abi_encode()),
+				Token::Bytes(x.command),
 			])
 		}
 	}

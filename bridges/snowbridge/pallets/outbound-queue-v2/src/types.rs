@@ -48,8 +48,10 @@ impl From<CommittedMessage> for Token {
 /// Fee with block number for easy fetch the pending message on relayer side
 #[derive(Encode, Decode, TypeInfo, Clone, Eq, PartialEq, RuntimeDebug, MaxEncodedLen)]
 pub struct FeeWithBlockNumber<BlockNumber> {
-	/// The address of the outbound queue on Ethereum that emitted this message as an event log
-	pub fee: u128,
-	/// A nonce for enforcing replay protection and ordering.
+	/// A nonce of the message for enforcing replay protection
+	pub nonce: u64,
+	/// The block number of the message
 	pub block_number: BlockNumber,
+	/// The fee
+	pub fee: u128,
 }

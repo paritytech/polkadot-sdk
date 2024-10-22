@@ -120,7 +120,7 @@ use snowbridge_core::{
 };
 use sp_core::H256;
 use sp_runtime::{
-	traits::{BlockNumberProvider, Hash, Zero},
+	traits::{BlockNumberProvider, Hash},
 	ArithmeticError, DigestItem,
 };
 use sp_std::prelude::*;
@@ -252,7 +252,7 @@ pub mod pallet {
 	/// Fee locked by nonce
 	#[pallet::storage]
 	pub type LockedFee<T: Config> =
-		StorageMap<_, Twox64Concat, u64, FeeWithBlockNumber<BlockNumberFor<T>>, OptionQuery>;
+		StorageMap<_, Identity, u64, FeeWithBlockNumber<BlockNumberFor<T>>, OptionQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
@@ -366,7 +366,7 @@ pub mod pallet {
 				.map(|command| CommandWrapper {
 					kind: command.index(),
 					max_dispatch_gas: T::GasMeter::maximum_dispatch_gas_used_at_most(&command),
-					command: command.clone(),
+					command: command.abi_encode(),
 				})
 				.collect();
 
@@ -387,10 +387,10 @@ pub mod pallet {
 
 			<LockedFee<T>>::try_mutate(nonce, |maybe_locked| -> DispatchResult {
 				let mut locked = maybe_locked.clone().unwrap_or_else(|| FeeWithBlockNumber {
+					nonce,
 					fee: 0,
-					block_number: BlockNumberFor::<T>::zero(),
+					block_number: frame_system::Pallet::<T>::current_block_number(),
 				});
-				locked.block_number = frame_system::Pallet::<T>::current_block_number();
 				locked.fee =
 					locked.fee.checked_add(message.fee).ok_or(ArithmeticError::Overflow)?;
 				*maybe_locked = Some(locked);
