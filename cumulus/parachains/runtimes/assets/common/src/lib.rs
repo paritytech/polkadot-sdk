@@ -25,6 +25,7 @@ pub mod runtime_api;
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use crate::matching::{LocalLocationPattern, ParentLocation};
 use codec::{Decode, EncodeLike};
 use core::cmp::PartialEq;
@@ -148,16 +149,16 @@ pub fn get_assets_in_pool_with<
 	L: TryInto<Location> + Clone + Decode + EncodeLike + PartialEq,
 >(
 	asset: &L,
-) -> impl Iterator<Item = Location> + '_ {
-	pallet_asset_conversion::Pools::<Runtime>::iter_keys().filter_map(move |(asset_1, asset_2)| {
+) -> Result<Vec<Location>, ()> {
+	pallet_asset_conversion::Pools::<Runtime>::iter_keys().filter_map(|(asset_1, asset_2)| {
 		if asset_1 == *asset {
-			Some(asset_2.clone())
+			Some(asset_2)
 		} else if asset_2 == *asset {
-			Some(asset_1.clone())
+			Some(asset_1)
 		} else {
 			None
 		}
-	}).map(|location| location.try_into().map_err(|_| ()).unwrap())
+	}).map(|location| location.try_into().map_err(|_| ())).collect::<Result<Vec<_>, _>>()
 }
 
 #[cfg(test)]
