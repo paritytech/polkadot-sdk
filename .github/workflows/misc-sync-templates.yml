@@ -81,7 +81,7 @@ jobs:
           license = "MIT-0"
           authors = ["Parity Technologies <admin@parity.io>"]
           homepage = "https://paritytech.github.io/polkadot-sdk/"
-        
+
           [workspace]
           EOF
 

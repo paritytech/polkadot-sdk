@@ -55,14 +55,14 @@ cd parachain-template
 cargo build --release
 ```
 
-⚙️  Use the following command to build the node as well without launching it:
+⚙️  Use the following command to build the node as well:
 
 ```sh
 cargo build --workspace --release
 ```
 
 🐳 Alternatively, build the docker image which builds all the workspace members,
-and has the node binary:
+and has the node binary as entry point:
 
 ```sh
 docker build . -t polkadot-sdk-parachain-template
@@ -108,20 +108,20 @@ Development chains:
 * 💰 Are preconfigured with a genesis state that includes several prefunded development accounts.
 * 🧑‍⚖️ Development accounts are used as validators, collators, and `sudo` accounts.
 
-### OmniNode based local development
+### Omni Node based local development
 
-The previous steps can work too when using the OmniNode (TODO: add link to omni node docs) instead
+The previous steps can work too when using the Omni Node (TODO: add link to omni node docs) instead
 of the regular `parachain-template-node`.
 
-* 󰇚 For this instance we'll use `polkadot-omni-node`, which can be downloaded from [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
+* ⬇️  For this instance we'll use `polkadot-omni-node`, which can be downloaded from [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
 
-*   Once built, add it to the `PATH` environment variable like so:
+* 🔗 Once built, add it to the `PATH` environment variable like so:
 
 ```sh
 export PATH="<path-to-binary>:$PATH"
 ```
 
-*   We also need to build the `parachain-runtime` and then generate a chain spec based on it.
+* ↩️  We also need to build the `parachain-runtime` and then generate a chain spec based on it.
 
 
 ```sh
@@ -134,12 +134,12 @@ chain-spec-builder create --relay-chain "rococo-local" --para-id 1000 --runtime 
     <target/release/wbuild/path/to/parachain-template-runtime.wasm> named-preset development
 ```
 
-*   The chain spec `relay-chain` and `para-id` flags are extra bits of information to configure the node
-in relation to its `para-id` (which must be set to `1000` for the parachain template, to correspond too
-the `ParachainInfo` pallet config, as configured in [genesis config presets](https://github.com/paritytech/polkadot-sdk/blob/master/templates/parachain/runtime/src/genesis_config_presets.rs)),
+* ⚙️  The `relay-chain` and `para-id` flags are extra bits of information to configure the node
+in relation to its parachain id (which must be set to `1000` for the parachain template, to
+correspond too the `ParachainInfo` pallet config, as configured in [genesis config presets](https://github.com/paritytech/polkadot-sdk/blob/master/templates/parachain/runtime/src/genesis_config_presets.rs)),
 while the `relay-chain` must correspond to the relay chain where the parachain connects to.
 
-* 󰅕 Start OmniNode with parachain template runtime based chain spec.
+* 🚀 Start Omni Node with parachain template runtime based chain spec.
 
 ```sh
 polkadot-omni-node --chain <path/to/chain_spec.json> --tmp

@@ -13,16 +13,14 @@
 //!
 //! You can run the following command to generate a minimal chainspec, once the runtime wasm file is
 //! compiled:
-//!`chain-spec-builder create -r <path_to_template_wasm_file> named-preset
-//! development`
+//!`chain-spec-builder create --relay-chain <relay_chain_id> --para-id 1000 -r \
+//!     <path_to_template_wasm_file> named-preset development`
 //!
-//! Both chainspecs needs adding two additional fields for "relay_chain" (set to "dev" for minimal,
-//! and "rococo-local" for parachain), and "para_id" (set to 1000 as number).
-//!
-//! Once the files are generated, you must export in the environment a variable called
-//! `RELAY_CHAIN_SPECS_DIR` which should point to the absolute path to the directory that holds the
-//! generated chain specs. The chain specs file names should be `minimal_chain_spec.json` for
-//! minimal and `parachain_chain_spec.json` for parachain templates.
+//! Once the files are generated, you must export an environment variable called
+//! `RELAY_CHAIN_SPECS_DIR` which should point to the absolute path of the directory
+//! that holds the generated chain specs. The chain specs file names should be
+//! `minimal_chain_spec.json` for minimal and `parachain_chain_spec.json` for parachain
+//! templates.
 //!
 //! To start all tests here we should run:
 //! `cargo test -p template-zombienet-tests --features zombienet`
@@ -35,6 +33,7 @@ mod smoke {
 	use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder, NetworkConfigExt};
 
 	const RELAY_CHAIN_SPECS_DIR_PATH: &'static str = std::env!("RELAY_CHAIN_SPECS_DIR");
+	const PARACHAIN_ID: u32 = 1000;
 
 	#[derive(Default)]
 	struct NetworkSpec {
@@ -65,7 +64,7 @@ mod smoke {
 
 		let config = if let Some(para_cmd) = network_spec.para_cmd {
 			config.with_parachain(|p| {
-				let mut p = p.with_id(1000).with_default_command(para_cmd);
+				let mut p = p.with_id(PARACHAIN_ID).with_default_command(para_cmd);
 				if let Some(args) = network_spec.para_cmd_args {
 					p = p.with_default_args(args.into_iter().map(|arg| arg.into()).collect());
 				}
@@ -159,7 +158,7 @@ mod smoke {
 
 		let chain_spec_path = RELAY_CHAIN_SPECS_DIR_PATH.to_string() + "/minimal_chain_spec.json";
 		let config = get_config(NetworkSpec {
-			relaychain_cmd: "polkadot-parachain",
+			relaychain_cmd: "polkadot-omni-node",
 			relaychain_cmd_args: Some(vec![("--dev-block-time", "1000")]),
 			relaychain_spec_path: Some(chain_spec_path.into()),
 			..Default::default()
@@ -186,7 +185,7 @@ mod smoke {
 
 		let config = get_config(NetworkSpec {
 			relaychain_cmd: "polkadot",
-			para_cmd: Some("polkadot-parachain"),
+			para_cmd: Some("polkadot-omni-node"),
 			// Leaking the `String` to be able to use it below as a static str,
 			// required by the `FromStr` implementation for zombienet-configuration
 			// `Arg` type, which is not exposed yet through `zombienet-sdk`.
