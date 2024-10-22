@@ -350,7 +350,7 @@ impl<B: BlockT> StateStrategy<B> {
 		}
 	}
 
-	/// Get actions that should be performed by the owner on [`WarpSync`]'s behalf
+	/// Get actions that should be performed.
 	#[must_use]
 	pub fn actions(&mut self) -> impl Iterator<Item = StateStrategyAction<B>> {
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
