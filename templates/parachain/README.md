@@ -108,21 +108,21 @@ Development chains:
 * 💰 Are preconfigured with a genesis state that includes several prefunded development accounts.
 * 🧑‍⚖️ Development accounts are used as validators, collators, and `sudo` accounts.
 
-### Omni-Node based local development
+### OmniNode based local development
 
-The previous steps can work too when using the Omni-Node (TODO: add link to omni node docs) instead of the regular `parachain-template-node`.
+The previous steps can work too when using the OmniNode (TODO: add link to omni node docs) instead
+of the regular `parachain-template-node`.
 
-* 󰇚 Omni-node is represented by a binary called `polkadot-parachain`, which can be downloaded from
-[Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
+* 󰇚 For this instance we'll use `polkadot-parachain` (an opinionated OmniNode, with customized chain-specs),
+which can be downloaded from [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
 
 *   Once built, add it to the `PATH` environment variable like so:
-
 
 ```sh
 export PATH="<path-to-binaries>:$PATH"
 ```
 
-*   The omni-node needs a runtime chainspec to run it, and in minimal case, we need to build the `minimal-runtime`,
+*   The OmniNode needs a runtime chainspec to run it, and in minimal case, we need to build the `minimal-runtime`,
 and then generate a chain spec based on it.
 
 
@@ -136,7 +136,8 @@ chain-spec-builder create -r <path/to/minimal-template-runtime.wasm> named-prese
 ```
 
 *  The chain spec needs a few more fields before using it. You can notice below that we're adding
-`relay_chain` and `para_id` fields, which are mandatory for all chain specs.
+`relay_chain` and `para_id` fields, which are mandatory for all chain specs. The `para_id` must be
+set to `1000` to correspond to the (`ParachainInfo` pallet), as configured in [genesis config presets](https://github.com/paritytech/polkadot-sdk/blob/master/templates/parachain/runtime/src/genesis_config_presets.rs).
 
 
 ```sh
