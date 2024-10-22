@@ -1475,8 +1475,7 @@ impl_runtime_apis! {
 					if assets_in_pool_with_this_asset
 						.into_iter()
 						.map(|asset_id| asset_id.0)
-						.find(|location| *location == native_asset)
-						.is_some() {
+						.any(|location| location == native_asset) {
 						pallet_asset_conversion::Pallet::<Runtime>::quote_price_tokens_for_exact_tokens(
 							asset_id.clone().0,
 							native_asset,
