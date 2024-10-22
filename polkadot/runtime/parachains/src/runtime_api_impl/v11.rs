@@ -18,8 +18,7 @@
 //! functions.
 
 use crate::{
-	configuration, disputes, dmp, hrmp, inclusion, initializer, paras, paras_inherent,
-	scheduler::{self, CoreOccupied},
+	configuration, disputes, dmp, hrmp, inclusion, initializer, paras, paras_inherent, scheduler,
 	session_info, shared,
 };
 use alloc::{
@@ -67,15 +66,6 @@ pub fn validator_groups<T: initializer::Config>(
 
 /// Implementation for the `availability_cores` function of the runtime API.
 pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, BlockNumberFor<T>>> {
-	let cores = scheduler::AvailabilityCores::<T>::get();
-	let now = frame_system::Pallet::<T>::block_number() + One::one();
-
-	// This explicit update is only strictly required for session boundaries:
-	//
-	// At the end of a session we clear the claim queues: Without this update call, nothing would be
-	// scheduled to the client.
-	scheduler::Pallet::<T>::free_cores_and_fill_claim_queue(Vec::new(), now);
-
 	let time_out_for = scheduler::Pallet::<T>::availability_timeout_predicate();
 
 	let group_responsible_for =
@@ -95,76 +85,42 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 			},
 		};
 
-	let scheduled: BTreeMap<_, _> = scheduler::Pallet::<T>::scheduled_paras().collect();
+	let claim_queue = scheduler::Pallet::<T>::get_claim_queue();
+	let occupied_cores: BTreeMap<CoreIndex, inclusion::CandidatePendingAvailability<_, _>> =
+		inclusion::Pallet::<T>::get_occupied_cores().collect();
+	let n_cores = scheduler::Pallet::<T>::num_availability_cores();
 
-	cores
-		.into_iter()
-		.enumerate()
-		.map(|(i, core)| match core {
-			CoreOccupied::Paras(entry) => {
-				// Due to https://github.com/paritytech/polkadot-sdk/issues/64, using the new storage types would cause
-				// this runtime API to panic. We explicitly handle the storage for version 0 to
-				// prevent that. When removing the inclusion v0 -> v1 migration, this bit of code
-				// can also be removed.
-				let pending_availability = if inclusion::Pallet::<T>::on_chain_storage_version() ==
-					StorageVersion::new(0)
-				{
-					inclusion::migration::v0::PendingAvailability::<T>::get(entry.para_id())
-						.expect("Occupied core always has pending availability; qed")
-				} else {
-					let candidate = inclusion::Pallet::<T>::pending_availability_with_core(
-						entry.para_id(),
-						CoreIndex(i as u32),
-					)
-					.expect("Occupied core always has pending availability; qed");
-
-					// Translate to the old candidate format, as we don't need the commitments now.
-					inclusion::migration::v0::CandidatePendingAvailability {
-						core: candidate.core_occupied(),
-						hash: candidate.candidate_hash(),
-						descriptor: candidate.candidate_descriptor().clone(),
-						availability_votes: candidate.availability_votes().clone(),
-						backers: candidate.backers().clone(),
-						relay_parent_number: candidate.relay_parent_number(),
-						backed_in_number: candidate.backed_in_number(),
-						backing_group: candidate.backing_group(),
-					}
-				};
-
-				let backed_in_number = pending_availability.backed_in_number;
-
+	(0..n_cores)
+		.map(|core_idx| {
+			let core_idx = CoreIndex(core_idx as u32);
+			if let Some(pending_availability) = occupied_cores.get(&core_idx) {
 				// Use the same block number for determining the responsible group as what the
 				// backing subsystem would use when it calls validator_groups api.
 				let backing_group_allocation_time =
-					pending_availability.relay_parent_number + One::one();
+					pending_availability.relay_parent_number() + One::one();
 				CoreState::Occupied(OccupiedCore {
-					next_up_on_available: scheduler::Pallet::<T>::next_up_on_available(CoreIndex(
-						i as u32,
-					)),
-					occupied_since: backed_in_number,
-					time_out_at: time_out_for(backed_in_number).live_until,
-					next_up_on_time_out: scheduler::Pallet::<T>::next_up_on_time_out(CoreIndex(
-						i as u32,
-					)),
-					availability: pending_availability.availability_votes.clone(),
+					next_up_on_available: scheduler::Pallet::<T>::next_up_on_available(core_idx),
+					occupied_since: pending_availability.backed_in_number(),
+					time_out_at: time_out_for(pending_availability.backed_in_number()).live_until,
+					next_up_on_time_out: scheduler::Pallet::<T>::next_up_on_available(core_idx),
+					availability: pending_availability.availability_votes().clone(),
 					group_responsible: group_responsible_for(
 						backing_group_allocation_time,
-						pending_availability.core,
+						pending_availability.core_occupied(),
 					),
-					candidate_hash: pending_availability.hash,
-					candidate_descriptor: pending_availability.descriptor,
+					candidate_hash: pending_availability.candidate_hash(),
+					candidate_descriptor: pending_availability.candidate_descriptor().clone(),
 				})
-			},
-			CoreOccupied::Free => {
-				if let Some(para_id) = scheduled.get(&CoreIndex(i as _)).cloned() {
+			} else {
+				if let Some(assignment) = claim_queue.get(&core_idx).and_then(|q| q.front()) {
 					CoreState::Scheduled(polkadot_primitives::ScheduledCore {
-						para_id,
+						para_id: assignment.para_id(),
 						collator: None,
 					})
 				} else {
 					CoreState::Free
 				}
-			},
+			}
 		})
 		.collect()
 }
@@ -195,13 +151,12 @@ where
 			build()
 		},
 		OccupiedCoreAssumption::TimedOut => build(),
-		OccupiedCoreAssumption::Free => {
-			if <inclusion::Pallet<Config>>::pending_availability(para_id).is_some() {
+		OccupiedCoreAssumption::Free =>
+			if !<inclusion::Pallet<Config>>::candidates_pending_availability(para_id).is_empty() {
 				None
 			} else {
 				build()
-			}
-		},
+			},
 	}
 }
 
@@ -240,10 +195,12 @@ pub fn assumed_validation_data<T: initializer::Config>(
 	let persisted_validation_data = make_validation_data().or_else(|| {
 		// Try again with force enacting the pending candidates. This check only makes sense if
 		// there are any pending candidates.
-		inclusion::Pallet::<T>::pending_availability(para_id).and_then(|_| {
-			inclusion::Pallet::<T>::force_enact(para_id);
-			make_validation_data()
-		})
+		(!inclusion::Pallet::<T>::candidates_pending_availability(para_id).is_empty())
+			.then_some(())
+			.and_then(|_| {
+				inclusion::Pallet::<T>::force_enact(para_id);
+				make_validation_data()
+			})
 	});
 	// If we were successful, also query current validation code hash.
 	persisted_validation_data.zip(paras::CurrentCodeHash::<T>::get(&para_id))
@@ -319,7 +276,7 @@ pub fn validation_code<T: initializer::Config>(
 pub fn candidate_pending_availability<T: initializer::Config>(
 	para_id: ParaId,
 ) -> Option<CommittedCandidateReceipt<T::Hash>> {
-	inclusion::Pallet::<T>::candidate_pending_availability(para_id)
+	inclusion::Pallet::<T>::first_candidate_pending_availability(para_id)
 }
 
 /// Implementation for the `candidate_events` function of the runtime API.
@@ -568,23 +525,12 @@ pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams 
 
 /// Returns the claimqueue from the scheduler
 pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-	let now = <frame_system::Pallet<T>>::block_number() + One::one();
-
-	// This is needed so that the claim queue always has the right size (equal to
-	// scheduling_lookahead). Otherwise, if a candidate is backed in the same block where the
-	// previous candidate is included, the claim queue will have already pop()-ed the next item
-	// from the queue and the length would be `scheduling_lookahead - 1`.
-	<scheduler::Pallet<T>>::free_cores_and_fill_claim_queue(Vec::new(), now);
 	let config = configuration::ActiveConfig::<T>::get();
 	// Extra sanity, config should already never be smaller than 1:
 	let n_lookahead = config.scheduler_params.lookahead.max(1);
-
-	scheduler::ClaimQueue::<T>::get()
+	scheduler::Pallet::<T>::get_claim_queue()
 		.into_iter()
 		.map(|(core_index, entries)| {
-			// on cores timing out internal claim queue size may be temporarily longer than it
-			// should be as the timed out assignment might got pushed back to an already full claim
-			// queue:
 			(
 				core_index,
 				entries.into_iter().map(|e| e.para_id()).take(n_lookahead as usize).collect(),
