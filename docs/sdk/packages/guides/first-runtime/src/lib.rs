@@ -64,7 +64,7 @@ mod runtime_types {
 	pub(super) type SignedExtra = (
 		// `frame` already provides all the signed extensions from `frame-system`. We just add the
 		// one related to tx-payment here.
-		frame::runtime::types_common::SystemSignedExtensionsOf<Runtime>,
+		frame::runtime::types_common::SystemTransactionExtensionsOf<Runtime>,
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	);
 
