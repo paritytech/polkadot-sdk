@@ -83,7 +83,7 @@
 //!    over the node software, such as changing the consensus engine, altering the transaction pool,
 //!    and so on.
 //!
-//! ## _OmniTools_: User Journet
+//! ## _OmniTools_: User Journey
 //!
 //! All in all, the user journey of a team/builder, in the OmniNode world is as follows:
 //!
