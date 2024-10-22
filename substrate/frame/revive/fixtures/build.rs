@@ -204,8 +204,8 @@ mod build {
 		write_output(tmp_dir_path, &out_dir, entries)?;
 
 		#[cfg(unix)]
-		{
-			let symlink_dir: PathBuf = env::var("CARGO_WORKSPACE_ROOT_DIR")?.into();
+		if let Ok(symlink_dir) = env::var("CARGO_WORKSPACE_ROOT_DIR") {
+			let symlink_dir: PathBuf = symlink_dir.into();
 			let symlink_dir: PathBuf = symlink_dir.join("target").join("pallet-revive-fixtures");
 			if symlink_dir.is_symlink() {
 				fs::remove_file(&symlink_dir)?
