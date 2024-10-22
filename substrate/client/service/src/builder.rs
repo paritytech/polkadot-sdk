@@ -784,34 +784,32 @@ where
 }
 
 /// Parameters to pass into [`build_network`].
-pub struct BuildNetworkParams<
-	'a,
-	TBl: BlockT,
-	TNet: NetworkBackend<TBl, <TBl as BlockT>::Hash>,
-	TExPool,
-	TImpQu,
-	TCl,
-> {
+pub struct BuildNetworkParams<'a, Block, Net, TxPool, IQ, Client>
+where
+	Block: BlockT,
+	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
+{
 	/// The service configuration.
 	pub config: &'a Configuration,
 	/// Full network configuration.
-	pub net_config: FullNetworkConfiguration<TBl, <TBl as BlockT>::Hash, TNet>,
+	pub net_config: FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Net>,
 	/// A shared client returned by `new_full_parts`.
-	pub client: Arc<TCl>,
+	pub client: Arc<Client>,
 	/// A shared transaction pool.
-	pub transaction_pool: Arc<TExPool>,
+	pub transaction_pool: Arc<TxPool>,
 	/// A handle for spawning tasks.
 	pub spawn_handle: SpawnTaskHandle,
 	/// An import queue.
-	pub import_queue: TImpQu,
+	pub import_queue: IQ,
 	/// A block announce validator builder.
-	pub block_announce_validator_builder:
-		Option<Box<dyn FnOnce(Arc<TCl>) -> Box<dyn BlockAnnounceValidator<TBl> + Send> + Send>>,
+	pub block_announce_validator_builder: Option<
+		Box<dyn FnOnce(Arc<Client>) -> Box<dyn BlockAnnounceValidator<Block> + Send> + Send>,
+	>,
 	/// Optional warp sync config.
-	pub warp_sync_config: Option<WarpSyncConfig<TBl>>,
+	pub warp_sync_config: Option<WarpSyncConfig<Block>>,
 	/// User specified block relay params. If not specified, the default
 	/// block request handler will be used.
-	pub block_relay: Option<BlockRelayParams<TBl, TNet>>,
+	pub block_relay: Option<BlockRelayParams<Block, Net>>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
 }
