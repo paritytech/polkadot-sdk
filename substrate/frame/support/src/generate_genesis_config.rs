@@ -219,6 +219,7 @@ macro_rules! generate_config {
 			extern crate alloc;
 			use alloc::{string::ToString, vec::Vec };
 			let mut keys : Vec<InitializedField> = vec![];
+			#[allow(clippy::needless_update)]
 			let struct_instance = generate_config!($struct_type, keys @  { $($tail)* });
 			let mut json_value =
 				serde_json::to_value(struct_instance).expect("serialization to json should work. qed");
@@ -307,7 +308,7 @@ mod test {
 		s: S,
 		s3: S3,
 		t3: S3,
-		i: I,
+		i: Nested1,
 		e: E,
 	}
 
@@ -325,16 +326,11 @@ mod test {
 	#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 	struct E(u8);
 
-	#[derive(Debug, serde::Serialize, serde::Deserialize)]
+	#[derive(Default, Debug, serde::Serialize, serde::Deserialize)]
 	enum SomeEnum<T> {
+		#[default]
 		A,
 		B(T),
-	}
-
-	impl<T> Default for SomeEnum<T> {
-		fn default() -> Self {
-			SomeEnum::A
-		}
 	}
 
 	#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -355,7 +351,7 @@ mod test {
 	}
 
 	#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
-	struct III {
+	struct Nested3 {
 		a: u32,
 		b: u32,
 		s: S,
@@ -363,28 +359,28 @@ mod test {
 	}
 
 	#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
-	struct II {
+	struct Nested2 {
 		a: u32,
-		iii: III,
+		iii: Nested3,
 		v: Vec<u32>,
 		s3: S3,
 	}
 
-	impl II {
+	impl Nested2 {
 		fn new(a: u32) -> Self {
-			II {
+			Nested2 {
 				a,
 				v: vec![a, a, a],
-				iii: III { a, b: a, ..Default::default() },
+				iii: Nested3 { a, b: a, ..Default::default() },
 				s3: S3 { x: a, ..Default::default() },
 			}
 		}
 	}
 
 	#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
-	struct I {
+	struct Nested1 {
 		a: u32,
-		ii: II,
+		ii: Nested2,
 	}
 
 	macro_rules! test {
@@ -464,8 +460,8 @@ mod test {
 		);
 		test!(
 			TestStruct {
-				i: I {
-					ii: II { iii: III { a: 2 } }
+				i: Nested1 {
+					ii: Nested2 { iii: Nested3 { a: 2 } }
 				}
 			}
 			,
@@ -478,9 +474,9 @@ mod test {
 		);
 		test!(
 			TestStruct {
-				i: I {
-					ii: II {
-						iii: III { a: 2, s: S::new(C) }
+				i: Nested1 {
+					ii: Nested2 {
+						iii: Nested3 { a: 2, s: S::new(C) }
 					}
 				}
 			},
@@ -494,9 +490,9 @@ mod test {
 		);
 		test!(
 			TestStruct {
-				i: I {
-					ii: II {
-						iii: III { s: S::new(C), a: 2 }
+				i: Nested1 {
+					ii: Nested2 {
+						iii: Nested3 { s: S::new(C), a: 2 }
 					},
 					a: 44
 				},
@@ -518,8 +514,8 @@ mod test {
 		);
 		test!(
 			TestStruct {
-				i: I {
-					ii: II::new(66),
+				i: Nested1 {
+					ii: Nested2::new(66),
 					a: 44,
 				},
 				a: 3,
@@ -544,11 +540,11 @@ mod test {
 
 		test!(
 			TestStruct {
-				i: I {
-					ii: II {
+				i: Nested1 {
+					ii: Nested2 {
 						a: 66,
 						s3: S3 { x: 66 },
-						iii: III {
+						iii: Nested3 {
 							a: 66,b:66
 						},
 						v: vec![66,66,66]
@@ -577,9 +573,9 @@ mod test {
 
 		test!(
 			TestStruct {
-				i: I {
-					ii: II {
-						iii: III { a: 2, s: S::new(C) },
+				i: Nested1 {
+					ii: Nested2 {
+						iii: Nested3 { a: 2, s: S::new(C) },
 					},
 					a: 44,
 				},
@@ -601,10 +597,10 @@ mod test {
 		);
 		test!(
 			TestStruct {
-				i: I {
-					ii: II {
+				i: Nested1 {
+					ii: Nested2 {
 						s3: S3::new(5),
-						iii: III { a: 2, s: S::new(C) },
+						iii: Nested3 { a: 2, s: S::new(C) },
 					},
 					a: 44,
 				},
@@ -630,9 +626,9 @@ mod test {
 				a: 3,
 				s3: S3 { x: 5 },
 				b: 4,
-				i: I {
-					ii: II {
-						iii: III { a: 2, s: S::new(C) },
+				i: Nested1 {
+					ii: Nested2 {
+						iii: Nested3 { a: 2, s: S::new(C) },
 						s3: S3::new_from_s(S { x: 4 })
 					},
 					a: 44,
@@ -651,12 +647,12 @@ mod test {
 				"b": 4
 			}
 		);
-		let i = vec![0u32, 1u32, 2u32];
+		let i = [0u32, 1u32, 2u32];
 		test!(
 			TestStruct {
-				i: I {
-					ii: II {
-						iii: III {
+				i: Nested1 {
+					ii: Nested2 {
+						iii: Nested3 {
 							a: 2,
 							s: S::new(C),
 							v: i.iter()
