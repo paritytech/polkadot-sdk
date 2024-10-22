@@ -43,7 +43,13 @@ fn tracker_earliest_block_number() {
 	let max_ancestry_len = 4;
 	let now = 4;
 	for i in 1..now {
-		tracker.update(Hash::zero(), Hash::zero(), Default::default(), i, max_ancestry_len);
+		tracker.update(
+			Hash::from([i as u8; 32]),
+			Hash::zero(),
+			Default::default(),
+			i,
+			max_ancestry_len,
+		);
 		assert_eq!(tracker.hypothetical_earliest_block_number(i + 1, max_ancestry_len), 0);
 	}
 
@@ -53,7 +59,7 @@ fn tracker_earliest_block_number() {
 }
 
 #[test]
-fn tracker_claim_queue_remap() {
+fn tracker_claim_queue_transpose() {
 	let mut tracker = AllowedRelayParentsTracker::<Hash, u32>::default();
 
 	let mut claim_queue = BTreeMap::new();
@@ -115,6 +121,14 @@ fn tracker_acquire_info() {
 
 	let (relay_parent, state_root) = blocks[0];
 	tracker.update(relay_parent, state_root, Default::default(), 0, max_ancestry_len);
+	assert_matches!(
+		tracker.acquire_info(relay_parent, None),
+		Some((s, b)) if s.state_root == state_root && b == 0
+	);
+
+	// Try to push a duplicate. Should be ignored.
+	tracker.update(relay_parent, Hash::repeat_byte(13), Default::default(), 0, max_ancestry_len);
+	assert_eq!(tracker.buffer.len(), 1);
 	assert_matches!(
 		tracker.acquire_info(relay_parent, None),
 		Some((s, b)) if s.state_root == state_root && b == 0

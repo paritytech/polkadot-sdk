@@ -1309,3 +1309,11 @@ fn check_signature(
 
 	res
 }
+
+#[cfg(all(not(feature = "runtime-benchmarks"), test))]
+// Test helper for clearing the on-chain dispute data.
+pub(crate) fn clear_dispute_storage<T: Config>() {
+	let _ = Disputes::<T>::clear(u32::MAX, None);
+	let _ = BackersOnDisputes::<T>::clear(u32::MAX, None);
+	let _ = Included::<T>::clear(u32::MAX, None);
+}

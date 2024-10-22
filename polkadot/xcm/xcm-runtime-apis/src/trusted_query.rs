@@ -20,6 +20,9 @@ use codec::{Decode, Encode};
 use frame_support::pallet_prelude::TypeInfo;
 use xcm::{VersionedAsset, VersionedLocation};
 
+/// Result of [`TrustedQueryApi`] functions.
+pub type XcmTrustedQueryResult = Result<bool, Error>;
+
 sp_api::decl_runtime_apis! {
 	// API for querying trusted reserves and trusted teleporters.
 	pub trait TrustedQueryApi {
@@ -28,13 +31,13 @@ sp_api::decl_runtime_apis! {
 		/// # Arguments
 		/// * `asset`: `VersionedAsset`.
 		/// * `location`: `VersionedLocation`.
-		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, Error>;
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> XcmTrustedQueryResult;
 		/// Returns if the asset can be teleported to the location.
 		///
 		/// # Arguments
 		/// * `asset`: `VersionedAsset`.
 		/// * `location`: `VersionedLocation`.
-		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, Error>;
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> XcmTrustedQueryResult;
 	}
 }
 

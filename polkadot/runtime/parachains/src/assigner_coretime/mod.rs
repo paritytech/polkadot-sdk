@@ -318,9 +318,12 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		Assignment::Bulk(para_id)
 	}
 
-	fn session_core_count() -> u32 {
-		let config = configuration::ActiveConfig::<T>::get();
-		config.scheduler_params.num_cores
+	fn assignment_duplicated(assignment: &Assignment) {
+		match assignment {
+			Assignment::Pool { para_id, core_index } =>
+				on_demand::Pallet::<T>::assignment_duplicated(*para_id, *core_index),
+			Assignment::Bulk(_) => {},
+		}
 	}
 }
 

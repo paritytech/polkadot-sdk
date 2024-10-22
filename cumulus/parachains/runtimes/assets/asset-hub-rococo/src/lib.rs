@@ -1103,8 +1103,6 @@ pub type Executive = frame_executive::Executive<
 	Migrations,
 >;
 
-type XcmTrustedQueryResult = Result<bool, xcm_runtime_apis::trusted_query::Error>;
-
 #[cfg(feature = "runtime-benchmarks")]
 pub struct AssetConversionTxHelper;
 
@@ -1877,10 +1875,10 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
-		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> XcmTrustedQueryResult {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
 			PolkadotXcm::is_trusted_reserve(asset, location)
 		}
-		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> XcmTrustedQueryResult {
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
 			PolkadotXcm::is_trusted_teleporter(asset, location)
 		}
 	}

@@ -47,6 +47,8 @@
     - cp -r /tmp/bridges-tests-run-*/bridge_hub_rococo_local_network/*.log ./zombienet-logs/
     # copy logs of westend nodes
     - cp -r /tmp/bridges-tests-run-*/bridge_hub_westend_local_network/*.log ./zombienet-logs/
+  tags:
+    - zombienet-polkadot-integration-test
 
 zombienet-bridges-0001-asset-transfer-works:
   extends:

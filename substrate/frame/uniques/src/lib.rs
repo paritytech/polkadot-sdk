@@ -223,7 +223,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::storage_prefix = "ClassMetadataOf"]
 	/// Metadata of a collection.
-	pub(super) type CollectionMetadataOf<T: Config<I>, I: 'static = ()> = StorageMap<
+	pub type CollectionMetadataOf<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
 		T::CollectionId,
@@ -234,7 +234,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::storage_prefix = "InstanceMetadataOf"]
 	/// Metadata of an item.
-	pub(super) type ItemMetadataOf<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type ItemMetadataOf<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::CollectionId,

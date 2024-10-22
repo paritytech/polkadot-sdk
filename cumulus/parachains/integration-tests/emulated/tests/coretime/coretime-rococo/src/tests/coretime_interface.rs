@@ -46,7 +46,7 @@ fn transact_hardcoded_weights_are_sane() {
 
 		// Create and populate schedule with the worst case assignment on this core.
 		let mut schedule = Vec::new();
-		for i in 0..27 {
+		for i in 0..80 {
 			schedule.push(ScheduleItem {
 				mask: CoreMask::void().set(i),
 				assignment: CoreAssignment::Task(2000 + i),

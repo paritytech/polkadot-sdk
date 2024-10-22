@@ -12,7 +12,7 @@ on:
 
 jobs:
   job_sync_branches:
-    uses: paritytech-release/sync-workflows/.github/workflows/sync-with-upstream.yml@latest
+    uses: paritytech-release/sync-workflows/.github/workflows/sync-with-upstream.yml@main
     with:
       fork_writer_app_id: ${{ vars.UPSTREAM_CONTENT_SYNC_APP_ID}}
       fork_owner: ${{ vars.RELEASE_ORG}}

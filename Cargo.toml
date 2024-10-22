@@ -807,7 +807,7 @@ hyper-rustls = { version = "0.24.2" }
 hyper-util = { version = "0.1.5", default-features = false }
 # TODO: remove hyper v0.14 https://github.com/paritytech/polkadot-sdk/issues/4896
 hyperv14 = { package = "hyper", version = "0.14.29", default-features = false }
-impl-serde = { version = "0.4.0", default-features = false }
+impl-serde = { version = "0.5.0", default-features = false }
 impl-trait-for-tuples = { version = "0.2.2" }
 indexmap = { version = "2.0.0" }
 indicatif = { version = "0.17.7" }
@@ -1092,7 +1092,7 @@ prometheus = { version = "0.13.0", default-features = false }
 prometheus-endpoint = { path = "substrate/utils/prometheus", default-features = false, package = "substrate-prometheus-endpoint" }
 prometheus-parse = { version = "0.2.2" }
 prost = { version = "0.12.4" }
-prost-build = { version = "0.12.4" }
+prost-build = { version = "0.13.2" }
 pyroscope = { version = "0.5.7" }
 pyroscope_pprofrs = { version = "0.2.7" }
 quick_cache = { version = "0.3" }
@@ -1194,7 +1194,7 @@ separator = { version = "0.4.1" }
 serde = { version = "1.0.210", default-features = false }
 serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }
-serde_json = { version = "1.0.128", default-features = false }
+serde_json = { version = "1.0.132", default-features = false }
 serde_yaml = { version = "0.9" }
 serial_test = { version = "2.0.0" }
 sha1 = { version = "0.10.6" }
@@ -1305,7 +1305,7 @@ substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
 subxt = { version = "0.37", default-features = false }
 subxt-signer = { version = "0.37" }
-syn = { version = "2.0.79" }
+syn = { version = "2.0.82" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }
@@ -1316,7 +1316,7 @@ test-parachain-halt = { path = "polkadot/parachain/test-parachains/halt" }
 test-parachain-undying = { path = "polkadot/parachain/test-parachains/undying" }
 test-runtime-constants = { path = "polkadot/runtime/test-runtime/constants", default-features = false }
 testnet-parachains-constants = { path = "cumulus/parachains/runtimes/constants", default-features = false }
-thiserror = { version = "1.0.48" }
+thiserror = { version = "1.0.64" }
 thousands = { version = "0.2.0" }
 threadpool = { version = "1.7" }
 tikv-jemalloc-ctl = { version = "0.5.0" }

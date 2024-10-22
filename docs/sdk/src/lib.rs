@@ -5,9 +5,6 @@
 //! This crate is a *minimal*, but *always-accurate* source of information for those wishing to
 //! build on the Polkadot SDK.
 //!
-//! > **Work in Progress**: This crate is under heavy development. Expect content to be moved and
-//! > changed. Do not use links to this crate yet. See [`meta_contributing`] for more information.
-//!
 //! ## Getting Started
 //!
 //! We suggest the following reading sequence:
@@ -35,9 +32,13 @@
 /// how one can contribute to it.
 pub mod meta_contributing;
 
+/// A list of external resources and learning material about Polkadot SDK.
+pub mod external_resources;
+
 /// In-depth guides about the most common components of the Polkadot SDK. They are slightly more
 /// high level and broad than [`reference_docs`].
 pub mod guides;
+
 /// An introduction to the Polkadot SDK. Read this module to learn about the structure of the SDK,
 /// the tools that are provided as a part of it, and to gain a high level understanding of each.
 pub mod polkadot_sdk;

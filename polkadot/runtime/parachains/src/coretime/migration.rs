@@ -19,8 +19,6 @@
 pub use v_coretime::{GetLegacyLease, MigrateToCoretime};
 
 mod v_coretime {
-	#[cfg(feature = "try-runtime")]
-	use crate::scheduler::common::AssignmentProvider;
 	use crate::{
 		assigner_coretime, configuration,
 		coretime::{mk_coretime_call, Config, PartsOf57600, WeightInfo},
@@ -142,7 +140,8 @@ mod v_coretime {
 
 			let dmp_queue_size =
 				crate::dmp::Pallet::<T>::dmq_contents(T::BrokerId::get().into()).len() as u32;
-			let new_core_count = assigner_coretime::Pallet::<T>::session_core_count();
+			let config = configuration::ActiveConfig::<T>::get();
+			let new_core_count = config.scheduler_params.num_cores;
 			ensure!(new_core_count == prev_core_count, "Total number of cores need to not change.");
 			ensure!(
 				dmp_queue_size > prev_dmp_queue_size,

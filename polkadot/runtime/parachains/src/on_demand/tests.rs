@@ -30,7 +30,6 @@ use crate::{
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 };
-use alloc::collections::btree_map::BTreeMap;
 use core::cmp::{Ord, Ordering};
 use frame_support::{assert_noop, assert_ok};
 use pallet_balances::Error as BalancesError;
@@ -86,7 +85,7 @@ fn run_to_block(
 		OnDemand::on_initialize(b + 1);
 
 		// In the real runtime this is expected to be called by the `InclusionInherent` pallet.
-		Scheduler::free_cores_and_fill_claim_queue(BTreeMap::new(), b + 1);
+		Scheduler::advance_claim_queue(&Default::default());
 	}
 }
 
