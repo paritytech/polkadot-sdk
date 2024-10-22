@@ -96,5 +96,6 @@ mock!(NetworkBridgeTx);
 mock!(ChainApi);
 mock!(ChainSelection);
 mock!(ApprovalVoting);
+mock!(ApprovalVotingParallel);
 mock!(ApprovalDistribution);
 mock!(RuntimeApi);

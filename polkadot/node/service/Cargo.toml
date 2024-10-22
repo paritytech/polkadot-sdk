@@ -116,6 +116,7 @@ polkadot-gossip-support = { optional = true, workspace = true, default-features 
 polkadot-network-bridge = { optional = true, workspace = true, default-features = true }
 polkadot-node-collation-generation = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-approval-voting = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-approval-voting-parallel = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-av-store = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-backing = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-bitfield-signing = { optional = true, workspace = true, default-features = true }
@@ -160,6 +161,7 @@ full-node = [
 	"polkadot-network-bridge",
 	"polkadot-node-collation-generation",
 	"polkadot-node-core-approval-voting",
+	"polkadot-node-core-approval-voting-parallel",
 	"polkadot-node-core-av-store",
 	"polkadot-node-core-backing",
 	"polkadot-node-core-bitfield-signing",

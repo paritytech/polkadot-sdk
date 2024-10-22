@@ -13,45 +13,16 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { features = [
-	"derive",
-], workspace = true }
-scale-info = { features = [
-	"derive",
-], workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
-# frame deps
-frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-
-# primitive deps
-sp-runtime = { workspace = true }
-
-[dev-dependencies]
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
+frame = { workspace = true, default-features = false, features = [
+	"experimental",
+	"runtime",
+] }
 
 [features]
 default = ["std"]
-runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-]
-std = [
-	"codec/std",
-	"scale-info/std",
-
-	"frame-benchmarking?/std",
-	"frame-support/std",
-	"frame-system/std",
-
-	"sp-runtime/std",
-]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"sp-runtime/try-runtime",
-]
+runtime-benchmarks = ["frame/runtime-benchmarks"]
+std = ["codec/std", "frame/std", "scale-info/std"]
+try-runtime = ["frame/try-runtime"]

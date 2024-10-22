@@ -18,7 +18,7 @@ use super::*;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::relay_chain::{
-	vstaging::CoreState, BlockId, CandidateCommitments, CandidateDescriptor,
+	vstaging::CoreState, BlockId, CandidateCommitments, CandidateDescriptor, CoreIndex,
 };
 use cumulus_relay_chain_interface::{
 	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,

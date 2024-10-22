@@ -36,7 +36,9 @@ use frame_support::{
 	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use frame_system::Config as SystemConfig;
-use pallet_bridge_messages::{CallHelper as MessagesCallHelper, Config as BridgeMessagesConfig};
+use pallet_bridge_messages::{
+	CallHelper as MessagesCallHelper, Config as BridgeMessagesConfig, LaneIdOf,
+};
 use pallet_transaction_payment::{
 	Config as TransactionPaymentConfig, OnChargeTransaction, Pallet as TransactionPaymentPallet,
 };
@@ -62,15 +64,19 @@ mod priority;
 
 /// Data that is crafted in `pre_dispatch` method and used at `post_dispatch`.
 #[cfg_attr(test, derive(Debug, PartialEq))]
-pub struct PreDispatchData<AccountId, RemoteGrandpaChainBlockNumber: Debug> {
+pub struct PreDispatchData<
+	AccountId,
+	RemoteGrandpaChainBlockNumber: Debug,
+	LaneId: Clone + Copy + Debug,
+> {
 	/// Transaction submitter (relayer) account.
 	relayer: AccountId,
 	/// Type of the call.
-	call_info: ExtensionCallInfo<RemoteGrandpaChainBlockNumber>,
+	call_info: ExtensionCallInfo<RemoteGrandpaChainBlockNumber, LaneId>,
 }
 
-impl<AccountId, RemoteGrandpaChainBlockNumber: Debug>
-	PreDispatchData<AccountId, RemoteGrandpaChainBlockNumber>
+impl<AccountId, RemoteGrandpaChainBlockNumber: Debug, LaneId: Clone + Copy + Debug>
+	PreDispatchData<AccountId, RemoteGrandpaChainBlockNumber, LaneId>
 {
 	/// Returns mutable reference to pre-dispatch `finality_target` sent to the
 	/// `SubmitFinalityProof` call.
@@ -88,13 +94,13 @@ impl<AccountId, RemoteGrandpaChainBlockNumber: Debug>
 
 /// The actions on relayer account that need to be performed because of his actions.
 #[derive(RuntimeDebug, PartialEq)]
-pub enum RelayerAccountAction<AccountId, Reward> {
+pub enum RelayerAccountAction<AccountId, Reward, LaneId> {
 	/// Do nothing with relayer account.
 	None,
 	/// Reward the relayer.
-	Reward(AccountId, RewardsAccountParams, Reward),
+	Reward(AccountId, RewardsAccountParams<LaneId>, Reward),
 	/// Slash the relayer.
-	Slash(AccountId, RewardsAccountParams),
+	Slash(AccountId, RewardsAccountParams<LaneId>),
 }
 
 /// A signed extension, built around `pallet-bridge-relayers`.
@@ -112,19 +118,22 @@ pub enum RelayerAccountAction<AccountId, Reward> {
 	RuntimeDebugNoBound,
 	TypeInfo,
 )]
-#[scale_info(skip_type_params(Runtime, Config))]
-pub struct BridgeRelayersSignedExtension<Runtime, Config>(PhantomData<(Runtime, Config)>);
+#[scale_info(skip_type_params(Runtime, Config, LaneId))]
+pub struct BridgeRelayersSignedExtension<Runtime, Config, LaneId>(
+	PhantomData<(Runtime, Config, LaneId)>,
+);
 
-impl<R, C> BridgeRelayersSignedExtension<R, C>
+impl<R, C, LaneId> BridgeRelayersSignedExtension<R, C, LaneId>
 where
 	Self: 'static + Send + Sync,
-	R: RelayersConfig
-		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance>
+	R: RelayersConfig<LaneId = LaneId>
+		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance, LaneId = LaneId>
 		+ TransactionPaymentConfig,
-	C: ExtensionConfig<Runtime = R, Reward = R::Reward>,
+	C: ExtensionConfig<Runtime = R, LaneId = LaneId>,
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<R as TransactionPaymentConfig>::OnChargeTransaction:
 		OnChargeTransaction<R, Balance = R::Reward>,
+	LaneId: Clone + Copy + Decode + Encode + Debug + TypeInfo,
 {
 	/// Returns number of bundled messages `Some(_)`, if the given call info is a:
 	///
@@ -136,7 +145,7 @@ where
 	/// virtually boosted. The relayer registration (we only boost priority for registered
 	/// relayer transactions) must be checked outside.
 	fn bundled_messages_for_priority_boost(
-		call_info: Option<&ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber>>,
+		call_info: Option<&ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber, LaneId>>,
 	) -> Option<MessageNonce> {
 		// we only boost priority of message delivery transactions
 		let parsed_call = match call_info {
@@ -160,12 +169,14 @@ where
 	/// Given post-dispatch information, analyze the outcome of relayer call and return
 	/// actions that need to be performed on relayer account.
 	fn analyze_call_result(
-		pre: Option<Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber>>>,
+		pre: Option<
+			Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber, LaneId>>,
+		>,
 		info: &DispatchInfo,
 		post_info: &PostDispatchInfo,
 		len: usize,
 		result: &DispatchResult,
-	) -> RelayerAccountAction<R::AccountId, R::Reward> {
+	) -> RelayerAccountAction<R::AccountId, R::Reward, LaneId> {
 		// We don't refund anything for transactions that we don't support.
 		let (relayer, call_info) = match pre {
 			Some(Some(pre)) => (pre.relayer, pre.call_info),
@@ -263,22 +274,23 @@ where
 	}
 }
 
-impl<R, C> SignedExtension for BridgeRelayersSignedExtension<R, C>
+impl<R, C, LaneId> SignedExtension for BridgeRelayersSignedExtension<R, C, LaneId>
 where
 	Self: 'static + Send + Sync,
-	R: RelayersConfig
-		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance>
+	R: RelayersConfig<LaneId = LaneId>
+		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance, LaneId = LaneId>
 		+ TransactionPaymentConfig,
-	C: ExtensionConfig<Runtime = R, Reward = R::Reward>,
+	C: ExtensionConfig<Runtime = R, LaneId = LaneId>,
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<R as TransactionPaymentConfig>::OnChargeTransaction:
 		OnChargeTransaction<R, Balance = R::Reward>,
+	LaneId: Clone + Copy + Decode + Encode + Debug + TypeInfo,
 {
 	const IDENTIFIER: &'static str = C::IdProvider::STR;
 	type AccountId = R::AccountId;
 	type Call = R::RuntimeCall;
 	type AdditionalSigned = ();
-	type Pre = Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber>>;
+	type Pre = Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber, LaneId>>;
 
 	fn additional_signed(&self) -> Result<(), TransactionValidityError> {
 		Ok(())
@@ -392,19 +404,23 @@ where
 }
 
 /// Verify that the messages pallet call, supported by extension has succeeded.
-pub(crate) fn verify_messages_call_succeeded<C, MI>(
-	call_info: &ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber>,
+pub(crate) fn verify_messages_call_succeeded<C>(
+	call_info: &ExtensionCallInfo<
+		C::RemoteGrandpaChainBlockNumber,
+		LaneIdOf<C::Runtime, C::BridgeMessagesPalletInstance>,
+	>,
 	_call_data: &mut ExtensionCallData,
 	relayer: &<C::Runtime as SystemConfig>::AccountId,
 ) -> bool
 where
 	C: ExtensionConfig,
-	MI: 'static,
-	C::Runtime: BridgeMessagesConfig<MI>,
+	C::Runtime: BridgeMessagesConfig<C::BridgeMessagesPalletInstance>,
 {
 	let messages_call = call_info.messages_call_info();
 
-	if !MessagesCallHelper::<C::Runtime, MI>::was_successful(messages_call) {
+	if !MessagesCallHelper::<C::Runtime, C::BridgeMessagesPalletInstance>::was_successful(
+		messages_call,
+	) {
 		log::trace!(
 			target: LOG_TARGET,
 			"{}.{:?}: relayer {:?} has submitted invalid messages call",
@@ -427,9 +443,9 @@ mod tests {
 	use bp_messages::{
 		source_chain::FromBridgedChainMessagesDeliveryProof,
 		target_chain::FromBridgedChainMessagesProof, BaseMessagesProofInfo, DeliveredMessages,
-		InboundLaneData, LaneId, MessageNonce, MessagesCallInfo, MessagesOperatingMode,
-		OutboundLaneData, ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo,
-		UnrewardedRelayer, UnrewardedRelayerOccupation, UnrewardedRelayersState,
+		InboundLaneData, MessageNonce, MessagesCallInfo, MessagesOperatingMode, OutboundLaneData,
+		ReceiveMessagesDeliveryProofInfo, ReceiveMessagesProofInfo, UnrewardedRelayer,
+		UnrewardedRelayerOccupation, UnrewardedRelayersState,
 	};
 	use bp_parachains::{BestParaHeadHash, ParaInfo, SubmitParachainHeadsInfo};
 	use bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};
@@ -454,17 +470,16 @@ mod tests {
 
 	parameter_types! {
 		TestParachain: u32 = BridgedUnderlyingParachain::PARACHAIN_ID;
-		pub MsgProofsRewardsAccount: RewardsAccountParams = RewardsAccountParams::new(
+		pub MsgProofsRewardsAccount: RewardsAccountParams<TestLaneIdType> = RewardsAccountParams::new(
 			test_lane_id(),
 			TEST_BRIDGED_CHAIN_ID,
 			RewardsAccountOwner::ThisChain,
 		);
-		pub MsgDeliveryProofsRewardsAccount: RewardsAccountParams = RewardsAccountParams::new(
+		pub MsgDeliveryProofsRewardsAccount: RewardsAccountParams<TestLaneIdType> = RewardsAccountParams::new(
 			test_lane_id(),
 			TEST_BRIDGED_CHAIN_ID,
 			RewardsAccountOwner::BridgedChain,
 		);
-		pub TestLaneId: LaneId = test_lane_id();
 	}
 
 	bp_runtime::generate_static_str_provider!(TestGrandpaExtension);
@@ -477,31 +492,31 @@ mod tests {
 		RuntimeWithUtilityPallet<TestRuntime>,
 		(),
 		(),
+		(),
 		ConstU64<1>,
 	>;
 	type TestGrandpaExtension =
-		BridgeRelayersSignedExtension<TestRuntime, TestGrandpaExtensionConfig>;
+		BridgeRelayersSignedExtension<TestRuntime, TestGrandpaExtensionConfig, TestLaneIdType>;
 	type TestExtensionConfig = parachain_adapter::WithParachainExtensionConfig<
 		StrTestExtension,
 		TestRuntime,
 		RuntimeWithUtilityPallet<TestRuntime>,
 		(),
 		(),
+		(),
 		ConstU64<1>,
 	>;
-	type TestExtension = BridgeRelayersSignedExtension<TestRuntime, TestExtensionConfig>;
+	type TestExtension =
+		BridgeRelayersSignedExtension<TestRuntime, TestExtensionConfig, TestLaneIdType>;
 	type TestMessagesExtensionConfig = messages_adapter::WithMessagesExtensionConfig<
 		StrTestMessagesExtension,
 		TestRuntime,
 		(),
+		(),
 		ConstU64<1>,
 	>;
 	type TestMessagesExtension =
-		BridgeRelayersSignedExtension<TestRuntime, TestMessagesExtensionConfig>;
-
-	fn test_lane_id() -> LaneId {
-		LaneId::new(1, 2)
-	}
+		BridgeRelayersSignedExtension<TestRuntime, TestMessagesExtensionConfig, TestLaneIdType>;
 
 	fn initial_balance_of_relayer_account_at_this_chain() -> ThisChainBalance {
 		let test_stake: ThisChainBalance = Stake::get();
@@ -795,7 +810,7 @@ mod tests {
 	}
 
 	fn all_finality_pre_dispatch_data(
-	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber> {
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: ExtensionCallInfo::AllFinalityAndMsgs(
@@ -832,14 +847,14 @@ mod tests {
 
 	#[cfg(test)]
 	fn all_finality_pre_dispatch_data_ex(
-	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber> {
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
 		let mut data = all_finality_pre_dispatch_data();
 		data.submit_finality_proof_info_mut().unwrap().current_set_id = Some(TEST_GRANDPA_SET_ID);
 		data
 	}
 
 	fn all_finality_confirmation_pre_dispatch_data(
-	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber> {
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: ExtensionCallInfo::AllFinalityAndMsgs(
@@ -869,14 +884,14 @@ mod tests {
 	}
 
 	fn all_finality_confirmation_pre_dispatch_data_ex(
-	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber> {
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
 		let mut data = all_finality_confirmation_pre_dispatch_data();
 		data.submit_finality_proof_info_mut().unwrap().current_set_id = Some(TEST_GRANDPA_SET_ID);
 		data
 	}
 
 	fn relay_finality_pre_dispatch_data(
-	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber> {
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: ExtensionCallInfo::RelayFinalityAndMsgs(
@@ -906,14 +921,14 @@ mod tests {
 	}
 
 	fn relay_finality_pre_dispatch_data_ex(
-	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber> {
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
 		let mut data = relay_finality_pre_dispatch_data();
 		data.submit_finality_proof_info_mut().unwrap().current_set_id = Some(TEST_GRANDPA_SET_ID);
 		data
 	}
 
 	fn relay_finality_confirmation_pre_dispatch_data(
-	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber> {
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: ExtensionCallInfo::RelayFinalityAndMsgs(
@@ -937,14 +952,14 @@ mod tests {
 	}
 
 	fn relay_finality_confirmation_pre_dispatch_data_ex(
-	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber> {
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
 		let mut data = relay_finality_confirmation_pre_dispatch_data();
 		data.submit_finality_proof_info_mut().unwrap().current_set_id = Some(TEST_GRANDPA_SET_ID);
 		data
 	}
 
 	fn parachain_finality_pre_dispatch_data(
-	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber> {
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: ExtensionCallInfo::ParachainFinalityAndMsgs(
@@ -972,7 +987,7 @@ mod tests {
 	}
 
 	fn parachain_finality_confirmation_pre_dispatch_data(
-	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber> {
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: ExtensionCallInfo::ParachainFinalityAndMsgs(
@@ -994,7 +1009,7 @@ mod tests {
 	}
 
 	fn delivery_pre_dispatch_data<RemoteGrandpaChainBlockNumber: Debug>(
-	) -> PreDispatchData<ThisChainAccountId, RemoteGrandpaChainBlockNumber> {
+	) -> PreDispatchData<ThisChainAccountId, RemoteGrandpaChainBlockNumber, TestLaneIdType> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: ExtensionCallInfo::Msgs(MessagesCallInfo::ReceiveMessagesProof(
@@ -1016,7 +1031,7 @@ mod tests {
 	}
 
 	fn confirmation_pre_dispatch_data<RemoteGrandpaChainBlockNumber: Debug>(
-	) -> PreDispatchData<ThisChainAccountId, RemoteGrandpaChainBlockNumber> {
+	) -> PreDispatchData<ThisChainAccountId, RemoteGrandpaChainBlockNumber, TestLaneIdType> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: ExtensionCallInfo::Msgs(MessagesCallInfo::ReceiveMessagesDeliveryProof(
@@ -1030,9 +1045,13 @@ mod tests {
 	}
 
 	fn set_bundled_range_end(
-		mut pre_dispatch_data: PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber>,
+		mut pre_dispatch_data: PreDispatchData<
+			ThisChainAccountId,
+			BridgedChainBlockNumber,
+			TestLaneIdType,
+		>,
 		end: MessageNonce,
-	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber> {
+	) -> PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType> {
 		let msg_info = match pre_dispatch_data.call_info {
 			ExtensionCallInfo::AllFinalityAndMsgs(_, _, ref mut info) => info,
 			ExtensionCallInfo::RelayFinalityAndMsgs(_, ref mut info) => info,
@@ -1072,7 +1091,7 @@ mod tests {
 	fn run_pre_dispatch(
 		call: RuntimeCall,
 	) -> Result<
-		Option<PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber>>,
+		Option<PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType>>,
 		TransactionValidityError,
 	> {
 		sp_tracing::try_init_simple();
@@ -1083,7 +1102,7 @@ mod tests {
 	fn run_grandpa_pre_dispatch(
 		call: RuntimeCall,
 	) -> Result<
-		Option<PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber>>,
+		Option<PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType>>,
 		TransactionValidityError,
 	> {
 		let extension: TestGrandpaExtension = BridgeRelayersSignedExtension(PhantomData);
@@ -1092,7 +1111,10 @@ mod tests {
 
 	fn run_messages_pre_dispatch(
 		call: RuntimeCall,
-	) -> Result<Option<PreDispatchData<ThisChainAccountId, ()>>, TransactionValidityError> {
+	) -> Result<
+		Option<PreDispatchData<ThisChainAccountId, (), TestLaneIdType>>,
+		TransactionValidityError,
+	> {
 		let extension: TestMessagesExtension = BridgeRelayersSignedExtension(PhantomData);
 		extension.pre_dispatch(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
 	}
@@ -1113,7 +1135,9 @@ mod tests {
 	}
 
 	fn run_post_dispatch(
-		pre_dispatch_data: Option<PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber>>,
+		pre_dispatch_data: Option<
+			PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber, TestLaneIdType>,
+		>,
 		dispatch_result: DispatchResult,
 	) {
 		let post_dispatch_result = TestExtension::post_dispatch(
@@ -1886,9 +1910,13 @@ mod tests {
 	}
 
 	fn run_analyze_call_result(
-		pre_dispatch_data: PreDispatchData<ThisChainAccountId, BridgedChainBlockNumber>,
+		pre_dispatch_data: PreDispatchData<
+			ThisChainAccountId,
+			BridgedChainBlockNumber,
+			TestLaneIdType,
+		>,
 		dispatch_result: DispatchResult,
-	) -> RelayerAccountAction<ThisChainAccountId, ThisChainBalance> {
+	) -> RelayerAccountAction<ThisChainAccountId, ThisChainBalance, TestLaneIdType> {
 		TestExtension::analyze_call_result(
 			Some(Some(pre_dispatch_data)),
 			&dispatch_info(),
@@ -2318,7 +2346,7 @@ mod tests {
 				.unwrap();
 
 			// allow empty message delivery transactions
-			let lane_id = TestLaneId::get();
+			let lane_id = test_lane_id();
 			let in_lane_data = InboundLaneData {
 				last_confirmed_nonce: 0,
 				relayers: vec![UnrewardedRelayer {

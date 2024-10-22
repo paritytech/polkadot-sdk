@@ -80,6 +80,7 @@ serde_yaml = { workspace = true }
 serde_json = { workspace = true }
 
 polkadot-node-core-approval-voting = { workspace = true, default-features = true }
+polkadot-node-core-approval-voting-parallel = { workspace = true, default-features = true }
 polkadot-approval-distribution = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }

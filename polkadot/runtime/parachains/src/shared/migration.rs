@@ -50,6 +50,23 @@ pub mod v0 {
 		pub latest_number: BlockNumber,
 	}
 
+	// Required to workaround #64.
+	impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
+		AllowedRelayParentsTracker<Hash, BlockNumber>
+	{
+		/// Returns block number of the earliest block the buffer would contain if
+		/// `now` is pushed into it.
+		pub(crate) fn hypothetical_earliest_block_number(
+			&self,
+			now: BlockNumber,
+			max_ancestry_len: u32,
+		) -> BlockNumber {
+			let allowed_ancestry_len = max_ancestry_len.min(self.buffer.len() as u32);
+
+			now - allowed_ancestry_len.into()
+		}
+	}
+
 	impl<Hash, BlockNumber> From<AllowedRelayParentsTracker<Hash, BlockNumber>>
 		for super::AllowedRelayParentsTracker<Hash, BlockNumber>
 	{

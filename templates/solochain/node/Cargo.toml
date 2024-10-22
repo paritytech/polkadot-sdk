@@ -35,6 +35,7 @@ sp-consensus-aura = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-consensus-grandpa = { workspace = true, default-features = true }
 sp-consensus-grandpa = { workspace = true, default-features = true }
+sp-genesis-builder = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-basic-authorship = { workspace = true, default-features = true }
 
@@ -66,9 +67,7 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-std = [
-	"solochain-template-runtime/std",
-]
+std = ["solochain-template-runtime/std"]
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",

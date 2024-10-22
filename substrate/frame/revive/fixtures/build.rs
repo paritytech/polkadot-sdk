@@ -115,6 +115,7 @@ mod build {
 
 	fn invoke_build(current_dir: &Path) -> Result<()> {
 		let encoded_rustflags = [
+			"-Dwarnings",
 			"-Crelocation-model=pie",
 			"-Clink-arg=--emit-relocs",
 			"-Clink-arg=--export-dynamic-symbol=__polkavm_symbol_export_hack__*",
@@ -158,8 +159,8 @@ mod build {
 	/// Post-process the compiled code.
 	fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
 		let mut config = polkavm_linker::Config::default();
-		config.set_strip(true);
-		config.set_optimize(false);
+		config.set_strip(false);
+		config.set_optimize(true);
 		let orig =
 			fs::read(input_path).with_context(|| format!("Failed to read {:?}", input_path))?;
 		let linked = polkavm_linker::program_from_elf(config, orig.as_ref())

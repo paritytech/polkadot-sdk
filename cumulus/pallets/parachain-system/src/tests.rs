@@ -754,12 +754,8 @@ fn message_queue_chain() {
 #[test]
 #[cfg(not(feature = "runtime-benchmarks"))]
 fn receive_dmp() {
-	lazy_static::lazy_static! {
-		static ref MSG: InboundDownwardMessage = InboundDownwardMessage {
-			sent_at: 1,
-			msg: b"down".to_vec(),
-		};
-	}
+	static MSG: std::sync::LazyLock<InboundDownwardMessage> =
+		std::sync::LazyLock::new(|| InboundDownwardMessage { sent_at: 1, msg: b"down".to_vec() });
 
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
@@ -771,14 +767,14 @@ fn receive_dmp() {
 		})
 		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
 			1 => {
-				data.downward_messages.push(MSG.clone());
+				data.downward_messages.push((*MSG).clone());
 			},
 			_ => unreachable!(),
 		})
 		.add(1, || {
 			HANDLED_DMP_MESSAGES.with(|m| {
 				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(MSG.msg.clone())]);
+				assert_eq!(&*m, &[MSG.msg.clone()]);
 				m.clear();
 			});
 		});

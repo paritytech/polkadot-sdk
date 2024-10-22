@@ -27,6 +27,7 @@ sp-runtime = { features = ["serde"], workspace = true }
 sp-session = { workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 sp-core = { features = ["serde"], workspace = true }
+sp-keyring = { workspace = true }
 sp-npos-elections = { features = ["serde"], workspace = true }
 
 pallet-authorship = { workspace = true }
