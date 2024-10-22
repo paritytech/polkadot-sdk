@@ -31,11 +31,11 @@ use codec::Encode;
 use pallet_transaction_payment::FungibleAdapter;
 
 use polkadot_runtime_parachains::{
-	assigner_parachains as parachains_assigner_parachains,
-	configuration as parachains_configuration,
-	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio, disputes as parachains_disputes,
-	disputes::slashing as parachains_slashing, dmp as parachains_dmp, hrmp as parachains_hrmp,
-	inclusion as parachains_inclusion, initializer as parachains_initializer,
+	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
+	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio, coretime,
+	disputes as parachains_disputes, disputes::slashing as parachains_slashing,
+	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
+	initializer as parachains_initializer, on_demand as parachains_on_demand,
 	origin as parachains_origin, paras as parachains_paras,
 	paras_inherent as parachains_paras_inherent, runtime_api_impl::v11 as runtime_impl,
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
@@ -49,8 +49,10 @@ use frame_election_provider_support::{
 use frame_support::{
 	construct_runtime, derive_impl,
 	genesis_builder_helper::{build_state, get_preset},
+	pallet_prelude::Get,
 	parameter_types,
 	traits::{KeyOwnerProofSystem, WithdrawReasons},
+	PalletId,
 };
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_session::historical as session_historical;
@@ -92,6 +94,7 @@ use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+use xcm::v4::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, XcmHash};
 
 pub use pallet_balances::Call as BalancesCall;
 #[cfg(feature = "std")]
@@ -559,7 +562,7 @@ impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
-	type CoretimeOnNewSession = ();
+	type CoretimeOnNewSession = Coretime;
 }
 
 impl parachains_session_info::Config for Runtime {
@@ -577,15 +580,26 @@ impl parachains_paras::Config for Runtime {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
-	type AssignCoretime = ();
+	type AssignCoretime = CoretimeAssignmentProvider;
 }
 
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
+	pub MaxXcmTransactWeight: Weight = Weight::from_parts(10_000_000, 10_000);
+}
+
+pub struct BrokerPot;
+impl Get<InteriorLocation> for BrokerPot {
+	fn get() -> InteriorLocation {
+		unimplemented!()
+	}
 }
 
 parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
+	// Keep 2 timeslices worth of revenue information.
+	pub const MaxHistoricalRevenue: BlockNumber = 2 * 5;
+	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
 }
 
 impl parachains_dmp::Config for Runtime {}
@@ -607,10 +621,48 @@ impl parachains_hrmp::Config for Runtime {
 	type WeightInfo = parachains_hrmp::TestWeightInfo;
 }
 
-impl parachains_assigner_parachains::Config for Runtime {}
+impl parachains_on_demand::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
+	type WeightInfo = parachains_on_demand::TestWeightInfo;
+	type MaxHistoricalRevenue = MaxHistoricalRevenue;
+	type PalletId = OnDemandPalletId;
+}
+
+impl parachains_assigner_coretime::Config for Runtime {}
 
 impl parachains_scheduler::Config for Runtime {
-	type AssignmentProvider = ParaAssignmentProvider;
+	type AssignmentProvider = CoretimeAssignmentProvider;
+}
+
+pub struct DummyXcmSender;
+impl SendXcm for DummyXcmSender {
+	type Ticket = ();
+	fn validate(
+		_: &mut Option<Location>,
+		_: &mut Option<xcm::v4::Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		Ok(((), Assets::new()))
+	}
+
+	/// Actually carry out the delivery operation for a previously validated message sending.
+	fn deliver(_ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+		Ok([0u8; 32])
+	}
+}
+
+impl coretime::Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = pallet_balances::Pallet<Runtime>;
+	type BrokerId = BrokerId;
+	type WeightInfo = crate::coretime::TestWeightInfo;
+	type SendXcm = DummyXcmSender;
+	type MaxXcmTransactWeight = MaxXcmTransactWeight;
+	type BrokerPotLocation = BrokerPot;
+	type AssetTransactor = ();
+	type AccountToLocation = ();
 }
 
 impl paras_sudo_wrapper::Config for Runtime {}
@@ -753,7 +805,9 @@ construct_runtime! {
 		Xcm: pallet_xcm,
 		ParasDisputes: parachains_disputes,
 		ParasSlashing: parachains_slashing,
-		ParaAssignmentProvider: parachains_assigner_parachains,
+		OnDemandAssignmentProvider: parachains_on_demand,
+		CoretimeAssignmentProvider: parachains_assigner_coretime,
+		Coretime: coretime,
 
 		Sudo: pallet_sudo,
 
