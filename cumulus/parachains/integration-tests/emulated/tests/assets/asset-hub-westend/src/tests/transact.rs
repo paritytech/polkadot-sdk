@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::imports::*;
+use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
 use frame_support::traits::tokens::fungibles::Mutate;
 use xcm::DoubleEncoded;
 use xcm_builder::{DescribeAllTerminal, DescribeFamily, HashedDescription};
@@ -102,153 +102,25 @@ fn transact_from_para_to_para_through_asset_hub() {
 	]);
 
 	// Prefund USDT to sov account of sender.
-	let usdt_id = 1984;
+	let usdt_id: u32 = 1984;
 	AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
 		assert_ok!(<Assets as Mutate<_>>::mint_into(
-			usdt_id.into(),
+			usdt_id,
 			&sov_of_sender_on_asset_hub.clone().into(),
 			fee_amount_to_send,
 		));
 	});
 
 	// We create a pool between WND and USDT in AssetHub.
-	let native_asset: Location = Parent.into();
 	let usdt = Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(usdt_id.into())]);
-
-	// set up pool with USDT <> native pair
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::mint(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			usdt_id.into(),
-			AssetHubWestendSender::get().into(),
-			10_000_000_000_000, // For it to have more than enough.
-		));
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			Box::new(native_asset.clone()),
-			Box::new(usdt.clone()),
-		));
-
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
-			]
-		);
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			Box::new(native_asset),
-			Box::new(usdt),
-			1_000_000_000_000,
-			2_000_000_000_000, // usdt is worth half of `native_asset`
-			0,
-			0,
-			AssetHubWestendSender::get().into()
-		));
-
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded { .. }) => {},
-			]
-		);
-	});
+	create_pool_with_wnd_on!(AssetHubWestend, usdt, false, AssetHubWestendSender::get());
+	// We also need a pool between WND and USDT on PenpalA.
+	create_pool_with_wnd_on!(PenpalA, PenpalUsdtFromAssetHub::get(), true, PenpalAssetOwner::get());
+	// We also need a pool between WND and USDT on PenpalB.
+	create_pool_with_wnd_on!(PenpalB, PenpalUsdtFromAssetHub::get(), true, PenpalAssetOwner::get());
 
 	let usdt_from_asset_hub = PenpalUsdtFromAssetHub::get();
-
-	// We also need a pool between WND and USDT on PenpalA.
-	PenpalA::execute_with(|| {
-		type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-		let relay_asset = RelayLocation::get();
-
-		assert_ok!(<PenpalA as PenpalAPallet>::ForeignAssets::mint(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
-			usdt_from_asset_hub.clone().into(),
-			PenpalASender::get().into(),
-			10_000_000_000_000, // For it to have more than enough.
-		));
-
-		assert_ok!(<PenpalA as PenpalAPallet>::AssetConversion::create_pool(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
-			Box::new(relay_asset.clone()),
-			Box::new(usdt_from_asset_hub.clone()),
-		));
-
-		assert_expected_events!(
-			PenpalA,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
-			]
-		);
-
-		assert_ok!(<PenpalA as PenpalAPallet>::AssetConversion::add_liquidity(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
-			Box::new(relay_asset),
-			Box::new(usdt_from_asset_hub.clone()),
-			1_000_000_000_000,
-			2_000_000_000_000, // `usdt_from_asset_hub` is worth half of `relay_asset`
-			0,
-			0,
-			PenpalASender::get().into()
-		));
-
-		assert_expected_events!(
-			PenpalA,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded { .. }) => {},
-			]
-		);
-	});
-
-	// We also need a pool between WND and USDT on PenpalB.
-	PenpalB::execute_with(|| {
-		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
-		let relay_asset = RelayLocation::get();
-
-		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint(
-			<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
-			usdt_from_asset_hub.clone().into(),
-			PenpalBSender::get().into(),
-			10_000_000_000_000, // For it to have more than enough.
-		));
-
-		assert_ok!(<PenpalB as PenpalBPallet>::AssetConversion::create_pool(
-			<PenpalB as Chain>::RuntimeOrigin::signed(PenpalBSender::get()),
-			Box::new(relay_asset.clone()),
-			Box::new(usdt_from_asset_hub.clone()),
-		));
-
-		assert_expected_events!(
-			PenpalB,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
-			]
-		);
-
-		assert_ok!(<PenpalB as PenpalBPallet>::AssetConversion::add_liquidity(
-			<PenpalB as Chain>::RuntimeOrigin::signed(PenpalBSender::get()),
-			Box::new(relay_asset),
-			Box::new(usdt_from_asset_hub.clone()),
-			1_000_000_000_000,
-			2_000_000_000_000, // `usdt_from_asset_hub` is worth half of `relay_asset`
-			0,
-			0,
-			PenpalBSender::get().into()
-		));
-
-		assert_expected_events!(
-			PenpalB,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded { .. }) => {},
-			]
-		);
-	});
-
 	PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
 		assert_ok!(<ForeignAssets as Mutate<_>>::mint_into(
@@ -270,14 +142,9 @@ fn transact_from_para_to_para_through_asset_hub() {
 	let receiver = PenpalBReceiver::get();
 
 	// Query initial balances
-	let sender_assets_before = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(usdt_from_asset_hub.clone(), &sender)
-	});
-	let receiver_assets_before = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(usdt_from_asset_hub.clone(), &receiver)
-	});
+	let sender_assets_before = foreign_balance_on!(PenpalA, usdt_from_asset_hub.clone(), &sender);
+	let receiver_assets_before =
+		foreign_balance_on!(PenpalB, usdt_from_asset_hub.clone(), &receiver);
 
 	// Now register a new asset on PenpalB from PenpalA/sender account while paying fees using USDT
 	// (going through Asset Hub)
@@ -323,14 +190,8 @@ fn transact_from_para_to_para_through_asset_hub() {
 	});
 
 	// Query final balances
-	let sender_assets_after = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(usdt_from_asset_hub.clone(), &sender)
-	});
-	let receiver_assets_after = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(usdt_from_asset_hub, &receiver)
-	});
+	let sender_assets_after = foreign_balance_on!(PenpalA, usdt_from_asset_hub.clone(), &sender);
+	let receiver_assets_after = foreign_balance_on!(PenpalB, usdt_from_asset_hub, &receiver);
 
 	// Sender's balance is reduced by amount
 	assert_eq!(sender_assets_after, sender_assets_before - fee_amount_to_send);

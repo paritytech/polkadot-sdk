@@ -91,8 +91,7 @@ mod imports {
 		BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
 		CollectivesWestendPara as CollectivesWestend, PenpalAPara as PenpalA,
 		PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
-		PenpalBPara as PenpalB, PenpalBParaReceiver as PenpalBReceiver,
-		PenpalBParaSender as PenpalBSender, WestendRelay as Westend,
+		PenpalBPara as PenpalB, PenpalBParaReceiver as PenpalBReceiver, WestendRelay as Westend,
 		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
 
