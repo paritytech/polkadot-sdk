@@ -121,7 +121,7 @@ pub fn create_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let extra: kitchensink_runtime::SignedExtra =
+	let tx_ext: kitchensink_runtime::TxExtension =
 		(
 			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
@@ -143,7 +143,7 @@ pub fn create_extrinsic(
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
+		tx_ext.clone(),
 		(
 			(),
 			kitchensink_runtime::VERSION.spec_version,
@@ -158,12 +158,13 @@ pub fn create_extrinsic(
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
 
-	kitchensink_runtime::UncheckedExtrinsic::new_signed(
+	generic::UncheckedExtrinsic::new_signed(
 		function,
 		sp_runtime::AccountId32::from(sender.public()).into(),
 		kitchensink_runtime::Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
+	.into()
 }
 
 /// Creates a new partial node.
@@ -866,7 +867,7 @@ mod tests {
 	use codec::Encode;
 	use kitchensink_runtime::{
 		constants::{currency::CENTS, time::SLOT_DURATION},
-		Address, BalancesCall, RuntimeCall, UncheckedExtrinsic,
+		Address, BalancesCall, RuntimeCall, TxExtension,
 	};
 	use node_primitives::{Block, DigestItem, Signature};
 	use polkadot_sdk::{sc_transaction_pool_api::MaintainedTransactionPool, *};
@@ -883,7 +884,7 @@ mod tests {
 	use sp_keyring::AccountKeyring;
 	use sp_keystore::KeystorePtr;
 	use sp_runtime::{
-		generic::{Digest, Era, SignedPayload},
+		generic::{self, Digest, Era, SignedPayload},
 		key_types::BABE,
 		traits::{Block as BlockT, Header as HeaderT, IdentifyAccount, Verify},
 		RuntimeAppPublic,
@@ -1070,7 +1071,7 @@ mod tests {
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
-				let extra = (
+				let tx_ext: TxExtension = (
 					check_non_zero_sender,
 					check_spec_version,
 					check_tx_version,
@@ -1083,7 +1084,7 @@ mod tests {
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
-					extra,
+					tx_ext,
 					(
 						(),
 						spec_version,
@@ -1097,10 +1098,18 @@ mod tests {
 					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
-				let (function, extra, _) = raw_payload.deconstruct();
+				let (function, tx_ext, _) = raw_payload.deconstruct();
 				index += 1;
-				UncheckedExtrinsic::new_signed(function, from.into(), signature.into(), extra)
-					.into()
+				let utx: kitchensink_runtime::UncheckedExtrinsic =
+					generic::UncheckedExtrinsic::new_signed(
+						function,
+						from.into(),
+						signature.into(),
+						tx_ext,
+					)
+					.into();
+
+				utx.into()
 			},
 		);
 	}
