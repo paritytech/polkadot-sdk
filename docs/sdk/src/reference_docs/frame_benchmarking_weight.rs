@@ -129,12 +129,13 @@
 //! [PolkaVM]: https://github.com/koute/polkavm
 //! [JAM]: https://graypaper.com
 
-#[frame::pallet]
+#[frame::pallet(dev_mode)]
+#[allow(unused_variables, unreachable_code, unused)]
 pub mod pallet {
 	use frame::prelude::*;
 
 	#[docify::export]
-	trait WeightInfo {
+	pub trait WeightInfo {
 		fn simple_transfer() -> Weight;
 	}
 
@@ -192,11 +193,14 @@ pub mod pallet {
 			let destination_exists = todo!();
 			if destination_exists {
 				// simpler code path
-				Ok(())
+				// Note that need for .into(), to convert `()` to `PostDispatchInfo`
+				// See: https://paritytech.github.io/polkadot-sdk/master/frame_support/dispatch/struct.PostDispatchInfo.html#impl-From%3C()%3E-for-PostDispatchInfo
+				Ok(().into())
 			} else {
 				// more complex code path
 				let actual_weight =
 					todo!("this can likely come from another benchmark that is NOT the worst case");
+				let pays_fee = todo!("You can set this to `Pays::Yes` or `Pays::No` to change if this transaction should pay fees");
 				Ok(frame::deps::frame_support::dispatch::PostDispatchInfo {
 					actual_weight: Some(actual_weight),
 					pays_fee,

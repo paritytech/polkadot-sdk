@@ -102,7 +102,6 @@ mod tests {
 	use assert_cmd::Command;
 	use rand::Rng;
 	use sc_chain_spec::{DEV_RUNTIME_PRESET, LOCAL_TESTNET_RUNTIME_PRESET};
-	use scale_info::build;
 	use sp_genesis_builder::PresetId;
 	use std::path::PathBuf;
 
