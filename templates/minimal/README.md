@@ -91,11 +91,11 @@ will overlap with the block production at a certain height, at which point they 
 each others blocks anymore (stopping from being peers). They will continue to participate in blocks production
 of their own fork and possibly of other nodes too.
 
-### Omni-node based development chain 
+### OmniNode based development chain
 
-Minimal template can run as a single-node chain based on (Omni Node)[../../cumulus/polkadot-omni-node/] too.
+Minimal template can run as a single-node chain based on Omni Node (TODO: add link to doc) too.
 
-* 󰇚 Omni-node (TODO: add link to omni-node docs) is represented by a binary called `polkadot-parachain`, which can be downloaded from
+* 󰇚 OmniNode (TODO: add link to omni node docs) is represented by a binary called `polkadot-parachain`, which can be downloaded from
 [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
 
 *   Once built, add it to the `PATH` environment variable like so:
