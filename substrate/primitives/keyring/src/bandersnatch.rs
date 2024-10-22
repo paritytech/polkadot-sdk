@@ -18,6 +18,8 @@
 //! A set of well-known keys used for testing.
 
 pub use sp_core::bandersnatch;
+
+use crate::ParseKeyringError;
 #[cfg(feature = "std")]
 use sp_core::bandersnatch::Signature;
 use sp_core::{
@@ -27,7 +29,7 @@ use sp_core::{
 };
 
 extern crate alloc;
-use alloc::{fmt, format, str::FromStr, string::String, vec::Vec};
+use alloc::{format, str::FromStr, string::String, vec::Vec};
 
 /// Set of test accounts.
 #[derive(
@@ -104,15 +106,6 @@ impl From<Keyring> for &'static str {
 			Keyring::One => "One",
 			Keyring::Two => "Two",
 		}
-	}
-}
-
-#[derive(Debug)]
-pub struct ParseKeyringError;
-
-impl fmt::Display for ParseKeyringError {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "ParseKeyringError")
 	}
 }
 
