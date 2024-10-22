@@ -37,7 +37,7 @@
 //! that play an important role in identifying your runtime and its version. More about runtime
 //! upgrades in [`crate::reference_docs::frame_runtime_upgrades_and_migrations`].
 //!
-//! Then, A real runtime also contains the `impl` of all individual pallets' `trait Config` for
+//! Then, a real runtime also contains the `impl` of all individual pallets' `trait Config` for
 //! `struct Runtime`, and a [`frame::runtime::prelude::construct_runtime`] macro that amalgamates
 //! them all.
 //!
