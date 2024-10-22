@@ -200,7 +200,10 @@ where
 						&self.code_info.owner,
 						deposit,
 					)
-					.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
+					.map_err(|err| {
+						log::debug!(target: LOG_TARGET, "failed to store code for owner: {:?}: {err:?}", self.code_info.owner);
+						<Error<T>>::StorageDepositNotEnoughFunds
+					})?;
 
 					self.code_info.refcount = 0;
 					<PristineCode<T>>::insert(code_hash, &self.code);
@@ -291,6 +294,7 @@ impl<T: Config> WasmBlob<T> {
 		let mut module_config = polkavm::ModuleConfig::new();
 		module_config.set_page_size(limits::PAGE_SIZE);
 		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
+		module_config.set_allow_sbrk(false);
 		let module = polkavm::Module::new(&engine, &module_config, self.code.into_inner().into())
 			.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");

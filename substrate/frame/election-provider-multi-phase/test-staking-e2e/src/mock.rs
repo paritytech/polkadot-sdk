@@ -61,7 +61,7 @@ pub const INIT_TIMESTAMP: BlockNumber = 30_000;
 pub const BLOCK_TIME: BlockNumber = 1000;
 
 type Block = frame_system::mocking::MockBlockU32<Runtime>;
-type Extrinsic = testing::TestXt<RuntimeCall, ()>;
+type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
 
 frame_support::construct_runtime!(
 	pub enum Runtime {
@@ -308,12 +308,21 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 }
 
-impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = Extrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		Extrinsic::new_bare(call)
+	}
 }
 
 pub struct OnChainSeqPhragmen;
@@ -687,7 +696,7 @@ pub fn roll_to_with_ocw(n: BlockNumber, pool: Arc<RwLock<PoolState>>, delay_solu
 			for encoded in &pool.read().transactions {
 				let extrinsic = Extrinsic::decode(&mut &encoded[..]).unwrap();
 
-				let _ = match extrinsic.call {
+				let _ = match extrinsic.function {
 					RuntimeCall::ElectionProviderMultiPhase(
 						call @ Call::submit_unsigned { .. },
 					) => {
@@ -915,9 +924,8 @@ pub(crate) fn set_minimum_election_score(
 	.map_err(|_| ())
 }
 
-pub(crate) fn locked_amount_for(account_id: AccountId) -> Balance {
-	let lock = pallet_balances::Locks::<Runtime>::get(account_id);
-	lock[0].amount
+pub(crate) fn staked_amount_for(account_id: AccountId) -> Balance {
+	pallet_staking::asset::staked::<Runtime>(&account_id)
 }
 
 pub(crate) fn staking_events() -> Vec<pallet_staking::Event<Runtime>> {

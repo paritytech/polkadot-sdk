@@ -37,6 +37,7 @@ parachains-runtimes-test-utils = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
+pallet-xcm = { workspace = true }
 
 # Bridges
 bp-header-chain = { workspace = true }
@@ -81,6 +82,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-utility/std",
 	"pallet-xcm-bridge-hub/std",
+	"pallet-xcm/std",
 	"parachains-common/std",
 	"parachains-runtimes-test-utils/std",
 	"sp-core/std",

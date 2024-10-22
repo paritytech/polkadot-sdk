@@ -46,9 +46,92 @@ futures = { workspace = true }
 log = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+subxt-signer = { workspace = true, features = ["unstable-eth"] }
 
 # The Polkadot-SDK:
-polkadot-sdk = { features = ["node"], workspace = true, default-features = true }
+polkadot-sdk = { features = [
+	"fork-tree",
+	"frame-benchmarking-cli",
+	"frame-remote-externalities",
+	"frame-support-procedural-tools",
+	"generate-bags",
+	"mmr-gadget",
+	"mmr-rpc",
+	"pallet-transaction-payment-rpc",
+	"sc-allocator",
+	"sc-authority-discovery",
+	"sc-basic-authorship",
+	"sc-block-builder",
+	"sc-chain-spec",
+	"sc-cli",
+	"sc-client-api",
+	"sc-client-db",
+	"sc-consensus",
+	"sc-consensus-aura",
+	"sc-consensus-babe",
+	"sc-consensus-babe-rpc",
+	"sc-consensus-beefy",
+	"sc-consensus-beefy-rpc",
+	"sc-consensus-epochs",
+	"sc-consensus-grandpa",
+	"sc-consensus-grandpa-rpc",
+	"sc-consensus-manual-seal",
+	"sc-consensus-pow",
+	"sc-consensus-slots",
+	"sc-executor",
+	"sc-executor-common",
+	"sc-executor-polkavm",
+	"sc-executor-wasmtime",
+	"sc-informant",
+	"sc-keystore",
+	"sc-mixnet",
+	"sc-network",
+	"sc-network-common",
+	"sc-network-gossip",
+	"sc-network-light",
+	"sc-network-statement",
+	"sc-network-sync",
+	"sc-network-transactions",
+	"sc-network-types",
+	"sc-offchain",
+	"sc-proposer-metrics",
+	"sc-rpc",
+	"sc-rpc-api",
+	"sc-rpc-server",
+	"sc-rpc-spec-v2",
+	"sc-service",
+	"sc-state-db",
+	"sc-statement-store",
+	"sc-storage-monitor",
+	"sc-sync-state-rpc",
+	"sc-sysinfo",
+	"sc-telemetry",
+	"sc-tracing",
+	"sc-transaction-pool",
+	"sc-transaction-pool-api",
+	"sc-utils",
+	"sp-blockchain",
+	"sp-consensus",
+	"sp-core-hashing",
+	"sp-core-hashing-proc-macro",
+	"sp-database",
+	"sp-maybe-compressed-blob",
+	"sp-panic-handler",
+	"sp-rpc",
+	"staging-chain-spec-builder",
+	"staging-node-inspect",
+	"staging-tracking-allocator",
+	"std",
+	"subkey",
+	"substrate-build-script-utils",
+	"substrate-frame-rpc-support",
+	"substrate-frame-rpc-system",
+	"substrate-prometheus-endpoint",
+	"substrate-rpc-client",
+	"substrate-state-trie-migration-rpc",
+	"substrate-wasm-builder",
+	"tracing-gum",
+], workspace = true, default-features = true }
 
 # Shared code between the staging node and kitchensink runtime:
 kitchensink-runtime = { workspace = true }
@@ -71,6 +154,7 @@ wait-timeout = { workspace = true }
 wat = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
+sp-keyring = { workspace = true }
 pretty_assertions.workspace = true
 
 # These testing-only dependencies are not exported by the Polkadot-SDK crate:
@@ -88,12 +172,7 @@ polkadot-sdk = { features = ["frame-benchmarking-cli", "sc-cli", "sc-storage-mon
 
 [features]
 default = ["cli"]
-cli = [
-	"clap",
-	"clap_complete",
-	"node-inspect",
-	"polkadot-sdk",
-]
+cli = ["clap", "clap_complete", "node-inspect", "polkadot-sdk"]
 runtime-benchmarks = [
 	"kitchensink-runtime/runtime-benchmarks",
 	"node-inspect?/runtime-benchmarks",
@@ -104,10 +183,7 @@ try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
 ]
-riscv = [
-	"kitchensink-runtime/riscv",
-	"polkadot-sdk/riscv",
-]
+riscv = ["kitchensink-runtime/riscv", "polkadot-sdk/riscv"]
 
 [[bench]]
 name = "transaction_pool"
