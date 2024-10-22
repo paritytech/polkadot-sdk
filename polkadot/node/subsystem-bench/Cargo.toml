@@ -19,7 +19,11 @@ path = "src/cli/subsystem-bench.rs"
 # Prevent rustdoc error. Already documented from top-level Cargo.toml.
 doc = false
 
+
 [dependencies]
+tikv-jemallocator = { features = ["profiling", "unprefixed_malloc_on_supported_platforms"], workspace = true, optional = true }
+jemalloc_pprof = { workspace = true, optional = true }
+polkadot-service = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-node-subsystem-types = { workspace = true, default-features = true }
@@ -49,7 +53,7 @@ hex = { workspace = true, default-features = true }
 gum = { workspace = true, default-features = true }
 polkadot-erasure-coding = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
-env_logger = { workspace = true }
+sp-tracing = { workspace = true }
 rand = { workspace = true, default-features = true }
 # `rand` only supports uniform distribution, we need normal distribution for latency.
 rand_distr = { workspace = true }
@@ -76,6 +80,7 @@ serde_yaml = { workspace = true }
 serde_json = { workspace = true }
 
 polkadot-node-core-approval-voting = { workspace = true, default-features = true }
+polkadot-node-core-approval-voting-parallel = { workspace = true, default-features = true }
 polkadot-approval-distribution = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
@@ -93,3 +98,7 @@ strum = { features = ["derive"], workspace = true, default-features = true }
 
 [features]
 default = []
+memprofile = [
+	"dep:jemalloc_pprof",
+	"dep:tikv-jemallocator",
+]

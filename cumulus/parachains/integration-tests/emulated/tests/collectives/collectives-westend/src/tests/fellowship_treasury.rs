@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use crate::*;
-use emulated_integration_tests_common::accounts::ALICE;
 use frame_support::{
 	assert_ok, dispatch::RawOrigin, instances::Instance1, sp_runtime::traits::Dispatchable,
 	traits::fungible::Inspect,

@@ -23,6 +23,7 @@ use bitvec::{bitvec, vec::BitVec};
 use futures::{
 	channel::oneshot, future::Fuse, pin_mut, select, stream::FuturesUnordered, FutureExt, StreamExt,
 };
+use schnellru::{ByLength, LruMap};
 use sp_core::Pair;
 
 use polkadot_node_network_protocol::{
@@ -37,21 +38,19 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{
 		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData,
 		RuntimeApiMessage,
 	},
-	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal, PerLeafSpan,
+	overseer, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
 	runtime::{
-		get_availability_cores, get_group_rotation_info, prospective_parachains_mode,
-		ProspectiveParachainsMode, RuntimeInfo,
+		fetch_claim_queue, get_availability_cores, get_group_rotation_info,
+		prospective_parachains_mode, ProspectiveParachainsMode, RuntimeInfo,
 	},
-	vstaging::fetch_claim_queue,
 	TimeoutExt,
 };
 use polkadot_primitives::{
@@ -201,6 +200,11 @@ struct PeerData {
 	view: View,
 	/// Network protocol version.
 	version: CollationVersion,
+	/// Unknown heads in the view.
+	///
+	/// This can happen when the validator is faster at importing a block and sending out its
+	/// `View` than the collator is able to import a block.
+	unknown_heads: LruMap<Hash, (), ByLength>,
 }
 
 /// A type wrapping a collation and it's designated core index.
@@ -279,9 +283,6 @@ struct State {
 	/// our view, including both leaves and implicit ancestry.
 	per_relay_parent: HashMap<Hash, PerRelayParent>,
 
-	/// Span per relay parent.
-	span_per_relay_parent: HashMap<Hash, PerLeafSpan>,
-
 	/// The result senders per collation.
 	collation_result_senders: HashMap<CandidateHash, oneshot::Sender<CollationSecondedSignal>>,
 
@@ -340,7 +341,6 @@ impl State {
 			implicit_view: None,
 			active_leaves: Default::default(),
 			per_relay_parent: Default::default(),
-			span_per_relay_parent: Default::default(),
 			collation_result_senders: Default::default(),
 			peer_ids: Default::default(),
 			validator_groups_buf: ValidatorGroupsBuffer::with_capacity(VALIDATORS_BUFFER_CAPACITY),
@@ -849,12 +849,6 @@ async fn process_msg<Context>(
 			result_sender,
 			core_index,
 		} => {
-			let _span1 = state
-				.span_per_relay_parent
-				.get(&candidate_receipt.descriptor.relay_parent)
-				.map(|s| s.child("distributing-collation"));
-			let _span2 = jaeger::Span::new(&pov, "distributing-collation");
-
 			match state.collating_on {
 				Some(id) if candidate_receipt.descriptor.para_id != id => {
 					// If the ParaId of a collation requested to be distributed does not match
@@ -1083,11 +1077,6 @@ async fn handle_incoming_request<Context>(
 	let peer_id = req.peer_id();
 	let para_id = req.para_id();
 
-	let _span = state
-		.span_per_relay_parent
-		.get(&relay_parent)
-		.map(|s| s.child("request-collation"));
-
 	match state.collating_on {
 		Some(our_para_id) if our_para_id == para_id => {
 			let per_relay_parent = match state.per_relay_parent.get_mut(&relay_parent) {
@@ -1141,8 +1130,6 @@ async fn handle_incoming_request<Context>(
 				};
 
 			state.metrics.on_collation_sent_requested();
-
-			let _span = _span.as_ref().map(|s| s.child("sending"));
 
 			let waiting = state.waiting_collation_fetches.entry(relay_parent).or_default();
 			let candidate_hash = receipt.hash();
@@ -1199,9 +1186,10 @@ async fn handle_peer_view_change<Context>(
 	peer_id: PeerId,
 	view: View,
 ) {
-	let PeerData { view: current, version } = match state.peer_data.get_mut(&peer_id) {
-		Some(peer_data) => peer_data,
-		None => return,
+	let Some(PeerData { view: current, version, unknown_heads }) =
+		state.peer_data.get_mut(&peer_id)
+	else {
+		return
 	};
 
 	let added: Vec<Hash> = view.difference(&*current).cloned().collect();
@@ -1229,15 +1217,18 @@ async fn handle_peer_view_change<Context>(
 					new_leaf = ?added,
 					"New leaf in peer's view is unknown",
 				);
+
+				unknown_heads.insert(added, ());
+
 				continue
 			},
 		};
 
 		for block_hash in block_hashes {
-			let per_relay_parent = match state.per_relay_parent.get_mut(block_hash) {
-				Some(per_relay_parent) => per_relay_parent,
-				None => continue,
+			let Some(per_relay_parent) = state.per_relay_parent.get_mut(block_hash) else {
+				continue
 			};
+
 			advertise_collation(
 				ctx,
 				*block_hash,
@@ -1283,10 +1274,13 @@ async fn handle_network_msg<Context>(
 					return Ok(())
 				},
 			};
-			state
-				.peer_data
-				.entry(peer_id)
-				.or_insert_with(|| PeerData { view: View::default(), version });
+			state.peer_data.entry(peer_id).or_insert_with(|| PeerData {
+				view: View::default(),
+				version,
+				// Unlikely that the collator is falling 10 blocks behind and if so, it probably is
+				// not able to keep up any way.
+				unknown_heads: LruMap::new(ByLength::new(10)),
+			});
 
 			if let Some(authority_ids) = maybe_authority {
 				gum::trace!(
@@ -1311,7 +1305,7 @@ async fn handle_network_msg<Context>(
 		},
 		OurViewChange(view) => {
 			gum::trace!(target: LOG_TARGET, ?view, "Own view change");
-			handle_our_view_change(ctx.sender(), state, view).await?;
+			handle_our_view_change(ctx, state, view).await?;
 		},
 		PeerMessage(remote, msg) => {
 			handle_incoming_peer_message(ctx, runtime, state, remote, msg).await?;
@@ -1333,26 +1327,19 @@ async fn handle_network_msg<Context>(
 }
 
 /// Handles our view changes.
-async fn handle_our_view_change<Sender>(
-	sender: &mut Sender,
+#[overseer::contextbounds(CollatorProtocol, prefix = crate::overseer)]
+async fn handle_our_view_change<Context>(
+	ctx: &mut Context,
 	state: &mut State,
 	view: OurView,
-) -> Result<()>
-where
-	Sender: CollatorProtocolSenderTrait,
-{
+) -> Result<()> {
 	let current_leaves = state.active_leaves.clone();
 
 	let removed = current_leaves.iter().filter(|(h, _)| !view.contains(h));
 	let added = view.iter().filter(|h| !current_leaves.contains_key(h));
 
 	for leaf in added {
-		let mode = prospective_parachains_mode(sender, *leaf).await?;
-
-		if let Some(span) = view.span_per_head().get(leaf).cloned() {
-			let per_leaf_span = PerLeafSpan::new(span, "collator-side");
-			state.span_per_relay_parent.insert(*leaf, per_leaf_span);
-		}
+		let mode = prospective_parachains_mode(ctx.sender(), *leaf).await?;
 
 		state.active_leaves.insert(*leaf, mode);
 		state.per_relay_parent.insert(*leaf, PerRelayParent::new(mode));
@@ -1360,7 +1347,7 @@ where
 		if mode.is_enabled() {
 			if let Some(ref mut implicit_view) = state.implicit_view {
 				implicit_view
-					.activate_leaf(sender, *leaf)
+					.activate_leaf(ctx.sender(), *leaf)
 					.await
 					.map_err(Error::ImplicitViewFetchError)?;
 
@@ -1368,11 +1355,36 @@ where
 					.known_allowed_relay_parents_under(leaf, state.collating_on)
 					.unwrap_or_default();
 
+				// Get the peers that already reported us this head, but we didn't knew it at this
+				// point.
+				let peers = state
+					.peer_data
+					.iter_mut()
+					.filter_map(|(id, data)| {
+						data.unknown_heads.remove(leaf).map(|_| (id, data.version))
+					})
+					.collect::<Vec<_>>();
+
 				for block_hash in allowed_ancestry {
-					state
+					let per_relay_parent = state
 						.per_relay_parent
 						.entry(*block_hash)
 						.or_insert_with(|| PerRelayParent::new(mode));
+
+					// Announce relevant collations to these peers.
+					for (peer_id, peer_version) in &peers {
+						advertise_collation(
+							ctx,
+							*block_hash,
+							per_relay_parent,
+							&peer_id,
+							*peer_version,
+							&state.peer_ids,
+							&mut state.advertisement_timeouts,
+							&state.metrics,
+						)
+						.await;
+					}
 				}
 			}
 		}
@@ -1429,7 +1441,6 @@ where
 					),
 				}
 			}
-			state.span_per_relay_parent.remove(removed);
 			state.waiting_collation_fetches.remove(removed);
 		}
 	}

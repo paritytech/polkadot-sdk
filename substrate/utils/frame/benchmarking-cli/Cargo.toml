@@ -4,7 +4,7 @@ version = "32.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "CLI for benchmarking FRAME"
 readme = "README.md"
@@ -24,7 +24,6 @@ comfy-table = { workspace = true }
 handlebars = { workspace = true }
 Inflector = { workspace = true }
 itertools = { workspace = true }
-lazy_static = { workspace = true }
 linked-hash-map = { workspace = true }
 log = { workspace = true, default-features = true }
 rand = { features = ["small_rng"], workspace = true, default-features = true }

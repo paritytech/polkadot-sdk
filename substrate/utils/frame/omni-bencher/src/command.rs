@@ -36,13 +36,19 @@ use sp_runtime::traits::BlakeTwo256;
 /// Directly via crates.io:
 ///
 /// ```sh
-/// cargo install --locked frame-omni-bencher
+/// cargo install frame-omni-bencher --profile=production
 /// ```
 ///
-/// or when the sources are locally checked out:
+/// from GitHub:
 ///
 /// ```sh
-/// cargo install --locked --path substrate/utils/frame/omni-bencher --profile=production
+/// cargo install --git https://github.com/paritytech/polkadot-sdk frame-omni-bencher --profile=production
+/// ```
+///
+/// or locally from the sources:
+///
+/// ```sh
+/// cargo install --path substrate/utils/frame/omni-bencher --profile=production
 /// ```
 ///
 /// Check the installed version and print the docs:
@@ -60,7 +66,7 @@ use sp_runtime::traits::BlakeTwo256;
 /// cargo build -p westend-runtime --profile production --features runtime-benchmarks
 /// ```
 ///
-/// Now as example we benchmark `pallet_balances`:
+/// Now as an example, we benchmark the `balances` pallet:
 ///
 /// ```sh
 /// frame-omni-bencher v1 benchmark pallet \

@@ -50,7 +50,7 @@ macro_rules! format_runtime_string {
 		}
 		#[cfg(not(feature = "std"))]
 		{
-			sp_runtime::RuntimeString::Owned(alloc::format!($($args)*).as_bytes().to_vec())
+			sp_runtime::RuntimeString::Owned($crate::format!($($args)*).as_bytes().to_vec())
 		}
 	}};
 }

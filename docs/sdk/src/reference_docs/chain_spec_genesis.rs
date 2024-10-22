@@ -1,4 +1,4 @@
-//! # What is chain-spec.
+//! # What is a chain specification
 //!
 //! A chain specification file defines the set of properties that are required to run the node as
 //! part of the chain. The chain specification consists of two main parts:
@@ -165,8 +165,10 @@
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", list_presets)]
 //! ## Displaying preset with given name
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", get_preset)]
-//! ## Building chain-spec using given preset
+//! ## Building a solo chain-spec (the default) using given preset
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", generate_chain_spec)]
+//! ## Building a parachain chain-spec using given preset
+#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", generate_para_chain_spec)]
 //!
 //! [`RuntimeGenesisConfig`]:
 //!     chain_spec_guide_runtime::runtime::RuntimeGenesisConfig
@@ -178,7 +180,6 @@
 //! [`pallet::genesis_build`]: frame_support::pallet_macros::genesis_build
 //! [`pallet::genesis_config`]: frame_support::pallet_macros::genesis_config
 //! [`BuildGenesisConfig`]: frame_support::traits::BuildGenesisConfig
-//! [`chain_spec_builder`]: ../../../staging_chain_spec_builder/index.html
 //! [`serde`]: https://serde.rs/field-attrs.html
 //! [`get_storage_for_patch`]: sc_chain_spec::GenesisConfigBuilderRuntimeCaller::get_storage_for_patch
 //! [`GenesisBuilder::get_preset`]: sp_genesis_builder::GenesisBuilder::get_preset

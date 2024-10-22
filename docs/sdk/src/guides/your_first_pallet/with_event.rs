@@ -54,11 +54,11 @@ pub mod pallet {
 			if sender_balance < amount {
 				return Err("NotEnoughBalance".into())
 			}
-			let reminder = sender_balance - amount;
+			let remainder = sender_balance - amount;
 
 			// update sender and dest balances.
 			Balances::<T>::mutate(dest, |b| *b = Some(b.unwrap_or(0) + amount));
-			Balances::<T>::insert(&sender, reminder);
+			Balances::<T>::insert(&sender, remainder);
 
 			Ok(())
 		}
@@ -76,7 +76,7 @@ pub mod pallet {
 
 			let sender_balance = Balances::<T>::get(&sender).ok_or("NonExistentAccount")?;
 			ensure!(sender_balance >= amount, "NotEnoughBalance");
-			let reminder = sender_balance - amount;
+			let remainder = sender_balance - amount;
 
 			// .. snip
 			Ok(())
@@ -92,7 +92,7 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 
 			let sender_balance = Balances::<T>::get(&sender).ok_or("NonExistentAccount")?;
-			let reminder = sender_balance.checked_sub(amount).ok_or("NotEnoughBalance")?;
+			let remainder = sender_balance.checked_sub(amount).ok_or("NotEnoughBalance")?;
 
 			// .. snip
 			Ok(())

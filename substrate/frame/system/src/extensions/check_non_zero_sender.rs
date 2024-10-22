@@ -18,13 +18,12 @@
 use crate::Config;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
-use frame_support::{dispatch::DispatchInfo, DefaultNoBound};
+use frame_support::{traits::OriginTrait, DefaultNoBound};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, SignedExtension},
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
-	},
+	impl_tx_ext_default,
+	traits::{DispatchInfoOf, TransactionExtension},
+	transaction_validity::InvalidTransaction,
 };
 
 /// Check to ensure that the sender is not the zero address.
@@ -45,66 +44,80 @@ impl<T: Config + Send + Sync> core::fmt::Debug for CheckNonZeroSender<T> {
 }
 
 impl<T: Config + Send + Sync> CheckNonZeroSender<T> {
-	/// Create new `SignedExtension` to check runtime version.
+	/// Create new `TransactionExtension` to check runtime version.
 	pub fn new() -> Self {
 		Self(core::marker::PhantomData)
 	}
 }
 
-impl<T: Config + Send + Sync> SignedExtension for CheckNonZeroSender<T>
-where
-	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
-{
-	type AccountId = T::AccountId;
-	type Call = T::RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = ();
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckNonZeroSender<T> {
 	const IDENTIFIER: &'static str = "CheckNonZeroSender";
+	type Implicit = ();
+	type Val = ();
+	type Pre = ();
 
-	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
-		Ok(())
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
+	fn weight(&self, _: &T::RuntimeCall) -> sp_weights::Weight {
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_non_zero_sender()
 	}
 
 	fn validate(
 		&self,
-		who: &Self::AccountId,
-		_call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		origin: <T as Config>::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-	) -> TransactionValidity {
-		if who.using_encoded(|d| d.iter().all(|x| *x == 0)) {
-			return Err(TransactionValidityError::Invalid(InvalidTransaction::BadSigner))
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+	) -> sp_runtime::traits::ValidateResult<Self::Val, T::RuntimeCall> {
+		if let Some(who) = origin.as_signer() {
+			if who.using_encoded(|d| d.iter().all(|x| *x == 0)) {
+				return Err(InvalidTransaction::BadSigner.into())
+			}
 		}
-		Ok(ValidTransaction::default())
+		Ok((Default::default(), (), origin))
 	}
+	impl_tx_ext_default!(T::RuntimeCall; prepare);
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test, CALL};
-	use frame_support::{assert_noop, assert_ok};
+	use frame_support::{assert_ok, dispatch::DispatchInfo};
+	use sp_runtime::{
+		traits::{AsTransactionAuthorizedOrigin, DispatchTransaction},
+		transaction_validity::TransactionValidityError,
+	};
 
 	#[test]
 	fn zero_account_ban_works() {
 		new_test_ext().execute_with(|| {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
-			assert_noop!(
-				CheckNonZeroSender::<Test>::new().validate(&0, CALL, &info, len),
-				InvalidTransaction::BadSigner
+			assert_eq!(
+				CheckNonZeroSender::<Test>::new()
+					.validate_only(Some(0).into(), CALL, &info, len)
+					.unwrap_err(),
+				TransactionValidityError::from(InvalidTransaction::BadSigner)
 			);
-			assert_ok!(CheckNonZeroSender::<Test>::new().validate(&1, CALL, &info, len));
+			assert_ok!(CheckNonZeroSender::<Test>::new().validate_only(
+				Some(1).into(),
+				CALL,
+				&info,
+				len
+			));
+		})
+	}
+
+	#[test]
+	fn unsigned_origin_works() {
+		new_test_ext().execute_with(|| {
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			let (_, _, origin) = CheckNonZeroSender::<Test>::new()
+				.validate(None.into(), CALL, &info, len, (), CALL)
+				.unwrap();
+			assert!(!origin.is_transaction_authorized());
 		})
 	}
 }

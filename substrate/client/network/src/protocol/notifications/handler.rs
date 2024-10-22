@@ -73,7 +73,6 @@ use futures::{
 	prelude::*,
 };
 use libp2p::{
-	core::ConnectedPoint,
 	swarm::{
 		handler::ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, KeepAlive, Stream,
 		SubstreamProtocol,
@@ -117,9 +116,6 @@ pub struct NotifsHandler {
 	/// When the connection with the remote has been successfully established.
 	when_connection_open: Instant,
 
-	/// Whether we are the connection dialer or listener.
-	endpoint: ConnectedPoint,
-
 	/// Remote we are connected to.
 	peer_id: PeerId,
 
@@ -136,7 +132,6 @@ impl NotifsHandler {
 	/// Creates new [`NotifsHandler`].
 	pub fn new(
 		peer_id: PeerId,
-		endpoint: ConnectedPoint,
 		protocols: Vec<ProtocolConfig>,
 		metrics: Option<NotificationMetrics>,
 	) -> Self {
@@ -154,7 +149,6 @@ impl NotifsHandler {
 				})
 				.collect(),
 			peer_id,
-			endpoint,
 			when_connection_open: Instant::now(),
 			events_queue: VecDeque::with_capacity(16),
 			metrics: metrics.map_or(None, |metrics| Some(Arc::new(metrics))),
@@ -281,8 +275,6 @@ pub enum NotifsHandlerOut {
 		protocol_index: usize,
 		/// Name of the protocol that was actually negotiated, if the default one wasn't available.
 		negotiated_fallback: Option<ProtocolName>,
-		/// The endpoint of the connection that is open for custom protocols.
-		endpoint: ConnectedPoint,
 		/// Handshake that was sent to us.
 		/// This is normally a "Status" message, but this out of the concern of this code.
 		received_handshake: Vec<u8>,
@@ -590,7 +582,6 @@ impl ConnectionHandler for NotifsHandler {
 							NotifsHandlerOut::OpenResultOk {
 								protocol_index,
 								negotiated_fallback: new_open.negotiated_fallback,
-								endpoint: self.endpoint.clone(),
 								received_handshake: new_open.handshake,
 								notifications_sink,
 								inbound,
@@ -889,7 +880,6 @@ pub mod tests {
 	use libp2p::{
 		core::muxing::SubstreamBox,
 		swarm::handler::{self, StreamUpgradeError},
-		Multiaddr, Stream,
 	};
 	use multistream_select::{dialer_select_proto, listener_select_proto, Negotiated, Version};
 	use std::{
@@ -925,7 +915,6 @@ pub mod tests {
 			&mut self,
 			peer: PeerId,
 			protocol_index: usize,
-			endpoint: ConnectedPoint,
 			received_handshake: Vec<u8>,
 		) -> NotifsHandlerOut {
 			let (async_tx, async_rx) =
@@ -954,7 +943,6 @@ pub mod tests {
 			NotifsHandlerOut::OpenResultOk {
 				protocol_index,
 				negotiated_fallback: None,
-				endpoint,
 				received_handshake,
 				notifications_sink,
 				inbound: false,
@@ -1110,10 +1098,6 @@ pub mod tests {
 		NotifsHandler {
 			protocols: vec![proto],
 			when_connection_open: Instant::now(),
-			endpoint: ConnectedPoint::Listener {
-				local_addr: Multiaddr::empty(),
-				send_back_addr: Multiaddr::empty(),
-			},
 			peer_id: PeerId::random(),
 			events_queue: VecDeque::new(),
 			metrics: None,
@@ -1131,7 +1115,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1158,7 +1141,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1191,7 +1173,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1225,7 +1206,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1265,7 +1245,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1316,7 +1295,6 @@ pub mod tests {
 		codec.set_max_len(usize::MAX);
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1355,7 +1333,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1415,7 +1392,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1452,7 +1428,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1498,7 +1473,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1547,7 +1521,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1583,7 +1556,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::NotSent,
@@ -1658,7 +1630,6 @@ pub mod tests {
 
 		let notif_in = NotificationsInOpen {
 			handshake: b"hello, world".to_vec(),
-			negotiated_fallback: None,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
 				NotificationsInSubstreamHandshake::PendingSend(vec![1, 2, 3, 4]),

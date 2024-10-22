@@ -32,10 +32,7 @@ use frame::{
 		runtime,
 	},
 	prelude::*,
-	runtime::{
-		apis::{self, impl_runtime_apis, ExtrinsicInclusionMode},
-		prelude::*,
-	},
+	runtime::{apis, prelude::*},
 };
 use sp_genesis_builder::PresetId;
 
@@ -49,7 +46,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// The signed extensions that are added to the runtime.

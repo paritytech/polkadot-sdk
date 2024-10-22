@@ -31,18 +31,20 @@ pub mod relay_to_relay;
 pub mod relay_to_parachain;
 
 use async_trait::async_trait;
-use std::{marker::PhantomData, sync::Arc};
+use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 use structopt::StructOpt;
 
 use futures::{FutureExt, TryFutureExt};
 
 use crate::{
-	cli::{bridge::MessagesCliBridge, DefaultClient, HexLaneId, PrometheusParams},
+	cli::{
+		bridge::{MessagesCliBridge, MessagesLaneIdOf},
+		DefaultClient, HexLaneId, PrometheusParams,
+	},
 	messages::{MessagesRelayLimits, MessagesRelayParams},
 	on_demand::OnDemandRelay,
 	HeadersToRelay, TaggedAccount, TransactionParams,
 };
-use bp_messages::LaneId;
 use bp_runtime::BalanceOf;
 use relay_substrate_client::{
 	AccountIdOf, AccountKeyPairOf, Chain, ChainWithBalances, ChainWithMessages,
@@ -50,12 +52,13 @@ use relay_substrate_client::{
 };
 use relay_utils::metrics::MetricsParams;
 use sp_core::Pair;
+use sp_runtime::traits::TryConvert;
 
 /// Parameters that have the same names across all bridges.
 #[derive(Debug, PartialEq, StructOpt)]
 pub struct HeadersAndMessagesSharedParams {
 	/// Hex-encoded lane identifiers that should be served by the complex relay.
-	#[structopt(long, default_value = "00000000")]
+	#[structopt(long)]
 	pub lane: Vec<HexLaneId>,
 	/// If passed, only mandatory headers (headers that are changing the GRANDPA authorities set)
 	/// are relayed.
@@ -163,7 +166,7 @@ where
 		&self,
 		source_to_target_headers_relay: Arc<dyn OnDemandRelay<Source, Target>>,
 		target_to_source_headers_relay: Arc<dyn OnDemandRelay<Target, Source>>,
-		lane_id: LaneId,
+		lane_id: MessagesLaneIdOf<Bridge>,
 		maybe_limits: Option<MessagesRelayLimits>,
 	) -> MessagesRelayParams<Bridge::MessagesLane, DefaultClient<Source>, DefaultClient<Target>> {
 		MessagesRelayParams {
@@ -287,36 +290,57 @@ where
 			self.mut_base().start_on_demand_headers_relayers().await?;
 
 		// add balance-related metrics
-		let lanes = self
+		let lanes_l2r: Vec<MessagesLaneIdOf<Self::L2R>> = self
 			.base()
 			.common()
 			.shared
 			.lane
 			.iter()
 			.cloned()
-			.map(Into::into)
-			.collect::<Vec<_>>();
+			.map(HexLaneId::try_convert)
+			.collect::<Result<Vec<_>, HexLaneId>>()
+			.map_err(|e| {
+				anyhow::format_err!("Conversion failed for L2R lanes with error: {:?}!", e)
+			})?;
+		let lanes_r2l: Vec<MessagesLaneIdOf<Self::R2L>> = self
+			.base()
+			.common()
+			.shared
+			.lane
+			.iter()
+			.cloned()
+			.map(HexLaneId::try_convert)
+			.collect::<Result<Vec<_>, HexLaneId>>()
+			.map_err(|e| {
+				anyhow::format_err!("Conversion failed for R2L lanes with error: {:?}!", e)
+			})?;
 		{
 			let common = self.mut_base().mut_common();
-			crate::messages::metrics::add_relay_balances_metrics::<_, Self::Right>(
-				common.left.client.clone(),
-				&common.metrics_params,
-				&common.left.accounts,
-				&lanes,
+			crate::messages::metrics::add_relay_balances_metrics::<
+				_,
+				Self::Right,
+				MessagesLaneIdOf<Self::L2R>,
+			>(
+				common.left.client.clone(), &common.metrics_params, &common.left.accounts, &lanes_l2r
 			)
 			.await?;
-			crate::messages::metrics::add_relay_balances_metrics::<_, Self::Left>(
+			crate::messages::metrics::add_relay_balances_metrics::<
+				_,
+				Self::Left,
+				MessagesLaneIdOf<Self::R2L>,
+			>(
 				common.right.client.clone(),
 				&common.metrics_params,
 				&common.right.accounts,
-				&lanes,
+				&lanes_r2l,
 			)
 			.await?;
 		}
 
 		// Need 2x capacity since we consider both directions for each lane
-		let mut message_relays = Vec::with_capacity(lanes.len() * 2);
-		for lane in lanes {
+		let mut message_relays =
+			Vec::with_capacity(lanes_l2r.len().saturating_add(lanes_r2l.len()));
+		for lane in lanes_l2r {
 			let left_to_right_messages =
 				crate::messages::run::<<Self::L2R as MessagesCliBridge>::MessagesLane, _, _>(
 					self.left_to_right().messages_relay_params(
@@ -329,7 +353,8 @@ where
 				.map_err(|e| anyhow::format_err!("{}", e))
 				.boxed();
 			message_relays.push(left_to_right_messages);
-
+		}
+		for lane in lanes_r2l {
 			let right_to_left_messages =
 				crate::messages::run::<<Self::R2L as MessagesCliBridge>::MessagesLane, _, _>(
 					self.right_to_left().messages_relay_params(
@@ -422,7 +447,7 @@ mod tests {
 			"--polkadot-port",
 			"9944",
 			"--lane",
-			"00000000",
+			"0000000000000000000000000000000000000000000000000000000000000000",
 			"--prometheus-host",
 			"0.0.0.0",
 		]);
@@ -432,7 +457,7 @@ mod tests {
 			res,
 			BridgeHubKusamaBridgeHubPolkadotHeadersAndMessages {
 				shared: HeadersAndMessagesSharedParams {
-					lane: vec![HexLaneId([0x00, 0x00, 0x00, 0x00])],
+					lane: vec![HexLaneId(vec![0x00u8; 32])],
 					only_mandatory_headers: false,
 					only_free_headers: false,
 					prometheus_params: PrometheusParams {

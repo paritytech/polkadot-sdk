@@ -12,11 +12,13 @@ workspace = true
 [dependencies]
 bounded-vec = { workspace = true }
 futures = { workspace = true }
+futures-timer = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true }
 sp-core = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
+sp-consensus-slots = { workspace = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
@@ -25,6 +27,7 @@ schnorrkel = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
+sc-keystore = { workspace = true }
 
 [target.'cfg(not(target_os = "unknown"))'.dependencies]
 zstd = { version = "0.12.4", default-features = false }

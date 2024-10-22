@@ -21,13 +21,13 @@
 pub use sp_consensus_grandpa::{AuthorityList, SetId};
 
 use crate::{
-	strategy::chain_sync::validate_blocks,
+	strategy::{chain_sync::validate_blocks, disconnected_peers::DisconnectedPeers},
 	types::{BadPeer, SyncState, SyncStatus},
 	LOG_TARGET,
 };
 use codec::{Decode, Encode};
-use futures::channel::oneshot;
-use log::{debug, error, trace};
+use log::{debug, error, trace, warn};
+use sc_network::ProtocolName;
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
 };
@@ -104,8 +104,6 @@ mod rep {
 pub enum WarpSyncPhase<Block: BlockT> {
 	/// Waiting for peers to connect.
 	AwaitingPeers { required_peers: usize },
-	/// Waiting for target block to be received.
-	AwaitingTargetBlock,
 	/// Downloading and verifying grandpa warp proofs.
 	DownloadingWarpProofs,
 	/// Downloading target block.
@@ -125,7 +123,6 @@ impl<Block: BlockT> fmt::Display for WarpSyncPhase<Block> {
 		match self {
 			Self::AwaitingPeers { required_peers } =>
 				write!(f, "Waiting for {required_peers} peers to be connected"),
-			Self::AwaitingTargetBlock => write!(f, "Waiting for target block to be received"),
 			Self::DownloadingWarpProofs => write!(f, "Downloading finality proofs"),
 			Self::DownloadingTargetBlock => write!(f, "Downloading target block"),
 			Self::DownloadingState => write!(f, "Downloading state"),
@@ -145,37 +142,14 @@ pub struct WarpSyncProgress<Block: BlockT> {
 	pub total_bytes: u64,
 }
 
-/// The different types of warp syncing, passed to `build_network`.
-pub enum WarpSyncParams<Block: BlockT> {
-	/// Standard warp sync for the chain.
-	WithProvider(Arc<dyn WarpSyncProvider<Block>>),
-	/// Skip downloading proofs and wait for a header of the state that should be downloaded.
-	///
-	/// It is expected that the header provider ensures that the header is trusted.
-	WaitForTarget(oneshot::Receiver<<Block as BlockT>::Header>),
-}
-
 /// Warp sync configuration as accepted by [`WarpSync`].
 pub enum WarpSyncConfig<Block: BlockT> {
 	/// Standard warp sync for the chain.
 	WithProvider(Arc<dyn WarpSyncProvider<Block>>),
-	/// Skip downloading proofs and wait for a header of the state that should be downloaded.
+	/// Skip downloading proofs and use provided header of the state that should be downloaded.
 	///
 	/// It is expected that the header provider ensures that the header is trusted.
-	WaitForTarget,
-}
-
-impl<Block: BlockT> WarpSyncParams<Block> {
-	/// Split `WarpSyncParams` into `WarpSyncConfig` and warp sync target block header receiver.
-	pub fn split(
-		self,
-	) -> (WarpSyncConfig<Block>, Option<oneshot::Receiver<<Block as BlockT>::Header>>) {
-		match self {
-			WarpSyncParams::WithProvider(provider) =>
-				(WarpSyncConfig::WithProvider(provider), None),
-			WarpSyncParams::WaitForTarget(rx) => (WarpSyncConfig::WaitForTarget, Some(rx)),
-		}
-	}
+	WithTarget(<Block as BlockT>::Header),
 }
 
 /// Warp sync phase used by warp sync state machine.
@@ -189,9 +163,6 @@ enum Phase<B: BlockT> {
 		last_hash: B::Hash,
 		warp_sync_provider: Arc<dyn WarpSyncProvider<B>>,
 	},
-	/// Waiting for target block to be set externally if we skip warp proofs downloading,
-	/// and start straight from the target block (used by parachains warp sync).
-	PendingTargetBlock,
 	/// Downloading target block.
 	TargetBlock(B::Header),
 	/// Warp sync is complete.
@@ -218,7 +189,11 @@ struct Peer<B: BlockT> {
 /// Action that should be performed on [`WarpSync`]'s behalf.
 pub enum WarpSyncAction<B: BlockT> {
 	/// Send warp proof request to peer.
-	SendWarpProofRequest { peer_id: PeerId, request: WarpProofRequest<B> },
+	SendWarpProofRequest {
+		peer_id: PeerId,
+		protocol_name: ProtocolName,
+		request: WarpProofRequest<B>,
+	},
 	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
 	SendBlockRequest { peer_id: PeerId, request: BlockRequest<B> },
 	/// Disconnect and report peer.
@@ -240,6 +215,8 @@ pub struct WarpSync<B: BlockT, Client> {
 	total_proof_bytes: u64,
 	total_state_bytes: u64,
 	peers: HashMap<PeerId, Peer<B>>,
+	disconnected_peers: DisconnectedPeers,
+	protocol_name: Option<ProtocolName>,
 	actions: Vec<WarpSyncAction<B>>,
 	result: Option<WarpSyncResult<B>>,
 }
@@ -252,7 +229,11 @@ where
 	/// Create a new instance. When passing a warp sync provider we will be checking for proof and
 	/// authorities. Alternatively we can pass a target block when we want to skip downloading
 	/// proofs, in this case we will continue polling until the target block is known.
-	pub fn new(client: Arc<Client>, warp_sync_config: WarpSyncConfig<B>) -> Self {
+	pub fn new(
+		client: Arc<Client>,
+		warp_sync_config: WarpSyncConfig<B>,
+		protocol_name: Option<ProtocolName>,
+	) -> Self {
 		if client.info().finalized_state.is_some() {
 			error!(
 				target: LOG_TARGET,
@@ -264,6 +245,8 @@ where
 				total_proof_bytes: 0,
 				total_state_bytes: 0,
 				peers: HashMap::new(),
+				disconnected_peers: DisconnectedPeers::new(),
+				protocol_name,
 				actions: vec![WarpSyncAction::Finished],
 				result: None,
 			}
@@ -272,7 +255,7 @@ where
 		let phase = match warp_sync_config {
 			WarpSyncConfig::WithProvider(warp_sync_provider) =>
 				Phase::WaitingForPeers { warp_sync_provider },
-			WarpSyncConfig::WaitForTarget => Phase::PendingTargetBlock,
+			WarpSyncConfig::WithTarget(target_header) => Phase::TargetBlock(target_header),
 		};
 
 		Self {
@@ -281,23 +264,11 @@ where
 			total_proof_bytes: 0,
 			total_state_bytes: 0,
 			peers: HashMap::new(),
+			disconnected_peers: DisconnectedPeers::new(),
+			protocol_name,
 			actions: Vec::new(),
 			result: None,
 		}
-	}
-
-	/// Set target block externally in case we skip warp proof downloading.
-	pub fn set_target_block(&mut self, header: B::Header) {
-		let Phase::PendingTargetBlock = self.phase else {
-			error!(
-				target: LOG_TARGET,
-				"Attempt to set warp sync target block in invalid phase.",
-			);
-			debug_assert!(false);
-			return
-		};
-
-		self.phase = Phase::TargetBlock(header);
 	}
 
 	/// Notify that a new peer has connected.
@@ -309,7 +280,15 @@ where
 
 	/// Notify that a peer has disconnected.
 	pub fn remove_peer(&mut self, peer_id: &PeerId) {
-		self.peers.remove(peer_id);
+		if let Some(state) = self.peers.remove(peer_id) {
+			if !state.state.is_available() {
+				if let Some(bad_peer) =
+					self.disconnected_peers.on_disconnect_during_request(*peer_id)
+				{
+					self.actions.push(WarpSyncAction::DropPeer(bad_peer));
+				}
+			}
+		}
 	}
 
 	/// Submit a validated block announcement.
@@ -490,7 +469,10 @@ where
 		// Find a random peer that is synced as much as peer majority and is above
 		// `min_best_number`.
 		for (peer_id, peer) in self.peers.iter_mut() {
-			if peer.state.is_available() && peer.best_number >= threshold {
+			if peer.state.is_available() &&
+				peer.best_number >= threshold &&
+				self.disconnected_peers.is_peer_available(peer_id)
+			{
 				peer.state = new_state;
 				return Some(*peer_id)
 			}
@@ -499,7 +481,7 @@ where
 	}
 
 	/// Produce warp proof request.
-	fn warp_proof_request(&mut self) -> Option<(PeerId, WarpProofRequest<B>)> {
+	fn warp_proof_request(&mut self) -> Option<(PeerId, ProtocolName, WarpProofRequest<B>)> {
 		let Phase::WarpProof { last_hash, .. } = &self.phase else { return None };
 
 		// Copy `last_hash` early to cut the borrowing tie.
@@ -517,7 +499,17 @@ where
 		let peer_id = self.schedule_next_peer(PeerState::DownloadingProofs, None)?;
 		trace!(target: LOG_TARGET, "New WarpProofRequest to {peer_id}, begin hash: {begin}.");
 
-		Some((peer_id, WarpProofRequest { begin }))
+		let request = WarpProofRequest { begin };
+
+		let Some(protocol_name) = self.protocol_name.clone() else {
+			warn!(
+				target: LOG_TARGET,
+				"Trying to send warp sync request when no protocol is configured {request:?}",
+			);
+			return None;
+		};
+
+		Some((peer_id, protocol_name, request))
 	}
 
 	/// Produce target block request.
@@ -578,10 +570,6 @@ where
 				phase: WarpSyncPhase::DownloadingTargetBlock,
 				total_bytes: self.total_proof_bytes,
 			},
-			Phase::PendingTargetBlock { .. } => WarpSyncProgress {
-				phase: WarpSyncPhase::AwaitingTargetBlock,
-				total_bytes: self.total_proof_bytes,
-			},
 			Phase::Complete => WarpSyncProgress {
 				phase: WarpSyncPhase::Complete,
 				total_bytes: self.total_proof_bytes + self.total_state_bytes,
@@ -600,19 +588,16 @@ where
 			state: match &self.phase {
 				Phase::WaitingForPeers { .. } => SyncState::Downloading { target: Zero::zero() },
 				Phase::WarpProof { .. } => SyncState::Downloading { target: Zero::zero() },
-				Phase::PendingTargetBlock => SyncState::Downloading { target: Zero::zero() },
 				Phase::TargetBlock(header) => SyncState::Downloading { target: *header.number() },
 				Phase::Complete => SyncState::Idle,
 			},
 			best_seen_block: match &self.phase {
 				Phase::WaitingForPeers { .. } => None,
 				Phase::WarpProof { .. } => None,
-				Phase::PendingTargetBlock => None,
 				Phase::TargetBlock(header) => Some(*header.number()),
 				Phase::Complete => None,
 			},
 			num_peers: self.peers.len().saturated_into(),
-			num_connected_peers: self.peers.len().saturated_into(),
 			queued_blocks: 0,
 			state_sync: None,
 			warp_sync: Some(self.progress()),
@@ -622,10 +607,10 @@ where
 	/// Get actions that should be performed by the owner on [`WarpSync`]'s behalf
 	#[must_use]
 	pub fn actions(&mut self) -> impl Iterator<Item = WarpSyncAction<B>> {
-		let warp_proof_request = self
-			.warp_proof_request()
-			.into_iter()
-			.map(|(peer_id, request)| WarpSyncAction::SendWarpProofRequest { peer_id, request });
+		let warp_proof_request =
+			self.warp_proof_request().into_iter().map(|(peer_id, protocol_name, request)| {
+				WarpSyncAction::SendWarpProofRequest { peer_id, protocol_name, request }
+			});
 		self.actions.extend(warp_proof_request);
 
 		let target_block_request = self
@@ -650,6 +635,7 @@ mod test {
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_blockchain::{BlockStatus, Error as BlockchainError, HeaderBackend, Info};
 	use sp_consensus_grandpa::{AuthorityList, SetId};
+	use sp_core::H256;
 	use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 	use std::{io::ErrorKind, sync::Arc};
 	use substrate_test_runtime_client::{
@@ -730,7 +716,7 @@ mod test {
 		let client = mock_client_with_state();
 		let provider = MockWarpSyncProvider::<Block>::new();
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
 		// Warp sync instantly finishes
 		let actions = warp_sync.actions().collect::<Vec<_>>();
@@ -744,8 +730,14 @@ mod test {
 	#[test]
 	fn warp_sync_to_target_for_db_with_finalized_state_is_noop() {
 		let client = mock_client_with_state();
-		let config = WarpSyncConfig::WaitForTarget;
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let config = WarpSyncConfig::WithTarget(<Block as BlockT>::Header::new(
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
 		// Warp sync instantly finishes
 		let actions = warp_sync.actions().collect::<Vec<_>>();
@@ -761,7 +753,7 @@ mod test {
 		let client = mock_client_without_state();
 		let provider = MockWarpSyncProvider::<Block>::new();
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
 		// No actions are emitted.
 		assert_eq!(warp_sync.actions().count(), 0)
@@ -770,8 +762,14 @@ mod test {
 	#[test]
 	fn warp_sync_to_target_for_empty_db_doesnt_finish_instantly() {
 		let client = mock_client_without_state();
-		let config = WarpSyncConfig::WaitForTarget;
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let config = WarpSyncConfig::WithTarget(<Block as BlockT>::Header::new(
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
 		// No actions are emitted.
 		assert_eq!(warp_sync.actions().count(), 0)
@@ -786,7 +784,7 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
 		// Warp sync is not started when there is not enough peers.
 		for _ in 0..(MIN_PEERS_TO_START_WARP_SYNC - 1) {
@@ -804,7 +802,7 @@ mod test {
 		let client = mock_client_without_state();
 		let provider = MockWarpSyncProvider::<Block>::new();
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
 		assert!(warp_sync.schedule_next_peer(PeerState::DownloadingProofs, None).is_none());
 	}
@@ -828,7 +826,7 @@ mod test {
 				.once()
 				.return_const(AuthorityList::default());
 			let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-			let mut warp_sync = WarpSync::new(Arc::new(client), config);
+			let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
 			for best_number in 1..11 {
 				warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
@@ -849,7 +847,7 @@ mod test {
 				.once()
 				.return_const(AuthorityList::default());
 			let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-			let mut warp_sync = WarpSync::new(Arc::new(client), config);
+			let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
 			for best_number in 1..11 {
 				warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
@@ -861,6 +859,50 @@ mod test {
 	}
 
 	#[test]
+	fn backedoff_number_peer_is_not_scheduled() {
+		let client = mock_client_without_state();
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
+
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+
+		let ninth_peer =
+			*warp_sync.peers.iter().find(|(_, state)| state.best_number == 9).unwrap().0;
+		let tenth_peer =
+			*warp_sync.peers.iter().find(|(_, state)| state.best_number == 10).unwrap().0;
+
+		// Disconnecting a peer without an inflight request has no effect on persistent states.
+		warp_sync.remove_peer(&tenth_peer);
+		assert!(warp_sync.disconnected_peers.is_peer_available(&tenth_peer));
+
+		warp_sync.add_peer(tenth_peer, H256::random(), 10);
+		let peer_id = warp_sync.schedule_next_peer(PeerState::DownloadingProofs, Some(10));
+		assert_eq!(tenth_peer, peer_id.unwrap());
+		warp_sync.remove_peer(&tenth_peer);
+
+		// Peer is backed off.
+		assert!(!warp_sync.disconnected_peers.is_peer_available(&tenth_peer));
+
+		// No peer available for 10'th best block because of the backoff.
+		warp_sync.add_peer(tenth_peer, H256::random(), 10);
+		let peer_id: Option<PeerId> =
+			warp_sync.schedule_next_peer(PeerState::DownloadingProofs, Some(10));
+		assert!(peer_id.is_none());
+
+		// Other requests can still happen.
+		let peer_id: Option<PeerId> =
+			warp_sync.schedule_next_peer(PeerState::DownloadingProofs, Some(9));
+		assert_eq!(ninth_peer, peer_id.unwrap());
+	}
+
+	#[test]
 	fn no_warp_proof_request_in_another_phase() {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
@@ -869,7 +911,7 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, Some(ProtocolName::Static("")));
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -877,7 +919,13 @@ mod test {
 		}
 
 		// Manually set to another phase.
-		warp_sync.phase = Phase::PendingTargetBlock;
+		warp_sync.phase = Phase::TargetBlock(<Block as BlockT>::Header::new(
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		));
 
 		// No request is made.
 		assert!(warp_sync.warp_proof_request().is_none());
@@ -892,7 +940,7 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, Some(ProtocolName::Static("")));
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -910,7 +958,7 @@ mod test {
 			_ => panic!("Invalid phase."),
 		}
 
-		let (_peer_id, request) = warp_sync.warp_proof_request().unwrap();
+		let (_peer_id, _protocol_name, request) = warp_sync.warp_proof_request().unwrap();
 		assert_eq!(request.begin, known_last_hash);
 	}
 
@@ -923,7 +971,7 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, Some(ProtocolName::Static("")));
 
 		// Make sure we have enough peers to make requests.
 		for best_number in 1..11 {
@@ -950,7 +998,7 @@ mod test {
 			Err(Box::new(std::io::Error::new(ErrorKind::Other, "test-verification-failure")))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, Some(ProtocolName::Static("")));
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -991,7 +1039,7 @@ mod test {
 			Ok(VerificationResult::Partial(set_id, authorities, Hash::random()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, Some(ProtocolName::Static("")));
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1035,7 +1083,7 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config);
+		let mut warp_sync = WarpSync::new(client, config, Some(ProtocolName::Static("")));
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1068,7 +1116,7 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, None);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1103,7 +1151,7 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config);
+		let mut warp_sync = WarpSync::new(client, config, None);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1134,18 +1182,14 @@ mod test {
 			.unwrap()
 			.block;
 		let target_header = target_block.header().clone();
-		let config = WarpSyncConfig::WaitForTarget;
-		let mut warp_sync = WarpSync::new(client, config);
+		let config = WarpSyncConfig::WithTarget(target_header);
+		let mut warp_sync = WarpSync::new(client, config, None);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
 		}
 
-		// No actions generated so far.
-		assert_eq!(warp_sync.actions().count(), 0);
-
-		warp_sync.set_target_block(target_header);
 		assert!(matches!(warp_sync.phase, Phase::TargetBlock(_)));
 
 		let (_peer_id, request) = warp_sync.target_block_request().unwrap();
@@ -1179,7 +1223,7 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config);
+		let mut warp_sync = WarpSync::new(client, config, None);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1217,7 +1261,7 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config);
+		let mut warp_sync = WarpSync::new(client, config, None);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1271,7 +1315,7 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config);
+		let mut warp_sync = WarpSync::new(client, config, None);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1348,7 +1392,7 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config);
+		let mut warp_sync = WarpSync::new(client, config, None);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
@@ -1401,7 +1445,7 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config);
+		let mut warp_sync = WarpSync::new(client, config, None);
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {

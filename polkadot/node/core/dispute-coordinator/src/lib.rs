@@ -122,6 +122,7 @@ pub struct DisputeCoordinatorSubsystem {
 	store: Arc<dyn Database>,
 	keystore: Arc<LocalKeystore>,
 	metrics: Metrics,
+	approval_voting_parallel_enabled: bool,
 }
 
 /// Configuration for the dispute coordinator subsystem.
@@ -164,8 +165,9 @@ impl DisputeCoordinatorSubsystem {
 		config: Config,
 		keystore: Arc<LocalKeystore>,
 		metrics: Metrics,
+		approval_voting_parallel_enabled: bool,
 	) -> Self {
-		Self { store, config, keystore, metrics }
+		Self { store, config, keystore, metrics, approval_voting_parallel_enabled }
 	}
 
 	/// Initialize and afterwards run `Initialized::run`.
@@ -477,6 +479,18 @@ pub fn is_potential_spam(
 	let is_confirmed = vote_state.is_confirmed();
 	let all_invalid_votes_disabled = vote_state.invalid_votes_all_disabled(is_disabled);
 	let ignore_disabled = !is_confirmed && all_invalid_votes_disabled;
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?candidate_hash,
+		?is_disputed,
+		?is_included,
+		?is_backed,
+		?is_confirmed,
+		?all_invalid_votes_disabled,
+		?ignore_disabled,
+		"Checking for potential spam"
+	);
 
 	(is_disputed && !is_included && !is_backed && !is_confirmed) || ignore_disabled
 }

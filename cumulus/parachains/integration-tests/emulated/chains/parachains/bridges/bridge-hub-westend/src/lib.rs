@@ -15,7 +15,10 @@
 
 pub mod genesis;
 
-pub use bridge_hub_westend_runtime::xcm_config::XcmConfig as BridgeHubWestendXcmConfig;
+pub use bridge_hub_westend_runtime::{
+	xcm_config::XcmConfig as BridgeHubWestendXcmConfig,
+	ExistentialDeposit as BridgeHubWestendExistentialDeposit,
+};
 
 // Substrate
 use frame_support::traits::OnInitialize;
@@ -43,6 +46,7 @@ decl_test_parachains! {
 		pallets = {
 			PolkadotXcm: bridge_hub_westend_runtime::PolkadotXcm,
 			Balances: bridge_hub_westend_runtime::Balances,
+			EthereumSystem: bridge_hub_westend_runtime::EthereumSystem,
 		}
 	},
 }

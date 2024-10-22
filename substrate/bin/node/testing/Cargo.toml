@@ -5,7 +5,7 @@ authors.workspace = true
 description = "Test utilities for Substrate node."
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 publish = false
 
@@ -28,6 +28,7 @@ node-primitives = { workspace = true, default-features = true }
 kitchensink-runtime = { workspace = true }
 pallet-asset-conversion = { workspace = true, default-features = true }
 pallet-assets = { workspace = true, default-features = true }
+pallet-revive = { workspace = true, default-features = true }
 pallet-asset-conversion-tx-payment = { workspace = true, default-features = true }
 pallet-asset-tx-payment = { workspace = true, default-features = true }
 pallet-skip-feeless-payment = { workspace = true, default-features = true }

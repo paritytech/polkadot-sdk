@@ -18,3 +18,4 @@ asset-hub-rococo-emulated-chain = { workspace = true }
 bridge-hub-rococo-emulated-chain = { workspace = true }
 people-rococo-emulated-chain = { workspace = true }
 penpal-emulated-chain = { workspace = true }
+coretime-rococo-emulated-chain = { workspace = true }

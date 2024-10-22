@@ -1,0 +1,191 @@
+name: RC Build
+
+on:
+  workflow_call:
+    inputs:
+      binary:
+        description: Binary to be build for the release
+        required: true
+        default: polkadot
+        type: string
+
+      package:
+        description: Package to be built, for now is either polkadot or polkadot-parachain-bin
+        required: true
+        type: string
+
+      release_tag:
+        description: Tag matching the actual release candidate with the format stableYYMM-rcX or stableYYMM
+        required: true
+        type: string
+
+    secrets:
+      PGP_KMS_KEY:
+        required: true
+      PGP_KMS_HASH:
+        required: true
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      AWS_DEFAULT_REGION:
+        required: true
+      AWS_RELEASE_ACCESS_KEY_ID:
+        required: true
+      AWS_RELEASE_SECRET_ACCESS_KEY:
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+  attestations: write
+
+jobs:
+
+  set-image:
+    # GitHub Actions allows using 'env' in a container context.
+    # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
+    # This workaround sets the container image for each job using 'set-image' job output.
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
+
+  build-rc:
+    needs: [set-image]
+    runs-on: ubuntu-latest
+    environment: release
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    strategy:
+      matrix:
+        binaries: ${{ fromJSON(inputs.binary) }}
+    env:
+      PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
+      PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    steps:
+      - name: Install pgpkkms
+        run: |
+          # Install pgpkms that is used to sign built artifacts
+          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69"
+          which pgpkms
+
+      - name: Checkout sources
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        with:
+          ref: ${{ inputs.release_tag }}
+          fetch-depth: 0
+
+      - name: Import gpg keys
+        shell: bash
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          import_gpg_keys
+
+      - name: Build binary
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
+          ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }}
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
+        with:
+          subject-path: /artifacts/${{ matrix.binaries }}/${{ matrix.binaries }}
+
+      - name: Sign artifacts
+        working-directory: /artifacts/${{ matrix.binaries }}
+        run: |
+          python3 -m pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
+
+      - name: Check sha256 ${{ matrix.binaries }}
+        working-directory: /artifacts/${{ matrix.binaries }}
+        shell: bash
+        run: |
+          .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
+
+          echo "Checking binary  ${{ matrix.binaries }}"
+          check_sha256  ${{ matrix.binaries }}
+
+      - name: Check GPG ${{ matrix.binaries }}
+        working-directory: /artifacts/${{ matrix.binaries }}
+        shell: bash
+        run: |
+          . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
+
+          check_gpg  ${{ matrix.binaries }}
+
+      - name: Upload ${{ matrix.binaries }} artifacts
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+          name: ${{ matrix.binaries }}
+          path: /artifacts/${{ matrix.binaries }}
+
+  build-polkadot-deb-package:
+    if: ${{ inputs.package == 'polkadot' }}
+    needs: [build-rc]
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+      with:
+        ref: ${{ inputs.release_tag }}
+        fetch-depth: 0
+
+    - name: Download artifacts
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      with:
+        path: target/production
+        merge-multiple: true
+
+    - name: Build polkadot deb package
+      shell: bash
+      run: |
+        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }} ${{ inputs.release_tag }}
+
+    - name: Generate artifact attestation
+      uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
+      with:
+        subject-path: target/production/*.deb
+
+    - name: Upload ${{inputs.package }} artifacts
+      uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+      with:
+        name: ${{ inputs.package }}
+        path: target/production
+        overwrite: true
+
+  upload-polkadot-artifacts-to-s3:
+    if: ${{ inputs.package == 'polkadot' }}
+    needs: [build-polkadot-deb-package]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: ${{ inputs.package }}
+      release_tag: ${{ inputs.release_tag }}
+    secrets:
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+
+
+  upload-polkadot-parachain-artifacts-to-s3:
+    if: ${{ inputs.package == 'polkadot-parachain-bin' }}
+    needs: [build-rc]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: polkadot-parachain
+      release_tag: ${{ inputs.release_tag }}
+    secrets:
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}

@@ -109,7 +109,7 @@ All failed checks should lead to an unrecoverable error making the block invalid
   1. Ensure that any code upgrade scheduled by the candidate does not happen within `config.validation_upgrade_cooldown`
      of `Paras::last_code_upgrade(para_id, true)`, if any, comparing against the value of `Paras::FutureCodeUpgrades`
      for the given para ID.
-  1. Check the collator's signature on the candidate data.
+  1. Check the collator's signature on the candidate data (only if `CandidateDescriptor` is version 1)
   1. check the backing of the candidate using the signatures and the bitfields, comparing against the validators
      assigned to the groups, fetched with the `group_validators` lookup, while group indices are computed by `Scheduler`
      according to group rotation info.

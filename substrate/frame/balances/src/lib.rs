@@ -175,8 +175,8 @@ pub use impl_currency::{NegativeImbalance, PositiveImbalance};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		AtLeast32BitUnsigned, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
-		Saturating, StaticLookup, Zero,
+		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating,
+		StaticLookup, Zero,
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
 };
@@ -234,6 +234,7 @@ pub mod pallet {
 			type MaxFreezes = VariantCountOf<Self::RuntimeFreezeReason>;
 
 			type WeightInfo = ();
+			type DoneSlashHandler = ();
 		}
 	}
 
@@ -312,6 +313,14 @@ pub mod pallet {
 		/// The maximum number of individual freeze locks that can exist on an account at any time.
 		#[pallet::constant]
 		type MaxFreezes: Get<u32>;
+
+		/// Allows callbacks to other pallets so they can update their bookkeeping when a slash
+		/// occurs.
+		type DoneSlashHandler: fungible::hold::DoneSlash<
+			Self::RuntimeHoldReason,
+			Self::AccountId,
+			Self::Balance,
+		>;
 	}
 
 	/// The in-code storage version.
@@ -408,13 +417,11 @@ pub mod pallet {
 
 	/// The total units issued in the system.
 	#[pallet::storage]
-	#[pallet::getter(fn total_issuance)]
 	#[pallet::whitelist_storage]
 	pub type TotalIssuance<T: Config<I>, I: 'static = ()> = StorageValue<_, T::Balance, ValueQuery>;
 
 	/// The total units of outstanding deactivated balance in the system.
 	#[pallet::storage]
-	#[pallet::getter(fn inactive_issuance)]
 	#[pallet::whitelist_storage]
 	pub type InactiveIssuance<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, T::Balance, ValueQuery>;
@@ -452,7 +459,6 @@ pub mod pallet {
 	///
 	/// Use of locks is deprecated in favour of freezes. See `https://github.com/paritytech/substrate/pull/12951/`
 	#[pallet::storage]
-	#[pallet::getter(fn locks)]
 	pub type Locks<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -465,7 +471,6 @@ pub mod pallet {
 	///
 	/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 	#[pallet::storage]
-	#[pallet::getter(fn reserves)]
 	pub type Reserves<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -822,6 +827,28 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Public function to get the total issuance.
+		pub fn total_issuance() -> T::Balance {
+			TotalIssuance::<T, I>::get()
+		}
+
+		/// Public function to get the inactive issuance.
+		pub fn inactive_issuance() -> T::Balance {
+			InactiveIssuance::<T, I>::get()
+		}
+
+		/// Public function to access the Locks storage.
+		pub fn locks(who: &T::AccountId) -> WeakBoundedVec<BalanceLock<T::Balance>, T::MaxLocks> {
+			Locks::<T, I>::get(who)
+		}
+
+		/// Public function to access the reserves storage.
+		pub fn reserves(
+			who: &T::AccountId,
+		) -> BoundedVec<ReserveData<T::ReserveIdentifier, T::Balance>, T::MaxReserves> {
+			Reserves::<T, I>::get(who)
+		}
+
 		fn ed() -> T::Balance {
 			T::ExistentialDeposit::get()
 		}
@@ -1013,7 +1040,7 @@ pub mod pallet {
 				}
 				if did_provide && !does_provide {
 					// This could reap the account so must go last.
-					frame_system::Pallet::<T>::dec_providers(who).map_err(|r| {
+					frame_system::Pallet::<T>::dec_providers(who).inspect_err(|_| {
 						// best-effort revert consumer change.
 						if did_consume && !does_consume {
 							let _ = frame_system::Pallet::<T>::inc_consumers(who).defensive();
@@ -1021,7 +1048,6 @@ pub mod pallet {
 						if !did_consume && does_consume {
 							let _ = frame_system::Pallet::<T>::dec_consumers(who);
 						}
-						r
 					})?;
 				}
 

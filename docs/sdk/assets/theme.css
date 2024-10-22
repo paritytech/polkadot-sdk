@@ -9,9 +9,14 @@
 body.sdk-docs {
 	nav.sidebar>div.sidebar-crate>a>img {
 		width: 190px;
+		height: 52px;
 	}
 
 	nav.sidebar {
 		flex: 0 0 250px;
 	}
+}
+
+html[data-theme="light"] .sidebar-crate > .logo-container > img {
+  content: url("https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_Black.png");
 }
