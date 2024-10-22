@@ -1,4 +1,4 @@
-title: "runtime_genesis_config_json macro added"
+title: "build_struct_json_patch macro added"
 
 doc:
   - audience: Runtime Dev

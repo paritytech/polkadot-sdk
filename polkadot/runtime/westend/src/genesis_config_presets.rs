@@ -23,7 +23,7 @@ use crate::{
 #[cfg(not(feature = "std"))]
 use alloc::format;
 use alloc::{vec, vec::Vec};
-use frame_support::generate_config;
+use frame_support::build_struct_json_patch;
 use pallet_staking::{Forcing, StakerStatus};
 use polkadot_primitives::{AccountId, AssignmentId, SchedulerParams, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -171,7 +171,7 @@ fn westend_testnet_genesis(
 	const ENDOWMENT: u128 = 1_000_000 * WND;
 	const STASH: u128 = 100 * WND;
 
-	generate_config!(RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
 		},

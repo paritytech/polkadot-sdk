@@ -33,7 +33,7 @@ use serde_json::Value;
 /// - `Full(String)`: The field was fully initialized (e.g., using `new()` or `default()` like
 ///   methods).
 ///
-/// Intended to be used in `generate_config` macro.
+/// Intended to be used in `build_struct_json_patch` macro.
 #[derive(Debug)]
 pub enum InitializedField {
 	Partial(String),
@@ -90,7 +90,7 @@ impl PartialEq<String> for InitializedField {
 /// Keys marked as `Full`, are retained as-is. For keys marked as `Partial`, the
 /// function recurses into nested objects to retain matching subfields.
 ///
-/// Intended to be used from `generate_config` macro.
+/// Intended to be used from `build_struct_json_patch` macro.
 pub fn retain_initialized_fields(
 	json_value: &mut Value,
 	keys_to_retain: &[InitializedField],
@@ -112,19 +112,18 @@ pub fn retain_initialized_fields(
 	}
 }
 
-/// Creates a `RuntimeGenesisConfig` JSON patch, supporting recursive field initialization.
+/// Creates a JSON patch for given `struct_type`, supporting recursive field initialization.
 ///
-/// This macro creates a default `RuntimeGenesisConfig`, initializing specified fields (and nested
-/// fields) with the provided values. Any fields not explicitly given are initialized with their
-/// default values. The macro then serializes the fully initialized structure into a JSON blob,
-/// retaining only the fields that were explicitly provided, either partially or fully initialized.
+/// This macro creates a default `struct_type`, initializing specified fields (which can be nested)
+/// with the provided values. Any fields not explicitly given are initialized with their default
+/// values. The macro then serializes the fully initialized structure into a JSON blob, retaining
+/// only the fields that were explicitly provided, either partially or fully initialized.
 ///
-/// The recursive nature of this macro allows nested structures within `RuntimeGenesisConfig`
-/// to be partially or fully initialized, and only the explicitly initialized fields are retained
-/// in the final JSON output.
+/// This macro allows nested structures within `struct_type` to be partially or fully initialized,
+/// and only the explicitly initialized fields are retained in the final JSON output.
 ///
 /// This approach prevents errors from manually creating JSON objects, such as typos or
-/// inconsistencies with the `RuntimeGenesisConfig` structure, by relying on the actual
+/// inconsistencies with the `struct_type` structure, by relying on the actual
 /// struct definition. This ensures the generated JSON is valid and reflects any future changes
 /// to the structure.
 ///
@@ -134,7 +133,7 @@ pub fn retain_initialized_fields(
 /// # Example
 ///
 /// ```rust
-/// use frame_support::generate_config;
+/// use frame_support::build_struct_json_patch;
 /// #[derive(Default, serde::Serialize, serde::Deserialize)]
 /// #[serde(rename_all = "camelCase")]
 /// struct RuntimeGenesisConfig {
@@ -157,7 +156,17 @@ pub fn retain_initialized_fields(
 /// }
 ///
 /// assert_eq!(
-/// 	generate_config! ( RuntimeGenesisConfig {
+/// 	build_struct_json_patch! ( RuntimeGenesisConfig {
+/// 		a_field: 66,
+/// 	}),
+/// 	serde_json::json!({
+/// 			"aField": 66,
+/// 	})
+/// );
+///
+/// assert_eq!(
+/// 	build_struct_json_patch! ( RuntimeGenesisConfig {
+/// 		//"partial" initialization of `b_field`
 /// 		b_field: B {
 /// 			i_field: 2,
 /// 		}
@@ -169,17 +178,9 @@ pub fn retain_initialized_fields(
 /// );
 ///
 /// assert_eq!(
-/// 	generate_config! ( RuntimeGenesisConfig {
+/// 	build_struct_json_patch! ( RuntimeGenesisConfig {
 /// 		a_field: 66,
-/// 	}),
-/// 	serde_json::json!({
-/// 			"aField": 66,
-/// 	})
-/// );
-///
-/// assert_eq!(
-/// 	generate_config! ( RuntimeGenesisConfig {
-/// 		a_field: 66,
+/// 		//"full" initialization of `b_field`
 /// 		b_field: B::new()
 /// 	}),
 /// 	serde_json::json!({
@@ -191,7 +192,7 @@ pub fn retain_initialized_fields(
 ///
 /// In this example:
 /// ```ignore
-/// 	generate_config! ( RuntimeGenesisConfig {
+/// 	build_struct_json_patch! ( RuntimeGenesisConfig {
 /// 		b_field: B {
 /// 			i_field: 2,
 /// 		}
@@ -210,7 +211,7 @@ pub fn retain_initialized_fields(
 /// while all other fields are initialized with default values. The macro serializes this, retaining
 /// only the provided fields.
 #[macro_export]
-macro_rules! generate_config {
+macro_rules! build_struct_json_patch {
 	(
 		$struct_type:ident { $($tail:tt)* }
 	) => {
@@ -220,7 +221,7 @@ macro_rules! generate_config {
 			use alloc::{string::ToString, vec::Vec };
 			let mut keys : Vec<InitializedField> = vec![];
 			#[allow(clippy::needless_update)]
-			let struct_instance = generate_config!($struct_type, keys @  { $($tail)* });
+			let struct_instance = build_struct_json_patch!($struct_type, keys @  { $($tail)* });
 			let mut json_value =
 				serde_json::to_value(struct_instance).expect("serialization to json should work. qed");
 			retain_initialized_fields(&mut json_value, &keys, Default::default());
@@ -229,7 +230,7 @@ macro_rules! generate_config {
 	};
 	($struct_type:ident, $all_keys:ident @ { $($tail:tt)* }) => {
 		$struct_type {
-			..generate_config!($struct_type, $all_keys @ $($tail)*)
+			..build_struct_json_patch!($struct_type, $all_keys @ $($tail)*)
 		}
 	};
 	($struct_type:ident, $all_keys:ident  @  $key:ident: $type:tt { $keyi:ident : $value:tt }  ) => {
@@ -252,7 +253,7 @@ macro_rules! generate_config {
 			$key: {
 				$all_keys.push(InitializedField::Partial(stringify!($key).to_string()));
 				let mut inner_keys = Vec::<InitializedField>::default();
-				let value = generate_config!($type, inner_keys @ { $($body)* });
+				let value = build_struct_json_patch!($type, inner_keys @ { $($body)* });
 				for i in inner_keys.iter_mut() {
 					i.add_prefix(stringify!($key));
 				};
@@ -267,14 +268,14 @@ macro_rules! generate_config {
 			$key : {
 				$all_keys.push(InitializedField::Partial(stringify!($key).to_string()));
 				let mut inner_keys = Vec::<InitializedField>::default();
-				let value = generate_config!($type, inner_keys @ { $($body)* });
+				let value = build_struct_json_patch!($type, inner_keys @ { $($body)* });
 				for i in inner_keys.iter_mut() {
 					i.add_prefix(stringify!($key));
 				};
 				$all_keys.extend(inner_keys);
 				value
 			},
-			.. generate_config!($struct_type, $all_keys @ $($tail)*)
+			.. build_struct_json_patch!($struct_type, $all_keys @ $($tail)*)
 		}
 	};
 	($struct_type:ident, $all_keys:ident  @  $key:ident: $value:expr, $($tail:tt)* ) => {
@@ -283,7 +284,7 @@ macro_rules! generate_config {
 				$all_keys.push(InitializedField::Full(stringify!($key).to_string()));
 				$value
 			},
-			..generate_config!($struct_type, $all_keys @ $($tail)*)
+			..build_struct_json_patch!($struct_type, $all_keys @ $($tail)*)
 		}
 	};
 	($struct_type:ident, $all_keys:ident  @  $key:ident: $value:expr ) => {
@@ -388,7 +389,7 @@ mod test {
 			println!("--");
 			let expected = serde_json::json!({ $($j)* });
 			println!("json: {}", serde_json::to_string_pretty(&expected).unwrap());
-			let value = generate_config!($struct { $($v)* });
+			let value = build_struct_json_patch!($struct { $($v)* });
 			println!("gc: {}", serde_json::to_string_pretty(&value).unwrap());
 			assert_eq!(value, expected);
 		}};

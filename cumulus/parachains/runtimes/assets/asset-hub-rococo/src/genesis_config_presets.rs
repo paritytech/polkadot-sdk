@@ -18,7 +18,7 @@
 use crate::*;
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
-use frame_support::generate_config;
+use frame_support::build_struct_json_patch;
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
 use sp_core::crypto::UncheckedInto;
@@ -34,7 +34,7 @@ fn asset_hub_rococo_genesis(
 	endowment: Balance,
 	id: ParaId,
 ) -> serde_json::Value {
-	generate_config!(RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
 		},
