@@ -1208,9 +1208,8 @@ pub mod pallet {
 				}
 
 				let _ = Self::unsigned_pre_dispatch_checks(raw_solution)
-					.map_err(|err| {
+					.inspect_err(|err| {
 						log!(debug, "unsigned transaction validation failed due to {:?}", err);
-						err
 					})
 					.map_err(dispatch_error_to_invalid)?;
 

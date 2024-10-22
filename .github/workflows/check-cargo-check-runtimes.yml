@@ -7,11 +7,12 @@ concurrency:
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "cumulus/parachains/runtimes/*"
 
 # Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
 
 jobs:
-
   preflight:
     uses: ./.github/workflows/reusable-preflight.yml
 
@@ -85,25 +86,11 @@ jobs:
         with:
           root: cumulus/parachains/runtimes/contracts
 
-  check-runtime-starters:
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
-    needs: [check-runtime-assets, preflight]
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Run cargo check
-        uses: ./.github/actions/cargo-check-runtimes
-        with:
-          root: cumulus/parachains/runtimes/starters
-
   check-runtime-testing:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
-    needs: [check-runtime-starters, preflight]
+    needs: [preflight]
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -123,7 +110,6 @@ jobs:
       - check-runtime-coretime
       - check-runtime-bridge-hubs
       - check-runtime-contracts
-      - check-runtime-starters
       - check-runtime-testing
     if: always() && !cancelled()
     steps:

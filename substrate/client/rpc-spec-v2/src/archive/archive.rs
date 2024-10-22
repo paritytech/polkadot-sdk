@@ -275,6 +275,7 @@ where
 			self.storage_max_descendant_responses,
 			self.storage_max_queried_items,
 		);
+
 		Ok(storage_client.handle_query(hash, items, child_trie))
 	}
 }

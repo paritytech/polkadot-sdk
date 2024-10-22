@@ -16,6 +16,7 @@ assert_matches = { workspace = true }
 
 # Substrate
 sp-runtime = { workspace = true }
+sp-core = { workspace = true }
 frame-support = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-assets = { workspace = true }

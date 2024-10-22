@@ -33,7 +33,6 @@ pub mod pallet_nomination_pools;
 pub mod pallet_parameters;
 pub mod pallet_preimage;
 pub mod pallet_proxy;
-pub mod pallet_referenda_fellowship_referenda;
 pub mod pallet_referenda_referenda;
 pub mod pallet_scheduler;
 pub mod pallet_session;
