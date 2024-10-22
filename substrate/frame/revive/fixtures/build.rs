@@ -182,18 +182,14 @@ mod build {
 	pub fn run() -> Result<()> {
 		let fixtures_dir: PathBuf = env::var("CARGO_MANIFEST_DIR")?.into();
 		let contracts_dir = fixtures_dir.join("contracts");
-		let uapi_dir = fixtures_dir.parent().expect("uapi dir exits; qed").join("uapi");
-		let ws_dir: PathBuf = env::var("CARGO_WORKSPACE_ROOT_DIR")?.into();
-		let out_dir: PathBuf = ws_dir.join("target").join("pallet-revive-fixtures");
-
-		// create out_dir if it does not exist
-		if !out_dir.exists() {
-			fs::create_dir_all(&out_dir)?;
-		}
+		let out_dir: PathBuf = env::var("OUT_DIR")?.into();
 
 		// the fixtures have a dependency on the uapi crate
 		println!("cargo::rerun-if-changed={}", fixtures_dir.display());
-		println!("cargo::rerun-if-changed={}", uapi_dir.display());
+		let uapi_dir = fixtures_dir.parent().expect("parent dir exits; qed").join("uapi");
+		if uapi_dir.exists() {
+			println!("cargo::rerun-if-changed={}", uapi_dir.display());
+		}
 
 		let entries = collect_entries(&contracts_dir);
 		if entries.is_empty() {
@@ -207,6 +203,17 @@ mod build {
 		invoke_build(tmp_dir_path)?;
 
 		write_output(tmp_dir_path, &out_dir, entries)?;
+
+		#[cfg(unix)]
+		if let Ok(symlink_dir) = env::var("CARGO_WORKSPACE_ROOT_DIR") {
+			let symlink_dir: PathBuf = symlink_dir.into();
+			let symlink_dir: PathBuf = symlink_dir.join("target").join("pallet-revive-fixtures");
+			if symlink_dir.is_symlink() {
+				fs::remove_file(&symlink_dir)?
+			}
+			std::os::unix::fs::symlink(&out_dir, &symlink_dir)?;
+		}
+
 		Ok(())
 	}
 }
