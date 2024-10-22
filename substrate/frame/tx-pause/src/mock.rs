@@ -24,10 +24,10 @@ use crate as pallet_tx_pause;
 
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU64, Everything, InsideBoth, InstanceFilter},
+	traits::{Everything, InsideBoth, InstanceFilter},
 };
 use frame_system::EnsureSignedBy;
-use sp_runtime::{traits::BlakeTwo256, BuildStorage};
+use sp_runtime::BuildStorage;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -92,19 +92,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 	}
 }
 
+#[derive_impl(pallet_proxy::config_preludes::TestDefaultConfig)]
 impl pallet_proxy::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
 	type ProxyType = ProxyType;
-	type ProxyDepositBase = ConstU64<1>;
-	type ProxyDepositFactor = ConstU64<1>;
-	type MaxProxies = ConstU32<4>;
-	type WeightInfo = ();
-	type CallHasher = BlakeTwo256;
-	type MaxPending = ConstU32<2>;
-	type AnnouncementDepositBase = ConstU64<1>;
-	type AnnouncementDepositFactor = ConstU64<1>;
 }
 
 parameter_types! {

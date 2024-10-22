@@ -125,19 +125,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 	}
 }
 
+#[derive_impl(pallet_proxy::config_preludes::TestDefaultConfig)]
 impl pallet_proxy::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
 	type ProxyType = ProxyType;
-	type ProxyDepositBase = ConstU64<1>;
-	type ProxyDepositFactor = ConstU64<1>;
-	type MaxProxies = ConstU32<4>;
-	type WeightInfo = ();
-	type CallHasher = BlakeTwo256;
-	type MaxPending = ConstU32<2>;
-	type AnnouncementDepositBase = ConstU64<1>;
-	type AnnouncementDepositFactor = ConstU64<1>;
 }
 
 /// The calls that can always bypass safe-mode.
