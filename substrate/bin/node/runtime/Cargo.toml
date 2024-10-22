@@ -58,7 +58,6 @@ std = [
 	"scale-info/std",
 	"serde_json/std",
 	"sp-debug-derive/std",
-	"sp-debug-derive/std",
 	"substrate-wasm-builder",
 ]
 runtime-benchmarks = [
