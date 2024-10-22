@@ -49,7 +49,7 @@ use polkadot_primitives::{
 		CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
 		CandidateReceiptV2 as CandidateReceipt,
 	},
-	AuthorityDiscoveryId, CandidateCommitments, ExecutorParams, Hash, OccupiedCoreAssumption,
+	AuthorityDiscoveryId, CandidateCommitments, ExecutorParams, Hash,
 	PersistedValidationData, PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex,
 	ValidationCode, ValidationCodeHash, ValidatorId,
 };
