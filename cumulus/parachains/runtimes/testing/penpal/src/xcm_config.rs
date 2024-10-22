@@ -51,11 +51,11 @@ use xcm_builder::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	AsPrefixedGeneralIndex, ConvertedConcreteId, DescribeAllTerminal, DescribeFamily,
 	EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter,
-	FungiblesAdapter, IsConcrete, LocalMint, NativeAsset, NoChecking, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SingleAssetExchangeAdapter, SovereignSignedViaLocation, StartsWith, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	FungiblesAdapter, HashedDescription, IsConcrete, LocalMint, NativeAsset, NoChecking,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SingleAssetExchangeAdapter, SovereignSignedViaLocation, StartsWith,
+	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
 use xcm_executor::{traits::JustTry, XcmExecutor};
