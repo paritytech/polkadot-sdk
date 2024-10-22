@@ -115,16 +115,12 @@ cargo build -p minimal-template-runtime --release
 # Install chain-spec-builder if not installed already.
 cargo install staging-chain-spec-builder
 # Use chain-spec-builder to generate the chain_spec.json file based on the development preset.
-chain-spec-builder create -r <target/release/wbuild/path/to/minimal-template-runtime.wasm> named-preset development
+chain-spec-builder create --relay-chain "dev" --para-id 1000 --runtime <target/release/wbuild/path/to/minimal-template-runtime.wasm> named-preset development
 ```
 
-*  The chain spec needs a few more fields before using it. You can notice below that we're adding
-`relay_chain` and `para_id` fields, which are mandatory for all chain specs.
-
-
-```sh
-jq '. + {"relay_chain": "dev", "para_id": 1000 }' <path/to/chain_spec.json> > tmp.json && mv tmp.json <path/to/chain_spec.json>
-```
+*   The chain spec `relay-chain` and `para-id` flags are extra bits of information to configure the node
+for the case of representing a parachain that is connected to a relay chain. For minimal they are not relevant,
+but they are required by `polkadot-omni-node`.
 
 * 󰅕 Start omni-node with manual seal (3 seconds block times) and minimal template runtime based chain spec.
 
