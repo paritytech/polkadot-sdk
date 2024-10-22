@@ -25,8 +25,8 @@ pub mod runtime_api;
 
 extern crate alloc;
 
-use alloc::vec::Vec;
 use crate::matching::{LocalLocationPattern, ParentLocation};
+use alloc::vec::Vec;
 use codec::{Decode, EncodeLike};
 use core::cmp::PartialEq;
 use frame_support::traits::{Equals, EverythingBut};
@@ -150,15 +150,18 @@ pub fn get_assets_in_pool_with<
 >(
 	asset: &L,
 ) -> Result<Vec<Location>, ()> {
-	pallet_asset_conversion::Pools::<Runtime>::iter_keys().filter_map(|(asset_1, asset_2)| {
-		if asset_1 == *asset {
-			Some(asset_2)
-		} else if asset_2 == *asset {
-			Some(asset_1)
-		} else {
-			None
-		}
-	}).map(|location| location.try_into().map_err(|_| ())).collect::<Result<Vec<_>, _>>()
+	pallet_asset_conversion::Pools::<Runtime>::iter_keys()
+		.filter_map(|(asset_1, asset_2)| {
+			if asset_1 == *asset {
+				Some(asset_2)
+			} else if asset_2 == *asset {
+				Some(asset_1)
+			} else {
+				None
+			}
+		})
+		.map(|location| location.try_into().map_err(|_| ()))
+		.collect::<Result<Vec<_>, _>>()
 }
 
 #[cfg(test)]
