@@ -15,8 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Helper macro allowing to construct JSON representation of partially initialized
-//! `RuntimeGenesisConfig`.
+//! Helper macro allowing to construct JSON representation of partially initialized structs.
 
 extern crate alloc;
 use alloc::{
@@ -27,16 +26,15 @@ use serde_json::Value;
 
 /// Represents the initialization method of a field within a struct.
 ///
-/// `KeyInitMethod` holds both the field name (as a `String`) and how it was initialized.
-/// - `Partial(String)`: The field was partially initialized (e.g., specific fields within the
-///   struct were set manually).
-/// - `Full(String)`: The field was fully initialized (e.g., using `new()` or `default()` like
-///   methods).
+/// This enum provides information about how it was initialized and the field name (as a `String`).
 ///
 /// Intended to be used in `build_struct_json_patch` macro.
 #[derive(Debug)]
 pub enum InitializedField {
+	/// The field was partially initialized (e.g., specific fields within the struct were set
+	/// manually).
 	Partial(String),
+	/// The field was fully initialized (e.g., using `new()` or `default()` like methods).
 	Full(String),
 }
 
@@ -60,23 +58,23 @@ impl PartialEq<String> for InitializedField {
 	fn eq(&self, other: &String) -> bool {
 		#[inline]
 		fn compare_keys(
-			mut snake_chars: core::str::Chars,
+			mut ident_chars: core::str::Chars,
 			mut camel_chars: core::str::Chars,
 		) -> bool {
 			loop {
-				match (snake_chars.find(|&s| s != '_'), camel_chars.next()) {
+				match (ident_chars.find(|&c| c != '_'), camel_chars.next()) {
 					(None, None) => return true,
 					(None, Some(_)) | (Some(_), None) => return false,
-					(Some(s), Some(c)) =>
-						if s.to_ascii_uppercase() != c.to_ascii_uppercase() {
+					(Some(i), Some(c)) =>
+						if i.to_ascii_uppercase() != c.to_ascii_uppercase() {
 							return false;
 						},
 				};
 			}
 		}
 		match self {
-			InitializedField::Partial(val) | InitializedField::Full(val) =>
-				val == other || compare_keys(val.chars(), other.chars()),
+			InitializedField::Partial(field_name) | InitializedField::Full(field_name) =>
+				field_name == other || compare_keys(field_name.chars(), other.chars()),
 		}
 	}
 }
@@ -119,10 +117,7 @@ pub fn retain_initialized_fields(
 /// values. The macro then serializes the fully initialized structure into a JSON blob, retaining
 /// only the fields that were explicitly provided, either partially or fully initialized.
 ///
-/// This macro allows nested structures within `struct_type` to be partially or fully initialized,
-/// and only the explicitly initialized fields are retained in the final JSON output.
-///
-/// This approach prevents errors from manually creating JSON objects, such as typos or
+/// Using this macro prevents errors from manually creating JSON objects, such as typos or
 /// inconsistencies with the `struct_type` structure, by relying on the actual
 /// struct definition. This ensures the generated JSON is valid and reflects any future changes
 /// to the structure.
