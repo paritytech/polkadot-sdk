@@ -32,6 +32,11 @@ name = "extrinsic"
 path = "examples/rust/extrinsic.rs"
 required-features = ["example"]
 
+[[example]]
+name = "remark-extrinsic"
+path = "examples/rust/remark-extrinsic.rs"
+required-features = ["example"]
+
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
