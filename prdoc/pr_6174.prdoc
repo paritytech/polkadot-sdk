@@ -4,6 +4,6 @@ doc:
   description: null
 crates:
 - name: pallet-revive-fixtures
-  bump: minor
+  bump: patch
 - name: pallet-revive
-  bump: minor
+  bump: patch
