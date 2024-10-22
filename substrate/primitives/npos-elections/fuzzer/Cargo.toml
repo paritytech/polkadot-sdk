@@ -4,7 +4,7 @@ version = "2.0.0-alpha.5"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Fuzzer for phragmén implementation."
 documentation = "https://docs.rs/sp-npos-elections-fuzzer"
@@ -17,11 +17,11 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-clap = { version = "4.5.3", features = ["derive"] }
-honggfuzz = "0.5"
-rand = { version = "0.8", features = ["small_rng", "std"] }
-sp-npos-elections = { path = ".." }
-sp-runtime = { path = "../../runtime" }
+clap = { features = ["derive"], workspace = true }
+honggfuzz = { workspace = true }
+rand = { features = ["small_rng", "std"], workspace = true, default-features = true }
+sp-npos-elections = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
 [[bin]]
 name = "reduce"

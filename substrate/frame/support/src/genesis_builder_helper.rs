@@ -41,7 +41,7 @@ pub fn build_state<GC: BuildGenesisConfig>(json: Vec<u8>) -> BuildResult {
 /// to [`sp_genesis_builder::GenesisBuilder::get_preset`].
 pub fn get_preset<GC>(
 	name: &Option<PresetId>,
-	preset_for_name: impl FnOnce(&sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>>,
+	preset_for_name: impl FnOnce(&sp_genesis_builder::PresetId) -> Option<alloc::vec::Vec<u8>>,
 ) -> Option<Vec<u8>>
 where
 	GC: BuildGenesisConfig + Default,

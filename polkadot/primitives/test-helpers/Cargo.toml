@@ -10,9 +10,9 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-sp-keyring = { path = "../../../substrate/primitives/keyring" }
-sp-application-crypto = { package = "sp-application-crypto", path = "../../../substrate/primitives/application-crypto", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-core = { path = "../../../substrate/primitives/core", features = ["std"] }
-polkadot-primitives = { path = ".." }
-rand = "0.8.5"
+sp-keyring = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-core = { features = ["std"], workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+rand = { workspace = true, default-features = true }

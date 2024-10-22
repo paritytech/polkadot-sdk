@@ -20,7 +20,7 @@
 use crate::{Randomness, TicketBody, TicketId};
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use scale_codec::Encode;
+use codec::Encode;
 use sp_consensus_slots::Slot;
 
 pub use sp_core::bandersnatch::{

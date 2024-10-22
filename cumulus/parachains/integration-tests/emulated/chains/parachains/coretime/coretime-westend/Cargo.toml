@@ -1,0 +1,24 @@
+[package]
+name = "coretime-westend-emulated-chain"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Coretime Westend emulated chain"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+
+# Substrate
+sp-core = { workspace = true }
+frame-support = { workspace = true }
+
+# Cumulus
+parachains-common = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true }
+coretime-westend-runtime = { workspace = true, default-features = true }
+emulated-integration-tests-common = { workspace = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true, default-features = true }

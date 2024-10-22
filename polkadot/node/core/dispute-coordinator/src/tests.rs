@@ -51,7 +51,6 @@ use sp_core::{sr25519::Pair, testing::TaskExecutor, Pair as PairT};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
 
-use ::test_helpers::{dummy_candidate_receipt_bad_sig, dummy_digest, dummy_hash};
 use polkadot_node_primitives::{Timestamp, ACTIVE_DURATION_SECS};
 use polkadot_node_subsystem::{
 	messages::{AllMessages, BlockDescription, RuntimeApiMessage, RuntimeApiRequest},
@@ -67,6 +66,7 @@ use polkadot_primitives::{
 	SessionInfo, SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
 	ValidatorSignature,
 };
+use polkadot_primitives_test_helpers::{dummy_candidate_receipt_bad_sig, dummy_digest, dummy_hash};
 
 use crate::{
 	backend::Backend,
@@ -580,6 +580,7 @@ impl TestState {
 			self.config,
 			self.subsystem_keystore.clone(),
 			Metrics::default(),
+			false,
 		);
 		let backend =
 			DbBackend::new(self.db.clone(), self.config.column_config(), Metrics::default());
@@ -2796,7 +2797,7 @@ fn participation_with_onchain_disabling_confirmed() {
 				})
 				.await;
 
-			handle_disabled_validators_queries(&mut virtual_overseer, vec![]).await;
+			handle_disabled_validators_queries(&mut virtual_overseer, vec![disabled_index]).await;
 			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash, HashMap::new())
 				.await;
 			assert_eq!(confirmation_rx.await, Ok(ImportStatementsResult::ValidImport));

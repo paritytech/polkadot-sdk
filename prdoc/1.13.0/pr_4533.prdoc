@@ -1,0 +1,10 @@
+title: "Fixed RPC subscriptions leak when subscription stream is finished"
+
+doc:
+  - audience: Node Operator
+    description: |
+      The node may leak RPC subscriptions in some cases, e.g. during
+      `author_submitAndWatchExtrinsic` calls. This PR fixes the issue.
+
+crates:
+  - name: sc-rpc

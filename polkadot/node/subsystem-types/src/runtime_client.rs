@@ -333,6 +333,14 @@ pub trait RuntimeApiSubsystemClient {
 	// == v11: Claim queue ==
 	/// Fetch the `ClaimQueue` from scheduler pallet
 	async fn claim_queue(&self, at: Hash) -> Result<BTreeMap<CoreIndex, VecDeque<Id>>, ApiError>;
+
+	// == v11: Elastic scaling support ==
+	/// Get the receipts of all candidates pending availability for a `ParaId`.
+	async fn candidates_pending_availability(
+		&self,
+		at: Hash,
+		para_id: Id,
+	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -372,7 +380,10 @@ where
 		&self,
 		at: Hash,
 	) -> Result<Vec<CoreState<Hash, BlockNumber>>, ApiError> {
-		self.client.runtime_api().availability_cores(at)
+		self.client
+			.runtime_api()
+			.availability_cores(at)
+			.map(|cores| cores.into_iter().map(|core| core.into()).collect::<Vec<_>>())
 	}
 
 	async fn persisted_validation_data(
@@ -425,11 +436,30 @@ where
 		at: Hash,
 		para_id: Id,
 	) -> Result<Option<CommittedCandidateReceipt<Hash>>, ApiError> {
-		self.client.runtime_api().candidate_pending_availability(at, para_id)
+		self.client
+			.runtime_api()
+			.candidate_pending_availability(at, para_id)
+			.map(|maybe_candidate| maybe_candidate.map(|candidate| candidate.into()))
+	}
+
+	async fn candidates_pending_availability(
+		&self,
+		at: Hash,
+		para_id: Id,
+	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError> {
+		self.client
+			.runtime_api()
+			.candidates_pending_availability(at, para_id)
+			.map(|candidates| {
+				candidates.into_iter().map(|candidate| candidate.into()).collect::<Vec<_>>()
+			})
 	}
 
 	async fn candidate_events(&self, at: Hash) -> Result<Vec<CandidateEvent<Hash>>, ApiError> {
-		self.client.runtime_api().candidate_events(at)
+		self.client
+			.runtime_api()
+			.candidate_events(at)
+			.map(|events| events.into_iter().map(|event| event.into()).collect::<Vec<_>>())
 	}
 
 	async fn dmq_contents(
@@ -460,7 +490,10 @@ where
 		&self,
 		at: Hash,
 	) -> Result<Option<ScrapedOnChainVotes<Hash>>, ApiError> {
-		self.client.runtime_api().on_chain_votes(at)
+		self.client
+			.runtime_api()
+			.on_chain_votes(at)
+			.map(|maybe_votes| maybe_votes.map(|votes| votes.into()))
 	}
 
 	async fn session_executor_params(
@@ -572,7 +605,12 @@ where
 		at: Hash,
 		para_id: Id,
 	) -> Result<Option<async_backing::BackingState>, ApiError> {
-		self.client.runtime_api().para_backing_state(at, para_id)
+		self.client
+			.runtime_api()
+			.para_backing_state(at, para_id)
+			.map(|maybe_backing_state| {
+				maybe_backing_state.map(|backing_state| backing_state.into())
+			})
 	}
 
 	async fn async_backing_params(
@@ -627,7 +665,8 @@ where
 	fn number(
 		&self,
 		hash: Block::Hash,
-	) -> sc_client_api::blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>> {
+	) -> sc_client_api::blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>>
+	{
 		self.client.number(hash)
 	}
 

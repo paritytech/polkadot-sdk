@@ -28,10 +28,13 @@ benchmarks_instance_pallet! {
 		let x in 1 .. 1_000;
 
 		let leaves = x as NodeIndex;
-	}: {
-		for b in 0..leaves {
-			Pallet::<T, I>::on_initialize((b as u32).into());
+
+		<<T as pallet::Config::<I>>::BenchmarkHelper as BenchmarkHelper>::setup();
+		for leaf in 0..(leaves - 1) {
+			Pallet::<T, I>::on_initialize((leaf as u32).into());
 		}
+	}: {
+		Pallet::<T, I>::on_initialize((leaves as u32 - 1).into());
 	} verify {
 		assert_eq!(crate::NumberOfLeaves::<T, I>::get(), leaves);
 	}

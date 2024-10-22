@@ -1,0 +1,26 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Remove `xcm::v3` from `assets-common` nits"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Remove `xcm::v3` imports from `assets-common` to make it more generic and facilitate the transition to newer XCM versions.
+      The implementations `AssetIdForTrustBackedAssetsConvert`, `ForeignAssetsConvertedConcreteId`, or `TrustBackedAssetsAsLocation`
+      used hard-coded `xcm::v3::Location`, which has been changed to use `xcm::latest::Location` by default.
+      Alternatively, the providing runtime can configure them according to its needs, such as with a lower XCM version.
+
+      Example:
+      ```patch
+      - AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocationV3>,
+      + AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocationV3, xcm::v3::Location>,
+      ```
+
+      Another change is that the removed `xcm_builder::V4V3LocationConverter` can be replaced with `WithLatestLocationConverter`.
+
+crates:
+- name: assets-common
+  bump: patch
+- name: staging-xcm-builder
+  bump: patch

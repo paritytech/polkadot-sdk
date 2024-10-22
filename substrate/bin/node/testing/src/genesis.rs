@@ -54,6 +54,7 @@ pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 				(bob(), eve(), session_keys_from_seed(Ed25519Keyring::Bob.into())),
 				(charlie(), ferdie(), session_keys_from_seed(Ed25519Keyring::Charlie.into())),
 			],
+			..Default::default()
 		},
 		staking: StakingConfig {
 			stakers: vec![

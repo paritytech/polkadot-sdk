@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -17,8 +17,8 @@
 //! Cross-Consensus Message format data structures.
 
 pub use crate::v3::{Error, Result, SendError, XcmHash};
+use codec::{Decode, Encode};
 use core::result;
-use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
 pub use sp_weights::Weight;
@@ -161,7 +161,7 @@ pub type SendResult<T> = result::Result<(T, Assets), SendError>;
 ///
 /// # Example
 /// ```rust
-/// # use parity_scale_codec::Encode;
+/// # use codec::Encode;
 /// # use staging_xcm::v4::{prelude::*, Weight};
 /// # use staging_xcm::VersionedXcm;
 /// # use std::convert::Infallible;

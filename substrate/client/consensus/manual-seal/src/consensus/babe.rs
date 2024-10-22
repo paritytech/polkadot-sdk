@@ -96,7 +96,7 @@ where
 	C: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error>,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		mut import_params: BlockImportParams<B>,
 	) -> Result<BlockImportParams<B>, String> {
 		import_params.finalized = false;

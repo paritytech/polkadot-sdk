@@ -1,42 +1,98 @@
-# The actions takes json file as input and runs github-action-benchmark for it.
+name: Subsystem Benchmarks
 
 on:
-  workflow_dispatch:
-    inputs:
-      benchmark-data-dir-path:
-        description: "Path to the benchmark data directory"
-        required: true
-        type: string
-      output-file-path:
-        description: "Path to the benchmark data file"
-        required: true
-        type: string
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  subsystem-benchmarks:
-    runs-on: ubuntu-latest
-    environment: subsystem-benchmarks
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
+  build:
+    timeout-minutes: 80
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          [
+            {
+              name: "polkadot-availability-recovery",
+              bench: "availability-recovery-regression-bench",
+            },
+            {
+              name: "polkadot-availability-distribution",
+              bench: "availability-distribution-regression-bench",
+            },
+            {
+              name: "polkadot-node-core-approval-voting",
+              bench: "approval-voting-regression-bench",
+            },
+            {
+              name: "polkadot-statement-distribution",
+              bench: "statement-distribution-regression-bench",
+            },
+          ]
     steps:
-      - name: Validate inputs
-        run: |
-          echo "${{ github.event.inputs.benchmark-data-dir-path }}" | grep -P '^[a-z\-]'
-          echo "${{ github.event.inputs.output-file-path }}" | grep -P '^[a-z\-]+\.json'
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Checkout Sources
-        uses: actions/checkout@v4.1.2
+      - name: Check Rust
+        run: |
+          rustup show
+          rustup +nightly show
+
+      - name: Run Benchmarks
+        id: run-benchmarks
+        run: |
+          forklift cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks || echo "Benchmarks failed"
+          ls -lsa ./charts
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4.3.6
         with:
+          name: ${{matrix.features.bench}}
+          path: ./charts
+
+  publish-benchmarks:
+    timeout-minutes: 60
+    needs: [build]
+    if: github.ref == 'refs/heads/master'
+    environment: subsystem-benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
           fetch-depth: 0
-          ref: "gh-pages"
 
-      - name: Copy bench results
-        id: step_one
-        run: |
-          cp bench/gitlab/${{ github.event.inputs.output-file-path }} ${{ github.event.inputs.output-file-path }}
+      - run: git checkout master --
 
-      - name: Switch branch
-        id: step_two
+      - name: Download artifacts
+        uses: actions/download-artifact@v4.1.8
+        with:
+          path: ./charts
+
+      - name: Setup git
         run: |
-          git checkout master --
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
+          ls -lsR ./charts
 
       - uses: actions/create-github-app-token@v1
         id: app-token
@@ -44,11 +100,50 @@ jobs:
           app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
           private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
 
-      - name: Store benchmark result
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: availability-recovery-regression-bench
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: "customSmallerIsBetter"
-          output-file-path: ${{ github.event.inputs.output-file-path }}
-          benchmark-data-dir-path: "bench/${{ github.event.inputs.benchmark-data-dir-path }}"
+          name: ${{ env.BENCH }}
+          output-file-path: ./charts/${{ env.BENCH }}/${{ env.BENCH }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
+
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: availability-distribution-regression-bench
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH }}
+          output-file-path: ./charts/${{ env.BENCH }}/${{ env.BENCH }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
+
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: approval-voting-regression-bench
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH }}
+          output-file-path: ./charts/${{ env.BENCH }}/${{ env.BENCH }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
+
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: statement-distribution-regression-bench
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH }}
+          output-file-path: ./charts/${{ env.BENCH }}/${{ env.BENCH }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true

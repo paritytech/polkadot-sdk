@@ -14,10 +14,10 @@
 //! - improve documentation of `#[weight = ..]` and `#[pallet::weight(..)]`. All syntax variation
 //!   should be covered.
 //!
-//! on FRAME benchmarking machinery:
+//! On FRAME benchmarking machinery:
 //!
-//! - component analysis, why everything must be linear.
-//! - how to write benchmarks, how you must think of worst case.
-//! - how to run benchmarks.
+//! - Component analysis, why everything must be linear.
+//! - How to write benchmarks, how you must think of worst case.
+//! - How to run benchmarks.
 //!
 //! - <https://www.shawntabrizi.com/assets/presentations/substrate-storage-deep-dive.pdf>

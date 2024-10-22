@@ -1,0 +1,39 @@
+[package]
+name = "relay-utils"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { workspace = true, default-features = true }
+async-std = { workspace = true }
+async-trait = { workspace = true }
+backoff = { workspace = true }
+console = { workspace = true }
+isahc = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
+futures = { workspace = true }
+jsonpath_lib = { workspace = true }
+log = { workspace = true }
+num-traits = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
+sysinfo = { workspace = true }
+time = { features = ["formatting", "local-offset", "std"], workspace = true }
+tokio = { features = ["rt"], workspace = true, default-features = true }
+thiserror = { workspace = true }
+
+# Bridge dependencies
+
+bp-runtime = { workspace = true, default-features = true }
+
+# Substrate dependencies
+
+sp-runtime = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }

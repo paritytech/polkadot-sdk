@@ -17,9 +17,9 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::LOG_TARGET;
-use libp2p::PeerId;
 use log::trace;
 use sc_network_common::sync::message;
+use sc_network_types::PeerId;
 use sp_runtime::traits::{Block as BlockT, NumberFor, One};
 use std::{
 	cmp,
@@ -262,12 +262,12 @@ impl<B: BlockT> BlockCollection<B> {
 #[cfg(test)]
 mod test {
 	use super::{BlockCollection, BlockData, BlockRangeState};
-	use libp2p::PeerId;
 	use sc_network_common::sync::message;
+	use sc_network_types::PeerId;
 	use sp_core::H256;
-	use sp_runtime::testing::{Block as RawBlock, ExtrinsicWrapper};
+	use sp_runtime::testing::{Block as RawBlock, MockCallU64, TestXt};
 
-	type Block = RawBlock<ExtrinsicWrapper<u64>>;
+	type Block = RawBlock<TestXt<MockCallU64, ()>>;
 
 	fn is_empty(bc: &BlockCollection<Block>) -> bool {
 		bc.blocks.is_empty() && bc.peer_requests.is_empty()

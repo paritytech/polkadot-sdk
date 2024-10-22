@@ -12,6 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+pub use rococo_runtime;
 
 pub mod genesis;
 
@@ -39,6 +40,8 @@ decl_test_relay_chains! {
 			Hrmp: rococo_runtime::Hrmp,
 			Identity: rococo_runtime::Identity,
 			IdentityMigrator: rococo_runtime::IdentityMigrator,
+			Treasury: rococo_runtime::Treasury,
+			AssetRate: rococo_runtime::AssetRate,
 		}
 	},
 }

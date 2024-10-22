@@ -21,7 +21,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use renamed_frame_support::{
+use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{ConstU16, ConstU32, ConstU64, Everything},
 };
@@ -40,7 +40,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 0,
 	apis: sp_version::create_apis_vec!([]),
 	transaction_version: 0,
-	state_version: 0,
+	system_version: 0,
 };
 
 pub type Signature = sr25519::Signature;
@@ -51,8 +51,8 @@ parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 }
 
-#[derive_impl(renamed_frame_system::config_preludes::TestDefaultConfig)]
-impl renamed_frame_system::Config for Runtime {
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl frame_system::Config for Runtime {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
@@ -84,6 +84,6 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, Sign
 
 construct_runtime!(
 	pub enum Runtime {
-		System: renamed_frame_system,
+		System: frame_system,
 	}
 );

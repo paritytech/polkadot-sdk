@@ -21,7 +21,7 @@ pub mod from_parachain;
 
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData},
-	LaneId, MessageKey,
+	MessageKey,
 };
 use codec::Encode;
 use frame_support::traits::Get;
@@ -32,20 +32,16 @@ use bp_messages::MessageNonce;
 use bp_runtime::BasicOperatingMode;
 use bp_test_utils::authority_list;
 use xcm::GetVersion;
-use xcm_builder::{HaulBlob, HaulBlobError, HaulBlobExporter};
+use xcm_builder::{BridgeMessage, HaulBlob, HaulBlobError, HaulBlobExporter};
 use xcm_executor::traits::{validate_export, ExportXcm};
 
-pub fn prepare_inbound_xcm<InnerXcmRuntimeCall>(
-	xcm_message: Xcm<InnerXcmRuntimeCall>,
-	destination: InteriorLocation,
-) -> Vec<u8> {
-	let location = xcm::VersionedInteriorLocation::V4(destination);
-	let xcm = xcm::VersionedXcm::<InnerXcmRuntimeCall>::V4(xcm_message);
-	// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
-	// or public fields, so just tuple
-	// (double encoding, because `.encode()` is called on original Xcm BLOB when it is pushed
-	// to the storage)
-	(location, xcm).encode().encode()
+pub fn prepare_inbound_xcm(xcm_message: Xcm<()>, destination: InteriorLocation) -> Vec<u8> {
+	let location = xcm::VersionedInteriorLocation::from(destination);
+	let xcm = xcm::VersionedXcm::<()>::from(xcm_message);
+
+	// (double encoding, because `.encode()` is called on original Xcm BLOB when it is pushed to the
+	// storage)
+	BridgeMessage { universal_dest: location, message: xcm }.encode().encode()
 }
 
 /// Helper that creates InitializationData mock data, that can be used to initialize bridge
@@ -69,11 +65,11 @@ pub(crate) fn dummy_xcm() -> Xcm<()> {
 	vec![Trap(42)].into()
 }
 
-pub(crate) fn dispatch_message(
+pub(crate) fn dispatch_message<LaneId: Encode>(
 	lane_id: LaneId,
 	nonce: MessageNonce,
 	payload: Vec<u8>,
-) -> DispatchMessage<Vec<u8>> {
+) -> DispatchMessage<Vec<u8>, LaneId> {
 	DispatchMessage {
 		key: MessageKey { lane_id, nonce },
 		data: DispatchMessageData { payload: Ok(payload) },

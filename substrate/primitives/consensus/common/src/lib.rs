@@ -40,7 +40,7 @@ pub use sp_inherents::InherentData;
 pub use sp_state_machine::Backend as StateBackend;
 
 /// Block status.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum BlockStatus {
 	/// Added to the import queue.
 	Queued,

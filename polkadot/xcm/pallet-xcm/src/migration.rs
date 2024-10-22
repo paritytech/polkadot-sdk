@@ -34,13 +34,13 @@ pub mod v1 {
 	/// enacted on-chain.
 	///
 	/// Use experimental [`MigrateToV1`] instead.
-	pub struct VersionUncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct VersionUncheckedMigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight = T::DbWeight::get().reads(1);
 
 			if StorageVersion::get::<Pallet<T>>() != 0 {
-				log::warn!("skipping v1, should be removed");
+				tracing::warn!("skipping v1, should be removed");
 				return weight
 			}
 
@@ -50,13 +50,13 @@ pub mod v1 {
 			let translate = |pre: (u64, u64, u32)| -> Option<(u64, Weight, u32)> {
 				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 				let translated = (pre.0, Weight::from_parts(pre.1, DEFAULT_PROOF_SIZE), pre.2);
-				log::info!("Migrated VersionNotifyTarget {:?} to {:?}", pre, translated);
+				tracing::info!("Migrated VersionNotifyTarget {:?} to {:?}", pre, translated);
 				Some(translated)
 			};
 
 			VersionNotifyTargets::<T>::translate_values(translate);
 
-			log::info!("v1 applied successfully");
+			tracing::info!("v1 applied successfully");
 			weight.saturating_accrue(T::DbWeight::get().writes(1));
 			StorageVersion::new(1).put::<Pallet<T>>();
 			weight
@@ -81,7 +81,7 @@ pub mod v1 {
 /// `XCM_VERSION`.
 ///
 /// NOTE: This migration can be permanently added to the runtime migrations.
-pub struct MigrateToLatestXcmVersion<T>(sp_std::marker::PhantomData<T>);
+pub struct MigrateToLatestXcmVersion<T>(core::marker::PhantomData<T>);
 impl<T: Config> OnRuntimeUpgrade for MigrateToLatestXcmVersion<T> {
 	fn on_runtime_upgrade() -> Weight {
 		CurrentMigration::<T>::put(VersionMigrationStage::default());

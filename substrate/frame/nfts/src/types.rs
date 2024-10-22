@@ -19,6 +19,7 @@
 
 use super::*;
 use crate::macros::*;
+use alloc::{vec, vec::Vec};
 use codec::EncodeLike;
 use enumflags2::{bitflags, BitFlags};
 use frame_support::{
@@ -192,13 +193,13 @@ pub struct ItemMetadata<Deposit, StringLimit: Get<u32>> {
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ItemTip<CollectionId, ItemId, AccountId, Amount> {
 	/// The collection of the item.
-	pub(super) collection: CollectionId,
+	pub collection: CollectionId,
 	/// An item of which the tip is sent for.
-	pub(super) item: ItemId,
+	pub item: ItemId,
 	/// A sender of the tip.
-	pub(super) receiver: AccountId,
+	pub receiver: AccountId,
 	/// An amount the sender is willing to tip.
-	pub(super) amount: Amount,
+	pub amount: Amount,
 }
 
 /// Information about the pending swap.
@@ -245,9 +246,9 @@ pub enum PriceDirection {
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct PriceWithDirection<Amount> {
 	/// An amount.
-	pub(super) amount: Amount,
+	pub amount: Amount,
 	/// A direction (send or receive).
-	pub(super) direction: PriceDirection,
+	pub direction: PriceDirection,
 }
 
 /// Support for up to 64 user-enabled features on a collection.
@@ -517,31 +518,31 @@ impl_codec_bitflags!(CollectionRoles, u8, CollectionRole);
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct PreSignedMint<CollectionId, ItemId, AccountId, Deadline, Balance> {
 	/// A collection of the item to be minted.
-	pub(super) collection: CollectionId,
+	pub collection: CollectionId,
 	/// Item's ID.
-	pub(super) item: ItemId,
+	pub item: ItemId,
 	/// Additional item's key-value attributes.
-	pub(super) attributes: Vec<(Vec<u8>, Vec<u8>)>,
+	pub attributes: Vec<(Vec<u8>, Vec<u8>)>,
 	/// Additional item's metadata.
-	pub(super) metadata: Vec<u8>,
+	pub metadata: Vec<u8>,
 	/// Restrict the claim to a particular account.
-	pub(super) only_account: Option<AccountId>,
+	pub only_account: Option<AccountId>,
 	/// A deadline for the signature.
-	pub(super) deadline: Deadline,
+	pub deadline: Deadline,
 	/// An optional price the claimer would need to pay for the mint.
-	pub(super) mint_price: Option<Balance>,
+	pub mint_price: Option<Balance>,
 }
 
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct PreSignedAttributes<CollectionId, ItemId, AccountId, Deadline> {
 	/// Collection's ID.
-	pub(super) collection: CollectionId,
+	pub collection: CollectionId,
 	/// Item's ID.
-	pub(super) item: ItemId,
+	pub item: ItemId,
 	/// Key-value attributes.
-	pub(super) attributes: Vec<(Vec<u8>, Vec<u8>)>,
+	pub attributes: Vec<(Vec<u8>, Vec<u8>)>,
 	/// Attributes' namespace.
-	pub(super) namespace: AttributeNamespace<AccountId>,
+	pub namespace: AttributeNamespace<AccountId>,
 	/// A deadline for the signature.
-	pub(super) deadline: Deadline,
+	pub deadline: Deadline,
 }

@@ -1,0 +1,18 @@
+title: CheckWeight - account for extrinsic len as proof size
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This changes how CheckWeight extension works. It will now account for the extrinsic length
+      as proof size. When `on_idle` is called, the remaining weight parameter reflects this.
+
+crates:
+  - name: frame-system
+    bump: patch
+  - name: frame-executive
+    bump: none
+  - name: cumulus-primitives-storage-weight-reclaim
+    bump: none
+
+
+

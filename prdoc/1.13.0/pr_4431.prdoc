@@ -1,0 +1,17 @@
+title: "Statement-Distribution validator disabling changes"
+
+doc:
+  - audience: Node Dev
+    description: |
+      In preparation for launching re-enabling (#2418), we need to adjust the
+      disabling strategy of statement-distribution to use the relay parent's
+      state instead of the latest state (union of active leaves). This will also
+      ensure no raciness of getting the latest state vs accepting statements from
+      disabling validators at the cost of being more lenient/potentially accepting
+      more statements from disabled validators.
+
+crates:
+  - name: polkadot-statement-distribution
+    bump: patch
+  - name: polkadot
+    bump: none

@@ -1,0 +1,13 @@
+title: Optimize storage append operation
+
+doc:
+  - audience: [Node Dev, Runtime Dev]
+    description: |
+      This pull request optimizes the storage append operation in the `OverlayedChanges`.
+      Before the internal buffer was cloned every time a new transaction was created. Cloning
+      the internal buffer is now only done when there is no other possibility. This should
+      improve the performance in situations like when depositing events from batched calls.
+
+crates:
+  - name: sp-state-machine
+    bump: major

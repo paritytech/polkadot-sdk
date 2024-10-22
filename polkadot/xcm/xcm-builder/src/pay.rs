@@ -16,12 +16,13 @@
 
 //! `PayOverXcm` struct for paying through XCM and getting the status back.
 
+use alloc::vec;
+use core::marker::PhantomData;
 use frame_support::traits::{
 	tokens::{Pay, PaymentStatus},
 	Get,
 };
 use sp_runtime::traits::TryConvert;
-use sp_std::{marker::PhantomData, vec};
 use xcm::{opaque::lts::Weight, prelude::*};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
@@ -199,7 +200,7 @@ pub struct LocatableAssetId {
 
 /// Adapter `struct` which implements a conversion from any `AssetKind` into a [`LocatableAssetId`]
 /// value using a fixed `Location` for the `location` field.
-pub struct FixedLocation<FixedLocationValue>(sp_std::marker::PhantomData<FixedLocationValue>);
+pub struct FixedLocation<FixedLocationValue>(core::marker::PhantomData<FixedLocationValue>);
 impl<FixedLocationValue: Get<Location>, AssetKind: Into<AssetId>>
 	TryConvert<AssetKind, LocatableAssetId> for FixedLocation<FixedLocationValue>
 {

@@ -34,19 +34,6 @@ calls are reverted. Assuming correct error handling by contract A, A's other cal
 
 One `ref_time` `Weight` is defined as one picosecond of execution time on the runtime's reference machine.
 
-#### Schedule
-
-The `Schedule` is where, among other things, the cost of every action a contract can do is defined. These costs are derived
-from the benchmarks of this pallet. Instead of looking at the raw benchmark results it is advised to look at the `Schedule`
-if one wants to manually inspect the performance characteristics. The `Schedule` can be printed like this:
-
-```sh
-RUST_LOG=runtime::contracts=info cargo run --features runtime-benchmarks --bin substrate-node -- benchmark pallet --extra -p pallet_contracts -e print_schedule
-```
-
-Please note that the `Schedule` will be printed multiple times. This is because we are (ab)using a benchmark to print
-the struct.
-
 ### Revert Behaviour
 
 Contract call failures are not cascading. When failures occur in a sub-call, they do not "bubble up", and the call will
@@ -125,7 +112,7 @@ Contracts can emit messages to the client when called as RPC through the
 API. This is exposed in [ink!](https://use.ink) via
 [`ink_env::debug_message()`](https://paritytech.github.io/ink/ink_env/fn.debug_message.html).
 
-Those messages are gathered into an internal buffer and sent to the RPC client. It is up the the individual client if
+Those messages are gathered into an internal buffer and sent to the RPC client. It is up to the individual client if
 and how those messages are presented to the user.
 
 This buffer is also printed as a debug message. In order to see these messages on the node console the log level for the

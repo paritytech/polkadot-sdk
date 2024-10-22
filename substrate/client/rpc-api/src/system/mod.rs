@@ -69,7 +69,7 @@ pub trait SystemApi<Hash, Number> {
 	async fn system_local_listen_addresses(&self) -> Result<Vec<String>, Error>;
 
 	/// Returns currently connected peers
-	#[method(name = "system_peers")]
+	#[method(name = "system_peers", with_extensions)]
 	async fn system_peers(&self) -> Result<Vec<PeerInfo<Hash, Number>>, Error>;
 
 	/// Returns current state of the network.
@@ -78,7 +78,7 @@ pub trait SystemApi<Hash, Number> {
 	/// as its format might change at any time.
 	// TODO: the future of this call is uncertain: https://github.com/paritytech/substrate/issues/1890
 	// https://github.com/paritytech/substrate/issues/5541
-	#[method(name = "system_unstable_networkState")]
+	#[method(name = "system_unstable_networkState", with_extensions)]
 	async fn system_network_state(&self) -> Result<JsonValue, Error>;
 
 	/// Adds a reserved peer. Returns the empty string or an error. The string
@@ -86,12 +86,12 @@ pub trait SystemApi<Hash, Number> {
 	///
 	/// `/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV`
 	/// is an example of a valid, passing multiaddr with PeerId attached.
-	#[method(name = "system_addReservedPeer")]
+	#[method(name = "system_addReservedPeer", with_extensions)]
 	async fn system_add_reserved_peer(&self, peer: String) -> Result<(), Error>;
 
 	/// Remove a reserved peer. Returns the empty string or an error. The string
 	/// should encode only the PeerId e.g. `QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV`.
-	#[method(name = "system_removeReservedPeer")]
+	#[method(name = "system_removeReservedPeer", with_extensions)]
 	async fn system_remove_reserved_peer(&self, peer_id: String) -> Result<(), Error>;
 
 	/// Returns the list of reserved peers
@@ -112,10 +112,10 @@ pub trait SystemApi<Hash, Number> {
 	/// The syntax is identical to the CLI `<target>=<level>`:
 	///
 	/// `sync=debug,state=trace`
-	#[method(name = "system_addLogFilter")]
+	#[method(name = "system_addLogFilter", with_extensions)]
 	fn system_add_log_filter(&self, directives: String) -> Result<(), Error>;
 
 	/// Resets the log filter to Substrate defaults
-	#[method(name = "system_resetLogFilter")]
+	#[method(name = "system_resetLogFilter", with_extensions)]
 	fn system_reset_log_filter(&self) -> Result<(), Error>;
 }

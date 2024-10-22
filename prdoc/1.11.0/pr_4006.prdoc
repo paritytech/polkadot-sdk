@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Deploy pallet-parameters to rococo and fix dynamic_params name expand"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fix the expanded names of `dynamic_params` to not remove suffix "s".
+      
+      Also deploy the parameters pallet to the rococo-runtime.
+
+crates:
+  - name: frame-support-procedural
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: pallet-parameters
+    bump: patch

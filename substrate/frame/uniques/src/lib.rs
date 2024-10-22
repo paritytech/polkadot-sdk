@@ -42,6 +42,9 @@ mod types;
 pub mod migration;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::traits::{
 	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, ReservableCurrency,
@@ -51,7 +54,6 @@ use sp_runtime::{
 	traits::{Saturating, StaticLookup, Zero},
 	ArithmeticError, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 pub use pallet::*;
 pub use types::*;

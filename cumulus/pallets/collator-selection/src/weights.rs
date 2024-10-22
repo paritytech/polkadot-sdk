@@ -1,4 +1,4 @@
-// This file is part of Substrate.
+// This file is part of Cumulus.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
@@ -18,11 +18,11 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
+use core::marker::PhantomData;
 use frame_support::{
 	traits::Get,
 	weights::{constants::RocksDbWeight, Weight},
 };
-use sp_std::marker::PhantomData;
 
 // The weight info trait for `pallet_collator_selection`.
 pub trait WeightInfo {

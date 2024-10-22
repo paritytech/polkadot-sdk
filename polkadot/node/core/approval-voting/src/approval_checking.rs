@@ -22,8 +22,9 @@ use polkadot_primitives::ValidatorIndex;
 
 use crate::{
 	persisted_entries::{ApprovalEntry, CandidateEntry, TrancheEntry},
-	time::Tick,
+	MAX_RECORDED_NO_SHOW_VALIDATORS_PER_CANDIDATE,
 };
+use polkadot_node_primitives::approval::time::Tick;
 
 /// Result of counting the necessary tranches needed for approving a block.
 #[derive(Debug, PartialEq, Clone)]
@@ -32,6 +33,7 @@ pub struct TranchesToApproveResult {
 	pub required_tranches: RequiredTranches,
 	/// The total number of no_shows at the moment we are doing the counting.
 	pub total_observed_no_shows: usize,
+	pub no_show_validators: Vec<ValidatorIndex>,
 }
 
 /// The required tranches of assignments needed to determine whether a candidate is approved.
@@ -188,6 +190,8 @@ struct State {
 	/// The last tick at which a considered assignment was received.
 	last_assignment_tick: Option<Tick>,
 	total_observed_no_shows: usize,
+	// The validator's index that are no-shows.
+	no_show_validators: Vec<ValidatorIndex>,
 }
 
 impl State {
@@ -203,6 +207,7 @@ impl State {
 			return TranchesToApproveResult {
 				required_tranches: RequiredTranches::All,
 				total_observed_no_shows: self.total_observed_no_shows,
+				no_show_validators: self.no_show_validators.clone(),
 			}
 		}
 
@@ -217,6 +222,7 @@ impl State {
 					last_assignment_tick: self.last_assignment_tick,
 				},
 				total_observed_no_shows: self.total_observed_no_shows,
+				no_show_validators: self.no_show_validators.clone(),
 			}
 		}
 
@@ -234,6 +240,7 @@ impl State {
 					clock_drift,
 				},
 				total_observed_no_shows: self.total_observed_no_shows,
+				no_show_validators: self.no_show_validators.clone(),
 			}
 		} else {
 			TranchesToApproveResult {
@@ -244,6 +251,7 @@ impl State {
 					clock_drift,
 				},
 				total_observed_no_shows: self.total_observed_no_shows,
+				no_show_validators: self.no_show_validators.clone(),
 			}
 		}
 	}
@@ -253,11 +261,12 @@ impl State {
 	}
 
 	fn advance(
-		&self,
+		mut self,
 		new_assignments: usize,
 		new_no_shows: usize,
 		next_no_show: Option<Tick>,
 		last_assignment_tick: Option<Tick>,
+		no_show_validators: Vec<ValidatorIndex>,
 	) -> State {
 		let new_covered = if self.depth == 0 {
 			new_assignments
@@ -290,6 +299,17 @@ impl State {
 			(self.depth, covering, uncovered)
 		};
 
+		// Make sure we don't store too many no-show validators, since this metric
+		// is valuable if there are just a few of them to identify the problematic
+		// validators.
+		// If there are a lot then we've got bigger problems and no need to make this
+		// array unnecessarily large.
+		if self.no_show_validators.len() + no_show_validators.len() <
+			MAX_RECORDED_NO_SHOW_VALIDATORS_PER_CANDIDATE
+		{
+			self.no_show_validators.extend(no_show_validators);
+		}
+
 		State {
 			assignments,
 			depth,
@@ -299,6 +319,7 @@ impl State {
 			next_no_show,
 			last_assignment_tick,
 			total_observed_no_shows: self.total_observed_no_shows + new_no_shows,
+			no_show_validators: self.no_show_validators,
 		}
 	}
 }
@@ -354,8 +375,9 @@ fn count_no_shows(
 	block_tick: Tick,
 	no_show_duration: Tick,
 	drifted_tick_now: Tick,
-) -> (usize, Option<u64>) {
+) -> (usize, Option<u64>, Vec<ValidatorIndex>) {
 	let mut next_no_show = None;
+	let mut no_show_validators = Vec::new();
 	let no_shows = assignments
 		.iter()
 		.map(|(v_index, tick)| {
@@ -379,12 +401,14 @@ fn count_no_shows(
 				// the clock drift will be removed again to do the comparison above.
 				next_no_show = super::min_prefer_some(next_no_show, Some(no_show_at + clock_drift));
 			}
-
+			if is_no_show {
+				no_show_validators.push(*v_index);
+			}
 			is_no_show
 		})
 		.count();
 
-	(no_shows, next_no_show)
+	(no_shows, next_no_show, no_show_validators)
 }
 
 /// Determine the amount of tranches of assignments needed to determine approval of a candidate.
@@ -408,6 +432,7 @@ pub fn tranches_to_approve(
 		next_no_show: None,
 		last_assignment_tick: None,
 		total_observed_no_shows: 0,
+		no_show_validators: Vec::new(),
 	};
 
 	// The `ApprovalEntry` doesn't have any data for empty tranches. We still want to iterate over
@@ -446,7 +471,7 @@ pub fn tranches_to_approve(
 			//
 			// While we count the no-shows, we also determine the next possible no-show we might
 			// see within this tranche.
-			let (no_shows, next_no_show) = count_no_shows(
+			let (no_shows, next_no_show, no_show_validators) = count_no_shows(
 				assignments,
 				approvals,
 				clock_drift,
@@ -455,7 +480,7 @@ pub fn tranches_to_approve(
 				drifted_tick_now,
 			);
 
-			let s = s.advance(n_assignments, no_shows, next_no_show, last_assignment_tick);
+			let s = s.advance(n_assignments, no_shows, next_no_show, last_assignment_tick, no_show_validators);
 			let output = s.output(tranche, needed_approvals, n_validators, no_show_duration);
 
 			*state = match output.required_tranches {
@@ -482,9 +507,9 @@ pub fn tranches_to_approve(
 mod tests {
 	use super::*;
 	use crate::{approval_db, BTreeMap};
-	use ::test_helpers::{dummy_candidate_receipt, dummy_hash};
 	use bitvec::{bitvec, order::Lsb0 as BitOrderLsb0, vec::BitVec};
 	use polkadot_primitives::GroupIndex;
+	use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 
 	#[test]
 	fn pending_is_not_approved() {
@@ -1170,9 +1195,9 @@ mod tests {
 	struct NoShowTest {
 		assignments: Vec<(ValidatorIndex, Tick)>,
 		approvals: Vec<usize>,
-		clock_drift: crate::time::Tick,
-		no_show_duration: crate::time::Tick,
-		drifted_tick_now: crate::time::Tick,
+		clock_drift: Tick,
+		no_show_duration: Tick,
+		drifted_tick_now: Tick,
 		exp_no_shows: usize,
 		exp_next_no_show: Option<u64>,
 	}
@@ -1186,7 +1211,7 @@ mod tests {
 			approvals.set(v_index, true);
 		}
 
-		let (no_shows, next_no_show) = count_no_shows(
+		let (no_shows, next_no_show, _) = count_no_shows(
 			&test.assignments,
 			&approvals,
 			test.clock_drift,
@@ -1390,6 +1415,7 @@ mod tests {
 			next_no_show: None,
 			last_assignment_tick: None,
 			total_observed_no_shows: 0,
+			no_show_validators: Default::default(),
 		};
 
 		assert_eq!(
@@ -1414,6 +1440,7 @@ mod tests {
 			next_no_show: None,
 			last_assignment_tick: None,
 			total_observed_no_shows: 0,
+			no_show_validators: Default::default(),
 		};
 
 		assert_eq!(

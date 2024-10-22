@@ -30,7 +30,7 @@ fn params_should_work() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(ReferendumCount::<Test>::get(), 0);
 		assert_eq!(Balances::free_balance(42), 0);
-		assert_eq!(Balances::total_issuance(), 600);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 600);
 	});
 }
 
@@ -680,5 +680,29 @@ fn detects_incorrect_len() {
 			),
 			Error::<Test>::PreimageStoredWithDifferentLength
 		);
+	});
+}
+
+/// Ensures that `DispatchTime::After(0)` plus `min_enactment_period = 0` works.
+#[test]
+fn zero_enactment_delay_executes_proposal_at_next_block() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_eq!(Balances::free_balance(42), 0);
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Signed(1).into()),
+			Preimage::bound(
+				pallet_balances::Call::transfer_keep_alive { dest: 42, value: 20 }.into()
+			)
+			.unwrap(),
+			DispatchTime::After(0),
+		));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(1), 0));
+		assert_eq!(ReferendumCount::<Test>::get(), 1);
+		set_tally(0, 100, 0);
+
+		run_to(9);
+
+		assert_eq!(Balances::free_balance(42), 20);
 	});
 }

@@ -33,10 +33,13 @@ mod tests;
 mod benchmarking;
 
 use frame_support::{
-	dispatch::DispatchResult, pallet_prelude::OptionQuery, traits::Get, transactional,
+	dispatch::{DispatchResult, PostDispatchInfo},
+	pallet_prelude::OptionQuery,
+	traits::Get,
+	transactional,
 };
 use frame_system::ensure_signed;
-use primitives::{
+use snowbridge_beacon_primitives::{
 	fast_aggregate_verify, verify_merkle_branch, verify_receipt_proof, BeaconHeader, BlsError,
 	CompactBeaconState, ForkData, ForkVersion, ForkVersions, PublicKeyPrepared, SigningData,
 };
@@ -82,6 +85,9 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		#[pallet::constant]
 		type ForkVersions: Get<ForkVersions>;
+		/// Minimum gap between finalized headers for an update to be free.
+		#[pallet::constant]
+		type FreeHeadersInterval: Get<u32>;
 		type WeightInfo: WeightInfo;
 	}
 
@@ -104,6 +110,7 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		SkippedSyncCommitteePeriod,
+		SyncCommitteeUpdateRequired,
 		/// Attested header is older than latest finalized header.
 		IrrelevantUpdate,
 		NotBootstrapped,
@@ -138,41 +145,43 @@ pub mod pallet {
 	/// Latest imported checkpoint root
 	#[pallet::storage]
 	#[pallet::getter(fn initial_checkpoint_root)]
-	pub(super) type InitialCheckpointRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
+	pub type InitialCheckpointRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Latest imported finalized block root
 	#[pallet::storage]
 	#[pallet::getter(fn latest_finalized_block_root)]
-	pub(super) type LatestFinalizedBlockRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
+	pub type LatestFinalizedBlockRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Beacon state by finalized block root
 	#[pallet::storage]
 	#[pallet::getter(fn finalized_beacon_state)]
-	pub(super) type FinalizedBeaconState<T: Config> =
+	pub type FinalizedBeaconState<T: Config> =
 		StorageMap<_, Identity, H256, CompactBeaconState, OptionQuery>;
 
 	/// Finalized Headers: Current position in ring buffer
 	#[pallet::storage]
-	pub(crate) type FinalizedBeaconStateIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type FinalizedBeaconStateIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Finalized Headers: Mapping of ring buffer index to a pruning candidate
 	#[pallet::storage]
-	pub(crate) type FinalizedBeaconStateMapping<T: Config> =
+	pub type FinalizedBeaconStateMapping<T: Config> =
 		StorageMap<_, Identity, u32, H256, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn validators_root)]
-	pub(super) type ValidatorsRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
+	pub type ValidatorsRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Sync committee for current period
 	#[pallet::storage]
-	pub(super) type CurrentSyncCommittee<T: Config> =
-		StorageValue<_, SyncCommitteePrepared, ValueQuery>;
+	pub type CurrentSyncCommittee<T: Config> = StorageValue<_, SyncCommitteePrepared, ValueQuery>;
 
 	/// Sync committee for next period
 	#[pallet::storage]
-	pub(super) type NextSyncCommittee<T: Config> =
-		StorageValue<_, SyncCommitteePrepared, ValueQuery>;
+	pub type NextSyncCommittee<T: Config> = StorageValue<_, SyncCommitteePrepared, ValueQuery>;
+
+	/// The last period where the next sync committee was updated for free.
+	#[pallet::storage]
+	pub type LatestSyncCommitteeUpdatePeriod<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
@@ -205,11 +214,10 @@ pub mod pallet {
 		#[transactional]
 		/// Submits a new finalized beacon header update. The update may contain the next
 		/// sync committee.
-		pub fn submit(origin: OriginFor<T>, update: Box<Update>) -> DispatchResult {
+		pub fn submit(origin: OriginFor<T>, update: Box<Update>) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
-			Self::process_update(&update)?;
-			Ok(())
+			Self::process_update(&update)
 		}
 
 		/// Halt or resume all pallet operations. May only be called by root.
@@ -281,10 +289,9 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub(crate) fn process_update(update: &Update) -> DispatchResult {
+		pub(crate) fn process_update(update: &Update) -> DispatchResultWithPostInfo {
 			Self::verify_update(update)?;
-			Self::apply_update(update)?;
-			Ok(())
+			Self::apply_update(update)
 		}
 
 		/// References and strictly follows <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update>
@@ -320,6 +327,7 @@ pub mod pallet {
 
 			// Verify update is relevant.
 			let update_attested_period = compute_period(update.attested_header.slot);
+			let update_finalized_period = compute_period(update.finalized_header.slot);
 			let update_has_next_sync_committee = !<NextSyncCommittee<T>>::exists() &&
 				(update.next_sync_committee_update.is_some() &&
 					update_attested_period == store_period);
@@ -395,6 +403,11 @@ pub mod pallet {
 					),
 					Error::<T>::InvalidSyncCommitteeMerkleProof
 				);
+			} else {
+				ensure!(
+					update_finalized_period == store_period,
+					Error::<T>::SyncCommitteeUpdateRequired
+				);
 			}
 
 			// Verify sync committee aggregate signature.
@@ -427,11 +440,19 @@ pub mod pallet {
 		/// Reference and strictly follows <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#apply_light_client_update
 		/// Applies a finalized beacon header update to the beacon client. If a next sync committee
 		/// is present in the update, verify the sync committee by converting it to a
-		/// SyncCommitteePrepared type. Stores the provided finalized header.
-		fn apply_update(update: &Update) -> DispatchResult {
+		/// SyncCommitteePrepared type. Stores the provided finalized header. Updates are free
+		/// if the certain conditions specified in `check_refundable` are met.
+		fn apply_update(update: &Update) -> DispatchResultWithPostInfo {
 			let latest_finalized_state =
 				FinalizedBeaconState::<T>::get(LatestFinalizedBlockRoot::<T>::get())
 					.ok_or(Error::<T>::NotBootstrapped)?;
+
+			let pays_fee = Self::check_refundable(update, latest_finalized_state.slot);
+			let actual_weight = match update.next_sync_committee_update {
+				None => T::WeightInfo::submit(),
+				Some(_) => T::WeightInfo::submit_with_sync_committee(),
+			};
+
 			if let Some(next_sync_committee_update) = &update.next_sync_committee_update {
 				let store_period = compute_period(latest_finalized_state.slot);
 				let update_finalized_period = compute_period(update.finalized_header.slot);
@@ -455,6 +476,7 @@ pub mod pallet {
 					"💫 SyncCommitteeUpdated at period {}.",
 					update_finalized_period
 				);
+				<LatestSyncCommitteeUpdatePeriod<T>>::set(update_finalized_period);
 				Self::deposit_event(Event::SyncCommitteeUpdated {
 					period: update_finalized_period,
 				});
@@ -464,7 +486,7 @@ pub mod pallet {
 				Self::store_finalized_header(update.finalized_header, update.block_roots_root)?;
 			}
 
-			Ok(())
+			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee })
 		}
 
 		/// Computes the signing root for a given beacon header and domain. The hash tree root
@@ -629,11 +651,38 @@ pub mod pallet {
 				config::SLOTS_PER_EPOCH as u64,
 			));
 			let domain_type = config::DOMAIN_SYNC_COMMITTEE.to_vec();
-			// Domains are used for for seeds, for signatures, and for selecting aggregators.
+			// Domains are used for seeds, for signatures, and for selecting aggregators.
 			let domain = Self::compute_domain(domain_type, fork_version, validators_root)?;
 			// Hash tree root of SigningData - object root + domain
 			let signing_root = Self::compute_signing_root(header, domain)?;
 			Ok(signing_root)
+		}
+
+		/// Updates are free if the update is successful and the interval between the latest
+		/// finalized header in storage and the newly imported header is large enough. All
+		/// successful sync committee updates are free.
+		pub(super) fn check_refundable(update: &Update, latest_slot: u64) -> Pays {
+			// If the sync committee was successfully updated, the update may be free.
+			let update_period = compute_period(update.finalized_header.slot);
+			let latest_free_update_period = LatestSyncCommitteeUpdatePeriod::<T>::get();
+			// If the next sync committee is not known and this update sets it, the update is free.
+			// If the sync committee update is in a period that we have not received an update for,
+			// the update is free.
+			let refundable =
+				!<NextSyncCommittee<T>>::exists() || update_period > latest_free_update_period;
+			if update.next_sync_committee_update.is_some() && refundable {
+				return Pays::No;
+			}
+
+			// If the latest finalized header is larger than the minimum slot interval, the header
+			// import transaction is free.
+			if update.finalized_header.slot >=
+				latest_slot.saturating_add(T::FreeHeadersInterval::get() as u64)
+			{
+				return Pays::No;
+			}
+
+			Pays::Yes
 		}
 	}
 }

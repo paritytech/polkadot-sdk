@@ -16,15 +16,15 @@
 
 //! Everything about incoming messages receival.
 
-use crate::Config;
+use crate::{BridgedChainOf, Config};
 
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
-	DeliveredMessages, InboundLaneData, LaneId, MessageKey, MessageNonce, OutboundLaneData,
-	ReceptionResult, UnrewardedRelayer,
+	ChainWithMessages, DeliveredMessages, InboundLaneData, LaneState, MessageKey, MessageNonce,
+	OutboundLaneData, ReceptionResult, UnrewardedRelayer,
 };
+use bp_runtime::AccountIdOf;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-use frame_support::traits::Get;
 use scale_info::{Type, TypeInfo};
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::PartialEq;
@@ -33,17 +33,21 @@ use sp_std::prelude::PartialEq;
 pub trait InboundLaneStorage {
 	/// Id of relayer on source chain.
 	type Relayer: Clone + PartialEq;
+	/// Lane identifier type.
+	type LaneId: Encode;
 
 	/// Lane id.
-	fn id(&self) -> LaneId;
+	fn id(&self) -> Self::LaneId;
 	/// Return maximal number of unrewarded relayer entries in inbound lane.
 	fn max_unrewarded_relayer_entries(&self) -> MessageNonce;
 	/// Return maximal number of unconfirmed messages in inbound lane.
 	fn max_unconfirmed_messages(&self) -> MessageNonce;
 	/// Get lane data from the storage.
-	fn get_or_init_data(&mut self) -> InboundLaneData<Self::Relayer>;
+	fn data(&self) -> InboundLaneData<Self::Relayer>;
 	/// Update lane data in the storage.
 	fn set_data(&mut self, data: InboundLaneData<Self::Relayer>);
+	/// Purge lane data from the storage.
+	fn purge(self);
 }
 
 /// Inbound lane data wrapper that implements `MaxEncodedLen`.
@@ -55,10 +59,12 @@ pub trait InboundLaneStorage {
 ///
 /// The encoding of this type matches encoding of the corresponding `MessageData`.
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
-pub struct StoredInboundLaneData<T: Config<I>, I: 'static>(pub InboundLaneData<T::InboundRelayer>);
+pub struct StoredInboundLaneData<T: Config<I>, I: 'static>(
+	pub InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>,
+);
 
 impl<T: Config<I>, I: 'static> sp_std::ops::Deref for StoredInboundLaneData<T, I> {
-	type Target = InboundLaneData<T::InboundRelayer>;
+	type Target = InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.0
@@ -78,7 +84,7 @@ impl<T: Config<I>, I: 'static> Default for StoredInboundLaneData<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> From<StoredInboundLaneData<T, I>>
-	for InboundLaneData<T::InboundRelayer>
+	for InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>
 {
 	fn from(data: StoredInboundLaneData<T, I>) -> Self {
 		data.0
@@ -86,7 +92,7 @@ impl<T: Config<I>, I: 'static> From<StoredInboundLaneData<T, I>>
 }
 
 impl<T: Config<I>, I: 'static> EncodeLike<StoredInboundLaneData<T, I>>
-	for InboundLaneData<T::InboundRelayer>
+	for InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>
 {
 }
 
@@ -94,14 +100,14 @@ impl<T: Config<I>, I: 'static> TypeInfo for StoredInboundLaneData<T, I> {
 	type Identity = Self;
 
 	fn type_info() -> Type {
-		InboundLaneData::<T::InboundRelayer>::type_info()
+		InboundLaneData::<AccountIdOf<BridgedChainOf<T, I>>>::type_info()
 	}
 }
 
 impl<T: Config<I>, I: 'static> MaxEncodedLen for StoredInboundLaneData<T, I> {
 	fn max_encoded_len() -> usize {
-		InboundLaneData::<T::InboundRelayer>::encoded_size_hint(
-			T::MaxUnrewardedRelayerEntriesAtInboundLane::get() as usize,
+		InboundLaneData::<AccountIdOf<BridgedChainOf<T, I>>>::encoded_size_hint(
+			BridgedChainOf::<T, I>::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX as usize,
 		)
 		.unwrap_or(usize::MAX)
 	}
@@ -118,9 +124,21 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		InboundLane { storage }
 	}
 
-	/// Returns `mut` storage reference.
-	pub fn storage_mut(&mut self) -> &mut S {
-		&mut self.storage
+	/// Get lane state.
+	pub fn state(&self) -> LaneState {
+		self.storage.data().state
+	}
+
+	/// Returns storage reference.
+	pub fn storage(&self) -> &S {
+		&self.storage
+	}
+
+	/// Set lane state.
+	pub fn set_state(&mut self, state: LaneState) {
+		let mut data = self.storage.data();
+		data.state = state;
+		self.storage.set_data(data);
 	}
 
 	/// Receive state of the corresponding outbound lane.
@@ -128,7 +146,7 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 		&mut self,
 		outbound_lane_data: OutboundLaneData,
 	) -> Option<MessageNonce> {
-		let mut data = self.storage.get_or_init_data();
+		let mut data = self.storage.data();
 		let last_delivered_nonce = data.last_delivered_nonce();
 
 		if outbound_lane_data.latest_received_nonce > last_delivered_nonce {
@@ -165,13 +183,13 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 	}
 
 	/// Receive new message.
-	pub fn receive_message<Dispatch: MessageDispatch>(
+	pub fn receive_message<Dispatch: MessageDispatch<LaneId = S::LaneId>>(
 		&mut self,
 		relayer_at_bridged_chain: &S::Relayer,
 		nonce: MessageNonce,
 		message_data: DispatchMessageData<Dispatch::DispatchPayload>,
 	) -> ReceptionResult<Dispatch::DispatchLevelResult> {
-		let mut data = self.storage.get_or_init_data();
+		let mut data = self.storage.data();
 		if Some(nonce) != data.last_delivered_nonce().checked_add(1) {
 			return ReceptionResult::InvalidNonce
 		}
@@ -209,20 +227,17 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 
 		ReceptionResult::Dispatched(dispatch_result)
 	}
+
+	/// Purge lane state from the storage.
+	pub fn purge(self) {
+		self.storage.purge()
+	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{
-		inbound_lane,
-		mock::{
-			dispatch_result, inbound_message_data, inbound_unrewarded_relayers_state, run_test,
-			unrewarded_relayer, TestMessageDispatch, TestRuntime, REGULAR_PAYLOAD, TEST_LANE_ID,
-			TEST_RELAYER_A, TEST_RELAYER_B, TEST_RELAYER_C,
-		},
-		RuntimeInboundLaneStorage,
-	};
+	use crate::{active_inbound_lane, lanes_manager::RuntimeInboundLaneStorage, tests::mock::*};
 	use bp_messages::UnrewardedRelayersState;
 
 	fn receive_regular_message(
@@ -242,7 +257,7 @@ mod tests {
 	#[test]
 	fn receive_status_update_ignores_status_from_the_future() {
 		run_test(|| {
-			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let mut lane = active_inbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			receive_regular_message(&mut lane, 1);
 			assert_eq!(
 				lane.receive_state_update(OutboundLaneData {
@@ -252,14 +267,14 @@ mod tests {
 				None,
 			);
 
-			assert_eq!(lane.storage.get_or_init_data().last_confirmed_nonce, 0);
+			assert_eq!(lane.storage.data().last_confirmed_nonce, 0);
 		});
 	}
 
 	#[test]
 	fn receive_status_update_ignores_obsolete_status() {
 		run_test(|| {
-			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let mut lane = active_inbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			receive_regular_message(&mut lane, 1);
 			receive_regular_message(&mut lane, 2);
 			receive_regular_message(&mut lane, 3);
@@ -270,7 +285,7 @@ mod tests {
 				}),
 				Some(3),
 			);
-			assert_eq!(lane.storage.get_or_init_data().last_confirmed_nonce, 3);
+			assert_eq!(lane.storage.data().last_confirmed_nonce, 3);
 
 			assert_eq!(
 				lane.receive_state_update(OutboundLaneData {
@@ -279,20 +294,20 @@ mod tests {
 				}),
 				None,
 			);
-			assert_eq!(lane.storage.get_or_init_data().last_confirmed_nonce, 3);
+			assert_eq!(lane.storage.data().last_confirmed_nonce, 3);
 		});
 	}
 
 	#[test]
 	fn receive_status_update_works() {
 		run_test(|| {
-			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let mut lane = active_inbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			receive_regular_message(&mut lane, 1);
 			receive_regular_message(&mut lane, 2);
 			receive_regular_message(&mut lane, 3);
-			assert_eq!(lane.storage.get_or_init_data().last_confirmed_nonce, 0);
+			assert_eq!(lane.storage.data().last_confirmed_nonce, 0);
 			assert_eq!(
-				lane.storage.get_or_init_data().relayers,
+				lane.storage.data().relayers,
 				vec![unrewarded_relayer(1, 3, TEST_RELAYER_A)]
 			);
 
@@ -303,9 +318,9 @@ mod tests {
 				}),
 				Some(2),
 			);
-			assert_eq!(lane.storage.get_or_init_data().last_confirmed_nonce, 2);
+			assert_eq!(lane.storage.data().last_confirmed_nonce, 2);
 			assert_eq!(
-				lane.storage.get_or_init_data().relayers,
+				lane.storage.data().relayers,
 				vec![unrewarded_relayer(3, 3, TEST_RELAYER_A)]
 			);
 
@@ -316,16 +331,16 @@ mod tests {
 				}),
 				Some(3),
 			);
-			assert_eq!(lane.storage.get_or_init_data().last_confirmed_nonce, 3);
-			assert_eq!(lane.storage.get_or_init_data().relayers, vec![]);
+			assert_eq!(lane.storage.data().last_confirmed_nonce, 3);
+			assert_eq!(lane.storage.data().relayers, vec![]);
 		});
 	}
 
 	#[test]
 	fn receive_status_update_works_with_batches_from_relayers() {
 		run_test(|| {
-			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			let mut seed_storage_data = lane.storage.get_or_init_data();
+			let mut lane = active_inbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
+			let mut seed_storage_data = lane.storage.data();
 			// Prepare data
 			seed_storage_data.last_confirmed_nonce = 0;
 			seed_storage_data.relayers.push_back(unrewarded_relayer(1, 1, TEST_RELAYER_A));
@@ -341,9 +356,9 @@ mod tests {
 				}),
 				Some(3),
 			);
-			assert_eq!(lane.storage.get_or_init_data().last_confirmed_nonce, 3);
+			assert_eq!(lane.storage.data().last_confirmed_nonce, 3);
 			assert_eq!(
-				lane.storage.get_or_init_data().relayers,
+				lane.storage.data().relayers,
 				vec![
 					unrewarded_relayer(4, 4, TEST_RELAYER_B),
 					unrewarded_relayer(5, 5, TEST_RELAYER_C)
@@ -355,7 +370,7 @@ mod tests {
 	#[test]
 	fn fails_to_receive_message_with_incorrect_nonce() {
 		run_test(|| {
-			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let mut lane = active_inbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			assert_eq!(
 				lane.receive_message::<TestMessageDispatch>(
 					&TEST_RELAYER_A,
@@ -364,16 +379,15 @@ mod tests {
 				),
 				ReceptionResult::InvalidNonce
 			);
-			assert_eq!(lane.storage.get_or_init_data().last_delivered_nonce(), 0);
+			assert_eq!(lane.storage.data().last_delivered_nonce(), 0);
 		});
 	}
 
 	#[test]
 	fn fails_to_receive_messages_above_unrewarded_relayer_entries_limit_per_lane() {
 		run_test(|| {
-			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			let max_nonce =
-				<TestRuntime as Config>::MaxUnrewardedRelayerEntriesAtInboundLane::get();
+			let mut lane = active_inbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
+			let max_nonce = BridgedChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 			for current_nonce in 1..max_nonce + 1 {
 				assert_eq!(
 					lane.receive_message::<TestMessageDispatch>(
@@ -408,8 +422,8 @@ mod tests {
 	#[test]
 	fn fails_to_receive_messages_above_unconfirmed_messages_limit_per_lane() {
 		run_test(|| {
-			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
-			let max_nonce = <TestRuntime as Config>::MaxUnconfirmedMessagesAtInboundLane::get();
+			let mut lane = active_inbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
+			let max_nonce = BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 			for current_nonce in 1..=max_nonce {
 				assert_eq!(
 					lane.receive_message::<TestMessageDispatch>(
@@ -444,7 +458,7 @@ mod tests {
 	#[test]
 	fn correctly_receives_following_messages_from_two_relayers_alternately() {
 		run_test(|| {
-			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let mut lane = active_inbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			assert_eq!(
 				lane.receive_message::<TestMessageDispatch>(
 					&TEST_RELAYER_A,
@@ -470,7 +484,7 @@ mod tests {
 				ReceptionResult::Dispatched(dispatch_result(0))
 			);
 			assert_eq!(
-				lane.storage.get_or_init_data().relayers,
+				lane.storage.data().relayers,
 				vec![
 					unrewarded_relayer(1, 1, TEST_RELAYER_A),
 					unrewarded_relayer(2, 2, TEST_RELAYER_B),
@@ -483,7 +497,7 @@ mod tests {
 	#[test]
 	fn rejects_same_message_from_two_different_relayers() {
 		run_test(|| {
-			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let mut lane = active_inbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			assert_eq!(
 				lane.receive_message::<TestMessageDispatch>(
 					&TEST_RELAYER_A,
@@ -506,16 +520,16 @@ mod tests {
 	#[test]
 	fn correct_message_is_processed_instantly() {
 		run_test(|| {
-			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let mut lane = active_inbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			receive_regular_message(&mut lane, 1);
-			assert_eq!(lane.storage.get_or_init_data().last_delivered_nonce(), 1);
+			assert_eq!(lane.storage.data().last_delivered_nonce(), 1);
 		});
 	}
 
 	#[test]
 	fn unspent_weight_is_returned_by_receive_message() {
 		run_test(|| {
-			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let mut lane = active_inbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			let mut payload = REGULAR_PAYLOAD;
 			*payload.dispatch_result.unspent_weight.ref_time_mut() = 1;
 			assert_eq!(
@@ -532,7 +546,7 @@ mod tests {
 	#[test]
 	fn first_message_is_confirmed_correctly() {
 		run_test(|| {
-			let mut lane = inbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let mut lane = active_inbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			receive_regular_message(&mut lane, 1);
 			receive_regular_message(&mut lane, 2);
 			assert_eq!(
@@ -543,7 +557,7 @@ mod tests {
 				Some(1),
 			);
 			assert_eq!(
-				inbound_unrewarded_relayers_state(TEST_LANE_ID),
+				inbound_unrewarded_relayers_state(test_lane_id()),
 				UnrewardedRelayersState {
 					unrewarded_relayer_entries: 1,
 					messages_in_oldest_entry: 1,

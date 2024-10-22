@@ -1,0 +1,10 @@
+title: Fix extrinsics count logging in frame-system
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes the issue of the number of extrinsics in the block always being 0 in the log of frame-system.
+
+crates:
+  - name: frame-system
+    bump: patch 

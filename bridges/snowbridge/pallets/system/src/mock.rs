@@ -3,7 +3,7 @@
 use crate as snowbridge_system;
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{tokens::fungible::Mutate, ConstU128, ConstU64, ConstU8},
+	traits::{tokens::fungible::Mutate, ConstU128, ConstU8},
 	weights::IdentityFee,
 	PalletId,
 };
@@ -106,27 +106,17 @@ impl frame_system::Config for Test {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
 	type Nonce = u64;
 	type Block = Block;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 impl pallet_xcm_origin::Config for Test {
@@ -176,10 +166,12 @@ impl snowbridge_pallet_outbound_queue::Config for Test {
 parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Kusama);
+	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Polkadot);
 	pub const RelayLocation: Location = Location::parent();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(1013)].into();
+	pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
+	pub EthereumDestination: Location = Location::new(2,[GlobalConsensus(EthereumNetwork::get())]);
 }
 
 pub const DOT: u128 = 10_000_000_000;
@@ -187,8 +179,8 @@ pub const DOT: u128 = 10_000_000_000;
 parameter_types! {
 	pub TreasuryAccount: AccountId = PalletId(*b"py/trsry").into_account_truncating();
 	pub Fee: u64 = 1000;
-	pub const RococoNetwork: NetworkId = NetworkId::Rococo;
 	pub const InitialFunding: u128 = 1_000_000_000_000;
+	pub BridgeHubParaId: ParaId = ParaId::new(1002);
 	pub AssetHubParaId: ParaId = ParaId::new(1000);
 	pub TestParaId: u32 = 2000;
 	pub Parameters: PricingParameters<u128> = PricingParameters {
@@ -198,7 +190,6 @@ parameter_types! {
 		multiplier: FixedU128::from_rational(4, 3)
 	};
 	pub const InboundDeliveryCost: u128 = 1_000_000_000;
-
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -218,6 +209,8 @@ impl crate::Config for Test {
 	type DefaultPricingParameters = Parameters;
 	type WeightInfo = ();
 	type InboundDeliveryCost = InboundDeliveryCost;
+	type UniversalLocation = UniversalLocation;
+	type EthereumLocation = EthereumDestination;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
 }

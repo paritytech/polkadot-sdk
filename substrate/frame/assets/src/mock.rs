@@ -23,7 +23,7 @@ use crate as pallet_assets;
 use codec::Encode;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64},
+	traits::{AsEnsureOriginWithArg, ConstU32},
 };
 use sp_io::storage;
 use sp_runtime::BuildStorage;
@@ -49,20 +49,9 @@ impl frame_system::Config for Test {
 	type MaxConsumers = ConstU32<3>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = u64;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
 }
 
 pub struct AssetsCallbackHandle;
@@ -114,7 +103,7 @@ impl Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Freezer = TestFreezer;
-	type CallbackHandle = AssetsCallbackHandle;
+	type CallbackHandle = (AssetsCallbackHandle, AutoIncAssetId<Test>);
 }
 
 use std::collections::HashMap;
@@ -178,6 +167,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 			// id, account_id, balance
 			(999, 1, 100),
 		],
+		next_asset_id: None,
 	};
 
 	config.assimilate_storage(&mut storage).unwrap();

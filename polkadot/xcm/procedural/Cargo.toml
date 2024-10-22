@@ -14,11 +14,13 @@ workspace = true
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1.0.56"
+proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true }
-Inflector = "0.11.4"
+Inflector = { workspace = true }
 
 [dev-dependencies]
-trybuild = { version = "1.0.88", features = ["diff"] }
-xcm = { package = "staging-xcm", path = ".." }
+trybuild = { features = ["diff"], workspace = true }
+# NOTE: we have to explicitly specify `std` because of trybuild
+# https://github.com/paritytech/polkadot-sdk/pull/5167
+xcm = { workspace = true, default-features = true, features = ["std"] }

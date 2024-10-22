@@ -17,7 +17,7 @@
 
 use crate::{self as frame_system, *};
 use frame_support::{derive_impl, parameter_types};
-use sp_runtime::{BuildStorage, Perbill};
+use sp_runtime::{type_with_default::TypeWithDefault, BuildStorage, Perbill};
 
 type Block = mocking::MockBlock<Test>;
 
@@ -40,7 +40,7 @@ parameter_types! {
 		impl_version: 1,
 		apis: sp_version::create_apis_vec!([]),
 		transaction_version: 1,
-		state_version: 1,
+		system_version: 1,
 	};
 	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight {
 		read: 10,
@@ -78,6 +78,14 @@ impl OnKilledAccount<u64> for RecordKilled {
 	}
 }
 
+#[derive(Debug, TypeInfo)]
+pub struct DefaultNonceProvider;
+impl Get<u64> for DefaultNonceProvider {
+	fn get() -> u64 {
+		System::block_number()
+	}
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type BlockWeights = RuntimeBlockWeights;
@@ -87,6 +95,7 @@ impl Config for Test {
 	type AccountData = u32;
 	type OnKilledAccount = RecordKilled;
 	type MultiBlockMigrator = MockedMigrator;
+	type Nonce = TypeWithDefault<u64, DefaultNonceProvider>;
 }
 
 parameter_types! {

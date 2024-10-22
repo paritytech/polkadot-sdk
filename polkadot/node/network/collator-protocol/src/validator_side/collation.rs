@@ -36,7 +36,6 @@ use polkadot_node_network_protocol::{
 	PeerId,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem::jaeger;
 use polkadot_node_subsystem_util::{
 	metrics::prometheus::prometheus::HistogramTimer, runtime::ProspectiveParachainsMode,
 };
@@ -121,19 +120,15 @@ impl PendingCollation {
 	}
 }
 
-/// v2 or v3 advertisement that was rejected by the backing
-/// subsystem. Validator may fetch it later if its fragment
-/// membership gets recognized before relay parent goes out of view.
-#[derive(Debug, Clone)]
-pub struct BlockedAdvertisement {
-	/// Peer that advertised the collation.
-	pub peer_id: PeerId,
-	/// Collator id.
-	pub collator_id: CollatorId,
-	/// The relay-parent of the candidate.
-	pub candidate_relay_parent: Hash,
-	/// Hash of the candidate.
-	pub candidate_hash: CandidateHash,
+/// An identifier for a fetched collation that was blocked from being seconded because we don't have
+/// access to the parent's HeadData. Can be retried once the candidate outputting this head data is
+/// seconded.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct BlockedCollationId {
+	/// Para id.
+	pub para_id: ParaId,
+	/// Hash of the parent head data.
+	pub parent_head_data_hash: Hash,
 }
 
 /// Performs a sanity check between advertised and fetched collations.
@@ -274,7 +269,7 @@ impl Collations {
 			// We don't need to fetch any other collation when we already have seconded one.
 			CollationStatus::Seconded => None,
 			CollationStatus::Waiting =>
-				if !self.is_seconded_limit_reached(relay_parent_mode) {
+				if self.is_seconded_limit_reached(relay_parent_mode) {
 					None
 				} else {
 					self.waiting_queue.pop_front()
@@ -284,7 +279,7 @@ impl Collations {
 		}
 	}
 
-	/// Checks the limit of seconded candidates for a given para.
+	/// Checks the limit of seconded candidates.
 	pub(super) fn is_seconded_limit_reached(
 		&self,
 		relay_parent_mode: ProspectiveParachainsMode,
@@ -297,7 +292,7 @@ impl Collations {
 			} else {
 				1
 			};
-		self.seconded_count < seconded_limit
+		self.seconded_count >= seconded_limit
 	}
 }
 
@@ -323,8 +318,6 @@ pub(super) struct CollationFetchRequest {
 	pub from_collator: BoxFuture<'static, OutgoingResult<request_v1::CollationFetchingResponse>>,
 	/// Handle used for checking if this request was cancelled.
 	pub cancellation_token: CancellationToken,
-	/// A jaeger span corresponding to the lifetime of the request.
-	pub span: Option<jaeger::Span>,
 	/// A metric histogram for the lifetime of the request
 	pub _lifetime_timer: Option<HistogramTimer>,
 }
@@ -343,7 +336,6 @@ impl Future for CollationFetchRequest {
 		};
 
 		if cancelled {
-			self.span.as_mut().map(|s| s.add_string_tag("success", "false"));
 			return Poll::Ready((
 				CollationEvent {
 					collator_protocol_version: self.collator_protocol_version,
@@ -364,16 +356,6 @@ impl Future for CollationFetchRequest {
 				res.map_err(CollationFetchError::Request),
 			)
 		});
-
-		match &res {
-			Poll::Ready((_, Ok(_))) => {
-				self.span.as_mut().map(|s| s.add_string_tag("success", "true"));
-			},
-			Poll::Ready((_, Err(_))) => {
-				self.span.as_mut().map(|s| s.add_string_tag("success", "false"));
-			},
-			_ => {},
-		};
 
 		res
 	}

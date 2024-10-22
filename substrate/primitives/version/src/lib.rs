@@ -33,13 +33,17 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+#[cfg(any(feature = "std", feature = "serde"))]
+use alloc::fmt;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use std::collections::HashSet;
-#[cfg(feature = "std")]
-use std::fmt;
 
+#[doc(hidden)]
+pub use alloc::borrow::Cow;
 use codec::{Decode, Encode, Input};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeString;
@@ -79,7 +83,7 @@ pub mod embed;
 /// 	impl_version: 1,
 /// 	apis: RUNTIME_API_VERSIONS,
 /// 	transaction_version: 2,
-/// 	state_version: 1,
+/// 	system_version: 1,
 /// };
 ///
 /// # const RUNTIME_API_VERSIONS: sp_version::ApisVec = sp_version::create_apis_vec!([]);
@@ -139,13 +143,13 @@ pub use sp_version_proc_macro::runtime_version;
 pub type ApiId = [u8; 8];
 
 /// A vector of pairs of `ApiId` and a `u32` for version.
-pub type ApisVec = sp_std::borrow::Cow<'static, [(ApiId, u32)]>;
+pub type ApisVec = alloc::borrow::Cow<'static, [(ApiId, u32)]>;
 
 /// Create a vector of Api declarations.
 #[macro_export]
 macro_rules! create_apis_vec {
 	( $y:expr ) => {
-		$crate::sp_std::borrow::Cow::Borrowed(&$y)
+		$crate::Cow::Borrowed(&$y)
 	};
 }
 
@@ -156,8 +160,6 @@ macro_rules! create_apis_vec {
 /// `authoring_version`, absolutely not `impl_version` since they change the semantics of the
 /// runtime.
 #[derive(Clone, PartialEq, Eq, Encode, Default, sp_runtime::RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct RuntimeVersion {
 	/// Identifies the different Substrate runtimes. There'll be at least polkadot and node.
 	/// A different on-chain spec_name to that of the native runtime would normally result
@@ -196,13 +198,6 @@ pub struct RuntimeVersion {
 	pub impl_version: u32,
 
 	/// List of supported API "features" along with their versions.
-	#[cfg_attr(
-		feature = "serde",
-		serde(
-			serialize_with = "apis_serialize::serialize",
-			deserialize_with = "apis_serialize::deserialize",
-		)
-	)]
 	pub apis: ApisVec,
 
 	/// All existing calls (dispatchables) are fully compatible when this number doesn't change. If
@@ -226,9 +221,406 @@ pub struct RuntimeVersion {
 	/// This number should never decrease.
 	pub transaction_version: u32,
 
-	/// Version of the state implementation used by this runtime.
+	/// Version of the system implementation used by this runtime.
 	/// Use of an incorrect version is consensus breaking.
-	pub state_version: u8,
+	pub system_version: u8,
+}
+
+// Manual implementation in order to sprinkle `stateVersion` at the end for migration purposes
+// after the field was renamed from `state_version` to `system_version`
+#[cfg(feature = "serde")]
+impl serde::Serialize for RuntimeVersion {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		use serde::ser::SerializeStruct;
+
+		let mut state = serializer.serialize_struct("RuntimeVersion", 9)?;
+		state.serialize_field("specName", &self.spec_name)?;
+		state.serialize_field("implName", &self.impl_name)?;
+		state.serialize_field("authoringVersion", &self.authoring_version)?;
+		state.serialize_field("specVersion", &self.spec_version)?;
+		state.serialize_field("implVersion", &self.impl_version)?;
+		state.serialize_field("apis", {
+			struct SerializeWith<'a>(&'a ApisVec);
+
+			impl<'a> serde::Serialize for SerializeWith<'a> {
+				fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+				where
+					S: serde::Serializer,
+				{
+					apis_serialize::serialize(self.0, serializer)
+				}
+			}
+
+			&SerializeWith(&self.apis)
+		})?;
+		state.serialize_field("transactionVersion", &self.transaction_version)?;
+		state.serialize_field("systemVersion", &self.system_version)?;
+		state.serialize_field("stateVersion", &self.system_version)?;
+		state.end()
+	}
+}
+
+// Manual implementation in order to allow both old `stateVersion` and new `systemVersion` to be
+// present at the same time
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for RuntimeVersion {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		use core::marker::PhantomData;
+
+		enum Field {
+			SpecName,
+			ImplName,
+			AuthoringVersion,
+			SpecVersion,
+			ImplVersion,
+			Apis,
+			TransactionVersion,
+			SystemVersion,
+			Ignore,
+		}
+
+		struct FieldVisitor;
+
+		impl<'de> serde::de::Visitor<'de> for FieldVisitor {
+			type Value = Field;
+
+			fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+				formatter.write_str("field identifier")
+			}
+
+			fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+			where
+				E: serde::de::Error,
+			{
+				match value {
+					0 => Ok(Field::SpecName),
+					1 => Ok(Field::ImplName),
+					2 => Ok(Field::AuthoringVersion),
+					3 => Ok(Field::SpecVersion),
+					4 => Ok(Field::ImplVersion),
+					5 => Ok(Field::Apis),
+					6 => Ok(Field::TransactionVersion),
+					7 => Ok(Field::SystemVersion),
+					_ => Ok(Field::Ignore),
+				}
+			}
+
+			fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+			where
+				E: serde::de::Error,
+			{
+				match value {
+					"specName" => Ok(Field::SpecName),
+					"implName" => Ok(Field::ImplName),
+					"authoringVersion" => Ok(Field::AuthoringVersion),
+					"specVersion" => Ok(Field::SpecVersion),
+					"implVersion" => Ok(Field::ImplVersion),
+					"apis" => Ok(Field::Apis),
+					"transactionVersion" => Ok(Field::TransactionVersion),
+					"systemVersion" | "stateVersion" => Ok(Field::SystemVersion),
+					_ => Ok(Field::Ignore),
+				}
+			}
+
+			fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
+			where
+				E: serde::de::Error,
+			{
+				match value {
+					b"specName" => Ok(Field::SpecName),
+					b"implName" => Ok(Field::ImplName),
+					b"authoringVersion" => Ok(Field::AuthoringVersion),
+					b"specVersion" => Ok(Field::SpecVersion),
+					b"implVersion" => Ok(Field::ImplVersion),
+					b"apis" => Ok(Field::Apis),
+					b"transactionVersion" => Ok(Field::TransactionVersion),
+					b"systemVersion" | b"stateVersion" => Ok(Field::SystemVersion),
+					_ => Ok(Field::Ignore),
+				}
+			}
+		}
+
+		impl<'de> serde::Deserialize<'de> for Field {
+			#[inline]
+			fn deserialize<E>(deserializer: E) -> Result<Self, E::Error>
+			where
+				E: serde::Deserializer<'de>,
+			{
+				deserializer.deserialize_identifier(FieldVisitor)
+			}
+		}
+
+		struct Visitor<'de> {
+			lifetime: PhantomData<&'de ()>,
+		}
+		impl<'de> serde::de::Visitor<'de> for Visitor<'de> {
+			type Value = RuntimeVersion;
+
+			fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+				formatter.write_str("struct RuntimeVersion")
+			}
+
+			#[inline]
+			fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+			where
+				A: serde::de::SeqAccess<'de>,
+			{
+				let spec_name = match seq.next_element()? {
+					Some(spec_name) => spec_name,
+					None =>
+						return Err(serde::de::Error::invalid_length(
+							0usize,
+							&"struct RuntimeVersion with 8 elements",
+						)),
+				};
+				let impl_name = match seq.next_element()? {
+					Some(impl_name) => impl_name,
+					None =>
+						return Err(serde::de::Error::invalid_length(
+							1usize,
+							&"struct RuntimeVersion with 8 elements",
+						)),
+				};
+				let authoring_version = match seq.next_element()? {
+					Some(authoring_version) => authoring_version,
+					None =>
+						return Err(serde::de::Error::invalid_length(
+							2usize,
+							&"struct RuntimeVersion with 8 elements",
+						)),
+				};
+				let spec_version = match seq.next_element()? {
+					Some(spec_version) => spec_version,
+					None =>
+						return Err(serde::de::Error::invalid_length(
+							3usize,
+							&"struct RuntimeVersion with 8 elements",
+						)),
+				};
+				let impl_version = match seq.next_element()? {
+					Some(impl_version) => impl_version,
+					None =>
+						return Err(serde::de::Error::invalid_length(
+							4usize,
+							&"struct RuntimeVersion with 8 elements",
+						)),
+				};
+				let apis = match {
+					struct DeserializeWith<'de> {
+						value: ApisVec,
+
+						phantom: PhantomData<RuntimeVersion>,
+						lifetime: PhantomData<&'de ()>,
+					}
+					impl<'de> serde::Deserialize<'de> for DeserializeWith<'de> {
+						fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+						where
+							D: serde::Deserializer<'de>,
+						{
+							Ok(DeserializeWith {
+								value: apis_serialize::deserialize(deserializer)?,
+								phantom: PhantomData,
+								lifetime: PhantomData,
+							})
+						}
+					}
+					seq.next_element::<DeserializeWith<'de>>()?.map(|wrap| wrap.value)
+				} {
+					Some(apis) => apis,
+					None =>
+						return Err(serde::de::Error::invalid_length(
+							5usize,
+							&"struct RuntimeVersion with 8 elements",
+						)),
+				};
+				let transaction_version = match seq.next_element()? {
+					Some(transaction_version) => transaction_version,
+					None =>
+						return Err(serde::de::Error::invalid_length(
+							6usize,
+							&"struct RuntimeVersion with 8 elements",
+						)),
+				};
+				let system_version = match seq.next_element()? {
+					Some(system_version) => system_version,
+					None =>
+						return Err(serde::de::Error::invalid_length(
+							7usize,
+							&"struct RuntimeVersion with 8 elements",
+						)),
+				};
+				Ok(RuntimeVersion {
+					spec_name,
+					impl_name,
+					authoring_version,
+					spec_version,
+					impl_version,
+					apis,
+					transaction_version,
+					system_version,
+				})
+			}
+
+			#[inline]
+			fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+			where
+				A: serde::de::MapAccess<'de>,
+			{
+				let mut spec_name: Option<RuntimeString> = None;
+				let mut impl_name: Option<RuntimeString> = None;
+				let mut authoring_version: Option<u32> = None;
+				let mut spec_version: Option<u32> = None;
+				let mut impl_version: Option<u32> = None;
+				let mut apis: Option<ApisVec> = None;
+				let mut transaction_version: Option<u32> = None;
+				let mut system_version: Option<u8> = None;
+
+				while let Some(key) = map.next_key()? {
+					match key {
+						Field::SpecName => {
+							if spec_name.is_some() {
+								return Err(<A::Error as serde::de::Error>::duplicate_field(
+									"specName",
+								));
+							}
+							spec_name = Some(map.next_value()?);
+						},
+						Field::ImplName => {
+							if impl_name.is_some() {
+								return Err(<A::Error as serde::de::Error>::duplicate_field(
+									"implName",
+								));
+							}
+							impl_name = Some(map.next_value()?);
+						},
+						Field::AuthoringVersion => {
+							if authoring_version.is_some() {
+								return Err(<A::Error as serde::de::Error>::duplicate_field(
+									"authoringVersion",
+								));
+							}
+							authoring_version = Some(map.next_value()?);
+						},
+						Field::SpecVersion => {
+							if spec_version.is_some() {
+								return Err(<A::Error as serde::de::Error>::duplicate_field(
+									"specVersion",
+								));
+							}
+							spec_version = Some(map.next_value()?);
+						},
+						Field::ImplVersion => {
+							if impl_version.is_some() {
+								return Err(<A::Error as serde::de::Error>::duplicate_field(
+									"implVersion",
+								));
+							}
+							impl_version = Some(map.next_value()?);
+						},
+						Field::Apis => {
+							if apis.is_some() {
+								return Err(<A::Error as serde::de::Error>::duplicate_field("apis"));
+							}
+							apis = Some({
+								struct DeserializeWith<'de> {
+									value: ApisVec,
+									lifetime: PhantomData<&'de ()>,
+								}
+								impl<'de> serde::Deserialize<'de> for DeserializeWith<'de> {
+									fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+									where
+										D: serde::Deserializer<'de>,
+									{
+										Ok(DeserializeWith {
+											value: apis_serialize::deserialize(deserializer)?,
+											lifetime: PhantomData,
+										})
+									}
+								}
+
+								map.next_value::<DeserializeWith<'de>>()?.value
+							});
+						},
+						Field::TransactionVersion => {
+							if transaction_version.is_some() {
+								return Err(<A::Error as serde::de::Error>::duplicate_field(
+									"transactionVersion",
+								));
+							}
+							transaction_version = Some(map.next_value()?);
+						},
+						Field::SystemVersion =>
+							if let Some(system_version) = system_version {
+								let new_value = map.next_value::<u8>()?;
+								if system_version != new_value {
+									return Err(<A::Error as serde::de::Error>::custom(
+										alloc::format!(
+											r#"Duplicated "stateVersion" and "systemVersion" \
+											fields must have the same value, but different values \
+											were provided: {system_version} vs {new_value}"#
+										),
+									));
+								}
+							} else {
+								system_version = Some(map.next_value()?);
+							},
+						_ => {
+							let _ = map.next_value::<serde::de::IgnoredAny>()?;
+						},
+					}
+				}
+				let spec_name = spec_name
+					.ok_or_else(|| <A::Error as serde::de::Error>::missing_field("specName"))?;
+				let impl_name = impl_name
+					.ok_or_else(|| <A::Error as serde::de::Error>::missing_field("implName"))?;
+				let authoring_version = authoring_version.ok_or_else(|| {
+					<A::Error as serde::de::Error>::missing_field("authoringVersion")
+				})?;
+				let spec_version = spec_version
+					.ok_or_else(|| <A::Error as serde::de::Error>::missing_field("specVersion"))?;
+				let impl_version = impl_version
+					.ok_or_else(|| <A::Error as serde::de::Error>::missing_field("implVersion"))?;
+				let apis =
+					apis.ok_or_else(|| <A::Error as serde::de::Error>::missing_field("apis"))?;
+				let transaction_version = transaction_version.ok_or_else(|| {
+					<A::Error as serde::de::Error>::missing_field("transactionVersion")
+				})?;
+				let system_version = system_version.ok_or_else(|| {
+					<A::Error as serde::de::Error>::missing_field("systemVersion")
+				})?;
+				Ok(RuntimeVersion {
+					spec_name,
+					impl_name,
+					authoring_version,
+					spec_version,
+					impl_version,
+					apis,
+					transaction_version,
+					system_version,
+				})
+			}
+		}
+
+		const FIELDS: &[&str] = &[
+			"specName",
+			"implName",
+			"authoringVersion",
+			"specVersion",
+			"implVersion",
+			"apis",
+			"transactionVersion",
+			"stateVersion",
+			"systemVersion",
+		];
+
+		deserializer.deserialize_struct("RuntimeVersion", FIELDS, Visitor { lifetime: PhantomData })
+	}
 }
 
 impl RuntimeVersion {
@@ -253,7 +645,7 @@ impl RuntimeVersion {
 			if core_version.is_some() { core_version } else { core_version_from_apis(&apis) };
 		let transaction_version =
 			if core_version.map(|v| v >= 3).unwrap_or(false) { Decode::decode(input)? } else { 1 };
-		let state_version =
+		let system_version =
 			if core_version.map(|v| v >= 4).unwrap_or(false) { Decode::decode(input)? } else { 0 };
 		Ok(RuntimeVersion {
 			spec_name,
@@ -263,7 +655,7 @@ impl RuntimeVersion {
 			impl_version,
 			apis,
 			transaction_version,
-			state_version,
+			system_version,
 		})
 	}
 }
@@ -330,7 +722,17 @@ impl RuntimeVersion {
 	/// Otherwise, V1 trie version will be use.
 	pub fn state_version(&self) -> StateVersion {
 		// If version > than 1, keep using latest version.
-		self.state_version.try_into().unwrap_or(StateVersion::V1)
+		self.system_version.try_into().unwrap_or(StateVersion::V1)
+	}
+
+	/// Returns the state version to use for Extrinsics root.
+	pub fn extrinsics_root_state_version(&self) -> StateVersion {
+		match self.system_version {
+			// for system version 0 and 1, return V0
+			0 | 1 => StateVersion::V0,
+			// anything above 1, return V1
+			_ => StateVersion::V1,
+		}
 	}
 }
 
@@ -409,9 +811,9 @@ impl<T: GetNativeVersion> GetNativeVersion for std::sync::Arc<T> {
 #[cfg(feature = "serde")]
 mod apis_serialize {
 	use super::*;
+	use alloc::vec::Vec;
 	use impl_serde::serialize as bytes;
 	use serde::{de, ser::SerializeTuple, Serializer};
-	use sp_std::vec::Vec;
 
 	#[derive(Serialize)]
 	struct ApiId<'a>(#[serde(serialize_with = "serialize_bytesref")] &'a super::ApiId, &'a u32);
@@ -446,7 +848,7 @@ mod apis_serialize {
 		impl<'de> de::Visitor<'de> for Visitor {
 			type Value = ApisVec;
 
-			fn expecting(&self, formatter: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+			fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
 				formatter.write_str("a sequence of api id and version tuples")
 			}
 

@@ -2,8 +2,14 @@
 
 This release contains the changes from `{{ env.REF1 | replace(from="refs/tags/", to="") }}` to `{{ env.REF2 | replace(from="refs/tags/", to="") }}`.
 
+{# -- Manual free notes section -- #}
+{% include "_free_notes.md.tera" -%}
+
+{# -- Automatic section -- #}
 {% include "changes.md.tera" -%}
 
 {% include "compiler.md.tera" -%}
 
 {% include "runtimes.md.tera" -%}
+
+{% include "docker_image.md.tera" -%}

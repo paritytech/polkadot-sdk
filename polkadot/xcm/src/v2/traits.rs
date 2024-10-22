@@ -1,24 +1,24 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
+// This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Cross-Consensus Message format data structures.
 
 use crate::v3::Error as NewError;
+use codec::{Decode, Encode};
 use core::result;
-use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
 use super::*;
@@ -282,7 +282,7 @@ pub type SendResult = result::Result<(), SendError>;
 /// # Example
 /// ```rust
 /// # use staging_xcm::v2::prelude::*;
-/// # use parity_scale_codec::Encode;
+/// # use codec::Encode;
 ///
 /// /// A sender that only passes the message through and does nothing.
 /// struct Sender1;
