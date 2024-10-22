@@ -109,10 +109,6 @@ jobs:
             }
           }
 
-          expect "Setup the Rust environment" {
-            send "y\r"
-          }
-
           expect "start with one of the templates" {
             send "y\r"
           }
