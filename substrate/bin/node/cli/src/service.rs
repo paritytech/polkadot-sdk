@@ -158,12 +158,13 @@ pub fn create_extrinsic(
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
 
-	kitchensink_runtime::UncheckedExtrinsic::new_signed(
+	generic::UncheckedExtrinsic::new_signed(
 		function,
 		sp_runtime::AccountId32::from(sender.public()).into(),
 		kitchensink_runtime::Signature::Sr25519(signature),
 		tx_ext,
 	)
+	.into()
 }
 
 /// Creates a new partial node.
@@ -866,7 +867,7 @@ mod tests {
 	use codec::Encode;
 	use kitchensink_runtime::{
 		constants::{currency::CENTS, time::SLOT_DURATION},
-		Address, BalancesCall, RuntimeCall, TxExtension, UncheckedExtrinsic,
+		Address, BalancesCall, RuntimeCall, TxExtension,
 	};
 	use node_primitives::{Block, DigestItem, Signature};
 	use polkadot_sdk::{sc_transaction_pool_api::MaintainedTransactionPool, *};
@@ -883,7 +884,7 @@ mod tests {
 	use sp_keyring::AccountKeyring;
 	use sp_keystore::KeystorePtr;
 	use sp_runtime::{
-		generic::{Digest, Era, SignedPayload},
+		generic::{self, Digest, Era, SignedPayload},
 		key_types::BABE,
 		traits::{Block as BlockT, Header as HeaderT, IdentifyAccount, Verify},
 		RuntimeAppPublic,
@@ -1099,8 +1100,16 @@ mod tests {
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
 				let (function, tx_ext, _) = raw_payload.deconstruct();
 				index += 1;
-				UncheckedExtrinsic::new_signed(function, from.into(), signature.into(), tx_ext)
-					.into()
+				let utx: kitchensink_runtime::UncheckedExtrinsic =
+					generic::UncheckedExtrinsic::new_signed(
+						function,
+						from.into(),
+						signature.into(),
+						tx_ext,
+					)
+					.into();
+
+				utx.into()
 			},
 		);
 	}
