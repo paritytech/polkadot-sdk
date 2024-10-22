@@ -289,7 +289,8 @@ def main():
             build_command = f"cargo build -p {runtime['old_package']} --profile {profile} --features={runtime['bench_features']} --locked"
             print(f'-- building {runtime["name"]} with `{build_command}`')
             os.system(build_command)
-            print(f'-- listing pallets for benchmark for {runtime["name"]}')
+            chain = runtime['name'] if runtime == 'dev' else f"{runtime['name']}-dev"
+            print(f'-- listing pallets for benchmark for {chain}')
             list_command = f"target/{profile}/{runtime['old_bin']} " \
                 f"benchmark pallet " \
                 f"--no-csv-header " \
@@ -298,7 +299,7 @@ def main():
                 f"--no-median-slopes " \
                 f"--all " \
                 f"--list " \
-                f"--chain={runtime['name']}"
+                f"--chain={chain}"
             print(f'-- running: {list_command}')
             output = os.popen(list_command).read()
             raw_pallets = output.strip().split('\n')
