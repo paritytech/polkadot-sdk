@@ -87,3 +87,17 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-revive/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-utility/try-runtime",
+	"pallet-xcm/try-runtime",
+	"polkadot-runtime-parachains/try-runtime",
+	"sp-runtime/try-runtime",
+]
