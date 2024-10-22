@@ -20,7 +20,6 @@ use inflector::Inflector;
 use proc_macro2::{Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
-use std::collections::HashSet;
 use syn::{
 	parse_quote, punctuated::Punctuated, spanned::Spanned, token::And, Attribute, Error, Expr,
 	ExprLit, FnArg, GenericArgument, Ident, ItemImpl, Lit, Meta, MetaNameValue, Pat, Path,
@@ -216,25 +215,6 @@ pub fn extract_impl_trait(impl_: &ItemImpl, require: RequireQualifiedTraitPath) 
 		})
 }
 
-/// Extracts all unique `Ident`'s from the given `TypePath`
-pub fn extract_angle_bracketed_idents_from_type_path(type_path: &TypePath) -> HashSet<&Ident> {
-	let mut idents = HashSet::new();
-
-	for segment in &type_path.path.segments {
-		if let PathArguments::AngleBracketed(args) = &segment.arguments {
-			args.args.iter().for_each(|arg| {
-				if let GenericArgument::Type(Type::Path(p)) = arg {
-					if let Some(ident) = p.path.get_ident() {
-						idents.insert(ident);
-					}
-				}
-			});
-		}
-	}
-
-	idents
-}
-
 /// Parse the given attribute as `API_VERSION_ATTRIBUTE`.
 pub fn parse_runtime_api_version(version: &Attribute) -> Result<u64> {
 	let version = version.parse_args::<syn::LitInt>().map_err(|_| {
@@ -399,15 +379,6 @@ mod tests {
 		assert_eq!(filtered.len(), 2);
 		assert_eq!(cfg_std, filtered[0]);
 		assert_eq!(cfg_benchmarks, filtered[1]);
-	}
-
-	#[test]
-	fn check_extract_angle_bracketed_idents_from_type_path() {
-		let type_path: TypePath = parse_quote!(polkadot_primitives::types::HeaderFor<Self>);
-		let idents = extract_angle_bracketed_idents_from_type_path(&type_path);
-
-		assert_eq!(idents.len(), 1);
-		assert!(idents.contains(&&format_ident!("Self")));
 	}
 
 	fn check_deprecated_attr() {

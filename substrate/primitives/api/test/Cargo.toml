@@ -27,6 +27,10 @@ sp-state-machine = { workspace = true, default-features = true }
 trybuild = { workspace = true }
 rustversion = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+quote = { workspace = true }
+syn = { features = ["extra-traits", "fold", "full", "visit"], workspace = true }
+proc-macro2 = { workspace = true }
+sp-api-proc-macro = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
