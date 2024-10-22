@@ -182,12 +182,11 @@ mod build {
 	pub fn run() -> Result<()> {
 		let fixtures_dir: PathBuf = env::var("CARGO_MANIFEST_DIR")?.into();
 		let contracts_dir = fixtures_dir.join("contracts");
-		let uapi_dir = fixtures_dir.parent().expect("uapi dir exits; qed").join("uapi");
-
 		let out_dir: PathBuf = env::var("OUT_DIR")?.into();
 
 		// the fixtures have a dependency on the uapi crate
 		println!("cargo::rerun-if-changed={}", fixtures_dir.display());
+		let uapi_dir = fixtures_dir.parent().expect("parent dir exits; qed").join("uapi");
 		if uapi_dir.exists() {
 			println!("cargo::rerun-if-changed={}", uapi_dir.display());
 		}
