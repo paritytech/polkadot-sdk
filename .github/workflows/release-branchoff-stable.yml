@@ -77,7 +77,6 @@ jobs:
           git config --global user.name "ParityReleases"
           git config --global user.email "release-team@parity.io"
           git config --global user.signingKey "90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE"
-          git config --global credential.helper '!gh auth git-credential'
 
       - name: Generate content write token for the release automation
         id: generate_write_token
@@ -112,5 +111,7 @@ jobs:
           # set_polkadot_parachain_binary_version $NODE_VERSION "cumulus/polkadot-parachain/Cargo.toml"
 
           reorder_prdocs $STABLE_BRANCH_NAME
+
+          gh auth setup-git
 
           git push origin "$STABLE_BRANCH_NAME"
