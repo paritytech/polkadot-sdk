@@ -188,7 +188,9 @@ mod build {
 
 		// the fixtures have a dependency on the uapi crate
 		println!("cargo::rerun-if-changed={}", fixtures_dir.display());
-		println!("cargo::rerun-if-changed={}", uapi_dir.display());
+		if uapi_dir.exists() {
+			println!("cargo::rerun-if-changed={}", uapi_dir.display());
+		}
 
 		let entries = collect_entries(&contracts_dir);
 		if entries.is_empty() {
