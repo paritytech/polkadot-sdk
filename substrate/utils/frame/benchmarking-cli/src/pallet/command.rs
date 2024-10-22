@@ -59,11 +59,8 @@ use std::{
 /// Logging target
 const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::pallet";
 
-type SubstrateAndExtraHF<T> = (
-	sp_io::SubstrateHostFunctions,
-	frame_benchmarking::benchmarking::HostFunctions,
-	T,
-);
+type SubstrateAndExtraHF<T> =
+	(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions, T);
 /// How the PoV size of a storage item should be estimated.
 #[derive(clap::ValueEnum, Debug, Eq, PartialEq, Clone, Copy)]
 pub enum PovEstimationMode {
@@ -211,7 +208,7 @@ impl PalletCmd {
 			&self.runtime,
 			Some(&code_bytes),
 			&self.genesis_builder_preset,
-			&chain_spec
+			&chain_spec,
 		)?;
 
 		let cache_size = Some(self.database_cache_size as usize);
@@ -242,13 +239,13 @@ impl PalletCmd {
 		let alloc_strategy = self.alloc_strategy(runtime_code.heap_pages);
 
 		let executor = WasmExecutor::<SubstrateAndExtraHF<ExtraHostFunctions>>::builder()
-		.with_execution_method(method)
-		.with_allow_missing_host_functions(self.allow_missing_host_functions)
-		.with_onchain_heap_alloc_strategy(alloc_strategy)
-		.with_offchain_heap_alloc_strategy(alloc_strategy)
-		.with_max_runtime_instances(2)
-		.with_runtime_cache_size(2)
-		.build();
+			.with_execution_method(method)
+			.with_allow_missing_host_functions(self.allow_missing_host_functions)
+			.with_onchain_heap_alloc_strategy(alloc_strategy)
+			.with_offchain_heap_alloc_strategy(alloc_strategy)
+			.with_max_runtime_instances(2)
+			.with_runtime_cache_size(2)
+			.build();
 
 		let (list, storage_info): (Vec<BenchmarkList>, Vec<StorageInfo>) =
 			Self::exec_state_machine(
@@ -551,15 +548,15 @@ impl PalletCmd {
 		Ok(benchmarks_to_run)
 	}
 
-    /// Whether this pallet should be run.
-    fn pallet_selected(&self, pallet: &Vec<u8>) -> bool {
-        let include = self.pallet.clone().unwrap_or_default();
+	/// Whether this pallet should be run.
+	fn pallet_selected(&self, pallet: &Vec<u8>) -> bool {
+		let include = self.pallet.clone().unwrap_or_default();
 
-        let included = include.is_empty() || include == "*" || include.as_bytes() == pallet;
-        let excluded = self.exclude_pallets.iter().any(|p| p.as_bytes() == pallet);
+		let included = include.is_empty() || include == "*" || include.as_bytes() == pallet;
+		let excluded = self.exclude_pallets.iter().any(|p| p.as_bytes() == pallet);
 
-        included && !excluded
-    }
+		included && !excluded
+	}
 
 	/// Execute a state machine and decode its return value as `R`.
 	fn exec_state_machine<R: Decode, H: Hash, Exec: CodeExecutor>(
