@@ -142,7 +142,7 @@ fn westend_sign_call(
 	use sp_core::Pair;
 	use westend_runtime as runtime;
 
-	let extra: runtime::SignedExtra = (
+	let tx_ext: runtime::TxExtension = (
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckTxVersion::<runtime::Runtime>::new(),
@@ -155,11 +155,12 @@ fn westend_sign_call(
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
 		frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
-	);
+	)
+		.into();
 
 	let payload = runtime::SignedPayload::from_raw(
 		call.clone(),
-		extra.clone(),
+		tx_ext.clone(),
 		(
 			(),
 			runtime::VERSION.spec_version,
@@ -178,7 +179,7 @@ fn westend_sign_call(
 		call,
 		sp_runtime::AccountId32::from(acc.public()).into(),
 		polkadot_core_primitives::Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 	.into()
 }
@@ -196,7 +197,7 @@ fn rococo_sign_call(
 	use rococo_runtime as runtime;
 	use sp_core::Pair;
 
-	let extra: runtime::SignedExtra = (
+	let tx_ext: runtime::TxExtension = (
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckTxVersion::<runtime::Runtime>::new(),
@@ -209,11 +210,12 @@ fn rococo_sign_call(
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
 		frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
-	);
+	)
+		.into();
 
 	let payload = runtime::SignedPayload::from_raw(
 		call.clone(),
-		extra.clone(),
+		tx_ext.clone(),
 		(
 			(),
 			runtime::VERSION.spec_version,
@@ -232,7 +234,7 @@ fn rococo_sign_call(
 		call,
 		sp_runtime::AccountId32::from(acc.public()).into(),
 		polkadot_core_primitives::Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 	.into()
 }

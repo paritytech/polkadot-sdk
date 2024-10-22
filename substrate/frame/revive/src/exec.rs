@@ -66,6 +66,10 @@ type VarSizedKey = BoundedVec<u8, ConstU32<{ limits::STORAGE_KEY_BYTES }>>;
 
 const FRAME_ALWAYS_EXISTS_ON_INSTANTIATE: &str = "The return value is only `None` if no contract exists at the specified address. This cannot happen on instantiate or delegate; qed";
 
+/// Code hash of existing account without code (keccak256 hash of empty data).
+pub const EMPTY_CODE_HASH: H256 =
+	H256(sp_core::hex2array!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"));
+
 /// Combined key type for both fixed and variable sized storage keys.
 pub enum Key {
 	/// Variant for fixed sized keys.
@@ -272,9 +276,8 @@ pub trait Ext: sealing::Sealed {
 	fn is_contract(&self, address: &H160) -> bool;
 
 	/// Returns the code hash of the contract for the given `address`.
-	///
-	/// Returns `None` if the `address` does not belong to a contract.
-	fn code_hash(&self, address: &H160) -> Option<H256>;
+	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
+	fn code_hash(&self, address: &H160) -> H256;
 
 	/// Returns the code hash of the contract being executed.
 	fn own_code_hash(&mut self) -> &H256;
@@ -1536,8 +1539,15 @@ where
 		ContractInfoOf::<T>::contains_key(&address)
 	}
 
-	fn code_hash(&self, address: &H160) -> Option<H256> {
-		<ContractInfoOf<T>>::get(&address).map(|contract| contract.code_hash)
+	fn code_hash(&self, address: &H160) -> H256 {
+		<ContractInfoOf<T>>::get(&address)
+			.map(|contract| contract.code_hash)
+			.unwrap_or_else(|| {
+				if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) {
+					return EMPTY_CODE_HASH;
+				}
+				H256::zero()
+			})
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
@@ -1817,9 +1827,10 @@ mod tests {
 	};
 	use assert_matches::assert_matches;
 	use frame_support::{assert_err, assert_ok, parameter_types};
-	use frame_system::{EventRecord, Phase};
+	use frame_system::{AccountInfo, EventRecord, Phase};
 	use pallet_revive_uapi::ReturnFlags;
 	use pretty_assertions::assert_eq;
+	use sp_io::hashing::keccak_256;
 	use sp_runtime::{traits::Hash, DispatchError};
 	use std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};
 
@@ -1870,8 +1881,8 @@ mod tests {
 			f: impl Fn(MockCtx, &MockExecutable) -> ExecResult + 'static,
 		) -> H256 {
 			Loader::mutate(|loader| {
-				// Generate code hashes as monotonically increasing values.
-				let hash = <Test as frame_system::Config>::Hash::from_low_u64_be(loader.counter);
+				// Generate code hashes from contract index value.
+				let hash = H256(keccak_256(&loader.counter.to_le_bytes()));
 				loader.counter += 1;
 				loader.map.insert(
 					hash,
@@ -2386,16 +2397,25 @@ mod tests {
 
 	#[test]
 	fn code_hash_returns_proper_values() {
-		let code_bob = MockLoader::insert(Call, |ctx, _| {
-			// ALICE is not a contract and hence they do not have a code_hash
-			assert!(ctx.ext.code_hash(&ALICE_ADDR).is_none());
-			// BOB is a contract and hence it has a code_hash
-			assert!(ctx.ext.code_hash(&BOB_ADDR).is_some());
+		let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
+			// ALICE is not a contract but account exists so it returns hash of empty data
+			assert_eq!(ctx.ext.code_hash(&ALICE_ADDR), EMPTY_CODE_HASH);
+			// BOB is a contract (this function) and hence it has a code_hash.
+			// `MockLoader` uses contract index to generate the code hash.
+			assert_eq!(ctx.ext.code_hash(&BOB_ADDR), H256(keccak_256(&0u64.to_le_bytes())));
+			// [0xff;20] doesn't exist and returns hash zero
+			assert!(ctx.ext.code_hash(&H160([0xff; 20])).is_zero());
+
 			exec_success()
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			place_contract(&BOB, code_bob);
+			// add alice account info to test case EOA code hash
+			frame_system::Account::<Test>::insert(
+				<Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR),
+				AccountInfo { consumers: 1, providers: 1, ..Default::default() },
+			);
+			place_contract(&BOB, bob_code_hash);
 			let origin = Origin::from_account_id(ALICE);
 			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
 			// ALICE (not contract) -> BOB (contract)
@@ -2415,7 +2435,7 @@ mod tests {
 	#[test]
 	fn own_code_hash_returns_proper_values() {
 		let bob_ch = MockLoader::insert(Call, |ctx, _| {
-			let code_hash = ctx.ext.code_hash(&BOB_ADDR).unwrap();
+			let code_hash = ctx.ext.code_hash(&BOB_ADDR);
 			assert_eq!(*ctx.ext.own_code_hash(), code_hash);
 			exec_success()
 		});

@@ -919,20 +919,11 @@ pub trait IsInherent<Extrinsic> {
 }
 
 /// An extrinsic on which we can get access to call.
-pub trait ExtrinsicCall: sp_runtime::traits::Extrinsic {
+pub trait ExtrinsicCall: sp_runtime::traits::ExtrinsicLike {
+	type Call;
+
 	/// Get the call of the extrinsic.
 	fn call(&self) -> &Self::Call;
-}
-
-#[cfg(feature = "std")]
-impl<Call, Extra> ExtrinsicCall for sp_runtime::testing::TestXt<Call, Extra>
-where
-	Call: codec::Codec + Sync + Send + TypeInfo,
-	Extra: TypeInfo,
-{
-	fn call(&self) -> &Self::Call {
-		&self.call
-	}
 }
 
 impl<Address, Call, Signature, Extra> ExtrinsicCall
@@ -941,10 +932,69 @@ where
 	Address: TypeInfo,
 	Call: TypeInfo,
 	Signature: TypeInfo,
-	Extra: sp_runtime::traits::SignedExtension + TypeInfo,
+	Extra: TypeInfo,
 {
-	fn call(&self) -> &Self::Call {
+	type Call = Call;
+
+	fn call(&self) -> &Call {
 		&self.function
+	}
+}
+
+/// Interface for types capable of constructing an inherent extrinsic.
+pub trait InherentBuilder: ExtrinsicCall {
+	/// Create a new inherent from a given call.
+	fn new_inherent(call: Self::Call) -> Self;
+}
+
+impl<Address, Call, Signature, Extra> InherentBuilder
+	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
+where
+	Address: TypeInfo,
+	Call: TypeInfo,
+	Signature: TypeInfo,
+	Extra: TypeInfo,
+{
+	fn new_inherent(call: Self::Call) -> Self {
+		Self::new_bare(call)
+	}
+}
+
+/// Interface for types capable of constructing a signed transaction.
+pub trait SignedTransactionBuilder: ExtrinsicCall {
+	type Address;
+	type Signature;
+	type Extension;
+
+	/// Create a new signed transaction from a given call and extension using the provided signature
+	/// data.
+	fn new_signed_transaction(
+		call: Self::Call,
+		signed: Self::Address,
+		signature: Self::Signature,
+		tx_ext: Self::Extension,
+	) -> Self;
+}
+
+impl<Address, Call, Signature, Extension> SignedTransactionBuilder
+	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extension>
+where
+	Address: TypeInfo,
+	Call: TypeInfo,
+	Signature: TypeInfo,
+	Extension: TypeInfo,
+{
+	type Address = Address;
+	type Signature = Signature;
+	type Extension = Extension;
+
+	fn new_signed_transaction(
+		call: Self::Call,
+		signed: Address,
+		signature: Signature,
+		tx_ext: Extension,
+	) -> Self {
+		Self::new_signed(call, signed, signature, tx_ext)
 	}
 }
 
