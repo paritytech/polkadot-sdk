@@ -20,11 +20,12 @@ use crate::{Config, Pallet};
 
 use bp_messages::{
 	source_chain::{DeliveryConfirmationPayments, RelayersRewards},
-	LaneId, MessageNonce,
+	MessageNonce,
 };
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::Chain;
 use frame_support::{sp_runtime::SaturatedConversion, traits::Get};
+use pallet_bridge_messages::LaneIdOf;
 use sp_arithmetic::traits::{Saturating, Zero};
 use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeInclusive};
 
@@ -34,17 +35,17 @@ pub struct DeliveryConfirmationPaymentsAdapter<T, MI, DeliveryReward>(
 	PhantomData<(T, MI, DeliveryReward)>,
 );
 
-impl<T, MI, DeliveryReward> DeliveryConfirmationPayments<T::AccountId>
+impl<T, MI, DeliveryReward> DeliveryConfirmationPayments<T::AccountId, LaneIdOf<T, MI>>
 	for DeliveryConfirmationPaymentsAdapter<T, MI, DeliveryReward>
 where
-	T: Config + pallet_bridge_messages::Config<MI>,
+	T: Config + pallet_bridge_messages::Config<MI, LaneId = <T as Config>::LaneId>,
 	MI: 'static,
 	DeliveryReward: Get<T::Reward>,
 {
 	type Error = &'static str;
 
 	fn pay_reward(
-		lane_id: LaneId,
+		lane_id: LaneIdOf<T, MI>,
 		messages_relayers: VecDeque<bp_messages::UnrewardedRelayer<T::AccountId>>,
 		confirmation_relayer: &T::AccountId,
 		received_range: &RangeInclusive<bp_messages::MessageNonce>,
@@ -72,7 +73,7 @@ where
 fn register_relayers_rewards<T: Config>(
 	confirmation_relayer: &T::AccountId,
 	relayers_rewards: RelayersRewards<T::AccountId>,
-	lane_id: RewardsAccountParams,
+	lane_id: RewardsAccountParams<T::LaneId>,
 	delivery_fee: T::Reward,
 ) {
 	// reward every relayer except `confirmation_relayer`

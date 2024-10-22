@@ -23,8 +23,7 @@ use polkadot_test_client::{
 	TestClientBuilder, TestClientBuilderExt,
 };
 use polkadot_test_runtime::{pallet_test_notifier, xcm_config::XcmConfig};
-use polkadot_test_service::{chain_spec::get_account_id_from_seed, construct_extrinsic};
-use sp_core::sr25519;
+use polkadot_test_service::construct_extrinsic;
 use sp_runtime::traits::Block;
 use sp_state_machine::InspectState;
 use xcm::{latest::prelude::*, VersionedResponse, VersionedXcm};
@@ -342,7 +341,7 @@ fn deposit_reserve_asset_works_for_any_xcm_sender() {
 	let weight_limit = Unlimited;
 	let reserve = Location::parent();
 	let dest = Location::new(1, [Parachain(2000)]);
-	let beneficiary_id = get_account_id_from_seed::<sr25519::Public>("Alice");
+	let beneficiary_id = sp_keyring::Sr25519Keyring::Alice.to_account_id();
 	let beneficiary = Location::new(0, [AccountId32 { network: None, id: beneficiary_id.into() }]);
 
 	// spends up to half of fees for execution on reserve and other half for execution on

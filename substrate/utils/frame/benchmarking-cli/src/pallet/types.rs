@@ -18,7 +18,7 @@
 //! Various types used by this crate.
 
 use sc_cli::Result;
-use sp_core::traits::RuntimeCode;
+use sp_core::traits::{RuntimeCode, WrappedRuntimeCode};
 use sp_runtime::traits::Hash;
 
 /// How the genesis state for benchmarking should be build.
@@ -43,8 +43,9 @@ pub enum GenesisBuilderPolicy {
 /// A runtime blob that was either fetched from genesis storage or loaded from a file.
 // NOTE: This enum is only needed for the annoying lifetime bounds on `RuntimeCode`. Otherwise we
 // could just directly return the blob.
-pub struct FetchedCode<'a, B, H> {
-	pub state: sp_state_machine::backend::BackendRuntimeCode<'a, B, H>,
+pub enum FetchedCode<'a, B, H> {
+	FromGenesis { state: sp_state_machine::backend::BackendRuntimeCode<'a, B, H> },
+	FromFile { wrapped_code: WrappedRuntimeCode<'a>, heap_pages: Option<u64>, hash: Vec<u8> },
 }
 
 impl<'a, B, H> FetchedCode<'a, B, H>
@@ -54,7 +55,14 @@ where
 {
 	/// The runtime blob.
 	pub fn code(&'a self) -> Result<RuntimeCode<'a>> {
-		self.state.runtime_code().map_err(Into::into)
+		match self {
+			Self::FromGenesis { state } => state.runtime_code().map_err(Into::into),
+			Self::FromFile { wrapped_code, heap_pages, hash } => Ok(RuntimeCode {
+				code_fetcher: wrapped_code,
+				heap_pages: *heap_pages,
+				hash: hash.clone(),
+			}),
+		}
 	}
 }
 

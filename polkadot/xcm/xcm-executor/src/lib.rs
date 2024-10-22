@@ -495,7 +495,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			self.calculate_asset_for_delivery_fees(asset_needed_for_fees.clone());
 		tracing::trace!(target: "xcm::fees", ?asset_to_pay_for_fees);
 		// We withdraw or take from holding the asset the user wants to use for fee payment.
-		let withdrawn_fee_asset = if self.fees_mode.jit_withdraw {
+		let withdrawn_fee_asset: AssetsInHolding = if self.fees_mode.jit_withdraw {
 			let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 			Config::AssetTransactor::withdraw_asset(
 				&asset_to_pay_for_fees,
@@ -508,7 +508,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			let assets_taken_from_holding_to_pay_delivery_fees = self
 				.holding
 				.try_take(asset_to_pay_for_fees.clone().into())
-				.map_err(|_| XcmError::NotHoldingFees)?;
+				.map_err(|e| {
+					tracing::error!(target: "xcm::fees", ?e, ?asset_to_pay_for_fees, "Failed to take asset_to_pay_for_fees from holding");
+					XcmError::NotHoldingFees
+				})?;
 			tracing::trace!(target: "xcm::fees", ?assets_taken_from_holding_to_pay_delivery_fees);
 			let mut iter = assets_taken_from_holding_to_pay_delivery_fees.fungible_assets_iter();
 			let asset = iter.next().ok_or(XcmError::NotHoldingFees)?;
@@ -518,15 +521,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		let paid = if asset_to_pay_for_fees.id != asset_needed_for_fees.id {
 			let swapped_asset: Assets = Config::AssetExchanger::exchange_asset(
 				self.origin_ref(),
-				withdrawn_fee_asset,
+				withdrawn_fee_asset.clone().into(),
 				&asset_needed_for_fees.clone().into(),
 				false,
 			)
 			.map_err(|given_assets| {
 				tracing::error!(
 					target: "xcm::fees",
-					?given_assets,
-					"Swap was deemed necessary but couldn't be done",
+					?given_assets, "Swap was deemed necessary but couldn't be done for withdrawn_fee_asset: {:?} and asset_needed_for_fees: {:?}", withdrawn_fee_asset.clone(), asset_needed_for_fees,
 				);
 				XcmError::FeesNotMet
 			})?
@@ -587,8 +589,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		Ok(match local_querier {
 			None => None,
 			Some(q) => Some(
-				q.reanchored(&destination, &Config::UniversalLocation::get())
-					.map_err(|_| XcmError::ReanchorFailed)?,
+				q.reanchored(&destination, &Config::UniversalLocation::get()).map_err(|e| {
+					tracing::error!(target: "xcm::xcm_executor::to_querier", ?e, ?destination, "Failed to re-anchor local_querier");
+					XcmError::ReanchorFailed
+				})?,
 			),
 		})
 	}
@@ -617,7 +621,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		let reanchor_context = Config::UniversalLocation::get();
 		let reanchored =
 			reanchorable.reanchored(&destination, &reanchor_context).map_err(|error| {
-				tracing::error!(target: "xcm::reanchor", ?error, "Failed reanchoring with error");
+				tracing::error!(target: "xcm::reanchor", ?error, ?destination, ?reanchor_context, "Failed reanchoring with error.");
 				XcmError::ReanchorFailed
 			})?;
 		Ok((reanchored, reanchor_context))
@@ -923,7 +927,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				.as_mut()
 				.ok_or(XcmError::BadOrigin)?
 				.append_with(who)
-				.map_err(|_| XcmError::LocationFull),
+				.map_err(|e| {
+					tracing::error!(target: "xcm::process_instruction::descend_origin", ?e, "Failed to append junctions");
+					XcmError::LocationFull
+				}),
 			ClearOrigin => {
 				self.context.origin = None;
 				Ok(())
@@ -1002,13 +1009,18 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			InitiateReserveWithdraw { assets, reserve, xcm } => {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
+					let assets = self.holding.saturating_take(assets);
+					// Must ensure that we recognise the assets as being managed by the destination.
+					#[cfg(not(feature = "runtime-benchmarks"))]
+					for asset in assets.assets_iter() {
+						ensure!(
+							Config::IsReserve::contains(&asset, &reserve),
+							XcmError::UntrustedReserveLocation
+						);
+					}
 					// Note that here we are able to place any assets which could not be reanchored
 					// back into Holding.
-					let assets = Self::reanchored(
-						self.holding.saturating_take(assets),
-						&reserve,
-						Some(&mut self.holding),
-					);
+					let assets = Self::reanchored(assets, &reserve, Some(&mut self.holding));
 					let mut message = vec![WithdrawAsset(assets), ClearOrigin];
 					message.extend(xcm.0.into_iter());
 					self.send(reserve, Xcm(message), FeeReason::InitiateReserveWithdraw)?;
@@ -1024,6 +1036,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let result = (|| -> Result<(), XcmError> {
 					// We must do this first in order to resolve wildcards.
 					let assets = self.holding.saturating_take(assets);
+					// Must ensure that we have teleport trust with destination for these assets.
+					#[cfg(not(feature = "runtime-benchmarks"))]
+					for asset in assets.assets_iter() {
+						ensure!(
+							Config::IsTeleporter::contains(&asset, &dest),
+							XcmError::UntrustedTeleportLocation
+						);
+					}
 					for asset in assets.assets_iter() {
 						// We should check that the asset can actually be teleported out (for this
 						// to be in error, there would need to be an accounting violation by
@@ -1074,7 +1094,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				tracing::trace!(target: "xcm::executor::BuyExecution", asset_used_for_fees = ?self.asset_used_for_fees);
 				// pay for `weight` using up to `fees` of the holding register.
 				let max_fee =
-					self.holding.try_take(fees.into()).map_err(|_| XcmError::NotHoldingFees)?;
+					self.holding.try_take(fees.clone().into()).map_err(|e| {
+						tracing::error!(target: "xcm::process_instruction::buy_execution", ?e, ?fees, "Failed to take fees from holding");
+						XcmError::NotHoldingFees
+					})?;
 				let result = || -> Result<(), XcmError> {
 					let unspent = self.trader.buy_weight(weight, max_fee, &self.context)?;
 					self.holding.subsume_assets(unspent);
@@ -1137,7 +1160,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Ok(())
 			},
 			ExpectAsset(assets) =>
-				self.holding.ensure_contains(&assets).map_err(|_| XcmError::ExpectationFalse),
+				self.holding.ensure_contains(&assets).map_err(|e| {
+					tracing::error!(target: "xcm::process_instruction::expect_asset", ?e, ?assets, "assets not contained in holding");
+					XcmError::ExpectationFalse
+				}),
 			ExpectOrigin(origin) => {
 				ensure!(self.context.origin == origin, XcmError::ExpectationFalse);
 				Ok(())
@@ -1259,9 +1285,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let (remote_asset, context) = Self::try_reanchor(asset.clone(), &unlocker)?;
 					let lock_ticket =
 						Config::AssetLocker::prepare_lock(unlocker.clone(), asset, origin.clone())?;
-					let owner = origin
-						.reanchored(&unlocker, &context)
-						.map_err(|_| XcmError::ReanchorFailed)?;
+					let owner = origin.reanchored(&unlocker, &context).map_err(|e| {
+						tracing::error!(target: "xcm::xcm_executor::process_instruction", ?e, ?unlocker, ?context, "Failed to re-anchor origin");
+						XcmError::ReanchorFailed
+					})?;
 					let msg = Xcm::<()>(vec![NoteUnlockable { asset: remote_asset, owner }]);
 					let (ticket, price) = validate_send::<Config::XcmSender>(unlocker, msg)?;
 					self.take_fee(price, FeeReason::LockAsset)?;

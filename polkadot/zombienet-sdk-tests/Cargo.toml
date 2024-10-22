@@ -8,16 +8,16 @@ license.workspace = true
 publish = false
 
 [dependencies]
-env_logger = "0.11.2"
-log = "0.4"
-subxt = { version = "0.37", features = ["substrate-compat"] }
-subxt-signer = { version = "0.37" }
-tokio = { version = "1.36.0", features = ["rt-multi-thread"] }
-anyhow = "1.0.81"
-zombienet-sdk = "0.2.6"
-serde = "1.0.197"
-serde_json = "1.0.114"
-parity-scale-codec = { version = "3.6.9", features = ["derive"] }
+env_logger = { workspace = true }
+log = { workspace = true }
+subxt = { workspace = true, features = ["substrate-compat"] }
+subxt-signer = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+anyhow = { workspace = true }
+zombienet-sdk = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+codec = { workspace = true, features = ["derive"] }
 
 [features]
 zombie-metadata = []

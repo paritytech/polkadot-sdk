@@ -79,31 +79,19 @@ impl Metrics {
 			.map(|metrics| metrics.time_import_pending_now_known.start_timer())
 	}
 
-	pub fn on_approval_already_known(&self) {
-		if let Some(metrics) = &self.0 {
-			metrics.approvals_received_result.with_label_values(&["known"]).inc()
-		}
-	}
-
-	pub fn on_approval_entry_not_found(&self) {
-		if let Some(metrics) = &self.0 {
-			metrics.approvals_received_result.with_label_values(&["noapprovalentry"]).inc()
-		}
-	}
-
-	pub fn on_approval_recent_outdated(&self) {
+	pub(crate) fn on_approval_recent_outdated(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.approvals_received_result.with_label_values(&["outdated"]).inc()
 		}
 	}
 
-	pub fn on_approval_invalid_block(&self) {
+	pub(crate) fn on_approval_invalid_block(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.approvals_received_result.with_label_values(&["invalidblock"]).inc()
 		}
 	}
 
-	pub fn on_approval_unknown_assignment(&self) {
+	pub(crate) fn on_approval_unknown_assignment(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics
 				.approvals_received_result
@@ -112,94 +100,73 @@ impl Metrics {
 		}
 	}
 
-	pub fn on_approval_duplicate(&self) {
+	pub(crate) fn on_approval_duplicate(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.approvals_received_result.with_label_values(&["duplicate"]).inc()
 		}
 	}
 
-	pub fn on_approval_out_of_view(&self) {
+	pub(crate) fn on_approval_out_of_view(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.approvals_received_result.with_label_values(&["outofview"]).inc()
 		}
 	}
 
-	pub fn on_approval_good_known(&self) {
+	pub(crate) fn on_approval_good_known(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.approvals_received_result.with_label_values(&["goodknown"]).inc()
 		}
 	}
 
-	pub fn on_approval_bad(&self) {
+	pub(crate) fn on_approval_bad(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.approvals_received_result.with_label_values(&["bad"]).inc()
 		}
 	}
 
-	pub fn on_approval_unexpected(&self) {
-		if let Some(metrics) = &self.0 {
-			metrics.approvals_received_result.with_label_values(&["unexpected"]).inc()
-		}
-	}
-
-	pub fn on_approval_bug(&self) {
+	pub(crate) fn on_approval_bug(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.approvals_received_result.with_label_values(&["bug"]).inc()
 		}
 	}
 
-	pub fn on_assignment_already_known(&self) {
-		if let Some(metrics) = &self.0 {
-			metrics.assignments_received_result.with_label_values(&["known"]).inc()
-		}
-	}
-
-	pub fn on_assignment_recent_outdated(&self) {
+	pub(crate) fn on_assignment_recent_outdated(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.assignments_received_result.with_label_values(&["outdated"]).inc()
 		}
 	}
 
-	pub fn on_assignment_invalid_block(&self) {
+	pub(crate) fn on_assignment_invalid_block(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.assignments_received_result.with_label_values(&["invalidblock"]).inc()
 		}
 	}
 
-	pub fn on_assignment_duplicate(&self) {
+	pub(crate) fn on_assignment_duplicate(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.assignments_received_result.with_label_values(&["duplicate"]).inc()
 		}
 	}
 
-	pub fn on_assignment_out_of_view(&self) {
+	pub(crate) fn on_assignment_out_of_view(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.assignments_received_result.with_label_values(&["outofview"]).inc()
 		}
 	}
 
-	pub fn on_assignment_good_known(&self) {
+	pub(crate) fn on_assignment_good_known(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.assignments_received_result.with_label_values(&["goodknown"]).inc()
 		}
 	}
 
-	pub fn on_assignment_bad(&self) {
+	pub(crate) fn on_assignment_bad(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.assignments_received_result.with_label_values(&["bad"]).inc()
 		}
 	}
 
-	pub fn on_assignment_duplicatevoting(&self) {
-		if let Some(metrics) = &self.0 {
-			metrics
-				.assignments_received_result
-				.with_label_values(&["duplicatevoting"])
-				.inc()
-		}
-	}
-
-	pub fn on_assignment_far(&self) {
+	pub(crate) fn on_assignment_far(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.assignments_received_result.with_label_values(&["far"]).inc()
 		}

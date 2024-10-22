@@ -21,11 +21,33 @@
 
 use super::*;
 use crate::mock::{
-	new_test_ext, offence_reports, with_on_offence_fractions, Offence, Offences, RuntimeEvent,
-	System, KIND,
+	new_test_ext, offence_reports, with_on_offence_fractions, Offence, Offences, Runtime,
+	RuntimeEvent, System, KIND,
 };
 use frame_system::{EventRecord, Phase};
+use sp_core::H256;
 use sp_runtime::Perbill;
+
+#[test]
+fn should_get_reports_with_storagemap_getter_and_function_getter() {
+	new_test_ext().execute_with(|| {
+		// given
+		let report_id: ReportIdOf<Runtime> = H256::from_low_u64_be(1);
+		let offence_details = OffenceDetails { offender: 1, reporters: vec![2, 3] };
+
+		Reports::<Runtime>::insert(report_id, offence_details.clone());
+
+		// when
+		let stored_offence_details = Offences::reports(report_id);
+		// then
+		assert_eq!(stored_offence_details, Some(offence_details.clone()));
+
+		// when
+		let stored_offence_details = Reports::<Runtime>::get(report_id);
+		// then
+		assert_eq!(stored_offence_details, Some(offence_details.clone()));
+	});
+}
 
 #[test]
 fn should_report_an_authority_and_trigger_on_offence() {

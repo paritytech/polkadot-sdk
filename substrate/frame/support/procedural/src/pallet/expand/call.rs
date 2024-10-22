@@ -253,13 +253,13 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		})
 		.collect::<Vec<_>>();
 
-	let feeless_check = methods.iter().map(|method| &method.feeless_check).collect::<Vec<_>>();
-	let feeless_check_result =
-		feeless_check.iter().zip(args_name.iter()).map(|(feeless_check, arg_name)| {
-			if let Some(feeless_check) = feeless_check {
-				quote::quote!(#feeless_check(origin, #( #arg_name, )*))
+	let feeless_checks = methods.iter().map(|method| &method.feeless_check).collect::<Vec<_>>();
+	let feeless_check =
+		feeless_checks.iter().zip(args_name.iter()).map(|(feeless_check, arg_name)| {
+			if let Some(check) = feeless_check {
+				quote::quote_spanned!(span => #check)
 			} else {
-				quote::quote!(false)
+				quote::quote_spanned!(span => |_origin, #( #arg_name, )*| { false })
 			}
 		});
 
@@ -393,7 +393,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 					#(
 						#cfg_attrs
 						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
-							#feeless_check_result
+							let feeless_check = #feeless_check;
+							feeless_check(origin, #( #args_name, )*)
 						},
 					)*
 					Self::__Ignore(_, _) => unreachable!("__Ignore cannot be used"),

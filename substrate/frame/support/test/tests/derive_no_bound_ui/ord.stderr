@@ -23,3 +23,13 @@ note: required by a bound in `std::cmp::Eq`
    |
    | pub trait Eq: PartialEq<Self> {
    |               ^^^^^^^^^^^^^^^ required by this bound in `Eq`
+
+error[E0599]: `<T as Config>::C` is not an iterator
+  --> tests/derive_no_bound_ui/ord.rs:24:2
+   |
+24 |     c: T::C,
+   |     ^ `<T as Config>::C` is not an iterator
+   |
+   = note: the following trait bounds were not satisfied:
+           `<T as Config>::C: Iterator`
+           which is required by `&mut <T as Config>::C: Iterator`
