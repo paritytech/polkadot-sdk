@@ -612,7 +612,10 @@ mod run_tests {
 			assert!(!<ContractInfoOf<Test>>::contains_key(BOB_ADDR));
 			assert_eq!(test_utils::get_balance(&BOB_CONTRACT_ID), 0);
 			let result = builder::bare_call(BOB_ADDR).value(42).build_and_unwrap_result();
-			assert_eq!(test_utils::get_balance(&BOB_CONTRACT_ID), 42);
+			assert_eq!(
+				test_utils::get_balance(&BOB_CONTRACT_ID),
+				42 + <Test as Config>::Currency::minimum_balance()
+			);
 			assert_eq!(result, Default::default());
 		});
 	}
@@ -1505,20 +1508,8 @@ mod run_tests {
 				.build_and_unwrap_result();
 			assert_return_code!(result, RuntimeReturnCode::TransferFailed);
 
-			// Sending less than the minimum balance will also make the transfer fail
-			let result = builder::bare_call(bob.addr)
-				.data(
-					AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
-						.iter()
-						.chain(&u256_bytes(42))
-						.cloned()
-						.collect(),
-				)
-				.build_and_unwrap_result();
-			assert_return_code!(result, RuntimeReturnCode::TransferFailed);
-
-			// Sending at least the minimum balance should result in success but
-			// no code called.
+			// Sending below the minimum balance should result in success.
+			// The ED is charged from the call origin.
 			assert_eq!(test_utils::get_balance(&ETH_DJANGO), 0);
 			let result = builder::bare_call(bob.addr)
 				.data(
@@ -1530,7 +1521,7 @@ mod run_tests {
 				)
 				.build_and_unwrap_result();
 			assert_return_code!(result, RuntimeReturnCode::Success);
-			assert_eq!(test_utils::get_balance(&ETH_DJANGO), 55);
+			assert_eq!(test_utils::get_balance(&ETH_DJANGO), 55 + min_balance);
 
 			let django = builder::bare_instantiate(Code::Upload(callee_code))
 				.origin(RuntimeOrigin::signed(CHARLIE))

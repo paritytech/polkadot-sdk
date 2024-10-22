@@ -22,7 +22,11 @@ use crate::{
 	limits,
 	primitives::{ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
-	storage::{self, meter::Diff, WriteOutcome},
+	storage::{
+		self,
+		meter::{Diff, NestedMeter},
+		WriteOutcome,
+	},
 	transient_storage::TransientStorage,
 	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DebugBuffer, Error,
 	Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, LOG_TARGET,
@@ -739,6 +743,7 @@ where
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
+		let mut meter = storage_meter.nested(BalanceOf::<T>::zero());
 		if let Some((mut stack, executable)) = Self::new(
 			FrameArgs::Call { dest: dest.clone(), cached_info: None, delegated_call: None },
 			origin.clone(),
@@ -749,7 +754,7 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			Self::transfer_no_contract(&origin, &dest, value)
+			Self::transfer_no_contract(&mut meter, &origin, &origin, &dest, value)
 		}
 	}
 
@@ -1011,9 +1016,9 @@ where
 			// We need to charge the storage deposit before the initial transfer so that
 			// it can create the account in case the initial transfer is < ed.
 			if entry_point == ExportedFunction::Constructor {
+				let origin = &self.origin.account_id()?;
 				// Root origin can't be used to instantiate a contract, so it is safe to assume that
 				// if we reached this point the origin has an associated account.
-				let origin = &self.origin.account_id()?;
 				frame.nested_storage.charge_instantiate(
 					origin,
 					&frame.account_id,
@@ -1029,7 +1034,13 @@ where
 			// If it is a delegate call, then we've already transferred tokens in the
 			// last non-delegate frame.
 			if delegated_code_hash.is_none() {
-				Self::transfer_from_origin(&caller, &frame.account_id, frame.value_transferred)?;
+				Self::transfer_from_origin(
+					&mut frame.nested_storage,
+					&self.origin,
+					&caller,
+					&frame.account_id,
+					frame.value_transferred,
+				)?;
 			}
 
 			let contract_address = T::AddressMapper::to_address(&top_frame!(self).account_id);
@@ -1119,8 +1130,9 @@ where
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let output = do_transaction();
 				match &output {
-					Ok(result) if !result.did_revert() =>
-						TransactionOutcome::Commit(Ok((true, output))),
+					Ok(result) if !result.did_revert() => {
+						TransactionOutcome::Commit(Ok((true, output)))
+					},
 					_ => TransactionOutcome::Rollback(Ok((false, output))),
 				}
 			});
@@ -1225,17 +1237,45 @@ where
 	}
 
 	/// Transfer some funds from `from` to `to`.
-	fn transfer(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) -> DispatchResult {
-		// this avoids events to be emitted for zero balance transfers
-		if !value.is_zero() {
+	///
+	/// This is a no-op for zero `value`, avoiding events to be emitted for zero balance transfers.
+	///
+	/// If the destination account does not exist, it is pulled into existence by charging the ED
+	/// storage deposit from `origin`. Which removes the need for contracts being aware of the ED.
+	/// This will fail if `origin` is root.
+	fn transfer(
+		meter: &mut NestedMeter<T>,
+		origin: &Origin<T>,
+		from: &T::AccountId,
+		to: &T::AccountId,
+		value: BalanceOf<T>,
+	) -> DispatchResult {
+		if value.is_zero() {
+			return Ok(());
+		}
+
+		if <System<T>>::account_exists(to) {
 			T::Currency::transfer(from, to, value, Preservation::Preserve)
 				.map_err(|_| Error::<T>::TransferFailed)?;
+			return Ok(());
 		}
-		Ok(())
+
+		let origin = origin.account_id()?;
+		let ed = <T as Config>::Currency::minimum_balance();
+		with_transaction(|| -> TransactionOutcome<DispatchResult> {
+			match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
+				.and_then(|_| T::Currency::transfer(from, to, value, Preservation::Preserve))
+			{
+				Ok(_) => TransactionOutcome::Commit(Ok(())),
+				Err(_) => TransactionOutcome::Rollback(Err(Error::<T>::TransferFailed.into())),
+			}
+		})
 	}
 
 	/// Same as `transfer` but `from` is an `Origin`.
 	fn transfer_from_origin(
+		meter: &mut NestedMeter<T>,
+		origin: &Origin<T>,
 		from: &Origin<T>,
 		to: &T::AccountId,
 		value: BalanceOf<T>,
@@ -1247,16 +1287,18 @@ where
 			Origin::Root if value.is_zero() => return Ok(()),
 			Origin::Root => return DispatchError::RootNotAllowed.into(),
 		};
-		Self::transfer(from, to, value)
+		Self::transfer(meter, origin, from, to, value)
 	}
 
 	/// Same as `transfer_from_origin` but creates an `ExecReturnValue` on success.
 	fn transfer_no_contract(
+		meter: &mut NestedMeter<T>,
+		origin: &Origin<T>,
 		from: &Origin<T>,
 		to: &T::AccountId,
 		value: BalanceOf<T>,
 	) -> ExecResult {
-		Self::transfer_from_origin(from, to, value)
+		Self::transfer_from_origin(meter, origin, from, to, value)
 			.map(|_| ExecReturnValue::default())
 			.map_err(Into::into)
 	}
@@ -1363,8 +1405,12 @@ where
 			)? {
 				self.run(executable, input_data)
 			} else {
+				let origin = self.origin.clone();
+				let from = Origin::from_account_id(self.account_id().clone());
 				Self::transfer_no_contract(
-					&Origin::from_account_id(self.account_id().clone()),
+					&mut self.top_frame_mut().nested_storage,
+					&origin,
+					&from,
 					&dest,
 					value,
 				)?;
@@ -1467,8 +1513,12 @@ where
 	}
 
 	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult {
+		let origin = self.origin.clone();
+		let frame = self.top_frame_mut();
 		Self::transfer(
-			&self.top_frame().account_id,
+			&mut frame.nested_storage,
+			&origin,
+			&frame.account_id,
 			&T::AddressMapper::to_account_id(to),
 			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 		)
@@ -1988,10 +2038,14 @@ mod tests {
 			set_balance(&ALICE, 100);
 			set_balance(&BOB, 0);
 
-			MockStack::transfer(&ALICE, &BOB, 55).unwrap();
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter =
+				storage::meter::Meter::new(&origin, 0, 0).unwrap().nested(Default::default());
+			MockStack::transfer(&mut storage_meter, &origin, &ALICE, &BOB, 55).unwrap();
 
-			assert_eq!(get_balance(&ALICE), 45);
-			assert_eq!(get_balance(&BOB), 55);
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+			assert_eq!(get_balance(&ALICE), 45 - min_balance);
+			assert_eq!(get_balance(&BOB), 55 + min_balance);
 		});
 	}
 
@@ -2005,11 +2059,15 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let alice_balance = min_balance + 100;
+			set_balance(&ALICE, alice_balance);
+
 			place_contract(&BOB, success_ch);
-			set_balance(&ALICE, 100);
-			let balance = get_balance(&BOB_CONTRACT_ID);
+			let bob_balance = get_balance(&BOB_CONTRACT_ID);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 0, value).unwrap();
+			let mut storage_meter =
+				storage::meter::Meter::new(&origin, min_balance, value).unwrap();
 
 			let _ = MockStack::run_call(
 				origin.clone(),
@@ -2022,8 +2080,9 @@ mod tests {
 			)
 			.unwrap();
 
-			assert_eq!(get_balance(&ALICE), 100 - value);
-			assert_eq!(get_balance(&BOB_CONTRACT_ID), balance + value);
+			let difference = min_balance + value;
+			assert_eq!(get_balance(&ALICE), alice_balance - difference);
+			assert_eq!(get_balance(&BOB_CONTRACT_ID), bob_balance + difference);
 		});
 	}
 
@@ -2043,11 +2102,15 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let alice_balance = min_balance + 100;
+			set_balance(&ALICE, alice_balance);
+
 			place_contract(&BOB, delegate_ch);
-			set_balance(&ALICE, 100);
-			let balance = get_balance(&BOB_CONTRACT_ID);
+			let bob_balance = get_balance(&BOB_CONTRACT_ID);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 55).unwrap();
+			let mut storage_meter =
+				storage::meter::Meter::new(&origin, min_balance, value).unwrap();
 
 			let _ = MockStack::run_call(
 				origin,
@@ -2060,8 +2123,9 @@ mod tests {
 			)
 			.unwrap();
 
-			assert_eq!(get_balance(&ALICE), 100 - value);
-			assert_eq!(get_balance(&BOB_CONTRACT_ID), balance + value);
+			let difference = min_balance + value;
+			assert_eq!(get_balance(&ALICE), alice_balance - difference);
+			assert_eq!(get_balance(&BOB_CONTRACT_ID), bob_balance + difference);
 		});
 	}
 
@@ -2102,16 +2166,19 @@ mod tests {
 	fn balance_too_low() {
 		// This test verifies that a contract can't send value if it's
 		// balance is too low.
-		let origin = ALICE;
+		let from = ALICE;
+		let origin = Origin::from_account_id(ALICE);
 		let dest = BOB;
 
 		ExtBuilder::default().build().execute_with(|| {
-			set_balance(&origin, 0);
+			set_balance(&from, 0);
 
-			let result = MockStack::transfer(&origin, &dest, 100);
+			let mut storage_meter =
+				storage::meter::Meter::new(&origin, 0, 0).unwrap().nested(Default::default());
+			let result = MockStack::transfer(&mut storage_meter, &origin, &from, &dest, 100);
 
 			assert_eq!(result, Err(Error::<Test>::TransferFailed.into()));
-			assert_eq!(get_balance(&origin), 0);
+			assert_eq!(get_balance(&from), 0);
 			assert_eq!(get_balance(&dest), 0);
 		});
 	}

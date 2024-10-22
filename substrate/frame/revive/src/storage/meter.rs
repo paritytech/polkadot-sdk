@@ -261,8 +261,9 @@ impl<T: Config> Contribution<T> {
 	fn update_contract(&self, info: Option<&mut ContractInfo<T>>) -> DepositOf<T> {
 		match self {
 			Self::Alive(diff) => diff.update_contract::<T>(info),
-			Self::Terminated { deposit, beneficiary: _ } | Self::Checked(deposit) =>
-				deposit.clone(),
+			Self::Terminated { deposit, beneficiary: _ } | Self::Checked(deposit) => {
+				deposit.clone()
+			},
 		}
 	}
 }
@@ -370,7 +371,7 @@ where
 				let limit = E::check_limit(o, limit, min_leftover)?;
 				Ok(Self { limit, ..Default::default() })
 			},
-		}
+		};
 	}
 
 	/// The total amount of deposit that should change hands as result of the execution
