@@ -14098,6 +14098,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "rstest",
+ "schnellru",
  "sp-core 28.0.0",
  "sp-keyring",
  "sp-maybe-compressed-blob 11.0.0",
@@ -14938,6 +14939,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-staking",
  "sp-std 14.0.0",
+ "thiserror",
 ]
 
 [[package]]
