@@ -21,9 +21,7 @@ use sp_core::{H160, H256};
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
-use xcm_builder::{
-	CreateMatcher, ExporterFor, MatchXcm, NetworkExportTable, NetworkExportTableItem,
-};
+use xcm_builder::{CreateMatcher, ExporterFor, MatchXcm};
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
 
 pub struct EthereumBlobExporter<
@@ -418,9 +416,7 @@ where
 /// `(bridge_location, payment)` for the requested `network` and `remote_location` and `xcm`
 /// in the provided `T` table containing various exporters.
 pub struct NetworkWithXcmExportTable<T, M>(core::marker::PhantomData<(T, M)>);
-impl<T: Get<Vec<NetworkExportTableItem>>, M: Contains<Xcm<()>>> ExporterFor
-	for NetworkWithXcmExportTable<T, M>
-{
+impl<T: ExporterFor, M: Contains<Xcm<()>>> ExporterFor for NetworkWithXcmExportTable<T, M> {
 	fn exporter_for(
 		network: &NetworkId,
 		remote_location: &InteriorLocation,
@@ -431,7 +427,7 @@ impl<T: Get<Vec<NetworkExportTableItem>>, M: Contains<Xcm<()>>> ExporterFor
 			return None
 		}
 		// check `network` and `remote_location`
-		NetworkExportTable::<T>::exporter_for(network, remote_location, xcm)
+		T::exporter_for(network, remote_location, xcm)
 	}
 }
 
