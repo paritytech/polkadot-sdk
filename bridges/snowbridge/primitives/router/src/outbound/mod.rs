@@ -415,8 +415,8 @@ where
 /// An adapter for the implementation of `ExporterFor`, which attempts to find the
 /// `(bridge_location, payment)` for the requested `network` and `remote_location` and `xcm`
 /// in the provided `T` table containing various exporters.
-pub struct NetworkWithXcmExportTable<T, M>(core::marker::PhantomData<(T, M)>);
-impl<T: ExporterFor, M: Contains<Xcm<()>>> ExporterFor for NetworkWithXcmExportTable<T, M> {
+pub struct XcmFilterExporter<T, M>(core::marker::PhantomData<(T, M)>);
+impl<T: ExporterFor, M: Contains<Xcm<()>>> ExporterFor for XcmFilterExporter<T, M> {
 	fn exporter_for(
 		network: &NetworkId,
 		remote_location: &InteriorLocation,
