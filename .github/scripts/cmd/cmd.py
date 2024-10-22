@@ -6,6 +6,7 @@ import json
 import argparse
 import _help
 import importlib.util
+import re
 
 _HelpAction = _help._HelpAction
 
@@ -177,7 +178,9 @@ def main():
                     output_path = os.path.join(package_dir, "src", "weights.rs")
                     # TODO: we can remove once all pallets in dev runtime are migrated to polkadot-sdk-frame
                     uses_polkadot_sdk_frame = "true" in os.popen(f"cargo metadata --locked --format-version 1 --no-deps | jq -r '.packages[] | select(.name == \"{pallet.replace('_', '-')}\") | .dependencies | any(.name == \"polkadot-sdk-frame\")'").read()
-                    template = config['template'] if not uses_polkadot_sdk_frame else "substrate/.maintain/frame-umbrella-weight-template.hbs"
+                    template = config['template']
+                    if uses_polkadot_sdk_frame and re.match(r"frame-(:?umbrella-)?weight-template\.hbs", os.path.normpath(template).split(os.path.sep)[-1]):
+                        template = "substrate/.maintain/frame-umbrella-weight-template.hbs"
                 else:
                     default_path = f"./{config['path']}/src/weights"
                     xcm_path = f"./{config['path']}/src/weights/xcm"
