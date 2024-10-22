@@ -45,7 +45,6 @@
 //! use polkadot_sdk_frame as frame;
 //! #[frame::pallet]
 //! pub mod pallet {
-//! 	# use polkadot_sdk_frame as frame;
 //! 	use frame::prelude::*;
 //! 	// ^^ using the prelude!
 //!
@@ -121,8 +120,6 @@
 //! * Preludes should be extensive. The goal of this pallet is to be ONLY used with the preludes.
 //!   The domain-specific modules are just a backup, aiming to keep things organized. Don't hesitate
 //!   in adding more items to the main prelude.
-//! 	* When doing so, prefer adding the relevant item to `frame_support::pallet_prelude` and
-//!    `frame_system::pallet_prelude`.
 //! * The only non-module, non-prelude items exported from the top level crate is the `pallet`
 //!   macro, such that we can have the `#[frame::pallet] mod pallet { .. }` syntax working.
 //! * In most cases, you might want to create a domain-specific module, but also add it to the
@@ -330,8 +327,20 @@ pub mod runtime {
 			ConstU32, ConstU64, ConstU8,
 		};
 
+		/// Check the value contained in an object
+		pub use frame_support::traits::Contains;
+
+		/// Check if instance is sub type of a given type
+		pub use frame_support::traits::IsSubType;
+
+		/// For code that must run on runtime upgrades
+		pub use frame_support::traits::OnRuntimeUpgrade;
+
 		/// Used for simple fee calculation.
 		pub use frame_support::weights::{self, FixedFee, NoFee};
+
+		/// Traits for `Dispatchable` objects that can also carry some static information
+		pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 
 		/// Primary types used to parameterize `EnsureOrigin` and `EnsureRootWithArg`.
 		pub use frame_system::{
