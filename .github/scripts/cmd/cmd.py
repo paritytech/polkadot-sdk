@@ -286,10 +286,16 @@ def main():
 
         # loop over remaining runtimes to collect available pallets
         for runtime in runtimesMatrix.values():
-            build_command = f"cargo build -p {runtime['old_package']} --profile {profile} --features={runtime['bench_features']} --locked"
+            build_command = f"forklift cargo build -p {runtime['old_package']} --profile {profile} --features={runtime['bench_features']} --locked"
             print(f'-- building {runtime["name"]} with `{build_command}`')
             os.system(build_command)
+            
             chain = runtime['name'] if runtime == 'dev' else f"{runtime['name']}-dev"
+
+            machine_test = f"target/{profile}/{runtime['old_bin']} benchmark machine --chain={chain}"
+            print(f"Running machine test for `{machine_test}`")
+            os.system(machine_test)
+
             print(f'-- listing pallets for benchmark for {chain}')
             list_command = f"target/{profile}/{runtime['old_bin']} " \
                 f"benchmark pallet " \
