@@ -6280,6 +6280,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "sp-wasm-interface 20.0.0",
+ "substrate-test-runtime",
  "subxt",
  "subxt-signer",
  "thiserror",

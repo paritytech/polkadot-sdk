@@ -74,6 +74,7 @@ hex = "0.4.3"
 
 [dev-dependencies]
 cumulus-test-runtime = { workspace = true, default-features = true }
+substrate-test-runtime = { workspace = true, default-features = true }
 
 [features]
 default = ["rocksdb"]

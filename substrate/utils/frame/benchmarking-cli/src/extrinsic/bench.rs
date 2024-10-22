@@ -140,7 +140,7 @@ where
 			.on_parent_block(chain.best_hash)
 			.with_parent_block_number(chain.best_number)
 			.with_inherent_digests(Digest { logs: self.digest_items.clone() })
-			.enable_proof_recording()
+			.with_proof_recording(self.record_proof)
 			.build()?;
 
 		// Create and insert the inherents.

@@ -121,9 +121,10 @@ pub struct OverheadParams {
 
 	/// How to construct the genesis state.
 	///
-	/// Uses `GenesisBuilderPolicy::Spec` by default and  `GenesisBuilderPolicy::Runtime` if
-	/// `runtime` is set.
-	#[arg(long, value_enum)]
+	/// Can be used together with `--chain` to determine whether the
+	/// genesis state should be initialized with the values from the
+	/// provided chain spec or a runtime-provided genesis preset.
+	#[arg(long, value_enum, conflicts_with = "runtime")]
 	pub genesis_builder: Option<GenesisBuilderPolicy>,
 
 	/// Inflate the genesis state by generating accounts.
@@ -214,6 +215,32 @@ fn create_inherent_data<Client: UsageProvider<Block> + HeaderBackend<Block>, Blo
 	inherent_data
 }
 
+/// Identifies what kind of chain we are dealing with.
+///
+/// Chains containing the `ParachainSystem` and `ParachainInfo` pallet are considered parachains.
+/// Chains containing the `ParaInherent` pallet are considered relay chains.
+fn identify_chain(metadata: &Metadata, para_id: Option<u32>) -> ChainType {
+	let parachain_info_exists = metadata.pallet_by_name("ParachainInfo").is_some();
+	let parachain_system_exists = metadata.pallet_by_name("ParachainSystem").is_some();
+	let para_inherent_exists = metadata.pallet_by_name("ParaInherent").is_some();
+
+	log::debug!("{} ParachainSystem", if parachain_system_exists { "✅" } else { "❌" });
+	log::debug!("{} ParachainInfo", if parachain_info_exists { "✅" } else { "❌" });
+	log::debug!("{} ParaInherent", if para_inherent_exists { "✅" } else { "❌" });
+
+	let chain_type = if parachain_system_exists && parachain_info_exists {
+		Parachain(para_id.unwrap_or(DEFAULT_PARA_ID))
+	} else if para_inherent_exists {
+		Relaychain
+	} else {
+		Unknown
+	};
+
+	log::info!("Identified Chain type from metadata: {}", chain_type);
+
+	chain_type
+}
+
 #[derive(Deserialize, Serialize, Clone, ChainSpecExtension)]
 pub struct ParachainExtension {
 	/// The id of the Parachain.
@@ -221,29 +248,6 @@ pub struct ParachainExtension {
 }
 
 impl OverheadCmd {
-	/// Make an educated guess what kind of chain we are dealing with.
-	fn identify_chain(&self, metadata: &Metadata, para_id: Option<u32>) -> Result<ChainType> {
-		let parachain_info_exists = metadata.pallet_by_name("ParachainInfo").is_some();
-		let parachain_system_exists = metadata.pallet_by_name("ParachainSystem").is_some();
-		let para_inherent_exists = metadata.pallet_by_name("ParaInherent").is_some();
-
-		log::debug!("{} ParachainSystem", if parachain_system_exists { "✅" } else { "❌" });
-		log::debug!("{} ParachainInfo", if parachain_info_exists { "✅" } else { "❌" });
-		log::debug!("{} ParaInherent", if para_inherent_exists { "✅" } else { "❌" });
-
-		let chain_type = if parachain_system_exists && parachain_info_exists {
-			Parachain(para_id.or(self.params.para_id).unwrap_or(DEFAULT_PARA_ID))
-		} else if para_inherent_exists {
-			Relaychain
-		} else {
-			Unknown
-		};
-
-		log::info!("Identified Chain type from metadata: {}", chain_type);
-
-		Ok(chain_type)
-	}
-
 	fn chain_spec_from_path<HF: HostFunctions>(
 		&self,
 	) -> Result<(Option<Box<dyn ChainSpec>>, Option<u32>)> {
@@ -286,7 +290,7 @@ impl OverheadCmd {
 			.build();
 
 		let metadata = fetch_latest_metadata_from_blob(&executor, &code_bytes)?;
-		let chain_type = self.identify_chain(&metadata, para_id_from_chain_spec)?;
+		let chain_type = identify_chain(&metadata, para_id_from_chain_spec.or(self.params.para_id));
 
 		let client = self.build_client_components::<Block, (ParachainHostFunctions, ExtraHF)>(
 			chain_spec,
@@ -492,7 +496,7 @@ impl BenchmarkType {
 	}
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 enum ChainType {
 	Parachain(u32),
 	Relaychain,
@@ -539,5 +543,34 @@ impl CliConfiguration for OverheadCmd {
 
 	fn base_path(&self) -> Result<Option<BasePath>> {
 		Ok(Some(BasePath::new_temp_dir()?))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use crate::overhead::cmd::{
+		identify_chain, ChainType, ParachainHostFunctions, DEFAULT_PARA_ID,
+	};
+	use sc_executor::WasmExecutor;
+
+	#[test]
+	fn test_chain_type_parachain() {
+		let executor: WasmExecutor<ParachainHostFunctions> = WasmExecutor::builder().build();
+		let code_bytes = cumulus_test_runtime::WASM_BINARY
+			.expect("To run this test, build the wasm binary of cumulus-test-runtime")
+			.to_vec();
+		let metadata = super::fetch_latest_metadata_from_blob(&executor, &code_bytes).unwrap();
+		assert_eq!(identify_chain(&metadata, Some(100)), ChainType::Parachain(100));
+		assert_eq!(identify_chain(&metadata, None), ChainType::Parachain(DEFAULT_PARA_ID));
+	}
+
+	#[test]
+	fn test_chain_type_custom() {
+		let executor: WasmExecutor<ParachainHostFunctions> = WasmExecutor::builder().build();
+		let code_bytes = substrate_test_runtime::WASM_BINARY
+			.expect("To run this test, build the wasm binary of cumulus-test-runtime")
+			.to_vec();
+		let metadata = super::fetch_latest_metadata_from_blob(&executor, &code_bytes).unwrap();
+		assert_eq!(identify_chain(&metadata, Some(100)), ChainType::Unknown);
 	}
 }
