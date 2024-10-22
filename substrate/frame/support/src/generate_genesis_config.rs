@@ -63,68 +63,15 @@ impl PartialEq<String> for InitializedField {
 			mut snake_chars: core::str::Chars,
 			mut camel_chars: core::str::Chars,
 		) -> bool {
-			let mut first_char = true;
-			let mut use_upper_case = false;
 			loop {
-				let pair = (snake_chars.next(), camel_chars.next());
-				// println!("pair(s,c): {:?}", pair);
-				match pair {
+				match (snake_chars.find(|&s| s != '_'), camel_chars.next()) {
 					(None, None) => return true,
-					(Some('_'), None) => loop {
-						match snake_chars.next() {
-							Some('_') => continue,
-							Some('.') => {
-								first_char = true;
-								break;
-							},
-							None => return true,
-							_ => return false,
-						}
-					},
 					(None, Some(_)) | (Some(_), None) => return false,
-					(Some('.'), Some('.')) => first_char = true,
-					(Some('_'), Some(c)) => loop {
-						match (first_char, snake_chars.next()) {
-							(_, None) => return false,
-							(_, Some('_')) => continue,
-							(_, Some('.')) => {
-								first_char = true;
-								break;
-							},
-							(true, Some(s)) => {
-								if s.to_ascii_lowercase() != c {
-									return false;
-								}
-								first_char = false;
-								break;
-							},
-							(false, Some(s)) => {
-								if s.to_ascii_uppercase() != c {
-									return false;
-								}
-								first_char = false;
-								break;
-							},
-						}
-					},
-					(Some(s), Some(c)) => {
-						if use_upper_case {
-							if s.to_ascii_uppercase() != c {
-								return false;
-							}
-						} else {
-							if s.to_ascii_lowercase() != c {
-								if s != c {
-									return false;
-								}
-							}
-						}
-						first_char = false;
-					},
+					(Some(s), Some(c)) =>
+						if s.to_ascii_uppercase() != c.to_ascii_uppercase() {
+							return false;
+						},
 				};
-				if let Some(c) = pair.1 {
-					use_upper_case = c.is_digit(10);
-				}
 			}
 		}
 		match self {
