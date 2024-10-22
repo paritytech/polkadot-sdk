@@ -36,8 +36,13 @@ mod imports {
 	pub use asset_test_utils::xcm_helpers;
 	pub use emulated_integration_tests_common::{
 		accounts::DUMMY_EMPTY,
+<<<<<<< HEAD
 		get_account_id_from_seed, test_parachain_is_trusted_teleporter,
 		test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
+=======
+		test_parachain_is_trusted_teleporter, test_parachain_is_trusted_teleporter_for_relay,
+		test_relay_is_trusted_teleporter, test_xcm_fee_querying_apis_work_for_asset_hub,
+>>>>>>> b4732add (Assets in pool with native can be used in `query_weight_to_asset_fee` (#6080))
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test,
 			TestArgs, TestContext, TestExt,
