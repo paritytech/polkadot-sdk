@@ -50,7 +50,7 @@ use polkadot_primitives::{
 		CandidateReceiptV2 as CandidateReceipt,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	},
-	well_known_keys, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, Hash, HeadData,
+	well_known_keys, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, HeadData,
 	Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId,
 	ValidatorIndex, ValidityAttestation,
 };
@@ -161,16 +161,6 @@ impl<H, N> CandidatePendingAvailability<H, N> {
 		self.relay_parent_number.clone()
 	}
 
-	/// Get the candidate backing group.
-	pub(crate) fn backing_group(&self) -> GroupIndex {
-		self.backing_group
-	}
-
-	/// Get the candidate's backers.
-	pub(crate) fn backers(&self) -> &BitVec<u8, BitOrderLsb0> {
-		&self.backers
-	}
-
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub(crate) fn new(
 		core: CoreIndex,
@@ -205,24 +195,6 @@ pub trait RewardValidators {
 	// Validators are sent to this hook when they have contributed to the availability
 	// of a candidate by setting a bit in their bitfield.
 	fn reward_bitfields(validators: impl IntoIterator<Item = ValidatorIndex>);
-}
-
-/// Helper return type for `process_candidates`.
-#[derive(Encode, Decode, PartialEq, TypeInfo)]
-#[cfg_attr(test, derive(Debug))]
-pub(crate) struct ProcessedCandidates<H = Hash> {
-	pub(crate) core_indices: Vec<(CoreIndex, ParaId)>,
-	pub(crate) candidate_receipt_with_backing_validator_indices:
-		Vec<(CandidateReceipt<H>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
-}
-
-impl<H> Default for ProcessedCandidates<H> {
-	fn default() -> Self {
-		Self {
-			core_indices: Vec::new(),
-			candidate_receipt_with_backing_validator_indices: Vec::new(),
-		}
-	}
 }
 
 /// Reads the footprint of queues for a specific origin type.
@@ -514,6 +486,14 @@ impl<T: Config> Pallet<T> {
 		T::MessageQueue::sweep_queue(AggregateMessageOrigin::Ump(UmpQueueId::Para(para)));
 	}
 
+	pub(crate) fn get_occupied_cores(
+	) -> impl Iterator<Item = (CoreIndex, CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>)>
+	{
+		PendingAvailability::<T>::iter_values().flat_map(|pending_candidates| {
+			pending_candidates.into_iter().map(|c| (c.core, c.clone()))
+		})
+	}
+
 	/// Extract the freed cores based on cores that became available.
 	///
 	/// Bitfields are expected to have been sanitized already. E.g. via `sanitize_bitfields`!
@@ -640,12 +620,15 @@ impl<T: Config> Pallet<T> {
 		candidates: &BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
 		group_validators: GV,
 		core_index_enabled: bool,
-	) -> Result<ProcessedCandidates<T::Hash>, DispatchError>
+	) -> Result<
+		Vec<(CandidateReceipt<T::Hash>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
+		DispatchError,
+	>
 	where
 		GV: Fn(GroupIndex) -> Option<Vec<ValidatorIndex>>,
 	{
 		if candidates.is_empty() {
-			return Ok(ProcessedCandidates::default())
+			return Ok(Default::default())
 		}
 
 		let now = frame_system::Pallet::<T>::block_number();
@@ -654,7 +637,6 @@ impl<T: Config> Pallet<T> {
 		// Collect candidate receipts with backers.
 		let mut candidate_receipt_with_backing_validator_indices =
 			Vec::with_capacity(candidates.len());
-		let mut core_indices = Vec::with_capacity(candidates.len());
 
 		for (para_id, para_candidates) in candidates {
 			let mut latest_head_data = match Self::para_latest_head_data(para_id) {
@@ -708,7 +690,6 @@ impl<T: Config> Pallet<T> {
 				latest_head_data = candidate.candidate().commitments.head_data.clone();
 				candidate_receipt_with_backing_validator_indices
 					.push((candidate.receipt(), backer_idx_and_attestation));
-				core_indices.push((*core, *para_id));
 
 				// Update storage now
 				PendingAvailability::<T>::mutate(&para_id, |pending_availability| {
@@ -743,10 +724,7 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		Ok(ProcessedCandidates::<T::Hash> {
-			core_indices,
-			candidate_receipt_with_backing_validator_indices,
-		})
+		Ok(candidate_receipt_with_backing_validator_indices)
 	}
 
 	// Get the latest backed output head data of this para (including pending availability).
@@ -1173,7 +1151,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns the first `CommittedCandidateReceipt` pending availability for the para provided, if
 	/// any.
-	pub(crate) fn candidate_pending_availability(
+	/// A para_id could have more than one candidates pending availability, if it's using elastic
+	/// scaling. These candidates form a chain. This function returns the first in the chain.
+	pub(crate) fn first_candidate_pending_availability(
 		para: ParaId,
 	) -> Option<CommittedCandidateReceipt<T::Hash>> {
 		PendingAvailability::<T>::get(&para).and_then(|p| {
@@ -1200,24 +1180,6 @@ impl<T: Config> Pallet<T> {
 					.collect()
 			})
 			.unwrap_or_default()
-	}
-
-	/// Returns the metadata around the first candidate pending availability for the
-	/// para provided, if any.
-	pub(crate) fn pending_availability(
-		para: ParaId,
-	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
-		PendingAvailability::<T>::get(&para).and_then(|p| p.get(0).cloned())
-	}
-
-	/// Returns the metadata around the candidate pending availability occupying the supplied core,
-	/// if any.
-	pub(crate) fn pending_availability_with_core(
-		para: ParaId,
-		core: CoreIndex,
-	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
-		PendingAvailability::<T>::get(&para)
-			.and_then(|p| p.iter().find(|c| c.core == core).cloned())
 	}
 }
 
