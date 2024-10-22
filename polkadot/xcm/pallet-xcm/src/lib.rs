@@ -2807,6 +2807,33 @@ impl<T: Config> Pallet<T> {
 	/// set.
 	#[cfg(any(feature = "try-runtime", test))]
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
+		// Take minimal version from `SafeXcmVersion` or `latest - 1` and ensure that the
+		// operational data is stored at least at that version, for example, to prevent issues when
+		// removing older XCM versions.
+		let minimal_allowed_xcm_version = if let Some(safe_xcm_version) = SafeXcmVersion::<T>::get()
+		{
+			XCM_VERSION.saturating_sub(1).min(safe_xcm_version)
+		} else {
+			XCM_VERSION.saturating_sub(1)
+		};
+
+		// check `Queries`
+		ensure!(
+			!Queries::<T>::iter_values()
+				.any(|query| query.needs_migration(minimal_allowed_xcm_version)),
+			TryRuntimeError::Other("`Queries` data should be migrated to the higher xcm version!")
+		);
+
+		// check `LockedFungibles`
+		ensure!(
+			!LockedFungibles::<T>::iter_values()
+				.any(|lockeds| LockedFungiblesWrapper::<T>(lockeds)
+					.needs_migration(minimal_allowed_xcm_version)),
+			TryRuntimeError::Other(
+				"`LockedFungibles` data should be migrated to the higher xcm version!"
+			)
+		);
+
 		// if migration has been already scheduled, everything is ok and data will be eventually
 		// migrated
 		if CurrentMigration::<T>::exists() {
@@ -2833,35 +2860,7 @@ impl<T: Config> Pallet<T> {
 					"`VersionNotifyTargets` data should be migrated to the `XCM_VERSION`!`"
 				)
 			);
-		}
 
-		// Take minimal version from `SafeXcmVersion` or `T::AdvertisedXcmVersion` and ensure that the operational data is stored at least at that version, for example, to prevent issues when removing older XCM versions.
-		let minimal_allowed_xcm_version = if let Some(safe_xcm_version) = SafeXcmVersion::<T>::get() {
-			T::AdvertisedXcmVersion::get().min(safe_xcm_version)
-		} else {
-			T::AdvertisedXcmVersion::get()
-		};
-		tracing::warn!(
-			target: "runtime",
-			?minimal_allowed_xcm_version,
-			"Checking xcm version for `pallet_xcm`'s operational data",
-		);
-
-		// check `Queries`
-		ensure!(
-			Queries::<T>::iter_values().all(|query| match query {
-				QueryStatus::Pending { responder, maybe_match_querier, .. } =>
-					responder.identify_version() >= minimal_allowed_xcm_version
-						&& maybe_match_querier
-							.map(|v| v.identify_version() >= minimal_allowed_xcm_version)
-							.unwrap_or(true),
-				QueryStatus::VersionNotifier { origin, .. } =>
-					origin.identify_version() >= minimal_allowed_xcm_version,
-				QueryStatus::Ready { response, .. } =>
-					response.identify_version() >= minimal_allowed_xcm_version,
-			}),
-			TryRuntimeError::Other("`Queries` data should be migrated to the higher xcm version!")
-		);
 
 		Ok(())
 	}
@@ -3513,6 +3512,39 @@ impl<RuntimeOrigin: From<crate::Origin>> ConvertOrigin<RuntimeOrigin>
 		match kind {
 			OriginKind::Xcm => Ok(crate::Origin::Xcm(origin).into()),
 			_ => Err(origin),
+		}
+	}
+}
+pub trait NeedsMigration {
+	fn needs_migration(&self, minimal_allowed_xcm_version: XcmVersion) -> bool;
+}
+
+struct LockedFungiblesWrapper<T: Config>(
+	BoundedVec<(BalanceOf<T>, VersionedLocation), T::MaxLockers>,
+);
+impl<T: Config> NeedsMigration for LockedFungiblesWrapper<T> {
+
+	fn needs_migration(&self, minimal_allowed_xcm_version: XcmVersion) -> bool {
+		self.0
+			.iter()
+			.any(|(_, unlocker)| unlocker.identify_version() < minimal_allowed_xcm_version)
+	}
+}
+
+impl<BlockNumber> NeedsMigration for QueryStatus<BlockNumber> {
+
+	fn needs_migration(&self, minimal_allowed_xcm_version: XcmVersion) -> bool {
+		match &self {
+			QueryStatus::Pending { responder, maybe_match_querier, .. } =>
+				responder.identify_version() < minimal_allowed_xcm_version ||
+					maybe_match_querier
+						.as_ref()
+						.map(|v| v.identify_version() < minimal_allowed_xcm_version)
+						.unwrap_or(false),
+			QueryStatus::VersionNotifier { origin, .. } =>
+				origin.identify_version() < minimal_allowed_xcm_version,
+			QueryStatus::Ready { response, .. } =>
+				response.identify_version() < minimal_allowed_xcm_version,
 		}
 	}
 }
