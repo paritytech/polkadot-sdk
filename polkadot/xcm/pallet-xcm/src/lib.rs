@@ -2860,7 +2860,7 @@ impl<T: Config> Pallet<T> {
 					"`VersionNotifyTargets` data should be migrated to the `XCM_VERSION`!`"
 				)
 			);
-
+		}
 
 		Ok(())
 	}
