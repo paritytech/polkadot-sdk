@@ -14,6 +14,8 @@ crates:
     bump: major
   - name: pallet-revive-fixtures
     bump: patch
+  - name: pallet-revive-mock-network 
+    bump: patch
   - name: pallet-revive-uapi
     bump: patch
   - name: polkadot-sdk
