@@ -1,0 +1,9 @@
+title: '[pallet-revive] fix fixture build path'
+doc:
+- audience: Runtime Dev
+  description: null
+crates:
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive
+  bump: minor
