@@ -51,6 +51,8 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       STABLE_BRANCH_NAME: ${{ needs.prepare-tooling.outputs.stable_version }}
+    permissions:
+      contents: write
 
     steps:
       - name: Install pgpkkms
