@@ -33,7 +33,9 @@ use crate::{
 	verifier::{self as verifier_pallet},
 	Config, *,
 };
-use frame_support::{derive_impl, pallet_prelude::*, parameter_types, traits::fungible::InspectHold};
+use frame_support::{
+	derive_impl, pallet_prelude::*, parameter_types, traits::fungible::InspectHold,
+};
 use parking_lot::RwLock;
 use sp_runtime::{
 	offchain::{
@@ -206,12 +208,21 @@ impl miner::Config for Runtime {
 
 pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
 
-impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = Extrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		Extrinsic::new_bare(call)
+	}
 }
 
 pub struct ConstDepositBase;
@@ -490,7 +501,7 @@ pub fn roll_one_with_ocw(maybe_pool: Option<Arc<RwLock<PoolState>>>) {
 			.into_iter()
 			.map(|uxt| <Extrinsic as codec::Decode>::decode(&mut &*uxt).unwrap())
 			.for_each(|xt| {
-				xt.call.dispatch(frame_system::RawOrigin::None.into()).unwrap();
+				xt.function.dispatch(frame_system::RawOrigin::None.into()).unwrap();
 			});
 		pool.try_write().unwrap().transactions.clear();
 	}

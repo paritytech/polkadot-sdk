@@ -78,7 +78,7 @@ use frame_support::{
 	pallet_prelude::{TransactionValidity, ValidTransaction},
 	traits::Get,
 };
-use frame_system::{ensure_none, offchain::SendTransactionTypes, pallet_prelude::BlockNumberFor};
+use frame_system::{ensure_none, offchain::CreateInherent, pallet_prelude::BlockNumberFor};
 use sp_npos_elections::ElectionScore;
 use sp_runtime::SaturatedConversion;
 
@@ -97,7 +97,7 @@ pub(crate) mod pallet {
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
-	pub trait Config: crate::Config + SendTransactionTypes<Call<Self>> {
+	pub trait Config: crate::Config + CreateInherent<Call<Self>> {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
