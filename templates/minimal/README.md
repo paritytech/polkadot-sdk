@@ -95,8 +95,9 @@ of their own fork and possibly of other nodes too.
 
 Minimal template can run as a single-node chain based on Omni Node (TODO: add link to doc) too.
 
-* 󰇚 OmniNode (TODO: add link to omni node docs) is represented by a binary called `polkadot-parachain`, which
+* 󰇚 OmniNode (TODO: add link to omni node docs) can be run by using the `polkadot-parachain` binary, which
 can be downloaded from [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
+It is one instantiation of the idea of OmniNode, which comes with [builtin customized chain specs](https://github.com/paritytech/polkadot-sdk/tree/master/cumulus/polkadot-parachain/chain-specs).
 
 *   Once built, add it to the `PATH` environment variable like so:
 
@@ -104,7 +105,7 @@ can be downloaded from [Polkadot SDK releases](https://github.com/paritytech/pol
 export PATH="<path-to-binaries>:$PATH"
 ```
 
-*   The omni-node needs a runtime chainspec to run it, and in minimal case, we need to build the `minimal-runtime`,
+*   The OmniNode needs a runtime chainspec and in minimal case, we need to build the `minimal-runtime`,
 and then generate a chain spec based on it.
 
 

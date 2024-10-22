@@ -16,7 +16,7 @@ use sp_keyring::Sr25519Keyring;
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 /// Parachain id used for gensis config presets of parachain template.
-const PARACHAIN_ID: u8 = 1000;
+const PARACHAIN_ID: u32 = 1000;
 
 /// Generate the session keys from individual elements.
 ///
