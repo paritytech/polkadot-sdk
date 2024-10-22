@@ -95,8 +95,8 @@ of their own fork and possibly of other nodes too.
 
 Minimal template can run as a single-node chain based on Omni Node (TODO: add link to doc) too.
 
-* 󰇚 OmniNode (TODO: add link to omni node docs) is represented by a binary called `polkadot-parachain`, which can be downloaded from
-[Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
+* 󰇚 OmniNode (TODO: add link to omni node docs) is represented by a binary called `polkadot-parachain`, which
+can be downloaded from [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases/latest).
 
 *   Once built, add it to the `PATH` environment variable like so:
 
