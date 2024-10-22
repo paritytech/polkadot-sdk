@@ -115,7 +115,7 @@ cargo build -p minimal-template-runtime --release
 # Install chain-spec-builder if not installed already.
 cargo install staging-chain-spec-builder
 # Use chain-spec-builder to generate the chain_spec.json file based on the development preset.
-chain-spec-builder create -r <path/to/minimal-template-runtime.wasm> named-preset development
+chain-spec-builder create -r <target/release/wbuild/path/to/minimal-template-runtime.wasm> named-preset development
 ```
 
 *  The chain spec needs a few more fields before using it. You can notice below that we're adding

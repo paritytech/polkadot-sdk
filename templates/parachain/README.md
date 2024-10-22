@@ -65,7 +65,7 @@ cargo build --workspace --release
 and has the node binary:
 
 ```sh
-docker build . -t polkadot-sdk-minimal-template
+docker build . -t polkadot-sdk-parachain-template
 ```
 ### Local Development Chain
 
@@ -122,17 +122,16 @@ which can be downloaded from [Polkadot SDK releases](https://github.com/parityte
 export PATH="<path-to-binaries>:$PATH"
 ```
 
-*   The OmniNode needs a runtime chainspec to run it, and in minimal case, we need to build the `minimal-runtime`,
-and then generate a chain spec based on it.
+*   We also need to build the `parachain-runtime` and then generate a chain spec based on it.
 
 
 ```sh
-# Build the minimal runtime.
-cargo build -p minimal-template-runtime --release
+# Build the parachain runtime.
+cargo build -p parachain-template-runtime --release
 # Install chain-spec-builder if not installed already.
 cargo install staging-chain-spec-builder
 # Use chain-spec-builder to generate the chain_spec.json file based on the development preset.
-chain-spec-builder create -r <path/to/minimal-template-runtime.wasm> named-preset development
+chain-spec-builder create -r <target/release/wbuild/path/to/parachain-template-runtime.wasm> named-preset development
 ```
 
 *  The chain spec needs a few more fields before using it. You can notice below that we're adding
