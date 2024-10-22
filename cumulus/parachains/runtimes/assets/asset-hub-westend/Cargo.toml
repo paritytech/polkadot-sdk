@@ -44,6 +44,7 @@ pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-uniques = { workspace = true }
+pallet-revive = { workspace = true }
 pallet-utility = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
@@ -145,6 +146,7 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
+	"pallet-revive/runtime-benchmarks"
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
@@ -180,6 +182,7 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-revive/try-runtime"
 ]
 std = [
 	"assets-common/std",
@@ -260,6 +263,7 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
+	"pallet-revive/std"
 ]
 
 # Enable the metadata hash generation in the wasm builder.
