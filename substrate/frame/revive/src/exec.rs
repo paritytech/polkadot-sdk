@@ -22,11 +22,7 @@ use crate::{
 	limits,
 	primitives::{ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
-	storage::{
-		self,
-		meter::{Diff, NestedMeter},
-		WriteOutcome,
-	},
+	storage::{self, meter::Diff, WriteOutcome},
 	transient_storage::TransientStorage,
 	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DebugBuffer, Error,
 	Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, LOG_TARGET,
@@ -743,7 +739,6 @@ where
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
-		let mut meter = storage_meter.nested(BalanceOf::<T>::zero());
 		if let Some((mut stack, executable)) = Self::new(
 			FrameArgs::Call { dest: dest.clone(), cached_info: None, delegated_call: None },
 			origin.clone(),
@@ -754,7 +749,7 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			Self::transfer_no_contract(&mut meter, &origin, &origin, &dest, value)
+			Self::transfer_no_contract(&origin, &origin, &dest, value)
 		}
 	}
 
@@ -1035,7 +1030,6 @@ where
 			// last non-delegate frame.
 			if delegated_code_hash.is_none() {
 				Self::transfer_from_origin(
-					&mut frame.nested_storage,
 					&self.origin,
 					&caller,
 					&frame.account_id,
@@ -1244,7 +1238,6 @@ where
 	/// storage deposit from `origin`. Which removes the need for contracts being aware of the ED.
 	/// This will fail if `origin` is root.
 	fn transfer(
-		meter: &mut NestedMeter<T>,
 		origin: &Origin<T>,
 		from: &T::AccountId,
 		to: &T::AccountId,
@@ -1274,7 +1267,6 @@ where
 
 	/// Same as `transfer` but `from` is an `Origin`.
 	fn transfer_from_origin(
-		meter: &mut NestedMeter<T>,
 		origin: &Origin<T>,
 		from: &Origin<T>,
 		to: &T::AccountId,
@@ -1287,18 +1279,17 @@ where
 			Origin::Root if value.is_zero() => return Ok(()),
 			Origin::Root => return DispatchError::RootNotAllowed.into(),
 		};
-		Self::transfer(meter, origin, from, to, value)
+		Self::transfer(origin, from, to, value)
 	}
 
 	/// Same as `transfer_from_origin` but creates an `ExecReturnValue` on success.
 	fn transfer_no_contract(
-		meter: &mut NestedMeter<T>,
 		origin: &Origin<T>,
 		from: &Origin<T>,
 		to: &T::AccountId,
 		value: BalanceOf<T>,
 	) -> ExecResult {
-		Self::transfer_from_origin(meter, origin, from, to, value)
+		Self::transfer_from_origin(origin, from, to, value)
 			.map(|_| ExecReturnValue::default())
 			.map_err(Into::into)
 	}
@@ -1405,12 +1396,9 @@ where
 			)? {
 				self.run(executable, input_data)
 			} else {
-				let origin = self.origin.clone();
-				let from = Origin::from_account_id(self.account_id().clone());
 				Self::transfer_no_contract(
-					&mut self.top_frame_mut().nested_storage,
-					&origin,
-					&from,
+					&self.origin,
+					&Origin::from_account_id(self.account_id().clone()),
 					&dest,
 					value,
 				)?;
@@ -1513,12 +1501,9 @@ where
 	}
 
 	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult {
-		let origin = self.origin.clone();
-		let frame = self.top_frame_mut();
 		Self::transfer(
-			&mut frame.nested_storage,
-			&origin,
-			&frame.account_id,
+			&self.origin,
+			&self.top_frame().account_id,
 			&T::AddressMapper::to_account_id(to),
 			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 		)
@@ -2039,9 +2024,7 @@ mod tests {
 			set_balance(&BOB, 0);
 
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter =
-				storage::meter::Meter::new(&origin, 0, 0).unwrap().nested(Default::default());
-			MockStack::transfer(&mut storage_meter, &origin, &ALICE, &BOB, 55).unwrap();
+			MockStack::transfer(&origin, &ALICE, &BOB, 55).unwrap();
 
 			let min_balance = <Test as Config>::Currency::minimum_balance();
 			assert_eq!(get_balance(&ALICE), 45 - min_balance);
@@ -2173,9 +2156,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			set_balance(&from, 0);
 
-			let mut storage_meter =
-				storage::meter::Meter::new(&origin, 0, 0).unwrap().nested(Default::default());
-			let result = MockStack::transfer(&mut storage_meter, &origin, &from, &dest, 100);
+			let result = MockStack::transfer(&origin, &from, &dest, 100);
 
 			assert_eq!(result, Err(Error::<Test>::TransferFailed.into()));
 			assert_eq!(get_balance(&from), 0);
