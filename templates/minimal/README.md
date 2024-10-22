@@ -100,7 +100,6 @@ can be downloaded from [Polkadot SDK releases](https://github.com/paritytech/pol
 
 *   Once built, add it to the `PATH` environment variable like so:
 
-
 ```sh
 export PATH="<path-to-binaries>:$PATH"
 ```
