@@ -177,7 +177,11 @@ def main():
                     print(f'-- manifest_path: {manifest_path}')
                     output_path = os.path.join(package_dir, "src", "weights.rs")
                     # TODO: we can remove once all pallets in dev runtime are migrated to polkadot-sdk-frame
-                    uses_polkadot_sdk_frame = "true" in os.popen(f"cargo metadata --locked --format-version 1 --no-deps | jq -r '.packages[] | select(.name == \"{pallet.replace('_', '-')}\") | .dependencies | any(.name == \"polkadot-sdk-frame\")'").read()
+                    try:
+                        uses_polkadot_sdk_frame = "true" in os.popen(f"cargo metadata --locked --format-version 1 --no-deps | jq -r '.packages[] | select(.name == \"{pallet.replace('_', '-')}\") | .dependencies | any(.name == \"polkadot-sdk-frame\")'").read()
+                    # Empty output from the previous os.popen command
+                    except StopIteration:
+                        uses_polkadot_sdk_frame = False
                     template = config['template']
                     if uses_polkadot_sdk_frame and re.match(r"frame-(:?umbrella-)?weight-template\.hbs", os.path.normpath(template).split(os.path.sep)[-1]):
                         template = "substrate/.maintain/frame-umbrella-weight-template.hbs"
