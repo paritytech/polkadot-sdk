@@ -43,7 +43,7 @@ jobs:
   create-stable-branch:
     needs: [prepare-tooling]
     runs-on: ubuntu-latest
-
+    environment: release
     env:
       PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
       PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}

@@ -1,0 +1,15 @@
+title: "sync: Remove checking of the extrinsics root"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Remove checking the extrinsics root as part of the sync code. 
+      With the introduction of `system_version` and the possibility to use the `V1`
+      layout for the trie when calculating the extrinsics root, it would require the
+      sync code to fetch the runtime version first before knowing which layout to use
+      when building the extrinsic root.
+      The extrinsics root is still checked when executing a block on chain.
+
+crates:
+  - name: sc-network-sync
+    bump: patch
