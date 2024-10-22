@@ -78,12 +78,23 @@ jobs:
           git config --global user.email "release-team@parity.io"
           git config --global user.signingKey "90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE"
 
+      - name: Generate content write token for the release automation
+        id: generate_write_token
+        uses: actions/create-github-app-token@v1
+        with:
+            app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
+            private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
+            owner: paritytech-release
+
+
       - name: Create stable branch
         run: |
           git checkout -b "$STABLE_BRANCH_NAME"
           git show-ref "$STABLE_BRANCH_NAME"
 
       - name: Bump versions, reorder prdocs and push stable branch
+        env:
+          GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         run: |
           . ./.github/scripts/release/release_lib.sh
 
