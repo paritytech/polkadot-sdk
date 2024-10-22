@@ -114,6 +114,7 @@ jobs:
 
           gh auth setup-git
 
-          cat .gitconfig
+          ls -la
+          cat ~/.gitconfig
 
           git push origin "$STABLE_BRANCH_NAME"
