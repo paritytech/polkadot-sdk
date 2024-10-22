@@ -1412,7 +1412,8 @@ impl_runtime_apis! {
 			// We accept the native token to pay fees.
 			let mut acceptable_assets = vec![AssetId(native_token.clone())];
 			// We also accept all assets in a pool with the native token.
-			acceptable_assets.extend(assets_common::get_assets_in_pool_with::<Runtime, xcm::v4::Location>(&native_token).map(AssetId));
+			let assets_in_pool_with_native = assets_common::get_assets_in_pool_with::<Runtime, xcm::v4::Location>(&native_token).map_err(|()| XcmPaymentApiError::VersionedConversionFailed)?.into_iter().map(AssetId);
+			acceptable_assets.extend(assets_in_pool_with_native);
 			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
 		}
 
@@ -1425,7 +1426,7 @@ impl_runtime_apis! {
 					Ok(fee_in_native)
 				},
 				Ok(asset_id) => {
-					let assets_in_pool_with_native_token: Vec<_> = assets_common::get_assets_in_pool_with::<Runtime, xcm::v4::Location>(&native_asset).collect();
+					let assets_in_pool_with_native_token: Vec<_> = assets_common::get_assets_in_pool_with::<Runtime, xcm::v4::Location>(&native_asset).map_err(|()| XcmPaymentApiError::VersionedConversionFailed)?;
 					if assets_in_pool_with_native_token.contains(&asset_id.0) {
 						pallet_asset_conversion::Pallet::<Runtime>::quote_price_tokens_for_exact_tokens(
 							asset_id.clone().0,
