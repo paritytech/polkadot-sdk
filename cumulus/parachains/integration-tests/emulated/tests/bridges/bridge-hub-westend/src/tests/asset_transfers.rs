@@ -690,7 +690,7 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 		pens_location_on_penpal
 			.interior()
 			.clone()
-			.pushed_front_with(penpal_parachain_junction.clone())
+			.pushed_front_with(penpal_parachain_junction)
 			.unwrap(),
 	);
 	let pens_at_rococo_parachains = Location::new(
