@@ -96,7 +96,7 @@
 //! * If need be, the weights of the runtime need to be updated using `frame-omni-bencher`.
 //!   References:
 //!     * [`crate::reference_docs::frame_benchmarking_weight`]
-//! * Next, `chain-spec-builder` is used to generate a `chainspec.json`, either for development, or
+//! * Next, `chain-spec-builder` is used to generate a `chain_spec.json`, either for development, or
 //!   for production. References:
 //!     * [`crate::reference_docs::chain_spec_genesis`]
 //! * For local development, the following options are available:
