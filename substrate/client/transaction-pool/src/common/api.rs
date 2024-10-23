@@ -162,6 +162,18 @@ where
 		.boxed()
 	}
 
+	/// Validates a transaction by calling into the runtime.
+	///
+	/// Same as `validate_transaction` but blocks the current thread when performing validation.
+	fn validate_transaction_blocking(
+		&self,
+		at: Block::Hash,
+		source: TransactionSource,
+		uxt: graph::ExtrinsicFor<Self>,
+	) -> error::Result<TransactionValidity> {
+		validate_transaction_blocking(&*self.client, at, source, uxt)
+	}
+
 	fn block_id_to_number(
 		&self,
 		at: &BlockId<Self::Block>,
@@ -271,29 +283,4 @@ where
 	log::trace!(target: LOG_TARGET, "[{h:?}] validate_transaction_blocking: at:{at:?} took:{:?}", s.elapsed());
 
 	result
-}
-
-impl<Client, Block> FullChainApi<Client, Block>
-where
-	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ BlockBackend<Block>
-		+ BlockIdTo<Block>
-		+ HeaderBackend<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>,
-	Client: Send + Sync + 'static,
-	Client::Api: TaggedTransactionQueue<Block>,
-{
-	/// Validates a transaction by calling into the runtime, same as
-	/// `validate_transaction` but blocks the current thread when performing
-	/// validation. Only implemented for `FullChainApi` since we can call into
-	/// the runtime locally.
-	pub fn validate_transaction_blocking(
-		&self,
-		at: Block::Hash,
-		source: TransactionSource,
-		uxt: graph::ExtrinsicFor<Self>,
-	) -> error::Result<TransactionValidity> {
-		validate_transaction_blocking(&*self.client, at, source, uxt)
-	}
 }
