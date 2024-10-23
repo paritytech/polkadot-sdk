@@ -122,9 +122,6 @@ pub fn retain_initialized_fields(
 /// struct definition. This ensures the generated JSON is valid and reflects any future changes
 /// to the structure.
 ///
-/// This macro assumes that the `serde(rename_all="camelCase")` attribute is applied to
-/// `RuntimeGenesisConfig`, which is typical for frame-based runtimes.
-///
 /// # Example
 ///
 /// ```rust
@@ -208,7 +205,7 @@ pub fn retain_initialized_fields(
 #[macro_export]
 macro_rules! build_struct_json_patch {
 	(
-		$struct_type:ident { $($tail:tt)* }
+		$($struct_type:ident)::+ { $($tail:tt)* }
 	) => {
 		{
 			use $crate::generate_genesis_config::{InitializedField, retain_initialized_fields};
@@ -216,26 +213,26 @@ macro_rules! build_struct_json_patch {
 			use alloc::{string::ToString, vec::Vec };
 			let mut keys : Vec<InitializedField> = vec![];
 			#[allow(clippy::needless_update)]
-			let struct_instance = build_struct_json_patch!($struct_type, keys @  { $($tail)* });
+			let struct_instance = build_struct_json_patch!($($struct_type)::+, keys @  { $($tail)* });
 			let mut json_value =
 				serde_json::to_value(struct_instance).expect("serialization to json should work. qed");
 			retain_initialized_fields(&mut json_value, &keys, Default::default());
 			json_value
 		}
 	};
-	($struct_type:ident, $all_keys:ident @ { $($tail:tt)* }) => {
-		$struct_type {
-			..build_struct_json_patch!($struct_type, $all_keys @ $($tail)*)
+	($($struct_type:tt)::+, $all_keys:ident @ { $($tail:tt)* }) => {
+		$($struct_type)::+ {
+			..build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*)
 		}
 	};
-	($struct_type:ident, $all_keys:ident  @  $key:ident: $type:tt { $keyi:ident : $value:tt }  ) => {
-		$struct_type {
+	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident: $($type:tt)::+ { $keyi:ident : $value:tt }  ) => {
+		$($struct_type)::+ {
 			$key: {
 				$all_keys.push(InitializedField::Partial(stringify!($key).to_string()));
 				$all_keys.push(
 					InitializedField::Full(alloc::format!("{}.{}", stringify!($key), stringify!($keyi)))
 				);
-				$type {
+				$($type)::+ {
 					$keyi:$value,
 					..Default::default()
 				}
@@ -243,12 +240,12 @@ macro_rules! build_struct_json_patch {
 			..Default::default()
 		}
 	};
-	($struct_type:ident, $all_keys:ident  @  $key:ident:  $type:tt { $($body:tt)* } ) => {
-		$struct_type {
+	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident:  $($type:tt)::+ { $($body:tt)* } ) => {
+		$($struct_type)::+ {
 			$key: {
 				$all_keys.push(InitializedField::Partial(stringify!($key).to_string()));
 				let mut inner_keys = Vec::<InitializedField>::default();
-				let value = build_struct_json_patch!($type, inner_keys @ { $($body)* });
+				let value = build_struct_json_patch!($($type)::+, inner_keys @ { $($body)* });
 				for i in inner_keys.iter_mut() {
 					i.add_prefix(stringify!($key));
 				};
@@ -258,32 +255,32 @@ macro_rules! build_struct_json_patch {
 			..Default::default()
 		}
 	};
-	($struct_type:ident, $all_keys:ident  @  $key:ident:  $type:tt { $($body:tt)* },  $($tail:tt)*  ) => {
-		$struct_type {
+	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident:  $($type:tt)::+ { $($body:tt)* },  $($tail:tt)*  ) => {
+		$($struct_type)::+ {
 			$key : {
 				$all_keys.push(InitializedField::Partial(stringify!($key).to_string()));
 				let mut inner_keys = Vec::<InitializedField>::default();
-				let value = build_struct_json_patch!($type, inner_keys @ { $($body)* });
+				let value = build_struct_json_patch!($($type)::+, inner_keys @ { $($body)* });
 				for i in inner_keys.iter_mut() {
 					i.add_prefix(stringify!($key));
 				};
 				$all_keys.extend(inner_keys);
 				value
 			},
-			.. build_struct_json_patch!($struct_type, $all_keys @ $($tail)*)
+			.. build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*)
 		}
 	};
-	($struct_type:ident, $all_keys:ident  @  $key:ident: $value:expr, $($tail:tt)* ) => {
-		$struct_type {
+	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident: $value:expr, $($tail:tt)* ) => {
+		$($struct_type)::+ {
 			$key: {
 				$all_keys.push(InitializedField::Full(stringify!($key).to_string()));
 				$value
 			},
-			..build_struct_json_patch!($struct_type, $all_keys @ $($tail)*)
+			..build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*)
 		}
 	};
-	($struct_type:ident, $all_keys:ident  @  $key:ident: $value:expr ) => {
-		$struct_type {
+	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident: $value:expr ) => {
+		$($struct_type)::+ {
 			$key: {
 				$all_keys.push(InitializedField::Full(stringify!($key).to_string()));
 				$value
@@ -292,11 +289,32 @@ macro_rules! build_struct_json_patch {
 		}
 	};
 
-	($struct_type:ident, $all_keys:ident  @ $(,)?) => { $struct_type { ..Default::default() }};
+	($($struct_type:ident)::+, $all_keys:ident  @ $(,)?) => {
+		$($struct_type)::+ { ..Default::default() }
+	};
 }
 
 #[cfg(test)]
 mod test {
+	mod nested_mod {
+		#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+		pub struct InsideMod {
+			pub a: u32,
+			pub b: u32,
+		}
+
+		pub mod nested_mod2 {
+			pub mod nested_mod3 {
+				#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+				pub struct InsideMod3 {
+					pub a: u32,
+					pub b: u32,
+					pub s: super::super::InsideMod,
+				}
+			}
+		}
+	}
+
 	#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 	struct TestStruct {
 		a: u32,
@@ -306,6 +324,8 @@ mod test {
 		t3: S3,
 		i: Nested1,
 		e: E,
+		t: nested_mod::InsideMod,
+		u: nested_mod::nested_mod2::nested_mod3::InsideMod3,
 	}
 
 	#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -681,6 +701,88 @@ mod test {
 				"a": 3,
 				"s3": { "x": 5 },
 				"b": 4
+			}
+		);
+	}
+
+	#[test]
+	fn test_generate_config_macro_with_nested_mods() {
+		test!(
+			TestStruct { t: nested_mod::InsideMod { a: 32 } },
+			{
+				"t" : { "a": 32 }
+			}
+		);
+		test!(
+			TestStruct {
+				t: nested_mod::InsideMod { a: 32 },
+				u: nested_mod::nested_mod2::nested_mod3::InsideMod3 { a: 32 }
+			},
+			{
+				"t" : { "a": 32 },
+				"u" : { "a": 32 }
+			}
+		);
+		test!(
+			TestStruct {
+				t: nested_mod::InsideMod { a: 32 },
+				u: nested_mod::nested_mod2::nested_mod3::InsideMod3 {
+					a: 32,
+					s: nested_mod::InsideMod { a: 34 },
+				}
+			},
+			{
+				"t" : { "a": 32 },
+				"u" : { "a": 32, "s": { "a": 34 } }
+			}
+		);
+		test!(
+			TestStruct {
+				t: nested_mod::InsideMod { a: 32 },
+				u: nested_mod::nested_mod2::nested_mod3::InsideMod3::default()
+			},
+			{
+				"t" : { "a": 32 },
+				"u" : { "a": 0, "b": 0,  "s": { "a": 0, "b": 0} }
+			}
+		);
+
+		let i = [0u32, 1u32, 2u32];
+		const C: u32 = 5;
+		test!(
+			TestStruct {
+				t: nested_mod::InsideMod { a: 32 },
+				u: nested_mod::nested_mod2::nested_mod3::InsideMod3::default(),
+				i: Nested1 {
+					ii: Nested2 {
+						iii: Nested3 {
+							a: 2,
+							s: S::new(C),
+							v: i.iter()
+								.map(|x| (*x, 2 * x, 100 + x, SomeEnum::<u32>::A))
+								.collect::<Vec<_>>(),
+						},
+						s3: S3::new_from_s(S { x: 4 })
+					},
+					a: 44,
+				},
+			},
+			{
+				"t" : { "a": 32 },
+				"u" : { "a": 0, "b": 0,  "s": { "a": 0, "b": 0} } ,
+				"i": {
+					"ii": {
+						"iii": {
+							"a": 2,
+							"s": { "x": 5 },
+							"v": i.iter()
+								.map(|x| (*x, 2 * x, 100 + x, SomeEnum::<u32>::A))
+								.collect::<Vec<_>>(),
+						},
+						"s3": {"x": 4, "y": 0, "z": 0 }
+					},
+					"a" : 44,
+				},
 			}
 		);
 	}
