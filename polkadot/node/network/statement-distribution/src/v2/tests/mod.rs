@@ -191,7 +191,7 @@ impl TestState {
 		relay_parent: Hash,
 		groups_for_first_para: usize,
 	) -> TestLeaf {
-		let mut cq = BTreeMap::new();
+		let mut cq = std::collections::BTreeMap::new();
 		TestLeaf {
 			number: 1,
 			hash: relay_parent,
