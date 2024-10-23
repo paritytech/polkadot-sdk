@@ -26,10 +26,7 @@ use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
 use snowbridge_router_primitives::{inbound::MessageToXcm, outbound::EthereumBlobExporter};
-use snowbridge_router_primitives_v2::{
-	inbound::MessageToXcm as MessageToXcmV2,
-	outbound::EthereumBlobExporter as EthereumBlobExporterV2,
-};
+use snowbridge_router_primitives_v2::outbound::EthereumBlobExporter as EthereumBlobExporterV2;
 use sp_core::H160;
 use testnet_parachains_constants::westend::{
 	currency::*,
@@ -117,31 +114,14 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;
-	type Token = Balances;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type XcmSender = XcmRouter;
 	#[cfg(feature = "runtime-benchmarks")]
 	type XcmSender = DoNothingRouter;
-	type ChannelLookup = EthereumSystem;
 	type GatewayAddress = EthereumGatewayAddress;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
-	type MessageConverter = MessageToXcmV2<
-		CreateAssetCall,
-		CreateAssetDeposit,
-		ConstU8<INBOUND_QUEUE_PALLET_INDEX>,
-		AccountId,
-		Balance,
-		EthereumSystem,
-		EthereumUniversalLocation,
-		AssetHubFromEthereum,
-	>;
-	type WeightToFee = WeightToFee;
-	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
-	type MaxMessageSize = ConstU32<2048>;
 	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue_v2::WeightInfo<Runtime>;
-	type PricingParameters = EthereumSystem;
-	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
 }
 
 impl snowbridge_pallet_outbound_queue::Config for Runtime {

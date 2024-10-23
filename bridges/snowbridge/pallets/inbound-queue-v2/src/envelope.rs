@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use snowbridge_core::{inbound::Log, ChannelId};
+use snowbridge_core::inbound::Log;
 
-use sp_core::{RuntimeDebug, H160, H256};
+use sp_core::{RuntimeDebug, H160};
 use sp_std::prelude::*;
 
 use alloy_primitives::B256;
 use alloy_sol_types::{sol, SolEvent};
 
 sol! {
-	event OutboundMessageAccepted(bytes32 indexed channel_id, uint64 nonce, bytes32 indexed message_id, bytes payload);
+	event OutboundMessageAccepted(uint64 indexed nonce, uint128 fee, bytes payload);
 }
 
 /// An inbound message that has had its outer envelope decoded.
@@ -17,12 +17,10 @@ sol! {
 pub struct Envelope {
 	/// The address of the outbound queue on Ethereum that emitted this message as an event log
 	pub gateway: H160,
-	/// The message Channel
-	pub channel_id: ChannelId,
 	/// A nonce for enforcing replay protection and ordering.
 	pub nonce: u64,
-	/// An id for tracing the message on its route (has no role in bridge consensus)
-	pub message_id: H256,
+	/// Total fee paid in Ether on Ethereum, should cover all the cost
+	pub fee: u128,
 	/// The inner payload generated from the source application.
 	pub payload: Vec<u8>,
 }
@@ -41,9 +39,8 @@ impl TryFrom<&Log> for Envelope {
 
 		Ok(Self {
 			gateway: log.address,
-			channel_id: ChannelId::from(event.channel_id.as_ref()),
 			nonce: event.nonce,
-			message_id: H256::from(event.message_id.as_ref()),
+			fee: event.fee,
 			payload: event.payload,
 		})
 	}

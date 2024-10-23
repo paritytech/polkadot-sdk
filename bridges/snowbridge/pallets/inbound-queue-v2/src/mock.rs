@@ -8,11 +8,9 @@ use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::{
-	gwei,
 	inbound::{Log, Proof, VerificationError},
-	meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
+	TokenId,
 };
-use snowbridge_router_primitives::inbound::MessageToXcm;
 use sp_core::{H160, H256};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
@@ -20,7 +18,6 @@ use sp_runtime::{
 };
 use sp_std::{convert::From, default::Default};
 use xcm::{latest::SendXcm, prelude::*};
-use xcm_executor::AssetsInHolding;
 
 use crate::{self as inbound_queue};
 
@@ -149,64 +146,7 @@ impl SendXcm for MockXcmSender {
 	}
 }
 
-parameter_types! {
-	pub const OwnParaId: ParaId = ParaId::new(1013);
-	pub Parameters: PricingParameters<u128> = PricingParameters {
-		exchange_rate: FixedU128::from_rational(1, 400),
-		fee_per_gas: gwei(20),
-		rewards: Rewards { local: DOT, remote: meth(1) },
-		multiplier: FixedU128::from_rational(1, 1),
-	};
-}
-
 pub const DOT: u128 = 10_000_000_000;
-
-pub struct MockChannelLookup;
-impl StaticLookup for MockChannelLookup {
-	type Source = ChannelId;
-	type Target = Channel;
-
-	fn lookup(channel_id: Self::Source) -> Option<Self::Target> {
-		if channel_id !=
-			hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539").into()
-		{
-			return None
-		}
-		Some(Channel { agent_id: H256::zero(), para_id: ASSET_HUB_PARAID.into() })
-	}
-}
-
-pub struct SuccessfulTransactor;
-impl TransactAsset for SuccessfulTransactor {
-	fn can_check_in(_origin: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
-		Ok(())
-	}
-
-	fn can_check_out(_dest: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
-		Ok(())
-	}
-
-	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> XcmResult {
-		Ok(())
-	}
-
-	fn withdraw_asset(
-		_what: &Asset,
-		_who: &Location,
-		_context: Option<&XcmContext>,
-	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::default())
-	}
-
-	fn internal_transfer_asset(
-		_what: &Asset,
-		_from: &Location,
-		_to: &Location,
-		_context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::default())
-	}
-}
 
 pub struct MockTokenIdConvert;
 impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
@@ -221,28 +161,11 @@ impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
 impl inbound_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
-	type Token = Balances;
 	type XcmSender = MockXcmSender;
 	type WeightInfo = ();
 	type GatewayAddress = GatewayAddress;
-	type MessageConverter = MessageToXcm<
-		CreateAssetCall,
-		CreateAssetDeposit,
-		InboundQueuePalletInstance,
-		AccountId,
-		Balance,
-		MockTokenIdConvert,
-		UniversalLocation,
-		AssetHubFromEthereum,
-	>;
-	type PricingParameters = Parameters;
-	type ChannelLookup = MockChannelLookup;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
-	type WeightToFee = IdentityFee<u128>;
-	type LengthToFee = IdentityFee<u128>;
-	type MaxMessageSize = ConstU32<1024>;
-	type AssetTransactor = SuccessfulTransactor;
 }
 
 pub fn last_events(n: usize) -> Vec<RuntimeEvent> {
@@ -261,16 +184,6 @@ pub fn expect_events(e: Vec<RuntimeEvent>) {
 
 pub fn setup() {
 	System::set_block_number(1);
-	Balances::mint_into(
-		&sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into()),
-		InitialFund::get(),
-	)
-	.unwrap();
-	Balances::mint_into(
-		&sibling_sovereign_account::<Test>(TEMPLATE_PARAID.into()),
-		InitialFund::get(),
-	)
-	.unwrap();
 }
 
 pub fn new_tester() -> sp_io::TestExternalities {
