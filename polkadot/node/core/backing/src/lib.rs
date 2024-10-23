@@ -97,13 +97,10 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	self as util,
-	backing_implicit_view::{FetchError as ImplicitViewFetchError, View as ImplicitView},
+	backing_implicit_view::View as ImplicitView,
 	executor_params_at_relay_parent, request_from_runtime, request_session_index_for_child,
 	request_validator_groups, request_validators,
-	runtime::{
-		self, fetch_claim_queue, prospective_parachains_mode, request_min_backing_votes,
-		ClaimQueueSnapshot, ProspectiveParachainsMode,
-	},
+	runtime::{self, fetch_claim_queue, request_min_backing_votes, ClaimQueueSnapshot},
 	Validator,
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
@@ -120,7 +117,7 @@ use polkadot_statement_table::{
 		SignedStatement as TableSignedStatement, Statement as TableStatement,
 		Summary as TableSummary,
 	},
-	Config as TableConfig, Context as TableContextTrait, Table,
+	Context as TableContextTrait, Table,
 };
 use sp_keystore::KeystorePtr;
 use util::runtime::{get_disabled_validators_with_fallback, request_node_features};
@@ -210,7 +207,6 @@ where
 }
 
 struct PerRelayParentState {
-	prospective_parachains_mode: ProspectiveParachainsMode,
 	/// The hash of the relay parent on top of which this job is doing it's work.
 	parent: Hash,
 	/// Session index.
@@ -251,52 +247,12 @@ struct PerCandidateState {
 	relay_parent: Hash,
 }
 
-enum ActiveLeafState {
-	// If prospective-parachains is disabled, one validator may only back one candidate per
-	// paraid.
-	ProspectiveParachainsDisabled { seconded: HashSet<ParaId> },
-	ProspectiveParachainsEnabled { max_candidate_depth: usize, allowed_ancestry_len: usize },
-}
-
-impl ActiveLeafState {
-	fn new(mode: ProspectiveParachainsMode) -> Self {
-		match mode {
-			ProspectiveParachainsMode::Disabled =>
-				Self::ProspectiveParachainsDisabled { seconded: HashSet::new() },
-			ProspectiveParachainsMode::Enabled { max_candidate_depth, allowed_ancestry_len } =>
-				Self::ProspectiveParachainsEnabled { max_candidate_depth, allowed_ancestry_len },
-		}
-	}
-
-	fn add_seconded_candidate(&mut self, para_id: ParaId) {
-		if let Self::ProspectiveParachainsDisabled { seconded } = self {
-			seconded.insert(para_id);
-		}
-	}
-}
-
-impl From<&ActiveLeafState> for ProspectiveParachainsMode {
-	fn from(state: &ActiveLeafState) -> Self {
-		match *state {
-			ActiveLeafState::ProspectiveParachainsDisabled { .. } =>
-				ProspectiveParachainsMode::Disabled,
-			ActiveLeafState::ProspectiveParachainsEnabled {
-				max_candidate_depth,
-				allowed_ancestry_len,
-			} => ProspectiveParachainsMode::Enabled { max_candidate_depth, allowed_ancestry_len },
-		}
-	}
-}
-
 /// The state of the subsystem.
 struct State {
 	/// The utility for managing the implicit and explicit views in a consistent way.
 	///
 	/// We only feed leaves which have prospective parachains enabled to this view.
 	implicit_view: ImplicitView,
-	/// State tracked for all active leaves, whether or not they have prospective parachains
-	/// enabled.
-	per_leaf: HashMap<Hash, ActiveLeafState>,
 	/// State tracked for all relay-parents backing work is ongoing for. This includes
 	/// all active leaves.
 	///
@@ -335,7 +291,6 @@ impl State {
 	) -> Self {
 		State {
 			implicit_view: ImplicitView::default(),
-			per_leaf: HashMap::default(),
 			per_relay_parent: HashMap::default(),
 			per_candidate: HashMap::new(),
 			validator_to_group_cache: LruMap::new(ByLength::new(2)),
@@ -849,50 +804,25 @@ async fn handle_active_leaves_update<Context>(
 	update: ActiveLeavesUpdate,
 	state: &mut State,
 ) -> Result<(), Error> {
-	enum LeafHasProspectiveParachains {
-		Enabled(Result<ProspectiveParachainsMode, ImplicitViewFetchError>),
-		Disabled,
-	}
-
 	// Activate in implicit view before deactivate, per the docs
 	// on ImplicitView, this is more efficient.
+	// TODO: refactor this
 	let res = if let Some(leaf) = update.activated {
-		// Only activate in implicit view if prospective
-		// parachains are enabled.
-		let mode = prospective_parachains_mode(ctx.sender(), leaf.hash).await?;
-
 		let leaf_hash = leaf.hash;
-		Some((
-			leaf,
-			match mode {
-				ProspectiveParachainsMode::Disabled => LeafHasProspectiveParachains::Disabled,
-				ProspectiveParachainsMode::Enabled { .. } => LeafHasProspectiveParachains::Enabled(
-					state.implicit_view.activate_leaf(ctx.sender(), leaf_hash).await.map(|_| mode),
-				),
-			},
-		))
+		Some((leaf, state.implicit_view.activate_leaf(ctx.sender(), leaf_hash).await.map(|_| ())))
 	} else {
 		None
 	};
 
 	for deactivated in update.deactivated {
-		state.per_leaf.remove(&deactivated);
 		state.implicit_view.deactivate_leaf(deactivated);
 	}
 
 	// clean up `per_relay_parent` according to ancestry
 	// of leaves. we do this so we can clean up candidates right after
 	// as a result.
-	//
-	// when prospective parachains are disabled, the implicit view is empty,
-	// which means we'll clean up everything that's not a leaf - the expected behavior
-	// for pre-asynchronous backing.
 	{
-		let remaining: HashSet<_> = state
-			.per_leaf
-			.keys()
-			.chain(state.implicit_view.all_allowed_relay_parents())
-			.collect();
+		let remaining: HashSet<_> = state.implicit_view.all_allowed_relay_parents().collect();
 
 		state.per_relay_parent.retain(|r, _| remaining.contains(&r));
 	}
@@ -908,27 +838,11 @@ async fn handle_active_leaves_update<Context>(
 
 	// Get relay parents which might be fresh but might be known already
 	// that are explicit or implicit from the new active leaf.
-	let (fresh_relay_parents, leaf_mode) = match res {
+	let fresh_relay_parents = match res {
 		None => return Ok(()),
-		Some((leaf, LeafHasProspectiveParachains::Disabled)) => {
-			// defensive in this case - for enabled, this manifests as an error.
-			if state.per_leaf.contains_key(&leaf.hash) {
-				return Ok(())
-			}
-
-			state
-				.per_leaf
-				.insert(leaf.hash, ActiveLeafState::new(ProspectiveParachainsMode::Disabled));
-
-			(vec![leaf.hash], ProspectiveParachainsMode::Disabled)
-		},
-		Some((leaf, LeafHasProspectiveParachains::Enabled(Ok(prospective_parachains_mode)))) => {
+		Some((leaf, Ok(_))) => {
 			let fresh_relay_parents =
 				state.implicit_view.known_allowed_relay_parents_under(&leaf.hash, None);
-
-			let active_leaf_state = ActiveLeafState::new(prospective_parachains_mode);
-
-			state.per_leaf.insert(leaf.hash, active_leaf_state);
 
 			let fresh_relay_parent = match fresh_relay_parents {
 				Some(f) => f.to_vec(),
@@ -942,9 +856,9 @@ async fn handle_active_leaves_update<Context>(
 					vec![leaf.hash]
 				},
 			};
-			(fresh_relay_parent, prospective_parachains_mode)
+			fresh_relay_parent
 		},
-		Some((leaf, LeafHasProspectiveParachains::Enabled(Err(e)))) => {
+		Some((leaf, Err(e))) => {
 			gum::debug!(
 				target: LOG_TARGET,
 				leaf_hash = ?leaf.hash,
@@ -962,18 +876,6 @@ async fn handle_active_leaves_update<Context>(
 			continue
 		}
 
-		let mode = match state.per_leaf.get(&maybe_new) {
-			None => {
-				// If the relay-parent isn't a leaf itself,
-				// then it is guaranteed by the prospective parachains
-				// subsystem that it is an ancestor of a leaf which
-				// has prospective parachains enabled and that the
-				// block itself did.
-				leaf_mode
-			},
-			Some(l) => l.into(),
-		};
-
 		// construct a `PerRelayParent` from the runtime API
 		// and insert it.
 		let per = construct_per_relay_parent_state(
@@ -981,7 +883,6 @@ async fn handle_active_leaves_update<Context>(
 			maybe_new,
 			&state.keystore,
 			&mut state.validator_to_group_cache,
-			mode,
 		)
 		.await?;
 
@@ -1084,7 +985,6 @@ async fn construct_per_relay_parent_state<Context>(
 		SessionIndex,
 		Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>,
 	>,
-	mode: ProspectiveParachainsMode,
 ) -> Result<Option<PerRelayParentState>, Error> {
 	let parent = relay_parent;
 
@@ -1159,10 +1059,11 @@ async fn construct_per_relay_parent_state<Context>(
 		let core_index = CoreIndex(idx as _);
 
 		if !has_claim_queue {
+			gum::warn!(target: LOG_TARGET, has_claim_queue, "ClaimQueue runtime api not available. Using availability cores.");
 			match core {
 				CoreState::Scheduled(scheduled) =>
 					claim_queue.insert(core_index, [scheduled.para_id].into_iter().collect()),
-				CoreState::Occupied(occupied) if mode.is_enabled() => {
+				CoreState::Occupied(occupied) => {
 					// Async backing makes it legal to build on top of
 					// occupied core.
 					if let Some(next) = &occupied.next_up_on_available {
@@ -1202,20 +1103,13 @@ async fn construct_per_relay_parent_state<Context>(
 		.expect("Just inserted");
 
 	let table_context = TableContext { validator, groups, validators, disabled_validators };
-	let table_config = TableConfig {
-		allow_multiple_seconded: match mode {
-			ProspectiveParachainsMode::Enabled { .. } => true,
-			ProspectiveParachainsMode::Disabled => false,
-		},
-	};
 
 	Ok(Some(PerRelayParentState {
-		prospective_parachains_mode: mode,
 		parent,
 		session_index,
 		assigned_core,
 		backed: HashSet::new(),
-		table: Table::new(table_config),
+		table: Table::new(),
 		table_context,
 		issued_statements: HashSet::new(),
 		awaiting_validation: HashSet::new(),
@@ -1240,7 +1134,6 @@ enum SecondingAllowed {
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn seconding_sanity_check<Context>(
 	ctx: &mut Context,
-	active_leaves: &HashMap<Hash, ActiveLeafState>,
 	implicit_view: &ImplicitView,
 	hypothetical_candidate: HypotheticalCandidate,
 ) -> SecondingAllowed {
@@ -1251,49 +1144,36 @@ async fn seconding_sanity_check<Context>(
 	let candidate_relay_parent = hypothetical_candidate.relay_parent();
 	let candidate_hash = hypothetical_candidate.candidate_hash();
 
-	for (head, leaf_state) in active_leaves {
-		if ProspectiveParachainsMode::from(leaf_state).is_enabled() {
-			// Check that the candidate relay parent is allowed for para, skip the
-			// leaf otherwise.
-			let allowed_parents_for_para =
-				implicit_view.known_allowed_relay_parents_under(head, Some(candidate_para));
-			if !allowed_parents_for_para.unwrap_or_default().contains(&candidate_relay_parent) {
-				continue
-			}
-
-			let (tx, rx) = oneshot::channel();
-			ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalMembership(
-				HypotheticalMembershipRequest {
-					candidates: vec![hypothetical_candidate.clone()],
-					fragment_chain_relay_parent: Some(*head),
-				},
-				tx,
-			))
-			.await;
-			let response = rx.map_ok(move |candidate_memberships| {
-				let is_member_or_potential = candidate_memberships
-					.into_iter()
-					.find_map(|(candidate, leaves)| {
-						(candidate.candidate_hash() == candidate_hash).then_some(leaves)
-					})
-					.and_then(|leaves| leaves.into_iter().find(|leaf| leaf == head))
-					.is_some();
-
-				(is_member_or_potential, head)
-			});
-			responses.push_back(response.boxed());
-		} else {
-			if *head == candidate_relay_parent {
-				if let ActiveLeafState::ProspectiveParachainsDisabled { seconded } = leaf_state {
-					if seconded.contains(&candidate_para) {
-						// The leaf is already occupied. For non-prospective parachains, we only
-						// second one candidate.
-						return SecondingAllowed::No
-					}
-				}
-				responses.push_back(futures::future::ok((true, head)).boxed());
-			}
+	for head in implicit_view.all_allowed_relay_parents() {
+		// Check that the candidate relay parent is allowed for para, skip the
+		// leaf otherwise.
+		let allowed_parents_for_para =
+			implicit_view.known_allowed_relay_parents_under(head, Some(candidate_para));
+		if !allowed_parents_for_para.unwrap_or_default().contains(&candidate_relay_parent) {
+			continue
 		}
+
+		let (tx, rx) = oneshot::channel();
+		ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalMembership(
+			HypotheticalMembershipRequest {
+				candidates: vec![hypothetical_candidate.clone()],
+				fragment_chain_relay_parent: Some(*head),
+			},
+			tx,
+		))
+		.await;
+		let response = rx.map_ok(move |candidate_memberships| {
+			let is_member_or_potential = candidate_memberships
+				.into_iter()
+				.find_map(|(candidate, leaves)| {
+					(candidate.candidate_hash() == candidate_hash).then_some(leaves)
+				})
+				.and_then(|leaves| leaves.into_iter().find(|leaf| leaf == head))
+				.is_some();
+
+			(is_member_or_potential, head)
+		});
+		responses.push_back(response.boxed());
 	}
 
 	if responses.is_empty() {
@@ -1342,11 +1222,7 @@ async fn handle_can_second_request<Context>(
 	tx: oneshot::Sender<bool>,
 ) {
 	let relay_parent = request.candidate_relay_parent;
-	let response = if state
-		.per_relay_parent
-		.get(&relay_parent)
-		.map_or(false, |pr_state| pr_state.prospective_parachains_mode.is_enabled())
-	{
+	let response = if state.per_relay_parent.get(&relay_parent).is_some() {
 		let hypothetical_candidate = HypotheticalCandidate::Incomplete {
 			candidate_hash: request.candidate_hash,
 			candidate_para: request.candidate_para_id,
@@ -1354,13 +1230,8 @@ async fn handle_can_second_request<Context>(
 			candidate_relay_parent: relay_parent,
 		};
 
-		let result = seconding_sanity_check(
-			ctx,
-			&state.per_leaf,
-			&state.implicit_view,
-			hypothetical_candidate,
-		)
-		.await;
+		let result =
+			seconding_sanity_check(ctx, &state.implicit_view, hypothetical_candidate).await;
 
 		match result {
 			SecondingAllowed::No => false,
@@ -1413,16 +1284,14 @@ async fn handle_validated_candidate_command<Context>(
 						// sanity check that we're allowed to second the candidate
 						// and that it doesn't conflict with other candidates we've
 						// seconded.
-						let hypothetical_membership = match seconding_sanity_check(
+						if let SecondingAllowed::No = seconding_sanity_check(
 							ctx,
-							&state.per_leaf,
 							&state.implicit_view,
 							hypothetical_candidate,
 						)
 						.await
 						{
-							SecondingAllowed::No => return Ok(()),
-							SecondingAllowed::Yes(membership) => membership,
+							return Ok(())
 						};
 
 						let statement =
@@ -1470,24 +1339,6 @@ async fn handle_validated_candidate_command<Context>(
 									);
 								},
 								Some(p) => p.seconded_locally = true,
-							}
-
-							// record seconded candidates for non-prospective-parachains mode.
-							for leaf in hypothetical_membership {
-								let leaf_data = match state.per_leaf.get_mut(&leaf) {
-									None => {
-										gum::warn!(
-											target: LOG_TARGET,
-											leaf_hash = ?leaf,
-											"Missing `per_leaf` for known active leaf."
-										);
-
-										continue
-									},
-									Some(d) => d,
-								};
-
-								leaf_data.add_seconded_candidate(candidate.descriptor().para_id);
 							}
 
 							rp_state.issued_statements.insert(candidate_hash);
@@ -1632,30 +1483,28 @@ async fn import_statement<Context>(
 	// our active leaves.
 	if let StatementWithPVD::Seconded(candidate, pvd) = statement.payload() {
 		if !per_candidate.contains_key(&candidate_hash) {
-			if rp_state.prospective_parachains_mode.is_enabled() {
-				let (tx, rx) = oneshot::channel();
-				ctx.send_message(ProspectiveParachainsMessage::IntroduceSecondedCandidate(
-					IntroduceSecondedCandidateRequest {
-						candidate_para: candidate.descriptor().para_id,
-						candidate_receipt: candidate.clone(),
-						persisted_validation_data: pvd.clone(),
-					},
-					tx,
-				))
-				.await;
+			let (tx, rx) = oneshot::channel();
+			ctx.send_message(ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+				IntroduceSecondedCandidateRequest {
+					candidate_para: candidate.descriptor().para_id,
+					candidate_receipt: candidate.clone(),
+					persisted_validation_data: pvd.clone(),
+				},
+				tx,
+			))
+			.await;
 
-				match rx.await {
-					Err(oneshot::Canceled) => {
-						gum::warn!(
-							target: LOG_TARGET,
-							"Could not reach the Prospective Parachains subsystem."
-						);
+			match rx.await {
+				Err(oneshot::Canceled) => {
+					gum::warn!(
+						target: LOG_TARGET,
+						"Could not reach the Prospective Parachains subsystem."
+					);
 
-						return Err(Error::RejectedByProspectiveParachains)
-					},
-					Ok(false) => return Err(Error::RejectedByProspectiveParachains),
-					Ok(true) => {},
-				}
+					return Err(Error::RejectedByProspectiveParachains)
+				},
+				Ok(false) => return Err(Error::RejectedByProspectiveParachains),
+				Ok(true) => {},
 			}
 
 			// Only save the candidate if it was approved by prospective parachains.
@@ -1718,28 +1567,15 @@ async fn post_import_statement_actions<Context>(
 					"Candidate backed",
 				);
 
-				if rp_state.prospective_parachains_mode.is_enabled() {
-					// Inform the prospective parachains subsystem
-					// that the candidate is now backed.
-					ctx.send_message(ProspectiveParachainsMessage::CandidateBacked(
-						para_id,
-						candidate_hash,
-					))
-					.await;
-					// Notify statement distribution of backed candidate.
-					ctx.send_message(StatementDistributionMessage::Backed(candidate_hash)).await;
-				} else {
-					// The provisioner waits on candidate-backing, which means
-					// that we need to send unbounded messages to avoid cycles.
-					//
-					// Backed candidates are bounded by the number of validators,
-					// parachains, and the block production rate of the relay chain.
-					let message = ProvisionerMessage::ProvisionableData(
-						rp_state.parent,
-						ProvisionableData::BackedCandidate(backed.receipt()),
-					);
-					ctx.send_unbounded_message(message);
-				}
+				// Inform the prospective parachains subsystem
+				// that the candidate is now backed.
+				ctx.send_message(ProspectiveParachainsMessage::CandidateBacked(
+					para_id,
+					candidate_hash,
+				))
+				.await;
+				// Notify statement distribution of backed candidate.
+				ctx.send_message(StatementDistributionMessage::Backed(candidate_hash)).await;
 			} else {
 				gum::debug!(target: LOG_TARGET, ?candidate_hash, "Cannot get BackedCandidate");
 			}
