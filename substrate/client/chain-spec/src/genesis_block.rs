@@ -111,6 +111,7 @@ impl<Block: BlockT, B: Backend<Block>, E: RuntimeVersionOf> GenesisBlockBuilder<
 		Self::new_with_storage(genesis_storage, commit_genesis_state, backend, executor)
 	}
 
+	/// Constructs a new instance of [`GenesisBlockBuilder`] using provided storage.
 	pub fn new_with_storage(
 		genesis_storage: Storage,
 		commit_genesis_state: bool,

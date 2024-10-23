@@ -154,7 +154,7 @@ pub type ParachainHostFunctions = (
 
 pub type BlockNumber = u32;
 
-/// Typical block type using `OpaqueExtrinsic`.
+/// Typical block header.`.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 
 /// Typical block type using `OpaqueExtrinsic`.
@@ -273,7 +273,7 @@ impl OverheadCmd {
 		ExtraHF: HostFunctions,
 	{
 		let (chain_spec, para_id_from_chain_spec) = match chain_spec {
-			spec @ Some(_) => (spec, None),
+			Some(_) => (chain_spec, None),
 			None => self.chain_spec_from_path::<(ParachainHostFunctions, ExtraHF)>()?,
 		};
 

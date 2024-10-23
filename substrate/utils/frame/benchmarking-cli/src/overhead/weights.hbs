@@ -18,7 +18,7 @@ use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
 
 parameter_types! {
 	{{#if (eq short_name "block")}}
-	/// Weight fo executing an empty block.
+	/// Weight of executing an empty block.
 	{{else}}
 	/// Weight of executing a NO-OP extrinsic, for example `System::remark`.
 	{{/if}}

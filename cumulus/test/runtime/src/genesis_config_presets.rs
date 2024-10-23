@@ -50,7 +50,7 @@ fn cumulus_test_runtime(
 	serde_json::to_value(config).expect("Could not build genesis config.")
 }
 
-pub fn testnet_genesis_with_default_endowed(self_para_id: ParaId) -> serde_json::Value {
+fn testnet_genesis_with_default_endowed(self_para_id: ParaId) -> serde_json::Value {
 	let endowed = Sr25519Keyring::iter().map(|x| x.to_account_id()).collect::<Vec<_>>();
 
 	let invulnerables = vec![

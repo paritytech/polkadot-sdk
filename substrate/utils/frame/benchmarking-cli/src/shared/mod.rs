@@ -134,7 +134,7 @@ impl HostInfoParams {
 	}
 }
 
-/// How the genesis state for benchmarking should be build.
+/// How the genesis state for benchmarking should be built.
 #[derive(clap::ValueEnum, Debug, Eq, PartialEq, Clone, Copy, Serialize)]
 #[clap(rename_all = "kebab-case")]
 pub enum GenesisBuilderPolicy {
