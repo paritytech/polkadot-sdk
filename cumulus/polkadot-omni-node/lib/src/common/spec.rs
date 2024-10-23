@@ -24,7 +24,7 @@ use crate::{
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	runtime::metadata::parachain_system_pallet_exists,
+	runtime::metadata::pallet_exists,
 };
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
@@ -47,6 +47,8 @@ use sc_transaction_pool::TransactionPoolHandle;
 use sp_api::{Metadata, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+
+const DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME: &str = "ParachainSystem";
 
 pub(crate) trait BuildImportQueue<Block: BlockT, RuntimeApi> {
 	fn build_import_queue(
@@ -218,14 +220,15 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 				let params = Self::new_partial(&parachain_config)?;
 				let (block_import, mut telemetry, telemetry_worker_handle) = params.other;
-				// Do metadata checks.
 				let client = params.client.clone();
+
+				// Best effort check of parachain-system pallet by pallet name.
 				let best_block = client.chain_info().finalized_hash;
 				let metadata = client
 					.runtime_api()
 					.metadata(best_block)
 					.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
-				if !parachain_system_pallet_exists(metadata.as_slice())? {
+				if !pallet_exists(metadata.as_slice(), DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME)? {
 					return Err(sc_service::Error::Application(anyhow::anyhow!("Parachain system pallet doesn't exist in runtime's metadata. Omni node supports only parachains.").into()));
 				}
 

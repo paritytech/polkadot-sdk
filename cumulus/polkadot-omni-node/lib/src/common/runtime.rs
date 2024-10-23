@@ -67,36 +67,24 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 	}
 }
 
-/// Logic that inspects & checks runtime's metadata for omni node compatibility.
+/// Logic that inspects runtime's metadata for Omni Node compatibility.
 pub mod metadata {
 	use codec::Decode;
 	use frame_metadata::RuntimeMetadata;
 
-	#[inline]
-	/// Checks whether runtime's metadata pallets field contains one called `parachain_system`.
-	/// TODO: there will be other checks too, so might be useful to create/reuse a trait that will
-	/// do default checks. The trait can be exposed via the client
-	/// (substrate/service/client/FullClient), and used where starting a node based on a runtime has
-	/// constraints on what that runtime is, like omni node.
-	pub fn parachain_system_pallet_exists<'a>(
+	/// Checks if pallet exists in runtime's metadata.
+	///
+	/// Metadata (as plain byte array) is decoded with `frame_metadata::Decode` and
+	/// pallets existance is checked by looking for pallets with certain names.
+	pub fn pallet_exists<'a>(
 		mut metadata: &'a [u8],
+		name: &str,
 	) -> Result<bool, sc_service::error::Error> {
 		let decoded_metadata: RuntimeMetadata = Decode::decode(&mut metadata)
 			.map_err(|e| sc_service::error::Error::Application(Box::new(e) as Box<_>))?;
-		// TODO: double check how to filter for parachain_system pallet.
 		match decoded_metadata {
-			RuntimeMetadata::V14(inner) => Ok(inner
-				.pallets
-				.iter()
-				.filter(|p| p.name == "parachain_system")
-				.collect::<Vec<_>>()
-				.len() >= 1),
-			RuntimeMetadata::V15(inner) => Ok(inner
-				.pallets
-				.iter()
-				.filter(|p| p.name == "parachain_system")
-				.collect::<Vec<_>>()
-				.len() >= 1),
+			RuntimeMetadata::V14(inner) => Ok(inner.pallets.iter().any(|p| p.name == name)),
+			RuntimeMetadata::V15(inner) => Ok(inner.pallets.iter().any(|p| p.name == name)),
 			_ => Err(sc_service::error::Error::Application(
 				anyhow::anyhow!("Metadata version smaller than V14 not supported.").into(),
 			)),
