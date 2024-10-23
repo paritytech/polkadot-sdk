@@ -351,19 +351,16 @@ pub mod pallet {
 
 	/// The ideal number of active validators.
 	#[pallet::storage]
-	#[pallet::getter(fn validator_count)]
 	pub type ValidatorCount<T> = StorageValue<_, u32, ValueQuery>;
 
 	/// Minimum number of staking participants before emergency conditions are imposed.
 	#[pallet::storage]
-	#[pallet::getter(fn minimum_validator_count)]
 	pub type MinimumValidatorCount<T> = StorageValue<_, u32, ValueQuery>;
 
 	/// Any validators that may never be slashed or forcibly kicked. It's a Vec since they're
 	/// easy to initialize and the performance hit is minimal (we expect no more than four
 	/// invulnerables) and restricted to testnets.
 	#[pallet::storage]
-	#[pallet::getter(fn invulnerables)]
 	#[pallet::unbounded]
 	pub type Invulnerables<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
@@ -409,7 +406,6 @@ pub mod pallet {
 	///
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
-	#[pallet::getter(fn validators)]
 	pub type Validators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, ValidatorPrefs, ValueQuery>;
 
@@ -439,7 +435,6 @@ pub mod pallet {
 	///
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
-	#[pallet::getter(fn nominators)]
 	pub type Nominators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>>;
 
@@ -463,7 +458,6 @@ pub mod pallet {
 	/// This is the latest planned era, depending on how the Session pallet queues the validator
 	/// set, it might be active or not.
 	#[pallet::storage]
-	#[pallet::getter(fn current_era)]
 	pub type CurrentEra<T> = StorageValue<_, EraIndex>;
 
 	/// The active era information, it holds index and start.
@@ -471,7 +465,6 @@ pub mod pallet {
 	/// The active era is the era being currently rewarded. Validator set of this era must be
 	/// equal to [`SessionInterface::validators`].
 	#[pallet::storage]
-	#[pallet::getter(fn active_era)]
 	pub type ActiveEra<T> = StorageValue<_, ActiveEraInfo>;
 
 	/// The session index at which the era start for the last [`Config::HistoryDepth`] eras.
@@ -479,7 +472,6 @@ pub mod pallet {
 	/// Note: This tracks the starting session (i.e. session index when era start being active)
 	/// for the eras in `[CurrentEra - HISTORY_DEPTH, CurrentEra]`.
 	#[pallet::storage]
-	#[pallet::getter(fn eras_start_session_index)]
 	pub type ErasStartSessionIndex<T> = StorageMap<_, Twox64Concat, EraIndex, SessionIndex>;
 
 	/// Exposure of validator at era.
@@ -543,7 +535,6 @@ pub mod pallet {
 	/// Note: Deprecated since v14. Use `EraInfo` instead to work with exposures.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	#[pallet::getter(fn eras_stakers_clipped)]
 	pub type ErasStakersClipped<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -580,7 +571,6 @@ pub mod pallet {
 	///
 	/// It is removed after [`Config::HistoryDepth`] eras.
 	#[pallet::storage]
-	#[pallet::getter(fn claimed_rewards)]
 	#[pallet::unbounded]
 	pub type ClaimedRewards<T: Config> = StorageDoubleMap<
 		_,
@@ -599,7 +589,6 @@ pub mod pallet {
 	/// Is it removed after [`Config::HistoryDepth`] eras.
 	// If prefs hasn't been set or has been removed then 0 commission is returned.
 	#[pallet::storage]
-	#[pallet::getter(fn eras_validator_prefs)]
 	pub type ErasValidatorPrefs<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -614,27 +603,23 @@ pub mod pallet {
 	///
 	/// Eras that haven't finished yet or has been removed doesn't have reward.
 	#[pallet::storage]
-	#[pallet::getter(fn eras_validator_reward)]
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
 
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	#[pallet::getter(fn eras_reward_points)]
 	pub type ErasRewardPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T::AccountId>, ValueQuery>;
 
 	/// The total amount staked for the last [`Config::HistoryDepth`] eras.
 	/// If total hasn't been set or has been removed then 0 stake is returned.
 	#[pallet::storage]
-	#[pallet::getter(fn eras_total_stake)]
 	pub type ErasTotalStake<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
 	/// Mode of era forcing.
 	#[pallet::storage]
-	#[pallet::getter(fn force_era)]
 	pub type ForceEra<T> = StorageValue<_, Forcing, ValueQuery>;
 
 	/// Maximum staked rewards, i.e. the percentage of the era inflation that
@@ -647,13 +632,11 @@ pub mod pallet {
 	///
 	/// The rest of the slashed value is handled by the `Slash`.
 	#[pallet::storage]
-	#[pallet::getter(fn slash_reward_fraction)]
 	pub type SlashRewardFraction<T> = StorageValue<_, Perbill, ValueQuery>;
 
 	/// The amount of currency given to reporters of a slash event which was
 	/// canceled by extraordinary circumstances (e.g. governance).
 	#[pallet::storage]
-	#[pallet::getter(fn canceled_payout)]
 	pub type CanceledSlashPayout<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
 	/// All unapplied slashes that are queued for later.
@@ -695,7 +678,6 @@ pub mod pallet {
 
 	/// Slashing spans for stash accounts.
 	#[pallet::storage]
-	#[pallet::getter(fn slashing_spans)]
 	#[pallet::unbounded]
 	pub type SlashingSpans<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, slashing::SlashingSpans>;
@@ -715,7 +697,6 @@ pub mod pallet {
 	///
 	/// This is basically in sync with the call to [`pallet_session::SessionManager::new_session`].
 	#[pallet::storage]
-	#[pallet::getter(fn current_planned_session)]
 	pub type CurrentPlannedSession<T> = StorageValue<_, SessionIndex, ValueQuery>;
 
 	/// Indices of validators that have offended in the active era. The offenders are disabled for a
@@ -983,6 +964,111 @@ pub mod pallet {
 		#[cfg(feature = "try-runtime")]
 		fn try_state(n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state(n)
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// Get the ideal number of active validators.
+		pub fn validator_count() -> u32 {
+			ValidatorCount::<T>::get()
+		}
+
+		/// Get the minimum number of staking participants before emergency conditions are imposed.
+		pub fn minimum_validator_count() -> u32 {
+			MinimumValidatorCount::<T>::get()
+		}
+
+		/// Get the validators that may never be slashed or forcibly kicked out.
+		pub fn invulnerables() -> Vec<T::AccountId> {
+			Invulnerables::<T>::get()
+		}
+
+		/// Get the preferences of a given validator.
+		pub fn validators(account_id: &T::AccountId) -> ValidatorPrefs {
+			Validators::<T>::get(account_id)
+		}
+
+		/// Get the nomination preferences of a given nominator.
+		pub fn nominators(account_id: T::AccountId) -> Option<Nominations<T>> {
+			Nominators::<T>::get(account_id)
+		}
+
+		/// Get the current era index.
+		pub fn current_era() -> Option<EraIndex> {
+			CurrentEra::<T>::get()
+		}
+
+		/// Get the active era information.
+		pub fn active_era() -> Option<ActiveEraInfo> {
+			ActiveEra::<T>::get()
+		}
+
+		/// Get the session index at which the era starts for the last [`Config::HistoryDepth`]
+		/// eras.
+		pub fn eras_start_session_index(era_index: EraIndex) -> Option<SessionIndex> {
+			ErasStartSessionIndex::<T>::get(era_index)
+		}
+
+		/// Get the clipped exposure of a given validator at an era.
+		pub fn eras_stakers_clipped(
+			era_index: EraIndex,
+			account_id: &T::AccountId,
+		) -> Exposure<T::AccountId, BalanceOf<T>> {
+			ErasStakersClipped::<T>::get(era_index, account_id)
+		}
+
+		/// Get the paged history of claimed rewards by era for given validator.
+		pub fn claimed_rewards(era_index: EraIndex, account_id: &T::AccountId) -> Vec<Page> {
+			ClaimedRewards::<T>::get(era_index, account_id)
+		}
+
+		/// Get the preferences of given validator at given era.
+		pub fn eras_validator_prefs(
+			era_index: EraIndex,
+			account_id: &T::AccountId,
+		) -> ValidatorPrefs {
+			ErasValidatorPrefs::<T>::get(era_index, account_id)
+		}
+
+		/// Get the total validator era payout for the last [`Config::HistoryDepth`] eras.
+		pub fn eras_validator_reward(era_index: EraIndex) -> Option<BalanceOf<T>> {
+			ErasValidatorReward::<T>::get(era_index)
+		}
+
+		/// Get the rewards for the last [`Config::HistoryDepth`] eras.
+		pub fn eras_reward_points(era_index: EraIndex) -> EraRewardPoints<T::AccountId> {
+			ErasRewardPoints::<T>::get(era_index)
+		}
+
+		/// Get the total amount staked for the last [`Config::HistoryDepth`] eras.
+		pub fn eras_total_stake(era_index: EraIndex) -> BalanceOf<T> {
+			ErasTotalStake::<T>::get(era_index)
+		}
+
+		/// Get the mode of era forcing.
+		pub fn force_era() -> Forcing {
+			// ForceEra::<T>::get()
+			ForceEra::<T>::get()
+		}
+
+		/// Get the percentage of the slash that is distributed to reporters.
+		pub fn slash_reward_fraction() -> Perbill {
+			SlashRewardFraction::<T>::get()
+		}
+
+		/// Get the amount of canceled slash payout.
+		pub fn canceled_payout() -> BalanceOf<T> {
+			CanceledSlashPayout::<T>::get()
+		}
+
+		/// Get the slashing spans for given account.
+		pub fn slashing_spans(account_id: &T::AccountId) -> Option<slashing::SlashingSpans> {
+			SlashingSpans::<T>::get(account_id)
+		}
+
+		/// Get the last planned session scheduled by the session pallet.
+		pub fn current_planned_session() -> SessionIndex {
+			CurrentPlannedSession::<T>::get()
 		}
 	}
 

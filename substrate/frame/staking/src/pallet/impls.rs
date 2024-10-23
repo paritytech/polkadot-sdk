@@ -575,7 +575,7 @@ impl<T: Config> Pallet<T> {
 
 			let era_duration = (now_as_millis_u64.defensive_saturating_sub(active_era_start))
 				.saturated_into::<u64>();
-			let staked = Self::eras_total_stake(&active_era.index);
+			let staked = Self::eras_total_stake(active_era.index);
 			let issuance = asset::total_issuance::<T>();
 
 			let (validator_payout, remainder) =
