@@ -203,10 +203,12 @@ where
 
 	runner.run_node_until_exit(move |config| async move {
 		let hwbench = (!cli.run.no_hardware_benchmarks)
-			.then_some(config.database.path().map(|database_path| {
-				let _ = std::fs::create_dir_all(&database_path);
-				sc_sysinfo::gather_hwbench(Some(database_path), &SUBSTRATE_REFERENCE_HARDWARE)
-			}))
+			.then(|| {
+				config.database.path().map(|database_path| {
+					let _ = std::fs::create_dir_all(&database_path);
+					sc_sysinfo::gather_hwbench(Some(database_path), &SUBSTRATE_REFERENCE_HARDWARE)
+				})
+			})
 			.flatten();
 
 		let database_source = config.database.clone();

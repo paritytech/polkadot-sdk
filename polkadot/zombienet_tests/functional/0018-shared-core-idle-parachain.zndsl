@@ -1,0 +1,11 @@
+Description: Test that a parachain can keep producing blocks even if the other parachain with which it's sharing a core doesn't
+Network: ./0018-shared-core-idle-parachain.toml
+Creds: config
+
+validator: reports node_roles is 4
+
+validator-0: js-script ./force-register-paras.js with "2000" return is 0 within 600 seconds
+# assign core 0 to be shared by two paras, but only one exists
+validator-0: js-script ./assign-core.js with "0,2000,28800,2001,28800" return is 0 within 600 seconds
+
+collator-2000: reports block height is at least 10 within 180 seconds

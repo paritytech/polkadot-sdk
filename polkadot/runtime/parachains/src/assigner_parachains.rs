@@ -63,7 +63,5 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		Assignment::Bulk(para_id)
 	}
 
-	fn session_core_count() -> u32 {
-		paras::Parachains::<T>::decode_len().unwrap_or(0) as u32
-	}
+	fn assignment_duplicated(_: &Assignment) {}
 }
