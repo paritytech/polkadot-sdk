@@ -611,7 +611,7 @@ impl Fragment {
 
 		let ump_messages_sent = upward_messages.len();
 		let ump_bytes_sent = upward_messages.iter().map(|msg| msg.len()).sum();
-		
+
 		let modifications = {
 			ConstraintModifications {
 				required_parent: Some(commitments.head_data.clone()),
@@ -828,8 +828,11 @@ impl HypotheticalOrConcreteCandidate for HypotheticalCandidate {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use polkadot_primitives::{HorizontalMessages, OutboundHrmpMessage, ValidationCode, vstaging::{UMP_SEPARATOR, UMPSignal, CoreSelector, ClaimQueueOffset}};
 	use codec::Encode;
+	use polkadot_primitives::{
+		vstaging::{ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR},
+		HorizontalMessages, OutboundHrmpMessage, ValidationCode,
+	};
 
 	#[test]
 	fn stack_modifications() {
@@ -1301,10 +1304,13 @@ mod tests {
 			.try_extend((0..max_ump).map(|i| vec![i as u8]))
 			.unwrap();
 
-		// Add ump signals.s
+		// Add ump signals.
 		candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
-		candidate.commitments.upward_messages.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
-		
+		candidate
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
+
 		Fragment::new(relay_parent, constraints, Arc::new(candidate)).unwrap();
 	}
 
