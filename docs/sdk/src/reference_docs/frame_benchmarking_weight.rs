@@ -125,6 +125,7 @@
 //! Polkadot-sdk. For a basic explanation of JAM and PolkaVM, see [here](https://blog.kianenigma.com/posts/tech/demystifying-jam/#pvm).
 //!
 //!
+//! [`frame-omni-bencher`]: https://crates.io/crates/frame-omni-bencher
 //! [`templates`]: crate::polkadot_sdk::templates
 //! [PolkaVM]: https://github.com/koute/polkavm
 //! [JAM]: https://graypaper.com

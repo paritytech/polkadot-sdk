@@ -96,8 +96,8 @@
 //! * If need be, the weights of the runtime need to be updated using `frame-omni-bencher`.
 //!   References:
 //!     * [`crate::reference_docs::frame_benchmarking_weight`]
-//! * Next, `chain-spec-builder` is used to generate a `chain_spec.json`, either for development, or
-//!   for production. References:
+//! * Next, [`chain-spec-builder`](polkadot_sdk::chain_spec_builder) is used to generate a
+//!   `chain_spec.json`, either for development, or for production. References:
 //!     * [`crate::reference_docs::chain_spec_genesis`]
 //! * For local development, the following options are available:
 //!     * `polkadot-omni-node` (notably, with [`--dev-block-time`]). References:
