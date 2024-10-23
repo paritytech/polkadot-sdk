@@ -292,7 +292,8 @@ pub trait HostFn: private::Sealed {
 	/// # Parameters
 	///
 	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
-	/// - `address`: The address of the code to be executed. Should be decodable as an `T::AccountId`. Traps otherwise.
+	/// - `address`: The address of the code to be executed. Should be decodable as an
+	///   `T::AccountId`. Traps otherwise.
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
 	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
 	/// - `input`: The input data buffer used to call the contract.
