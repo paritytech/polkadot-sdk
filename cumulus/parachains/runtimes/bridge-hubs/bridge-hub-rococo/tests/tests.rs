@@ -18,13 +18,11 @@
 
 use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
-	bridge_common_config, bridge_to_bulletin_config,
-	bridge_to_ethereum_config::EthereumGatewayAddress,
-	bridge_to_westend_config,
-	xcm_config::{LocationToAccountId, RelayNetwork, TokenLocation, XcmConfig},
+	bridge_common_config, bridge_to_bulletin_config, bridge_to_westend_config,
+	xcm_config::{RelayNetwork, TokenLocation, XcmConfig},
 	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	SignedExtra, TransactionPayment, UncheckedExtrinsic,
+	TransactionPayment, TxExtension, UncheckedExtrinsic,
 };
 use bridge_hub_test_utils::SlotDurations;
 use codec::{Decode, Encode};
@@ -51,7 +49,7 @@ fn construct_extrinsic(
 	call: RuntimeCall,
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
-	let extra: SignedExtra = (
+	let tx_ext: TxExtension = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
@@ -64,12 +62,13 @@ fn construct_extrinsic(
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
-	);
-	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
+	)
+		.into();
+	let payload = SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));
-	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), extra)
+	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), tx_ext)
 }
 
 fn construct_and_apply_extrinsic(
@@ -127,6 +126,9 @@ mod bridge_hub_westend_tests {
 	use bridge_common_config::{
 		BridgeGrandpaWestendInstance, BridgeParachainWestendInstance, DeliveryRewardInBalance,
 		RelayersForLegacyLaneIdsMessagesInstance,
+	};
+	use bridge_hub_rococo_runtime::{
+		bridge_to_ethereum_config::EthereumGatewayAddress, xcm_config::LocationToAccountId,
 	};
 	use bridge_hub_test_utils::test_cases::from_parachain;
 	use bridge_to_westend_config::{
@@ -498,7 +500,10 @@ mod bridge_hub_bulletin_tests {
 	use super::*;
 	use bp_messages::{HashedLaneId, LaneIdType};
 	use bridge_common_config::BridgeGrandpaRococoBulletinInstance;
-	use bridge_hub_rococo_runtime::bridge_common_config::RelayersForPermissionlessLanesInstance;
+	use bridge_hub_rococo_runtime::{
+		bridge_common_config::RelayersForPermissionlessLanesInstance,
+		xcm_config::LocationToAccountId,
+	};
 	use bridge_hub_test_utils::test_cases::from_grandpa_chain;
 	use bridge_to_bulletin_config::{
 		RococoBulletinGlobalConsensusNetwork, RococoBulletinGlobalConsensusNetworkLocation,
@@ -818,9 +823,10 @@ fn location_conversion_works() {
 		let expected =
 			AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
 
-		let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
-			tc.location.into(),
-		)
+		let got = LocationToAccountHelper::<
+			AccountId,
+			bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
+		>::convert_location(tc.location.into())
 		.unwrap();
 
 		assert_eq!(got, expected, "{}", tc.description);
