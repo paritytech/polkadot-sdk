@@ -833,7 +833,8 @@ fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 		let all_assets = t.args.assets.clone().into_inner();
 		let mut assets = all_assets.clone();
 		let mut fees = assets.remove(t.args.fee_asset_item as usize);
-		// TODO: dry-run to get exact fees, for now just use half the fees locally, half on dest
+		// TODO(https://github.com/paritytech/polkadot-sdk/issues/6197): dry-run to get exact fees.
+		// For now just use half the fees locally, half on dest
 		if let Fungible(fees_amount) = fees.fun {
 			fees.fun = Fungible(fees_amount / 2);
 		}
@@ -867,7 +868,8 @@ fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 		let all_assets = t.args.assets.clone().into_inner();
 		let mut assets = all_assets.clone();
 		let mut fees = assets.remove(t.args.fee_asset_item as usize);
-		// TODO: dry-run to get exact fees, for now just use half the fees locally, half on dest
+		// TODO(https://github.com/paritytech/polkadot-sdk/issues/6197): dry-run to get exact fees.
+		// For now just use half the fees locally, half on dest
 		if let Fungible(fees_amount) = fees.fun {
 			fees.fun = Fungible(fees_amount / 2);
 		}
