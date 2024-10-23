@@ -87,7 +87,8 @@ def main(path, version):
 	std_crates.sort(key=lambda x: x[0].name)
 	nostd_crates.sort(key=lambda x: x[0].name)
 
-	runtime_crates = [crate for crate in nostd_crates if 'frame' in crate[0].name or crate[0].name.startswith('sp-')]
+	frame_crates_names = [ "polkadot-sdk-frame", "frame-support",  "frame-system", ]
+	runtime_crates = [crate for crate in nostd_crates if crate[0].name.startswith('sp-') or crate[0].name in frame_crates_names]
 	all_crates = std_crates + nostd_crates
 	all_crates.sort(key=lambda x: x[0].name)
 	dependencies = {}
@@ -207,4 +208,5 @@ def parse_args():
 if __name__ == "__main__":
 	args = parse_args()
 	main(args.sdk, args.version)
+
 
