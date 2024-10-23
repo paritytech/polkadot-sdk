@@ -16,7 +16,7 @@
 // limitations under the License.
 use crate::subxt_client::system::calls::types::Remark;
 use pallet_revive_eth_rpc::subxt_client::{self, SrcChainConfig};
-use subxt::{blocks::FoundExtrinsic, OnlineClient};
+use subxt::OnlineClient;
 use subxt_signer::sr25519::dev;
 
 #[tokio::main]
