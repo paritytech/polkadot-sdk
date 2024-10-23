@@ -10,7 +10,7 @@
 //! A runtime shares a few similar setup requirements as with a pallet:
 //!
 //! * importing [`frame`], [`codec`], and [`scale_info`] crates.
-//! * following the [`std`](crate::polkadot_sdk::substrate#wasm-build) pattern.
+//! * following the [`std` feature-gating](crate::polkadot_sdk::substrate#wasm-build) pattern.
 //!
 //! But, more specifically, it also contains:
 //!
@@ -34,7 +34,7 @@
 #![doc = docify::embed!("./packages/guides/first-runtime/src/lib.rs", VERSION)]
 //!
 //! The version contains a number of very important fields, such as `spec_version` and `spec_name`
-//! that play an important role in identifying your runtime and its version. More about runtime
+//! that play an important role in identifying your runtime and its version, more importantly in runtime upgrades. More about runtime
 //! upgrades in [`crate::reference_docs::frame_runtime_upgrades_and_migrations`].
 //!
 //! Then, a real runtime also contains the `impl` of all individual pallets' `trait Config` for
@@ -53,7 +53,7 @@
 //! [`frame::prelude::frame_system::pallet::config_preludes`]) to learn more which types are exactly
 //! used.
 //!
-//! Recall that in [`crate::guides::your_first_pallet`], we provided `type AccountId = u64` to
+//! Recall that in test runtime in [`crate::guides::your_first_pallet`], we provided `type AccountId = u64` to
 //! `frame_system`, while in this case we rely on whatever is provided by
 //! [`SolochainDefaultConfig`], which is indeed a "real" 32 byte account id.
 //!
@@ -99,7 +99,7 @@
 //! And that more or less covers the details of how you would write a real runtime!
 //!
 //! Once you compile a crate that contains a runtime as above, simply running `cargo build` will
-//! generate the wasm blobs and place them under `./target/wbuild`, as explained
+//! generate the wasm blobs and place them under `./target/release/wbuild`, as explained
 //! [here](crate::polkadot_sdk::substrate#wasm-build).
 //!
 //! ## Genesis Configuration
