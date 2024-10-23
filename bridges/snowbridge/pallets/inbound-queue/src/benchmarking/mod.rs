@@ -19,8 +19,8 @@ mod benchmarks {
 		let create_message = make_register_token_message();
 
 		T::Helper::initialize_storage(
-			create_message.message.proof.block_hash,
-			create_message.execution_header,
+			create_message.finalized_header,
+			create_message.block_roots_root,
 		);
 
 		let sovereign_account = sibling_sovereign_account::<T>(1000u32.into());

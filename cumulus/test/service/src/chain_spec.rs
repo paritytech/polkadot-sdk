@@ -17,24 +17,17 @@
 #![allow(missing_docs)]
 
 use cumulus_primitives_core::ParaId;
-use cumulus_test_runtime::{AccountId, RuntimeGenesisConfig, Signature};
+use cumulus_test_runtime::AccountId;
+use parachains_common::AuraId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
-use sp_core::{sr25519, Pair, Public};
-use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_keyring::Sr25519Keyring;
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig, Extensions>;
+pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
 
-/// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
-}
-
-/// The extensions for the [`ChainSpec`](crate::ChainSpec).
+/// The extensions for the [`ChainSpec`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
 #[serde(deny_unknown_fields)]
 pub struct Extensions {
@@ -49,25 +42,16 @@ impl Extensions {
 	}
 }
 
-type AccountPublic = <Signature as Verify>::Signer;
-
-/// Helper function to generate an account ID from seed.
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
-{
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
-}
-
 /// Get the chain spec for a specific parachain ID.
 /// The given accounts are initialized with funds in addition
 /// to the default known accounts.
 pub fn get_chain_spec_with_extra_endowed(
 	id: Option<ParaId>,
 	extra_endowed_accounts: Vec<AccountId>,
+	code: &[u8],
 ) -> ChainSpec {
 	ChainSpec::builder(
-		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		code,
 		Extensions { para_id: id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into()).into() },
 	)
 	.with_name("Local Testnet")
@@ -82,7 +66,21 @@ pub fn get_chain_spec_with_extra_endowed(
 
 /// Get the chain spec for a specific parachain ID.
 pub fn get_chain_spec(id: Option<ParaId>) -> ChainSpec {
-	get_chain_spec_with_extra_endowed(id, Default::default())
+	get_chain_spec_with_extra_endowed(
+		id,
+		Default::default(),
+		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+	)
+}
+
+/// Get the chain spec for a specific parachain ID.
+pub fn get_elastic_scaling_chain_spec(id: Option<ParaId>) -> ChainSpec {
+	get_chain_spec_with_extra_endowed(
+		id,
+		Default::default(),
+		cumulus_test_runtime::elastic_scaling::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
+	)
 }
 
 /// Local testnet genesis for testing.
@@ -90,36 +88,29 @@ pub fn testnet_genesis_with_default_endowed(
 	mut extra_endowed_accounts: Vec<AccountId>,
 	self_para_id: Option<ParaId>,
 ) -> serde_json::Value {
-	let mut endowed = vec![
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		get_account_id_from_seed::<sr25519::Public>("Bob"),
-		get_account_id_from_seed::<sr25519::Public>("Charlie"),
-		get_account_id_from_seed::<sr25519::Public>("Dave"),
-		get_account_id_from_seed::<sr25519::Public>("Eve"),
-		get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-		get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-	];
+	let mut endowed = Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect::<Vec<_>>();
 	endowed.append(&mut extra_endowed_accounts);
-
-	testnet_genesis(get_account_id_from_seed::<sr25519::Public>("Alice"), endowed, self_para_id)
+	let invulnerables =
+		Sr25519Keyring::invulnerable().map(|k| k.public().into()).collect::<Vec<_>>();
+	testnet_genesis(Sr25519Keyring::Alice.to_account_id(), invulnerables, endowed, self_para_id)
 }
 
 /// Creates a local testnet genesis with endowed accounts.
 pub fn testnet_genesis(
 	root_key: AccountId,
+	invulnerables: Vec<AuraId>,
 	endowed_accounts: Vec<AccountId>,
 	self_para_id: Option<ParaId>,
 ) -> serde_json::Value {
+	let self_para_id = self_para_id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into());
 	serde_json::json!({
 		"balances": cumulus_test_runtime::BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
 		"sudo": cumulus_test_runtime::SudoConfig { key: Some(root_key) },
-		"testPallet": cumulus_test_runtime::TestPalletConfig { self_para_id, ..Default::default() }
+		"parachainInfo": {
+			"parachainId": self_para_id,
+		},
+		"aura": cumulus_test_runtime::AuraConfig { authorities: invulnerables }
 	})
 }

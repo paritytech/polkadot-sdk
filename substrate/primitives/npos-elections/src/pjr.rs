@@ -261,7 +261,7 @@ fn prepare_pjr_input<AccountId: IdentifierT>(
 		}
 	}
 
-	// Convert Suppports into a SupportMap
+	// Convert Supports into a SupportMap
 	//
 	// As a flat list, we're limited to linear search. That gives the production of `candidates`,
 	// below, a complexity of `O(s*c)`, where `s == supports.len()` and `c == all_candidates.len()`.

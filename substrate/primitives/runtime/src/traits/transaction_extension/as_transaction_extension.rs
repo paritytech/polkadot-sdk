@@ -47,7 +47,10 @@ impl<SE: SignedExtension> From<SE> for AsTransactionExtension<SE> {
 	}
 }
 
-impl<SE: SignedExtension> TransactionExtensionBase for AsTransactionExtension<SE> {
+impl<SE: SignedExtension> TransactionExtension<SE::Call> for AsTransactionExtension<SE>
+where
+	<SE::Call as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<SE::AccountId> + Clone,
+{
 	const IDENTIFIER: &'static str = SE::IDENTIFIER;
 	type Implicit = SE::AdditionalSigned;
 
@@ -57,13 +60,9 @@ impl<SE: SignedExtension> TransactionExtensionBase for AsTransactionExtension<SE
 	fn metadata() -> Vec<TransactionExtensionMetadata> {
 		SE::metadata()
 	}
-}
-
-impl<SE: SignedExtension, Context> TransactionExtension<SE::Call, Context>
-	for AsTransactionExtension<SE>
-where
-	<SE::Call as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<SE::AccountId> + Clone,
-{
+	fn weight(&self, _call: &SE::Call) -> Weight {
+		Weight::zero()
+	}
 	type Val = ();
 	type Pre = SE::Pre;
 
@@ -73,7 +72,6 @@ where
 		call: &SE::Call,
 		info: &DispatchInfoOf<SE::Call>,
 		len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, SE::Call> {
@@ -89,24 +87,23 @@ where
 		call: &SE::Call,
 		info: &DispatchInfoOf<SE::Call>,
 		len: usize,
-		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 		self.0.pre_dispatch(who, call, info, len)
 	}
 
-	fn post_dispatch(
+	fn post_dispatch_details(
 		pre: Self::Pre,
 		info: &DispatchInfoOf<SE::Call>,
 		post_info: &PostDispatchInfoOf<SE::Call>,
 		len: usize,
 		result: &DispatchResult,
-		_context: &Context,
-	) -> Result<(), TransactionValidityError> {
-		SE::post_dispatch(Some(pre), info, post_info, len, result)
+	) -> Result<Weight, TransactionValidityError> {
+		SE::post_dispatch(Some(pre), info, post_info, len, result)?;
+		Ok(Weight::zero())
 	}
 
-	fn validate_bare_compat(
+	fn bare_validate(
 		call: &SE::Call,
 		info: &DispatchInfoOf<SE::Call>,
 		len: usize,
@@ -114,7 +111,7 @@ where
 		SE::validate_unsigned(call, info, len)
 	}
 
-	fn pre_dispatch_bare_compat(
+	fn bare_validate_and_prepare(
 		call: &SE::Call,
 		info: &DispatchInfoOf<SE::Call>,
 		len: usize,
@@ -122,9 +119,9 @@ where
 		SE::pre_dispatch_unsigned(call, info, len)
 	}
 
-	fn post_dispatch_bare_compat(
+	fn bare_post_dispatch(
 		info: &DispatchInfoOf<SE::Call>,
-		post_info: &PostDispatchInfoOf<SE::Call>,
+		post_info: &mut PostDispatchInfoOf<SE::Call>,
 		len: usize,
 		result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {

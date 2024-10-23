@@ -16,8 +16,8 @@
 //! # Skip Feeless Payment Pallet
 //!
 //! This pallet allows runtimes that include it to skip payment of transaction fees for
-//! dispatchables marked by [`#[pallet::feeless_if]`](`macro@
-//! frame_support::pallet_prelude::feeless_if`).
+//! dispatchables marked by
+//! [`#[pallet::feeless_if]`](frame_support::pallet_prelude::feeless_if).
 //!
 //! ## Overview
 //!
@@ -30,9 +30,9 @@
 //! ## Integration
 //!
 //! This pallet wraps an existing transaction payment pallet. This means you should both pallets
-//! in your `construct_runtime` macro and include this pallet's
-//! [`TransactionExtension`] ([`SkipCheckIfFeeless`]) that would accept the existing one as an
-//! argument.
+//! in your [`construct_runtime`](frame_support::construct_runtime) macro and
+//! include this pallet's [`TransactionExtension`] ([`SkipCheckIfFeeless`]) that would accept the
+//! existing one as an argument.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -40,12 +40,12 @@ use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{CheckIfFeeless, DispatchResult},
 	traits::{IsType, OriginTrait},
+	weights::Weight,
 };
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
 	traits::{
-		DispatchInfoOf, OriginOf, PostDispatchInfoOf, TransactionExtension,
-		TransactionExtensionBase, ValidateResult,
+		DispatchInfoOf, DispatchOriginOf, PostDispatchInfoOf, TransactionExtension, ValidateResult,
 	},
 	transaction_validity::TransactionValidityError,
 };
@@ -80,7 +80,7 @@ pub mod pallet {
 
 /// A [`TransactionExtension`] that skips the wrapped extension if the dispatchable is feeless.
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
-pub struct SkipCheckIfFeeless<T, S>(pub S, sp_std::marker::PhantomData<T>);
+pub struct SkipCheckIfFeeless<T, S>(pub S, core::marker::PhantomData<T>);
 
 // Make this extension "invisible" from the outside (ie metadata type information)
 impl<T, S: StaticTypeInfo> TypeInfo for SkipCheckIfFeeless<T, S> {
@@ -90,20 +90,20 @@ impl<T, S: StaticTypeInfo> TypeInfo for SkipCheckIfFeeless<T, S> {
 	}
 }
 
-impl<T, S: Encode> sp_std::fmt::Debug for SkipCheckIfFeeless<T, S> {
+impl<T, S: Encode> core::fmt::Debug for SkipCheckIfFeeless<T, S> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "SkipCheckIfFeeless<{:?}>", self.0.encode())
 	}
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
 
 impl<T, S> From<S> for SkipCheckIfFeeless<T, S> {
 	fn from(s: S) -> Self {
-		Self(s, sp_std::marker::PhantomData)
+		Self(s, core::marker::PhantomData)
 	}
 }
 
@@ -115,8 +115,10 @@ pub enum Intermediate<T, O> {
 }
 use Intermediate::*;
 
-impl<T: Config + Send + Sync, S: TransactionExtensionBase> TransactionExtensionBase
-	for SkipCheckIfFeeless<T, S>
+impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
+	TransactionExtension<T::RuntimeCall> for SkipCheckIfFeeless<T, S>
+where
+	T::RuntimeCall: CheckIfFeeless<Origin = frame_system::pallet_prelude::OriginFor<T>>,
 {
 	// From the outside this extension should be "invisible", because it just extends the wrapped
 	// extension with an extra check in `pre_dispatch` and `post_dispatch`. Thus, we should forward
@@ -128,42 +130,29 @@ impl<T: Config + Send + Sync, S: TransactionExtensionBase> TransactionExtensionB
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		self.0.implicit()
 	}
+	type Val =
+		Intermediate<S::Val, <DispatchOriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
+	type Pre =
+		Intermediate<S::Pre, <DispatchOriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
 
-	fn weight(&self) -> frame_support::weights::Weight {
-		self.0.weight()
+	fn weight(&self, call: &T::RuntimeCall) -> frame_support::weights::Weight {
+		self.0.weight(call)
 	}
-}
-
-impl<T: Config + Send + Sync, Context, S: TransactionExtension<T::RuntimeCall, Context>>
-	TransactionExtension<T::RuntimeCall, Context> for SkipCheckIfFeeless<T, S>
-where
-	T::RuntimeCall: CheckIfFeeless<Origin = frame_system::pallet_prelude::OriginFor<T>>,
-{
-	type Val = Intermediate<S::Val, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
-	type Pre = Intermediate<S::Pre, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
 
 	fn validate(
 		&self,
-		origin: OriginOf<T::RuntimeCall>,
+		origin: DispatchOriginOf<T::RuntimeCall>,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		context: &mut Context,
 		self_implicit: S::Implicit,
 		inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		if call.is_feeless(&origin) {
 			Ok((Default::default(), Skip(origin.caller().clone()), origin))
 		} else {
-			let (x, y, z) = self.0.validate(
-				origin,
-				call,
-				info,
-				len,
-				context,
-				self_implicit,
-				inherited_implication,
-			)?;
+			let (x, y, z) =
+				self.0.validate(origin, call, info, len, self_implicit, inherited_implication)?;
 			Ok((x, Apply(y), z))
 		}
 	}
@@ -171,31 +160,29 @@ where
 	fn prepare(
 		self,
 		val: Self::Val,
-		origin: &OriginOf<T::RuntimeCall>,
+		origin: &DispatchOriginOf<T::RuntimeCall>,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		match val {
-			Apply(val) => self.0.prepare(val, origin, call, info, len, context).map(Apply),
+			Apply(val) => self.0.prepare(val, origin, call, info, len).map(Apply),
 			Skip(origin) => Ok(Skip(origin)),
 		}
 	}
 
-	fn post_dispatch(
+	fn post_dispatch_details(
 		pre: Self::Pre,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		result: &DispatchResult,
-		context: &Context,
-	) -> Result<(), TransactionValidityError> {
+	) -> Result<Weight, TransactionValidityError> {
 		match pre {
-			Apply(pre) => S::post_dispatch(pre, info, post_info, len, result, context),
+			Apply(pre) => S::post_dispatch_details(pre, info, post_info, len, result),
 			Skip(origin) => {
 				Pallet::<T>::deposit_event(Event::<T>::FeeSkipped { origin });
-				Ok(())
+				Ok(Weight::zero())
 			},
 		}
 	}

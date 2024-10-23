@@ -25,30 +25,29 @@ use crate::{
 	mock::runtime_api::session_info_for_peers,
 	NODE_UNDER_TEST,
 };
+use codec::Encode;
 use futures::SinkExt;
 use itertools::Itertools;
-use parity_scale_codec::Encode;
-use polkadot_node_core_approval_voting::{
-	criteria::{compute_assignments, Config},
-	time::tranche_to_tick,
-};
+use polkadot_node_core_approval_voting::criteria::{compute_assignments, Config};
+
 use polkadot_node_network_protocol::{
 	grid_topology::{GridNeighbors, RandomRouting, RequiredRouting, SessionGridTopology},
 	v3 as protocol_v3,
 };
 use polkadot_node_primitives::approval::{
 	self,
+	time::tranche_to_tick,
 	v2::{CoreBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 };
 use polkadot_primitives::{
-	vstaging::ApprovalVoteMultipleCandidates, CandidateEvent, CandidateHash, CandidateIndex,
-	CoreIndex, Hash, SessionInfo, Slot, ValidatorId, ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
+	ApprovalVoteMultipleCandidates, CandidateEvent, CandidateHash, CandidateIndex, CoreIndex, Hash,
+	SessionInfo, Slot, ValidatorId, ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
 };
 use rand::{seq::SliceRandom, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use rand_distr::{Distribution, Normal};
 use sc_keystore::LocalKeystore;
-use sc_network::PeerId;
+use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
 use sha1::Digest;
 use sp_application_crypto::AppCrypto;
@@ -74,8 +73,8 @@ pub struct PeerMessagesGenerator {
 	pub validator_index: ValidatorIndex,
 	/// An array of pre-generated random samplings, that is used to determine, which nodes would
 	/// send a given assignment, to the node under test because of the random samplings.
-	/// As an optimization we generate this sampling at the begining of the test and just pick
-	/// one randomly, because always taking the samples would be too expensive for benchamrk.
+	/// As an optimization we generate this sampling at the beginning of the test and just pick
+	/// one randomly, because always taking the samples would be too expensive for benchmark.
 	pub random_samplings: Vec<Vec<ValidatorIndex>>,
 	/// Channel for sending the generated messages to the aggregator
 	pub tx_messages: futures::channel::mpsc::UnboundedSender<(Hash, Vec<MessagesBundle>)>,
@@ -91,7 +90,7 @@ pub struct PeerMessagesGenerator {
 
 impl PeerMessagesGenerator {
 	/// Generates messages by spawning a blocking task in the background which begins creating
-	/// the assignments/approvals and peer view changes at the begining of each block.
+	/// the assignments/approvals and peer view changes at the beginning of each block.
 	pub fn generate_messages(mut self, spawn_task_handle: &SpawnTaskHandle) {
 		spawn_task_handle.spawn("generate-messages", "generate-messages", async move {
 			for block_info in &self.blocks {
@@ -234,7 +233,7 @@ impl PeerMessagesGenerator {
 		let all_messages = all_messages
 			.into_iter()
 			.flat_map(|(_, mut messages)| {
-				// Shuffle the messages inside the same tick, so that we don't priorites messages
+				// Shuffle the messages inside the same tick, so that we don't priorities messages
 				// for older nodes. we try to simulate the same behaviour as in real world.
 				messages.shuffle(&mut rand_chacha);
 				messages
@@ -402,7 +401,7 @@ impl PeerMessagesGenerator {
 /// We can not sample every time for all the messages because that would be too expensive to
 /// perform, so pre-generate a list of samples for a given network size.
 /// - result[i] give us as a list of random nodes that would send a given message to the node under
-/// test.
+///   test.
 fn random_samplings_to_node(
 	node_under_test: ValidatorIndex,
 	num_validators: usize,
@@ -475,8 +474,7 @@ fn issue_approvals(
 		coalesce_approvals_len(options.coalesce_mean, options.coalesce_std_dev, rand_chacha);
 	let result = assignments
 		.iter()
-		.enumerate()
-		.map(|(_index, message)| match &message.msg {
+		.map(|message| match &message.msg {
 			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) => {
 				let mut approvals_to_create = Vec::new();
 
@@ -560,12 +558,12 @@ struct TestSignInfo {
 	candidate_index: CandidateIndex,
 	/// The validator sending the assignments
 	validator_index: ValidatorIndex,
-	/// The assignments convering this candidate
+	/// The assignments covering this candidate
 	assignment: TestMessageInfo,
 }
 
 impl TestSignInfo {
-	/// Helper function to create a signture for all candidates in `to_sign` parameter.
+	/// Helper function to create a signature for all candidates in `to_sign` parameter.
 	/// Returns a TestMessage
 	fn sign_candidates(
 		to_sign: &mut Vec<TestSignInfo>,

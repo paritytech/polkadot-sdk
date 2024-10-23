@@ -63,7 +63,18 @@ impl<T: frame_system::Config> frame_system::ExtensionsWeightInfo for WeightInfo<
 	}
 	/// Storage: `System::BlockHash` (r:1 w:0)
 	/// Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
-	fn check_mortality() -> Weight {
+	fn check_mortality_mortal_transaction() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `92`
+		//  Estimated: `3509`
+		// Minimum execution time: 5_841_000 picoseconds.
+		Weight::from_parts(8_776_000, 0)
+			.saturating_add(Weight::from_parts(0, 3509))
+			.saturating_add(T::DbWeight::get().reads(1))
+	}
+	/// Storage: `System::BlockHash` (r:1 w:0)
+	/// Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
+	fn check_mortality_immortal_transaction() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `92`
 		//  Estimated: `3509`

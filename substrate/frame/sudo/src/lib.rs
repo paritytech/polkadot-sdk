@@ -38,7 +38,7 @@
 //! In Substrate blockchains, pallets may contain dispatchable calls that can only be called at
 //! the system level of the chain (i.e. dispatchables that require a `Root` origin).
 //! Setting a privileged account, called the _sudo key_, allows you to make such calls as an
-//! extrinisic.
+//! extrinsic.
 //!
 //! Here's an example of a privileged function in another pallet:
 //!
@@ -121,8 +121,11 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::boxed::Box;
+
 use sp_runtime::{traits::StaticLookup, DispatchResult};
-use sp_std::prelude::*;
 
 use frame_support::{dispatch::GetDispatchInfo, traits::UnfilteredDispatchable};
 
@@ -194,7 +197,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			(
-				T::WeightInfo::sudo().saturating_add(dispatch_info.weight),
+				T::WeightInfo::sudo().saturating_add(dispatch_info.call_weight),
 				dispatch_info.class
 			)
 		})]
@@ -259,7 +262,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			(
-				T::WeightInfo::sudo_as().saturating_add(dispatch_info.weight),
+				T::WeightInfo::sudo_as().saturating_add(dispatch_info.call_weight),
 				dispatch_info.class,
 			)
 		})]

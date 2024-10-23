@@ -17,6 +17,7 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
+use alloc::boxed::Box;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -27,7 +28,7 @@ use frame_support::{
 use pallet_alliance::{IdentityVerifier, ProposalIndex, ProposalProvider};
 use pallet_asset_tx_payment::HandleCredit;
 use pallet_identity::legacy::IdentityField;
-use sp_std::prelude::*;
+use polkadot_sdk::*;
 
 use crate::{
 	AccountId, AllianceCollective, AllianceMotion, Assets, Authorship, Balances, Hash,
@@ -62,8 +63,8 @@ impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 	}
 
 	fn has_good_judgement(who: &AccountId) -> bool {
-		use pallet_identity::Judgement;
-		crate::Identity::identity(who)
+		use pallet_identity::{IdentityOf, Judgement};
+		IdentityOf::<Runtime>::get(who)
 			.map(|(registration, _)| registration.judgements)
 			.map_or(false, |judgements| {
 				judgements
@@ -73,7 +74,8 @@ impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 	}
 
 	fn super_account_id(who: &AccountId) -> Option<AccountId> {
-		crate::Identity::super_of(who).map(|parent| parent.0)
+		use pallet_identity::SuperOf;
+		SuperOf::<Runtime>::get(who).map(|parent| parent.0)
 	}
 }
 
@@ -118,6 +120,7 @@ mod multiplier_tests {
 		weights::{Weight, WeightToFee},
 	};
 	use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+	use polkadot_sdk::*;
 	use sp_runtime::{
 		assert_eq_error_rate,
 		traits::{Convert, One, Zero},

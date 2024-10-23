@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Does two stores to two seperate storage items
+//! Does two stores to two separate storage items
 #![no_std]
 #![no_main]
 

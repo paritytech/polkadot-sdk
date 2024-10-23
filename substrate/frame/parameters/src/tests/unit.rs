@@ -25,7 +25,7 @@ use crate::tests::mock::{
 	RuntimeParametersValue,
 };
 use codec::Encode;
-use frame_support::{assert_noop, assert_ok, traits::dynamic_params::AggregratedKeyValue};
+use frame_support::{assert_noop, assert_ok, traits::dynamic_params::AggregatedKeyValue};
 use sp_core::Get;
 use sp_runtime::DispatchError;
 

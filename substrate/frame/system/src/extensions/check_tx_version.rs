@@ -19,8 +19,7 @@ use crate::{Config, Pallet};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{transaction_extension::TransactionExtensionBase, TransactionExtension},
+	impl_tx_ext_default, traits::TransactionExtension,
 	transaction_validity::TransactionValidityError,
 };
 
@@ -32,16 +31,16 @@ use sp_runtime::{
 /// is not affected in any other way.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct CheckTxVersion<T: Config + Send + Sync>(sp_std::marker::PhantomData<T>);
+pub struct CheckTxVersion<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 
-impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckTxVersion<T> {
+impl<T: Config + Send + Sync> core::fmt::Debug for CheckTxVersion<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "CheckTxVersion")
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -49,19 +48,24 @@ impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckTxVersion<T> {
 impl<T: Config + Send + Sync> CheckTxVersion<T> {
 	/// Create new `TransactionExtension` to check transaction version.
 	pub fn new() -> Self {
-		Self(sp_std::marker::PhantomData)
+		Self(core::marker::PhantomData)
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckTxVersion<T> {
+impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
+	for CheckTxVersion<T>
+{
 	const IDENTIFIER: &'static str = "CheckTxVersion";
 	type Implicit = u32;
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(<Pallet<T>>::runtime_version().transaction_version)
 	}
-	fn weight(&self) -> sp_weights::Weight {
+	type Val = ();
+	type Pre = ();
+	fn weight(&self, _: &<T as Config>::RuntimeCall) -> sp_weights::Weight {
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_tx_version()
 	}
+	impl_tx_ext_default!(<T as Config>::RuntimeCall; validate prepare);
 }
 impl<T: Config + Send + Sync, Context> TransactionExtension<<T as Config>::RuntimeCall, Context>
 	for CheckTxVersion<T>

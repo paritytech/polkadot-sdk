@@ -17,20 +17,17 @@
 
 use crate::{Config, Key};
 use codec::{Decode, Encode};
+use core::{fmt, marker::PhantomData};
 use frame_support::{dispatch::DispatchInfo, ensure};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{
-		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, TransactionExtension,
-		TransactionExtensionBase,
-	},
+	traits::{AsSystemOriginSigner, DispatchInfoOf, Dispatchable, TransactionExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionValidityError, UnknownTransaction,
 		ValidTransaction,
 	},
 };
-use sp_std::{fmt, marker::PhantomData};
 
 /// Ensure that signed transactions are only valid if they are signed by sudo account.
 ///
@@ -69,11 +66,22 @@ impl<T: Config + Send + Sync> CheckOnlySudoAccount<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckOnlySudoAccount<T> {
+impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::RuntimeCall>
+	for CheckOnlySudoAccount<T>
+where
+	<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
+		AsSystemOriginSigner<T::AccountId> + Clone,
+{
 	const IDENTIFIER: &'static str = "CheckOnlySudoAccount";
 	type Implicit = ();
+	type Pre = ();
+	type Val = ();
 
-	fn weight(&self) -> frame_support::weights::Weight {
+	fn weight(
+		&self,
+		_: &<T as frame_system::Config>::RuntimeCall,
+	) -> frame_support::weights::Weight {
 		use crate::weights::WeightInfo;
 		T::WeightInfo::check_only_sudo_account()
 	}
@@ -94,7 +102,6 @@ where
 		_call: &<T as frame_system::Config>::RuntimeCall,
 		info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		_len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<
@@ -111,7 +118,7 @@ where
 
 		Ok((
 			ValidTransaction {
-				priority: info.weight.ref_time() as TransactionPriority,
+				priority: info.total_weight().ref_time() as TransactionPriority,
 				..Default::default()
 			},
 			(),
@@ -119,5 +126,5 @@ where
 		))
 	}
 
-	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; Context; prepare);
+	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; prepare);
 }

@@ -21,8 +21,8 @@ use crate::{
 	codec::{Decode, Encode},
 	RuntimeDebug,
 };
+use alloc::{vec, vec::Vec};
 use scale_info::TypeInfo;
-use sp_std::prelude::*;
 
 /// Priority for a transaction. Additive. Higher is better.
 pub type TransactionPriority = u64;
@@ -84,6 +84,8 @@ pub enum InvalidTransaction {
 	BadSigner,
 	/// The implicit data was unable to be calculated.
 	IndeterminateImplicit,
+	/// The transaction extension did not authorize any origin.
+	UnknownOrigin,
 }
 
 impl InvalidTransaction {
@@ -117,6 +119,8 @@ impl From<InvalidTransaction> for &'static str {
 			InvalidTransaction::BadSigner => "Invalid signing address",
 			InvalidTransaction::IndeterminateImplicit =>
 				"The implicit data was unable to be calculated",
+			InvalidTransaction::UnknownOrigin =>
+				"The transaction extension did not authorize any origin",
 		}
 	}
 }
@@ -230,7 +234,7 @@ impl From<UnknownTransaction> for TransactionValidity {
 /// Depending on the source we might apply different validation schemes.
 /// For instance we can disallow specific kinds of transactions if they were not produced
 /// by our local node (for instance off-chain workers).
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo, Hash)]
 pub enum TransactionSource {
 	/// Transaction is already included in block.
 	///

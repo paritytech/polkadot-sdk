@@ -266,7 +266,7 @@ impl Default for BabeEpochConfiguration {
 }
 
 /// Verifies the equivocation proof by making sure that: both headers have
-/// different hashes, are targetting the same slot, and have valid signatures by
+/// different hashes, are targeting the same slot, and have valid signatures by
 /// the same authority.
 pub fn check_equivocation_proof<H>(proof: EquivocationProof<H>) -> bool
 where
@@ -298,7 +298,7 @@ where
 		let first_pre_digest = find_pre_digest(&proof.first_header)?;
 		let second_pre_digest = find_pre_digest(&proof.second_header)?;
 
-		// both headers must be targetting the same slot and it must
+		// both headers must be targeting the same slot and it must
 		// be the same as the one in the proof.
 		if proof.slot != first_pre_digest.slot() ||
 			first_pre_digest.slot() != second_pre_digest.slot()

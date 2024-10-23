@@ -19,16 +19,13 @@
 
 use crate::{
 	codec::{Codec, Decode, Encode, MaxEncodedLen},
-	generic,
+	generic::{self, UncheckedExtrinsic},
 	scale_info::TypeInfo,
 	traits::{self, BlakeTwo256, Dispatchable, OpaqueKeys},
 	DispatchResultWithInfo, KeyTypeId,
 };
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize};
-use sp_core::{
-	crypto::{key_types, ByteArray, CryptoType, Dummy},
-	U256,
-};
+use sp_core::crypto::{key_types, ByteArray, CryptoType, Dummy};
 pub use sp_core::{sr25519, H256};
 use std::{cell::RefCell, fmt::Debug};
 
@@ -71,8 +68,14 @@ impl From<UintAuthorityId> for u64 {
 impl UintAuthorityId {
 	/// Convert this authority ID into a public key.
 	pub fn to_public_key<T: ByteArray>(&self) -> T {
-		let bytes: [u8; 32] = U256::from(self.0).into();
+		let mut bytes = [0u8; 32];
+		bytes[0..8].copy_from_slice(&self.0.to_le_bytes());
 		T::from_slice(&bytes).unwrap()
+	}
+
+	/// Set the list of keys returned by the runtime call for all keys of that type.
+	pub fn set_all_keys<T: Into<UintAuthorityId>>(keys: impl IntoIterator<Item = T>) {
+		ALL_KEYS.with(|l| *l.borrow_mut() = keys.into_iter().map(Into::into).collect())
 	}
 }
 
@@ -96,13 +99,6 @@ impl AsRef<[u8]> for UintAuthorityId {
 thread_local! {
 	/// A list of all UintAuthorityId keys returned to the runtime.
 	static ALL_KEYS: RefCell<Vec<UintAuthorityId>> = RefCell::new(vec![]);
-}
-
-impl UintAuthorityId {
-	/// Set the list of keys returned by the runtime call for all keys of that type.
-	pub fn set_all_keys<T: Into<UintAuthorityId>>(keys: impl IntoIterator<Item = T>) {
-		ALL_KEYS.with(|l| *l.borrow_mut() = keys.into_iter().map(Into::into).collect())
-	}
 }
 
 impl sp_application_crypto::RuntimeAppPublic for UintAuthorityId {
@@ -156,6 +152,18 @@ impl traits::IdentifyAccount for UintAuthorityId {
 	}
 }
 
+impl traits::Verify for UintAuthorityId {
+	type Signer = Self;
+
+	fn verify<L: traits::Lazy<[u8]>>(
+		&self,
+		_msg: L,
+		signer: &<Self::Signer as traits::IdentifyAccount>::AccountId,
+	) -> bool {
+		self.0 == *signer
+	}
+}
+
 /// A dummy signature type, to match `UintAuthorityId`.
 #[derive(Eq, PartialEq, Clone, Debug, Hash, Serialize, Deserialize, Encode, Decode, TypeInfo)]
 pub struct TestSignature(pub u64, pub Vec<u8>);
@@ -204,7 +212,16 @@ impl<Xt> traits::HeaderProvider for Block<Xt> {
 }
 
 impl<
-		Xt: 'static + Codec + Sized + Send + Sync + Serialize + Clone + Eq + Debug + traits::Extrinsic,
+		Xt: 'static
+			+ Codec
+			+ Sized
+			+ Send
+			+ Sync
+			+ Serialize
+			+ Clone
+			+ Eq
+			+ Debug
+			+ traits::ExtrinsicLike,
 	> traits::Block for Block<Xt>
 {
 	type Extrinsic = Xt;
@@ -238,6 +255,9 @@ where
 			.map_err(|e| DeError::custom(format!("Invalid value passed into decode: {}", e)))
 	}
 }
+
+/// Extrinsic type with `u64` accounts and mocked signatures, used in testing.
+pub type TestXt<Call, Extra> = UncheckedExtrinsic<u64, Call, (), Extra>;
 
 /// Wrapper over a `u64` that can be used as a `RuntimeCall`.
 #[derive(PartialEq, Eq, Debug, Clone, Encode, Decode, TypeInfo)]

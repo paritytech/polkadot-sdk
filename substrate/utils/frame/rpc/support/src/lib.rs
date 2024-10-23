@@ -161,7 +161,7 @@ impl<V: FullCodec> StorageQuery<V> {
 
 	/// Send this query over RPC, await the typed result.
 	///
-	/// Hash should be `<YourRuntime as frame::Config>::Hash`.
+	/// Hash should be `<YourRuntime as frame_system::Config>::Hash`.
 	///
 	/// # Arguments
 	///

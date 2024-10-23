@@ -37,11 +37,13 @@ mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{borrow::Cow, vec::Vec};
 use sp_runtime::{
 	traits::{BadOrigin, Hash, Saturating},
 	Perbill,
 };
-use sp_std::{borrow::Cow, prelude::*};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -122,7 +124,7 @@ pub mod pallet {
 		type ManagerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// A means of providing some cost while data is stored on-chain.
-		type Consideration: Consideration<Self::AccountId>;
+		type Consideration: Consideration<Self::AccountId, Footprint>;
 	}
 
 	#[pallet::pallet]

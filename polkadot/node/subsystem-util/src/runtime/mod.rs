@@ -18,7 +18,7 @@
 
 use schnellru::{ByLength, LruMap};
 
-use parity_scale_codec::Encode;
+use codec::Encode;
 use sp_application_crypto::AppCrypto;
 use sp_core::crypto::ByteArray;
 use sp_keystore::{Keystore, KeystorePtr};
@@ -30,20 +30,22 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	slashing,
-	vstaging::{node_features::FeatureIndex, NodeFeatures},
-	AsyncBackingParams, CandidateEvent, CandidateHash, CoreState, EncodeAs, ExecutorParams,
-	GroupIndex, GroupRotationInfo, Hash, IndexedVec, OccupiedCore, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
+	node_features::FeatureIndex, slashing, AsyncBackingParams, CandidateEvent, CandidateHash,
+	CoreIndex, CoreState, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
+	Id as ParaId, IndexedVec, NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex,
+	SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
 };
 
+use std::collections::{BTreeMap, VecDeque};
+
 use crate::{
-	request_async_backing_params, request_availability_cores, request_candidate_events,
+	has_required_runtime, request_async_backing_params, request_availability_cores,
+	request_candidate_events, request_claim_queue, request_disabled_validators,
 	request_from_runtime, request_key_ownership_proof, request_on_chain_votes,
 	request_session_executor_params, request_session_index_for_child, request_session_info,
 	request_submit_report_dispute_lost, request_unapplied_slashes, request_validation_code_by_hash,
-	request_validator_groups, vstaging::get_disabled_validators_with_fallback,
+	request_validator_groups,
 };
 
 /// Errors that can happen on runtime fetches.
@@ -349,7 +351,7 @@ where
 pub async fn get_occupied_cores<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
-) -> Result<Vec<OccupiedCore>>
+) -> Result<Vec<(CoreIndex, OccupiedCore)>>
 where
 	Sender: overseer::SubsystemSender<RuntimeApiMessage>,
 {
@@ -357,9 +359,10 @@ where
 
 	Ok(cores
 		.into_iter()
-		.filter_map(|core_state| {
+		.enumerate()
+		.filter_map(|(core_index, core_state)| {
 			if let CoreState::Occupied(occupied) = core_state {
-				Some(occupied)
+				Some((CoreIndex(core_index as u32), occupied))
 			} else {
 				None
 			}
@@ -577,5 +580,100 @@ pub async fn request_node_features(
 		Ok(None)
 	} else {
 		res.map(Some)
+	}
+}
+
+/// A snapshot of the runtime claim queue at an arbitrary relay chain block.
+#[derive(Default)]
+pub struct ClaimQueueSnapshot(pub BTreeMap<CoreIndex, VecDeque<ParaId>>);
+
+impl From<BTreeMap<CoreIndex, VecDeque<ParaId>>> for ClaimQueueSnapshot {
+	fn from(claim_queue_snapshot: BTreeMap<CoreIndex, VecDeque<ParaId>>) -> Self {
+		ClaimQueueSnapshot(claim_queue_snapshot)
+	}
+}
+
+impl ClaimQueueSnapshot {
+	/// Returns the `ParaId` that has a claim for `core_index` at the specified `depth` in the
+	/// claim queue. A depth of `0` means the very next block.
+	pub fn get_claim_for(&self, core_index: CoreIndex, depth: usize) -> Option<ParaId> {
+		self.0.get(&core_index)?.get(depth).copied()
+	}
+
+	/// Returns an iterator over all claimed cores and the claiming `ParaId` at the specified
+	/// `depth` in the claim queue.
+	pub fn iter_claims_at_depth(
+		&self,
+		depth: usize,
+	) -> impl Iterator<Item = (CoreIndex, ParaId)> + '_ {
+		self.0
+			.iter()
+			.filter_map(move |(core_index, paras)| Some((*core_index, *paras.get(depth)?)))
+	}
+
+	/// Returns an iterator over all claims on the given core.
+	pub fn iter_claims_for_core(
+		&self,
+		core_index: &CoreIndex,
+	) -> impl Iterator<Item = &ParaId> + '_ {
+		self.0.get(core_index).map(|c| c.iter()).into_iter().flatten()
+	}
+
+	/// Returns an iterator over the whole claim queue.
+	pub fn iter_all_claims(&self) -> impl Iterator<Item = (&CoreIndex, &VecDeque<ParaId>)> + '_ {
+		self.0.iter()
+	}
+}
+
+// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
+/// Returns disabled validators list if the runtime supports it. Otherwise logs a debug messages and
+/// returns an empty vec.
+/// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this function and
+/// replace all usages with `request_disabled_validators`
+pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<RuntimeApiMessage>>(
+	sender: &mut Sender,
+	relay_parent: Hash,
+) -> Result<Vec<ValidatorIndex>> {
+	let disabled_validators = if has_required_runtime(
+		sender,
+		relay_parent,
+		RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
+	)
+	.await
+	{
+		request_disabled_validators(relay_parent, sender)
+			.await
+			.await
+			.map_err(Error::RuntimeRequestCanceled)??
+	} else {
+		gum::debug!(target: LOG_TARGET, "Runtime doesn't support `DisabledValidators` - continuing with an empty disabled validators set");
+		vec![]
+	};
+
+	Ok(disabled_validators)
+}
+
+/// Checks if the runtime supports `request_claim_queue` and attempts to fetch the claim queue.
+/// Returns `ClaimQueueSnapshot` or `None` if claim queue API is not supported by runtime.
+/// Any specific `RuntimeApiError` is bubbled up to the caller.
+pub async fn fetch_claim_queue(
+	sender: &mut impl SubsystemSender<RuntimeApiMessage>,
+	relay_parent: Hash,
+) -> Result<Option<ClaimQueueSnapshot>> {
+	if has_required_runtime(
+		sender,
+		relay_parent,
+		RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+	)
+	.await
+	{
+		let res = request_claim_queue(relay_parent, sender)
+			.await
+			.await
+			.map_err(Error::RuntimeRequestCanceled)??;
+		Ok(Some(res.into()))
+	} else {
+		gum::trace!(target: LOG_TARGET, "Runtime doesn't support `request_claim_queue`");
+		Ok(None)
 	}
 }

@@ -24,7 +24,7 @@ use frame_support::{
 	storage::{with_transaction, TransactionOutcome::*},
 	transactional,
 };
-use sp_core::{sr25519, ConstU32};
+use sp_core::sr25519;
 use sp_io::TestExternalities;
 use sp_runtime::{
 	generic,
@@ -91,7 +91,6 @@ frame_support::construct_runtime!(
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type Block = Block;
-	type BlockHashCount = ConstU32<10>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;

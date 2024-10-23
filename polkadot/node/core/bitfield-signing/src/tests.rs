@@ -16,9 +16,9 @@
 
 use super::*;
 use futures::{executor::block_on, pin_mut, StreamExt};
-use polkadot_node_subsystem::messages::AllMessages;
+use polkadot_node_subsystem::messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest};
 use polkadot_primitives::{CandidateHash, OccupiedCore};
-use test_helpers::dummy_candidate_descriptor;
+use polkadot_primitives_test_helpers::dummy_candidate_descriptor;
 
 fn occupied_core(para_id: u32, candidate_hash: CandidateHash) -> CoreState {
 	CoreState::Occupied(OccupiedCore {
@@ -40,13 +40,8 @@ fn construct_availability_bitfield_works() {
 		let validator_index = ValidatorIndex(1u32);
 
 		let (mut sender, mut receiver) = polkadot_node_subsystem_test_helpers::sender_receiver();
-		let future = construct_availability_bitfield(
-			relay_parent,
-			&jaeger::Span::Disabled,
-			validator_index,
-			&mut sender,
-		)
-		.fuse();
+		let future =
+			construct_availability_bitfield(relay_parent, validator_index, &mut sender).fuse();
 		pin_mut!(future);
 
 		let hash_a = CandidateHash(Hash::repeat_byte(1));
@@ -64,7 +59,7 @@ fn construct_availability_bitfield_works() {
 					AllMessages::AvailabilityStore(
 						AvailabilityStoreMessage::QueryChunkAvailability(c_hash, vidx, tx),
 					) => {
-						assert_eq!(validator_index, vidx);
+						assert_eq!(validator_index, vidx.into());
 
 						tx.send(c_hash == hash_a).unwrap();
 					},

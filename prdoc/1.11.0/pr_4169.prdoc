@@ -1,0 +1,8 @@
+title: Stabilize transactionBroadcast RPC class to version 1
+
+doc:
+  - audience: Node Dev
+    description: |
+      The transactionBroadcast RPC API is stabilized to version 1.
+
+crates: [ ]

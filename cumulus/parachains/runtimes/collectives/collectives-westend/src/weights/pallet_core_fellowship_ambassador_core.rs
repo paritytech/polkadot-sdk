@@ -58,6 +58,17 @@ impl<T: frame_system::Config> pallet_core_fellowship::WeightInfo for WeightInfo<
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `AmbassadorCore::Params` (r:0 w:1)
+	/// Proof: `AmbassadorCore::Params` (`max_values`: Some(1), `max_size`: Some(364), added: 859, mode: `MaxEncodedLen`)
+	fn set_partial_params() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 11_000_000 picoseconds.
+		Weight::from_parts(11_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	/// Storage: `AmbassadorCore::Member` (r:1 w:1)
 	/// Proof: `AmbassadorCore::Member` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
 	/// Storage: `AmbassadorCollective::Members` (r:1 w:1)
@@ -159,6 +170,20 @@ impl<T: frame_system::Config> pallet_core_fellowship::WeightInfo for WeightInfo<
 			.saturating_add(Weight::from_parts(0, 69046))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(6))
+	}
+	fn promote_fast(r: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `16844`
+		//  Estimated: `19894 + r * (2489 ±0)`
+		// Minimum execution time: 45_065_000 picoseconds.
+		Weight::from_parts(34_090_392, 19894)
+			// Standard Error: 18_620
+			.saturating_add(Weight::from_parts(13_578_046, 0).saturating_mul(r.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(r.into())))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(r.into())))
+			.saturating_add(Weight::from_parts(0, 2489).saturating_mul(r.into()))
 	}
 	/// Storage: `AmbassadorCollective::Members` (r:1 w:0)
 	/// Proof: `AmbassadorCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)

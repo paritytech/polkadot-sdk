@@ -19,8 +19,8 @@ use crate as pallet_skip_feeless_payment;
 use frame_support::{derive_impl, parameter_types};
 use frame_system as system;
 use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{OriginOf, TransactionExtension},
+	traits::{DispatchOriginOf, TransactionExtension},
+	transaction_validity::ValidTransaction,
 };
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -35,30 +35,46 @@ impl Config for Runtime {
 }
 
 parameter_types! {
-	pub static PreDispatchCount: u32 = 0;
+	pub static PrepareCount: u32 = 0;
+	pub static ValidateCount: u32 = 0;
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct DummyExtension;
 
-impl TransactionExtensionBase for DummyExtension {
+impl TransactionExtension<RuntimeCall> for DummyExtension {
 	const IDENTIFIER: &'static str = "DummyExtension";
 	type Implicit = ();
-}
-impl<C> TransactionExtension<RuntimeCall, C> for DummyExtension {
 	type Val = ();
 	type Pre = ();
-	impl_tx_ext_default!(RuntimeCall; C; validate);
+
+	fn weight(&self, _: &RuntimeCall) -> Weight {
+		Weight::zero()
+	}
+
+	fn validate(
+		&self,
+		origin: DispatchOriginOf<RuntimeCall>,
+		_call: &RuntimeCall,
+		_info: &DispatchInfoOf<RuntimeCall>,
+		_len: usize,
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+	) -> ValidateResult<Self::Val, RuntimeCall> {
+		ValidateCount::mutate(|c| *c += 1);
+		Ok((ValidTransaction::default(), (), origin))
+	}
+
 	fn prepare(
 		self,
 		_val: Self::Val,
-		_origin: &OriginOf<RuntimeCall>,
+		_origin: &DispatchOriginOf<RuntimeCall>,
 		_call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
 		_context: &C,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		PreDispatchCount::mutate(|c| *c += 1);
+		PrepareCount::mutate(|c| *c += 1);
 		Ok(())
 	}
 }

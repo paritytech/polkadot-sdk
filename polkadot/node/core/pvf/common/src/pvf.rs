@@ -15,15 +15,10 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::prepare::PrepareJobKind;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParams;
-use std::{
-	cmp::{Eq, PartialEq},
-	fmt,
-	sync::Arc,
-	time::Duration,
-};
+use std::{fmt, sync::Arc, time::Duration};
 
 /// A struct that carries the exhaustive set of data to prepare an artifact out of plain
 /// Wasm binary
@@ -31,9 +26,9 @@ use std::{
 /// Should be cheap to clone.
 #[derive(Clone, Encode, Decode)]
 pub struct PvfPrepData {
-	/// Wasm code (uncompressed)
-	code: Arc<Vec<u8>>,
-	/// Wasm code hash
+	/// Wasm code (maybe compressed)
+	maybe_compressed_code: Arc<Vec<u8>>,
+	/// Wasm code hash.
 	code_hash: ValidationCodeHash,
 	/// Executor environment parameters for the session for which artifact is prepared
 	executor_params: Arc<ExecutorParams>,
@@ -51,20 +46,20 @@ impl PvfPrepData {
 		prep_timeout: Duration,
 		prep_kind: PrepareJobKind,
 	) -> Self {
-		let code = Arc::new(code);
-		let code_hash = sp_crypto_hashing::blake2_256(&code).into();
+		let maybe_compressed_code = Arc::new(code);
+		let code_hash = sp_crypto_hashing::blake2_256(&maybe_compressed_code).into();
 		let executor_params = Arc::new(executor_params);
-		Self { code, code_hash, executor_params, prep_timeout, prep_kind }
+		Self { maybe_compressed_code, code_hash, executor_params, prep_timeout, prep_kind }
 	}
 
-	/// Returns validation code hash for the PVF
+	/// Returns validation code hash
 	pub fn code_hash(&self) -> ValidationCodeHash {
 		self.code_hash
 	}
 
-	/// Returns PVF code
-	pub fn code(&self) -> Arc<Vec<u8>> {
-		self.code.clone()
+	/// Returns PVF code blob
+	pub fn maybe_compressed_code(&self) -> Arc<Vec<u8>> {
+		self.maybe_compressed_code.clone()
 	}
 
 	/// Returns executor params
@@ -85,9 +80,9 @@ impl PvfPrepData {
 	/// Creates a structure for tests.
 	#[cfg(feature = "test-utils")]
 	pub fn from_discriminator_and_timeout(num: u32, timeout: Duration) -> Self {
-		let descriminator_buf = num.to_le_bytes().to_vec();
+		let discriminator_buf = num.to_le_bytes().to_vec();
 		Self::from_code(
-			descriminator_buf,
+			discriminator_buf,
 			ExecutorParams::default(),
 			timeout,
 			PrepareJobKind::Compilation,

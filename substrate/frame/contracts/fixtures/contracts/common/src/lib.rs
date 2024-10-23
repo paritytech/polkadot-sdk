@@ -22,13 +22,6 @@ pub use uapi::{HostFn, HostFnImpl as api};
 fn panic(_info: &core::panic::PanicInfo) -> ! {
 	#[cfg(target_arch = "wasm32")]
 	core::arch::wasm32::unreachable();
-
-	#[cfg(target_arch = "riscv32")]
-	// Safety: The unimp instruction is guaranteed to trap
-	unsafe {
-		core::arch::asm!("unimp");
-		core::hint::unreachable_unchecked();
-	}
 }
 
 /// Utility macro to read input passed to a contract.
@@ -147,5 +140,15 @@ macro_rules! output {
 		let mut $output = $buffer;
 		let $output = &mut &mut $output[..];
 		$host_fn($($arg,)* $output);
+	};
+}
+
+/// Similar to `output!` but unwraps the result.
+#[macro_export]
+macro_rules! unwrap_output {
+	($output: ident, $buffer: expr, $host_fn:path, $($arg:expr),*) => {
+		let mut $output = $buffer;
+		let $output = &mut &mut $output[..];
+		$host_fn($($arg,)* $output).unwrap();
 	};
 }

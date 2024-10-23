@@ -30,7 +30,10 @@ use sp_std::{self, fmt::Debug, prelude::*};
 use sp_weights::Weight;
 use tuplex::{PopFront, PushBack};
 
-use super::{DispatchInfoOf, Dispatchable, OriginOf, PostDispatchInfoOf};
+use super::{
+	DispatchInfoOf, DispatchOriginOf, Dispatchable, ExtensionPostDispatchWeightHandler,
+	PostDispatchInfoOf, RefundWeight,
+};
 
 mod as_transaction_extension;
 mod dispatch_transaction;
@@ -40,55 +43,7 @@ pub use dispatch_transaction::DispatchTransaction;
 
 /// Shortcut for the result value of the `validate` function.
 pub type ValidateResult<Val, Call> =
-	Result<(ValidTransaction, Val, OriginOf<Call>), TransactionValidityError>;
-
-/// Base for [TransactionExtension]s; this contains the associated types and does not require any
-/// generic parameterization.
-pub trait TransactionExtensionBase:
-	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
-{
-	/// Unique identifier of this signed extension.
-	///
-	/// This will be exposed in the metadata to identify the signed extension used in an extrinsic.
-	const IDENTIFIER: &'static str;
-
-	/// Any additional data which was known at the time of transaction construction and can be
-	/// useful in authenticating the transaction. This is determined dynamically in part from the
-	/// on-chain environment using the `implicit` function and not directly contained in the
-	/// transaction itself and therefore is considered "implicit".
-	type Implicit: Codec + StaticTypeInfo;
-
-	/// Determine any additional data which was known at the time of transaction construction and
-	/// can be useful in authenticating the transaction. The expected usage of this is to include in
-	/// any data which is signed and verified as part of transactiob validation. Also perform any
-	/// pre-signature-verification checks and return an error if needed.
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-		use crate::transaction_validity::InvalidTransaction::IndeterminateImplicit;
-		Ok(Self::Implicit::decode(&mut &[][..]).map_err(|_| IndeterminateImplicit)?)
-	}
-
-	/// The weight consumed by executing this extension instance fully during transaction dispatch.
-	fn weight(&self) -> Weight {
-		Weight::zero()
-	}
-
-	/// Returns the metadata for this extension.
-	///
-	/// As a [`TransactionExtension`] can be a tuple of [`TransactionExtension`]s we need to return
-	/// a `Vec` that holds the metadata of each one. Each individual `TransactionExtension` must
-	/// return *exactly* one [`TransactionExtensionMetadata`].
-	///
-	/// This method provides a default implementation that returns a vec containing a single
-	/// [`TransactionExtensionMetadata`].
-	fn metadata() -> Vec<TransactionExtensionMetadata> {
-		sp_std::vec![TransactionExtensionMetadata {
-			identifier: Self::IDENTIFIER,
-			ty: scale_info::meta_type::<Self>(),
-			// TODO: Metadata-v16: Rename to "implicit"
-			additional_signed: scale_info::meta_type::<Self::Implicit>()
-		}]
-	}
-}
+	Result<(ValidTransaction, Val, DispatchOriginOf<Call>), TransactionValidityError>;
 
 /// Means by which a transaction may be extended. This type embodies both the data and the logic
 /// that should be additionally associated with the transaction. It should be plain old data.
@@ -101,13 +56,13 @@ pub trait TransactionExtensionBase:
 /// Transaction extensions are capable of altering certain associated semantics:
 ///
 /// - They may define the origin with which the transaction's call should be dispatched.
-/// - They may define various parameters used by the transction queue to determine under what
+/// - They may define various parameters used by the transaction queue to determine under what
 ///   conditions the transaction should be retained and introduced on-chain.
 /// - They may define whether this transaction is acceptable for introduction on-chain at all.
 ///
 /// Each of these semantics are defined by the `validate` function.
 ///
-/// **NOTE: Transaction extensions cannot under any circumctances alter the call itself.**
+/// **NOTE: Transaction extensions cannot under any circumstances alter the call itself.**
 ///
 /// Transaction extensions are capable of defining logic which is executed additionally to the
 /// dispatch of the call:
@@ -115,7 +70,8 @@ pub trait TransactionExtensionBase:
 /// - They may define logic which must be executed prior to the dispatch of the call.
 /// - They may also define logic which must be executed after the dispatch of the call.
 ///
-/// Each of these semantics are defined by the `prepare` and `post_dispatch` functions respectively.
+/// Each of these semantics are defined by the `prepare` and `post_dispatch_details` functions
+/// respectively.
 ///
 /// Finally, transaction extensions may define additional data to help define the implications of
 /// the logic they introduce. This additional data may be explicitly defined by the transaction
@@ -126,13 +82,30 @@ pub trait TransactionExtensionBase:
 ///
 /// ## Default implementations
 ///
-/// Of the 5 functions in this trait, 3 of them must return a value of an associated type on
-/// success, with only `implicit` having a default implementation. This means that default
-/// implementations cannot be provided for `validate` and `prepare`. However, a macro is provided
-/// [impl_tx_ext_default](crate::impl_tx_ext_default) which is capable of generating default
-/// implementations for both of these functions. If you do not wish to introduce additional logic
-/// into the transaction pipeline, then it is recommended that you use this macro to implement these
-/// functions.
+/// Of the 6 functions in this trait along with `TransactionExtension`, 2 of them must return a
+/// value of an associated type on success, with only `implicit` having a default implementation.
+/// This means that default implementations cannot be provided for `validate` and `prepare`.
+/// However, a macro is provided [impl_tx_ext_default](crate::impl_tx_ext_default) which is capable
+/// of generating default implementations for both of these functions. If you do not wish to
+/// introduce additional logic into the transaction pipeline, then it is recommended that you use
+/// this macro to implement these functions. Additionally, [weight](TransactionExtension::weight)
+/// can return a default value, which would mean the extension is weightless, but it is not
+/// implemented by default. Instead, implementers can explicitly choose to implement this default
+/// behavior through the same [impl_tx_ext_default](crate::impl_tx_ext_default) macro.
+///
+/// If your extension does any post-flight logic, then the functionality must be implemented in
+/// [post_dispatch_details](TransactionExtension::post_dispatch_details). This function can return
+/// the actual weight used by the extension during an entire dispatch cycle by wrapping said weight
+/// value in a `Some`. This is useful in computing fee refunds, similar to how post dispatch
+/// information is used to refund fees for calls. Alternatively, a `None` can be returned, which
+/// means that the worst case scenario weight, namely the value returned by
+/// [weight](TransactionExtension::weight), is the actual weight. This particular piece of logic
+/// is embedded in the default implementation of
+/// [post_dispatch](TransactionExtension::post_dispatch) so that the weight is assumed to be worst
+/// case scenario, but implementers of this trait can correct it with extra effort. Therefore, all
+/// users of an extension should use [post_dispatch](TransactionExtension::post_dispatch), with
+/// [post_dispatch_details](TransactionExtension::post_dispatch_details) considered an internal
+/// function.
 ///
 /// ## Pipelines, Inherited Implications, and Authorized Origins
 ///
@@ -142,14 +115,14 @@ pub trait TransactionExtensionBase:
 /// pipeline is executed in order, and the output of each extension is aggregated and/or relayed as
 /// the input to the next extension in the pipeline.
 ///
-/// This ordered composition happens with all datatypes ([Val](TransactionExtension::Val),
-/// [Pre](TransactionExtension::Pre) and [Implicit](TransactionExtensionBase::Implicit)) as well as
+/// This ordered composition happens with all data types ([Val](TransactionExtension::Val),
+/// [Pre](TransactionExtension::Pre) and [Implicit](TransactionExtension::Implicit)) as well as
 /// all functions. There are important consequences stemming from how the composition affects the
 /// meaning of the `origin` and `implication` parameters as well as the results. Whereas the
 /// [prepare](TransactionExtension::prepare) and
 /// [post_dispatch](TransactionExtension::post_dispatch) functions are clear in their meaning, the
-/// [validate](TransactionExtension::validate) function is fairly sophisticated and warrants
-/// further explanation.
+/// [validate](TransactionExtension::validate) function is fairly sophisticated and warrants further
+/// explanation.
 ///
 /// Firstly, the `origin` parameter. The `origin` passed into the first item in a pipeline is simply
 /// that passed into the tuple itself. It represents an authority who has authorized the implication
@@ -169,8 +142,8 @@ pub trait TransactionExtensionBase:
 /// returned. It is expressed to the [validate](TransactionExtension::validate) function only as the
 /// `implication` argument which implements the [Encode] trait. A transaction extension may define
 /// its own implications through its own fields and the
-/// [implicit](TransactionExtensionBase::implicit) function. This is only utilized by extensions
-/// which preceed it in a pipeline or, if the transaction is an old-school signed trasnaction, the
+/// [implicit](TransactionExtension::implicit) function. This is only utilized by extensions
+/// which precede it in a pipeline or, if the transaction is an old-school signed transaction, the
 /// underlying transaction verification logic.
 ///
 /// **The inherited implication passed as the `implication` parameter to
@@ -178,12 +151,60 @@ pub trait TransactionExtensionBase:
 /// nor does it include the result of the extension's `implicit` function.** If you both provide an
 /// implication and rely on the implication, then you need to manually aggregate your extensions
 /// implication with the aggregated implication passed in.
-pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensionBase {
-	/// The type that encodes information that can be passed from validate to prepare.
+///
+/// In the post dispatch pipeline, the actual weight of each extension is accrued in the
+/// [PostDispatchInfo](PostDispatchInfoOf<Call>) of that transaction sequentially with each
+/// [post_dispatch](TransactionExtension::post_dispatch) call. This means that an extension handling
+/// transaction payment and refunds should be at the end of the pipeline in order to capture the
+/// correct amount of weight used during the call. This is because one cannot know the actual weight
+/// of an extension after post dispatch without running the post dispatch ahead of time.
+pub trait TransactionExtension<Call: Dispatchable>:
+	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
+{
+	/// Unique identifier of this signed extension.
+	///
+	/// This will be exposed in the metadata to identify the signed extension used in an extrinsic.
+	const IDENTIFIER: &'static str;
+
+	/// Any additional data which was known at the time of transaction construction and can be
+	/// useful in authenticating the transaction. This is determined dynamically in part from the
+	/// on-chain environment using the `implicit` function and not directly contained in the
+	/// transaction itself and therefore is considered "implicit".
+	type Implicit: Codec + StaticTypeInfo;
+
+	/// Determine any additional data which was known at the time of transaction construction and
+	/// can be useful in authenticating the transaction. The expected usage of this is to include in
+	/// any data which is signed and verified as part of transaction validation. Also perform any
+	/// pre-signature-verification checks and return an error if needed.
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		use crate::transaction_validity::InvalidTransaction::IndeterminateImplicit;
+		Ok(Self::Implicit::decode(&mut &[][..]).map_err(|_| IndeterminateImplicit)?)
+	}
+
+	/// Returns the metadata for this extension.
+	///
+	/// As a [`TransactionExtension`] can be a tuple of [`TransactionExtension`]s we need to return
+	/// a `Vec` that holds the metadata of each one. Each individual `TransactionExtension` must
+	/// return *exactly* one [`TransactionExtensionMetadata`].
+	///
+	/// This method provides a default implementation that returns a vec containing a single
+	/// [`TransactionExtensionMetadata`].
+	fn metadata() -> Vec<TransactionExtensionMetadata> {
+		sp_std::vec![TransactionExtensionMetadata {
+			identifier: Self::IDENTIFIER,
+			ty: scale_info::meta_type::<Self>(),
+			implicit: scale_info::meta_type::<Self::Implicit>()
+		}]
+	}
+
+	/// The type that encodes information that can be passed from `validate` to `prepare`.
 	type Val;
 
-	/// The type that encodes information that can be passed from prepare to post-dispatch.
+	/// The type that encodes information that can be passed from `prepare` to `post_dispatch`.
 	type Pre;
+
+	/// The weight consumed by executing this extension instance fully during transaction dispatch.
+	fn weight(&self, call: &Call) -> Weight;
 
 	/// Validate a transaction for the transaction queue.
 	///
@@ -208,7 +229,6 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	///   a composite type, then the latter component is equal to any further implications to which
 	///   the returned `origin` could potentially apply. See Pipelines, Inherited Implications, and
 	///   Authorized Origins for more information.
-	/// - `context`: Some opaque mutable context, as yet unused.
 	///
 	/// Returns a [ValidateResult], which is a [Result] whose success type is a tuple of
 	/// [ValidTransaction] (defining useful metadata for the transaction queue), the [Self::Val]
@@ -217,11 +237,10 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	/// [prepare](TransactionExtension::prepare) and is ultimately used for dispatch.
 	fn validate(
 		&self,
-		origin: OriginOf<Call>,
+		origin: DispatchOriginOf<Call>,
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
-		context: &mut Context,
 		self_implicit: Self::Implicit,
 		inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, Call>;
@@ -243,7 +262,6 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	/// - `call`: The `Call` wrapped by this extension.
 	/// - `info`: Information concerning, and inherent to, the transaction's call.
 	/// - `len`: The total length of the encoded transaction.
-	/// - `context`: Some opaque mutable context, as yet unused.
 	///
 	/// Returns a [Self::Pre] value on success, which gets passed into
 	/// [post_dispatch](TransactionExtension::post_dispatch) and after the call is dispatched.
@@ -252,11 +270,10 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	fn prepare(
 		self,
 		val: Self::Val,
-		origin: &OriginOf<Call>,
+		origin: &DispatchOriginOf<Call>,
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
-		context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError>;
 
 	/// Do any post-flight stuff for an extrinsic.
@@ -267,35 +284,66 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	/// introduce a `TransactionValidityError`, causing the block to become invalid for including
 	/// it.
 	///
+	/// On success, the caller must return the amount of unspent weight left over by this extension
+	/// after dispatch. By default, this function returns no unspent weight, which means the entire
+	/// weight computed for the worst case scenario is consumed.
+	///
+	/// WARNING: This function does not automatically keep track of accumulated "actual" weight.
+	/// Unless this weight is handled at the call site, use
+	/// [post_dispatch](TransactionExtension::post_dispatch)
+	/// instead.
+	///
 	/// Parameters:
 	/// - `pre`: `Self::Pre` returned by the result of the `prepare` call prior to dispatch.
 	/// - `info`: Information concerning, and inherent to, the transaction's call.
 	/// - `post_info`: Information concerning the dispatch of the transaction's call.
 	/// - `len`: The total length of the encoded transaction.
 	/// - `result`: The result of the dispatch.
-	/// - `context`: Some opaque mutable context, as yet unused.
 	///
 	/// WARNING: It is dangerous to return an error here. To do so will fundamentally invalidate the
 	/// transaction and any block that it is included in, causing the block author to not be
 	/// compensated for their work in validating the transaction or producing the block so far. It
 	/// can only be used safely when you *know* that the transaction is one that would only be
 	/// introduced by the current block author.
-	fn post_dispatch(
+	fn post_dispatch_details(
 		_pre: Self::Pre,
 		_info: &DispatchInfoOf<Call>,
 		_post_info: &PostDispatchInfoOf<Call>,
 		_len: usize,
 		_result: &DispatchResult,
-		_context: &Context,
+	) -> Result<Weight, TransactionValidityError> {
+		Ok(Weight::zero())
+	}
+
+	/// A wrapper for [`post_dispatch_details`](TransactionExtension::post_dispatch_details) that
+	/// refunds the unspent weight consumed by this extension into the post dispatch information.
+	///
+	/// If `post_dispatch_details` returns a non-zero unspent weight, which, by definition, must be
+	/// less than the worst case weight provided by [weight](TransactionExtension::weight), that
+	/// is the value refunded in `post_info`.
+	///
+	/// If no unspent weight is reported by `post_dispatch_details`, this function assumes the worst
+	/// case weight and does not refund anything.
+	///
+	/// For more information, look into
+	/// [post_dispatch_details](TransactionExtension::post_dispatch_details).
+	fn post_dispatch(
+		pre: Self::Pre,
+		info: &DispatchInfoOf<Call>,
+		post_info: &mut PostDispatchInfoOf<Call>,
+		len: usize,
+		result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
+		let unspent_weight = Self::post_dispatch_details(pre, info, &post_info, len, result)?;
+		post_info.refund(unspent_weight);
+
 		Ok(())
 	}
 
-	/// Compatibility function for supporting the `SignedExtension::validate_unsigned` function.
+	/// Validation logic for bare extrinsics.
 	///
-	/// DO NOT USE! THIS MAY BE REMOVED AT ANY TIME!
-	#[deprecated = "Only for compatibility. DO NOT USE."]
-	fn validate_bare_compat(
+	/// NOTE: This function will be migrated to a separate `InherentExtension` interface.
+	fn bare_validate(
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
@@ -303,11 +351,10 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 		Ok(ValidTransaction::default())
 	}
 
-	/// Compatibility function for supporting the `SignedExtension::pre_dispatch_unsigned` function.
+	/// All pre-flight logic run before dispatching bare extrinsics.
 	///
-	/// DO NOT USE! THIS MAY BE REMOVED AT ANY TIME!
-	#[deprecated = "Only for compatibility. DO NOT USE."]
-	fn pre_dispatch_bare_compat(
+	/// NOTE: This function will be migrated to a separate `InherentExtension` interface.
+	fn bare_validate_and_prepare(
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
@@ -315,14 +362,12 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 		Ok(())
 	}
 
-	/// Compatibility function for supporting the `SignedExtension::post_dispatch` function where
-	/// `pre` is `None`.
+	/// Post dispatch logic run after dispatching bare extrinsics.
 	///
-	/// DO NOT USE! THIS MAY BE REMOVED AT ANY TIME!
-	#[deprecated = "Only for compatibility. DO NOT USE."]
-	fn post_dispatch_bare_compat(
+	/// NOTE: This function will be migrated to a separate `InherentExtension` interface.
+	fn bare_post_dispatch(
 		_info: &DispatchInfoOf<Call>,
-		_post_info: &PostDispatchInfoOf<Call>,
+		_post_info: &mut PostDispatchInfoOf<Call>,
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
@@ -331,25 +376,29 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 }
 
 /// Helper macro to be used in a `impl TransactionExtension` block to add default implementations of
-/// `validate` and/or `prepare`
+/// `weight`, `validate`, `prepare` or any combinations of the them.
 ///
-/// The macro is to be used with 3 parameters, separated by ";":
+/// The macro is to be used with 2 parameters, separated by ";":
 /// - the `Call` type;
-/// - the `Context` type;
 /// - the functions for which a default implementation should be generated, separated by " ";
+///   available options are `weight`, `validate` and `prepare`.
 ///
 /// Example usage:
 /// ```nocompile
-/// impl<C> TransactionExtension<FirstCall, C> for EmptyExtension {
+/// impl TransactionExtension<FirstCall> for EmptyExtension {
 /// 	type Val = ();
 /// 	type Pre = ();
 ///
-/// 	impl_tx_ext_default!(FirstCall; C; validate prepare);
+/// 	impl_tx_ext_default!(FirstCall; weight validate prepare);
 /// }
 ///
-/// impl<C> TransactionExtension<SecondCall, C> for SimpleExtension {
+/// impl TransactionExtension<SecondCall> for SimpleExtension {
 /// 	type Val = u32;
 /// 	type Pre = ();
+///
+/// 	fn weight(&self, _: &SecondCall) -> Weight {
+/// 		Weight::zero()
+/// 	}
 ///
 /// 	fn validate(
 /// 			&self,
@@ -357,51 +406,54 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 /// 			_call: &SecondCall,
 /// 			_info: &DispatchInfoOf<SecondCall>,
 /// 			_len: usize,
-/// 			_context: &mut C,
 /// 			_self_implicit: Self::Implicit,
 /// 			_inherited_implication: &impl Encode,
 /// 		) -> ValidateResult<Self::Val, SecondCall> {
 /// 		Ok((Default::default(), 42u32, origin))
 /// 	}
 ///
-/// 	impl_tx_ext_default!(SecondCall; C; prepare);
+/// 	impl_tx_ext_default!(SecondCall; prepare);
 /// }
 /// ```
 #[macro_export]
 macro_rules! impl_tx_ext_default {
-	($call:ty ; $context:ty ; , $( $rest:tt )*) => {
-		impl_tx_ext_default!{$call ; $context ; $( $rest )*}
+	($call:ty ; , $( $rest:tt )*) => {
+		impl_tx_ext_default!{$call ; $( $rest )*}
 	};
-	($call:ty ; $context:ty ; validate $( $rest:tt )*) => {
+	($call:ty ; validate $( $rest:tt )*) => {
 		fn validate(
 			&self,
-			origin: $crate::traits::OriginOf<$call>,
+			origin: $crate::traits::DispatchOriginOf<$call>,
 			_call: &$call,
 			_info: &$crate::traits::DispatchInfoOf<$call>,
 			_len: usize,
-			_context: &mut $context,
 			_self_implicit: Self::Implicit,
 			_inherited_implication: &impl $crate::codec::Encode,
 		) -> $crate::traits::ValidateResult<Self::Val, $call> {
 			Ok((Default::default(), Default::default(), origin))
 		}
-		impl_tx_ext_default!{$call ; $context ; $( $rest )*}
+		impl_tx_ext_default!{$call ; $( $rest )*}
 	};
-	($call:ty ; $context:ty ; prepare $( $rest:tt )*) => {
+	($call:ty ; prepare $( $rest:tt )*) => {
 		fn prepare(
 			self,
 			_val: Self::Val,
-			_origin: &$crate::traits::OriginOf<$call>,
+			_origin: &$crate::traits::DispatchOriginOf<$call>,
 			_call: &$call,
 			_info: &$crate::traits::DispatchInfoOf<$call>,
 			_len: usize,
-			_context: & $context,
 		) -> Result<Self::Pre, $crate::transaction_validity::TransactionValidityError> {
 			Ok(Default::default())
 		}
-		impl_tx_ext_default!{$call ; $context ; $( $rest )*}
+		impl_tx_ext_default!{$call ; $( $rest )*}
 	};
-	($call:ty ; $context:ty ;) => {};
+	($call:ty ; weight $( $rest:tt )*) => {
+		fn weight(&self, _call: &$call) -> $crate::Weight {
+			$crate::Weight::zero()
+		}
+		impl_tx_ext_default!{$call ; $( $rest )*}
+	};
+	($call:ty ;) => {};
 }
 
 /// Information about a [`TransactionExtension`] for the runtime metadata.
@@ -411,35 +463,30 @@ pub struct TransactionExtensionMetadata {
 	/// The type of the [`TransactionExtension`].
 	pub ty: MetaType,
 	/// The type of the [`TransactionExtension`] additional signed data for the payload.
-	// TODO: Rename "implicit"
-	pub additional_signed: MetaType,
+	pub implicit: MetaType,
 }
 
 #[impl_for_tuples(1, 12)]
-impl TransactionExtensionBase for Tuple {
-	for_tuples!( where #( Tuple: TransactionExtensionBase )* );
+impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 	const IDENTIFIER: &'static str = "Use `metadata()`!";
 	for_tuples!( type Implicit = ( #( Tuple::Implicit ),* ); );
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(for_tuples!( ( #( Tuple.implicit()? ),* ) ))
-	}
-	fn weight(&self) -> Weight {
-		let mut weight = Weight::zero();
-		for_tuples!( #( weight += Tuple.weight(); )* );
-		weight
 	}
 	fn metadata() -> Vec<TransactionExtensionMetadata> {
 		let mut ids = Vec::new();
 		for_tuples!( #( ids.extend(Tuple::metadata()); )* );
 		ids
 	}
-}
 
-#[impl_for_tuples(1, 12)]
-impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for Tuple {
-	for_tuples!( where #( Tuple: TransactionExtension<Call, Context> )* );
 	for_tuples!( type Val = ( #( Tuple::Val ),* ); );
 	for_tuples!( type Pre = ( #( Tuple::Pre ),* ); );
+
+	fn weight(&self, call: &Call) -> Weight {
+		let mut weight = Weight::zero();
+		for_tuples!( #( weight = weight.saturating_add(Tuple.weight(call)); )* );
+		weight
+	}
 
 	fn validate(
 		&self,
@@ -447,7 +494,6 @@ impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for Tuple 
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
-		context: &mut Context,
 		self_implicit: Self::Implicit,
 		inherited_implication: &impl Encode,
 	) -> Result<
@@ -475,7 +521,7 @@ impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for Tuple 
 					// passed into the next items in this pipeline-tuple.
 					&following_implicit_implications,
 				);
-				Tuple.validate(origin, call, info, len, context, item_implicit, &implications)?
+				Tuple.validate(origin, call, info, len, item_implicit, &implications)?
 			};
 			let valid = valid.combine_with(item_valid);
 			let val = val.push_back(item_val);
@@ -490,47 +536,84 @@ impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for Tuple 
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
-		context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Ok(for_tuples!( ( #(
-			Tuple::prepare(self.Tuple, val.Tuple, origin, call, info, len, context)?
+			Tuple::prepare(self.Tuple, val.Tuple, origin, call, info, len)?
 		),* ) ))
 	}
 
-	fn post_dispatch(
+	fn post_dispatch_details(
 		pre: Self::Pre,
 		info: &DispatchInfoOf<Call>,
 		post_info: &PostDispatchInfoOf<Call>,
 		len: usize,
 		result: &DispatchResult,
-		context: &Context,
+	) -> Result<Weight, TransactionValidityError> {
+		let mut total_unspent_weight = Weight::zero();
+		for_tuples!( #({
+			let unspent_weight = Tuple::post_dispatch_details(pre.Tuple, info, post_info, len, result)?;
+			total_unspent_weight = total_unspent_weight.saturating_add(unspent_weight);
+		})* );
+		Ok(total_unspent_weight)
+	}
+
+	fn post_dispatch(
+		pre: Self::Pre,
+		info: &DispatchInfoOf<Call>,
+		post_info: &mut PostDispatchInfoOf<Call>,
+		len: usize,
+		result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		for_tuples!( #( Tuple::post_dispatch(pre.Tuple, info, post_info, len, result, context)?; )* );
+		for_tuples!( #( Tuple::post_dispatch(pre.Tuple, info, post_info, len, result)?; )* );
+		Ok(())
+	}
+
+	fn bare_validate(call: &Call, info: &DispatchInfoOf<Call>, len: usize) -> TransactionValidity {
+		let valid = ValidTransaction::default();
+		for_tuples!(#(
+			let item_valid = Tuple::bare_validate(call, info, len)?;
+			let valid = valid.combine_with(item_valid);
+		)* );
+		Ok(valid)
+	}
+
+	fn bare_validate_and_prepare(
+		call: &Call,
+		info: &DispatchInfoOf<Call>,
+		len: usize,
+	) -> Result<(), TransactionValidityError> {
+		for_tuples!( #( Tuple::bare_validate_and_prepare(call, info, len)?; )* );
+		Ok(())
+	}
+
+	fn bare_post_dispatch(
+		info: &DispatchInfoOf<Call>,
+		post_info: &mut PostDispatchInfoOf<Call>,
+		len: usize,
+		result: &DispatchResult,
+	) -> Result<(), TransactionValidityError> {
+		for_tuples!( #( Tuple::bare_post_dispatch(info, post_info, len, result)?; )* );
 		Ok(())
 	}
 }
 
-impl TransactionExtensionBase for () {
+impl<Call: Dispatchable> TransactionExtension<Call> for () {
 	const IDENTIFIER: &'static str = "UnitTransactionExtension";
 	type Implicit = ();
 	fn implicit(&self) -> sp_std::result::Result<Self::Implicit, TransactionValidityError> {
 		Ok(())
 	}
-	fn weight(&self) -> Weight {
-		Weight::zero()
-	}
-}
-
-impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for () {
 	type Val = ();
 	type Pre = ();
+	fn weight(&self, _call: &Call) -> Weight {
+		Weight::zero()
+	}
 	fn validate(
 		&self,
 		origin: <Call as Dispatchable>::RuntimeOrigin,
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> Result<
@@ -546,7 +629,6 @@ impl<Call: Dispatchable, Context> TransactionExtension<Call, Context> for () {
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,
-		_context: &Context,
 	) -> Result<(), TransactionValidityError> {
 		Ok(())
 	}

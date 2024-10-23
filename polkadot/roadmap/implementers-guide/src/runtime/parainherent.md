@@ -1,5 +1,9 @@
 # `ParaInherent`
 
+> NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699
+
 This module is responsible for providing all data given to the runtime by the block author to the various parachains
 modules. The entry-point is mandatory, in that it must be invoked exactly once within every block, and it is also
 "inherent", in that it is provided with no origin by the block author. The data within it carries its own
@@ -88,7 +92,7 @@ to `sanitize_bitfields` function for implementation details.
 Backed candidates sanitization removes malformed ones, candidates which have got concluded invalid disputes against them
 or candidates produced by unassigned cores. Furthermore any backing votes from disabled validators for a candidate are
 dropped. This is part of the validator disabling strategy. After filtering the statements from disabled validators a
-backed candidate may end up with votes count less than `minimum_backing_votes` (a parameter from `HostConfiguiration`).
+backed candidate may end up with votes count less than `minimum_backing_votes` (a parameter from `HostConfiguration`).
 In this case the whole candidate is dropped otherwise it will be rejected by `process_candidates` from pallet inclusion.
 All checks related to backed candidates are implemented in `sanitize_backed_candidates` and
 `filter_backed_statements_from_disabled_validators`.

@@ -17,12 +17,14 @@
 
 //! Benchmarks for Transaction Payment Pallet's transaction extension
 
+extern crate alloc;
+
 use super::*;
 use crate::Pallet;
 use frame_benchmarking::v2::*;
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_system::{EventRecord, RawOrigin};
-use sp_runtime::traits::{DispatchTransaction, Dispatchable};
+use sp_runtime::traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable};
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	let events = frame_system::Pallet::<T>::events();
@@ -34,29 +36,31 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 
 #[benchmarks(where
 	T: Config,
+	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    BalanceOf<T>: Send + Sync + From<u64>,
 )]
 mod benchmarks {
 	use super::*;
 
 	#[benchmark]
 	fn charge_transaction_payment() {
-		let caller: T::AccountId = whitelisted_caller();
+		let caller: T::AccountId = account("caller", 0, 0);
 		<T::OnChargeTransaction as OnChargeTransaction<T>>::endow_account(
 			&caller,
-			<T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance() * 1000.into(),
+			<T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance() * 1000u32.into(),
 		);
 		let tip = <T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance();
 		let ext: ChargeTransactionPayment<T> = ChargeTransactionPayment::from(tip);
-		let inner = frame_system::Call::remark { remark: vec![] };
+		let inner = frame_system::Call::remark { remark: alloc::vec![] };
 		let call = T::RuntimeCall::from(inner);
+		let extension_weight = ext.weight(&call);
 		let info = DispatchInfo {
-			weight: Weight::from_parts(100, 0),
+			call_weight: Weight::from_parts(100, 0),
+			extension_weight,
 			class: DispatchClass::Operational,
 			pays_fee: Pays::Yes,
 		};
-		let post_info = PostDispatchInfo {
+		let mut post_info = PostDispatchInfo {
 			actual_weight: Some(Weight::from_parts(10, 0)),
 			pays_fee: Pays::Yes,
 		};
@@ -71,6 +75,7 @@ mod benchmarks {
 				.is_ok());
 		}
 
+		post_info.actual_weight.as_mut().map(|w| w.saturating_accrue(extension_weight));
 		let actual_fee = Pallet::<T>::compute_actual_fee(10, &info, &post_info, tip);
 		assert_last_event::<T>(
 			Event::<T>::TransactionFeePaid { who: caller, actual_fee, tip }.into(),

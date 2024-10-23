@@ -21,42 +21,42 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	generic::Era,
 	impl_tx_ext_default,
-	traits::{
-		DispatchInfoOf, SaturatedConversion, TransactionExtension, TransactionExtensionBase,
-		ValidateResult,
-	},
+	traits::{DispatchInfoOf, SaturatedConversion, TransactionExtension, ValidateResult},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
 
 /// Check for transaction mortality.
+///
+/// The extension adds [`Era`] to every signed extrinsic. It also contributes to the signed data, by
+/// including the hash of the block at [`Era::birth`].
 ///
 /// # Transaction Validity
 ///
 /// The extension affects `longevity` of the transaction according to the [`Era`] definition.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct CheckMortality<T: Config + Send + Sync>(pub Era, sp_std::marker::PhantomData<T>);
+pub struct CheckMortality<T: Config + Send + Sync>(pub Era, core::marker::PhantomData<T>);
 
 impl<T: Config + Send + Sync> CheckMortality<T> {
 	/// utility constructor. Used only in client/factory code.
 	pub fn from(era: Era) -> Self {
-		Self(era, sp_std::marker::PhantomData)
+		Self(era, core::marker::PhantomData)
 	}
 }
 
-impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckMortality<T> {
+impl<T: Config + Send + Sync> core::fmt::Debug for CheckMortality<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "CheckMortality({:?})", self.0)
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckMortality<T> {
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMortality<T> {
 	const IDENTIFIER: &'static str = "CheckMortality";
 	type Implicit = T::Hash;
 
@@ -69,9 +69,41 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckMortality<T> {
 			Ok(<Pallet<T>>::block_hash(n))
 		}
 	}
-	fn weight(&self) -> sp_weights::Weight {
-		<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality()
+	type Pre = ();
+	type Val = ();
+
+	fn weight(&self, _: &T::RuntimeCall) -> sp_weights::Weight {
+		if self.0.is_immortal() {
+			// All immortal transactions will always read the hash of the genesis block, so to avoid
+			// charging this multiple times in a block we manually set the proof size to 0.
+			<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality_immortal_transaction()
+				.set_proof_size(0)
+		} else {
+			<T::ExtensionsWeightInfo as super::WeightInfo>::check_mortality_mortal_transaction()
+		}
 	}
+
+	fn validate(
+		&self,
+		origin: <T as Config>::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
+		_len: usize,
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+	) -> ValidateResult<Self::Val, T::RuntimeCall> {
+		let current_u64 = <Pallet<T>>::block_number().saturated_into::<u64>();
+		let valid_till = self.0.death(current_u64);
+		Ok((
+			ValidTransaction {
+				longevity: valid_till.saturating_sub(current_u64),
+				..Default::default()
+			},
+			(),
+			origin,
+		))
+	}
+	impl_tx_ext_default!(T::RuntimeCall; prepare);
 }
 impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
 	for CheckMortality<T>
@@ -134,7 +166,8 @@ mod tests {
 	fn signed_ext_check_era_should_change_longevity() {
 		new_test_ext().execute_with(|| {
 			let normal = DispatchInfo {
-				weight: Weight::from_parts(100, 0),
+				call_weight: Weight::from_parts(100, 0),
+				extension_weight: Weight::zero(),
 				class: DispatchClass::Normal,
 				pays_fee: Pays::Yes,
 			};

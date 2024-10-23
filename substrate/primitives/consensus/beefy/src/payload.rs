@@ -43,7 +43,7 @@ pub mod known_payloads {
 pub struct Payload(Vec<(BeefyPayloadId, Vec<u8>)>);
 
 impl Payload {
-	/// Construct a new payload given an initial vallue
+	/// Construct a new payload given an initial value
 	pub fn from_single_entry(id: BeefyPayloadId, value: Vec<u8>) -> Self {
 		Self(vec![(id, value)])
 	}
@@ -56,11 +56,29 @@ impl Payload {
 		Some(&self.0[index].1)
 	}
 
+	/// Returns all the raw payloads under given `id`.
+	pub fn get_all_raw<'a>(
+		&'a self,
+		id: &'a BeefyPayloadId,
+	) -> impl Iterator<Item = &Vec<u8>> + 'a {
+		self.0
+			.iter()
+			.filter_map(move |probe| if &probe.0 != id { return None } else { Some(&probe.1) })
+	}
+
 	/// Returns a decoded payload value under given `id`.
 	///
-	/// In case the value is not there or it cannot be decoded does not match `None` is returned.
+	/// In case the value is not there, or it cannot be decoded `None` is returned.
 	pub fn get_decoded<T: Decode>(&self, id: &BeefyPayloadId) -> Option<T> {
 		self.get_raw(id).and_then(|raw| T::decode(&mut &raw[..]).ok())
+	}
+
+	/// Returns all decoded payload values under given `id`.
+	pub fn get_all_decoded<'a, T: Decode>(
+		&'a self,
+		id: &'a BeefyPayloadId,
+	) -> impl Iterator<Item = Option<T>> + 'a {
+		self.get_all_raw(id).map(|raw| T::decode(&mut &raw[..]).ok())
 	}
 
 	/// Push a `Vec<u8>` with a given id into the payload vec.

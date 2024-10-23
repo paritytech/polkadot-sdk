@@ -64,6 +64,7 @@ impl pallet_balances::Config<Instance1> for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type DoneSlashHandler = ();
 }
 
 impl pallet_balances::Config<Instance2> for Test {
@@ -84,6 +85,7 @@ impl pallet_balances::Config<Instance2> for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -121,6 +123,8 @@ impl pallet_nis::Config for Test {
 	type MinReceipt = MinReceipt;
 	type ThawThrottle = ThawThrottle;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = ();
 }
 
 // This function basically just builds a genesis storage key/value store according to

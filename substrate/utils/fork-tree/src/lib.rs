@@ -683,7 +683,7 @@ where
 			node.data
 		});
 
-		// Retain only roots that are descendents of the finalized block (this
+		// Retain only roots that are descendants of the finalized block (this
 		// happens if the node has been properly finalized) or that are
 		// ancestors (or equal) to the finalized block (in this case the node
 		// wasn't finalized earlier presumably because the predicate didn't
@@ -810,12 +810,11 @@ impl<'a, H, N, V> Iterator for ForkTreeIterator<'a, H, N, V> {
 	type Item = &'a Node<H, N, V>;
 
 	fn next(&mut self) -> Option<Self::Item> {
-		self.stack.pop().map(|node| {
+		self.stack.pop().inspect(|node| {
 			// child nodes are stored ordered by max branch height (decreasing),
 			// we want to keep this ordering while iterating but since we're
 			// using a stack for iterator state we need to reverse it.
 			self.stack.extend(node.children.iter().rev());
-			node
 		})
 	}
 }
@@ -1168,7 +1167,7 @@ mod test {
 			Ok(Some(false)),
 		);
 
-		// finalizing "E" is not allowed since there are not finalized anchestors.
+		// finalizing "E" is not allowed since there are not finalized ancestors.
 		assert_eq!(
 			tree.finalizes_any_with_descendent_if(&"E", 15, &is_descendent_of, |c| c.effective ==
 				10),
@@ -1309,7 +1308,7 @@ mod test {
 	fn map_works() {
 		let (mut tree, _) = test_fork_tree();
 
-		// Extend the single root fork-tree to also excercise the roots order during map.
+		// Extend the single root fork-tree to also exercise the roots order during map.
 		let is_descendent_of = |_: &&str, _: &&str| -> Result<bool, TestError> { Ok(false) };
 		let is_root = tree.import("A1", 10, 1, &is_descendent_of).unwrap();
 		assert!(is_root);

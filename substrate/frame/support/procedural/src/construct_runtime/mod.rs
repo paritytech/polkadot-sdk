@@ -24,7 +24,7 @@
 //!  - Implicitly: `System: frame_system`
 //!  - Explicitly: `System: frame_system::{Pallet, Call}`
 //!
-//! The `construct_runtime` transitions from the implicit definition to the explict one.
+//! The `construct_runtime` transitions from the implicit definition to the explicit one.
 //! From the explicit state, Substrate expands the pallets with additional information
 //! that is to be included in the runtime metadata. This expansion makes visible some extra
 //! parts of the pallets, mainly the `Error` if defined. The expanded state looks like
@@ -55,7 +55,7 @@
 //!  +----------+     +------------------+
 //! ```
 //!
-//! When all pallet parts are implcit, then the `construct_runtime!` macro expands to its final
+//! When all pallet parts are implicit, then the `construct_runtime!` macro expands to its final
 //! state, the `ExplicitExpanded`. Otherwise, all implicit parts are converted to an explicit
 //! expanded part allow the `construct_runtime!` to expand any remaining explicit parts to an
 //! explicit expanded part.
@@ -202,7 +202,7 @@
 //! Similarly to the previous transition, the macro expansion transforms `System:
 //! frame_system::{Pallet, Call}` into  `System: frame_system expanded::{Error} ::{Pallet, Call}`.
 //! The `expanded` section adds extra parts that the Substrate would like to expose for each pallet
-//! by default. This is done to expose the approprite types for metadata construction.
+//! by default. This is done to expose the appropriate types for metadata construction.
 //!
 //! This time, instead of calling `tt_default_parts` we are using the `tt_extra_parts` macro.
 //! This macro returns the ` :: expanded { Error }` list of additional parts we would like to
@@ -470,7 +470,7 @@ fn construct_runtime_final_expansion(
 		#[doc(hidden)]
 		trait InternalConstructRuntime {
 			#[inline(always)]
-			fn runtime_metadata(&self) -> #scrate::__private::sp_std::vec::Vec<#scrate::__private::metadata_ir::RuntimeApiMetadataIR> {
+			fn runtime_metadata(&self) -> #scrate::__private::Vec<#scrate::__private::metadata_ir::RuntimeApiMetadataIR> {
 				Default::default()
 			}
 		}
@@ -533,6 +533,7 @@ pub(crate) fn decl_all_pallets<'a>(
 	for pallet_declaration in pallet_declarations {
 		let type_name = &pallet_declaration.name;
 		let pallet = &pallet_declaration.path;
+		let docs = &pallet_declaration.docs;
 		let mut generics = vec![quote!(#runtime)];
 		generics.extend(pallet_declaration.instance.iter().map(|name| quote!(#pallet::#name)));
 		let mut attrs = Vec::new();
@@ -541,6 +542,7 @@ pub(crate) fn decl_all_pallets<'a>(
 			attrs.extend(TokenStream2::from_str(&feat).expect("was parsed successfully; qed"));
 		}
 		let type_decl = quote!(
+			#( #[doc = #docs] )*
 			#(#attrs)*
 			pub type #type_name = #pallet::Pallet <#(#generics),*>;
 		);
@@ -667,10 +669,10 @@ pub(crate) fn decl_pallet_runtime_setup(
 		impl #scrate::traits::PalletInfo for PalletInfo {
 
 			fn index<P: 'static>() -> Option<usize> {
-				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
+				let type_id = core::any::TypeId::of::<P>();
 				#(
 					#pallet_attrs
-					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
+					if type_id == core::any::TypeId::of::<#names>() {
 						return Some(#indices)
 					}
 				)*
@@ -679,10 +681,10 @@ pub(crate) fn decl_pallet_runtime_setup(
 			}
 
 			fn name<P: 'static>() -> Option<&'static str> {
-				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
+				let type_id = core::any::TypeId::of::<P>();
 				#(
 					#pallet_attrs
-					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
+					if type_id == core::any::TypeId::of::<#names>() {
 						return Some(#name_strings)
 					}
 				)*
@@ -691,10 +693,10 @@ pub(crate) fn decl_pallet_runtime_setup(
 			}
 
 			fn name_hash<P: 'static>() -> Option<[u8; 16]> {
-				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
+				let type_id = core::any::TypeId::of::<P>();
 				#(
 					#pallet_attrs
-					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
+					if type_id == core::any::TypeId::of::<#names>() {
 						return Some(#name_hashes)
 					}
 				)*
@@ -703,10 +705,10 @@ pub(crate) fn decl_pallet_runtime_setup(
 			}
 
 			fn module_name<P: 'static>() -> Option<&'static str> {
-				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
+				let type_id = core::any::TypeId::of::<P>();
 				#(
 					#pallet_attrs
-					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
+					if type_id == core::any::TypeId::of::<#names>() {
 						return Some(#module_names)
 					}
 				)*
@@ -715,10 +717,10 @@ pub(crate) fn decl_pallet_runtime_setup(
 			}
 
 			fn crate_version<P: 'static>() -> Option<#scrate::traits::CrateVersion> {
-				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
+				let type_id = core::any::TypeId::of::<P>();
 				#(
 					#pallet_attrs
-					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
+					if type_id == core::any::TypeId::of::<#names>() {
 						return Some(
 							<#pallet_structs as #scrate::traits::PalletInfoAccess>::crate_version()
 						)

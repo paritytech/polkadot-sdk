@@ -22,13 +22,12 @@ use sc_client_api::{Backend as _, BlockImportOperation, NewBlockState, StateBack
 use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, DatabaseSource, PruningMode};
 use sp_core::H256;
 use sp_runtime::{
-	generic::UncheckedExtrinsic,
-	testing::{Block as RawBlock, Header, MockCallU64},
+	testing::{Block as RawBlock, Header, MockCallU64, TestXt},
 	StateVersion, Storage,
 };
 use tempfile::TempDir;
 
-pub(crate) type Block = RawBlock<UncheckedExtrinsic<u64, MockCallU64, (), ()>>;
+pub(crate) type Block = RawBlock<TestXt<MockCallU64, ()>>;
 
 fn insert_blocks(db: &Backend<Block>, storage: Vec<(Vec<u8>, Vec<u8>)>) -> H256 {
 	let mut op = db.begin_operation().unwrap();

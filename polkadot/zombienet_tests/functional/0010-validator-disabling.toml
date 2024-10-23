@@ -21,7 +21,7 @@ requests = { memory = "2G", cpu = "1" }
   [[relaychain.node_groups]]
   name = "honest-validator"
   count = 3
-  args = ["-lparachain=debug"]
+  args = ["-lparachain=debug,runtime::staking=debug"]
 
   [[relaychain.node_groups]]
   image = "{{MALUS_IMAGE}}"

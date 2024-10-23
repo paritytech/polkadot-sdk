@@ -462,7 +462,7 @@ pub struct Semantics {
 pub struct Config {
 	/// The WebAssembly standard requires all imports of an instantiated module to be resolved,
 	/// otherwise, the instantiation fails. If this option is set to `true`, then this behavior is
-	/// overriden and imports that are requested by the module and not provided by the host
+	/// overridden and imports that are requested by the module and not provided by the host
 	/// functions will be resolved using stubs. These stubs will trap upon a call.
 	pub allow_missing_func_imports: bool,
 

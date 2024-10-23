@@ -74,17 +74,18 @@ use crate::{
 	wasm::{Runtime, RuntimeCosts},
 	Error,
 };
+use alloc::vec::Vec;
 use codec::{Decode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support::weights::Weight;
 use sp_runtime::DispatchError;
-use sp_std::{marker::PhantomData, vec::Vec};
 
 pub use crate::{exec::Ext, gas::ChargedAmount, storage::meter::Diff, Config};
 pub use frame_system::Config as SysConfig;
 pub use pallet_contracts_uapi::ReturnFlags;
 
 /// Result that returns a [`DispatchError`] on error.
-pub type Result<T> = sp_std::result::Result<T, DispatchError>;
+pub type Result<T> = core::result::Result<T, DispatchError>;
 
 /// A trait used to extend the set of contract callable functions.
 ///
@@ -112,6 +113,12 @@ pub trait ChainExtension<C: Config> {
 	/// In case of `Err` the contract execution is immediately suspended and the passed error
 	/// is returned to the caller. Otherwise the value of [`RetVal`] determines the exit
 	/// behaviour.
+	///
+	/// # Note
+	///
+	/// The [`Self::call`] can be invoked within a read-only context, where any state-changing calls
+	/// are disallowed. This information can be obtained using `env.ext().is_read_only()`. It is
+	/// crucial for the implementer to handle this scenario appropriately.
 	fn call<E: Ext<T = C>>(&mut self, env: Environment<E, InitState>) -> Result<RetVal>;
 
 	/// Determines whether chain extensions are enabled for this chain.

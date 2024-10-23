@@ -634,7 +634,7 @@ fn report_equivocation_invalid_equivocation_proof() {
 			(1, H256::zero(), 10, &equivocation_keyring),
 		));
 
-		// votes targetting different rounds, there is no equivocation.
+		// votes targeting different rounds, there is no equivocation.
 		assert_invalid_equivocation_proof(generate_equivocation_proof(
 			set_id,
 			(1, H256::random(), 10, &equivocation_keyring),
@@ -882,7 +882,7 @@ fn valid_equivocation_reports_dont_pay_fees() {
 		.get_dispatch_info();
 
 		// it should have non-zero weight and the fee has to be paid.
-		assert!(info.weight.any_gt(Weight::zero()));
+		assert!(info.call_weight.any_gt(Weight::zero()));
 		assert_eq!(info.pays_fee, Pays::Yes);
 
 		// report the equivocation.

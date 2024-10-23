@@ -26,7 +26,10 @@ use crate::{
 	},
 	DispatchResult,
 };
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+#[doc(hidden)]
+pub use core::{fmt::Debug, marker::PhantomData};
 use impl_trait_for_tuples::impl_for_tuples;
 #[cfg(feature = "serde")]
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -44,9 +47,6 @@ pub use sp_core::{
 	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
 	ConstU16, ConstU32, ConstU64, ConstU8, Get, GetDefault, TryCollect, TypedGet,
 };
-#[doc(hidden)]
-pub use sp_std::marker::PhantomData;
-use sp_std::{self, fmt::Debug, prelude::*};
 #[cfg(feature = "std")]
 use std::fmt::Display;
 #[cfg(feature = "std")]
@@ -54,8 +54,7 @@ use std::str::FromStr;
 
 pub mod transaction_extension;
 pub use transaction_extension::{
-	DispatchTransaction, TransactionExtension, TransactionExtensionBase,
-	TransactionExtensionMetadata, ValidateResult,
+	DispatchTransaction, TransactionExtension, TransactionExtensionMetadata, ValidateResult,
 };
 
 /// A lazy value.
@@ -236,9 +235,10 @@ pub trait StaticLookup {
 pub struct IdentityLookup<T>(PhantomData<T>);
 impl<T> Default for IdentityLookup<T> {
 	fn default() -> Self {
-		Self(Default::default())
+		Self(PhantomData::<T>::default())
 	}
 }
+
 impl<T: Codec + Clone + PartialEq + Debug + TypeInfo> StaticLookup for IdentityLookup<T> {
 	type Source = T;
 	type Target = T;
@@ -333,7 +333,7 @@ impl<T> TryMorph<T> for Identity {
 }
 
 /// Implementation of `Morph` which converts between types using `Into`.
-pub struct MorphInto<T>(sp_std::marker::PhantomData<T>);
+pub struct MorphInto<T>(core::marker::PhantomData<T>);
 impl<T, A: Into<T>> Morph<A> for MorphInto<T> {
 	type Outcome = T;
 	fn morph(a: A) -> T {
@@ -341,8 +341,8 @@ impl<T, A: Into<T>> Morph<A> for MorphInto<T> {
 	}
 }
 
-/// Implementation of `TryMorph` which attmepts to convert between types using `TryInto`.
-pub struct TryMorphInto<T>(sp_std::marker::PhantomData<T>);
+/// Implementation of `TryMorph` which attempts to convert between types using `TryInto`.
+pub struct TryMorphInto<T>(core::marker::PhantomData<T>);
 impl<T, A: TryInto<T>> TryMorph<A> for TryMorphInto<T> {
 	type Outcome = T;
 	fn try_morph(a: A) -> Result<T, ()> {
@@ -703,7 +703,7 @@ impl<A, B> MaybeEquivalence<A, B> for Tuple {
 
 /// Adapter which turns a [Get] implementation into a [Convert] implementation which always returns
 /// in the same value no matter the input.
-pub struct ConvertToValue<T>(sp_std::marker::PhantomData<T>);
+pub struct ConvertToValue<T>(core::marker::PhantomData<T>);
 impl<X, Y, T: Get<Y>> Convert<X, Y> for ConvertToValue<T> {
 	fn convert(_: X) -> Y {
 		T::get()
@@ -945,17 +945,17 @@ impl<T: Default + Eq + PartialEq> Clear for T {
 pub trait SimpleBitOps:
 	Sized
 	+ Clear
-	+ sp_std::ops::BitOr<Self, Output = Self>
-	+ sp_std::ops::BitXor<Self, Output = Self>
-	+ sp_std::ops::BitAnd<Self, Output = Self>
+	+ core::ops::BitOr<Self, Output = Self>
+	+ core::ops::BitXor<Self, Output = Self>
+	+ core::ops::BitAnd<Self, Output = Self>
 {
 }
 impl<
 		T: Sized
 			+ Clear
-			+ sp_std::ops::BitOr<Self, Output = Self>
-			+ sp_std::ops::BitXor<Self, Output = Self>
-			+ sp_std::ops::BitAnd<Self, Output = Self>,
+			+ core::ops::BitOr<Self, Output = Self>
+			+ core::ops::BitXor<Self, Output = Self>
+			+ core::ops::BitAnd<Self, Output = Self>,
 	> SimpleBitOps for T
 {
 }
@@ -999,7 +999,7 @@ pub trait HashOutput:
 	+ MaybeDisplay
 	+ MaybeFromStr
 	+ Debug
-	+ sp_std::hash::Hash
+	+ core::hash::Hash
 	+ AsRef<[u8]>
 	+ AsMut<[u8]>
 	+ Copy
@@ -1019,7 +1019,7 @@ impl<T> HashOutput for T where
 		+ MaybeDisplay
 		+ MaybeFromStr
 		+ Debug
-		+ sp_std::hash::Hash
+		+ core::hash::Hash
 		+ AsRef<[u8]>
 		+ AsMut<[u8]>
 		+ Copy
@@ -1142,7 +1142,7 @@ sp_core::impl_maybe_marker!(
 	trait MaybeFromStr: FromStr;
 
 	/// A type that implements Hash when in std environment.
-	trait MaybeHash: sp_std::hash::Hash;
+	trait MaybeHash: core::hash::Hash;
 );
 
 sp_core::impl_maybe_marker_std_or_serde!(
@@ -1169,7 +1169,7 @@ pub trait BlockNumber:
 	+ MaybeSerializeDeserialize
 	+ MaybeFromStr
 	+ Debug
-	+ sp_std::hash::Hash
+	+ core::hash::Hash
 	+ Copy
 	+ MaybeDisplay
 	+ AtLeast32BitUnsigned
@@ -1187,7 +1187,7 @@ impl<
 			+ MaybeSerializeDeserialize
 			+ MaybeFromStr
 			+ Debug
-			+ sp_std::hash::Hash
+			+ core::hash::Hash
 			+ Copy
 			+ MaybeDisplay
 			+ AtLeast32BitUnsigned
@@ -1297,7 +1297,7 @@ pub trait Block:
 	+ 'static
 {
 	/// Type for extrinsics.
-	type Extrinsic: Member + Codec + Extrinsic + MaybeSerialize;
+	type Extrinsic: Member + Codec + ExtrinsicLike + MaybeSerialize;
 	/// Header type.
 	type Header: Header<Hash = Self::Hash> + MaybeSerializeDeserialize;
 	/// Block hash type.
@@ -1321,6 +1321,7 @@ pub trait Block:
 }
 
 /// Something that acts like an `Extrinsic`.
+#[deprecated = "Use `ExtrinsicLike` along with the `CreateTransaction` trait family instead"]
 pub trait Extrinsic: Sized {
 	/// The function call.
 	type Call: TypeInfo;
@@ -1341,15 +1342,11 @@ pub trait Extrinsic: Sized {
 
 	/// Returns `true` if this `Extrinsic` is bare.
 	fn is_bare(&self) -> bool {
-		#[allow(deprecated)]
-		!self
-			.is_signed()
-			.expect("`is_signed` must return `Some` on production extrinsics; qed")
+		!self.is_signed().unwrap_or(true)
 	}
 
 	/// Create a new old-school extrinsic, either a bare extrinsic if `_signed_data` is `None` or
 	/// a signed transaction is it is `Some`.
-	#[deprecated = "Use `new_inherent` or the `CreateTransaction` trait instead"]
 	fn new(_call: Self::Call, _signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
 		None
 	}
@@ -1358,6 +1355,37 @@ pub trait Extrinsic: Sized {
 	fn new_inherent(function: Self::Call) -> Self {
 		#[allow(deprecated)]
 		Self::new(function, None).expect("Extrinsic must provide inherents; qed")
+	}
+}
+
+/// Something that acts like an `Extrinsic`.
+pub trait ExtrinsicLike: Sized {
+	/// Is this `Extrinsic` signed?
+	/// If no information are available about signed/unsigned, `None` should be returned.
+	#[deprecated = "Use and implement `!is_bare()` instead"]
+	fn is_signed(&self) -> Option<bool> {
+		None
+	}
+
+	/// Returns `true` if this `Extrinsic` is bare.
+	fn is_bare(&self) -> bool {
+		#[allow(deprecated)]
+		!self.is_signed().unwrap_or(true)
+	}
+}
+
+#[allow(deprecated)]
+impl<T> ExtrinsicLike for T
+where
+	T: Extrinsic,
+{
+	fn is_signed(&self) -> Option<bool> {
+		#[allow(deprecated)]
+		<Self as Extrinsic>::is_signed(&self)
+	}
+
+	fn is_bare(&self) -> bool {
+		<Self as Extrinsic>::is_bare(&self)
 	}
 }
 
@@ -1393,9 +1421,8 @@ pub trait ExtrinsicMetadata {
 	/// By format is meant the encoded representation of the `Extrinsic`.
 	const VERSION: u8;
 
-	/// Signed extensions attached to this `Extrinsic`.
-	// TODO: metadata-v16: rename to `Extension`.
-	type Extra;
+	/// Transaction extensions attached to this `Extrinsic`.
+	type TransactionExtensions;
 }
 
 /// Extract the hashing type for a block.
@@ -1459,6 +1486,27 @@ impl<T: BlindCheckable, Context> Checkable<Context> for T {
 	}
 }
 
+/// A type that can handle weight refunds.
+pub trait RefundWeight {
+	/// Refund some unspent weight.
+	fn refund(&mut self, weight: sp_weights::Weight);
+}
+
+/// A type that can handle weight refunds and incorporate extension weights into the call weight
+/// after dispatch.
+pub trait ExtensionPostDispatchWeightHandler<DispatchInfo>: RefundWeight {
+	/// Accrue some weight pertaining to the extension.
+	fn set_extension_weight(&mut self, info: &DispatchInfo);
+}
+
+impl RefundWeight for () {
+	fn refund(&mut self, _weight: sp_weights::Weight) {}
+}
+
+impl ExtensionPostDispatchWeightHandler<()> for () {
+	fn set_extension_weight(&mut self, _info: &()) {}
+}
+
 /// A lazy call (module function and argument values) that can be executed via its `dispatch`
 /// method.
 pub trait Dispatchable {
@@ -1473,15 +1521,22 @@ pub trait Dispatchable {
 	/// to represent the dispatch class and weight.
 	type Info;
 	/// Additional information that is returned by `dispatch`. Can be used to supply the caller
-	/// with information about a `Dispatchable` that is ownly known post dispatch.
-	type PostInfo: Eq + PartialEq + Clone + Copy + Encode + Decode + Printable;
+	/// with information about a `Dispatchable` that is only known post dispatch.
+	type PostInfo: Eq
+		+ PartialEq
+		+ Clone
+		+ Copy
+		+ Encode
+		+ Decode
+		+ Printable
+		+ ExtensionPostDispatchWeightHandler<Self::Info>;
 	/// Actually dispatch this call and return the result of it.
 	fn dispatch(self, origin: Self::RuntimeOrigin)
 		-> crate::DispatchResultWithInfo<Self::PostInfo>;
 }
 
-/// Shortcut to reference the `Origin` type of a `Dispatchable`.
-pub type OriginOf<T> = <T as Dispatchable>::RuntimeOrigin;
+/// Shortcut to reference the `RuntimeOrigin` type of a `Dispatchable`.
+pub type DispatchOriginOf<T> = <T as Dispatchable>::RuntimeOrigin;
 /// Shortcut to reference the `Info` type of a `Dispatchable`.
 pub type DispatchInfoOf<T> = <T as Dispatchable>::Info;
 /// Shortcut to reference the `PostInfo` type of a `Dispatchable`.
@@ -1538,6 +1593,32 @@ pub trait AsSystemOriginSigner<AccountId> {
 	/// Extract a reference of the inner value of the System `Origin::Signed` variant, if self has
 	/// that variant.
 	fn as_system_origin_signer(&self) -> Option<&AccountId>;
+}
+
+/// Interface to differentiate between Runtime Origins authorized to include a transaction into the
+/// block and dispatch it, and those who aren't.
+///
+/// This trait targets transactions, by which we mean extrinsics which are validated through a
+/// [`TransactionExtension`]. This excludes bare extrinsics (i.e. inherents), which have their call,
+/// not their origin, validated and authorized.
+///
+/// Typically, upon validation or application of a transaction, the origin resulting from the
+/// transaction extension (see [`TransactionExtension`]) is checked for authorization. The
+/// transaction is then rejected or applied.
+///
+/// In FRAME, an authorized origin is either an `Origin::Signed` System origin or a custom origin
+/// authorized in a [`TransactionExtension`].
+pub trait AsTransactionAuthorizedOrigin {
+	/// Whether the origin is authorized to include a transaction in a block.
+	///
+	/// In typical FRAME chains, this function returns `false` if the origin is a System
+	/// `Origin::None` variant, `true` otherwise, meaning only signed or custom origin resulting
+	/// from the transaction extension pipeline are authorized.
+	///
+	/// NOTE: This function should not be used in the context of bare extrinsics (i.e. inherents),
+	/// as bare extrinsics do not authorize the origin but rather the call itself, and are not
+	/// validated through the [`TransactionExtension`] pipeline.
+	fn is_transaction_authorized(&self) -> bool;
 }
 
 /// Means by which a transaction may be extended. This type embodies both the data and the logic
@@ -1637,7 +1718,7 @@ pub trait SignedExtension:
 		sp_std::vec![TransactionExtensionMetadata {
 			identifier: Self::IDENTIFIER,
 			ty: scale_info::meta_type::<Self>(),
-			additional_signed: scale_info::meta_type::<Self::AdditionalSigned>()
+			implicit: scale_info::meta_type::<Self::AdditionalSigned>()
 		}]
 	}
 
@@ -1678,11 +1759,23 @@ pub trait SignedExtension:
 ///
 /// Also provides information on to whom this information is attributable and an index that allows
 /// each piece of attributable information to be disambiguated.
+///
+/// IMPORTANT: After validation, in both [validate](Applyable::validate) and
+/// [apply](Applyable::apply), all transactions should have *some* authorized origin, except for
+/// inherents. This is necessary in order to protect the chain against spam. If no extension in the
+/// transaction extension pipeline authorized the transaction with an origin, either a system signed
+/// origin or a custom origin, then the transaction must be rejected, as the extensions provided in
+/// substrate which protect the chain, such as `CheckNonce`, `ChargeTransactionPayment` etc., rely
+/// on the assumption that the system handles system signed transactions, and the pallets handle the
+/// custom origin that they authorized.
 pub trait Applyable: Sized + Send + Sync {
 	/// Type by which we can dispatch. Restricts the `UnsignedValidator` type.
 	type Call: Dispatchable;
 
 	/// Checks to see if this is a valid *transaction*. It returns information on it if so.
+	///
+	/// IMPORTANT: Ensure that *some* origin has been authorized after validating the transaction.
+	/// If no origin was authorized, the transaction must be rejected.
 	fn validate<V: ValidateUnsigned<Call = Self::Call>>(
 		&self,
 		source: TransactionSource,
@@ -1692,6 +1785,9 @@ pub trait Applyable: Sized + Send + Sync {
 
 	/// Executes all necessary logic needed prior to dispatch and deconstructs into function call,
 	/// index and sender.
+	///
+	/// IMPORTANT: Ensure that *some* origin has been authorized after validating the
+	/// transaction. If no origin was authorized, the transaction must be rejected.
 	fn apply<V: ValidateUnsigned<Call = Self::Call>>(
 		self,
 		info: &DispatchInfoOf<Self::Call>,
@@ -1991,7 +2087,7 @@ macro_rules! impl_opaque_keys_inner {
 			/// The generated key pairs are stored in the keystore.
 			///
 			/// Returns the concatenated SCALE encoded public keys.
-			pub fn generate(seed: Option<$crate::sp_std::vec::Vec<u8>>) -> $crate::sp_std::vec::Vec<u8> {
+			pub fn generate(seed: Option<$crate::Vec<u8>>) -> $crate::Vec<u8> {
 				let keys = Self{
 					$(
 						$field: <
@@ -2007,7 +2103,7 @@ macro_rules! impl_opaque_keys_inner {
 			/// Converts `Self` into a `Vec` of `(raw public key, KeyTypeId)`.
 			pub fn into_raw_public_keys(
 				self,
-			) -> $crate::sp_std::vec::Vec<($crate::sp_std::vec::Vec<u8>, $crate::KeyTypeId)> {
+			) -> $crate::Vec<($crate::Vec<u8>, $crate::KeyTypeId)> {
 				let mut keys = Vec::new();
 				$(
 					keys.push((
@@ -2029,7 +2125,7 @@ macro_rules! impl_opaque_keys_inner {
 			/// Returns `None` when the decoding failed, otherwise `Some(_)`.
 			pub fn decode_into_raw_public_keys(
 				encoded: &[u8],
-			) -> Option<$crate::sp_std::vec::Vec<($crate::sp_std::vec::Vec<u8>, $crate::KeyTypeId)>> {
+			) -> Option<$crate::Vec<($crate::Vec<u8>, $crate::KeyTypeId)>> {
 				<Self as $crate::codec::Decode>::decode(&mut &encoded[..])
 					.ok()
 					.map(|s| s.into_raw_public_keys())
@@ -2278,12 +2374,12 @@ pub trait BlockNumberProvider {
 	/// .
 	fn current_block_number() -> Self::BlockNumber;
 
-	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
-	/// else a noop.
+	/// Utility function only to be used in benchmarking scenarios or tests, to be implemented
+	/// optionally, else a noop.
 	///
 	/// It allows for setting the block number that will later be fetched
 	/// This is useful in case the block number provider is different than System
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
 	fn set_block_number(_block: Self::BlockNumber) {}
 }
 
@@ -2298,8 +2394,6 @@ impl BlockNumberProvider for () {
 mod tests {
 	use super::*;
 	use crate::codec::{Decode, Encode, Input};
-	#[cfg(feature = "bls-experimental")]
-	use sp_core::{bls377, bls381};
 	use sp_core::{
 		crypto::{Pair, UncheckedFrom},
 		ecdsa, ed25519, sr25519,
@@ -2441,15 +2535,5 @@ mod tests {
 	#[test]
 	fn ecdsa_verify_works() {
 		signature_verify_test!(ecdsa);
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	fn bls377_verify_works() {
-		signature_verify_test!(bls377)
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	fn bls381_verify_works() {
-		signature_verify_test!(bls381)
 	}
 }

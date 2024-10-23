@@ -16,6 +16,8 @@
 // limitations under the License.
 
 //! Type to combine two `fungibles::*` implementations into one union `fungibles::*` implementation.
+//!
+//! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
 use frame_support::traits::{
 	tokens::{
@@ -39,7 +41,7 @@ use sp_runtime::{
 /// - `AssetKind` is a superset type encompassing asset kinds from `Left` and `Right` sets.
 /// - `AccountId` is an account identifier type.
 pub struct UnionOf<Left, Right, Criterion, AssetKind, AccountId>(
-	sp_std::marker::PhantomData<(Left, Right, Criterion, AssetKind, AccountId)>,
+	core::marker::PhantomData<(Left, Right, Criterion, AssetKind, AccountId)>,
 );
 
 impl<
@@ -387,14 +389,27 @@ impl<
 		asset: Self::AssetId,
 		who: &AccountId,
 		amount: Self::Balance,
+		preservation: Preservation,
 		precision: Precision,
 		force: Fortitude,
 	) -> Result<Self::Balance, DispatchError> {
 		match Criterion::convert(asset) {
-			Left(a) =>
-				<Left as fungibles::Mutate<AccountId>>::burn_from(a, who, amount, precision, force),
-			Right(a) =>
-				<Right as fungibles::Mutate<AccountId>>::burn_from(a, who, amount, precision, force),
+			Left(a) => <Left as fungibles::Mutate<AccountId>>::burn_from(
+				a,
+				who,
+				amount,
+				preservation,
+				precision,
+				force,
+			),
+			Right(a) => <Right as fungibles::Mutate<AccountId>>::burn_from(
+				a,
+				who,
+				amount,
+				preservation,
+				precision,
+				force,
+			),
 		}
 	}
 	fn shelve(
@@ -607,7 +622,7 @@ pub struct ConvertImbalanceDropHandler<
 	Balance,
 	AccountId,
 >(
-	sp_std::marker::PhantomData<(
+	core::marker::PhantomData<(
 		Left,
 		Right,
 		LeftAssetId,
@@ -810,8 +825,10 @@ impl<
 }
 
 impl<
-		Left: fungibles::BalancedHold<AccountId>,
-		Right: fungibles::BalancedHold<AccountId, Balance = Left::Balance, Reason = Left::Reason>,
+		Left: fungibles::BalancedHold<AccountId>
+			+ fungibles::hold::DoneSlash<Self::AssetId, Self::Reason, AccountId, Self::Balance>,
+		Right: fungibles::BalancedHold<AccountId, Balance = Left::Balance, Reason = Left::Reason>
+			+ fungibles::hold::DoneSlash<Self::AssetId, Self::Reason, AccountId, Self::Balance>,
 		Criterion: Convert<AssetKind, Either<Left::AssetId, Right::AssetId>>,
 		AssetKind: AssetId,
 		AccountId,
@@ -833,6 +850,31 @@ impl<
 				let (credit, amount) =
 					<Right as fungibles::BalancedHold<AccountId>>::slash(a, reason, who, amount);
 				(imbalance::from_fungibles(credit, asset), amount)
+			},
+		}
+	}
+}
+
+impl<
+		Reason,
+		Balance,
+		Left: fungibles::Inspect<AccountId>
+			+ fungibles::hold::DoneSlash<Left::AssetId, Reason, AccountId, Balance>,
+		Right: fungibles::Inspect<AccountId>
+			+ fungibles::hold::DoneSlash<Right::AssetId, Reason, AccountId, Balance>,
+		Criterion: Convert<AssetKind, Either<Left::AssetId, Right::AssetId>>,
+		AssetKind: AssetId,
+		AccountId,
+	> fungibles::hold::DoneSlash<AssetKind, Reason, AccountId, Balance>
+	for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
+	fn done_slash(asset: AssetKind, reason: &Reason, who: &AccountId, amount: Balance) {
+		match Criterion::convert(asset.clone()) {
+			Left(a) => {
+				Left::done_slash(a, reason, who, amount);
+			},
+			Right(a) => {
+				Right::done_slash(a, reason, who, amount);
 			},
 		}
 	}
@@ -899,6 +941,38 @@ impl<
 			Left(a) => <Left as AccountTouch<Left::AssetId, AccountId>>::touch(a, who, depositor),
 			Right(a) =>
 				<Right as AccountTouch<Right::AssetId, AccountId>>::touch(a, who, depositor),
+		}
+	}
+}
+
+impl<
+		Left: fungibles::Inspect<AccountId> + fungibles::Refund<AccountId>,
+		Right: fungibles::Inspect<AccountId>
+			+ fungibles::Refund<AccountId, Balance = <Left as fungibles::Refund<AccountId>>::Balance>,
+		Criterion: Convert<
+			AssetKind,
+			Either<
+				<Left as fungibles::Refund<AccountId>>::AssetId,
+				<Right as fungibles::Refund<AccountId>>::AssetId,
+			>,
+		>,
+		AssetKind: AssetId,
+		AccountId,
+	> fungibles::Refund<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
+	type AssetId = AssetKind;
+	type Balance = <Left as fungibles::Refund<AccountId>>::Balance;
+
+	fn deposit_held(asset: AssetKind, who: AccountId) -> Option<(AccountId, Self::Balance)> {
+		match Criterion::convert(asset) {
+			Left(a) => <Left as fungibles::Refund<AccountId>>::deposit_held(a, who),
+			Right(a) => <Right as fungibles::Refund<AccountId>>::deposit_held(a, who),
+		}
+	}
+	fn refund(asset: AssetKind, who: AccountId) -> DispatchResult {
+		match Criterion::convert(asset) {
+			Left(a) => <Left as fungibles::Refund<AccountId>>::refund(a, who),
+			Right(a) => <Right as fungibles::Refund<AccountId>>::refund(a, who),
 		}
 	}
 }

@@ -16,7 +16,9 @@
 //! Storage migrations for the Identity pallet.
 
 use super::*;
-use frame_support::{migrations::VersionedMigration, pallet_prelude::*, traits::OnRuntimeUpgrade};
+use frame_support::{
+	migrations::VersionedMigration, pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade,
+};
 
 #[cfg(feature = "try-runtime")]
 use codec::{Decode, Encode};
@@ -66,7 +68,7 @@ pub mod v1 {
 	/// prevent stalling a parachain by accumulating too much weight in the migration. To have an
 	/// unlimited migration (e.g. in a chain without PoV limits), set this to `u64::MAX`.
 	pub struct VersionUncheckedMigrateV0ToV1<T, const KL: u64>(PhantomData<T>);
-	impl<T: Config, const KL: u64> OnRuntimeUpgrade for VersionUncheckedMigrateV0ToV1<T, KL> {
+	impl<T: Config, const KL: u64> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV0ToV1<T, KL> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			let identities = v0::IdentityOf::<T>::iter().count();

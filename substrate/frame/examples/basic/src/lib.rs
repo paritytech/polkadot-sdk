@@ -54,6 +54,9 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{
@@ -67,12 +70,11 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
-		Bounded, DispatchInfoOf, OriginOf, SaturatedConversion, Saturating, TransactionExtension,
-		TransactionExtensionBase, ValidateResult,
+		Bounded, DispatchInfoOf, DispatchOriginOf, SaturatedConversion, Saturating,
+		TransactionExtension, ValidateResult,
 	},
 	transaction_validity::{InvalidTransaction, ValidTransaction},
 };
-use sp_std::vec::Vec;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -441,19 +443,20 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-// Similar to other FRAME pallets, your pallet can also define a signed extension and perform some
-// checks and [pre/post]processing [before/after] the transaction. A signed extension can be any
-// decodable type that implements `TransactionExtension`. See the trait definition for the full list
-// of bounds. As a convention, you can follow this approach to create an extension for your pallet:
+// Similar to other FRAME pallets, your pallet can also define a transaction extension and perform
+// some checks and [pre/post]processing [before/after] the transaction. A transaction extension can
+// be any decodable type that implements `TransactionExtension`. See the trait definition for the
+// full list of bounds. As a convention, you can follow this approach to create an extension for
+// your pallet:
 //   - If the extension does not carry any data, then use a tuple struct with just a `marker`
 //     (needed for the compiler to accept `T: Config`) will suffice.
 //   - Otherwise, create a tuple struct which contains the external data. Of course, for the entire
 //     struct to be decodable, each individual item also needs to be decodable.
 //
-// Note that a signed extension can also indicate that a particular data must be present in the
-// _signing payload_ of a transaction by providing an implementation for the `additional_signed`
-// method. This example will not cover this type of extension. See `CheckSpecVersion` in
-// [FRAME System](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/system#signed-extensions)
+// Note that a transaction extension can also indicate that a particular data must be present in the
+// _signing payload_ of a transaction by providing an implementation for the `implicit` method. This
+// example will not cover this type of extension. See `CheckSpecVersion` in [FRAME
+// System](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/system#signed-extensions)
 // for an example.
 //
 // Using the extension, you can add some hooks to the life cycle of each transaction. Note that by
@@ -464,19 +467,19 @@ impl<T: Config> Pallet<T> {
 // Some extra information, such as encoded length, some static dispatch info like weight and the
 // sender of the transaction (if signed) are also provided.
 //
-// The full list of hooks that can be added to a signed extension can be found
-// [here](https://paritytech.github.io/polkadot-sdk/master/sp_runtime/traits/trait.TransactionExtension.html).
+// The full list of hooks that can be added to a transaction extension can be found in the
+// `TransactionExtension` trait definition.
 //
-// The signed extensions are aggregated in the runtime file of a substrate chain. All extensions
-// should be aggregated in a tuple and passed to the `CheckedExtrinsic` and `UncheckedExtrinsic`
-// types defined in the runtime. Lookup `pub type TxExtension = (...)` in `node/runtime` and
-// `node-template` for an example of this.
+// The transaction extensions are aggregated in the runtime file of a substrate chain. All
+// extensions should be aggregated in a tuple and passed to the `CheckedExtrinsic` and
+// `UncheckedExtrinsic` types defined in the runtime. Lookup `pub type TxExtension = (...)` in
+// `node/runtime` and `node-template` for an example of this.
 
-/// A simple signed extension that checks for the `set_dummy` call. In that case, it increases the
-/// priority and prints some log.
+/// A simple transaction extension that checks for the `set_dummy` call. In that case, it increases
+/// the priority and prints some log.
 ///
 /// Additionally, it drops any transaction with an encoded length higher than 200 bytes. No
-/// particular reason why, just to demonstrate the power of signed extensions.
+/// particular reason why, just to demonstrate the power of transaction extensions.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct WatchDummy<T: Config + Send + Sync>(PhantomData<T>);
@@ -487,25 +490,22 @@ impl<T: Config + Send + Sync> core::fmt::Debug for WatchDummy<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for WatchDummy<T> {
-	const IDENTIFIER: &'static str = "WatchDummy";
-	type Implicit = ();
-}
-impl<T: Config + Send + Sync, Context>
-	TransactionExtension<<T as frame_system::Config>::RuntimeCall, Context> for WatchDummy<T>
+impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::RuntimeCall>
+	for WatchDummy<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
+	const IDENTIFIER: &'static str = "WatchDummy";
+	type Implicit = ();
 	type Pre = ();
 	type Val = ();
 
 	fn validate(
 		&self,
-		origin: OriginOf<<T as frame_system::Config>::RuntimeCall>,
+		origin: DispatchOriginOf<<T as frame_system::Config>::RuntimeCall>,
 		call: &<T as frame_system::Config>::RuntimeCall,
 		_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
-		_context: &mut Context,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
@@ -527,5 +527,5 @@ where
 		};
 		Ok((validity, (), origin))
 	}
-	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; Context; prepare);
+	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; weight prepare);
 }

@@ -1,0 +1,25 @@
+title: "Snowbridge: Synchronize from Snowfork repository"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR improves the beacon client to send the execution header along with the message as proof and removes the verification and storing of all execution headers.
+      If the AH sovereign account is depleted and relayer rewards cannot be paid, the message should still be processed.
+
+crates:
+- name: snowbridge-pallet-ethereum-client
+  bump: minor
+- name: snowbridge-pallet-inbound-queue
+  bump: minor
+- name: snowbridge-beacon-primitives
+  bump: minor
+- name: snowbridge-core
+  bump: minor
+- name: snowbridge-runtime-test-common
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-rococo-integration-tests
+  bump: minor

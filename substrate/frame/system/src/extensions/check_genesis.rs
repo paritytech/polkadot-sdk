@@ -20,7 +20,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
-	traits::{TransactionExtension, TransactionExtensionBase, Zero},
+	traits::{TransactionExtension, Zero},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -32,16 +32,16 @@ use sp_runtime::{
 /// the extension does not affect any other fields of `TransactionValidity` directly.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct CheckGenesis<T: Config + Send + Sync>(sp_std::marker::PhantomData<T>);
+pub struct CheckGenesis<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 
-impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckGenesis<T> {
+impl<T: Config + Send + Sync> core::fmt::Debug for CheckGenesis<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "CheckGenesis")
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -49,19 +49,24 @@ impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckGenesis<T> {
 impl<T: Config + Send + Sync> CheckGenesis<T> {
 	/// Creates new `TransactionExtension` to check genesis hash.
 	pub fn new() -> Self {
-		Self(sp_std::marker::PhantomData)
+		Self(core::marker::PhantomData)
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for CheckGenesis<T> {
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckGenesis<T> {
 	const IDENTIFIER: &'static str = "CheckGenesis";
 	type Implicit = T::Hash;
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(<Pallet<T>>::block_hash(BlockNumberFor::<T>::zero()))
 	}
-	fn weight(&self) -> sp_weights::Weight {
-		<T::ExtensionsWeightInfo as super::WeightInfo>::check_genesis()
+	type Val = ();
+	type Pre = ();
+	fn weight(&self, _: &T::RuntimeCall) -> sp_weights::Weight {
+		// All transactions will always read the hash of the genesis block, so to avoid
+		// charging this multiple times in a block we manually set the proof size to 0.
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_genesis().set_proof_size(0)
 	}
+	impl_tx_ext_default!(T::RuntimeCall; validate prepare);
 }
 impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
 	for CheckGenesis<T>

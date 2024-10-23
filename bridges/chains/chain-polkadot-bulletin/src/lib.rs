@@ -38,17 +38,15 @@ use frame_support::{
 use frame_system::limits;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{Dispatchable, TransactionExtensionBase},
-	transaction_validity::TransactionValidityError,
-	Perbill,
+	impl_tx_ext_default, traits::Dispatchable, transaction_validity::TransactionValidityError,
+	Perbill, StateVersion,
 };
 
 // This chain reuses most of Polkadot primitives.
 pub use bp_polkadot_core::{
 	AccountAddress, AccountId, Balance, Block, BlockNumber, Hash, Hasher, Header, Nonce, Signature,
 	SignedBlock, UncheckedExtrinsic, AVERAGE_HEADER_SIZE, EXTRA_STORAGE_PROOF_SIZE,
-	MAX_MANDATORY_HEADER_SIZE, REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY,
+	MAX_MANDATORY_HEADER_SIZE, REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY,
 };
 
 /// Maximal number of GRANDPA authorities at Polkadot Bulletin chain.
@@ -67,7 +65,7 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(90);
 
 // Re following constants - we are using the same values at Cumulus parachains. They are limited
 // by the maximal transaction weight/size. Since block limits at Bulletin Chain are larger than
-// at the Cumulus Bridgeg Hubs, we could reuse the same values.
+// at the Cumulus Bridge Hubs, we could reuse the same values.
 
 /// Maximal number of unrewarded relayer entries at inbound lane for Cumulus-based parachains.
 pub const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 1024;
@@ -96,23 +94,23 @@ pub type TransactionExtensionSchema = GenericTransactionExtension<(
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub struct TransactionExtension(TransactionExtensionSchema);
 
-impl TransactionExtensionBase for TransactionExtension {
-	const IDENTIFIER: &'static str = "Not needed.";
-	type Implicit = <TransactionExtensionSchema as TransactionExtensionBase>::Implicit;
-
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-		<TransactionExtensionSchema as TransactionExtensionBase>::implicit(&self.0)
-	}
-}
-
-impl<C, Context> sp_runtime::traits::TransactionExtension<C, Context> for TransactionExtension
+impl<C> sp_runtime::traits::TransactionExtension<C> for TransactionExtension
 where
 	C: Dispatchable,
 {
+	const IDENTIFIER: &'static str = "Not needed.";
+	type Implicit =
+		<TransactionExtensionSchema as sp_runtime::traits::TransactionExtension<C>>::Implicit;
+
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		<TransactionExtensionSchema as sp_runtime::traits::TransactionExtension<C>>::implicit(
+			&self.0,
+		)
+	}
 	type Pre = ();
 	type Val = ();
 
-	impl_tx_ext_default!(C; Context; validate prepare);
+	impl_tx_ext_default!(C; weight validate prepare);
 }
 
 impl TransactionExtension {
@@ -193,6 +191,8 @@ impl Chain for PolkadotBulletin {
 	type Nonce = Nonce;
 	type Signature = Signature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		*BlockLength::get().max.get(DispatchClass::Normal)
 	}
@@ -208,8 +208,8 @@ impl Chain for PolkadotBulletin {
 impl ChainWithGrandpa for PolkadotBulletin {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = WITH_POLKADOT_BULLETIN_GRANDPA_PALLET_NAME;
 	const MAX_AUTHORITIES_COUNT: u32 = MAX_AUTHORITIES_COUNT;
-	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 =
-		REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY;
+	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 =
+		REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY;
 	const MAX_MANDATORY_HEADER_SIZE: u32 = MAX_MANDATORY_HEADER_SIZE;
 	const AVERAGE_HEADER_SIZE: u32 = AVERAGE_HEADER_SIZE;
 }
@@ -225,4 +225,4 @@ impl ChainWithMessages for PolkadotBulletin {
 }
 
 decl_bridge_finality_runtime_apis!(polkadot_bulletin, grandpa);
-decl_bridge_messages_runtime_apis!(polkadot_bulletin);
+decl_bridge_messages_runtime_apis!(polkadot_bulletin, bp_messages::HashedLaneId);

@@ -58,22 +58,22 @@ pub fn expand_outer_inherent(
 
 		trait InherentDataExt {
 			fn create_extrinsics(&self) ->
-				#scrate::__private::sp_std::vec::Vec<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic>;
+				#scrate::__private::Vec<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic>;
 			fn check_extrinsics(&self, block: &#block) -> #scrate::inherent::CheckInherentsResult;
 		}
 
 		impl InherentDataExt for #scrate::inherent::InherentData {
 			fn create_extrinsics(&self) ->
-				#scrate::__private::sp_std::vec::Vec<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic>
+				#scrate::__private::Vec<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic>
 			{
-				use #scrate::inherent::ProvideInherent;
+				use #scrate::{inherent::ProvideInherent, traits::InherentBuilder};
 
-				let mut inherents = #scrate::__private::sp_std::vec::Vec::new();
+				let mut inherents = #scrate::__private::Vec::new();
 
 				#(
 					#pallet_attrs
 					if let Some(inherent) = #pallet_names::create_inherent(self) {
-						let inherent = <#unchecked_extrinsic as #scrate::sp_runtime::traits::Extrinsic>::new_inherent(
+						let inherent = <#unchecked_extrinsic as InherentBuilder>::new_inherent(
 							inherent.into(),
 						);
 
@@ -121,7 +121,7 @@ pub fn expand_outer_inherent(
 				for xt in block.extrinsics() {
 					// Inherents are before any other extrinsics.
 					// And signed extrinsics are not inherents.
-					if !(#scrate::sp_runtime::traits::Extrinsic::is_bare(xt)) {
+					if !(#scrate::sp_runtime::traits::ExtrinsicLike::is_bare(xt)) {
 						break
 					}
 
@@ -159,7 +159,7 @@ pub fn expand_outer_inherent(
 					match #pallet_names::is_inherent_required(self) {
 						Ok(Some(e)) => {
 							let found = block.extrinsics().iter().any(|xt| {
-								let is_bare = #scrate::sp_runtime::traits::Extrinsic::is_bare(xt);
+								let is_bare = #scrate::sp_runtime::traits::ExtrinsicLike::is_bare(xt);
 
 								if is_bare {
 									let call = <
@@ -206,9 +206,9 @@ pub fn expand_outer_inherent(
 				use #scrate::inherent::ProvideInherent;
 				use #scrate::traits::{IsSubType, ExtrinsicCall};
 
-				let is_bare = #scrate::sp_runtime::traits::Extrinsic::is_bare(ext);
+				let is_bare = #scrate::sp_runtime::traits::ExtrinsicLike::is_bare(ext);
 				if !is_bare {
-					// Signed extrinsics are not inherents.
+					// Inherents must be bare extrinsics.
 					return false
 				}
 

@@ -73,6 +73,7 @@ impl Config for Test {
 	type HeapSize = HeapSize;
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
+	type IdleMaxServiceWeight = ();
 }
 
 /// Simulates heavy usage by enqueueing and processing large amounts of messages.
@@ -150,6 +151,7 @@ fn stress_test_recursive() {
 		TotalEnqueued::set(TotalEnqueued::get() + enqueued);
 		Enqueued::set(Enqueued::get() + enqueued);
 		Called::set(Called::get() + 1);
+		Ok(())
 	}));
 
 	build_and_execute::<Test>(|| {

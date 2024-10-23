@@ -23,7 +23,7 @@ pub use bp_polkadot_core::*;
 
 use bp_header_chain::ChainWithGrandpa;
 use bp_runtime::{decl_bridge_finality_runtime_apis, Chain, ChainId};
-use frame_support::weights::Weight;
+use frame_support::{sp_runtime::StateVersion, weights::Weight};
 
 /// Westend Chain
 pub struct Westend;
@@ -41,6 +41,8 @@ impl Chain for Westend {
 	type Nonce = Nonce;
 	type Signature = Signature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		max_extrinsic_size()
 	}
@@ -53,8 +55,8 @@ impl Chain for Westend {
 impl ChainWithGrandpa for Westend {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = WITH_WESTEND_GRANDPA_PALLET_NAME;
 	const MAX_AUTHORITIES_COUNT: u32 = MAX_AUTHORITIES_COUNT;
-	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 =
-		REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY;
+	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 =
+		REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY;
 	const MAX_MANDATORY_HEADER_SIZE: u32 = MAX_MANDATORY_HEADER_SIZE;
 	const AVERAGE_HEADER_SIZE: u32 = AVERAGE_HEADER_SIZE;
 }
@@ -67,6 +69,8 @@ pub const PARAS_PALLET_NAME: &str = "Paras";
 
 /// Name of the With-Westend GRANDPA pallet instance that is deployed at bridged chains.
 pub const WITH_WESTEND_GRANDPA_PALLET_NAME: &str = "BridgeWestendGrandpa";
+/// Name of the With-Westend parachains pallet instance that is deployed at bridged chains.
+pub const WITH_WESTEND_BRIDGE_PARACHAINS_PALLET_NAME: &str = "BridgeWestendParachains";
 
 /// Maximal size of encoded `bp_parachains::ParaStoredHeaderData` structure among all Westend
 /// parachains.

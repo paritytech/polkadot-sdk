@@ -8,7 +8,7 @@ monitor the liveliness and performance of a network and its validators.
 # How does it work ?
 
 Just import the dashboard JSON files from this folder in your Grafana installation. All dashboards are grouped in
-folder percategory (like for example `parachains`). The files have been created by Grafana export functionality and
+folder per category (like for example `parachains`). The files have been created by Grafana export functionality and
 follow the data model specified [here](https://grafana.com/docs/grafana/latest/dashboards/json-model/).
 
 We aim to keep the dashboards here in sync with the implementation, except dashboards for development and

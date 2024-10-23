@@ -16,7 +16,7 @@
 
 use crate::MAX_XCM_DECODE_DEPTH;
 use alloc::vec::Vec;
-use parity_scale_codec::{Decode, DecodeLimit, Encode};
+use codec::{Decode, DecodeLimit, Encode};
 
 /// Wrapper around the encoded and decoded versions of a value.
 /// Caches the decoded value once computed.

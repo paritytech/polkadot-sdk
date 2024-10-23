@@ -126,26 +126,4 @@ impl<T: frame_system::Config> snowbridge_pallet_ethereum_client::WeightInfo for 
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: EthereumBeaconClient LatestFinalizedBlockRoot (r:1 w:0)
-	/// Proof: EthereumBeaconClient LatestFinalizedBlockRoot (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
-	/// Storage: EthereumBeaconClient FinalizedBeaconState (r:1 w:0)
-	/// Proof: EthereumBeaconClient FinalizedBeaconState (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
-	/// Storage: EthereumBeaconClient LatestExecutionState (r:1 w:1)
-	/// Proof: EthereumBeaconClient LatestExecutionState (max_values: Some(1), max_size: Some(80), added: 575, mode: MaxEncodedLen)
-	/// Storage: EthereumBeaconClient ExecutionHeaderIndex (r:1 w:1)
-	/// Proof: EthereumBeaconClient ExecutionHeaderIndex (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: EthereumBeaconClient ExecutionHeaderMapping (r:1 w:1)
-	/// Proof: EthereumBeaconClient ExecutionHeaderMapping (max_values: None, max_size: Some(36), added: 2511, mode: MaxEncodedLen)
-	/// Storage: EthereumBeaconClient ExecutionHeaders (r:0 w:1)
-	/// Proof: EthereumBeaconClient ExecutionHeaders (max_values: None, max_size: Some(136), added: 2611, mode: MaxEncodedLen)
-	fn submit_execution_header() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `386`
-		//  Estimated: `3537`
-		// Minimum execution time: 108_761_000 picoseconds.
-		Weight::from_parts(113_158_000, 0)
-			.saturating_add(Weight::from_parts(0, 3537))
-			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(4))
-	}
 }

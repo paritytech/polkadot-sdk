@@ -23,39 +23,45 @@ pub mod local_and_foreign_assets;
 pub mod matching;
 pub mod runtime_api;
 
+extern crate alloc;
+
 use crate::matching::{LocalLocationPattern, ParentLocation};
+use alloc::vec::Vec;
+use codec::{Decode, EncodeLike};
+use core::cmp::PartialEq;
 use frame_support::traits::{Equals, EverythingBut};
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
+use sp_runtime::traits::TryConvertInto;
+use xcm::prelude::*;
 use xcm_builder::{
-	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, V4V3LocationConverter,
+	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, WithLatestLocationConverter,
 };
-use xcm_executor::traits::JustTry;
 
 /// `Location` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
-pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation> =
+pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, L = Location> =
 	AsPrefixedGeneralIndex<
 		TrustBackedAssetsPalletLocation,
 		AssetIdForTrustBackedAssets,
-		JustTry,
-		xcm::v3::Location,
+		TryConvertInto,
+		L,
 	>;
-
-pub type AssetIdForTrustBackedAssetsConvertLatest<TrustBackedAssetsPalletLocation> =
-	AsPrefixedGeneralIndex<TrustBackedAssetsPalletLocation, AssetIdForTrustBackedAssets, JustTry>;
 
 /// `Location` vs `CollectionId` converter for `Uniques`
 pub type CollectionIdForUniquesConvert<UniquesPalletLocation> =
-	AsPrefixedGeneralIndex<UniquesPalletLocation, CollectionId, JustTry>;
+	AsPrefixedGeneralIndex<UniquesPalletLocation, CollectionId, TryConvertInto>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
-pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, Balance> =
-	MatchedConvertedConcreteId<
-		AssetIdForTrustBackedAssets,
-		Balance,
-		StartsWith<TrustBackedAssetsPalletLocation>,
-		AssetIdForTrustBackedAssetsConvertLatest<TrustBackedAssetsPalletLocation>,
-		JustTry,
-	>;
+pub type TrustBackedAssetsConvertedConcreteId<
+	TrustBackedAssetsPalletLocation,
+	Balance,
+	L = Location,
+> = MatchedConvertedConcreteId<
+	AssetIdForTrustBackedAssets,
+	Balance,
+	StartsWith<TrustBackedAssetsPalletLocation>,
+	AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, L>,
+	TryConvertInto,
+>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for `Uniques`
 pub type UniquesConvertedConcreteId<UniquesPalletLocation> = MatchedConvertedConcreteId<
@@ -65,27 +71,25 @@ pub type UniquesConvertedConcreteId<UniquesPalletLocation> = MatchedConvertedCon
 	// junction within the pallet itself.
 	StartsWith<UniquesPalletLocation>,
 	CollectionIdForUniquesConvert<UniquesPalletLocation>,
-	JustTry,
+	TryConvertInto,
 >;
 
-/// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `Location`.
-pub type LocationConvertedConcreteId<LocationFilter, Balance> = MatchedConvertedConcreteId<
-	xcm::v3::Location,
+/// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`,
+/// it is a similar implementation to `TrustBackedAssetsConvertedConcreteId`,
+/// but it converts `AssetId` to `xcm::v*::Location` type instead of `AssetIdForTrustBackedAssets =
+/// u32`
+pub type TrustBackedAssetsAsLocation<
+	TrustBackedAssetsPalletLocation,
 	Balance,
-	LocationFilter,
-	V4V3LocationConverter,
-	JustTry,
+	L,
+	LocationConverter = WithLatestLocationConverter<L>,
+> = MatchedConvertedConcreteId<
+	L,
+	Balance,
+	StartsWith<TrustBackedAssetsPalletLocation>,
+	LocationConverter,
+	TryConvertInto,
 >;
-
-/// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
-pub type TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance> =
-	MatchedConvertedConcreteId<
-		xcm::v3::Location,
-		Balance,
-		StartsWith<TrustBackedAssetsPalletLocation>,
-		V4V3LocationConverter,
-		JustTry,
-	>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `ForeignAssets` with `AssetId` as
 /// `Location`.
@@ -95,26 +99,34 @@ pub type TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance> =
 /// - all local Locations
 ///
 /// `AdditionalLocationExclusionFilter` can customize additional excluded Locations
-pub type ForeignAssetsConvertedConcreteId<AdditionalLocationExclusionFilter, Balance> =
-	LocationConvertedConcreteId<
-		EverythingBut<(
-			// Excludes relay/parent chain currency
-			Equals<ParentLocation>,
-			// Here we rely on fact that something like this works:
-			// assert!(Location::new(1,
-			// [Parachain(100)]).starts_with(&Location::parent()));
-			// assert!([Parachain(100)].into().starts_with(&Here));
-			StartsWith<LocalLocationPattern>,
-			// Here we can exclude more stuff or leave it as `()`
-			AdditionalLocationExclusionFilter,
-		)>,
-		Balance,
-	>;
+pub type ForeignAssetsConvertedConcreteId<
+	AdditionalLocationExclusionFilter,
+	Balance,
+	AssetId,
+	LocationToAssetIdConverter = WithLatestLocationConverter<AssetId>,
+	BalanceConverter = TryConvertInto,
+> = MatchedConvertedConcreteId<
+	AssetId,
+	Balance,
+	EverythingBut<(
+		// Excludes relay/parent chain currency
+		Equals<ParentLocation>,
+		// Here we rely on fact that something like this works:
+		// assert!(Location::new(1,
+		// [Parachain(100)]).starts_with(&Location::parent()));
+		// assert!([Parachain(100)].into().starts_with(&Here));
+		StartsWith<LocalLocationPattern>,
+		// Here we can exclude more stuff or leave it as `()`
+		AdditionalLocationExclusionFilter,
+	)>,
+	LocationToAssetIdConverter,
+	BalanceConverter,
+>;
 
 type AssetIdForPoolAssets = u32;
 /// `Location` vs `AssetIdForPoolAssets` converter for `PoolAssets`.
 pub type AssetIdForPoolAssetsConvert<PoolAssetsPalletLocation> =
-	AsPrefixedGeneralIndex<PoolAssetsPalletLocation, AssetIdForPoolAssets, JustTry>;
+	AsPrefixedGeneralIndex<PoolAssetsPalletLocation, AssetIdForPoolAssets, TryConvertInto>;
 /// [`MatchedConvertedConcreteId`] converter dedicated for `PoolAssets`
 pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 	MatchedConvertedConcreteId<
@@ -122,15 +134,44 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 		Balance,
 		StartsWith<PoolAssetsPalletLocation>,
 		AssetIdForPoolAssetsConvert<PoolAssetsPalletLocation>,
-		JustTry,
+		TryConvertInto,
 	>;
+
+/// Returns an iterator of all assets in a pool with `asset`.
+///
+/// Should only be used in runtime APIs since it iterates over the whole
+/// `pallet_asset_conversion::Pools` map.
+///
+/// It takes in any version of an XCM Location but always returns the latest one.
+/// This is to allow some margin of migrating the pools when updating the XCM version.
+///
+/// An error of type `()` is returned if the version conversion fails for XCM locations.
+/// This error should be mapped by the caller to a more descriptive one.
+pub fn get_assets_in_pool_with<
+	Runtime: pallet_asset_conversion::Config<PoolId = (L, L)>,
+	L: TryInto<Location> + Clone + Decode + EncodeLike + PartialEq,
+>(
+	asset: &L,
+) -> Result<Vec<AssetId>, ()> {
+	pallet_asset_conversion::Pools::<Runtime>::iter_keys()
+		.filter_map(|(asset_1, asset_2)| {
+			if asset_1 == *asset {
+				Some(asset_2)
+			} else if asset_2 == *asset {
+				Some(asset_1)
+			} else {
+				None
+			}
+		})
+		.map(|location| location.try_into().map_err(|_| ()).map(AssetId))
+		.collect::<Result<Vec<_>, _>>()
+}
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use sp_runtime::traits::MaybeEquivalence;
-	use xcm::prelude::*;
-	use xcm_builder::StartsWithExplicitGlobalConsensus;
+	use xcm_builder::{StartsWithExplicitGlobalConsensus, WithLatestLocationConverter};
 	use xcm_executor::traits::{Error as MatchError, MatchesFungibles};
 
 	#[test]
@@ -143,14 +184,14 @@ mod tests {
 			Location::new(5, [PalletInstance(13), GeneralIndex(local_asset_id.into())]);
 
 		assert_eq!(
-			AssetIdForTrustBackedAssetsConvertLatest::<TrustBackedAssetsPalletLocation>::convert_back(
+			AssetIdForTrustBackedAssetsConvert::<TrustBackedAssetsPalletLocation>::convert_back(
 				&local_asset_id
 			)
 			.unwrap(),
 			expected_reverse_ref
 		);
 		assert_eq!(
-			AssetIdForTrustBackedAssetsConvertLatest::<TrustBackedAssetsPalletLocation>::convert(
+			AssetIdForTrustBackedAssetsConvert::<TrustBackedAssetsPalletLocation>::convert(
 				&expected_reverse_ref
 			)
 			.unwrap(),
@@ -163,7 +204,7 @@ mod tests {
 		frame_support::parameter_types! {
 			pub TrustBackedAssetsPalletLocation: Location = Location::new(0, [PalletInstance(13)]);
 		}
-		// setup convert
+		// set up a converter
 		type TrustBackedAssetsConvert =
 			TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, u128>;
 
@@ -246,19 +287,21 @@ mod tests {
 	}
 
 	#[test]
-	fn location_converted_concrete_id_converter_works() {
+	fn foreign_assets_converted_concrete_id_converter_works() {
 		frame_support::parameter_types! {
 			pub Parachain100Pattern: Location = Location::new(1, [Parachain(100)]);
 			pub UniversalLocationNetworkId: NetworkId = NetworkId::ByGenesis([9; 32]);
 		}
 
-		// setup convert
+		// set up a converter which uses `xcm::v3::Location` under the hood
 		type Convert = ForeignAssetsConvertedConcreteId<
 			(
 				StartsWith<Parachain100Pattern>,
 				StartsWithExplicitGlobalConsensus<UniversalLocationNetworkId>,
 			),
 			u128,
+			xcm::v3::Location,
+			WithLatestLocationConverter<xcm::v3::Location>,
 		>;
 
 		let test_data = vec![

@@ -1,0 +1,26 @@
+[package]
+name = "cumulus-pov-validator"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+homepage.workspace = true
+description = "A tool for validating PoVs locally"
+
+[dependencies]
+codec.workspace = true
+clap = { workspace = true, features = ["derive"] }
+sc-executor.workspace = true
+sp-io.workspace = true
+sp-core.workspace = true
+sp-maybe-compressed-blob.workspace = true
+polkadot-node-primitives.workspace = true
+polkadot-parachain-primitives.workspace = true
+polkadot-primitives.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

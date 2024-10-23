@@ -36,7 +36,9 @@ use std::collections::BTreeMap;
 
 use crate::approval_db::v2::Bitfield;
 
-use super::{criteria::OurAssignment, time::Tick};
+use super::criteria::OurAssignment;
+
+use polkadot_node_primitives::approval::time::Tick;
 
 /// Metadata regarding a specific tranche of assignments for a specific candidate.
 #[derive(Debug, Clone, PartialEq)]
@@ -454,7 +456,7 @@ pub struct BlockEntry {
 	slot: Slot,
 	relay_vrf_story: RelayVRFStory,
 	// The candidates included as-of this block and the index of the core they are
-	// leaving. Sorted ascending by core index.
+	// leaving.
 	candidates: Vec<(CoreIndex, CandidateHash)>,
 	// A bitfield where the i'th bit corresponds to the i'th candidate in `candidates`.
 	// The i'th bit is `true` iff the candidate has been approved in the context of this
@@ -559,7 +561,7 @@ impl BlockEntry {
 		self.distributed_assignments.resize(new_len, false);
 		self.distributed_assignments |= bitfield;
 
-		// If the an operation did not change our current bitfied, we return true.
+		// If the an operation did not change our current bitfield, we return true.
 		let distributed = total_one_bits == self.distributed_assignments.count_ones();
 
 		distributed

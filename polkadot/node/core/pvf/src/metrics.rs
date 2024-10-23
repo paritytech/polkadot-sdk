@@ -18,6 +18,7 @@
 
 use polkadot_node_core_pvf_common::prepare::MemoryStats;
 use polkadot_node_metrics::metrics::{self, prometheus};
+use polkadot_node_subsystem::messages::PvfExecKind;
 
 /// Validation host metrics.
 #[derive(Default, Clone)]
@@ -74,6 +75,12 @@ impl Metrics {
 		self.0.as_ref().map(|metrics| metrics.execution_time.start_timer())
 	}
 
+	pub(crate) fn observe_execution_queued_time(&self, queued_for_millis: u32) {
+		self.0.as_ref().map(|metrics| {
+			metrics.execution_queued_time.observe(queued_for_millis as f64 / 1000 as f64)
+		});
+	}
+
 	/// Observe memory stats for preparation.
 	#[allow(unused_variables)]
 	pub(crate) fn observe_preparation_memory_metrics(&self, memory_stats: MemoryStats) {
@@ -99,6 +106,28 @@ impl Metrics {
 				.observe((memory_stats.peak_tracked_alloc / 1024) as f64);
 		}
 	}
+
+	pub(crate) fn observe_code_size(&self, code_size: usize) {
+		if let Some(metrics) = &self.0 {
+			metrics.code_size.observe(code_size as f64);
+		}
+	}
+
+	pub(crate) fn observe_pov_size(&self, pov_size: usize, compressed: bool) {
+		if let Some(metrics) = &self.0 {
+			metrics
+				.pov_size
+				.with_label_values(&[if compressed { "true" } else { "false" }])
+				.observe(pov_size as f64);
+		}
+	}
+
+	/// When preparation pipeline concluded working on an item.
+	pub(crate) fn on_execute_kind(&self, kind: PvfExecKind) {
+		if let Some(metrics) = &self.0 {
+			metrics.exec_kind_selected.with_label_values(&[kind.as_str()]).inc();
+		}
+	}
 }
 
 #[derive(Clone)]
@@ -112,6 +141,7 @@ struct MetricsInner {
 	execute_finished: prometheus::Counter<prometheus::U64>,
 	preparation_time: prometheus::Histogram,
 	execution_time: prometheus::Histogram,
+	execution_queued_time: prometheus::Histogram,
 	#[cfg(target_os = "linux")]
 	preparation_max_rss: prometheus::Histogram,
 	// Max. allocated memory, tracked by Jemallocator, polling-based
@@ -122,6 +152,9 @@ struct MetricsInner {
 	preparation_max_resident: prometheus::Histogram,
 	// Peak allocation value, tracked by tracking-allocator
 	preparation_peak_tracked_allocation: prometheus::Histogram,
+	pov_size: prometheus::HistogramVec,
+	code_size: prometheus::Histogram,
+	exec_kind_selected: prometheus::CounterVec<prometheus::U64>,
 }
 
 impl metrics::Metrics for Metrics {
@@ -240,6 +273,31 @@ impl metrics::Metrics for Metrics {
 				)?,
 				registry,
 			)?,
+			execution_queued_time: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_pvf_execution_queued_time",
+						"Time spent in queue waiting for PVFs execution job to be assigned",
+					).buckets(vec![
+						0.01,
+						0.025,
+						0.05,
+						0.1,
+						0.25,
+						0.5,
+						1.0,
+						2.0,
+						3.0,
+						4.0,
+						5.0,
+						6.0,
+						12.0,
+						24.0,
+						48.0,
+					]),
+				)?,
+				registry,
+			)?,
 			#[cfg(target_os = "linux")]
 			preparation_max_rss: prometheus::register(
 				prometheus::Histogram::with_opts(
@@ -288,6 +346,45 @@ impl metrics::Metrics for Metrics {
 						prometheus::exponential_buckets(8192.0, 2.0, 10)
 							.expect("arguments are always valid; qed"),
 					),
+				)?,
+				registry,
+			)?,
+			// The following metrics was moved here from the candidate valiidation subsystem.
+			// Names are kept to avoid breaking dashboards and stuff.
+			pov_size: prometheus::register(
+				prometheus::HistogramVec::new(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_candidate_validation_pov_size",
+						"The compressed and decompressed size of the proof of validity of a candidate",
+					)
+					.buckets(
+						prometheus::exponential_buckets(16384.0, 2.0, 10)
+							.expect("arguments are always valid; qed"),
+					),
+					&["compressed"],
+				)?,
+				registry,
+			)?,
+			code_size: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_candidate_validation_code_size",
+						"The size of the decompressed WASM validation blob used for checking a candidate",
+					)
+					.buckets(
+						prometheus::exponential_buckets(16384.0, 2.0, 10)
+							.expect("arguments are always valid; qed"),
+					),
+				)?,
+				registry,
+			)?,
+			exec_kind_selected: prometheus::register(
+				prometheus::CounterVec::new(
+					prometheus::Opts::new(
+						"polkadot_pvf_exec_kind_selected",
+						"The total number of selected execute kinds",
+					),
+					&["priority"],
 				)?,
 				registry,
 			)?,

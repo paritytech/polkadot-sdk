@@ -17,9 +17,11 @@
 
 //! The [DispatchTransaction] trait.
 
+use crate::{traits::AsTransactionAuthorizedOrigin, transaction_validity::InvalidTransaction};
+
 use super::*;
 
-/// Single-function utility trait with a blanket impl over [TransactionExtension] in order to
+/// Single-function utility trait with a blanket impl over [`TransactionExtension`] in order to
 /// provide transaction dispatching functionality. We avoid implementing this directly on the trait
 /// since we never want it to be overriden by the trait implementation.
 pub trait DispatchTransaction<Call: Dispatchable> {
@@ -75,8 +77,9 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 	) -> Self::Result;
 }
 
-impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTransaction<Call>
-	for T
+impl<T: TransactionExtension<Call>, Call: Dispatchable + Encode> DispatchTransaction<Call> for T
+where
+	<Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 {
 	type Origin = <Call as Dispatchable>::RuntimeOrigin;
 	type Info = DispatchInfoOf<Call>;
@@ -91,7 +94,12 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 		info: &DispatchInfoOf<Call>,
 		len: usize,
 	) -> Result<(ValidTransaction, T::Val, Self::Origin), TransactionValidityError> {
-		self.validate(origin, call, info, len, &mut (), self.implicit()?, call)
+		match self.validate(origin, call, info, len, self.implicit()?, call) {
+			// After validation, some origin must have been authorized.
+			Ok((_, _, origin)) if !origin.is_transaction_authorized() =>
+				Err(InvalidTransaction::UnknownOrigin.into()),
+			res => res,
+		}
 	}
 	fn validate_and_prepare(
 		self,
@@ -101,7 +109,7 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 		len: usize,
 	) -> Result<(T::Pre, Self::Origin), TransactionValidityError> {
 		let (_, val, origin) = self.validate_only(origin, call, info, len)?;
-		let pre = self.prepare(val, &origin, &call, info, len, &())?;
+		let pre = self.prepare(val, &origin, &call, info, len)?;
 		Ok((pre, origin))
 	}
 	fn dispatch_transaction(
@@ -112,10 +120,14 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 		len: usize,
 	) -> Self::Result {
 		let (pre, origin) = self.validate_and_prepare(origin, &call, info, len)?;
-		let res = call.dispatch(origin);
-		let post_info = res.unwrap_or_else(|err| err.post_info);
+		let mut res = call.dispatch(origin);
 		let pd_res = res.map(|_| ()).map_err(|e| e.error);
-		T::post_dispatch(pre, info, &post_info, len, &pd_res, &())?;
+		let post_info = match &mut res {
+			Ok(info) => info,
+			Err(err) => &mut err.post_info,
+		};
+		post_info.set_extension_weight(info);
+		T::post_dispatch(pre, info, post_info, len, &pd_res)?;
 		Ok(res)
 	}
 	fn test_run(
@@ -129,13 +141,14 @@ impl<T: TransactionExtension<Call, ()>, Call: Dispatchable + Encode> DispatchTra
 		) -> crate::DispatchResultWithInfo<<Call as Dispatchable>::PostInfo>,
 	) -> Self::Result {
 		let (pre, origin) = self.validate_and_prepare(origin, &call, info, len)?;
-		let res = substitute(origin);
-		let post_info = match res {
-			Ok(info) => info,
-			Err(err) => err.post_info,
-		};
+		let mut res = substitute(origin);
 		let pd_res = res.map(|_| ()).map_err(|e| e.error);
-		T::post_dispatch(pre, info, &post_info, len, &pd_res, &())?;
+		let post_info = match &mut res {
+			Ok(info) => info,
+			Err(err) => &mut err.post_info,
+		};
+		post_info.set_extension_weight(info);
+		T::post_dispatch(pre, info, post_info, len, &pd_res)?;
 		Ok(res)
 	}
 }

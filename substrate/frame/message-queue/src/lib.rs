@@ -203,7 +203,11 @@ pub mod mock_helpers;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use core::{fmt::Debug, ops::Deref};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
@@ -221,9 +225,8 @@ use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{defer, H256};
 use sp_runtime::{
 	traits::{One, Zero},
-	SaturatedConversion, Saturating,
+	SaturatedConversion, Saturating, TransactionOutcome,
 };
-use sp_std::{fmt::Debug, ops::Deref, prelude::*, vec};
 use sp_weights::WeightMeter;
 pub use weights::WeightInfo;
 
@@ -307,7 +310,7 @@ impl<
 			return Err(())
 		}
 
-		let mut heap = sp_std::mem::take(&mut self.heap).into_inner();
+		let mut heap = core::mem::take(&mut self.heap).into_inner();
 		header.using_encoded(|h| heap.extend_from_slice(h));
 		heap.extend_from_slice(message.deref());
 		self.heap = BoundedVec::defensive_truncate_from(heap);
@@ -525,12 +528,21 @@ pub mod pallet {
 		type MaxStale: Get<u32>;
 
 		/// The amount of weight (if any) which should be provided to the message queue for
-		/// servicing enqueued items.
+		/// servicing enqueued items `on_initialize`.
 		///
 		/// This may be legitimately `None` in the case that you will call
-		/// `ServiceQueues::service_queues` manually.
+		/// `ServiceQueues::service_queues` manually or set [`Self::IdleMaxServiceWeight`] to have
+		/// it run in `on_idle`.
 		#[pallet::constant]
 		type ServiceWeight: Get<Option<Weight>>;
+
+		/// The maximum amount of weight (if any) to be used from remaining weight `on_idle` which
+		/// should be provided to the message queue for servicing enqueued items `on_idle`.
+		/// Useful for parachains to process messages at the same block they are received.
+		///
+		/// If `None`, it will not call `ServiceQueues::service_queues` in `on_idle`.
+		#[pallet::constant]
+		type IdleMaxServiceWeight: Get<Option<Weight>>;
 	}
 
 	#[pallet::event]
@@ -637,7 +649,19 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			if let Some(weight_limit) = T::ServiceWeight::get() {
-				Self::service_queues(weight_limit)
+				Self::service_queues_impl(weight_limit, ServiceQueuesContext::OnInitialize)
+			} else {
+				Weight::zero()
+			}
+		}
+
+		fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			if let Some(weight_limit) = T::IdleMaxServiceWeight::get() {
+				// Make use of the remaining weight to process enqueued messages.
+				Self::service_queues_impl(
+					weight_limit.min(remaining_weight),
+					ServiceQueuesContext::OnIdle,
+				)
 			} else {
 				Weight::zero()
 			}
@@ -747,6 +771,25 @@ enum MessageExecutionStatus {
 	Processed,
 	/// The message was processed and resulted in a, possibly permanent, error.
 	Unprocessable { permanent: bool },
+	/// The stack depth limit was reached.
+	///
+	/// We cannot just return `Unprocessable` in this case, because the processability of the
+	/// message depends on how the function was called. This may be a permanent error if it was
+	/// called by a top-level function, or a transient error if it was already called in a nested
+	/// function.
+	StackLimitReached,
+}
+
+/// The context to pass to [`Pallet::service_queues_impl`] through on_idle and on_initialize hooks
+/// We don't want to throw the defensive message if called from on_idle hook
+#[derive(PartialEq)]
+enum ServiceQueuesContext {
+	/// Context of on_idle hook.
+	OnIdle,
+	/// Context of on_initialize hook.
+	OnInitialize,
+	/// Context `service_queues` trait function.
+	ServiceQueues,
 }
 
 impl<T: Config> Pallet<T> {
@@ -966,7 +1009,8 @@ impl<T: Config> Pallet<T> {
 			// additional overweight event being deposited.
 		) {
 			Overweight | InsufficientWeight => Err(Error::<T>::InsufficientWeight),
-			Unprocessable { permanent: false } => Err(Error::<T>::TemporarilyUnprocessable),
+			StackLimitReached | Unprocessable { permanent: false } =>
+				Err(Error::<T>::TemporarilyUnprocessable),
 			Unprocessable { permanent: true } | Processed => {
 				page.note_processed_at_pos(pos);
 				book_state.message_count.saturating_dec();
@@ -1232,7 +1276,7 @@ impl<T: Config> Pallet<T> {
 		let is_processed = match res {
 			InsufficientWeight => return ItemExecutionStatus::Bailed,
 			Unprocessable { permanent: false } => return ItemExecutionStatus::NoProgress,
-			Processed | Unprocessable { permanent: true } => true,
+			Processed | Unprocessable { permanent: true } | StackLimitReached => true,
 			Overweight => false,
 		};
 
@@ -1406,6 +1450,8 @@ impl<T: Config> Pallet<T> {
 	/// The base weight of this function needs to be accounted for by the caller. `weight` is the
 	/// remaining weight to process the message. `overweight_limit` is the maximum weight that a
 	/// message can ever consume. Messages above this limit are marked as permanently overweight.
+	/// This process is also transactional, any form of error that occurs in processing a message
+	/// causes storage changes to be rolled back.
 	fn process_message_payload(
 		origin: MessageOriginOf<T>,
 		page_index: PageIndex,
@@ -1418,7 +1464,27 @@ impl<T: Config> Pallet<T> {
 		use ProcessMessageError::*;
 		let prev_consumed = meter.consumed();
 
-		match T::MessageProcessor::process_message(message, origin.clone(), meter, &mut id) {
+		let transaction =
+			storage::with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+				let res =
+					T::MessageProcessor::process_message(message, origin.clone(), meter, &mut id);
+				match &res {
+					Ok(_) => TransactionOutcome::Commit(Ok(res)),
+					Err(_) => TransactionOutcome::Rollback(Ok(res)),
+				}
+			});
+
+		let transaction = match transaction {
+			Ok(result) => result,
+			_ => {
+				defensive!(
+					"Error occurred processing message, storage changes will be rolled back"
+				);
+				return MessageExecutionStatus::Unprocessable { permanent: true }
+			},
+		};
+
+		match transaction {
 			Err(Overweight(w)) if w.any_gt(overweight_limit) => {
 				// Permanently overweight.
 				Self::deposit_event(Event::<T>::OverweightEnqueued {
@@ -1443,6 +1509,10 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::<T>::ProcessingFailed { id: id.into(), origin, error });
 				MessageExecutionStatus::Unprocessable { permanent: true }
 			},
+			Err(error @ StackLimitReached) => {
+				Self::deposit_event(Event::<T>::ProcessingFailed { id: id.into(), origin, error });
+				MessageExecutionStatus::StackLimitReached
+			},
 			Ok(success) => {
 				// Success
 				let weight_used = meter.consumed().saturating_sub(prev_consumed);
@@ -1456,80 +1526,15 @@ impl<T: Config> Pallet<T> {
 			},
 		}
 	}
-}
 
-/// Run a closure that errors on re-entrance. Meant to be used by anything that services queues.
-pub(crate) fn with_service_mutex<F: FnOnce() -> R, R>(f: F) -> Result<R, ()> {
-	// Holds the singelton token instance.
-	environmental::environmental!(token: Option<()>);
-
-	token::using_once(&mut Some(()), || {
-		// The first `ok_or` should always be `Ok` since we are inside a `using_once`.
-		let hold = token::with(|t| t.take()).ok_or(()).defensive()?.ok_or(())?;
-
-		// Put the token back when we're done.
-		defer! {
-			token::with(|t| {
-				*t = Some(hold);
-			});
-		}
-
-		Ok(f())
-	})
-}
-
-/// Provides a [`sp_core::Get`] to access the `MEL` of a [`codec::MaxEncodedLen`] type.
-pub struct MaxEncodedLenOf<T>(sp_std::marker::PhantomData<T>);
-impl<T: MaxEncodedLen> Get<u32> for MaxEncodedLenOf<T> {
-	fn get() -> u32 {
-		T::max_encoded_len() as u32
-	}
-}
-
-/// Calculates the maximum message length and exposed it through the [`codec::MaxEncodedLen`] trait.
-pub struct MaxMessageLen<Origin, Size, HeapSize>(
-	sp_std::marker::PhantomData<(Origin, Size, HeapSize)>,
-);
-impl<Origin: MaxEncodedLen, Size: MaxEncodedLen + Into<u32>, HeapSize: Get<Size>> Get<u32>
-	for MaxMessageLen<Origin, Size, HeapSize>
-{
-	fn get() -> u32 {
-		(HeapSize::get().into()).saturating_sub(ItemHeader::<Size>::max_encoded_len() as u32)
-	}
-}
-
-/// The maximal message length.
-pub type MaxMessageLenOf<T> =
-	MaxMessageLen<MessageOriginOf<T>, <T as Config>::Size, <T as Config>::HeapSize>;
-/// The maximal encoded origin length.
-pub type MaxOriginLenOf<T> = MaxEncodedLenOf<MessageOriginOf<T>>;
-/// The `MessageOrigin` of this pallet.
-pub type MessageOriginOf<T> = <<T as Config>::MessageProcessor as ProcessMessage>::Origin;
-/// The maximal heap size of a page.
-pub type HeapSizeU32Of<T> = IntoU32<<T as Config>::HeapSize, <T as Config>::Size>;
-/// The [`Page`] of this pallet.
-pub type PageOf<T> = Page<<T as Config>::Size, <T as Config>::HeapSize>;
-/// The [`BookState`] of this pallet.
-pub type BookStateOf<T> = BookState<MessageOriginOf<T>>;
-
-/// Converts a [`sp_core::Get`] with returns a type that can be cast into an `u32` into a `Get`
-/// which returns an `u32`.
-pub struct IntoU32<T, O>(sp_std::marker::PhantomData<(T, O)>);
-impl<T: Get<O>, O: Into<u32>> Get<u32> for IntoU32<T, O> {
-	fn get() -> u32 {
-		T::get().into()
-	}
-}
-
-impl<T: Config> ServiceQueues for Pallet<T> {
-	type OverweightMessageAddress = (MessageOriginOf<T>, PageIndex, T::Size);
-
-	fn service_queues(weight_limit: Weight) -> Weight {
+	fn service_queues_impl(weight_limit: Weight, context: ServiceQueuesContext) -> Weight {
 		let mut weight = WeightMeter::with_limit(weight_limit);
 
 		// Get the maximum weight that processing a single message may take:
 		let max_weight = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
-			defensive!("Not enough weight to service a single message.");
+			if matches!(context, ServiceQueuesContext::OnInitialize) {
+				defensive!("Not enough weight to service a single message.");
+			}
 			Weight::zero()
 		});
 
@@ -1567,6 +1572,77 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 			Err(()) => weight.consumed(),
 			Ok(w) => w,
 		}
+	}
+}
+
+/// Run a closure that errors on re-entrance. Meant to be used by anything that services queues.
+pub(crate) fn with_service_mutex<F: FnOnce() -> R, R>(f: F) -> Result<R, ()> {
+	// Holds the singleton token instance.
+	environmental::environmental!(token: Option<()>);
+
+	token::using_once(&mut Some(()), || {
+		// The first `ok_or` should always be `Ok` since we are inside a `using_once`.
+		let hold = token::with(|t| t.take()).ok_or(()).defensive()?.ok_or(())?;
+
+		// Put the token back when we're done.
+		defer! {
+			token::with(|t| {
+				*t = Some(hold);
+			});
+		}
+
+		Ok(f())
+	})
+}
+
+/// Provides a [`sp_core::Get`] to access the `MEL` of a [`codec::MaxEncodedLen`] type.
+pub struct MaxEncodedLenOf<T>(core::marker::PhantomData<T>);
+impl<T: MaxEncodedLen> Get<u32> for MaxEncodedLenOf<T> {
+	fn get() -> u32 {
+		T::max_encoded_len() as u32
+	}
+}
+
+/// Calculates the maximum message length and exposed it through the [`codec::MaxEncodedLen`] trait.
+pub struct MaxMessageLen<Origin, Size, HeapSize>(
+	core::marker::PhantomData<(Origin, Size, HeapSize)>,
+);
+impl<Origin: MaxEncodedLen, Size: MaxEncodedLen + Into<u32>, HeapSize: Get<Size>> Get<u32>
+	for MaxMessageLen<Origin, Size, HeapSize>
+{
+	fn get() -> u32 {
+		(HeapSize::get().into()).saturating_sub(ItemHeader::<Size>::max_encoded_len() as u32)
+	}
+}
+
+/// The maximal message length.
+pub type MaxMessageLenOf<T> =
+	MaxMessageLen<MessageOriginOf<T>, <T as Config>::Size, <T as Config>::HeapSize>;
+/// The maximal encoded origin length.
+pub type MaxOriginLenOf<T> = MaxEncodedLenOf<MessageOriginOf<T>>;
+/// The `MessageOrigin` of this pallet.
+pub type MessageOriginOf<T> = <<T as Config>::MessageProcessor as ProcessMessage>::Origin;
+/// The maximal heap size of a page.
+pub type HeapSizeU32Of<T> = IntoU32<<T as Config>::HeapSize, <T as Config>::Size>;
+/// The [`Page`] of this pallet.
+pub type PageOf<T> = Page<<T as Config>::Size, <T as Config>::HeapSize>;
+/// The [`BookState`] of this pallet.
+pub type BookStateOf<T> = BookState<MessageOriginOf<T>>;
+
+/// Converts a [`sp_core::Get`] with returns a type that can be cast into an `u32` into a `Get`
+/// which returns an `u32`.
+pub struct IntoU32<T, O>(core::marker::PhantomData<(T, O)>);
+impl<T: Get<O>, O: Into<u32>> Get<u32> for IntoU32<T, O> {
+	fn get() -> u32 {
+		T::get().into()
+	}
+}
+
+impl<T: Config> ServiceQueues for Pallet<T> {
+	type OverweightMessageAddress = (MessageOriginOf<T>, PageIndex, T::Size);
+
+	fn service_queues(weight_limit: Weight) -> Weight {
+		Self::service_queues_impl(weight_limit, ServiceQueuesContext::ServiceQueues)
 	}
 
 	/// Execute a single overweight message.

@@ -19,31 +19,36 @@ use crate::{
 	configuration::HostConfiguration,
 	initializer::SessionChangeNotification,
 	mock::{
-		new_test_ext, Configuration, MockGenesisConfig, ParaInclusion, Paras, ParasShared,
-		Scheduler, System, Test,
+		new_test_ext, MockGenesisConfig, ParaInclusion, Paras, ParasShared, Scheduler, System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 	paras_inherent::DisputedBitfield,
 	shared::AllowedRelayParentsTracker,
 };
-use primitives::{
-	effective_minimum_backing_votes, AvailabilityBitfield, SignedAvailabilityBitfields,
+use polkadot_primitives::{
+	effective_minimum_backing_votes,
+	vstaging::{
+		CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset, CoreSelector,
+		UMPSignal, UMP_SEPARATOR,
+	},
+	AvailabilityBitfield, CandidateDescriptor, SignedAvailabilityBitfields,
 	UncheckedSignedAvailabilityBitfields,
 };
 
 use assert_matches::assert_matches;
+use codec::DecodeAll;
 use frame_support::assert_noop;
-use keyring::Sr25519Keyring;
-use parity_scale_codec::DecodeAll;
-use primitives::{
-	BlockNumber, CandidateCommitments, CandidateDescriptor, CollatorId,
+use polkadot_primitives::{
+	BlockNumber, CandidateCommitments, CollatorId, CollatorSignature,
 	CompactStatement as Statement, Hash, SignedAvailabilityBitfield, SignedStatement,
 	ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID,
 };
+use polkadot_primitives_test_helpers::dummy_validation_code;
 use sc_keystore::LocalKeystore;
+use sp_core::ByteArray;
+use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
-use test_helpers::{dummy_collator, dummy_collator_signature, dummy_validation_code};
 
 fn default_config() -> HostConfiguration<BlockNumber> {
 	let mut config = HostConfiguration::default();
@@ -83,7 +88,7 @@ fn default_allowed_relay_parent_tracker() -> AllowedRelayParentsTracker<Hash, Bl
 	let relay_parent = System::parent_hash();
 	let parent_number = System::block_number().saturating_sub(1);
 
-	allowed.update(relay_parent, Hash::zero(), parent_number, 1);
+	allowed.update(relay_parent, Hash::zero(), Default::default(), parent_number, 1);
 	allowed
 }
 
@@ -93,24 +98,6 @@ pub(crate) enum BackingKind {
 	Unanimous,
 	Threshold,
 	Lacking,
-}
-
-pub(crate) fn collator_sign_candidate(
-	collator: Sr25519Keyring,
-	candidate: &mut CommittedCandidateReceipt,
-) {
-	candidate.descriptor.collator = collator.public().into();
-
-	let payload = primitives::collator_signature_payload(
-		&candidate.descriptor.relay_parent,
-		&candidate.descriptor.para_id,
-		&candidate.descriptor.persisted_validation_data_hash,
-		&candidate.descriptor.pov_hash,
-		&candidate.descriptor.validation_code_hash,
-	);
-
-	candidate.descriptor.signature = collator.sign(&payload[..]).into();
-	assert!(candidate.descriptor().check_collator_signature().is_ok());
 }
 
 pub(crate) fn back_candidate(
@@ -125,7 +112,7 @@ pub(crate) fn back_candidate(
 	let mut validator_indices = bitvec::bitvec![u8, BitOrderLsb0; 0; group.len()];
 	let threshold = effective_minimum_backing_votes(
 		group.len(),
-		configuration::Pallet::<Test>::config().minimum_backing_votes,
+		configuration::ActiveConfig::<Test>::get().minimum_backing_votes,
 	);
 
 	let signing = match kind {
@@ -159,7 +146,7 @@ pub(crate) fn back_candidate(
 	let backed =
 		BackedCandidate::new(candidate, validity_votes, validator_indices.clone(), core_index);
 
-	let successfully_backed = primitives::check_candidate_backing(
+	let successfully_backed = polkadot_primitives::check_candidate_backing(
 		backed.candidate().hash(),
 		backed.validity_votes(),
 		validator_indices.as_bitslice(),
@@ -182,9 +169,9 @@ pub(crate) fn back_candidate(
 pub(crate) fn run_to_block_default_notifications(to: BlockNumber, new_session: Vec<BlockNumber>) {
 	run_to_block(to, |b| {
 		new_session.contains(&b).then_some(SessionChangeNotification {
-			prev_config: Configuration::config(),
-			new_config: Configuration::config(),
-			session_index: ParasShared::session_index() + 1,
+			prev_config: configuration::ActiveConfig::<Test>::get(),
+			new_config: configuration::ActiveConfig::<Test>::get(),
+			session_index: shared::CurrentSessionIndex::<Test>::get() + 1,
 			..Default::default()
 		})
 	});
@@ -224,7 +211,8 @@ pub(crate) fn run_to_block(
 }
 
 pub(crate) fn expected_bits() -> usize {
-	Paras::parachains().len() + Configuration::config().scheduler_params.num_cores as usize
+	paras::Parachains::<Test>::get().len() +
+		configuration::ActiveConfig::<Test>::get().scheduler_params.num_cores as usize
 }
 
 fn default_bitfield() -> AvailabilityBitfield {
@@ -232,11 +220,11 @@ fn default_bitfield() -> AvailabilityBitfield {
 }
 
 fn default_availability_votes() -> BitVec<u8, BitOrderLsb0> {
-	bitvec::bitvec![u8, BitOrderLsb0; 0; ParasShared::active_validator_keys().len()]
+	bitvec::bitvec![u8, BitOrderLsb0; 0; shared::ActiveValidatorKeys::<Test>::get().len()]
 }
 
 fn default_backing_bitfield() -> BitVec<u8, BitOrderLsb0> {
-	bitvec::bitvec![u8, BitOrderLsb0; 0; ParasShared::active_validator_keys().len()]
+	bitvec::bitvec![u8, BitOrderLsb0; 0; shared::ActiveValidatorKeys::<Test>::get().len()]
 }
 
 fn backing_bitfield(v: &[usize]) -> BitVec<u8, BitOrderLsb0> {
@@ -279,6 +267,10 @@ pub(crate) struct TestCandidateBuilder {
 	pub(crate) new_validation_code: Option<ValidationCode>,
 	pub(crate) validation_code: ValidationCode,
 	pub(crate) hrmp_watermark: BlockNumber,
+	/// Creates a v2 descriptor if set.
+	pub(crate) core_index: Option<CoreIndex>,
+	/// The core selector to use.
+	pub(crate) core_selector: Option<u8>,
 }
 
 impl std::default::Default for TestCandidateBuilder {
@@ -294,14 +286,28 @@ impl std::default::Default for TestCandidateBuilder {
 			new_validation_code: None,
 			validation_code: dummy_validation_code(),
 			hrmp_watermark: 0u32.into(),
+			core_index: None,
+			core_selector: None,
 		}
 	}
 }
 
 impl TestCandidateBuilder {
 	pub(crate) fn build(self) -> CommittedCandidateReceipt {
-		CommittedCandidateReceipt {
-			descriptor: CandidateDescriptor {
+		let descriptor = if let Some(core_index) = self.core_index {
+			CandidateDescriptorV2::new(
+				self.para_id,
+				self.relay_parent,
+				core_index,
+				0,
+				self.persisted_validation_data_hash,
+				self.pov_hash,
+				Default::default(),
+				self.para_head_hash.unwrap_or_else(|| self.head_data.hash()),
+				self.validation_code.hash(),
+			)
+		} else {
+			CandidateDescriptor {
 				para_id: self.para_id,
 				pov_hash: self.pov_hash,
 				relay_parent: self.relay_parent,
@@ -309,21 +315,45 @@ impl TestCandidateBuilder {
 				validation_code_hash: self.validation_code.hash(),
 				para_head: self.para_head_hash.unwrap_or_else(|| self.head_data.hash()),
 				erasure_root: Default::default(),
-				signature: dummy_collator_signature(),
-				collator: dummy_collator(),
-			},
+				signature: CollatorSignature::from_slice(
+					&mut (0..64).into_iter().collect::<Vec<_>>().as_slice(),
+				)
+				.expect("64 bytes; qed"),
+				collator: CollatorId::from_slice(
+					&mut (0..32).into_iter().collect::<Vec<_>>().as_slice(),
+				)
+				.expect("32 bytes; qed"),
+			}
+			.into()
+		};
+		let mut ccr = CommittedCandidateReceipt {
+			descriptor,
 			commitments: CandidateCommitments {
 				head_data: self.head_data,
 				new_validation_code: self.new_validation_code,
 				hrmp_watermark: self.hrmp_watermark,
 				..Default::default()
 			},
+		};
+
+		if ccr.descriptor.version() == CandidateDescriptorVersion::V2 {
+			ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
+
+			ccr.commitments.upward_messages.force_push(
+				UMPSignal::SelectCore(
+					CoreSelector(self.core_selector.unwrap_or_default()),
+					ClaimQueueOffset(0),
+				)
+				.encode(),
+			);
 		}
+
+		ccr
 	}
 }
 
 pub(crate) fn make_vdata_hash(para_id: ParaId) -> Option<Hash> {
-	let relay_parent_number = <frame_system::Pallet<Test>>::block_number() - 1;
+	let relay_parent_number = frame_system::Pallet::<Test>::block_number() - 1;
 	make_vdata_hash_with_block_number(para_id, relay_parent_number)
 }
 
@@ -346,8 +376,8 @@ fn simple_sanitize_bitfields(
 	expected_bits: usize,
 ) -> SignedAvailabilityBitfields {
 	let parent_hash = frame_system::Pallet::<Test>::parent_hash();
-	let session_index = shared::Pallet::<Test>::session_index();
-	let validators = shared::Pallet::<Test>::active_validator_keys();
+	let session_index = shared::CurrentSessionIndex::<Test>::get();
+	let validators = shared::ActiveValidatorKeys::<Test>::get();
 
 	crate::paras_inherent::sanitize_bitfields::<Test>(
 		unchecked_bitfields,
@@ -362,12 +392,13 @@ fn simple_sanitize_bitfields(
 pub(crate) fn process_bitfields(
 	signed_bitfields: SignedAvailabilityBitfields,
 ) -> Vec<(CoreIndex, CandidateHash)> {
-	let validators = shared::Pallet::<Test>::active_validator_keys();
+	let validators = shared::ActiveValidatorKeys::<Test>::get();
 
-	ParaInclusion::update_pending_availability_and_get_freed_cores(
+	let (_weight, bitfields) = ParaInclusion::update_pending_availability_and_get_freed_cores(
 		&validators[..],
 		signed_bitfields,
-	)
+	);
+	bitfields
 }
 
 #[test]
@@ -412,12 +443,12 @@ fn free_timedout() {
 			}
 		};
 
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			chain_a,
 			[make_candidate(0, true)].into_iter().collect::<VecDeque<_>>(),
 		);
 
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			&chain_b,
 			[make_candidate(1, false)].into_iter().collect::<VecDeque<_>>(),
 		);
@@ -427,14 +458,14 @@ fn free_timedout() {
 		c_candidates.push_back(make_candidate(2, true));
 		c_candidates.push_back(make_candidate(3, false));
 
-		<PendingAvailability<Test>>::insert(&chain_c, c_candidates);
+		PendingAvailability::<Test>::insert(&chain_c, c_candidates);
 
 		// 2 chained candidates. All are timed out.
 		let mut d_candidates = VecDeque::new();
 		d_candidates.push_back(make_candidate(4, true));
 		d_candidates.push_back(make_candidate(5, true));
 
-		<PendingAvailability<Test>>::insert(&chain_d, d_candidates);
+		PendingAvailability::<Test>::insert(&chain_d, d_candidates);
 
 		// 3 chained candidates. The second one is timed out. The first one will remain in place.
 		// With the current time out predicate this scenario is impossible. But this is not a
@@ -444,7 +475,7 @@ fn free_timedout() {
 		e_candidates.push_back(make_candidate(7, true));
 		e_candidates.push_back(make_candidate(8, false));
 
-		<PendingAvailability<Test>>::insert(&chain_e, e_candidates);
+		PendingAvailability::<Test>::insert(&chain_e, e_candidates);
 
 		// 3 chained candidates, none are timed out.
 		let mut f_candidates = VecDeque::new();
@@ -452,16 +483,16 @@ fn free_timedout() {
 		f_candidates.push_back(make_candidate(10, false));
 		f_candidates.push_back(make_candidate(11, false));
 
-		<PendingAvailability<Test>>::insert(&chain_f, f_candidates);
+		PendingAvailability::<Test>::insert(&chain_f, f_candidates);
 
 		run_to_block(5, |_| None);
 
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_a).unwrap().len(), 1);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_b).unwrap().len(), 1);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_c).unwrap().len(), 2);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_d).unwrap().len(), 2);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_e).unwrap().len(), 3);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_f).unwrap().len(), 3);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_a).unwrap().len(), 1);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_b).unwrap().len(), 1);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_c).unwrap().len(), 2);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_d).unwrap().len(), 2);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_e).unwrap().len(), 3);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_f).unwrap().len(), 3);
 
 		let timed_out_cores = ParaInclusion::free_timedout();
 
@@ -478,12 +509,12 @@ fn free_timedout() {
 			]
 		);
 
-		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_b).unwrap().len(), 1);
-		assert!(<PendingAvailability<Test>>::get(&chain_c).unwrap().is_empty());
-		assert!(<PendingAvailability<Test>>::get(&chain_d).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_a).unwrap().is_empty());
+		assert_eq!(PendingAvailability::<Test>::get(&chain_b).unwrap().len(), 1);
+		assert!(PendingAvailability::<Test>::get(&chain_c).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_d).unwrap().is_empty());
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_e)
+			PendingAvailability::<Test>::get(&chain_e)
 				.unwrap()
 				.into_iter()
 				.map(|c| c.core)
@@ -491,7 +522,7 @@ fn free_timedout() {
 			vec![CoreIndex(6)]
 		);
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_f)
+			PendingAvailability::<Test>::get(&chain_f)
 				.unwrap()
 				.into_iter()
 				.map(|c| c.core)
@@ -548,13 +579,13 @@ fn free_disputed() {
 		};
 
 		// Disputed
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			chain_a,
 			[make_candidate(0)].into_iter().collect::<VecDeque<_>>(),
 		);
 
 		// Not disputed.
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			&chain_b,
 			[make_candidate(1)].into_iter().collect::<VecDeque<_>>(),
 		);
@@ -564,14 +595,14 @@ fn free_disputed() {
 		c_candidates.push_back(make_candidate(2));
 		c_candidates.push_back(make_candidate(3));
 
-		<PendingAvailability<Test>>::insert(&chain_c, c_candidates);
+		PendingAvailability::<Test>::insert(&chain_c, c_candidates);
 
 		// 2 chained candidates. All are disputed.
 		let mut d_candidates = VecDeque::new();
 		d_candidates.push_back(make_candidate(4));
 		d_candidates.push_back(make_candidate(5));
 
-		<PendingAvailability<Test>>::insert(&chain_d, d_candidates);
+		PendingAvailability::<Test>::insert(&chain_d, d_candidates);
 
 		// 3 chained candidates. The second one is disputed. The first one will remain in place.
 		let mut e_candidates = VecDeque::new();
@@ -579,7 +610,7 @@ fn free_disputed() {
 		e_candidates.push_back(make_candidate(7));
 		e_candidates.push_back(make_candidate(8));
 
-		<PendingAvailability<Test>>::insert(&chain_e, e_candidates);
+		PendingAvailability::<Test>::insert(&chain_e, e_candidates);
 
 		// 3 chained candidates, none are disputed.
 		let mut f_candidates = VecDeque::new();
@@ -587,16 +618,16 @@ fn free_disputed() {
 		f_candidates.push_back(make_candidate(10));
 		f_candidates.push_back(make_candidate(11));
 
-		<PendingAvailability<Test>>::insert(&chain_f, f_candidates);
+		PendingAvailability::<Test>::insert(&chain_f, f_candidates);
 
 		run_to_block(5, |_| None);
 
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_a).unwrap().len(), 1);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_b).unwrap().len(), 1);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_c).unwrap().len(), 2);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_d).unwrap().len(), 2);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_e).unwrap().len(), 3);
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_f).unwrap().len(), 3);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_a).unwrap().len(), 1);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_b).unwrap().len(), 1);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_c).unwrap().len(), 2);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_d).unwrap().len(), 2);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_e).unwrap().len(), 3);
+		assert_eq!(PendingAvailability::<Test>::get(&chain_f).unwrap().len(), 3);
 
 		let disputed_candidates = [
 			CandidateHash(Hash::from_low_u64_be(0)),
@@ -622,12 +653,12 @@ fn free_disputed() {
 			]
 		);
 
-		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
-		assert_eq!(<PendingAvailability<Test>>::get(&chain_b).unwrap().len(), 1);
-		assert!(<PendingAvailability<Test>>::get(&chain_c).unwrap().is_empty());
-		assert!(<PendingAvailability<Test>>::get(&chain_d).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_a).unwrap().is_empty());
+		assert_eq!(PendingAvailability::<Test>::get(&chain_b).unwrap().len(), 1);
+		assert!(PendingAvailability::<Test>::get(&chain_c).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_d).unwrap().is_empty());
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_e)
+			PendingAvailability::<Test>::get(&chain_e)
 				.unwrap()
 				.into_iter()
 				.map(|c| c.core)
@@ -635,7 +666,7 @@ fn free_disputed() {
 			vec![CoreIndex(6)]
 		);
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_f)
+			PendingAvailability::<Test>::get(&chain_f)
 				.unwrap()
 				.into_iter()
 				.map(|c| c.core)
@@ -779,7 +810,7 @@ fn bitfield_checks() {
 			let mut bare_bitfield = default_bitfield();
 
 			let default_candidate = TestCandidateBuilder::default().build();
-			<PendingAvailability<Test>>::insert(
+			PendingAvailability::<Test>::insert(
 				chain_a,
 				[CandidatePendingAvailability {
 					core: CoreIndex::from(0),
@@ -815,7 +846,7 @@ fn bitfield_checks() {
 			let x = process_bitfields(checked_bitfields);
 			assert!(x.is_empty(), "No core should be freed.");
 
-			<PendingAvailability<Test>>::remove(chain_a);
+			PendingAvailability::<Test>::remove(chain_a);
 		}
 	});
 }
@@ -877,7 +908,7 @@ fn supermajority_bitfields_trigger_availability() {
 		}
 		.build();
 
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			chain_a,
 			[CandidatePendingAvailability {
 				core: CoreIndex::from(0),
@@ -902,7 +933,7 @@ fn supermajority_bitfields_trigger_availability() {
 		}
 		.build();
 
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			chain_b,
 			[CandidatePendingAvailability {
 				core: CoreIndex::from(1),
@@ -975,7 +1006,7 @@ fn supermajority_bitfields_trigger_availability() {
 			commitments: candidate_c_3.commitments.clone(),
 		});
 
-		<PendingAvailability<Test>>::insert(chain_c, c_candidates);
+		PendingAvailability::<Test>::insert(chain_c, c_candidates);
 
 		// this bitfield signals that a and b are available.
 		let all_available = {
@@ -1048,24 +1079,24 @@ fn supermajority_bitfields_trigger_availability() {
 			votes
 		};
 
-		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_a).unwrap().is_empty());
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_b)
+			PendingAvailability::<Test>::get(&chain_b)
 				.unwrap()
 				.pop_front()
 				.unwrap()
 				.availability_votes,
 			votes(&[0, 1, 2, 3])
 		);
-		let mut pending_c = <PendingAvailability<Test>>::get(&chain_c).unwrap();
+		let mut pending_c = PendingAvailability::<Test>::get(&chain_c).unwrap();
 		assert_eq!(pending_c.pop_front().unwrap().availability_votes, votes(&[0, 1, 2, 3]));
 		assert_eq!(pending_c.pop_front().unwrap().availability_votes, votes(&[0, 1, 2, 3, 4]));
 		assert!(pending_c.is_empty());
 
 		// and check that chain heads.
-		assert_eq!(Paras::para_head(&chain_a), Some(vec![1, 2, 3, 4].into()));
-		assert_ne!(Paras::para_head(&chain_b), Some(vec![5, 6, 7, 8].into()));
-		assert_eq!(Paras::para_head(&chain_c), Some(vec![7, 8].into()));
+		assert_eq!(paras::Heads::<Test>::get(&chain_a), Some(vec![1, 2, 3, 4].into()));
+		assert_ne!(paras::Heads::<Test>::get(&chain_b), Some(vec![5, 6, 7, 8].into()));
+		assert_eq!(paras::Heads::<Test>::get(&chain_c), Some(vec![7, 8].into()));
 
 		// Check that rewards are applied.
 		{
@@ -1117,21 +1148,21 @@ fn supermajority_bitfields_trigger_availability() {
 			v
 		);
 
-		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_a).unwrap().is_empty());
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_b)
+			PendingAvailability::<Test>::get(&chain_b)
 				.unwrap()
 				.pop_front()
 				.unwrap()
 				.availability_votes,
 			votes(&[0, 1, 2, 3])
 		);
-		assert!(<PendingAvailability<Test>>::get(&chain_c).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_c).unwrap().is_empty());
 
 		// and check that chain heads.
-		assert_eq!(Paras::para_head(&chain_a), Some(vec![1, 2, 3, 4].into()));
-		assert_ne!(Paras::para_head(&chain_b), Some(vec![5, 6, 7, 8].into()));
-		assert_eq!(Paras::para_head(&chain_c), Some(vec![11, 12].into()));
+		assert_eq!(paras::Heads::<Test>::get(&chain_a), Some(vec![1, 2, 3, 4].into()));
+		assert_ne!(paras::Heads::<Test>::get(&chain_b), Some(vec![5, 6, 7, 8].into()));
+		assert_eq!(paras::Heads::<Test>::get(&chain_c), Some(vec![11, 12].into()));
 
 		// Check that rewards are applied.
 		{
@@ -1236,12 +1267,12 @@ fn candidate_checks() {
 				&group_validators,
 				false
 			),
-			Ok(ProcessedCandidates::default())
+			Ok(Default::default())
 		);
 
 		// Check candidate ordering
 		{
-			let mut candidate_a = TestCandidateBuilder {
+			let candidate_a = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1250,7 +1281,7 @@ fn candidate_checks() {
 				..Default::default()
 			}
 			.build();
-			let mut candidate_b_1 = TestCandidateBuilder {
+			let candidate_b_1 = TestCandidateBuilder {
 				para_id: chain_b,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(2),
@@ -1262,7 +1293,7 @@ fn candidate_checks() {
 			.build();
 
 			// Make candidate b2 a child of b1.
-			let mut candidate_b_2 = TestCandidateBuilder {
+			let candidate_b_2 = TestCandidateBuilder {
 				para_id: chain_b,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(3),
@@ -1277,10 +1308,6 @@ fn candidate_checks() {
 				..Default::default()
 			}
 			.build();
-
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate_a);
-			collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_b_1);
-			collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_b_2);
 
 			let backed_a = back_candidate(
 				candidate_a,
@@ -1353,7 +1380,7 @@ fn candidate_checks() {
 
 			// candidate does not build on top of the latest unincluded head
 
-			let mut candidate_b_3 = TestCandidateBuilder {
+			let candidate_b_3 = TestCandidateBuilder {
 				para_id: chain_b,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(4),
@@ -1368,7 +1395,6 @@ fn candidate_checks() {
 				..Default::default()
 			}
 			.build();
-			collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_b_3);
 
 			let backed_b_3 = back_candidate(
 				candidate_b_3,
@@ -1393,7 +1419,7 @@ fn candidate_checks() {
 
 		// candidate not backed.
 		{
-			let mut candidate = TestCandidateBuilder {
+			let candidate = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1402,7 +1428,6 @@ fn candidate_checks() {
 				..Default::default()
 			}
 			.build();
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 			// Insufficient backing.
 			let backed = back_candidate(
@@ -1456,7 +1481,7 @@ fn candidate_checks() {
 			let wrong_parent_hash = Hash::repeat_byte(222);
 			assert!(System::parent_hash() != wrong_parent_hash);
 
-			let mut candidate_a = TestCandidateBuilder {
+			let candidate_a = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: wrong_parent_hash,
 				pov_hash: Hash::repeat_byte(1),
@@ -1465,7 +1490,7 @@ fn candidate_checks() {
 			}
 			.build();
 
-			let mut candidate_b = TestCandidateBuilder {
+			let candidate_b = TestCandidateBuilder {
 				para_id: chain_b,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(2),
@@ -1474,10 +1499,6 @@ fn candidate_checks() {
 				..Default::default()
 			}
 			.build();
-
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate_a);
-
-			collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_b);
 
 			let backed_a = back_candidate(
 				candidate_a,
@@ -1528,10 +1549,9 @@ fn candidate_checks() {
 			.build();
 
 			assert_eq!(CollatorId::from(Sr25519Keyring::Two.public()), thread_collator);
-			collator_sign_candidate(Sr25519Keyring::Two, &mut candidate);
 
 			// change the candidate after signing.
-			candidate.descriptor.pov_hash = Hash::repeat_byte(2);
+			candidate.descriptor.set_pov_hash(Hash::repeat_byte(2));
 
 			let backed = back_candidate(
 				candidate,
@@ -1543,22 +1563,54 @@ fn candidate_checks() {
 				None,
 			);
 
-			assert_noop!(
+			let candidate_receipt_with_backing_validator_indices =
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
-					&vec![(thread_a_assignment.0, vec![(backed, thread_a_assignment.1)])]
+					&vec![(thread_a_assignment.0, vec![(backed.clone(), thread_a_assignment.1)])]
 						.into_iter()
 						.collect(),
 					&group_validators,
-					false
-				),
-				Error::<Test>::NotCollatorSigned
+					false,
+				)
+				.expect("candidate is accepted with bad collator signature");
+
+			let mut expected = std::collections::HashMap::<
+				CandidateHash,
+				(CandidateReceipt, Vec<(ValidatorIndex, ValidityAttestation)>),
+			>::new();
+			let backed_candidate = backed;
+			let candidate_receipt_with_backers = expected
+				.entry(backed_candidate.hash())
+				.or_insert_with(|| (backed_candidate.receipt(), Vec::new()));
+			let (validator_indices, _maybe_core_index) =
+				backed_candidate.validator_indices_and_core_index(true);
+			assert_eq!(backed_candidate.validity_votes().len(), validator_indices.count_ones());
+			candidate_receipt_with_backers.1.extend(
+				validator_indices
+					.iter()
+					.enumerate()
+					.filter(|(_, signed)| **signed)
+					.zip(backed_candidate.validity_votes().iter().cloned())
+					.filter_map(|((validator_index_within_group, _), attestation)| {
+						let grp_idx = GroupIndex(2);
+						group_validators(grp_idx).map(|validator_indices| {
+							(validator_indices[validator_index_within_group], attestation)
+						})
+					}),
+			);
+
+			assert_eq!(
+				expected,
+				candidate_receipt_with_backing_validator_indices
+					.into_iter()
+					.map(|c| (c.0.hash(), c))
+					.collect()
 			);
 		}
 
 		// interfering code upgrade - reject
 		{
-			let mut candidate = TestCandidateBuilder {
+			let candidate = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1568,8 +1620,6 @@ fn candidate_checks() {
 				..Default::default()
 			}
 			.build();
-
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 			let backed = back_candidate(
 				candidate,
@@ -1582,7 +1632,7 @@ fn candidate_checks() {
 			);
 
 			{
-				let cfg = Configuration::config();
+				let cfg = configuration::ActiveConfig::<Test>::get();
 				let expected_at = 10 + cfg.validation_upgrade_delay;
 				assert_eq!(expected_at, 12);
 				Paras::schedule_code_upgrade(
@@ -1590,7 +1640,7 @@ fn candidate_checks() {
 					vec![9, 8, 7, 6, 5, 4, 3, 2, 1].into(),
 					expected_at,
 					&cfg,
-					SetGoAhead::Yes,
+					UpgradeStrategy::SetGoAheadSignal,
 				);
 			}
 
@@ -1609,7 +1659,7 @@ fn candidate_checks() {
 
 		// Bad validation data hash - reject
 		{
-			let mut candidate = TestCandidateBuilder {
+			let candidate = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1618,8 +1668,6 @@ fn candidate_checks() {
 				..Default::default()
 			}
 			.build();
-
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 			let backed = back_candidate(
 				candidate,
@@ -1646,7 +1694,7 @@ fn candidate_checks() {
 
 		// bad validation code hash
 		{
-			let mut candidate = TestCandidateBuilder {
+			let candidate = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1656,8 +1704,6 @@ fn candidate_checks() {
 				..Default::default()
 			}
 			.build();
-
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 			let backed = back_candidate(
 				candidate,
@@ -1684,7 +1730,7 @@ fn candidate_checks() {
 
 		// Para head hash in descriptor doesn't match head data
 		{
-			let mut candidate = TestCandidateBuilder {
+			let candidate = TestCandidateBuilder {
 				para_id: chain_a,
 				relay_parent: System::parent_hash(),
 				pov_hash: Hash::repeat_byte(1),
@@ -1694,8 +1740,6 @@ fn candidate_checks() {
 				..Default::default()
 			}
 			.build();
-
-			collator_sign_candidate(Sr25519Keyring::One, &mut candidate);
 
 			let backed = back_candidate(
 				candidate,
@@ -1787,7 +1831,7 @@ fn backing_works() {
 		let chain_b_assignment = (chain_b, CoreIndex::from(1));
 		let thread_a_assignment = (thread_a, CoreIndex::from(2));
 
-		let mut candidate_a = TestCandidateBuilder {
+		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(1),
@@ -1796,9 +1840,8 @@ fn backing_works() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_a);
 
-		let mut candidate_b = TestCandidateBuilder {
+		let candidate_b = TestCandidateBuilder {
 			para_id: chain_b,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(2),
@@ -1807,9 +1850,8 @@ fn backing_works() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_b);
 
-		let mut candidate_c = TestCandidateBuilder {
+		let candidate_c = TestCandidateBuilder {
 			para_id: thread_a,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(3),
@@ -1818,7 +1860,6 @@ fn backing_works() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_c);
 
 		let backed_a = back_candidate(
 			candidate_a.clone(),
@@ -1879,25 +1920,13 @@ fn backing_works() {
 			}
 		};
 
-		let ProcessedCandidates {
-			core_indices: occupied_cores,
-			candidate_receipt_with_backing_validator_indices,
-		} = ParaInclusion::process_candidates(
+		let candidate_receipt_with_backing_validator_indices = ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
 			false,
 		)
 		.expect("candidates scheduled, in order, and backed");
-
-		assert_eq!(
-			occupied_cores,
-			vec![
-				(CoreIndex::from(0), chain_a),
-				(CoreIndex::from(1), chain_b),
-				(CoreIndex::from(2), thread_a)
-			]
-		);
 
 		// Transform the votes into the setup we expect
 		let expected = {
@@ -1939,7 +1968,7 @@ fn backing_works() {
 			Vec<(ValidatorIndex, ValidityAttestation)>,
 		)>| {
 			candidate_receipts_with_backers.sort_by(|(cr1, _), (cr2, _)| {
-				cr1.descriptor().para_id.cmp(&cr2.descriptor().para_id)
+				cr1.descriptor().para_id().cmp(&cr2.descriptor().para_id())
 			});
 			candidate_receipts_with_backers
 		};
@@ -1951,12 +1980,12 @@ fn backing_works() {
 		let backers = {
 			let num_backers = effective_minimum_backing_votes(
 				group_validators(GroupIndex(0)).unwrap().len(),
-				configuration::Pallet::<Test>::config().minimum_backing_votes,
+				configuration::ActiveConfig::<Test>::get().minimum_backing_votes,
 			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_a),
+			PendingAvailability::<Test>::get(&chain_a),
 			Some(
 				[CandidatePendingAvailability {
 					core: CoreIndex::from(0),
@@ -1977,12 +2006,12 @@ fn backing_works() {
 		let backers = {
 			let num_backers = effective_minimum_backing_votes(
 				group_validators(GroupIndex(0)).unwrap().len(),
-				configuration::Pallet::<Test>::config().minimum_backing_votes,
+				configuration::ActiveConfig::<Test>::get().minimum_backing_votes,
 			);
 			backing_bitfield(&(0..num_backers).map(|v| v + 2).collect::<Vec<_>>())
 		};
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_b),
+			PendingAvailability::<Test>::get(&chain_b),
 			Some(
 				[CandidatePendingAvailability {
 					core: CoreIndex::from(1),
@@ -2001,7 +2030,7 @@ fn backing_works() {
 		);
 
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&thread_a),
+			PendingAvailability::<Test>::get(&thread_a),
 			Some(
 				[CandidatePendingAvailability {
 					core: CoreIndex::from(2),
@@ -2082,7 +2111,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 
-		let mut candidate_a = TestCandidateBuilder {
+		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(1),
@@ -2091,9 +2120,8 @@ fn backing_works_with_elastic_scaling_mvp() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_a);
 
-		let mut candidate_b_1 = TestCandidateBuilder {
+		let candidate_b_1 = TestCandidateBuilder {
 			para_id: chain_b,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(2),
@@ -2102,10 +2130,9 @@ fn backing_works_with_elastic_scaling_mvp() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_b_1);
 
 		// Make candidate b2 a child of b1.
-		let mut candidate_b_2 = TestCandidateBuilder {
+		let candidate_b_2 = TestCandidateBuilder {
 			para_id: chain_b,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(3),
@@ -2119,7 +2146,6 @@ fn backing_works_with_elastic_scaling_mvp() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_b_2);
 
 		let backed_a = back_candidate(
 			candidate_a.clone(),
@@ -2182,26 +2208,13 @@ fn backing_works_with_elastic_scaling_mvp() {
 			}
 		};
 
-		let ProcessedCandidates {
-			core_indices: occupied_cores,
-			candidate_receipt_with_backing_validator_indices,
-		} = ParaInclusion::process_candidates(
+		let candidate_receipt_with_backing_validator_indices = ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			&backed_candidates,
 			&group_validators,
 			true,
 		)
 		.expect("candidates scheduled, in order, and backed");
-
-		// Both b candidates will be backed.
-		assert_eq!(
-			occupied_cores,
-			vec![
-				(CoreIndex::from(0), chain_a),
-				(CoreIndex::from(1), chain_b),
-				(CoreIndex::from(2), chain_b),
-			]
-		);
 
 		// Transform the votes into the setup we expect
 		let mut expected = std::collections::HashMap::<
@@ -2244,12 +2257,12 @@ fn backing_works_with_elastic_scaling_mvp() {
 		let backers = {
 			let num_backers = effective_minimum_backing_votes(
 				group_validators(GroupIndex(0)).unwrap().len(),
-				configuration::Pallet::<Test>::config().minimum_backing_votes,
+				configuration::ActiveConfig::<Test>::get().minimum_backing_votes,
 			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_a),
+			PendingAvailability::<Test>::get(&chain_a),
 			Some(
 				[CandidatePendingAvailability {
 					core: CoreIndex::from(0),
@@ -2269,7 +2282,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 
 		// Both candidates of b will be recorded on chain.
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_b),
+			PendingAvailability::<Test>::get(&chain_b),
 			Some(
 				[
 					CandidatePendingAvailability {
@@ -2357,7 +2370,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 		let chain_a_assignment = (chain_a, CoreIndex::from(0));
-		let mut candidate_a = TestCandidateBuilder {
+		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(1),
@@ -2367,7 +2380,6 @@ fn can_include_candidate_with_ok_code_upgrade() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_a);
 
 		let backed_a = back_candidate(
 			candidate_a.clone(),
@@ -2379,28 +2391,25 @@ fn can_include_candidate_with_ok_code_upgrade() {
 			None,
 		);
 
-		let ProcessedCandidates { core_indices: occupied_cores, .. } =
-			ParaInclusion::process_candidates(
-				&allowed_relay_parents,
-				&vec![(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])]
-					.into_iter()
-					.collect::<BTreeMap<_, _>>(),
-				group_validators,
-				false,
-			)
-			.expect("candidates scheduled, in order, and backed");
-
-		assert_eq!(occupied_cores, vec![(CoreIndex::from(0), chain_a)]);
+		let _ = ParaInclusion::process_candidates(
+			&allowed_relay_parents,
+			&vec![(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])]
+				.into_iter()
+				.collect::<BTreeMap<_, _>>(),
+			group_validators,
+			false,
+		)
+		.expect("candidates scheduled, in order, and backed");
 
 		let backers = {
 			let num_backers = effective_minimum_backing_votes(
 				group_validators(GroupIndex(0)).unwrap().len(),
-				configuration::Pallet::<Test>::config().minimum_backing_votes,
+				configuration::ActiveConfig::<Test>::get().minimum_backing_votes,
 			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};
 		assert_eq!(
-			<PendingAvailability<Test>>::get(&chain_a),
+			PendingAvailability::<Test>::get(&chain_a),
 			Some(
 				[CandidatePendingAvailability {
 					core: CoreIndex::from(0),
@@ -2496,18 +2505,21 @@ fn check_allowed_relay_parents() {
 		allowed_relay_parents.update(
 			relay_parent_a.1,
 			Hash::zero(),
+			Default::default(),
 			relay_parent_a.0,
 			max_ancestry_len,
 		);
 		allowed_relay_parents.update(
 			relay_parent_b.1,
 			Hash::zero(),
+			Default::default(),
 			relay_parent_b.0,
 			max_ancestry_len,
 		);
 		allowed_relay_parents.update(
 			relay_parent_c.1,
 			Hash::zero(),
+			Default::default(),
 			relay_parent_c.0,
 			max_ancestry_len,
 		);
@@ -2517,7 +2529,7 @@ fn check_allowed_relay_parents() {
 		let chain_b_assignment = (chain_b, CoreIndex::from(1));
 		let thread_a_assignment = (thread_a, CoreIndex::from(2));
 
-		let mut candidate_a = TestCandidateBuilder {
+		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: relay_parent_a.1,
 			pov_hash: Hash::repeat_byte(1),
@@ -2530,10 +2542,9 @@ fn check_allowed_relay_parents() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_a);
 		let signing_context_a = SigningContext { parent_hash: relay_parent_a.1, session_index: 5 };
 
-		let mut candidate_b = TestCandidateBuilder {
+		let candidate_b = TestCandidateBuilder {
 			para_id: chain_b,
 			relay_parent: relay_parent_b.1,
 			pov_hash: Hash::repeat_byte(2),
@@ -2546,10 +2557,9 @@ fn check_allowed_relay_parents() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_b);
 		let signing_context_b = SigningContext { parent_hash: relay_parent_b.1, session_index: 5 };
 
-		let mut candidate_c = TestCandidateBuilder {
+		let candidate_c = TestCandidateBuilder {
 			para_id: thread_a,
 			relay_parent: relay_parent_c.1,
 			pov_hash: Hash::repeat_byte(3),
@@ -2562,7 +2572,6 @@ fn check_allowed_relay_parents() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::Two, &mut candidate_c);
 		let signing_context_c = SigningContext { parent_hash: relay_parent_c.1, session_index: 5 };
 
 		let backed_a = back_candidate(
@@ -2654,7 +2663,7 @@ fn session_change_wipes() {
 		run_to_block(10, |_| None);
 
 		let candidate = TestCandidateBuilder::default().build();
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			&chain_a,
 			[CandidatePendingAvailability {
 				core: CoreIndex::from(0),
@@ -2671,7 +2680,7 @@ fn session_change_wipes() {
 			.collect::<VecDeque<_>>(),
 		);
 
-		<PendingAvailability<Test>>::insert(
+		PendingAvailability::<Test>::insert(
 			&chain_b,
 			[CandidatePendingAvailability {
 				core: CoreIndex::from(1),
@@ -2690,10 +2699,10 @@ fn session_change_wipes() {
 
 		run_to_block(11, |_| None);
 
-		assert_eq!(shared::Pallet::<Test>::session_index(), 5);
+		assert_eq!(shared::CurrentSessionIndex::<Test>::get(), 5);
 
-		assert!(<PendingAvailability<Test>>::get(&chain_a).is_some());
-		assert!(<PendingAvailability<Test>>::get(&chain_b).is_some());
+		assert!(PendingAvailability::<Test>::get(&chain_a).is_some());
+		assert!(PendingAvailability::<Test>::get(&chain_b).is_some());
 
 		run_to_block(12, |n| match n {
 			12 => Some(SessionChangeNotification {
@@ -2707,9 +2716,9 @@ fn session_change_wipes() {
 			_ => None,
 		});
 
-		assert_eq!(shared::Pallet::<Test>::session_index(), 6);
+		assert_eq!(shared::CurrentSessionIndex::<Test>::get(), 6);
 
-		assert!(<PendingAvailability<Test>>::iter().collect::<Vec<_>>().is_empty());
+		assert!(PendingAvailability::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
 }
 
@@ -2784,7 +2793,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 
 		let chain_a_assignment = (chain_a, CoreIndex::from(0));
-		let mut candidate_a = TestCandidateBuilder {
+		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: System::parent_hash(),
 			pov_hash: Hash::repeat_byte(1),
@@ -2794,7 +2803,6 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 			..Default::default()
 		}
 		.build();
-		collator_sign_candidate(Sr25519Keyring::One, &mut candidate_a);
 
 		let backed_a = back_candidate(
 			candidate_a.clone(),
@@ -2806,7 +2814,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 			None,
 		);
 
-		let ProcessedCandidates { core_indices: occupied_cores, .. } =
+		let _ =
 			ParaInclusion::process_candidates(
 				&allowed_relay_parents,
 				&vec![(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])]
@@ -2816,8 +2824,6 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 				false,
 			)
 			.expect("candidates scheduled, in order, and backed");
-
-		assert_eq!(occupied_cores, vec![(CoreIndex::from(0), chain_a)]);
 
 		// Run a couple of blocks before the inclusion.
 		run_to_block(7, |_| None);
@@ -2849,7 +2855,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		let v = process_bitfields(checked_bitfields);
 		assert_eq!(vec![(CoreIndex(0), candidate_a.hash())], v);
 
-		assert!(<PendingAvailability<Test>>::get(&chain_a).unwrap().is_empty());
+		assert!(PendingAvailability::<Test>::get(&chain_a).unwrap().is_empty());
 
 		let active_vote_state = paras::Pallet::<Test>::active_vote_state(&new_validation_code_hash)
 			.expect("prechecking must be initiated");
@@ -2857,7 +2863,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		let cause = &active_vote_state.causes()[0];
 		// Upgrade block is the block of inclusion, not candidate's parent.
 		assert_matches!(cause,
-			paras::PvfCheckCause::Upgrade { id, included_at, set_go_ahead: SetGoAhead::Yes }
+			paras::PvfCheckCause::Upgrade { id, included_at, upgrade_strategy: UpgradeStrategy::SetGoAheadSignal }
 				if id == &chain_a && included_at == &7
 		);
 	});

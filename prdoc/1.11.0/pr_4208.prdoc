@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fixed GrandpaConsensusLogReader::find_scheduled_change
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR fixes the issue with authorities set change digest item search
+      in the bridges code. The issue happens when there are multiple consensus
+      digest items in the same header digest.
+
+crates:
+ - name: bp-header-chain

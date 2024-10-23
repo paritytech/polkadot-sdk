@@ -1,0 +1,53 @@
+Description: Validators preserve backwards compatibility with peers speaking an older version of the /req_chunk protocol
+Network: ./0014-chunk-fetching-network-compatibility.toml
+Creds: config
+
+# Check authority status.
+new: reports node_roles is 4
+old: reports node_roles is 4
+
+# Ensure parachains are registered.
+new: parachain 2000 is registered within 60 seconds
+old: parachain 2000 is registered within 60 seconds
+old: parachain 2001 is registered within 60 seconds
+new: parachain 2001 is registered within 60 seconds
+
+# Ensure parachains made progress and approval checking works.
+new: parachain 2000 block height is at least 15 within 600 seconds
+old: parachain 2000 block height is at least 15 within 600 seconds
+new: parachain 2001 block height is at least 15 within 600 seconds
+old: parachain 2001 block height is at least 15 within 600 seconds
+
+new: reports substrate_block_height{status="finalized"} is at least 30 within 400 seconds
+old: reports substrate_block_height{status="finalized"} is at least 30 within 400 seconds
+
+new: reports polkadot_parachain_approval_checking_finality_lag < 3
+old: reports polkadot_parachain_approval_checking_finality_lag < 3
+
+new: reports polkadot_parachain_approvals_no_shows_total < 3 within 10 seconds
+old: reports polkadot_parachain_approvals_no_shows_total < 3 within 10 seconds
+
+# Ensure that there are no failed recoveries.
+new: count of log lines containing "Data recovery from chunks complete" is at least 10 within 300 seconds
+old: count of log lines containing "Data recovery from chunks complete" is at least 10 within 300 seconds
+new: count of log lines containing "Data recovery from chunks is not possible" is 0 within 10 seconds
+old: count of log lines containing "Data recovery from chunks is not possible" is 0 within 10 seconds
+new: reports polkadot_parachain_availability_recovery_recoveries_finished{result="failure"} is 0 within 10 seconds
+old: reports polkadot_parachain_availability_recovery_recoveries_finished{result="failure"} is 0 within 10 seconds
+
+# Ensure we used the fallback network request.
+new: log line contains "Trying the fallback protocol" within 100 seconds
+
+# Ensure systematic recovery was not used.
+old: count of log lines containing "Data recovery from systematic chunks complete" is 0 within 10 seconds
+new: count of log lines containing "Data recovery from systematic chunks complete" is 0 within 10 seconds
+
+# Ensure availability-distribution worked fine
+new: reports polkadot_parachain_fetched_chunks_total{success="succeeded"} is at least 10 within 400 seconds
+old: reports polkadot_parachain_fetched_chunks_total{success="succeeded"} is at least 10 within 400 seconds
+
+new: reports polkadot_parachain_fetched_chunks_total{success="failed"} is 0 within 10 seconds
+old: reports polkadot_parachain_fetched_chunks_total{success="failed"} is 0 within 10 seconds
+
+new: reports polkadot_parachain_fetched_chunks_total{success="not-found"} is 0 within 10 seconds
+old: reports polkadot_parachain_fetched_chunks_total{success="not-found"} is 0 within 10 seconds

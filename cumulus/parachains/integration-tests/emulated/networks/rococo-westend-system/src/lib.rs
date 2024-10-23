@@ -25,7 +25,7 @@ use asset_hub_rococo_emulated_chain::AssetHubRococo;
 use asset_hub_westend_emulated_chain::AssetHubWestend;
 use bridge_hub_rococo_emulated_chain::BridgeHubRococo;
 use bridge_hub_westend_emulated_chain::BridgeHubWestend;
-use penpal_emulated_chain::PenpalA;
+use penpal_emulated_chain::{PenpalA, PenpalB};
 use rococo_emulated_chain::Rococo;
 use westend_emulated_chain::Westend;
 
@@ -48,13 +48,13 @@ decl_test_networks! {
 			PenpalA,
 		],
 		bridge = RococoWestendMockBridge
-
 	},
 	pub struct WestendMockNet {
 		relay_chain = Westend,
 		parachains = vec![
 			AssetHubWestend,
 			BridgeHubWestend,
+			PenpalB,
 		],
 		bridge = WestendRococoMockBridge
 	},
@@ -96,5 +96,6 @@ decl_test_sender_receiver_accounts_parameter_types! {
 	WestendRelay { sender: ALICE, receiver: BOB },
 	AssetHubWestendPara { sender: ALICE, receiver: BOB },
 	BridgeHubWestendPara { sender: ALICE, receiver: BOB },
-	PenpalAPara { sender: ALICE, receiver: BOB }
+	PenpalAPara { sender: ALICE, receiver: BOB },
+	PenpalBPara { sender: ALICE, receiver: BOB }
 }
