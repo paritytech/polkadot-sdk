@@ -227,15 +227,6 @@ pub enum SendError {
 }
 
 pub trait GasMeter {
-	/// All the gas used for submitting a message to Ethereum, minus the cost of dispatching
-	/// the command within the message
-	const MAXIMUM_BASE_GAS: u64;
-
-	/// Total gas consumed at most, including verification & dispatch
-	fn maximum_gas_used_at_most(command: &Command) -> u64 {
-		Self::MAXIMUM_BASE_GAS + Self::maximum_dispatch_gas_used_at_most(command)
-	}
-
 	/// Measures the maximum amount of gas a command payload will require to *dispatch*, NOT
 	/// including validation & verification.
 	fn maximum_dispatch_gas_used_at_most(command: &Command) -> u64;
@@ -252,11 +243,6 @@ pub trait GasMeter {
 pub struct ConstantGasMeter;
 
 impl GasMeter for ConstantGasMeter {
-	// The base transaction cost, which includes:
-	// 21_000 transaction cost, roughly worst case 64_000 for calldata, and 100_000
-	// for message verification
-	const MAXIMUM_BASE_GAS: u64 = 185_000;
-
 	fn maximum_dispatch_gas_used_at_most(command: &Command) -> u64 {
 		match command {
 			Command::CreateAgent { .. } => 275_000,
@@ -278,8 +264,6 @@ impl GasMeter for ConstantGasMeter {
 }
 
 impl GasMeter for () {
-	const MAXIMUM_BASE_GAS: u64 = 1;
-
 	fn maximum_dispatch_gas_used_at_most(_: &Command) -> u64 {
 		1
 	}
