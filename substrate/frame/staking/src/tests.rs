@@ -8011,7 +8011,7 @@ mod ledger_recovery {
 			assert_eq!(asset::staked::<Test>(&333), lock_333_before); // OK
 			assert_eq!(Bonded::<Test>::get(&333), Some(444)); // OK
 			assert!(Payee::<Test>::get(&333).is_some()); // OK
-												// however, ledger associated with its controller was killed.
+											 // however, ledger associated with its controller was killed.
 			assert!(Ledger::<Test>::get(&444).is_none()); // NOK
 
 			// side effects on 444 - ledger, bonded, payee, lock should be completely removed.
@@ -8542,7 +8542,7 @@ mod getters {
 			let era: EraIndex = 12;
 			let balance_of = BalanceOf::<Test>::default();
 
-			ErasValidatorReward::<Test>::insert(era, balance_of.clone());
+			ErasValidatorReward::<Test>::insert(era, balance_of);
 
 			// when
 			let result = Staking::eras_validator_reward(era);
@@ -8578,7 +8578,7 @@ mod getters {
 			let era: EraIndex = 12;
 			let balance_of = BalanceOf::<Test>::default();
 
-			ErasTotalStake::<Test>::insert(era, balance_of.clone());
+			ErasTotalStake::<Test>::insert(era, balance_of);
 
 			// when
 			let result = Staking::eras_total_stake(era);
@@ -8593,7 +8593,7 @@ mod getters {
 		sp_io::TestExternalities::default().execute_with(|| {
 			// given
 			let forcing = Forcing::NotForcing;
-			ForceEra::<Test>::put(forcing.clone());
+			ForceEra::<Test>::put(forcing);
 
 			// when
 			let result = Staking::force_era();
@@ -8608,7 +8608,7 @@ mod getters {
 		sp_io::TestExternalities::default().execute_with(|| {
 			// given
 			let perbill = Perbill::one();
-			SlashRewardFraction::<Test>::put(perbill.clone());
+			SlashRewardFraction::<Test>::put(perbill);
 
 			// when
 			let result = Staking::slash_reward_fraction();
@@ -8623,7 +8623,7 @@ mod getters {
 		sp_io::TestExternalities::default().execute_with(|| {
 			// given
 			let balance_of = BalanceOf::<Test>::default();
-			CanceledSlashPayout::<Test>::put(balance_of.clone());
+			CanceledSlashPayout::<Test>::put(balance_of);
 
 			// when
 			let result = Staking::canceled_payout();
