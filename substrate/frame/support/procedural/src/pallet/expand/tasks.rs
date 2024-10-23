@@ -35,8 +35,7 @@ impl TaskEnumDef {
 		let span = tasks
 			.tasks_attr
 			.as_ref()
-			.map(|attr| attr.span())
-			.unwrap_or_else(|| tasks.item_impl.span());
+			.map_or_else(|| tasks.item_impl.span(), |attr| attr.span());
 
 		let type_decl_bounded_generics = def.type_decl_bounded_generics(span);
 
