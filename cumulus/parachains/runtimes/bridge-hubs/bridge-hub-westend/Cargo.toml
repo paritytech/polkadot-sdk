@@ -118,6 +118,7 @@ snowbridge-pallet-inbound-queue-v2 = { workspace = true }
 snowbridge-pallet-outbound-queue-v2 = { workspace = true }
 snowbridge-outbound-queue-runtime-api-v2 = { workspace = true }
 snowbridge-router-primitives-v2 = { workspace = true }
+snowbridge-merkle-tree = { workspace = true }
 
 
 [dev-dependencies]
@@ -189,6 +190,7 @@ std = [
 	"serde_json/std",
 	"snowbridge-beacon-primitives/std",
 	"snowbridge-core/std",
+	"snowbridge-merkle-tree/std",
 	"snowbridge-outbound-queue-runtime-api-v2/std",
 	"snowbridge-outbound-queue-runtime-api/std",
 	"snowbridge-pallet-ethereum-client/std",
@@ -255,6 +257,7 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-merkle-tree/runtime-benchmarks",
 	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue-v2/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue/runtime-benchmarks",

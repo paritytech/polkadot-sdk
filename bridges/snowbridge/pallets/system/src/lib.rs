@@ -68,7 +68,10 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use snowbridge_core::{
 	meth,
-	outbound::{Command, Initializer, Message, OperatingMode, SendError, SendMessage},
+	outbound::{
+		v1::{Command, Initializer, Message, SendError, SendMessage},
+		OperatingMode,
+	},
 	sibling_sovereign_account, AgentId, AssetMetadata, Channel, ChannelId, ParaId,
 	PricingParameters as PricingParametersRecord, TokenId, TokenIdOf, PRIMARY_GOVERNANCE_CHANNEL,
 	SECONDARY_GOVERNANCE_CHANNEL,

@@ -96,7 +96,7 @@ use parachains_common::{
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
 use snowbridge_core::{
-	outbound::{Command, Fee},
+	outbound::v1::{Command, Fee},
 	AgentId, PricingParameters,
 };
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
@@ -901,12 +901,8 @@ impl_runtime_apis! {
 	}
 
 	impl snowbridge_outbound_queue_runtime_api_v2::OutboundQueueApiV2<Block, Balance> for Runtime {
-		fn prove_message(leaf_index: u64) -> Option<snowbridge_pallet_outbound_queue_v2::MerkleProof> {
+		fn prove_message(leaf_index: u64) -> Option<snowbridge_merkle_tree::MerkleProof> {
 			snowbridge_pallet_outbound_queue_v2::api::prove_message::<Runtime>(leaf_index)
-		}
-
-		fn calculate_fee(command: Command, parameters: Option<PricingParameters<Balance>>) -> Fee<Balance> {
-			snowbridge_pallet_outbound_queue_v2::api::calculate_fee::<Runtime>(command, parameters)
 		}
 	}
 

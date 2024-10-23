@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use ethabi::Token;
-use frame_support::traits::ProcessMessage;
+use frame_support::{pallet_prelude::ConstU32, traits::ProcessMessage, BoundedVec};
 use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::RuntimeDebug;
@@ -10,50 +10,48 @@ use sp_std::prelude::*;
 
 use super::Pallet;
 
-use snowbridge_core::ChannelId;
-pub use snowbridge_outbound_queue_merkle_tree_v2::MerkleProof;
+use snowbridge_core::outbound::v2::CommandWrapper;
+pub use snowbridge_merkle_tree::MerkleProof;
 
 pub type ProcessMessageOriginOf<T> = <Pallet<T> as ProcessMessage>::Origin;
 
 pub const LOG_TARGET: &str = "snowbridge-outbound-queue";
 
 /// Message which has been assigned a nonce and will be committed at the end of a block
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, RuntimeDebug, TypeInfo)]
+#[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct CommittedMessage {
-	/// Message channel
-	pub channel_id: ChannelId,
+	/// Origin of the message
+	pub origin: H256,
 	/// Unique nonce to prevent replaying messages
-	#[codec(compact)]
 	pub nonce: u64,
-	/// Command to execute in the Gateway contract
-	pub command: u8,
-	/// Params for the command
-	pub params: Vec<u8>,
-	/// Maximum gas allowed for message dispatch
-	#[codec(compact)]
-	pub max_dispatch_gas: u64,
-	/// Maximum fee per gas
-	#[codec(compact)]
-	pub max_fee_per_gas: u128,
-	/// Reward in ether for delivering this message, in addition to the gas refund
-	#[codec(compact)]
-	pub reward: u128,
-	/// Message ID (Used for tracing messages across route, has no role in consensus)
+	/// MessageId
 	pub id: H256,
+	/// Commands to execute in Ethereum
+	pub commands: BoundedVec<CommandWrapper, ConstU32<5>>,
 }
 
-/// Convert message into an ABI-encoded form for delivery to the InboundQueue contract on Ethereum
+/// Convert message into an ABI-encoded form for delivery to the Gateway contract on Ethereum
 impl From<CommittedMessage> for Token {
 	fn from(x: CommittedMessage) -> Token {
-		Token::Tuple(vec![
-			Token::FixedBytes(Vec::from(x.channel_id.as_ref())),
+		let header = vec![
+			Token::FixedBytes(x.origin.as_bytes().to_owned()),
 			Token::Uint(x.nonce.into()),
-			Token::Uint(x.command.into()),
-			Token::Bytes(x.params.to_vec()),
-			Token::Uint(x.max_dispatch_gas.into()),
-			Token::Uint(x.max_fee_per_gas.into()),
-			Token::Uint(x.reward.into()),
-			Token::FixedBytes(Vec::from(x.id.as_ref())),
-		])
+			Token::Uint(x.commands.len().into()),
+		];
+		let body: Vec<Token> = x.commands.into_iter().map(|command| command.into()).collect();
+		let message = header.into_iter().chain(body.into_iter()).collect();
+		Token::Tuple(message)
 	}
+}
+
+/// Fee with block number for easy fetch the pending message on relayer side
+#[derive(Encode, Decode, TypeInfo, Clone, Eq, PartialEq, RuntimeDebug, MaxEncodedLen)]
+pub struct FeeWithBlockNumber<BlockNumber> {
+	/// A nonce of the message for enforcing replay protection
+	pub nonce: u64,
+	/// The block number of the message
+	pub block_number: BlockNumber,
+	/// The fee
+	pub fee: u128,
 }

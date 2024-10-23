@@ -2415,6 +2415,7 @@ dependencies = [
  "snowbridge-pallet-inbound-queue",
  "snowbridge-pallet-inbound-queue-fixtures",
  "snowbridge-pallet-outbound-queue",
+ "snowbridge-pallet-outbound-queue-v2",
  "snowbridge-pallet-system",
  "snowbridge-router-primitives",
  "sp-core 28.0.0",
@@ -2489,6 +2490,7 @@ dependencies = [
  "serde_json",
  "snowbridge-beacon-primitives",
  "snowbridge-core",
+ "snowbridge-merkle-tree",
  "snowbridge-outbound-queue-runtime-api",
  "snowbridge-outbound-queue-runtime-api-v2",
  "snowbridge-pallet-ethereum-client",
@@ -20928,6 +20930,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "snowbridge-merkle-tree"
+version = "0.2.0"
+dependencies = [
+ "frame-support",
+ "hex",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "snowbridge-milagro-bls"
 version = "1.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -20944,21 +20958,6 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-outbound-queue-merkle-tree"
-version = "0.3.0"
-dependencies = [
- "array-bytes",
- "hex",
- "hex-literal",
- "parity-scale-codec",
- "scale-info",
- "sp-core 28.0.0",
- "sp-crypto-hashing 0.1.0",
- "sp-runtime 31.0.1",
- "sp-tracing 16.0.0",
-]
-
-[[package]]
-name = "snowbridge-outbound-queue-merkle-tree-v2"
 version = "0.3.0"
 dependencies = [
  "array-bytes",
@@ -20991,7 +20990,7 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "snowbridge-core",
- "snowbridge-outbound-queue-merkle-tree-v2",
+ "snowbridge-merkle-tree",
  "sp-api 26.0.0",
  "sp-std 14.0.0",
 ]
@@ -21141,17 +21140,20 @@ dependencies = [
 name = "snowbridge-pallet-outbound-queue-v2"
 version = "0.2.0"
 dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
  "bridge-hub-common",
  "ethabi-decode",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex-literal",
  "pallet-message-queue",
  "parity-scale-codec",
  "scale-info",
  "serde",
  "snowbridge-core",
- "snowbridge-outbound-queue-merkle-tree-v2",
+ "snowbridge-merkle-tree",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
@@ -21219,6 +21221,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
  "staging-xcm",
+ "staging-xcm-builder",
  "staging-xcm-executor",
 ]
 

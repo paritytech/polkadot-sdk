@@ -6,16 +6,15 @@ use frame_support::{
 	assert_err, assert_noop, assert_ok,
 	traits::{Hooks, ProcessMessage, ProcessMessageError},
 	weights::WeightMeter,
+	BoundedVec,
 };
 
 use codec::Encode;
 use snowbridge_core::{
-	outbound::{Command, SendError, SendMessage},
-	ParaId, PricingParameters, Rewards,
+	outbound::v2::{primary_governance_origin, Command, SendError, SendMessage},
+	ChannelId, ParaId,
 };
-use sp_arithmetic::FixedU128;
 use sp_core::H256;
-use sp_runtime::FixedPointNumber;
 
 #[test]
 fn submit_messages_and_commit() {
@@ -29,11 +28,7 @@ fn submit_messages_and_commit() {
 		ServiceWeight::set(Some(Weight::MAX));
 		run_to_end_of_next_block();
 
-		for para_id in 1000..1004 {
-			let origin: ParaId = (para_id as u32).into();
-			let channel_id: ChannelId = origin.into();
-			assert_eq!(Nonce::<Test>::get(channel_id), 1);
-		}
+		assert_eq!(Nonce::<Test>::get(), 4);
 
 		let digest = System::digest();
 		let digest_items = digest.logs();
@@ -48,14 +43,6 @@ fn submit_message_fail_too_large() {
 		let message = mock_invalid_governance_message::<Test>();
 		assert_err!(OutboundQueue::validate(&message), SendError::MessageTooLarge);
 	});
-}
-
-#[test]
-fn convert_from_ether_decimals() {
-	assert_eq!(
-		OutboundQueue::convert_from_ether_decimals(1_000_000_000_000_000_000),
-		1_000_000_000_000
-	);
 }
 
 #[test]
@@ -77,23 +64,29 @@ fn process_message_yields_on_max_messages_per_block() {
 			MessageLeaves::<Test>::append(H256::zero())
 		}
 
-		let channel_id: ChannelId = ParaId::from(1000).into();
-		let origin = AggregateMessageOrigin::Snowbridge(channel_id);
-		let message = QueuedMessage {
+		let _channel_id: ChannelId = ParaId::from(1000).into();
+		let origin = AggregateMessageOrigin::SnowbridgeV2(H256::zero());
+		let message = Message {
+			origin: Default::default(),
 			id: Default::default(),
-			channel_id,
-			command: Command::Upgrade {
+			fee: 0,
+			commands: BoundedVec::try_from(vec![Command::Upgrade {
 				impl_address: Default::default(),
 				impl_code_hash: Default::default(),
 				initializer: None,
-			},
-		}
-		.encode();
+			}])
+			.unwrap(),
+		};
 
 		let mut meter = WeightMeter::new();
 
 		assert_noop!(
-			OutboundQueue::process_message(message.as_slice(), origin, &mut meter, &mut [0u8; 32]),
+			OutboundQueue::process_message(
+				message.encode().as_slice(),
+				origin,
+				&mut meter,
+				&mut [0u8; 32]
+			),
 			ProcessMessageError::Yield
 		);
 	})
@@ -103,23 +96,21 @@ fn process_message_yields_on_max_messages_per_block() {
 fn process_message_fails_on_max_nonce_reached() {
 	new_tester().execute_with(|| {
 		let sibling_id = 1000;
-		let channel_id: ChannelId = ParaId::from(sibling_id).into();
-		let origin = AggregateMessageOrigin::Snowbridge(channel_id);
-		let message: QueuedMessage = QueuedMessage {
-			id: H256::zero(),
-			channel_id,
-			command: mock_message(sibling_id).command,
-		};
-		let versioned_queued_message: VersionedQueuedMessage = message.try_into().unwrap();
-		let encoded = versioned_queued_message.encode();
+		let _channel_id: ChannelId = ParaId::from(sibling_id).into();
+		let origin = AggregateMessageOrigin::SnowbridgeV2(H256::zero());
+		let message: Message = mock_message(sibling_id);
+
 		let mut meter = WeightMeter::with_limit(Weight::MAX);
 
-		Nonce::<Test>::set(channel_id, u64::MAX);
+		Nonce::<Test>::set(u64::MAX);
 
-		assert_noop!(
-			OutboundQueue::process_message(encoded.as_slice(), origin, &mut meter, &mut [0u8; 32]),
-			ProcessMessageError::Unsupported
+		let result = OutboundQueue::process_message(
+			message.encode().as_slice(),
+			origin,
+			&mut meter,
+			&mut [0u8; 32],
 		);
+		assert_err!(result, ProcessMessageError::Unsupported)
 	})
 }
 
@@ -127,18 +118,17 @@ fn process_message_fails_on_max_nonce_reached() {
 fn process_message_fails_on_overweight_message() {
 	new_tester().execute_with(|| {
 		let sibling_id = 1000;
-		let channel_id: ChannelId = ParaId::from(sibling_id).into();
-		let origin = AggregateMessageOrigin::Snowbridge(channel_id);
-		let message: QueuedMessage = QueuedMessage {
-			id: H256::zero(),
-			channel_id,
-			command: mock_message(sibling_id).command,
-		};
-		let versioned_queued_message: VersionedQueuedMessage = message.try_into().unwrap();
-		let encoded = versioned_queued_message.encode();
+		let _channel_id: ChannelId = ParaId::from(sibling_id).into();
+		let origin = AggregateMessageOrigin::SnowbridgeV2(H256::zero());
+		let message: Message = mock_message(sibling_id);
 		let mut meter = WeightMeter::with_limit(Weight::from_parts(1, 1));
 		assert_noop!(
-			OutboundQueue::process_message(encoded.as_slice(), origin, &mut meter, &mut [0u8; 32]),
+			OutboundQueue::process_message(
+				message.encode().as_slice(),
+				origin,
+				&mut meter,
+				&mut [0u8; 32]
+			),
 			ProcessMessageError::Overweight(<Test as Config>::WeightInfo::do_process_message())
 		);
 	})
@@ -168,11 +158,9 @@ fn submit_upgrade_message_success_when_queue_halted() {
 #[test]
 fn governance_message_does_not_get_the_chance_to_processed_in_same_block_when_congest_of_low_priority_sibling_messages(
 ) {
-	use snowbridge_core::PRIMARY_GOVERNANCE_CHANNEL;
 	use AggregateMessageOrigin::*;
 
 	let sibling_id: u32 = 1000;
-	let sibling_channel_id: ChannelId = ParaId::from(sibling_id).into();
 
 	new_tester().execute_with(|| {
 		// submit a lot of low priority messages from asset_hub which will need multiple blocks to
@@ -185,7 +173,8 @@ fn governance_message_does_not_get_the_chance_to_processed_in_same_block_when_co
 			OutboundQueue::deliver(ticket).unwrap();
 		}
 
-		let footprint = MessageQueue::footprint(Snowbridge(sibling_channel_id));
+		let footprint =
+			MessageQueue::footprint(SnowbridgeV2(H256::from_low_u64_be(sibling_id as u64)));
 		assert_eq!(footprint.storage.count, (max_messages) as u64);
 
 		let message = mock_governance_message::<Test>();
@@ -197,11 +186,12 @@ fn governance_message_does_not_get_the_chance_to_processed_in_same_block_when_co
 		run_to_end_of_next_block();
 
 		// first process 20 messages from sibling channel
-		let footprint = MessageQueue::footprint(Snowbridge(sibling_channel_id));
+		let footprint =
+			MessageQueue::footprint(SnowbridgeV2(H256::from_low_u64_be(sibling_id as u64)));
 		assert_eq!(footprint.storage.count, 40 - 20);
 
 		// and governance message does not have the chance to execute in same block
-		let footprint = MessageQueue::footprint(Snowbridge(PRIMARY_GOVERNANCE_CHANNEL));
+		let footprint = MessageQueue::footprint(SnowbridgeV2(primary_governance_origin()));
 		assert_eq!(footprint.storage.count, 1);
 
 		// move to next block
@@ -209,32 +199,20 @@ fn governance_message_does_not_get_the_chance_to_processed_in_same_block_when_co
 		run_to_end_of_next_block();
 
 		// now governance message get executed in this block
-		let footprint = MessageQueue::footprint(Snowbridge(PRIMARY_GOVERNANCE_CHANNEL));
+		let footprint = MessageQueue::footprint(SnowbridgeV2(primary_governance_origin()));
 		assert_eq!(footprint.storage.count, 0);
 
 		// and this time process 19 messages from sibling channel so we have 1 message left
-		let footprint = MessageQueue::footprint(Snowbridge(sibling_channel_id));
+		let footprint =
+			MessageQueue::footprint(SnowbridgeV2(H256::from_low_u64_be(sibling_id as u64)));
 		assert_eq!(footprint.storage.count, 1);
 
 		// move to the next block, the last 1 message from sibling channel get executed
 		ServiceWeight::set(Some(Weight::MAX));
 		run_to_end_of_next_block();
-		let footprint = MessageQueue::footprint(Snowbridge(sibling_channel_id));
+		let footprint =
+			MessageQueue::footprint(SnowbridgeV2(H256::from_low_u64_be(sibling_id as u64)));
 		assert_eq!(footprint.storage.count, 0);
-	});
-}
-
-#[test]
-fn convert_local_currency() {
-	new_tester().execute_with(|| {
-		let fee: u128 = 1_000_000;
-		let fee1 = FixedU128::from_inner(fee).into_inner();
-		let fee2 = FixedU128::from(fee)
-			.into_inner()
-			.checked_div(FixedU128::accuracy())
-			.expect("accuracy is not zero; qed");
-		assert_eq!(fee, fee1);
-		assert_eq!(fee, fee2);
 	});
 }
 
@@ -264,55 +242,5 @@ fn encode_digest_item() {
 				5, 5, 5, 5, 5, 5, 5, 5
 			]
 		);
-	});
-}
-
-#[test]
-fn test_calculate_fees_with_unit_multiplier() {
-	new_tester().execute_with(|| {
-		let gas_used: u64 = 250000;
-		let price_params: PricingParameters<<Test as Config>::Balance> = PricingParameters {
-			exchange_rate: FixedU128::from_rational(1, 400),
-			fee_per_gas: 10000_u32.into(),
-			rewards: Rewards { local: 1_u32.into(), remote: 1_u32.into() },
-			multiplier: FixedU128::from_rational(1, 1),
-		};
-		let fee = OutboundQueue::calculate_fee(gas_used, price_params);
-		assert_eq!(fee.local, 698000000);
-		assert_eq!(fee.remote, 1000000);
-	});
-}
-
-#[test]
-fn test_calculate_fees_with_multiplier() {
-	new_tester().execute_with(|| {
-		let gas_used: u64 = 250000;
-		let price_params: PricingParameters<<Test as Config>::Balance> = PricingParameters {
-			exchange_rate: FixedU128::from_rational(1, 400),
-			fee_per_gas: 10000_u32.into(),
-			rewards: Rewards { local: 1_u32.into(), remote: 1_u32.into() },
-			multiplier: FixedU128::from_rational(4, 3),
-		};
-		let fee = OutboundQueue::calculate_fee(gas_used, price_params);
-		assert_eq!(fee.local, 698000000);
-		assert_eq!(fee.remote, 1333333);
-	});
-}
-
-#[test]
-fn test_calculate_fees_with_valid_exchange_rate_but_remote_fee_calculated_as_zero() {
-	new_tester().execute_with(|| {
-		let gas_used: u64 = 250000;
-		let price_params: PricingParameters<<Test as Config>::Balance> = PricingParameters {
-			exchange_rate: FixedU128::from_rational(1, 1),
-			fee_per_gas: 1_u32.into(),
-			rewards: Rewards { local: 1_u32.into(), remote: 1_u32.into() },
-			multiplier: FixedU128::from_rational(1, 1),
-		};
-		let fee = OutboundQueue::calculate_fee(gas_used, price_params.clone());
-		assert_eq!(fee.local, 698000000);
-		// Though none zero pricing params the remote fee calculated here is invalid
-		// which should be avoided
-		assert_eq!(fee.remote, 0);
 	});
 }

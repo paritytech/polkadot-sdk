@@ -6,15 +6,19 @@ use frame_support::{
 	derive_impl, parameter_types,
 	traits::{Everything, Hooks},
 	weights::IdentityFee,
+	BoundedVec,
 };
 
+use hex_literal::hex;
 use snowbridge_core::{
-	gwei, meth,
-	outbound::*,
+	gwei,
+	inbound::{Log, Proof, VerificationError, Verifier},
+	meth,
+	outbound::v2::*,
 	pricing::{PricingParameters, Rewards},
-	ParaId, PRIMARY_GOVERNANCE_CHANNEL,
+	ParaId,
 };
-use sp_core::{ConstU32, ConstU8, H160, H256};
+use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},
 	AccountId32, BuildStorage, FixedU128,
@@ -68,6 +72,17 @@ impl pallet_message_queue::Config for Test {
 	type QueuePausedQuery = ();
 }
 
+// Mock verifier
+pub struct MockVerifier;
+
+impl Verifier for MockVerifier {
+	fn verify(_: &Log, _: &Proof) -> Result<(), VerificationError> {
+		Ok(())
+	}
+}
+
+const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
+
 parameter_types! {
 	pub const OwnParaId: ParaId = ParaId::new(1013);
 	pub Parameters: PricingParameters<u128> = PricingParameters {
@@ -76,21 +91,20 @@ parameter_types! {
 		rewards: Rewards { local: DOT, remote: meth(1) },
 		multiplier: FixedU128::from_rational(4, 3),
 	};
+	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 }
 
 pub const DOT: u128 = 10_000_000_000;
-
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type Verifier = MockVerifier;
+	type GatewayAddress = GatewayAddress;
 	type Hashing = Keccak256;
 	type MessageQueue = MessageQueue;
-	type Decimals = ConstU8<12>;
 	type MaxMessagePayloadSize = ConstU32<1024>;
 	type MaxMessagesPerBlock = ConstU32<20>;
 	type GasMeter = ConstantGasMeter;
 	type Balance = u128;
-	type PricingParameters = Parameters;
-	type Channels = Everything;
 	type WeightToFee = IdentityFee<u128>;
 	type WeightInfo = ();
 }
@@ -129,13 +143,15 @@ where
 	let _marker = PhantomData::<T>; // for clippy
 
 	Message {
-		id: None,
-		channel_id: PRIMARY_GOVERNANCE_CHANNEL,
-		command: Command::Upgrade {
-			impl_address: H160::zero(),
-			impl_code_hash: H256::zero(),
+		origin: primary_governance_origin(),
+		id: Default::default(),
+		fee: 0,
+		commands: BoundedVec::try_from(vec![Command::Upgrade {
+			impl_address: Default::default(),
+			impl_code_hash: Default::default(),
 			initializer: None,
-		},
+		}])
+		.unwrap(),
 	}
 }
 
@@ -147,28 +163,32 @@ where
 	let _marker = PhantomData::<T>; // for clippy
 
 	Message {
-		id: None,
-		channel_id: PRIMARY_GOVERNANCE_CHANNEL,
-		command: Command::Upgrade {
+		origin: Default::default(),
+		id: Default::default(),
+		fee: 0,
+		commands: BoundedVec::try_from(vec![Command::Upgrade {
 			impl_address: H160::zero(),
 			impl_code_hash: H256::zero(),
 			initializer: Some(Initializer {
 				params: (0..1000).map(|_| 1u8).collect::<Vec<u8>>(),
 				maximum_required_gas: 0,
 			}),
-		},
+		}])
+		.unwrap(),
 	}
 }
 
 pub fn mock_message(sibling_para_id: u32) -> Message {
 	Message {
-		id: None,
-		channel_id: ParaId::from(sibling_para_id).into(),
-		command: Command::TransferNativeToken {
+		origin: H256::from_low_u64_be(sibling_para_id as u64),
+		id: Default::default(),
+		fee: 0,
+		commands: BoundedVec::try_from(vec![Command::UnlockNativeToken {
 			agent_id: Default::default(),
 			token: Default::default(),
 			recipient: Default::default(),
 			amount: 0,
-		},
+		}])
+		.unwrap(),
 	}
 }

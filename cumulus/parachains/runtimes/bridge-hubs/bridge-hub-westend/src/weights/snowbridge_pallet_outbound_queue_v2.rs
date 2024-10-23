@@ -84,4 +84,15 @@ impl<T: frame_system::Config> snowbridge_pallet_outbound_queue_v2::WeightInfo fo
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+
+	fn submit_delivery_proof() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `800`
+		//  Estimated: `7200`
+		// Minimum execution time: 200_000_000 picoseconds.
+		Weight::from_parts(200_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 7200))
+			.saturating_add(T::DbWeight::get().reads(9))
+			.saturating_add(T::DbWeight::get().writes(6))
+	}
 }
