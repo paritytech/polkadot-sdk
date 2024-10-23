@@ -2838,8 +2838,8 @@ impl<T: Config> Pallet<T> {
 		// check `RemoteLockedFungibles`
 		ensure!(
 			!RemoteLockedFungibles::<T>::iter()
-				.any(|(key, data)| key
-					.needs_migration(minimal_allowed_xcm_version) || data.needs_migration(minimal_allowed_xcm_version)),
+				.any(|(key, data)| key.needs_migration(minimal_allowed_xcm_version) ||
+					data.needs_migration(minimal_allowed_xcm_version)),
 			TryRuntimeError::Other(
 				"`RemoteLockedFungibles` data should be migrated to the higher xcm version!"
 			)

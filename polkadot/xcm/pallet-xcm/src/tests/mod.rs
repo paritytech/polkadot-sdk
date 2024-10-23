@@ -18,8 +18,16 @@
 
 pub(crate) mod assets_transfer;
 
+use crate::{
+	migration::data::NeedsMigration,
+	mock::*,
+	pallet::{LockedFungibles, RemoteLockedFungibles, SupportedVersion},
+	AssetTraps, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
+	LatestVersionedLocation, Pallet, Queries, QueryStatus, RecordedXcm, RemoteLockedFungibleRecord,
+	ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers,
+	VersionNotifyTargets, WeightInfo,
+};
 use bounded_collections::BoundedVec;
-use crate::{mock::*, pallet::SupportedVersion, AssetTraps, Config, CurrentMigration, Error, ExecuteControllerWeightInfo, LatestVersionedLocation, Pallet, Queries, QueryStatus, RecordedXcm, RemoteLockedFungibleRecord, ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers, VersionNotifyTargets, WeightInfo};
 use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok,
 	traits::{Currency, Hooks},
@@ -33,8 +41,6 @@ use xcm_executor::{
 	traits::{Properties, QueryHandler, QueryResponseStatus, ShouldExecute},
 	XcmExecutor,
 };
-use crate::migration::data::NeedsMigration;
-use crate::pallet::{LockedFungibles, RemoteLockedFungibles};
 
 const ALICE: AccountId = AccountId::new([0u8; 32]);
 const BOB: AccountId = AccountId::new([1u8; 32]);
@@ -1265,14 +1271,17 @@ fn migrate_data_to_xcm_version_works() {
 		let latest_version = XCM_VERSION;
 		let previous_version = XCM_VERSION - 1;
 
-
 		// `Queries` migration
 		{
 			let origin = VersionedLocation::from(Location::parent());
 			let query_id1 = 0;
 			let query_id2 = 2;
-			let query_as_latest = QueryStatus::VersionNotifier { origin: origin.clone(), is_active: true };
-			let query_as_previous = QueryStatus::VersionNotifier { origin: origin.into_version(previous_version).unwrap(), is_active: true };
+			let query_as_latest =
+				QueryStatus::VersionNotifier { origin: origin.clone(), is_active: true };
+			let query_as_previous = QueryStatus::VersionNotifier {
+				origin: origin.into_version(previous_version).unwrap(),
+				is_active: true,
+			};
 			assert_ne!(query_as_latest, query_as_previous);
 			assert!(!query_as_latest.needs_migration(latest_version));
 			assert!(!query_as_latest.needs_migration(previous_version));
@@ -1300,7 +1309,10 @@ fn migrate_data_to_xcm_version_works() {
 			let account2 = AccountId::new([58u8; 32]);
 			let unlocker = VersionedLocation::from(Location::parent());
 			let lockeds_as_latest = BoundedVec::truncate_from(vec![(0, unlocker.clone())]);
-			let lockeds_as_previous = BoundedVec::truncate_from(vec![(0, unlocker.into_version(previous_version).unwrap())]);
+			let lockeds_as_previous = BoundedVec::truncate_from(vec![(
+				0,
+				unlocker.into_version(previous_version).unwrap(),
+			)]);
 			assert_ne!(lockeds_as_latest, lockeds_as_previous);
 			assert!(!lockeds_as_latest.needs_migration(latest_version));
 			assert!(!lockeds_as_latest.needs_migration(previous_version));
@@ -1332,7 +1344,11 @@ fn migrate_data_to_xcm_version_works() {
 			let locker = VersionedLocation::from(Location::parent());
 			let key1_as_latest = (latest_version, account1, asset_id.clone());
 			let key2_as_latest = (latest_version, account2, asset_id.clone());
-			let key3_as_previous = (previous_version, account3.clone(), asset_id.clone().into_version(previous_version).unwrap());
+			let key3_as_previous = (
+				previous_version,
+				account3.clone(),
+				asset_id.clone().into_version(previous_version).unwrap(),
+			);
 			let expected_key3_as_latest = (latest_version, account3, asset_id);
 			let data_as_latest = RemoteLockedFungibleRecord {
 				amount: Default::default(),
@@ -1373,24 +1389,36 @@ fn migrate_data_to_xcm_version_works() {
 			// trigger migration
 			Pallet::<Test>::migrate_data_to_xcm_version(&mut Weight::zero(), latest_version);
 
-			let assert_locked_eq = |left: Option<RemoteLockedFungibleRecord<_, _>>, right: Option<RemoteLockedFungibleRecord<_, _>>| {
-				match (left, right) {
-					(None, Some(_)) | (Some(_), None) => assert!(false, "Received unexpected message"),
-					(None, None) => (),
-					(Some(l), Some(r)) => {
-						assert_eq!(l.owner, r.owner);
-						assert_eq!(l.locker, r.locker);
+			let assert_locked_eq =
+				|left: Option<RemoteLockedFungibleRecord<_, _>>,
+				 right: Option<RemoteLockedFungibleRecord<_, _>>| {
+					match (left, right) {
+						(None, Some(_)) | (Some(_), None) =>
+							assert!(false, "Received unexpected message"),
+						(None, None) => (),
+						(Some(l), Some(r)) => {
+							assert_eq!(l.owner, r.owner);
+							assert_eq!(l.locker, r.locker);
+						},
 					}
-				}
-			};
+				};
 
 			// no change
-			assert_locked_eq(RemoteLockedFungibles::<Test>::get(&key1_as_latest), Some(data_as_latest.clone()));
+			assert_locked_eq(
+				RemoteLockedFungibles::<Test>::get(&key1_as_latest),
+				Some(data_as_latest.clone()),
+			);
 			// change - data migrated
-			assert_locked_eq(RemoteLockedFungibles::<Test>::get(&key2_as_latest), Some(data_as_latest.clone()));
+			assert_locked_eq(
+				RemoteLockedFungibles::<Test>::get(&key2_as_latest),
+				Some(data_as_latest.clone()),
+			);
 			// fully migrated
 			assert_locked_eq(RemoteLockedFungibles::<Test>::get(&key3_as_previous), None);
-			assert_locked_eq(RemoteLockedFungibles::<Test>::get(&expected_key3_as_latest), Some(data_as_latest.clone()));
+			assert_locked_eq(
+				RemoteLockedFungibles::<Test>::get(&expected_key3_as_latest),
+				Some(data_as_latest.clone()),
+			);
 			assert!(Pallet::<Test>::do_try_state().is_ok());
 		}
 	})

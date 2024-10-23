@@ -14,7 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{pallet::CurrentMigration, Config, CurrentXcmVersion, Pallet, VersionMigrationStage, VersionNotifyTargets};
+use crate::{
+	pallet::CurrentMigration, Config, CurrentXcmVersion, Pallet, VersionMigrationStage,
+	VersionNotifyTargets,
+};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{OnRuntimeUpgrade, StorageVersion, UncheckedOnRuntimeUpgrade},
@@ -34,7 +37,8 @@ pub mod data {
 		/// Returns true if data does not match `minimal_allowed_xcm_version`.
 		fn needs_migration(&self, minimal_allowed_xcm_version: XcmVersion) -> bool;
 
-		/// Attempts to migrate data. `Ok(None)` means no migration is needed. `Ok(Some(Self::MigratedData))` should contain the migrated data.
+		/// Attempts to migrate data. `Ok(None)` means no migration is needed.
+		/// `Ok(Some(Self::MigratedData))` should contain the migrated data.
 		fn try_migrate(self, to_xcm_version: XcmVersion) -> Result<Option<Self::MigratedData>, ()>;
 	}
 
@@ -47,7 +51,10 @@ pub mod data {
 				.any(|(_, unlocker)| unlocker.identify_version() < minimal_allowed_xcm_version)
 		}
 
-		fn try_migrate(mut self, to_xcm_version: XcmVersion) -> Result<Option<Self::MigratedData>, ()> {
+		fn try_migrate(
+			mut self,
+			to_xcm_version: XcmVersion,
+		) -> Result<Option<Self::MigratedData>, ()> {
 			let mut was_modified = false;
 			for locked in self.iter_mut() {
 				if locked.1.identify_version() < to_xcm_version {
@@ -94,7 +101,9 @@ pub mod data {
 			// do migration
 			match self {
 				QueryStatus::Pending { responder, maybe_match_querier, maybe_notify, timeout } => {
-					let Ok(responder) = responder.into_version(to_xcm_version) else { return Err(()) };
+					let Ok(responder) = responder.into_version(to_xcm_version) else {
+						return Err(())
+					};
 					let Ok(maybe_match_querier) =
 						maybe_match_querier.map(|mmq| mmq.into_version(to_xcm_version)).transpose()
 					else {
@@ -122,7 +131,8 @@ pub mod data {
 		type MigratedData = Self;
 
 		fn needs_migration(&self, minimal_allowed_xcm_version: XcmVersion) -> bool {
-			self.0 < minimal_allowed_xcm_version || self.2.identify_version() < minimal_allowed_xcm_version
+			self.0 < minimal_allowed_xcm_version ||
+				self.2.identify_version() < minimal_allowed_xcm_version
 		}
 
 		fn try_migrate(self, to_xcm_version: XcmVersion) -> Result<Option<Self::MigratedData>, ()> {
@@ -136,11 +146,14 @@ pub mod data {
 	}
 
 	/// Implementation of `NeedsMigration` for `RemoteLockedFungibles` data.
-	impl<ConsumerIdentifier, MaxConsumers: Get<u32>> NeedsMigration for RemoteLockedFungibleRecord<ConsumerIdentifier, MaxConsumers> {
+	impl<ConsumerIdentifier, MaxConsumers: Get<u32>> NeedsMigration
+		for RemoteLockedFungibleRecord<ConsumerIdentifier, MaxConsumers>
+	{
 		type MigratedData = Self;
 
 		fn needs_migration(&self, minimal_allowed_xcm_version: XcmVersion) -> bool {
-			self.owner.identify_version() < minimal_allowed_xcm_version || self.locker.identify_version() < minimal_allowed_xcm_version
+			self.owner.identify_version() < minimal_allowed_xcm_version ||
+				self.locker.identify_version() < minimal_allowed_xcm_version
 		}
 
 		fn try_migrate(self, to_xcm_version: XcmVersion) -> Result<Option<Self::MigratedData>, ()> {
@@ -148,24 +161,16 @@ pub mod data {
 				return Ok(None)
 			}
 
-			let RemoteLockedFungibleRecord {
-				amount, owner, locker, consumers
-			} = self;
+			let RemoteLockedFungibleRecord { amount, owner, locker, consumers } = self;
 
 			let Ok(owner) = owner.into_version(to_xcm_version) else { return Err(()) };
 			let Ok(locker) = locker.into_version(to_xcm_version) else { return Err(()) };
 
-			Ok(Some(RemoteLockedFungibleRecord {
-				amount,
-				owner,
-				locker,
-				consumers,
-			}))
+			Ok(Some(RemoteLockedFungibleRecord { amount, owner, locker, consumers }))
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-
 		/// Migrates relevant data to the `required_xcm_version`.
 		pub(crate) fn migrate_data_to_xcm_version(
 			weight: &mut Weight,
@@ -187,7 +192,7 @@ pub mod data {
 							"`Queries` cannot be migrated!"
 						);
 						None
-                    },
+					},
 				}
 			});
 			for (id, new_data) in queries_to_migrate {
@@ -202,22 +207,23 @@ pub mod data {
 			}
 
 			// check and migrate `LockedFungibles`
-			let locked_fungibles_to_migrate = LockedFungibles::<T>::iter().filter_map(|(id, data)| {
-				weight.saturating_add(T::DbWeight::get().reads(1));
-				match data.try_migrate(required_xcm_version) {
-					Ok(Some(new_data)) => Some((id, new_data)),
-					Ok(None) => None,
-					Err(_) => {
-						tracing::error!(
-							target: LOG_TARGET,
-							?id,
-							?required_xcm_version,
-							"`LockedFungibles` cannot be migrated!"
-						);
-						None
-					},
-				}
-			});
+			let locked_fungibles_to_migrate =
+				LockedFungibles::<T>::iter().filter_map(|(id, data)| {
+					weight.saturating_add(T::DbWeight::get().reads(1));
+					match data.try_migrate(required_xcm_version) {
+						Ok(Some(new_data)) => Some((id, new_data)),
+						Ok(None) => None,
+						Err(_) => {
+							tracing::error!(
+								target: LOG_TARGET,
+								?id,
+								?required_xcm_version,
+								"`LockedFungibles` cannot be migrated!"
+							);
+							None
+						},
+					}
+				});
 			for (id, new_data) in locked_fungibles_to_migrate {
 				tracing::info!(
 					target: LOG_TARGET,
@@ -230,22 +236,23 @@ pub mod data {
 			}
 
 			// check and migrate `RemoteLockedFungibles` - 1. step - just data
-			let remote_locked_fungibles_to_migrate = RemoteLockedFungibles::<T>::iter().filter_map(|(id, data)| {
-				weight.saturating_add(T::DbWeight::get().reads(1));
-				match data.try_migrate(required_xcm_version) {
-					Ok(Some(new_data)) => Some((id, new_data)),
-					Ok(None) => None,
-					Err(_) => {
-						tracing::error!(
-							target: LOG_TARGET,
-							?id,
-							?required_xcm_version,
-							"`RemoteLockedFungibles` data cannot be migrated!"
-						);
-						None
-					},
-				}
-			});
+			let remote_locked_fungibles_to_migrate =
+				RemoteLockedFungibles::<T>::iter().filter_map(|(id, data)| {
+					weight.saturating_add(T::DbWeight::get().reads(1));
+					match data.try_migrate(required_xcm_version) {
+						Ok(Some(new_data)) => Some((id, new_data)),
+						Ok(None) => None,
+						Err(_) => {
+							tracing::error!(
+								target: LOG_TARGET,
+								?id,
+								?required_xcm_version,
+								"`RemoteLockedFungibles` data cannot be migrated!"
+							);
+							None
+						},
+					}
+				});
 			for (id, new_data) in remote_locked_fungibles_to_migrate {
 				tracing::info!(
 					target: LOG_TARGET,
@@ -261,24 +268,27 @@ pub mod data {
 			}
 
 			// check and migrate `RemoteLockedFungibles` - 2. step - key
-			let remote_locked_fungibles_keys_to_migrate = RemoteLockedFungibles::<T>::iter_keys().filter_map(|key| if key.needs_migration(required_xcm_version) {
-				let old_key = key.clone();
-				match key.try_migrate(required_xcm_version) {
-					Ok(Some(new_key)) => Some((old_key, new_key)),
-					Ok(None) => None,
-					Err(_) => {
-						tracing::error!(
-							target: LOG_TARGET,
-							id = ?old_key,
-							?required_xcm_version,
-							"`RemoteLockedFungibles` key cannot be migrated!"
-						);
+			let remote_locked_fungibles_keys_to_migrate = RemoteLockedFungibles::<T>::iter_keys()
+				.filter_map(|key| {
+					if key.needs_migration(required_xcm_version) {
+						let old_key = key.clone();
+						match key.try_migrate(required_xcm_version) {
+							Ok(Some(new_key)) => Some((old_key, new_key)),
+							Ok(None) => None,
+							Err(_) => {
+								tracing::error!(
+									target: LOG_TARGET,
+									id = ?old_key,
+									?required_xcm_version,
+									"`RemoteLockedFungibles` key cannot be migrated!"
+								);
+								None
+							},
+						}
+					} else {
 						None
-					},
-				}
-			} else {
-				None
-			});
+					}
+				});
 			for (old_key, new_key) in remote_locked_fungibles_keys_to_migrate {
 				weight.saturating_add(T::DbWeight::get().reads(1));
 				// make sure, that we don't override accidentally other data
@@ -289,7 +299,8 @@ pub mod data {
 						?new_key,
 						"`RemoteLockedFungibles` already contains data for a `new_key`!"
 					);
-					// let's just skip for now, could be potentially caused with missing this migration before (manual clean-up?).
+					// let's just skip for now, could be potentially caused with missing this
+					// migration before (manual clean-up?).
 					continue;
 				}
 
@@ -301,11 +312,15 @@ pub mod data {
 				);
 
 				// now we can swap the keys
-				RemoteLockedFungibles::<T>::swap::<(
-					NMapKey<Twox64Concat, XcmVersion>,
-					NMapKey<Blake2_128Concat, T::AccountId>,
-					NMapKey<Blake2_128Concat, VersionedAssetId>,
-				), _, _>(&old_key, &new_key);
+				RemoteLockedFungibles::<T>::swap::<
+					(
+						NMapKey<Twox64Concat, XcmVersion>,
+						NMapKey<Blake2_128Concat, T::AccountId>,
+						NMapKey<Blake2_128Concat, VersionedAssetId>,
+					),
+					_,
+					_,
+				>(&old_key, &new_key);
 				weight.saturating_add(T::DbWeight::get().writes(1));
 			}
 		}
@@ -391,57 +406,58 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToLatestXcmVersion<T> {
 
 		let latest = CurrentXcmVersion::get();
 
-		let number_of_queries_to_migrate = crate::Queries::<T>::iter().filter(|(id, data)| {
-			let needs_migration = data.needs_migration(latest);
-			if needs_migration {
-				tracing::warn!(
-					target: LOG_TARGET,
-					query_id = ?id,
-					query = ?data,
-					"Query was not migrated!"
-				)
-			}
-			needs_migration
-		}).count();
+		let number_of_queries_to_migrate = crate::Queries::<T>::iter()
+			.filter(|(id, data)| {
+				let needs_migration = data.needs_migration(latest);
+				if needs_migration {
+					tracing::warn!(
+						target: LOG_TARGET,
+						query_id = ?id,
+						query = ?data,
+						"Query was not migrated!"
+					)
+				}
+				needs_migration
+			})
+			.count();
 
-		let number_of_locked_fungibles_to_migrate = crate::LockedFungibles::<T>::iter().filter_map(|(id, data)| {
-			if data.needs_migration(latest) {
-				tracing::warn!(
-					target: LOG_TARGET,
-					?id,
-					?data,
-					"LockedFungibles item was not migrated!"
-				);
-				Some(true)
-			} else {
-				None
-			}
-		}).count();
+		let number_of_locked_fungibles_to_migrate = crate::LockedFungibles::<T>::iter()
+			.filter_map(|(id, data)| {
+				if data.needs_migration(latest) {
+					tracing::warn!(
+						target: LOG_TARGET,
+						?id,
+						?data,
+						"LockedFungibles item was not migrated!"
+					);
+					Some(true)
+				} else {
+					None
+				}
+			})
+			.count();
 
-		let number_of_remote_locked_fungibles_to_migrate = crate::RemoteLockedFungibles::<T>::iter().filter_map(|(key, data)| {
-			if key.needs_migration(latest) || data.needs_migration(latest) {
-				tracing::warn!(
-					target: LOG_TARGET,
-					?key,
-					"RemoteLockedFungibles item was not migrated!"
-				);
-				Some(true)
-			} else {
-				None
-			}
-		}).count();
+		let number_of_remote_locked_fungibles_to_migrate =
+			crate::RemoteLockedFungibles::<T>::iter()
+				.filter_map(|(key, data)| {
+					if key.needs_migration(latest) || data.needs_migration(latest) {
+						tracing::warn!(
+							target: LOG_TARGET,
+							?key,
+							"RemoteLockedFungibles item was not migrated!"
+						);
+						Some(true)
+					} else {
+						None
+					}
+				})
+				.count();
 
+		ensure!(number_of_queries_to_migrate == 0, "must migrate all `Queries`.");
+		ensure!(number_of_locked_fungibles_to_migrate == 0, "must migrate all `LockedFungibles`.");
 		ensure!(
-				number_of_queries_to_migrate == 0,
-				"must migrate all `Queries`."
-		);
-		ensure!(
-				number_of_locked_fungibles_to_migrate == 0,
-				"must migrate all `LockedFungibles`."
-		);
-		ensure!(
-				number_of_remote_locked_fungibles_to_migrate == 0,
-				"must migrate all `RemoteLockedFungibles`."
+			number_of_remote_locked_fungibles_to_migrate == 0,
+			"must migrate all `RemoteLockedFungibles`."
 		);
 
 		Ok(())
