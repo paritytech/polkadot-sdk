@@ -39,8 +39,8 @@ mod location;
 mod traits;
 
 pub use asset::{
-	Asset, AssetFilter, AssetId, AssetInstance, Assets, Fungibility, WildAsset, WildFungibility,
-	MAX_ITEMS_IN_ASSETS,
+	Asset, AssetFilter, AssetId, AssetInstance, AssetTransferFilter, Assets, Fungibility,
+	WildAsset, WildFungibility, MAX_ITEMS_IN_ASSETS,
 };
 pub use junction::{BodyId, BodyPart, Junction, NetworkId};
 pub use junctions::Junctions;
@@ -305,7 +305,12 @@ impl TryFrom<OldResponse> for Response {
 			Null => Self::Null,
 			Assets(assets) => Self::Assets(assets.try_into()?),
 			ExecutionResult(result) =>
-				Self::ExecutionResult(result.map(|(num, old_error)| (num, old_error.into()))),
+				Self::ExecutionResult(
+					result
+						.map(|(num, old_error)| (num, old_error.try_into()))
+						.map(|(num, result)| result.map(|inner| (num, inner)))
+						.transpose()?
+				),
 			Version(version) => Self::Version(version),
 			PalletsInfo(pallet_info) => {
 				let inner = pallet_info
@@ -1054,6 +1059,57 @@ pub enum Instruction<Call> {
 	/// Defined in fellowship RFC 105.
 	#[builder(pays_fees)]
 	PayFees { asset: Asset },
+
+	/// Initiates cross-chain transfer as follows:
+	///
+	/// Assets in the holding register are matched using the given list of `AssetTransferFilter`s,
+	/// they are then transferred based on their specified transfer type:
+	///
+	/// - teleport: burn local assets and append a `ReceiveTeleportedAsset` XCM instruction to the
+	///   XCM program to be sent onward to the `destination` location,
+	///
+	/// - reserve deposit: place assets under the ownership of `destination` within this consensus
+	///   system (i.e. its sovereign account), and append a `ReserveAssetDeposited` XCM instruction
+	///   to the XCM program to be sent onward to the `destination` location,
+	///
+	/// - reserve withdraw: burn local assets and append a `WithdrawAsset` XCM instruction to the
+	///   XCM program to be sent onward to the `destination` location,
+	///
+	/// The onward XCM is then appended a `ClearOrigin` to allow safe execution of any following
+	/// custom XCM instructions provided in `remote_xcm`.
+	///
+	/// The onward XCM also contains either a `PayFees` or `UnpaidExecution` instruction based
+	/// on the presence of the `remote_fees` parameter (see below).
+	///
+	/// If an XCM program requires going through multiple hops, it can compose this instruction to
+	/// be used at every chain along the path, describing that specific leg of the flow.
+	///
+	/// Parameters:
+	/// - `destination`: The location of the program next hop.
+	/// - `remote_fees`: If set to `Some(asset_xfer_filter)`, the single asset matching
+	///   `asset_xfer_filter` in the holding register will be transferred first in the remote XCM
+	///   program, followed by a `PayFees(fee)`, then rest of transfers follow. This guarantees
+	///   `remote_xcm` will successfully pass a `AllowTopLevelPaidExecutionFrom` barrier. If set to
+	///   `None`, a `UnpaidExecution` instruction is appended instead. Please note that these
+	///   assets are **reserved** for fees, they are sent to the fees register rather than holding.
+	///   Best practice is to only add here enough to cover fees, and transfer the rest through the
+	///   `assets` parameter.
+	/// - `assets`: List of asset filters matched against existing assets in holding. These are
+	///   transferred over to `destination` using the specified transfer type, and deposited to
+	///   holding on `destination`.
+	/// - `remote_xcm`: Custom instructions that will be executed on the `destination` chain. Note
+	///   that these instructions will be executed after a `ClearOrigin` so their origin will be
+	///   `None`.
+	///
+	/// Safety: No concerns.
+	///
+	/// Kind: *Command*.
+	InitiateTransfer {
+		destination: Location,
+		remote_fees: Option<AssetTransferFilter>,
+		assets: Vec<AssetTransferFilter>,
+		remote_xcm: Xcm<()>,
+	},
 }
 
 impl<Call> Xcm<Call> {
@@ -1133,6 +1189,8 @@ impl<Call> Instruction<Call> {
 			UnpaidExecution { weight_limit, check_origin } =>
 				UnpaidExecution { weight_limit, check_origin },
 			PayFees { asset } => PayFees { asset },
+			InitiateTransfer { destination, remote_fees, assets, remote_xcm } =>
+				InitiateTransfer { destination, remote_fees, assets, remote_xcm },
 		}
 	}
 }
@@ -1204,6 +1262,8 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			UnpaidExecution { weight_limit, check_origin } =>
 				W::unpaid_execution(weight_limit, check_origin),
 			PayFees { asset } => W::pay_fees(asset),
+			InitiateTransfer { destination, remote_fees, assets, remote_xcm } =>
+				W::initiate_transfer(destination, remote_fees, assets, remote_xcm),
 		}
 	}
 }
@@ -1332,7 +1392,11 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 				maybe_location.map(|location| location.try_into()).transpose().map_err(|_| ())?,
 			),
 			ExpectError(maybe_error) => Self::ExpectError(
-				maybe_error.map(|error| error.try_into()).transpose().map_err(|_| ())?,
+				maybe_error
+					.map(|(num, old_error)| (num, old_error.try_into()))
+					.map(|(num, result)| result.map(|inner| (num, inner)))
+					.transpose()
+					.map_err(|_| ())?,
 			),
 			ExpectTransactStatus(maybe_error_code) => Self::ExpectTransactStatus(maybe_error_code),
 			QueryPallet { module_name, response_info } => Self::QueryPallet {

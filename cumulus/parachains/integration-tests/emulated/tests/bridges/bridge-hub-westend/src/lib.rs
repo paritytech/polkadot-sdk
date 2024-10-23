@@ -56,6 +56,7 @@ mod imports {
 		penpal_emulated_chain::{
 			penpal_runtime::xcm_config::{
 				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
 				UniversalLocation as PenpalUniversalLocation,
 			},
 			PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet,

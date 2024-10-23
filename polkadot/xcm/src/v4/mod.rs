@@ -353,7 +353,12 @@ impl TryFrom<NewResponse> for Response {
 			Null => Self::Null,
 			Assets(assets) => Self::Assets(assets.try_into()?),
 			ExecutionResult(result) =>
-				Self::ExecutionResult(result.map(|(num, old_error)| (num, old_error.into()))),
+				Self::ExecutionResult(
+					result
+						.map(|(num, new_error)| (num, new_error.try_into()))
+						.map(|(num, result)| result.map(|inner| (num, inner)))
+						.transpose()?
+				),
 			Version(version) => Self::Version(version),
 			PalletsInfo(pallet_info) => {
 				let inner = pallet_info
@@ -1368,9 +1373,6 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			SetErrorHandler(xcm) => Self::SetErrorHandler(xcm.try_into()?),
 			SetAppendix(xcm) => Self::SetAppendix(xcm.try_into()?),
 			ClearError => Self::ClearError,
-			SetAssetClaimer { .. } => {
-				return Err(());
-			},
 			ClaimAsset { assets, ticket } => {
 				let assets = assets.try_into()?;
 				let ticket = ticket.try_into()?;
@@ -1384,7 +1386,12 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			ExpectAsset(assets) => Self::ExpectAsset(assets.try_into()?),
 			ExpectOrigin(maybe_origin) =>
 				Self::ExpectOrigin(maybe_origin.map(|origin| origin.try_into()).transpose()?),
-			ExpectError(maybe_error) => Self::ExpectError(maybe_error),
+			ExpectError(maybe_error) => Self::ExpectError(
+				maybe_error
+					.map(|(num, new_error)| (num, new_error.try_into()))
+					.map(|(num, result)| result.map(|inner| (num, inner)))
+					.transpose()?
+			),
 			ExpectTransactStatus(maybe_error_code) => Self::ExpectTransactStatus(maybe_error_code),
 			QueryPallet { module_name, response_info } =>
 				Self::QueryPallet { module_name, response_info: response_info.try_into()? },
@@ -1415,7 +1422,8 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 				weight_limit,
 				check_origin: check_origin.map(|origin| origin.try_into()).transpose()?,
 			},
-			PayFees { .. } => {
+			InitiateTransfer { .. } | PayFees { .. } | SetAssetClaimer { .. } => {
+				log::debug!(target: "xcm::v5tov4", "`{new_instruction:?}` not supported by v4");
 				return Err(());
 			},
 		})

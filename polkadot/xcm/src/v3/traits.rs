@@ -16,6 +16,7 @@
 
 //! Cross-Consensus Message format data structures.
 
+use crate::v5::Error as NewError;
 use core::result;
 use scale_info::TypeInfo;
 
@@ -162,6 +163,51 @@ pub enum Error {
 	WeightNotComputable,
 	/// Recursion stack limit reached
 	ExceedsStackLimit,
+}
+
+impl TryFrom<NewError> for Error {
+	type Error = ();
+	fn try_from(new_error: NewError) -> result::Result<Error, ()> {
+		use NewError::*;
+		Ok(match new_error {
+			Overflow => Self::Overflow,
+			Unimplemented => Self::Unimplemented,
+			UntrustedReserveLocation => Self::UntrustedReserveLocation,
+			UntrustedTeleportLocation => Self::UntrustedTeleportLocation,
+			LocationFull => Self::LocationFull,
+			LocationNotInvertible => Self::LocationNotInvertible,
+			BadOrigin => Self::BadOrigin,
+			InvalidLocation => Self::InvalidLocation,
+			AssetNotFound => Self::AssetNotFound,
+			FailedToTransactAsset(s) => Self::FailedToTransactAsset(s),
+			NotWithdrawable => Self::NotWithdrawable,
+			LocationCannotHold => Self::LocationCannotHold,
+			ExceedsMaxMessageSize => Self::ExceedsMaxMessageSize,
+			DestinationUnsupported => Self::DestinationUnsupported,
+			Transport(s) => Self::Transport(s),
+			Unroutable => Self::Unroutable,
+			UnknownClaim => Self::UnknownClaim,
+			FailedToDecode => Self::FailedToDecode,
+			MaxWeightInvalid => Self::MaxWeightInvalid,
+			NotHoldingFees => Self::NotHoldingFees,
+			TooExpensive => Self::TooExpensive,
+			Trap(i) => Self::Trap(i),
+			ExpectationFalse => Self::ExpectationFalse,
+			PalletNotFound => Self::PalletNotFound,
+			NameMismatch => Self::NameMismatch,
+			VersionIncompatible => Self::VersionIncompatible,
+			HoldingWouldOverflow => Self::HoldingWouldOverflow,
+			ExportError => Self::ExportError,
+			ReanchorFailed => Self::ReanchorFailed,
+			NoDeal => Self::NoDeal,
+			FeesNotMet => Self::FeesNotMet,
+			LockError => Self::LockError,
+			NoPermission => Self::NoPermission,
+			Unanchored => Self::Unanchored,
+			NotDepositable => Self::NotDepositable,
+			_ => return Err(()),
+		})
+	}
 }
 
 impl MaxEncodedLen for Error {
