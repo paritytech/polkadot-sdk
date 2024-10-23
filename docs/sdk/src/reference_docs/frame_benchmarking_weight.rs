@@ -131,7 +131,7 @@
 //! [JAM]: https://graypaper.com
 
 #[frame::pallet(dev_mode)]
-#[allow(unused_variables, unreachable_code, unused)]
+#[allow(unused_variables, unreachable_code, unused, clippy::diverging_sub_expression)]
 pub mod pallet {
 	use frame::prelude::*;
 

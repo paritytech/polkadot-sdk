@@ -36,7 +36,7 @@
 //!    applying patches / presets.
 
 //! 3. [`GenesisBuilder::build_state`]: Given a JSON blob, this method should deserialize it and
-//!    enact it (using [`frame_support::traits::BuildGenesisConfig`] for Frame-based runtime),
+//!    enact it (using `frame_support::traits::BuildGenesisConfig` for Frame-based runtime),
 //!    essentially writing it to the state.
 //!
 //! The first two flows are often done in between a runtime, and the `chain_spec_builder` binary.
