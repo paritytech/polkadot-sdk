@@ -34,10 +34,10 @@
 //!
 //! This crate is organized into 3 stages:
 //!
-//! 1. preludes: [`prelude`], [`testing_prelude`] and [`runtime::prelude`], [`benchmarking`],
-//!    [`weights_prelude`], [`try_runtime`].
-//! 2. domain-specific modules: [`traits`], [`hashing`], [`arithmetic`] and [`derive`].
-//! 3. Accessing frame/substrate dependencies directly: [`deps`].
+//! 1. preludes: \[`prelude`\], \[`testing_prelude`\] and \[`runtime::prelude`\],
+//!    \[`benchmarking`\], \[`weights_prelude`\], \[`try_runtime`\].
+//! 2. domain-specific modules: \[`traits`\], \[`hashing`\], \[`arithmetic`\] and \[`derive`\].
+//! 3. Accessing frame/substrate dependencies directly: \[`deps`\].
 //!
 //! The main intended use of this crate is for it to be used with the former, preludes:
 //!
@@ -75,7 +75,7 @@
 //! ```
 //!
 //! If not in preludes, one can look into the domain-specific modules. Finally, if an import is
-//! still not feasible, one can look into [`deps`].
+//! still not feasible, one can look into \[`deps`\].
 //!
 //! ## Naming
 //!
@@ -126,12 +126,12 @@
 //! * The only non-module, non-prelude items exported from the top level crate is the `pallet`
 //!   macro, such that we can have the `#[frame::pallet] mod pallet { .. }` syntax working.
 //! * In most cases, you might want to create a domain-specific module, but also add it to the
-//!   preludes, such as [`hashing`].
+//!   preludes, such as \[`hashing`\].
 //! * The only items that should NOT be in preludes are those that have been placed in
 //!   `frame-support`/`sp-runtime`, but in truth are related to just one pallet.
 //! * The currency related traits are kept out of the preludes to encourage a deliberate choice of
 //!   one over the other.
-//! * [`runtime::apis`] should expose all common runtime APIs that all FRAME-based runtimes need.
+//! * \[`runtime::apis`\] should expose all common runtime APIs that all FRAME-based runtimes need.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
