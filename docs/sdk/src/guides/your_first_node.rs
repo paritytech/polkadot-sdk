@@ -237,8 +237,8 @@ mod tests {
 			.args(["--para-id", "1000", "--relay-chain", "dontcare"])
 			.args(["-r", runtime_path.to_str().unwrap()])
 			.args(match maybe_preset {
-				Some(preset) => ["named-preset".to_string(), preset.to_string()],
-				None => ["default".to_string()],
+				Some(preset) => vec!["named-preset".to_string(), preset.to_string()],
+				None => vec!["default".to_string()],
 			})
 			.assert()
 			.success();
