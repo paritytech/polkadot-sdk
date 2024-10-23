@@ -50,7 +50,7 @@ impl From<CommittedMessage> for Token {
 pub struct FeeWithBlockNumber<BlockNumber> {
 	/// A nonce of the message for enforcing replay protection
 	pub nonce: u64,
-	/// The block number of the message
+	/// The block number in which the message was committed
 	pub block_number: BlockNumber,
 	/// The fee
 	pub fee: u128,
