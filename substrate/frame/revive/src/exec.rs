@@ -1247,11 +1247,11 @@ where
 	/// This is a no-op for zero `value`, avoiding events to be emitted for zero balance transfers.
 	///
 	/// If the destination account does not exist, it is pulled into existence by transferring the ED
-	/// from `origin` to the new account. The total amount transferred to `to` will be the ED + the
-	/// provided `value`. This removes the need for contracts being aware of the ED.
+	/// from `origin` to the new account. The total amount transferred to `to` will be ED + `value`.
+	/// This makes the ED fully transparent for contracts.
 	/// The ED transfer is executed atomically with the actual transfer, avoiding the possibility of
 	/// the ED transfer succeeding but the actual transfer failing. In other words, if the `to` does
-	/// not exist, the transfer does fail and nothing will be send to `to` if either `origin` can not
+	/// not exist, the transfer does fail and nothing will be sent to `to` if either `origin` can not
 	/// provide the ED or transferring `value` from `from` to `to` falis.
 	/// Note: This will also fail if `origin` is root.
 	fn transfer(
@@ -2045,6 +2045,25 @@ mod tests {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
 			assert_eq!(get_balance(&ALICE), 45 - min_balance);
 			assert_eq!(get_balance(&BOB), 55 + min_balance);
+		});
+	}
+
+	#[test]
+	fn transfer_to_nonexistent_account_works() {
+		// This test verifies that a contract is able to transfer
+		// some funds to a nonexistant account.
+		ExtBuilder::default().build().execute_with(|| {
+			let ed = <Test as Config>::Currency::minimum_balance();
+			let value = 1024;
+
+			set_balance(&ALICE, ed * 2);
+			set_balance(&BOB, ed + value);
+
+			MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &CHARLIE, value).unwrap();
+
+			assert_eq!(get_balance(&ALICE), ed);
+			assert_eq!(get_balance(&BOB), ed);
+			assert_eq!(get_balance(&CHARLIE), ed + value);
 		});
 	}
 
