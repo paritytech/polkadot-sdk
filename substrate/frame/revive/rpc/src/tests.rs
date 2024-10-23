@@ -1,3 +1,7 @@
+//! Test the eth-rpc cli with the kitchensink node.
+
+// We require the `riscv` feature to get access to the compiled fixtures.
+#![cfg(feature = "riscv")]
 use crate::{
 	example::{send_transaction, wait_for_receipt},
 	EthRpcClient,
@@ -20,7 +24,7 @@ fn start_eth_rpc_server(node_ws_url: &str) -> (Child, String) {
 		.stdout(process::Stdio::piped())
 		.stderr(process::Stdio::piped())
 		.env("RUST_LOG", "info,eth-rpc=debug")
-		.args(&["--rpc-port=45788", &format!("--node-rpc-url={node_ws_url}")])
+		.args(["--rpc-port=45788", &format!("--node-rpc-url={node_ws_url}")])
 		.spawn()
 		.unwrap();
 
@@ -30,7 +34,7 @@ fn start_eth_rpc_server(node_ws_url: &str) -> (Child, String) {
 		.find_map(|line| {
 			let line = line.expect("failed to obtain next line while extracting node info");
 			data.push_str(&line);
-			data.push_str("\n");
+			data.push('\n');
 
 			// does the line contain our port (we expect this specific output from eth-rpc).
 			let sock_addr = match line.split_once("Running JSON-RPC server: addr=") {

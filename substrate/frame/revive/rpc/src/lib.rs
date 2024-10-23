@@ -361,7 +361,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		block: BlockNumberOrTagOrHash,
 	) -> RpcResult<U256> {
 		let nonce = self.client.nonce(address, block).await?;
-		Ok(nonce.into())
+		Ok(nonce)
 	}
 }
 

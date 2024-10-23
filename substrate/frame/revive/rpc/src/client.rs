@@ -555,7 +555,7 @@ impl Client {
 		// TODO: remove once subxt is updated
 		let address = address.0.into();
 
-		let runtime_api = self.runtime_api(&at).await?;
+		let runtime_api = self.runtime_api(at).await?;
 		let payload = subxt_client::apis().revive_api().balance(address);
 		let balance = runtime_api.call(payload).await?.into();
 		Ok(self.inner.native_to_evm_decimals(balance))
@@ -589,9 +589,9 @@ impl Client {
 		let storage_api = self.storage_api(&block).await?;
 
 		// TODO: remove once subxt is updated
-		let contract_address = contract_address.0.into();
+		let contract_address: subxt::utils::H160 = contract_address.0.into();
 
-		let query = subxt_client::storage().revive().contract_info_of(&contract_address);
+		let query = subxt_client::storage().revive().contract_info_of(contract_address);
 		let Some(ContractInfo { code_hash, .. }) = storage_api.fetch(&query).await? else {
 			return Ok(Vec::new());
 		};
@@ -646,7 +646,7 @@ impl Client {
 		&self,
 		address: H160,
 		at: BlockNumberOrTagOrHash,
-	) -> Result<u32, ClientError> {
+	) -> Result<U256, ClientError> {
 		let address = address.0.into();
 
 		let runtime_api = self.runtime_api(&at).await?;

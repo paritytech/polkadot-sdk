@@ -75,9 +75,9 @@ env_logger = { workspace = true }
 [features]
 dev = []
 example = ["hex", "hex-literal", "rlp", "secp256k1", "subxt-signer"]
+riscv = ["pallet-revive/riscv"]
 
 [dev-dependencies]
-pallet-revive = { workspace = true, default-features = true, features = ["riscv"] }
 hex-literal = { workspace = true }
 pallet-revive-fixtures = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
