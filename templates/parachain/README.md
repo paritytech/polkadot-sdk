@@ -70,6 +70,7 @@ export PATH="<path-to-binary>:$PATH"
 ```
 
 ↩️  If not already built, we should build the `runtime` and generate a development chain spec.
+The chain spec will be passed to the Omni Node binary when starting it.
 
 ```sh
 # Build the parachain runtime.
@@ -83,19 +84,19 @@ chain-spec-builder create --relay-chain "rococo-local" --para-id 1000 --runtime 
 
 ⚙️  The `relay-chain` and `para-id` flags in the chain spec generation above are extra bits of
 information required to configure the node in relation to its parachain id (which must be set
-to `1000` for the parachain template, to be the same as the `ParachainInfo` pallet [genesis config](https://github.com/paritytech/polkadot-sdk/blob/master/templates/parachain/runtime/src/genesis_config_presets.rs)),
-while the `relay-chain` must correspond to the relay chain id where the parachain connects to.
+to `1000` for the parachain template, to be the same as the `ParachainInfo` pallet [genesis config](https://github.com/paritytech/polkadot-sdk/blob/master/templates/parachain/runtime/src/genesis_config_presets.rs)).
+The `relay-chain` must correspond to the relay chain id where the parachain connects to.
 
-To start Omni Node with parachain template chain spec, we'll do this with zombienet after
-updating the correct path to the `chain_spec.json` file in the `parachains` section of the
-`zombienet-omni-node.toml` file that holds the zombienet network specification:
+We'll start Omni Node with zombienet, but before doing that we must update the path to the
+`chain_spec.json` file in the `parachains` section of the `zombienet-omni-node.toml` file,
+which holds the zombienet network specification:
 
 ```toml
 # ...
 [[parachains]]
 id = 1000
 # insert the correct path on your file system
-chain_spec_path = "<path/to/chain_spec.json"
+chain_spec_path = "<path/to/chain_spec.json>"
 # ...
 ```
 

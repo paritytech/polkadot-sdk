@@ -48,9 +48,9 @@ cd minimal-template
 ### Build
 
 🔨 Use the following command to build the template, which by default
-compiles just the runtime. There is also a a `node` crate that is able
-to run and load the runtime but the recommended way of starting the template
-is based on Omni Node (TODO: add link to docs).
+compiles just the runtime. There is also a `node` crate that is able
+to run and load the runtime but the recommended way of starting the
+template is based on Omni Node (TODO: add link to docs).
 
 ```sh
 cargo build --release
@@ -88,7 +88,7 @@ to minimal template business logic, but they are mandatory information for Omni 
 chain spec.
 
 ```sh
-polkadot-parachain --chain <path/to/chain_spec.json> --dev-block-time 3000 --tmp
+polkadot-omni-node --chain <path/to/chain_spec.json> --dev-block-time 3000 --tmp
 ```
 
 ### Single-Node Development Chain with Minimal Template Node
