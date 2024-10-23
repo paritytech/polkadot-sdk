@@ -1,0 +1,17 @@
+title: Include executing origin in PollStatus
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds an extra field to `PollStatus::Ongoing` variant `Who`. It allows
+      users of the `Polling` trait know who(what origin) is executing the poll.
+
+crates:
+  - name: frame-support
+    bump: minor
+  - name: pallet-referenda
+    bump: minor
+  - name: pallet-conviction-voting
+    bump: patch
+  - name: pallet-ranked-collective
+    bump: patch

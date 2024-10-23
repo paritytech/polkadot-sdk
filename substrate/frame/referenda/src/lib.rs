@@ -746,6 +746,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 	type Votes = VotesOf<T, I>;
 	type Moment = BlockNumberFor<T>;
 	type Class = TrackIdOf<T, I>;
+	type Who = PalletsOriginOf<T>;
 
 	fn classes() -> Vec<Self::Class> {
 		T::Tracks::tracks().iter().map(|x| x.0).collect()
@@ -753,11 +754,14 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 
 	fn access_poll<R>(
 		index: Self::Index,
-		f: impl FnOnce(PollStatus<&mut T::Tally, BlockNumberFor<T>, TrackIdOf<T, I>>) -> R,
+		f: impl FnOnce(
+			PollStatus<&mut T::Tally, BlockNumberFor<T>, TrackIdOf<T, I>, &PalletsOriginOf<T>>,
+		) -> R,
 	) -> R {
 		match ReferendumInfoFor::<T, I>::get(index) {
 			Some(ReferendumInfo::Ongoing(mut status)) => {
-				let result = f(PollStatus::Ongoing(&mut status.tally, status.track));
+				let result =
+					f(PollStatus::Ongoing(&mut status.tally, status.track, &status.origin));
 				let now = frame_system::Pallet::<T>::block_number();
 				Self::ensure_alarm_at(&mut status, index, now + One::one());
 				ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
@@ -772,12 +776,13 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 	fn try_access_poll<R>(
 		index: Self::Index,
 		f: impl FnOnce(
-			PollStatus<&mut T::Tally, BlockNumberFor<T>, TrackIdOf<T, I>>,
+			PollStatus<&mut T::Tally, BlockNumberFor<T>, TrackIdOf<T, I>, &PalletsOriginOf<T>>,
 		) -> Result<R, DispatchError>,
 	) -> Result<R, DispatchError> {
 		match ReferendumInfoFor::<T, I>::get(index) {
 			Some(ReferendumInfo::Ongoing(mut status)) => {
-				let result = f(PollStatus::Ongoing(&mut status.tally, status.track))?;
+				let result =
+					f(PollStatus::Ongoing(&mut status.tally, status.track, &status.origin))?;
 				let now = frame_system::Pallet::<T>::block_number();
 				Self::ensure_alarm_at(&mut status, index, now + One::one());
 				ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
@@ -789,8 +794,8 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 		}
 	}
 
-	fn as_ongoing(index: Self::Index) -> Option<(T::Tally, TrackIdOf<T, I>)> {
-		Self::ensure_ongoing(index).ok().map(|x| (x.tally, x.track))
+	fn as_ongoing(index: Self::Index) -> Option<(T::Tally, TrackIdOf<T, I>, Self::Who)> {
+		Self::ensure_ongoing(index).ok().map(|x| (x.tally, x.track, x.origin))
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
