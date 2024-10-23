@@ -11,6 +11,6 @@ crates:
 - name: pallet-revive
   bump: major
 - name: pallet-revive-fixtures
-  bump: major
+  bump: patch
 - name: pallet-revive-uapi
   bump: major
