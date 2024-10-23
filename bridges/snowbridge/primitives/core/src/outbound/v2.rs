@@ -50,15 +50,6 @@ pub enum Command {
 		/// The new operating mode
 		mode: OperatingMode,
 	},
-	/// Transfer ether from an agent contract to a recipient account
-	TransferNativeFromAgent {
-		/// The agent ID
-		agent_id: H256,
-		/// The recipient of the ether
-		recipient: H160,
-		/// The amount to transfer
-		amount: u128,
-	},
 	/// Unlock ERC20 tokens
 	UnlockNativeToken {
 		/// ID of the agent
@@ -99,7 +90,6 @@ impl Command {
 			Command::Upgrade { .. } => 1,
 			Command::CreateAgent { .. } => 2,
 			Command::SetOperatingMode { .. } => 5,
-			Command::TransferNativeFromAgent { .. } => 6,
 			Command::UnlockNativeToken { .. } => 9,
 			Command::RegisterForeignToken { .. } => 10,
 			Command::MintForeignToken { .. } => 11,
@@ -121,12 +111,6 @@ impl Command {
 				)])]),
 			Command::SetOperatingMode { mode } =>
 				ethabi::encode(&[Token::Tuple(vec![Token::Uint(U256::from((*mode) as u64))])]),
-			Command::TransferNativeFromAgent { agent_id, recipient, amount } =>
-				ethabi::encode(&[Token::Tuple(vec![
-					Token::FixedBytes(agent_id.as_bytes().to_owned()),
-					Token::Address(*recipient),
-					Token::Uint(U256::from(*amount)),
-				])]),
 			Command::UnlockNativeToken { agent_id, token, recipient, amount } =>
 				ethabi::encode(&[Token::Tuple(vec![
 					Token::FixedBytes(agent_id.as_bytes().to_owned()),
@@ -276,7 +260,6 @@ impl GasMeter for ConstantGasMeter {
 	fn maximum_dispatch_gas_used_at_most(command: &Command) -> u64 {
 		match command {
 			Command::CreateAgent { .. } => 275_000,
-			Command::TransferNativeFromAgent { .. } => 60_000,
 			Command::SetOperatingMode { .. } => 40_000,
 			Command::Upgrade { initializer, .. } => {
 				let initializer_max_gas = match *initializer {
