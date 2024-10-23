@@ -73,8 +73,6 @@ pub async fn send_transaction(
 		.await
 		.with_context(|| "Failed to fetch gas estimate")?;
 
-	println!("Estimated Gas: {gas:?}");
-
 	let unsigned_tx = TransactionLegacyUnsigned {
 		gas,
 		nonce,

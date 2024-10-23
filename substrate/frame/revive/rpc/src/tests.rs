@@ -58,14 +58,13 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	let (info, _) = extract_info_from_output(node_child.stderr.take().unwrap());
 	let (_rpc_child, ws_url) = start_eth_rpc_server(&info.ws_url);
 
+	let client = WsClientBuilder::default().build(ws_url).await?;
+	let account = Account::default();
+
+	// Deploy contract
 	let data = b"hello world".to_vec();
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let input = bytes.into_iter().chain(data.clone()).collect::<Vec<u8>>();
-
-	let account = Account::default();
-	let client = WsClientBuilder::default().build(ws_url).await?;
-
-	// Deploy contract
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
 	let hash = send_transaction(&account, &client, U256::zero(), input.into(), None).await?;
 	let receipt = wait_for_receipt(&client, hash).await?;
