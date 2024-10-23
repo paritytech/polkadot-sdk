@@ -3,14 +3,16 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::shared::GenesisBuilderPolicy;
-use sc_chain_spec::{ChainSpec, GenesisConfigBuilderRuntimeCaller};
+use crate::{overhead::cmd::ParachainExtension};
+use sc_chain_spec::{ChainSpec, GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
 use sc_cli::Result;
 use serde_json::Value;
 use sp_storage::{well_known_keys::CODE, Storage};
 use sp_wasm_interface::HostFunctions;
-use std::{fs, path::PathBuf};
-
+use std::{
+	path::{PathBuf},
+};
+use std::borrow::Cow;
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -39,69 +41,69 @@ generate the genesis state is deprecated. Please remove the `--chain`/`--dev`/`-
 point `--runtime` to your runtime blob and set `--genesis-builder=runtime`. This warning may \
 become a hard error any time after December 2024.";
 
-pub fn get_code_bytes(
-	chain_spec: &Option<Box<dyn ChainSpec>>,
-	runtime: &Option<PathBuf>,
-) -> Result<Vec<u8>> {
-	match (chain_spec, runtime) {
-		(None, Some(runtime_code_path)) => Ok(fs::read(runtime_code_path)?),
-		// Get the code blob from the chain spec.
-		// First transform the chain_spec to storage, then extract the code.
-		(Some(chain_spec), None) => {
-			let mut storage = chain_spec
-				.as_storage_builder()
-				.build_storage()
-				.map_err(|e| format!("Can not transform chain-spec to storage {}", e))?;
-			Ok(storage.top.remove(CODE).ok_or("chain spec genesis does not contain code")?)
-		},
-		(Some(_), Some(_)) =>
-			Err("Both runtime and chain spec provided, please only provide one of both.".into()),
-		(_, _) => Err("Please provide either a runtime or a chain spec.".into()),
+pub enum GenesisSource {
+	Runtime(String),
+	Raw,
+	None,
+}
+
+pub enum GenesisStateHandler {
+	ChainSpec(Box<dyn ChainSpec>, GenesisSource),
+	Runtime(Vec<u8>, String),
+}
+
+impl GenesisStateHandler {
+	/// Populate the genesis storage.
+	///
+	/// If the raw storage is derived from a named preset, `json_patcher` is can be used to inject values into the preset.
+	pub fn build_storage<HF: HostFunctions>(&self, json_patcher: Option<Box<dyn FnOnce(Value) -> Value + 'static>>) -> Result<Storage> {
+		match self {
+			GenesisStateHandler::ChainSpec(chain_spec, source) => {
+				match source {
+					GenesisSource::Runtime(preset) => {
+						let mut storage = chain_spec
+							.build_storage()?;
+						let code_bytes = storage.top.remove(CODE).ok_or("chain spec genesis does not contain code")?;
+						genesis_from_code::<HF>(code_bytes.as_slice(), preset, json_patcher)
+					}
+					GenesisSource::Raw => {
+						chain_spec
+							.build_storage()
+							.map_err(|e| format!("{ERROR_CANNOT_BUILD_GENESIS}\nError: {e}").into())
+					}
+					GenesisSource::None => {
+						Ok(Storage::default())
+					}
+				}
+			},
+			GenesisStateHandler::Runtime(code_bytes, preset) => {
+				genesis_from_code::<HF>(code_bytes.as_slice(), preset, json_patcher)
+			}
+		}
+	}
+
+	pub fn get_code_bytes(&self) -> Result<Cow<[u8]>> {
+		match self {
+			GenesisStateHandler::ChainSpec(chain_spec, _) => {
+				let mut storage = chain_spec
+					.build_storage()?;
+				storage.top.remove(CODE).map(|code| Cow::from(code)).ok_or("chain spec genesis does not contain code".into())
+			}
+			GenesisStateHandler::Runtime(code_bytes, _) => {
+				Ok(code_bytes.into())
+			}
+		}
 	}
 }
-pub fn genesis_storage<F: HostFunctions>(
-	genesis_builder: Option<GenesisBuilderPolicy>,
-	runtime: &Option<PathBuf>,
-	code_bytes: Option<&Vec<u8>>,
-	genesis_builder_preset: &String,
-	chain_spec: &Option<Box<dyn ChainSpec>>,
-	storage_patcher: Option<Box<dyn FnOnce(Value) -> Value + 'static>>,
-) -> Result<Storage> {
-	Ok(match (genesis_builder, runtime) {
-        (Some(GenesisBuilderPolicy::None), Some(_)) => return Err("Cannot use `--genesis-builder=none` with `--runtime` since the runtime would be ignored.".into()),
-        (Some(GenesisBuilderPolicy::None), None) => Storage::default(),
-        (Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::Spec), Some(_)) =>
-            return Err("Cannot use `--genesis-builder=spec-genesis` with `--runtime` since the runtime would be ignored.".into()),
-        (Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::Spec), None) | (None, None) => {
-            log::warn!("{WARN_SPEC_GENESIS_CTOR}");
-            let Some(chain_spec) = chain_spec else {
-                return Err("No chain spec specified to generate the genesis state".into());
-            };
 
-            let storage = chain_spec
-                .build_storage()
-                .map_err(|e| format!("{ERROR_CANNOT_BUILD_GENESIS}\nError: {e}"))?;
+pub fn chain_spec_from_path<HF: HostFunctions>(
+	chain: PathBuf,
+) -> Result<(Box<dyn ChainSpec>, Option<u32>)> {
+	let spec = GenericChainSpec::<ParachainExtension, HF>::from_json_file(chain)
+		.map_err(|e| format!("Unable to load chain spec: {:?}", e))?;
 
-            storage
-        },
-        (Some(GenesisBuilderPolicy::SpecRuntime), Some(_)) =>
-            return Err("Cannot use `--genesis-builder=spec` with `--runtime` since the runtime would be ignored.".into()),
-        (Some(GenesisBuilderPolicy::SpecRuntime), None) => {
-			let Some(code) = code_bytes else {
-				return Err("Can not build genesis from runtime. Please provide a runtime.".into());
-			};
-
-			genesis_from_code::<F>(code.as_slice(), genesis_builder_preset, storage_patcher)?
-        },
-        (Some(GenesisBuilderPolicy::Runtime), None) => return Err("Cannot use `--genesis-builder=runtime` without `--runtime`".into()),
-        (Some(GenesisBuilderPolicy::Runtime), Some(_)) | (None, Some(_)) => {
-            let Some(code) = code_bytes else {
-				return Err("Can not build genesis from runtime. Please provide a runtime.".into());
-			};
-
-            genesis_from_code::<F>(code.as_slice(), genesis_builder_preset, storage_patcher)?
-        }
-    })
+	let para_id_from_chain_spec = spec.extensions().para_id;
+	Ok((Box::new(spec), para_id_from_chain_spec))
 }
 
 fn genesis_from_code<EHF: HostFunctions>(

@@ -21,7 +21,6 @@ use super::{
 };
 use crate::{
 	pallet::types::FetchedCode,
-	shared::genesis_state::{genesis_storage, get_code_bytes},
 };
 use codec::{Decode, Encode};
 use frame_benchmarking::{
@@ -55,6 +54,8 @@ use std::{
 	str::FromStr,
 	time,
 };
+use crate::shared::genesis_state::{GenesisSource, GenesisStateHandler};
+use crate::shared::{genesis_state, GenesisBuilderPolicy};
 
 /// Logging target
 const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::pallet";
@@ -168,6 +169,60 @@ impl PalletCmd {
 		self.run_with_spec::<Hasher, ExtraHostFunctions>(Some(config.chain_spec))
 	}
 
+	fn state_handler_from_cli<HF: HostFunctions>(
+		&self,
+		chain_spec_from_api: Option<Box<dyn ChainSpec>>,
+	) -> Result<GenesisStateHandler> {
+		let genesis_builder_to_source = || match self.genesis_builder {
+			Some(GenesisBuilderPolicy::Runtime) | Some(GenesisBuilderPolicy::SpecRuntime) =>
+				GenesisSource::Runtime(self.genesis_builder_preset.clone()),
+			Some(
+				GenesisBuilderPolicy::Spec |
+				GenesisBuilderPolicy::SpecGenesis |
+				GenesisBuilderPolicy::None
+			) | None => GenesisSource::Raw,
+		};
+
+		// First handle chain-spec passed in via API parameter.
+		if let Some(chain_spec) = chain_spec_from_api {
+			log::debug!(
+					"Initializing state handler with chain-spec from API: {:?}",
+					chain_spec
+				);
+
+			let source = genesis_builder_to_source();
+			return Ok(GenesisStateHandler::ChainSpec(chain_spec, source))
+		};
+
+		// Handle chain-spec passed in via CLI.
+		if let Some(chain_spec_path) = &self.shared_params.chain {
+			log::debug!(
+					"Initializing state handler with chain-spec from path: {:?}",
+					chain_spec_path
+				);
+			let (chain_spec, _) =
+				genesis_state::chain_spec_from_path::<HF>(chain_spec_path.to_string().into())?;
+
+			let source = genesis_builder_to_source();
+
+			return Ok(GenesisStateHandler::ChainSpec(chain_spec, source))
+		};
+
+		// Check for runtimes. In general, we make sure that `--runtime` and `--chain` are
+		// incompatible on the CLI level.
+		if let Some(runtime_path) = &self.runtime {
+			log::debug!("Initializing state handler with runtime from path: {:?}", runtime_path);
+
+			let runtime_blob = fs::read(runtime_path)?;
+			return Ok(GenesisStateHandler::Runtime(
+				runtime_blob,
+				self.genesis_builder_preset.clone()
+			))
+		};
+
+		Err("Neither a runtime nor a chain-spec were specified".to_string().into())
+	}
+
 	/// Runs the pallet benchmarking command.
 	pub fn run_with_spec<Hasher, ExtraHostFunctions>(
 		&self,
@@ -202,15 +257,10 @@ impl PalletCmd {
 			return self.output_from_results(&batches)
 		}
 
-		let code_bytes = get_code_bytes(&chain_spec, &self.runtime)?;
-		let genesis_storage = genesis_storage::<SubstrateAndExtraHF<ExtraHostFunctions>>(
-			self.genesis_builder,
-			&self.runtime,
-			Some(&code_bytes),
-			&self.genesis_builder_preset,
-			&chain_spec,
-			None,
+		let state_handler = self.state_handler_from_cli::<SubstrateAndExtraHF<ExtraHostFunctions>>(
+			chain_spec,
 		)?;
+		let genesis_storage = state_handler.build_storage::<SubstrateAndExtraHF<ExtraHostFunctions>>(None)?;
 
 		let cache_size = Some(self.database_cache_size as usize);
 		let state_with_tracking = BenchmarkingState::<Hasher>::new(

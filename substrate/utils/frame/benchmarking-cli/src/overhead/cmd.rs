@@ -29,7 +29,11 @@ use crate::{
 		fake_runtime_api,
 		template::TemplateData,
 	},
-	shared::{self, GenesisBuilderPolicy, HostInfoParams, WeightParams},
+	shared::{
+		genesis_state,
+		genesis_state::{GenesisSource, GenesisStateHandler},
+		GenesisBuilderPolicy, HostInfoParams, WeightParams,
+	},
 };
 use clap::{Args, Parser};
 use codec::Encode;
@@ -39,14 +43,13 @@ use frame_support::Deserialize;
 use log::info;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sc_block_builder::BlockBuilderApi;
-use sc_chain_spec::{ChainSpec, ChainSpecExtension, GenericChainSpec, GenesisBlockBuilder};
+use sc_chain_spec::{ChainSpec, ChainSpecExtension, GenesisBlockBuilder};
 use sc_cli::{CliConfiguration, Database, ImportParams, Result, SharedParams};
 use sc_client_api::{execution_extensions::ExecutionExtensions, UsageProvider};
 use sc_client_db::{BlocksPruning, DatabaseSettings};
 use sc_executor::WasmExecutor;
 use sc_service::{new_client, new_db_backend, BasePath, ClientConfig, TFullClient, TaskManager};
 use serde::Serialize;
-use serde_json::{json, Value};
 use sp_api::{ApiExt, CallApiAt, Core, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_core::H256;
@@ -59,10 +62,13 @@ use sp_runtime::{
 use sp_wasm_interface::HostFunctions;
 use std::{
 	fmt::{Debug, Display, Formatter},
+	fs,
 	path::PathBuf,
 	sync::Arc,
 };
+use serde_json::{json, Value};
 use subxt::{client::RuntimeVersion, ext::futures, Metadata};
+use sp_storage::Storage;
 
 const DEFAULT_PARA_ID: u32 = 100;
 
@@ -125,7 +131,7 @@ pub struct OverheadParams {
 	/// Can be used together with `--chain` to determine whether the
 	/// genesis state should be initialized with the values from the
 	/// provided chain spec or a runtime-provided genesis preset.
-	#[arg(long, value_enum, conflicts_with = "runtime")]
+	#[arg(long, value_enum, conflicts_with = "runtime", alias = "genesis-builder-policy")]
 	pub genesis_builder: Option<GenesisBuilderPolicy>,
 
 	/// Parachain Id to use for parachains. If not specified, the benchmark code will choose
@@ -210,27 +216,6 @@ fn create_inherent_data<Client: UsageProvider<Block> + HeaderBackend<Block>, Blo
 	inherent_data
 }
 
-/// Patch the parachain id into the genesis config. This is necessary since the inherents
-/// also contain a parachain id and they need to match.
-fn patch_genesis(mut input_value: Value, chain_type: ChainType) -> Value {
-	// If we identified a parachain we should patch a parachain id into the genesis config.
-	// This ensures compatibility with the inherents that we provide to successfully build a
-	// block.
-	if let Parachain(para_id) = chain_type {
-		sc_chain_spec::json_patch::merge(
-			&mut input_value,
-			json!({
-				"parachainInfo": {
-					"parachainId": para_id,
-				}
-			}),
-		);
-		log::debug!("Genesis Config Json");
-		log::debug!("{}", input_value);
-	}
-	input_value
-}
-
 /// Identifies what kind of chain we are dealing with.
 ///
 /// Chains containing the `ParachainSystem` and `ParachainInfo` pallet are considered parachains.
@@ -264,22 +249,58 @@ pub struct ParachainExtension {
 }
 
 impl OverheadCmd {
-	fn chain_spec_from_path<HF: HostFunctions>(
+	fn state_handler_from_cli<HF: HostFunctions>(
 		&self,
-	) -> Result<(Option<Box<dyn ChainSpec>>, Option<u32>)> {
-		let chain_spec = self
-			.shared_params
-			.chain
-			.clone()
-			.map(|path| {
-				GenericChainSpec::<ParachainExtension, HF>::from_json_file(path.into())
-					.map_err(|e| format!("Unable to load chain spec: {:?}", e))
-			})
-			.transpose()?;
+		chain_spec_from_api: Option<Box<dyn ChainSpec>>,
+	) -> Result<(GenesisStateHandler, Option<u32>)> {
+		let genesis_builder_to_source = || match self.params.genesis_builder {
+			Some(GenesisBuilderPolicy::Runtime) | Some(GenesisBuilderPolicy::SpecRuntime) =>
+				GenesisSource::Runtime(self.params.genesis_builder_preset.clone()),
+			Some(
+				GenesisBuilderPolicy::Spec |
+				GenesisBuilderPolicy::SpecGenesis |
+				GenesisBuilderPolicy::None
+			) | None => GenesisSource::Raw,
+		};
 
-		let para_id_from_chain_spec =
-			chain_spec.as_ref().and_then(|spec| spec.extensions().para_id);
-		Ok((chain_spec.map(|c| Box::new(c) as Box<_>), para_id_from_chain_spec))
+		// First handle chain-spec passed in via API parameter.
+		if let Some(chain_spec) = chain_spec_from_api {
+			log::debug!(
+					"Initializing state handler with chain-spec from API: {:?}",
+					chain_spec
+				);
+
+			let source = genesis_builder_to_source();
+			return Ok((GenesisStateHandler::ChainSpec(chain_spec, source), self.params.para_id))
+		};
+
+		// Handle chain-spec passed in via CLI.
+		if let Some(chain_spec_path) = &self.shared_params.chain {
+			log::debug!(
+					"Initializing state handler with chain-spec from path: {:?}",
+					chain_spec_path
+				);
+			let (chain_spec, para_id_from_chain_spec) =
+				genesis_state::chain_spec_from_path::<HF>(chain_spec_path.to_string().into())?;
+
+			let source = genesis_builder_to_source();
+
+			return Ok((GenesisStateHandler::ChainSpec(chain_spec, source), self.params.para_id.or(para_id_from_chain_spec)))
+		};
+
+		// Check for runtimes. In general, we make sure that `--runtime` and `--chain` are
+		// incompatible on the CLI level.
+		if let Some(runtime_path) = &self.params.runtime {
+			log::debug!("Initializing state handler with runtime from path: {:?}", runtime_path);
+
+			let runtime_blob = fs::read(runtime_path)?;
+			return Ok((GenesisStateHandler::Runtime(
+				runtime_blob,
+				self.params.genesis_builder_preset.clone()
+			), self.params.para_id))
+		};
+
+		Err("Neither a runtime nor a chain-spec were specified".to_string().into())
 	}
 
 	/// Run the benchmark overhead command.
@@ -294,23 +315,19 @@ impl OverheadCmd {
 		Block: BlockT<Extrinsic = OpaqueExtrinsic, Hash = H256>,
 		ExtraHF: HostFunctions,
 	{
-		let (chain_spec, para_id_from_chain_spec) = match chain_spec {
-			Some(_) => (chain_spec, None),
-			None => self.chain_spec_from_path::<(ParachainHostFunctions, ExtraHF)>()?,
-		};
-
-		let code_bytes = shared::genesis_state::get_code_bytes(&chain_spec, &self.params.runtime)?;
+		let (state_handler, para_id) = self.state_handler_from_cli::<(ParachainHostFunctions, ExtraHF)>(chain_spec)?;
 
 		let executor = WasmExecutor::<(ParachainHostFunctions, ExtraHF)>::builder()
 			.with_allow_missing_host_functions(true)
 			.build();
 
-		let metadata = fetch_latest_metadata_from_blob(&executor, &code_bytes)?;
-		let chain_type = identify_chain(&metadata, para_id_from_chain_spec.or(self.params.para_id));
+		let metadata = fetch_latest_metadata_from_blob(&executor, state_handler.get_code_bytes()?)?;
+
+		// At this point we know what kind of chain we are dealing with.
+		let chain_type = identify_chain(&metadata, para_id);
 
 		let client = self.build_client_components::<Block, (ParachainHostFunctions, ExtraHF)>(
-			chain_spec,
-			&code_bytes,
+			state_handler.build_storage::<(ParachainHostFunctions, ExtraHF)>(Some(Box::new(move |value| patch_genesis(value, para_id))))?,
 			executor,
 			&chain_type,
 		)?;
@@ -361,8 +378,7 @@ impl OverheadCmd {
 
 	fn build_client_components<Block: BlockT, HF: HostFunctions>(
 		&self,
-		chain_spec: Option<Box<dyn ChainSpec>>,
-		code_bytes: &Vec<u8>,
+		genesis_storage: Storage,
 		executor: WasmExecutor<HF>,
 		chain_type: &ChainType,
 	) -> Result<Arc<OverheadClient<Block, HF>>> {
@@ -386,20 +402,8 @@ impl OverheadCmd {
 			source: database_source,
 		})?;
 
-		let storage = shared::genesis_state::genesis_storage::<HF>(
-			self.params.genesis_builder,
-			&self.params.runtime,
-			Some(&code_bytes),
-			&self.params.genesis_builder_preset,
-			&chain_spec,
-			{
-				let chain_type = chain_type.clone();
-				Some(Box::new(move |value| patch_genesis(value, chain_type)))
-			},
-		)?;
-
 		let genesis_block_builder = GenesisBlockBuilder::new_with_storage(
-			storage,
+			genesis_storage,
 			true,
 			backend.clone(),
 			executor.clone(),
@@ -541,6 +545,27 @@ impl ChainType {
 	}
 }
 
+/// Patch the parachain id into the genesis config. This is necessary since the inherents
+/// also contain a parachain id and they need to match.
+fn patch_genesis(mut input_value: Value, para_id: Option<u32>) -> Value {
+	// If we identified a parachain we should patch a parachain id into the genesis config.
+	// This ensures compatibility with the inherents that we provide to successfully build a
+	// block.
+	if let Some(para_id) = para_id {
+		sc_chain_spec::json_patch::merge(
+			&mut input_value,
+			json!({
+				"parachainInfo": {
+					"parachainId": para_id,
+				}
+			}),
+		);
+		log::debug!("Genesis Config Json");
+		log::debug!("{}", input_value);
+	}
+	input_value
+}
+
 // Boilerplate
 impl CliConfiguration for OverheadCmd {
 	fn shared_params(&self) -> &SharedParams {
@@ -577,7 +602,7 @@ mod tests {
 		let code_bytes = cumulus_test_runtime::WASM_BINARY
 			.expect("To run this test, build the wasm binary of cumulus-test-runtime")
 			.to_vec();
-		let metadata = super::fetch_latest_metadata_from_blob(&executor, &code_bytes).unwrap();
+		let metadata = super::fetch_latest_metadata_from_blob(&executor, code_bytes.into()).unwrap();
 		assert_eq!(identify_chain(&metadata, Some(100)), ChainType::Parachain(100));
 		assert_eq!(identify_chain(&metadata, None), ChainType::Parachain(DEFAULT_PARA_ID));
 	}
@@ -588,7 +613,7 @@ mod tests {
 		let code_bytes = substrate_test_runtime::WASM_BINARY
 			.expect("To run this test, build the wasm binary of cumulus-test-runtime")
 			.to_vec();
-		let metadata = super::fetch_latest_metadata_from_blob(&executor, &code_bytes).unwrap();
+		let metadata = super::fetch_latest_metadata_from_blob(&executor, code_bytes.into()).unwrap();
 		assert_eq!(identify_chain(&metadata, Some(100)), ChainType::Unknown);
 	}
 }
