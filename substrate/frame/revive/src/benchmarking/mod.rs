@@ -169,7 +169,7 @@ where
 				};
 
 				if key == &key_new {
-					continue
+					continue;
 				}
 				child::put_raw(&child_trie_info, &key_new, &value);
 			}
@@ -213,8 +213,8 @@ fn caller_funding<T: Config>() -> BalanceOf<T> {
 
 /// The deposit limit we use for benchmarks.
 fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
-	(T::DepositPerByte::get() * 1024u32.into() * 1024u32.into()) +
-		T::DepositPerItem::get() * 1024u32.into()
+	(T::DepositPerByte::get() * 1024u32.into() * 1024u32.into())
+		+ T::DepositPerItem::get() * 1024u32.into()
 }
 
 #[benchmarks(
@@ -1406,36 +1406,6 @@ mod benchmarks {
 		assert!(&runtime.ext().get_transient_storage(&key).is_none());
 		assert_eq!(&value, &memory[out_ptr as usize..]);
 		Ok(())
-	}
-
-	// We transfer to unique accounts.
-	#[benchmark(pov_mode = Measured)]
-	fn seal_transfer() {
-		let account = account::<T::AccountId>("receiver", 0, 0);
-		let value = Pallet::<T>::min_balance();
-		assert!(value > 0u32.into());
-
-		let mut setup = CallSetup::<T>::default();
-		setup.set_balance(value);
-		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-
-		let account_bytes = account.encode();
-		let account_len = account_bytes.len() as u32;
-		let value_bytes = Into::<U256>::into(value).encode();
-		let mut memory = memory!(account_bytes, value_bytes,);
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_transfer(
-				memory.as_mut_slice(),
-				0,           // account_ptr
-				account_len, // value_ptr
-			);
-		}
-
-		assert_ok!(result);
 	}
 
 	// t: with or without some value to transfer

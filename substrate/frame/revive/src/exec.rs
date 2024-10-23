@@ -220,9 +220,6 @@ pub trait Ext: sealing::Sealed {
 	/// call stack.
 	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult;
 
-	/// Transfer some amount of funds into the specified account.
-	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult;
-
 	/// Returns the storage entry of the executing account by the given `key`.
 	///
 	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
@@ -1498,15 +1495,6 @@ where
 			beneficiary: *beneficiary,
 		});
 		Ok(())
-	}
-
-	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult {
-		Self::transfer(
-			&self.origin,
-			&self.top_frame().account_id,
-			&T::AddressMapper::to_account_id(to),
-			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
-		)
 	}
 
 	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
@@ -4279,12 +4267,19 @@ mod tests {
 					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
 				);
 
-				// Plain transfers should not set the output
-				ctx.ext.transfer(&address, U256::from(1)).unwrap();
-				assert_eq!(
-					ctx.ext.last_frame_output(),
-					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
-				);
+				// Balance transfers should reset the output
+				ctx.ext
+					.call(
+						Weight::zero(),
+						U256::zero(),
+						&address,
+						U256::from(1),
+						vec![],
+						true,
+						false,
+					)
+					.unwrap();
+				assert_eq!(ctx.ext.last_frame_output(), &Default::default());
 
 				// Reverted instantiation should set the output
 				ctx.ext

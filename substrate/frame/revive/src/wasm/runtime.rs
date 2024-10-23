@@ -350,8 +350,6 @@ pub enum RuntimeCosts {
 	GetTransientStorage(u32),
 	/// Weight of calling `seal_take_transient_storage` for the given size.
 	TakeTransientStorage(u32),
-	/// Weight of calling `seal_transfer`.
-	Transfer,
 	/// Base weight of calling `seal_call`.
 	CallBase,
 	/// Weight of calling `seal_delegate_call` for the given input size.
@@ -492,7 +490,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			TakeTransientStorage(len) => {
 				cost_storage!(write_transient, seal_take_transient_storage, len)
 			},
-			Transfer => T::WeightInfo::seal_transfer(),
 			CallBase => T::WeightInfo::seal_call(0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			CallTransferSurcharge => cost_args!(seal_call, 1, 0),
@@ -573,8 +570,9 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 				log::error!(target: LOG_TARGET, "polkavm execution error: {error}");
 				Some(Err(Error::<E::T>::ExecutionFailed.into()))
 			},
-			Ok(Finished) =>
-				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })),
+			Ok(Finished) => {
+				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() }))
+			},
 			Ok(Trap) => Some(Err(Error::<E::T>::ContractTrapped.into())),
 			Ok(Segfault(_)) => Some(Err(Error::<E::T>::ExecutionFailed.into())),
 			Ok(NotEnoughGas) => Some(Err(Error::<E::T>::OutOfGas.into())),
@@ -589,11 +587,12 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 						instance.write_output(return_value);
 						None
 					},
-					Err(TrapReason::Return(ReturnData { flags, data })) =>
+					Err(TrapReason::Return(ReturnData { flags, data })) => {
 						match ReturnFlags::from_bits(flags) {
 							None => Some(Err(Error::<E::T>::InvalidCallFlags.into())),
 							Some(flags) => Some(Ok(ExecReturnValue { flags, data })),
-						},
+						}
+					},
 					Err(TrapReason::Termination) => Some(Ok(Default::default())),
 					Err(TrapReason::SupervisorError(error)) => Some(Err(error.into())),
 				}
@@ -1226,30 +1225,6 @@ pub mod env {
 		self.take_storage(memory, flags, key_ptr, key_len, out_ptr, out_len_ptr)
 	}
 
-	/// Transfer some value to another account.
-	/// See [`pallet_revive_uapi::HostFn::transfer`].
-	#[api_version(0)]
-	#[mutating]
-	fn transfer(
-		&mut self,
-		memory: &mut M,
-		address_ptr: u32,
-		value_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::Transfer)?;
-		let mut callee = H160::zero();
-		memory.read_into_buf(address_ptr, callee.as_bytes_mut())?;
-		let value: U256 = memory.read_u256(value_ptr)?;
-		let result = self.ext.transfer(&callee, value);
-		match result {
-			Ok(()) => Ok(ReturnErrorCode::Success),
-			Err(err) => {
-				let code = Self::err_into_return_code(err)?;
-				Ok(code)
-			},
-		}
-	}
-
 	/// Make a call to another contract.
 	/// See [`pallet_revive_uapi::HostFn::call`].
 	#[api_version(0)]
@@ -1778,8 +1753,9 @@ pub mod env {
 			Environment::new(self, memory, id, input_ptr, input_len, output_ptr, output_len_ptr);
 		let ret = match chain_extension.call(env)? {
 			RetVal::Converging(val) => Ok(val),
-			RetVal::Diverging { flags, data } =>
-				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data })),
+			RetVal::Diverging { flags, data } => {
+				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data }))
+			},
 		};
 		self.chain_extension = Some(chain_extension);
 		ret
