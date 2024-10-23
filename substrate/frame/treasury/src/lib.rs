@@ -71,7 +71,6 @@
 //! [`pallet::Config::PayoutPeriod`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
-
 // not all specific usages can be marked as deprecated
 #![allow(deprecated)]
 
@@ -487,7 +486,9 @@ pub mod pallet {
 		/// Emits [`Event::SpendApproved`] if successful.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::spend_local())]
-		#[deprecated(note = "This call will be removed by May 2025. Configure pallet to use PayFromAccount for Paymaster type instead")]
+		#[deprecated(
+			note = "This call will be removed by May 2025. Configure pallet to use PayFromAccount for Paymaster type instead"
+		)]
 		#[allow(deprecated)]
 		pub fn spend_local(
 			origin: OriginFor<T>,
