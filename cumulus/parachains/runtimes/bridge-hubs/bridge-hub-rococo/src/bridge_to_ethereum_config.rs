@@ -19,7 +19,7 @@ use crate::XcmRouter;
 use crate::{
 	xcm_config, xcm_config::UniversalLocation, Balances, EthereumInboundQueue,
 	EthereumOutboundQueue, EthereumSystem, MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
-	TreasuryAccount,
+	TreasuryAccount, EthereumRewards
 };
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};

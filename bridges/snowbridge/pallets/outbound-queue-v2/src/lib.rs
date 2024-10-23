@@ -126,6 +126,7 @@ use sp_runtime::{
 use sp_std::prelude::*;
 pub use types::{CommittedMessage, FeeWithBlockNumber, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
+use snowbridge_core::rewards::RewardLedger;
 
 pub use pallet::*;
 
@@ -173,6 +174,8 @@ pub mod pallet {
 		/// Address of the Gateway contract
 		#[pallet::constant]
 		type GatewayAddress: Get<H160>;
+		/// To keep track of relayer rewards.
+		type RewardLedger: RewardLedger<Self>;
 	}
 
 	#[pallet::event]

@@ -47,6 +47,7 @@ use xcm::{
 	prelude::{send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, Xcm},
 	VersionedXcm, MAX_XCM_DECODE_DEPTH,
 };
+use snowbridge_core::rewards::RewardLedger;
 
 use snowbridge_core::{
 	inbound::{Message, VerificationError, Verifier},
@@ -98,6 +99,8 @@ pub mod pallet {
 
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
+		/// To keep track of relayer rewards.
+		type RewardLedger: RewardLedger<Self>;
 	}
 
 	#[pallet::hooks]

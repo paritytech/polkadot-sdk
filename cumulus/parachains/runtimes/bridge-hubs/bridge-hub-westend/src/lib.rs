@@ -562,6 +562,7 @@ construct_runtime!(
 		EthereumSystem: snowbridge_pallet_system = 83,
 		EthereumInboundQueueV2: snowbridge_pallet_inbound_queue_v2 = 84,
 		EthereumOutboundQueueV2: snowbridge_pallet_outbound_queue_v2 = 85,
+		EthereumRewards: snowbridge_pallet_rewards = 86,
 
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.

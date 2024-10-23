@@ -46,6 +46,5 @@ testnet-parachains-constants = { features = ["rococo", "westend"], workspace = t
 snowbridge-core = { workspace = true }
 snowbridge-router-primitives = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
-snowbridge-pallet-rewards = { workspace = true }
 snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-inbound-queue-fixtures = { workspace = true, default-features = true }

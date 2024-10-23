@@ -586,3 +586,29 @@ fn transfer_ah_token() {
 		);
 	});
 }
+
+#[test]
+fn claim_rewards(
+) {
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		let relayer = BridgeHubWestendSender::get();
+		let reward_address = AssetHubWestendReceiver::get();
+		type EthereumRewards =
+		<BridgeHubWestend as BridgeHubWestendPallet>::EthereumRewards;
+		assert_ok!(EthereumRewards::deposit(relayer.into(), 2 * ETH));
+
+		// Check that the message was sent
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![
+				RuntimeEvent::EthereumRewards(snowbridge_pallet_rewards::Event::RewardDeposited { .. }) => {},
+			]
+		);
+
+		type EthereumInboundQueue =
+		<BridgeHubWestend as BridgeHubWestendPallet>::EthereumInboundQueue;
+		let message_id = H256::random();
+	});
+}
