@@ -23,13 +23,16 @@
 //! cargo install polkadot-omni-node
 //! ```
 //!
-//! Next, we need to install the [`chain-spec-builder`]. This is the tool that helps us interact
-//! with the genesis related APIs of the runtime, as described in
-//! [`crate::guides::your_first_runtime#genesis-configuration`].
+//! Next, we need to install the [`chain-spec-builder`]. This is the tool that allows us to build
+//! chain-specifications, through interacting with the genesis related APIs of the runtime, as
+//! described in [`crate::guides::your_first_runtime#genesis-configuration`].
 //!
 //! ```text
 //! cargo install staging-chain-spec-builder
 //! ```
+//!
+//! > The name of the crate is prefixed with `staging` as the crate name `chain-spec-builder` on
+//! > crates.io is already taken and is not controlled by `polkadot-sdk` developers.
 //!
 //! ### Building Runtime
 //!
@@ -41,7 +44,7 @@
 //! Equivalent code in tests:
 #![doc = docify::embed!("./src/guides/your_first_node.rs", build_runtime)]
 //!
-//! This creates the wasm file under `./target/wbuild/release` directory.
+//! This creates the wasm file under `./target/{release}/wbuild/release` directory.
 //!
 //! ### Building Chain Spec
 //!
@@ -49,8 +52,8 @@
 //! `development` (`sp_genesis_config::DEVELOPMENT`) preset.
 //!
 //! Note that we intend to run this chain-spec with `polkadot-omni-node`, which is tailored for
-//! running parachains. This requires the chain-spec to always contain the `--para-id` and a
-//! `--relay-chain` fields, which are provided below.
+//! running parachains. This requires the chain-spec to always contain the `para_id` and a
+//! `relay_chain` fields, which are provided below as CLI arguments.
 //!
 //! ```text
 //! chain-spec-builder \
@@ -74,15 +77,15 @@
 //! ```text
 //! polkadot-omni-node \
 //! 	--tmp \
-//! 	--dev-block-time 100 \
+//! 	--dev-block-time 1000 \
 //! 	--chain <chain_spec_file>.json
 //! ```
 //!
 //! > Note that we always prefer to use `--tmp` for testing, as it will save the chain state to a
-//! > temporary folder, allowing the chain-to be easily restarted without `purge-chain`. TODO: link
-//! > to flags.
+//! > temporary folder, allowing the chain-to be easily restarted without `purge-chain`. See
+//! > [`sc_cli::commands::PurgeChainCmd`] and [`sc_cli::commands::RunCmd::tmp`] for more info.
 //!
-//! This will start the node and import the blocks. Note whole using `--dev-block-time`, the node
+//! This will start the node and import the blocks. Note while using `--dev-block-time`, the node
 //! will use the testing-specific manual-seal consensus. This is an efficient way to test the
 //! application logic of your runtime, without needing to yet care about consensus, block
 //! production, relay-chain and so on.
@@ -231,11 +234,11 @@ mod tests {
 		Command::new(chain_spec_builder)
 			.args(["-c", chain_spec_file.to_str().unwrap()])
 			.arg("create")
-			.args(&["--para-id", "1000", "--relay-chain", "dontcare"])
+			.args(["--para-id", "1000", "--relay-chain", "dontcare"])
 			.args(["-r", runtime_path.to_str().unwrap()])
 			.args(match maybe_preset {
-				Some(preset) => vec!["named-preset".to_string(), preset.to_string()],
-				None => vec!["default".to_string()],
+				Some(preset) => ["named-preset".to_string(), preset.to_string()],
+				None => ["default".to_string()],
 			})
 			.assert()
 			.success();
@@ -274,9 +277,9 @@ mod tests {
 			Command::new(chain_spec_builder)
 				.args(["-c", output])
 				.arg("create")
-				.args(&["--para-id", "1000", "--relay-chain", "dontcare"])
+				.args(["--para-id", "1000", "--relay-chain", "dontcare"])
 				.args(["-r", runtime_path.to_str().unwrap()])
-				.args(vec!["named-preset", "development"])
+				.args(["named-preset", "development"])
 				.assert()
 				.success();
 			std::fs::remove_file(output).unwrap();
