@@ -181,7 +181,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 						additional_key_values: None,
 					};
 					Ok((
-						// This is intentional, as the runtime that we expect run to against this
+						// This is intentional, as the runtime that we expect to run against this
 						// will never receive the aura-related inherents/digests, and providing
 						// real timestamps would cause aura <> timestamp checking to fail.
 						sp_timestamp::InherentDataProvider::new(sp_timestamp::Timestamp::new(0)),
