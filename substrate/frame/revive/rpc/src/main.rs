@@ -63,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
 	let mut updates = client.updates.clone();
 
 	let server_addr = run_server(client, &format!("127.0.0.1:{rpc_port}")).await?;
-	log::info!("Running JSON-RPC server: addr={server_addr},");
+	log::info!("Running JSON-RPC server: addr={server_addr}");
 
 	let url = format!("http://{}", server_addr);
 	let client = HttpClientBuilder::default().build(url)?;

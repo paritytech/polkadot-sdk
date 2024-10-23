@@ -39,7 +39,7 @@ fn start_eth_rpc_server(node_ws_url: &str) -> (Child, String) {
 			// does the line contain our port (we expect this specific output from eth-rpc).
 			let sock_addr = match line.split_once("Running JSON-RPC server: addr=") {
 				None => return None,
-				Some((_, after)) => after.split_once(",").unwrap().0,
+				Some((_, after)) => after.trim(),
 			};
 
 			Some(format!("ws://{}", sock_addr))
