@@ -32,7 +32,8 @@ mod smoke {
 	use anyhow::anyhow;
 	use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder, NetworkConfigExt};
 
-	const RELAY_CHAIN_SPECS_DIR_PATH: &str = std::env::var("RELAY_CHAIN_SPECS_DIR");
+	const RELAY_CHAIN_SPECS_DIR_PATH: &'static str =
+		std::env::var("RELAY_CHAIN_SPECS_DIR").expect("env variable to be set").leak();
 	const PARACHAIN_ID: u32 = 1000;
 
 	#[derive(Default)]
