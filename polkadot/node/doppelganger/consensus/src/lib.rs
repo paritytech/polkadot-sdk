@@ -104,7 +104,11 @@ where
 			println!("Block import done! : {:?}, killing the process", res);
 			// use last line to share the block number
 			println!("{}", number);
-			std::process::exit(0);
+			if std::env::var("ZOMBIE_KILL_ON_SYNC").is_ok() {
+				std::process::exit(0);
+			}
+
+			return res
 		}
 
 		return self.inner.import_block(block).await

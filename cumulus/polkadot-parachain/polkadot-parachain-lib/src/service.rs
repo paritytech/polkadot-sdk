@@ -63,6 +63,10 @@ use sp_runtime::{
 };
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
+#[cfg(feature = "doppelganger")]
+use polkadot_doppelganger_consensus::DoppelGangerBlockImport;
+
+
 /// Build the import queue for the shell runtime.
 pub(crate) struct BuildShellImportQueue;
 
@@ -186,7 +190,13 @@ where
 		let registry = config.prometheus_registry();
 		let spawner = task_manager.spawn_essential_handle();
 
-		Ok(BasicQueue::new(verifier, Box::new(block_import), None, &spawner, registry))
+		// [JAVIER]
+		#[cfg(feature = "doppelganger")]
+		let boxed_block_import = Box::new(DoppelGangerBlockImport::new(block_import.clone()));
+		#[cfg(not(feature = "doppelganger"))]
+		let boxed_block_import = Box::new(block_import);
+
+		Ok(BasicQueue::new(verifier, boxed_block_import, None, &spawner, registry))
 	}
 }
 

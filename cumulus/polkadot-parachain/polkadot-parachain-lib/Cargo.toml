@@ -84,6 +84,9 @@ cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 
+# doppelganger
+polkadot-doppelganger-consensus = { path = "../../../polkadot/node/doppelganger/consensus", optional = true }
+
 [dev-dependencies]
 assert_cmd = { workspace = true }
 nix = { features = ["signal"], workspace = true }
@@ -117,3 +120,5 @@ try-runtime = [
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+
+doppelganger = ["dep:polkadot-doppelganger-consensus"]
