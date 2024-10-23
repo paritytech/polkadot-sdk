@@ -4,4 +4,4 @@ doc:
   description: Fix hardcoded gas limits in tests
 crates:
 - name: pallet-revive
-  bump: minor
+  bump: patch
