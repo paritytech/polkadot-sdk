@@ -77,5 +77,8 @@ dev = []
 example = ["hex", "hex-literal", "rlp", "secp256k1", "subxt-signer"]
 
 [dev-dependencies]
+pallet-revive = { workspace = true, default-features = true, features = ["riscv"] }
 hex-literal = { workspace = true }
 pallet-revive-fixtures = { workspace = true }
+substrate-cli-test-utils = { workspace = true }
+assert_cmd = { workspace = true }

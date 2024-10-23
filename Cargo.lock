@@ -12552,6 +12552,7 @@ name = "pallet-revive-eth-rpc"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "assert_cmd",
  "clap 4.5.13",
  "env_logger 0.11.3",
  "futures",
@@ -12572,6 +12573,7 @@ dependencies = [
  "sp-crypto-hashing 0.1.0",
  "sp-runtime 31.0.1",
  "sp-weights 27.0.0",
+ "substrate-cli-test-utils",
  "subxt",
  "subxt-signer",
  "thiserror",

@@ -31,6 +31,9 @@ pub mod client;
 pub mod example;
 pub mod subxt_client;
 
+#[cfg(test)]
+mod tests;
+
 mod rpc_methods_gen;
 pub use rpc_methods_gen::*;
 

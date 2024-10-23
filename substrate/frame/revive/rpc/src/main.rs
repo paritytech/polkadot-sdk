@@ -34,12 +34,12 @@ use tracing_subscriber::{util::SubscriberInitExt, EnvFilter, FmtSubscriber};
 #[clap(author, about, version)]
 struct CliCommand {
 	/// The server address to bind to
-	#[clap(long, default_value = "127.0.0.1:9090")]
-	url: String,
+	#[clap(long, default_value = "9090")]
+	rpc_port: String,
 
 	/// The node url to connect to
 	#[clap(long, default_value = "ws://127.0.0.1:9944")]
-	node_url: String,
+	node_rpc_url: String,
 }
 
 /// Initialize tracing
@@ -56,20 +56,20 @@ fn init_tracing() {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-	let CliCommand { url, node_url } = CliCommand::parse();
+	let CliCommand { rpc_port, node_rpc_url } = CliCommand::parse();
 	init_tracing();
 
-	let client = Client::from_url(&node_url).await?;
+	let client = Client::from_url(&node_rpc_url).await?;
 	let mut updates = client.updates.clone();
 
-	let server_addr = run_server(client, &url).await?;
-	log::info!(target: LOG_TARGET, "Server started on: {}", server_addr);
+	let server_addr = run_server(client, &format!("127.0.0.1:{rpc_port}")).await?;
+	log::info!("Running JSON-RPC server: addr={server_addr},");
 
 	let url = format!("http://{}", server_addr);
 	let client = HttpClientBuilder::default().build(url)?;
 
 	let response = client.block_number().await?;
-	log::info!(target: LOG_TARGET, "client initialized with block number {:?}", response);
+	log::info!(target: LOG_TARGET, "Client initialized with block number {:?}", response);
 
 	// keep running server until ctrl-c or client subscription fails
 	let _ = updates.wait_for(|_| false).await;
@@ -99,7 +99,7 @@ mod dev {
 			let params = req.params.clone().unwrap_or_default();
 
 			async move {
-				log::info!(target: LOG_TARGET, "method: {method} params: {params}");
+				log::info!(target: LOG_TARGET, "Method: {method} params: {params}");
 				let resp = service.call(req).await;
 				if resp.is_success() {
 					log::info!(target: LOG_TARGET, "✅ rpc: {method}");
