@@ -5,7 +5,8 @@ doc:
     description: |
       Deprecates items from treasury pallet used in Gov_v1 flow.
       Items deprecated: `spend_local`, `remove_approval`, `proposal_count`, `proposals`, `approvals`, `MaxApprovals`, `ProposalCount`, `Proposals`, `Approvals`.
-      To replace `spend_local` functionality configure `Paymaster` pallet configuration to be `PayFromAccount` and configure `AssetKind` to be `()`.
+      To replace `spend_local` functionality configure `Paymaster` pallet configuration to be `PayFromAccount` and configure `AssetKind` to be `()` and use `spend` call instead.
+      This way `spend` call will function as deprecated `spend_local`.
 
 crates:
 - name: pallet-treasury
