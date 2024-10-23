@@ -79,7 +79,7 @@ use sp_runtime::{
 };
 
 pub use crate::{
-	address::{create1, create2, AddressMapper, AccountId32Mapper},
+	address::{create1, create2, AccountId32Mapper, AddressMapper},
 	debug::Tracing,
 	exec::MomentOf,
 	pallet::*,
@@ -1014,7 +1014,7 @@ pub mod pallet {
 		///
 		/// This will error if the origin is already mapped or is a eth native `Address20`. It will
 		/// take a deposit that can be released by calling [`Self::unmap_account`].
-		#[pallet::call_index(6)]
+		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::map_account())]
 		pub fn map_account(origin: OriginFor<T>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
@@ -1025,7 +1025,7 @@ pub mod pallet {
 		///
 		/// There is no reason to ever call this function other than freeing up the deposit.
 		/// This is only useful when the account should no longer be used.
-		#[pallet::call_index(7)]
+		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::unmap_account())]
 		pub fn unmap_account(origin: OriginFor<T>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
@@ -1037,7 +1037,7 @@ pub mod pallet {
 		/// Every `AccountId32` can control its corresponding fallback account. The fallback account
 		/// is the `AccountId20` with the last 12 bytes set to `0xEE`. This is essentially a
 		/// recovery function in case an `AccountId20` was used without creating a mapping first.
-		#[pallet::call_index(8)]
+		#[pallet::call_index(9)]
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			(
