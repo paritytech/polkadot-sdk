@@ -377,6 +377,11 @@ where
 		}
 		.ok_or(AssetResolutionFailed)?;
 
+		// Check if ExpectAsset exists and skip over it.
+		if match_expression!(self.peek(), Ok(ExpectAsset { .. }), ()).is_some() {
+			let _ = self.next();
+		}
+
 		let (deposit_assets, beneficiary) = match_expression!(
 			self.next()?,
 			DepositAsset { assets, beneficiary },

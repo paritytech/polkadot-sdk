@@ -89,7 +89,7 @@ pub use sp_runtime::BuildStorage;
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use rococo_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};
 use snowbridge_core::{
-	outbound::{Command, Fee},
+	outbound::v1::{Command, Fee},
 	AgentId, PricingParameters,
 };
 use xcm::{latest::prelude::*, prelude::*};

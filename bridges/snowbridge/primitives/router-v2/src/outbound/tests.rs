@@ -1,6 +1,9 @@
 use frame_support::parameter_types;
 use hex_literal::hex;
-use snowbridge_core::{outbound::SendError, AgentIdOf};
+use snowbridge_core::{
+	outbound::v2::{Fee, SendError, SendMessageFeeProvider},
+	AgentIdOf,
+};
 use sp_std::default::Default;
 use xcm::prelude::SendError as XcmSendError;
 
@@ -19,7 +22,7 @@ impl SendMessage for MockOkOutboundQueue {
 	type Ticket = ();
 
 	fn validate(_: &Message) -> Result<(Self::Ticket, Fee<Self::Balance>), SendError> {
-		Ok(((), Fee { local: 1, remote: 1 }))
+		Ok(((), Fee { local: 1 }))
 	}
 
 	fn deliver(_: Self::Ticket) -> Result<H256, SendError> {
@@ -285,7 +288,8 @@ fn exporter_validate_with_max_target_fee_yields_unroutable() {
 	let mut message: Option<Xcm<()>> = Some(
 		vec![
 			WithdrawAsset(fees),
-			BuyExecution { fees: fee, weight_limit: Unlimited },
+			BuyExecution { fees: fee.clone(), weight_limit: Unlimited },
+			ExpectAsset(fee.into()),
 			WithdrawAsset(assets),
 			DepositAsset {
 				assets: filter,
@@ -333,7 +337,7 @@ fn exporter_validate_with_unparsable_xcm_yields_unroutable() {
 			MockTokenIdConvert,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
-	assert_eq!(result, Err(XcmSendError::Unroutable));
+	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
 
 #[test]
@@ -360,7 +364,8 @@ fn exporter_validate_xcm_success_case_1() {
 		vec![
 			WithdrawAsset(assets.clone()),
 			ClearOrigin,
-			BuyExecution { fees: fee, weight_limit: Unlimited },
+			BuyExecution { fees: fee.clone(), weight_limit: Unlimited },
+			ExpectAsset(fee.into()),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -421,20 +426,24 @@ fn xcm_converter_convert_success() {
 	.into();
 	let mut converter =
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
-	let expected_payload = Command::AgentExecute {
+	let expected_payload = Command::UnlockNativeToken {
 		agent_id: Default::default(),
-		command: AgentExecuteCommand::TransferToken {
-			token: token_address.into(),
-			recipient: beneficiary_address.into(),
-			amount: 1000,
-		},
+		token: token_address.into(),
+		recipient: beneficiary_address.into(),
+		amount: 1000,
+	};
+	let expected_message = Message {
+		id: [0; 32].into(),
+		origin: H256::zero(),
+		fee: 1000,
+		commands: BoundedVec::try_from(vec![expected_payload]).unwrap(),
 	};
 	let result = converter.convert();
-	assert_eq!(result, Ok((expected_payload, [0; 32])));
+	assert_eq!(result, Ok(expected_message));
 }
 
 #[test]
-fn xcm_converter_convert_without_buy_execution_yields_success() {
+fn xcm_converter_convert_without_buy_execution_yields_invalid_fee_asset() {
 	let network = BridgedNetwork::get();
 
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
@@ -458,16 +467,8 @@ fn xcm_converter_convert_without_buy_execution_yields_success() {
 	.into();
 	let mut converter =
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
-	let expected_payload = Command::AgentExecute {
-		agent_id: Default::default(),
-		command: AgentExecuteCommand::TransferToken {
-			token: token_address.into(),
-			recipient: beneficiary_address.into(),
-			amount: 1000,
-		},
-	};
 	let result = converter.convert();
-	assert_eq!(result, Ok((expected_payload, [0; 32])));
+	assert_eq!(result.err(), Some(XcmConverterError::InvalidFeeAsset));
 }
 
 #[test]
@@ -497,16 +498,20 @@ fn xcm_converter_convert_with_wildcard_all_asset_filter_succeeds() {
 	.into();
 	let mut converter =
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
-	let expected_payload = Command::AgentExecute {
+	let expected_payload = Command::UnlockNativeToken {
 		agent_id: Default::default(),
-		command: AgentExecuteCommand::TransferToken {
-			token: token_address.into(),
-			recipient: beneficiary_address.into(),
-			amount: 1000,
-		},
+		token: token_address.into(),
+		recipient: beneficiary_address.into(),
+		amount: 1000,
+	};
+	let expected_message = Message {
+		id: [0; 32].into(),
+		origin: H256::zero(),
+		fee: 1000,
+		commands: BoundedVec::try_from(vec![expected_payload]).unwrap(),
 	};
 	let result = converter.convert();
-	assert_eq!(result, Ok((expected_payload, [0; 32])));
+	assert_eq!(result, Ok(expected_message));
 }
 
 #[test]
@@ -526,7 +531,8 @@ fn xcm_converter_convert_with_fees_less_than_reserve_yields_success() {
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
 		ClearOrigin,
-		BuyExecution { fees: fee_asset, weight_limit: Unlimited },
+		BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
+		ExpectAsset(fee_asset.into()),
 		DepositAsset {
 			assets: filter,
 			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -536,16 +542,20 @@ fn xcm_converter_convert_with_fees_less_than_reserve_yields_success() {
 	.into();
 	let mut converter =
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
-	let expected_payload = Command::AgentExecute {
+	let expected_payload = Command::UnlockNativeToken {
 		agent_id: Default::default(),
-		command: AgentExecuteCommand::TransferToken {
-			token: token_address.into(),
-			recipient: beneficiary_address.into(),
-			amount: 1000,
-		},
+		token: token_address.into(),
+		recipient: beneficiary_address.into(),
+		amount: 1000,
+	};
+	let expected_message = Message {
+		id: [0; 32].into(),
+		origin: H256::zero(),
+		fee: 500,
+		commands: BoundedVec::try_from(vec![expected_payload]).unwrap(),
 	};
 	let result = converter.convert();
-	assert_eq!(result, Ok((expected_payload, [0; 32])));
+	assert_eq!(result, Ok(expected_message));
 }
 
 #[test]
@@ -597,7 +607,7 @@ fn xcm_converter_convert_with_partial_message_yields_unexpected_end_of_xcm() {
 }
 
 #[test]
-fn xcm_converter_with_different_fee_asset_fails() {
+fn xcm_converter_with_different_fee_asset_succeed() {
 	let network = BridgedNetwork::get();
 
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
@@ -625,11 +635,11 @@ fn xcm_converter_with_different_fee_asset_fails() {
 	let mut converter =
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 	let result = converter.convert();
-	assert_eq!(result.err(), Some(XcmConverterError::InvalidFeeAsset));
+	assert_eq!(result.is_ok(), true);
 }
 
 #[test]
-fn xcm_converter_with_fees_greater_than_reserve_fails() {
+fn xcm_converter_with_fees_greater_than_reserve_succeed() {
 	let network = BridgedNetwork::get();
 
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
@@ -656,7 +666,7 @@ fn xcm_converter_with_fees_greater_than_reserve_fails() {
 	let mut converter =
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 	let result = converter.convert();
-	assert_eq!(result.err(), Some(XcmConverterError::InvalidFeeAsset));
+	assert_eq!(result.is_ok(), true);
 }
 
 #[test]
@@ -1109,13 +1119,15 @@ fn xcm_converter_transfer_native_token_success() {
 	let asset_location = Location::new(1, [GlobalConsensus(Westend)]);
 	let token_id = TokenIdOf::convert_location(&asset_location).unwrap();
 
-	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(amount) }].into();
+	let assets: Assets =
+		vec![Asset { id: AssetId(asset_location.clone()), fun: Fungible(amount) }].into();
 	let filter: AssetFilter = assets.clone().into();
 
 	let message: Xcm<()> = vec![
 		ReserveAssetDeposited(assets.clone()),
 		ClearOrigin,
 		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+		ExpectAsset(Asset { id: AssetId(asset_location), fun: Fungible(amount) }.into()),
 		DepositAsset {
 			assets: filter,
 			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -1127,8 +1139,14 @@ fn xcm_converter_transfer_native_token_success() {
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 	let expected_payload =
 		Command::MintForeignToken { recipient: beneficiary_address.into(), amount, token_id };
+	let expected_message = Message {
+		id: [0; 32].into(),
+		origin: H256::zero(),
+		fee: 1000000,
+		commands: BoundedVec::try_from(vec![expected_payload]).unwrap(),
+	};
 	let result = converter.convert();
-	assert_eq!(result, Ok((expected_payload, [0; 32])));
+	assert_eq!(result, Ok(expected_message));
 }
 
 #[test]

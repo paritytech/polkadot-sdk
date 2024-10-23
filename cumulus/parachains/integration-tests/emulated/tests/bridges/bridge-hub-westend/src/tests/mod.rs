@@ -21,6 +21,7 @@ mod send_xcm;
 mod teleport;
 
 mod snowbridge;
+mod snowbridge_v2;
 
 pub(crate) fn asset_hub_rococo_location() -> Location {
 	Location::new(2, [GlobalConsensus(Rococo), Parachain(AssetHubRococo::para_id().into())])
