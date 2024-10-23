@@ -20,6 +20,7 @@
 
 use polkadot_sdk::*;
 
+use crate::chain_spec::{sc_service::Properties, sp_runtime::AccountId32};
 use kitchensink_runtime::{
 	constants::currency::*, wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
 };
@@ -291,8 +292,8 @@ fn configure_accounts(
 	usize,
 	Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
 ) {
-	let mut endowed_accounts: Vec<AccountId> = endowed_accounts
-		.unwrap_or_else(|| Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect());
+	let mut endowed_accounts: Vec<AccountId> =
+		endowed_accounts.unwrap_or_else(default_endowed_accounts);
 	// endow all authorities and nominators.
 	initial_authorities
 		.iter()
@@ -417,12 +418,40 @@ fn development_config_genesis_json() -> serde_json::Value {
 	)
 }
 
+fn props() -> Properties {
+	let mut properties = Properties::new();
+	properties.insert("tokenDecimals".to_string(), 12.into());
+	properties
+}
+
+fn eth_account(from: subxt_signer::eth::Keypair) -> AccountId32 {
+	let mut account_id = AccountId32::new([0xEE; 32]);
+	<AccountId32 as AsMut<[u8; 32]>>::as_mut(&mut account_id)[..20]
+		.copy_from_slice(&from.account_id().0);
+	account_id
+}
+
+fn default_endowed_accounts() -> Vec<AccountId> {
+	Sr25519Keyring::well_known()
+		.map(|k| k.to_account_id())
+		.chain([
+			eth_account(subxt_signer::eth::dev::alith()),
+			eth_account(subxt_signer::eth::dev::baltathar()),
+			eth_account(subxt_signer::eth::dev::charleth()),
+			eth_account(subxt_signer::eth::dev::dorothy()),
+			eth_account(subxt_signer::eth::dev::ethan()),
+			eth_account(subxt_signer::eth::dev::faith()),
+		])
+		.collect()
+}
+
 /// Development config (single validator Alice).
 pub fn development_config() -> ChainSpec {
 	ChainSpec::builder(wasm_binary_unwrap(), Default::default())
 		.with_name("Development")
 		.with_id("dev")
 		.with_chain_type(ChainType::Development)
+		.with_properties(props())
 		.with_genesis_config_patch(development_config_genesis_json())
 		.build()
 }

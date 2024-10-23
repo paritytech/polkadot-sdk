@@ -26,25 +26,23 @@ mod benchmarking;
 mod benchmarking_dummy;
 mod exec;
 mod gas;
-mod primitives;
-use crate::exec::MomentOf;
-use frame_support::traits::IsType;
-pub use primitives::*;
-use sp_core::U256;
-
 mod limits;
+mod primitives;
 mod storage;
 mod transient_storage;
 mod wasm;
 
+#[cfg(test)]
+mod tests;
+
 pub mod chain_extension;
 pub mod debug;
+pub mod evm;
 pub mod test_utils;
 pub mod weights;
 
-#[cfg(test)]
-mod tests;
 use crate::{
+	evm::{runtime::GAS_PRICE, TransactionLegacyUnsigned},
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -59,9 +57,10 @@ use frame_support::{
 		PostDispatchInfo, RawOrigin,
 	},
 	ensure,
+	pallet_prelude::DispatchClass,
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
-		ConstU32, ConstU64, Contains, EnsureOrigin, Get, Time,
+		ConstU32, ConstU64, Contains, EnsureOrigin, Get, IsType, OriginTrait, Time,
 	},
 	weights::{Weight, WeightMeter},
 	BoundedVec, RuntimeDebugNoBound,
@@ -71,18 +70,21 @@ use frame_system::{
 	pallet_prelude::{BlockNumberFor, OriginFor},
 	EventRecord, Pallet as System,
 };
+use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
-use sp_core::{H160, H256};
+use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	traits::{BadOrigin, Convert, Dispatchable, Saturating},
 	DispatchError,
 };
 
 pub use crate::{
-	address::{AccountId32Mapper, AddressMapper},
+	address::{create1, create2, AddressMapper, AccountId32Mapper},
 	debug::Tracing,
+	exec::MomentOf,
 	pallet::*,
 };
+pub use primitives::*;
 pub use weights::WeightInfo;
 
 #[cfg(doc)]
@@ -91,6 +93,7 @@ pub use crate::wasm::SyscallDoc;
 type TrieId = BoundedVec<u8, ConstU32<128>>;
 type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
 type EventRecordOf<T> =
 	EventRecord<<T as frame_system::Config>::RuntimeEvent, <T as frame_system::Config>::Hash>;
@@ -135,7 +138,7 @@ pub mod pallet {
 	use sp_runtime::Perbill;
 
 	/// The in-code storage version.
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -753,6 +756,33 @@ pub mod pallet {
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		MomentOf<T>: Into<U256>,
 	{
+		/// A raw EVM transaction, typically dispatched by an Ethereum JSON-RPC server.
+		///
+		/// # Parameters
+		///
+		/// * `payload`: The RLP-encoded [`crate::evm::TransactionLegacySigned`].
+		/// * `gas_limit`: The gas limit enforced during contract execution.
+		/// * `storage_deposit_limit`: The maximum balance that can be charged to the caller for
+		///   storage usage.
+		///
+		/// # Note
+		///
+		/// This call cannot be dispatched directly; attempting to do so will result in a failed
+		/// transaction. It serves as a wrapper for an Ethereum transaction. When submitted, the
+		/// runtime converts it into a [`sp_runtime::generic::CheckedExtrinsic`] by recovering the
+		/// signer and validating the transaction.
+		#[allow(unused_variables)]
+		#[pallet::call_index(0)]
+		#[pallet::weight(Weight::MAX)]
+		pub fn eth_transact(
+			origin: OriginFor<T>,
+			payload: Vec<u8>,
+			gas_limit: Weight,
+			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
+		) -> DispatchResultWithPostInfo {
+			Err(frame_system::Error::CallFiltered::<T>.into())
+		}
+
 		/// Makes a call to an account, optionally transferring some balance.
 		///
 		/// # Parameters
@@ -769,7 +799,7 @@ pub mod pallet {
 		/// * If the account is a regular account, any value will be transferred.
 		/// * If no account exists and the call value is not less than `existential_deposit`,
 		/// a regular account will be created and any value will be transferred.
-		#[pallet::call_index(0)]
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::call().saturating_add(*gas_limit))]
 		pub fn call(
 			origin: OriginFor<T>,
@@ -779,6 +809,7 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
+			log::info!(target: LOG_TARGET, "Call: {:?} {:?} {:?}", dest, value, data);
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -802,7 +833,7 @@ pub mod pallet {
 		/// This function is identical to [`Self::instantiate_with_code`] but without the
 		/// code deployment step. Instead, the `code_hash` of an on-chain deployed wasm binary
 		/// must be supplied.
-		#[pallet::call_index(1)]
+		#[pallet::call_index(2)]
 		#[pallet::weight(
 			T::WeightInfo::instantiate(data.len() as u32).saturating_add(*gas_limit)
 		)]
@@ -866,7 +897,7 @@ pub mod pallet {
 		/// - The smart-contract account is created at the computed address.
 		/// - The `value` is transferred to the new account.
 		/// - The `deploy` function is executed in the context of the newly-created account.
-		#[pallet::call_index(2)]
+		#[pallet::call_index(3)]
 		#[pallet::weight(
 			T::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32)
 			.saturating_add(*gas_limit)
@@ -917,7 +948,7 @@ pub mod pallet {
 		/// To avoid this situation a constructor could employ access control so that it can
 		/// only be instantiated by permissioned entities. The same is true when uploading
 		/// through [`Self::instantiate_with_code`].
-		#[pallet::call_index(3)]
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::upload_code(code.len() as u32))]
 		pub fn upload_code(
 			origin: OriginFor<T>,
@@ -931,7 +962,7 @@ pub mod pallet {
 		///
 		/// A code can only be removed by its original uploader (its owner) and only if it is
 		/// not used by any contract.
-		#[pallet::call_index(4)]
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::remove_code())]
 		pub fn remove_code(
 			origin: OriginFor<T>,
@@ -953,7 +984,7 @@ pub mod pallet {
 		/// This does **not** change the address of the contract in question. This means
 		/// that the contract address is no longer derived from its code hash after calling
 		/// this dispatchable.
-		#[pallet::call_index(5)]
+		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::set_code())]
 		pub fn set_code(
 			origin: OriginFor<T>,
@@ -1062,7 +1093,7 @@ where
 		data: Vec<u8>,
 		debug: DebugInfo,
 		collect_events: CollectEvents,
-	) -> ContractExecResult<BalanceOf<T>, EventRecordOf<T>> {
+	) -> ContractResult<ExecReturnValue, BalanceOf<T>, EventRecordOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 		let mut debug_message = if matches!(debug, DebugInfo::UnsafeDebug) {
@@ -1091,7 +1122,7 @@ where
 		} else {
 			None
 		};
-		ContractExecResult {
+		ContractResult {
 			result: result.map_err(|r| r.error),
 			gas_consumed: gas_meter.gas_consumed(),
 			gas_required: gas_meter.gas_required(),
@@ -1117,7 +1148,7 @@ where
 		salt: Option<[u8; 32]>,
 		debug: DebugInfo,
 		collect_events: CollectEvents,
-	) -> ContractInstantiateResult<BalanceOf<T>, EventRecordOf<T>> {
+	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>, EventRecordOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 		let mut debug_message =
@@ -1159,7 +1190,7 @@ where
 		} else {
 			None
 		};
-		ContractInstantiateResult {
+		ContractResult {
 			result: output
 				.map(|(addr, result)| InstantiateReturnValue { result, addr })
 				.map_err(|e| e.error),
@@ -1168,6 +1199,184 @@ where
 			storage_deposit,
 			debug_message: debug_message.unwrap_or_default().to_vec(),
 			events,
+		}
+	}
+
+	/// A version of [`Self::eth_transact`] used to dry-run Ethereum calls.
+	///
+	/// # Parameters
+	///
+	/// - `origin`: The origin of the call.
+	/// - `dest`: The destination address of the call.
+	/// - `value`: The value to transfer.
+	/// - `input`: The input data.
+	/// - `gas_limit`: The gas limit enforced during contract execution.
+	/// - `storage_deposit_limit`: The maximum balance that can be charged to the caller for storage
+	///   usage.
+	/// - `utx_encoded_size`: A function that takes a call and returns the encoded size of the
+	///   unchecked extrinsic.
+	/// - `debug`: Debugging configuration.
+	/// - `collect_events`: Event collection configuration.
+	pub fn bare_eth_transact(
+		origin: T::AccountId,
+		dest: Option<H160>,
+		value: BalanceOf<T>,
+		input: Vec<u8>,
+		gas_limit: Weight,
+		storage_deposit_limit: BalanceOf<T>,
+		utx_encoded_size: impl Fn(Call<T>) -> u32,
+		debug: DebugInfo,
+		collect_events: CollectEvents,
+	) -> EthContractResult<BalanceOf<T>>
+	where
+		T: pallet_transaction_payment::Config,
+		<T as frame_system::Config>::RuntimeCall:
+			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
+		<T as Config>::RuntimeCall: From<crate::Call<T>>,
+		<T as Config>::RuntimeCall: Encode,
+		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
+		T::Nonce: Into<U256>,
+	{
+		// Get the nonce to encode in the tx.
+		let nonce: T::Nonce = <System<T>>::account_nonce(&origin);
+
+		// Use a big enough gas price to ensure that the encoded size is large enough.
+		let max_gas_fee: BalanceOf<T> =
+			(pallet_transaction_payment::Pallet::<T>::weight_to_fee(Weight::MAX) /
+				GAS_PRICE.into())
+			.into();
+
+		// A contract call.
+		if let Some(dest) = dest {
+			// Dry run the call.
+			let result = crate::Pallet::<T>::bare_call(
+				T::RuntimeOrigin::signed(origin),
+				dest,
+				value,
+				gas_limit,
+				storage_deposit_limit,
+				input.clone(),
+				debug,
+				collect_events,
+			);
+
+			// Get the encoded size of the transaction.
+			let tx = TransactionLegacyUnsigned {
+				value: value.into(),
+				input: input.into(),
+				nonce: nonce.into(),
+				chain_id: Some(T::ChainId::get().into()),
+				gas_price: GAS_PRICE.into(),
+				gas: max_gas_fee.into(),
+				to: Some(dest),
+				..Default::default()
+			};
+			let eth_dispatch_call = crate::Call::<T>::eth_transact {
+				payload: tx.dummy_signed_payload(),
+				gas_limit: result.gas_required,
+				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
+			};
+			let encoded_len = utx_encoded_size(eth_dispatch_call);
+
+			// Get the dispatch info of the call.
+			let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
+				dest,
+				value,
+				gas_limit: result.gas_required,
+				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
+				data: tx.input.0,
+			}
+			.into();
+			let dispatch_info = dispatch_call.get_dispatch_info();
+
+			// Compute the fee.
+			let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
+				encoded_len,
+				&dispatch_info,
+				0u32.into(),
+			)
+			.into();
+
+			log::debug!(target: LOG_TARGET, "Call dry run Result: dispatch_info: {dispatch_info:?} len: {encoded_len:?} fee: {fee:?}");
+			EthContractResult {
+				gas_required: result.gas_required,
+				storage_deposit: result.storage_deposit.charge_or_zero(),
+				result: result.result.map(|v| v.data),
+				fee,
+			}
+			// A contract deployment
+		} else {
+			// Extract code and data from the input.
+			let (code, data) = match polkavm::ProgramBlob::blob_length(&input) {
+				Some(blob_len) => blob_len
+					.try_into()
+					.ok()
+					.and_then(|blob_len| (input.split_at_checked(blob_len)))
+					.unwrap_or_else(|| (&input[..], &[][..])),
+				_ => {
+					log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
+					(&input[..], &[][..])
+				},
+			};
+
+			// Dry run the call.
+			let result = crate::Pallet::<T>::bare_instantiate(
+				T::RuntimeOrigin::signed(origin),
+				value,
+				gas_limit,
+				storage_deposit_limit,
+				Code::Upload(code.to_vec()),
+				data.to_vec(),
+				None,
+				debug,
+				collect_events,
+			);
+
+			// Get the encoded size of the transaction.
+			let tx = TransactionLegacyUnsigned {
+				gas: max_gas_fee.into(),
+				nonce: nonce.into(),
+				value: value.into(),
+				input: input.clone().into(),
+				gas_price: GAS_PRICE.into(),
+				chain_id: Some(T::ChainId::get().into()),
+				..Default::default()
+			};
+			let eth_dispatch_call = crate::Call::<T>::eth_transact {
+				payload: tx.dummy_signed_payload(),
+				gas_limit: result.gas_required,
+				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
+			};
+			let encoded_len = utx_encoded_size(eth_dispatch_call);
+
+			// Get the dispatch info of the call.
+			let dispatch_call: <T as Config>::RuntimeCall =
+				crate::Call::<T>::instantiate_with_code {
+					value,
+					gas_limit: result.gas_required,
+					storage_deposit_limit: result.storage_deposit.charge_or_zero(),
+					code: code.to_vec(),
+					data: data.to_vec(),
+					salt: None,
+				}
+				.into();
+			let dispatch_info = dispatch_call.get_dispatch_info();
+
+			// Compute the fee.
+			let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
+				encoded_len,
+				&dispatch_info,
+				0u32.into(),
+			)
+			.into();
+
+			log::debug!(target: LOG_TARGET, "Call dry run Result: dispatch_info: {dispatch_info:?} len: {encoded_len:?} fee: {fee:?}");
+			EthContractResult {
+				gas_required: result.gas_required,
+				storage_deposit: result.storage_deposit.charge_or_zero(),
+				result: result.result.map(|v| v.result.data),
+				fee,
+			}
 		}
 	}
 
@@ -1259,7 +1468,7 @@ sp_api::decl_runtime_apis! {
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
 			input_data: Vec<u8>,
-		) -> ContractExecResult<Balance, EventRecord>;
+		) -> ContractResult<ExecReturnValue, Balance, EventRecord>;
 
 		/// Instantiate a new contract.
 		///
@@ -1272,7 +1481,20 @@ sp_api::decl_runtime_apis! {
 			code: Code,
 			data: Vec<u8>,
 			salt: Option<[u8; 32]>,
-		) -> ContractInstantiateResult<Balance, EventRecord>;
+		) -> ContractResult<InstantiateReturnValue, Balance, EventRecord>;
+
+
+		/// Perform an Ethereum call.
+		///
+		/// See [`crate::Pallet::bare_eth_transact`]
+		fn eth_transact(
+			origin: H160,
+			dest: Option<H160>,
+			value: Balance,
+			input: Vec<u8>,
+			gas_limit: Option<Weight>,
+			storage_deposit_limit: Option<Balance>,
+		) -> EthContractResult<Balance>;
 
 		/// Upload new code without instantiating a contract from it.
 		///

@@ -49,11 +49,10 @@ mod enter {
 
 	use crate::{
 		builder::{junk_collator, junk_collator_signature, Bench, BenchBuilder, CandidateModifier},
+		disputes::clear_dispute_storage,
+		initializer::BufferedSessionChange,
 		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, RuntimeOrigin, Test},
-		scheduler::{
-			common::{Assignment, AssignmentProvider},
-			ParasEntry,
-		},
+		scheduler::common::{Assignment, AssignmentProvider},
 		session_info,
 	};
 	use alloc::collections::btree_map::BTreeMap;
@@ -73,7 +72,6 @@ mod enter {
 		backed_and_concluding: BTreeMap<u32, u32>,
 		num_validators_per_core: u32,
 		code_upgrade: Option<u32>,
-		fill_claimqueue: bool,
 		elastic_paras: BTreeMap<u32, u8>,
 		unavailable_cores: Vec<u32>,
 		v2_descriptor: bool,
@@ -87,7 +85,6 @@ mod enter {
 			backed_and_concluding,
 			num_validators_per_core,
 			code_upgrade,
-			fill_claimqueue,
 			elastic_paras,
 			unavailable_cores,
 			v2_descriptor,
@@ -108,14 +105,11 @@ mod enter {
 			.set_dispute_statements(dispute_statements)
 			.set_backed_and_concluding_paras(backed_and_concluding.clone())
 			.set_dispute_sessions(&dispute_sessions[..])
-			.set_fill_claimqueue(fill_claimqueue)
 			.set_unavailable_cores(unavailable_cores)
 			.set_candidate_descriptor_v2(v2_descriptor)
 			.set_candidate_modifier(candidate_modifier);
 
 		// Setup some assignments as needed:
-		mock_assigner::Pallet::<Test>::set_core_count(builder.max_cores());
-
 		(0..(builder.max_cores() as usize - extra_cores)).for_each(|para_id| {
 			(0..elastic_paras.get(&(para_id as u32)).cloned().unwrap_or(1)).for_each(
 				|_para_local_core_idx| {
@@ -164,7 +158,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 1,
 				code_upgrade: None,
-				fill_claimqueue: true,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor,
@@ -188,6 +181,7 @@ mod enter {
 			inherent_data
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
 				.unwrap();
+			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			assert_eq!(
@@ -272,7 +266,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 1,
 				code_upgrade: None,
-				fill_claimqueue: true,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: vec![],
 				v2_descriptor,
@@ -293,6 +286,7 @@ mod enter {
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
 				.unwrap();
 
+			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
 			assert!(pallet::OnChainVotes::<Test>::get().is_none());
 
 			// Nothing is filtered out (including the backed candidates.)
@@ -375,7 +369,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 1,
 				code_upgrade: None,
-				fill_claimqueue: true,
 				elastic_paras: [(2, 4)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
 				v2_descriptor: false,
@@ -528,6 +521,101 @@ mod enter {
 	}
 
 	#[test]
+	// Test that no new candidates are backed if there's an upcoming session change scheduled at the
+	// end of the block. Claim queue will also not be advanced.
+	fn session_change() {
+		let config = MockGenesisConfig::default();
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
+
+		new_test_ext(config).execute_with(|| {
+			let dispute_statements = BTreeMap::new();
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements,
+				dispute_sessions: vec![], // No disputes
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				v2_descriptor: false,
+				candidate_modifier: None,
+			});
+
+			let prev_claim_queue = scheduler::ClaimQueue::<Test>::get();
+
+			assert_eq!(inclusion::PendingAvailability::<Test>::iter().count(), 2);
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(0)).unwrap().len(),
+				1
+			);
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(1)).unwrap().len(),
+				1
+			);
+
+			// We expect the scenario to have cores 0 & 1 with pending availability. The backed
+			// candidates are also created for cores 0 & 1. The pending available candidates will
+			// become available but the new candidates will not be backed since there is an upcoming
+			// session change.
+			let mut expected_para_inherent_data = scenario.data.clone();
+			expected_para_inherent_data.backed_candidates.clear();
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (2 validators)
+			assert_eq!(expected_para_inherent_data.bitfields.len(), 2);
+			// * 0 disputes.
+			assert_eq!(expected_para_inherent_data.disputes.len(), 0);
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
+				.unwrap();
+			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
+
+			// Simulate a session change scheduled to happen at the end of the block.
+			initializer::BufferedSessionChanges::<Test>::put(vec![BufferedSessionChange {
+				validators: vec![],
+				queued: vec![],
+				session_index: 3,
+			}]);
+
+			// Only backed candidates are filtered out.
+			assert_eq!(
+				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap(),
+				expected_para_inherent_data
+			);
+
+			assert_eq!(
+				// No candidates backed.
+				OnChainVotes::<Test>::get().unwrap().backing_validators_per_candidate.len(),
+				0
+			);
+
+			assert_eq!(
+				// The session of the on chain votes should equal the current session, which is 2
+				OnChainVotes::<Test>::get().unwrap().session,
+				2
+			);
+
+			// No pending availability candidates.
+			assert_eq!(inclusion::PendingAvailability::<Test>::iter().count(), 2);
+			assert!(inclusion::PendingAvailability::<Test>::get(ParaId::from(0))
+				.unwrap()
+				.is_empty());
+			assert!(inclusion::PendingAvailability::<Test>::get(ParaId::from(1))
+				.unwrap()
+				.is_empty());
+
+			// The claim queue should not have been advanced.
+			assert_eq!(prev_claim_queue, scheduler::ClaimQueue::<Test>::get());
+		});
+	}
+
+	#[test]
 	fn test_session_is_tracked_in_on_chain_scraping() {
 		use crate::disputes::run_to_block;
 		use polkadot_primitives::{
@@ -633,7 +721,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
-				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
@@ -655,8 +742,7 @@ mod enter {
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
 				.unwrap();
 
-			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
+			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			let multi_dispute_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
@@ -670,6 +756,8 @@ mod enter {
 				&multi_dispute_inherent_data.disputes[..2],
 				&expected_para_inherent_data.disputes[..2],
 			);
+
+			clear_dispute_storage::<Test>();
 
 			assert_ok!(Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
@@ -708,7 +796,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 6,
 				code_upgrade: None,
-				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
@@ -729,8 +816,7 @@ mod enter {
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
 				.unwrap();
 
-			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
+			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			let limit_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
@@ -741,6 +827,8 @@ mod enter {
 			assert_eq!(limit_inherent_data.disputes.len(), 2);
 			assert_eq!(limit_inherent_data.disputes[0].session, 1);
 			assert_eq!(limit_inherent_data.disputes[1].session, 2);
+
+			clear_dispute_storage::<Test>();
 
 			assert_ok!(Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
@@ -781,7 +869,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 4,
 				code_upgrade: None,
-				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
@@ -803,8 +890,7 @@ mod enter {
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
 				.unwrap();
 
-			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
+			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
 
 			// Nothing is filtered out (including the backed candidates.)
 			let limit_inherent_data =
@@ -825,6 +911,8 @@ mod enter {
 			// Ensure that all backed candidates are filtered out as either would make the block
 			// over weight
 			assert_eq!(limit_inherent_data.backed_candidates.len(), 0);
+
+			clear_dispute_storage::<Test>();
 
 			assert_ok!(Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
@@ -870,7 +958,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
-				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
@@ -892,10 +979,8 @@ mod enter {
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &expected_para_inherent_data)
 				.unwrap();
 
-			// The current schedule is empty prior to calling `create_inherent_enter`.
-			assert!(scheduler::Pallet::<Test>::claim_queue_is_empty());
+			assert!(!scheduler::Pallet::<Test>::claim_queue_is_empty());
 
-			// Nothing is filtered out (including the backed candidates.)
 			let limit_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
 			assert_ne!(limit_inherent_data, expected_para_inherent_data);
@@ -916,9 +1001,11 @@ mod enter {
 			// over weight
 			assert_eq!(limit_inherent_data.backed_candidates.len(), 0);
 
+			clear_dispute_storage::<Test>();
+
 			assert_ok!(Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
-				limit_inherent_data,
+				limit_inherent_data
 			));
 
 			assert_eq!(
@@ -959,7 +1046,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
-				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
@@ -1020,7 +1106,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core,
 				code_upgrade: None,
-				fill_claimqueue: true,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
@@ -1042,6 +1127,21 @@ mod enter {
 			let limit_inherent_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap();
 			assert!(limit_inherent_data == expected_para_inherent_data);
+
+			// Cores were scheduled. We should put the assignments back, before calling enter().
+			let cores = (0..num_candidates)
+				.into_iter()
+				.map(|i| {
+					// Load an assignment into provider so that one is present to pop
+					let assignment =
+						<Test as scheduler::Config>::AssignmentProvider::get_mock_assignment(
+							CoreIndex(i),
+							ParaId::from(i),
+						);
+					(CoreIndex(i), [assignment].into())
+				})
+				.collect();
+			scheduler::ClaimQueue::<Test>::set(cores);
 
 			assert_ok!(Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
@@ -1108,7 +1208,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
-				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
@@ -1166,23 +1265,22 @@ mod enter {
 			);
 
 			// One core was scheduled. We should put the assignment back, before calling enter().
-			let now = frame_system::Pallet::<Test>::block_number() + 1;
 			let used_cores = 5;
 			let cores = (0..used_cores)
 				.into_iter()
 				.map(|i| {
-					let SchedulerParams { ttl, .. } =
-						configuration::ActiveConfig::<Test>::get().scheduler_params;
 					// Load an assignment into provider so that one is present to pop
 					let assignment =
 						<Test as scheduler::Config>::AssignmentProvider::get_mock_assignment(
 							CoreIndex(i),
 							ParaId::from(i),
 						);
-					(CoreIndex(i), [ParasEntry::new(assignment, now + ttl)].into())
+					(CoreIndex(i), [assignment].into())
 				})
 				.collect();
 			scheduler::ClaimQueue::<Test>::set(cores);
+
+			clear_dispute_storage::<Test>();
 
 			assert_ok!(Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
@@ -1217,7 +1315,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
-				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
@@ -1287,7 +1384,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
-				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
@@ -1355,7 +1451,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
-				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
@@ -1446,7 +1541,6 @@ mod enter {
 	}
 
 	// Ensure that overweight parachain inherents are always rejected by the runtime.
-	// Runtime should panic and return `InherentOverweight` error.
 	#[rstest]
 	#[case(true)]
 	#[case(false)]
@@ -1479,7 +1573,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
-				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor,
@@ -1548,7 +1641,6 @@ mod enter {
 	}
 
 	// Ensure that overweight parachain inherents are always rejected by the runtime.
-	// Runtime should panic and return `InherentOverweight` error.
 	#[test]
 	fn inherent_create_weight_invariant() {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
@@ -1570,7 +1662,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
-				fill_claimqueue: false,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
@@ -1600,7 +1691,7 @@ mod enter {
 			.unwrap_err()
 			.error;
 
-			assert_eq!(dispatch_error, Error::<Test>::InherentOverweight.into());
+			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
 		});
 	}
 
@@ -1630,7 +1721,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
-				fill_claimqueue: true,
 				elastic_paras: [(2, 8)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
 				v2_descriptor: true,
@@ -1670,7 +1760,7 @@ mod enter {
 
 			// We expect `enter` to fail because the inherent data contains backed candidates with
 			// v2 descriptors.
-			assert_eq!(dispatch_error, Error::<Test>::CandidatesFilteredDuringExecution.into());
+			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
 		});
 	}
 
@@ -1698,9 +1788,8 @@ mod enter {
 				dispute_statements: BTreeMap::new(),
 				dispute_sessions: vec![], // No disputes
 				backed_and_concluding,
-				num_validators_per_core: 5,
+				num_validators_per_core: 1,
 				code_upgrade: None,
-				fill_claimqueue: true,
 				elastic_paras: [(2, 8)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
 				v2_descriptor: true,
@@ -1719,8 +1808,8 @@ mod enter {
 			let unfiltered_para_inherent_data = scenario.data.clone();
 
 			// Check the para inherent data is as expected:
-			// * 1 bitfield per validator (5 validators per core, 10 backed candidates)
-			assert_eq!(unfiltered_para_inherent_data.bitfields.len(), 50);
+			// * 1 bitfield per validator (1 validators per core, 10 backed candidates)
+			assert_eq!(unfiltered_para_inherent_data.bitfields.len(), 10);
 			// * 10 v2 candidate descriptors.
 			assert_eq!(unfiltered_para_inherent_data.backed_candidates.len(), 10);
 
@@ -1738,7 +1827,7 @@ mod enter {
 
 			// We expect `enter` to fail because the inherent data contains backed candidates with
 			// v2 descriptors.
-			assert_eq!(dispatch_error, Error::<Test>::CandidatesFilteredDuringExecution.into());
+			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
 		});
 	}
 
@@ -1766,9 +1855,8 @@ mod enter {
 				dispute_statements: BTreeMap::new(),
 				dispute_sessions: vec![], // No disputes
 				backed_and_concluding,
-				num_validators_per_core: 5,
+				num_validators_per_core: 1,
 				code_upgrade: None,
-				fill_claimqueue: true,
 				elastic_paras: [(2, 8)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
 				v2_descriptor: true,
@@ -1787,8 +1875,8 @@ mod enter {
 			let unfiltered_para_inherent_data = scenario.data.clone();
 
 			// Check the para inherent data is as expected:
-			// * 1 bitfield per validator (5 validators per core, 10 backed candidates)
-			assert_eq!(unfiltered_para_inherent_data.bitfields.len(), 50);
+			// * 1 bitfield per validator (1 validator per core, 10 backed candidates)
+			assert_eq!(unfiltered_para_inherent_data.bitfields.len(), 10);
 			// * 10 v2 candidate descriptors.
 			assert_eq!(unfiltered_para_inherent_data.backed_candidates.len(), 10);
 
@@ -1806,7 +1894,7 @@ mod enter {
 
 			// We expect `enter` to fail because the inherent data contains backed candidates with
 			// v2 descriptors.
-			assert_eq!(dispatch_error, Error::<Test>::CandidatesFilteredDuringExecution.into());
+			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
 		});
 	}
 	#[test]
@@ -1843,7 +1931,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 1,
 				code_upgrade: None,
-				fill_claimqueue: true,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
 				v2_descriptor: true,
@@ -1898,7 +1985,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 1,
 				code_upgrade: None,
-				fill_claimqueue: true,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
 				v2_descriptor: true,
@@ -1985,7 +2071,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 1,
 				code_upgrade: None,
-				fill_claimqueue: true,
 				elastic_paras: Default::default(),
 				unavailable_cores: unavailable_cores.clone(),
 				v2_descriptor: true,
@@ -2040,7 +2125,6 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 1,
 				code_upgrade: None,
-				fill_claimqueue: true,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores,
 				v2_descriptor: true,
@@ -2372,7 +2456,7 @@ mod sanitizers {
 	mod candidates {
 		use crate::{
 			mock::{set_disabled_validators, RuntimeOrigin},
-			scheduler::{common::Assignment, ParasEntry},
+			scheduler::common::Assignment,
 			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
 		};
 		use alloc::collections::vec_deque::VecDeque;
@@ -2453,17 +2537,17 @@ mod sanitizers {
 			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
 				(
 					CoreIndex::from(0),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(0) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 1.into(),
+						core_index: CoreIndex(0),
+					}]),
 				),
 				(
 					CoreIndex::from(1),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(1) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 2.into(),
+						core_index: CoreIndex(1),
+					}]),
 				),
 			]));
 
@@ -2545,7 +2629,7 @@ mod sanitizers {
 
 			// State sanity checks
 			assert_eq!(
-				scheduler::Pallet::<Test>::scheduled_paras().collect::<Vec<_>>(),
+				Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
 				vec![(CoreIndex(0), ParaId::from(1)), (CoreIndex(1), ParaId::from(2))]
 			);
 			assert_eq!(
@@ -2641,73 +2725,73 @@ mod sanitizers {
 			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
 				(
 					CoreIndex::from(0),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(0) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 1.into(),
+						core_index: CoreIndex(0),
+					}]),
 				),
 				(
 					CoreIndex::from(1),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(1) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 1.into(),
+						core_index: CoreIndex(1),
+					}]),
 				),
 				(
 					CoreIndex::from(2),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(2) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 2.into(),
+						core_index: CoreIndex(2),
+					}]),
 				),
 				(
 					CoreIndex::from(3),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(3) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 2.into(),
+						core_index: CoreIndex(3),
+					}]),
 				),
 				(
 					CoreIndex::from(4),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 3.into(), core_index: CoreIndex(4) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 3.into(),
+						core_index: CoreIndex(4),
+					}]),
 				),
 				(
 					CoreIndex::from(5),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 4.into(), core_index: CoreIndex(5) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 4.into(),
+						core_index: CoreIndex(5),
+					}]),
 				),
 				(
 					CoreIndex::from(6),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 5.into(), core_index: CoreIndex(6) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 5.into(),
+						core_index: CoreIndex(6),
+					}]),
 				),
 				(
 					CoreIndex::from(7),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 7.into(), core_index: CoreIndex(7) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 7.into(),
+						core_index: CoreIndex(7),
+					}]),
 				),
 				(
 					CoreIndex::from(8),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 7.into(), core_index: CoreIndex(8) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 7.into(),
+						core_index: CoreIndex(8),
+					}]),
 				),
 				(
 					CoreIndex::from(9),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 8.into(), core_index: CoreIndex(9) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 8.into(),
+						core_index: CoreIndex(9),
+					}]),
 				),
 			]));
 
@@ -3087,7 +3171,7 @@ mod sanitizers {
 
 			// State sanity checks
 			assert_eq!(
-				scheduler::Pallet::<Test>::scheduled_paras().collect::<Vec<_>>(),
+				Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
 				vec![
 					(CoreIndex(0), ParaId::from(1)),
 					(CoreIndex(1), ParaId::from(1)),
@@ -3102,7 +3186,7 @@ mod sanitizers {
 				]
 			);
 			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-			for (core_idx, para_id) in scheduler::Pallet::<Test>::scheduled_paras() {
+			for (core_idx, para_id) in Pallet::<Test>::eligible_paras(&Default::default()) {
 				scheduled.entry(para_id).or_default().insert(core_idx);
 			}
 
@@ -3186,66 +3270,66 @@ mod sanitizers {
 			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
 				(
 					CoreIndex::from(0),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(0) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 1.into(),
+						core_index: CoreIndex(0),
+					}]),
 				),
 				(
 					CoreIndex::from(1),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(1) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 1.into(),
+						core_index: CoreIndex(1),
+					}]),
 				),
 				(
 					CoreIndex::from(2),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(2) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 2.into(),
+						core_index: CoreIndex(2),
+					}]),
 				),
 				(
 					CoreIndex::from(3),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(3) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 2.into(),
+						core_index: CoreIndex(3),
+					}]),
 				),
 				(
 					CoreIndex::from(4),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(4) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 2.into(),
+						core_index: CoreIndex(4),
+					}]),
 				),
 				(
 					CoreIndex::from(5),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 3.into(), core_index: CoreIndex(5) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 3.into(),
+						core_index: CoreIndex(5),
+					}]),
 				),
 				(
 					CoreIndex::from(6),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 3.into(), core_index: CoreIndex(6) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 3.into(),
+						core_index: CoreIndex(6),
+					}]),
 				),
 				(
 					CoreIndex::from(7),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 4.into(), core_index: CoreIndex(7) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 4.into(),
+						core_index: CoreIndex(7),
+					}]),
 				),
 				(
 					CoreIndex::from(8),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 4.into(), core_index: CoreIndex(8) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 4.into(),
+						core_index: CoreIndex(8),
+					}]),
 				),
 			]));
 
@@ -3575,7 +3659,7 @@ mod sanitizers {
 
 			// State sanity checks
 			assert_eq!(
-				scheduler::Pallet::<Test>::scheduled_paras().collect::<Vec<_>>(),
+				Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
 				vec![
 					(CoreIndex(0), ParaId::from(1)),
 					(CoreIndex(1), ParaId::from(1)),
@@ -3589,7 +3673,7 @@ mod sanitizers {
 				]
 			);
 			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-			for (core_idx, para_id) in scheduler::Pallet::<Test>::scheduled_paras() {
+			for (core_idx, para_id) in Pallet::<Test>::eligible_paras(&Default::default()) {
 				scheduled.entry(para_id).or_default().insert(core_idx);
 			}
 
@@ -3710,45 +3794,45 @@ mod sanitizers {
 			scheduler::Pallet::<Test>::set_claim_queue(BTreeMap::from([
 				(
 					CoreIndex::from(0),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(0) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 1.into(),
+						core_index: CoreIndex(0),
+					}]),
 				),
 				(
 					CoreIndex::from(1),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(1) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 1.into(),
+						core_index: CoreIndex(1),
+					}]),
 				),
 				(
 					CoreIndex::from(2),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(2) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 1.into(),
+						core_index: CoreIndex(2),
+					}]),
 				),
 				(
 					CoreIndex::from(3),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(3) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 2.into(),
+						core_index: CoreIndex(3),
+					}]),
 				),
 				(
 					CoreIndex::from(4),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(4) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 2.into(),
+						core_index: CoreIndex(4),
+					}]),
 				),
 				(
 					CoreIndex::from(5),
-					VecDeque::from([ParasEntry::new(
-						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(5) },
-						RELAY_PARENT_NUM,
-					)]),
+					VecDeque::from([Assignment::Pool {
+						para_id: 2.into(),
+						core_index: CoreIndex(5),
+					}]),
 				),
 			]));
 
@@ -3996,7 +4080,7 @@ mod sanitizers {
 
 			// State sanity checks
 			assert_eq!(
-				scheduler::Pallet::<Test>::scheduled_paras().collect::<Vec<_>>(),
+				Pallet::<Test>::eligible_paras(&Default::default()).collect::<Vec<_>>(),
 				vec![
 					(CoreIndex(0), ParaId::from(1)),
 					(CoreIndex(1), ParaId::from(1)),
@@ -4007,7 +4091,7 @@ mod sanitizers {
 				]
 			);
 			let mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-			for (core_idx, para_id) in scheduler::Pallet::<Test>::scheduled_paras() {
+			for (core_idx, para_id) in Pallet::<Test>::eligible_paras(&Default::default()) {
 				scheduled.entry(para_id).or_default().insert(core_idx);
 			}
 
