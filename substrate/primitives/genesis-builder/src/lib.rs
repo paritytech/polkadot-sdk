@@ -30,13 +30,14 @@
 //!    [`LOCAL_TESTNET_RUNTIME_PRESET`] presets for consistency.
 //! 2. [`GenesisBuilder::get_preset`]: Given a `PresetId`, this the runtime returns the JSON blob
 //!    representation of the `RuntimeGenesisConfig` for that preset. This JSON blob is often mixed
-//!    into the broader `chain_spec`. If `None` is given, [`GenesisBuilder::get_preset`] provides a
+//!    into the broader `chain_spec`. 
+//!    If `None` is given, [`GenesisBuilder::get_preset`] provides a
 //!    JSON represention of the default `RuntimeGenesisConfig` (by simply serializing the
 //!    `RuntimeGenesisConfig::default()` value into JSON format). This is used as a base for
 //!    applying patches / presets.
 
 //! 3. [`GenesisBuilder::build_state`]: Given a JSON blob, this method should deserialize it and
-//!    enact it, essentially writing it to the state.
+//!    enact it (using [`frame_support::traits::BuildGenesisConfig`] for Frame-based runtime), essentially writing it to the state.
 //!
 //! The first two flows are often done in between a runtime, and the `chain_spec_builder` binary.
 //! The latter is used when a new blockchain is launched to enact and store the genesis state. See
