@@ -213,8 +213,8 @@ fn caller_funding<T: Config>() -> BalanceOf<T> {
 
 /// The deposit limit we use for benchmarks.
 fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
-	(T::DepositPerByte::get() * 1024u32.into() * 1024u32.into())
-		+ T::DepositPerItem::get() * 1024u32.into()
+	(T::DepositPerByte::get() * 1024u32.into() * 1024u32.into()) +
+		T::DepositPerItem::get() * 1024u32.into()
 }
 
 #[benchmarks(
