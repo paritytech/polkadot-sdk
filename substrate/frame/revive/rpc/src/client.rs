@@ -53,7 +53,6 @@ use subxt::{
 	config::Header,
 	error::RpcError,
 	storage::Storage,
-	utils::AccountId32,
 	Config, OnlineClient,
 };
 use subxt_client::transaction_payment::events::TransactionFeePaid;
@@ -553,14 +552,13 @@ impl Client {
 		address: H160,
 		at: &BlockNumberOrTagOrHash,
 	) -> Result<U256, ClientError> {
-		let account_id = self.account_id(&address).await?;
-		let query = subxt_client::storage().system().account(account_id);
-		let Some(account) = self.storage_api(at).await?.fetch(&query).await? else {
-			return Ok(U256::zero());
-		};
+		// TODO: remove once subxt is updated
+		let address = address.0.into();
 
-		let native = account.data.free.into();
-		Ok(self.inner.native_to_evm_decimals(native))
+		let runtime_api = self.runtime_api(&at).await?;
+		let payload = subxt_client::apis().revive_api().balance(address);
+		let balance = runtime_api.call(payload).await?.into();
+		Ok(self.inner.native_to_evm_decimals(balance))
 	}
 
 	/// Get the contract storage for the given contract address and key.
@@ -640,23 +638,21 @@ impl Client {
 		block: BlockNumberOrTagOrHash,
 	) -> Result<U256, ClientError> {
 		let dry_run = self.dry_run(tx, block).await?;
-		Ok(U256::from(dry_run.fee / GAS_PRICE as u128) + 1)
+		Ok(U256::from(dry_run.fee / GAS_PRICE as u128) + GAS_PRICE)
 	}
 
 	/// Get the nonce of the given address.
 	pub async fn nonce(
 		&self,
 		address: H160,
-		block: BlockNumberOrTagOrHash,
+		at: BlockNumberOrTagOrHash,
 	) -> Result<u32, ClientError> {
-		let account_id = self.account_id(&address).await?;
-		let storage = self.storage_api(&block).await?;
-		let query = subxt_client::storage().system().account(account_id);
-		let Some(account) = storage.fetch(&query).await? else {
-			return Ok(0);
-		};
+		let address = address.0.into();
 
-		Ok(account.nonce)
+		let runtime_api = self.runtime_api(&at).await?;
+		let payload = subxt_client::apis().revive_api().nonce(address);
+		let nonce = runtime_api.call(payload).await?;
+		Ok(nonce.into())
 	}
 
 	/// Get the block number of the latest block.
@@ -771,13 +767,6 @@ impl Client {
 
 		let fee = runtime_api.call(payload).await?;
 		Ok(fee)
-	}
-
-	/// Get the substrate account ID from the EVM address.
-	async fn account_id(&self, address: &H160) -> Result<AccountId32, ClientError> {
-		let mut id: [u8; 32] = [0xEE; 32];
-		id[..20].copy_from_slice(address.as_bytes());
-		Ok(AccountId32(id))
 	}
 
 	/// Get the chain ID.
