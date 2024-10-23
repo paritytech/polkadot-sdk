@@ -10,7 +10,7 @@
 //! * [`your_first_runtime`], where you learn how to compile your pallets into a WASM runtime.
 //! * [`your_first_node`], where you learn how to run the said runtime in a node.
 //!
-//! > By this step, you have already launched a full Polkadot-Sdk-based blockchain!
+//! > By this step, you have already launched a full Polkadot-SDK-based blockchain!
 //!
 //! Once done, feel free to step up into one of our templates: [`crate::polkadot_sdk::templates`].
 //!

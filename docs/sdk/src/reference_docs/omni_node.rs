@@ -1,6 +1,6 @@
 //! # (Omni) Node
 //!
-//! This reference docs elaborates on what a Polkadot-SDK/Substrate node software is, and what
+//! This reference doc elaborates on what a Polkadot-SDK/Substrate node software is, and what
 //! various ways exist to run one.
 //!
 //! The node software, as denoted in [`crate::reference_docs::wasm_meta_protocol`], is everything in
@@ -28,13 +28,13 @@
 //! Moreover, the code and API of each of these nodes was historically very advanced, and tailored
 //! towards those who wish to customize many of the node components at depth.
 //!
-//! > The notorious `service.rs` is a good example of this:
+//! > The notorious `service.rs` in any node template is a good example of this.
 //!
 //! A [trend](https://github.com/paritytech/polkadot-sdk/issues/62) has already been undergoing in
 //! order to de-couple the node and the runtime for a long time. The north star of this effort is
 //! twofold :
 //!
-//! 1. develop what can be described as an "omni-node": A node that can run all runtimes.
+//! 1. develop what can be described as an "omni-node": A node that can run most runtimes.
 //! 2. provide a cleaner abstraction for creating a custom node.
 //!
 //! While a single omni-node running *all possible runtimes* is not feasible, the
