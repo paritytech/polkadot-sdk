@@ -50,7 +50,6 @@ use subxt::{
 	config::Header,
 	error::RpcError,
 	storage::Storage,
-	tx::TxClient,
 	utils::AccountId32,
 	Config, OnlineClient,
 };
@@ -332,6 +331,10 @@ async fn extract_block_timestamp(block: &SubstrateBlock) -> Option<u64> {
 	Some(ext.value.now / 1000)
 }
 
+//pub trait ClientT {
+//	async fn latest_block(&self) -> Option<Arc<SubstrateBlock>>;
+//}
+
 impl Client {
 	/// Create a new client instance.
 	/// The client will subscribe to new blocks and maintain a cache of [`CACHE_SIZE`] blocks.
@@ -430,8 +433,13 @@ impl Client {
 	}
 
 	/// Expose the transaction API.
-	pub fn tx(&self) -> TxClient<SrcChainConfig, OnlineClient<SrcChainConfig>> {
-		self.inner.api.tx()
+	pub async fn submit(
+		&self,
+		call: subxt::tx::DefaultPayload<EthTransact>,
+	) -> Result<H256, ClientError> {
+		let ext = self.inner.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
+		let hash = ext.submit().await?;
+		Ok(hash)
 	}
 
 	/// Get an EVM transaction receipt by hash.
@@ -487,7 +495,7 @@ impl Client {
 	}
 
 	/// Expose the storage API.
-	pub async fn storage_api(
+	async fn storage_api(
 		&self,
 		at: &BlockNumberOrTagOrHash,
 	) -> Result<Storage<SrcChainConfig, OnlineClient<SrcChainConfig>>, ClientError> {
@@ -511,7 +519,7 @@ impl Client {
 	}
 
 	/// Expose the runtime API.
-	pub async fn runtime_api(
+	async fn runtime_api(
 		&self,
 		at: &BlockNumberOrTagOrHash,
 	) -> Result<

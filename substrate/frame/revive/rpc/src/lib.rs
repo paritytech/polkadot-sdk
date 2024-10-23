@@ -167,9 +167,7 @@ impl EthRpcServer for EthRpcServerImpl {
 			gas_required.into(),
 			storage_deposit,
 		);
-		let ext = self.client.tx().create_unsigned(&call).map_err(ClientError::from)?;
-		let hash = ext.submit().await.map_err(|err| EthRpcError::ClientError(err.into()))?;
-
+		let hash = self.client.submit(call).await?;
 		Ok(hash)
 	}
 
