@@ -6,6 +6,7 @@
 use crate::shared::GenesisBuilderPolicy;
 use sc_chain_spec::{ChainSpec, GenesisConfigBuilderRuntimeCaller};
 use sc_cli::Result;
+use serde_json::Value;
 use sp_storage::{well_known_keys::CODE, Storage};
 use sp_wasm_interface::HostFunctions;
 use std::{fs, path::PathBuf};
@@ -64,6 +65,7 @@ pub fn genesis_storage<F: HostFunctions>(
 	code_bytes: Option<&Vec<u8>>,
 	genesis_builder_preset: &String,
 	chain_spec: &Option<Box<dyn ChainSpec>>,
+	storage_patcher: Option<Box<dyn FnOnce(Value) -> Value + 'static>>,
 ) -> Result<Storage> {
 	Ok(match (genesis_builder, runtime) {
         (Some(GenesisBuilderPolicy::None), Some(_)) => return Err("Cannot use `--genesis-builder=none` with `--runtime` since the runtime would be ignored.".into()),
@@ -89,7 +91,7 @@ pub fn genesis_storage<F: HostFunctions>(
 				return Err("Can not build genesis from runtime. Please provide a runtime.".into());
 			};
 
-			genesis_from_code::<F>(code.as_slice(), genesis_builder_preset)?
+			genesis_from_code::<F>(code.as_slice(), genesis_builder_preset, storage_patcher)?
         },
         (Some(GenesisBuilderPolicy::Runtime), None) => return Err("Cannot use `--genesis-builder=runtime` without `--runtime`".into()),
         (Some(GenesisBuilderPolicy::Runtime), Some(_)) | (None, Some(_)) => {
@@ -97,7 +99,7 @@ pub fn genesis_storage<F: HostFunctions>(
 				return Err("Can not build genesis from runtime. Please provide a runtime.".into());
 			};
 
-            genesis_from_code::<F>(code.as_slice(), genesis_builder_preset)?
+            genesis_from_code::<F>(code.as_slice(), genesis_builder_preset, storage_patcher)?
         }
     })
 }
@@ -105,6 +107,7 @@ pub fn genesis_storage<F: HostFunctions>(
 fn genesis_from_code<EHF: HostFunctions>(
 	code: &[u8],
 	genesis_builder_preset: &String,
+	storage_patcher: Option<Box<dyn FnOnce(Value) -> Value>>,
 ) -> Result<Storage> {
 	let genesis_config_caller = GenesisConfigBuilderRuntimeCaller::<(
 		sp_io::SubstrateHostFunctions,
@@ -112,8 +115,11 @@ fn genesis_from_code<EHF: HostFunctions>(
 		EHF,
 	)>::new(code);
 
-	let preset_json =
+	let mut preset_json =
 		genesis_config_caller.get_named_preset(Some(&genesis_builder_preset.to_string()))?;
+	if let Some(patcher) = storage_patcher {
+		preset_json = patcher(preset_json);
+	}
 
 	let mut storage =
 		genesis_config_caller.get_storage_for_patch(preset_json).inspect_err(|e| {

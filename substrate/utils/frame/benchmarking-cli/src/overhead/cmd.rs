@@ -46,6 +46,7 @@ use sc_client_db::{BlocksPruning, DatabaseSettings};
 use sc_executor::WasmExecutor;
 use sc_service::{new_client, new_db_backend, BasePath, ClientConfig, TFullClient, TaskManager};
 use serde::Serialize;
+use serde_json::{json, Value};
 use sp_api::{ApiExt, CallApiAt, Core, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_core::H256;
@@ -209,6 +210,27 @@ fn create_inherent_data<Client: UsageProvider<Block> + HeaderBackend<Block>, Blo
 	inherent_data
 }
 
+/// Patch the parachain id into the genesis config. This is necessary since the inherents
+/// also contain a parachain id and they need to match.
+fn patch_genesis(mut input_value: Value, chain_type: ChainType) -> Value {
+	// If we identified a parachain we should patch a parachain id into the genesis config.
+	// This ensures compatibility with the inherents that we provide to successfully build a
+	// block.
+	if let Parachain(para_id) = chain_type {
+		sc_chain_spec::json_patch::merge(
+			&mut input_value,
+			json!({
+				"parachainInfo": {
+					"parachainId": para_id,
+				}
+			}),
+		);
+		log::debug!("Genesis Config Json");
+		log::debug!("{}", input_value);
+	}
+	input_value
+}
+
 /// Identifies what kind of chain we are dealing with.
 ///
 /// Chains containing the `ParachainSystem` and `ParachainInfo` pallet are considered parachains.
@@ -370,6 +392,10 @@ impl OverheadCmd {
 			Some(&code_bytes),
 			&self.params.genesis_builder_preset,
 			&chain_spec,
+			{
+				let chain_type = chain_type.clone();
+				Some(Box::new(move |value| patch_genesis(value, chain_type)))
+			},
 		)?;
 
 		let genesis_block_builder = GenesisBlockBuilder::new_with_storage(

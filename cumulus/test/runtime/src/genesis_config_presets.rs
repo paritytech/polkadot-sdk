@@ -67,12 +67,15 @@ fn testnet_genesis_with_default_endowed(self_para_id: ParaId) -> serde_json::Val
 	cumulus_test_runtime(invulnerables, endowed, self_para_id)
 }
 
+/// List of supported presets.
 pub fn preset_names() -> Vec<PresetId> {
 	vec![
 		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
 		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
 	]
 }
+
+/// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let patch = match id.try_into() {
 		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) |

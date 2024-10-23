@@ -209,6 +209,7 @@ impl PalletCmd {
 			Some(&code_bytes),
 			&self.genesis_builder_preset,
 			&chain_spec,
+			None,
 		)?;
 
 		let cache_size = Some(self.database_cache_size as usize);
