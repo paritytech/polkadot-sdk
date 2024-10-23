@@ -1502,8 +1502,8 @@ mod benchmarks {
 				memory.as_mut_slice(),
 				0,        // flags
 				0,        // address_ptr
-				0,    	  // ref_time_limit
-				0,    	  // proof_size_limit
+				0,        // ref_time_limit
+				0,        // proof_size_limit
 				0,        // input_data_ptr
 				0,        // input_data_len
 				SENTINEL, // output_ptr
