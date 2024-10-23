@@ -4470,7 +4470,7 @@ mod tests {
 			// An unknown code hash to fail the delegate_call on the first condition.
 			*ctx.ext.last_frame_output_mut() = output_revert();
 			assert_eq!(
-				ctx.ext.delegate_call(invalid_code_hash, Default::default()),
+				ctx.ext.delegate_call(Weight::zero(), H160([0xff; 20]), Default::default()),
 				Err(Error::<Test>::CodeNotFound.into())
 			);
 			assert_eq!(ctx.ext.last_frame_output(), &Default::default());
