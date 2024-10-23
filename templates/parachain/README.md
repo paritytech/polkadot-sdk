@@ -100,7 +100,8 @@ chain_spec_path = "<path/to/chain_spec.json>"
 # ...
 ```
 
-🚀 Start Omni Node setup like below:
+🚀 Start the parachain runtime with Omni Node like below. This will
+start two relay chain nodes and one collator node: 
 
 ```sh
 zombienet --provider native spawn ./zombienet-omni-node.toml
