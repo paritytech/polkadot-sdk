@@ -161,6 +161,9 @@ pub enum Error {
 	/// The weight of an XCM message is not computable ahead of execution.
 	WeightNotComputable,
 	/// Recursion stack limit reached
+	// TODO(https://github.com/paritytech/polkadot-sdk/issues/6199): This should have a fixed index since
+	// we use it in `FrameTransactionalProcessor` // which is used in instructions.
+	// Or we should create a different error for that.
 	ExceedsStackLimit,
 }
 
