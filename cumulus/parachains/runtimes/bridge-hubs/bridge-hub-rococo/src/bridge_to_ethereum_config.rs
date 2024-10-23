@@ -194,10 +194,12 @@ impl snowbridge_pallet_system::Config for Runtime {
 }
 
 parameter_types! {
-	pub WethAddress: H160 = H160(hex_literal::hex!("0xfff9976782d46cc05630d1f6ebab18b2324d6b14"));
+	pub WethAddress: H160 = H160(hex_literal::hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14"));
 }
 
-impl snowbridge_pallet_rewards::Config for Test {
+pub const ASSET_HUB_ID: u32 = rococo_runtime_constants::system_parachain::ASSET_HUB_ID;
+
+impl snowbridge_pallet_rewards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AssetHubParaId = ConstU32<ASSET_HUB_ID>;
 	type EthereumNetwork = EthereumNetwork;

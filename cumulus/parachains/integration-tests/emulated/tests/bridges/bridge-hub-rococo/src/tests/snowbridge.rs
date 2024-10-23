@@ -23,6 +23,7 @@ use snowbridge_pallet_inbound_queue_fixtures::{
 	register_token::make_register_token_message, send_token::make_send_token_message,
 	send_token_to_penpal::make_send_token_to_penpal_message,
 };
+use snowbridge_core::rewards::RewardLedger;
 use snowbridge_pallet_system;
 use snowbridge_router_primitives::inbound::{
 	Command, Destination, GlobalConsensusEthereumConvertsFor, MessageV1, VersionedMessage,
@@ -35,6 +36,7 @@ const INITIAL_FUND: u128 = 5_000_000_000 * ROCOCO_ED;
 pub const CHAIN_ID: u64 = 11155111;
 const TREASURY_ACCOUNT: [u8; 32] =
 	hex!("6d6f646c70792f74727372790000000000000000000000000000000000000000");
+pub const ETH: u128 = 1_000_000_000_000_000_000;
 pub const WETH: [u8; 20] = hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d");
 const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
 const INSUFFICIENT_XCM_FEE: u128 = 1000;
@@ -698,10 +700,10 @@ fn claim_rewards(
 	BridgeHubRococo::execute_with(|| {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
 
-		let relayer = BridgeHubRococoSender;
+		let relayer = BridgeHubRococoSender::get();
 		type EthereumRewards =
 		<BridgeHubRococo as BridgeHubRococoPallet>::EthereumRewards;
-		assert_ok!(EthereumRewards::deposit(relayer, 1 * ETH));
+		assert_ok!(EthereumRewards::deposit(relayer.into(), 1 * ETH));
 
 		// Check that the message was sent
 		assert_expected_events!(

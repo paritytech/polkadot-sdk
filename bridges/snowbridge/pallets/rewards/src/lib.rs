@@ -10,6 +10,8 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+extern crate alloc;
+
 use frame_support::PalletError;
 use frame_system::pallet_prelude::*;
 use snowbridge_core::rewards::RewardLedger;
@@ -137,7 +139,7 @@ pub mod pallet {
 			let beneficiary: Location =
 				Location::new(0, Parachain(T::AssetHubParaId::get().into()));
 
-			let xcm: Xcm<()> = vec![
+			let xcm: Xcm<()> = alloc::vec![
 				DepositAsset { assets: Definite(deposit.into()), beneficiary },
 				SetTopic(message_id.into()),
 			]
