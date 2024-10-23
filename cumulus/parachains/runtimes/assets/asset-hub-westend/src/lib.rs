@@ -2069,8 +2069,17 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_revive::ReviveApi<Block, AccountId, Balance, BlockNumber, EventRecord> for Runtime
+	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, EventRecord> for Runtime
 	{
+		fn balance(address: H160) -> Balance {
+			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
+			Balances::free_balance(account)
+		}
+
+		fn nonce(address: H160) -> Nonce {
+			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
+			System::account_nonce(account)
+		}
 		fn eth_transact(
 			from: H160,
 			dest: Option<H160>,
