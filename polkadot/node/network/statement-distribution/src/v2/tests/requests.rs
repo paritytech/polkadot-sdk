@@ -53,8 +53,7 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] v2_descriptor: boo
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
-		let (candidate, pvd) =
-		if v2_descriptor {
+		let (candidate, pvd) = if v2_descriptor {
 			let (mut candidate, pvd) = make_candidate_v2(
 				relay_parent,
 				1,
@@ -945,7 +944,6 @@ fn peer_reported_for_providing_statements_with_invalid_signatures() {
 	});
 }
 
-
 #[test]
 fn peer_reported_for_statements_with_invalid_core_index() {
 	let group_size = 3;
@@ -976,9 +974,9 @@ fn peer_reported_for_statements_with_invalid_core_index() {
 			vec![4, 5, 6].into(),
 			Hash::repeat_byte(42).into(),
 		);
-		
+
 		candidate.descriptor.set_core_index(CoreIndex(100));
-		
+
 		let candidate_hash = candidate.hash();
 
 		let other_group_validators = state.group_validators(local_group_index, true);

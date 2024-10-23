@@ -33,7 +33,9 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState}, AssignmentPair, AsyncBackingParams, Block, BlockNumber, GroupRotationInfo, HeadData, Header, IndexedVec, PersistedValidationData, ScheduledCore, SessionIndex, SessionInfo, ValidatorPair
+	vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
+	AssignmentPair, AsyncBackingParams, Block, BlockNumber, GroupRotationInfo, HeadData, Header,
+	IndexedVec, PersistedValidationData, ScheduledCore, SessionIndex, SessionInfo, ValidatorPair,
 };
 use sc_keystore::LocalKeystore;
 use sc_network::ProtocolName;
@@ -197,10 +199,12 @@ impl TestState {
 			session: 1,
 			availability_cores: self.make_availability_cores(|i| {
 				let para_id = if i < groups_for_first_para {
-					cq.entry(CoreIndex(i as u32)).or_insert_with(|| vec![ParaId::from(0u32), ParaId::from(0u32)].into());
+					cq.entry(CoreIndex(i as u32))
+						.or_insert_with(|| vec![ParaId::from(0u32), ParaId::from(0u32)].into());
 					ParaId::from(0u32)
 				} else {
-					cq.entry(CoreIndex(i as u32)).or_insert_with(|| vec![ParaId::from(i), ParaId::from(i)].into());
+					cq.entry(CoreIndex(i as u32))
+						.or_insert_with(|| vec![ParaId::from(i), ParaId::from(i)].into());
 					ParaId::from(i as u32)
 				};
 

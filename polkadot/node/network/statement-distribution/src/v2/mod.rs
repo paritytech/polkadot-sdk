@@ -74,7 +74,7 @@ use futures::{
 use std::{
 	collections::{
 		hash_map::{Entry, HashMap},
-		BTreeMap, HashSet,
+		HashSet,
 	},
 	time::{Duration, Instant},
 };
@@ -311,7 +311,7 @@ pub(crate) struct State {
 	implicit_view: ImplicitView,
 	candidates: Candidates,
 	per_relay_parent: HashMap<Hash, PerRelayParentState>,
-	per_session: BTreeMap<SessionIndex, PerSessionState>,
+	per_session: HashMap<SessionIndex, PerSessionState>,
 	// Topology might be received before first leaf update, where we
 	// initialize the per_session_state, so cache it here until we
 	// are able to use it.
@@ -330,7 +330,7 @@ impl State {
 			implicit_view: Default::default(),
 			candidates: Default::default(),
 			per_relay_parent: HashMap::new(),
-			per_session: BTreeMap::new(),
+			per_session: HashMap::new(),
 			peers: HashMap::new(),
 			keystore,
 			authorities: HashMap::new(),
@@ -703,11 +703,13 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				.map_err(JfyiError::FetchValidatorGroups)?
 				.1;
 
-		let claim_queue = ClaimQueueSnapshot(polkadot_node_subsystem_util::request_claim_queue(new_relay_parent, ctx.sender())
-			.await
-			.await
-			.map_err(JfyiError::RuntimeApiUnavailable)?
-			.map_err(JfyiError::FetchClaimQueue)?);
+		let claim_queue = ClaimQueueSnapshot(
+			polkadot_node_subsystem_util::request_claim_queue(new_relay_parent, ctx.sender())
+				.await
+				.await
+				.map_err(JfyiError::RuntimeApiUnavailable)?
+				.map_err(JfyiError::FetchClaimQueue)?,
+		);
 
 		let local_validator = per_session.local_validator.and_then(|v| {
 			if let LocalValidatorIndex::Active(idx) = v {
@@ -724,12 +726,8 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 			}
 		});
 
-		let groups_per_para = determine_groups_per_para(
-			availability_cores,
-			group_rotation_info,
-			&claim_queue,
-		)
-		.await;
+		let groups_per_para =
+			determine_groups_per_para(availability_cores, group_rotation_info, &claim_queue).await;
 
 		let transposed_cq = transpose_claim_queue(claim_queue.0);
 
@@ -2207,12 +2205,10 @@ async fn determine_groups_per_para(
 
 	// Determine the core indices occupied by each para at the current relay parent. To support
 	// on-demand parachains we also consider the core indices at next blocks.
-	let schedule: HashMap<CoreIndex, Vec<ParaId>> = 
-		claim_queue
-			.iter_all_claims()
-			.map(|(core_index, paras)| (*core_index, paras.iter().copied().collect()))
-			.collect();
-	
+	let schedule: HashMap<CoreIndex, Vec<ParaId>> = claim_queue
+		.iter_all_claims()
+		.map(|(core_index, paras)| (*core_index, paras.iter().copied().collect()))
+		.collect();
 
 	let mut groups_per_para = HashMap::new();
 	// Map from `CoreIndex` to `GroupIndex` and collect as `HashMap`.
@@ -2359,7 +2355,7 @@ async fn handle_incoming_manifest_common<'a, Context>(
 	peer: PeerId,
 	peers: &HashMap<PeerId, PeerState>,
 	per_relay_parent: &'a mut HashMap<Hash, PerRelayParentState>,
-	per_session: &'a BTreeMap<SessionIndex, PerSessionState>,
+	per_session: &'a HashMap<SessionIndex, PerSessionState>,
 	candidates: &mut Candidates,
 	candidate_hash: CandidateHash,
 	relay_parent: Hash,
@@ -3202,23 +3198,20 @@ pub(crate) async fn handle_response<Context>(
 					return
 				}
 
-				// Get the latest session index & check candidate descriptor session index.
-				match (candidate.descriptor.session_index(), state.per_session.last_key_value()) {
-					(Some(session_index), Some((latest_session_index, _))) => {
-						if &session_index != latest_session_index {
-							// Punish peer.
-							modify_reputation(
-								reputation,
-								ctx.sender(),
-								peer,
-								COST_INVALID_SESSION_INDEX,
-							)
-							.await;
-							return
-						}
-						// TODO: determine if we need to buffer candidates at session boundaries.
-					},
-					_ => {},
+				// Check if `session_index` of relay parent matches candidate descriptor
+				// `session_index`.
+				if let Some(candidate_session_index) = candidate.descriptor.session_index() {
+					if candidate_session_index != relay_parent_state.session {
+						// Punish peer.
+						modify_reputation(
+							reputation,
+							ctx.sender(),
+							peer,
+							COST_INVALID_SESSION_INDEX,
+						)
+						.await;
+						return
+					}
 				}
 
 				// Validate the core index.
