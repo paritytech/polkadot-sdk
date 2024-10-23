@@ -2807,6 +2807,8 @@ impl<T: Config> Pallet<T> {
 	/// set.
 	#[cfg(any(feature = "try-runtime", test))]
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
+		use migration::data::NeedsMigration;
+
 		// Take minimal version from `SafeXcmVersion` or `latest - 1` and ensure that the
 		// operational data is stored at least at that version, for example, to prevent issues when
 		// removing older XCM versions.
@@ -2820,17 +2822,26 @@ impl<T: Config> Pallet<T> {
 		// check `Queries`
 		ensure!(
 			!Queries::<T>::iter_values()
-				.any(|query| query.needs_migration(minimal_allowed_xcm_version)),
+				.any(|data| data.needs_migration(minimal_allowed_xcm_version)),
 			TryRuntimeError::Other("`Queries` data should be migrated to the higher xcm version!")
 		);
 
 		// check `LockedFungibles`
 		ensure!(
 			!LockedFungibles::<T>::iter_values()
-				.any(|lockeds| LockedFungiblesWrapper::<T>(lockeds)
-					.needs_migration(minimal_allowed_xcm_version)),
+				.any(|data| data.needs_migration(minimal_allowed_xcm_version)),
 			TryRuntimeError::Other(
 				"`LockedFungibles` data should be migrated to the higher xcm version!"
+			)
+		);
+
+		// check `RemoteLockedFungibles`
+		ensure!(
+			!RemoteLockedFungibles::<T>::iter()
+				.any(|(key, data)| key
+					.needs_migration(minimal_allowed_xcm_version) || data.needs_migration(minimal_allowed_xcm_version)),
+			TryRuntimeError::Other(
+				"`RemoteLockedFungibles` data should be migrated to the higher xcm version!"
 			)
 		);
 
@@ -3512,39 +3523,6 @@ impl<RuntimeOrigin: From<crate::Origin>> ConvertOrigin<RuntimeOrigin>
 		match kind {
 			OriginKind::Xcm => Ok(crate::Origin::Xcm(origin).into()),
 			_ => Err(origin),
-		}
-	}
-}
-pub trait NeedsMigration {
-	fn needs_migration(&self, minimal_allowed_xcm_version: XcmVersion) -> bool;
-}
-
-struct LockedFungiblesWrapper<T: Config>(
-	BoundedVec<(BalanceOf<T>, VersionedLocation), T::MaxLockers>,
-);
-impl<T: Config> NeedsMigration for LockedFungiblesWrapper<T> {
-
-	fn needs_migration(&self, minimal_allowed_xcm_version: XcmVersion) -> bool {
-		self.0
-			.iter()
-			.any(|(_, unlocker)| unlocker.identify_version() < minimal_allowed_xcm_version)
-	}
-}
-
-impl<BlockNumber> NeedsMigration for QueryStatus<BlockNumber> {
-
-	fn needs_migration(&self, minimal_allowed_xcm_version: XcmVersion) -> bool {
-		match &self {
-			QueryStatus::Pending { responder, maybe_match_querier, .. } =>
-				responder.identify_version() < minimal_allowed_xcm_version ||
-					maybe_match_querier
-						.as_ref()
-						.map(|v| v.identify_version() < minimal_allowed_xcm_version)
-						.unwrap_or(false),
-			QueryStatus::VersionNotifier { origin, .. } =>
-				origin.identify_version() < minimal_allowed_xcm_version,
-			QueryStatus::Ready { response, .. } =>
-				response.identify_version() < minimal_allowed_xcm_version,
 		}
 	}
 }
