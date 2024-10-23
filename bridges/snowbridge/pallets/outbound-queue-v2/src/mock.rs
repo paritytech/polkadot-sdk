@@ -16,7 +16,7 @@ use snowbridge_core::{
 	meth,
 	outbound::v2::*,
 	pricing::{PricingParameters, Rewards},
-	primary_governance_origin, ParaId,
+	ParaId,
 };
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{

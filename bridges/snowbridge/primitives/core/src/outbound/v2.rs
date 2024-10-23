@@ -6,6 +6,7 @@ use crate::outbound::OperatingMode;
 use codec::{Decode, Encode};
 use ethabi::Token;
 use frame_support::{pallet_prelude::ConstU32, BoundedVec, PalletError};
+use hex_literal::hex;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{RuntimeDebug, H160, H256, U256};
@@ -299,4 +300,14 @@ impl GasMeter for () {
 	fn maximum_dispatch_gas_used_at_most(_: &Command) -> u64 {
 		1
 	}
+}
+
+// Origin for high-priority governance commands
+pub fn primary_governance_origin() -> H256 {
+	hex!("0000000000000000000000000000000000000000000000000000000000000001").into()
+}
+
+// Origin for lower-priority governance commands
+pub fn second_governance_origin() -> H256 {
+	hex!("0000000000000000000000000000000000000000000000000000000000000002").into()
 }
