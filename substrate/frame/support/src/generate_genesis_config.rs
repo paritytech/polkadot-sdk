@@ -57,6 +57,9 @@ impl InitializedField {
 impl PartialEq<String> for InitializedField {
 	fn eq(&self, other: &String) -> bool {
 		#[inline]
+		/// We need to respect the `camelCase` naming for field names. This means that
+		/// `"camelCaseKey"` should be considered equal to `"camel_case_key"`. This
+		/// function implements this comparison.
 		fn compare_keys(
 			mut ident_chars: core::str::Chars,
 			mut camel_chars: core::str::Chars,
@@ -87,6 +90,10 @@ impl PartialEq<String> for InitializedField {
 ///
 /// Keys marked as `Full`, are retained as-is. For keys marked as `Partial`, the
 /// function recurses into nested objects to retain matching subfields.
+///
+/// Function respects the `camelCase` serde_json attribute for structures. This means that
+/// `"camelCaseKey"` key will be retained in JSON blob if `"camel_case_key"` exists in
+/// `keys_to_retain`.
 ///
 /// Intended to be used from `build_struct_json_patch` macro.
 pub fn retain_initialized_fields(
@@ -220,12 +227,12 @@ macro_rules! build_struct_json_patch {
 			json_value
 		}
 	};
-	($($struct_type:tt)::+, $all_keys:ident @ { $($tail:tt)* }) => {
+	($($struct_type:ident)::+, $all_keys:ident @ { $($tail:tt)* }) => {
 		$($struct_type)::+ {
 			..build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*)
 		}
 	};
-	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident: $($type:tt)::+ { $keyi:ident : $value:tt }  ) => {
+	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident: $($type:ident)::+ { $keyi:ident : $value:tt }  ) => {
 		$($struct_type)::+ {
 			$key: {
 				$all_keys.push(InitializedField::Partial(stringify!($key).to_string()));
@@ -240,7 +247,7 @@ macro_rules! build_struct_json_patch {
 			..Default::default()
 		}
 	};
-	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident:  $($type:tt)::+ { $($body:tt)* } ) => {
+	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident:  $($type:ident)::+ { $($body:tt)* } ) => {
 		$($struct_type)::+ {
 			$key: {
 				$all_keys.push(InitializedField::Partial(stringify!($key).to_string()));
@@ -255,7 +262,7 @@ macro_rules! build_struct_json_patch {
 			..Default::default()
 		}
 	};
-	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident:  $($type:tt)::+ { $($body:tt)* },  $($tail:tt)*  ) => {
+	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident:  $($type:ident)::+ { $($body:tt)* },  $($tail:tt)*  ) => {
 		$($struct_type)::+ {
 			$key : {
 				$all_keys.push(InitializedField::Partial(stringify!($key).to_string()));
@@ -400,11 +407,11 @@ mod test {
 	}
 
 	macro_rules! test {
-		($struct:ident { $($v:tt)* }, { $($j:tt)* } ) => {{
+		($($struct:ident)::+ { $($v:tt)* }, { $($j:tt)* } ) => {{
 			println!("--");
 			let expected = serde_json::json!({ $($j)* });
 			println!("json: {}", serde_json::to_string_pretty(&expected).unwrap());
-			let value = build_struct_json_patch!($struct { $($v)* });
+			let value = build_struct_json_patch!($($struct)::+ { $($v)* });
 			println!("gc: {}", serde_json::to_string_pretty(&value).unwrap());
 			assert_eq!(value, expected);
 		}};
