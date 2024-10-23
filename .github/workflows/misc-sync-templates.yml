@@ -88,7 +88,6 @@ jobs:
           [ ${{ matrix.template }} != "solochain" ] && echo "\"default-members\" = [\"pallets/template\", \"runtime\"]" >> Cargo.toml
 
           cat << EOF >> Cargo.toml
-          # add `--workspace` to the build command to build all members
           members = [
               "node",
               "pallets/template",
