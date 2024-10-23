@@ -1,3 +1,5 @@
+use polkadot_sdk::*;
+
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
@@ -218,13 +220,15 @@ pub fn run() -> Result<()> {
 
 			runner.run_node_until_exit(|config| async move {
 				let hwbench = (!cli.no_hardware_benchmarks)
-					.then_some(config.database.path().map(|database_path| {
-						let _ = std::fs::create_dir_all(database_path);
-						sc_sysinfo::gather_hwbench(
-							Some(database_path),
-							&SUBSTRATE_REFERENCE_HARDWARE,
-						)
-					}))
+					.then(|| {
+						config.database.path().map(|database_path| {
+							let _ = std::fs::create_dir_all(database_path);
+							sc_sysinfo::gather_hwbench(
+								Some(database_path),
+								&SUBSTRATE_REFERENCE_HARDWARE,
+							)
+						})
+					})
 					.flatten();
 
 				let para_id = chain_spec::Extensions::try_get(&*config.chain_spec)

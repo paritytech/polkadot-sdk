@@ -42,6 +42,7 @@ sp-version = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-npos-elections = { workspace = true }
+sp-keyring = { workspace = true }
 
 frame-election-provider-support = { workspace = true }
 frame-executive = { workspace = true }
@@ -118,6 +119,7 @@ xcm-builder = { workspace = true }
 xcm-runtime-apis = { workspace = true }
 
 [dev-dependencies]
+approx = { workspace = true }
 tiny-keccak = { features = ["keccak"], workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
@@ -275,6 +277,7 @@ runtime-benchmarks = [
 	"pallet-state-trie-migration/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",

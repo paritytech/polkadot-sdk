@@ -39,7 +39,8 @@ jobs:
             sudo dpkg -i toml.deb
             toml --version; jq --version
 
-        - name: Scan runtimes
+        - name: Scan and get runtimes list
+          id: get_runtimes_list
           env:
             EXCLUDED_RUNTIMES: ${{ inputs.excluded_runtimes }}:"substrate-test"
           run: |
@@ -50,13 +51,6 @@ jobs:
             ls -al
 
             MATRIX=$(find_runtimes | tee runtimes_list.json)
-            echo $MATRIX
-
-        - name: Get runtimes list
-          id: get_runtimes_list
-          run: |
-            ls -al
-            MATRIX=$(cat runtimes_list.json)
             echo $MATRIX
             echo "runtime=$MATRIX" >> $GITHUB_OUTPUT
 

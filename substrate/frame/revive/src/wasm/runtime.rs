@@ -44,11 +44,6 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// The maximum nesting depth a contract can use when encoding types.
 const MAX_DECODE_NESTING: u32 = 256;
 
-/// Encode a `U256` into a 32 byte buffer.
-fn as_bytes(u: U256) -> [u8; 32] {
-	u.to_little_endian()
-}
-
 #[derive(Clone, Copy)]
 pub enum ApiVersion {
 	/// Expose all APIs even unversioned ones. Only used for testing and benchmarking.
@@ -643,7 +638,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		run: impl FnOnce(&mut Self) -> DispatchResultWithPostInfo,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		use frame_support::dispatch::extract_actual_weight;
-		let charged = self.charge_gas(runtime_cost(dispatch_info.weight))?;
+		let charged = self.charge_gas(runtime_cost(dispatch_info.call_weight))?;
 		let result = run(self);
 		let actual_weight = extract_actual_weight(&result, &dispatch_info);
 		self.adjust_gas(charged, runtime_cost(actual_weight));
@@ -1412,27 +1407,17 @@ pub mod env {
 	/// Retrieve the code hash for a specified contract address.
 	/// See [`pallet_revive_uapi::HostFn::code_hash`].
 	#[api_version(0)]
-	fn code_hash(
-		&mut self,
-		memory: &mut M,
-		addr_ptr: u32,
-		out_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
+	fn code_hash(&mut self, memory: &mut M, addr_ptr: u32, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::CodeHash)?;
 		let mut address = H160::zero();
 		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
-		if let Some(value) = self.ext.code_hash(&address) {
-			self.write_fixed_sandbox_output(
-				memory,
-				out_ptr,
-				&value.as_bytes(),
-				false,
-				already_charged,
-			)?;
-			Ok(ReturnErrorCode::Success)
-		} else {
-			Ok(ReturnErrorCode::KeyNotFound)
-		}
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&self.ext.code_hash(&address).as_bytes(),
+			false,
+			already_charged,
+		)?)
 	}
 
 	/// Retrieve the code hash of the currently executing contract.
@@ -1561,7 +1546,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&as_bytes(self.ext.balance()),
+			&self.ext.balance().to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -1582,7 +1567,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&as_bytes(self.ext.balance_of(&address)),
+			&self.ext.balance_of(&address).to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -1595,7 +1580,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&as_bytes(U256::from(<E::T as Config>::ChainId::get())),
+			&U256::from(<E::T as Config>::ChainId::get()).to_little_endian(),
 			false,
 			|_| Some(RuntimeCosts::CopyToContract(32)),
 		)?)
@@ -1609,7 +1594,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&as_bytes(self.ext.value_transferred()),
+			&self.ext.value_transferred().to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -1623,7 +1608,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&as_bytes(self.ext.now()),
+			&self.ext.now().to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -1637,7 +1622,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&as_bytes(self.ext.minimum_balance()),
+			&self.ext.minimum_balance().to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -1691,7 +1676,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&as_bytes(self.ext.block_number()),
+			&self.ext.block_number().to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -1851,7 +1836,7 @@ pub mod env {
 		let execute_weight =
 			<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
 		let weight = self.ext.gas_meter().gas_left().max(execute_weight);
-		let dispatch_info = DispatchInfo { weight, ..Default::default() };
+		let dispatch_info = DispatchInfo { call_weight: weight, ..Default::default() };
 
 		self.call_dispatchable::<XcmExecutionFailed>(
 			dispatch_info,
@@ -2049,7 +2034,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&as_bytes(U256::from(self.ext.last_frame_output().data.len())),
+			&U256::from(self.ext.last_frame_output().data.len()).to_little_endian(),
 			false,
 			|len| Some(RuntimeCosts::CopyToContract(len)),
 		)?)
