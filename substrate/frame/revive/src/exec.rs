@@ -1246,13 +1246,13 @@ where
 	///
 	/// This is a no-op for zero `value`, avoiding events to be emitted for zero balance transfers.
 	///
-	/// If the destination account does not exist, it is pulled into existence by transferring the ED
-	/// from `origin` to the new account. The total amount transferred to `to` will be ED + `value`.
-	/// This makes the ED fully transparent for contracts.
+	/// If the destination account does not exist, it is pulled into existence by transferring the
+	/// ED from `origin` to the new account. The total amount transferred to `to` will be ED +
+	/// `value`. This makes the ED fully transparent for contracts.
 	/// The ED transfer is executed atomically with the actual transfer, avoiding the possibility of
 	/// the ED transfer succeeding but the actual transfer failing. In other words, if the `to` does
-	/// not exist, the transfer does fail and nothing will be sent to `to` if either `origin` can not
-	/// provide the ED or transferring `value` from `from` to `to` falis.
+	/// not exist, the transfer does fail and nothing will be sent to `to` if either `origin` can
+	/// not provide the ED or transferring `value` from `from` to `to` falis.
 	/// Note: This will also fail if `origin` is root.
 	fn transfer(
 		origin: &Origin<T>,
