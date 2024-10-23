@@ -829,7 +829,6 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 #[test]
 fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 	fn execute_xcm_penpal_to_asset_hub(t: ParaToSystemParaTest) -> DispatchResult {
-		// let transport_fees: Asset = (Parent, 40_000_000_000u128).into();
 		let all_assets = t.args.assets.clone().into_inner();
 		let mut assets = all_assets.clone();
 		let mut fees = assets.remove(t.args.fee_asset_item as usize);
