@@ -15,7 +15,7 @@ use frame_support::{
 	BoundedVec,
 };
 use snowbridge_core::{
-	outbound_v2::{Command, Message, SendMessage},
+	outbound::v2::{Command, Message, SendMessage},
 	AgentId, TokenId, TokenIdOf,
 };
 use sp_core::{H160, H256};

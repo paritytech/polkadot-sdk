@@ -14,7 +14,7 @@ use snowbridge_core::{
 	gwei,
 	inbound::{Log, Proof, VerificationError, Verifier},
 	meth,
-	outbound_v2::*,
+	outbound::v2::*,
 	pricing::{PricingParameters, Rewards},
 	primary_governance_origin, ParaId,
 };

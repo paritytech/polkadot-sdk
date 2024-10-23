@@ -11,7 +11,7 @@ use codec::{Decode, Encode};
 
 use frame_support::{ensure, traits::Get};
 use snowbridge_core::{
-	outbound::{AgentExecuteCommand, Command, Message, SendMessage},
+	outbound::v1::{AgentExecuteCommand, Command, Message, SendMessage},
 	AgentId, ChannelId, ParaId, TokenId, TokenIdOf,
 };
 use sp_core::{H160, H256};

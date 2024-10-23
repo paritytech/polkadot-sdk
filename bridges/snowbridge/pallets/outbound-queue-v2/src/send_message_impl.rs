@@ -9,11 +9,11 @@ use frame_support::{
 	traits::{EnqueueMessage, Get},
 };
 use snowbridge_core::{
-	outbound_v2::{Message, SendError, SendMessage, SendMessageFeeProvider},
+	outbound::v2::{Message, SendError, SendMessage, SendMessageFeeProvider},
 	primary_governance_origin,
 };
 use sp_core::H256;
-use sp_runtime::{traits::Zero, BoundedVec};
+use sp_runtime::BoundedVec;
 
 /// The maximal length of an enqueued message, as determined by the MessageQueue pallet
 pub type MaxEnqueuedMessageSizeOf<T> =
@@ -35,7 +35,7 @@ where
 			SendError::MessageTooLarge
 		);
 
-		let fee = Fee::from((Self::calculate_local_fee(), T::Balance::zero()));
+		let fee = Fee::from(Self::calculate_local_fee());
 
 		Ok((message.clone(), fee))
 	}

@@ -11,7 +11,7 @@ use frame_support::{
 
 use codec::Encode;
 use snowbridge_core::{
-	outbound_v2::{Command, SendError, SendMessage},
+	outbound::v2::{Command, SendError, SendMessage},
 	primary_governance_origin, ChannelId, ParaId,
 };
 use sp_core::H256;

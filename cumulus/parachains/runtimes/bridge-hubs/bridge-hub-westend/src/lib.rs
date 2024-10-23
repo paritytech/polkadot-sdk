@@ -96,7 +96,7 @@ use parachains_common::{
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
 use snowbridge_core::{
-	outbound::{Command, Fee},
+	outbound::v1::{Command, Fee},
 	AgentId, PricingParameters,
 };
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};

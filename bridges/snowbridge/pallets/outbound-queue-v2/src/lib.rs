@@ -114,7 +114,7 @@ use frame_support::{
 };
 use snowbridge_core::{
 	inbound::Message as DeliveryMessage,
-	outbound_v2::{CommandWrapper, Fee, GasMeter, Message},
+	outbound::v2::{CommandWrapper, Fee, GasMeter, Message},
 	BasicOperatingMode,
 };
 use snowbridge_merkle_tree::merkle_root;
