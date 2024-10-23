@@ -51,7 +51,7 @@ cd parachain-template
 
 🔨 Use the following command to build just the `runtime`. There is also
 a `node` crate that when started can load the runtime accordingly, but the
-recommended way of running the template is with `Omni Node` (TODO: add link to the docs).
+recommended way of running the template is with `Omni Node`.
 
 
 ```sh

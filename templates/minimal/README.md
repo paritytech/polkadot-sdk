@@ -50,7 +50,7 @@ cd minimal-template
 🔨 Use the following command to build the template, which by default
 compiles just the runtime. There is also a `node` crate that is able
 to run and load the runtime but the recommended way of starting the
-template is based on Omni Node (TODO: add link to docs).
+template is based on Omni Node.
 
 ```sh
 cargo build --release
