@@ -114,10 +114,10 @@ use frame_support::{
 };
 use snowbridge_core::{
 	inbound::Message as DeliveryMessage,
-	merkle::merkle_root,
 	outbound_v2::{CommandWrapper, Fee, GasMeter, Message},
 	BasicOperatingMode,
 };
+use snowbridge_merkle_tree::merkle_root;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlockNumberProvider, Hash},

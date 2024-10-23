@@ -20,6 +20,7 @@ sp-std = { workspace = true }
 sp-api = { workspace = true }
 frame-support = { workspace = true }
 snowbridge-core = { workspace = true }
+snowbridge-merkle-tree = { workspace = true }
 
 [features]
 default = ["std"]
@@ -27,6 +28,7 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"snowbridge-core/std",
+	"snowbridge-merkle-tree/std",
 	"sp-api/std",
 	"sp-std/std",
 ]
