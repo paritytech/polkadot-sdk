@@ -60,6 +60,10 @@ pub const DJANGO: AccountId32 = AccountId32::new([4u8; 32]);
 pub const DJANGO_ADDR: H160 = H160([4u8; 20]);
 pub const ETH_DJANGO: AccountId32 = ee_suffix(DJANGO_ADDR);
 
+pub const EVE: AccountId32 = AccountId32::new([5u8; 32]);
+pub const EVE_ADDR: H160 = H160([5u8; 20]);
+pub const ETH_EVE: AccountId32 = ee_suffix(EVE_ADDR);
+
 pub const GAS_LIMIT: Weight = Weight::from_parts(100_000_000_000, 3 * 1024 * 1024);
 
 pub fn deposit_limit<T: Config>() -> BalanceOf<T> {

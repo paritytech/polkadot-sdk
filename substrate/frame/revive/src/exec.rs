@@ -2051,19 +2051,38 @@ mod tests {
 	#[test]
 	fn transfer_to_nonexistent_account_works() {
 		// This test verifies that a contract is able to transfer
-		// some funds to a nonexistant account.
+		// some funds to a nonexistant account and that those transfers
+		// are not able to reap accounts.
 		ExtBuilder::default().build().execute_with(|| {
 			let ed = <Test as Config>::Currency::minimum_balance();
 			let value = 1024;
 
+			// Transfers to nonexistant accounts should work
 			set_balance(&ALICE, ed * 2);
 			set_balance(&BOB, ed + value);
 
-			MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &CHARLIE, value).unwrap();
-
+			assert_ok!(MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &CHARLIE, value));
 			assert_eq!(get_balance(&ALICE), ed);
 			assert_eq!(get_balance(&BOB), ed);
 			assert_eq!(get_balance(&CHARLIE), ed + value);
+
+			// Do not reap the origin account
+			set_balance(&ALICE, ed);
+			set_balance(&BOB, ed + value);
+			assert_err!(
+				MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &DJANGO, value),
+				<Error<Test>>::TransferFailed
+			);
+
+			// Do not reap the sender account
+			set_balance(&ALICE, ed * 2);
+			set_balance(&BOB, value);
+			assert_err!(
+				MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &EVE, value),
+				<Error<Test>>::TransferFailed
+			);
+			// The ED transfer would work. But it should only be executed with the actual transfer
+			assert!(!System::account_exists(&EVE));
 		});
 	}
 
