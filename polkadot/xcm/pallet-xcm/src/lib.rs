@@ -2809,7 +2809,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
 		use migration::data::NeedsMigration;
 
-		// Take minimal version from `SafeXcmVersion` or `latest - 1` and ensure that the
+		// Take the minimum version between `SafeXcmVersion` and `latest - 1` and ensure that the
 		// operational data is stored at least at that version, for example, to prevent issues when
 		// removing older XCM versions.
 		let minimal_allowed_xcm_version = if let Some(safe_xcm_version) = SafeXcmVersion::<T>::get()
