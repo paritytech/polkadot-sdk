@@ -28,12 +28,16 @@ pallet-utility = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
-	"scale-info/std",
 	"frame/std",
+	"scale-info/std",
 ]
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-utility/try-runtime",
 ]

@@ -68,20 +68,19 @@ pallet-examples = { workspace = true }
 default = ["runtime", "std"]
 experimental = ["frame-support/experimental"]
 runtime = [
+	"frame-executive",
+	"frame-system-rpc-runtime-api",
 	"sp-api",
 	"sp-block-builder",
 	"sp-consensus-aura",
 	"sp-consensus-grandpa",
+	"sp-genesis-builder",
 	"sp-inherents",
 	"sp-offchain",
 	"sp-session",
 	"sp-storage",
 	"sp-transaction-pool",
 	"sp-version",
-	"sp-genesis-builder",
-
-	"frame-executive",
-	"frame-system-rpc-runtime-api",
 ]
 std = [
 	"codec/std",
