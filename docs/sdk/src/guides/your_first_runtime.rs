@@ -34,8 +34,9 @@
 #![doc = docify::embed!("./packages/guides/first-runtime/src/lib.rs", VERSION)]
 //!
 //! The version contains a number of very important fields, such as `spec_version` and `spec_name`
-//! that play an important role in identifying your runtime and its version, more importantly in runtime upgrades. More about runtime
-//! upgrades in [`crate::reference_docs::frame_runtime_upgrades_and_migrations`].
+//! that play an important role in identifying your runtime and its version, more importantly in
+//! runtime upgrades. More about runtime upgrades in
+//! [`crate::reference_docs::frame_runtime_upgrades_and_migrations`].
 //!
 //! Then, a real runtime also contains the `impl` of all individual pallets' `trait Config` for
 //! `struct Runtime`, and a [`frame::runtime::prelude::construct_runtime`] macro that amalgamates
@@ -53,8 +54,8 @@
 //! [`frame::prelude::frame_system::pallet::config_preludes`]) to learn more which types are exactly
 //! used.
 //!
-//! Recall that in test runtime in [`crate::guides::your_first_pallet`], we provided `type AccountId = u64` to
-//! `frame_system`, while in this case we rely on whatever is provided by
+//! Recall that in test runtime in [`crate::guides::your_first_pallet`], we provided `type AccountId
+//! = u64` to `frame_system`, while in this case we rely on whatever is provided by
 //! [`SolochainDefaultConfig`], which is indeed a "real" 32 byte account id.
 //!
 //! Then, a familiar instance of `construct_runtime` amalgamates all of the pallets:
