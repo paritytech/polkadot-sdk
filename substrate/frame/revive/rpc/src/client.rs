@@ -32,7 +32,7 @@ use pallet_revive::{
 	},
 	EthContractResult,
 };
-use sp_runtime::traits::Hash;
+use sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_weights::Weight;
 use std::{
 	collections::{HashMap, VecDeque},
@@ -62,13 +62,6 @@ use tokio::{
 };
 
 use crate::subxt_client::{self, system::events::ExtrinsicSuccess, SrcChainConfig};
-
-pub mod primitives {
-	pub type Hashing = sp_runtime::traits::BlakeTwo256;
-	pub type AccountId = sp_runtime::AccountId32;
-	pub type AccountIndex = u32;
-	pub type MultiAddress = sp_runtime::MultiAddress<AccountId, AccountIndex>;
-}
 
 /// The substrate block type.
 pub type SubstrateBlock = subxt::blocks::Block<SrcChainConfig, OnlineClient<SrcChainConfig>>;
@@ -186,7 +179,9 @@ impl<const N: usize> BlockCache<N> {
 
 /// A client connect to a node and maintains a cache of the last `CACHE_SIZE` blocks.
 pub struct Client {
+	/// The inner state of the client.
 	inner: Arc<ClientInner>,
+	// JoinSet to manage spawned tasks.
 	join_set: JoinSet<Result<(), ClientError>>,
 	/// A watch channel to signal cache updates.
 	pub updates: tokio::sync::watch::Receiver<()>,
@@ -265,7 +260,7 @@ impl ClientInner {
 
 				let success = events.find_first::<ExtrinsicSuccess>().is_ok();
 				let transaction_index = ext.index();
-				let transaction_hash = primitives::Hashing::hash(&Vec::from(ext.bytes()).encode());
+				let transaction_hash = BlakeTwo256::hash(&Vec::from(ext.bytes()).encode());
 				let block_hash = block.hash();
 				let block_number = block.number().into();
 

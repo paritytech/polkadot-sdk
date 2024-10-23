@@ -14,8 +14,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::subxt_client::revive::calls::types::InstantiateWithCode;
-use pallet_revive_eth_rpc::subxt_client::{self, SrcChainConfig};
+use pallet_revive_eth_rpc::subxt_client::{
+	self, revive::calls::types::InstantiateWithCode, SrcChainConfig,
+};
 use sp_weights::Weight;
 use subxt::OnlineClient;
 use subxt_signer::sr25519::dev;

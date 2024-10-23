@@ -24,8 +24,8 @@ use jsonrpsee::{
 	proc_macros::rpc,
 	types::{ErrorCode, ErrorObjectOwned},
 };
-pub use pallet_revive::{evm::*, EthContractResult};
-pub use sp_core::{H160, H256, U256};
+use pallet_revive::{evm::*, EthContractResult};
+use sp_core::{H160, H256, U256};
 use thiserror::Error;
 pub mod client;
 pub mod example;
