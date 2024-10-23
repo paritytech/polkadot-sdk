@@ -596,7 +596,7 @@ fn size_limits() {
     }
 
 	check_sizes! {
-		(crate::latest::Instruction<()>, 112),
+		(crate::latest::Instruction<()>, 128),
 		(crate::latest::Asset, 80),
 		(crate::latest::Location, 24),
 		(crate::latest::AssetId, 40),
