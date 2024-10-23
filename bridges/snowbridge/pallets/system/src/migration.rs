@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Governance API for controlling the Ethereum side of the bridge
 use super::*;
+use frame_support::traits::OnRuntimeUpgrade;
 use log;
 
 #[cfg(feature = "try-runtime")]

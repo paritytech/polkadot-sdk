@@ -184,6 +184,11 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::pallet_prelude::*;
 
+	/// Dispatch types from `frame-support`, other fundamental traits
+	#[doc(no_inline)]
+	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
+
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
 	pub use frame_system::pallet_prelude::*;
@@ -194,6 +199,17 @@ pub mod prelude {
 
 	/// All hashing related things
 	pub use super::hashing::*;
+
+	/// Runtime traits
+	#[doc(no_inline)]
+	pub use sp_runtime::traits::{
+		Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion, Saturating, StaticLookup,
+		TrailingZeroInput,
+	};
+
+	/// Other error/result types for runtime
+	#[doc(no_inline)]
+	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
 }
 
 #[cfg(any(feature = "try-runtime", test))]
