@@ -1,0 +1,50 @@
+title: Fix migrations for pallet-xcm
+doc:
+- audience: Todo
+  description: |-
+    Relates to: https://github.com/paritytech/polkadot-sdk/pull/4826
+    Relates to: https://github.com/paritytech/polkadot-sdk/issues/3214
+
+    ## Description
+
+    `pallet-xcm` stores some operational data that uses `Versioned*` XCM types. When we add a new XCM version (XV), we deprecate XV-2 and remove XV-3. Without proper migration, this can lead to issues with [undecodable storage](https://github.com/paritytech/polkadot-sdk/actions/runs/11381324568/job/31662577532?pr=6092), as was identified on the XCMv5 branch where XCMv2 was removed.
+
+    This PR extends the existing `MigrateToLatestXcmVersion` to include migration for the `Queries`, `LockedFungibles`, and `RemoteLockedFungibles` storage types. Additionally, more checks were added to `try_state` for these types.
+
+    ## TODO
+    - [ ] create tracking issue for `polkadot-fellows`
+    - [x] Add missing `MigrateToLatestXcmVersion` for westend
+    - [x] fix pallet-xcm `Queries`
+      - fails for Westend https://github.com/paritytech/polkadot-sdk/actions/runs/11381324568/job/31662577532?pr=6092
+      - `V2` was removed from `Versioned*` stuff, but we have a live data with V2 e.g. Queries - e.g. Kusama or Polkadot relay chains
+    ```
+    VersionNotifier: {
+            origin: {
+              V2: {
+                parents: 0
+                interior: {
+                  X1: {
+                    Parachain: 2,124
+                  }
+                }
+              }
+            }
+            isActive: true
+          }
+    ```
+    ![image](https://github.com/user-attachments/assets/f59f761b-46a7-4def-8aea-45c4e41c0a00)
+    - [x] fix also for `RemoteLockedFungibles`
+    - [x] fix also for `LockedFungibles`
+
+    ## Follow-ups
+
+    https://github.com/paritytech/polkadot-sdk/issues/6188
+crates:
+- name: westend-runtime
+  bump: major
+- name: staging-xcm-builder
+  bump: major
+- name: xcm-runtime-apis
+  bump: major
+- name: pallet-xcm
+  bump: major
