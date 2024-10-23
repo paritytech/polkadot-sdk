@@ -387,6 +387,7 @@ pub trait EthExtra {
 	}
 }
 
+#[cfg(feature = "riscv")]
 #[cfg(test)]
 mod test {
 	use super::*;
