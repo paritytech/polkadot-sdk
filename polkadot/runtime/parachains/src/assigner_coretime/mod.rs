@@ -264,7 +264,6 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 			return Vec::new()
 		}
 		let now = frame_system::Pallet::<T>::block_number();
-
 		Self::peek_impl(now, core_idx, num_entries)
 	}
 
