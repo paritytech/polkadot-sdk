@@ -153,7 +153,7 @@ pub type UniquesTransactor = UniqueInstancesAdapter<
 	AccountId,
 	LocationToAccountId,
 	MatchInClassInstances<UniquesConvertedConcreteId>,
-	Uniques,
+	pallet_uniques::asset_ops::Item<Uniques>,
 >;
 
 /// `AssetId`/`Balance` converter for `ForeignAssets`.

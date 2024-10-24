@@ -3,7 +3,6 @@
 use core::marker::PhantomData;
 use frame_support::traits::{
 	tokens::asset_ops::{
-		common_asset_kinds::Instance,
 		common_strategies::{FromTo, IfOwnedBy, IfRestorable, Owned, PredefinedId},
 		AssetDefinition, Create, CreateStrategy, Destroy, DestroyStrategy, Restore, Stash,
 		Transfer, TransferStrategy,
@@ -20,41 +19,41 @@ use sp_runtime::{DispatchError, DispatchResult};
 pub struct UniqueInstancesOps<CreateOp, TransferOp, DestroyOp>(
 	PhantomData<(CreateOp, TransferOp, DestroyOp)>,
 );
-impl<CreateOp, TransferOp, DestroyOp> AssetDefinition<Instance>
+impl<CreateOp, TransferOp, DestroyOp> AssetDefinition
 	for UniqueInstancesOps<CreateOp, TransferOp, DestroyOp>
 where
-	TransferOp: AssetDefinition<Instance>,
-	DestroyOp: AssetDefinition<Instance, Id = TransferOp::Id>,
+	TransferOp: AssetDefinition,
+	DestroyOp: AssetDefinition<Id = TransferOp::Id>,
 {
 	type Id = TransferOp::Id;
 }
-impl<Strategy, CreateOp, TransferOp, DestroyOp> Create<Instance, Strategy>
+impl<Strategy, CreateOp, TransferOp, DestroyOp> Create<Strategy>
 	for UniqueInstancesOps<CreateOp, TransferOp, DestroyOp>
 where
 	Strategy: CreateStrategy,
-	CreateOp: Create<Instance, Strategy>,
+	CreateOp: Create<Strategy>,
 {
 	fn create(strategy: Strategy) -> Result<Strategy::Success, DispatchError> {
 		CreateOp::create(strategy)
 	}
 }
-impl<Strategy, CreateOp, TransferOp, DestroyOp> Transfer<Instance, Strategy>
+impl<Strategy, CreateOp, TransferOp, DestroyOp> Transfer<Strategy>
 	for UniqueInstancesOps<CreateOp, TransferOp, DestroyOp>
 where
 	Strategy: TransferStrategy,
-	TransferOp: Transfer<Instance, Strategy>,
-	DestroyOp: AssetDefinition<Instance, Id = TransferOp::Id>,
+	TransferOp: Transfer<Strategy>,
+	DestroyOp: AssetDefinition<Id = TransferOp::Id>,
 {
 	fn transfer(id: &Self::Id, strategy: Strategy) -> Result<Strategy::Success, DispatchError> {
 		TransferOp::transfer(id, strategy)
 	}
 }
-impl<Strategy, CreateOp, TransferOp, DestroyOp> Destroy<Instance, Strategy>
+impl<Strategy, CreateOp, TransferOp, DestroyOp> Destroy<Strategy>
 	for UniqueInstancesOps<CreateOp, TransferOp, DestroyOp>
 where
 	Strategy: DestroyStrategy,
-	TransferOp: AssetDefinition<Instance>,
-	DestroyOp: AssetDefinition<Instance, Id = TransferOp::Id> + Destroy<Instance, Strategy>,
+	TransferOp: AssetDefinition,
+	DestroyOp: AssetDefinition<Id = TransferOp::Id> + Destroy<Strategy>,
 {
 	fn destroy(id: &Self::Id, strategy: Strategy) -> Result<Strategy::Success, DispatchError> {
 		DestroyOp::destroy(id, strategy)
@@ -67,17 +66,17 @@ where
 /// using the [`FromTo`] strategy. Restoring with the [`IfRestorable`] is implemented symmetrically
 /// as the transfer from the stash account using the [`FromTo`] strategy.
 pub struct SimpleStash<StashAccount, InstanceOps>(PhantomData<(StashAccount, InstanceOps)>);
-impl<StashAccount, InstanceOps> AssetDefinition<Instance> for SimpleStash<StashAccount, InstanceOps>
+impl<StashAccount, InstanceOps> AssetDefinition for SimpleStash<StashAccount, InstanceOps>
 where
-	InstanceOps: AssetDefinition<Instance>,
+	InstanceOps: AssetDefinition,
 {
 	type Id = InstanceOps::Id;
 }
-impl<StashAccount, InstanceOps> Stash<Instance, IfOwnedBy<StashAccount::Type>>
+impl<StashAccount, InstanceOps> Stash<IfOwnedBy<StashAccount::Type>>
 	for SimpleStash<StashAccount, InstanceOps>
 where
 	StashAccount: TypedGet,
-	InstanceOps: Transfer<Instance, FromTo<StashAccount::Type>>,
+	InstanceOps: Transfer<FromTo<StashAccount::Type>>,
 {
 	fn stash(
 		id: &Self::Id,
@@ -86,11 +85,11 @@ where
 		InstanceOps::transfer(id, FromTo(possible_owner, StashAccount::get()))
 	}
 }
-impl<StashAccount, InstanceOps> Restore<Instance, IfRestorable<StashAccount::Type>>
+impl<StashAccount, InstanceOps> Restore<IfRestorable<StashAccount::Type>>
 	for SimpleStash<StashAccount, InstanceOps>
 where
 	StashAccount: TypedGet,
-	InstanceOps: Transfer<Instance, FromTo<StashAccount::Type>>,
+	InstanceOps: Transfer<FromTo<StashAccount::Type>>,
 {
 	fn restore(
 		id: &Self::Id,
@@ -108,16 +107,16 @@ where
 /// The implemented [`Create`] operation can be used in the
 /// [`UniqueInstancesAdapter`](super::UniqueInstancesAdapter) via the [`UniqueInstancesOps`].
 pub struct RestoreOnCreate<InstanceOps>(PhantomData<InstanceOps>);
-impl<InstanceOps> AssetDefinition<Instance> for RestoreOnCreate<InstanceOps>
+impl<InstanceOps> AssetDefinition for RestoreOnCreate<InstanceOps>
 where
-	InstanceOps: AssetDefinition<Instance>,
+	InstanceOps: AssetDefinition,
 {
 	type Id = InstanceOps::Id;
 }
-impl<AccountId, InstanceOps> Create<Instance, Owned<AccountId, PredefinedId<InstanceOps::Id>>>
+impl<AccountId, InstanceOps> Create<Owned<AccountId, PredefinedId<InstanceOps::Id>>>
 	for RestoreOnCreate<InstanceOps>
 where
-	InstanceOps: Restore<Instance, IfRestorable<AccountId>>,
+	InstanceOps: Restore<IfRestorable<AccountId>>,
 {
 	fn create(
 		strategy: Owned<AccountId, PredefinedId<InstanceOps::Id>>,
@@ -138,15 +137,15 @@ where
 /// The implemented [`Destroy`] operation can be used in the
 /// [`UniqueInstancesAdapter`](super::UniqueInstancesAdapter) via the [`UniqueInstancesOps`].
 pub struct StashOnDestroy<InstanceOps>(PhantomData<InstanceOps>);
-impl<InstanceOps> AssetDefinition<Instance> for StashOnDestroy<InstanceOps>
+impl<InstanceOps> AssetDefinition for StashOnDestroy<InstanceOps>
 where
-	InstanceOps: AssetDefinition<Instance>,
+	InstanceOps: AssetDefinition,
 {
 	type Id = InstanceOps::Id;
 }
-impl<AccountId, InstanceOps> Destroy<Instance, IfOwnedBy<AccountId>> for StashOnDestroy<InstanceOps>
+impl<AccountId, InstanceOps> Destroy<IfOwnedBy<AccountId>> for StashOnDestroy<InstanceOps>
 where
-	InstanceOps: Stash<Instance, IfOwnedBy<AccountId>>,
+	InstanceOps: Stash<IfOwnedBy<AccountId>>,
 {
 	fn destroy(id: &Self::Id, strategy: IfOwnedBy<AccountId>) -> DispatchResult {
 		InstanceOps::stash(id, strategy)

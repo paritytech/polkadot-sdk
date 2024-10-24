@@ -1,6 +1,5 @@
 use core::marker::PhantomData;
 use frame_support::traits::tokens::asset_ops::{
-	common_asset_kinds::Instance,
 	common_strategies::{DeriveAndReportId, FromTo, IfOwnedBy, Owned, PredefinedId},
 	AssetDefinition, Create, Destroy, Transfer,
 };
@@ -38,10 +37,10 @@ impl<AccountId, AccountIdConverter, Matcher, InstanceOps> TransactAsset
 where
 	AccountIdConverter: ConvertLocation<AccountId>,
 	Matcher: MatchesInstance<InstanceOps::Id>,
-	InstanceOps: AssetDefinition<Instance>
-		+ Create<Instance, Owned<AccountId, PredefinedId<InstanceOps::Id>>>
-		+ Transfer<Instance, FromTo<AccountId>>
-		+ Destroy<Instance, IfOwnedBy<AccountId>>,
+	InstanceOps: AssetDefinition
+		+ Create<Owned<AccountId, PredefinedId<InstanceOps::Id>>>
+		+ Transfer<FromTo<AccountId>>
+		+ Destroy<IfOwnedBy<AccountId>>,
 {
 	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		log::trace!(
@@ -123,9 +122,8 @@ impl<AccountId, AccountIdConverter, InstanceCreateOp> TransactAsset
 	for UniqueInstancesDepositAdapter<AccountId, AccountIdConverter, InstanceCreateOp>
 where
 	AccountIdConverter: ConvertLocation<AccountId>,
-	InstanceCreateOp: AssetDefinition<Instance>
+	InstanceCreateOp: AssetDefinition
 		+ Create<
-			Instance,
 			Owned<AccountId, DeriveAndReportId<NonFungibleAsset, InstanceCreateOp::Id>>,
 		>,
 {
