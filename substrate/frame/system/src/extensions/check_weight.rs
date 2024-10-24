@@ -138,11 +138,14 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 	) -> Result<(), TransactionValidityError> {
+		let already_refunded = crate::ExtrinsicWeightRefunded::<T>::get();
 		let unspent = post_info.calc_unspent(info);
-		if unspent.any_gt(Weight::zero()) {
+		if unspent.any_gt(already_refunded) {
 			crate::BlockWeight::<T>::mutate(|current_weight| {
+				current_weight.accrue(already_refunded, info.class);
 				current_weight.reduce(unspent, info.class);
-			})
+			});
+			crate::ExtrinsicWeightRefunded::<T>::put(unspent);
 		}
 
 		log::trace!(
@@ -734,6 +737,118 @@ mod tests {
 				info.total_weight() +
 					Weight::from_parts(128, 0) +
 					block_weights().get(DispatchClass::Normal).base_extrinsic,
+			);
+		})
+	}
+
+	#[test]
+	fn extrinsic_already_refunded_more_precisely() {
+		new_test_ext().execute_with(|| {
+			// This is half of the max block weight
+			let info =
+				DispatchInfo { call_weight: Weight::from_parts(512, 0), ..Default::default() };
+			let post_info = PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(128, 0)),
+				pays_fee: Default::default(),
+			};
+			let prior_block_weight = Weight::from_parts(64, 0);
+			let accurate_refund = Weight::from_parts(510, 0);
+			let len = 0_usize;
+			let base_extrinsic = block_weights().get(DispatchClass::Normal).base_extrinsic;
+
+			// Set initial info
+			BlockWeight::<Test>::mutate(|current_weight| {
+				current_weight.set(Weight::zero(), DispatchClass::Mandatory);
+				current_weight.set(prior_block_weight, DispatchClass::Normal);
+			});
+
+			// Validate and prepare extrinsic
+			let pre = CheckWeight::<Test>(PhantomData)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len)
+				.unwrap()
+				.0;
+
+			assert_eq!(
+				BlockWeight::<Test>::get().total(),
+				info.total_weight() + prior_block_weight + base_extrinsic
+			);
+
+			// Refund more accurately than the benchmark
+			BlockWeight::<Test>::mutate(|current_weight| {
+				current_weight.reduce(accurate_refund, DispatchClass::Normal);
+			});
+			crate::ExtrinsicWeightRefunded::<Test>::put(accurate_refund);
+
+			// Do the post dispatch
+			assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+				pre,
+				&info,
+				&post_info,
+				len,
+				&Ok(())
+			));
+
+			// Ensure the accurate refund is used
+			assert_eq!(crate::ExtrinsicWeightRefunded::<Test>::get(), accurate_refund);
+			assert_eq!(
+				BlockWeight::<Test>::get().total(),
+				info.total_weight() - accurate_refund + prior_block_weight + base_extrinsic
+			);
+		})
+	}
+
+	#[test]
+	fn extrinsic_already_refunded_less_precisely() {
+		new_test_ext().execute_with(|| {
+			// This is half of the max block weight
+			let info =
+				DispatchInfo { call_weight: Weight::from_parts(512, 0), ..Default::default() };
+			let post_info = PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(128, 0)),
+				pays_fee: Default::default(),
+			};
+			let prior_block_weight = Weight::from_parts(64, 0);
+			let inaccurate_refund = Weight::from_parts(110, 0);
+			let len = 0_usize;
+			let base_extrinsic = block_weights().get(DispatchClass::Normal).base_extrinsic;
+
+			// Set initial info
+			BlockWeight::<Test>::mutate(|current_weight| {
+				current_weight.set(Weight::zero(), DispatchClass::Mandatory);
+				current_weight.set(prior_block_weight, DispatchClass::Normal);
+			});
+
+			// Validate and prepare extrinsic
+			let pre = CheckWeight::<Test>(PhantomData)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len)
+				.unwrap()
+				.0;
+
+			assert_eq!(
+				BlockWeight::<Test>::get().total(),
+				info.total_weight() + prior_block_weight + base_extrinsic
+			);
+
+			// Refund less accurately than the benchmark
+			BlockWeight::<Test>::mutate(|current_weight| {
+				current_weight.reduce(inaccurate_refund, DispatchClass::Normal);
+			});
+			crate::ExtrinsicWeightRefunded::<Test>::put(inaccurate_refund);
+
+			// Do the post dispatch
+			assert_ok!(CheckWeight::<Test>::post_dispatch_details(
+				pre,
+				&info,
+				&post_info,
+				len,
+				&Ok(())
+			));
+
+			// Ensure the accurate refund from benchmark is used
+			assert_eq!(crate::ExtrinsicWeightRefunded::<Test>::get(), post_info.calc_unspent(&info));
+			assert_eq!(
+				BlockWeight::<Test>::get().total(),
+				post_info.actual_weight.unwrap() + prior_block_weight + base_extrinsic
 			);
 		})
 	}

@@ -195,39 +195,41 @@ where
 			return Ok(inner_refund)
 		};
 
-		// Unspent weight according to the `actual_weight` from `PostDispatchInfo`
-		// This unspent weight will be refunded by the `CheckWeight` extension, so we need to
-		// account for that.
-		//
-		// Also we don't need to include the unspent weight of this transaction extension because:
-		// 1 - There is no unspent weight for this extension.
-		// 2 - `CheckWeight` computes the unspent weight wihout seeing the unspent weight of this
-		// extension even if there was any. Thus `post_info_with_inner` is what we want.
-		let unspent = post_info_with_inner.calc_unspent(info).proof_size();
-		let benchmarked_weight = info.total_weight().proof_size().saturating_sub(unspent);
-		let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
+		// The consumed proof size as measured by the host.
+		let measured_proof_size = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
 
-		let storage_size_diff = benchmarked_weight.abs_diff(consumed_weight as u64);
+		// The consumed weight as benchamrked.
+		let benchmarked_weight = post_info_with_inner.calc_actual_weight(info);
 
-		// This value will be reclaimed by [`frame_system::CheckWeight`], so we need to calculate
-		// that in.
-		frame_system::BlockWeight::<T>::mutate(|current| {
-			if consumed_weight > benchmarked_weight {
-				log::error!(
-					target: LOG_TARGET,
-					"Benchmarked storage weight smaller than consumed storage weight. \
-					benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: \
-					{unspent}"
-				);
-				current.accrue(Weight::from_parts(0, storage_size_diff), info.class)
-			} else {
-				log::trace!(
-					target: LOG_TARGET,
-					"Reclaiming storage weight. benchmarked: {benchmarked_weight}, consumed: \
-					{consumed_weight} unspent: {unspent}"
-				);
-				current.reduce(Weight::from_parts(0, storage_size_diff), info.class)
-			}
+		let benchmarked_proof_size = benchmarked_weight.proof_size();
+		if benchmarked_proof_size < measured_proof_size {
+			log::error!(
+				target: LOG_TARGET,
+				"Benchmarked storage weight smaller than consumed storage weight. \
+				benchmarked: {benchmarked_proof_size} consumed: {measured_proof_size}"
+			);
+		} else {
+			log::trace!(
+				target: LOG_TARGET,
+				"Reclaiming storage weight. benchmarked: {benchmarked_proof_size},
+				consumed: {measured_proof_size}"
+			);
+		}
+
+		let accurate_weight = benchmarked_weight.set_proof_size(measured_proof_size);
+
+		frame_system::BlockWeight::<T>::mutate(|current_weight| {
+			let already_refunded = frame_system::ExtrinsicWeightRefunded::<T>::get();
+			dbg!(&already_refunded);
+			current_weight.accrue(already_refunded, info.class);
+			current_weight.reduce(info.total_weight(), info.class);
+			current_weight.accrue(accurate_weight, info.class);
+
+			// The saturation will happen if the pre dispatch weight is underestimated.
+			// In this case the extrinsic refund is considered 0.
+			// TODO TODO: maybe change `ExtrinsicWeightRefunded` to just `ExtrinsicWeight`.
+			let accurate_unspent = info.total_weight().saturating_sub(accurate_weight);
+			frame_system::ExtrinsicWeightRefunded::<T>::put(accurate_unspent);
 		});
 
 		Ok(inner_refund)

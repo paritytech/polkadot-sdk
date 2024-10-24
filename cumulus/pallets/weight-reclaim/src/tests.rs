@@ -61,7 +61,7 @@ impl TransactionExtension<RuntimeCall> for MockExtensionWithRefund {
 }
 
 pub type Tx =
-	crate::StorageWeightReclaim<Test, (MockExtensionWithRefund, frame_system::CheckWeight<Test>)>;
+	crate::StorageWeightReclaim<Test, (frame_system::CheckWeight<Test>, MockExtensionWithRefund)>;
 type AccountId = u64;
 type Extrinsic = generic::UncheckedExtrinsic<AccountId, RuntimeCall, (), Tx>;
 type Block = generic::Block<generic::Header<AccountId, BlakeTwo256>, Extrinsic>;
@@ -186,7 +186,7 @@ const ALICE_ORIGIN: frame_system::Origin<Test> = frame_system::Origin::<Test>::S
 const LEN: usize = 150;
 
 fn new_tx_ext() -> Tx {
-	Tx::new((MockExtensionWithRefund, frame_system::CheckWeight::new()))
+	Tx::new((frame_system::CheckWeight::new(), MockExtensionWithRefund))
 }
 
 fn new_extrinsic() -> generic::CheckedExtrinsic<AccountId, RuntimeCall, Tx> {
@@ -406,8 +406,7 @@ fn test_incorporates_check_weight_unspent_weight_on_negative() {
 		assert_eq!(pre.0, Some(100));
 
 		// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
-		// we always need to call `post_dispatch` to verify that they interoperate correctly.
-		// Refunds unspent 25 weight according to `post_info`, 1175
+		// CheckWeight: refunds unspent 25 weight according to `post_info`, 1175
 		//
 		// storage reclaim:
 		// Adds 200 - 25 (unspent) == 175 weight, total weight 1350

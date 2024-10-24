@@ -1036,6 +1036,15 @@ pub mod pallet {
 	pub(super) type AuthorizedUpgrade<T: Config> =
 		StorageValue<_, CodeUpgradeAuthorization<T>, OptionQuery>;
 
+	/// The weight refunded for the extrinsic.
+	///
+	/// This information is available until the end of the extrinsic execution.
+	/// More precisely this information is removed in `note_applied_extrinsic`.
+	///
+	/// Logic doing some weight refund can coordinate using this storage.
+	#[pallet::storage]
+	pub type ExtrinsicWeightRefunded<T: Config> = StorageValue<_, Weight, ValueQuery>;
+
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -2074,6 +2083,7 @@ impl<T: Config> Pallet<T> {
 
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &next_extrinsic_index);
 		ExecutionPhase::<T>::put(Phase::ApplyExtrinsic(next_extrinsic_index));
+		ExtrinsicWeightRefunded::<T>::kill();
 	}
 
 	/// To be called immediately after `note_applied_extrinsic` of the last extrinsic of the block
