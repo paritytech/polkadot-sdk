@@ -40,14 +40,6 @@
 //! ## Examples
 //!
 //! For an example, see the [`polkadot-parachain-bin`](https://crates.io/crates/polkadot-parachain-bin) crate.
-//!
-//! ## Binary
-//!
-//! It can be used to start a parachain node from a provided chain spec file.
-//! It is only compatible with runtimes that use block number `u32` and `Aura` consensus.
-//!
-//! Example: `polkadot-omni-node --chain <chain_spec.json>`
-
 #![deny(missing_docs)]
 
 pub mod cli;
