@@ -260,9 +260,6 @@ pub mod pallet {
 
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn peek(core_idx: CoreIndex, num_entries: u8) -> Vec<Assignment> {
-		if num_entries == 0 {
-			return Vec::new()
-		}
 		let now = frame_system::Pallet::<T>::block_number();
 		Self::peek_impl(now, core_idx, num_entries)
 	}
