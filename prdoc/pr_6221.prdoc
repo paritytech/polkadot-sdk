@@ -1,0 +1,10 @@
+title: Enable approval-voting-parallel by default on kusama
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Replaced `GlobalConsensusEthereumConvertsFor` with `EthereumLocationsConverterFor` that allows `Location`
+      to `AccountId` conversion for the Ethereum network root as before, but also for Ethereum contracts and accounts.
+crates:
+  - name: snowbridge-router-primitives
+    bump: major
