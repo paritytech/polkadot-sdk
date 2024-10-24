@@ -2806,6 +2806,7 @@ name = "chain-spec-guide-runtime"
 version = "0.0.0"
 dependencies = [
  "docify",
+ "frame-support",
  "pallet-balances",
  "pallet-sudo",
  "pallet-timestamp",
