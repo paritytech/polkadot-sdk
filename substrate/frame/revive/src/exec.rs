@@ -1252,7 +1252,7 @@ where
 	/// The ED transfer is executed atomically with the actual transfer, avoiding the possibility of
 	/// the ED transfer succeeding but the actual transfer failing. In other words, if the `to` does
 	/// not exist, the transfer does fail and nothing will be sent to `to` if either `origin` can
-	/// not provide the ED or transferring `value` from `from` to `to` falis.
+	/// not provide the ED or transferring `value` from `from` to `to` fails.
 	/// Note: This will also fail if `origin` is root.
 	fn transfer(
 		origin: &Origin<T>,
