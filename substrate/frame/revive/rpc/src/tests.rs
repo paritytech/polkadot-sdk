@@ -31,6 +31,7 @@ use pallet_revive::{
 use std::{
 	io::{BufRead, BufReader},
 	process::{self, Child, Command},
+	thread,
 };
 use substrate_cli_test_utils::*;
 
@@ -70,15 +71,11 @@ fn start_eth_rpc_server(node_ws_url: &str) -> (Child, String) {
 
 #[tokio::test]
 async fn test_jsonrpsee_server() -> anyhow::Result<()> {
-	let mut node_child = substrate_cli_test_utils::start_node();
-
-	let _ = std::thread::spawn(move || {
-		match common::start_node_inline(vec!["--dev", "--rpc-port=45788"]) {
-			Ok(_) => {},
-			Err(e) => {
-				panic!("Node exited with error: {}", e);
-			},
-		}
+	let _ = thread::spawn(move || match start_node_inline(vec!["--dev", "--rpc-port=45788"]) {
+		Ok(_) => {},
+		Err(e) => {
+			panic!("Node exited with error: {}", e);
+		},
 	});
 
 	let (_rpc_child, ws_url) = start_eth_rpc_server("ws://localhost:45788");
