@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use crate::{asset_strategies::Attribute, *, Item as ItemStorage};
+use crate::{asset_strategies::Attribute, Item as ItemStorage, *};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -44,9 +44,7 @@ impl<T: Config<I>, I: 'static> InspectMetadata<Bytes> for Item<Pallet<T, I>> {
 	}
 }
 
-impl<'a, T: Config<I>, I: 'static> InspectMetadata<Bytes<Attribute<'a>>>
-	for Item<Pallet<T, I>>
-{
+impl<'a, T: Config<I>, I: 'static> InspectMetadata<Bytes<Attribute<'a>>> for Item<Pallet<T, I>> {
 	fn inspect_metadata(
 		(collection, item): &Self::Id,
 		strategy: Bytes<Attribute>,
@@ -124,8 +122,8 @@ impl<T: Config<I>, I: 'static> Transfer<JustDo<T::AccountId>> for Item<Pallet<T,
 	}
 }
 
-impl<T: Config<I>, I: 'static>
-	Transfer<WithOrigin<T::RuntimeOrigin, JustDo<T::AccountId>>> for Item<Pallet<T, I>>
+impl<T: Config<I>, I: 'static> Transfer<WithOrigin<T::RuntimeOrigin, JustDo<T::AccountId>>>
+	for Item<Pallet<T, I>>
 {
 	fn transfer(
 		(collection, item): &Self::Id,
@@ -135,13 +133,18 @@ impl<T: Config<I>, I: 'static>
 
 		let signer = ensure_signed(origin)?;
 
-		<Pallet<T, I>>::do_transfer(collection.clone(), *item, dest.clone(), |collection_details, details| {
-			if details.owner != signer && collection_details.admin != signer {
-				let approved = details.approved.take().map_or(false, |i| i == signer);
-				ensure!(approved, Error::<T, I>::NoPermission);
-			}
-			Ok(())
-		})
+		<Pallet<T, I>>::do_transfer(
+			collection.clone(),
+			*item,
+			dest.clone(),
+			|collection_details, details| {
+				if details.owner != signer && collection_details.admin != signer {
+					let approved = details.approved.take().map_or(false, |i| i == signer);
+					ensure!(approved, Error::<T, I>::NoPermission);
+				}
+				Ok(())
+			},
+		)
 	}
 }
 
@@ -188,8 +191,8 @@ impl<T: Config<I>, I: 'static> Destroy<IfOwnedBy<T::AccountId>> for Item<Pallet<
 	}
 }
 
-impl<T: Config<I>, I: 'static>
-	Destroy<WithOrigin<T::RuntimeOrigin, IfOwnedBy<T::AccountId>>> for Item<Pallet<T, I>>
+impl<T: Config<I>, I: 'static> Destroy<WithOrigin<T::RuntimeOrigin, IfOwnedBy<T::AccountId>>>
+	for Item<Pallet<T, I>>
 {
 	fn destroy(
 		(collection, item): &Self::Id,
