@@ -381,6 +381,7 @@ mod tests {
 		assert_eq!(cfg_benchmarks, filtered[1]);
 	}
 
+	#[test]
 	fn check_deprecated_attr() {
 		const FIRST: &'static str = "hello";
 		const SECOND: &'static str = "WORLD";

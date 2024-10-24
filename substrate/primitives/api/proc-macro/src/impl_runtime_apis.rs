@@ -985,4 +985,34 @@ mod tests {
 		assert_eq!(cfg_std, filtered[0]);
 		assert_eq!(cfg_benchmarks, filtered[1]);
 	}
+
+	#[test]
+	fn impl_trait_rename_self_param() {
+		let code = quote::quote! {
+			impl client::Core<Block> for Runtime {
+				fn initialize_block(header: &HeaderFor<Self>) -> Output<Self> {
+					let _: HeaderFor<Self> = header.clone();
+					example_fn::<Self>(header)
+				}
+			}
+		};
+		let expected = quote::quote! {
+			impl client::Core<Block> for Runtime {
+				fn initialize_block(header: &HeaderFor<Runtime>) -> Output<Runtime> {
+					let _: HeaderFor<Runtime> = header.clone();
+					example_fn::<Runtime>(header)
+				}
+			}
+		};
+
+		// Parse the items
+		let RuntimeApiImpls { impls: mut api_impls } =
+			syn::parse2::<RuntimeApiImpls>(code).unwrap();
+
+		// Run the renamer which is being run first in the `impl_runtime_apis!` macro.
+		rename_self_in_trait_impls(&mut api_impls);
+		let result: TokenStream = quote::quote! {  #(#api_impls)* };
+
+		assert_eq!(result.to_string(), expected.to_string());
+	}
 }
