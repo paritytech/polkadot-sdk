@@ -2073,7 +2073,7 @@ impl_runtime_apis! {
 	{
 		fn balance(address: H160) -> Balance {
 			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
-			Balances::free_balance(account)
+			Balances::usable_balance(account)
 		}
 
 		fn nonce(address: H160) -> Nonce {
