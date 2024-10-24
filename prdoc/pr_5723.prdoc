@@ -1,0 +1,15 @@
+title: Adds `BlockNumberProvider` in multisig, proxy and nft pallets
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This would allow these pallets to use the relay chain block number when deployed on a parachain. 
+      However, we would need migrations if the deployed pallets are upgraded on an existing parachain.
+
+crates:
+  - name: pallet-multisig
+    bump: major
+  - name: pallet-proxy
+    bump: major
+  - name: pallet-nfts
+    bump: major
