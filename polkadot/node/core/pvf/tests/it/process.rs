@@ -141,6 +141,7 @@ rusty_fork_test! {
 					pvd,
 					pov,
 					Default::default(),
+					None,
 				)
 				.await
 				.unwrap();
@@ -187,6 +188,7 @@ rusty_fork_test! {
 					pvd,
 					pov,
 					Default::default(),
+					None,
 				),
 				// Send a stop signal to pause the worker.
 				async {
@@ -242,6 +244,7 @@ rusty_fork_test! {
 					pvd,
 					pov,
 					Default::default(),
+					None,
 				),
 				// Run a future that kills the job while it's running.
 				async {
@@ -301,6 +304,7 @@ rusty_fork_test! {
 					pvd,
 					pov,
 					Default::default(),
+					None,
 				),
 				// Run a future that kills the job while it's running.
 				async {
@@ -372,6 +376,7 @@ rusty_fork_test! {
 					pvd,
 					pov,
 					Default::default(),
+					None,
 				),
 				// Run a future that tests the thread count while the worker is running.
 				async {

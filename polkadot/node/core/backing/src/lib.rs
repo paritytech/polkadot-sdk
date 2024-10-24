@@ -108,7 +108,7 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::{
-	node_features::FeatureIndex, BackedCandidate, CandidateCommitments, CandidateHash,
+	node_features::FeatureIndex, BackedCandidate, BlockNumber, CandidateCommitments, CandidateHash,
 	CandidateReceipt, CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex,
 	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData,
 	SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
@@ -625,10 +625,11 @@ async fn request_candidate_validation(
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
+	allowed_ancestry_len: Option<usize>,
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
 	let is_system = candidate_receipt.descriptor.para_id.is_system();
-
+	let ttl = allowed_ancestry_len.map(|v| validation_data.relay_parent_number + v as BlockNumber);
 	sender
 		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
 			validation_data,
@@ -637,9 +638,9 @@ async fn request_candidate_validation(
 			pov,
 			executor_params,
 			exec_kind: if is_system {
-				PvfExecKind::BackingSystemParas
+				PvfExecKind::BackingSystemParas { ttl }
 			} else {
-				PvfExecKind::Backing
+				PvfExecKind::Backing { ttl }
 			},
 			response_sender: tx,
 		})
@@ -678,6 +679,7 @@ async fn validate_and_make_available(
 		impl Fn(BackgroundValidationResult) -> ValidatedCandidateCommand + Sync,
 	>,
 	core_index: CoreIndex,
+	allowed_ancestry_len: Option<usize>,
 ) -> Result<(), Error> {
 	let BackgroundValidationParams {
 		mut sender,
@@ -754,6 +756,7 @@ async fn validate_and_make_available(
 			candidate.clone(),
 			pov.clone(),
 			executor_params,
+			allowed_ancestry_len,
 		)
 		.await?
 	};
@@ -1812,10 +1815,18 @@ async fn background_validate_and_make_available<Context>(
 ) -> Result<(), Error> {
 	let candidate_hash = params.candidate.hash();
 	let Some(core_index) = rp_state.assigned_core else { return Ok(()) };
+	let mode = rp_state.prospective_parachains_mode;
 	if rp_state.awaiting_validation.insert(candidate_hash) {
 		// spawn background task.
 		let bg = async move {
-			if let Err(error) = validate_and_make_available(params, core_index).await {
+			let allowed_ancestry_len = match mode {
+				ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. } =>
+					Some(allowed_ancestry_len),
+				_ => None,
+			};
+			if let Err(error) =
+				validate_and_make_available(params, core_index, allowed_ancestry_len).await
+			{
 				if let Error::BackgroundValidationMpsc(error) = error {
 					gum::debug!(
 						target: LOG_TARGET,

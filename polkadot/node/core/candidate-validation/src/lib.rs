@@ -45,7 +45,7 @@ use polkadot_primitives::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
-	AuthorityDiscoveryId, CandidateCommitments, CandidateDescriptor, CandidateEvent,
+	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateDescriptor, CandidateEvent,
 	CandidateReceipt, ExecutorParams, Hash, PersistedValidationData,
 	PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
 	ValidationCodeHash, ValidatorId,
@@ -163,7 +163,6 @@ where
 			executor_params,
 			exec_kind,
 			response_sender,
-			..
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();
 			let res = validate_candidate_exhaustive(
@@ -240,6 +239,7 @@ async fn run<Context>(
 				comm = ctx.recv().fuse() => {
 					match comm {
 						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update))) => {
+							maybe_update_best_block(validation_host.clone(), &update).await;
 							maybe_prepare_validation(ctx.sender(), keystore.clone(), validation_host.clone(), update, &mut prepare_state).await;
 						},
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
@@ -512,6 +512,21 @@ where
 	Some(processed_code_hashes)
 }
 
+async fn maybe_update_best_block(
+	mut validation_backend: impl ValidationBackend,
+	update: &ActiveLeavesUpdate,
+) {
+	let Some(ref leaf) = update.activated else { return };
+	if let Err(err) = validation_backend.update_best_block(leaf.number).await {
+		gum::warn!(
+			target: LOG_TARGET,
+			?leaf,
+			?err,
+			"cannot update relay parent in validation backend",
+		);
+	};
+}
+
 struct RuntimeRequestFailed;
 
 async fn runtime_api_request<T, Sender>(
@@ -668,7 +683,7 @@ async fn validate_candidate_exhaustive(
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
 		// honest backers getting slashed.
-		PvfExecKind::Backing | PvfExecKind::BackingSystemParas => {
+		PvfExecKind::Backing { .. } | PvfExecKind::BackingSystemParas { .. } => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
 			let pvf = PvfPrepData::from_code(
@@ -743,6 +758,15 @@ async fn validate_candidate_exhaustive(
 				?para_id,
 				?e,
 				"Deterministic error occurred during preparation (should have been ruled out by pre-checking phase)",
+			);
+			Err(ValidationFailed(e.to_string()))
+		},
+		Err(e @ ValidationError::ExecutionDeadline) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?para_id,
+				?e,
+				"Job assigned too late, execution queue probably overloaded",
 			);
 			Err(ValidationFailed(e.to_string()))
 		},
@@ -884,7 +908,12 @@ trait ValidationBackend {
 					retry_immediately = true;
 				},
 
-				Ok(_) | Err(ValidationError::Invalid(_) | ValidationError::Preparation(_)) => break,
+				Ok(_) |
+				Err(
+					ValidationError::Invalid(_) |
+					ValidationError::Preparation(_) |
+					ValidationError::ExecutionDeadline,
+				) => break,
 			}
 
 			// If we got a possibly transient error, retry once after a brief delay, on the
@@ -925,6 +954,8 @@ trait ValidationBackend {
 	async fn precheck_pvf(&mut self, pvf: PvfPrepData) -> Result<(), PrepareError>;
 
 	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String>;
+
+	async fn update_best_block(&mut self, block_number: BlockNumber) -> Result<(), String>;
 }
 
 #[async_trait]
@@ -974,6 +1005,10 @@ impl ValidationBackend for ValidationHost {
 
 	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
 		self.heads_up(active_pvfs).await
+	}
+
+	async fn update_best_block(&mut self, block_number: BlockNumber) -> Result<(), String> {
+		self.update_best_block(block_number).await
 	}
 }
 

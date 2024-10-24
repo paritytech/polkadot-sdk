@@ -39,6 +39,11 @@ pub enum ValidationError {
 	/// Preparation or execution issue caused by an internal condition. Should not vote against.
 	#[error("candidate validation: internal: {0}")]
 	Internal(#[from] InternalValidationError),
+	/// The execution deadline has been reached. Jobs like backing have a limited time to execute.
+	/// Once the deadline is reached, the current candidate cannot be backed, regardless of its
+	/// validity.
+	#[error("candidate validation: execution deadline has been reached.")]
+	ExecutionDeadline,
 }
 
 /// A description of an error raised during executing a PVF and can be attributed to the combination

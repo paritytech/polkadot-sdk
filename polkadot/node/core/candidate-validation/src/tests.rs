@@ -459,6 +459,10 @@ impl ValidationBackend for MockValidateCandidateBackend {
 	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
 		unreachable!()
 	}
+
+	async fn update_best_block(&mut self, _block_number: BlockNumber) -> Result<(), String> {
+		unreachable!()
+	}
 }
 
 #[test]
@@ -515,7 +519,7 @@ fn candidate_validation_ok_is_ok() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 	))
 	.unwrap();
@@ -567,7 +571,7 @@ fn candidate_validation_bad_return_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 	))
 	.unwrap();
@@ -719,7 +723,7 @@ fn candidate_validation_retry_internal_errors() {
 #[test]
 fn candidate_validation_dont_retry_internal_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecKind::Backing,
+		PvfExecKind::Backing { ttl: None },
 		vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
 			// Throw an AWD error, we should still retry again.
@@ -753,7 +757,7 @@ fn candidate_validation_retry_panic_errors() {
 #[test]
 fn candidate_validation_dont_retry_panic_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecKind::Backing,
+		PvfExecKind::Backing { ttl: None },
 		vec![
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("foo".into()))),
 			// Throw an AWD error, we should still retry again.
@@ -845,7 +849,7 @@ fn candidate_validation_timeout_is_internal_error() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 	));
 
@@ -890,7 +894,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 	))
 	.unwrap();
@@ -942,7 +946,7 @@ fn candidate_validation_code_mismatch_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 	))
 	.unwrap();
@@ -999,7 +1003,7 @@ fn compressed_code_works() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 	));
 
@@ -1035,6 +1039,10 @@ impl ValidationBackend for MockPreCheckBackend {
 	}
 
 	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
+		unreachable!()
+	}
+
+	async fn update_best_block(&mut self, _block_number: BlockNumber) -> Result<(), String> {
 		unreachable!()
 	}
 }
@@ -1192,6 +1200,10 @@ impl ValidationBackend for MockHeadsUp {
 	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
 		let _ = self.heads_up_call_count.fetch_add(1, Ordering::SeqCst);
 		Ok(())
+	}
+
+	async fn update_best_block(&mut self, _block_number: BlockNumber) -> Result<(), String> {
+		unreachable!()
 	}
 }
 

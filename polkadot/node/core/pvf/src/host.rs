@@ -39,7 +39,7 @@ use polkadot_node_core_pvf_common::{
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::{messages::PvfExecKind, SubsystemError, SubsystemResult};
 use polkadot_parachain_primitives::primitives::ValidationResult;
-use polkadot_primitives::PersistedValidationData;
+use polkadot_primitives::{BlockNumber, PersistedValidationData};
 use std::{
 	collections::HashMap,
 	path::PathBuf,
@@ -143,12 +143,23 @@ impl ValidationHost {
 			.await
 			.map_err(|_| "the inner loop hung up".to_string())
 	}
+
+	/// Sends a signal to the validation host requesting to update best block.
+	///
+	/// Returns an error if the request cannot be sent to the validation host, i.e. if it shut down.
+	pub async fn update_best_block(&mut self, block_number: BlockNumber) -> Result<(), String> {
+		self.to_host_tx
+			.send(ToHost::UpdateBestBlock { block_number })
+			.await
+			.map_err(|_| "the inner loop hung up".to_string())
+	}
 }
 
 enum ToHost {
 	PrecheckPvf { pvf: PvfPrepData, result_tx: PrecheckResultSender },
 	ExecutePvf(ExecutePvfInputs),
 	HeadsUp { active_pvfs: Vec<PvfPrepData> },
+	UpdateBestBlock { block_number: BlockNumber },
 }
 
 struct ExecutePvfInputs {
@@ -488,6 +499,8 @@ async fn handle_to_host(
 		},
 		ToHost::HeadsUp { active_pvfs } =>
 			handle_heads_up(artifacts, prepare_queue, active_pvfs).await?,
+		ToHost::UpdateBestBlock { block_number } =>
+			handle_update_best_block(execute_queue, block_number).await?,
 	}
 
 	Ok(())
@@ -853,6 +866,13 @@ async fn handle_prepare_done(
 	};
 
 	Ok(())
+}
+
+async fn handle_update_best_block(
+	execute_queue: &mut mpsc::Sender<execute::ToQueue>,
+	block_number: BlockNumber,
+) -> Result<(), Fatal> {
+	send_execute(execute_queue, execute::ToQueue::UpdateBestBlock { block_number }).await
 }
 
 async fn send_prepare(
@@ -1255,7 +1275,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov1.clone(),
 			Priority::Normal,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await
@@ -1268,7 +1288,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov1,
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await
@@ -1281,7 +1301,7 @@ pub(crate) mod tests {
 			pvd,
 			pov2,
 			Priority::Normal,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await
@@ -1431,7 +1451,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await
@@ -1480,7 +1500,7 @@ pub(crate) mod tests {
 			pvd,
 			pov,
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await
@@ -1591,7 +1611,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await
@@ -1623,7 +1643,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx_2,
 		)
 		.await
@@ -1647,7 +1667,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx_3,
 		)
 		.await
@@ -1706,7 +1726,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await
@@ -1738,7 +1758,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx_2,
 		)
 		.await
@@ -1762,7 +1782,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx_3,
 		)
 		.await
@@ -1837,7 +1857,7 @@ pub(crate) mod tests {
 			pvd,
 			pov,
 			Priority::Normal,
-			PvfExecKind::Backing,
+			PvfExecKind::Backing { ttl: None },
 			result_tx,
 		)
 		.await

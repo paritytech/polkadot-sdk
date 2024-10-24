@@ -3123,7 +3123,7 @@ async fn handle_double_assignment_import(
 			exec_kind,
 			response_sender,
 			..
-		}) if exec_kind == PvfExecKind::Approval => {
+		}) if matches!(exec_kind, PvfExecKind::Approval) => {
 			response_sender.send(Ok(ValidationResult::Valid(Default::default(), Default::default())))
 				.unwrap();
 		}
@@ -4070,7 +4070,7 @@ async fn handle_approval_on_max_coalesce_count(
 	for _ in &candidate_indices {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
-			AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive{exec_kind, response_sender, ..}) if exec_kind == PvfExecKind::Approval => {
+			AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive{exec_kind, response_sender, ..}) if matches!(exec_kind, PvfExecKind::Approval) => {
 				response_sender.send(Ok(ValidationResult::Valid(Default::default(), Default::default())))
 					.unwrap();
 			}
@@ -4134,7 +4134,7 @@ async fn handle_approval_on_max_wait_time(
 	for _ in &candidate_indices {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
-			AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive{exec_kind, response_sender, ..}) if exec_kind == PvfExecKind::Approval => {
+			AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive{exec_kind, response_sender, ..}) if matches!(exec_kind, PvfExecKind::Approval) => {
 				response_sender.send(Ok(ValidationResult::Valid(Default::default(), Default::default())))
 					.unwrap();
 			}
@@ -4637,7 +4637,7 @@ fn subsystem_relaunches_approval_work_on_restart() {
 				exec_kind,
 				response_sender,
 				..
-			}) if exec_kind == PvfExecKind::Approval => {
+			}) if matches!(exec_kind, PvfExecKind::Approval) => {
 				response_sender.send(Ok(ValidationResult::Valid(Default::default(), Default::default())))
 					.unwrap();
 			}
@@ -4757,7 +4757,7 @@ fn subsystem_sends_pending_approvals_on_approval_restart() {
 				exec_kind,
 				response_sender,
 				..
-			}) if exec_kind == PvfExecKind::Approval => {
+			}) if matches!(exec_kind, PvfExecKind::Approval) => {
 				response_sender.send(Ok(ValidationResult::Valid(Default::default(), Default::default())))
 					.unwrap();
 			}
