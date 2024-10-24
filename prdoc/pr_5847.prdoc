@@ -2,8 +2,7 @@ title: '`candidate-validation`: RFC103 implementation'
 doc:
 - audience: node_dev
   description: |-
-    Part of https://github.com/paritytech/polkadot-sdk/issues/5047
-    On top of https://github.com/paritytech/polkadot-sdk/pull/5679
+    Introduces checks for descriptor `core_index` and `session_index` fields.
 crates:
 - name: polkadot-node-primitives
   bump: minor

@@ -47,7 +47,8 @@ use polkadot_primitives::{
 	},
 	vstaging::{
 		transpose_claim_queue, CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
-		CandidateReceiptV2 as CandidateReceipt, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+		CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	},
 	AuthorityDiscoveryId, CandidateCommitments, ExecutorParams, Hash, PersistedValidationData,
 	PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
@@ -149,7 +150,7 @@ impl<Context> CandidateValidationSubsystem {
 }
 
 // Reteurns the claim queue at relay parent and logs a warning if it is not available.
-async fn claim_queue<Sender>(sender: &mut Sender, relay_parent: Hash) -> Option<ClaimQueueSnapshot>
+async fn claim_queue<Sender>(relay_parent: Hash, sender: &mut Sender) -> Option<ClaimQueueSnapshot>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
@@ -169,7 +170,6 @@ where
 
 fn handle_validation_message<S>(
 	mut sender: S,
-	current_session_index: Option<SessionIndex>,
 	validation_host: ValidationHost,
 	metrics: Metrics,
 	msg: CandidateValidationMessage,
@@ -189,10 +189,37 @@ where
 			..
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();
-			let maybe_cq =
-				claim_queue(&mut sender, candidate_receipt.descriptor.relay_parent()).await;
+			let relay_parent = candidate_receipt.descriptor.relay_parent();
+
+			let Some(claim_queue) = claim_queue(relay_parent, &mut sender).await else {
+				let error = "cannot fetch the claim queue from the runtime";
+
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					error
+				);
+
+				let _ = response_sender.send(Err(ValidationFailed(error.into())));
+				return
+			};
+
+			let Ok(Ok(expected_session_index)) =
+				util::request_session_index_for_child(relay_parent, &mut sender).await.await
+			else {
+				let error = "cannot fetch session index from the runtime";
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					error,
+				);
+
+				let _ = response_sender.send(Err(ValidationFailed(error.into())));
+				return
+			};
+
 			let res = validate_candidate_exhaustive(
-				current_session_index,
+				expected_session_index,
 				validation_host,
 				validation_data,
 				validation_code,
@@ -201,7 +228,7 @@ where
 				executor_params,
 				exec_kind,
 				&metrics,
-				maybe_cq,
+				claim_queue,
 			)
 			.await;
 
@@ -272,7 +299,7 @@ async fn run<Context>(
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
 						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
 						Ok(FromOrchestra::Communication { msg }) => {
-							let task = handle_validation_message(ctx.sender().clone(), prepare_state.session_index.clone(), validation_host.clone(), metrics.clone(), msg);
+							let task = handle_validation_message(ctx.sender().clone(), validation_host.clone(), metrics.clone(), msg);
 							tasks.push(task);
 							if tasks.len() >= TASK_LIMIT {
 								break
@@ -661,7 +688,7 @@ where
 }
 
 async fn validate_candidate_exhaustive(
-	current_session_index: Option<SessionIndex>,
+	expected_session_index: SessionIndex,
 	mut validation_backend: impl ValidationBackend + Send,
 	persisted_validation_data: PersistedValidationData,
 	validation_code: ValidationCode,
@@ -670,7 +697,7 @@ async fn validate_candidate_exhaustive(
 	executor_params: ExecutorParams,
 	exec_kind: PvfExecKind,
 	metrics: &Metrics,
-	maybe_cq: Option<ClaimQueueSnapshot>,
+	claim_queue: ClaimQueueSnapshot,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
 
@@ -683,23 +710,12 @@ async fn validate_candidate_exhaustive(
 		"About to validate a candidate.",
 	);
 
-	// We don't want to check the session index for approvals as the chain has already
-	// checked it.
-	if exec_kind == PvfExecKind::Backing {
-		match (current_session_index, candidate_receipt.descriptor.session_index()) {
-			// If the current session index is not available we don't participate in approvals or
-			// backing, so we will return an internal error.
-			(None, Some(_)) => return Err(ValidationFailed("Session index unavailable".into())),
-			// Candidate needs to be in the latest session.
-			(Some(current_session_index), Some(candidate_session_index)) => {
-				if current_session_index != candidate_session_index {
-					return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex))
-				}
-			},
-			// Fall through for v1 descriptors.
-			(_, None) => {},
-		}
-	}
+	match (exec_kind, candidate_receipt.descriptor.session_index()) {
+		(PvfExecKind::Backing | PvfExecKind::BackingSystemParas, Some(session_index))
+			if session_index != expected_session_index =>
+			return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex)),
+		(_, _) => {},
+	};
 
 	if let Err(e) = perform_basic_checks(
 		&candidate_receipt.descriptor,
@@ -823,11 +839,16 @@ async fn validate_candidate_exhaustive(
 				} else {
 					let core_index = candidate_receipt.descriptor.core_index();
 
-					match (core_index, maybe_cq, exec_kind) {
+					match (core_index, exec_kind) {
 						// Core selectors are optional for V2 descriptors, but we still check the
 						// descriptor core index.
-						(Some(_core_index), Some(cq), PvfExecKind::Backing) => {
-							if let Err(err) = ccr.check_core_index(&transpose_claim_queue(cq.0)) {
+						(
+							Some(_core_index),
+							PvfExecKind::Backing | PvfExecKind::BackingSystemParas,
+						) => {
+							if let Err(err) =
+								ccr.check_core_index(&transpose_claim_queue(claim_queue.0))
+							{
 								gum::warn!(
 									target: LOG_TARGET,
 									?err,
@@ -839,13 +860,8 @@ async fn validate_candidate_exhaustive(
 								))
 							}
 						},
-						// If the claim queue was not available means an internal error.
-						// We don't want to raise disputes or back invalid candidates.
-						(Some(_core_index), None, PvfExecKind::Backing) =>
-							return Err(ValidationFailed("Claim queue not available".into())),
-
 						// No checks for approvals.
-						(_, _, _) => {},
+						(_, _) => {},
 					}
 
 					Ok(ValidationResult::Valid(
