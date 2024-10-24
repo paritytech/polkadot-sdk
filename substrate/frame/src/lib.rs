@@ -231,7 +231,7 @@ pub mod try_runtime {
 pub mod benchmarking {
 	mod shared {
 		pub use frame_benchmarking::{add_benchmark, v1::account, whitelist, whitelisted_caller};
-		//. all benchmarking host functions.
+		// all benchmarking functions.
 		pub use frame_benchmarking::benchmarking::*;
 		// The system origin, which is very often needed in benchmarking code. Might be tricky only
 		// if the pallet defines its own `#[pallet::origin]` and call it `RawOrigin`.
