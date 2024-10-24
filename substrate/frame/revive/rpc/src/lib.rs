@@ -41,14 +41,6 @@ pub use rpc_methods_gen::*;
 
 pub const LOG_TARGET: &str = "eth-rpc";
 
-/// Additional RPC methods, exposed on the RPC server on top of all the eth_xxx methods.
-#[rpc(server, client)]
-pub trait MiscRpc {
-	/// Returns the health status of the server.
-	#[method(name = "healthcheck")]
-	async fn healthcheck(&self) -> RpcResult<()>;
-}
-
 /// An EVM RPC server implementation.
 pub struct EthRpcServerImpl {
 	/// The client used to interact with the substrate node.
@@ -364,15 +356,5 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<U256> {
 		let nonce = self.client.nonce(address, block).await?;
 		Ok(nonce)
-	}
-}
-
-/// A [`MiscRpcServer`] RPC server implementation.
-pub struct MiscRpcServerImpl;
-
-#[async_trait]
-impl MiscRpcServer for MiscRpcServerImpl {
-	async fn healthcheck(&self) -> RpcResult<()> {
-		Ok(())
 	}
 }

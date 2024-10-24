@@ -15,10 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
-use crate::{
-	client::Client, EthRpcClient, EthRpcServer, EthRpcServerImpl, MiscRpcServer, MiscRpcServerImpl,
-	LOG_TARGET,
-};
+use crate::{client::Client, EthRpcClient, EthRpcServer, EthRpcServerImpl, LOG_TARGET};
 use clap::Parser;
 use hyper::Method;
 use jsonrpsee::{
@@ -123,11 +120,9 @@ async fn run_server(client: Client, url: &str) -> anyhow::Result<SocketAddr> {
 			vec![]
 		})
 		.into_rpc();
-	let misc_api = MiscRpcServerImpl.into_rpc();
 
 	let mut module = RpcModule::new(());
 	module.merge(eth_api)?;
-	module.merge(misc_api)?;
 
 	let handle = server.start(module);
 	tokio::spawn(handle.stopped());
