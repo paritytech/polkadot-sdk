@@ -49,31 +49,16 @@ type Header = sp_runtime::generic::Header<BlockNumber, sp_runtime::traits::Blake
 type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;
 type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 
-#[frame_support::runtime]
-mod runtime {
-	#[runtime::runtime]
-	#[runtime::derive(
-		RuntimeCall,
-		RuntimeEvent,
-		RuntimeError,
-		RuntimeOrigin,
-		RuntimeFreezeReason,
-		RuntimeHoldReason,
-		RuntimeSlashReason,
-		RuntimeLockId,
-		RuntimeTask
-	)]
-	pub struct Runtime;
-
-	#[runtime::pallet_index(0)]
-	pub type System = frame_system;
-
-	#[runtime::pallet_index(1)]
-	pub type MyPallet = my_pallet;
-
-	#[runtime::pallet_index(2)]
-	pub type MyPallet2 = my_pallet<Instance2>;
-}
+frame_support::construct_runtime!(
+	pub enum Runtime
+	{
+		System = frame_system;
+		MyPallet = my_pallet;
+		MyPallet2 = my_pallet<Instance2>;
+		#[cfg(feature = "frame-feature-testing")]
+		MyPallet3 = my_pallet<Instance3>;
+	}
+);
 
 // NOTE: Needed for derive_impl expansion
 use frame_support::derive_impl;
@@ -85,6 +70,9 @@ impl frame_system::Config for Runtime {
 
 impl my_pallet::Config for Runtime {}
 
+impl my_pallet::Config<frame_support::instances::Instance2> for Runtime {}
+
+#[cfg(feature = "frame-feature-testing")]
 impl my_pallet::Config<frame_support::instances::Instance2> for Runtime {}
 
 fn new_test_ext() -> sp_io::TestExternalities {
