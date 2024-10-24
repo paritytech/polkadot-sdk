@@ -52,11 +52,11 @@ type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 frame_support::construct_runtime!(
 	pub enum Runtime
 	{
-		System = frame_system;
-		MyPallet = my_pallet;
-		MyPallet2 = my_pallet<Instance2>;
+		System: frame_system,
+		MyPallet: my_pallet,
+		MyPallet2: my_pallet::<Instance2>,
 		#[cfg(feature = "frame-feature-testing")]
-		MyPallet3 = my_pallet<Instance3>;
+		MyPallet3: my_pallet::<Instance3>,
 	}
 );
 
