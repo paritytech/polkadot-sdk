@@ -25,6 +25,7 @@ use crate::assert_parse_error_matches;
 #[cfg(test)]
 use crate::pallet::parse::tests::simulate_manifest_dir;
 
+use super::helper;
 use derive_syn_parse::Parse;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
@@ -139,10 +140,11 @@ pub type PalletTaskEnumAttr = PalletTaskAttr<keywords::task_enum>;
 
 /// Parsing for a manually-specified (or auto-generated) task enum, optionally including the
 /// attached `#[pallet::task_enum]` attribute.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct TaskEnumDef {
 	pub attr: Option<PalletTaskEnumAttr>,
 	pub item_enum: ItemEnum,
+	pub instance_usage: helper::InstanceUsage,
 }
 
 impl syn::parse::Parse for TaskEnumDef {
@@ -154,7 +156,9 @@ impl syn::parse::Parse for TaskEnumDef {
 			None => None,
 		};
 
-		Ok(TaskEnumDef { attr, item_enum })
+		let instance_usage = helper::check_type_def_gen(&item_enum.generics, item_enum.span())?;
+
+		Ok(TaskEnumDef { attr, item_enum, instance_usage })
 	}
 }
 
@@ -881,7 +885,7 @@ fn test_parse_task_enum_def_non_task_name() {
 	simulate_manifest_dir("../../examples/basic", || {
 		parse2::<TaskEnumDef>(quote! {
 			#[pallet::task_enum]
-			pub enum Something {
+			pub enum Something<T> {
 				Foo
 			}
 		})
@@ -906,7 +910,7 @@ fn test_parse_task_enum_def_missing_attr_allowed() {
 fn test_parse_task_enum_def_missing_attr_alternate_name_allowed() {
 	simulate_manifest_dir("../../examples/basic", || {
 		parse2::<TaskEnumDef>(quote! {
-			pub enum Foo {
+			pub enum Foo<T> {
 				Red,
 			}
 		})
@@ -936,7 +940,7 @@ fn test_parse_task_enum_def_wrong_item() {
 		assert_parse_error_matches!(
 			parse2::<TaskEnumDef>(quote! {
 				#[pallet::task_enum]
-				pub struct Something;
+				pub struct Something<T>;
 			}),
 			"expected `enum`"
 		);

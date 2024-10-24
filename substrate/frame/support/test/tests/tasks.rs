@@ -70,6 +70,9 @@ mod runtime {
 
 	#[runtime::pallet_index(1)]
 	pub type MyPallet = my_pallet;
+
+	#[runtime::pallet_index(2)]
+	pub type MyPallet2 = my_pallet<Instance2>;
 }
 
 // NOTE: Needed for derive_impl expansion
@@ -81,6 +84,8 @@ impl frame_system::Config for Runtime {
 }
 
 impl my_pallet::Config for Runtime {}
+
+impl my_pallet::Config<frame_support::instances::Instance2> for Runtime {}
 
 fn new_test_ext() -> sp_io::TestExternalities {
 	use sp_runtime::BuildStorage;

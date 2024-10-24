@@ -404,6 +404,9 @@ impl Def {
 		if let Some(extra_constants) = &self.extra_constants {
 			instances.extend_from_slice(&extra_constants.instances[..]);
 		}
+		if let Some(task_enum) = &self.task_enum {
+			instances.push(task_enum.instance_usage.clone());
+		}
 
 		let mut errors = instances.into_iter().filter_map(|instances| {
 			if instances.has_instance == self.config.has_instance {
