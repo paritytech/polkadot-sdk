@@ -6,7 +6,7 @@ title: Use frame umbrella crate in pallet-proxy and pallet-multisig
 doc:
   - audience: Runtime Dev
     description: |
-      Extends the umbrella crate and uses it in pallet-proxy and pallet-multisig.
+      Extends the FRAME umbrella crate and uses it in pallet-proxy and pallet-multisig.
       Migrates benchmarking from v1 to v2 for pallet-proxy and pallet-multisig.
       Allows CI to pick the umbrella crate weights template to run benchmarks.
 
