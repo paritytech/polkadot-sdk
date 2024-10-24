@@ -259,7 +259,6 @@ pub mod benchmarking {
 /// pub use polkadot_sdk_frame::weights_prelude::*;
 /// ```
 pub mod weights_prelude {
-
 	pub use core::marker::PhantomData;
 	pub use frame_support::{
 		traits::Get,
