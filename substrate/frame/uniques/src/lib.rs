@@ -36,6 +36,7 @@ pub mod mock;
 mod tests;
 
 mod functions;
+mod impl_asset_ops;
 mod impl_nonfungibles;
 mod types;
 
@@ -422,6 +423,14 @@ pub mod pallet {
 		NotForSale,
 		/// The provided bid is too low.
 		BidTooLow,
+		/// No metadata is found.
+		NoMetadata,
+		/// Wrong metadata key/value bytes supplied.
+		WrongMetadata,
+		/// An attribute is not found.
+		AttributeNotFound,
+		/// Wrong attribute key/value bytes supplied.
+		WrongAttribute,
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
