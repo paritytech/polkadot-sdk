@@ -152,10 +152,13 @@
 //! presets and build the chain specification file. It is possible to use the tool with the
 //! [_demonstration runtime_][`chain_spec_guide_runtime`]. To build the required packages, just run
 //! the following command:
+//!
 //! ```ignore
 //! cargo build -p staging-chain-spec-builder -p chain-spec-guide-runtime --release
 //! ```
+//!
 //! The `chain-spec-builder` util can also be installed with `cargo install`:
+//!
 //! ```ignore
 //! cargo install staging-chain-spec-builder
 //! cargo build -p chain-spec-guide-runtime --release

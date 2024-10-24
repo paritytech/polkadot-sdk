@@ -29,7 +29,7 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame::{deps::frame_support::weights::constants::RocksDbWeight, prelude::*};
 use core::marker::PhantomData;
 
 /// Weight functions needed for pallet_template.
