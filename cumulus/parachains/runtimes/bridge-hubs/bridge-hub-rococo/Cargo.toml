@@ -117,6 +117,7 @@ snowbridge-pallet-ethereum-client = { workspace = true }
 snowbridge-pallet-inbound-queue = { workspace = true }
 snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-outbound-queue-runtime-api = { workspace = true }
+snowbridge-merkle-tree = { workspace = true }
 snowbridge-router-primitives = { workspace = true }
 snowbridge-runtime-common = { workspace = true }
 
@@ -195,6 +196,7 @@ std = [
 	"serde_json/std",
 	"snowbridge-beacon-primitives/std",
 	"snowbridge-core/std",
+	"snowbridge-merkle-tree/std",
 	"snowbridge-outbound-queue-runtime-api/std",
 	"snowbridge-pallet-ethereum-client/std",
 	"snowbridge-pallet-inbound-queue/std",

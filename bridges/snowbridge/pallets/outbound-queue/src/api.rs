@@ -8,7 +8,7 @@ use snowbridge_core::{
 	outbound::v1::{Command, Fee, GasMeter},
 	PricingParameters,
 };
-use snowbridge_outbound_queue_merkle_tree::{merkle_proof, MerkleProof};
+use snowbridge_merkle_tree::{merkle_proof, MerkleProof};
 use sp_core::Get;
 
 pub fn prove_message<T>(leaf_index: u64) -> Option<MerkleProof>

@@ -7,7 +7,7 @@ use snowbridge_core::{
 	outbound::v1::{Command, Fee},
 	PricingParameters,
 };
-use snowbridge_outbound_queue_merkle_tree::MerkleProof;
+use snowbridge_merkle_tree::MerkleProof;
 
 sp_api::decl_runtime_apis! {
 	pub trait OutboundQueueApi<Balance> where Balance: BalanceT

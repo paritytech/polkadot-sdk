@@ -1180,10 +1180,6 @@ pub use snowbridge_core;
 #[cfg(feature = "snowbridge-ethereum")]
 pub use snowbridge_ethereum;
 
-/// Snowbridge Outbound Queue Merkle Tree.
-#[cfg(feature = "snowbridge-outbound-queue-merkle-tree")]
-pub use snowbridge_outbound_queue_merkle_tree;
-
 /// Snowbridge Outbound Queue Runtime API.
 #[cfg(feature = "snowbridge-outbound-queue-runtime-api")]
 pub use snowbridge_outbound_queue_runtime_api;
