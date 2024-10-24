@@ -123,9 +123,7 @@ impl<AccountId, AccountIdConverter, InstanceCreateOp> TransactAsset
 where
 	AccountIdConverter: ConvertLocation<AccountId>,
 	InstanceCreateOp: AssetDefinition
-		+ Create<
-			Owned<AccountId, DeriveAndReportId<NonFungibleAsset, InstanceCreateOp::Id>>,
-		>,
+		+ Create<Owned<AccountId, DeriveAndReportId<NonFungibleAsset, InstanceCreateOp::Id>>>,
 {
 	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		log::trace!(
