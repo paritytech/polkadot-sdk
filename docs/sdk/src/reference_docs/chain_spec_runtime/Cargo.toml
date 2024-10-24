@@ -50,6 +50,7 @@ std = [
 	"codec/std",
 	"scale-info/std",
 
+	"frame-support/std",
 	"frame/std",
 
 	"pallet-balances/std",
