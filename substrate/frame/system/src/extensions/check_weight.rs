@@ -845,7 +845,10 @@ mod tests {
 			));
 
 			// Ensure the accurate refund from benchmark is used
-			assert_eq!(crate::ExtrinsicWeightRefunded::<Test>::get(), post_info.calc_unspent(&info));
+			assert_eq!(
+				crate::ExtrinsicWeightRefunded::<Test>::get(),
+				post_info.calc_unspent(&info)
+			);
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
 				post_info.actual_weight.unwrap() + prior_block_weight + base_extrinsic
