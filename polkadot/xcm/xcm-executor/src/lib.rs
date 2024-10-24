@@ -926,7 +926,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					Ok(())
 				})
 			},
-			Transact { origin_kind, require_weight_at_most, mut call } => {
+			Transact { origin_kind, mut call } => {
 				// We assume that the Relay-chain is allowed to use transact on this parachain.
 				let origin = self.cloned_origin().ok_or_else(|| {
 					tracing::trace!(
@@ -983,18 +983,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				);
 
 				let weight = message_call.get_dispatch_info().call_weight;
-
-				if !weight.all_lte(require_weight_at_most) {
-					tracing::trace!(
-						target: "xcm::process_instruction::transact",
-						%weight,
-						%require_weight_at_most,
-						"Max weight bigger than require at most",
-					);
-
-					return Err(XcmError::MaxWeightInvalid)
-				}
-
 				let maybe_actual_weight =
 					match Config::CallDispatcher::dispatch(message_call, dispatch_origin) {
 						Ok(post_info) => {
