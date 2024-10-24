@@ -553,14 +553,6 @@ mod tests {
 	use super::*;
 	use std::collections::HashMap;
 
-	fn create_single_seconded<Candidate: Context>() -> Table<Candidate> {
-		Table::new(Config { allow_multiple_seconded: false })
-	}
-
-	fn create_many_seconded<Candidate: Context>() -> Table<Candidate> {
-		Table::new(Config { allow_multiple_seconded: true })
-	}
-
 	#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 	struct AuthorityId(usize);
 
@@ -609,42 +601,6 @@ mod tests {
 	}
 
 	#[test]
-	fn submitting_two_candidates_can_be_misbehavior() {
-		let context = TestContext {
-			authorities: {
-				let mut map = HashMap::new();
-				map.insert(AuthorityId(1), GroupId(2));
-				map
-			},
-		};
-
-		let mut table = create_single_seconded();
-		let statement_a = SignedStatement {
-			statement: Statement::Seconded(Candidate(2, 100)),
-			signature: Signature(1),
-			sender: AuthorityId(1),
-		};
-
-		let statement_b = SignedStatement {
-			statement: Statement::Seconded(Candidate(2, 999)),
-			signature: Signature(1),
-			sender: AuthorityId(1),
-		};
-
-		table.import_statement(&context, GroupId(2), statement_a);
-		assert!(!table.detected_misbehavior.contains_key(&AuthorityId(1)));
-
-		table.import_statement(&context, GroupId(2), statement_b);
-		assert_eq!(
-			table.detected_misbehavior[&AuthorityId(1)][0],
-			Misbehavior::MultipleCandidates(MultipleCandidates {
-				first: (Candidate(2, 100), Signature(1)),
-				second: (Candidate(2, 999), Signature(1)),
-			})
-		);
-	}
-
-	#[test]
 	fn submitting_two_candidates_can_be_allowed() {
 		let context = TestContext {
 			authorities: {
@@ -654,7 +610,7 @@ mod tests {
 			},
 		};
 
-		let mut table = create_many_seconded();
+		let mut table = Table::new();
 		let statement_a = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
 			signature: Signature(1),
@@ -684,7 +640,7 @@ mod tests {
 			},
 		};
 
-		let mut table = create_single_seconded();
+		let mut table = Table::new();
 		let statement = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
 			signature: Signature(1),
@@ -716,7 +672,7 @@ mod tests {
 			},
 		};
 
-		let mut table = create_single_seconded();
+		let mut table = Table::new();
 
 		let candidate_a = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
@@ -760,7 +716,7 @@ mod tests {
 			},
 		};
 
-		let mut table = create_single_seconded();
+		let mut table = Table::new();
 		let statement = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
 			signature: Signature(1),
@@ -790,7 +746,7 @@ mod tests {
 			},
 		};
 
-		let mut table = create_single_seconded();
+		let mut table = Table::new();
 		let statement = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
 			signature: Signature(1),
@@ -858,7 +814,7 @@ mod tests {
 		};
 
 		// have 2/3 validity guarantors note validity.
-		let mut table = create_single_seconded();
+		let mut table = Table::new();
 		let statement = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
 			signature: Signature(1),
@@ -892,7 +848,7 @@ mod tests {
 			},
 		};
 
-		let mut table = create_single_seconded();
+		let mut table = Table::new();
 		let statement = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
 			signature: Signature(1),
@@ -919,7 +875,7 @@ mod tests {
 			},
 		};
 
-		let mut table = create_single_seconded();
+		let mut table = Table::new();
 		let statement = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
 			signature: Signature(1),
