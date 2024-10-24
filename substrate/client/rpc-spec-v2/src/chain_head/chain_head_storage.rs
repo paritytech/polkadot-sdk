@@ -44,7 +44,7 @@ impl<Client, Block, BE> Clone for ChainHeadStorage<Client, Block, BE> {
 
 impl<Client, Block, BE> ChainHeadStorage<Client, Block, BE> {
 	/// Constructs a new [`ChainHeadStorage`].
-	pub fn new(client: Arc<Client>) -> Self {
+	pub fn new(client: Arc<Client>, _operation_max_storage_items: usize) -> Self {
 		Self { client: Storage::new(client), _phandom: PhantomData }
 	}
 }

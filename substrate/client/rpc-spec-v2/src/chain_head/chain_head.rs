@@ -73,6 +73,9 @@ pub struct ChainHeadConfig {
 	/// Stop all subscriptions if the distance between the leaves and the current finalized
 	/// block is larger than this value.
 	pub max_lagging_distance: usize,
+	/// The maximum number of items reported by the `chainHead_storage` before
+	/// pagination is required.
+	pub operation_max_storage_items: usize,
 	/// The maximum number of `chainHead_follow` subscriptions per connection.
 	pub max_follow_subscriptions_per_connection: usize,
 }
@@ -99,6 +102,10 @@ const MAX_LAGGING_DISTANCE: usize = 128;
 /// The maximum number of `chainHead_follow` subscriptions per connection.
 const MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION: usize = 4;
 
+/// The maximum number of items the `chainHead_storage` can return
+/// before paginations is required.
+const MAX_STORAGE_ITER_ITEMS: usize = 5;
+
 impl Default for ChainHeadConfig {
 	fn default() -> Self {
 		ChainHeadConfig {
@@ -107,6 +114,7 @@ impl Default for ChainHeadConfig {
 			subscription_max_ongoing_operations: MAX_ONGOING_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			operation_max_storage_items: MAX_STORAGE_ITER_ITEMS,
 		}
 	}
 }
@@ -124,6 +132,9 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 	/// Stop all subscriptions if the distance between the leaves and the current finalized
 	/// block is larger than this value.
 	max_lagging_distance: usize,
+	/// The maximum number of items reported by the `chainHead_storage` before
+	/// pagination is required.
+	operation_max_storage_items: usize,
 	/// Phantom member to pin the block type.
 	_phantom: PhantomData<Block>,
 }
@@ -148,6 +159,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 				backend,
 			),
 			max_lagging_distance: config.max_lagging_distance,
+			operation_max_storage_items: config.operation_max_storage_items,
 			_phantom: PhantomData,
 		}
 	}
@@ -423,7 +435,10 @@ where
 				Err(_) => return ResponsePayload::error(ChainHeadRpcError::InvalidBlock),
 			};
 
-		let mut storage_client = ChainHeadStorage::<Client, Block, BE>::new(self.client.clone());
+		let mut storage_client = ChainHeadStorage::<Client, Block, BE>::new(
+			self.client.clone(),
+			self.operation_max_storage_items
+		);
 
 		let (rp, rp_fut) = method_started_response(block_guard.operation().operation_id());
 

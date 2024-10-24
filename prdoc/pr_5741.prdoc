@@ -21,5 +21,3 @@ crates:
     bump: major
   - name: sc-rpc-server
     bump: patch
-  - name: sc-service
-    bump: major
