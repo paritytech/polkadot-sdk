@@ -273,14 +273,14 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		let now = frame_system::Pallet::<T>::block_number() + One::one();
 		let remaining = Self::peek_impl(now, core_idx, num_entries.saturating_sub(1));
 
-		first.into_iter().append(remaining.into_iter()).collect()
+		first.into_iter().chain(remaining.into_iter()).collect()
 	}
 
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
 		let now = frame_system::Pallet::<T>::block_number();
 
 		CoreDescriptors::<T>::mutate(core_idx, |core_state| {
-			Self::pop_assignment_for_core_impl(now, core_ix, core_state, AccessMode::Pop)
+			Self::pop_assignment_for_core_impl(now, core_idx, core_state, AccessMode::Pop)
 		})
 	}
 
@@ -328,13 +328,13 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
-	fn peek_impl(now: BlockNumberFor<T>, core_idx: CoreIndex, num_entries: u8) -> Vec<Assignment> {
-		let mut assignments = Vec::reserve(num_entries);
+	fn peek_impl(mut now: BlockNumberFor<T>, core_idx: CoreIndex, num_entries: u8) -> Vec<Assignment> {
+		let mut assignments = Vec::with_capacity(num_entries.into());
 		let mut core_state = CoreDescriptors::<T>::get(core_idx);
 
-		for i in 0..num_entries {
+		for _ in 0..num_entries {
 			if let Some(assignment) =
-				Self::pop_assignment_for_core_impl(now, core_ix, core_state, AccessMode::Peek)
+				Self::pop_assignment_for_core_impl(now, core_idx, &mut core_state, AccessMode::Peek)
 			{
 				assignments.push(assignment);
 			};
@@ -345,7 +345,7 @@ impl<T: Config> Pallet<T> {
 
 	fn pop_assignment_for_core_impl(
 		now: BlockNumberFor<T>,
-		core_ix: CoreIndex,
+		core_idx: CoreIndex,
 		core_state: &mut CoreDescriptor<BlockNumberFor<T>>,
 		mode: AccessMode,
 	) -> Option<Assignment> {
