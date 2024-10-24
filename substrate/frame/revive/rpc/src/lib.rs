@@ -21,7 +21,6 @@ use crate::runtime::GAS_PRICE;
 use client::ClientError;
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
-	proc_macros::rpc,
 	types::{ErrorCode, ErrorObjectOwned},
 };
 use pallet_revive::{evm::*, EthContractResult};
