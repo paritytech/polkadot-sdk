@@ -17,12 +17,9 @@
 
 //! Helper macro allowing to construct JSON representation of partially initialized structs.
 
-extern crate alloc;
-use alloc::{
-	format,
-	string::{String, ToString},
-};
 use serde_json::Value;
+extern crate alloc;
+use alloc::{borrow::Cow, format, string::String};
 
 /// Represents the initialization method of a field within a struct.
 ///
@@ -30,17 +27,17 @@ use serde_json::Value;
 ///
 /// Intended to be used in `build_struct_json_patch` macro.
 #[derive(Debug)]
-pub enum InitializedField {
+pub enum InitializedField<'a> {
 	/// The field was partially initialized (e.g., specific fields within the struct were set
 	/// manually).
-	Partial(String),
+	Partial(Cow<'a, str>),
 	/// The field was fully initialized (e.g., using `new()` or `default()` like methods).
-	Full(String),
+	Full(Cow<'a, str>),
 }
 
-impl InitializedField {
+impl<'a> InitializedField<'a> {
 	/// Returns a name of the field.
-	pub fn get_name(&self) -> &String {
+	pub fn get_name(&'a self) -> &'a str {
 		match self {
 			Self::Partial(s) | Self::Full(s) => s,
 		}
@@ -49,31 +46,32 @@ impl InitializedField {
 	/// Injects a prefix to the field name.
 	pub fn add_prefix(&mut self, prefix: &str) {
 		match self {
-			Self::Partial(s) | Self::Full(s) => *s = format!("{}.{}", prefix, s).to_string(),
+			Self::Partial(s) | Self::Full(s) => *s = format!("{prefix}.{s}").into(),
 		};
+	}
+
+	/// Creates new partial field instiance.
+	pub fn partial(s: &'a str) -> Self {
+		Self::Partial(s.into())
+	}
+
+	/// Creates new full field instiance.
+	pub fn full(s: &'a str) -> Self {
+		Self::Full(s.into())
 	}
 }
 
-impl PartialEq<String> for InitializedField {
+impl PartialEq<String> for InitializedField<'_> {
 	fn eq(&self, other: &String) -> bool {
 		#[inline]
 		/// We need to respect the `camelCase` naming for field names. This means that
 		/// `"camelCaseKey"` should be considered equal to `"camel_case_key"`. This
 		/// function implements this comparison.
-		fn compare_keys(
-			mut ident_chars: core::str::Chars,
-			mut camel_chars: core::str::Chars,
-		) -> bool {
-			loop {
-				match (ident_chars.find(|&c| c != '_'), camel_chars.next()) {
-					(None, None) => return true,
-					(None, Some(_)) | (Some(_), None) => return false,
-					(Some(i), Some(c)) =>
-						if i.to_ascii_uppercase() != c.to_ascii_uppercase() {
-							return false;
-						},
-				};
-			}
+		fn compare_keys(ident_chars: core::str::Chars, camel_chars: core::str::Chars) -> bool {
+			ident_chars
+				.filter(|c| *c != '_')
+				.map(|c| c.to_ascii_uppercase())
+				.eq(camel_chars.map(|c| c.to_ascii_uppercase()))
 		}
 		match self {
 			InitializedField::Partial(field_name) | InitializedField::Full(field_name) =>
@@ -147,7 +145,6 @@ pub fn retain_initialized_fields(
 /// 	i_field: u32,
 /// 	j_field: u32,
 /// }
-///
 /// impl B {
 /// 	fn new() -> Self {
 /// 		Self { i_field: 0, j_field: 2 }
@@ -170,7 +167,6 @@ pub fn retain_initialized_fields(
 /// 			i_field: 2,
 /// 		}
 /// 	}),
-///
 /// 	serde_json::json!({
 /// 		"bField": {"iField": 2}
 /// 	})
@@ -207,7 +203,7 @@ pub fn retain_initialized_fields(
 /// 		..Default::default()
 /// }
 /// ```
-/// while all other fields are initialized with default values. The macro serializes this, retaining
+/// While all other fields are initialized with default values. The macro serializes this, retaining
 /// only the provided fields.
 #[macro_export]
 macro_rules! build_struct_json_patch {
@@ -215,29 +211,26 @@ macro_rules! build_struct_json_patch {
 		$($struct_type:ident)::+ { $($tail:tt)* }
 	) => {
 		{
-			use $crate::generate_genesis_config::{InitializedField, retain_initialized_fields};
-			extern crate alloc;
-			use alloc::{string::ToString, vec::Vec };
-			let mut keys : Vec<InitializedField> = vec![];
+			let mut keys = $crate::__private::Vec::<$crate::generate_genesis_config::InitializedField>::default();
 			#[allow(clippy::needless_update)]
-			let struct_instance = build_struct_json_patch!($($struct_type)::+, keys @  { $($tail)* });
+			let struct_instance = $crate::build_struct_json_patch!($($struct_type)::+, keys @  { $($tail)* });
 			let mut json_value =
 				serde_json::to_value(struct_instance).expect("serialization to json should work. qed");
-			retain_initialized_fields(&mut json_value, &keys, Default::default());
+			$crate::generate_genesis_config::retain_initialized_fields(&mut json_value, &keys, Default::default());
 			json_value
 		}
 	};
 	($($struct_type:ident)::+, $all_keys:ident @ { $($tail:tt)* }) => {
 		$($struct_type)::+ {
-			..build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*)
+			..$crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*)
 		}
 	};
 	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident: $($type:ident)::+ { $keyi:ident : $value:tt }  ) => {
 		$($struct_type)::+ {
 			$key: {
-				$all_keys.push(InitializedField::Partial(stringify!($key).to_string()));
+				$all_keys.push($crate::generate_genesis_config::InitializedField::partial(stringify!($key)));
 				$all_keys.push(
-					InitializedField::Full(alloc::format!("{}.{}", stringify!($key), stringify!($keyi)))
+					$crate::generate_genesis_config::InitializedField::full(concat!(stringify!($key), ".", stringify!($keyi)))
 				);
 				$($type)::+ {
 					$keyi:$value,
@@ -250,9 +243,9 @@ macro_rules! build_struct_json_patch {
 	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident:  $($type:ident)::+ { $($body:tt)* } ) => {
 		$($struct_type)::+ {
 			$key: {
-				$all_keys.push(InitializedField::Partial(stringify!($key).to_string()));
-				let mut inner_keys = Vec::<InitializedField>::default();
-				let value = build_struct_json_patch!($($type)::+, inner_keys @ { $($body)* });
+				$all_keys.push($crate::generate_genesis_config::InitializedField::partial(stringify!($key)));
+				let mut inner_keys = $crate::__private::Vec::<$crate::generate_genesis_config::InitializedField>::default();
+				let value = $crate::build_struct_json_patch!($($type)::+, inner_keys @ { $($body)* });
 				for i in inner_keys.iter_mut() {
 					i.add_prefix(stringify!($key));
 				};
@@ -265,31 +258,31 @@ macro_rules! build_struct_json_patch {
 	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident:  $($type:ident)::+ { $($body:tt)* },  $($tail:tt)*  ) => {
 		$($struct_type)::+ {
 			$key : {
-				$all_keys.push(InitializedField::Partial(stringify!($key).to_string()));
-				let mut inner_keys = Vec::<InitializedField>::default();
-				let value = build_struct_json_patch!($($type)::+, inner_keys @ { $($body)* });
+				$all_keys.push($crate::generate_genesis_config::InitializedField::partial(stringify!($key)));
+				let mut inner_keys = $crate::__private::Vec::<$crate::generate_genesis_config::InitializedField>::default();
+				let value = $crate::build_struct_json_patch!($($type)::+, inner_keys @ { $($body)* });
 				for i in inner_keys.iter_mut() {
 					i.add_prefix(stringify!($key));
 				};
 				$all_keys.extend(inner_keys);
 				value
 			},
-			.. build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*)
+			.. $crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*)
 		}
 	};
 	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident: $value:expr, $($tail:tt)* ) => {
 		$($struct_type)::+ {
 			$key: {
-				$all_keys.push(InitializedField::Full(stringify!($key).to_string()));
+				$all_keys.push($crate::generate_genesis_config::InitializedField::full(stringify!($key)));
 				$value
 			},
-			..build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*)
+			..$crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*)
 		}
 	};
 	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident: $value:expr ) => {
 		$($struct_type)::+ {
 			$key: {
-				$all_keys.push(InitializedField::Full(stringify!($key).to_string()));
+				$all_keys.push($crate::generate_genesis_config::InitializedField::full(stringify!($key)));
 				$value
 			},
 			..Default::default()
@@ -802,19 +795,16 @@ mod retain_keys_test {
 
 	macro_rules! check_initialized_field_eq_cc(
 		( $s:literal ) => {
-			let field = InitializedField::Full($s.to_string());
+			let field = InitializedField::full($s);
 			let cc = inflector::cases::camelcase::to_camel_case($s);
 			println!("field: {:?}, cc: {}", field, cc);
 			assert_eq!(field,cc);
 		} ;
-		( &[ $($s:literal),+ ]) => {
-			let field = InitializedField::Full(
-					[$($s),*].into_iter()
-					.map(|s| s.to_string())
-					.collect::<Vec<_>>()
-					.join("."),
-				);
-			let cc = [ $($s),* ].into_iter()
+		( &[ $f:literal $(, $r:literal)* ]) => {
+			let field = InitializedField::full(
+				concat!( $f $(,".",$r)+ )
+			);
+			let cc = [ $f $(,$r)+  ].into_iter()
 				.map(|s| inflector::cases::camelcase::to_camel_case(s))
 				.collect::<Vec<_>>()
 				.join(".");
@@ -860,11 +850,7 @@ mod retain_keys_test {
 			"a":1
 		});
 		let e = v.clone();
-		retain_initialized_fields(
-			&mut v,
-			&[InitializedField::Full("a".to_string())],
-			String::default(),
-		);
+		retain_initialized_fields(&mut v, &[InitializedField::full("a")], String::default());
 		assert_eq!(e, v);
 	}
 
@@ -873,11 +859,7 @@ mod retain_keys_test {
 		let mut v = json!({
 			"a":1
 		});
-		retain_initialized_fields(
-			&mut v,
-			&[InitializedField::Full("b".to_string())],
-			String::default(),
-		);
+		retain_initialized_fields(&mut v, &[InitializedField::full("b")], String::default());
 		assert_eq!(Value::Object(Default::default()), v);
 	}
 
@@ -891,11 +873,7 @@ mod retain_keys_test {
 	#[test]
 	fn test04() {
 		let mut v = json!({});
-		retain_initialized_fields(
-			&mut v,
-			&[InitializedField::Full("b".to_string())],
-			String::default(),
-		);
+		retain_initialized_fields(&mut v, &[InitializedField::full("b")], String::default());
 		assert_eq!(Value::Object(Default::default()), v);
 	}
 
@@ -928,11 +906,7 @@ mod retain_keys_test {
 				"c":2
 			}
 		});
-		retain_initialized_fields(
-			&mut v,
-			&[InitializedField::Full("a.b".to_string())],
-			String::default(),
-		);
+		retain_initialized_fields(&mut v, &[InitializedField::full("a.b")], String::default());
 		assert_eq!(Value::Object(Default::default()), v);
 	}
 
@@ -951,10 +925,7 @@ mod retain_keys_test {
 		});
 		retain_initialized_fields(
 			&mut v,
-			&[
-				InitializedField::Partial("a".to_string()),
-				InitializedField::Full("a.b".to_string()),
-			],
+			&[InitializedField::partial("a"), InitializedField::full("a.b")],
 			String::default(),
 		);
 		assert_eq!(e, v);
@@ -974,11 +945,7 @@ mod retain_keys_test {
 				"c":2,
 			}
 		});
-		retain_initialized_fields(
-			&mut v,
-			&[InitializedField::Full("a".to_string())],
-			String::default(),
-		);
+		retain_initialized_fields(&mut v, &[InitializedField::full("a")], String::default());
 		assert_eq!(e, v);
 	}
 }
