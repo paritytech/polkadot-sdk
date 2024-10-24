@@ -114,7 +114,7 @@ use frame_support::{
 };
 use snowbridge_core::{
 	inbound::Message as DeliveryMessage,
-	outbound::v2::{CommandWrapper, Fee, GasMeter, Message},
+	outbound::v2::{CommandWrapper, Fee, GasMeter, InboundMessage, Message},
 	BasicOperatingMode,
 };
 use snowbridge_merkle_tree::merkle_root;
@@ -124,10 +124,12 @@ use sp_runtime::{
 	ArithmeticError, DigestItem,
 };
 use sp_std::prelude::*;
-pub use types::{CommittedMessage, FeeWithBlockNumber, ProcessMessageOriginOf};
+pub use types::{FeeWithBlockNumber, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
 
 pub use pallet::*;
+
+use alloy_sol_types::SolValue;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -230,7 +232,7 @@ pub mod pallet {
 	/// Inspired by the `frame_system::Pallet::Events` storage value
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(super) type Messages<T: Config> = StorageValue<_, Vec<CommittedMessage>, ValueQuery>;
+	pub(super) type Messages<T: Config> = StorageValue<_, Vec<InboundMessage>, ValueQuery>;
 
 	/// Hashes of the ABI-encoded messages in the [`Messages`] storage value. Used to generate a
 	/// merkle root during `on_finalize`. This storage value is killed in
@@ -365,21 +367,17 @@ pub mod pallet {
 				.into_iter()
 				.map(|command| CommandWrapper {
 					kind: command.index(),
-					max_dispatch_gas: T::GasMeter::maximum_dispatch_gas_used_at_most(&command),
-					command: command.abi_encode(),
+					gas: T::GasMeter::maximum_dispatch_gas_used_at_most(&command),
+					payload: command.abi_encode(),
 				})
 				.collect();
 
 			// Construct the final committed message
-			let committed_message = CommittedMessage {
-				origin: message.origin,
-				nonce,
-				id: message.id,
-				commands: commands.try_into().map_err(|_| Unsupported)?,
-			};
+			let committed_message =
+				InboundMessage { origin: message.origin.0.to_vec(), nonce, commands };
 
 			// ABI-encode and hash the prepared message
-			let message_abi_encoded = ethabi::encode(&[committed_message.clone().into()]);
+			let message_abi_encoded = committed_message.abi_encode();
 			let message_abi_encoded_hash = <T as Config>::Hashing::hash(&message_abi_encoded);
 
 			Messages::<T>::append(Box::new(committed_message.clone()));
