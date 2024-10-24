@@ -33,6 +33,7 @@ pub extern "C" fn call() {
 	input!(len: u32,);
 
 	let data = &BUFFER[..len as usize];
+	let topics = [[0u8; 32]; 0];
 
-	api::deposit_event(&[0u8; 0], data);
+	api::deposit_event(&topics, data);
 }

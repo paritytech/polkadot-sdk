@@ -86,6 +86,8 @@ def main(path, version):
 	# Sort by name
 	std_crates.sort(key=lambda x: x[0].name)
 	nostd_crates.sort(key=lambda x: x[0].name)
+
+	runtime_crates = [crate for crate in nostd_crates if 'frame' in crate[0].name or crate[0].name.startswith('sp-')]
 	all_crates = std_crates + nostd_crates
 	all_crates.sort(key=lambda x: x[0].name)
 	dependencies = {}
@@ -105,7 +107,8 @@ def main(path, version):
 		"serde": [],
 		"experimental": [],
 		"with-tracing": [],
-		"runtime": list([f"{d.name}" for d, _ in nostd_crates]),
+		"runtime-full": list([f"{d.name}" for d, _ in nostd_crates]),
+		"runtime": list([f"{d.name}" for d, _ in runtime_crates]),
 		"node": ["std"] + list([f"{d.name}" for d, _ in std_crates]),
 		"tuples-96": [],
 		"riscv": [],
@@ -120,7 +123,7 @@ def main(path, version):
 			"description": "Polkadot SDK umbrella crate.",
 			"license": "Apache-2.0",
 			"metadata": { "docs": { "rs": {
-				"features": ["runtime", "node"],
+				"features": ["runtime-full", "node"],
 				"targets": ["x86_64-unknown-linux-gnu"]
 			}}}
 		},
@@ -204,3 +207,4 @@ def parse_args():
 if __name__ == "__main__":
 	args = parse_args()
 	main(args.sdk, args.version)
+

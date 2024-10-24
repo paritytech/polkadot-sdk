@@ -225,7 +225,7 @@ use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{defer, H256};
 use sp_runtime::{
 	traits::{One, Zero},
-	SaturatedConversion, Saturating,
+	SaturatedConversion, Saturating, TransactionOutcome,
 };
 use sp_weights::WeightMeter;
 pub use weights::WeightInfo;
@@ -649,7 +649,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			if let Some(weight_limit) = T::ServiceWeight::get() {
-				Self::service_queues(weight_limit)
+				Self::service_queues_impl(weight_limit, ServiceQueuesContext::OnInitialize)
 			} else {
 				Weight::zero()
 			}
@@ -658,7 +658,10 @@ pub mod pallet {
 		fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			if let Some(weight_limit) = T::IdleMaxServiceWeight::get() {
 				// Make use of the remaining weight to process enqueued messages.
-				Self::service_queues(weight_limit.min(remaining_weight))
+				Self::service_queues_impl(
+					weight_limit.min(remaining_weight),
+					ServiceQueuesContext::OnIdle,
+				)
 			} else {
 				Weight::zero()
 			}
@@ -775,6 +778,18 @@ enum MessageExecutionStatus {
 	/// called by a top-level function, or a transient error if it was already called in a nested
 	/// function.
 	StackLimitReached,
+}
+
+/// The context to pass to [`Pallet::service_queues_impl`] through on_idle and on_initialize hooks
+/// We don't want to throw the defensive message if called from on_idle hook
+#[derive(PartialEq)]
+enum ServiceQueuesContext {
+	/// Context of on_idle hook.
+	OnIdle,
+	/// Context of on_initialize hook.
+	OnInitialize,
+	/// Context `service_queues` trait function.
+	ServiceQueues,
 }
 
 impl<T: Config> Pallet<T> {
@@ -1435,6 +1450,8 @@ impl<T: Config> Pallet<T> {
 	/// The base weight of this function needs to be accounted for by the caller. `weight` is the
 	/// remaining weight to process the message. `overweight_limit` is the maximum weight that a
 	/// message can ever consume. Messages above this limit are marked as permanently overweight.
+	/// This process is also transactional, any form of error that occurs in processing a message
+	/// causes storage changes to be rolled back.
 	fn process_message_payload(
 		origin: MessageOriginOf<T>,
 		page_index: PageIndex,
@@ -1447,7 +1464,27 @@ impl<T: Config> Pallet<T> {
 		use ProcessMessageError::*;
 		let prev_consumed = meter.consumed();
 
-		match T::MessageProcessor::process_message(message, origin.clone(), meter, &mut id) {
+		let transaction =
+			storage::with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+				let res =
+					T::MessageProcessor::process_message(message, origin.clone(), meter, &mut id);
+				match &res {
+					Ok(_) => TransactionOutcome::Commit(Ok(res)),
+					Err(_) => TransactionOutcome::Rollback(Ok(res)),
+				}
+			});
+
+		let transaction = match transaction {
+			Ok(result) => result,
+			_ => {
+				defensive!(
+					"Error occurred processing message, storage changes will be rolled back"
+				);
+				return MessageExecutionStatus::Unprocessable { permanent: true }
+			},
+		};
+
+		match transaction {
 			Err(Overweight(w)) if w.any_gt(overweight_limit) => {
 				// Permanently overweight.
 				Self::deposit_event(Event::<T>::OverweightEnqueued {
@@ -1487,6 +1524,53 @@ impl<T: Config> Pallet<T> {
 				});
 				MessageExecutionStatus::Processed
 			},
+		}
+	}
+
+	fn service_queues_impl(weight_limit: Weight, context: ServiceQueuesContext) -> Weight {
+		let mut weight = WeightMeter::with_limit(weight_limit);
+
+		// Get the maximum weight that processing a single message may take:
+		let max_weight = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
+			if matches!(context, ServiceQueuesContext::OnInitialize) {
+				defensive!("Not enough weight to service a single message.");
+			}
+			Weight::zero()
+		});
+
+		match with_service_mutex(|| {
+			let mut next = match Self::bump_service_head(&mut weight) {
+				Some(h) => h,
+				None => return weight.consumed(),
+			};
+			// The last queue that did not make any progress.
+			// The loop aborts as soon as it arrives at this queue again without making any progress
+			// on other queues in between.
+			let mut last_no_progress = None;
+
+			loop {
+				let (progressed, n) = Self::service_queue(next.clone(), &mut weight, max_weight);
+				next = match n {
+					Some(n) =>
+						if !progressed {
+							if last_no_progress == Some(n.clone()) {
+								break
+							}
+							if last_no_progress.is_none() {
+								last_no_progress = Some(next.clone())
+							}
+							n
+						} else {
+							last_no_progress = None;
+							n
+						},
+					None => break,
+				}
+			}
+			weight.consumed()
+		}) {
+			Err(()) => weight.consumed(),
+			Ok(w) => w,
 		}
 	}
 }
@@ -1558,48 +1642,7 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 	type OverweightMessageAddress = (MessageOriginOf<T>, PageIndex, T::Size);
 
 	fn service_queues(weight_limit: Weight) -> Weight {
-		let mut weight = WeightMeter::with_limit(weight_limit);
-
-		// Get the maximum weight that processing a single message may take:
-		let max_weight = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
-			defensive!("Not enough weight to service a single message.");
-			Weight::zero()
-		});
-
-		match with_service_mutex(|| {
-			let mut next = match Self::bump_service_head(&mut weight) {
-				Some(h) => h,
-				None => return weight.consumed(),
-			};
-			// The last queue that did not make any progress.
-			// The loop aborts as soon as it arrives at this queue again without making any progress
-			// on other queues in between.
-			let mut last_no_progress = None;
-
-			loop {
-				let (progressed, n) = Self::service_queue(next.clone(), &mut weight, max_weight);
-				next = match n {
-					Some(n) =>
-						if !progressed {
-							if last_no_progress == Some(n.clone()) {
-								break
-							}
-							if last_no_progress.is_none() {
-								last_no_progress = Some(next.clone())
-							}
-							n
-						} else {
-							last_no_progress = None;
-							n
-						},
-					None => break,
-				}
-			}
-			weight.consumed()
-		}) {
-			Err(()) => weight.consumed(),
-			Ok(w) => w,
-		}
+		Self::service_queues_impl(weight_limit, ServiceQueuesContext::ServiceQueues)
 	}
 
 	/// Execute a single overweight message.

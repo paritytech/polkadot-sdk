@@ -87,7 +87,7 @@ impl syn::parse::Parse for RuntimeAttr {
 			let pallet_index = pallet_index_content.parse::<syn::LitInt>()?;
 			if !pallet_index.suffix().is_empty() {
 				let msg = "Number literal must not have a suffix";
-				return Err(syn::Error::new(pallet_index.span(), msg))
+				return Err(syn::Error::new(pallet_index.span(), msg));
 			}
 			Ok(RuntimeAttr::PalletIndex(pallet_index.span(), pallet_index.base10_parse()?))
 		} else if lookahead.peek(keyword::disable_call) {
@@ -171,14 +171,14 @@ impl Def {
 							Some((index, item.clone()))
 						} else {
 							let msg = "Invalid runtime::pallet_index, expected type definition";
-							return Err(syn::Error::new(span, msg))
+							return Err(syn::Error::new(span, msg));
 						};
 					},
 					RuntimeAttr::DisableCall(_) => disable_call = true,
 					RuntimeAttr::DisableUnsigned(_) => disable_unsigned = true,
 					attr => {
 						let msg = "Invalid duplicated attribute";
-						return Err(syn::Error::new(attr.span(), msg))
+						return Err(syn::Error::new(attr.span(), msg));
 					},
 				}
 			}
@@ -196,7 +196,7 @@ impl Def {
 
 							let mut err = syn::Error::new(used_pallet, &msg);
 							err.combine(syn::Error::new(pallet_decl.name.span(), &msg));
-							return Err(err)
+							return Err(err);
 						}
 
 						pallet_decls.push(pallet_decl);
@@ -219,7 +219,7 @@ impl Def {
 							);
 							let mut err = syn::Error::new(used_pallet.span(), &msg);
 							err.combine(syn::Error::new(pallet.name.span(), msg));
-							return Err(err)
+							return Err(err);
 						}
 
 						pallets.push(pallet);
@@ -229,7 +229,7 @@ impl Def {
 			} else {
 				if let syn::Item::Type(item) = item {
 					let msg = "Missing pallet index for pallet declaration. Please add `#[runtime::pallet_index(...)]`";
-					return Err(syn::Error::new(item.span(), &msg))
+					return Err(syn::Error::new(item.span(), &msg));
 				}
 			}
 		}

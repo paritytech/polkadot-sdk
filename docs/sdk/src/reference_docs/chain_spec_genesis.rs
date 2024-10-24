@@ -1,4 +1,4 @@
-//! # What is chain-spec.
+//! # What is a chain specification
 //!
 //! A chain specification file defines the set of properties that are required to run the node as
 //! part of the chain. The chain specification consists of two main parts:
@@ -152,10 +152,13 @@
 //! presets and build the chain specification file. It is possible to use the tool with the
 //! [_demonstration runtime_][`chain_spec_guide_runtime`]. To build the required packages, just run
 //! the following command:
+//!
 //! ```ignore
 //! cargo build -p staging-chain-spec-builder -p chain-spec-guide-runtime --release
 //! ```
+//!
 //! The `chain-spec-builder` util can also be installed with `cargo install`:
+//!
 //! ```ignore
 //! cargo install staging-chain-spec-builder
 //! cargo build -p chain-spec-guide-runtime --release
@@ -165,8 +168,10 @@
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", list_presets)]
 //! ## Displaying preset with given name
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", get_preset)]
-//! ## Building chain-spec using given preset
+//! ## Building a solo chain-spec (the default) using given preset
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", generate_chain_spec)]
+//! ## Building a parachain chain-spec using given preset
+#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", generate_para_chain_spec)]
 //!
 //! [`RuntimeGenesisConfig`]:
 //!     chain_spec_guide_runtime::runtime::RuntimeGenesisConfig

@@ -17,7 +17,8 @@ pub use codec::{Decode, Encode};
 pub use paste;
 
 pub use crate::{
-	xcm_helpers::xcm_transact_unpaid_execution, PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD,
+	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
+	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD,
 };
 
 // Substrate
@@ -30,7 +31,6 @@ pub use frame_support::{
 pub use pallet_assets;
 pub use pallet_message_queue;
 pub use pallet_xcm;
-use sp_core::Get;
 
 // Polkadot
 pub use polkadot_runtime_parachains::{
@@ -38,7 +38,9 @@ pub use polkadot_runtime_parachains::{
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 pub use xcm::{
-	prelude::{Location, OriginKind, Outcome, VersionedXcm, XcmError, XcmVersion},
+	prelude::{
+		Asset, InteriorLocation, Location, OriginKind, Outcome, VersionedXcm, XcmError, XcmVersion,
+	},
 	DoubleEncoded,
 };
 
@@ -51,7 +53,7 @@ pub use cumulus_primitives_core::{
 };
 pub use parachains_common::{AccountId, Balance};
 pub use xcm_emulator::{
-	assert_expected_events, bx, helpers::weight_within_threshold, BridgeMessage,
+	assert_expected_events, bx, helpers::weight_within_threshold, BridgeLaneId, BridgeMessage,
 	BridgeMessageDispatchError, BridgeMessageHandler, Chain, Network, Parachain, RelayChain,
 	TestExt,
 };
@@ -59,62 +61,62 @@ pub use xcm_emulator::{
 // Bridges
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
-	LaneId, MessageKey, OutboundLaneData,
+	MessageKey, OutboundLaneData,
 };
-use bridge_runtime_common::messages_xcm_extension::XcmBlobMessageDispatchResult;
-use pallet_bridge_messages::{Config, OutboundLanes, Pallet};
+pub use bp_xcm_bridge_hub::XcmBridgeHubCall;
+use pallet_bridge_messages::{Config as BridgeMessagesConfig, LaneIdOf, OutboundLanes, Pallet};
 pub use pallet_bridge_messages::{
 	Instance1 as BridgeMessagesInstance1, Instance2 as BridgeMessagesInstance2,
 	Instance3 as BridgeMessagesInstance3,
 };
+use pallet_xcm_bridge_hub::XcmBlobMessageDispatchResult;
 
 pub struct BridgeHubMessageHandler<S, SI, T, TI> {
 	_marker: std::marker::PhantomData<(S, SI, T, TI)>,
 }
 
-struct LaneIdWrapper(LaneId);
-
-impl From<LaneIdWrapper> for u32 {
-	fn from(lane_id: LaneIdWrapper) -> u32 {
-		u32::from_be_bytes(lane_id.0 .0)
+struct LaneIdWrapper<LaneId>(LaneId);
+impl<LaneId: Encode> From<LaneIdWrapper<LaneId>> for BridgeLaneId {
+	fn from(lane_id: LaneIdWrapper<LaneId>) -> BridgeLaneId {
+		lane_id.0.encode()
 	}
 }
-
-impl From<u32> for LaneIdWrapper {
-	fn from(id: u32) -> LaneIdWrapper {
-		LaneIdWrapper(LaneId(id.to_be_bytes()))
+impl<LaneId: Decode> From<BridgeLaneId> for LaneIdWrapper<LaneId> {
+	fn from(id: BridgeLaneId) -> LaneIdWrapper<LaneId> {
+		LaneIdWrapper(LaneId::decode(&mut &id[..]).expect("decodable"))
 	}
 }
 
 impl<S, SI, T, TI> BridgeMessageHandler for BridgeHubMessageHandler<S, SI, T, TI>
 where
-	S: Config<SI>,
+	S: BridgeMessagesConfig<SI>,
 	SI: 'static,
-	T: Config<TI>,
+	T: BridgeMessagesConfig<TI>,
 	TI: 'static,
-	<T as Config<TI>>::InboundPayload: From<Vec<u8>>,
-	<T as Config<TI>>::MessageDispatch:
+	<T as BridgeMessagesConfig<TI>>::InboundPayload: From<Vec<u8>>,
+	<T as BridgeMessagesConfig<TI>>::MessageDispatch:
 		MessageDispatch<DispatchLevelResult = XcmBlobMessageDispatchResult>,
 {
 	fn get_source_outbound_messages() -> Vec<BridgeMessage> {
 		// get the source active outbound lanes
-		let active_lanes = S::ActiveOutboundLanes::get();
+		let active_outbound_lanes = OutboundLanes::<S, SI>::iter_keys();
 
 		let mut messages: Vec<BridgeMessage> = Default::default();
 
 		// collect messages from `OutboundMessages` for each active outbound lane in the source
-		for lane in active_lanes {
-			let latest_generated_nonce = OutboundLanes::<S, SI>::get(lane).latest_generated_nonce;
-			let latest_received_nonce = OutboundLanes::<S, SI>::get(lane).latest_received_nonce;
+		for lane in active_outbound_lanes {
+			let latest_generated_nonce =
+				OutboundLanes::<S, SI>::get(lane).unwrap().latest_generated_nonce;
+			let latest_received_nonce =
+				OutboundLanes::<S, SI>::get(lane).unwrap().latest_received_nonce;
 
 			(latest_received_nonce + 1..=latest_generated_nonce).for_each(|nonce| {
-				let encoded_payload: Vec<u8> = Pallet::<S, SI>::outbound_message_data(*lane, nonce)
+				let encoded_payload: Vec<u8> = Pallet::<S, SI>::outbound_message_data(lane, nonce)
 					.expect("Bridge message does not exist")
 					.into();
 				let payload = Vec::<u8>::decode(&mut &encoded_payload[..])
 					.expect("Decoding XCM message failed");
-				let id: u32 = LaneIdWrapper(*lane).into();
-				let message = BridgeMessage { id, nonce, payload };
+				let message = BridgeMessage { lane_id: LaneIdWrapper(lane).into(), nonce, payload };
 
 				messages.push(message);
 			});
@@ -125,10 +127,10 @@ where
 	fn dispatch_target_inbound_message(
 		message: BridgeMessage,
 	) -> Result<(), BridgeMessageDispatchError> {
-		type TargetMessageDispatch<T, I> = <T as Config<I>>::MessageDispatch;
-		type InboundPayload<T, I> = <T as Config<I>>::InboundPayload;
+		type TargetMessageDispatch<T, I> = <T as BridgeMessagesConfig<I>>::MessageDispatch;
+		type InboundPayload<T, I> = <T as BridgeMessagesConfig<I>>::InboundPayload;
 
-		let lane_id = LaneIdWrapper::from(message.id).0;
+		let lane_id = LaneIdWrapper::from(message.lane_id).0;
 		let nonce = message.nonce;
 		let payload = Ok(From::from(message.payload));
 
@@ -151,15 +153,16 @@ where
 		result
 	}
 
-	fn notify_source_message_delivery(lane_id: u32) {
-		let data = OutboundLanes::<S, SI>::get(LaneIdWrapper::from(lane_id).0);
+	fn notify_source_message_delivery(lane_id: BridgeLaneId) {
+		let lane_id: LaneIdOf<S, SI> = LaneIdWrapper::from(lane_id).0;
+		let data = OutboundLanes::<S, SI>::get(lane_id).unwrap();
 		let new_data = OutboundLaneData {
 			oldest_unpruned_nonce: data.oldest_unpruned_nonce + 1,
 			latest_received_nonce: data.latest_received_nonce + 1,
 			..data
 		};
 
-		OutboundLanes::<S, SI>::insert(LaneIdWrapper::from(lane_id).0, new_data);
+		OutboundLanes::<S, SI>::insert(lane_id, new_data);
 	}
 }
 
@@ -919,6 +922,52 @@ macro_rules! impl_xcm_helpers_for_parachain {
 							<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
 							version,
 						));
+					});
+				}
+			}
+		}
+	}
+}
+
+#[macro_export]
+macro_rules! impl_bridge_helpers_for_chain {
+	( $chain:ident, $pallet:ident, $pallet_xcm:ident, $runtime_call_wrapper:path ) => {
+		$crate::impls::paste::paste! {
+			impl<N: $crate::impls::Network> $chain<N> {
+				/// Open bridge with `dest`.
+				pub fn open_bridge(
+					bridge_location: $crate::impls::Location,
+					bridge_destination_universal_location: $crate::impls::InteriorLocation,
+					maybe_paid: Option<($crate::impls::Asset, $crate::impls::AccountId)>
+				) {
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						use $crate::impls::{bx, Chain};
+						use $crate::impls::XcmBridgeHubCall;
+						use $crate::impls::Encode;
+
+						// important to use `root` and `OriginKind::Xcm`
+						let root_origin = <Self as Chain>::RuntimeOrigin::root();
+
+						// construct call
+						let call: $crate::impls::DoubleEncoded<()> = $runtime_call_wrapper(XcmBridgeHubCall::open_bridge {
+							bridge_destination_universal_location: bx!(
+								bridge_destination_universal_location.clone().into()
+							)
+						}).encode().into();
+
+						let xcm = if let Some((fee_asset, beneficiary)) = maybe_paid {
+							$crate::impls::xcm_transact_paid_execution(call, $crate::impls::OriginKind::Xcm, fee_asset, beneficiary)
+						} else {
+							$crate::impls::xcm_transact_unpaid_execution(call, $crate::impls::OriginKind::Xcm)
+						};
+
+						// Send XCM `Transact` with `open_bridge` call
+						$crate::impls::assert_ok!(<Self as [<$chain $pallet>]>::$pallet_xcm::send(
+							root_origin,
+							bx!(bridge_location.into()),
+							bx!(xcm),
+						));
+						Self::assert_xcm_pallet_sent();
 					});
 				}
 			}

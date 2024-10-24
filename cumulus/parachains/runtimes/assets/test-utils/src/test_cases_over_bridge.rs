@@ -542,14 +542,19 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 
 				// execute xcm as XcmpQueue would do
 				let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
-					local_bridge_hub_location,
+					local_bridge_hub_location.clone(),
 					xcm,
 					&mut hash,
-					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::xcm_max_weight(XcmReceivedFrom::Sibling),
+					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::xcm_max_weight(
+						XcmReceivedFrom::Sibling,
+					),
 					Weight::zero(),
 				);
 				assert_ok!(outcome.ensure_complete());
-				assert_eq!(is_congested, pallet_xcm_bridge_hub_router::Pallet::<Runtime, XcmBridgeHubRouterInstance>::bridge().is_congested);
+				assert_eq!(
+					is_congested,
+					<<Runtime as pallet_xcm_bridge_hub_router::Config<XcmBridgeHubRouterInstance>>::LocalXcmChannelManager as pallet_xcm_bridge_hub_router::XcmChannelStatusProvider>::is_congested(&local_bridge_hub_location)
+				);
 			};
 
 			report_bridge_status(true);

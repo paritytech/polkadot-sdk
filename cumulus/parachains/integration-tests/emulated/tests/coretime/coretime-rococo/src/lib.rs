@@ -24,7 +24,7 @@ mod imports {
 
 	// Cumulus
 	pub use emulated_integration_tests_common::xcm_emulator::{
-		assert_expected_events, bx, TestExt,
+		assert_expected_events, bx, Chain, Parachain, TestExt,
 	};
 	pub use rococo_system_emulated_network::{
 		coretime_rococo_emulated_chain::{
@@ -32,7 +32,7 @@ mod imports {
 			CoretimeRococoParaPallet as CoretimeRococoPallet,
 		},
 		CoretimeRococoPara as CoretimeRococo, CoretimeRococoParaReceiver as CoretimeRococoReceiver,
-		CoretimeRococoParaSender as CoretimeRococoSender,
+		CoretimeRococoParaSender as CoretimeRococoSender, RococoRelay as Rococo,
 	};
 }
 

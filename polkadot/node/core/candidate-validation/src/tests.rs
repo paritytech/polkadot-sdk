@@ -17,6 +17,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::*;
+use crate::PvfExecKind;
 use assert_matches::assert_matches;
 use futures::executor;
 use polkadot_node_core_pvf::PrepareError;
@@ -25,15 +26,67 @@ use polkadot_node_subsystem::messages::AllMessages;
 use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
 use polkadot_primitives::{
-	CoreIndex, GroupIndex, HeadData, Id as ParaId, IndexedVec, SessionInfo, UpwardMessage,
-	ValidatorId, ValidatorIndex,
+	CoreIndex, GroupIndex, HeadData, Id as ParaId, OccupiedCoreAssumption, SessionInfo,
+	UpwardMessage, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_collator, dummy_collator_signature, dummy_hash, make_valid_candidate_descriptor,
 };
-use sp_core::testing::TaskExecutor;
+use sp_core::{sr25519::Public, testing::TaskExecutor};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, Keystore};
+
+#[derive(Debug)]
+enum AssumptionCheckOutcome {
+	Matches(PersistedValidationData, ValidationCode),
+	DoesNotMatch,
+	BadRequest,
+}
+
+async fn check_assumption_validation_data<Sender>(
+	sender: &mut Sender,
+	descriptor: &CandidateDescriptor,
+	assumption: OccupiedCoreAssumption,
+) -> AssumptionCheckOutcome
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	let validation_data = {
+		let (tx, rx) = oneshot::channel();
+		let d = runtime_api_request(
+			sender,
+			descriptor.relay_parent,
+			RuntimeApiRequest::PersistedValidationData(descriptor.para_id, assumption, tx),
+			rx,
+		)
+		.await;
+
+		match d {
+			Ok(None) | Err(RuntimeRequestFailed) => return AssumptionCheckOutcome::BadRequest,
+			Ok(Some(d)) => d,
+		}
+	};
+
+	let persisted_validation_data_hash = validation_data.hash();
+
+	if descriptor.persisted_validation_data_hash == persisted_validation_data_hash {
+		let (code_tx, code_rx) = oneshot::channel();
+		let validation_code = runtime_api_request(
+			sender,
+			descriptor.relay_parent,
+			RuntimeApiRequest::ValidationCode(descriptor.para_id, assumption, code_tx),
+			code_rx,
+		)
+		.await;
+
+		match validation_code {
+			Ok(None) | Err(RuntimeRequestFailed) => AssumptionCheckOutcome::BadRequest,
+			Ok(Some(v)) => AssumptionCheckOutcome::Matches(validation_data, v),
+		}
+	} else {
+		AssumptionCheckOutcome::DoesNotMatch
+	}
+}
 
 #[test]
 fn correctly_checks_included_assumption() {
@@ -389,6 +442,7 @@ impl ValidationBackend for MockValidateCandidateBackend {
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		// This is expected to panic if called more times than expected, indicating an error in the
 		// test.
@@ -971,6 +1025,7 @@ impl ValidationBackend for MockPreCheckBackend {
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}
@@ -1125,6 +1180,7 @@ impl ValidationBackend for MockHeadsUp {
 		_pvd: Arc<PersistedValidationData>,
 		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}
@@ -1163,7 +1219,6 @@ fn dummy_active_leaves_update(hash: Hash) -> ActiveLeavesUpdate {
 			hash,
 			number: 10,
 			unpin_handle: polkadot_node_subsystem_test_helpers::mock::dummy_unpin_handle(hash),
-			span: Arc::new(overseer::jaeger::Span::Disabled),
 		}),
 		..Default::default()
 	}
@@ -1194,10 +1249,10 @@ fn dummy_candidate_backed(
 	)
 }
 
-fn dummy_session_info(discovery_keys: Vec<AuthorityDiscoveryId>) -> SessionInfo {
+fn dummy_session_info(keys: Vec<Public>) -> SessionInfo {
 	SessionInfo {
-		validators: IndexedVec::<ValidatorIndex, ValidatorId>::from(vec![]),
-		discovery_keys,
+		validators: keys.iter().cloned().map(Into::into).collect(),
+		discovery_keys: keys.iter().cloned().map(Into::into).collect(),
 		assignment_keys: vec![],
 		validator_groups: Default::default(),
 		n_cores: 4u32,
@@ -1246,7 +1301,7 @@ fn maybe_prepare_validation_golden_path() {
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
 				assert_eq!(index, 1);
-				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public().into()]))));
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public()]))));
 			}
 		);
 
@@ -1364,7 +1419,7 @@ fn maybe_prepare_validation_resets_state_on_a_new_session() {
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
 				assert_eq!(index, 2);
-				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public().into()]))));
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public()]))));
 			}
 		);
 	};
@@ -1510,7 +1565,7 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_not_a_validator_in_the_next
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
 				assert_eq!(index, 1);
-				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public().into()]))));
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public()]))));
 			}
 		);
 	};
@@ -1557,7 +1612,7 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_a_validator_in_the_current_
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
 				assert_eq!(index, 1);
-				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Alice.public().into()]))));
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Alice.public()]))));
 			}
 		);
 	};
@@ -1604,7 +1659,7 @@ fn maybe_prepare_validation_prepares_a_limited_number_of_pvfs() {
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
 				assert_eq!(index, 1);
-				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public().into()]))));
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public()]))));
 			}
 		);
 

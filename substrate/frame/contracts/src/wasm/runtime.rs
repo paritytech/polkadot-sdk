@@ -522,7 +522,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		run: impl FnOnce(&mut Self) -> DispatchResultWithPostInfo,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		use frame_support::dispatch::extract_actual_weight;
-		let charged = self.charge_gas(runtime_cost(dispatch_info.weight))?;
+		let charged = self.charge_gas(runtime_cost(dispatch_info.call_weight))?;
 		let result = run(self);
 		let actual_weight = extract_actual_weight(&result, &dispatch_info);
 		self.adjust_gas(charged, runtime_cost(actual_weight));
@@ -2347,7 +2347,7 @@ pub mod env {
 		let execute_weight =
 			<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
 		let weight = ctx.ext.gas_meter().gas_left().max(execute_weight);
-		let dispatch_info = DispatchInfo { weight, ..Default::default() };
+		let dispatch_info = DispatchInfo { call_weight: weight, ..Default::default() };
 
 		ctx.call_dispatchable::<XcmExecutionFailed>(
 			dispatch_info,

@@ -26,7 +26,7 @@
 //! communication between the client and the runtime. This includes:
 //!
 //! - A set of traits to declare what any block/header/extrinsic type should provide.
-//! 	- [`traits::Block`], [`traits::Header`], [`traits::Extrinsic`]
+//! 	- [`traits::Block`], [`traits::Header`], [`traits::ExtrinsicLike`]
 //! - A set of types that implement these traits, whilst still providing a high degree of
 //!   configurability via generics.
 //! 	- [`generic::Block`], [`generic::Header`], [`generic::UncheckedExtrinsic`] and
@@ -49,7 +49,7 @@
 extern crate alloc;
 
 #[doc(hidden)]
-pub use alloc::vec::Vec;
+pub use alloc::{format, vec::Vec};
 #[doc(hidden)]
 pub use codec;
 #[doc(hidden)]
@@ -79,8 +79,6 @@ use sp_core::{
 	sr25519,
 };
 
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use alloc::format;
 use alloc::vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
@@ -90,6 +88,7 @@ pub mod generic;
 pub mod legacy;
 mod multiaddress;
 pub mod offchain;
+pub mod proving_trie;
 pub mod runtime_logger;
 mod runtime_string;
 #[cfg(feature = "std")]
@@ -102,6 +101,8 @@ pub use crate::runtime_string::*;
 
 // Re-export Multiaddress
 pub use multiaddress::MultiAddress;
+
+use proving_trie::TrieError;
 
 /// Re-export these since they're only "kind of" generic.
 pub use generic::{Digest, DigestItem};
@@ -130,6 +131,8 @@ pub use sp_arithmetic::{
 	FixedPointOperand, FixedU128, FixedU64, InnerOf, PerThing, PerU16, Perbill, Percent, Permill,
 	Perquintill, Rational128, Rounding, UpperOf,
 };
+/// Re-export this since it's part of the API of this crate.
+pub use sp_weights::Weight;
 
 pub use either::Either;
 
@@ -592,6 +595,8 @@ pub enum DispatchError {
 	Unavailable,
 	/// Root origin is not allowed.
 	RootNotAllowed,
+	/// An error with tries.
+	Trie(TrieError),
 }
 
 /// Result of a `Dispatchable` which contains the `DispatchResult` and additional information about
@@ -697,6 +702,12 @@ impl From<ArithmeticError> for DispatchError {
 	}
 }
 
+impl From<TrieError> for DispatchError {
+	fn from(e: TrieError) -> DispatchError {
+		Self::Trie(e)
+	}
+}
+
 impl From<&'static str> for DispatchError {
 	fn from(err: &'static str) -> DispatchError {
 		Self::Other(err)
@@ -721,6 +732,7 @@ impl From<DispatchError> for &'static str {
 			Corruption => "State corrupt",
 			Unavailable => "Resource unavailable",
 			RootNotAllowed => "Root not allowed",
+			Trie(e) => e.into(),
 		}
 	}
 }
@@ -768,6 +780,10 @@ impl traits::Printable for DispatchError {
 			Corruption => "State corrupt".print(),
 			Unavailable => "Resource unavailable".print(),
 			RootNotAllowed => "Root not allowed".print(),
+			Trie(e) => {
+				"Trie error: ".print();
+				<&'static str>::from(*e).print();
+			},
 		}
 	}
 }
@@ -941,9 +957,10 @@ impl<'a> ::serde::Deserialize<'a> for OpaqueExtrinsic {
 	}
 }
 
-impl traits::Extrinsic for OpaqueExtrinsic {
-	type Call = ();
-	type SignaturePayload = ();
+impl traits::ExtrinsicLike for OpaqueExtrinsic {
+	fn is_bare(&self) -> bool {
+		false
+	}
 }
 
 /// Print something that implements `Printable` from the runtime.

@@ -28,7 +28,7 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(addr: [u8; 32],);
+	input!(addr: &[u8; 32],);
 	api::set_code_hash(addr).unwrap();
 
 	// we return 1 after setting new code_hash

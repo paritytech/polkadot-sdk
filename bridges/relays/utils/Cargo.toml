@@ -11,7 +11,7 @@ publish = false
 workspace = true
 
 [dependencies]
-anyhow = { workspace = true }
+anyhow = { workspace = true, default-features = true }
 async-std = { workspace = true }
 async-trait = { workspace = true }
 backoff = { workspace = true }

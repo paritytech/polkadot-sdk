@@ -36,7 +36,9 @@ use std::collections::BTreeMap;
 
 use crate::approval_db::v2::Bitfield;
 
-use super::{criteria::OurAssignment, time::Tick};
+use super::criteria::OurAssignment;
+
+use polkadot_node_primitives::approval::time::Tick;
 
 /// Metadata regarding a specific tranche of assignments for a specific candidate.
 #[derive(Debug, Clone, PartialEq)]

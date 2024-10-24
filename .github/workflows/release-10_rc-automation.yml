@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Current release/rc version in format vX.X.X
+        description: Current release/rc version in format polkadot-stableYYMM
 
 jobs:
   tag_rc:
@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
         with:
           fetch-depth: 0
 
@@ -41,7 +41,7 @@ jobs:
           if [[ -z "${{ inputs.version }}" ]]; then
             version=v$(get_polkadot_node_version_from_code)
           else
-            version=$(filter_version_from_input ${{ inputs.version }})
+            version=$(validate_stable_tag ${{ inputs.version }})
           fi
           echo "$version"
           echo "version=$version" >> $GITHUB_OUTPUT
