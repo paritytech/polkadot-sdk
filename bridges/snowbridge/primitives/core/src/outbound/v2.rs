@@ -90,6 +90,8 @@ sol! {
 	}
 }
 
+pub const MAX_COMMANDS: u32 = 8;
+
 /// A message which can be accepted by implementations of `/[`SendMessage`\]`
 #[derive(Encode, Decode, TypeInfo, Clone, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
@@ -101,7 +103,7 @@ pub struct Message {
 	/// Fee
 	pub fee: u128,
 	/// Commands
-	pub commands: BoundedVec<Command, ConstU32<5>>,
+	pub commands: BoundedVec<Command, ConstU32<MAX_COMMANDS>>,
 }
 
 /// A command which is executable by the Gateway contract on Ethereum
