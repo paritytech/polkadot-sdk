@@ -10,6 +10,6 @@ doc:
 
 crates:
     - name: pallet-bounties
-      bump: minor
+      bump: major
     - name: rococo-runtime
       bump: minor
