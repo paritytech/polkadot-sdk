@@ -1212,6 +1212,7 @@ where
 				to: Some(dest),
 				..Default::default()
 			};
+
 			let eth_dispatch_call = crate::Call::<T>::eth_transact {
 				payload: tx.dummy_signed_payload(),
 				gas_limit: result.gas_required,
@@ -1238,7 +1239,7 @@ where
 			)
 			.into();
 
-			log::debug!(target: LOG_TARGET, "Call dry run Result: dispatch_info: {dispatch_info:?} len: {encoded_len:?} fee: {fee:?}");
+			log::debug!(target: LOG_TARGET, "bare_eth_call: len: {encoded_len:?} fee: {fee:?}");
 			EthContractResult {
 				gas_required: result.gas_required,
 				storage_deposit: result.storage_deposit.charge_or_zero(),
