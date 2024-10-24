@@ -5,9 +5,9 @@ doc:
     Introduces checks for descriptor `core_index` and `session_index` fields.
 crates:
 - name: polkadot-node-primitives
-  bump: minor
+  bump: major
 - name: polkadot-primitives
-  bump: minor
+  bump: major
 - name: cumulus-relay-chain-inprocess-interface
   bump: minor
 - name: cumulus-relay-chain-interface
@@ -15,4 +15,4 @@ crates:
 - name: cumulus-client-consensus-aura
   bump: minor
 - name: polkadot-node-core-candidate-validation
-  bump: minor
+  bump: major
