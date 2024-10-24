@@ -238,7 +238,7 @@ pub mod benchmarking {
 		pub use frame_system::RawOrigin;
 	}
 
-	#[deprecated(note = "use the syntax in `frame::benchmarking::v2`")]
+	#[deprecated(note = "'The V1 benchmarking syntax is deprecated. Please use the V2 syntax. This warning may become a hard error any time after April 2025. For more info, see: https://github.com/paritytech/polkadot-sdk/pull/5995")]
 	pub mod v1 {
 		pub use super::shared::*;
 		pub use frame_benchmarking::benchmarks;
