@@ -229,7 +229,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					.metadata(best_block)
 					.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 				if !pallet_exists(metadata.as_slice(), DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME)? {
-					return Err(sc_service::Error::Application(anyhow::anyhow!("Parachain system pallet doesn't exist in runtime's metadata. Omni node supports only parachains.").into()));
+					return Err(sc_service::Error::Application(
+						anyhow::anyhow!(
+							r#"Parachain system pallet doesn't exist in
+                            runtime's metadata. Omni Node expects the `ParachainSystem`
+                            pallet type to be defined as a runtime pallet."#
+						)
+						.into(),
+					));
 				}
 
 				let backend = params.backend.clone();
