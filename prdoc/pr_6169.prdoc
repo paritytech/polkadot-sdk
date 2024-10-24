@@ -10,4 +10,10 @@ doc:
 
 crates:
 - name: pallet-treasury
-  bump: major
+  bump: patch
+- name: pallet-bounties
+  bump: patch
+- name: pallet-child-bounties
+  bump: patch
+- name: pallet-tips
+  bump: patch
