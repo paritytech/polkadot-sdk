@@ -27,7 +27,7 @@ use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
 use polkadot_primitives::{
 	vstaging::CandidateDescriptorV2, CandidateDescriptor, CoreIndex, GroupIndex, HeadData,
-	Id as ParaId, SessionInfo, UpwardMessage, ValidatorId,
+	Id as ParaId, OccupiedCoreAssumption, SessionInfo, UpwardMessage, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_collator, dummy_collator_signature, dummy_hash, make_valid_candidate_descriptor,
