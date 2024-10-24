@@ -29,6 +29,7 @@ use crate::{
 	ReadyIteratorFor, LOG_TARGET,
 };
 use futures::prelude::*;
+use itertools::Itertools;
 use parking_lot::RwLock;
 use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus, TransactionSource};
 use sp_blockchain::TreeRoute;
@@ -110,6 +111,37 @@ where
 		HashMap::<_, _>::from_iter(results.into_iter())
 	}
 
+	/// Synchronously imports single unverified extrinsics into every active view.
+	pub(super) fn submit_local(
+		&self,
+		xt: ExtrinsicFor<ChainApi>,
+	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
+		let active_views = self
+			.active_views
+			.read()
+			.iter()
+			.map(|(_, view)| view.clone())
+			.collect::<Vec<_>>();
+
+		let tx_hash = self.api.hash_and_length(&xt).0;
+
+		let result = active_views
+			.iter()
+			.map(|view| {
+				self.dropped_stream_controller
+					.add_initial_views(std::iter::once(tx_hash), view.at.hash);
+				view.submit_local(xt.clone())
+			})
+			.find_or_first(Result::is_ok);
+
+		if let Some(Err(err)) = result {
+			log::trace!(target: LOG_TARGET, "[{:?}] submit_local: err: {}", tx_hash, err);
+			return Err(err)
+		};
+
+		Ok(tx_hash)
+	}
+
 	/// Import a single extrinsic and starts to watch its progress in the pool.
 	///
 	/// The extrinsic is imported to every view, and the individual streams providing the progress
@@ -155,12 +187,8 @@ where
 		let maybe_error = futures::future::join_all(submit_and_watch_futures)
 			.await
 			.into_iter()
-			.reduce(|mut r, v| {
-				if r.is_err() && v.is_ok() {
-					r = v;
-				}
-				r
-			});
+			.find_or_first(Result::is_ok);
+
 		if let Some(Err(err)) = maybe_error {
 			log::trace!(target: LOG_TARGET, "[{:?}] submit_and_watch: err: {}", tx_hash, err);
 			return Err((err, Some(external_watcher)));
