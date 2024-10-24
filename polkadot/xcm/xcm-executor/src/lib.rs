@@ -773,7 +773,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			error_handler_weight = ?self.error_handler_weight,
 		);
 		let mut result = Ok(());
-		for (i, instr) in xcm.0.into_iter().enumerate() {
+		for (i, mut instr) in xcm.0.into_iter().enumerate() {
 			match &mut result {
 				r @ Ok(()) => {
 					// Initialize the recursion count only the first time we hit this code in our
@@ -809,7 +809,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					}
 				},
 				Err(ref mut error) =>
-					if let Ok(x) = Config::Weigher::instr_weight(&instr) {
+					if let Ok(x) = Config::Weigher::instr_weight(&mut instr) {
 						error.weight.saturating_accrue(x)
 					},
 			}

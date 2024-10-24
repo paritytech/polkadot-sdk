@@ -1114,7 +1114,6 @@ impl coretime::Config for Runtime {
 		xcm_config::ThisNetwork,
 		<Runtime as frame_system::Config>::AccountId,
 	>;
-	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
 parameter_types! {
