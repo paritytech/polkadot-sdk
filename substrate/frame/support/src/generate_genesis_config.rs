@@ -215,7 +215,7 @@ macro_rules! build_struct_json_patch {
 			#[allow(clippy::needless_update)]
 			let struct_instance = $crate::build_struct_json_patch!($($struct_type)::+, keys @  { $($tail)* });
 			let mut json_value =
-				serde_json::to_value(struct_instance).expect("serialization to json should work. qed");
+				$crate::__private::serde_json::to_value(struct_instance).expect("serialization to json should work. qed");
 			$crate::generate_genesis_config::retain_initialized_fields(&mut json_value, &keys, Default::default());
 			json_value
 		}
