@@ -172,6 +172,14 @@ struct AssignmentState {
 	remaining: PartsOf57600,
 }
 
+/// How storage is accessed.
+enum AccessMode {
+	/// We only want to peek (no side effects).
+	Peek,
+	/// We need to update state.
+	Pop,
+}
+
 impl<N> From<Schedule<N>> for WorkState<N> {
 	fn from(schedule: Schedule<N>) -> Self {
 		let Schedule { assignments, end_hint, next_schedule: _ } = schedule;
@@ -251,36 +259,32 @@ pub mod pallet {
 }
 
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
+	fn peek(core_idx: CoreIndex, num_entries: u8) -> Vec<Assignment> {
+		if num_entries == 0 {
+			return Vec::new()
+		}
+		let now = frame_system::Pallet::<T>::block_number();
+
+		Self::peek_impl(now, core_idx, num_entries)
+	}
+
+	fn peek_and_pop_first(core_idx: CoreIndex, num_entries: u8) -> Vec<Assignment> {
+		if num_entries == 0 {
+			return Vec::new()
+		}
+		let first = Self::pop_assignment_for_core(core_idx);
+
+		let now = frame_system::Pallet::<T>::block_number() + One::one();
+		let remaining = Self::peek_impl(now, core_idx, num_entries.saturating_sub(1));
+
+		first.into_iter().append(remaining.into_iter()).collect()
+	}
+
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
 		let now = frame_system::Pallet::<T>::block_number();
 
 		CoreDescriptors::<T>::mutate(core_idx, |core_state| {
-			Self::ensure_workload(now, core_idx, core_state);
-
-			let work_state = core_state.current_work.as_mut()?;
-
-			// Wrap around:
-			work_state.pos = work_state.pos % work_state.assignments.len() as u16;
-			let (a_type, a_state) = &mut work_state
-				.assignments
-				.get_mut(work_state.pos as usize)
-				.expect("We limited pos to the size of the vec one line above. qed");
-
-			// advance for next pop:
-			a_state.remaining = a_state.remaining.saturating_sub(work_state.step);
-			if a_state.remaining < work_state.step {
-				// Assignment exhausted, need to move to the next and credit remaining for
-				// next round.
-				work_state.pos += 1;
-				// Reset to ratio + still remaining "credits":
-				a_state.remaining = a_state.remaining.saturating_add(a_state.ratio);
-			}
-
-			match a_type {
-				CoreAssignment::Idle => None,
-				CoreAssignment::Pool => on_demand::Pallet::<T>::pop_assignment_for_core(core_idx),
-				CoreAssignment::Task(para_id) => Some(Assignment::Bulk((*para_id).into())),
-			}
+			Self::pop_assignment_for_core_impl(now, core_ix, core_state, AccessMode::Pop)
 		})
 	}
 
@@ -328,11 +332,62 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	fn peek_impl(now: BlockNumberFor<T>, core_idx: CoreIndex, num_entries: u8) -> Vec<Assignment> {
+		let mut assignments = Vec::reserve(num_entries);
+		let mut core_state = CoreDescriptors::<T>::get(core_idx);
+
+		for i in 0..num_entries {
+			now += One::one();
+			let Some(assignment) =
+				Self::pop_assignment_for_core_impl(now, core_ix, core_state, AccessMode::Peek)
+			else {
+				continue
+			};
+			assignments.push(assignment);
+		}
+		assignments
+	}
+
+	fn pop_assignment_for_core_impl(
+		now: BlockNumberFor<T>,
+		core_ix: CoreIndex,
+		core_state: &mut CoreDescriptor<BlockNumberFor<T>>,
+		mode: AccessMode,
+	) -> Option<Assignment> {
+		Self::ensure_workload(now, core_idx, core_state, mode);
+
+		let work_state = core_state.current_work.as_mut()?;
+
+		// Wrap around:
+		work_state.pos = work_state.pos % work_state.assignments.len() as u16;
+		let (a_type, a_state) = &mut work_state
+			.assignments
+			.get_mut(work_state.pos as usize)
+			.expect("We limited pos to the size of the vec one line above. qed");
+
+		// advance for next pop:
+		a_state.remaining = a_state.remaining.saturating_sub(work_state.step);
+		if a_state.remaining < work_state.step {
+			// Assignment exhausted, need to move to the next and credit remaining for
+			// next round.
+			work_state.pos += 1;
+			// Reset to ratio + still remaining "credits":
+			a_state.remaining = a_state.remaining.saturating_add(a_state.ratio);
+		}
+
+		match a_type {
+			CoreAssignment::Idle => None,
+			CoreAssignment::Pool => on_demand::Pallet::<T>::pop_assignment_for_core(core_idx),
+			CoreAssignment::Task(para_id) => Some(Assignment::Bulk((*para_id).into())),
+		}
+	}
+
 	/// Ensure given workload for core is up to date.
 	fn ensure_workload(
 		now: BlockNumberFor<T>,
 		core_idx: CoreIndex,
 		descriptor: &mut CoreDescriptor<BlockNumberFor<T>>,
+		mode: AccessMode,
 	) {
 		// Workload expired?
 		if descriptor
@@ -358,9 +413,13 @@ impl<T: Config> Pallet<T> {
 
 		// Update is needed:
 		let update = loop {
-			let Some(update) = CoreSchedules::<T>::take((next_scheduled, core_idx)) else {
+			let Some(update) = (match mode {
+				AccessMode::Peek => CoreSchedules::<T>::get((next_scheduled, core_idx)),
+				AccessMode::Pop => CoreSchedules::<T>::take((next_scheduled, core_idx)),
+			}) else {
 				break None
 			};
+
 			// Still good?
 			if update.end_hint.map_or(true, |e| e > now) {
 				break Some(update)

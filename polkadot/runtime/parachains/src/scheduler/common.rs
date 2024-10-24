@@ -49,6 +49,32 @@ impl Assignment {
 }
 
 pub trait AssignmentProvider<BlockNumber> {
+	/// Peek `num_entries` into the future.
+	///
+	/// First element in the returne vec will show you what you would get when you call
+	/// `pop_assignment_for_core` now. The second what you would get in the next block when you
+	/// called `pop_assignment_for_core` again (prediction).
+	///
+	/// The predictions are accurate in the sense that if an assignment `B` was predicted, it will
+	/// never happen that `pop_assignment_for_core` at that block will retrieve an assignment `A`.
+	/// What can happen though is that the prediction is empty (returned vec does not contain that
+	/// element), but `pop_assignment_for_core` at that block will then return something
+	/// regardless.
+	///
+	/// Invariant to maintain: `pop_assignment_for_core` must be called for each core each block
+	/// exactly once, after you called `peek`. A convenience function `peek_and_pop_first` is
+	/// provided to efficiently combine a peek with the `pop_assignment_for_core` which should
+	/// follow afterwards.
+	fn peek(core_idx: CoreIndex, num_entries: u8) -> Vec<Assignment>;
+
+	/// Peek `num_entries` into the future and pop/drop the first.
+	///
+	/// If you called `peek` after this function, it would return a result missing the first entry
+	/// returned here.
+	///
+	/// Note: `num_entries` should be at least 1, otherwise this operation is a noop.
+	fn peek_and_pop_first(core_idx: CoreIndex, num_entries: u8) -> Vec<Assignment>;
+
 	/// Pops an [`Assignment`] from the provider for a specified [`CoreIndex`].
 	///
 	/// This is where assignments come into existence.
