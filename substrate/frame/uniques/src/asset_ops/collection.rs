@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use crate::{asset_strategies::Attribute, *, Collection as CollectionStorage};
+use crate::{asset_strategies::Attribute, Collection as CollectionStorage, *};
 use frame_support::{
 	ensure,
 	traits::{
@@ -24,7 +24,9 @@ impl<T: Config<I>, I: 'static> AssetDefinition for Collection<Pallet<T, I>> {
 	type Id = T::CollectionId;
 }
 
-impl<T: Config<I>, I: 'static> InspectMetadata<Ownership<T::AccountId>> for Collection<Pallet<T, I>> {
+impl<T: Config<I>, I: 'static> InspectMetadata<Ownership<T::AccountId>>
+	for Collection<Pallet<T, I>>
+{
 	fn inspect_metadata(
 		collection: &Self::Id,
 		_ownership: Ownership<T::AccountId>,
@@ -43,7 +45,9 @@ impl<T: Config<I>, I: 'static> InspectMetadata<Bytes> for Collection<Pallet<T, I
 	}
 }
 
-impl<'a, T: Config<I>, I: 'static> InspectMetadata<Bytes<Attribute<'a>>> for Collection<Pallet<T, I>> {
+impl<'a, T: Config<I>, I: 'static> InspectMetadata<Bytes<Attribute<'a>>>
+	for Collection<Pallet<T, I>>
+{
 	fn inspect_metadata(
 		collection: &Self::Id,
 		strategy: Bytes<Attribute>,
@@ -81,9 +85,8 @@ impl<T: Config<I>, I: 'static> Create<Adminable<T::AccountId, PredefinedId<T::Co
 }
 
 impl<T: Config<I>, I: 'static>
-	Create<
-		WithOrigin<T::RuntimeOrigin, Adminable<T::AccountId, PredefinedId<T::CollectionId>>>,
-	> for Collection<Pallet<T, I>>
+	Create<WithOrigin<T::RuntimeOrigin, Adminable<T::AccountId, PredefinedId<T::CollectionId>>>>
+	for Collection<Pallet<T, I>>
 {
 	fn create(
 		strategy: WithOrigin<
@@ -122,8 +125,8 @@ impl<T: Config<I>, I: 'static> Destroy<WithWitness<DestroyWitness>> for Collecti
 	}
 }
 
-impl<T: Config<I>, I: 'static>
-	Destroy<WithOrigin<T::RuntimeOrigin, WithWitness<DestroyWitness>>> for Collection<Pallet<T, I>>
+impl<T: Config<I>, I: 'static> Destroy<WithOrigin<T::RuntimeOrigin, WithWitness<DestroyWitness>>>
+	for Collection<Pallet<T, I>>
 {
 	fn destroy(
 		collection: &Self::Id,
