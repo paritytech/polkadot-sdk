@@ -57,14 +57,15 @@ pub use pallet::*;
 
 use core::ops::Add;
 use frame_support::{
-	dispatch::{DispatchErrorWithPostInfo, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
+	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
 	traits::OriginTrait,
 };
 use frame_system::pallet_prelude::*;
-use sp_runtime::traits::AsTransactionAuthorizedOrigin;
-use sp_runtime::traits::ExtensionPostDispatchWeightHandler;
-use sp_runtime::traits::{Dispatchable, IdentifyAccount, TransactionExtension, Verify};
+use sp_runtime::traits::{
+	AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable, IdentifyAccount,
+	TransactionExtension, Verify,
+};
 use sp_std::prelude::*;
 
 /// Meta Transaction type.
@@ -72,14 +73,10 @@ use sp_std::prelude::*;
 /// The data that is provided and signed by the signer and shared with the relayer.
 #[derive(Encode, Decode, PartialEq, Eq, TypeInfo, Clone, RuntimeDebug)]
 pub struct MetaTx<Address, Signature, Call, Extension> {
-	/// The proof of the authenticity of the meta transaction.
-	proof: Proof<Address, Signature>,
+	/// Information regarding the type of the meta transaction.
+	preamble: Preamble<Address, Signature, Extension>,
 	/// The target call to be executed on behalf of the signer.
-	call: Box<Call>,
-	/// The required extension/s.
-	///
-	/// This might include the nonce check, expiration, etc.
-	extension: Extension,
+	call: Call,
 }
 
 impl<Address, Signature, Call, Extension> MetaTx<Address, Signature, Call, Extension> {
@@ -87,21 +84,29 @@ impl<Address, Signature, Call, Extension> MetaTx<Address, Signature, Call, Exten
 	pub fn new_signed(
 		address: Address,
 		signature: Signature,
-		call: Call,
 		extension: Extension,
+		call: Call,
 	) -> Self {
-		Self { proof: Proof::Signed(address, signature), call: Box::new(call), extension }
+		Self { preamble: Preamble::Signed(address, signature, extension), call }
+	}
+
+	/// Get the extension reference of the meta transaction.
+	pub fn extension_as_ref(&self) -> &Extension {
+		match &self.preamble {
+			Preamble::Signed(_, _, extension) => extension,
+		}
 	}
 }
 
 /// Proof of the authenticity of the meta transaction.
-// It could potentially be extended to support additional types of proofs, similar to the
-// sp_runtime::generic::Preamble::Bare transaction type.
-// TODO: check if even need this
+///
+/// It could potentially be extended to support other type of meta transaction, similar to the
+/// [`sp_runtime::generic::Preamble::Bare`]` transaction extrinsic type.
 #[derive(Encode, Decode, PartialEq, Eq, TypeInfo, Clone, RuntimeDebug)]
-pub enum Proof<Address, Signature> {
-	/// Signature of the meta transaction payload and the signer's address.
-	Signed(Address, Signature),
+pub enum Preamble<Address, Signature, Extension> {
+	/// Meta transaction that contains the signature, signer's address and the extension with it's
+	/// version.
+	Signed(Address, Signature, Extension),
 }
 
 /// The [`MetaTx`] for the given config.
@@ -118,8 +123,6 @@ pub type SignedPayloadFor<T> =
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use frame_support::weights;
-
 	use super::*;
 
 	#[pallet::config]
@@ -194,7 +197,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight({
 			let dispatch_info = meta_tx.call.get_dispatch_info();
-			let extension_weight = meta_tx.extension.weight(meta_tx.call.as_ref());
+			let extension_weight = meta_tx.extension_as_ref().weight(&meta_tx.call);
 			// TODO: + dispatch weight
 			(
 				dispatch_info.call_weight.add(extension_weight),
@@ -203,15 +206,15 @@ pub mod pallet {
 		})]
 		pub fn dispatch(
 			_origin: OriginFor<T>,
-			meta_tx: MetaTxFor<T>,
+			meta_tx: Box<MetaTxFor<T>>,
 		) -> DispatchResultWithPostInfo {
 			let meta_tx_size = meta_tx.encoded_size();
 
-			let (signer, signature) = match meta_tx.proof {
-				Proof::Signed(signer, signature) => (signer, signature),
+			let (signer, signature, extension) = match meta_tx.preamble {
+				Preamble::Signed(signer, signature, extension) => (signer, signature, extension),
 			};
 
-			let signed_payload = SignedPayloadFor::<T>::new(*meta_tx.call, meta_tx.extension)
+			let signed_payload = SignedPayloadFor::<T>::new(meta_tx.call, extension)
 				.map_err(|_| Error::<T>::Invalid)?;
 
 			if !signed_payload.using_encoded(|payload| signature.verify(payload, &signer)) {
@@ -226,8 +229,6 @@ pub mod pallet {
 				info.extension_weight = extension.weight(&call);
 				info
 			};
-
-			use sp_runtime::traits::DispatchTransaction;
 
 			// dispatch the meta transaction.
 			let meta_dispatch_res = extension

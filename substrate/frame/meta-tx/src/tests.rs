@@ -80,8 +80,8 @@ fn sign_and_execute_meta_tx() {
 		let meta_tx = MetaTxFor::<Runtime>::new_signed(
 			alice_account.clone(),
 			meta_tx_sig,
-			remark_call.clone(),
 			meta_tx_ext.clone(),
+			remark_call.clone(),
 		);
 
 		// Encode and share with the world.
@@ -90,7 +90,7 @@ fn sign_and_execute_meta_tx() {
 		// Bob acts as meta transaction relayer.
 
 		let meta_tx = MetaTxFor::<Runtime>::decode(&mut &meta_tx_encoded[..]).unwrap();
-		let call = RuntimeCall::MetaTx(Call::dispatch { meta_tx: meta_tx.clone() });
+		let call = RuntimeCall::MetaTx(Call::dispatch { meta_tx: Box::new(meta_tx.clone()) });
 		let tx_ext: Extension = (
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
