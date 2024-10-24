@@ -220,7 +220,6 @@ where
 
 		frame_system::BlockWeight::<T>::mutate(|current_weight| {
 			let already_refunded = frame_system::ExtrinsicWeightRefunded::<T>::get();
-			dbg!(&already_refunded);
 			current_weight.accrue(already_refunded, info.class);
 			current_weight.reduce(info.total_weight(), info.class);
 			current_weight.accrue(accurate_weight, info.class);
