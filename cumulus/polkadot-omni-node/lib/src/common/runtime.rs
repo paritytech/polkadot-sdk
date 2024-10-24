@@ -86,7 +86,7 @@ pub mod metadata {
 			RuntimeMetadata::V14(inner) => Ok(inner.pallets.iter().any(|p| p.name == name)),
 			RuntimeMetadata::V15(inner) => Ok(inner.pallets.iter().any(|p| p.name == name)),
 			_ => Err(sc_service::error::Error::Application(
-				anyhow::anyhow!("Metadata version smaller than V14 not supported.").into(),
+				anyhow::anyhow!("Metadata version lower than 14 not supported.").into(),
 			)),
 		}
 	}
