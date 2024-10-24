@@ -935,6 +935,17 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
+		if let (Some(service_weight), Some(on_idle)) =
+			(T::ServiceWeight::get(), T::IdleMaxServiceWeight::get())
+		{
+			if !(service_weight.all_gt(on_idle) ||
+				on_idle.all_gt(service_weight) ||
+				service_weight == on_idle)
+			{
+				return Err("One of `ServiceWeight` or `IdleMaxServiceWeight` needs to be `all_gt` or both need to be equal.".into())
+			}
+		}
+
 		Ok(())
 	}
 
