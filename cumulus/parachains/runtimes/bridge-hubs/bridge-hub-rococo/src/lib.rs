@@ -130,11 +130,11 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckGenesis<Runtime>,
 		frame_system::CheckEra<Runtime>,
 		frame_system::CheckNonce<Runtime>,
+		frame_system::CheckWeight<Runtime>,
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 		BridgeRejectObsoleteHeadersAndMessages,
 		(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,),
 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
-		frame_system::CheckWeight<Runtime>,
 	),
 >;
 
@@ -1569,13 +1569,13 @@ mod tests {
 				frame_system::CheckGenesis::new(),
 				frame_system::CheckEra::from(Era::Immortal),
 				frame_system::CheckNonce::from(10),
+				frame_system::CheckWeight::new(),
 				pallet_transaction_payment::ChargeTransactionPayment::from(10),
 				BridgeRejectObsoleteHeadersAndMessages,
 				(
 					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
 				),
 				frame_metadata_hash_extension::CheckMetadataHash::new(false),
-				frame_system::CheckWeight::new(),
 			).into();
 
 			// for BridgeHubRococo

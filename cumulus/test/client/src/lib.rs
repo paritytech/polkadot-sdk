@@ -141,8 +141,8 @@ pub fn generate_extrinsic_with_pair(
 		frame_system::CheckGenesis::<Runtime>::new(),
 		frame_system::CheckEra::<Runtime>::from(Era::mortal(period, current_block)),
 		frame_system::CheckNonce::<Runtime>::from(nonce),
-		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 		frame_system::CheckWeight::<Runtime>::new(),
+		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 	)
 		.into();
 
