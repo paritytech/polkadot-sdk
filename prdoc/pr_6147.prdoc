@@ -7,6 +7,8 @@ doc:
 crates:
   - name: pallet-revive
     bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch
   - name: pallet-revive-eth-rpc
     bump: patch
   - name: pallet-revive-fixtures
