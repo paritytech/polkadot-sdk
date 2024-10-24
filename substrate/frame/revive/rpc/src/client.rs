@@ -219,7 +219,7 @@ impl ClientInner {
 	}
 
 	/// Convert a native balance to an EVM balance.
-	pub fn native_to_evm_decimals(&self, value: U256) -> U256 {
+	fn native_to_evm_decimals(&self, value: U256) -> U256 {
 		value.saturating_mul(self.native_to_evm_ratio)
 	}
 

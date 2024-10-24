@@ -79,20 +79,36 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 
 	// Deploy contract
 	let data = b"hello world".to_vec();
+	let value = U256::from(5_000_000_000_000u128);
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let input = bytes.into_iter().chain(data.clone()).collect::<Vec<u8>>();
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let hash = send_transaction(&account, &client, U256::zero(), input.into(), None).await?;
+	let hash = send_transaction(&account, &client, value, input.into(), None).await?;
 	let receipt = wait_for_receipt(&client, hash).await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
-	assert_eq!(contract_address, receipt.contract_address.unwrap());
+	assert_eq!(
+		Some(contract_address),
+		receipt.contract_address,
+		"Contract should be deployed with the correct address."
+	);
+
+	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	assert_eq!(
+		value * 1_000_000,
+		balance,
+		"Contract balance should be the same as the value sent."
+	);
 
 	// Call contract
 	let hash =
 		send_transaction(&account, &client, U256::zero(), Bytes::default(), Some(contract_address))
 			.await?;
 	let receipt = wait_for_receipt(&client, hash).await?;
-	assert_eq!(contract_address, receipt.to.unwrap());
+	assert_eq!(
+		Some(contract_address),
+		receipt.to,
+		"Receipt should have the correct contract address."
+	);
 
 	Ok(())
 }
