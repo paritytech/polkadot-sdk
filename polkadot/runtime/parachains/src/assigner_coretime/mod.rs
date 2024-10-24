@@ -337,13 +337,12 @@ impl<T: Config> Pallet<T> {
 		let mut core_state = CoreDescriptors::<T>::get(core_idx);
 
 		for i in 0..num_entries {
-			now += One::one();
-			let Some(assignment) =
+			if let Some(assignment) =
 				Self::pop_assignment_for_core_impl(now, core_ix, core_state, AccessMode::Peek)
-			else {
-				continue
+			{
+				assignments.push(assignment);
 			};
-			assignments.push(assignment);
+			now += One::one();
 		}
 		assignments
 	}
