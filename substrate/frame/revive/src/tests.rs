@@ -58,16 +58,17 @@ use frame_support::{
 		tokens::Preservation,
 		ConstU32, ConstU64, Contains, OnIdle, OnInitialize, StorageVersion,
 	},
-	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightMeter},
+	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight, WeightMeter},
 };
 use frame_system::{EventRecord, Phase};
 use pallet_revive_fixtures::{bench::dummy_unique, compile_module};
 use pallet_revive_uapi::ReturnErrorCode as RuntimeReturnCode;
+use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 use sp_io::hashing::blake2_256;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	testing::H256,
-	traits::{BlakeTwo256, Convert, IdentityLookup},
+	traits::{BlakeTwo256, Convert, IdentityLookup, One},
 	AccountId32, BuildStorage, DispatchError, Perbill, TokenError,
 };
 
@@ -82,6 +83,7 @@ frame_support::construct_runtime!(
 		Utility: pallet_utility,
 		Contracts: pallet_revive,
 		Proxy: pallet_proxy,
+		TransactionPayment: pallet_transaction_payment,
 		Dummy: pallet_dummy
 	}
 );
@@ -415,6 +417,18 @@ impl pallet_proxy::Config for Test {
 	type AnnouncementDepositFactor = ConstU64<1>;
 }
 
+parameter_types! {
+	pub FeeMultiplier: Multiplier = Multiplier::one();
+}
+
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
+impl pallet_transaction_payment::Config for Test {
+	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
+	type WeightToFee = IdentityFee<<Self as pallet_balances::Config>::Balance>;
+	type LengthToFee = FixedFee<100, <Self as pallet_balances::Config>::Balance>;
+	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
+}
+
 impl pallet_dummy::Config for Test {}
 
 parameter_types! {
@@ -507,6 +521,17 @@ impl Config for Test {
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Debug = TestDebug;
 	type ChainId = ChainId;
+}
+
+impl TryFrom<RuntimeCall> for crate::Call<Test> {
+	type Error = ();
+
+	fn try_from(value: RuntimeCall) -> Result<Self, Self::Error> {
+		match value {
+			RuntimeCall::Contracts(call) => Ok(call),
+			_ => Err(()),
+		}
+	}
 }
 
 pub struct ExtBuilder {
@@ -727,15 +752,16 @@ mod run_tests {
 			));
 
 			assert_eq!(System::account_nonce(&ALICE), 0);
+			System::inc_account_nonce(&ALICE);
 
-			for nonce in 0..3 {
+			for nonce in 1..3 {
 				let Contract { addr, .. } = builder::bare_instantiate(Code::Existing(code_hash))
 					.salt(None)
 					.build_and_unwrap_contract();
 				assert!(ContractInfoOf::<Test>::contains_key(&addr));
 				assert_eq!(
 					addr,
-					create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce)
+					create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce - 1)
 				);
 			}
 			assert_eq!(System::account_nonce(&ALICE), 3);
@@ -747,7 +773,7 @@ mod run_tests {
 				assert!(ContractInfoOf::<Test>::contains_key(&addr));
 				assert_eq!(
 					addr,
-					create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce)
+					create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce - 1)
 				);
 			}
 			assert_eq!(System::account_nonce(&ALICE), 6);
@@ -4440,6 +4466,48 @@ mod run_tests {
 				builder::bare_instantiate(Code::Upload(code)).build().result,
 				<Error<Test>>::BasicBlockTooLarge
 			);
+		});
+	}
+
+	#[test]
+	fn code_hash_works() {
+		let (code_hash_code, self_code_hash) = compile_module("code_hash").unwrap();
+		let (dummy_code, code_hash) = compile_module("dummy").unwrap();
+
+		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code_hash_code)).build_and_unwrap_contract();
+			let Contract { addr: dummy_addr, .. } =
+				builder::bare_instantiate(Code::Upload(dummy_code)).build_and_unwrap_contract();
+
+			// code hash of dummy contract
+			assert_ok!(builder::call(addr).data((dummy_addr, code_hash).encode()).build());
+			// code has of itself
+			assert_ok!(builder::call(addr).data((addr, self_code_hash).encode()).build());
+
+			// EOA doesn't exists
+			assert_err!(
+				builder::bare_call(addr)
+					.data((BOB_ADDR, crate::exec::EMPTY_CODE_HASH).encode())
+					.build()
+					.result,
+				Error::<Test>::ContractTrapped
+			);
+			// non-existing will return zero
+			assert_ok!(builder::call(addr).data((BOB_ADDR, H256::zero()).encode()).build());
+
+			// create EOA
+			let _ = <Test as Config>::Currency::set_balance(
+				&<Test as Config>::AddressMapper::to_account_id(&BOB_ADDR),
+				1_000_000,
+			);
+
+			// EOA returns empty code hash
+			assert_ok!(builder::call(addr)
+				.data((BOB_ADDR, crate::exec::EMPTY_CODE_HASH).encode())
+				.build());
 		});
 	}
 }

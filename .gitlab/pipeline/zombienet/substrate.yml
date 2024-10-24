@@ -74,7 +74,7 @@ zombienet-substrate-0002-validators-warp-sync:
   extends:
     - .zombienet-substrate-warp-sync-common
   before_script:
-    - !reference [.zombienet-substrate-warp-sync-common, before_script]
+    - !reference [ .zombienet-substrate-warp-sync-common, before_script ]
     - cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0002-validators-warp-sync
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
@@ -85,7 +85,7 @@ zombienet-substrate-0003-block-building-warp-sync:
   extends:
     - .zombienet-substrate-warp-sync-common
   before_script:
-    - !reference [.zombienet-substrate-warp-sync-common, before_script]
+    - !reference [ .zombienet-substrate-warp-sync-common, before_script ]
     - cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0003-block-building-warp-sync
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
