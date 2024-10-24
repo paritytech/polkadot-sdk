@@ -243,7 +243,7 @@ pub mod pallet {
 		/// NOTE: This parameter is also used within the Bounties Pallet extension if enabled.
 		#[pallet::constant]
 		#[deprecated(
-			note = "Gov v1 type used for `spend_local`, configure pallet to use PayFromAccount for Paymaster type and use `spend` instead"
+			note = "Gov v1 type used for `spend_local`, configure pallet to use `PayFromAccount` for `Paymaster` type and use `spend` instead"
 		)]
 		type MaxApprovals: Get<u32>;
 
@@ -285,14 +285,14 @@ pub mod pallet {
 	/// Number of proposals that have been made.
 	#[pallet::storage]
 	#[deprecated(
-		note = "Gov v1 type used for `spend_local`, configure pallet to use PayFromAccount for Paymaster type and use `spend` instead"
+		note = "Gov v1 type used for `spend_local`, configure pallet to use `PayFromAccount` for `Paymaster` type and use `spend` instead"
 	)]
 	pub type ProposalCount<T, I = ()> = StorageValue<_, ProposalIndex, ValueQuery>;
 
 	/// Proposals that have been made.
 	#[pallet::storage]
 	#[deprecated(
-		note = "Gov v1 type used for `spend_local`, configure pallet to use PayFromAccount for Paymaster type and use `spend` instead"
+		note = "Gov v1 type used for `spend_local`, configure pallet to use `PayFromAccount` for `Paymaster` type and use `spend` instead"
 	)]
 	#[allow(deprecated)]
 	pub type Proposals<T: Config<I>, I: 'static = ()> = StorageMap<
@@ -311,7 +311,7 @@ pub mod pallet {
 	/// Proposal indices that have been approved but not yet awarded.
 	#[pallet::storage]
 	#[deprecated(
-		note = "Gov v1 type used for `spend_local`, configure pallet to use PayFromAccount for Paymaster type and use `spend` instead"
+		note = "Gov v1 type used for `spend_local`, configure pallet to use `PayFromAccount` for `Paymaster` type and use `spend` instead"
 	)]
 	#[allow(deprecated)]
 	pub type Approvals<T: Config<I>, I: 'static = ()> =
@@ -487,7 +487,7 @@ pub mod pallet {
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::spend_local())]
 		#[deprecated(
-			note = "This call will be removed by May 2025. Configure pallet to use PayFromAccount for Paymaster type and use `spend` instead"
+			note = "This call will be removed by May 2025. Configure pallet to use `PayFromAccount` for `Paymaster` type and use `spend` instead"
 		)]
 		#[allow(deprecated)]
 		pub fn spend_local(
@@ -563,7 +563,7 @@ pub mod pallet {
 		#[pallet::call_index(4)]
 		#[pallet::weight((T::WeightInfo::remove_approval(), DispatchClass::Operational))]
 		#[deprecated(
-			note = "This call will be removed by May 2025. Configure pallet to use PayFromAccount for Paymaster type and use `void_spend` instead."
+			note = "This call will be removed by May 2025. Configure pallet to use `PayFromAccount` for `Paymaster` type and use `void_spend` instead."
 		)]
 		#[allow(deprecated)]
 		pub fn remove_approval(
