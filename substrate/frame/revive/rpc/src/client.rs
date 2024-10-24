@@ -608,7 +608,10 @@ impl Client {
 		block: BlockNumberOrTagOrHash,
 	) -> Result<EthContractResult<Balance>, ClientError> {
 		let runtime_api = self.runtime_api(&block).await?;
-		let from = tx.from.ok_or(ClientError::DryRunFailed)?;
+		let from = tx.from.ok_or_else(|| {
+			log::debug!(target: LOG_TARGET, "Dry run failed: from address is missing");
+			ClientError::DryRunFailed
+		})?;
 		let value = tx
 			.value
 			.unwrap_or_default()
