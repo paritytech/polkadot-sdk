@@ -126,11 +126,11 @@ impl Def {
 				},
 				Some(PalletAttr::RuntimeCall(cw, span)) if call.is_none() =>
 					call = Some(call::CallDef::try_from(span, index, item, dev_mode, cw)?),
-				Some(PalletAttr::Tasks(_)) if tasks.is_none() => {
+				Some(PalletAttr::Tasks(span)) if tasks.is_none() => {
 					let item_tokens = item.to_token_stream();
 					// `TasksDef::parse` needs to know if attr was provided so we artificially
 					// re-insert it here
-					tasks = Some(syn::parse2::<tasks::TasksDef>(quote::quote! {
+					tasks = Some(syn::parse2::<tasks::TasksDef>(quote::quote_spanned! { span =>
 						#[pallet::tasks_experimental]
 						#item_tokens
 					})?);
@@ -403,6 +403,9 @@ impl Def {
 		}
 		if let Some(extra_constants) = &self.extra_constants {
 			instances.extend_from_slice(&extra_constants.instances[..]);
+		}
+		if let Some(task_enum) = &self.task_enum {
+			instances.push(task_enum.instance_usage.clone());
 		}
 
 		let mut errors = instances.into_iter().filter_map(|instances| {
