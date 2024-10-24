@@ -36,7 +36,7 @@
 //!
 //! 1. preludes: [`prelude`], [`testing_prelude`] and [`runtime::prelude`], [`benchmarking`],
 //!    [`weights_prelude`], [`try_runtime`].
-//! 2. domain-specific modules: [`traits`], [`hashing`], [`arithmetic`] and [`derive`].
+//! 2. domain-specific modules: [`traits`], [`hashing`], [`arithmetic`] and [`derive`](mod@derive).
 //! 3. Accessing frame/substrate dependencies directly: [`deps`].
 //!
 //! The main intended use of this crate is for it to be used with the former, preludes:
@@ -76,6 +76,14 @@
 //!
 //! If not in preludes, one can look into the domain-specific modules. Finally, if an import is
 //! still not feasible, one can look into [`deps`].
+//!
+//! This crate also uses a `runtime` feature to include all of the types and tools needed to build
+//! FRAME-based runtimes, which otherwise are ignored. You can enable it with `--features runtime`.
+//!
+//! Notice that the preludes overlap since they have imports in common. More in detail:
+//! - [`testing_prelude`] brings in frame [`prelude`] and [`runtime::prelude`];
+//! - [`runtime::prelude`] brings in frame [`prelude`];
+//! - [`benchmarking`] brings in frame [`prelude`].
 //!
 //! ## Naming
 //!
@@ -121,8 +129,6 @@
 //! * Preludes should be extensive. The goal of this pallet is to be ONLY used with the preludes.
 //!   The domain-specific modules are just a backup, aiming to keep things organized. Don't hesitate
 //!   in adding more items to the main prelude.
-//! 	* When doing so, prefer adding the relevant item to `frame_support::pallet_prelude` and
-//!    `frame_system::pallet_prelude`.
 //! * The only non-module, non-prelude items exported from the top level crate is the `pallet`
 //!   macro, such that we can have the `#[frame::pallet] mod pallet { .. }` syntax working.
 //! * In most cases, you might want to create a domain-specific module, but also add it to the
