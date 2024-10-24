@@ -1022,6 +1022,7 @@ dependencies = [
  "pallet-nfts",
  "pallet-nfts-runtime-api",
  "pallet-proxy",
+ "pallet-revive",
  "pallet-session",
  "pallet-state-trie-migration",
  "pallet-timestamp",
@@ -15632,6 +15633,7 @@ dependencies = [
 name = "polkadot-sdk-docs"
 version = "0.0.1"
 dependencies = [
+ "assert_cmd",
  "chain-spec-guide-runtime",
  "cumulus-client-service",
  "cumulus-pallet-aura-ext",
@@ -15639,6 +15641,7 @@ dependencies = [
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-primitives-storage-weight-reclaim",
  "docify",
+ "frame-benchmarking",
  "frame-executive",
  "frame-metadata-hash-extension",
  "frame-support",
@@ -15662,6 +15665,7 @@ dependencies = [
  "pallet-example-offchain-worker",
  "pallet-example-single-block-migrations",
  "pallet-examples",
+ "pallet-grandpa",
  "pallet-multisig",
  "pallet-nfts",
  "pallet-preimage",
@@ -15676,8 +15680,12 @@ dependencies = [
  "pallet-xcm",
  "parachain-template-runtime",
  "parity-scale-codec",
+ "polkadot-omni-node-lib",
  "polkadot-sdk",
+ "polkadot-sdk-docs-first-pallet",
+ "polkadot-sdk-docs-first-runtime",
  "polkadot-sdk-frame",
+ "rand",
  "sc-chain-spec",
  "sc-cli",
  "sc-client-db",
@@ -15693,6 +15701,7 @@ dependencies = [
  "sc-rpc-api",
  "sc-service",
  "scale-info",
+ "serde_json",
  "simple-mermaid 0.1.1",
  "solochain-template-runtime",
  "sp-api 26.0.0",
@@ -15707,6 +15716,7 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
  "sp-version 29.0.0",
+ "sp-weights 27.0.0",
  "staging-chain-spec-builder",
  "staging-node-cli",
  "staging-parachain-info",
@@ -15717,6 +15727,35 @@ dependencies = [
  "substrate-wasm-builder",
  "xcm-docs",
  "xcm-simulator",
+]
+
+[[package]]
+name = "polkadot-sdk-docs-first-pallet"
+version = "0.0.0"
+dependencies = [
+ "docify",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+]
+
+[[package]]
+name = "polkadot-sdk-docs-first-runtime"
+version = "0.0.0"
+dependencies = [
+ "docify",
+ "pallet-balances",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "parity-scale-codec",
+ "polkadot-sdk-docs-first-pallet",
+ "polkadot-sdk-frame",
+ "scale-info",
+ "serde_json",
+ "sp-keyring",
+ "substrate-wasm-builder",
 ]
 
 [[package]]
@@ -15741,8 +15780,10 @@ dependencies = [
  "sp-consensus-aura",
  "sp-consensus-grandpa",
  "sp-core 28.0.0",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io 30.0.0",
+ "sp-keyring",
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
