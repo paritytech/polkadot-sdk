@@ -54,7 +54,7 @@ pub async fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let client = HttpClientBuilder::default().build(url)?;
 
 	let block_number = client.block_number().await?;
-	log::info!(target: LOG_TARGET, "Client initialized with block number {block_number:?}");
+	log::info!(target: LOG_TARGET, "Client initialized - Current 📦 block: #{block_number:?}");
 
 	// keep running server until ctrl-c or client subscription fails
 	let _ = updates.wait_for(|_| false).await;

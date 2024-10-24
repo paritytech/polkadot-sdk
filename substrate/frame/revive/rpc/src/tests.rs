@@ -44,7 +44,7 @@ async fn ws_client_with_retry(url: &str) -> WsClient {
 		}
 	})
 	.await
-	.expect("Hit timeout");
+	.expect("Hit timeout")
 }
 
 #[tokio::test]
