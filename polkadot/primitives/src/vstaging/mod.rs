@@ -39,6 +39,10 @@ use sp_staking::SessionIndex;
 /// Async backing primitives
 pub mod async_backing;
 
+/// The default claim queue offset to be used if it's not configured/accessible in the parachain
+/// runtime
+pub const DEFAULT_CLAIM_QUEUE_OFFSET: u8 = 0;
+
 /// A type representing the version of the candidate descriptor and internal version number.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, TypeInfo, RuntimeDebug, Copy)]
 #[cfg_attr(feature = "std", derive(Hash))]
@@ -310,24 +314,6 @@ pub enum UMPSignal {
 pub const UMP_SEPARATOR: Vec<u8> = vec![];
 
 impl CandidateCommitments {
-	/// Returns the core selector and claim queue offset the candidate has committed to, if any.
-	pub fn selected_core(&self) -> Option<(CoreSelector, ClaimQueueOffset)> {
-		// We need at least 2 messages for the separator and core selector
-		if self.upward_messages.len() < 2 {
-			return None
-		}
-
-		let separator_pos =
-			self.upward_messages.iter().rposition(|message| message == &UMP_SEPARATOR)?;
-
-		// Use first commitment
-		let message = self.upward_messages.get(separator_pos + 1)?;
-
-		match UMPSignal::decode(&mut message.as_slice()).ok()? {
-			UMPSignal::SelectCore(core_selector, cq_offset) => Some((core_selector, cq_offset)),
-		}
-	}
-
 	/// Returns the core index determined by `UMPSignal::SelectCore` commitment
 	/// and `assigned_cores`.
 	///
@@ -335,16 +321,47 @@ impl CandidateCommitments {
 	/// assigned cores is empty.
 	///
 	/// `assigned_cores` must be a sorted vec of all core indices assigned to a parachain.
-	pub fn committed_core_index(&self, assigned_cores: &[&CoreIndex]) -> Option<CoreIndex> {
+	pub fn committed_core_index(
+		&self,
+		assigned_cores: &BTreeMap<u8, BTreeSet<CoreIndex>>,
+	) -> Result<CoreIndex, CandidateReceiptError> {
+		let mut signals_iter =
+			self.upward_messages.iter().skip_while(|message| *message != &UMP_SEPARATOR);
+
+		let (core_selector, cq_offset) = if signals_iter.next().is_some() {
+			let core_selector_message =
+				signals_iter.next().ok_or(CandidateReceiptError::NoCoreSelected)?;
+			// We should have exactly one signal beyond the separator
+			if signals_iter.next().is_some() {
+				return Err(CandidateReceiptError::TooManyUMPSignals)
+			}
+
+			match UMPSignal::decode(&mut core_selector_message.as_slice())
+				.map_err(|_| CandidateReceiptError::InvalidSelectedCore)?
+			{
+				UMPSignal::SelectCore(core_selector, cq_offset) => (Some(core_selector), cq_offset),
+			}
+		} else {
+			// No separator, we should use the defaults.
+			(None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+		};
+
+		let assigned_cores =
+			assigned_cores.get(&cq_offset.0).ok_or(CandidateReceiptError::NoAssignment)?;
+
 		if assigned_cores.is_empty() {
-			return None
+			return Err(CandidateReceiptError::NoAssignment)
 		}
 
-		self.selected_core().and_then(|(core_selector, _cq_offset)| {
-			let core_index =
-				**assigned_cores.get(core_selector.0 as usize % assigned_cores.len())?;
-			Some(core_index)
-		})
+		let core_selector = core_selector
+			.or_else(|| if assigned_cores.len() == 1 { Some(CoreSelector(0)) } else { None })
+			.ok_or(CandidateReceiptError::NoCoreSelected)?;
+
+		assigned_cores
+			.iter()
+			.nth(core_selector.0 as usize % assigned_cores.len())
+			.ok_or(CandidateReceiptError::InvalidSelectedCore)
+			.copied()
 	}
 }
 
@@ -364,6 +381,9 @@ pub enum CandidateReceiptError {
 	NoCoreSelected,
 	/// Unknown version.
 	UnknownVersion(InternalVersion),
+	/// The allowed number of `UMPSignal` messages in the queue was exceeded.
+	/// Currenly only one such message is allowed.
+	TooManyUMPSignals,
 }
 
 macro_rules! impl_getter {
@@ -470,39 +490,11 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 				return Err(CandidateReceiptError::UnknownVersion(self.descriptor.version)),
 		}
 
-		if cores_per_para.is_empty() {
-			return Err(CandidateReceiptError::NoAssignment)
-		}
-
-		let (offset, core_selected) =
-			if let Some((_core_selector, cq_offset)) = self.commitments.selected_core() {
-				(cq_offset.0, true)
-			} else {
-				// If no core has been selected then we use offset 0 (top of claim queue)
-				(0, false)
-			};
-
-		// The cores assigned to the parachain at above computed offset.
 		let assigned_cores = cores_per_para
 			.get(&self.descriptor.para_id())
-			.ok_or(CandidateReceiptError::NoAssignment)?
-			.get(&offset)
-			.ok_or(CandidateReceiptError::NoAssignment)?
-			.into_iter()
-			.collect::<Vec<_>>();
+			.ok_or(CandidateReceiptError::NoAssignment)?;
 
-		let core_index = if core_selected {
-			self.commitments
-				.committed_core_index(assigned_cores.as_slice())
-				.ok_or(CandidateReceiptError::NoAssignment)?
-		} else {
-			// `SelectCore` commitment is mandatory for elastic scaling parachains.
-			if assigned_cores.len() > 1 {
-				return Err(CandidateReceiptError::NoCoreSelected)
-			}
-
-			**assigned_cores.get(0).ok_or(CandidateReceiptError::NoAssignment)?
-		};
+		let core_index = self.commitments.committed_core_index(assigned_cores)?;
 
 		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
 		if core_index != descriptor_core_index {

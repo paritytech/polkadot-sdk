@@ -48,7 +48,7 @@ use polkadot_primitives::{
 	vstaging::{
 		BackedCandidate, CandidateDescriptorV2 as CandidateDescriptor,
 		CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, UMP_SEPARATOR,
 	},
 	well_known_keys, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, HeadData,
 	Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId,
@@ -412,11 +412,6 @@ pub(crate) enum UmpAcceptanceCheckErr {
 	TotalSizeExceeded { total_size: u64, limit: u64 },
 	/// A para-chain cannot send UMP messages while it is offboarding.
 	IsOffboarding,
-	/// The allowed number of `UMPSignal` messages in the queue was exceeded.
-	/// Currenly only one such message is allowed.
-	TooManyUMPSignals { count: u32 },
-	/// The UMP queue contains an invalid `UMPSignal`
-	NoUmpSignal,
 }
 
 impl fmt::Debug for UmpAcceptanceCheckErr {
@@ -444,12 +439,6 @@ impl fmt::Debug for UmpAcceptanceCheckErr {
 			),
 			UmpAcceptanceCheckErr::IsOffboarding => {
 				write!(fmt, "upward message rejected because the para is off-boarding")
-			},
-			UmpAcceptanceCheckErr::TooManyUMPSignals { count } => {
-				write!(fmt, "the ump queue has too many `UMPSignal` messages ({} > 1 )", count)
-			},
-			UmpAcceptanceCheckErr::NoUmpSignal => {
-				write!(fmt, "Required UMP signal not found")
 			},
 		}
 	}
@@ -925,25 +914,10 @@ impl<T: Config> Pallet<T> {
 		upward_messages: &[UpwardMessage],
 	) -> Result<(), UmpAcceptanceCheckErr> {
 		// Filter any pending UMP signals and the separator.
-		let upward_messages = if let Some(separator_index) =
-			upward_messages.iter().position(|message| message.is_empty())
-		{
-			let (upward_messages, ump_signals) = upward_messages.split_at(separator_index);
-
-			if ump_signals.len() > 2 {
-				return Err(UmpAcceptanceCheckErr::TooManyUMPSignals {
-					count: ump_signals.len() as u32,
-				})
-			}
-
-			if ump_signals.len() == 1 {
-				return Err(UmpAcceptanceCheckErr::NoUmpSignal)
-			}
-
-			upward_messages
-		} else {
-			upward_messages
-		};
+		let upward_messages = upward_messages
+			.iter()
+			.take_while(|message| message != &&UMP_SEPARATOR)
+			.collect::<Vec<_>>();
 
 		// Cannot send UMP messages while off-boarding.
 		if paras::Pallet::<T>::is_offboarding(para) {
@@ -1000,7 +974,7 @@ impl<T: Config> Pallet<T> {
 		let bounded = upward_messages
 			.iter()
 			// Stop once we hit the `UMPSignal` separator.
-			.take_while(|message| !message.is_empty())
+			.take_while(|message| message != &&UMP_SEPARATOR)
 			.filter_map(|d| {
 				BoundedSlice::try_from(&d[..])
 					.inspect_err(|_| {
