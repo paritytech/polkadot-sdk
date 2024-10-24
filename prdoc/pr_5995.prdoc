@@ -16,4 +16,4 @@ crates:
   - name: pallet-proxy
     bump: minor
   - name: polkadot-sdk-frame
-    bump: minor
+    bump: major
