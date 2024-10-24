@@ -28,7 +28,6 @@ use sc_network::NetworkBackend;
 use sc_service::{build_polkadot_syncing_strategy, Configuration, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sp_runtime::traits::Header;
-use sp_timestamp::Timestamp;
 use std::{marker::PhantomData, sync::Arc};
 
 pub struct ManualSealNode<NodeSpec>(PhantomData<NodeSpec>);
@@ -182,7 +181,10 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 						additional_key_values: None,
 					};
 					Ok((
-						sp_timestamp::InherentDataProvider::new(Timestamp::new(0)),
+						// This is intentional, as the runtime that we expect to run against this
+						// will never receive the aura-related inherents/digests, and providing
+						// real timestamps would cause aura <> timestamp checking to fail.
+						sp_timestamp::InherentDataProvider::new(sp_timestamp::Timestamp::new(0)),
 						mocked_parachain,
 					))
 				}
