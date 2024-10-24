@@ -58,6 +58,7 @@ pub trait WeightInfo {
 	fn service_page_base_no_completion() -> Weight;
 	fn service_page_item() -> Weight;
 	fn bump_service_head() -> Weight;
+	fn set_service_head() -> Weight;
 	fn reap_page() -> Weight;
 	fn execute_overweight_page_removed() -> Weight;
 	fn execute_overweight_page_updated() -> Weight;
@@ -142,6 +143,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `MessageQueue::BookStateFor` (r:1 w:0)
 	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
 	fn bump_service_head() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `246`
+		//  Estimated: `3514`
+		// Minimum execution time: 6_836_000 picoseconds.
+		Weight::from_parts(6_986_000, 3514)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn set_service_head() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `246`
 		//  Estimated: `3514`
@@ -269,6 +279,15 @@ impl WeightInfo for () {
 	/// Storage: `MessageQueue::BookStateFor` (r:1 w:0)
 	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
 	fn bump_service_head() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `246`
+		//  Estimated: `3514`
+		// Minimum execution time: 6_836_000 picoseconds.
+		Weight::from_parts(6_986_000, 3514)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn set_service_head() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `246`
 		//  Estimated: `3514`
