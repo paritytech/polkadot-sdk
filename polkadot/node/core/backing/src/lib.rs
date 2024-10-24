@@ -806,7 +806,6 @@ async fn handle_active_leaves_update<Context>(
 ) -> Result<(), Error> {
 	// Activate in implicit view before deactivate, per the docs
 	// on ImplicitView, this is more efficient.
-	// TODO: refactor this
 	let res = if let Some(leaf) = update.activated {
 		let leaf_hash = leaf.hash;
 		Some((leaf, state.implicit_view.activate_leaf(ctx.sender(), leaf_hash).await.map(|_| ())))
