@@ -73,7 +73,7 @@ impl my_pallet::Config for Runtime {}
 impl my_pallet::Config<frame_support::instances::Instance2> for Runtime {}
 
 #[cfg(feature = "frame-feature-testing")]
-impl my_pallet::Config<frame_support::instances::Instance2> for Runtime {}
+impl my_pallet::Config<frame_support::instances::Instance3> for Runtime {}
 
 fn new_test_ext() -> sp_io::TestExternalities {
 	use sp_runtime::BuildStorage;

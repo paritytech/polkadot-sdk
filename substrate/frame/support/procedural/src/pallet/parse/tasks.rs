@@ -156,10 +156,8 @@ impl syn::parse::Parse for TaskEnumDef {
 			None => None,
 		};
 
-		let instance_usage = helper::check_type_def_gen(
-			&item_enum.generics,
-			item_enum.ident.span(),
-		)?;
+		let instance_usage =
+			helper::check_type_def_gen(&item_enum.generics, item_enum.ident.span())?;
 
 		Ok(TaskEnumDef { attr, item_enum, instance_usage })
 	}
