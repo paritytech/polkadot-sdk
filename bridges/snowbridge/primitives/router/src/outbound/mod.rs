@@ -222,7 +222,9 @@ where
 		Ok(result)
 	}
 
-	fn make_unlock_native_token_command(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
+	fn make_unlock_native_token_command(
+		&mut self,
+	) -> Result<(Command, [u8; 32]), XcmConverterError> {
 		use XcmConverterError::*;
 
 		// Get the reserve assets from WithdrawAsset.
@@ -333,7 +335,9 @@ where
 	/// # BuyExecution
 	/// # DepositAsset
 	/// # SetTopic
-	fn make_mint_foreign_token_command(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
+	fn make_mint_foreign_token_command(
+		&mut self,
+	) -> Result<(Command, [u8; 32]), XcmConverterError> {
 		use XcmConverterError::*;
 
 		// Get the reserve assets.
