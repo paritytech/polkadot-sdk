@@ -126,7 +126,8 @@ fn tasks_work() {
 		frame_support::assert_ok!(System::do_task(RuntimeOrigin::signed(1), task.clone(),));
 		assert_eq!(my_pallet::SomeStorage::<Runtime, Instance2>::get(), (0, 2));
 
-		let task = RuntimeTask::MyPallet4(my_pallet_2::Task::<Runtime, _>::Foo { i: 0u32, j: 2u64 });
+		let task =
+			RuntimeTask::MyPallet4(my_pallet_2::Task::<Runtime, _>::Foo { i: 0u32, j: 2u64 });
 
 		frame_support::assert_ok!(System::do_task(RuntimeOrigin::signed(1), task.clone(),));
 		assert_eq!(my_pallet_2::SomeStorage::<Runtime, Instance1>::get(), (0, 2));
