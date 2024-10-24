@@ -926,7 +926,7 @@ pub mod pallet {
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
 			// Set the start of the first era.
-			if let Some(mut active_era) = Self::active_era() {
+			if let Some(mut active_era) = ActiveEra::<T>::get() {
 				if active_era.start.is_none() {
 					let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
 					active_era.start = Some(now_as_millis_u64);
