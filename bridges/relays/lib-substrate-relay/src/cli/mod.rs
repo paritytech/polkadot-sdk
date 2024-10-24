@@ -16,13 +16,10 @@
 
 //! Deal with CLI args of substrate-to-substrate relay.
 
-use bp_messages::LaneId;
 use rbtag::BuildInfo;
-use sp_core::H256;
-use sp_runtime::Either;
+use sp_runtime::traits::TryConvert;
 use std::str::FromStr;
 use structopt::StructOpt;
-use strum::{EnumString, VariantNames};
 
 pub mod bridge;
 pub mod chain_schema;
@@ -43,36 +40,19 @@ pub type DefaultClient<C> = relay_substrate_client::RpcWithCachingClient<C>;
 
 /// Lane id.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HexLaneId(Either<H256, [u8; 4]>);
+pub struct HexLaneId(Vec<u8>);
 
-impl From<HexLaneId> for LaneId {
-	fn from(lane_id: HexLaneId) -> LaneId {
-		LaneId::from_inner(lane_id.0)
+impl<T: TryFrom<Vec<u8>>> TryConvert<HexLaneId, T> for HexLaneId {
+	fn try_convert(lane_id: HexLaneId) -> Result<T, HexLaneId> {
+		T::try_from(lane_id.0.clone()).map_err(|_| lane_id)
 	}
 }
 
 impl FromStr for HexLaneId {
-	type Err = rustc_hex::FromHexError;
+	type Err = hex::FromHexError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		// check `H256` variant at first
-		match H256::from_str(s) {
-			Ok(hash) => Ok(HexLaneId(Either::Left(hash))),
-			Err(hash_error) => {
-				// check backwards compatible
-				let mut lane_id = [0u8; 4];
-				match hex::decode_to_slice(s, &mut lane_id) {
-					Ok(_) => Ok(HexLaneId(Either::Right(lane_id))),
-					Err(array_error) => {
-						log::error!(
-							target: "bridge",
-							"Failed to parse `HexLaneId` as hex string: {s:?} - hash_error: {hash_error:?}, array_error: {array_error:?}",
-						);
-						Err(hash_error)
-					},
-				}
-			},
-		}
+		hex::decode(s).map(Self)
 	}
 }
 
@@ -158,20 +138,11 @@ where
 	}
 }
 
-#[doc = "Runtime version params."]
-#[derive(StructOpt, Debug, PartialEq, Eq, Clone, Copy, EnumString, VariantNames)]
-pub enum RuntimeVersionType {
-	/// Auto query version from chain
-	Auto,
-	/// Custom `spec_version` and `transaction_version`
-	Custom,
-	/// Read version from bundle dependencies directly.
-	Bundle,
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use bp_messages::{HashedLaneId, LegacyLaneId};
+	use sp_core::H256;
 
 	#[test]
 	fn hex_lane_id_from_str_works() {
@@ -185,21 +156,21 @@ mod tests {
 		)
 		.is_err());
 		assert_eq!(
-			LaneId::from(
+			HexLaneId::try_convert(
 				HexLaneId::from_str(
 					"0101010101010101010101010101010101010101010101010101010101010101"
 				)
 				.unwrap()
 			),
-			LaneId::from_inner(Either::Left(H256::from([1u8; 32])))
+			Ok(HashedLaneId::from_inner(H256::from([1u8; 32])))
 		);
 
 		// array variant
 		assert!(HexLaneId::from_str("0000001").is_err());
 		assert!(HexLaneId::from_str("000000001").is_err());
 		assert_eq!(
-			LaneId::from(HexLaneId::from_str("00000001").unwrap()),
-			LaneId::from_inner(Either::Right([0, 0, 0, 1]))
+			HexLaneId::try_convert(HexLaneId::from_str("00000001").unwrap()),
+			Ok(LegacyLaneId([0, 0, 0, 1]))
 		);
 	}
 }

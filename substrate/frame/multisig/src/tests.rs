@@ -105,7 +105,7 @@ fn multisig_deposit_is_taken_and_returned() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(1),
 			2,
@@ -226,7 +226,7 @@ fn multisig_2_of_3_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
@@ -259,7 +259,7 @@ fn multisig_3_of_3_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
@@ -329,7 +329,7 @@ fn multisig_2_of_3_as_multi_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(1),
 			2,
@@ -361,9 +361,9 @@ fn multisig_2_of_3_as_multi_with_many_calls_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call1 = call_transfer(6, 10);
-		let call1_weight = call1.get_dispatch_info().weight;
+		let call1_weight = call1.get_dispatch_info().call_weight;
 		let call2 = call_transfer(7, 5);
-		let call2_weight = call2.get_dispatch_info().weight;
+		let call2_weight = call2.get_dispatch_info().call_weight;
 
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(1),
@@ -412,7 +412,7 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 10);
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(1),
@@ -653,7 +653,7 @@ fn multisig_handles_no_preimage_after_all_approve() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),

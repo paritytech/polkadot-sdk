@@ -23,7 +23,8 @@ pub mod tokens;
 pub use tokens::{
 	currency::{
 		ActiveIssuanceOf, Currency, InspectLockableCurrency, LockIdentifier, LockableCurrency,
-		NamedReservableCurrency, ReservableCurrency, TotalIssuanceOf, VestingSchedule,
+		NamedReservableCurrency, ReservableCurrency, TotalIssuanceOf, VestedTransfer,
+		VestingSchedule,
 	},
 	fungible, fungibles,
 	imbalance::{Imbalance, OnUnbalanced, SignedImbalance},
@@ -59,10 +60,10 @@ pub use misc::{
 	AccountTouch, Backing, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
 	ConstU16, ConstU32, ConstU64, ConstU8, DefensiveMax, DefensiveMin, DefensiveSaturating,
 	DefensiveTruncateFrom, EnsureInherentsAreFirst, EqualPrivilegeOnly, EstimateCallFee,
-	ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime, IsInherent,
-	IsSubType, IsType, Len, OffchainWorker, OnKilledAccount, OnNewAccount, PrivilegeCmp,
-	SameOrOther, Time, TryCollect, TryDrop, TypedGet, UnixTime, VariantCount, VariantCountOf,
-	WrapperKeepOpaque, WrapperOpaque,
+	ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime, InherentBuilder,
+	IsInherent, IsSubType, IsType, Len, OffchainWorker, OnKilledAccount, OnNewAccount,
+	PrivilegeCmp, SameOrOther, SignedTransactionBuilder, Time, TryCollect, TryDrop, TypedGet,
+	UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque, WrapperOpaque,
 };
 #[allow(deprecated)]
 pub use misc::{PreimageProvider, PreimageRecipient};
@@ -131,6 +132,9 @@ pub mod dynamic_params;
 
 pub mod tasks;
 pub use tasks::Task;
+
+mod proving;
+pub use proving::*;
 
 #[cfg(feature = "try-runtime")]
 mod try_runtime;

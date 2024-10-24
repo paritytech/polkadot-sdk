@@ -25,7 +25,6 @@ polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 sp-consensus = { workspace = true }
-polkadot-node-jaeger = { workspace = true, default-features = true }
 
 [dev-dependencies]
 log = { workspace = true, default-features = true }

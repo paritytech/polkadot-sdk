@@ -1,0 +1,37 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Replace `lazy_static` with `LazyLock`
+
+doc:
+  - audience: Node Dev
+    description: |
+      Replace all lazy_static usages with LazyLock from the Rust standard library. This will bring us less dependencies. 
+
+crates:
+  - name: sp-core
+    bump: patch
+  - name: sp-panic-handler
+    bump: patch
+  - name: sp-trie
+    bump: patch
+  - name: sc-utils
+    bump: major
+  - name: cumulus-pallet-parachain-system
+    bump: patch
+  - name: sp-consensus-beefy
+    bump: patch
+  - name: polkadot-node-primitives
+    bump: patch
+  - name: polkadot-node-jaeger
+    bump: patch
+  - name: frame-benchmarking-cli
+    bump: major
+  - name: sc-offchain
+    bump: patch
+  - name: polkadot-dispute-distribution
+    bump: patch
+  - name: polkadot-gossip-support
+    bump: patch
+  - name: xcm-emulator
+    bump: patch  

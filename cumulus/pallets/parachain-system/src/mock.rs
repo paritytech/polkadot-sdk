@@ -94,6 +94,7 @@ impl Config for Test {
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = TestConsensusHook;
 	type WeightInfo = ();
+	type SelectCore = DefaultCoreSelector<Test>;
 }
 
 std::thread_local! {
