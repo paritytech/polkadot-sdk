@@ -124,7 +124,7 @@ use sp_runtime::{
 	ArithmeticError, DigestItem,
 };
 use sp_std::prelude::*;
-pub use types::{FeeWithBlockNumber, ProcessMessageOriginOf};
+pub use types::{PendingOrder, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -251,10 +251,10 @@ pub mod pallet {
 	#[pallet::getter(fn operating_mode)]
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
-	/// Fee locked by nonce
+	/// Pending orders to relay
 	#[pallet::storage]
-	pub type LockedFee<T: Config> =
-		StorageMap<_, Identity, u64, FeeWithBlockNumber<BlockNumberFor<T>>, OptionQuery>;
+	pub type PendingOrders<T: Config> =
+		StorageMap<_, Identity, u64, PendingOrder<BlockNumberFor<T>>, OptionQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
@@ -310,12 +310,12 @@ pub mod pallet {
 			ensure!(T::GatewayAddress::get() == envelope.gateway, Error::<T>::InvalidGateway);
 
 			let nonce = envelope.nonce;
-			ensure!(<LockedFee<T>>::contains_key(nonce), Error::<T>::PendingNonceNotExist);
+			ensure!(<PendingOrders<T>>::contains_key(nonce), Error::<T>::PendingNonceNotExist);
 
 			// Todo: Reward relayer
 			// let locked = <LockedFee<T>>::get(nonce);
 			// T::RewardLeger::deposit(envelope.reward_address.into(), locked.fee.into())?;
-			<LockedFee<T>>::remove(nonce);
+			<PendingOrders<T>>::remove(nonce);
 
 			Self::deposit_event(Event::MessageDeliveryProofReceived { nonce });
 
@@ -383,8 +383,8 @@ pub mod pallet {
 			Messages::<T>::append(Box::new(committed_message.clone()));
 			MessageLeaves::<T>::append(message_abi_encoded_hash);
 
-			<LockedFee<T>>::try_mutate(nonce, |maybe_locked| -> DispatchResult {
-				let mut locked = maybe_locked.clone().unwrap_or_else(|| FeeWithBlockNumber {
+			<PendingOrders<T>>::try_mutate(nonce, |maybe_locked| -> DispatchResult {
+				let mut locked = maybe_locked.clone().unwrap_or_else(|| PendingOrder {
 					nonce,
 					fee: 0,
 					block_number: frame_system::Pallet::<T>::current_block_number(),

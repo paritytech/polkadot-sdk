@@ -10,9 +10,9 @@ use sp_std::prelude::*;
 
 pub type ProcessMessageOriginOf<T> = <Pallet<T> as ProcessMessage>::Origin;
 
-/// Fee with block number for easy fetch the pending message on relayer side
+/// Pending order
 #[derive(Encode, Decode, TypeInfo, Clone, Eq, PartialEq, RuntimeDebug, MaxEncodedLen)]
-pub struct FeeWithBlockNumber<BlockNumber> {
+pub struct PendingOrder<BlockNumber> {
 	/// The nonce used to identify the message
 	pub nonce: u64,
 	/// The block number in which the message was committed
