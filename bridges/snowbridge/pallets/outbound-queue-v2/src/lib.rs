@@ -115,7 +115,7 @@ use frame_support::{
 use snowbridge_core::{
 	inbound::Message as DeliveryMessage,
 	outbound::v2::{CommandWrapper, Fee, GasMeter, InboundMessage, Message},
-	BasicOperatingMode,
+	BasicOperatingMode, RewardLedger,
 };
 use snowbridge_merkle_tree::merkle_root;
 use sp_core::H256;
@@ -130,6 +130,8 @@ pub use weights::WeightInfo;
 pub use pallet::*;
 
 use alloy_sol_types::SolValue;
+
+use sp_runtime::traits::TrailingZeroInput;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -175,6 +177,9 @@ pub mod pallet {
 		/// Address of the Gateway contract
 		#[pallet::constant]
 		type GatewayAddress: Get<H160>;
+
+		/// Reward leger
+		type RewardLedger: RewardLedger<<Self as frame_system::Config>::AccountId, Self::Balance>;
 	}
 
 	#[pallet::event]
@@ -312,9 +317,12 @@ pub mod pallet {
 			let nonce = envelope.nonce;
 			ensure!(<PendingOrders<T>>::contains_key(nonce), Error::<T>::PendingNonceNotExist);
 
-			// Todo: Reward relayer
-			// let locked = <LockedFee<T>>::get(nonce);
-			// T::RewardLeger::deposit(envelope.reward_address.into(), locked.fee.into())?;
+			let order = <PendingOrders<T>>::get(nonce).ok_or(Error::<T>::PendingNonceNotExist)?;
+			let account = T::AccountId::decode(&mut &envelope.reward_address[..]).unwrap_or(
+				T::AccountId::decode(&mut TrailingZeroInput::zeroes()).expect("zero address"),
+			);
+			T::RewardLedger::deposit(account, order.fee.into())?;
+
 			<PendingOrders<T>>::remove(nonce);
 
 			Self::deposit_event(Event::MessageDeliveryProofReceived { nonce });
