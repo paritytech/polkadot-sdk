@@ -49,7 +49,7 @@ fn setup_multi<T: Config>(
 mod benchmarks {
 	use super::*;
 
-	// `z`: Transaction Length
+	/// `z`: Transaction Length
 	#[benchmark]
 	fn as_multi_threshold_1(z: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let max_signatories = T::MaxSignatories::get().into();
@@ -68,8 +68,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// `z`: Transaction Length
-	// `s`: Signatories, need at least 2 people
+	/// `z`: Transaction Length
+	/// `s`: Signatories, need at least 2 people
 	#[benchmark]
 	fn as_multi_create(
 		s: Linear<2, { T::MaxSignatories::get() }>,
@@ -91,8 +91,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// `z`: Transaction Length
-	// `s`: Signatories, need at least 3 people (so we don't complete the multisig)
+	/// `z`: Transaction Length
+	/// `s`: Signatories, need at least 3 people (so we don't complete the multisig)
 	#[benchmark]
 	fn as_multi_approve(
 		s: Linear<3, { T::MaxSignatories::get() }>,
@@ -136,8 +136,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// `z`: Transaction Length
-	// `s`: Signatories, need at least 2 people
+	/// `z`: Transaction Length
+	/// `s`: Signatories, need at least 2 people
 	#[benchmark]
 	fn as_multi_complete(
 		s: Linear<2, { T::MaxSignatories::get() }>,
@@ -194,8 +194,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// `z`: Transaction Length, not a component
-	// `s`: Signatories, need at least 2 people
+	/// `z`: Transaction Length, not a component
+	/// `s`: Signatories, need at least 2 people
 	#[benchmark]
 	fn approve_as_multi_create(
 		s: Linear<2, { T::MaxSignatories::get() }>,
@@ -225,8 +225,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// `z`: Transaction Length, not a component
-	// `s`: Signatories, need at least 2 people
+	/// `z`: Transaction Length, not a component
+	/// `s`: Signatories, need at least 2 people
 	#[benchmark]
 	fn approve_as_multi_approve(
 		s: Linear<2, { T::MaxSignatories::get() }>,
@@ -270,8 +270,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// `z`: Transaction Length, not a component
-	// `s`: Signatories, need at least 2 people
+	/// `z`: Transaction Length, not a component
+	/// `s`: Signatories, need at least 2 people
 	#[benchmark]
 	fn cancel_as_multi(
 		s: Linear<2, { T::MaxSignatories::get() }>,

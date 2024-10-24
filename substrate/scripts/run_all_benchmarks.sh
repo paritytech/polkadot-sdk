@@ -25,37 +25,39 @@
 
 while getopts 'bfp:v' flag; do
   case "${flag}" in
-  b)
-    # Skip build.
-    skip_build='true'
-    ;;
-  f)
-    # Fail if any sub-command in a pipe fails, not just the last one.
-    set -o pipefail
-    # Fail on undeclared variables.
-    set -u
-    # Fail if any sub-command fails.
-    set -e
-    # Fail on traps.
-    set -E
-    ;;
-  p)
-    # Start at pallet
-    start_pallet="${OPTARG}"
-    ;;
-  v)
-    # Echo all executed commands.
-    set -x
-    ;;
-  *)
-    # Exit early.
-    echo "Bad options. Check Script."
-    exit 1
-    ;;
+    b)
+      # Skip build.
+      skip_build='true'
+      ;;
+    f)
+      # Fail if any sub-command in a pipe fails, not just the last one.
+      set -o pipefail
+      # Fail on undeclared variables.
+      set -u
+      # Fail if any sub-command fails.
+      set -e
+      # Fail on traps.
+      set -E
+      ;;
+    p)
+      # Start at pallet
+      start_pallet="${OPTARG}"
+      ;;
+    v)
+      # Echo all executed commands.
+      set -x
+      ;;
+    *)
+      # Exit early.
+      echo "Bad options. Check Script."
+      exit 1
+      ;;
   esac
 done
 
-if [ "$skip_build" != true ]; then
+
+if [ "$skip_build" != true ]
+then
   echo "[+] Compiling Substrate benchmarks..."
   cargo build --profile=production --locked --features=runtime-benchmarks --bin substrate-node
 fi
@@ -95,50 +97,56 @@ rm -f $ERR_FILE
 # Benchmark each pallet.
 for PALLET in "${PALLETS[@]}"; do
   # If `-p` is used, skip benchmarks until the start pallet.
-  if [ ! -z "$start_pallet" ] && [ "$start_pallet" != "$PALLET" ]; then
+  if [ ! -z "$start_pallet" ] && [ "$start_pallet" != "$PALLET" ]
+  then
     echo "[+] Skipping ${PALLET}..."
     continue
   else
     unset start_pallet
   fi
 
-  FOLDER="$(echo "${PALLET#*_}" | tr '_' '-')"
+  FOLDER="$(echo "${PALLET#*_}" | tr '_' '-')";
   WEIGHT_FILE="./frame/${FOLDER}/src/weights.rs"
 
   TEMPLATE_FILE_NAME="frame-weight-template.hbs"
-  if [ $(cargo metadata --locked --format-version 1 --no-deps | jq --arg pallet "${PALLET//_/-}" -r '.packages[] | select(.name == $pallet) | .dependencies | any(.name == "polkadot-sdk-frame")') = true ]; then
+  if [ $(cargo metadata --locked --format-version 1 --no-deps | jq --arg pallet "${PALLET//_/-}" -r '.packages[] | select(.name == $pallet) | .dependencies | any(.name == "polkadot-sdk-frame")') = true ]
+  then
     TEMPLATE_FILE_NAME="frame-umbrella-weight-template.hbs"
   fi
   TEMPLATE_FILE="./.maintain/${TEMPLATE_FILE_NAME}"
 
   # Special handling of custom weight paths.
-  if [ "$PALLET" == "frame_system_extensions" ] || [ "$PALLET" == "frame-system-extensions" ]; then
+  if [ "$PALLET" == "frame_system_extensions" ] || [ "$PALLET" == "frame-system-extensions" ]
+  then
     WEIGHT_FILE="./frame/system/src/extensions/weights.rs"
-  elif [ "$PALLET" == "pallet_asset_conversion_tx_payment" ] || [ "$PALLET" == "pallet-asset-conversion-tx-payment" ]; then
+  elif [ "$PALLET" == "pallet_asset_conversion_tx_payment" ] || [ "$PALLET" == "pallet-asset-conversion-tx-payment" ]
+  then
     WEIGHT_FILE="./frame/transaction-payment/asset-conversion-tx-payment/src/weights.rs"
-  elif [ "$PALLET" == "pallet_asset_tx_payment" ] || [ "$PALLET" == "pallet-asset-tx-payment" ]; then
+  elif [ "$PALLET" == "pallet_asset_tx_payment" ] || [ "$PALLET" == "pallet-asset-tx-payment" ]
+  then
     WEIGHT_FILE="./frame/transaction-payment/asset-tx-payment/src/weights.rs"
-  elif [ "$PALLET" == "pallet_asset_conversion_ops" ] || [ "$PALLET" == "pallet-asset-conversion-ops" ]; then
+  elif [ "$PALLET" == "pallet_asset_conversion_ops" ] || [ "$PALLET" == "pallet-asset-conversion-ops" ]
+  then
     WEIGHT_FILE="./frame/asset-conversion/ops/src/weights.rs"
   fi
 
-  echo "[+] Benchmarking $PALLET with weight file $WEIGHT_FILE"
+  echo "[+] Benchmarking $PALLET with weight file $WEIGHT_FILE";
 
   OUTPUT=$(
     $SUBSTRATE benchmark pallet \
-      --chain=dev \
-      --steps=50 \
-      --repeat=20 \
-      --pallet="$PALLET" \
-      --extrinsic="*" \
-      --wasm-execution=compiled \
-      --heap-pages=4096 \
-      --output="$WEIGHT_FILE" \
-      --header="./HEADER-APACHE2" \
-      --template="$TEMPLATE_FILE" 2>&1
+    --chain=dev \
+    --steps=50 \
+    --repeat=20 \
+    --pallet="$PALLET" \
+    --extrinsic="*" \
+    --wasm-execution=compiled \
+    --heap-pages=4096 \
+    --output="$WEIGHT_FILE" \
+    --header="./HEADER-APACHE2" \
+    --template="$TEMPLATE_FILE" 2>&1
   )
   if [ $? -ne 0 ]; then
-    echo "$OUTPUT" >>"$ERR_FILE"
+    echo "$OUTPUT" >> "$ERR_FILE"
     echo "[-] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
   fi
 done
@@ -147,15 +155,15 @@ done
 echo "[+] Benchmarking block and extrinsic overheads..."
 OUTPUT=$(
   $SUBSTRATE benchmark overhead \
-    --chain=dev \
-    --wasm-execution=compiled \
-    --weight-path="./frame/support/src/weights/" \
-    --header="./HEADER-APACHE2" \
-    --warmup=10 \
-    --repeat=100 2>&1
+  --chain=dev \
+  --wasm-execution=compiled \
+  --weight-path="./frame/support/src/weights/" \
+  --header="./HEADER-APACHE2" \
+  --warmup=10 \
+  --repeat=100 2>&1
 )
 if [ $? -ne 0 ]; then
-  echo "$OUTPUT" >>"$ERR_FILE"
+  echo "$OUTPUT" >> "$ERR_FILE"
   echo "[-] Failed to benchmark the block and extrinsic overheads. Error written to $ERR_FILE; continuing..."
 fi
 
