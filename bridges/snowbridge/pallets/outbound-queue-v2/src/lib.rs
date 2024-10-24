@@ -396,9 +396,7 @@ pub mod pallet {
 			})
 			.map_err(|_| Unsupported)?;
 
-			let new_nonce = nonce.checked_add(1).ok_or(Unsupported)?;
-
-			Nonce::<T>::set(new_nonce);
+			Nonce::<T>::set(nonce.checked_add(1).ok_or(Unsupported)?);
 
 			Self::deposit_event(Event::MessageAccepted { id: message.id, nonce });
 
