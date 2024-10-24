@@ -12,10 +12,7 @@
 //! Also, all the operations above (except the `Create` operation) use
 //! the [`AssetDefinition`] to retrieve the `Id` type of the asset.
 //!
-//! Each asset operation can be implemented for different asset kinds
-//! such as [`Class`](common_asset_kinds::Class) and [`Instance`](common_asset_kinds::Instance).
-//!
-//! Also, an asset operation can be implemented multiple times
+//! An asset operation can be implemented multiple times
 //! using different strategies associated with this operation.
 //!
 //! A strategy defines the operation behavior,
@@ -26,24 +23,15 @@ use core::marker::PhantomData;
 use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
 
-/// Trait for defining an asset of a certain kind.
+/// Trait for defining an asset.
 /// The definition must provide the `Id` type to identify the asset.
-///
-/// The common asset kinds are:
-/// * The [`Class`](common_asset_kinds::Class) asset kind is of assets that resemble class-like
-/// entities. For example, a collection of non-fungible tokens belongs to this kind.
-/// * The [`Instance`](common_asset_kinds::Instance) asset kind is of assets that resemble concrete
-/// instances of something. For example, a non-fungible token (which may or may not be part of a
-/// certain class) belongs to this kind.
-///
-/// Other asset kinds can be defined.
-pub trait AssetDefinition<AssetKind> {
+pub trait AssetDefinition {
 	/// Type for identifying the asset.
 	type Id;
 }
 
-/// Get the `Id` type of the asset kind.
-pub type AssetIdOf<AssetKind, T> = <T as AssetDefinition<AssetKind>>::Id;
+/// Get the `Id` type of the asset definition.
+pub type AssetIdOf<T> = <T as AssetDefinition>::Id;
 
 /// A strategy for use in the [`InspectMetadata`] implementations.
 ///
@@ -59,7 +47,7 @@ pub trait MetadataInspectStrategy {
 	type Value;
 }
 
-/// A trait representing the ability of a certain asset kind to **provide** its metadata
+/// A trait representing the ability of a certain asset to **provide** its metadata
 /// information.
 ///
 /// This trait can be implemented multiple times using different
@@ -67,9 +55,7 @@ pub trait MetadataInspectStrategy {
 ///
 /// An inspect strategy defines how the asset metadata is identified/retrieved
 /// and what [`Value`](MetadataInspectStrategy::Value) type is returned.
-pub trait InspectMetadata<AssetKind, Strategy: MetadataInspectStrategy>:
-	AssetDefinition<AssetKind>
-{
+pub trait InspectMetadata<Strategy: MetadataInspectStrategy>: AssetDefinition {
 	/// Inspect metadata information of the asset
 	/// using the given `id` and the inspect `strategy`.
 	///
@@ -97,16 +83,14 @@ pub trait MetadataUpdateStrategy {
 	type Success;
 }
 
-/// A trait representing the ability of a certain asset kind to **update** its metadata information.
+/// A trait representing the ability of a certain asset to **update** its metadata information.
 ///
 /// This trait can be implemented multiple times using different
 /// [`update strategies`](MetadataUpdateStrategy).
 ///
 /// An update strategy defines how the asset metadata is identified
 /// and what [`Update`](MetadataUpdateStrategy::Update) type is used.
-pub trait UpdateMetadata<AssetKind, Strategy: MetadataUpdateStrategy>:
-	AssetDefinition<AssetKind>
-{
+pub trait UpdateMetadata<Strategy: MetadataUpdateStrategy>: AssetDefinition {
 	/// Update metadata information of the asset
 	/// using the given `id`, the update `strategy`, and the `update` value.
 	///
@@ -147,13 +131,13 @@ pub trait IdAssignment {
 	type ReportedId;
 }
 
-/// A trait representing the ability of a certain asset kind to be created.
+/// A trait representing the ability of a certain asset to be created.
 ///
 /// This trait can be implemented multiple times using different
 /// [`"create" strategies`](CreateStrategy).
 ///
 /// A create strategy defines all aspects of asset creation including how an asset ID is assigned.
-pub trait Create<AssetKind, Strategy: CreateStrategy> {
+pub trait Create<Strategy: CreateStrategy> {
 	/// Create a new asset using the provided `strategy`.
 	fn create(strategy: Strategy) -> Result<Strategy::Success, DispatchError>;
 }
@@ -169,13 +153,13 @@ pub trait TransferStrategy {
 	type Success;
 }
 
-/// A trait representing the ability of a certain asset kind to be transferred.
+/// A trait representing the ability of a certain asset to be transferred.
 ///
 /// This trait can be implemented multiple times using different
 /// [`transfer strategies`](TransferStrategy).
 ///
 /// A transfer strategy defines transfer parameters.
-pub trait Transfer<AssetKind, Strategy: TransferStrategy>: AssetDefinition<AssetKind> {
+pub trait Transfer<Strategy: TransferStrategy>: AssetDefinition {
 	/// Transfer the asset identified by the given `id` using the provided `strategy`.
 	///
 	/// The ID type is retrieved from the [`AssetDefinition`].
@@ -195,13 +179,13 @@ pub trait DestroyStrategy {
 	type Success;
 }
 
-/// A trait representing the ability of a certain asset kind to be destroyed.
+/// A trait representing the ability of a certain asset to be destroyed.
 ///
 /// This trait can be implemented multiple times using different
 /// [`destroy strategies`](DestroyStrategy).
 ///
 /// A destroy strategy defines destroy parameters and the result value type.
-pub trait Destroy<AssetKind, Strategy: DestroyStrategy>: AssetDefinition<AssetKind> {
+pub trait Destroy<Strategy: DestroyStrategy>: AssetDefinition {
 	/// Destroy the asset identified by the given `id` using the provided `strategy`.
 	///
 	/// The ID type is retrieved from the [`AssetDefinition`].
@@ -219,13 +203,13 @@ pub trait StashStrategy {
 	type Success;
 }
 
-/// A trait representing the ability of a certain asset kind to be stashed.
+/// A trait representing the ability of a certain asset to be stashed.
 ///
 /// This trait can be implemented multiple times using different
 /// [`stash strategies`](StashStrategy).
 ///
 /// A stash strategy defines stash parameters.
-pub trait Stash<AssetKind, Strategy: StashStrategy>: AssetDefinition<AssetKind> {
+pub trait Stash<Strategy: StashStrategy>: AssetDefinition {
 	/// Stash the asset identified by the given `id` using the provided `strategy`.
 	///
 	/// The ID type is retrieved from the [`AssetDefinition`].
@@ -242,31 +226,17 @@ pub trait RestoreStrategy {
 	type Success;
 }
 
-/// A trait representing the ability of a certain asset kind to be restored.
+/// A trait representing the ability of a certain asset to be restored.
 ///
 /// This trait can be implemented multiple times using different
 /// [`restore strategies`](RestoreStrategy).
 ///
 /// A restore strategy defines restore parameters.
-pub trait Restore<AssetKind, Strategy: RestoreStrategy>: AssetDefinition<AssetKind> {
+pub trait Restore<Strategy: RestoreStrategy>: AssetDefinition {
 	/// Restore the asset identified by the given `id` using the provided `strategy`.
 	///
 	/// The ID type is retrieved from the [`AssetDefinition`].
 	fn restore(id: &Self::Id, strategy: Strategy) -> Result<Strategy::Success, DispatchError>;
-}
-
-/// This modules contains the common asset kinds.
-pub mod common_asset_kinds {
-	/// The `Class` asset kind is of assets that resemble class-like entities.
-	/// For instance, a collection of non-fungible tokens is an asset of this kind.
-	pub struct Class;
-
-	/// The `Instance` asset kind represents assets resembling instances of something.
-	/// For instance, a single non-fungible token is an asset of this kind.
-	///
-	/// An instance asset is not necessarily bound to a class.
-	/// There could be "classless" instances.
-	pub struct Instance;
 }
 
 /// This modules contains the common asset ops strategies.

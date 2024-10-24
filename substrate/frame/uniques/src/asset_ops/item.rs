@@ -1,9 +1,10 @@
-use crate::{asset_strategies::Attribute, *};
+use core::marker::PhantomData;
+
+use crate::{asset_strategies::Attribute, *, Item as ItemStorage};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::tokens::asset_ops::{
-		common_asset_kinds::Instance,
 		common_strategies::{
 			Bytes, CanTransfer, FromTo, IfOwnedBy, JustDo, Owned, Ownership, PredefinedId,
 			WithOrigin,
@@ -15,22 +16,24 @@ use frame_support::{
 use frame_system::ensure_signed;
 use sp_runtime::DispatchError;
 
-impl<T: Config<I>, I: 'static> AssetDefinition<Instance> for Pallet<T, I> {
+pub struct Item<PalletInstance>(PhantomData<PalletInstance>);
+
+impl<T: Config<I>, I: 'static> AssetDefinition for Item<Pallet<T, I>> {
 	type Id = (T::CollectionId, T::ItemId);
 }
 
-impl<T: Config<I>, I: 'static> InspectMetadata<Instance, Ownership<T::AccountId>> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> InspectMetadata<Ownership<T::AccountId>> for Item<Pallet<T, I>> {
 	fn inspect_metadata(
 		(collection, item): &Self::Id,
 		_ownership: Ownership<T::AccountId>,
 	) -> Result<T::AccountId, DispatchError> {
-		Item::<T, I>::get(collection, item)
+		ItemStorage::<T, I>::get(collection, item)
 			.map(|a| a.owner)
 			.ok_or(Error::<T, I>::UnknownItem.into())
 	}
 }
 
-impl<T: Config<I>, I: 'static> InspectMetadata<Instance, Bytes> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> InspectMetadata<Bytes> for Item<Pallet<T, I>> {
 	fn inspect_metadata(
 		(collection, item): &Self::Id,
 		_bytes: Bytes,
@@ -41,8 +44,8 @@ impl<T: Config<I>, I: 'static> InspectMetadata<Instance, Bytes> for Pallet<T, I>
 	}
 }
 
-impl<'a, T: Config<I>, I: 'static> InspectMetadata<Instance, Bytes<Attribute<'a>>>
-	for Pallet<T, I>
+impl<'a, T: Config<I>, I: 'static> InspectMetadata<Bytes<Attribute<'a>>>
+	for Item<Pallet<T, I>>
 {
 	fn inspect_metadata(
 		(collection, item): &Self::Id,
@@ -58,12 +61,12 @@ impl<'a, T: Config<I>, I: 'static> InspectMetadata<Instance, Bytes<Attribute<'a>
 	}
 }
 
-impl<T: Config<I>, I: 'static> InspectMetadata<Instance, CanTransfer> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> InspectMetadata<CanTransfer> for Item<Pallet<T, I>> {
 	fn inspect_metadata(
 		(collection, item): &Self::Id,
 		_can_transfer: CanTransfer,
 	) -> Result<bool, DispatchError> {
-		match (Collection::<T, I>::get(collection), Item::<T, I>::get(collection, item)) {
+		match (Collection::<T, I>::get(collection), ItemStorage::<T, I>::get(collection, item)) {
 			(Some(cd), Some(id)) => Ok(!cd.is_frozen && !id.is_frozen),
 			_ => Err(Error::<T, I>::UnknownItem.into()),
 		}
@@ -71,7 +74,7 @@ impl<T: Config<I>, I: 'static> InspectMetadata<Instance, CanTransfer> for Pallet
 }
 
 impl<T: Config<I>, I: 'static>
-	Create<Instance, Owned<T::AccountId, PredefinedId<(T::CollectionId, T::ItemId)>>> for Pallet<T, I>
+	Create<Owned<T::AccountId, PredefinedId<(T::CollectionId, T::ItemId)>>> for Item<Pallet<T, I>>
 {
 	fn create(
 		strategy: Owned<T::AccountId, PredefinedId<(T::CollectionId, T::ItemId)>>,
@@ -79,7 +82,7 @@ impl<T: Config<I>, I: 'static>
 		let Owned { owner, id_assignment, .. } = strategy;
 		let (collection, item) = id_assignment.params;
 
-		Self::do_mint(collection.clone(), item, owner, |_| Ok(()))?;
+		<Pallet<T, I>>::do_mint(collection.clone(), item, owner, |_| Ok(()))?;
 
 		Ok((collection, item))
 	}
@@ -87,12 +90,11 @@ impl<T: Config<I>, I: 'static>
 
 impl<T: Config<I>, I: 'static>
 	Create<
-		Instance,
 		WithOrigin<
 			T::RuntimeOrigin,
 			Owned<T::AccountId, PredefinedId<(T::CollectionId, T::ItemId)>>,
 		>,
-	> for Pallet<T, I>
+	> for Item<Pallet<T, I>>
 {
 	fn create(
 		strategy: WithOrigin<
@@ -105,7 +107,7 @@ impl<T: Config<I>, I: 'static>
 
 		let signer = ensure_signed(origin)?;
 
-		Self::do_mint(collection.clone(), item, owner, |collection_details| {
+		<Pallet<T, I>>::do_mint(collection.clone(), item, owner, |collection_details| {
 			ensure!(collection_details.issuer == signer, Error::<T, I>::NoPermission);
 			Ok(())
 		})?;
@@ -114,16 +116,16 @@ impl<T: Config<I>, I: 'static>
 	}
 }
 
-impl<T: Config<I>, I: 'static> Transfer<Instance, JustDo<T::AccountId>> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> Transfer<JustDo<T::AccountId>> for Item<Pallet<T, I>> {
 	fn transfer((collection, item): &Self::Id, strategy: JustDo<T::AccountId>) -> DispatchResult {
 		let JustDo(dest) = strategy;
 
-		Self::do_transfer(collection.clone(), *item, dest, |_, _| Ok(()))
+		<Pallet<T, I>>::do_transfer(collection.clone(), *item, dest, |_, _| Ok(()))
 	}
 }
 
 impl<T: Config<I>, I: 'static>
-	Transfer<Instance, WithOrigin<T::RuntimeOrigin, JustDo<T::AccountId>>> for Pallet<T, I>
+	Transfer<WithOrigin<T::RuntimeOrigin, JustDo<T::AccountId>>> for Item<Pallet<T, I>>
 {
 	fn transfer(
 		(collection, item): &Self::Id,
@@ -133,7 +135,7 @@ impl<T: Config<I>, I: 'static>
 
 		let signer = ensure_signed(origin)?;
 
-		Self::do_transfer(collection.clone(), *item, dest.clone(), |collection_details, details| {
+		<Pallet<T, I>>::do_transfer(collection.clone(), *item, dest.clone(), |collection_details, details| {
 			if details.owner != signer && collection_details.admin != signer {
 				let approved = details.approved.take().map_or(false, |i| i == signer);
 				ensure!(approved, Error::<T, I>::NoPermission);
@@ -143,25 +145,25 @@ impl<T: Config<I>, I: 'static>
 	}
 }
 
-impl<T: Config<I>, I: 'static> Transfer<Instance, FromTo<T::AccountId>> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> Transfer<FromTo<T::AccountId>> for Item<Pallet<T, I>> {
 	fn transfer((collection, item): &Self::Id, strategy: FromTo<T::AccountId>) -> DispatchResult {
 		let FromTo(from, to) = strategy;
 
-		Self::do_transfer(collection.clone(), *item, to.clone(), |_, details| {
+		<Pallet<T, I>>::do_transfer(collection.clone(), *item, to.clone(), |_, details| {
 			ensure!(details.owner == from, Error::<T, I>::WrongOwner);
 			Ok(())
 		})
 	}
 }
 
-impl<T: Config<I>, I: 'static> Destroy<Instance, JustDo> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> Destroy<JustDo> for Item<Pallet<T, I>> {
 	fn destroy((collection, item): &Self::Id, _strategy: JustDo) -> DispatchResult {
-		Self::do_burn(collection.clone(), *item, |_, _| Ok(()))
+		<Pallet<T, I>>::do_burn(collection.clone(), *item, |_, _| Ok(()))
 	}
 }
 
-impl<T: Config<I>, I: 'static> Destroy<Instance, WithOrigin<T::RuntimeOrigin, JustDo>>
-	for Pallet<T, I>
+impl<T: Config<I>, I: 'static> Destroy<WithOrigin<T::RuntimeOrigin, JustDo>>
+	for Item<Pallet<T, I>>
 {
 	fn destroy(
 		id @ (collection, item): &Self::Id,
@@ -169,17 +171,17 @@ impl<T: Config<I>, I: 'static> Destroy<Instance, WithOrigin<T::RuntimeOrigin, Ju
 	) -> DispatchResult {
 		let WithOrigin(origin, _just_do) = strategy;
 		let details =
-			Item::<T, I>::get(collection, item).ok_or(Error::<T, I>::UnknownCollection)?;
+			ItemStorage::<T, I>::get(collection, item).ok_or(Error::<T, I>::UnknownCollection)?;
 
-		<Self as Destroy<_, _>>::destroy(id, WithOrigin(origin, IfOwnedBy(details.owner)))
+		Self::destroy(id, WithOrigin(origin, IfOwnedBy(details.owner)))
 	}
 }
 
-impl<T: Config<I>, I: 'static> Destroy<Instance, IfOwnedBy<T::AccountId>> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> Destroy<IfOwnedBy<T::AccountId>> for Item<Pallet<T, I>> {
 	fn destroy((collection, item): &Self::Id, strategy: IfOwnedBy<T::AccountId>) -> DispatchResult {
 		let IfOwnedBy(who) = strategy;
 
-		Self::do_burn(collection.clone(), *item, |_, d| {
+		<Pallet<T, I>>::do_burn(collection.clone(), *item, |_, d| {
 			ensure!(d.owner == who, Error::<T, I>::NoPermission);
 			Ok(())
 		})
@@ -187,7 +189,7 @@ impl<T: Config<I>, I: 'static> Destroy<Instance, IfOwnedBy<T::AccountId>> for Pa
 }
 
 impl<T: Config<I>, I: 'static>
-	Destroy<Instance, WithOrigin<T::RuntimeOrigin, IfOwnedBy<T::AccountId>>> for Pallet<T, I>
+	Destroy<WithOrigin<T::RuntimeOrigin, IfOwnedBy<T::AccountId>>> for Item<Pallet<T, I>>
 {
 	fn destroy(
 		(collection, item): &Self::Id,
@@ -197,7 +199,7 @@ impl<T: Config<I>, I: 'static>
 
 		let signer = ensure_signed(origin)?;
 
-		Self::do_burn(collection.clone(), *item, |collection_details, details| {
+		<Pallet<T, I>>::do_burn(collection.clone(), *item, |collection_details, details| {
 			let is_permitted = collection_details.admin == signer || details.owner == signer;
 			ensure!(is_permitted, Error::<T, I>::NoPermission);
 			ensure!(who == details.owner, Error::<T, I>::WrongOwner);

@@ -1,9 +1,10 @@
-use crate::{asset_strategies::Attribute, *};
+use core::marker::PhantomData;
+
+use crate::{asset_strategies::Attribute, *, Collection as CollectionStorage};
 use frame_support::{
 	ensure,
 	traits::{
 		tokens::asset_ops::{
-			common_asset_kinds::Class,
 			common_strategies::{
 				Adminable, Bytes, IfOwnedByWithWitness, Ownership, PredefinedId, WithOrigin,
 				WithWitness,
@@ -17,22 +18,24 @@ use frame_support::{
 use frame_system::ensure_signed;
 use sp_runtime::DispatchError;
 
-impl<T: Config<I>, I: 'static> AssetDefinition<Class> for Pallet<T, I> {
+pub struct Collection<PalletInstance>(PhantomData<PalletInstance>);
+
+impl<T: Config<I>, I: 'static> AssetDefinition for Collection<Pallet<T, I>> {
 	type Id = T::CollectionId;
 }
 
-impl<T: Config<I>, I: 'static> InspectMetadata<Class, Ownership<T::AccountId>> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> InspectMetadata<Ownership<T::AccountId>> for Collection<Pallet<T, I>> {
 	fn inspect_metadata(
 		collection: &Self::Id,
 		_ownership: Ownership<T::AccountId>,
 	) -> Result<T::AccountId, DispatchError> {
-		Collection::<T, I>::get(collection)
+		CollectionStorage::<T, I>::get(collection)
 			.map(|a| a.owner)
 			.ok_or(Error::<T, I>::UnknownCollection.into())
 	}
 }
 
-impl<T: Config<I>, I: 'static> InspectMetadata<Class, Bytes> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> InspectMetadata<Bytes> for Collection<Pallet<T, I>> {
 	fn inspect_metadata(collection: &Self::Id, _bytes: Bytes) -> Result<Vec<u8>, DispatchError> {
 		CollectionMetadataOf::<T, I>::get(collection)
 			.map(|m| m.data.into())
@@ -40,7 +43,7 @@ impl<T: Config<I>, I: 'static> InspectMetadata<Class, Bytes> for Pallet<T, I> {
 	}
 }
 
-impl<'a, T: Config<I>, I: 'static> InspectMetadata<Class, Bytes<Attribute<'a>>> for Pallet<T, I> {
+impl<'a, T: Config<I>, I: 'static> InspectMetadata<Bytes<Attribute<'a>>> for Collection<Pallet<T, I>> {
 	fn inspect_metadata(
 		collection: &Self::Id,
 		strategy: Bytes<Attribute>,
@@ -55,8 +58,8 @@ impl<'a, T: Config<I>, I: 'static> InspectMetadata<Class, Bytes<Attribute<'a>>> 
 	}
 }
 
-impl<T: Config<I>, I: 'static> Create<Class, Adminable<T::AccountId, PredefinedId<T::CollectionId>>>
-	for Pallet<T, I>
+impl<T: Config<I>, I: 'static> Create<Adminable<T::AccountId, PredefinedId<T::CollectionId>>>
+	for Collection<Pallet<T, I>>
 {
 	fn create(
 		strategy: Adminable<T::AccountId, PredefinedId<T::CollectionId>>,
@@ -64,7 +67,7 @@ impl<T: Config<I>, I: 'static> Create<Class, Adminable<T::AccountId, PredefinedI
 		let Adminable { owner, admin, id_assignment, .. } = strategy;
 		let collection = id_assignment.params;
 
-		Self::do_create_collection(
+		<Pallet<T, I>>::do_create_collection(
 			collection.clone(),
 			owner.clone(),
 			admin.clone(),
@@ -79,9 +82,8 @@ impl<T: Config<I>, I: 'static> Create<Class, Adminable<T::AccountId, PredefinedI
 
 impl<T: Config<I>, I: 'static>
 	Create<
-		Class,
 		WithOrigin<T::RuntimeOrigin, Adminable<T::AccountId, PredefinedId<T::CollectionId>>>,
-	> for Pallet<T, I>
+	> for Collection<Pallet<T, I>>
 {
 	fn create(
 		strategy: WithOrigin<
@@ -105,23 +107,23 @@ impl<T: Config<I>, I: 'static>
 			ensure!(signer == *owner, Error::<T, I>::NoPermission);
 		}
 
-		<Self as Create<_, _>>::create(creation)
+		Self::create(creation)
 	}
 }
 
-impl<T: Config<I>, I: 'static> Destroy<Class, WithWitness<DestroyWitness>> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> Destroy<WithWitness<DestroyWitness>> for Collection<Pallet<T, I>> {
 	fn destroy(
 		collection: &Self::Id,
 		strategy: WithWitness<DestroyWitness>,
 	) -> Result<DestroyWitness, DispatchError> {
 		let WithWitness(witness) = strategy;
 
-		Self::do_destroy_collection(collection.clone(), witness, None)
+		<Pallet<T, I>>::do_destroy_collection(collection.clone(), witness, None)
 	}
 }
 
 impl<T: Config<I>, I: 'static>
-	Destroy<Class, WithOrigin<T::RuntimeOrigin, WithWitness<DestroyWitness>>> for Pallet<T, I>
+	Destroy<WithOrigin<T::RuntimeOrigin, WithWitness<DestroyWitness>>> for Collection<Pallet<T, I>>
 {
 	fn destroy(
 		collection: &Self::Id,
@@ -131,12 +133,12 @@ impl<T: Config<I>, I: 'static>
 
 		T::ForceOrigin::ensure_origin(origin)?;
 
-		<Self as Destroy<_, _>>::destroy(collection, destroy)
+		Self::destroy(collection, destroy)
 	}
 }
 
-impl<T: Config<I>, I: 'static> Destroy<Class, IfOwnedByWithWitness<T::AccountId, DestroyWitness>>
-	for Pallet<T, I>
+impl<T: Config<I>, I: 'static> Destroy<IfOwnedByWithWitness<T::AccountId, DestroyWitness>>
+	for Collection<Pallet<T, I>>
 {
 	fn destroy(
 		collection: &Self::Id,
@@ -144,13 +146,13 @@ impl<T: Config<I>, I: 'static> Destroy<Class, IfOwnedByWithWitness<T::AccountId,
 	) -> Result<DestroyWitness, DispatchError> {
 		let IfOwnedByWithWitness { owner, witness } = strategy;
 
-		Self::do_destroy_collection(collection.clone(), witness, Some(owner))
+		<Pallet<T, I>>::do_destroy_collection(collection.clone(), witness, Some(owner))
 	}
 }
 
 impl<T: Config<I>, I: 'static>
-	Destroy<Class, WithOrigin<T::RuntimeOrigin, IfOwnedByWithWitness<T::AccountId, DestroyWitness>>>
-	for Pallet<T, I>
+	Destroy<WithOrigin<T::RuntimeOrigin, IfOwnedByWithWitness<T::AccountId, DestroyWitness>>>
+	for Collection<Pallet<T, I>>
 {
 	fn destroy(
 		collection: &Self::Id,
@@ -166,6 +168,6 @@ impl<T: Config<I>, I: 'static>
 			ensure!(signer == owner, Error::<T, I>::NoPermission);
 		}
 
-		Self::do_destroy_collection(collection.clone(), witness, Some(owner))
+		<Pallet<T, I>>::do_destroy_collection(collection.clone(), witness, Some(owner))
 	}
 }

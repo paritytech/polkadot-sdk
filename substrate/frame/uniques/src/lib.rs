@@ -36,10 +36,10 @@ pub mod mock;
 mod tests;
 
 mod functions;
-mod impl_asset_ops;
 mod impl_nonfungibles;
 mod types;
 
+pub mod asset_ops;
 pub mod migration;
 pub mod weights;
 

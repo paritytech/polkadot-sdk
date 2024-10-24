@@ -1,2 +1,0 @@
-mod class;
-mod instance;
