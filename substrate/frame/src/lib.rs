@@ -34,8 +34,8 @@
 //!
 //! This crate is organized into 3 stages:
 //!
-//! 1. preludes: [`prelude`], [`testing_prelude`] and [`runtime::prelude`], [`benchmarking`],
-//!    [`weights_prelude`], [`try_runtime`].
+//! 1. preludes: [`prelude`], [`testing_prelude`] and [`runtime::prelude`], `benchmarking`,
+//!    [`weights_prelude`], `try_runtime`.
 //! 2. domain-specific modules: [`traits`], [`hashing`], [`arithmetic`] and [`derive`](mod@derive).
 //! 3. Accessing frame/substrate dependencies directly: [`deps`].
 //!
@@ -83,7 +83,7 @@
 //! Notice that the preludes overlap since they have imports in common. More in detail:
 //! - [`testing_prelude`] brings in frame [`prelude`] and [`runtime::prelude`];
 //! - [`runtime::prelude`] brings in frame [`prelude`];
-//! - [`benchmarking`] brings in frame [`prelude`].
+//! - `benchmarking` brings in frame [`prelude`].
 //!
 //! ## Naming
 //!
