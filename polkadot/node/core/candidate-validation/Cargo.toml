@@ -40,4 +40,3 @@ sp-core = { workspace = true, default-features = true }
 polkadot-primitives-test-helpers = { workspace = true }
 rstest = { workspace = true }
 polkadot-primitives = { workspace = true, features = ["test"] }
-
