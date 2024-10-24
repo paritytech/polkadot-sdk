@@ -1,0 +1,11 @@
+title: Adds multi-block election pallet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds the `election-provider-multi-block` (EPM-MB) pallet, which is the multi-block
+      variant of the `election-provider-multi-phase` (EPM) pallet.
+
+crates:
+ - name: pallet-election-provider-multi-block
+   bump: major
