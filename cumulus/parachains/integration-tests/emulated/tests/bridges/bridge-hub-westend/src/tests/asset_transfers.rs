@@ -12,7 +12,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::tests::*;
+
+use crate::{create_pool_with_native_on, tests::*};
 use xcm::latest::AssetTransferFilter;
 
 fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
@@ -128,7 +129,12 @@ fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 	let bridged_wnd_at_asset_hub_rococo = bridged_wnd_at_ah_rococo();
 
 	create_foreign_on_ah_rococo(bridged_wnd_at_asset_hub_rococo.clone(), true);
-	set_up_pool_with_roc_on_ah_rococo(bridged_wnd_at_asset_hub_rococo.clone(), true);
+	create_pool_with_native_on!(
+		AssetHubRococo,
+		bridged_wnd_at_asset_hub_rococo.clone(),
+		true,
+		AssetHubRococoSender::get()
+	);
 
 	////////////////////////////////////////////////////////////
 	// Let's first send over just some WNDs as a simple example
@@ -206,7 +212,12 @@ fn send_wnds_usdt_and_weth_from_asset_hub_westend_to_asset_hub_rococo() {
 	);
 	create_foreign_on_ah_rococo(bridged_weth_at_ah.clone(), true);
 	create_foreign_on_ah_rococo(bridged_usdt_at_asset_hub_rococo.clone(), true);
-	set_up_pool_with_roc_on_ah_rococo(bridged_usdt_at_asset_hub_rococo.clone(), true);
+	create_pool_with_native_on!(
+		AssetHubRococo,
+		bridged_usdt_at_asset_hub_rococo.clone(),
+		true,
+		AssetHubRococoSender::get()
+	);
 
 	let receiver_usdts_before =
 		foreign_balance_on_ah_rococo(bridged_usdt_at_asset_hub_rococo.clone(), &receiver);

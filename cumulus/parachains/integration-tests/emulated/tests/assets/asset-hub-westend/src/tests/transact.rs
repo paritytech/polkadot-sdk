@@ -15,7 +15,6 @@
 
 use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
 use frame_support::traits::tokens::fungibles::Mutate;
-use xcm::DoubleEncoded;
 use xcm_builder::{DescribeAllTerminal, DescribeFamily, HashedDescription};
 use xcm_executor::traits::ConvertLocation;
 
@@ -25,7 +24,7 @@ fn transfer_and_transact_in_same_xcm(
 	destination: Location,
 	usdt: Asset,
 	beneficiary: Location,
-	call: DoubleEncoded<()>,
+	call: xcm::DoubleEncoded<()>,
 ) {
 	let signed_origin = <PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get().into());
 	let context = PenpalUniversalLocation::get();

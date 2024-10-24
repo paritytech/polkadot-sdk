@@ -13533,6 +13533,7 @@ dependencies = [
  "primitive-types 0.12.2",
  "scale-info",
  "smallvec",
+ "snowbridge-router-primitives",
  "sp-api 26.0.0",
  "sp-block-builder",
  "sp-consensus-aura",

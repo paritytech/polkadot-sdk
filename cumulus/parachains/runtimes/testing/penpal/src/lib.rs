@@ -83,7 +83,7 @@ pub use sp_runtime::{traits::ConvertInto, MultiAddress, Perbill, Permill};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm_config::{ForeignAssetsAssetId, XcmOriginToTransactDispatchOrigin};
+use xcm_config::{ForeignAssetsAssetId, LocationToAccountId, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -95,7 +95,6 @@ use xcm::{
 	latest::prelude::{AssetId as AssetLocationId, BodyId},
 	VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
 };
-use xcm_builder::{DescribeAllTerminal, DescribeFamily, HashedDescription};
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
@@ -498,12 +497,8 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Currency = Balances;
 	// This is to allow any other remote location to create foreign assets. Used in tests, not
 	// recommended on real chains.
-	type CreateOrigin = ForeignCreators<
-		Everything,
-		HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
-		AccountId,
-		xcm::latest::Location,
-	>;
+	type CreateOrigin =
+		ForeignCreators<Everything, LocationToAccountId, AccountId, xcm::latest::Location>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type AssetDeposit = ForeignAssetsAssetDeposit;
 	type MetadataDepositBase = ForeignAssetsMetadataDepositBase;
