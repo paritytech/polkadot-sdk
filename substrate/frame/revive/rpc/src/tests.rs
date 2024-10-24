@@ -19,68 +19,51 @@
 // We require the `riscv` feature to get access to the compiled fixtures.
 #![cfg(feature = "riscv")]
 use crate::{
+	cli,
 	example::{send_transaction, wait_for_receipt},
 	EthRpcClient,
 };
-use assert_cmd::cargo::cargo_bin;
-use jsonrpsee::ws_client::WsClientBuilder;
+use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
 	evm::{Account, BlockTag, Bytes, U256},
 };
-use std::{
-	io::{BufRead, BufReader},
-	process::{self, Child, Command},
-	thread,
-};
+use std::thread;
 use substrate_cli_test_utils::*;
 
-/// Start eth-rpc server, and return the child process and the WebSocket URL.
-fn start_eth_rpc_server(node_ws_url: &str) -> (Child, String) {
-	let mut child = Command::new(cargo_bin("eth-rpc"))
-		.stdout(process::Stdio::piped())
-		.stderr(process::Stdio::piped())
-		.env("RUST_LOG", "info,eth-rpc=debug")
-		.args(["--rpc-port=45788", &format!("--node-rpc-url={node_ws_url}")])
-		.spawn()
-		.unwrap();
-
-	let mut data = String::new();
-	let ws_url = BufReader::new(child.stdout.take().unwrap())
-		.lines()
-		.find_map(|line| {
-			let line = line.expect("failed to obtain next line while extracting node info");
-			data.push_str(&line);
-			data.push('\n');
-
-			// does the line contain our port (we expect this specific output from eth-rpc).
-			let sock_addr = match line.split_once("Running JSON-RPC server: addr=") {
-				None => return None,
-				Some((_, after)) => after.trim(),
-			};
-
-			Some(format!("ws://{}", sock_addr))
-		})
-		.unwrap_or_else(|| {
-			eprintln!("Observed eth-rpc output:\n{}", data);
-			panic!("We should get a WebSocket address")
-		});
-
-	(child, ws_url)
+/// Create a websocket client with a 30s timeout.
+async fn ws_client_with_retry(url: &str) -> WsClient {
+	let timeout = tokio::time::Duration::from_secs(30);
+	tokio::time::timeout(timeout, async {
+		loop {
+			if let Ok(client) = WsClientBuilder::default().build(url).await {
+				return client
+			} else {
+				tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+			}
+		}
+	})
+	.await
+	.expect("Hit timeout");
 }
 
 #[tokio::test]
 async fn test_jsonrpsee_server() -> anyhow::Result<()> {
-	let _ = thread::spawn(move || match start_node_inline(vec!["--dev", "--rpc-port=45788"]) {
+	// Start the node.
+	let _ = thread::spawn(move || match start_node_inline(vec!["--dev", "--rpc-port=45789"]) {
 		Ok(_) => {},
 		Err(e) => {
 			panic!("Node exited with error: {}", e);
 		},
 	});
 
-	let (_rpc_child, ws_url) = start_eth_rpc_server("ws://localhost:45788");
+	// Start the rpc server.
+	tokio::spawn(cli::run(cli::CliCommand {
+		rpc_port: "45788".to_string(),
+		node_rpc_url: "ws://localhost:45789".to_string(),
+	}));
 
-	let client = WsClientBuilder::default().build(ws_url).await?;
+	let client = ws_client_with_retry("ws://localhost:45788").await;
 	let account = Account::default();
 
 	// Deploy contract

@@ -27,6 +27,8 @@ use jsonrpsee::{
 use pallet_revive::{evm::*, EthContractResult};
 use sp_core::{H160, H256, U256};
 use thiserror::Error;
+
+pub mod cli;
 pub mod client;
 pub mod example;
 pub mod subxt_client;

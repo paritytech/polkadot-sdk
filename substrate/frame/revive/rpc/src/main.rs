@@ -16,31 +16,8 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use clap::Parser;
-use hyper::Method;
-use jsonrpsee::{
-	http_client::HttpClientBuilder,
-	server::{RpcModule, Server},
-};
-use pallet_revive_eth_rpc::{
-	client::Client, EthRpcClient, EthRpcServer, EthRpcServerImpl, MiscRpcServer, MiscRpcServerImpl,
-	LOG_TARGET,
-};
-use std::net::SocketAddr;
-use tower_http::cors::{Any, CorsLayer};
+use pallet_revive_eth_rpc::cli;
 use tracing_subscriber::{util::SubscriberInitExt, EnvFilter, FmtSubscriber};
-
-// Parsed command instructions from the command line
-#[derive(Parser)]
-#[clap(author, about, version)]
-struct CliCommand {
-	/// The server address to bind to
-	#[clap(long, default_value = "9090")]
-	rpc_port: String,
-
-	/// The node url to connect to
-	#[clap(long, default_value = "ws://127.0.0.1:9944")]
-	node_rpc_url: String,
-}
 
 /// Initialize tracing
 fn init_tracing() {
@@ -56,96 +33,7 @@ fn init_tracing() {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-	let CliCommand { rpc_port, node_rpc_url } = CliCommand::parse();
 	init_tracing();
-
-	let client = Client::from_url(&node_rpc_url).await?;
-	let mut updates = client.updates.clone();
-
-	let server_addr = run_server(client, &format!("127.0.0.1:{rpc_port}")).await?;
-	log::info!("Running JSON-RPC server: addr={server_addr}");
-
-	let url = format!("http://{}", server_addr);
-	let client = HttpClientBuilder::default().build(url)?;
-
-	let response = client.block_number().await?;
-	log::info!(target: LOG_TARGET, "Client initialized with block number {:?}", response);
-
-	// keep running server until ctrl-c or client subscription fails
-	let _ = updates.wait_for(|_| false).await;
-	Ok(())
-}
-
-#[cfg(feature = "dev")]
-mod dev {
-	use crate::LOG_TARGET;
-	use futures::{future::BoxFuture, FutureExt};
-	use jsonrpsee::{server::middleware::rpc::RpcServiceT, types::Request, MethodResponse};
-
-	/// Dev Logger middleware, that logs the method and params of the request, along with the
-	/// success of the response.
-	#[derive(Clone)]
-	pub struct DevLogger<S>(pub S);
-
-	impl<'a, S> RpcServiceT<'a> for DevLogger<S>
-	where
-		S: RpcServiceT<'a> + Send + Sync + Clone + 'static,
-	{
-		type Future = BoxFuture<'a, MethodResponse>;
-
-		fn call(&self, req: Request<'a>) -> Self::Future {
-			let service = self.0.clone();
-			let method = req.method.clone();
-			let params = req.params.clone().unwrap_or_default();
-
-			async move {
-				log::info!(target: LOG_TARGET, "Method: {method} params: {params}");
-				let resp = service.call(req).await;
-				if resp.is_success() {
-					log::info!(target: LOG_TARGET, "✅ rpc: {method}");
-				} else {
-					log::info!(target: LOG_TARGET, "❌ rpc: {method} {}", resp.as_result());
-				}
-				resp
-			}
-			.boxed()
-		}
-	}
-}
-
-/// Starts the rpc server and returns the server address.
-async fn run_server(client: Client, url: &str) -> anyhow::Result<SocketAddr> {
-	let cors = CorsLayer::new()
-		.allow_methods([Method::POST])
-		.allow_origin(Any)
-		.allow_headers([hyper::header::CONTENT_TYPE]);
-	let cors_middleware = tower::ServiceBuilder::new().layer(cors);
-
-	let builder = Server::builder().set_http_middleware(cors_middleware);
-
-	#[cfg(feature = "dev")]
-	let builder = builder
-		.set_rpc_middleware(jsonrpsee::server::RpcServiceBuilder::new().layer_fn(dev::DevLogger));
-
-	let server = builder.build(url.parse::<SocketAddr>()?).await?;
-	let addr = server.local_addr()?;
-
-	let eth_api = EthRpcServerImpl::new(client)
-		.with_accounts(if cfg!(feature = "dev") {
-			use pallet_revive::evm::Account;
-			vec![Account::default()]
-		} else {
-			vec![]
-		})
-		.into_rpc();
-	let misc_api = MiscRpcServerImpl.into_rpc();
-
-	let mut module = RpcModule::new(());
-	module.merge(eth_api)?;
-	module.merge(misc_api)?;
-
-	let handle = server.start(module);
-	tokio::spawn(handle.stopped());
-
-	Ok(addr)
+	let cmd = cli::CliCommand::parse();
+	cli::run(cmd).await
 }

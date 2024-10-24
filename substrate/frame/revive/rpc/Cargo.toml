@@ -81,4 +81,3 @@ riscv = ["pallet-revive/riscv"]
 hex-literal = { workspace = true }
 pallet-revive-fixtures = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
-assert_cmd = { workspace = true }
