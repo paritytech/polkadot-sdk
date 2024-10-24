@@ -17,3 +17,5 @@ crates:
     bump: minor
   - name: polkadot-sdk-frame
     bump: major
+  - name: pallet-migrations
+    bump: patch
