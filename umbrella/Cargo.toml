@@ -611,10 +611,10 @@ tuples-96 = [
 	"frame-support?/tuples-96",
 ]
 riscv = [
+	"pallet-revive-eth-rpc?/riscv",
 	"pallet-revive-fixtures?/riscv",
 	"pallet-revive-mock-network?/riscv",
 	"pallet-revive?/riscv",
-	"pallet-revive-eth-rpc?/riscv"
 ]
 
 [package.edition]
