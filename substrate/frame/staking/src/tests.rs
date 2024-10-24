@@ -55,7 +55,13 @@ fn set_staking_configs_works() {
 			ConfigOp::Set(20),
 			ConfigOp::Set(Percent::from_percent(75)),
 			ConfigOp::Set(Zero::zero()),
-			ConfigOp::Set(Zero::zero())
+			ConfigOp::Set(Zero::zero()),
+			ConfigOp::Set(UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				unbond_period_lower_bound: 2,
+				unbond_period_upper_bound: 28,
+				back_of_unbonding_queue_era: Zero::zero(),
+			})
 		));
 		assert_eq!(MinNominatorBond::<Test>::get(), 1_500);
 		assert_eq!(MinValidatorBond::<Test>::get(), 2_000);
@@ -64,10 +70,20 @@ fn set_staking_configs_works() {
 		assert_eq!(ChillThreshold::<Test>::get(), Some(Percent::from_percent(75)));
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
 		assert_eq!(MaxStakedRewards::<Test>::get(), Some(Percent::from_percent(0)));
+		assert_eq!(
+			UnbondingQueueParams::<Test>::get(),
+			Some(UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				unbond_period_lower_bound: 2,
+				unbond_period_upper_bound: 28,
+				back_of_unbonding_queue_era: Zero::zero(),
+			})
+		);
 
 		// noop does nothing
 		assert_storage_noop!(assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
@@ -86,6 +102,7 @@ fn set_staking_configs_works() {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
+			ConfigOp::Remove,
 			ConfigOp::Remove
 		));
 		assert_eq!(MinNominatorBond::<Test>::get(), 0);
@@ -95,6 +112,7 @@ fn set_staking_configs_works() {
 		assert_eq!(ChillThreshold::<Test>::get(), None);
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
 		assert_eq!(MaxStakedRewards::<Test>::get(), None);
+		assert_eq!(UnbondingQueueParams::<Test>::get(), None);
 	});
 }
 
@@ -1810,6 +1828,7 @@ fn max_staked_rewards_works() {
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Set(Percent::from_percent(max_staked_rewards)),
+			ConfigOp::Noop,
 		));
 
 		assert_eq!(<MaxStakedRewards<Test>>::get(), Some(Percent::from_percent(10)));
@@ -5718,6 +5737,7 @@ fn chill_other_works() {
 				ConfigOp::Remove,
 				ConfigOp::Remove,
 				ConfigOp::Noop,
+				ConfigOp::Noop,
 			));
 
 			// Still can't chill these users
@@ -5737,6 +5757,7 @@ fn chill_other_works() {
 				ConfigOp::Noop,
 				ConfigOp::Set(10),
 				ConfigOp::Set(10),
+				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
@@ -5762,6 +5783,7 @@ fn chill_other_works() {
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
+				ConfigOp::Noop,
 			));
 
 			// Still can't chill these users
@@ -5782,6 +5804,7 @@ fn chill_other_works() {
 				ConfigOp::Set(10),
 				ConfigOp::Set(10),
 				ConfigOp::Set(Percent::from_percent(75)),
+				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 			));
@@ -5829,6 +5852,7 @@ fn capped_stakers_works() {
 			ConfigOp::Set(max),
 			ConfigOp::Remove,
 			ConfigOp::Remove,
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 		));
 
@@ -5901,6 +5925,7 @@ fn capped_stakers_works() {
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
+			ConfigOp::Noop,
 		));
 		assert_ok!(Staking::nominate(RuntimeOrigin::signed(last_nominator), vec![1]));
 		assert_ok!(Staking::validate(
@@ -5936,6 +5961,7 @@ fn min_commission_works() {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Set(Perbill::from_percent(10)),
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 		));
 
@@ -8332,6 +8358,92 @@ mod byzantine_threshold_disabling_strategy {
 				);
 
 			assert_eq!(disable_offender, Some(OFFENDER_VALIDATOR_IDX));
+		});
+	}
+}
+
+mod unbonding_queue {
+	use super::*;
+	use crate::{mock, tests::Test, UnbondingQueueConfig, UnbondingQueueParams};
+	use sp_runtime::{traits::Zero, Perbill};
+
+	#[test]
+	fn get_min_lowest_third_stake_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Set(UnbondingQueueConfig {
+					min_slashable_share: Perbill::from_percent(50),
+					unbond_period_lower_bound: 2,
+					unbond_period_upper_bound: 28,
+					back_of_unbonding_queue_era: Zero::zero(),
+				})
+			));
+
+			// Check the era we are working with.
+			mock::start_active_era(1);
+			let current_era = Staking::current_era().unwrap();
+			assert_eq!(current_era, 1);
+
+			// Unbonding queue params are as expected.
+			assert_eq!(
+				UnbondingQueueParams::<Test>::get().unwrap(),
+				UnbondingQueueConfig {
+					min_slashable_share: Perbill::from_percent(50),
+					unbond_period_lower_bound: 2,
+					unbond_period_upper_bound: 28,
+					back_of_unbonding_queue_era: Zero::zero(),
+				}
+			);
+
+			// Get lowest third total state for the initial era.
+			let lowest_third_total_stake = EraLowestThirdTotalStake::<Test>::get(current_era);
+			assert_eq!(lowest_third_total_stake, Some(2500));
+
+			let unbonding_queue_params = UnbondingQueueParams::<Test>::get().unwrap();
+			// Populate some `EraLowestThirdTotalStake` entries to test the function.
+			for i in current_era + 1..unbonding_queue_params.unbond_period_upper_bound {
+				// TODO: Nominators to bond more to validators to mix up validator stakes each era.
+
+				mock::start_active_era(i);
+				let era_lowest_third_total_stake =
+					EraLowestThirdTotalStake::<Test>::get(current_era);
+
+				println!(
+					"Era: {:?} started with {:?} lowest third total stake",
+					i, era_lowest_third_total_stake
+				);
+			}
+
+			// TODO: Now ensure lowest value is fetched with `get_min_lowest_third_stake`.
+		});
+	}
+
+	#[test]
+	fn calculate_lowest_third_total_stake_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// TODO: Implement
+		});
+	}
+
+	#[test]
+	fn get_unbond_eras_delta_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// TODO: Implement
+		});
+	}
+
+	#[test]
+	fn correct_unbond_era_is_being_calculated() {
+		ExtBuilder::default().build_and_execute(|| {
+			// TODO: Implement
 		});
 	}
 }

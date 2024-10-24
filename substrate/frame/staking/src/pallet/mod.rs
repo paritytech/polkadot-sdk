@@ -52,7 +52,7 @@ use crate::{
 	DisablingStrategy, EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
 	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnappliedSlash,
-	UnlockChunk, ValidatorPrefs,
+	UnbondingQueueConfig, UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -735,6 +735,18 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
+	/// The total amount of stake backed by the lowest third of validators for the last
+	/// upper bound eras. This is used to determine the maximum amount of stake that
+	/// can be unbonded for a period potentially lower than upper bound eras.
+	#[pallet::storage]
+	pub(crate) type EraLowestThirdTotalStake<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
+
+	/// Parameters for the unbonding queue mechanism.
+	#[pallet::storage]
+	pub(crate) type UnbondingQueueParams<T: Config> =
+		StorageValue<_, UnbondingQueueConfig, OptionQuery>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -1142,9 +1154,12 @@ pub mod pallet {
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
 				// Note: in case there is no current era it is fine to bond one era more.
-				let era = Self::current_era()
-					.unwrap_or(0)
-					.defensive_saturating_add(T::BondingDuration::get());
+				let current_era = Self::current_era().unwrap_or(0);
+
+				// Calculate unbonding era based on unbonding queue mechanism.
+				let era: EraIndex = Self::process_unbond_queue_request(current_era, value);
+
+				// Update chunks with the new unbonding era.
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
 					// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
@@ -1777,6 +1792,7 @@ pub mod pallet {
 		///   should be filled in order for the `chill_other` transaction to work.
 		/// * `min_commission`: The minimum amount of commission that each validators must maintain.
 		///   This is checked only upon calling `validate`. Existing validators are not affected.
+		/// * `unbonding_queue_params`: The parameters for the unbonding queue.
 		///
 		/// RuntimeOrigin must be Root to call this function.
 		///
@@ -1798,6 +1814,7 @@ pub mod pallet {
 			chill_threshold: ConfigOp<Percent>,
 			min_commission: ConfigOp<Perbill>,
 			max_staked_rewards: ConfigOp<Percent>,
+			unbonding_queue_params: ConfigOp<UnbondingQueueConfig>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
@@ -1818,6 +1835,7 @@ pub mod pallet {
 			config_op_exp!(ChillThreshold<T>, chill_threshold);
 			config_op_exp!(MinCommission<T>, min_commission);
 			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
+			config_op_exp!(UnbondingQueueParams<T>, unbonding_queue_params);
 			Ok(())
 		}
 		/// Declare a `controller` to stop participating as either a validator or nominator.

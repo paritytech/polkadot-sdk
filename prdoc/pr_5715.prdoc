@@ -1,0 +1,11 @@
+title: Introduce flexible unbonding queue to staking.
+
+doc:
+  - audience: Runtime Dev
+    description:
+       Introduces a flexible unbonding mechanism to decrease the time stakers have to wait to
+       unbond.
+
+crates:
+  - name: pallet-staking
+    bump: minor
