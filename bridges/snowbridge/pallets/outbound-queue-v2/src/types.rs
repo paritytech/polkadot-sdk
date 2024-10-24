@@ -18,5 +18,6 @@ pub struct PendingOrder<BlockNumber> {
 	/// The block number in which the message was committed
 	pub block_number: BlockNumber,
 	/// The fee
+	#[codec(compact)]
 	pub fee: u128,
 }
