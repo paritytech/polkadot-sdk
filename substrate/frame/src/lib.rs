@@ -238,7 +238,9 @@ pub mod benchmarking {
 		pub use frame_system::RawOrigin;
 	}
 
-	#[deprecated(note = "'The V1 benchmarking syntax is deprecated. Please use the V2 syntax. This warning may become a hard error any time after April 2025. For more info, see: https://github.com/paritytech/polkadot-sdk/pull/5995")]
+	#[deprecated(
+		note = "'The V1 benchmarking syntax is deprecated. Please use the V2 syntax. This warning may become a hard error any time after April 2025. For more info, see: https://github.com/paritytech/polkadot-sdk/pull/5995"
+	)]
 	pub mod v1 {
 		pub use super::shared::*;
 		pub use frame_benchmarking::benchmarks;
@@ -366,8 +368,12 @@ pub mod runtime {
 
 		// Types often used in the runtime APIs.
 		pub use sp_core::OpaqueMetadata;
-		pub use sp_genesis_builder::PresetId;
+		pub use sp_genesis_builder::{
+			PresetId, Result as GenesisBuilderResult, DEV_RUNTIME_PRESET,
+			LOCAL_TESTNET_RUNTIME_PRESET,
+		};
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
+		pub use sp_keyring::AccountKeyring;
 		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 	}
 
@@ -543,6 +549,8 @@ pub mod deps {
 	pub use sp_genesis_builder;
 	#[cfg(feature = "runtime")]
 	pub use sp_inherents;
+	#[cfg(feature = "runtime")]
+	pub use sp_keyring;
 	#[cfg(feature = "runtime")]
 	pub use sp_offchain;
 	#[cfg(feature = "runtime")]
