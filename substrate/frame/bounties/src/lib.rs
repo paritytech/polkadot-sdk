@@ -73,6 +73,8 @@
 //! - `approve_bounty` - Accept a specific treasury amount to be earmarked for a predefined body of
 //!   work.
 //! - `propose_curator` - Assign an account to a bounty as candidate curator.
+//! - `approve_bounty_with_curator` - Accept a specific treasury amount for a predefined body of
+//!   work with assigned candidate curator account.
 //! - `accept_curator` - Accept a bounty assignment from the Council, setting a curator deposit.
 //! - `extend_bounty_expiry` - Extend the expiry block number of the bounty and stay active.
 //! - `award_bounty` - Close and pay out the specified amount for the completed work.
