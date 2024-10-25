@@ -71,8 +71,6 @@
 //! [`pallet::Config::PayoutPeriod`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
-// not all specific usages can be marked as deprecated
-#![allow(deprecated)]
 
 mod benchmarking;
 pub mod migration;
@@ -242,9 +240,6 @@ pub mod pallet {
 		///
 		/// NOTE: This parameter is also used within the Bounties Pallet extension if enabled.
 		#[pallet::constant]
-		#[deprecated(
-			note = "The `MaxApprovals` config type will be removed by May 2025. It associated with the deprecated `spend_local` call."
-		)]
 		type MaxApprovals: Get<u32>;
 
 		/// The origin required for approving spends from the treasury outside of the proposal
@@ -284,17 +279,10 @@ pub mod pallet {
 
 	/// Number of proposals that have been made.
 	#[pallet::storage]
-	#[deprecated(
-		note = "The `ProposalCount ` storage type will be removed by May 2025. It associated with the deprecated `spend_local` call."
-	)]
 	pub type ProposalCount<T, I = ()> = StorageValue<_, ProposalIndex, ValueQuery>;
 
 	/// Proposals that have been made.
 	#[pallet::storage]
-	#[deprecated(
-		note = "Gov v1 type used for `spend_local`, configure pallet to use `PayFromAccount` for `Paymaster` type and use `spend` instead"
-	)]
-	#[allow(deprecated)]
 	pub type Proposals<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Twox64Concat,
@@ -310,10 +298,6 @@ pub mod pallet {
 
 	/// Proposal indices that have been approved but not yet awarded.
 	#[pallet::storage]
-	#[deprecated(
-		note = "Gov v1 type used for `spend_local`, configure pallet to use `PayFromAccount` for `Paymaster` type and use `spend` instead"
-	)]
-	#[allow(deprecated)]
 	pub type Approvals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<ProposalIndex, T::MaxApprovals>, ValueQuery>;
 
