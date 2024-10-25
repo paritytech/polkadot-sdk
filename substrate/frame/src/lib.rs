@@ -222,7 +222,12 @@ pub mod runtime {
 
 		// Types often used in the runtime APIs.
 		pub use sp_core::OpaqueMetadata;
+		pub use sp_genesis_builder::{
+			PresetId, Result as GenesisBuilderResult, DEV_RUNTIME_PRESET,
+			LOCAL_TESTNET_RUNTIME_PRESET,
+		};
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
+		pub use sp_keyring::AccountKeyring;
 		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 	}
 
@@ -246,6 +251,7 @@ pub mod runtime {
 		pub use sp_block_builder::*;
 		pub use sp_consensus_aura::*;
 		pub use sp_consensus_grandpa::*;
+		pub use sp_genesis_builder::*;
 		pub use sp_offchain::*;
 		pub use sp_session::runtime_api::*;
 		pub use sp_transaction_pool::runtime_api::*;
@@ -291,8 +297,8 @@ pub mod runtime {
 
 		/// The block type, which should be fed into [`frame_system::Config`].
 		///
-		/// Should be parameterized with `T: frame_system::Config` and a tuple of `SignedExtension`.
-		/// When in doubt, use [`SystemSignedExtensionsOf`].
+		/// Should be parameterized with `T: frame_system::Config` and a tuple of
+		/// `TransactionExtension`. When in doubt, use [`SystemTransactionExtensionsOf`].
 		// Note that this cannot be dependent on `T` for block-number because it would lead to a
 		// circular dependency (self-referential generics).
 		pub type BlockOf<T, Extra = ()> = generic::Block<HeaderInner, ExtrinsicInner<T, Extra>>;
@@ -306,7 +312,7 @@ pub mod runtime {
 		/// Default set of signed extensions exposed from the `frame_system`.
 		///
 		/// crucially, this does NOT contain any tx-payment extension.
-		pub type SystemSignedExtensionsOf<T> = (
+		pub type SystemTransactionExtensionsOf<T> = (
 			frame_system::CheckNonZeroSender<T>,
 			frame_system::CheckSpecVersion<T>,
 			frame_system::CheckTxVersion<T>,
@@ -396,7 +402,11 @@ pub mod deps {
 	#[cfg(feature = "runtime")]
 	pub use sp_consensus_grandpa;
 	#[cfg(feature = "runtime")]
+	pub use sp_genesis_builder;
+	#[cfg(feature = "runtime")]
 	pub use sp_inherents;
+	#[cfg(feature = "runtime")]
+	pub use sp_keyring;
 	#[cfg(feature = "runtime")]
 	pub use sp_offchain;
 	#[cfg(feature = "runtime")]

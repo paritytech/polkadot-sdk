@@ -44,7 +44,7 @@ use sp_core::{
 use sp_runtime::traits::Block as BlockT;
 use sp_version::RuntimeVersion;
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{HashMap, HashSet, VecDeque},
 	fmt::Debug,
 	sync::Arc,
 	time::Duration,
@@ -86,6 +86,7 @@ pub async fn run_server() -> std::net::SocketAddr {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_follow_subscriptions_per_connection: 1,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -147,6 +148,7 @@ async fn setup_api() -> (
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -254,6 +256,7 @@ async fn follow_subscription_produces_blocks() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -323,6 +326,7 @@ async fn follow_with_runtime() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -631,6 +635,7 @@ async fn call_runtime_without_flag() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -1290,6 +1295,7 @@ async fn separate_operation_ids_for_subscriptions() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -1376,6 +1382,7 @@ async fn follow_generates_initial_blocks() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -1532,6 +1539,7 @@ async fn follow_exceeding_pinned_blocks() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -1609,6 +1617,7 @@ async fn follow_with_unpin() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -1715,6 +1724,7 @@ async fn unpin_duplicate_hashes() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -1818,6 +1828,7 @@ async fn follow_with_multiple_unpin_hashes() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -1963,6 +1974,7 @@ async fn follow_prune_best_block() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -2149,6 +2161,7 @@ async fn follow_forks_pruned_block() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -2309,6 +2322,7 @@ async fn follow_report_multiple_pruned_block() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -2555,6 +2569,7 @@ async fn pin_block_references() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -2690,6 +2705,7 @@ async fn follow_finalized_before_new_block() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -2805,6 +2821,7 @@ async fn ensure_operation_limits_works() {
 			subscription_max_ongoing_operations: 1,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -2910,6 +2927,7 @@ async fn storage_is_backpressured() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -3047,6 +3065,7 @@ async fn stop_storage_operation() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -3344,6 +3363,7 @@ async fn chain_head_stop_all_subscriptions() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: 5,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -3557,6 +3577,7 @@ async fn chain_head_limit_reached() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: 1,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -3597,6 +3618,7 @@ async fn follow_unique_pruned_blocks() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -3766,6 +3788,7 @@ async fn follow_report_best_block_of_a_known_block() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -3984,6 +4007,7 @@ async fn follow_event_with_unknown_parent() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -4032,4 +4056,55 @@ async fn follow_event_with_unknown_parent() {
 	run_with_timeout(client_mock.trigger_import_stream(block_2.header)).await;
 	// When importing the block 2, chainHead detects a gap in our blocks and stops.
 	assert_matches!(get_next_event::<FollowEvent<String>>(&mut sub).await, FollowEvent::Stop);
+}
+
+#[tokio::test]
+async fn events_are_backpressured() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let client = Arc::new(builder.build());
+
+	let api = ChainHead::new(
+		client.clone(),
+		backend,
+		Arc::new(TokioTestExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: 10,
+		},
+	)
+	.into_rpc();
+
+	let mut parent_hash = client.chain_info().genesis_hash;
+	let mut header = VecDeque::new();
+	let mut sub = api.subscribe("chainHead_v1_follow", [false], 1).await.unwrap();
+
+	// insert more events than the user can consume
+	for i in 0..=5 {
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(parent_hash)
+			.with_parent_block_number(i)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		header.push_front(block.header().clone());
+
+		parent_hash = block.hash();
+		client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+	}
+
+	let mut events = Vec::new();
+
+	while let Some(event) = sub.next::<FollowEvent<String>>().await {
+		events.push(event);
+	}
+
+	assert_eq!(events.len(), 2);
+	assert_matches!(events.pop().unwrap().map(|x| x.0), Ok(FollowEvent::Stop));
 }
