@@ -1094,6 +1094,8 @@ pub enum Instruction<Call> {
 	///   assets are **reserved** for fees, they are sent to the fees register rather than holding.
 	///   Best practice is to only add here enough to cover fees, and transfer the rest through the
 	///   `assets` parameter.
+	/// - `preserve_origin`: Specifies whether the original origin should be preserved or cleared,
+	///   using the instructions `AliasOrigin` or `ClearOrigin` respectively.
 	/// - `assets`: List of asset filters matched against existing assets in holding. These are
 	///   transferred over to `destination` using the specified transfer type, and deposited to
 	///   holding on `destination`.
@@ -1103,7 +1105,7 @@ pub enum Instruction<Call> {
 	///
 	/// Safety: No concerns.
 	///
-	/// Kind: *Command*.InitiateTransfer
+	/// Kind: *Command*
 	InitiateTransfer {
 		destination: Location,
 		remote_fees: Option<AssetTransferFilter>,

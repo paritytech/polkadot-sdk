@@ -102,7 +102,7 @@ pub(crate) fn foreign_balance_on_ah_westend(id: v5::Location, who: &AccountId) -
 	})
 }
 
-/// note: asset1 needs to be prefunded outside this function
+/// note: $asset needs to be prefunded outside this function
 #[macro_export]
 macro_rules! create_pool_with_native_on {
 	( $chain:ident, $asset:expr, $is_foreign:expr, $asset_owner:expr ) => {
@@ -151,7 +151,7 @@ macro_rules! create_pool_with_native_on {
 					Box::new(native_asset),
 					Box::new($asset),
 					1_000_000_000_000,
-					2_000_000_000_000, // $asset1 is worth half of native_asset
+					2_000_000_000_000, // $asset is worth half of native_asset
 					0,
 					0,
 					owner.into()

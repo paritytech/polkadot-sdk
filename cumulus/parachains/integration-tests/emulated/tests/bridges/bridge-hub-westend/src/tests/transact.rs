@@ -28,7 +28,7 @@ const ETHEREUM_BOB: [u8; 20] = hex_literal::hex!("11b0b11000011b0b11000011b0b110
 ///
 /// This particular test is not testing snowbridge, but only Bridge Hub, so the tested XCM flow from
 /// Ethereum starts from Bridge Hub.
-/// TODO: Once Snowbridge supports Transact, start the flow from Ethereum and test completely e2e.
+// TODO(https://github.com/paritytech/polkadot-sdk/issues/6243): Once Snowbridge supports Transact, start the flow from Ethereum and test completely e2e.
 fn transfer_and_transact_in_same_xcm(
 	sender: Location,
 	weth: Asset,
@@ -45,7 +45,7 @@ fn transfer_and_transact_in_same_xcm(
 	let asset_hub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
 	let Fungible(total_weth) = weth.fun else { unreachable!() };
 
-	// TODO: dry-run to get local fees, for now use hardcoded value
+	// TODO(https://github.com/paritytech/polkadot-sdk/issues/6197): dry-run to get local fees, for now use hardcoded value.
 	let ah_fees_amount = 90_000_000_000; // current exact value 79_948_099_299
 	let fees_for_ah: Asset = (weth.id.clone(), ah_fees_amount).into();
 
@@ -84,7 +84,7 @@ fn transfer_and_transact_in_same_xcm(
 	<BridgeHubWestend as BridgeHubWestendPallet>::PolkadotXcm::send(
 		signed_origin,
 		bx!(asset_hub_location.into()),
-		bx!(xcm::VersionedXcm::V5(xcm_to_ah.into())),
+		bx!(xcm::VersionedXcm::from(xcm_to_ah.into())),
 	)
 	.unwrap();
 }
@@ -94,7 +94,7 @@ fn transfer_and_transact_in_same_xcm(
 ///
 /// This particular test is not testing snowbridge, but only Bridge Hub, so the tested XCM flow from
 /// Ethereum starts from Bridge Hub.
-/// TODO: Once Snowbridge supports Transact, start the flow from Ethereum and test completely e2e.
+// TODO(https://github.com/paritytech/polkadot-sdk/issues/6243): Once Snowbridge supports Transact, start the flow from Ethereum and test completely e2e.
 #[test]
 fn transact_from_ethereum_to_penpalb_through_asset_hub() {
 	// Snowbridge doesn't support transact yet, we are emulating it by sending one from Bridge Hub

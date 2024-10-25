@@ -32,7 +32,7 @@ fn transfer_and_transact_in_same_xcm(
 
 	let Fungible(total_usdt) = usdt.fun else { unreachable!() };
 
-	// TODO: dry-run to get local fees, for now use hardcoded value
+	// TODO(https://github.com/paritytech/polkadot-sdk/issues/6197): dry-run to get local fees, for now use hardcoded value.
 	let local_fees_amount = 80_000_000_000; // current exact value 69_200_786_622
 	let ah_fees_amount = 90_000_000_000; // current exact value 79_948_099_299
 	let usdt_to_ah_then_onward_amount = total_usdt - local_fees_amount - ah_fees_amount;
@@ -73,7 +73,7 @@ fn transfer_and_transact_in_same_xcm(
 	]);
 	<PenpalA as PenpalAPallet>::PolkadotXcm::execute(
 		signed_origin,
-		bx!(xcm::VersionedXcm::V5(xcm.into())),
+		bx!(xcm::VersionedXcm::from(xcm.into())),
 		Weight::MAX,
 	)
 	.unwrap();
@@ -101,18 +101,17 @@ fn transact_from_para_to_para_through_asset_hub() {
 	]);
 
 	// Prefund USDT to sov account of sender.
-	let usdt_id: u32 = 1984;
 	AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
 		assert_ok!(<Assets as Mutate<_>>::mint_into(
-			usdt_id,
+			USDT_ID,
 			&sov_of_sender_on_asset_hub.clone().into(),
 			fee_amount_to_send,
 		));
 	});
 
 	// We create a pool between WND and USDT in AssetHub.
-	let usdt = Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(usdt_id.into())]);
+	let usdt = Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())]);
 	create_pool_with_wnd_on!(AssetHubWestend, usdt, false, AssetHubWestendSender::get());
 	// We also need a pool between WND and USDT on PenpalA.
 	create_pool_with_wnd_on!(PenpalA, PenpalUsdtFromAssetHub::get(), true, PenpalAssetOwner::get());

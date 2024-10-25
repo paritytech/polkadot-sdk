@@ -150,5 +150,75 @@ fn alias_child_location() {
 
 #[test]
 fn alias_trusted_root_location() {
-	// TODO
+	const ALICE: [u8; 32] = [111u8; 32];
+	const BOB: [u8; 32] = [222u8; 32];
+	const BOB_ON_ETH: [u8; 20] = [222u8; 20];
+
+	parameter_types! {
+		pub AliceOnAssetHub: Location = Location::new(1, [Parachain(1000), AccountId32 { id: ALICE, network: None }]);
+		pub SystemAssetHubLocation: Location = Location::new(1, [Parachain(1000)]);
+	}
+
+	struct MatchSiblingAccounts;
+	impl Contains<Location> for MatchSiblingAccounts {
+		fn contains(location: &Location) -> bool {
+			matches!(location.unpack(), (1, [Parachain(_), AccountId32 { .. }]))
+		}
+	}
+
+	struct MatchOtherGlobalConsensus;
+	impl Contains<Location> for MatchOtherGlobalConsensus {
+		fn contains(location: &Location) -> bool {
+			matches!(location.unpack(), (2, [GlobalConsensus(_)]) | (2, [GlobalConsensus(_), _]))
+		}
+	}
+
+	type AliceOnAssetHubAliasesSiblingAccounts = AliasOriginRootUsingFilter<AliceOnAssetHub, MatchSiblingAccounts>;
+	type AssetHubAliasesSiblingAccounts = AliasOriginRootUsingFilter<SystemAssetHubLocation, MatchSiblingAccounts>;
+	type AssetHubAliasesOtherGlobalConsensus = AliasOriginRootUsingFilter<SystemAssetHubLocation, MatchOtherGlobalConsensus>;
+
+	// Fails if origin is not the root of a chain.
+	assert!(!AliceOnAssetHubAliasesSiblingAccounts::contains(
+		&Location::new(1, [Parachain(1000), AccountId32 { id: ALICE, network: None }]),
+		&Location::new(1, [Parachain(1000), AccountId32 { id: BOB, network: None }]),
+	));
+	assert!(!AliceOnAssetHubAliasesSiblingAccounts::contains(
+		&Location::new(1, [Parachain(1000), AccountId32 { id: ALICE, network: None }]),
+		&Location::new(2, [GlobalConsensus(NetworkId::Ethereum { chain_id: 1 })]),
+	));
+	assert!(!AliceOnAssetHubAliasesSiblingAccounts::contains(
+		&Location::new(1, [Parachain(1000), AccountId32 { id: ALICE, network: None }]),
+		&Location::new(2, [GlobalConsensus(NetworkId::Ethereum { chain_id: 1 }), AccountKey20 { key: BOB_ON_ETH, network: None }]),
+	));
+	// Fails if origin doesn't match.
+	assert!(!AssetHubAliasesSiblingAccounts::contains(
+		&Location::new(1, [Parachain(1001)]),
+		&Location::new(1, [Parachain(1000), AccountId32 { id: BOB, network: None }]),
+	));
+	assert!(!AssetHubAliasesOtherGlobalConsensus::contains(
+		&Location::new(1, [Parachain(1001)]),
+		&Location::new(2, [GlobalConsensus(NetworkId::Ethereum { chain_id: 1 }), AccountKey20 { key: BOB_ON_ETH, network: None }]),
+	));
+	// Fails if filter doesn't match.
+	assert!(!AssetHubAliasesSiblingAccounts::contains(
+		&Location::new(1, [Parachain(1000)]),
+		&Location::new(2, [GlobalConsensus(NetworkId::Ethereum { chain_id: 1 })]),
+	));
+	assert!(!AssetHubAliasesSiblingAccounts::contains(
+		&Location::new(1, [Parachain(1000)]),
+		&Location::new(2, [GlobalConsensus(NetworkId::Ethereum { chain_id: 1 }), AccountKey20 { key: BOB_ON_ETH, network: None }]),
+	));
+	assert!(!AssetHubAliasesOtherGlobalConsensus::contains(
+		&Location::new(1, [Parachain(1000)]),
+		&Location::new(1, [Parachain(1000), AccountId32 { id: BOB, network: None }]),
+	));
+	// Works when origin is a chain that matches Origin and filter also matches.
+	assert!(AssetHubAliasesSiblingAccounts::contains(
+		&Location::new(1, [Parachain(1000)]),
+		&Location::new(1, [Parachain(1000), AccountId32 { id: BOB, network: None }]),
+	));
+	assert!(AssetHubAliasesOtherGlobalConsensus::contains(
+		&Location::new(1, [Parachain(1000)]),
+		&Location::new(2, [GlobalConsensus(NetworkId::Ethereum { chain_id: 1 }), AccountKey20 { key: BOB_ON_ETH, network: None }]),
+	));
 }
