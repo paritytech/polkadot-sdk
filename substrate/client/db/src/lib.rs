@@ -37,6 +37,7 @@ mod parity_db;
 mod pinned_blocks_cache;
 mod record_stats_state;
 mod stats;
+mod trie_committer;
 #[cfg(any(feature = "rocksdb", test))]
 mod upgrade;
 mod utils;
@@ -55,6 +56,7 @@ use crate::{
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
 	stats::StateUsageStats,
+	trie_committer::TrieCommitter,
 	utils::{meta_keys, read_db, read_meta, DatabaseType, Meta},
 };
 use codec::{Decode, Encode};
@@ -91,7 +93,9 @@ use sp_state_machine::{
 	OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator, StorageKey,
 	StorageValue, UsageInfo as StateUsageInfo,
 };
-use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB};
+use sp_trie::{
+	cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB, TrieError,
+};
 use utils::BLOCK_GAP_CURRENT_VERSION;
 
 // Re-export the Database trait so that one can pass an implementation of it.
@@ -114,6 +118,9 @@ const DB_HASH_LEN: usize = 32;
 
 /// Hash type that this backend uses for the database.
 pub type DbHash = sp_core::H256;
+
+type LayoutV0<Block> = sp_trie::LayoutV0<HashingFor<Block>>;
+type LayoutV1<Block> = sp_trie::LayoutV1<HashingFor<Block>>;
 
 /// An extrinsic entry in the database.
 #[derive(Debug, Encode, Decode)]
@@ -993,6 +1000,10 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 	fn set_create_gap(&mut self, create_gap: bool) {
 		self.create_gap = create_gap;
 	}
+
+	fn set_commit_state(&mut self, commit: bool) {
+		self.commit_state = commit;
+	}
 }
 
 struct StorageDb<Block: BlockT> {
@@ -1180,7 +1191,7 @@ impl<Block: BlockT> Backend<Block> {
 	/// The second argument is the Column that stores the State.
 	///
 	/// Should only be needed for benchmarking.
-	#[cfg(any(feature = "runtime-benchmarks"))]
+	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub fn expose_db(&self) -> (Arc<dyn sp_database::Database<DbHash>>, sp_database::ColumnId) {
 		(self.storage.db.clone(), columns::STATE)
 	}
@@ -1188,7 +1199,7 @@ impl<Block: BlockT> Backend<Block> {
 	/// Expose the Storage that is used by this backend.
 	///
 	/// Should only be needed for benchmarking.
-	#[cfg(any(feature = "runtime-benchmarks"))]
+	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub fn expose_storage(&self) -> Arc<dyn sp_state_machine::Storage<HashingFor<Block>>> {
 		self.storage.clone()
 	}
@@ -2498,6 +2509,45 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 				},
 			}
 		}
+	}
+
+	fn commit_trie_changes(
+		&self,
+		at: Block::Hash,
+		storage: sp_runtime::Storage,
+		state_version: sp_runtime::StateVersion,
+	) -> sp_blockchain::Result<Block::Hash> {
+		assert!(storage.children_default.is_empty(), "TODO: handle child storage properly");
+
+		let root = self.blockchain.header_metadata(at).map(|header| header.state_root)?;
+		let delta = storage.top.into_iter().map(|(k, v)| (k, Some(v)));
+
+		let storage: Arc<dyn sp_state_machine::Storage<HashingFor<Block>>> = self.storage.clone();
+		let mut trie_committer = TrieCommitter::new(&storage, self.storage.db.clone());
+
+		let trie_err =
+			|err: Box<TrieError<LayoutV0<Block>>>| sp_blockchain::Error::Application(err);
+
+		let state_root = match state_version {
+			StateVersion::V0 => sp_trie::delta_trie_root::<LayoutV0<Block>, _, _, _, _, _>(
+				&mut trie_committer,
+				root,
+				delta,
+				None,
+				None,
+			)
+			.map_err(trie_err)?,
+			StateVersion::V1 => sp_trie::delta_trie_root::<LayoutV1<Block>, _, _, _, _, _>(
+				&mut trie_committer,
+				root,
+				delta,
+				None,
+				None,
+			)
+			.map_err(trie_err)?,
+		};
+
+		Ok(state_root)
 	}
 
 	fn get_import_lock(&self) -> &RwLock<()> {
@@ -4842,5 +4892,183 @@ pub(crate) mod tests {
 		assert!(bc.body(fork_hash_3).unwrap().is_some());
 		backend.unpin_block(fork_hash_3);
 		assert!(bc.body(fork_hash_3).unwrap().is_none());
+	}
+
+	#[test]
+	fn test_commit_trie_changes() {
+		use sp_runtime::traits::BlakeTwo256;
+
+		let state_version = StateVersion::default();
+
+		// Build a block using `Ephemeral`.
+		let build_block = |backend: &Backend<Block>,
+		                   number,
+		                   parent_hash,
+		                   changes: Vec<(Vec<u8>, Vec<u8>)>| {
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, parent_hash).unwrap();
+			let mut header = Header {
+				number,
+				parent_hash,
+				state_root: Default::default(),
+				digest: Default::default(),
+				extrinsics_root: Default::default(),
+			};
+
+			header.state_root = op
+				.old_state
+				.storage_root(changes.iter().map(|(x, y)| (&x[..], Some(&y[..]))), state_version)
+				.0
+				.into();
+			let state_root = header.state_root;
+			let hash = header.hash();
+
+			let state_root_after_reset_storage = op
+				.reset_storage(
+					Storage {
+						top: changes.into_iter().collect(),
+						children_default: Default::default(),
+					},
+					state_version,
+				)
+				.unwrap();
+
+			assert_eq!(state_root, state_root_after_reset_storage);
+
+			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best)
+				.unwrap();
+
+			backend.commit_operation(op).unwrap();
+
+			(hash, state_root)
+		};
+
+		let storage_changes_block_0 =
+			vec![(b"k1".to_vec(), b"v1".to_vec()), (b"k2".to_vec(), b"v2".to_vec())];
+
+		let storage_changes_block_1 = vec![
+			(b"k3".to_vec(), b"v3".to_vec()),
+			(b"k4".to_vec(), b"v4".to_vec()),
+			(b"k5".to_vec(), b"v5".to_vec()),
+		];
+
+		let update_trie_incrementally =
+			|backend: &Backend<Block>, initial_root: <Block as BlockT>::Hash| {
+				let backend_storage = backend.expose_storage();
+				let (db, _state_col) = backend.expose_db();
+
+				let delta = storage_changes_block_1
+					.clone()
+					.into_iter()
+					.map(|(k, v)| (k, Some(v)))
+					.collect::<Vec<_>>();
+
+				let mut trie_committer = TrieCommitter::new(&backend_storage, db);
+				let mut prev_root = initial_root;
+
+				// The order of delta does not matter.
+				for (_index, item) in delta.clone().into_iter().rev().enumerate() {
+					let transient_root =
+						match state_version {
+							StateVersion::V0 =>
+								sp_trie::delta_trie_root::<
+									sp_trie::LayoutV0<BlakeTwo256>,
+									_,
+									_,
+									_,
+									_,
+									_,
+								>(&mut trie_committer, prev_root, vec![item], None, None)
+								.unwrap(),
+							StateVersion::V1 =>
+								sp_trie::delta_trie_root::<
+									sp_trie::LayoutV1<BlakeTwo256>,
+									_,
+									_,
+									_,
+									_,
+									_,
+								>(&mut trie_committer, prev_root, vec![item], None, None)
+								.unwrap(),
+						};
+
+					prev_root = transient_root;
+				}
+
+				prev_root
+			};
+
+		let build_block_1_with_trie_committer = |incremental| {
+			let backend = Backend::<Block>::new_test(10, 10);
+
+			let (hash0, state_root0) =
+				build_block(&backend, 0, Default::default(), storage_changes_block_0.clone());
+
+			let (hash1, state_root1) =
+				build_block(&backend, 1, hash0, storage_changes_block_1.clone());
+
+			// Revert block #1 and rebuild it using `TrieCommitter`.
+			backend.revert(1, true).unwrap();
+
+			println!("\nStart building block#1 using `TrieCommitter`");
+			let parent_hash = hash0;
+
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, parent_hash).unwrap();
+
+			let mut header = Header {
+				number: 1,
+				parent_hash,
+				state_root: Default::default(),
+				digest: Default::default(),
+				extrinsics_root: Default::default(),
+			};
+
+			let update_trie_with_full_delta = || {
+				backend
+					.commit_trie_changes(
+						parent_hash,
+						sp_runtime::Storage {
+							top: storage_changes_block_1.clone().into_iter().collect(),
+							children_default: Default::default(),
+						},
+						state_version,
+					)
+					.unwrap()
+			};
+
+			// Incremental trie update vs full delta commit.
+			header.state_root = if incremental {
+				update_trie_incrementally(&backend, state_root0)
+			} else {
+				update_trie_with_full_delta()
+			};
+
+			let main_sc = storage_changes_block_1
+				.clone()
+				.into_iter()
+				.map(|(k, v)| (k, Some(v)))
+				.collect::<Vec<_>>();
+
+			op.set_commit_state(true);
+			op.update_storage(main_sc, Vec::new()).expect("Update storage");
+			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best)
+				.unwrap();
+
+			backend.commit_operation(op).unwrap();
+
+			let hash1_trie_committer = header.hash();
+			let state_root1_trie_committer = header.state_root;
+
+			assert_eq!(hash1, hash1_trie_committer);
+
+			let (state_storage_root, _) =
+				backend.state_at(hash1).unwrap().storage_root(vec![].into_iter(), state_version);
+			assert_eq!(state_storage_root, state_root1);
+			assert_eq!(state_storage_root, state_root1_trie_committer);
+		};
+
+		build_block_1_with_trie_committer(true);
+		build_block_1_with_trie_committer(false);
 	}
 }

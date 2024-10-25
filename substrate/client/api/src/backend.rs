@@ -235,6 +235,9 @@ pub trait BlockImportOperation<Block: BlockT> {
 
 	/// Configure whether to create a block gap if newly imported block is missing parent
 	fn set_create_gap(&mut self, create_gap: bool);
+
+	/// Configure whether to commit the state changes to the underlying database.
+	fn set_commit_state(&mut self, commit: bool);
 }
 
 /// Interface for performing operations on the backend.
@@ -589,6 +592,26 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Returns state backend with post-state of given block.
 	fn state_at(&self, hash: Block::Hash) -> sp_blockchain::Result<Self::State>;
+
+	/// Import the state changes directly to the trie database.
+	///
+	/// # Arguments
+	///
+	/// - `at`: The block hash corresponding to the last available state before updating the trie
+	///   database.
+	/// - `storage`: The storage changes reflecting the transition from the last local state to the
+	///   target block's state being imported.
+	/// - `state_version`: The state version of the block identified by `at`.
+	///
+	/// # Returns
+	///
+	/// Returns the state root after importing the state.
+	fn commit_trie_changes(
+		&self,
+		at: Block::Hash,
+		storage: sp_runtime::Storage,
+		state_version: sp_runtime::StateVersion,
+	) -> sp_blockchain::Result<Block::Hash>;
 
 	/// Attempts to revert the chain by `n` blocks. If `revert_finalized` is set it will attempt to
 	/// revert past any finalized block, this is unsafe and can potentially leave the node in an
