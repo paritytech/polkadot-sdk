@@ -80,13 +80,13 @@
 //! This crate also uses a `runtime` feature to include all of the types and tools needed to build
 //! FRAME-based runtimes. So, if you want to build a runtime with this, import it as
 //!
-//! ```
+//! ```text
 //! polkadot-sdk-frame = { version = "foo", features = ["runtime"] }
 //! ```
 //!
 //! If you just want to build a pallet instead, import it as
 //!
-//! ```
+//! ```text
 //! polkadot-sdk-frame = { version = "foo" }
 //! ```
 //!
