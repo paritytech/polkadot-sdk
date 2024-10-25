@@ -25,7 +25,7 @@
   - [Zombienet setup with Omni Node](#zombienet-setup-with-omni-node)
   - [Parachain Template Node](#parachain-template-node)
   - [Connect with the Polkadot-JS Apps Front-End](#connect-with-the-polkadot-js-apps-front-end)
-  - [Takeways](#takeaways)
+  - [Takeaways](#takeaways)
 
 - [Contributing](#contributing)
 - [Getting Help](#getting-help)
@@ -186,7 +186,7 @@ available on [IPFS](https://dotapps.io/).
 - 🧑‍🔧 You can also find the source code and instructions for hosting your own instance in the
 [`polkadot-js/apps`](https://github.com/polkadot-js/apps) repository.
 
-### Takewayas
+### Takeaways
 
 Development parachains:
 

@@ -26,7 +26,7 @@
   - [Zombienet with Omni Node](#zombienet-with-omni-node)
   - [Zombienet with Minimal Template Node](#zombienet-with-minimal-template-node)
   - [Connect with the Polkadot-JS Apps Front-End](#connect-with-the-polkadot-js-apps-front-end)
-  - [Takeways](#takeaways)
+  - [Takeaways](#takeaways)
 
 - [Contributing](#contributing)
 
