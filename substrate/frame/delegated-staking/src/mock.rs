@@ -96,7 +96,8 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<Balance, sp_runtime::Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinners = ConstU32<100>;
+	type MaxWinnersPerPage = ConstU32<100>;
+	type MaxBackersPerWinner = ConstU32<100>;
 	type Bounds = ElectionsBoundsOnChain;
 }
 
@@ -110,6 +111,7 @@ impl pallet_staking::Config for Runtime {
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type MaxValidatorSet = ConstU32<100>;
 	type EventListeners = (Pools, DelegatedStaking);
 }
 
