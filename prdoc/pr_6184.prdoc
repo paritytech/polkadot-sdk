@@ -12,11 +12,11 @@ crates:
     bump: patch
   - name: pallet-election-provider-multi-phase
     bump: patch
-  - name: grandpa
+  - name: pallet-grandpa
     bump: patch
-  - name: nomination-pools
+  - name: pallet-nomination-pools
     bump: patch
-  - name: root-offences
+  - name: pallet-root-offences
     bump: patch
   - name: westend-runtime
     bump: patch
