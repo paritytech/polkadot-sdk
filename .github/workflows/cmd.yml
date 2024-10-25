@@ -284,16 +284,21 @@ jobs:
       JOB_NAME: "cmd"
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     timeout-minutes: 4320 # 72 hours -> 3 days; as it could take a long time to run all the runtimes/pallets
-    # container: ## Disabling DockerInDocker for now
-    #   image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Install updates and protobuf-compiler
         run: |
           sudo apt update && sudo apt install --assume-yes \
             openssl pkg-config g++ make cmake protobuf-compiler curl libssl-dev libclang-dev libudev-dev git jq
 
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.get-pr-branch.outputs.repo }}
+          ref: ${{ needs.get-pr-branch.outputs.pr-branch }}
+
       - name: Set rust version via common env file
-        run: cat .github/env >> $GITHUB_ENV
+        run: |
+          run: cat .github/env >> $GITHUB_ENV
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
@@ -355,12 +360,6 @@ jobs:
               repo: context.repo.repo,
               body: `Command "${{ steps.get-pr-comment.outputs.group2 }}" has started 🚀 [See logs here](${job_url})`
             })
-
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ needs.get-pr-branch.outputs.repo }}
-          ref: ${{ needs.get-pr-branch.outputs.pr-branch }}
 
       - name: Install dependencies for bench
         if: startsWith(steps.get-pr-comment.outputs.group2, 'bench')
