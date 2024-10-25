@@ -406,7 +406,7 @@ macro_rules! test_chain_can_claim_assets {
 
 #[macro_export]
 macro_rules! test_dry_run_transfer_across_pk_bridge {
-	( $sender_asset_hub:ty, $sender_bridge_hub:ty, $destination:expr ) => {
+	( $destination_network_id:ty, $sender_asset_hub:ty, $sender_bridge_hub:ty, $destination:expr, $destination_bridge_hub:expr ) => {
 		$crate::macros::paste::paste! {
 			use frame_support::{dispatch::RawOrigin, traits::fungible};
 			use sp_runtime::AccountId32;
@@ -418,10 +418,13 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 			let initial_balance = transfer_amount * 10;
 
 			// Bridge setup.
+			$sender_bridge_hub::fund_para_sovereign($sender_asset_hub::para_id(), 10_000_000_000_000u128);
 			$sender_asset_hub::force_xcm_version($destination, XCM_VERSION);
+			$sender_bridge_hub::force_xcm_version($destination_bridge_hub, XCM_VERSION);
 			open_bridge_between_asset_hub_rococo_and_asset_hub_westend();
 
-			<$sender_asset_hub as TestExt>::execute_with(|| {
+			let mut remote_message = VersionedXcm::from(Xcm::<()>::new());
+			$sender_asset_hub::execute_with(|| {
 				type Runtime = <$sender_asset_hub as Chain>::Runtime;
 				type RuntimeCall = <$sender_asset_hub as Chain>::RuntimeCall;
 				type OriginCaller = <$sender_asset_hub as Chain>::OriginCaller;
@@ -446,7 +449,23 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 				// We assert the dry run succeeds and sends only one message to the local bridge hub.
 				assert!(result.execution_result.is_ok());
 				assert_eq!(result.forwarded_xcms.len(), 1);
-				assert_eq!(result.forwarded_xcms[0].0, VersionedLocation::from(Location::new(1, [Parachain($sender_bridge_hub::para_id().into())])));
+				let (destination, messages) = result.forwarded_xcms[0].clone();
+				assert_eq!(destination, VersionedLocation::from(Location::new(1, [Parachain($sender_bridge_hub::para_id().into())])));
+				assert_eq!(messages.len(), 1);
+				remote_message = messages[0].clone();
+			});
+
+			$sender_bridge_hub::execute_with(|| {
+				type Runtime = <$sender_bridge_hub as Chain>::Runtime;
+				type RuntimeCall = <$sender_bridge_hub as Chain>::RuntimeCall;
+				type OriginCaller = <$sender_bridge_hub as Chain>::OriginCaller;
+
+				let xcm_program =
+					VersionedXcm::from(Xcm::<RuntimeCall>::from(remote_message.clone().try_into().unwrap()));
+				let asset_hub_as_seen_by_bridge_hub = $sender_bridge_hub::sibling_location_of($sender_asset_hub::para_id());
+				let result = Runtime::dry_run_xcm(asset_hub_as_seen_by_bridge_hub.clone().into(), xcm_program).unwrap();
+				assert_eq!(result.forwarded_xcms.len(), 1);
+				assert_eq!(result.forwarded_xcms[0].0, VersionedLocation::from(Location::new(0, [GlobalConsensus(NetworkId::$destination_network_id), Parachain($sender_asset_hub::para_id().into())])));
 			});
 		}
 	};
