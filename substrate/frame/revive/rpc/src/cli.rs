@@ -30,7 +30,7 @@ use tower_http::cors::{Any, CorsLayer};
 #[clap(author, about, version)]
 pub struct CliCommand {
 	/// The server address to bind to
-	#[clap(long, default_value = "9090")]
+	#[clap(long, default_value = "8545")]
 	pub rpc_port: String,
 
 	/// The node url to connect to

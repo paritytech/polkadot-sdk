@@ -23,7 +23,7 @@ async fn main() -> anyhow::Result<()> {
 	let account = Account::default();
 	println!("Account address: {:?}", account.address());
 
-	let client = HttpClientBuilder::default().build("http://localhost:9090")?;
+	let client = HttpClientBuilder::default().build("http://localhost:8545")?;
 
 	let block = client.get_block_by_number(BlockTag::Latest.into(), false).await?;
 	println!("Latest block: {block:#?}");

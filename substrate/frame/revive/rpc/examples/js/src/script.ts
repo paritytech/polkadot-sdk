@@ -3,7 +3,7 @@
 import { readFileSync } from "fs";
 import { Contract, ContractFactory, JsonRpcProvider } from "ethers";
 
-const provider = new JsonRpcProvider("http://localhost:9090");
+const provider = new JsonRpcProvider("http://localhost:8545");
 const signer = await provider.getSigner();
 console.log(
   `Signer address: ${await signer.getAddress()}, Nonce: ${await signer

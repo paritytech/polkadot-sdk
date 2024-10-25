@@ -16,7 +16,7 @@ RUST_LOG="error,evm=debug,sc_rpc_server=info,runtime::revive=debug" cargo run --
 
 ## Start the RPC server
 
-This command starts the Ethereum JSON-RPC server, which runs on `localhost:9090` by default:
+This command starts the Ethereum JSON-RPC server, which runs on `localhost:8545` by default:
 
 ```bash
 RUST_LOG="info,eth-rpc=debug" cargo run -p pallet-revive-eth-rpc --features dev
@@ -65,7 +65,7 @@ Make sure the node and the RPC server are started, and use the following setting
 (MetaMask > Networks > Add a network manually):
 
 - Network name: KitchenSink
-- RPC URL: <http://localhost:9090>
+- RPC URL: <http://localhost:8545>
 - Chain ID: 420420420
 - Currency Symbol: `DEV`
 

@@ -28,6 +28,7 @@ use pallet_revive_eth_rpc::{
 async fn main() -> anyhow::Result<()> {
 	env_logger::init();
 	let account = Account::default();
+
 	let data = vec![];
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let input = bytes.into_iter().chain(data.clone()).collect::<Vec<u8>>();
@@ -35,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
 	println!("Account:");
 	println!("- address: {:?}", account.address());
 	println!("- substrate: {}", account.substrate_account());
-	let client = HttpClientBuilder::default().build("http://localhost:9090")?;
+	let client = HttpClientBuilder::default().build("http://localhost:8545")?;
 
 	println!("\n\n=== Deploying contract ===\n\n");
 

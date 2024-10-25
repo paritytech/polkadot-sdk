@@ -26,7 +26,7 @@ use crate::{
 };
 use codec::Encode;
 use futures::{stream, StreamExt};
-use jsonrpsee::types::{ErrorCode, ErrorObjectOwned};
+use jsonrpsee::types::{ErrorCode, ErrorObject, ErrorObjectOwned};
 use pallet_revive::{
 	create1,
 	evm::{
@@ -102,17 +102,38 @@ struct BlockCache<const N: usize> {
 	tx_hashes_by_block_and_index: HashMap<H256, HashMap<U256, H256>>,
 }
 
+fn unwrap_subxt_err(err: &subxt::Error) -> String {
+	match err {
+		subxt::Error::Rpc(err) => unwrap_rpc_err(err),
+		_ => err.to_string(),
+	}
+}
+
+fn unwrap_rpc_err(err: &subxt::error::RpcError) -> String {
+	match err {
+		// TODO have subxt re-export this error type so that we can downcast it
+		subxt::error::RpcError::ClientError(err) => {
+			if let Some(err) = err.downcast_ref::<ErrorObject>() {
+				err.message().to_string()
+			} else {
+				err.to_string()
+			}
+		},
+		_ => err.to_string(),
+	}
+}
+
 /// The error type for the client.
 #[derive(Error, Debug)]
 pub enum ClientError {
 	/// A [`subxt::Error`] wrapper error.
-	#[error("Subxt error: {0}")]
+	#[error("{}",unwrap_subxt_err(.0))]
 	SubxtError(#[from] subxt::Error),
 	/// A [`RpcError`] wrapper error.
-	#[error("RPC error: {0}")]
+	#[error("{}",unwrap_rpc_err(.0))]
 	RpcError(#[from] RpcError),
 	/// A [`codec::Error`] wrapper error.
-	#[error("Codec error: {0}")]
+	#[error(transparent)]
 	CodecError(#[from] codec::Error),
 	/// The dry run failed.
 	#[error("Dry run failed")]
@@ -134,15 +155,13 @@ pub enum ClientError {
 	CacheEmpty,
 }
 
+const GENERIC_ERROR_CODE: ErrorCode = ErrorCode::ServerError(-32000);
+
 // Convert a `ClientError` to an RPC `ErrorObjectOwned`.
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(value: ClientError) -> Self {
 		log::debug!(target: LOG_TARGET, "ClientError: {value:?}");
-		ErrorObjectOwned::owned::<()>(
-			ErrorCode::InternalError.code(),
-			ErrorCode::InternalError.message(),
-			None,
-		)
+		ErrorObjectOwned::owned::<()>(GENERIC_ERROR_CODE.code(), value.to_string(), None)
 	}
 }
 
