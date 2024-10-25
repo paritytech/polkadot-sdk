@@ -78,7 +78,17 @@
 //! still not feasible, one can look into `deps`.
 //!
 //! This crate also uses a `runtime` feature to include all of the types and tools needed to build
-//! FRAME-based runtimes, which otherwise are ignored. You can enable it with `--features runtime`.
+//! FRAME-based runtimes. So, if you want to build a runtime with this, import it as
+//!
+//! ```
+//! polkadot-sdk-frame = { version = "foo", features = ["runtime"] }
+//! ```
+//!
+//! If you just want to build a pallet instead, import it as
+//!
+//! ```
+//! polkadot-sdk-frame = { version = "foo" }
+//! ```
 //!
 //! Notice that the preludes overlap since they have imports in common. More in detail:
 //! - `testing_prelude` brings in frame `prelude` and `runtime::prelude`;
