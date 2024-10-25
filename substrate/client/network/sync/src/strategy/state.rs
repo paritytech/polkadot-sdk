@@ -123,10 +123,11 @@ impl<B: BlockT> StateStrategy<B> {
 		}
 	}
 
-	// Create a new instance with a custom state sync provider.
-	// Used in tests.
-	#[cfg(test)]
-	fn new_with_provider(
+	/// Create a new instance with a custom state sync provider.
+	///
+	/// Note: In most cases, users should use [`StateStrategy::new`].
+	/// This method is intended for custom sync strategies and advanced use cases.
+	pub fn new_with_provider(
 		state_sync_provider: Box<dyn StateSyncProvider<B>>,
 		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
 		protocol_name: ProtocolName,
@@ -352,7 +353,7 @@ impl<B: BlockT> StateStrategy<B> {
 		}
 	}
 
-	/// Get actions that should be performed by the owner on [`WarpSync`]'s behalf
+	/// Get actions that should be performed.
 	#[must_use]
 	pub fn actions(&mut self) -> impl Iterator<Item = StateStrategyAction<B>> {
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
