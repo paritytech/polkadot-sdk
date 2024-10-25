@@ -567,6 +567,11 @@ pub mod pallet {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			Self::begin_block(n)
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::call]
@@ -1170,6 +1175,7 @@ pub mod pallet {
 	}
 }
 
+
 pub trait EncodeInto: Encode {
 	fn encode_into<T: AsMut<[u8]> + Default, H: sp_core::Hasher>(&self) -> T {
 		let mut t = T::default();
@@ -1189,6 +1195,48 @@ pub trait EncodeInto: Encode {
 	}
 }
 impl<T: Encode> EncodeInto for T {}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		//PublicPropCount should be greater than PublicProps count
+		ensure!(
+			PublicProps::<T>::get().len() <= <PublicPropCount<T>>::get() as usize,
+			"`PublicPropCount` should be greater than of `PublicProps` in storage"
+		);
+		// DepositOf should be equal to PublicProps in storage
+		ensure!(
+			DepositOf::<T>::iter().count() == PublicProps::<T>::get().len() as usize,
+			"`DepositOf` should be greater than of `PublicProps` in storage"
+		);
+		// Total number of depositors should be greater or equal to `PublicProps`
+		ensure!(
+			Self::count_total_depositors() >= PublicProps::<T>::get().len() as u32,
+			"Total depositors should be greater than that of `PublicProps` in storage"
+		);
+		// Cancellations should be less than or equal to ReferendumInfoOf
+		ensure!(
+			Cancellations::<T>::iter().count() <= ReferendumInfoOf::<T>::iter().count() as usize,
+			"`Cancellations` should be less than or must equal `ReferendumInfoOf` in storage"
+		);
+
+		Ok(())
+	}
+
+	fn count_total_depositors() -> u32 {
+		let mut total_count = 0;
+
+		// Iterate over the `DepositOf` storage map.
+		for (_, (account_ids, _)) in DepositOf::<T>::iter() {
+			total_count += account_ids.len() as u32; // Add the length of the BoundedVec
+		}
+
+		total_count
+	}
+}
 
 impl<T: Config> Pallet<T> {
 	// exposed immutables.
