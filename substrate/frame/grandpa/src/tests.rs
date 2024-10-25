@@ -319,7 +319,7 @@ fn report_equivocation_current_set_works() {
 	let authorities = test_authorities();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		assert_eq!(Staking::current_era(), Some(0));
+		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(0));
 		assert_eq!(Session::current_index(), 0);
 
 		start_era(1);

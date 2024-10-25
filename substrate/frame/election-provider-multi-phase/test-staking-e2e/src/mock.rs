@@ -49,7 +49,7 @@ use pallet_election_provider_multi_phase::{
 	unsigned::MinerConfig, Call, CurrentPhase, ElectionCompute, GeometricDepositBase,
 	QueuedSolution, SolutionAccuracyOf,
 };
-use pallet_staking::StakerStatus;
+use pallet_staking::{ActiveEra, CurrentEra, ErasStartSessionIndex, StakerStatus};
 use parking_lot::RwLock;
 use std::sync::Arc;
 
@@ -806,11 +806,11 @@ pub(crate) fn start_active_era(
 }
 
 pub(crate) fn active_era() -> EraIndex {
-	Staking::active_era().unwrap().index
+	ActiveEra::<Runtime>::get().unwrap().index
 }
 
 pub(crate) fn current_era() -> EraIndex {
-	Staking::current_era().unwrap()
+	CurrentEra::<Runtime>::get().unwrap()
 }
 
 // Fast forward until EPM signed phase.
@@ -862,11 +862,11 @@ pub(crate) fn on_offence_now(
 	>],
 	slash_fraction: &[Perbill],
 ) {
-	let now = Staking::active_era().unwrap().index;
+	let now = ActiveEra::<Runtime>::get().unwrap().index;
 	let _ = Staking::on_offence(
 		offenders,
 		slash_fraction,
-		Staking::eras_start_session_index(now).unwrap(),
+		ErasStartSessionIndex::<Runtime>::get(now).unwrap(),
 	);
 }
 

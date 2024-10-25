@@ -708,7 +708,7 @@ mod benchmarks {
 		<ErasValidatorPrefs<T>>::insert(
 			current_era,
 			validator.clone(),
-			<Staking<T>>::validators(&validator),
+			Validators::<T>::get(&validator),
 		);
 
 		let caller = whitelisted_caller();

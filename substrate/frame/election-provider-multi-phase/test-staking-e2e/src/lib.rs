@@ -47,7 +47,7 @@ fn log_current_time() {
 		"block: {:?}, session: {:?}, era: {:?}, EPM phase: {:?} ts: {:?}",
 		System::block_number(),
 		Session::current_index(),
-		Staking::current_era(),
+		pallet_staking::CurrentEra::<Runtime>::get(),
 		CurrentPhase::<Runtime>::get(),
 		Now::<Runtime>::get()
 	);
