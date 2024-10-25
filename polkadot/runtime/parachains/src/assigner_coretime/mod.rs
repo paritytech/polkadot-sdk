@@ -300,7 +300,7 @@ impl<T: Config> Pallet<T> {
 	/// `pop_assignment_for_core` was not yet called at this very block, then the first entry in
 	/// the vec returned by `peek` will be the assignment statements should be ready for
 	/// at this block.
-	pub fn peek(core_idx: CoreIndex, num_entries: u8) -> Vec<Assignment> {
+	pub fn peek(core_idx: CoreIndex, num_entries: u8) -> impl Iterator<Item = Assignment> {
 		let now = frame_system::Pallet::<T>::block_number();
 		Self::peek_impl(now, core_idx, num_entries)
 	}
@@ -368,24 +368,41 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+struct PeekIterator<N> {
+	core_idx: CoreIndex,
+	core_state: CoreDescriptor<N>,
+	remaining_entries: u8,
+	now: N,
+}
+
+impl<N> Iterator for PeekIterator<N> {
+	type Item = Assignment;
+
+	fn next(&mut self) -> Option<Assignment> {
+		if self.remaining_entries == 0 {
+			return None
+		}
+		let assignment = Self::pop_assignment_for_core_impl(
+			self.now,
+			self.core_idx,
+			&mut self.core_state,
+			AccessMode::Peek,
+		);
+		self.now += One::one();
+		self.remaining_entries.saturating_sub(1);
+		assignment
+	}
+}
+
 impl<T: Config> Pallet<T> {
 	fn peek_impl(
-		mut now: BlockNumberFor<T>,
+		now: BlockNumberFor<T>,
 		core_idx: CoreIndex,
 		num_entries: u8,
-	) -> Vec<Assignment> {
-		let mut assignments = Vec::with_capacity(num_entries.into());
-		let mut core_state = CoreDescriptors::<T>::get(core_idx);
+	) -> impl Iterator<Item = Assignment> {
+		let core_state = CoreDescriptors::<T>::get(core_idx);
 
-		for _ in 0..num_entries {
-			if let Some(assignment) =
-				Self::pop_assignment_for_core_impl(now, core_idx, &mut core_state, AccessMode::Peek)
-			{
-				assignments.push(assignment);
-			};
-			now += One::one();
-		}
-		assignments
+		PeekIterator { core_idx, core_state, remaining_entries: num_entries, now }
 	}
 
 	fn pop_assignment_for_core_impl(

@@ -166,7 +166,7 @@ pub mod pallet {
 
 	/// Keeps track of accumulated revenue from on demand order sales.
 	#[pallet::storage]
-	pub type Revenue<T: Config> =
+	pub(super) type Revenue<T: Config> =
 		StorageValue<_, BoundedVec<BalanceOf<T>, T::MaxHistoricalRevenue>, ValueQuery>;
 
 	#[pallet::event]
@@ -332,9 +332,9 @@ where
 		Pallet::<T>::decrease_affinity_update_queue(para_id, core_index);
 	}
 
-	/// Push an assignment back to the front of the queue.
+	/// Push an assignment back to the back of the queue.
 	///
-	/// The assignment has not been processed yet. Typically used on session boundaries.
+	/// The assignment could not be served for some reason, give it another chance.
 	///
 	/// NOTE: We are not checking queue size here. So due to push backs it is possible that we
 	/// exceed the maximum queue size slightly.
@@ -345,7 +345,7 @@ where
 	pub fn push_back_assignment(para_id: ParaId, core_index: CoreIndex) {
 		Pallet::<T>::decrease_affinity_update_queue(para_id, core_index);
 		QueueStatus::<T>::mutate(|queue_status| {
-			Pallet::<T>::add_on_demand_order(queue_status, para_id, QueuePushDirection::Front);
+			Pallet::<T>::add_on_demand_order(queue_status, para_id, QueuePushDirection::Back);
 		});
 	}
 
