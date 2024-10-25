@@ -1,4 +1,4 @@
-title: [Deprecation] deprecate treasury `spend_local` call and related items
+title: "[Deprecation] deprecate treasury `spend_local` call and related items"
 
 doc:
   - audience: Runtime Dev
