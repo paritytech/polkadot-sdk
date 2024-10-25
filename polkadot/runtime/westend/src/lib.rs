@@ -1704,7 +1704,14 @@ pub mod migrations {
 			Runtime,
 			MaxPoolsToMigrate,
 		>,
+<<<<<<< HEAD
 		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
+=======
+		parachains_shared::migration::MigrateToV1<Runtime>,
+		parachains_scheduler::migration::MigrateV2ToV3<Runtime>,
+		// permanent
+		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+>>>>>>> efd6603 (Fix migrations for pallet-xcm (#6148))
 	);
 }
 
