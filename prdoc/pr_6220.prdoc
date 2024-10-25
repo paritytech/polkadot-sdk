@@ -1,0 +1,10 @@
+title: Fix metrics not shutting down if there are open connections
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fix prometheus metrics not shutting down if there are open connections
+
+crates:
+- name: substrate-prometheus-endpoint
+  bump: patch
