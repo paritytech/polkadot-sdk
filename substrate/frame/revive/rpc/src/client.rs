@@ -26,7 +26,7 @@ use crate::{
 };
 use codec::Encode;
 use futures::{stream, StreamExt};
-use jsonrpsee::types::{ErrorCode, ErrorObject, ErrorObjectOwned};
+use jsonrpsee::types::{ErrorCode, ErrorObjectOwned};
 use pallet_revive::{
 	create1,
 	evm::{
@@ -111,13 +111,13 @@ fn unwrap_subxt_err(err: &subxt::Error) -> String {
 
 fn unwrap_rpc_err(err: &subxt::error::RpcError) -> String {
 	match err {
-		// TODO have subxt re-export this error type so that we can downcast it
-		subxt::error::RpcError::ClientError(err) => {
-			if let Some(err) = err.downcast_ref::<ErrorObject>() {
-				err.message().to_string()
-			} else {
-				err.to_string()
-			}
+		subxt::error::RpcError::ClientError(err) => match err
+			// TODO use the re-export from subxt once available
+			.downcast_ref::<jsonrpsee::core::ClientError>()
+		{
+			Some(jsonrpsee::core::ClientError::Call(call_err)) => call_err.message().to_string(),
+			Some(other_err) => other_err.to_string(),
+			None => err.to_string(),
 		},
 		_ => err.to_string(),
 	}
