@@ -58,7 +58,7 @@ use frame_system::{
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_nfts::{DestroyWitness, PalletFeatures};
-use pallet_revive::evm::runtime::EthExtra;
+use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
@@ -2069,8 +2069,17 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_revive::ReviveApi<Block, AccountId, Balance, BlockNumber, EventRecord> for Runtime
+	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, EventRecord> for Runtime
 	{
+		fn balance(address: H160) -> Balance {
+			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
+			Balances::usable_balance(account)
+		}
+
+		fn nonce(address: H160) -> Nonce {
+			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
+			System::account_nonce(account)
+		}
 		fn eth_transact(
 			from: H160,
 			dest: Option<H160>,

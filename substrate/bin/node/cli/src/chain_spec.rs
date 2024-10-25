@@ -437,10 +437,6 @@ fn default_endowed_accounts() -> Vec<AccountId> {
 		.chain([
 			eth_account(subxt_signer::eth::dev::alith()),
 			eth_account(subxt_signer::eth::dev::baltathar()),
-			eth_account(subxt_signer::eth::dev::charleth()),
-			eth_account(subxt_signer::eth::dev::dorothy()),
-			eth_account(subxt_signer::eth::dev::ethan()),
-			eth_account(subxt_signer::eth::dev::faith()),
 		])
 		.collect()
 }

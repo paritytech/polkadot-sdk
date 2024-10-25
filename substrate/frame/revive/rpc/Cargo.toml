@@ -1,0 +1,83 @@
+[package]
+name = "pallet-revive-eth-rpc"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "An Ethereum JSON-RPC server for pallet-revive."
+
+[[bin]]
+name = "eth-rpc"
+path = "src/main.rs"
+
+[[example]]
+name = "deploy"
+path = "examples/rust/deploy.rs"
+required-features = ["example", "riscv"]
+
+[[example]]
+name = "transfer"
+path = "examples/rust/transfer.rs"
+required-features = ["example", "riscv"]
+
+[[example]]
+name = "rpc-playground"
+path = "examples/rust/rpc-playground.rs"
+required-features = ["example", "riscv"]
+
+[[example]]
+name = "extrinsic"
+path = "examples/rust/extrinsic.rs"
+required-features = ["example", "riscv"]
+
+[[example]]
+name = "remark-extrinsic"
+path = "examples/rust/remark-extrinsic.rs"
+required-features = ["example", "riscv"]
+
+[dependencies]
+clap = { workspace = true, features = ["derive"] }
+anyhow = { workspace = true }
+futures = { workspace = true, features = ["thread-pool"] }
+jsonrpsee = { workspace = true, features = ["full"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sp-crypto-hashing = { workspace = true }
+subxt = { workspace = true, default-features = true, features = [
+	"unstable-reconnecting-rpc-client",
+] }
+tokio = { workspace = true, features = ["full"] }
+codec = { workspace = true, features = ["derive"] }
+log.workspace = true
+tracing-subscriber.workspace = true
+pallet-revive = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-weights = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sc-rpc = { workspace = true, default-features = true }
+
+tower.workspace = true
+tower-http = { workspace = true, features = ["full"] }
+hyper.workspace = true
+
+rlp = { workspace = true, optional = true }
+subxt-signer = { workspace = true, optional = true, features = [
+	"unstable-eth",
+] }
+hex = { workspace = true, optional = true }
+hex-literal = { workspace = true, optional = true }
+scale-info = { workspace = true }
+secp256k1 = { workspace = true, optional = true, features = ["recovery"] }
+env_logger = { workspace = true }
+
+[features]
+dev = []
+example = ["hex", "hex-literal", "rlp", "secp256k1", "subxt-signer"]
+riscv = ["pallet-revive/riscv"]
+
+[dev-dependencies]
+hex-literal = { workspace = true }
+pallet-revive-fixtures = { workspace = true }
+substrate-cli-test-utils = { workspace = true }

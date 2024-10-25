@@ -1453,12 +1453,19 @@ environmental!(executing_contract: bool);
 sp_api::decl_runtime_apis! {
 	/// The API used to dry-run contract interactions.
 	#[api_version(1)]
-	pub trait ReviveApi<AccountId, Balance, BlockNumber, EventRecord> where
+	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber, EventRecord> where
 		AccountId: Codec,
 		Balance: Codec,
+		Nonce: Codec,
 		BlockNumber: Codec,
 		EventRecord: Codec,
 	{
+		/// Returns the free balance of the given `[H160]` address.
+		fn balance(address: H160) -> Balance;
+
+		/// Returns the nonce of the given `[H160]` address.
+		fn nonce(address: H160) -> Nonce;
+
 		/// Perform a call from a specified account to a given contract.
 		///
 		/// See [`crate::Pallet::bare_call`].
