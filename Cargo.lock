@@ -12770,6 +12770,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-authorship",
+ "pallet-session",
+ "pallet-staking",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 31.0.1",

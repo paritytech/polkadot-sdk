@@ -24,6 +24,9 @@ sp-staking = { default-features = true, workspace = true }
 frame-support = { default-features = true, workspace = true }
 frame-system = { default-features = true, workspace = true }
 pallet-authorship = { workspace = true }
+pallet-session = { workspace = true }
+pallet-staking = { workspace = true }
+
 
 [features]
 default = ["std"]
@@ -36,4 +39,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-authorship/std",
+	"pallet-session/std",
+	"pallet-staking/std",
 ]

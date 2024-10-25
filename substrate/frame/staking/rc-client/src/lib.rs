@@ -93,8 +93,6 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-/// Re-exports this crate's trait implementations.
-pub use impls::*;
 /// Re-exports this crate's traits.
 pub use traits::*;
 
@@ -106,51 +104,135 @@ use sp_runtime::{
 };
 
 use pallet_authorship::EventHandler as AuthorshipEventHandler;
+use pallet_session::SessionManager;
+use pallet_staking::SessionInterface;
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	SessionIndex,
 };
 
-/// The type of session key proof expected by this pallet.
-pub(crate) type SessionKeyProof = Vec<u8>;
+/// An account ID type for the runtime.
+pub(crate) type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+/// The type of session keys proof expected by this pallet.
+pub(crate) type SessionKeysProof = Vec<u8>;
+
+// TODO:
+// - This pallet is the session manager from Staking (not RC-session-pallet)
+// 		- All the outbound actions should be a *existing* or new trait
+// 		RC Session (impl SessionManager) - Broker(impl SessionManager) - Staking(impl SessionManager)
+// - Rename pallet to "Broker" or something else (client is actually the type that sends the XCM,
+// which is implemented in the runtime config).
+//
+// pallet_session needs two traits as config
+// - Session Manager: Staking
+// - Session Handler: (Babe, grandpa, para_validator, para_assignment, authority_discover, beefy.)
+// (rename: relay-chain session proxy OR relay-chain proxy?)
+// - + track relay-chain session here (mapping RC session <> Staking session here)
+//
+// - New inbound message:
+// 	- When a new session changes (potentially with a delay) in the RC
+//
+// pallet-rc-proxy/broker
+//  - type AsyncSessionBroker
+//  - type OffenceBroker
+//
+// two traits:
+// - XCM relay-chain client (outbound trait) `trait RelayChainClient`
+// - XCM inbound trait `trait StakingClient`
+// 	- maybe add these traits in `sp-staking` (later)
+
+pub mod traits {
+	use sp_staking::offence::OffenceReportSystem;
+
+	use super::*;
+
+	/// Marker trait that encapsulates all the behaviour that an async broker (staking -> relay
+	/// chain) must implement.
+	pub trait AsyncBroker: AsyncSessionBroker + AsyncOffenceBroker {}
+
+	/// Something that implements a session broker.
+	///
+	/// It supports the following functionality:
+	///
+	/// * Handles setting and purging validator session keys.
+	/// * Handles a new set of validator keys computed by staking.
+	/// * Implements the [`SessionInterface`] trait to manage sessions.
+	pub trait AsyncSessionBroker: SessionInterface<Self::AccountId> {
+		/// The account ID type.
+		type AccountId;
+
+		/// The session keys type that is supported by staking and the relay chain.
+		type SessionKeys;
+
+		/// The proof type for [`Self::SessionKeys`].
+		type SessionKeysProof;
+
+		/// A bound for the max number of validators in the set.
+		type MaxValidatorSet;
+
+		/// The error type.
+		type Error;
+
+		// Sets the validator session keys.
+		fn set_session_keys(
+			who: Self::AccountId,
+			session_keys: Self::SessionKeys,
+			proof: Self::SessionKeysProof,
+		) -> Result<(), Self::Error>;
+
+		/// Purges the validator session keys.
+		fn purge_session_keys(who: Self::AccountId) -> Result<(), Self::Error>;
+
+		/// A new validator set has been computed and it is ready to be communicated to the
+		/// relay-chain.
+		fn new_validator_set(
+			session_index: SessionIndex,
+			validator_set: sp_runtime::BoundedVec<Self::AccountId, Self::MaxValidatorSet>,
+		) -> Result<(), Self::Error>;
+	}
+
+	/// Something that implement a offence broker for staking.
+	pub trait AsyncOffenceBroker {}
+}
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
 
-		/// The staking interface.
-		type Staking: AuthorshipEventHandler<Self::AccountId, BlockNumberFor<Self>>
+		/// The staking type to redirect inbound calls.
+		type Staking: SessionManager<Self::AccountId>
+			+ AuthorshipEventHandler<Self::AccountId, BlockNumberFor<Self>>
 			+ OnOffenceHandler<Self::AccountId, Self::AccountId, Weight>;
 
 		/// The max offenders a report supports.
 		type MaxOffenders: Get<u32>;
 
+		/// The max mumber of validators a [`Self::ValidatorSetHandler`] can operate.
+		type MaxValidatorSet: Get<u32>;
+
 		/// The session keys.
 		type SessionKeys: OpaqueKeys + Member + Parameter + MaybeSerializeDeserialize;
 
-		/// The session keys handler that requests from this pallet.
-		type SessionKeysHandler: SessionKeysHandler<
+		/// The async broker that handles the communication and logic with the relay-chain by
+		/// sending outbound XCM messages.
+		type RelayChainClient: AsyncBroker<
 			AccountId = Self::AccountId,
-			Keys = Self::SessionKeys,
-			Proof = SessionKeyProof,
-		>;
-
-		/// The max mumber of validators a [`Self::ValidatorSetHandler`] can operate.
-		type MaxValidators: Get<u32>;
-
-		/// An handler for when a new validator set must be enacted.
-		type ValidatorSetHandler: ValidatorSetHandler<
-			AccountId = Self::AccountId,
-			MaxValidators = Self::MaxValidators,
+			MaxValidatorSet = Self::MaxValidatorSet,
+			SessionKeys = Self::SessionKeys,
+			SessionKeysProof = SessionKeysProof,
 		>;
 	}
 
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::event]
@@ -165,6 +247,11 @@ pub mod pallet {
 		PurgeKeys,
 	}
 
+	/// Keepts track of the active validator set, as seen by the relay chain.
+	#[pallet::storage]
+	pub type ActiveValidators<T: Config> =
+		StorageValue<_, BoundedVec<AccountIdOf<T>, T::MaxValidatorSet>>;
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Sets the session key(s) of the function caller to `keys`.
@@ -177,10 +264,10 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			// TODO(gpestana): any pre-checks?
 
-			<T::SessionKeysHandler as SessionKeysHandler>::set_keys(who, session_keys, proof)
-				.map_err(|_| Error::<T>::SetKeys)?;
+			<T::RelayChainClient as AsyncSessionBroker>::set_session_keys(who, session_keys, proof)
+				.map_err(|_| Error::<T>::PurgeKeys)?;
 
-			todo!()
+			Ok(())
 		}
 
 		/// Removes any session key(s) of the function caller.
@@ -189,7 +276,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			// TODO(gpestana): any pre-checks?
 
-			<T::SessionKeysHandler as SessionKeysHandler>::purge_keys(who)
+			<T::RelayChainClient as AsyncSessionBroker>::purge_session_keys(who)
 				.map_err(|_| Error::<T>::PurgeKeys)?;
 
 			Ok(())
@@ -201,10 +288,6 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		pub fn author(origin: OriginFor<T>, author: T::AccountId) -> DispatchResult {
 			let _ = ensure_root(origin);
-
-			// TODO: (perhaps?) instead of calling directly staking, batch authoring points instead
-			// and use `on_initialize` or some other mechanism to notify staking of a set of
-			// authoring notes.
 
 			<T::Staking as AuthorshipEventHandler<_, _>>::note_author(author);
 
@@ -234,117 +317,19 @@ pub mod pallet {
 	}
 }
 
-pub mod traits {
-	use super::*;
-
-	/// Something that handles the management of session keys.
-	///
-	/// It allows to define the behaviour when new session keys are set and purged.
-	pub trait SessionKeysHandler {
-		/// The account ID type.
-		type AccountId;
-		/// The keys type that is supported by the manager.
-		type Keys;
-		/// The proof type for [`Self::Keys`].
-		type Proof;
-		/// The error type.
-		type Error;
-
-		fn set_keys(
-			who: Self::AccountId,
-			session_keys: Self::Keys,
-			proof: Self::Proof,
-		) -> Result<(), Self::Error>;
-
-		fn purge_keys(who: Self::AccountId) -> Result<(), Self::Error>;
+impl<T: Config> SessionInterface<AccountIdOf<T>> for Pallet<T> {
+	fn disable_validator(validator_index: u32) -> bool {
+		<T::RelayChainClient as SessionInterface<AccountIdOf<T>>>::disable_validator(
+			validator_index,
+		)
 	}
 
-	/// Something that handles a new validator set.
-	pub trait ValidatorSetHandler {
-		/// The account ID type.
-		type AccountId;
-		/// The max number of validators the provider can return.
-		type MaxValidators;
-		/// The error type.
-		type Error;
-
-		/// A new validator set is ready.
-		fn new_validator_set(
-			session_index: SessionIndex,
-			validator_set: sp_runtime::BoundedVec<Self::AccountId, Self::MaxValidators>,
-		) -> Result<(), Self::Error>;
-	}
-}
-
-pub mod impls {
-	use std::marker::PhantomData;
-
-	use super::{
-		pallet::{Config, Error as PalletError},
-		*,
-	};
-
-	/// Propagates session key management actions and data through XCM.
-	pub struct SessionKeysHandlerXCM<T: Config>(PhantomData<T>);
-
-	impl<T: Config> SessionKeysHandler for SessionKeysHandlerXCM<T> {
-		type AccountId = T::AccountId;
-		type Keys = T::SessionKeys;
-		type Proof = SessionKeyProof;
-		type Error = PalletError<T>;
-
-		fn set_keys(
-			_who: Self::AccountId,
-			_session_keys: Self::Keys,
-			_proof: Self::Proof,
-		) -> Result<(), Self::Error> {
-			todo!()
-		}
-
-		fn purge_keys(_who: Self::AccountId) -> Result<(), Self::Error> {
-			todo!()
-		}
+	// TODO: this trait needs to be bounded.
+	fn validators() -> Vec<AccountIdOf<T>> {
+		ActiveValidators::<T>::get().map(|v| v.into()).unwrap_or_default()
 	}
 
-	/// Propagates a new set of validators through XCM.
-	pub struct ValidatorSetHandlerXCM<T: Config>(PhantomData<T>);
-
-	impl<T: Config> ValidatorSetHandler for ValidatorSetHandlerXCM<T> {
-		type AccountId = T::AccountId;
-		type MaxValidators = T::MaxValidators;
-		type Error = PalletError<T>;
-
-		fn new_validator_set(
-			_session: SessionIndex,
-			_validator_set: sp_runtime::BoundedVec<Self::AccountId, Self::MaxValidators>,
-		) -> Result<(), Self::Error> {
-			// TODO: consider doing batching, buffering, etc.
-
-			/*
-			// TODO: preparing and sending the XCM messages should probably be part of the
-			// parachain's runtime config, not here.
-
-			let new_validator_set_call = RelayRuntimePallets::StakingClient(validator_set, session_index);
-			let call_weight: Weight = Default::default();
-
-			let message = Xcm(
-				Vec![Instruction::UnpaidExecution {
-					weight_limit: WeightLimit::Unlimited,
-					check_origin: None,
-				},
-					origin_kind: OriginKind::Native,
-					require_weight_at_most: call_weight,
-					call: new_validator_set_call,
-				]
-			);
-
-			match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-				Ok(_) => (),
-				Err(_) => (),
-			};
-			*/
-
-			Ok(())
-		}
+	fn prune_historical_up_to(up_to: SessionIndex) {
+		<T::RelayChainClient as SessionInterface<AccountIdOf<T>>>::prune_historical_up_to(up_to);
 	}
 }
