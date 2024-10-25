@@ -333,10 +333,16 @@ impl OverheadCmd {
 		// At this point we know what kind of chain we are dealing with.
 		let chain_type = identify_chain(&metadata, para_id);
 
+		// If we are dealing  with a parachain, make sure that the para id in genesis will
+		// match what we expect.
+		let genesis_patcher = match chain_type {
+			Parachain(para_id) =>
+				Some(Box::new(move |value| patch_genesis(value, Some(para_id))) as Box<_>),
+			_ => None,
+		};
+
 		let client = self.build_client_components::<Block, (ParachainHostFunctions, ExtraHF)>(
-			state_handler.build_storage::<(ParachainHostFunctions, ExtraHF)>(Some(Box::new(
-				move |value| patch_genesis(value, para_id),
-			)))?,
+			state_handler.build_storage::<(ParachainHostFunctions, ExtraHF)>(genesis_patcher)?,
 			executor,
 			&chain_type,
 		)?;
@@ -589,16 +595,16 @@ impl CliConfiguration for OverheadCmd {
 		Some(&self.import_params)
 	}
 
+	fn base_path(&self) -> Result<Option<BasePath>> {
+		Ok(Some(BasePath::new_temp_dir()?))
+	}
+
 	fn trie_cache_maximum_size(&self) -> Result<Option<usize>> {
 		if self.params.enable_trie_cache {
 			Ok(self.import_params().map(|x| x.trie_cache_maximum_size()).unwrap_or_default())
 		} else {
 			Ok(None)
 		}
-	}
-
-	fn base_path(&self) -> Result<Option<BasePath>> {
-		Ok(Some(BasePath::new_temp_dir()?))
 	}
 }
 
@@ -610,6 +616,19 @@ mod tests {
 	use sc_executor::WasmExecutor;
 
 	#[test]
+	fn test_chain_type_relaychain() {
+		let executor: WasmExecutor<ParachainHostFunctions> = WasmExecutor::builder().build();
+		let code_bytes = westend_runtime::WASM_BINARY
+			.expect("To run this test, build the wasm binary of westend-runtime")
+			.to_vec();
+		let metadata =
+			super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
+		let chain_type = identify_chain(&metadata, None);
+		assert_eq!(chain_type, ChainType::Relaychain);
+		assert_eq!(chain_type.requires_proof_recording(), false);
+	}
+
+	#[test]
 	fn test_chain_type_parachain() {
 		let executor: WasmExecutor<ParachainHostFunctions> = WasmExecutor::builder().build();
 		let code_bytes = cumulus_test_runtime::WASM_BINARY
@@ -617,7 +636,9 @@ mod tests {
 			.to_vec();
 		let metadata =
 			super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
-		assert_eq!(identify_chain(&metadata, Some(100)), ChainType::Parachain(100));
+		let chain_type = identify_chain(&metadata, Some(100));
+		assert_eq!(chain_type, ChainType::Parachain(100));
+		assert!(chain_type.requires_proof_recording());
 		assert_eq!(identify_chain(&metadata, None), ChainType::Parachain(DEFAULT_PARA_ID));
 	}
 
@@ -625,10 +646,12 @@ mod tests {
 	fn test_chain_type_custom() {
 		let executor: WasmExecutor<ParachainHostFunctions> = WasmExecutor::builder().build();
 		let code_bytes = substrate_test_runtime::WASM_BINARY
-			.expect("To run this test, build the wasm binary of cumulus-test-runtime")
+			.expect("To run this test, build the wasm binary of substrate-test-runtime")
 			.to_vec();
 		let metadata =
 			super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
-		assert_eq!(identify_chain(&metadata, Some(100)), ChainType::Unknown);
+		let chain_type = identify_chain(&metadata, None);
+		assert_eq!(chain_type, ChainType::Unknown);
+		assert_eq!(chain_type.requires_proof_recording(), false);
 	}
 }

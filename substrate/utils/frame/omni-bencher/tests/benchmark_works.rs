@@ -34,6 +34,7 @@ fn benchmark_overhead_works() -> std::result::Result<(), String> {
 		.arg("--weight-path")
 		.arg(base_path)
 		.args(["--warmup", "5", "--repeat", "5"])
+		.args(["--para-id", "666"])
 		.args(["--add", "100", "--mul", "1.2", "--metric", "p75"])
 		// Only put 5 extrinsics into the block otherwise it takes forever to build it
 		// especially for a non-release builds.

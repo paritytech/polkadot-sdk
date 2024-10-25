@@ -6289,6 +6289,7 @@ dependencies = [
  "subxt-signer",
  "thiserror",
  "thousands",
+ "westend-runtime",
 ]
 
 [[package]]
