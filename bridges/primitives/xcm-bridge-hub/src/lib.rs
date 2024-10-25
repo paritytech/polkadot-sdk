@@ -169,13 +169,37 @@ pub struct Bridge<ThisChain: Chain, LaneId: LaneIdType> {
 
 	/// Current bridge state.
 	pub state: BridgeState,
-	/// Account with the reserved funds. Derived from `self.bridge_origin_relative_location`.
-	pub bridge_owner_account: AccountIdOf<ThisChain>,
+
 	/// Reserved amount on the sovereign account of the sibling bridge origin.
-	pub deposit: BalanceOf<ThisChain>,
+	/// The account is derived from `self.bridge_origin_relative_location`.
+	pub deposit: Option<DepositOf<ThisChain>>,
 
 	/// Mapping to the unique `LaneId`.
 	pub lane_id: LaneId,
+}
+
+/// An alias for the bridge deposit of `ThisChain`.
+pub type DepositOf<ThisChain> = Deposit<AccountIdOf<ThisChain>, BalanceOf<ThisChain>>;
+
+/// A structure containing information about from whom the deposit is reserved.
+#[derive(
+	Clone, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen, RuntimeDebug,
+)]
+pub struct Deposit<AccountId, Balance> {
+	/// Account with the reserved funds.
+	pub account: AccountId,
+	/// Reserved amount.
+	pub amount: Balance,
+}
+
+impl<AccountId, Balance> Deposit<AccountId, Balance> {
+	/// Create new deposit.
+	pub fn new(account: AccountId, amount: Balance) -> Self {
+		Self {
+			account,
+			amount,
+		}
+	}
 }
 
 /// Locations of bridge endpoints at both sides of the bridge.

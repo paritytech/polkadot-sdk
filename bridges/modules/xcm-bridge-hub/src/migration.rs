@@ -24,7 +24,7 @@ use frame_support::{
 use xcm::prelude::{InteriorLocation, Location};
 
 /// The in-code storage version.
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 /// This migration does not modify storage but can be used to open a bridge and link it to the
 /// specified LaneId. This is useful when we want to open a bridge and use a custom LaneId instead
@@ -142,4 +142,103 @@ impl<
 
 		Ok(())
 	}
+}
+
+/// This module contains data structures that are valid for the initial state of `0`.
+/// (used with v1 migration).
+pub mod v0 {
+	use crate::{LaneIdOf, ThisChainOf};
+	use bp_messages::LaneIdType;
+	use bp_runtime::{AccountIdOf, BalanceOf, Chain};
+	use bp_xcm_bridge_hub::BridgeState;
+	use codec::{Decode, Encode, MaxEncodedLen};
+	use frame_support::{CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+	use scale_info::TypeInfo;
+	use sp_std::boxed::Box;
+	use xcm::{VersionedInteriorLocation, VersionedLocation};
+
+	#[derive(
+		CloneNoBound,
+		Decode,
+		Encode,
+		Eq,
+		PartialEqNoBound,
+		TypeInfo,
+		MaxEncodedLen,
+		RuntimeDebugNoBound,
+	)]
+	#[scale_info(skip_type_params(ThisChain, LaneId))]
+	pub(crate) struct Bridge<ThisChain: Chain, LaneId: LaneIdType> {
+		pub bridge_origin_relative_location: Box<VersionedLocation>,
+		pub bridge_origin_universal_location: Box<VersionedInteriorLocation>,
+		pub bridge_destination_universal_location: Box<VersionedInteriorLocation>,
+		pub state: BridgeState,
+		pub bridge_owner_account: AccountIdOf<ThisChain>,
+		pub deposit: BalanceOf<ThisChain>,
+		pub lane_id: LaneId,
+	}
+
+	pub(crate) type BridgeOf<T, I> = Bridge<ThisChainOf<T, I>, LaneIdOf<T, I>>;
+}
+
+/// This migration to `1` updates the metadata of `Bridge`.
+pub mod v1 {
+	use super::*;
+	use crate::{BalanceOf, Bridge, BridgeOf, Bridges, Deposit, ThisChainOf};
+	use frame_support::pallet_prelude::Zero;
+	use frame_support::traits::UncheckedOnRuntimeUpgrade;
+	use sp_std::marker::PhantomData;
+
+	/// Migrates the pallet storage to v1.
+	pub struct UncheckedMigrationV0ToV1<T, I>(PhantomData<(T, I)>);
+
+	impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for UncheckedMigrationV0ToV1<T, I> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut weight = T::DbWeight::get().reads(1);
+
+			// Migrate account/deposit to the `Deposit` struct.
+			let translate = |pre: v0::BridgeOf<T, I>| -> Option<v1::BridgeOf<T, I>> {
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+				let v0::Bridge {
+					bridge_origin_relative_location,
+					bridge_origin_universal_location,
+					bridge_destination_universal_location,
+					state,
+					bridge_owner_account,
+					deposit,
+					lane_id,
+				} = pre;
+
+				// map deposit to the `Deposit`
+				let deposit = if deposit > BalanceOf::<ThisChainOf<T, I>>::zero() {
+					Some(Deposit::new(bridge_owner_account, deposit))
+				} else {
+					None
+				};
+
+				Some(v1::Bridge {
+					bridge_origin_relative_location,
+					bridge_origin_universal_location,
+					bridge_destination_universal_location,
+					state,
+					deposit,
+					lane_id,
+				})
+			};
+			Bridges::<T, I>::translate_values(translate);
+
+			weight
+		}
+	}
+
+	/// [`UncheckedMigrationV0ToV1`] wrapped in a
+	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
+	/// migration is only performed when on-chain version is 0.
+	pub type MigrationToV1<T, I> = frame_support::migrations::VersionedMigration<
+		0,
+		1,
+		UncheckedMigrationV0ToV1<T, I>,
+		Pallet<T, I>,
+		<T as frame_system::Config>::DbWeight,
+	>;
 }

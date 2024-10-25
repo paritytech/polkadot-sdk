@@ -146,11 +146,10 @@
 use bp_messages::{LaneState, MessageNonce};
 use bp_runtime::{AccountIdOf, BalanceOf, RangeInclusiveExt};
 pub use bp_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
-use bp_xcm_bridge_hub::{BridgeLocations, BridgeLocationsError, LocalXcmChannelManager};
+use bp_xcm_bridge_hub::{BridgeLocations, BridgeLocationsError, LocalXcmChannelManager, DepositOf, Deposit};
 use frame_support::{traits::fungible::MutateHold, DefaultNoBound};
 use frame_system::Config as SystemConfig;
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, LanesManagerError};
-use sp_runtime::traits::Zero;
 use sp_std::{boxed::Box, vec::Vec};
 use xcm::prelude::*;
 use xcm_builder::DispatchBlob;
@@ -409,23 +408,27 @@ pub mod pallet {
 			LaneToBridge::<T, I>::remove(bridge.lane_id);
 
 			// return deposit
-			let released_deposit = T::Currency::release(
-				&HoldReason::BridgeDeposit.into(),
-				&bridge.bridge_owner_account,
-				bridge.deposit,
-				Precision::BestEffort,
-			)
-			.inspect_err(|e| {
-				// we can't do anything here - looks like funds have been (partially) unreserved
-				// before by someone else. Let's not fail, though - it'll be worse for the caller
-				log::error!(
-					target: LOG_TARGET,
-					"Failed to unreserve during the bridge {:?} closure with error: {e:?}",
-					locations.bridge_id(),
-				);
-			})
-			.ok()
-			.unwrap_or(BalanceOf::<ThisChainOf<T, I>>::zero());
+			let released_deposit = if let Some(deposit) = bridge.deposit {
+				T::Currency::release(
+					&HoldReason::BridgeDeposit.into(),
+					&deposit.account,
+					deposit.amount,
+					Precision::BestEffort,
+				)
+					.inspect_err(|e| {
+						// we can't do anything here - looks like funds have been (partially) unreserved
+						// before by someone else. Let's not fail, though - it'll be worse for the caller
+						log::error!(
+																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																										target: LOG_TARGET,
+																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																										"Failed to unreserve during the bridge {:?} closure with error: {e:?}",
+																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																										locations.bridge_id(),
+						);
+					})
+					.map(|released| Deposit::new(deposit.account, released))
+					.ok()
+			} else {
+				None
+			};
 
 			// write something to log
 			log::trace!(
@@ -456,16 +459,17 @@ pub mod pallet {
 			lane_id: T::LaneId,
 			create_lanes: bool,
 		) -> Result<(), DispatchError> {
-			// reserve balance on the origin's sovereign account (if needed)
-			let bridge_owner_account = T::BridgeOriginAccountIdConverter::convert_location(
-				locations.bridge_origin_relative_location(),
-			)
-			.ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
+			// reserve balance (if needed)
 			let deposit = if T::AllowWithoutBridgeDeposit::contains(
 				locations.bridge_origin_relative_location(),
 			) {
-				BalanceOf::<ThisChainOf<T, I>>::zero()
+				None
 			} else {
+				// get origin's sovereign account
+				let bridge_owner_account = T::BridgeOriginAccountIdConverter::convert_location(
+					locations.bridge_origin_relative_location(),
+				).ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
+
 				let deposit = T::BridgeDeposit::get();
 				T::Currency::hold(
 					&HoldReason::BridgeDeposit.into(),
@@ -482,7 +486,7 @@ pub mod pallet {
 					);
 					Error::<T, I>::FailedToReserveBridgeDeposit
 				})?;
-				deposit
+				Some(Deposit::new(bridge_owner_account, deposit))
 			};
 
 			// save bridge metadata
@@ -500,8 +504,7 @@ pub mod pallet {
 							locations.bridge_destination_universal_location().clone().into(),
 						),
 						state: BridgeState::Opened,
-						bridge_owner_account,
-						deposit,
+						deposit: deposit.clone(),
 						lane_id,
 					});
 					Ok(())
@@ -680,10 +683,12 @@ pub mod pallet {
 			);
 
 			// check bridge account owner
-			ensure!(
-				T::BridgeOriginAccountIdConverter::convert_location(bridge_origin_relative_location_as_latest) == Some(bridge.bridge_owner_account),
-				"`bridge.bridge_owner_account` is different than calculated from `bridge.bridge_origin_relative_location`, needs migration!"
-			);
+			if let Some(deposit) = bridge.deposit {
+				ensure!(
+					T::BridgeOriginAccountIdConverter::convert_location(bridge_origin_relative_location_as_latest) == Some(deposit.account),
+					"`bridge.deposit.account` is different than calculated from `bridge.bridge_origin_relative_location`, needs migration!"
+				);
+			}
 
 			Ok(bridge.lane_id)
 		}
@@ -772,8 +777,8 @@ pub mod pallet {
 		BridgeOpened {
 			/// Bridge identifier.
 			bridge_id: BridgeId,
-			/// Amount of deposit held.
-			bridge_deposit: BalanceOf<ThisChainOf<T, I>>,
+			/// Bridge deposit held.
+			bridge_deposit: Option<DepositOf<ThisChainOf<T, I>>>,
 
 			/// Universal location of local bridge endpoint.
 			local_endpoint: Box<InteriorLocation>,
@@ -801,7 +806,7 @@ pub mod pallet {
 			/// Lane identifier.
 			lane_id: T::LaneId,
 			/// Amount of deposit released.
-			bridge_deposit: BalanceOf<ThisChainOf<T, I>>,
+			bridge_deposit: Option<DepositOf<ThisChainOf<T, I>>>,
 			/// Number of pruned messages during the close call.
 			pruned_messages: MessageNonce,
 		},
@@ -838,6 +843,7 @@ mod tests {
 
 	use frame_support::{assert_err, assert_noop, assert_ok, traits::fungible::Mutate, BoundedVec};
 	use frame_system::{EventRecord, Phase};
+	use sp_runtime::traits::Zero;
 	use sp_runtime::TryRuntimeError;
 
 	fn fund_origin_sovereign_account(locations: &BridgeLocations, balance: Balance) -> AccountId {
@@ -850,15 +856,19 @@ mod tests {
 
 	fn mock_open_bridge_from_with(
 		origin: RuntimeOrigin,
-		deposit: Balance,
+		deposit: Option<Balance>,
 		with: InteriorLocation,
 	) -> (BridgeOf<TestRuntime, ()>, BridgeLocations) {
 		let locations =
 			XcmOverBridge::bridge_locations_from_origin(origin, Box::new(with.into())).unwrap();
 		let lane_id = locations.calculate_lane_id(xcm::latest::VERSION).unwrap();
-		let bridge_owner_account =
-			fund_origin_sovereign_account(&locations, deposit + ExistentialDeposit::get());
-		Balances::hold(&HoldReason::BridgeDeposit.into(), &bridge_owner_account, deposit).unwrap();
+
+		let deposit = deposit.map(|deposit| {
+			let bridge_owner_account =
+				fund_origin_sovereign_account(&locations, deposit + ExistentialDeposit::get());
+			Balances::hold(&HoldReason::BridgeDeposit.into(), &bridge_owner_account, deposit).unwrap();
+			Deposit::new(bridge_owner_account, deposit)
+		});
 
 		let bridge = Bridge {
 			bridge_origin_relative_location: Box::new(
@@ -871,7 +881,6 @@ mod tests {
 				locations.bridge_destination_universal_location().clone().into(),
 			),
 			state: BridgeState::Opened,
-			bridge_owner_account,
 			deposit,
 			lane_id,
 		};
@@ -889,7 +898,7 @@ mod tests {
 
 	fn mock_open_bridge_from(
 		origin: RuntimeOrigin,
-		deposit: Balance,
+		deposit: Option<Balance>,
 	) -> (BridgeOf<TestRuntime, ()>, BridgeLocations) {
 		mock_open_bridge_from_with(origin, deposit, bridged_asset_hub_universal_location())
 	}
@@ -1013,10 +1022,6 @@ mod tests {
 			)
 			.unwrap();
 			let lane_id = locations.calculate_lane_id(xcm::latest::VERSION).unwrap();
-			fund_origin_sovereign_account(
-				&locations,
-				BridgeDeposit::get() + ExistentialDeposit::get(),
-			);
 
 			Bridges::<TestRuntime, ()>::insert(
 				locations.bridge_id(),
@@ -1031,8 +1036,7 @@ mod tests {
 						locations.bridge_destination_universal_location().clone().into(),
 					),
 					state: BridgeState::Opened,
-					bridge_owner_account: [0u8; 32].into(),
-					deposit: 0,
+					deposit: None,
 					lane_id,
 				},
 			);
@@ -1093,14 +1097,14 @@ mod tests {
 			// in our test runtime, we expect that bridge may be opened by parent relay chain
 			// and any sibling parachain
 			let origins = [
-				(OpenBridgeOrigin::parent_relay_chain_origin(), 0),
-				(OpenBridgeOrigin::sibling_parachain_origin(), BridgeDeposit::get()),
+				(OpenBridgeOrigin::parent_relay_chain_origin(), None),
+				(OpenBridgeOrigin::sibling_parachain_origin(), Some(BridgeDeposit::get())),
 			];
 
 			// check that every origin may open the bridge
 			let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
 			let existential_deposit = ExistentialDeposit::get();
-			for (origin, expected_deposit) in origins {
+			for (origin, expected_deposit_amount) in origins {
 				// reset events
 				System::set_block_number(1);
 				System::reset_events();
@@ -1131,15 +1135,18 @@ mod tests {
 				assert_eq!(LaneToBridge::<TestRuntime, ()>::get(lane_id), None);
 
 				// give enough funds to the sovereign account of the bridge origin
-				let bridge_owner_account = fund_origin_sovereign_account(
-					&locations,
-					expected_deposit + existential_deposit,
-				);
-				assert_eq!(
-					Balances::free_balance(&bridge_owner_account),
-					expected_deposit + existential_deposit
-				);
-				assert_eq!(Balances::reserved_balance(&bridge_owner_account), 0);
+				let expected_deposit = expected_deposit_amount.map(|deposit_amount| {
+					let bridge_owner_account = fund_origin_sovereign_account(
+						&locations,
+						deposit_amount + existential_deposit,
+					);
+					assert_eq!(
+						Balances::free_balance(&bridge_owner_account),
+						deposit_amount + existential_deposit
+					);
+					assert_eq!(Balances::reserved_balance(&bridge_owner_account), 0);
+					Deposit::new(bridge_owner_account, deposit_amount)
+				});
 
 				// now open the bridge
 				assert_ok!(XcmOverBridge::open_bridge(
@@ -1161,8 +1168,7 @@ mod tests {
 							locations.bridge_destination_universal_location().clone().into(),
 						),
 						state: BridgeState::Opened,
-						bridge_owner_account: bridge_owner_account.clone(),
-						deposit: expected_deposit,
+						deposit: expected_deposit.clone(),
 						lane_id
 					}),
 				);
@@ -1178,8 +1184,10 @@ mod tests {
 					LaneToBridge::<TestRuntime, ()>::get(lane_id),
 					Some(*locations.bridge_id())
 				);
-				assert_eq!(Balances::free_balance(&bridge_owner_account), existential_deposit);
-				assert_eq!(Balances::reserved_balance(&bridge_owner_account), expected_deposit);
+				if let Some(expected_deposit) = expected_deposit.as_ref() {
+					assert_eq!(Balances::free_balance(&expected_deposit.account), existential_deposit);
+					assert_eq!(Balances::reserved_balance(&expected_deposit.account), expected_deposit.amount);
+				}
 
 				// ensure that the proper event is deposited
 				assert_eq!(
@@ -1252,7 +1260,7 @@ mod tests {
 	fn close_bridge_fails_if_its_lanes_are_unknown() {
 		run_test(|| {
 			let origin = OpenBridgeOrigin::parent_relay_chain_origin();
-			let (bridge, locations) = mock_open_bridge_from(origin.clone(), 0);
+			let (bridge, locations) = mock_open_bridge_from(origin.clone(), None);
 
 			let lanes_manager = LanesManagerOf::<TestRuntime, ()>::new();
 			lanes_manager.any_state_inbound_lane(bridge.lane_id).unwrap().purge();
@@ -1266,7 +1274,7 @@ mod tests {
 			);
 			lanes_manager.any_state_outbound_lane(bridge.lane_id).unwrap().purge();
 
-			let (_, locations) = mock_open_bridge_from(origin.clone(), 0);
+			let (_, locations) = mock_open_bridge_from(origin.clone(), None);
 			lanes_manager.any_state_outbound_lane(bridge.lane_id).unwrap().purge();
 			assert_noop!(
 				XcmOverBridge::close_bridge(
@@ -1284,12 +1292,13 @@ mod tests {
 		run_test(|| {
 			let origin = OpenBridgeOrigin::parent_relay_chain_origin();
 			let expected_deposit = BridgeDeposit::get();
-			let (bridge, locations) = mock_open_bridge_from(origin.clone(), expected_deposit);
+			let (bridge, locations) = mock_open_bridge_from(origin.clone(), Some(expected_deposit));
 			System::set_block_number(1);
+			let bridge_owner_account = bridge.deposit.unwrap().account;
 
 			// remember owner balances
-			let free_balance = Balances::free_balance(&bridge.bridge_owner_account);
-			let reserved_balance = Balances::reserved_balance(&bridge.bridge_owner_account);
+			let free_balance = Balances::free_balance(&bridge_owner_account);
+			let reserved_balance = Balances::reserved_balance(&bridge_owner_account);
 
 			// enqueue some messages
 			for _ in 0..32 {
@@ -1330,8 +1339,8 @@ mod tests {
 				LaneToBridge::<TestRuntime, ()>::get(bridge.lane_id),
 				Some(*locations.bridge_id())
 			);
-			assert_eq!(Balances::free_balance(&bridge.bridge_owner_account), free_balance);
-			assert_eq!(Balances::reserved_balance(&bridge.bridge_owner_account), reserved_balance);
+			assert_eq!(Balances::free_balance(&bridge_owner_account), free_balance);
+			assert_eq!(Balances::reserved_balance(&bridge_owner_account), reserved_balance);
 			assert_eq!(
 				System::events().last(),
 				Some(&EventRecord {
@@ -1378,8 +1387,8 @@ mod tests {
 				LaneToBridge::<TestRuntime, ()>::get(bridge.lane_id),
 				Some(*locations.bridge_id())
 			);
-			assert_eq!(Balances::free_balance(&bridge.bridge_owner_account), free_balance);
-			assert_eq!(Balances::reserved_balance(&bridge.bridge_owner_account), reserved_balance);
+			assert_eq!(Balances::free_balance(&bridge_owner_account), free_balance);
+			assert_eq!(Balances::reserved_balance(&bridge_owner_account), reserved_balance);
 			assert_eq!(
 				System::events().last(),
 				Some(&EventRecord {
@@ -1417,10 +1426,10 @@ mod tests {
 			);
 			assert_eq!(LaneToBridge::<TestRuntime, ()>::get(bridge.lane_id), None);
 			assert_eq!(
-				Balances::free_balance(&bridge.bridge_owner_account),
+				Balances::free_balance(&bridge_owner_account),
 				free_balance + reserved_balance
 			);
-			assert_eq!(Balances::reserved_balance(&bridge.bridge_owner_account), 0);
+			assert_eq!(Balances::reserved_balance(&bridge_owner_account), 0);
 			assert_eq!(
 				System::events().last(),
 				Some(&EventRecord {
@@ -1428,7 +1437,7 @@ mod tests {
 					event: RuntimeEvent::XcmOverBridge(Event::BridgePruned {
 						bridge_id: *locations.bridge_id(),
 						lane_id: bridge.lane_id.into(),
-						bridge_deposit: expected_deposit,
+						bridge_deposit: Some(Deposit::new(bridge_owner_account, expected_deposit)),
 						pruned_messages: 8,
 					}),
 					topics: vec![],
@@ -1507,8 +1516,7 @@ mod tests {
 						),
 					),
 					state: BridgeState::Opened,
-					bridge_owner_account: bridge_owner_account.clone(),
-					deposit: Zero::zero(),
+					deposit: Some(Deposit::new(bridge_owner_account.clone(), Zero::zero())),
 					lane_id,
 				},
 				(lane_id, bridge_id),
@@ -1533,8 +1541,7 @@ mod tests {
 						),
 					),
 					state: BridgeState::Opened,
-					bridge_owner_account: bridge_owner_account.clone(),
-					deposit: Zero::zero(),
+					deposit: Some(Deposit::new(bridge_owner_account.clone(), Zero::zero())),
 					lane_id,
 				},
 				(lane_id, bridge_id_mismatch),
@@ -1559,13 +1566,12 @@ mod tests {
 						bridge_destination_universal_location.clone(),
 					)),
 					state: BridgeState::Opened,
-					bridge_owner_account: bridge_owner_account_mismatch.clone(),
-					deposit: Zero::zero(),
+					deposit: Some(Deposit::new(bridge_owner_account_mismatch.clone(), Zero::zero())),
 					lane_id,
 				},
 				(lane_id, bridge_id),
 				(lane_id, lane_id),
-				Some(TryRuntimeError::Other("`bridge.bridge_owner_account` is different than calculated from `bridge.bridge_origin_relative_location`, needs migration!")),
+				Some(TryRuntimeError::Other("`bridge.deposit.account` is different than calculated from `bridge.bridge_origin_relative_location`, needs migration!")),
 			);
 			cleanup(bridge_id, vec![lane_id]);
 
@@ -1584,8 +1590,7 @@ mod tests {
 						bridge_destination_universal_location.clone(),
 					)),
 					state: BridgeState::Opened,
-					bridge_owner_account: bridge_owner_account_mismatch.clone(),
-					deposit: Zero::zero(),
+					deposit: Some(Deposit::new(bridge_owner_account_mismatch.clone(), Zero::zero())),
 					lane_id,
 				},
 				(lane_id, bridge_id_mismatch),
@@ -1610,8 +1615,7 @@ mod tests {
 						),
 					),
 					state: BridgeState::Opened,
-					bridge_owner_account: bridge_owner_account.clone(),
-					deposit: Zero::zero(),
+					deposit: Some(Deposit::new(bridge_owner_account.clone(), Zero::zero())),
 					lane_id,
 				},
 				(lane_id, bridge_id),
@@ -1636,8 +1640,7 @@ mod tests {
 						),
 					),
 					state: BridgeState::Opened,
-					bridge_owner_account: bridge_owner_account.clone(),
-					deposit: Zero::zero(),
+					deposit: Some(Deposit::new(bridge_owner_account, Zero::zero())),
 					lane_id,
 				},
 				(lane_id, bridge_id),
