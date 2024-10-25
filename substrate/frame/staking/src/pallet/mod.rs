@@ -967,150 +967,151 @@ pub mod pallet {
 		}
 	}
 
+	// impl<T: Config> Pallet<T> {
+	// 	/// Get the ideal number of active validators.
+	// 	pub fn validator_count() -> u32 {
+	// 		ValidatorCount::<T>::get()
+	// 	}
+
+	// 	/// Get the minimum number of staking participants before emergency conditions are imposed.
+	// 	pub fn minimum_validator_count() -> u32 {
+	// 		MinimumValidatorCount::<T>::get()
+	// 	}
+
+	// 	/// Get the validators that may never be slashed or forcibly kicked out.
+	// 	pub fn invulnerables() -> Vec<T::AccountId> {
+	// 		Invulnerables::<T>::get()
+	// 	}
+
+	// 	/// Get the preferences of a given validator.
+	// 	pub fn validators<EncodedAccountId>(account_id: EncodedAccountId) -> ValidatorPrefs
+	// 	where
+	// 		EncodedAccountId: codec::EncodeLike<T::AccountId>,
+	// 	{
+	// 		Validators::<T>::get(account_id)
+	// 	}
+
+	// 	/// Get the nomination preferences of a given nominator.
+	// 	pub fn nominators<EncodedAccountId>(account_id: EncodedAccountId) -> Option<Nominations<T>>
+	// 	where
+	// 		EncodedAccountId: codec::EncodeLike<T::AccountId>,
+	// 	{
+	// 		Nominators::<T>::get(account_id)
+	// 	}
+
 	impl<T: Config> Pallet<T> {
-		/// Get the ideal number of active validators.
-		pub fn validator_count() -> u32 {
-			ValidatorCount::<T>::get()
-		}
-
-		/// Get the minimum number of staking participants before emergency conditions are imposed.
-		pub fn minimum_validator_count() -> u32 {
-			MinimumValidatorCount::<T>::get()
-		}
-
-		/// Get the validators that may never be slashed or forcibly kicked out.
-		pub fn invulnerables() -> Vec<T::AccountId> {
-			Invulnerables::<T>::get()
-		}
-
-		/// Get the preferences of a given validator.
-		pub fn validators<EncodedAccountId>(account_id: EncodedAccountId) -> ValidatorPrefs
-		where
-			EncodedAccountId: codec::EncodeLike<T::AccountId>,
-		{
-			Validators::<T>::get(account_id)
-		}
-
-		/// Get the nomination preferences of a given nominator.
-		pub fn nominators<EncodedAccountId>(account_id: EncodedAccountId) -> Option<Nominations<T>>
-		where
-			EncodedAccountId: codec::EncodeLike<T::AccountId>,
-		{
-			Nominators::<T>::get(account_id)
-		}
-
 		/// Get the current era index.
 		pub fn current_era() -> Option<EraIndex> {
 			CurrentEra::<T>::get()
 		}
-
-		/// Get the active era information.
-		pub fn active_era() -> Option<ActiveEraInfo> {
-			ActiveEra::<T>::get()
-		}
-
-		/// Get the session index at which the era starts for the last [`Config::HistoryDepth`]
-		/// eras.
-		pub fn eras_start_session_index<EncodedEra>(era_index: EncodedEra) -> Option<SessionIndex>
-		where
-			EncodedEra: codec::EncodeLike<EraIndex>,
-		{
-			ErasStartSessionIndex::<T>::get(era_index)
-		}
-
-		/// Get the clipped exposure of a given validator at an era.
-		pub fn eras_stakers_clipped<EncodedEra, EncodedAccountId>(
-			era_index: EncodedEra,
-			account_id: EncodedAccountId,
-		) -> Exposure<T::AccountId, BalanceOf<T>>
-		where
-			EncodedEra: codec::EncodeLike<EraIndex>,
-			EncodedAccountId: codec::EncodeLike<T::AccountId>,
-		{
-			ErasStakersClipped::<T>::get(era_index, account_id)
-		}
-
-		/// Get the paged history of claimed rewards by era for given validator.
-		pub fn claimed_rewards<EncodedEra, EncodedAccountId>(
-			era_index: EncodedEra,
-			account_id: EncodedAccountId,
-		) -> Vec<Page>
-		where
-			EncodedEra: codec::EncodeLike<EraIndex>,
-			EncodedAccountId: codec::EncodeLike<T::AccountId>,
-		{
-			ClaimedRewards::<T>::get(era_index, account_id)
-		}
-
-		/// Get the preferences of given validator at given era.
-		pub fn eras_validator_prefs<EncodedEra, EncodedAccountId>(
-			era_index: EncodedEra,
-			account_id: EncodedAccountId,
-		) -> ValidatorPrefs
-		where
-			EncodedEra: codec::EncodeLike<EraIndex>,
-			EncodedAccountId: codec::EncodeLike<T::AccountId>,
-		{
-			ErasValidatorPrefs::<T>::get(era_index, account_id)
-		}
-
-		/// Get the total validator era payout for the last [`Config::HistoryDepth`] eras.
-		pub fn eras_validator_reward<EncodedEra>(era_index: EncodedEra) -> Option<BalanceOf<T>>
-		where
-			EncodedEra: codec::EncodeLike<EraIndex>,
-		{
-			ErasValidatorReward::<T>::get(era_index)
-		}
-
-		/// Get the rewards for the last [`Config::HistoryDepth`] eras.
-		pub fn eras_reward_points<EncodedEra>(
-			era_index: EncodedEra,
-		) -> EraRewardPoints<T::AccountId>
-		where
-			EncodedEra: codec::EncodeLike<EraIndex>,
-		{
-			ErasRewardPoints::<T>::get(era_index)
-		}
-
-		/// Get the total amount staked for the last [`Config::HistoryDepth`] eras.
-		pub fn eras_total_stake<EncodedEra>(era_index: EncodedEra) -> BalanceOf<T>
-		where
-			EncodedEra: codec::EncodeLike<EraIndex>,
-		{
-			ErasTotalStake::<T>::get(era_index)
-		}
-
-		/// Get the mode of era forcing.
-		pub fn force_era() -> Forcing {
-			// ForceEra::<T>::get()
-			ForceEra::<T>::get()
-		}
-
-		/// Get the percentage of the slash that is distributed to reporters.
-		pub fn slash_reward_fraction() -> Perbill {
-			SlashRewardFraction::<T>::get()
-		}
-
-		/// Get the amount of canceled slash payout.
-		pub fn canceled_payout() -> BalanceOf<T> {
-			CanceledSlashPayout::<T>::get()
-		}
-
-		/// Get the slashing spans for given account.
-		pub fn slashing_spans<EncodedAccountId>(
-			account_id: EncodedAccountId,
-		) -> Option<slashing::SlashingSpans>
-		where
-			EncodedAccountId: codec::EncodeLike<T::AccountId>,
-		{
-			SlashingSpans::<T>::get(account_id)
-		}
-
-		/// Get the last planned session scheduled by the session pallet.
-		pub fn current_planned_session() -> SessionIndex {
-			CurrentPlannedSession::<T>::get()
-		}
 	}
+
+	// 	/// Get the active era information.
+	// 	pub fn active_era() -> Option<ActiveEraInfo> {
+	// 		ActiveEra::<T>::get()
+	// 	}
+
+	// 	/// Get the session index at which the era starts for the last [`Config::HistoryDepth`]
+	// 	/// eras.
+	// 	pub fn eras_start_session_index<EncodedEra>(era_index: EncodedEra) -> Option<SessionIndex>
+	// 	where
+	// 		EncodedEra: codec::EncodeLike<EraIndex>,
+	// 	{
+	// 		ErasStartSessionIndex::<T>::get(era_index)
+	// 	}
+
+	// 	/// Get the clipped exposure of a given validator at an era.
+	// 	pub fn eras_stakers_clipped<EncodedEra, EncodedAccountId>(
+	// 		era_index: EncodedEra,
+	// 		account_id: EncodedAccountId,
+	// 	) -> Exposure<T::AccountId, BalanceOf<T>>
+	// 	where
+	// 		EncodedEra: codec::EncodeLike<EraIndex>,
+	// 		EncodedAccountId: codec::EncodeLike<T::AccountId>,
+	// 	{
+	// 		ErasStakersClipped::<T>::get(era_index, account_id)
+	// 	}
+
+	// 	/// Get the paged history of claimed rewards by era for given validator.
+	// 	pub fn claimed_rewards<EncodedEra, EncodedAccountId>(
+	// 		era_index: EncodedEra,
+	// 		account_id: EncodedAccountId,
+	// 	) -> Vec<Page>
+	// 	where
+	// 		EncodedEra: codec::EncodeLike<EraIndex>,
+	// 		EncodedAccountId: codec::EncodeLike<T::AccountId>,
+	// 	{
+	// 		ClaimedRewards::<T>::get(era_index, account_id)
+	// 	}
+
+	// 	/// Get the preferences of given validator at given era.
+	// 	pub fn eras_validator_prefs<EncodedEra, EncodedAccountId>(
+	// 		era_index: EncodedEra,
+	// 		account_id: EncodedAccountId,
+	// 	) -> ValidatorPrefs
+	// 	where
+	// 		EncodedEra: codec::EncodeLike<EraIndex>,
+	// 		EncodedAccountId: codec::EncodeLike<T::AccountId>,
+	// 	{
+	// 		ErasValidatorPrefs::<T>::get(era_index, account_id)
+	// 	}
+
+	// 	/// Get the total validator era payout for the last [`Config::HistoryDepth`] eras.
+	// 	pub fn eras_validator_reward<EncodedEra>(era_index: EncodedEra) -> Option<BalanceOf<T>>
+	// 	where
+	// 		EncodedEra: codec::EncodeLike<EraIndex>,
+	// 	{
+	// 		ErasValidatorReward::<T>::get(era_index)
+	// 	}
+
+	// 	/// Get the rewards for the last [`Config::HistoryDepth`] eras.
+	// 	pub fn eras_reward_points<EncodedEra>(
+	// 		era_index: EncodedEra,
+	// 	) -> EraRewardPoints<T::AccountId>
+	// 	where
+	// 		EncodedEra: codec::EncodeLike<EraIndex>,
+	// 	{
+	// 		ErasRewardPoints::<T>::get(era_index)
+	// 	}
+
+	// 	/// Get the total amount staked for the last [`Config::HistoryDepth`] eras.
+	// 	pub fn eras_total_stake<EncodedEra>(era_index: EncodedEra) -> BalanceOf<T>
+	// 	where
+	// 		EncodedEra: codec::EncodeLike<EraIndex>,
+	// 	{
+	// 		ErasTotalStake::<T>::get(era_index)
+	// 	}
+
+	// 	/// Get the mode of era forcing.
+	// 	pub fn force_era() -> Forcing {
+	// 		ForceEra::<T>::get()
+	// 	}
+
+	// 	/// Get the percentage of the slash that is distributed to reporters.
+	// 	pub fn slash_reward_fraction() -> Perbill {
+	// 		SlashRewardFraction::<T>::get()
+	// 	}
+
+	// 	/// Get the amount of canceled slash payout.
+	// 	pub fn canceled_payout() -> BalanceOf<T> {
+	// 		CanceledSlashPayout::<T>::get()
+	// 	}
+
+	// 	/// Get the slashing spans for given account.
+	// 	pub fn slashing_spans<EncodedAccountId>(
+	// 		account_id: EncodedAccountId,
+	// 	) -> Option<slashing::SlashingSpans>
+	// 	where
+	// 		EncodedAccountId: codec::EncodeLike<T::AccountId>,
+	// 	{
+	// 		SlashingSpans::<T>::get(account_id)
+	// 	}
+
+	// 	/// Get the last planned session scheduled by the session pallet.
+	// 	pub fn current_planned_session() -> SessionIndex {
+	// 		CurrentPlannedSession::<T>::get()
+	// 	}
+	// }
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -1228,7 +1229,7 @@ pub mod pallet {
 			let maybe_withdraw_weight = {
 				if unlocking == T::MaxUnlockingChunks::get() as usize {
 					let real_num_slashing_spans =
-						Self::slashing_spans(&controller).map_or(0, |s| s.iter().count());
+						SlashingSpans::<T>::get(&controller).map_or(0, |s| s.iter().count());
 					Some(Self::do_withdraw_unbonded(&controller, real_num_slashing_spans as u32)?)
 				} else {
 					None
@@ -1268,7 +1269,7 @@ pub mod pallet {
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
 				// Note: in case there is no current era it is fine to bond one era more.
-				let era = Self::current_era()
+				let era = CurrentEra::<T>::get()
 					.unwrap_or(0)
 					.defensive_saturating_add(T::BondingDuration::get());
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
@@ -1438,7 +1439,7 @@ pub mod pallet {
 			let nominations = Nominations {
 				targets,
 				// Initial nominations are considered submitted at era 0. See `Nominations` doc.
-				submitted_in: Self::current_era().unwrap_or(0),
+				submitted_in: CurrentEra::<T>::get().unwrap_or(0),
 				suppressed: false,
 			};
 

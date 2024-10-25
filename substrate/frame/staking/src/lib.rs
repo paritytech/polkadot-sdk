@@ -371,7 +371,7 @@ pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 /// Information regarding the active era (era in used in session).
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, PartialEq, Clone)]
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ActiveEraInfo {
 	/// Index of era.
 	pub index: EraIndex,
