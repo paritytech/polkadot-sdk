@@ -21,6 +21,11 @@ use super::{
 };
 use crate::{
 	pallet::types::FetchedCode,
+	shared::{
+		genesis_state,
+		genesis_state::{GenesisStateHandler, SpecGenesisSource, WARN_SPEC_GENESIS_CTOR},
+		GenesisBuilderPolicy,
+	},
 };
 use codec::{Decode, Encode};
 use frame_benchmarking::{
@@ -54,8 +59,6 @@ use std::{
 	str::FromStr,
 	time,
 };
-use crate::shared::genesis_state::{GenesisSource, GenesisStateHandler};
-use crate::shared::{genesis_state, GenesisBuilderPolicy};
 
 /// Logging target
 const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::pallet";
@@ -175,20 +178,17 @@ impl PalletCmd {
 	) -> Result<GenesisStateHandler> {
 		let genesis_builder_to_source = || match self.genesis_builder {
 			Some(GenesisBuilderPolicy::Runtime) | Some(GenesisBuilderPolicy::SpecRuntime) =>
-				GenesisSource::Runtime(self.genesis_builder_preset.clone()),
-			Some(
-				GenesisBuilderPolicy::Spec |
-				GenesisBuilderPolicy::SpecGenesis |
-				GenesisBuilderPolicy::None
-			) | None => GenesisSource::Raw,
+				SpecGenesisSource::Runtime(self.genesis_builder_preset.clone()),
+			Some(GenesisBuilderPolicy::Spec | GenesisBuilderPolicy::SpecGenesis) | None => {
+				log::warn!(target: LOG_TARGET, "{WARN_SPEC_GENESIS_CTOR}");
+				SpecGenesisSource::SpecJson
+			},
+			Some(GenesisBuilderPolicy::None) => SpecGenesisSource::None,
 		};
 
 		// First handle chain-spec passed in via API parameter.
 		if let Some(chain_spec) = chain_spec_from_api {
-			log::debug!(
-					"Initializing state handler with chain-spec from API: {:?}",
-					chain_spec
-				);
+			log::debug!("Initializing state handler with chain-spec from API: {:?}", chain_spec);
 
 			let source = genesis_builder_to_source();
 			return Ok(GenesisStateHandler::ChainSpec(chain_spec, source))
@@ -197,9 +197,9 @@ impl PalletCmd {
 		// Handle chain-spec passed in via CLI.
 		if let Some(chain_spec_path) = &self.shared_params.chain {
 			log::debug!(
-					"Initializing state handler with chain-spec from path: {:?}",
-					chain_spec_path
-				);
+				"Initializing state handler with chain-spec from path: {:?}",
+				chain_spec_path
+			);
 			let (chain_spec, _) =
 				genesis_state::chain_spec_from_path::<HF>(chain_spec_path.to_string().into())?;
 
@@ -216,7 +216,7 @@ impl PalletCmd {
 			let runtime_blob = fs::read(runtime_path)?;
 			return Ok(GenesisStateHandler::Runtime(
 				runtime_blob,
-				self.genesis_builder_preset.clone()
+				self.genesis_builder_preset.clone(),
 			))
 		};
 
@@ -257,10 +257,10 @@ impl PalletCmd {
 			return self.output_from_results(&batches)
 		}
 
-		let state_handler = self.state_handler_from_cli::<SubstrateAndExtraHF<ExtraHostFunctions>>(
-			chain_spec,
-		)?;
-		let genesis_storage = state_handler.build_storage::<SubstrateAndExtraHF<ExtraHostFunctions>>(None)?;
+		let state_handler =
+			self.state_handler_from_cli::<SubstrateAndExtraHF<ExtraHostFunctions>>(chain_spec)?;
+		let genesis_storage =
+			state_handler.build_storage::<SubstrateAndExtraHF<ExtraHostFunctions>>(None)?;
 
 		let cache_size = Some(self.database_cache_size as usize);
 		let state_with_tracking = BenchmarkingState::<Hasher>::new(

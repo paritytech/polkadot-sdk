@@ -16,16 +16,13 @@
 // limitations under the License.
 // limitations under the License.
 
-use crate::{overhead::cmd::ParachainExtension};
+use crate::overhead::cmd::ParachainExtension;
 use sc_chain_spec::{ChainSpec, GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
 use sc_cli::Result;
 use serde_json::Value;
 use sp_storage::{well_known_keys::CODE, Storage};
 use sp_wasm_interface::HostFunctions;
-use std::{
-	path::{PathBuf},
-};
-use std::borrow::Cow;
+use std::{borrow::Cow, path::PathBuf};
 
 /// When the runtime could not build the genesis storage.
 const ERROR_CANNOT_BUILD_GENESIS: &str = "The runtime returned \
@@ -34,62 +31,63 @@ define a genesis config that can be built. This can be tested with: \
 https://github.com/paritytech/polkadot-sdk/pull/3412";
 
 /// Warn when using the chain spec to generate the genesis state.
-const WARN_SPEC_GENESIS_CTOR: &'static str = "Using the chain spec instead of the runtime to \
+pub const WARN_SPEC_GENESIS_CTOR: &'static str = "Using the chain spec instead of the runtime to \
 generate the genesis state is deprecated. Please remove the `--chain`/`--dev`/`--local` argument, \
 point `--runtime` to your runtime blob and set `--genesis-builder=runtime`. This warning may \
 become a hard error any time after December 2024.";
 
-pub enum GenesisSource {
+pub enum SpecGenesisSource {
 	Runtime(String),
-	Raw,
+	SpecJson,
 	None,
 }
 
 pub enum GenesisStateHandler {
-	ChainSpec(Box<dyn ChainSpec>, GenesisSource),
+	ChainSpec(Box<dyn ChainSpec>, SpecGenesisSource),
 	Runtime(Vec<u8>, String),
 }
 
 impl GenesisStateHandler {
 	/// Populate the genesis storage.
 	///
-	/// If the raw storage is derived from a named preset, `json_patcher` is can be used to inject values into the preset.
-	pub fn build_storage<HF: HostFunctions>(&self, json_patcher: Option<Box<dyn FnOnce(Value) -> Value + 'static>>) -> Result<Storage> {
+	/// If the raw storage is derived from a named genesis preset, `json_patcher` is can be used to
+	/// inject values into the preset.
+	pub fn build_storage<HF: HostFunctions>(
+		&self,
+		json_patcher: Option<Box<dyn FnOnce(Value) -> Value + 'static>>,
+	) -> Result<Storage> {
 		match self {
-			GenesisStateHandler::ChainSpec(chain_spec, source) => {
-				match source {
-					GenesisSource::Runtime(preset) => {
-						let mut storage = chain_spec
-							.build_storage()?;
-						let code_bytes = storage.top.remove(CODE).ok_or("chain spec genesis does not contain code")?;
-						genesis_from_code::<HF>(code_bytes.as_slice(), preset, json_patcher)
-					}
-					GenesisSource::Raw => {
-						chain_spec
-							.build_storage()
-							.map_err(|e| format!("{ERROR_CANNOT_BUILD_GENESIS}\nError: {e}").into())
-					}
-					GenesisSource::None => {
-						Ok(Storage::default())
-					}
-				}
+			GenesisStateHandler::ChainSpec(chain_spec, source) => match source {
+				SpecGenesisSource::Runtime(preset) => {
+					let mut storage = chain_spec.build_storage()?;
+					let code_bytes = storage
+						.top
+						.remove(CODE)
+						.ok_or("chain spec genesis does not contain code")?;
+					genesis_from_code::<HF>(code_bytes.as_slice(), preset, json_patcher)
+				},
+				SpecGenesisSource::SpecJson => chain_spec
+					.build_storage()
+					.map_err(|e| format!("{ERROR_CANNOT_BUILD_GENESIS}\nError: {e}").into()),
+				SpecGenesisSource::None => Ok(Storage::default()),
 			},
-			GenesisStateHandler::Runtime(code_bytes, preset) => {
-				genesis_from_code::<HF>(code_bytes.as_slice(), preset, json_patcher)
-			}
+			GenesisStateHandler::Runtime(code_bytes, preset) =>
+				genesis_from_code::<HF>(code_bytes.as_slice(), preset, json_patcher),
 		}
 	}
 
+	/// Get the runtime code blob.
 	pub fn get_code_bytes(&self) -> Result<Cow<[u8]>> {
 		match self {
 			GenesisStateHandler::ChainSpec(chain_spec, _) => {
-				let mut storage = chain_spec
-					.build_storage()?;
-				storage.top.remove(CODE).map(|code| Cow::from(code)).ok_or("chain spec genesis does not contain code".into())
-			}
-			GenesisStateHandler::Runtime(code_bytes, _) => {
-				Ok(code_bytes.into())
-			}
+				let mut storage = chain_spec.build_storage()?;
+				storage
+					.top
+					.remove(CODE)
+					.map(|code| Cow::from(code))
+					.ok_or("chain spec genesis does not contain code".into())
+			},
+			GenesisStateHandler::Runtime(code_bytes, _) => Ok(code_bytes.into()),
 		}
 	}
 }

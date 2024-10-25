@@ -31,7 +31,7 @@ use crate::{
 	},
 	shared::{
 		genesis_state,
-		genesis_state::{GenesisSource, GenesisStateHandler},
+		genesis_state::{GenesisStateHandler, SpecGenesisSource},
 		GenesisBuilderPolicy, HostInfoParams, WeightParams,
 	},
 };
@@ -40,6 +40,7 @@ use codec::Encode;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use fake_runtime_api::RuntimeApi as FakeRuntimeApi;
 use frame_support::Deserialize;
+use genesis_state::WARN_SPEC_GENESIS_CTOR;
 use log::info;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sc_block_builder::BlockBuilderApi;
@@ -71,6 +72,7 @@ use std::{
 use subxt::{client::RuntimeVersion, ext::futures, Metadata};
 
 const DEFAULT_PARA_ID: u32 = 100;
+const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::overhead";
 
 /// Benchmark the execution overhead per-block and per-extrinsic.
 #[derive(Debug, Parser)]
@@ -116,7 +118,7 @@ pub struct OverheadParams {
 	pub enable_trie_cache: bool,
 
 	/// Optional runtime blob to use instead of the one from the genesis config.
-	#[arg(long, value_name = "PATH")]
+	#[arg(long, value_name = "PATH", conflicts_with = "chain")]
 	pub runtime: Option<PathBuf>,
 
 	/// The preset that we expect to find in the GenesisBuilder runtime API.
@@ -237,7 +239,7 @@ fn identify_chain(metadata: &Metadata, para_id: Option<u32>) -> ChainType {
 		Unknown
 	};
 
-	log::info!("Identified Chain type from metadata: {}", chain_type);
+	log::info!(target: LOG_TARGET, "Identified Chain type from metadata: {}", chain_type);
 
 	chain_type
 }
@@ -255,18 +257,17 @@ impl OverheadCmd {
 	) -> Result<(GenesisStateHandler, Option<u32>)> {
 		let genesis_builder_to_source = || match self.params.genesis_builder {
 			Some(GenesisBuilderPolicy::Runtime) | Some(GenesisBuilderPolicy::SpecRuntime) =>
-				GenesisSource::Runtime(self.params.genesis_builder_preset.clone()),
-			Some(
-				GenesisBuilderPolicy::Spec |
-				GenesisBuilderPolicy::SpecGenesis |
-				GenesisBuilderPolicy::None,
-			) |
-			None => GenesisSource::Raw,
+				SpecGenesisSource::Runtime(self.params.genesis_builder_preset.clone()),
+			Some(GenesisBuilderPolicy::Spec | GenesisBuilderPolicy::SpecGenesis) | None => {
+				log::warn!(target: LOG_TARGET, "{WARN_SPEC_GENESIS_CTOR}");
+				SpecGenesisSource::SpecJson
+			},
+			Some(GenesisBuilderPolicy::None) => SpecGenesisSource::None,
 		};
 
 		// First handle chain-spec passed in via API parameter.
 		if let Some(chain_spec) = chain_spec_from_api {
-			log::debug!("Initializing state handler with chain-spec from API: {:?}", chain_spec);
+			log::debug!(target: LOG_TARGET, "Initializing state handler with chain-spec from API: {:?}", chain_spec);
 
 			let source = genesis_builder_to_source();
 			return Ok((GenesisStateHandler::ChainSpec(chain_spec, source), self.params.para_id))
@@ -274,7 +275,7 @@ impl OverheadCmd {
 
 		// Handle chain-spec passed in via CLI.
 		if let Some(chain_spec_path) = &self.shared_params.chain {
-			log::debug!(
+			log::debug!(target: LOG_TARGET,
 				"Initializing state handler with chain-spec from path: {:?}",
 				chain_spec_path
 			);
@@ -292,7 +293,7 @@ impl OverheadCmd {
 		// Check for runtimes. In general, we make sure that `--runtime` and `--chain` are
 		// incompatible on the CLI level.
 		if let Some(runtime_path) = &self.params.runtime {
-			log::debug!("Initializing state handler with runtime from path: {:?}", runtime_path);
+			log::debug!(target: LOG_TARGET, "Initializing state handler with runtime from path: {:?}", runtime_path);
 
 			let runtime_blob = fs::read(runtime_path)?;
 			return Ok((
@@ -484,7 +485,7 @@ impl OverheadCmd {
 		// per-block execution overhead
 		{
 			let (stats, proof_size) = bench.bench_block()?;
-			info!("Per-block execution overhead [ns]:\n{:?}", stats);
+			info!(target: LOG_TARGET, "Per-block execution overhead [ns]:\n{:?}", stats);
 			let template = TemplateData::new(
 				BenchmarkType::Block,
 				&chain_name,
@@ -497,7 +498,7 @@ impl OverheadCmd {
 		// per-extrinsic execution overhead
 		{
 			let (stats, proof_size) = bench.bench_extrinsic(ext_builder)?;
-			info!("Per-extrinsic execution overhead [ns]:\n{:?}", stats);
+			info!(target: LOG_TARGET, "Per-extrinsic execution overhead [ns]:\n{:?}", stats);
 			let template = TemplateData::new(
 				BenchmarkType::Extrinsic,
 				&chain_name,
@@ -572,8 +573,8 @@ fn patch_genesis(mut input_value: Value, para_id: Option<u32>) -> Value {
 				}
 			}),
 		);
-		log::debug!("Genesis Config Json");
-		log::debug!("{}", input_value);
+		log::debug!(target: LOG_TARGET, "Genesis Config Json");
+		log::debug!(target: LOG_TARGET, "{}", input_value);
 	}
 	input_value
 }
