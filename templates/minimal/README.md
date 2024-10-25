@@ -146,11 +146,12 @@ docker run --rm polkadot-sdk-minimal-template
 
 ### Zombienet with Omni Node
 
-We set up a network specification in `zombienet-omni-node.toml`. To use it we need
-[zombienet](https://www.npmjs.com/package/@zombienet/cli). The installation guide for
-`zombienet` can be found [here](https://paritytech.github.io/zombienet/install.html#installation).
+#### Install `zombienet`
 
-#### Updating the network spec with a chain spec
+We can install `zombienet` as described [here](https://paritytech.github.io/zombienet/install.html#installation),
+and `zombienet-omni-node.toml` contains the network specification we want to start.
+
+#### Update `zombienet-omni-node` with a valid chain spec path
 
 Before starting the network with zombienet we must update the network specification
 dawith a valid chain spec path. If we need to generate one, we can look up at the previous
