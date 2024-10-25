@@ -352,13 +352,12 @@ impl TryFrom<NewResponse> for Response {
 		Ok(match new {
 			Null => Self::Null,
 			Assets(assets) => Self::Assets(assets.try_into()?),
-			ExecutionResult(result) =>
-				Self::ExecutionResult(
-					result
-						.map(|(num, new_error)| (num, new_error.try_into()))
-						.map(|(num, result)| result.map(|inner| (num, inner)))
-						.transpose()?
-				),
+			ExecutionResult(result) => Self::ExecutionResult(
+				result
+					.map(|(num, new_error)| (num, new_error.try_into()))
+					.map(|(num, result)| result.map(|inner| (num, inner)))
+					.transpose()?,
+			),
 			Version(version) => Self::Version(version),
 			PalletsInfo(pallet_info) => {
 				let inner = pallet_info
@@ -1390,7 +1389,7 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 				maybe_error
 					.map(|(num, new_error)| (num, new_error.try_into()))
 					.map(|(num, result)| result.map(|inner| (num, inner)))
-					.transpose()?
+					.transpose()?,
 			),
 			ExpectTransactStatus(maybe_error_code) => Self::ExpectTransactStatus(maybe_error_code),
 			QueryPallet { module_name, response_info } =>

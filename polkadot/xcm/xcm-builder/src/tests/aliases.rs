@@ -173,9 +173,12 @@ fn alias_trusted_root_location() {
 		}
 	}
 
-	type AliceOnAssetHubAliasesSiblingAccounts = AliasOriginRootUsingFilter<AliceOnAssetHub, MatchSiblingAccounts>;
-	type AssetHubAliasesSiblingAccounts = AliasOriginRootUsingFilter<SystemAssetHubLocation, MatchSiblingAccounts>;
-	type AssetHubAliasesOtherGlobalConsensus = AliasOriginRootUsingFilter<SystemAssetHubLocation, MatchOtherGlobalConsensus>;
+	type AliceOnAssetHubAliasesSiblingAccounts =
+		AliasOriginRootUsingFilter<AliceOnAssetHub, MatchSiblingAccounts>;
+	type AssetHubAliasesSiblingAccounts =
+		AliasOriginRootUsingFilter<SystemAssetHubLocation, MatchSiblingAccounts>;
+	type AssetHubAliasesOtherGlobalConsensus =
+		AliasOriginRootUsingFilter<SystemAssetHubLocation, MatchOtherGlobalConsensus>;
 
 	// Fails if origin is not the root of a chain.
 	assert!(!AliceOnAssetHubAliasesSiblingAccounts::contains(
@@ -188,7 +191,13 @@ fn alias_trusted_root_location() {
 	));
 	assert!(!AliceOnAssetHubAliasesSiblingAccounts::contains(
 		&Location::new(1, [Parachain(1000), AccountId32 { id: ALICE, network: None }]),
-		&Location::new(2, [GlobalConsensus(NetworkId::Ethereum { chain_id: 1 }), AccountKey20 { key: BOB_ON_ETH, network: None }]),
+		&Location::new(
+			2,
+			[
+				GlobalConsensus(NetworkId::Ethereum { chain_id: 1 }),
+				AccountKey20 { key: BOB_ON_ETH, network: None }
+			]
+		),
 	));
 	// Fails if origin doesn't match.
 	assert!(!AssetHubAliasesSiblingAccounts::contains(
@@ -197,7 +206,13 @@ fn alias_trusted_root_location() {
 	));
 	assert!(!AssetHubAliasesOtherGlobalConsensus::contains(
 		&Location::new(1, [Parachain(1001)]),
-		&Location::new(2, [GlobalConsensus(NetworkId::Ethereum { chain_id: 1 }), AccountKey20 { key: BOB_ON_ETH, network: None }]),
+		&Location::new(
+			2,
+			[
+				GlobalConsensus(NetworkId::Ethereum { chain_id: 1 }),
+				AccountKey20 { key: BOB_ON_ETH, network: None }
+			]
+		),
 	));
 	// Fails if filter doesn't match.
 	assert!(!AssetHubAliasesSiblingAccounts::contains(
@@ -206,7 +221,13 @@ fn alias_trusted_root_location() {
 	));
 	assert!(!AssetHubAliasesSiblingAccounts::contains(
 		&Location::new(1, [Parachain(1000)]),
-		&Location::new(2, [GlobalConsensus(NetworkId::Ethereum { chain_id: 1 }), AccountKey20 { key: BOB_ON_ETH, network: None }]),
+		&Location::new(
+			2,
+			[
+				GlobalConsensus(NetworkId::Ethereum { chain_id: 1 }),
+				AccountKey20 { key: BOB_ON_ETH, network: None }
+			]
+		),
 	));
 	assert!(!AssetHubAliasesOtherGlobalConsensus::contains(
 		&Location::new(1, [Parachain(1000)]),
@@ -219,6 +240,12 @@ fn alias_trusted_root_location() {
 	));
 	assert!(AssetHubAliasesOtherGlobalConsensus::contains(
 		&Location::new(1, [Parachain(1000)]),
-		&Location::new(2, [GlobalConsensus(NetworkId::Ethereum { chain_id: 1 }), AccountKey20 { key: BOB_ON_ETH, network: None }]),
+		&Location::new(
+			2,
+			[
+				GlobalConsensus(NetworkId::Ethereum { chain_id: 1 }),
+				AccountKey20 { key: BOB_ON_ETH, network: None }
+			]
+		),
 	));
 }

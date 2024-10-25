@@ -304,13 +304,12 @@ impl TryFrom<OldResponse> for Response {
 		Ok(match old {
 			Null => Self::Null,
 			Assets(assets) => Self::Assets(assets.try_into()?),
-			ExecutionResult(result) =>
-				Self::ExecutionResult(
-					result
-						.map(|(num, old_error)| (num, old_error.try_into()))
-						.map(|(num, result)| result.map(|inner| (num, inner)))
-						.transpose()?
-				),
+			ExecutionResult(result) => Self::ExecutionResult(
+				result
+					.map(|(num, old_error)| (num, old_error.try_into()))
+					.map(|(num, result)| result.map(|inner| (num, inner)))
+					.transpose()?,
+			),
 			Version(version) => Self::Version(version),
 			PalletsInfo(pallet_info) => {
 				let inner = pallet_info
