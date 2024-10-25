@@ -22,11 +22,3 @@ crates:
     bump: patch
   - name: pallet-staking
     bump: patch
-
-    
-    
-    
-    
-
-
-    
