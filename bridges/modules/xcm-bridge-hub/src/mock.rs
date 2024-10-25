@@ -59,11 +59,11 @@ pub const BRIDGED_ASSET_HUB_ID: u32 = 1001;
 
 frame_support::construct_runtime! {
 	pub enum TestRuntime {
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Event<T>},
-		Messages: pallet_bridge_messages::{Pallet, Call, Event<T>},
-		XcmOverBridge: pallet_xcm_bridge_hub::{Pallet, Call, HoldReason, Event<T>},
-		XcmOverBridgeRouter: pallet_xcm_bridge_hub_router,
+		System: frame_system,
+		Balances: pallet_balances,
+		Messages: pallet_bridge_messages,
+		XcmOverBridge: pallet_xcm_bridge_hub,
+		XcmOverBridgeRouter: pallet_xcm_bridge_hub_router = 57,
 	}
 }
 
@@ -208,6 +208,7 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type BlobDispatcher = TestBlobDispatcher;
 }
 
+/// A router instance simulates a scenario where the router is deployed on a different chain than the `MessageExporter`. This means that the router sends an `ExportMessage`.
 impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -218,7 +219,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type Bridges = NetworkExportTable<BridgeTable>;
 	type DestinationVersion = AlwaysLatest;
 
-	type ToBridgeHubSender = TestExportXcmWithXcmOverBridge;
+	type ToBridgeHubSender = ExecuteXcmOverSendXcm;
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
 	type ByteFee = ConstU128<0>;
@@ -264,14 +265,8 @@ thread_local! {
 }
 
 /// The `SendXcm` implementation directly executes XCM using `XcmExecutor`.
-///
-/// We ensure that the `ExportMessage` produced by `pallet_xcm_bridge_hub_router` is compatible with
-/// the `ExportXcm` implementation of `pallet_xcm_bridge_hub`.
-///
-/// Note: The crucial part is that `ExportMessage` is processed by `XcmExecutor`, which calls the
-/// `ExportXcm` implementation of `pallet_xcm_bridge_hub` as `MessageExporter`.
-pub struct TestExportXcmWithXcmOverBridge;
-impl SendXcm for TestExportXcmWithXcmOverBridge {
+pub struct ExecuteXcmOverSendXcm;
+impl SendXcm for ExecuteXcmOverSendXcm {
 	type Ticket = Xcm<()>;
 
 	fn validate(
@@ -298,7 +293,7 @@ impl SendXcm for TestExportXcmWithXcmOverBridge {
 		Ok(hash)
 	}
 }
-impl InspectMessageQueues for TestExportXcmWithXcmOverBridge {
+impl InspectMessageQueues for ExecuteXcmOverSendXcm {
 	fn clear_messages() {
 		todo!()
 	}
@@ -307,7 +302,7 @@ impl InspectMessageQueues for TestExportXcmWithXcmOverBridge {
 		todo!()
 	}
 }
-impl TestExportXcmWithXcmOverBridge {
+impl ExecuteXcmOverSendXcm {
 	pub fn set_origin_for_execute(origin: Location) {
 		EXECUTE_XCM_ORIGIN.with(|o| *o.borrow_mut() = Some(origin));
 	}
