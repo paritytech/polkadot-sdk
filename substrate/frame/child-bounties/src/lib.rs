@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// TODO: update docs.
 //! # Child Bounties Pallet ( `pallet-child-bounties` )
 //!
 //! ## Child Bounty
@@ -79,6 +80,7 @@ pub use weights::WeightInfo;
 
 pub use pallet::*;
 
+type BeneficiaryLookupOf<T> = pallet_treasury::BeneficiaryLookupOf<T>;
 type BalanceOf<T> = pallet_treasury::BalanceOf<T>;
 type BountiesError<T> = pallet_bounties::Error<T>;
 type BountyIndex = pallet_bounties::BountyIndex;
@@ -89,16 +91,20 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 pub struct ChildBounty<AccountId, Balance, BlockNumber> {
 	/// The parent of this child-bounty.
 	parent_bounty: BountyIndex,
+	// TODO: update doc, specify in which asset class
 	/// The (total) amount that should be paid if this child-bounty is rewarded.
 	value: Balance,
+	// TODO: update doc, specify in which asset class
 	/// The child bounty curator fee.
 	fee: Balance,
+	// TODO: update doc, specify in which asset class
 	/// The deposit of child-bounty curator.
 	curator_deposit: Balance,
 	/// The status of this child-bounty.
 	status: ChildBountyStatus<AccountId, BlockNumber>,
 }
 
+// TODO: update as pallet_bounty::BountyStatus
 /// The status of a child-bounty.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum ChildBountyStatus<AccountId, BlockNumber> {
@@ -163,6 +169,7 @@ pub mod pallet {
 		TooManyChildBounties,
 	}
 
+	// TODO: add new parameters for events
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -214,6 +221,10 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		// TODO: use pallet_treasury::Config::Paymaster for all transfers (except deposits).
+
+		// TODO: update doc. `value` in the asset of the parent bounty.
+
 		/// Add a new child-bounty.
 		///
 		/// The dispatch origin for this call must be the curator of parent
@@ -238,6 +249,9 @@ pub mod pallet {
 		pub fn add_child_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
+			// TODO: `value` should pallet_treasury::AssetBalanceOf<T, I>, 
+			// or better make pallet_treasury::AssetBalanceOf<T, I> and 
+			// pallet_treasury::BalanceOf<T, I> same types for simplicity.
 			#[pallet::compact] value: BalanceOf<T>,
 			description: Vec<u8>,
 		) -> DispatchResult {
@@ -384,8 +398,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
 			#[pallet::compact] child_bounty_id: BountyIndex,
+			// TODO: docs: curator stash account to receive the curator fee.
+			stash: BeneficiaryLookupOf<T>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
+			let stash = T::BeneficiaryLookup::lookup(*stash)?;
 
 			let (parent_curator, _) = Self::ensure_bounty_active(parent_bounty_id)?;
 			// Mutate child-bounty.
@@ -577,7 +594,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
 			#[pallet::compact] child_bounty_id: BountyIndex,
-			beneficiary: AccountIdLookupOf<T>,
+			beneficiary: BeneficiaryLookupOf<T>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
 			let beneficiary = T::Lookup::lookup(beneficiary)?;
@@ -622,6 +639,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		// TODO: should be able to retry claim if the payment from prev claim attempt failed.
 		/// Claim the payout from an awarded child-bounty after payout delay.
 		///
 		/// The dispatch origin for this call may be any signed origin.
@@ -769,6 +787,8 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+
+	// TODO: similar with `pallet_bounties` add `process_payment` and `check_payment_status`.
 }
 
 impl<T: Config> Pallet<T> {

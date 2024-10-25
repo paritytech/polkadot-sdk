@@ -259,6 +259,12 @@ pub mod pallet {
 		/// Type for processing spends of [Self::AssetKind] in favor of [`Self::Beneficiary`].
 		type Paymaster: Pay<Beneficiary = Self::Beneficiary, AssetKind = Self::AssetKind>;
 
+		// TODO: make types BalanceOf and AssetBalanceOf same, and get rid of AssetBalanceOf alias
+		// type Paymaster: Pay<
+		//		Balance = <Self::Currency as Currency>::Balance, 
+		//		Beneficiary = Self::Beneficiary, 
+		//		AssetKind = Self::AssetKind>;
+
 		/// Type for converting the balance of an [Self::AssetKind] to the balance of the native
 		/// asset, solely for the purpose of asserting the result against the maximum allowed spend
 		/// amount of the [`Self::SpendOrigin`].
