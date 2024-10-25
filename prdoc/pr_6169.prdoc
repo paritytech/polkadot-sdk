@@ -1,4 +1,4 @@
-title: Deprecate Gov_v1 treasury spend flow in `treasury` pallet
+title: [Deprecation] deprecate treasury `spend_local` call and related items
 
 doc:
   - audience: Runtime Dev
