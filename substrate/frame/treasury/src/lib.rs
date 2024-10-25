@@ -285,7 +285,7 @@ pub mod pallet {
 	/// Number of proposals that have been made.
 	#[pallet::storage]
 	#[deprecated(
-		note = "Gov v1 type used for `spend_local`, configure pallet to use `PayFromAccount` for `Paymaster` type and use `spend` instead"
+		note = "The `ProposalCount ` storage type will be removed by May 2025. It associated with the deprecated `spend_local` call."
 	)]
 	pub type ProposalCount<T, I = ()> = StorageValue<_, ProposalIndex, ValueQuery>;
 
