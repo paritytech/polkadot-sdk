@@ -18445,7 +18445,6 @@ dependencies = [
  "futures",
  "futures-timer",
  "ip_network",
- "libp2p",
  "linked_hash_set",
  "log",
  "multihash 0.19.1",
@@ -19477,8 +19476,10 @@ name = "sc-network-types"
 version = "0.10.0"
 dependencies = [
  "bs58",
+ "bytes",
  "ed25519-dalek",
  "libp2p-identity",
+ "libp2p-kad",
  "litep2p",
  "log",
  "multiaddr 0.18.1",
