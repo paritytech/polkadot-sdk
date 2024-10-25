@@ -2824,6 +2824,7 @@ name = "chain-spec-guide-runtime"
 version = "0.0.0"
 dependencies = [
  "docify",
+ "frame-support",
  "pallet-balances",
  "pallet-sudo",
  "pallet-timestamp",
@@ -6442,6 +6443,7 @@ dependencies = [
 name = "frame-support"
 version = "28.0.0"
 dependencies = [
+ "Inflector",
  "aquamarine",
  "array-bytes",
  "assert_matches",
