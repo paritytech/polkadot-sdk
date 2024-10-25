@@ -171,7 +171,7 @@ where
 	}
 
 	fn to_fallback_account_id(address: &H160) -> T::AccountId {
-		address.clone().into()
+		(*address).into()
 	}
 
 	fn map(_account_id: &T::AccountId) -> DispatchResult {
