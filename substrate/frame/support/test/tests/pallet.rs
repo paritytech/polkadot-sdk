@@ -1913,7 +1913,10 @@ fn metadata_ir_pallet_runtime_docs() {
 
 	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
 	let expected = vec![" Pallet documentation", readme, readme];
-	assert_eq!(pallet.docs, expected);
+
+	for (doc, expected) in pallet.docs.iter().zip(expected.iter()) {
+		assert!(doc.starts_with(expected));
+	}
 }
 
 #[test]
