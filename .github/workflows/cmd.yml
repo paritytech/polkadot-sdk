@@ -298,7 +298,7 @@ jobs:
 
       - name: Set rust version via common env file
         run: |
-          run: cat .github/env >> $GITHUB_ENV
+          cat .github/env >> $GITHUB_ENV
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
