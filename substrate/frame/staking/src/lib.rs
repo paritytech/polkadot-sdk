@@ -309,6 +309,7 @@ extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
+use frame_election_provider_support::ElectionProvider;
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{
@@ -347,9 +348,14 @@ macro_rules! log {
 	};
 }
 
-/// Maximum number of winners (aka. active validators), as defined in the election provider of this
-/// pallet.
-pub type MaxWinnersOf<T> = <<T as Config>::ElectionProvider as frame_election_provider_support::ElectionProviderBase>::MaxWinners;
+/// Alias fo the maximum number of winners (aka. active validators), as defined in by this pallet's
+/// config.
+pub type MaxWinnersOf<T> = <T as Config>::MaxValidatorSet;
+
+/// Maximum number of exposures (validators) that each page of [`Config::ElectionProvider`] might
+/// might return.
+pub type MaxExposuresPerPageOf<T> =
+	<<T as Config>::ElectionProvider as ElectionProvider>::MaxWinnersPerPage;
 
 /// Maximum number of nominations per nominator.
 pub type MaxNominationsOf<T> =
@@ -380,6 +386,13 @@ pub struct ActiveEraInfo {
 	/// Start can be none if start hasn't been set for the era yet,
 	/// Start is set on the first on_finalize of the era to guarantee usage of `Time`.
 	pub start: Option<u64>,
+}
+
+/// Pointer to the last iterated indices for targets and voters used when generating the snapshot.
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub(crate) struct LastIteratedStakers<AccountId> {
+	voter: AccountId,
+	target: AccountId,
 }
 
 /// Reward points of an era. Used to split era total payout between validators.
@@ -438,6 +451,23 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Era number at which point it'll be unlocked.
 	#[codec(compact)]
 	era: EraIndex,
+}
+
+/// Status of a paged snapshot progress.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub enum SnapshotStatus<AccountId> {
+	/// Paged snapshot is in progress, the `AccountId` was the last staker iterated.
+	Ongoing(AccountId),
+	/// All the stakers in the system have been consumed since the snapshot started.
+	Consumed,
+	/// Waiting for a new snapshot to be requested.
+	Waiting,
+}
+
+impl<AccountId> Default for SnapshotStatus<AccountId> {
+	fn default() -> Self {
+		Self::Waiting
+	}
 }
 
 /// The ledger of a (bonded) stash.
@@ -1237,15 +1267,33 @@ impl<T: Config> EraInfo<T> {
 		let (exposure_metadata, exposure_pages) = exposure.into_pages(page_size);
 		defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
 
-		<ErasStakersOverview<T>>::insert(era, &validator, &exposure_metadata);
-		exposure_pages.iter().enumerate().for_each(|(page, paged_exposure)| {
-			<ErasStakersPaged<T>>::insert((era, &validator, page as Page), &paged_exposure);
+		// insert or update validator's overview.
+		let append_from = ErasStakersOverview::<T>::mutate(era, &validator, |stored| {
+			if let Some(stored_overview) = stored {
+				let append_from = stored_overview.page_count;
+				*stored = Some(stored_overview.merge(exposure_metadata));
+				append_from
+			} else {
+				*stored = Some(exposure_metadata);
+				Zero::zero()
+			}
+		});
+
+		exposure_pages.iter().enumerate().for_each(|(idx, paged_exposure)| {
+			let append_at = (append_from + idx as u32) as Page;
+			<ErasStakersPaged<T>>::insert((era, &validator, append_at), &paged_exposure);
 		});
 	}
 
 	/// Store total exposure for all the elected validators in the era.
 	pub(crate) fn set_total_stake(era: EraIndex, total_stake: BalanceOf<T>) {
 		<ErasTotalStake<T>>::insert(era, total_stake);
+	}
+
+	pub(crate) fn add_total_stake(era: EraIndex, stake: BalanceOf<T>) {
+		<ErasTotalStake<T>>::mutate(era, |total_stake| {
+			*total_stake += stake;
+		});
 	}
 }
 
