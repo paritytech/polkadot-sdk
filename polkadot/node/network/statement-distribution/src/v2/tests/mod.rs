@@ -82,6 +82,8 @@ struct TestConfig {
 	// whether the local node should be a validator
 	local_validator: LocalRole,
 	async_backing_params: Option<AsyncBackingParams>,
+	// allow v2 descriptors (feature bit)
+	allow_v2_descriptors: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -96,6 +98,7 @@ struct TestState {
 	validators: Vec<ValidatorPair>,
 	session_info: SessionInfo,
 	req_sender: async_channel::Sender<sc_network::config::IncomingRequest>,
+	node_features: NodeFeatures,
 }
 
 impl TestState {
@@ -174,7 +177,13 @@ impl TestState {
 			random_seed: [0u8; 32],
 		};
 
-		TestState { config, local, validators, session_info, req_sender }
+		let mut node_features = NodeFeatures::new();
+		if config.allow_v2_descriptors {
+			node_features.resize(4, false);
+			node_features.set(FeatureIndex::CandidateReceiptV2 as usize, true);
+		}
+
+		TestState { config, local, validators, session_info, req_sender, node_features }
 	}
 
 	fn make_dummy_leaf(&self, relay_parent: Hash) -> TestLeaf {
@@ -186,6 +195,7 @@ impl TestState {
 		relay_parent: Hash,
 		groups_for_first_para: usize,
 	) -> TestLeaf {
+		let mut cq = std::collections::BTreeMap::new();
 		TestLeaf {
 			number: 1,
 			hash: relay_parent,
@@ -193,8 +203,12 @@ impl TestState {
 			session: 1,
 			availability_cores: self.make_availability_cores(|i| {
 				let para_id = if i < groups_for_first_para {
+					cq.entry(CoreIndex(i as u32))
+						.or_insert_with(|| vec![ParaId::from(0u32), ParaId::from(0u32)].into());
 					ParaId::from(0u32)
 				} else {
+					cq.entry(CoreIndex(i as u32))
+						.or_insert_with(|| vec![ParaId::from(i), ParaId::from(i)].into());
 					ParaId::from(i as u32)
 				};
 
@@ -213,6 +227,7 @@ impl TestState {
 				})
 				.collect(),
 			minimum_backing_votes: 2,
+			claim_queue: ClaimQueueSnapshot(cq),
 		}
 	}
 
@@ -232,7 +247,7 @@ impl TestState {
 		TestLeaf { minimum_backing_votes, ..self.make_dummy_leaf(relay_parent) }
 	}
 
-	fn make_availability_cores(&self, f: impl Fn(usize) -> CoreState) -> Vec<CoreState> {
+	fn make_availability_cores(&self, f: impl FnMut(usize) -> CoreState) -> Vec<CoreState> {
 		(0..self.session_info.validator_groups.len()).map(f).collect()
 	}
 
@@ -427,6 +442,7 @@ struct TestLeaf {
 	pub disabled_validators: Vec<ValidatorIndex>,
 	para_data: Vec<(ParaId, PerParaData)>,
 	minimum_backing_votes: u32,
+	claim_queue: ClaimQueueSnapshot,
 }
 
 impl TestLeaf {
@@ -577,6 +593,7 @@ async fn handle_leaf_activation(
 		availability_cores,
 		disabled_validators,
 		minimum_backing_votes,
+		claim_queue,
 	} = leaf;
 
 	assert_matches!(
@@ -623,7 +640,7 @@ async fn handle_leaf_activation(
 				_parent,
 				RuntimeApiRequest::Version(tx),
 			)) => {
-				tx.send(Ok(RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT)).unwrap();
+				tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)).unwrap();
 			},
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				parent,
@@ -674,6 +691,18 @@ async fn handle_leaf_activation(
 					now: 1,
 				};
 				tx.send(Ok((validator_groups, group_rotation_info))).unwrap();
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::NodeFeatures(_session_index, tx),
+			)) if parent == *hash => {
+				tx.send(Ok(test_state.node_features.clone())).unwrap();
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::ClaimQueue(tx),
+			)) if parent == *hash => {
+				tx.send(Ok(claim_queue.0.clone())).unwrap();
 			},
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetHypotheticalMembership(req, tx),

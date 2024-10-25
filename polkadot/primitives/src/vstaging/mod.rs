@@ -208,6 +208,10 @@ pub trait MutateDescriptorV2<H> {
 	fn set_erasure_root(&mut self, erasure_root: Hash);
 	/// Set the para head of the descriptor.
 	fn set_para_head(&mut self, para_head: Hash);
+	/// Set the core index of the descriptor.
+	fn set_core_index(&mut self, core_index: CoreIndex);
+	/// Set the session index of the descriptor.
+	fn set_session_index(&mut self, session_index: SessionIndex);
 }
 
 #[cfg(feature = "test")]
@@ -226,6 +230,14 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 
 	fn set_version(&mut self, version: InternalVersion) {
 		self.version = version;
+	}
+
+	fn set_core_index(&mut self, core_index: CoreIndex) {
+		self.core_index = core_index.0 as u16;
+	}
+
+	fn set_session_index(&mut self, session_index: SessionIndex) {
+		self.session_index = session_index;
 	}
 
 	fn set_persisted_validation_data_hash(&mut self, persisted_validation_data_hash: Hash) {
