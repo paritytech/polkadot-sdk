@@ -116,7 +116,8 @@ fn benchmark_block_validation(c: &mut Criterion) {
 
 	let parachain_block = block_builder.build_parachain_block(*parent_header.state_root());
 
-	let proof_size_in_kb = parachain_block.storage_proof().encode().len() as f64 / 1024f64;
+	let proof_size_in_kb =
+		parachain_block.proofs().map(|p| p.encoded_size()).sum::<usize>() as f64 / 1024f64;
 	let runtime = utils::get_wasm_module();
 
 	let (relay_parent_storage_root, _) = sproof_builder.into_state_root_and_proof();
@@ -131,7 +132,11 @@ fn benchmark_block_validation(c: &mut Criterion) {
 	// This is not strictly necessary for this benchmark, but
 	// let us make sure that the result of `validate_block` is what
 	// we expect.
-	verify_expected_result(&runtime, &encoded_params, parachain_block.into_block());
+	verify_expected_result(
+		&runtime,
+		&encoded_params,
+		parachain_block.blocks().nth(0).unwrap().clone(),
+	);
 
 	let mut group = c.benchmark_group("Block validation");
 	group.sample_size(20);
