@@ -76,19 +76,24 @@ pub struct ContractResult<R, Balance, EventRecord> {
 	/// RPC calls.
 	pub debug_message: Vec<u8>,
 	/// The execution result of the wasm code.
-	pub result: R,
+	pub result: Result<R, DispatchError>,
 	/// The events that were emitted during execution. It is an option as event collection is
 	/// optional.
 	pub events: Option<Vec<EventRecord>>,
 }
 
-/// Result type of a `bare_call` call as well as `ContractsApi::call`.
-pub type ContractExecResult<Balance, EventRecord> =
-	ContractResult<Result<ExecReturnValue, DispatchError>, Balance, EventRecord>;
-
-/// Result type of a `bare_instantiate` call as well as `ContractsApi::instantiate`.
-pub type ContractInstantiateResult<Balance, EventRecord> =
-	ContractResult<Result<InstantiateReturnValue, DispatchError>, Balance, EventRecord>;
+/// The result of the execution of a `eth_transact` call.
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct EthContractResult<Balance> {
+	/// The fee charged for the execution.
+	pub fee: Balance,
+	/// The amount of gas that was necessary to execute the transaction.
+	pub gas_required: Weight,
+	/// Storage deposit charged.
+	pub storage_deposit: Balance,
+	/// The execution result.
+	pub result: Result<Vec<u8>, DispatchError>,
+}
 
 /// Result type of a `bare_code_upload` call.
 pub type CodeUploadResult<Balance> = Result<CodeUploadReturnValue<Balance>, DispatchError>;

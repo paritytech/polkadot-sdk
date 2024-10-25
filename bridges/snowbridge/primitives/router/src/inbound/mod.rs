@@ -416,6 +416,8 @@ where
 			// Final destination is a 32-byte account on AssetHub
 			Destination::AccountId32 { id } =>
 				Ok(Location::new(0, [AccountId32 { network: None, id }])),
+			// Forwarding to a destination parachain is not allowed for PNA and is validated on the
+			// Ethereum side. https://github.com/Snowfork/snowbridge/blob/e87ddb2215b513455c844463a25323bb9c01ff36/contracts/src/Assets.sol#L216-L224
 			_ => Err(ConvertMessageError::InvalidDestination),
 		}?;
 

@@ -69,7 +69,8 @@
 //! > what topics are already covered in this crate, and how you can build on top of the information
 //! > that they already pose, rather than repeating yourself**.
 //!
-//! For more details see the [latest documenting guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/DOCUMENTATION_GUIDELINES.md).
+//! For more details see the [latest documenting
+//! guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/DOCUMENTATION_GUIDELINES.md).
 //!
 //! #### Example: Explaining `#[pallet::call]`
 //!
@@ -131,6 +132,13 @@
 //! [workspace-level `docify`](https://github.com/sam0x17/docify/issues/22). For now, we accept this
 //! compromise, but in the long term, we should work towards finding a way to maintain different
 //! revisions of this crate.
+//!
+//! ## Versioning
+//!
+//! So long as not deployed in `crates.io`, please notice that all of the information in this crate,
+//! namely in [`crate::guides`] and such are compatible with the master branch of `polkadot-sdk`. A
+//! few solutions have been proposed to improve this, please see
+//! [here](https://github.com/paritytech/polkadot-sdk/issues/6191).
 //!
 //! ## How to Develop Locally
 //!
