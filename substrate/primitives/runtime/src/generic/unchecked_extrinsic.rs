@@ -324,6 +324,10 @@ impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo
 	fn is_signed(&self) -> Option<bool> {
 		Some(matches!(self.preamble, Preamble::Signed(..)))
 	}
+
+	fn new_inherent(function: Call) -> Self {
+		Self::new_bare(function)
+	}
 }
 
 // TODO: Migrate existing extension pipelines to support current `Signed` transactions as `General`

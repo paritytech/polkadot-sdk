@@ -68,24 +68,22 @@ impl<T: frame_system::Config> polkadot_runtime_common::crowdloan::WeightInfo for
 		Weight::from_parts(73_165_000, 0)
 			.saturating_add(Weight::from_parts(0, 3903))
 			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(4))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
-	/// Storage: Crowdloan Funds (r:1 w:1)
-	/// Proof Skipped: Crowdloan Funds (max_values: None, max_size: None, mode: Measured)
-	/// Storage: Slots Leases (r:1 w:0)
-	/// Proof Skipped: Slots Leases (max_values: None, max_size: None, mode: Measured)
-	/// Storage: Auctions AuctionInfo (r:1 w:0)
-	/// Proof: Auctions AuctionInfo (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-	/// Storage: System Account (r:1 w:1)
-	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-	/// Storage: Balances InactiveIssuance (r:1 w:1)
-	/// Proof: Balances InactiveIssuance (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
-	/// Storage: Crowdloan EndingsCount (r:1 w:0)
-	/// Proof Skipped: Crowdloan EndingsCount (max_values: Some(1), max_size: None, mode: Measured)
-	/// Storage: Crowdloan NewRaise (r:1 w:1)
-	/// Proof Skipped: Crowdloan NewRaise (max_values: Some(1), max_size: None, mode: Measured)
-	/// Storage: unknown `0xd861ea1ebf4800d4b89f4ff787ad79ee96d9a708c85b57da7eb8f9ddeda61291` (r:1 w:1)
-	/// Proof Skipped: unknown `0xd861ea1ebf4800d4b89f4ff787ad79ee96d9a708c85b57da7eb8f9ddeda61291` (r:1 w:1)
+	/// Storage: `Crowdloan::Funds` (r:1 w:1)
+	/// Proof: `Crowdloan::Funds` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Slots::Leases` (r:1 w:0)
+	/// Proof: `Slots::Leases` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Auctions::AuctionInfo` (r:1 w:0)
+	/// Proof: `Auctions::AuctionInfo` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Crowdloan::EndingsCount` (r:1 w:0)
+	/// Proof: `Crowdloan::EndingsCount` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Crowdloan::NewRaise` (r:1 w:1)
+	/// Proof: `Crowdloan::NewRaise` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0xd861ea1ebf4800d4b89f4ff787ad79ee96d9a708c85b57da7eb8f9ddeda61291` (r:1 w:1)
+	/// Proof: UNKNOWN KEY `0xd861ea1ebf4800d4b89f4ff787ad79ee96d9a708c85b57da7eb8f9ddeda61291` (r:1 w:1)
 	fn contribute() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `424`
@@ -96,14 +94,12 @@ impl<T: frame_system::Config> polkadot_runtime_common::crowdloan::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(5))
 	}
-	/// Storage: Crowdloan Funds (r:1 w:1)
-	/// Proof Skipped: Crowdloan Funds (max_values: None, max_size: None, mode: Measured)
-	/// Storage: System Account (r:2 w:2)
-	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-	/// Storage: Balances InactiveIssuance (r:1 w:1)
-	/// Proof: Balances InactiveIssuance (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
-	/// Storage: unknown `0xc85982571aa615c788ef9b2c16f54f25773fd439e8ee1ed2aa3ae43d48e880f0` (r:1 w:1)
-	/// Proof Skipped: unknown `0xc85982571aa615c788ef9b2c16f54f25773fd439e8ee1ed2aa3ae43d48e880f0` (r:1 w:1)
+	/// Storage: `Crowdloan::Funds` (r:1 w:1)
+	/// Proof: `Crowdloan::Funds` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: UNKNOWN KEY `0xc85982571aa615c788ef9b2c16f54f25773fd439e8ee1ed2aa3ae43d48e880f0` (r:1 w:1)
+	/// Proof: UNKNOWN KEY `0xc85982571aa615c788ef9b2c16f54f25773fd439e8ee1ed2aa3ae43d48e880f0` (r:1 w:1)
 	fn withdraw() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `690`
@@ -111,8 +107,8 @@ impl<T: frame_system::Config> polkadot_runtime_common::crowdloan::WeightInfo for
 		// Minimum execution time: 88_125_000 picoseconds.
 		Weight::from_parts(108_202_000, 0)
 			.saturating_add(Weight::from_parts(0, 6196))
-			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(5))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	/// Storage: Skipped Metadata (r:0 w:0)
 	/// Proof Skipped: Skipped Metadata (max_values: None, max_size: None, mode: Measured)
@@ -128,17 +124,17 @@ impl<T: frame_system::Config> polkadot_runtime_common::crowdloan::WeightInfo for
 			.saturating_add(Weight::from_parts(42_987_746, 0).saturating_mul(k.into()))
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(k.into())))
-			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes(2))
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(k.into())))
 			.saturating_add(Weight::from_parts(0, 189).saturating_mul(k.into()))
 	}
-	/// Storage: Crowdloan Funds (r:1 w:1)
-	/// Proof Skipped: Crowdloan Funds (max_values: None, max_size: None, mode: Measured)
-	/// Storage: System Account (r:2 w:2)
-	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+	/// Storage: `Crowdloan::Funds` (r:1 w:1)
+	/// Proof: `Crowdloan::Funds` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn dissolve() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `515`
+		//  Measured:  `514`
 		//  Estimated: `6196`
 		// Minimum execution time: 48_316_000 picoseconds.
 		Weight::from_parts(60_935_000, 0)
@@ -146,8 +142,8 @@ impl<T: frame_system::Config> polkadot_runtime_common::crowdloan::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
-	/// Storage: Crowdloan Funds (r:1 w:1)
-	/// Proof Skipped: Crowdloan Funds (max_values: None, max_size: None, mode: Measured)
+	/// Storage: `Crowdloan::Funds` (r:1 w:1)
+	/// Proof: `Crowdloan::Funds` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn edit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `235`
@@ -158,10 +154,10 @@ impl<T: frame_system::Config> polkadot_runtime_common::crowdloan::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: Crowdloan Funds (r:1 w:0)
-	/// Proof Skipped: Crowdloan Funds (max_values: None, max_size: None, mode: Measured)
-	/// Storage: unknown `0xd861ea1ebf4800d4b89f4ff787ad79ee96d9a708c85b57da7eb8f9ddeda61291` (r:1 w:1)
-	/// Proof Skipped: unknown `0xd861ea1ebf4800d4b89f4ff787ad79ee96d9a708c85b57da7eb8f9ddeda61291` (r:1 w:1)
+	/// Storage: `Crowdloan::Funds` (r:1 w:0)
+	/// Proof: `Crowdloan::Funds` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0xd861ea1ebf4800d4b89f4ff787ad79ee96d9a708c85b57da7eb8f9ddeda61291` (r:1 w:1)
+	/// Proof: UNKNOWN KEY `0xd861ea1ebf4800d4b89f4ff787ad79ee96d9a708c85b57da7eb8f9ddeda61291` (r:1 w:1)
 	fn add_memo() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `412`
@@ -172,10 +168,10 @@ impl<T: frame_system::Config> polkadot_runtime_common::crowdloan::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: Crowdloan Funds (r:1 w:0)
-	/// Proof Skipped: Crowdloan Funds (max_values: None, max_size: None, mode: Measured)
-	/// Storage: Crowdloan NewRaise (r:1 w:1)
-	/// Proof Skipped: Crowdloan NewRaise (max_values: Some(1), max_size: None, mode: Measured)
+	/// Storage: `Crowdloan::Funds` (r:1 w:0)
+	/// Proof: `Crowdloan::Funds` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Crowdloan::NewRaise` (r:1 w:1)
+	/// Proof: `Crowdloan::NewRaise` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn poke() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `239`
@@ -186,26 +182,26 @@ impl<T: frame_system::Config> polkadot_runtime_common::crowdloan::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: Auctions AuctionInfo (r:1 w:0)
-	/// Proof: Auctions AuctionInfo (max_values: Some(1), max_size: Some(8), added: 503, mode: MaxEncodedLen)
-	/// Storage: Crowdloan EndingsCount (r:1 w:1)
-	/// Proof Skipped: Crowdloan EndingsCount (max_values: Some(1), max_size: None, mode: Measured)
-	/// Storage: Crowdloan NewRaise (r:1 w:1)
-	/// Proof Skipped: Crowdloan NewRaise (max_values: Some(1), max_size: None, mode: Measured)
-	/// Storage: Crowdloan Funds (r:100 w:0)
-	/// Proof Skipped: Crowdloan Funds (max_values: None, max_size: None, mode: Measured)
-	/// Storage: Auctions AuctionCounter (r:1 w:0)
-	/// Proof: Auctions AuctionCounter (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: Paras ParaLifecycles (r:100 w:0)
-	/// Proof Skipped: Paras ParaLifecycles (max_values: None, max_size: None, mode: Measured)
-	/// Storage: Slots Leases (r:100 w:0)
-	/// Proof Skipped: Slots Leases (max_values: None, max_size: None, mode: Measured)
-	/// Storage: Auctions Winning (r:1 w:1)
-	/// Proof: Auctions Winning (max_values: None, max_size: Some(1920), added: 4395, mode: MaxEncodedLen)
-	/// Storage: Auctions ReservedAmounts (r:100 w:100)
-	/// Proof: Auctions ReservedAmounts (max_values: None, max_size: Some(60), added: 2535, mode: MaxEncodedLen)
-	/// Storage: System Account (r:100 w:100)
-	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
+	/// Storage: `Auctions::AuctionInfo` (r:1 w:0)
+	/// Proof: `Auctions::AuctionInfo` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Crowdloan::EndingsCount` (r:1 w:1)
+	/// Proof: `Crowdloan::EndingsCount` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Crowdloan::NewRaise` (r:1 w:1)
+	/// Proof: `Crowdloan::NewRaise` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Crowdloan::Funds` (r:100 w:0)
+	/// Proof: `Crowdloan::Funds` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Auctions::AuctionCounter` (r:1 w:0)
+	/// Proof: `Auctions::AuctionCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `Paras::ParaLifecycles` (r:100 w:0)
+	/// Proof: `Paras::ParaLifecycles` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Slots::Leases` (r:100 w:0)
+	/// Proof: `Slots::Leases` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Auctions::Winning` (r:1 w:1)
+	/// Proof: `Auctions::Winning` (`max_values`: None, `max_size`: Some(1920), added: 4395, mode: `MaxEncodedLen`)
+	/// Storage: `Auctions::ReservedAmounts` (r:100 w:100)
+	/// Proof: `Auctions::ReservedAmounts` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:100 w:100)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[2, 100]`.
 	fn on_initialize(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:

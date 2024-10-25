@@ -296,7 +296,6 @@ pub enum Pre<T: Config> {
 
 impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeAssetTxPayment<T>
 where
-	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	AssetBalanceOf<T>: Send + Sync,
 	BalanceOf<T>: Send + Sync + From<u64> + IsType<ChargeAssetBalanceOf<T>>,
 	ChargeAssetIdOf<T>: Send + Sync,

@@ -35,11 +35,8 @@ use sp_consensus_grandpa::{RoundNumber, SetId, GRANDPA_ENGINE_ID};
 use sp_core::H256;
 use sp_keyring::Ed25519Keyring;
 use sp_runtime::{
-	curve::PiecewiseLinear,
-	impl_opaque_keys,
-	testing::{TestXt, UintAuthorityId},
-	traits::OpaqueKeys,
-	BuildStorage, DigestItem, Perbill,
+	curve::PiecewiseLinear, generic::UncheckedExtrinsic, impl_opaque_keys,
+	testing::UintAuthorityId, traits::OpaqueKeys, BuildStorage, DigestItem, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 

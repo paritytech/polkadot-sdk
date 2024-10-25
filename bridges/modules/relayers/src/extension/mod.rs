@@ -355,6 +355,7 @@ where
 		_call: &R::RuntimeCall,
 		_info: &DispatchInfoOf<R::RuntimeCall>,
 		_len: usize,
+		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Ok(val.inspect(|data| {
 			log::trace!(
@@ -1191,6 +1192,7 @@ mod tests {
 			&post_dispatch_info(),
 			1024,
 			&dispatch_result,
+			&(),
 		);
 		assert_eq!(post_dispatch_result, Ok(Weight::zero()));
 	}

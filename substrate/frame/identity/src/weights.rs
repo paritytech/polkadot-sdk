@@ -96,7 +96,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Identity::IdentityOf` (r:1 w:1)
 	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7572), added: 10047, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[1, 20]`.
-	fn set_identity(r: u32, ) -> Weight {
+	fn set_identity(_r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `6978 + r * (5 ±0)`
 		//  Estimated: `11037`
@@ -155,7 +155,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Identity::SuperOf` (`max_values`: None, `max_size`: Some(114), added: 2589, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[1, 20]`.
 	/// The range of component `s` is `[0, 100]`.
-	fn clear_identity(r: u32, s: u32, ) -> Weight {
+	fn clear_identity(_r: u32, s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `7070 + r * (5 ±0) + s * (32 ±0)`
 		//  Estimated: `11037`
@@ -462,7 +462,7 @@ impl WeightInfo for () {
 	/// Storage: `Identity::IdentityOf` (r:1 w:1)
 	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7572), added: 10047, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[1, 20]`.
-	fn set_identity(r: u32, ) -> Weight {
+	fn set_identity(_r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `6978 + r * (5 ±0)`
 		//  Estimated: `11037`
@@ -521,7 +521,7 @@ impl WeightInfo for () {
 	/// Proof: `Identity::SuperOf` (`max_values`: None, `max_size`: Some(114), added: 2589, mode: `MaxEncodedLen`)
 	/// The range of component `r` is `[1, 20]`.
 	/// The range of component `s` is `[0, 100]`.
-	fn clear_identity(r: u32, s: u32, ) -> Weight {
+	fn clear_identity(_r: u32, s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `7070 + r * (5 ±0) + s * (32 ±0)`
 		//  Estimated: `11037`

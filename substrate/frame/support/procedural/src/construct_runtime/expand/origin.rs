@@ -157,6 +157,10 @@ pub fn expand_outer_origin(
 				self.caller = caller;
 			}
 
+			fn set_caller(&mut self, caller: OriginCaller) {
+				self.caller = caller;
+			}
+
 			fn set_caller_from(&mut self, other: impl Into<Self>) {
 				self.caller = other.into().caller;
 			}

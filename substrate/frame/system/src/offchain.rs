@@ -80,6 +80,9 @@ pub struct SubmitTransaction<T: CreateTransactionBase<RuntimeCall>, RuntimeCall>
 	_phantom: core::marker::PhantomData<(T, RuntimeCall)>,
 }
 
+// TODO [#2415]: Avoid splitting call and the totally opaque `signature`; `CreateTransaction` trait
+// should provide something which impls `Encode`, which can be sent onwards to
+// `sp_io::offchain::submit_transaction`. There's no great need to split things up as in here.
 impl<T, LocalCall> SubmitTransaction<T, LocalCall>
 where
 	T: CreateTransactionBase<LocalCall>,
@@ -626,14 +629,17 @@ mod tests {
 	use crate::mock::{RuntimeCall, Test as TestRuntime, CALL};
 	use codec::Decode;
 	use sp_core::offchain::{testing, TransactionPoolExt};
-	use sp_runtime::testing::{TestSignature, TestXt, UintAuthorityId};
+	use sp_runtime::{
+		generic::UncheckedExtrinsic,
+		testing::{TestSignature, UintAuthorityId},
+	};
 
 	impl SigningTypes for TestRuntime {
 		type Public = UintAuthorityId;
 		type Signature = TestSignature;
 	}
 
-	type Extrinsic = TestXt<RuntimeCall, ()>;
+	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 
 	impl CreateTransactionBase<RuntimeCall> for TestRuntime {
 		type Extrinsic = Extrinsic;

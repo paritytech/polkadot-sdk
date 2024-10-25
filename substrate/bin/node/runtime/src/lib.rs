@@ -2323,6 +2323,24 @@ impl pallet_parameters::Config for Runtime {
 	type WeightInfo = ();
 }
 
+pub type MetaTxExtension = (
+	frame_system::CheckNonZeroSender<Runtime>,
+	frame_system::CheckSpecVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
+	frame_system::CheckGenesis<Runtime>,
+	frame_system::CheckEra<Runtime>,
+	frame_system::CheckNonce<Runtime>,
+);
+
+impl pallet_meta_tx::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Signature = Signature;
+	type PublicKey = <Signature as sp_runtime::traits::Verify>::Signer;
+	type Context = ();
+	type Extension = MetaTxExtension;
+}
+
 #[frame_support::runtime]
 mod runtime {
 	use super::*;

@@ -72,6 +72,7 @@ impl TransactionExtension<RuntimeCall> for DummyExtension {
 		_call: &RuntimeCall,
 		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
+		_context: &C,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		PrepareCount::mutate(|c| *c += 1);
 		Ok(())

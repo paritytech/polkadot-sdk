@@ -50,6 +50,7 @@ cumulus-primitives-storage-weight-reclaim = { workspace = true, default-features
 [features]
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-primitives-storage-weight-reclaim/runtime-benchmarks",
 	"cumulus-test-service/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",

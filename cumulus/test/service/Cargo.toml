@@ -107,6 +107,7 @@ substrate-test-utils = { workspace = true }
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-primitives-storage-weight-reclaim/runtime-benchmarks",
 	"cumulus-test-client/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",

@@ -148,7 +148,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Broker::Workplan` (r:0 w:10)
 	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 1000]`.
-	fn start_sales(n: u32, ) -> Weight {
+	fn start_sales(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `6330`
 		//  Estimated: `8499`
@@ -596,7 +596,7 @@ impl WeightInfo for () {
 	/// Storage: `Broker::Workplan` (r:0 w:10)
 	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 1000]`.
-	fn start_sales(n: u32, ) -> Weight {
+	fn start_sales(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `6330`
 		//  Estimated: `8499`

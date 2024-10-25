@@ -67,3 +67,10 @@ impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
 	}
 	impl_tx_ext_default!(<T as Config>::RuntimeCall; validate prepare);
 }
+impl<T: Config + Send + Sync, Context> TransactionExtension<<T as Config>::RuntimeCall, Context>
+	for CheckTxVersion<T>
+{
+	type Val = ();
+	type Pre = ();
+	impl_tx_ext_default!(<T as Config>::RuntimeCall; Context; validate prepare);
+}

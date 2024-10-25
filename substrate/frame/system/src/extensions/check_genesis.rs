@@ -68,3 +68,10 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckGene
 	}
 	impl_tx_ext_default!(T::RuntimeCall; validate prepare);
 }
+impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
+	for CheckGenesis<T>
+{
+	type Val = ();
+	type Pre = ();
+	impl_tx_ext_default!(T::RuntimeCall; Context; validate prepare);
+}

@@ -93,7 +93,7 @@ pub enum StatementKind {
 
 impl StatementKind {
 	/// Convert this to the (English) statement it represents.
-	fn to_text(self) -> &'static [u8] {
+	pub fn to_text(self) -> &'static [u8] {
 		match self {
 			StatementKind::Regular =>
 				&b"I hereby agree to the terms of the statement whose SHA-256 multihash is \
@@ -701,7 +701,7 @@ mod secp_utils {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
 	use super::*;
 	use hex_literal::hex;
 	use secp_utils::*;
@@ -1437,7 +1437,7 @@ mod tests {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking {
+pub(super) mod benchmarking {
 	use super::*;
 	use crate::claims::Call;
 	use frame_benchmarking::{account, benchmarks};

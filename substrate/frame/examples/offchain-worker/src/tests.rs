@@ -72,7 +72,7 @@ impl frame_system::Config for Test {
 	type MaxConsumers = ConstU32<16>;
 }
 
-type Extrinsic = TestXt<RuntimeCall, ()>;
+type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 impl frame_system::offchain::SigningTypes for Test {

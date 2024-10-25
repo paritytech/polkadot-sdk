@@ -1335,6 +1335,7 @@ pub trait Extrinsic: Sized {
 
 	/// Is this `Extrinsic` signed?
 	/// If no information are available about signed/unsigned, `None` should be returned.
+	#[deprecated = "Use and implement `!is_bare()` instead"]
 	fn is_signed(&self) -> Option<bool> {
 		None
 	}
@@ -1348,6 +1349,12 @@ pub trait Extrinsic: Sized {
 	/// a signed transaction is it is `Some`.
 	fn new(_call: Self::Call, _signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
 		None
+	}
+
+	/// Create a new inherent extrinsic.
+	fn new_inherent(function: Self::Call) -> Self {
+		#[allow(deprecated)]
+		Self::new(function, None).expect("Extrinsic must provide inherents; qed")
 	}
 }
 

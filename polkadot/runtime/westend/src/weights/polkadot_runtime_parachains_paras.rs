@@ -75,8 +75,8 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
-	/// Storage: Paras Heads (r:0 w:1)
-	/// Proof Skipped: Paras Heads (max_values: None, max_size: None, mode: Measured)
+	/// Storage: `Paras::Heads` (r:0 w:1)
+	/// Proof: `Paras::Heads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `s` is `[1, 1048576]`.
 	fn force_set_current_head(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -89,11 +89,16 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 			.saturating_add(Weight::from_parts(1_025, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	// Storage: Paras Heads (r:0 w:1)
+	/// Storage: `Paras::MostRecentContext` (r:0 w:1)
+	/// Proof: `Paras::MostRecentContext` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn force_set_most_recent_context() -> Weight {
-		Weight::from_parts(10_155_000, 0)
-			// Standard Error: 0
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 2_733_000 picoseconds.
+		Weight::from_parts(2_954_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: Paras FutureCodeHash (r:1 w:1)
 	/// Proof Skipped: Paras FutureCodeHash (max_values: None, max_size: None, mode: Measured)
@@ -126,12 +131,16 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(7))
 	}
-	/// Storage: Paras FutureCodeUpgrades (r:1 w:0)
-	/// Proof Skipped: Paras FutureCodeUpgrades (max_values: None, max_size: None, mode: Measured)
-	/// Storage: Paras Heads (r:0 w:1)
-	/// Proof Skipped: Paras Heads (max_values: None, max_size: None, mode: Measured)
-	/// Storage: Paras UpgradeGoAheadSignal (r:0 w:1)
-	/// Proof Skipped: Paras UpgradeGoAheadSignal (max_values: None, max_size: None, mode: Measured)
+	/// Storage: `Paras::FutureCodeUpgrades` (r:1 w:0)
+	/// Proof: `Paras::FutureCodeUpgrades` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Registrar::Paras` (r:1 w:0)
+	/// Proof: `Registrar::Paras` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Paras::Heads` (r:0 w:1)
+	/// Proof: `Paras::Heads` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Paras::UpgradeGoAheadSignal` (r:0 w:1)
+	/// Proof: `Paras::UpgradeGoAheadSignal` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Paras::MostRecentContext` (r:0 w:1)
+	/// Proof: `Paras::MostRecentContext` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `s` is `[1, 1048576]`.
 	fn force_note_new_head(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -145,10 +154,10 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	/// Storage: ParasShared CurrentSessionIndex (r:1 w:0)
-	/// Proof Skipped: ParasShared CurrentSessionIndex (max_values: Some(1), max_size: None, mode: Measured)
-	/// Storage: Paras ActionsQueue (r:1 w:1)
-	/// Proof Skipped: Paras ActionsQueue (max_values: None, max_size: None, mode: Measured)
+	/// Storage: `ParasShared::CurrentSessionIndex` (r:1 w:0)
+	/// Proof: `ParasShared::CurrentSessionIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Paras::ActionsQueue` (r:1 w:1)
+	/// Proof: `Paras::ActionsQueue` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn force_queue_action() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `4288`
@@ -180,10 +189,10 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
-	/// Storage: Paras CodeByHashRefs (r:1 w:0)
-	/// Proof Skipped: Paras CodeByHashRefs (max_values: None, max_size: None, mode: Measured)
-	/// Storage: Paras CodeByHash (r:0 w:1)
-	/// Proof Skipped: Paras CodeByHash (max_values: None, max_size: None, mode: Measured)
+	/// Storage: `Paras::CodeByHashRefs` (r:1 w:0)
+	/// Proof: `Paras::CodeByHashRefs` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Paras::CodeByHash` (r:0 w:1)
+	/// Proof: `Paras::CodeByHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn poke_unused_validation_code() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `28`
@@ -194,12 +203,12 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: ParasShared ActiveValidatorKeys (r:1 w:0)
-	/// Proof Skipped: ParasShared ActiveValidatorKeys (max_values: Some(1), max_size: None, mode: Measured)
-	/// Storage: ParasShared CurrentSessionIndex (r:1 w:0)
-	/// Proof Skipped: ParasShared CurrentSessionIndex (max_values: Some(1), max_size: None, mode: Measured)
-	/// Storage: Paras PvfActiveVoteMap (r:1 w:1)
-	/// Proof Skipped: Paras PvfActiveVoteMap (max_values: None, max_size: None, mode: Measured)
+	/// Storage: `ParasShared::ActiveValidatorKeys` (r:1 w:0)
+	/// Proof: `ParasShared::ActiveValidatorKeys` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `ParasShared::CurrentSessionIndex` (r:1 w:0)
+	/// Proof: `ParasShared::CurrentSessionIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Paras::PvfActiveVoteMap` (r:1 w:1)
+	/// Proof: `Paras::PvfActiveVoteMap` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn include_pvf_check_statement() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `26682`
@@ -234,12 +243,12 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(104))
 	}
-	/// Storage: ParasShared ActiveValidatorKeys (r:1 w:0)
-	/// Proof Skipped: ParasShared ActiveValidatorKeys (max_values: Some(1), max_size: None, mode: Measured)
-	/// Storage: ParasShared CurrentSessionIndex (r:1 w:0)
-	/// Proof Skipped: ParasShared CurrentSessionIndex (max_values: Some(1), max_size: None, mode: Measured)
-	/// Storage: Paras PvfActiveVoteMap (r:1 w:1)
-	/// Proof Skipped: Paras PvfActiveVoteMap (max_values: None, max_size: None, mode: Measured)
+	/// Storage: `ParasShared::ActiveValidatorKeys` (r:1 w:0)
+	/// Proof: `ParasShared::ActiveValidatorKeys` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `ParasShared::CurrentSessionIndex` (r:1 w:0)
+	/// Proof: `ParasShared::CurrentSessionIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Paras::PvfActiveVoteMap` (r:1 w:1)
+	/// Proof: `Paras::PvfActiveVoteMap` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn include_pvf_check_statement_finalize_upgrade_reject() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `27214`
@@ -270,12 +279,12 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
-	/// Storage: ParasShared ActiveValidatorKeys (r:1 w:0)
-	/// Proof Skipped: ParasShared ActiveValidatorKeys (max_values: Some(1), max_size: None, mode: Measured)
-	/// Storage: ParasShared CurrentSessionIndex (r:1 w:0)
-	/// Proof Skipped: ParasShared CurrentSessionIndex (max_values: Some(1), max_size: None, mode: Measured)
-	/// Storage: Paras PvfActiveVoteMap (r:1 w:1)
-	/// Proof Skipped: Paras PvfActiveVoteMap (max_values: None, max_size: None, mode: Measured)
+	/// Storage: `ParasShared::ActiveValidatorKeys` (r:1 w:0)
+	/// Proof: `ParasShared::ActiveValidatorKeys` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `ParasShared::CurrentSessionIndex` (r:1 w:0)
+	/// Proof: `ParasShared::CurrentSessionIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Paras::PvfActiveVoteMap` (r:1 w:1)
+	/// Proof: `Paras::PvfActiveVoteMap` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn include_pvf_check_statement_finalize_onboarding_reject() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `26682`

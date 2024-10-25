@@ -105,6 +105,35 @@ impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMort
 	}
 	impl_tx_ext_default!(T::RuntimeCall; prepare);
 }
+impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
+	for CheckMortality<T>
+{
+	type Pre = ();
+	type Val = ();
+
+	fn validate(
+		&self,
+		origin: <T as Config>::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
+		_len: usize,
+		_context: &mut Context,
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+	) -> ValidateResult<Self::Val, T::RuntimeCall> {
+		let current_u64 = <Pallet<T>>::block_number().saturated_into::<u64>();
+		let valid_till = self.0.death(current_u64);
+		Ok((
+			ValidTransaction {
+				longevity: valid_till.saturating_sub(current_u64),
+				..Default::default()
+			},
+			(),
+			origin,
+		))
+	}
+	impl_tx_ext_default!(T::RuntimeCall; Context; prepare);
+}
 
 #[cfg(test)]
 mod tests {

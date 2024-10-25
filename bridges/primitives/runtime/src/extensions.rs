@@ -148,3 +148,15 @@ where
 
 	impl_tx_ext_default!(C; weight validate prepare);
 }
+impl<S, C, Context> TransactionExtension<C, Context> for GenericTransactionExtension<S>
+where
+	C: Dispatchable,
+	S: TransactionExtensionSchema,
+	S::Payload: Send + Sync,
+	S::Implicit: Send + Sync,
+{
+	type Pre = ();
+	type Val = ();
+
+	impl_tx_ext_default!(C; Context; validate prepare);
+}

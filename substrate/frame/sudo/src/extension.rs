@@ -85,6 +85,16 @@ where
 		use crate::weights::WeightInfo;
 		T::WeightInfo::check_only_sudo_account()
 	}
+}
+impl<T: Config + Send + Sync, Context>
+	TransactionExtension<<T as frame_system::Config>::RuntimeCall, Context> for CheckOnlySudoAccount<T>
+where
+	<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
+		AsSystemOriginSigner<T::AccountId> + Clone,
+{
+	type Pre = ();
+	type Val = ();
 
 	fn validate(
 		&self,

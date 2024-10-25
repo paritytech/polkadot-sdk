@@ -303,6 +303,7 @@ where
 		post_info: &mut PostDispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 		_result: &DispatchResult,
+		_context: &Context,
 	) -> Result<(), TransactionValidityError> {
 		Self::do_post_dispatch(info, post_info)
 	}
@@ -686,7 +687,8 @@ mod tests {
 				&info,
 				&post_info,
 				len,
-				&Ok(())
+				&Ok(()),
+				&()
 			));
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
@@ -727,7 +729,8 @@ mod tests {
 				&info,
 				&post_info,
 				len,
-				&Ok(())
+				&Ok(()),
+				&()
 			));
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
