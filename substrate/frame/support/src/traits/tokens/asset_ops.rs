@@ -504,6 +504,7 @@ pub mod common_strategies {
 	///
 	/// The [`Success`](CreateStrategy::Success) will contain
 	/// the [reported ID](IdAssignment::ReportedId) of the ID assignment approach.
+	#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 	pub struct Owned<Owner, Assignment: IdAssignment, Config = (), Witness = ()> {
 		pub owner: Owner,
 		pub id_assignment: Assignment,
@@ -537,6 +538,7 @@ pub mod common_strategies {
 	///
 	/// The [`Success`](CreateStrategy::Success) will contain
 	/// the [reported ID](IdAssignment::ReportedId) of the ID assignment approach.
+	#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 	pub struct Adminable<Account, Assignment: IdAssignment, Config = (), Witness = ()> {
 		pub owner: Account,
 		pub admin: Account,
