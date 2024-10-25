@@ -22,15 +22,15 @@ codec = { features = ["derive"], workspace = true, default-features = true }
 fnv = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-hyperv14 = { features = [
-	"http2",
-	"stream",
-], workspace = true, default-features = true }
-hyper-rustls = { features = ["http2"], workspace = true }
+http-body-util = { workspace = true }
+hyper = { features = ["http1", "http2"], workspace = true, default-features = true }
+hyper-rustls = { workspace = true }
+hyper-util = { features = ["client-legacy", "http1", "http2"], workspace = true }
 num_cpus = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
+rustls = { workspace = true }
 threadpool = { workspace = true }
 tracing = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
