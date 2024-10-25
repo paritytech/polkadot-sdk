@@ -42,7 +42,7 @@ use xcm::prelude::*;
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, DispatchBlob, DispatchBlobError, FixedWeightBounds,
 	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, ParentIsPreset,
-	SiblingParachainConvertsVia,
+	SiblingParachainConvertsVia, SovereignPaidRemoteExporter,
 };
 use xcm_executor::XcmExecutor;
 
@@ -219,7 +219,13 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type Bridges = NetworkExportTable<BridgeTable>;
 	type DestinationVersion = AlwaysLatest;
 
-	type ToBridgeHubSender = ExecuteXcmOverSendXcm;
+	// We use `SovereignPaidRemoteExporter` here to test and ensure that the `ExportMessage` produced by `pallet_xcm_bridge_hub_router` is compatible with the `ExportXcm` implementation of `pallet_xcm_bridge_hub`.
+	type ToBridgeHubSender = SovereignPaidRemoteExporter<
+		XcmOverBridgeRouter,
+		// **Note**: The crucial part is that `ExportMessage` is processed by `XcmExecutor`, which calls the `ExportXcm` implementation of `pallet_xcm_bridge_hub` as the `MessageExporter`.
+		ExecuteXcmOverSendXcm,
+		Self::UniversalLocation,
+	>;
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
 	type ByteFee = ConstU128<0>;

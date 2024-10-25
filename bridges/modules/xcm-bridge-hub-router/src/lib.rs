@@ -14,19 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Pallet that may be used instead of `SovereignPaidRemoteExporter` in the XCM router
-//! configuration. The main thing that the pallet offers is the dynamic message fee,
-//! that is computed based on the bridge queues state. It starts exponentially increasing
-//! if the queue between this chain and the sibling/child bridge hub is congested.
+//! A pallet that can be used instead of `SovereignPaidRemoteExporter` (or others) in the XCM router
+//! configuration. The main feature this pallet offers is a dynamic message fee,
+//! which is computed based on the state of the bridge queues. The fee increases exponentially
+//! if the queue between this chain and the sibling or child bridge hub becomes congested.
 //!
-//! All other bridge hub queues offer some backpressure mechanisms. So if at least one
-//! of all queues is congested, it will eventually lead to the growth of the queue at
-//! this chain.
+//! All other bridge hub queues offer backpressure mechanisms, so if any of these
+//! queues are congested, it will eventually lead to increased queuing on this chain.
 //!
-//! **A note on terminology**: when we mention the bridge hub here, we mean the chain that
-//! has the messages pallet deployed (`pallet-bridge-grandpa`, `pallet-bridge-messages`,
-//! `pallet-xcm-bridge-hub`, ...). It may be the system bridge hub parachain or any other
-//! chain.
+//! **Note on Terminology**: When we refer to the bridge hub here, we mean the chain that
+//! has the `pallet-bridge-messages` with an `ExportXcm` implementation deployed, e.g., provided by `pallet-xcm-bridge-hub`.
+//! Depending on the deployment setup, `T::ToBridgeHubSender` can be configured accordingly - see `T::ToBridgeHubSender` for more documentation.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -36,7 +34,7 @@ use frame_support::traits::Get;
 use sp_runtime::{FixedPointNumber, FixedU128, Saturating};
 use sp_std::vec::Vec;
 use xcm::prelude::*;
-use xcm_builder::{ExporterFor, InspectMessageQueues, SovereignPaidRemoteExporter};
+use xcm_builder::{ExporterFor, InspectMessageQueues};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -98,7 +96,9 @@ pub mod pallet {
 		/// Checks the XCM version for the destination.
 		type DestinationVersion: GetVersion;
 
-		/// Actual message sender (`HRMP` or `DMP`) to the sibling bridge hub location.
+		//! The bridge hub may be:
+		//! - A system (sibling) bridge hub parachain (or another chain), in which case we need an implementation for `T::ToBridgeHubSender` that sends `ExportMessage`, e.g., `SovereignPaidRemoteExporter`.
+		//! - The local chain, in which case we need an implementation for `T::ToBridgeHubSender` that does not use `ExportMessage` but instead directly calls the `ExportXcm` implementation.
 		type ToBridgeHubSender: SendXcm;
 		/// Local XCM channel manager.
 		type LocalXcmChannelManager: XcmChannelStatusProvider;
@@ -229,13 +229,6 @@ pub mod pallet {
 	}
 }
 
-/// We'll be using `SovereignPaidRemoteExporter` to send remote messages over the sibling/child
-/// bridge hub.
-type ViaBridgeHubExporter<T, I> = SovereignPaidRemoteExporter<
-	Pallet<T, I>,
-	<T as Config<I>>::ToBridgeHubSender,
-	<T as Config<I>>::UniversalLocation,
->;
 
 // This pallet acts as the `ExporterFor` for the `SovereignPaidRemoteExporter` to compute
 // message fee using fee factor.
@@ -340,7 +333,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 	) -> SendResult<Self::Ticket> {
 		log::trace!(target: LOG_TARGET, "validate - msg: {xcm:?}, destination: {dest:?}");
 
-		// In case of success, the `ViaBridgeHubExporter` can modify XCM instructions and consume
+		// In case of success, the `T::ToBridgeHubSender` can modify XCM instructions and consume
 		// `dest` / `xcm`, so we retain the clone of original message and the destination for later
 		// `DestinationVersion` validation.
 		let xcm_to_dest_clone = xcm.clone();
@@ -352,7 +345,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		// include both the cost of (1) delivery to the sibling bridge hub (returned by
 		// `Config::ToBridgeHubSender`) and (2) delivery to the bridged bridge hub (returned by
 		// `Self::exporter_for`).
-		match ViaBridgeHubExporter::<T, I>::validate(dest, xcm) {
+		match T::ToBridgeHubSender::validate(dest, xcm) {
 			Ok((ticket, cost)) => {
 				// If the ticket is ok, it means we are routing with this router, so we need to
 				// apply more validations to the cloned `dest` and `xcm`, which are required here.
@@ -361,7 +354,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 
 				// We won't have access to `dest` and `xcm` in the `deliver` method, so we need to
 				// precompute everything required here. However, `dest` and `xcm` were consumed by
-				// `ViaBridgeHubExporter`, so we need to use their clones.
+				// `T::ToBridgeHubSender`, so we need to use their clones.
 				let message_size = xcm_to_dest_clone.encoded_size() as _;
 
 				// The bridge doesn't support oversized or overweight messages. Therefore, it's
@@ -373,7 +366,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 
 				// We need to ensure that the known `dest`'s XCM version can comprehend the current
 				// `xcm` program. This may seem like an additional, unnecessary check, but it is
-				// not. A similar check is probably performed by the `ViaBridgeHubExporter`, which
+				// not. A similar check is probably performed by the `T::ToBridgeHubSender`, which
 				// attempts to send a versioned message to the sibling bridge hub. However, the
 				// local bridge hub may have a higher XCM version than the remote `dest`. Once
 				// again, it is better to discard such messages here than at the bridge hub (e.g.,
@@ -387,7 +380,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 				Ok(((message_size, ticket), cost))
 			},
 			Err(e) => {
-				log::trace!(target: LOG_TARGET, "validate - ViaBridgeHubExporter - error: {e:?}");
+				log::trace!(target: LOG_TARGET, "`T::ToBridgeHubSender` validates for dest: {dest_clone:?} with error: {e:?}");
 				Err(e)
 			},
 		}
@@ -397,7 +390,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		// use router to enqueue message to the sibling/child bridge hub. This also should handle
 		// payment for passing through this queue.
 		let (message_size, ticket) = ticket;
-		let xcm_hash = ViaBridgeHubExporter::<T, I>::deliver(ticket)?;
+		let xcm_hash = T::ToBridgeHubSender::deliver(ticket)?;
 
 		// increase delivery fee factor if required
 		Self::on_message_sent_to_bridge(message_size);
@@ -510,7 +503,7 @@ mod tests {
 			let xcm: Xcm<()> = vec![ClearOrigin; HARD_MESSAGE_SIZE_LIMIT as usize].into();
 
 			// dest is routable with the inner router
-			assert_ok!(ViaBridgeHubExporter::<TestRuntime, ()>::validate(
+			assert_ok!(<TestRuntime as Config<()>>::ToBridgeHubSender::validate(
 				&mut Some(dest.clone()),
 				&mut Some(xcm.clone())
 			));
@@ -540,7 +533,7 @@ mod tests {
 			let xcm: Xcm<()> = vec![ClearOrigin].into();
 
 			// dest is routable with the inner router
-			assert_ok!(ViaBridgeHubExporter::<TestRuntime, ()>::validate(
+			assert_ok!(<TestRuntime as Config<()>>::ToBridgeHubSender::validate(
 				&mut Some(dest.clone()),
 				&mut Some(xcm.clone())
 			));
