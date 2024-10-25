@@ -290,7 +290,7 @@ pub trait EthExtra {
 		})?;
 
 		let signer =
-			<Self::Config as crate::Config>::AddressMapper::to_account_id_contract(&signer);
+			<Self::Config as crate::Config>::AddressMapper::to_fallback_account_id(&signer);
 		let TransactionLegacyUnsigned { nonce, chain_id, to, value, input, gas, gas_price, .. } =
 			tx.transaction_legacy_unsigned;
 
@@ -419,7 +419,7 @@ mod test {
 		/// Get the [`AccountId`] of the account.
 		pub fn account_id(&self) -> AccountIdOf<Test> {
 			let address = self.address();
-			<Test as crate::Config>::AddressMapper::to_account_id_contract(&address)
+			<Test as crate::Config>::AddressMapper::to_fallback_account_id(&address)
 		}
 
 		/// Get the [`H160`] address of the account.
