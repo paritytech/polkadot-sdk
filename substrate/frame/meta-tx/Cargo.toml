@@ -23,12 +23,12 @@ sp-core = { workspace = true }
 sp-runtime = { workspace = true}
 sp-std = { workspace = true}
 frame-benchmarking = { workspace = true, optional = true }
+sp-keyring = { workspace = true, optional = true, default-features = true }
 
 [dev-dependencies]
-pallet-balances = { workspace = true, features = ["std"] }
-sp-io = { workspace = true, features = ["std"] }
-sp-keyring = { workspace = true, features = ["std"] }
-pallet-transaction-payment = { workspace = true, features = ["std"] }
+pallet-balances = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+pallet-transaction-payment = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -49,6 +49,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"sp-keyring",
 ]
 try-runtime = [
 	"pallet-balances/try-runtime",

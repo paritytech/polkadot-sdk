@@ -46,6 +46,7 @@ pub type Extension = (
 pub type UncheckedExtrinsic =
 	sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, Signature, Extension>;
 
+#[cfg(not(feature = "runtime-benchmarks"))]
 pub type MetaTxExtension = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
@@ -54,6 +55,8 @@ pub type MetaTxExtension = (
 	frame_system::CheckMortality<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 );
+#[cfg(feature = "runtime-benchmarks")]
+pub type MetaTxExtension = crate::benchmarking::types::WeightlessExtension<Runtime>;
 
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -61,6 +64,8 @@ impl Config for Runtime {
 	type Signature = Signature;
 	type PublicKey = <Signature as Verify>::Signer;
 	type Extension = MetaTxExtension;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = crate::benchmarking::types::BenchmarkHelperFor<Self>;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

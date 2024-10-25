@@ -49,6 +49,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -121,7 +122,7 @@ pub type MetaTxFor<T> = MetaTx<
 pub type SignedPayloadFor<T> =
 	sp_runtime::generic::SignedPayload<<T as Config>::RuntimeCall, <T as Config>::Extension>;
 
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -153,6 +154,17 @@ pub mod pallet {
 		/// [frame_system::CheckTxVersion], [frame_system::CheckGenesis],
 		/// [frame_system::CheckMortality], [frame_system::CheckNonce], etc.
 		type Extension: TransactionExtension<<Self as Config>::RuntimeCall>;
+		/// The benchmark helper provides the necessary functions to create a call and a signature.
+		///
+		/// For runtime using [`sp_runtime::MultiSignature`] cryptography use
+		/// [`benchmarking::types::BenchmarkHelperFor`] implementation.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: benchmarking::types::BenchmarkHelper<
+			Self::AccountId,
+			Self::Signature,
+			<Self as Config>::RuntimeCall,
+			Self::Extension,
+		>;
 	}
 
 	#[pallet::error]
@@ -188,7 +200,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
 	where
-		T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
+		<T as frame_system::Config>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 	{
 		/// Dispatch a given meta transaction.
 		///

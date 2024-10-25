@@ -61,6 +61,7 @@ fn sign_and_execute_meta_tx() {
 
 		let remark_call =
 			RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![1] });
+		#[cfg(not(feature = "runtime-benchmarks"))]
 		let meta_tx_ext: MetaTxExtension = (
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
@@ -71,6 +72,8 @@ fn sign_and_execute_meta_tx() {
 				frame_system::Pallet::<Runtime>::account(&alice_account).nonce,
 			),
 		);
+		#[cfg(feature = "runtime-benchmarks")]
+		let meta_tx_ext = crate::benchmarking::types::WeightlessExtension::<Runtime>::default();
 
 		let meta_tx_sig = MultiSignature::Sr25519(
 			(remark_call.clone(), meta_tx_ext.clone(), meta_tx_ext.implicit().unwrap())
