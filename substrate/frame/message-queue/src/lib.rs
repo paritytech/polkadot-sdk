@@ -1599,9 +1599,7 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 
 		// Get the maximum weight that processing a single message may take:
 		let overweight_limit = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
-			if matches!(context, ServiceQueuesContext::OnInitialize) {
-				defensive!("Not enough weight to service a single message.");
-			}
+			defensive!("Not enough weight to service a single message.");
 			Weight::zero()
 		});
 
