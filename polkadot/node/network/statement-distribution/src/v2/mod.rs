@@ -142,8 +142,8 @@ const COST_UNREQUESTED_RESPONSE_STATEMENT: Rep =
 	Rep::CostMajor("Un-requested Statement In Response");
 const COST_INACCURATE_ADVERTISEMENT: Rep =
 	Rep::CostMajor("Peer advertised a candidate inaccurately");
-const COST_INVALID_DESCRIPTOR_VERSION: Rep =
-	Rep::CostMajor("Candidate Descriptor version is invalid");
+const COST_UNSUPPORTED_DESCRIPTOR_VERSION: Rep =
+	Rep::CostMajor("Candidate Descriptor version is not supported");
 const COST_INVALID_CORE_INDEX: Rep =
 	Rep::CostMajor("Candidate Descriptor contains an invalid core index");
 const COST_INVALID_SESSION_INDEX: Rep =
@@ -3148,6 +3148,8 @@ pub(crate) async fn handle_response<Context>(
 				expected_groups.iter().any(|g| g == &g_index)
 			},
 			disabled_mask,
+			&relay_parent_state.transposed_cq,
+			per_session.candidate_receipt_v2_enabled(),
 		);
 
 		for (peer, rep) in res.reputation_changes {
@@ -3176,59 +3178,6 @@ pub(crate) async fn handle_response<Context>(
 					n_statements = statements.len(),
 					"Successfully received candidate"
 				);
-
-				if !per_session.candidate_receipt_v2_enabled() &&
-					candidate.descriptor.version() == CandidateDescriptorVersion::V2
-				{
-					gum::debug!(
-						target: LOG_TARGET,
-						?candidate_hash,
-						?peer,
-						"Version 2 candidate receipts are not enabled by the runtime"
-					);
-
-					// Punish peer.
-					modify_reputation(
-						reputation,
-						ctx.sender(),
-						peer,
-						COST_INVALID_DESCRIPTOR_VERSION,
-					)
-					.await;
-					return
-				}
-
-				// Check if `session_index` of relay parent matches candidate descriptor
-				// `session_index`.
-				if let Some(candidate_session_index) = candidate.descriptor.session_index() {
-					if candidate_session_index != relay_parent_state.session {
-						// Punish peer.
-						modify_reputation(
-							reputation,
-							ctx.sender(),
-							peer,
-							COST_INVALID_SESSION_INDEX,
-						)
-						.await;
-						return
-					}
-				}
-
-				// Validate the core index.
-				if let Err(err) = candidate.check_core_index(&relay_parent_state.transposed_cq) {
-					gum::debug!(
-						target: LOG_TARGET,
-						?candidate_hash,
-						?err,
-						?peer,
-						"Received candidate has invalid core index"
-					);
-
-					// Punish peer.
-					modify_reputation(reputation, ctx.sender(), peer, COST_INVALID_CORE_INDEX)
-						.await;
-					return
-				}
 
 				(candidate, persisted_validation_data, statements)
 			},

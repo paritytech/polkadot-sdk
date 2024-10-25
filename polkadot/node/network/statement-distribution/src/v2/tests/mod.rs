@@ -82,6 +82,8 @@ struct TestConfig {
 	// whether the local node should be a validator
 	local_validator: LocalRole,
 	async_backing_params: Option<AsyncBackingParams>,
+	// allow v2 descriptors (feature bit)
+	allow_v2_descriptors: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -176,8 +178,10 @@ impl TestState {
 		};
 
 		let mut node_features = NodeFeatures::new();
-		node_features.resize(4, false);
-		node_features.set(FeatureIndex::CandidateReceiptV2 as usize, true);
+		if config.allow_v2_descriptors {
+			node_features.resize(4, false);
+			node_features.set(FeatureIndex::CandidateReceiptV2 as usize, true);
+		}
 
 		TestState { config, local, validators, session_info, req_sender, node_features }
 	}
