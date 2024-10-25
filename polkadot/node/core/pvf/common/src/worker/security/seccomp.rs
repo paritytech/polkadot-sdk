@@ -99,7 +99,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 /// Try to enable seccomp for the given kind of worker.
 pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?worker_info,
 		"enabling seccomp",

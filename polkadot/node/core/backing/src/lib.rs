@@ -513,7 +513,7 @@ fn table_attested_to_backed(
 			validator_indices.set(position, true);
 			vote_positions.push((orig_idx, position));
 		} else {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				"Logic error: Validity vote from table does not correspond to group",
 			);
@@ -760,7 +760,7 @@ async fn validate_and_make_available(
 
 	let res = match v {
 		ValidationResult::Valid(commitments, validation_data) => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				candidate_hash = ?candidate.hash(),
 				"Validation successful",
@@ -785,7 +785,7 @@ async fn validate_and_make_available(
 					persisted_validation_data: validation_data,
 				}),
 				Err(Error::StoreAvailableData(StoreAvailableDataError::InvalidErasureRoot)) => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						candidate_hash = ?candidate.hash(),
 						actual_commitments = ?commitments,
@@ -799,7 +799,7 @@ async fn validate_and_make_available(
 		},
 		ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch) => {
 			// If validation produces a new set of commitments, we vote the candidate as invalid.
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				candidate_hash = ?candidate.hash(),
 				"Validation yielded different commitments",
@@ -807,7 +807,7 @@ async fn validate_and_make_available(
 			Err(candidate)
 		},
 		ValidationResult::Invalid(reason) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				candidate_hash = ?candidate.hash(),
 				reason = ?reason,
@@ -933,7 +933,7 @@ async fn handle_active_leaves_update<Context>(
 			let fresh_relay_parent = match fresh_relay_parents {
 				Some(f) => f.to_vec(),
 				None => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						leaf_hash = ?leaf.hash,
 						"Implicit view gave no relay-parents"
@@ -945,7 +945,7 @@ async fn handle_active_leaves_update<Context>(
 			(fresh_relay_parent, prospective_parachains_mode)
 		},
 		Some((leaf, LeafHasProspectiveParachains::Enabled(Err(e)))) => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				leaf_hash = ?leaf.hash,
 				err = ?e,
@@ -1020,7 +1020,7 @@ fn core_index_from_statement(
 	let compact_statement = statement.as_unchecked();
 	let candidate_hash = CandidateHash(*compact_statement.unchecked_payload().candidate_hash());
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target:LOG_TARGET,
 		?group_rotation_info,
 		?statement,
@@ -1032,7 +1032,7 @@ fn core_index_from_statement(
 
 	let statement_validator_index = statement.validator_index();
 	let Some(Some(group_index)) = validator_to_group.get(statement_validator_index) else {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?group_rotation_info,
 			?statement,
@@ -1049,7 +1049,7 @@ fn core_index_from_statement(
 	let core_index = group_rotation_info.core_for_group(*group_index, n_cores as _);
 
 	if core_index.0 > n_cores {
-		gum::warn!(target: LOG_TARGET, ?candidate_hash, ?core_index, n_cores, "Invalid CoreIndex");
+		sp_tracing::warn!(target: LOG_TARGET, ?candidate_hash, ?core_index, n_cores, "Invalid CoreIndex");
 		return None
 	}
 
@@ -1058,7 +1058,7 @@ fn core_index_from_statement(
 		let mut assigned_paras = claim_queue.iter_claims_for_core(&core_index);
 
 		if !assigned_paras.any(|id| id == &candidate_para_id) {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?core_index,
@@ -1108,7 +1108,7 @@ async fn construct_per_relay_parent_state<Context>(
 		.map(|b| *b)
 		.unwrap_or(false);
 
-	gum::debug!(target: LOG_TARGET, inject_core_index, ?parent, "New state");
+	sp_tracing::debug!(target: LOG_TARGET, inject_core_index, ?parent, "New state");
 
 	let validators: Vec<_> = try_runtime_api!(validators);
 	let (validator_groups, group_rotation_info) = try_runtime_api!(groups);
@@ -1137,7 +1137,7 @@ async fn construct_per_relay_parent_state<Context>(
 		Ok(v) => Some(v),
 		Err(util::Error::NotAValidator) => None,
 		Err(e) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				err = ?e,
 				"Cannot participate in candidate backing",
@@ -1185,7 +1185,7 @@ async fn construct_per_relay_parent_state<Context>(
 			groups.insert(core_index, g.clone());
 		}
 	}
-	gum::debug!(target: LOG_TARGET, ?groups, "TableContext");
+	sp_tracing::debug!(target: LOG_TARGET, ?groups, "TableContext");
 
 	let validator_to_group = validator_to_group_cache
 		.get_or_insert(session_index, || {
@@ -1303,7 +1303,7 @@ async fn seconding_sanity_check<Context>(
 	while let Some(response) = responses.next().await {
 		match response {
 			Err(oneshot::Canceled) => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					"Failed to reach prospective parachains subsystem for hypothetical membership",
 				);
@@ -1312,7 +1312,7 @@ async fn seconding_sanity_check<Context>(
 			},
 			Ok((is_member_or_potential, head)) => match is_member_or_potential {
 				false => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						?candidate_hash,
 						leaf_hash = ?head,
@@ -1443,7 +1443,7 @@ async fn handle_validated_candidate_command<Context>(
 
 						if let Err(Error::RejectedByProspectiveParachains) = res {
 							let candidate_hash = candidate.hash();
-							gum::debug!(
+							sp_tracing::debug!(
 								target: LOG_TARGET,
 								relay_parent = ?candidate.descriptor().relay_parent,
 								?candidate_hash,
@@ -1463,7 +1463,7 @@ async fn handle_validated_candidate_command<Context>(
 						if let Some(stmt) = res? {
 							match state.per_candidate.get_mut(&candidate_hash) {
 								None => {
-									gum::warn!(
+									sp_tracing::warn!(
 										target: LOG_TARGET,
 										?candidate_hash,
 										"Missing `per_candidate` for seconded candidate.",
@@ -1476,7 +1476,7 @@ async fn handle_validated_candidate_command<Context>(
 							for leaf in hypothetical_membership {
 								let leaf_data = match state.per_leaf.get_mut(&leaf) {
 									None => {
-										gum::warn!(
+										sp_tracing::warn!(
 											target: LOG_TARGET,
 											leaf_hash = ?leaf,
 											"Missing `per_leaf` for known active leaf."
@@ -1556,7 +1556,7 @@ async fn handle_validated_candidate_command<Context>(
 							}
 						}
 					} else {
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							"AttestNoPoV was triggered without fallback being available."
 						);
@@ -1609,7 +1609,7 @@ async fn import_statement<Context>(
 ) -> Result<Option<TableSummary>, Error> {
 	let candidate_hash = statement.payload().candidate_hash();
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		statement = ?statement.payload().to_compact(),
 		validator_index = statement.validator_index().0,
@@ -1646,7 +1646,7 @@ async fn import_statement<Context>(
 
 				match rx.await {
 					Err(oneshot::Canceled) => {
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							"Could not reach the Prospective Parachains subsystem."
 						);
@@ -1710,7 +1710,7 @@ async fn post_import_statement_actions<Context>(
 				rp_state.inject_core_index,
 			) {
 				let para_id = backed.candidate().descriptor.para_id;
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?candidate_hash,
 					relay_parent = ?rp_state.parent,
@@ -1741,13 +1741,13 @@ async fn post_import_statement_actions<Context>(
 					ctx.send_unbounded_message(message);
 				}
 			} else {
-				gum::debug!(target: LOG_TARGET, ?candidate_hash, "Cannot get BackedCandidate");
+				sp_tracing::debug!(target: LOG_TARGET, ?candidate_hash, "Cannot get BackedCandidate");
 			}
 		} else {
-			gum::debug!(target: LOG_TARGET, ?candidate_hash, "Candidate already known");
+			sp_tracing::debug!(target: LOG_TARGET, ?candidate_hash, "Candidate already known");
 		}
 	} else {
-		gum::debug!(target: LOG_TARGET, "No attested candidate");
+		sp_tracing::debug!(target: LOG_TARGET, "No attested candidate");
 	}
 
 	issue_new_misbehaviors(ctx, rp_state.parent, &mut rp_state.table);
@@ -1817,14 +1817,14 @@ async fn background_validate_and_make_available<Context>(
 		let bg = async move {
 			if let Err(error) = validate_and_make_available(params, core_index).await {
 				if let Error::BackgroundValidationMpsc(error) = error {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						?candidate_hash,
 						?error,
 						"Mpsc background validation mpsc died during validation- leaf no longer active?"
 					);
 				} else {
-					gum::error!(
+					sp_tracing::error!(
 						target: LOG_TARGET,
 						?candidate_hash,
 						?error,
@@ -1853,12 +1853,12 @@ async fn kick_off_validation_work<Context>(
 	// Do nothing if the local validator is disabled or not a validator at all
 	match rp_state.table_context.local_validator_is_disabled() {
 		Some(true) => {
-			gum::info!(target: LOG_TARGET, "We are disabled - don't kick off validation");
+			sp_tracing::info!(target: LOG_TARGET, "We are disabled - don't kick off validation");
 			return Ok(())
 		},
 		Some(false) => {}, // we are not disabled - move on
 		None => {
-			gum::debug!(target: LOG_TARGET, "We are not a validator - don't kick off validation");
+			sp_tracing::debug!(target: LOG_TARGET, "We are not a validator - don't kick off validation");
 			return Ok(())
 		},
 	}
@@ -1868,7 +1868,7 @@ async fn kick_off_validation_work<Context>(
 		return Ok(())
 	}
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		candidate_hash = ?candidate_hash,
 		candidate_receipt = ?attesting.candidate,
@@ -1911,7 +1911,7 @@ async fn maybe_validate_and_import<Context>(
 	let rp_state = match state.per_relay_parent.get_mut(&relay_parent) {
 		Some(r) => r,
 		None => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?relay_parent,
 				"Received statement for unknown relay-parent"
@@ -1923,7 +1923,7 @@ async fn maybe_validate_and_import<Context>(
 
 	// Don't import statement if the sender is disabled
 	if rp_state.table_context.validator_is_disabled(&statement.validator_index()) {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			sender_validator_idx = ?statement.validator_index(),
 			"Not importing statement because the sender is disabled"
@@ -1936,7 +1936,7 @@ async fn maybe_validate_and_import<Context>(
 	// if we get an Error::RejectedByProspectiveParachains,
 	// we will do nothing.
 	if let Err(Error::RejectedByProspectiveParachains) = res {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
 			"Statement rejected by prospective parachains."
@@ -2028,7 +2028,7 @@ async fn validate_and_second<Context>(
 ) -> Result<(), Error> {
 	let candidate_hash = candidate.hash();
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		candidate_hash = ?candidate_hash,
 		candidate_receipt = ?candidate,
@@ -2071,7 +2071,7 @@ async fn handle_second_message<Context>(
 	let relay_parent = candidate.descriptor().relay_parent;
 
 	if candidate.descriptor().persisted_validation_data_hash != persisted_validation_data.hash() {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			"Candidate backing was asked to second candidate with wrong PVD",
@@ -2082,7 +2082,7 @@ async fn handle_second_message<Context>(
 
 	let rp_state = match state.per_relay_parent.get_mut(&relay_parent) {
 		None => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?relay_parent,
 				?candidate_hash,
@@ -2097,7 +2097,7 @@ async fn handle_second_message<Context>(
 	// Just return if the local validator is disabled. If we are here the local node should be a
 	// validator but defensively use `unwrap_or(false)` to continue processing in this case.
 	if rp_state.table_context.local_validator_is_disabled().unwrap_or(false) {
-		gum::warn!(target: LOG_TARGET, "Local validator is disabled. Don't validate and second");
+		sp_tracing::warn!(target: LOG_TARGET, "Local validator is disabled. Don't validate and second");
 		return Ok(())
 	}
 
@@ -2105,7 +2105,7 @@ async fn handle_second_message<Context>(
 
 	// Sanity check that candidate is from our assignment.
 	if !matches!(assigned_paras, Some(paras) if paras.contains(&candidate.descriptor().para_id)) {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			our_assignment_core = ?rp_state.assigned_core,
 			our_assignment_paras = ?assigned_paras,
@@ -2115,7 +2115,7 @@ async fn handle_second_message<Context>(
 		return Ok(());
 	}
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		our_assignment_core = ?rp_state.assigned_core,
 		our_assignment_paras = ?assigned_paras,
@@ -2180,7 +2180,7 @@ fn handle_get_backable_candidates_message(
 			let rp_state = match state.per_relay_parent.get(&relay_parent) {
 				Some(rp_state) => rp_state,
 				None => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						?relay_parent,
 						?candidate_hash,

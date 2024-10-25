@@ -168,7 +168,7 @@ async fn imported_block_info<Sender: SubsystemSender<RuntimeApiMessage>>(
 
 		// We can't determine if the block is finalized or not - try processing it
 		if last_finalized_height.map_or(false, |finalized| block_header.number < finalized) {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				session = session_index,
 				finalized = ?last_finalized_height,
@@ -232,7 +232,7 @@ async fn imported_block_info<Sender: SubsystemSender<RuntimeApiMessage>>(
 		.await
 		.ok_or(ImportedBlockInfoError::SessionInfoUnavailable)?;
 
-	gum::debug!(target: LOG_TARGET, ?enable_v2_assignments, "V2 assignments");
+	sp_tracing::debug!(target: LOG_TARGET, ?enable_v2_assignments, "V2 assignments");
 	let (assignments, slot, relay_vrf_story) = {
 		let unsafe_vrf = approval_types::v1::babe_unsafe_vrf_info(&block_header);
 
@@ -263,7 +263,7 @@ async fn imported_block_info<Sender: SubsystemSender<RuntimeApiMessage>>(
 				}
 			},
 			None => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					"BABE VRF info unavailable for block {}",
 					block_hash,
@@ -274,12 +274,12 @@ async fn imported_block_info<Sender: SubsystemSender<RuntimeApiMessage>>(
 		}
 	};
 
-	gum::trace!(target: LOG_TARGET, n_assignments = assignments.len(), "Produced assignments");
+	sp_tracing::trace!(target: LOG_TARGET, n_assignments = assignments.len(), "Produced assignments");
 
 	let force_approve =
 		block_header.digest.convert_first(|l| match ConsensusLog::from_digest_item(l) {
 			Ok(Some(ConsensusLog::ForceApprove(num))) if num < block_header.number => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?block_hash,
 					current_number = block_header.number,
@@ -292,7 +292,7 @@ async fn imported_block_info<Sender: SubsystemSender<RuntimeApiMessage>>(
 			Ok(Some(_)) => None,
 			Ok(None) => None,
 			Err(err) => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?err,
 					?block_hash,
@@ -353,7 +353,7 @@ pub(crate) async fn handle_new_head<
 		sender.send_message(ChainApiMessage::BlockHeader(head, h_tx)).await;
 		match h_rx.await? {
 			Err(e) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					"Chain API subsystem temporarily unreachable {}",
 					e,
@@ -362,7 +362,7 @@ pub(crate) async fn handle_new_head<
 				return Ok(Vec::new())
 			},
 			Ok(None) => {
-				gum::warn!(target: LOG_TARGET, "Missing header for new head {}", head);
+				sp_tracing::warn!(target: LOG_TARGET, "Missing header for new head {}", head);
 				// May be a better way of handling warnings here.
 				return Ok(Vec::new())
 			},
@@ -421,7 +421,7 @@ pub(crate) async fn handle_new_head<
 					if !lost_to_finality {
 						// Such errors are likely spurious, but this prevents us from getting gaps
 						// in the approval-db.
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							"Skipping chain: unable to gather info about imported block {:?}: {}",
 							(block_hash, block_header.number),
@@ -437,7 +437,7 @@ pub(crate) async fn handle_new_head<
 		imported_blocks_and_info
 	};
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		imported_blocks = imported_blocks_and_info.len(),
 		"Inserting imported blocks into database"
@@ -470,7 +470,7 @@ pub(crate) async fn handle_new_head<
 		let num_candidates = included_candidates.len();
 		let approved_bitfield = {
 			if needed_approvals == 0 {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					block_hash = ?block_hash,
 					"Insta-approving all candidates",
@@ -488,7 +488,7 @@ pub(crate) async fn handle_new_head<
 					}
 				}
 				if result.any() {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						block_hash = ?block_hash,
 						"Insta-approving {}/{} candidates as the number of validators is too low",
@@ -521,7 +521,7 @@ pub(crate) async fn handle_new_head<
 			distributed_assignments: Default::default(),
 		};
 
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?block_hash,
 			block_number = block_header.number,
@@ -545,10 +545,10 @@ pub(crate) async fn handle_new_head<
 		// force-approve needs to load the current block entry as well as all
 		// ancestors. this can only be done after writing the block entry above.
 		if let Some(up_to) = force_approve {
-			gum::debug!(target: LOG_TARGET, ?block_hash, up_to, "Enacting force-approve");
+			sp_tracing::debug!(target: LOG_TARGET, ?block_hash, up_to, "Enacting force-approve");
 			let approved_hashes = crate::ops::force_approve(db, block_hash, up_to)
 				.map_err(|e| SubsystemError::with_origin("approval-voting", e))?;
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				?block_hash,
 				up_to,
@@ -586,7 +586,7 @@ pub(crate) async fn handle_new_head<
 		});
 	}
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		head = ?head,
 		chain_length = approval_meta.len(),

@@ -217,7 +217,7 @@ pub fn worker_entrypoint(
 
 			loop {
 				let pvf = recv_request(&mut stream)?;
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?worker_info,
 					?security_status,
@@ -289,7 +289,7 @@ pub fn worker_entrypoint(
 					}
 				}
 
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?worker_info,
 					"worker: sending result to host: {:?}",
@@ -467,7 +467,7 @@ fn handle_child_process(
 	}
 
 	let worker_job_pid = process::id();
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		%worker_job_pid,
 		?prepare_job_kind,
@@ -488,7 +488,7 @@ fn handle_child_process(
 		pipe_write.as_raw_fd(),
 		executor_params.prechecking_max_memory().map(|v| {
 			v.try_into().unwrap_or_else(|_| {
-				gum::warn!(
+				sp_tracing::warn!(
 					LOG_TARGET,
 					%worker_job_pid,
 					"Illegal pre-checking max memory value {} discarded",
@@ -550,7 +550,7 @@ fn handle_child_process(
 
 	let peak_alloc = {
 		let peak = end_memory_tracking();
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			%worker_job_pid,
 			"prepare job peak allocation is {} bytes",
@@ -652,7 +652,7 @@ fn handle_parent_process(
 		.map_err(|err| PrepareError::IoErr(err.to_string()))?;
 
 	let status = nix::sys::wait::waitpid(job_pid, None);
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?worker_info,
 		%job_pid,
@@ -670,7 +670,7 @@ fn handle_parent_process(
 	// time
 	let cpu_tv = get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before);
 	if cpu_tv >= timeout {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?worker_info,
 			%job_pid,
@@ -705,7 +705,7 @@ fn handle_parent_process(
 					// consequently deserialized by execute-workers). The prepare worker
 					// is only required to send `Ok` to the pool to indicate the
 					// success.
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						?worker_info,
 						%job_pid,

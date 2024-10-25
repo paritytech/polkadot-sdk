@@ -539,9 +539,9 @@ fn db_sanity_check(db: Arc<dyn Database>, config: DatabaseConfig) -> SubsystemRe
 	let all_blocks = backend.load_all_blocks()?;
 
 	if all_blocks.is_empty() {
-		gum::info!(target: LOG_TARGET, "Starting with an empty approval vote DB.",);
+		sp_tracing::info!(target: LOG_TARGET, "Starting with an empty approval vote DB.",);
 	} else {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			"Starting with {} blocks in approval vote DB.",
 			all_blocks.len()
@@ -801,7 +801,7 @@ where
 	{
 		Ok(extended_info) => Some(&extended_info),
 		Err(_) => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				session = session_index,
 				?relay_parent,
@@ -868,7 +868,7 @@ impl NoShowStats {
 			return
 		}
 
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			"Validators with no_show {:?} and parachains with no_shows {:?} since {:}",
 			self.per_validator_no_show,
@@ -981,7 +981,7 @@ impl State {
 
 		match s_rx.await {
 			Ok(Ok(params)) => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					approval_voting_params = ?params,
 					session = ?session_index,
@@ -990,7 +990,7 @@ impl State {
 				Some(params)
 			},
 			Ok(Err(err)) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?err,
 					"Could not request approval voting params from runtime"
@@ -998,7 +998,7 @@ impl State {
 				None
 			},
 			Err(err) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?err,
 					"Could not request approval voting params from runtime"
@@ -1021,7 +1021,7 @@ impl State {
 		{
 			if record.stage_start.is_none() {
 				record.stage += 1;
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					stage = ?record.stage,
 					?block_hash,
@@ -1082,7 +1082,7 @@ impl State {
 					self.mark_gathered_enough_assignments(block_number, block_hash, candidate_hash);
 				if let Some(gathering_started) = time_to_gather.stage_start {
 					if gathering_started.elapsed().as_millis() > 6000 {
-						gum::trace!(
+						sp_tracing::trace!(
 							target: LOG_TARGET,
 							?block_hash,
 							?candidate_hash,
@@ -1184,7 +1184,7 @@ where
 	B: Backend,
 {
 	if let Err(err) = db_sanity_check(subsystem.db.clone(), subsystem.db_config) {
-		gum::warn!(target: LOG_TARGET, ?err, "Could not run approval vote DB sanity check");
+		sp_tracing::warn!(target: LOG_TARGET, ?err, "Could not run approval vote DB sanity check");
 	}
 
 	let mut state = State {
@@ -1206,7 +1206,7 @@ where
 		match rx.await? {
 			Ok(number) => Some(number),
 			Err(err) => {
-				gum::warn!(target: LOG_TARGET, ?err, "Failed fetching finalized number");
+				sp_tracing::warn!(target: LOG_TARGET, ?err, "Failed fetching finalized number");
 				None
 			},
 		}
@@ -1292,7 +1292,7 @@ where
 				actions
 			},
 			(block_hash, validator_index) = delayed_approvals_timers.select_next_some() => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?block_hash,
 					?validator_index,
@@ -1314,7 +1314,7 @@ where
 					},
 					Ok(None) => {}
 					Err(err) => {
-						gum::error!(
+						sp_tracing::error!(
 							target: LOG_TARGET,
 							?err,
 							"Failed to create signature",
@@ -1405,7 +1405,7 @@ pub async fn start_approval_worker<
 			)
 			.await
 			{
-				gum::error!(target: LOG_TARGET, ?err, "Approval voting worker stopped processing messages");
+				sp_tracing::error!(target: LOG_TARGET, ?err, "Approval voting worker stopped processing messages");
 			};
 		}),
 	);
@@ -1675,7 +1675,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 		let block_entry = match db.load_block_entry(&block_hash)? {
 			Some(b) => b,
 			None => {
-				gum::warn!(target: LOG_TARGET, ?block_hash, "Missing block entry");
+				sp_tracing::warn!(target: LOG_TARGET, ?block_hash, "Missing block entry");
 
 				continue
 			},
@@ -1695,7 +1695,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 							entry.approval_entry(&block_hash).map(|entry| entry.backing_group())
 						})
 						.unwrap_or_else(|| {
-							gum::warn!(
+							sp_tracing::warn!(
 								target: LOG_TARGET,
 								?block_hash,
 								?c_hash,
@@ -1715,7 +1715,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 			let candidate_entry = match db.load_candidate_entry(&candidate_hash)? {
 				Some(c) => c,
 				None => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						?block_hash,
 						?candidate_hash,
@@ -1745,7 +1745,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 
 							match cores_to_candidate_indices(&claimed_core_indices, &block_entry) {
 								Ok(bitfield) => {
-									gum::debug!(
+									sp_tracing::debug!(
 										target: LOG_TARGET,
 										candidate_hash = ?candidate_entry.candidate_receipt().hash(),
 										?block_hash,
@@ -1799,7 +1799,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 								Err(err) => {
 									// Should never happen. If we fail here it means the
 									// assignment is null (no cores claimed).
-									gum::warn!(
+									sp_tracing::warn!(
 										target: LOG_TARGET,
 										?block_hash,
 										?candidate_hash,
@@ -1824,7 +1824,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 									),
 								),
 								Err(err) => {
-									gum::warn!(
+									sp_tracing::warn!(
 										target: LOG_TARGET,
 										?block_hash,
 										?candidate_hash,
@@ -1851,7 +1851,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 					}
 				},
 				None => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						?block_hash,
 						?candidate_hash,
@@ -1905,7 +1905,7 @@ async fn handle_from_overseer<
 					Ok(block_imported_candidates) => {
 						// Schedule wakeups for all imported candidates.
 						for block_batch in block_imported_candidates {
-							gum::debug!(
+							sp_tracing::debug!(
 								target: LOG_TARGET,
 								block_number = ?block_batch.block_number,
 								block_hash = ?block_batch.block_hash,
@@ -1924,7 +1924,7 @@ async fn handle_from_overseer<
 
 								if let Some(our_tranche) = our_tranche {
 									let tick = our_tranche as Tick + block_batch.block_tick;
-									gum::trace!(
+									sp_tracing::trace!(
 										target: LOG_TARGET,
 										tranche = our_tranche,
 										candidate_hash = ?c_hash,
@@ -1952,7 +1952,7 @@ async fn handle_from_overseer<
 			actions
 		},
 		FromOrchestra::Signal(OverseerSignal::BlockFinalized(block_hash, block_number)) => {
-			gum::debug!(target: LOG_TARGET, ?block_hash, ?block_number, "Block finalized");
+			sp_tracing::debug!(target: LOG_TARGET, ?block_hash, ?block_number, "Block finalized");
 			*last_finalized_height = Some(block_number);
 
 			crate::ops::canonicalize(db, block_number, block_hash)
@@ -1982,7 +1982,7 @@ async fn handle_from_overseer<
 				// so this import should never fail, if it does it might mean one of two things,
 				// there is a bug in the code or the two subsystems got out of sync.
 				if let AssignmentCheckResult::Bad(ref err) = check_outcome {
-					gum::debug!(target: LOG_TARGET, ?err, "Unexpected fail when importing an assignment");
+					sp_tracing::debug!(target: LOG_TARGET, ?err, "Unexpected fail when importing an assignment");
 				}
 				let _ = tx.map(|tx| tx.send(check_outcome));
 				actions
@@ -1995,7 +1995,7 @@ async fn handle_from_overseer<
 				// so this import should never fail, if it does it might mean one of two things,
 				// there is a bug in the code or the two subsystems got out of sync.
 				if let ApprovalCheckResult::Bad(ref err) = result.1 {
-					gum::debug!(target: LOG_TARGET, ?err, "Unexpected fail when importing an approval");
+					sp_tracing::debug!(target: LOG_TARGET, ?err, "Unexpected fail when importing an approval");
 				}
 				let _ = tx.map(|tx| tx.send(result.1));
 
@@ -2050,7 +2050,7 @@ async fn get_approval_signatures_for_candidate<
 ) -> SubsystemResult<()> {
 	let send_votes = |votes| {
 		if let Err(_) = tx.send(votes) {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				"Sending approval signatures back failed, as receiver got closed."
 			);
@@ -2059,7 +2059,7 @@ async fn get_approval_signatures_for_candidate<
 	let entry = match db.load_candidate_entry(&candidate_hash)? {
 		None => {
 			send_votes(HashMap::new());
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				"Sent back empty votes because the candidate was not found in db."
@@ -2081,7 +2081,7 @@ async fn get_approval_signatures_for_candidate<
 	for hash in relay_hashes {
 		let entry = match db.load_block_entry(hash)? {
 			None => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?hash,
@@ -2113,12 +2113,12 @@ async fn get_approval_signatures_for_candidate<
 		// state), this should not block long:
 		match rx_distribution.timeout(WAIT_FOR_SIGS_TIMEOUT).await {
 			None => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					"Waiting for approval signatures timed out - dead lock?"
 				);
 			},
-			Some(Err(_)) => gum::debug!(
+			Some(Err(_)) => sp_tracing::debug!(
 				target: LOG_TARGET,
 				"Request for approval signatures got cancelled by `approval-distribution`."
 			),
@@ -2129,7 +2129,7 @@ async fn get_approval_signatures_for_candidate<
 						let candidates_hashes = candidate_indices_to_candidate_hashes.get(&hash);
 
 						if candidates_hashes.is_none() {
-							gum::warn!(
+							sp_tracing::warn!(
 								target: LOG_TARGET,
 								?hash,
 								"Possible bug! Could not find map of candidate_hashes for block hash received from approval-distribution"
@@ -2148,7 +2148,7 @@ async fn get_approval_signatures_for_candidate<
 										{
 											Some(*candidate_hash)
 										} else {
-											gum::warn!(
+											sp_tracing::warn!(
 												target: LOG_TARGET,
 												?candidate_index,
 												"Possible bug! Could not find candidate hash for candidate_index coming from approval-distribution"
@@ -2161,7 +2161,7 @@ async fn get_approval_signatures_for_candidate<
 						if num_signed_candidates == signed_candidates_hashes.len() {
 							Some((validator_index, (signed_candidates_hashes, signature)))
 						} else {
-							gum::warn!(
+							sp_tracing::warn!(
 								target: LOG_TARGET,
 								"Possible bug! Could not find all hashes for candidates coming from approval-distribution"
 							);
@@ -2176,7 +2176,7 @@ async fn get_approval_signatures_for_candidate<
 
 	// No need to block subsystem on this (also required to break cycle).
 	// We should not be sending this message frequently - caller must make sure this is bounded.
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?candidate_hash,
 		"Spawning task for fetching signatures from approval-distribution"
@@ -2253,7 +2253,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 		let entry = match db.load_block_entry(&block_hash)? {
 			None => {
 				let block_number = target_number.saturating_sub(i as u32);
-				gum::info!(
+				sp_tracing::info!(
 					target: LOG_TARGET,
 					unknown_number = ?block_number,
 					unknown_hash = ?block_hash,
@@ -2294,7 +2294,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 			block_descriptions.clear();
 
 			let unapproved: Vec<_> = entry.unapproved_candidates().collect();
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				"Block {} is {} blocks deep and has {}/{} candidates unapproved",
 				block_hash,
@@ -2304,7 +2304,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 			);
 			if ancestry_len >= LOGGING_DEPTH_THRESHOLD && i > ancestry_len - LOGGING_DEPTH_THRESHOLD
 			{
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?block_hash,
 					"Unapproved candidates at depth {}: {:?}",
@@ -2316,7 +2316,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 			for candidate_hash in unapproved {
 				match db.load_candidate_entry(&candidate_hash)? {
 					None => {
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							?candidate_hash,
 							"Missing expected candidate in DB",
@@ -2326,7 +2326,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 					},
 					Some(c_entry) => match c_entry.approval_entry(&block_hash) {
 						None => {
-							gum::warn!(
+							sp_tracing::warn!(
 								target: LOG_TARGET,
 								?candidate_hash,
 								?block_hash,
@@ -2358,7 +2358,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 							};
 
 							match a_entry.our_assignment() {
-								None => gum::debug!(
+								None => sp_tracing::debug!(
 									target: LOG_TARGET,
 									?candidate_hash,
 									?block_hash,
@@ -2375,7 +2375,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 									let approved =
 										triggered && { a_entry.local_statements().1.is_some() };
 
-									gum::debug!(
+									sp_tracing::debug!(
 										target: LOG_TARGET,
 										?candidate_hash,
 										?block_hash,
@@ -2395,7 +2395,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 		}
 	}
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		"approved blocks {}-[{}]-{}",
 		target_number,
@@ -2504,7 +2504,7 @@ fn schedule_wakeup_action(
 	};
 
 	match maybe_action {
-		Some(Action::ScheduleWakeup { ref tick, .. }) => gum::trace!(
+		Some(Action::ScheduleWakeup { ref tick, .. }) => sp_tracing::trace!(
 			target: LOG_TARGET,
 			tick,
 			?candidate_hash,
@@ -2512,7 +2512,7 @@ fn schedule_wakeup_action(
 			block_tick,
 			"Scheduling next wakeup.",
 		),
-		None => gum::trace!(
+		None => sp_tracing::trace!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			?block_hash,
@@ -2574,7 +2574,7 @@ where
 	// Early check the candidate bitfield and core bitfields lengths < `n_cores`.
 	// Core bitfield length is checked later in `check_assignment_cert`.
 	if candidate_indices.len() > n_cores {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			validator = assignment.validator.0,
 			n_cores,
@@ -2705,7 +2705,7 @@ where
 		if is_duplicate {
 			AssignmentCheckResult::AcceptedDuplicate
 		} else if candidate_indices.count_ones() > 1 {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				validator = assignment.validator.0,
 				candidate_hashes = ?assigned_candidate_hashes,
@@ -2716,7 +2716,7 @@ where
 
 			AssignmentCheckResult::Accepted
 		} else {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				validator = assignment.validator.0,
 				candidate_hashes = ?assigned_candidate_hashes,
@@ -2777,7 +2777,7 @@ where
 		},
 	};
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		"Received approval for num_candidates {:}",
 		approval.candidate_indices.count_ones()
@@ -2820,7 +2820,7 @@ where
 			_ => {},
 		}
 
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			validator_index = approval.validator.0,
 			candidate_hash = ?approved_candidate_hash,
@@ -2949,7 +2949,7 @@ where
 		let is_approved = check.is_approved(tick_now.saturating_sub(APPROVAL_DELAY));
 		if status.last_no_shows != 0 {
 			metrics.on_observed_no_shows(status.last_no_shows);
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?block_hash,
@@ -2958,7 +2958,7 @@ where
 			);
 		}
 		if is_approved {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?block_hash,
@@ -2997,7 +2997,7 @@ where
 
 		(is_approved, status)
 	} else {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			?block_hash,
@@ -3059,7 +3059,7 @@ where
 							tick: tick_now + 1,
 						})
 					} else {
-						gum::debug!(
+						sp_tracing::debug!(
 							target: LOG_TARGET,
 							?fork_block_entry,
 							?fork_block_hash,
@@ -3160,7 +3160,7 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 	);
 	let tranche_now = state.clock.tranche_now(state.slot_duration_millis, block_entry.slot());
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		tranche = tranche_now,
 		?candidate_hash,
@@ -3193,7 +3193,7 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 		(should_trigger, approval_entry.backing_group())
 	};
 
-	gum::trace!(target: LOG_TARGET, "Wakeup processed. Should trigger: {}", should_trigger);
+	sp_tracing::trace!(target: LOG_TARGET, "Wakeup processed. Should trigger: {}", should_trigger);
 
 	let mut actions = Vec::new();
 	let candidate_receipt = candidate_entry.candidate_receipt().clone();
@@ -3218,7 +3218,7 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 		let indirect_cert =
 			IndirectAssignmentCertV2 { block_hash: relay_block, validator: val_index, cert };
 
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			para_id = ?candidate_receipt.descriptor.para_id,
@@ -3260,7 +3260,7 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 				Err(err) => {
 					// Never happens, it should only happen if no cores are claimed, which is a
 					// bug.
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						block_hash = ?relay_block,
 						?err,
@@ -3269,7 +3269,7 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 				},
 			};
 		} else {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				block_hash = ?relay_block,
 				?candidate_hash,
@@ -3353,7 +3353,7 @@ async fn launch_approval<
 
 	let candidate_hash = candidate.hash();
 	let para_id = candidate.descriptor.para_id;
-	gum::trace!(target: LOG_TARGET, ?candidate_hash, ?para_id, "Recovering data.");
+	sp_tracing::trace!(target: LOG_TARGET, ?candidate_hash, ?para_id, "Recovering data.");
 
 	let timer = metrics.time_recover_and_approve();
 	sender
@@ -3388,7 +3388,7 @@ async fn launch_approval<
 			Ok(Err(e)) => {
 				match &e {
 					&RecoveryError::Unavailable => {
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							?para_id,
 							?candidate_hash,
@@ -3399,7 +3399,7 @@ async fn launch_approval<
 						metrics_guard.take().on_approval_unavailable();
 					},
 					&RecoveryError::ChannelClosed => {
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							?para_id,
 							?candidate_hash,
@@ -3410,7 +3410,7 @@ async fn launch_approval<
 						metrics_guard.take().on_approval_unavailable();
 					},
 					&RecoveryError::Invalid => {
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							?para_id,
 							?candidate_hash,
@@ -3435,7 +3435,7 @@ async fn launch_approval<
 			Ok(Err(_)) => return ApprovalState::failed(validator_index, candidate_hash),
 			Ok(Ok(Some(code))) => code,
 			Ok(Ok(None)) => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					"Validation code unavailable for block {:?} in the state of block {:?} (a recent descendant)",
 					candidate.descriptor.relay_parent,
@@ -3468,13 +3468,13 @@ async fn launch_approval<
 				// Validation checked out. Issue an approval command. If the underlying service is
 				// unreachable, then there isn't anything we can do.
 
-				gum::trace!(target: LOG_TARGET, ?candidate_hash, ?para_id, "Candidate Valid");
+				sp_tracing::trace!(target: LOG_TARGET, ?candidate_hash, ?para_id, "Candidate Valid");
 
 				let _ = metrics_guard.take();
 				return ApprovalState::approved(validator_index, candidate_hash)
 			},
 			Ok(Ok(ValidationResult::Invalid(reason))) => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?reason,
 					?candidate_hash,
@@ -3492,7 +3492,7 @@ async fn launch_approval<
 				return ApprovalState::failed(validator_index, candidate_hash)
 			},
 			Ok(Err(e)) => {
-				gum::error!(
+				sp_tracing::error!(
 					target: LOG_TARGET,
 					err = ?e,
 					?candidate_hash,
@@ -3539,7 +3539,7 @@ async fn issue_approval<
 	let candidate_index = match block_entry.candidates().iter().position(|e| e.1 == candidate_hash)
 	{
 		None => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				"Candidate hash {} is not present in the block entry's candidates for relay block {}",
 				candidate_hash,
@@ -3555,7 +3555,7 @@ async fn issue_approval<
 	let candidate_hash = match block_entry.candidate(candidate_index as usize) {
 		Some((_, h)) => *h,
 		None => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				"Received malformed request to approve out-of-bounds candidate index {} included at block {:?}",
 				candidate_index,
@@ -3570,7 +3570,7 @@ async fn issue_approval<
 	let candidate_entry = match db.load_candidate_entry(&candidate_hash)? {
 		Some(c) => c,
 		None => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				"Missing entry for candidate index {} included at block {:?}",
 				candidate_index,
@@ -3608,7 +3608,7 @@ async fn issue_approval<
 		)
 		.is_some()
 	{
-		gum::error!(
+		sp_tracing::error!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			?block_hash,
@@ -3617,7 +3617,7 @@ async fn issue_approval<
 		);
 	}
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		?candidate_hash,
 		?block_hash,
@@ -3681,7 +3681,7 @@ async fn maybe_create_signature<
 		None => {
 			// not a cause for alarm - just lost a race with pruning, most likely.
 			metrics.on_approval_stale();
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				"Could not find block that needs signature {:}", block_hash
 			);
@@ -3694,7 +3694,7 @@ async fn maybe_create_signature<
 		.await
 		.unwrap_or_default();
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		"Candidates pending signatures {:}", block_entry.num_candidates_pending_signature()
 	);
@@ -3719,7 +3719,7 @@ async fn maybe_create_signature<
 		Some(s) => s,
 		None => {
 			metrics.on_approval_error();
-			gum::error!(
+			sp_tracing::error!(
 				target: LOG_TARGET,
 				"Could not retrieve the session"
 			);
@@ -3730,7 +3730,7 @@ async fn maybe_create_signature<
 	let validator_pubkey = match session_info.validators.get(validator_index) {
 		Some(p) => p,
 		None => {
-			gum::error!(
+			sp_tracing::error!(
 				target: LOG_TARGET,
 				"Validator index {} out of bounds in session {}",
 				validator_index.0,
@@ -3750,7 +3750,7 @@ async fn maybe_create_signature<
 	) {
 		Some(sig) => sig,
 		None => {
-			gum::error!(
+			sp_tracing::error!(
 				target: LOG_TARGET,
 				validator_index = ?validator_index,
 				session = ?block_entry.session(),
@@ -3779,7 +3779,7 @@ async fn maybe_create_signature<
 				signed_candidates_indices: candidates_indices.clone(),
 			}),
 			None => {
-				gum::error!(
+				sp_tracing::error!(
 					target: LOG_TARGET,
 					candidate_entry = ?candidate_entry,
 					"Candidate scheduled for signing approval entry should not be None"
@@ -3800,7 +3800,7 @@ async fn maybe_create_signature<
 		},
 	));
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?block_hash,
 		signed_candidates = ?block_entry.num_candidates_pending_signature(),

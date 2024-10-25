@@ -273,7 +273,7 @@ impl TestState {
 		let _ = self.block_num_to_header.insert(block_header.number, block_hash);
 		self.last_block = block_hash;
 
-		gum::debug!(?block_number, "Activating block in activate_leaf_at_session.");
+		sp_tracing::debug!(?block_number, "Activating block in activate_leaf_at_session.");
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
 				ActiveLeavesUpdate::start_work(new_leaf(block_hash, block_number)),
@@ -462,7 +462,7 @@ impl TestState {
 		let leaves: Vec<Hash> = self.headers.keys().cloned().collect();
 		let mut messages = Vec::new();
 		for (n, leaf) in leaves.iter().enumerate() {
-			gum::debug!(
+			sp_tracing::debug!(
 				block_number= ?n,
 				"Activating block in handle resume sync."
 			);
@@ -744,7 +744,7 @@ fn too_many_unconfirmed_statements_are_considered_spam() {
 			)
 			.await;
 
-			gum::trace!("Before sending `ImportStatements`");
+			sp_tracing::trace!("Before sending `ImportStatements`");
 			virtual_overseer
 				.send(FromOrchestra::Communication {
 					msg: DisputeCoordinatorMessage::ImportStatements {
@@ -758,7 +758,7 @@ fn too_many_unconfirmed_statements_are_considered_spam() {
 					},
 				})
 				.await;
-			gum::trace!("After sending `ImportStatements`");
+			sp_tracing::trace!("After sending `ImportStatements`");
 
 			handle_disabled_validators_queries(&mut virtual_overseer, Vec::new()).await;
 			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash1, HashMap::new())
@@ -873,7 +873,7 @@ fn approval_vote_import_works() {
 				session,
 			);
 
-			gum::trace!("Before sending `ImportStatements`");
+			sp_tracing::trace!("Before sending `ImportStatements`");
 			virtual_overseer
 				.send(FromOrchestra::Communication {
 					msg: DisputeCoordinatorMessage::ImportStatements {
@@ -887,7 +887,7 @@ fn approval_vote_import_works() {
 					},
 				})
 				.await;
-			gum::trace!("After sending `ImportStatements`");
+			sp_tracing::trace!("After sending `ImportStatements`");
 
 			let approval_votes = [(
 				ValidatorIndex(4),
@@ -1003,7 +1003,7 @@ fn dispute_gets_confirmed_via_participation() {
 					},
 				})
 				.await;
-			gum::debug!("After First import!");
+			sp_tracing::debug!("After First import!");
 			handle_disabled_validators_queries(&mut virtual_overseer, Vec::new()).await;
 			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash1, HashMap::new())
 				.await;
@@ -1014,7 +1014,7 @@ fn dispute_gets_confirmed_via_participation() {
 				candidate_receipt1.commitments_hash,
 			)
 			.await;
-			gum::debug!("After Participation!");
+			sp_tracing::debug!("After Participation!");
 
 			{
 				let (tx, rx) = oneshot::channel();

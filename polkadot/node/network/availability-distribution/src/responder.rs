@@ -52,7 +52,7 @@ pub async fn run_pov_receiver<Sender>(
 				answer_pov_request_log(&mut sender, msg, &metrics).await;
 			},
 			Err(fatal) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					error = ?fatal,
 					"Shutting down POV receiver."
@@ -60,7 +60,7 @@ pub async fn run_pov_receiver<Sender>(
 				return
 			},
 			Ok(Err(jfyi)) => {
-				gum::debug!(target: LOG_TARGET, error = ?jfyi, "Error decoding incoming PoV request.");
+				sp_tracing::debug!(target: LOG_TARGET, error = ?jfyi, "Error decoding incoming PoV request.");
 			},
 		}
 	}
@@ -92,7 +92,7 @@ pub async fn run_chunk_receivers<Sender>(
 					answer_chunk_request_log(&mut sender, msg, make_resp_v1, &metrics).await;
 				},
 				Err(fatal) => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						error = ?fatal,
 						"Shutting down chunk receiver."
@@ -100,7 +100,7 @@ pub async fn run_chunk_receivers<Sender>(
 					return
 				},
 				Ok(Err(jfyi)) => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						error = ?jfyi,
 						"Error decoding incoming chunk request."
@@ -112,7 +112,7 @@ pub async fn run_chunk_receivers<Sender>(
 					answer_chunk_request_log(&mut sender, msg.into(), make_resp_v2, &metrics).await;
 				},
 				Err(fatal) => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						error = ?fatal,
 						"Shutting down chunk receiver."
@@ -120,7 +120,7 @@ pub async fn run_chunk_receivers<Sender>(
 					return
 				},
 				Ok(Err(jfyi)) => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						error = ?jfyi,
 						"Error decoding incoming chunk request."
@@ -145,7 +145,7 @@ pub async fn answer_pov_request_log<Sender>(
 	match res {
 		Ok(result) => metrics.on_served_pov(if result { SUCCEEDED } else { NOT_FOUND }),
 		Err(err) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				err= ?err,
 				"Serving PoV failed with error"
@@ -173,7 +173,7 @@ pub async fn answer_chunk_request_log<Sender, Req, MakeResp>(
 	match res {
 		Ok(result) => metrics.on_served_chunk(if result { SUCCEEDED } else { NOT_FOUND }),
 		Err(err) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				err= ?err,
 				"Serving chunk failed with error"
@@ -231,7 +231,7 @@ where
 
 	let result = chunk.is_some();
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		hash = ?payload.candidate_hash,
 		index = ?payload.index,
@@ -266,7 +266,7 @@ where
 		.await;
 
 	let result = rx.await.map_err(|e| {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?validator_index,
 			?candidate_hash,

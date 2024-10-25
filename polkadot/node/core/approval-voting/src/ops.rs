@@ -299,7 +299,7 @@ pub fn force_approve(
 		cur_block_number = entry.block_number();
 		if cur_block_number <= up_to {
 			if state == State::WalkTo {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					block_hash = ?chain_head,
 					?cur_hash,
@@ -323,7 +323,7 @@ pub fn force_approve(
 	}
 
 	if state == State::WalkTo {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?chain_head,
 			?cur_hash,

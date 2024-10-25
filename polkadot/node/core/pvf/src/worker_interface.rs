@@ -102,7 +102,7 @@ pub async fn spawn_with_program_path(
 	})
 	.await
 	.map_err(|err| {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			%debug_id,
 			program_path = ?program_path_clone,
@@ -309,7 +309,7 @@ impl futures::Future for WorkerHandle {
 				// This leaves us with legit errors which we suppose were due to termination.
 
 				// Log the status code.
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					worker_pid = %me.child_id,
 					status_code = ?me.child.try_wait().ok().flatten().map(|c| c.to_string()),

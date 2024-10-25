@@ -258,7 +258,7 @@ async fn run<Context>(
 			}
 		}
 
-		gum::debug!(target: LOG_TARGET, "Validation task limit hit");
+		sp_tracing::debug!(target: LOG_TARGET, "Validation task limit hit");
 
 		loop {
 			futures::select! {
@@ -349,7 +349,7 @@ where
 	let Ok(Ok(new_session_index)) =
 		util::request_session_index_for_child(relay_parent, sender).await.await
 	else {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?relay_parent,
 			"cannot fetch session index from runtime API",
@@ -379,7 +379,7 @@ where
 	// In spite of function name here we request past, present and future authorities.
 	// It's ok to stil prepare PVFs in other cases, but better to request only future ones.
 	let Ok(Ok(authorities)) = util::request_authorities(relay_parent, sender).await.await else {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?relay_parent,
 			"cannot fetch authorities from runtime API",
@@ -391,7 +391,7 @@ where
 	let Ok(Ok(Some(session_info))) =
 		util::request_session_info(relay_parent, session_index, sender).await.await
 	else {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?relay_parent,
 			"cannot fetch session info from runtime API",
@@ -426,7 +426,7 @@ where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
 	let Ok(Ok(events)) = util::request_candidate_events(relay_parent, sender).await.await else {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?relay_parent,
 			"cannot fetch candidate events from runtime API",
@@ -451,7 +451,7 @@ where
 
 	let Ok(executor_params) = util::executor_params_at_relay_parent(relay_parent, sender).await
 	else {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?relay_parent,
 			"cannot fetch executor params for the session",
@@ -468,7 +468,7 @@ where
 				.await
 				.await
 		else {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				?relay_parent,
 				?code_hash,
@@ -493,7 +493,7 @@ where
 	}
 
 	if let Err(err) = validation_backend.heads_up(active_pvfs).await {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?relay_parent,
 			?err,
@@ -502,7 +502,7 @@ where
 		return None
 	};
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		?relay_parent,
 		?processed_code_hashes,
@@ -530,13 +530,13 @@ where
 	receiver
 		.await
 		.map_err(|_| {
-			gum::debug!(target: LOG_TARGET, ?relay_parent, "Runtime API request dropped");
+			sp_tracing::debug!(target: LOG_TARGET, ?relay_parent, "Runtime API request dropped");
 
 			RuntimeRequestFailed
 		})
 		.and_then(|res| {
 			res.map_err(|e| {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?relay_parent,
 					err = ?e,
@@ -582,7 +582,7 @@ where
 				// The reasoning why this is "failed" and not invalid is because we assume that
 				// during pre-checking voting the relay-chain will pin the code. In case the code
 				// actually is not there, we issue failed since this looks more like a bug.
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?relay_parent,
 					?validation_code_hash,
@@ -595,7 +595,7 @@ where
 	let executor_params = if let Ok(executor_params) =
 		util::executor_params_at_relay_parent(relay_parent, sender).await
 	{
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
 			?validation_code_hash,
@@ -604,7 +604,7 @@ where
 		);
 		executor_params
 	} else {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?relay_parent,
 			?validation_code_hash,
@@ -647,7 +647,7 @@ async fn validate_candidate_exhaustive(
 
 	let validation_code_hash = validation_code.hash();
 	let para_id = candidate_receipt.descriptor.para_id;
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		?validation_code_hash,
 		?para_id,
@@ -660,7 +660,7 @@ async fn validate_candidate_exhaustive(
 		&pov,
 		&validation_code_hash,
 	) {
-		gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (basic checks)");
+		sp_tracing::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (basic checks)");
 		return Ok(ValidationResult::Invalid(e))
 	}
 
@@ -705,12 +705,12 @@ async fn validate_candidate_exhaustive(
 	};
 
 	if let Err(ref error) = result {
-		gum::info!(target: LOG_TARGET, ?para_id, ?error, "Failed to validate candidate");
+		sp_tracing::info!(target: LOG_TARGET, ?para_id, ?error, "Failed to validate candidate");
 	}
 
 	match result {
 		Err(ValidationError::Internal(e)) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				?para_id,
 				?e,
@@ -738,7 +738,7 @@ async fn validate_candidate_exhaustive(
 				"ambiguous job death: {err}"
 			)))),
 		Err(ValidationError::Preparation(e)) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				?para_id,
 				?e,
@@ -748,7 +748,7 @@ async fn validate_candidate_exhaustive(
 		},
 		Ok(res) =>
 			if res.head_data.hash() != candidate_receipt.descriptor.para_head {
-				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
+				sp_tracing::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
 				Ok(ValidationResult::Invalid(InvalidCandidate::ParaHeadHashMismatch))
 			} else {
 				let outputs = CandidateCommitments {
@@ -760,7 +760,7 @@ async fn validate_candidate_exhaustive(
 					hrmp_watermark: res.hrmp_watermark,
 				};
 				if candidate_receipt.commitments_hash != outputs.hash() {
-					gum::info!(
+					sp_tracing::info!(
 						target: LOG_TARGET,
 						?para_id,
 						"Invalid candidate (commitments hash)"
@@ -898,7 +898,7 @@ trait ValidationBackend {
 
 				let new_timeout = exec_timeout.saturating_sub(total_time_start.elapsed());
 
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?pvf,
 					?new_timeout,

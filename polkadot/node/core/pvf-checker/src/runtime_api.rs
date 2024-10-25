@@ -85,7 +85,7 @@ pub(crate) async fn runtime_api_request<T>(
 	receiver
 		.await
 		.map_err(|_| {
-			gum::debug!(target: LOG_TARGET, ?relay_parent, "Runtime API request dropped");
+			sp_tracing::debug!(target: LOG_TARGET, ?relay_parent, "Runtime API request dropped");
 			RuntimeRequestError::CommunicationError
 		})
 		.and_then(|res| {
@@ -93,7 +93,7 @@ pub(crate) async fn runtime_api_request<T>(
 				use RuntimeApiSubsystemError::*;
 				match e {
 					Execution { .. } => {
-						gum::debug!(
+						sp_tracing::debug!(
 							target: LOG_TARGET,
 							?relay_parent,
 							err = ?e,

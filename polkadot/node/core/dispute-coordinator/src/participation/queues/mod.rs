@@ -277,7 +277,7 @@ impl Queues {
 			match self.priority.entry(comparator) {
 				Entry::Occupied(_) => req.discard_timer(),
 				Entry::Vacant(vac) => {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						candidate_hash = ?req.candidate_hash(),
 						"Added to priority participation queue"
@@ -300,7 +300,7 @@ impl Queues {
 			match self.best_effort.entry(comparator) {
 				Entry::Occupied(_) => req.discard_timer(),
 				Entry::Vacant(vac) => {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						candidate_hash = ?req.candidate_hash(),
 						"Added to best effort participation queue"
@@ -408,7 +408,7 @@ impl CandidateComparator {
 		let n = get_block_number(sender, candidate.descriptor().relay_parent).await?;
 
 		if n.is_none() {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				candidate_hash = ?candidate_hash,
 				"Candidate's relay_parent could not be found via chain API - `CandidateComparator` \

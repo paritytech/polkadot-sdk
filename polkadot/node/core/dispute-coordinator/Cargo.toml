@@ -11,7 +11,6 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
-gum = { workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
 kvdb = { workspace = true }
 thiserror = { workspace = true }
@@ -24,7 +23,7 @@ polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
 
 sc-keystore = { workspace = true, default-features = true }
-
+sp-tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
 kvdb-memorydb = { workspace = true }
@@ -36,7 +35,6 @@ assert_matches = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 futures-timer = { workspace = true }
 sp-application-crypto = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
 
 [features]
 # If not enabled, the dispute coordinator will do nothing.

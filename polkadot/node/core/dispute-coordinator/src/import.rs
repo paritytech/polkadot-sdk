@@ -74,7 +74,7 @@ impl<'a> CandidateEnvironment<'a> {
 			.get_disabled_validators(ctx.sender(), relay_parent)
 			.await
 			.unwrap_or_else(|err| {
-				gum::info!(target: LOG_TARGET, ?err, "Failed to get disabled validators");
+				sp_tracing::info!(target: LOG_TARGET, ?err, "Failed to get disabled validators");
 				Vec::new()
 			});
 
@@ -311,7 +311,7 @@ impl CandidateVoteState<CandidateVotes> {
 				.get(val_index)
 				.map_or(true, |v| v != statement.validator_public())
 			{
-				gum::error!(
+				sp_tracing::error!(
 					target: LOG_TARGET,
 					?val_index,
 					session= ?env.session_index,
@@ -322,7 +322,7 @@ impl CandidateVoteState<CandidateVotes> {
 				continue
 			}
 			if statement.candidate_hash() != &expected_candidate_hash {
-				gum::error!(
+				sp_tracing::error!(
 					target: LOG_TARGET,
 					?val_index,
 					session= ?env.session_index,
@@ -333,7 +333,7 @@ impl CandidateVoteState<CandidateVotes> {
 				continue
 			}
 			if statement.session_index() != env.session_index() {
-				gum::error!(
+				sp_tracing::error!(
 					target: LOG_TARGET,
 					?val_index,
 					session= ?env.session_index,

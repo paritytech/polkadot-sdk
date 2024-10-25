@@ -89,7 +89,7 @@ async fn fetch_pov_job(
 	metrics: Metrics,
 ) {
 	if let Err(err) = do_fetch_pov(pov_hash, pending_response, tx, metrics).await {
-		gum::warn!(target: LOG_TARGET, ?err, ?para_id, ?pov_hash, ?authority_id, "fetch_pov_job");
+		sp_tracing::warn!(target: LOG_TARGET, ?err, ?para_id, ?pov_hash, ?authority_id, "fetch_pov_job");
 	}
 }
 
@@ -225,7 +225,7 @@ mod tests {
 							.unwrap();
 						break
 					},
-					msg => gum::debug!(target: LOG_TARGET, msg = ?msg, "Received msg"),
+					msg => sp_tracing::debug!(target: LOG_TARGET, msg = ?msg, "Received msg"),
 				}
 			}
 			if pov.hash() == pov_hash {

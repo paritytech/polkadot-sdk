@@ -13,7 +13,6 @@ workspace = true
 async-trait = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum = { workspace = true }
 itertools = { workspace = true }
 thiserror = { workspace = true }
 
@@ -30,8 +29,11 @@ polkadot-node-metrics = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = false }
 sp-consensus = { workspace = true, default-features = false }
 sp-consensus-slots = { workspace = true, default-features = false }
-sp-application-crypto = { workspace = true, default-features = false, features = ["full_crypto"] }
+sp-application-crypto = { workspace = true, default-features = false, features = [
+    "full_crypto",
+] }
 sp-runtime = { workspace = true, default-features = false }
+sp-tracing = { workspace = true, default-features = true }
 
 rand = { workspace = true }
 rand_core = { workspace = true }
@@ -44,7 +46,6 @@ sp-keyring = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
-sp-tracing = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 kvdb-memorydb = { workspace = true }

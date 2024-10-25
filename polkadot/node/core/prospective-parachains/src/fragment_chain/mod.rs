@@ -264,10 +264,10 @@ impl CandidateStorage {
 	/// Note that an existing candidate has been backed.
 	fn mark_backed(&mut self, candidate_hash: &CandidateHash) {
 		if let Some(entry) = self.by_candidate_hash.get_mut(candidate_hash) {
-			gum::trace!(target: LOG_TARGET, ?candidate_hash, "Candidate marked as backed");
+			sp_tracing::trace!(target: LOG_TARGET, ?candidate_hash, "Candidate marked as backed");
 			entry.state = CandidateState::Backed;
 		} else {
-			gum::trace!(target: LOG_TARGET, ?candidate_hash, "Candidate not found while marking as backed");
+			sp_tracing::trace!(target: LOG_TARGET, ?candidate_hash, "Candidate not found while marking as backed");
 		}
 	}
 
@@ -1186,7 +1186,7 @@ impl FragmentChain {
 			let child_constraints =
 				match self.scope.base_constraints.apply_modifications(&cumulative_modifications) {
 					Err(e) => {
-						gum::debug!(
+						sp_tracing::debug!(
 							target: LOG_TARGET,
 							new_parent_head = ?cumulative_modifications.required_parent,
 							err = ?e,
@@ -1266,7 +1266,7 @@ impl FragmentChain {
 						match f {
 							Ok(f) => f,
 							Err(e) => {
-								gum::debug!(
+								sp_tracing::debug!(
 									target: LOG_TARGET,
 									err = ?e,
 									?relay_parent,
