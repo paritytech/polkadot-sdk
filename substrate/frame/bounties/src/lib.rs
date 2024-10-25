@@ -81,7 +81,6 @@
 //! - `claim_bounty` - Claim a specific bounty amount from the Payout Address.
 //! - `unassign_curator` - Unassign an accepted curator from a specific earmark.
 //! - `close_bounty` - Cancel the earmark for a specific treasury amount and close the bounty.
-//! - `approve_bounty_with_curator` - Approve bounty and also propose curator for the bounty.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
