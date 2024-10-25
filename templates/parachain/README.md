@@ -25,9 +25,8 @@
   - [Zombienet setup with Omni Node](#zombienet-setup-with-omni-node)
   - [Parachain Template Node](#parachain-template-node)
   - [Connect with the Polkadot-JS Apps Front-End](#connect-with-the-polkadot-js-apps-front-end)
-  - [Takeways](#takeways)
+  - [Takeways](#takeaways)
 
-- [Next Steps](#next-steps)
 - [Contributing](#contributing)
 - [Getting Help](#getting-help)
 
@@ -163,10 +162,16 @@ to `Omni Node`. Similarly, it requires setting up a relay chain, and we'll use `
 cargo install --path node
 ```
 
-#### Setup and run
+#### Setup and start the network
 
-Please refer to the same section related to `Omni Node` [here](#zombienet-with-omni-node), except that instead of
-using `zombienet-omni-node.toml` we'll use `zombienet.toml`.
+For setup, please consider the instructions for `zombienet` installation [here](https://paritytech.github.io/zombienet/install.html#installation)
+and [relay chain prerequisites](#relay-chain-prerequisites).
+
+We're left just with starting the network:
+
+```sh
+zombienet --provider native spawn zombienet.toml
+```
 
 ### Connect with the Polkadot-JS Apps Front-End
 
