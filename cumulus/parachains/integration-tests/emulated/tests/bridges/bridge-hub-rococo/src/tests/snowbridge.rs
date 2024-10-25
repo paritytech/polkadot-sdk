@@ -85,7 +85,6 @@ fn create_agent() {
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
-			require_weight_at_most: 3000000000.into(),
 			origin_kind: OriginKind::Xcm,
 			call: create_agent_call.encode().into(),
 		},
@@ -143,7 +142,6 @@ fn create_channel() {
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
-			require_weight_at_most: 3000000000.into(),
 			origin_kind: OriginKind::Xcm,
 			call: create_agent_call.encode().into(),
 		},
@@ -156,7 +154,6 @@ fn create_channel() {
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
-			require_weight_at_most: 3000000000.into(),
 			origin_kind: OriginKind::Xcm,
 			call: create_channel_call.encode().into(),
 		},
