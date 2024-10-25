@@ -19,7 +19,7 @@
 mod pallet {
 	use frame_support::pallet_prelude::*;
 
-	#[pallet::config(with_default, without_metadata)]
+	#[pallet::config(with_default, without_automatic_metadata)]
 	pub trait Config: frame_system::Config {
 		#[pallet::constant]
 		type MyGetParam2: Get<Self::AccountId>;

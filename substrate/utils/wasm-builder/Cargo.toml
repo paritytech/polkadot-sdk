@@ -39,6 +39,7 @@ frame-metadata = { features = ["current","unstable"], optional = true, workspace
 codec = { optional = true, workspace = true, default-features = true }
 array-bytes = { optional = true, workspace = true, default-features = true }
 sp-tracing = { optional = true, workspace = true, default-features = true }
+shlex = { workspace = true }
 
 [features]
 # Enable support for generating the metadata hash.

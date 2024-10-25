@@ -17,7 +17,6 @@
 //! A module that is responsible for migration of storage.
 
 use crate::{Config, Pallet, LOG_TARGET};
-use bp_messages::LaneId;
 use frame_support::{
 	traits::{Get, OnRuntimeUpgrade, StorageVersion},
 	weights::Weight,
@@ -52,7 +51,7 @@ pub struct OpenBridgeForLane<
 impl<
 		T: Config<I>,
 		I: 'static,
-		Lane: Get<LaneId>,
+		Lane: Get<T::LaneId>,
 		CreateLane: Get<bool>,
 		SourceRelativeLocation: Get<Location>,
 		BridgedUniversalLocation: Get<InteriorLocation>,

@@ -134,8 +134,8 @@ pub mod pallet {
 		fn batched_calls_limit() -> u32 {
 			let allocator_limit = sp_core::MAX_POSSIBLE_ALLOCATION;
 			let call_size = ((core::mem::size_of::<<T as Config>::RuntimeCall>() as u32 +
-				CALL_ALIGN - 1) / CALL_ALIGN) *
-				CALL_ALIGN;
+				CALL_ALIGN - 1) /
+				CALL_ALIGN) * CALL_ALIGN;
 			// The margin to take into account vec doubling capacity.
 			let margin_factor = 3;
 
@@ -249,7 +249,7 @@ pub mod pallet {
 				T::WeightInfo::as_derivative()
 					// AccountData for inner call origin accountdata.
 					.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-					.saturating_add(dispatch_info.weight),
+					.saturating_add(dispatch_info.call_weight),
 				dispatch_info.class,
 			)
 		})]
@@ -354,7 +354,7 @@ pub mod pallet {
 			let dispatch_info = call.get_dispatch_info();
 			(
 				T::WeightInfo::dispatch_as()
-					.saturating_add(dispatch_info.weight),
+					.saturating_add(dispatch_info.call_weight),
 				dispatch_info.class,
 			)
 		})]
@@ -466,7 +466,7 @@ pub mod pallet {
 				(Weight::zero(), DispatchClass::Operational),
 				|(total_weight, dispatch_class): (Weight, DispatchClass), di| {
 					(
-						total_weight.saturating_add(di.weight),
+						total_weight.saturating_add(di.call_weight),
 						// If not all are `Operational`, we want to use `DispatchClass::Normal`.
 						if di.class == DispatchClass::Normal { di.class } else { dispatch_class },
 					)

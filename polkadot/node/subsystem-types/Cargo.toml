@@ -17,7 +17,6 @@ polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-statement-table = { workspace = true, default-features = true }
-polkadot-node-jaeger = { workspace = true, default-features = true }
 orchestra = { features = ["futures_channel"], workspace = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-types = { workspace = true, default-features = true }
@@ -33,3 +32,4 @@ prometheus-endpoint = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 async-trait = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
+strum = { features = ["derive"], workspace = true, default-features = true }

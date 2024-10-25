@@ -360,7 +360,9 @@ fn contains_type_info_bound(ty: &TraitItemType) -> bool {
 	ty.bounds.iter().any(|bound| {
 		let syn::TypeParamBound::Trait(bound) = bound else { return false };
 
-		KNOWN_TYPE_INFO_BOUNDS.iter().any(|known| bound.path.is_ident(known))
+		KNOWN_TYPE_INFO_BOUNDS
+			.iter()
+			.any(|known| bound.path.segments.last().map_or(false, |last| last.ident == *known))
 	})
 }
 
@@ -370,7 +372,7 @@ impl ConfigDef {
 		index: usize,
 		item: &mut syn::Item,
 		enable_default: bool,
-		enable_associated_metadata: bool,
+		disable_associated_metadata: bool,
 	) -> syn::Result<Self> {
 		let syn::Item::Trait(item) = item else {
 			let msg = "Invalid pallet::config, expected trait definition";
@@ -427,7 +429,7 @@ impl ConfigDef {
 			let mut already_no_default = false;
 			let mut already_constant = false;
 			let mut already_no_default_bounds = false;
-			let mut already_collected_associated_type = false;
+			let mut already_collected_associated_type = None;
 
 			while let Ok(Some(pallet_attr)) =
 				helper::take_first_item_pallet_attr::<PalletAttr>(trait_item)
@@ -452,24 +454,14 @@ impl ConfigDef {
 					//
 					// They must provide a type item that implements `TypeInfo`.
 					(PalletAttrType::IncludeMetadata(_), syn::TraitItem::Type(ref typ)) => {
-						if is_event {
+						if already_collected_associated_type.is_some() {
 							return Err(syn::Error::new(
 								pallet_attr._bracket.span.join(),
-								"Invalid #[pallet::include_metadata] in `type RuntimeEvent`, \
-								expected type item. The associated type `RuntimeEvent` is already collected.",
-							))
+								"Duplicate #[pallet::include_metadata] attribute not allowed.",
+							));
 						}
-
-						if already_constant {
-							return Err(syn::Error::new(
-								pallet_attr._bracket.span.join(),
-								"Invalid #[pallet::include_metadata] in #[pallet::constant], \
-								expected type item. Pallet constant's metadata is already collected.",
-							))
-						}
-
-						already_collected_associated_type = true;
-						associated_types_metadata.push(AssociatedTypeMetadataDef::from(typ));
+						already_collected_associated_type = Some(pallet_attr._bracket.span.join());
+						associated_types_metadata.push(AssociatedTypeMetadataDef::from(AssociatedTypeMetadataDef::from(typ)));
 					}
 					(PalletAttrType::IncludeMetadata(_), _) =>
 						return Err(syn::Error::new(
@@ -512,16 +504,43 @@ impl ConfigDef {
 				}
 			}
 
-			// Metadata of associated types is collected by default, iff the associated type
-			// implements `TypeInfo`, or a similar trait that requires the `TypeInfo` bound.
-			if !already_collected_associated_type &&
-				enable_associated_metadata &&
-				!is_event && !already_constant
-			{
+			if let Some(span) = already_collected_associated_type {
+				// Events and constants are already propagated to the metadata
+				if is_event {
+					return Err(syn::Error::new(
+						span,
+						"Invalid #[pallet::include_metadata] for `type RuntimeEvent`. \
+						The associated type `RuntimeEvent` is already collected in the metadata.",
+					))
+				}
+
+				if already_constant {
+					return Err(syn::Error::new(
+						span,
+						"Invalid #[pallet::include_metadata]: conflict with #[pallet::constant]. \
+						Pallet constant already collect the metadata for the type.",
+					))
+				}
+
 				if let syn::TraitItem::Type(ref ty) = trait_item {
-					// Collect the metadata of the associated type if it implements `TypeInfo`.
-					if contains_type_info_bound(ty) {
-						associated_types_metadata.push(AssociatedTypeMetadataDef::from(ty));
+					if !contains_type_info_bound(ty) {
+						let msg = format!(
+						"Invalid #[pallet::include_metadata] in #[pallet::config], collected type `{}` \
+						does not implement `TypeInfo` or `Parameter`",
+						ty.ident,
+					);
+						return Err(syn::Error::new(span, msg));
+					}
+				}
+			} else {
+				// Metadata of associated types is collected by default, if the associated type
+				// implements `TypeInfo`, or a similar trait that requires the `TypeInfo` bound.
+				if !disable_associated_metadata && !is_event && !already_constant {
+					if let syn::TraitItem::Type(ref ty) = trait_item {
+						// Collect the metadata of the associated type if it implements `TypeInfo`.
+						if contains_type_info_bound(ty) {
+							associated_types_metadata.push(AssociatedTypeMetadataDef::from(ty));
+						}
 					}
 				}
 			}

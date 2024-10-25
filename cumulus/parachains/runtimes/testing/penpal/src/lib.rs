@@ -41,7 +41,7 @@ use assets_common::{
 };
 use codec::Encode;
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -92,7 +92,7 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
 	latest::prelude::{AssetId as AssetLocationId, BodyId},
-	VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
+	VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
 };
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
@@ -129,8 +129,8 @@ pub type BlockId = generic::BlockId<Block>;
 // Id used for identifying assets.
 pub type AssetId = u32;
 
-/// The SignedExtension to the basic transaction logic.
-pub type SignedExtra = (
+/// The extension to the basic transaction logic.
+pub type TxExtension = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -143,7 +143,7 @@ pub type SignedExtra = (
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 
 pub type Migrations = (
 	pallet_balances::migration::MigrateToTrackInactive<Runtime, xcm_config::CheckingAccount>,
@@ -420,6 +420,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<0>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -434,6 +435,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 	type OperationalFeeMultiplier = ConstU8<5>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -632,6 +634,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		BLOCK_PROCESSING_VELOCITY,
 		UNINCLUDED_SEGMENT_CAPACITY,
 	>;
+	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -743,6 +746,19 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = ();
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct AssetTxHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_asset_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32> for AssetTxHelper {
+	fn create_asset_id_parameter(_id: u32) -> (u32, u32) {
+		unimplemented!("Penpal uses default weights");
+	}
+	fn setup_balances_and_pool(_asset_id: u32, _account: AccountId) {
+		unimplemented!("Penpal uses default weights");
+	}
+}
+
 impl pallet_asset_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Fungibles = Assets;
@@ -755,6 +771,9 @@ impl pallet_asset_tx_payment::Config for Runtime {
 		>,
 		AssetsToBlockAuthor<Runtime, TrustBackedAssetsInstance>,
 	>;
+	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetTxHelper;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -805,6 +824,7 @@ construct_runtime!(
 mod benches {
 	frame_benchmarking::define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
+		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_message_queue, MessageQueue]
 		[pallet_session, SessionBench::<Runtime>]
@@ -960,6 +980,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
+		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+			ParachainSystem::core_selector()
+		}
+	}
+
 	impl xcm_runtime_apis::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
 			let acceptable_assets = vec![AssetLocationId(xcm_config::RelayLocation::get())];
@@ -1079,6 +1105,7 @@ impl_runtime_apis! {
 			use frame_benchmarking::{Benchmarking, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
@@ -1095,6 +1122,7 @@ impl_runtime_apis! {
 			use sp_storage::TrackedStorageKey;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			impl frame_system_benchmarking::Config for Runtime {}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
@@ -1133,6 +1161,15 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			vec![]
+		}
+	}
+
+	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_reserve(asset, location)
+		}
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_teleporter(asset, location)
 		}
 	}
 }

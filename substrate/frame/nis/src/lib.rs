@@ -756,15 +756,13 @@ pub mod pallet {
 					.map(|_| ())
 					// We ignore this error as it just means the amount we're trying to deposit is
 					// dust and the beneficiary account doesn't exist.
-					.or_else(
-						|e| {
-							if e == TokenError::CannotCreate.into() {
-								Ok(())
-							} else {
-								Err(e)
-							}
-						},
-					)?;
+					.or_else(|e| {
+						if e == TokenError::CannotCreate.into() {
+							Ok(())
+						} else {
+							Err(e)
+						}
+					})?;
 					summary.receipts_on_hold.saturating_reduce(on_hold);
 				}
 				T::Currency::release(&HoldReason::NftReceipt.into(), &who, amount, Exact)?;

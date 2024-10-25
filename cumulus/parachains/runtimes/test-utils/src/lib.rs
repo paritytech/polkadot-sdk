@@ -465,8 +465,8 @@ impl<
 	}
 
 	pub fn execute_as_origin_xcm<Call: GetDispatchInfo + Encode>(
-		call: Call,
 		origin: Location,
+		call: Call,
 		buy_execution_fee: Asset,
 	) -> Outcome {
 		// prepare `Transact` xcm
@@ -475,7 +475,7 @@ impl<
 			BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited },
 			Transact {
 				origin_kind: OriginKind::Xcm,
-				require_weight_at_most: call.get_dispatch_info().weight,
+				require_weight_at_most: call.get_dispatch_info().call_weight,
 				call: call.encode().into(),
 			},
 			ExpectTransactStatus(MaybeErrorCode::Success),

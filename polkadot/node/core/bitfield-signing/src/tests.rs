@@ -40,13 +40,8 @@ fn construct_availability_bitfield_works() {
 		let validator_index = ValidatorIndex(1u32);
 
 		let (mut sender, mut receiver) = polkadot_node_subsystem_test_helpers::sender_receiver();
-		let future = construct_availability_bitfield(
-			relay_parent,
-			&jaeger::Span::Disabled,
-			validator_index,
-			&mut sender,
-		)
-		.fuse();
+		let future =
+			construct_availability_bitfield(relay_parent, validator_index, &mut sender).fuse();
 		pin_mut!(future);
 
 		let hash_a = CandidateHash(Hash::repeat_byte(1));

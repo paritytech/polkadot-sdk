@@ -23,7 +23,7 @@ mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		#[pallet::constant]
-        #[pallet::include_metadata]
+       	#[pallet::include_metadata]
 		type MyGetParam2: Get<u32>;
 	}
 
