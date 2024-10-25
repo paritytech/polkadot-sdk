@@ -137,15 +137,15 @@ parameter_types! {
 
 pub struct TestSpendOrigin;
 impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
-	type Success = u64;
+	type Success = (u64, ());
 	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
 		Result::<frame_system::RawOrigin<_>, RuntimeOrigin>::from(o).and_then(|o| match o {
-			frame_system::RawOrigin::Root => Ok(u64::max_value()),
-			frame_system::RawOrigin::Signed(10) => Ok(5),
-			frame_system::RawOrigin::Signed(11) => Ok(10),
-			frame_system::RawOrigin::Signed(12) => Ok(20),
-			frame_system::RawOrigin::Signed(13) => Ok(50),
-			frame_system::RawOrigin::Signed(14) => Ok(500),
+			frame_system::RawOrigin::Root => Ok((u64::max_value(), ())),
+			frame_system::RawOrigin::Signed(10) => Ok((5, ())),
+			frame_system::RawOrigin::Signed(11) => Ok((10, ())),
+			frame_system::RawOrigin::Signed(12) => Ok((20, ())),
+			frame_system::RawOrigin::Signed(13) => Ok((50, ())),
+			frame_system::RawOrigin::Signed(14) => Ok((500, ())),
 			r => Err(RuntimeOrigin::from(r)),
 		})
 	}
@@ -170,6 +170,7 @@ impl<N: Get<u64>> ConversionFromAssetBalance<u64, u32, u64> for MulBy<N> {
 }
 
 impl Config for Test {
+	type BodyId = ();
 	type PalletId = TreasuryPalletId;
 	type Currency = pallet_balances::Pallet<Test>;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
@@ -570,6 +571,7 @@ fn spend_works() {
 		assert_eq!(
 			Spends::<Test, _>::get(0).unwrap(),
 			SpendStatus {
+				body: (),
 				asset_kind: 1,
 				amount: 2,
 				beneficiary: 6,
@@ -935,4 +937,42 @@ fn try_state_spends_invariant_3_works() {
 			Err(Other("Spend cannot expire before it becomes valid."))
 		);
 	});
+}
+
+#[test]
+fn spend_status_without_body_is_noop_encoding() {
+	let spend_status_a: SpendStatus<(), (), (), (), (), ()> = SpendStatus {
+		body: (),
+		asset_kind: (),
+		amount: (),
+		beneficiary: (),
+		valid_from: (),
+		expire_at: (),
+		status: PaymentState::Pending,
+	};
+	let spend_status_b: SpendStatus<u32, (), (), (), (), ()> = SpendStatus {
+		body: 0,
+		asset_kind: (),
+		amount: (),
+		beneficiary: (),
+		valid_from: (),
+		expire_at: (),
+		status: PaymentState::Pending,
+	};
+	assert_eq!(
+		codec::Encode::encoded_size(&spend_status_a),
+		codec::Encode::encoded_size(&spend_status_b) - codec::Encode::encoded_size(&0u32),
+	);
+}
+
+#[test]
+fn proposal_without_body_is_noop_encoding() {
+	let proposal_a: Proposal<(), (), ()> =
+		Proposal { body: (), proposer: (), value: (), beneficiary: (), bond: () };
+	let proposal_b: Proposal<u32, (), ()> =
+		Proposal { body: 0, proposer: (), value: (), beneficiary: (), bond: () };
+	assert_eq!(
+		codec::Encode::encoded_size(&proposal_a),
+		codec::Encode::encoded_size(&proposal_b) - codec::Encode::encoded_size(&0u32),
+	);
 }
