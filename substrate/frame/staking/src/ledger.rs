@@ -32,6 +32,7 @@
 //! state consistency.
 
 use frame_support::{defensive, ensure, traits::Defensive};
+use sp_runtime::DispatchResult;
 use sp_staking::{StakingAccount, StakingInterface};
 
 use crate::{
@@ -270,7 +271,6 @@ impl<T: Config> StakingLedger<T> {
 	}
 }
 
-use sp_runtime::DispatchResult;
 #[cfg(test)]
 use {
 	crate::UnlockChunk,

@@ -2120,7 +2120,7 @@ pub mod pallet {
 
 					let new_total = if let Some(total) = maybe_total {
 						let new_total = total.min(stash_balance);
-						// enforce lock == ledger.amount.
+						// enforce hold == ledger.amount.
 						asset::update_stake::<T>(&stash, new_total)?;
 						new_total
 					} else {

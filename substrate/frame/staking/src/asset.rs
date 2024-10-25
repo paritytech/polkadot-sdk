@@ -18,6 +18,9 @@
 //! Contains all the interactions with [`Config::Currency`] to manipulate the underlying staking
 //! asset.
 
+use crate::{
+	BalanceOf, Config, HoldReason, NegativeImbalanceOf, PositiveImbalanceOf, SessionInterface,
+};
 use frame_support::traits::{
 	fungible::{
 		hold::{Balanced as FunHoldBalanced, Inspect as FunHoldInspect, Mutate as FunHoldMutate},
@@ -26,10 +29,6 @@ use frame_support::traits::{
 	tokens::Precision,
 };
 use sp_runtime::{traits::Zero, DispatchResult, Saturating};
-
-use crate::{
-	BalanceOf, Config, HoldReason, NegativeImbalanceOf, PositiveImbalanceOf, SessionInterface,
-};
 
 /// Existential deposit for the chain.
 pub fn existential_deposit<T: Config>() -> BalanceOf<T> {
