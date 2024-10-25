@@ -30,7 +30,7 @@ use sc_transaction_pool_api::{
 };
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::{sync::Arc, time::Duration};
-use substrate_test_runtime_client::AccountKeyring::*;
+use substrate_test_runtime_client::Sr25519Keyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
 
 pub mod fatp_common;

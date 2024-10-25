@@ -167,7 +167,7 @@ pub fn generate_extrinsic_with_pair(
 /// Generate an extrinsic from the provided function call, origin and [`Client`].
 pub fn generate_extrinsic(
 	client: &Client,
-	origin: sp_keyring::AccountKeyring,
+	origin: sp_keyring::Sr25519Keyring,
 	function: impl Into<RuntimeCall>,
 ) -> UncheckedExtrinsic {
 	generate_extrinsic_with_pair(client, origin.into(), function, None)
@@ -176,8 +176,8 @@ pub fn generate_extrinsic(
 /// Transfer some token from one account to another using a provided test [`Client`].
 pub fn transfer(
 	client: &Client,
-	origin: sp_keyring::AccountKeyring,
-	dest: sp_keyring::AccountKeyring,
+	origin: sp_keyring::Sr25519Keyring,
+	dest: sp_keyring::Sr25519Keyring,
 	value: Balance,
 ) -> UncheckedExtrinsic {
 	let function = RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {

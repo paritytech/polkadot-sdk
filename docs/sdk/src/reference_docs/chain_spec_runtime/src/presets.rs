@@ -21,7 +21,7 @@ use crate::pallets::{FooEnum, SomeFooData1, SomeFooData2};
 use alloc::vec;
 use serde_json::{json, to_string, Value};
 use sp_application_crypto::Ss58Codec;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 /// A demo preset with strings only.
 pub const PRESET_1: &str = "preset_1";
@@ -62,7 +62,7 @@ fn preset_1() -> Value {
 fn preset_2() -> Value {
 	json!({
 		"bar": {
-			"initialAccount": AccountKeyring::Ferdie.public().to_ss58check(),
+			"initialAccount": Sr25519Keyring::Ferdie.public().to_ss58check(),
 		},
 		"foo": {
 			"someEnum": FooEnum::Data2(SomeFooData2 { values: vec![12,16] }),
@@ -76,7 +76,7 @@ fn preset_2() -> Value {
 fn preset_3() -> Value {
 	json!({
 		"bar": {
-			"initialAccount": AccountKeyring::Alice.public().to_ss58check(),
+			"initialAccount": Sr25519Keyring::Alice.public().to_ss58check(),
 		},
 		"foo": {
 			"someEnum": FooEnum::Data1(
