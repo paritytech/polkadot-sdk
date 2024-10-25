@@ -48,7 +48,6 @@ use prometheus_endpoint::{
 };
 use prost::Message;
 use schnellru::{ByLength, LruMap};
-use tokio::time::{Interval, MissedTickBehavior};
 
 use sc_client_api::{BlockBackend, HeaderBackend, ProofProvider};
 use sc_consensus::{import_queue::ImportQueueService, IncomingBlock};
@@ -86,9 +85,6 @@ use std::{
 		Arc,
 	},
 };
-
-/// Interval at which we perform time based maintenance
-const TICK_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1100);
 
 /// Maximum number of known block hashes to keep for a peer.
 const MAX_KNOWN_BLOCKS: usize = 1024; // ~32kb per peer + LruHashSet overhead
@@ -212,9 +208,6 @@ pub struct SyncingEngine<B: BlockT, Client> {
 
 	/// Set of channels for other protocols that have subscribed to syncing events.
 	event_streams: Vec<TracingUnboundedSender<SyncEvent>>,
-
-	/// Interval at which we call `tick`.
-	tick_timeout: Interval,
 
 	/// All connected peers. Contains both full and light node peers.
 	peers: HashMap<PeerId, Peer<B>>,
@@ -371,12 +364,6 @@ where
 		let max_out_peers = net_config.network_config.default_peers_set.out_peers;
 		let max_in_peers = (max_full_peers - max_out_peers) as usize;
 
-		let tick_timeout = {
-			let mut interval = tokio::time::interval(TICK_TIMEOUT);
-			interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
-			interval
-		};
-
 		Ok((
 			Self {
 				roles,
@@ -403,7 +390,6 @@ where
 				max_in_peers,
 				event_streams: Vec::new(),
 				notification_service,
-				tick_timeout,
 				peer_store_handle,
 				metrics: if let Some(r) = metrics_registry {
 					match Metrics::register(r, is_major_syncing.clone()) {
@@ -551,11 +537,6 @@ where
 	pub async fn run(mut self) {
 		loop {
 			tokio::select! {
-				_ = self.tick_timeout.tick() => {
-					// TODO: This tick should not be necessary, but
-					//  `self.process_strategy_actions()` is not called in some cases otherwise and
-					//  some tests fail because of this
-				},
 				command = self.service_rx.select_next_some() =>
 					self.process_service_command(command),
 				notification_event = self.notification_service.next_event() => match notification_event {
