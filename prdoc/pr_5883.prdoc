@@ -9,4 +9,4 @@ crates:
   bump: minor
 - name: polkadot-primitives
   bump: major
-s
+
