@@ -37,7 +37,7 @@ use polkadot_node_subsystem::{
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
 };
-use polkadot_node_subsystem_util as util;
+use polkadot_node_subsystem_util::{self as util, runtime::ClaimQueueSnapshot};
 use polkadot_overseer::ActiveLeavesUpdate;
 use polkadot_parachain_primitives::primitives::ValidationResult as WasmValidationResult;
 use polkadot_primitives::{
@@ -46,8 +46,9 @@ use polkadot_primitives::{
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
 	vstaging::{
-		CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
+		transpose_claim_queue, CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
 		CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	},
 	AuthorityDiscoveryId, CandidateCommitments, ExecutorParams, Hash, PersistedValidationData,
 	PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
@@ -148,6 +149,25 @@ impl<Context> CandidateValidationSubsystem {
 	}
 }
 
+// Reteurns the claim queue at relay parent and logs a warning if it is not available.
+async fn claim_queue<Sender>(relay_parent: Hash, sender: &mut Sender) -> Option<ClaimQueueSnapshot>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	match util::runtime::fetch_claim_queue(sender, relay_parent).await {
+		Ok(maybe_cq) => maybe_cq,
+		Err(err) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?err,
+				"Claim queue not available"
+			);
+			None
+		},
+	}
+}
+
 fn handle_validation_message<S>(
 	mut sender: S,
 	validation_host: ValidationHost,
@@ -169,7 +189,37 @@ where
 			..
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();
+			let relay_parent = candidate_receipt.descriptor.relay_parent();
+
+			let Some(claim_queue) = claim_queue(relay_parent, &mut sender).await else {
+				let error = "cannot fetch the claim queue from the runtime";
+
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					error
+				);
+
+				let _ = response_sender.send(Err(ValidationFailed(error.into())));
+				return
+			};
+
+			let Ok(Ok(expected_session_index)) =
+				util::request_session_index_for_child(relay_parent, &mut sender).await.await
+			else {
+				let error = "cannot fetch session index from the runtime";
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					error,
+				);
+
+				let _ = response_sender.send(Err(ValidationFailed(error.into())));
+				return
+			};
+
 			let res = validate_candidate_exhaustive(
+				expected_session_index,
 				validation_host,
 				validation_data,
 				validation_code,
@@ -178,6 +228,7 @@ where
 				executor_params,
 				exec_kind,
 				&metrics,
+				claim_queue,
 			)
 			.await;
 
@@ -637,6 +688,7 @@ where
 }
 
 async fn validate_candidate_exhaustive(
+	expected_session_index: SessionIndex,
 	mut validation_backend: impl ValidationBackend + Send,
 	persisted_validation_data: PersistedValidationData,
 	validation_code: ValidationCode,
@@ -645,6 +697,7 @@ async fn validate_candidate_exhaustive(
 	executor_params: ExecutorParams,
 	exec_kind: PvfExecKind,
 	metrics: &Metrics,
+	claim_queue: ClaimQueueSnapshot,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
 
@@ -656,6 +709,13 @@ async fn validate_candidate_exhaustive(
 		?para_id,
 		"About to validate a candidate.",
 	);
+
+	match (exec_kind, candidate_receipt.descriptor.session_index()) {
+		(PvfExecKind::Backing | PvfExecKind::BackingSystemParas, Some(session_index))
+			if session_index != expected_session_index =>
+			return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex)),
+		(_, _) => {},
+	};
 
 	if let Err(e) = perform_basic_checks(
 		&candidate_receipt.descriptor,
@@ -754,15 +814,19 @@ async fn validate_candidate_exhaustive(
 				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
 				Ok(ValidationResult::Invalid(InvalidCandidate::ParaHeadHashMismatch))
 			} else {
-				let outputs = CandidateCommitments {
-					head_data: res.head_data,
-					upward_messages: res.upward_messages,
-					horizontal_messages: res.horizontal_messages,
-					new_validation_code: res.new_validation_code,
-					processed_downward_messages: res.processed_downward_messages,
-					hrmp_watermark: res.hrmp_watermark,
+				let ccr = CommittedCandidateReceipt {
+					descriptor: candidate_receipt.descriptor.clone(),
+					commitments: CandidateCommitments {
+						head_data: res.head_data,
+						upward_messages: res.upward_messages,
+						horizontal_messages: res.horizontal_messages,
+						new_validation_code: res.new_validation_code,
+						processed_downward_messages: res.processed_downward_messages,
+						hrmp_watermark: res.hrmp_watermark,
+					},
 				};
-				if candidate_receipt.commitments_hash != outputs.hash() {
+
+				if candidate_receipt.commitments_hash != ccr.commitments.hash() {
 					gum::info!(
 						target: LOG_TARGET,
 						?para_id,
@@ -773,7 +837,37 @@ async fn validate_candidate_exhaustive(
 					// invalid.
 					Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))
 				} else {
-					Ok(ValidationResult::Valid(outputs, (*persisted_validation_data).clone()))
+					let core_index = candidate_receipt.descriptor.core_index();
+
+					match (core_index, exec_kind) {
+						// Core selectors are optional for V2 descriptors, but we still check the
+						// descriptor core index.
+						(
+							Some(_core_index),
+							PvfExecKind::Backing | PvfExecKind::BackingSystemParas,
+						) => {
+							if let Err(err) =
+								ccr.check_core_index(&transpose_claim_queue(claim_queue.0))
+							{
+								gum::warn!(
+									target: LOG_TARGET,
+									?err,
+									candidate_hash = ?candidate_receipt.hash(),
+									"Candidate core index is invalid",
+								);
+								return Ok(ValidationResult::Invalid(
+									InvalidCandidate::InvalidCoreIndex,
+								))
+							}
+						},
+						// No checks for approvals.
+						(_, _) => {},
+					}
+
+					Ok(ValidationResult::Valid(
+						ccr.commitments,
+						(*persisted_validation_data).clone(),
+					))
 				}
 			},
 	}
@@ -1003,6 +1097,7 @@ fn perform_basic_checks(
 		return Err(InvalidCandidate::CodeHashMismatch)
 	}
 
+	// No-op for `v2` receipts.
 	if let Err(()) = candidate.check_collator_signature() {
 		return Err(InvalidCandidate::BadSignature)
 	}
