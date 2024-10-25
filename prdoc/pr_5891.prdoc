@@ -9,4 +9,27 @@ doc:
       This adds the benchmark overhead command to the `frame-omni-bencher` library. This allows
       para- and relay chain teams to generate extrinsic and block base weights.
 
-crates: [ ]
+crates:
+  - name: sc-block-builder
+    bump: minor
+  - name: sc-chain-spec
+    bump: none
+  - name: polkadot-service
+    bump: none
+  - name: frame-benchmarking-cli
+    bump: minor
+  - name: cumulus-client-parachain-inherent:
+    bump: patch
+  - name: polkadot-cli:
+    bump: none
+  - name: polkadot-omni-node-lib:
+    bump: none
+  - name: polkadot-omni-node:
+    bump: none
+  - name: polkadot-parachain-bin:
+    bump: none
+  - name: polkadot:
+    bump: none
+  - name: frame-omni-bencher:
+    bump: minor
+
