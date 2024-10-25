@@ -58,7 +58,7 @@ polkadot-omni-node --chain <chain_spec.json>
 ## Useful links
 
 * [Omni Node Polkadot SDK docs](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html)
-* [polkadot-parachain-bin](https://crates.io/crates/polkadot-parachain-bin)
-* [polkadot-sdk-parachain-template](https://github.com/paritytech/polkadot-sdk-parachain-template)
-* [frame-omni-bencher](https://crates.io/crates/frame-omni-bencher)
+* [Polkadot Parachain Bin](https://crates.io/crates/polkadot-parachain-bin)
+* [Polkadot SDK Parachain Template](https://github.com/paritytech/polkadot-sdk-parachain-template)
+* [FRAME Omni Bencher](https://crates.io/crates/frame-omni-bencher)
 * [staging-chain-spec-builder](https://crates.io/crates/staging-chain-spec-builder)

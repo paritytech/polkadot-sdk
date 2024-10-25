@@ -10,4 +10,10 @@ doc:
       templates `default-members` list. At the same time, we introduce OmniNode as alternative
       to run the templates.
 
-crates: []
+crates:
+  - name: polkadot-omni-node
+    bump: patch
+  - name: polkadot-omni-node-lib
+    bump: patch
+  - name: staging-chain-spec-builder
+    bump: patch
