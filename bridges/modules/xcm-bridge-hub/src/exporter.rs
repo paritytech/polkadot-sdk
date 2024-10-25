@@ -287,7 +287,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			_ => {
 				// if there is no bridge or it has been closed, then we don't need to send resume
 				// signal to the local origin - it has closed bridge itself, so it should have
-				// alrady pruned everything else
+				// already pruned everything else
 				return
 			},
 		};
@@ -367,7 +367,7 @@ mod tests {
 	use frame_support::assert_ok;
 	use pallet_bridge_messages::InboundLaneStorage;
 	use xcm_builder::{NetworkExportTable, UnpaidRemoteExporter};
-	use xcm_executor::traits::{export_xcm, ConvertLocation};
+	use xcm_executor::traits::export_xcm;
 
 	fn universal_source() -> InteriorLocation {
 		SiblingUniversalLocation::get()
@@ -402,11 +402,7 @@ mod tests {
 						locations.bridge_destination_universal_location().clone().into(),
 					),
 					state: BridgeState::Opened,
-					bridge_owner_account: LocationToAccountId::convert_location(
-						locations.bridge_origin_relative_location(),
-					)
-					.expect("valid accountId"),
-					deposit: 0,
+					deposit: None,
 					lane_id,
 				},
 			);
@@ -618,8 +614,7 @@ mod tests {
 							locations.bridge_destination_universal_location().clone().into(),
 						),
 						state: BridgeState::Opened,
-						bridge_owner_account: [0u8; 32].into(),
-						deposit: 0,
+						deposit: None,
 						lane_id: expected_lane_id,
 					},
 				);
@@ -662,17 +657,17 @@ mod tests {
 			);
 
 			// send `ExportMessage(message)` by `UnpaidRemoteExporter`.
-			TestExportXcmWithXcmOverBridge::set_origin_for_execute(SiblingLocation::get());
+			ExecuteXcmOverSendXcm::set_origin_for_execute(SiblingLocation::get());
 			assert_ok!(send_xcm::<
 				UnpaidRemoteExporter<
 					NetworkExportTable<BridgeTable>,
-					TestExportXcmWithXcmOverBridge,
+					ExecuteXcmOverSendXcm,
 					UniversalLocation,
 				>,
 			>(dest.clone(), Xcm::<()>::default()));
 
 			// send `ExportMessage(message)` by `pallet_xcm_bridge_hub_router`.
-			TestExportXcmWithXcmOverBridge::set_origin_for_execute(SiblingLocation::get());
+			ExecuteXcmOverSendXcm::set_origin_for_execute(SiblingLocation::get());
 			assert_ok!(send_xcm::<XcmOverBridgeRouter>(dest.clone(), Xcm::<()>::default()));
 
 			// check after - a message ready to be relayed
