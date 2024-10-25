@@ -345,8 +345,6 @@ pub enum RuntimeCosts {
 	GetTransientStorage(u32),
 	/// Weight of calling `seal_take_transient_storage` for the given size.
 	TakeTransientStorage(u32),
-	/// Weight of calling `seal_transfer`.
-	Transfer,
 	/// Base weight of calling `seal_call`.
 	CallBase,
 	/// Weight of calling `seal_delegate_call` for the given input size.
@@ -487,7 +485,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			TakeTransientStorage(len) => {
 				cost_storage!(write_transient, seal_take_transient_storage, len)
 			},
-			Transfer => T::WeightInfo::seal_transfer(),
 			CallBase => T::WeightInfo::seal_call(0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			CallTransferSurcharge => cost_args!(seal_call, 1, 0),
@@ -1219,30 +1216,6 @@ pub mod env {
 		out_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.take_storage(memory, flags, key_ptr, key_len, out_ptr, out_len_ptr)
-	}
-
-	/// Transfer some value to another account.
-	/// See [`pallet_revive_uapi::HostFn::transfer`].
-	#[api_version(0)]
-	#[mutating]
-	fn transfer(
-		&mut self,
-		memory: &mut M,
-		address_ptr: u32,
-		value_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::Transfer)?;
-		let mut callee = H160::zero();
-		memory.read_into_buf(address_ptr, callee.as_bytes_mut())?;
-		let value: U256 = memory.read_u256(value_ptr)?;
-		let result = self.ext.transfer(&callee, value);
-		match result {
-			Ok(()) => Ok(ReturnErrorCode::Success),
-			Err(err) => {
-				let code = Self::err_into_return_code(err)?;
-				Ok(code)
-			},
-		}
 	}
 
 	/// Make a call to another contract.

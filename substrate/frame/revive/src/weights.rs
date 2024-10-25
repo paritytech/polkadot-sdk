@@ -100,7 +100,6 @@ pub trait WeightInfo {
 	fn seal_get_transient_storage(n: u32, ) -> Weight;
 	fn seal_contains_transient_storage(n: u32, ) -> Weight;
 	fn seal_take_transient_storage(n: u32, ) -> Weight;
-	fn seal_transfer() -> Weight;
 	fn seal_call(t: u32, i: u32, ) -> Weight;
 	fn seal_delegate_call() -> Weight;
 	fn seal_instantiate(i: u32, ) -> Weight;
@@ -706,13 +705,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(2_587_750, 0)
 			// Standard Error: 22
 			.saturating_add(Weight::from_parts(30, 0).saturating_mul(n.into()))
-	}
-	fn seal_transfer() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `103`
-		//  Estimated: `0`
-		// Minimum execution time: 9_250_000 picoseconds.
-		Weight::from_parts(9_637_000, 0)
 	}
 	/// Storage: `Revive::ContractInfoOf` (r:1 w:0)
 	/// Proof: `Revive::ContractInfoOf` (`max_values`: None, `max_size`: Some(1779), added: 4254, mode: `Measured`)
@@ -1465,13 +1457,6 @@ impl WeightInfo for () {
 		Weight::from_parts(2_587_750, 0)
 			// Standard Error: 22
 			.saturating_add(Weight::from_parts(30, 0).saturating_mul(n.into()))
-	}
-	fn seal_transfer() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `103`
-		//  Estimated: `0`
-		// Minimum execution time: 9_250_000 picoseconds.
-		Weight::from_parts(9_637_000, 0)
 	}
 	/// Storage: `Revive::ContractInfoOf` (r:1 w:0)
 	/// Proof: `Revive::ContractInfoOf` (`max_values`: None, `max_size`: Some(1779), added: 4254, mode: `Measured`)
