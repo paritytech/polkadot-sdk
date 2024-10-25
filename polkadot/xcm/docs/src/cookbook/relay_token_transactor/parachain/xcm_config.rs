@@ -21,7 +21,7 @@ use frame::{
 	runtime::prelude::*,
 	traits::{Everything, Nothing},
 };
-use xcm::v4::prelude::*;
+use xcm::v5::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin,
 	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,

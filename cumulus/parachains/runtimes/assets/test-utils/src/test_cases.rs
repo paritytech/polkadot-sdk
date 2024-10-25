@@ -367,9 +367,9 @@ pub fn teleports_for_foreign_assets_works<
 	<WeightToFee as frame_support::weights::WeightToFee>::Balance: From<u128> + Into<u128>,
 	SovereignAccountOf: ConvertLocation<AccountIdOf<Runtime>>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
-		From<xcm::v4::Location> + Into<xcm::v4::Location>,
+		From<xcm::v5::Location> + Into<xcm::v5::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
-		From<xcm::v4::Location> + Into<xcm::v4::Location>,
+		From<xcm::v5::Location> + Into<xcm::v5::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::Balance:
 		From<Balance> + Into<u128>,
 	<Runtime as frame_system::Config>::AccountId:
@@ -381,11 +381,11 @@ pub fn teleports_for_foreign_assets_works<
 {
 	// foreign parachain with the same consensus currency as asset
 	let foreign_para_id = 2222;
-	let foreign_asset_id_location = xcm::v4::Location {
+	let foreign_asset_id_location = xcm::v5::Location {
 		parents: 1,
 		interior: [
-			xcm::v4::Junction::Parachain(foreign_para_id),
-			xcm::v4::Junction::GeneralIndex(1234567),
+			xcm::v5::Junction::Parachain(foreign_para_id),
+			xcm::v5::Junction::GeneralIndex(1234567),
 		]
 		.into(),
 	};

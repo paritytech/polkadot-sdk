@@ -296,7 +296,7 @@ impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
 	fn is_waived(origin: Option<&Location>, fee_reason: FeeReason) -> bool {
 		let Some(loc) = origin else { return false };
 		if let Export { network, destination: Here } = fee_reason {
-			if network == EthereumNetwork::get() {
+			if network == EthereumNetwork::get().into() {
 				return false
 			}
 		}

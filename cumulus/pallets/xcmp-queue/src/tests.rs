@@ -456,7 +456,7 @@ fn send_xcm_nested_works() {
 			XcmpQueue::take_outbound_messages(usize::MAX),
 			vec![(
 				HRMP_PARA_ID.into(),
-				(XcmpMessageFormat::ConcatenatedVersionedXcm, VersionedXcm::V4(good.clone()))
+				(XcmpMessageFormat::ConcatenatedVersionedXcm, VersionedXcm::from(good.clone()))
 					.encode(),
 			)]
 		);
@@ -512,7 +512,7 @@ fn hrmp_signals_are_prioritized() {
 		// Without a signal we get the messages in order:
 		let mut expected_msg = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();
 		for _ in 0..31 {
-			expected_msg.extend(VersionedXcm::V4(message.clone()).encode());
+			expected_msg.extend(VersionedXcm::from(message.clone()).encode());
 		}
 
 		hypothetically!({
@@ -539,6 +539,7 @@ fn maybe_double_encoded_versioned_xcm_works() {
 	// pre conditions
 	assert_eq!(VersionedXcm::<()>::V3(Default::default()).encode(), &[3, 0]);
 	assert_eq!(VersionedXcm::<()>::V4(Default::default()).encode(), &[4, 0]);
+	assert_eq!(VersionedXcm::<()>::V5(Default::default()).encode(), &[5, 0]);
 }
 
 // Now also testing a page instead of just concat messages.
@@ -597,7 +598,7 @@ fn take_first_concatenated_xcm_good_recursion_depth_works() {
 	for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
 		good = Xcm(vec![SetAppendix(good)]);
 	}
-	let good = VersionedXcm::V4(good);
+	let good = VersionedXcm::from(good);
 
 	let page = good.encode();
 	assert_ok!(XcmpQueue::take_first_concatenated_xcm(&mut &page[..], &mut WeightMeter::new()));
@@ -610,7 +611,7 @@ fn take_first_concatenated_xcm_good_bad_depth_errors() {
 	for _ in 0..MAX_XCM_DECODE_DEPTH {
 		bad = Xcm(vec![SetAppendix(bad)]);
 	}
-	let bad = VersionedXcm::V4(bad);
+	let bad = VersionedXcm::from(bad);
 
 	let page = bad.encode();
 	assert_err!(
@@ -872,18 +873,18 @@ fn get_messages_works() {
 			queued_messages,
 			vec![
 				(
-					VersionedLocation::V4(other_destination),
+					VersionedLocation::from(other_destination),
 					vec![
-						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
-						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm(vec![ClearOrigin])),
 					],
 				),
 				(
-					VersionedLocation::V4(destination),
+					VersionedLocation::from(destination),
 					vec![
-						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
-						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
-						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm(vec![ClearOrigin])),
 					],
 				),
 			],

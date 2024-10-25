@@ -41,6 +41,7 @@ use polkadot_primitives::{AssignmentId, ValidatorId};
 pub const XCM_V2: u32 = 2;
 pub const XCM_V3: u32 = 3;
 pub const XCM_V4: u32 = 4;
+pub const XCM_V5: u32 = 5;
 pub const REF_TIME_THRESHOLD: u64 = 33;
 pub const PROOF_SIZE_THRESHOLD: u64 = 33;
 
@@ -55,26 +56,26 @@ pub const TELEPORTABLE_ASSET_ID: u32 = 2;
 // USDT registered on AH as (trust-backed) Asset and reserve-transferred between Parachain and AH
 pub const USDT_ID: u32 = 1984;
 
-pub const PENPAL_ID: u32 = 2000;
+pub const PENPAL_A_ID: u32 = 2000;
 pub const PENPAL_B_ID: u32 = 2001;
 pub const ASSETS_PALLET_ID: u8 = 50;
 
 parameter_types! {
-	pub PenpalTeleportableAssetLocation: xcm::v4::Location
-		= xcm::v4::Location::new(1, [
-				xcm::v4::Junction::Parachain(PENPAL_ID),
-				xcm::v4::Junction::PalletInstance(ASSETS_PALLET_ID),
-				xcm::v4::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
+	pub PenpalATeleportableAssetLocation: xcm::v5::Location
+		= xcm::v5::Location::new(1, [
+				xcm::v5::Junction::Parachain(PENPAL_A_ID),
+				xcm::v5::Junction::PalletInstance(ASSETS_PALLET_ID),
+				xcm::v5::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
 			]
 		);
-	pub PenpalSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_ID).into_account_truncating();
-	pub PenpalBTeleportableAssetLocation: xcm::v4::Location
-		= xcm::v4::Location::new(1, [
-				xcm::v4::Junction::Parachain(PENPAL_B_ID),
-				xcm::v4::Junction::PalletInstance(ASSETS_PALLET_ID),
-				xcm::v4::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
+	pub PenpalBTeleportableAssetLocation: xcm::v5::Location
+		= xcm::v5::Location::new(1, [
+				xcm::v5::Junction::Parachain(PENPAL_B_ID),
+				xcm::v5::Junction::PalletInstance(ASSETS_PALLET_ID),
+				xcm::v5::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
 			]
 		);
+	pub PenpalASiblingSovereignAccount: AccountId = Sibling::from(PENPAL_A_ID).into_account_truncating();
 	pub PenpalBSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_B_ID).into_account_truncating();
 }
 

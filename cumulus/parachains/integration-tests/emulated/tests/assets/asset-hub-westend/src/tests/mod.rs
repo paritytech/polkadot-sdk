@@ -18,6 +18,7 @@ mod fellowship_treasury;
 mod hybrid_transfers;
 mod reserve_transfer;
 mod send;
+mod set_asset_claimer;
 mod set_xcm_versions;
 mod swap;
 mod teleport;

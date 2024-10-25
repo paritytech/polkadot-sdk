@@ -23,7 +23,7 @@ use frame_support::{
 use pallet_message_queue::OnQueueChanged;
 use scale_info::TypeInfo;
 use snowbridge_core::ChannelId;
-use xcm::v4::{Junction, Location};
+use xcm::v5::{Junction, Location};
 
 /// The aggregate origin of an inbound message.
 /// This is specialized for BridgeHub, as the snowbridge-outbound-queue-pallet is also using

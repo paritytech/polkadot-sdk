@@ -125,7 +125,7 @@ mod tests {
 		traits::{ProcessMessageError, ProcessMessageError::*},
 	};
 	use polkadot_test_runtime::*;
-	use xcm::{v3, v4, VersionedXcm};
+	use xcm::{v3, v4, v5, VersionedXcm};
 
 	const ORIGIN: Junction = Junction::OnlyChild;
 	/// The processor to use for tests.
@@ -137,13 +137,15 @@ mod tests {
 		// ClearOrigin works.
 		assert!(process(v3_xcm(true)).unwrap());
 		assert!(process(v4_xcm(true)).unwrap());
+		assert!(process(v5_xcm(true)).unwrap());
 	}
 
 	#[test]
 	fn process_message_trivial_fails() {
 		// Trap makes it fail.
 		assert!(!process(v3_xcm(false)).unwrap());
-		assert!(!process(v3_xcm(false)).unwrap());
+		assert!(!process(v4_xcm(false)).unwrap());
+		assert!(!process(v5_xcm(false)).unwrap());
 	}
 
 	#[test]
@@ -179,7 +181,7 @@ mod tests {
 
 		type Processor = ProcessXcmMessage<Junction, MockedExecutor, ()>;
 
-		let xcm = VersionedXcm::V4(xcm::latest::Xcm::<()>(vec![
+		let xcm = VersionedXcm::from(xcm::latest::Xcm::<()>(vec![
 			xcm::latest::Instruction::<()>::ClearOrigin,
 		]));
 		assert_err!(
@@ -233,6 +235,15 @@ mod tests {
 			v4::Instruction::<RuntimeCall>::Trap(1)
 		};
 		VersionedXcm::V4(v4::Xcm::<RuntimeCall>(vec![instr]))
+	}
+
+	fn v5_xcm(success: bool) -> VersionedXcm<RuntimeCall> {
+		let instr = if success {
+			v5::Instruction::<RuntimeCall>::ClearOrigin
+		} else {
+			v5::Instruction::<RuntimeCall>::Trap(1)
+		};
+		VersionedXcm::V5(v5::Xcm::<RuntimeCall>(vec![instr]))
 	}
 
 	fn process(msg: VersionedXcm<RuntimeCall>) -> Result<bool, ProcessMessageError> {

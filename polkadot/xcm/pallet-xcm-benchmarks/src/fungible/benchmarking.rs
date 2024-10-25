@@ -24,7 +24,7 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_runtime::traits::{Bounded, Zero};
-use xcm::latest::{prelude::*, MAX_ITEMS_IN_ASSETS};
+use xcm::latest::{prelude::*, AssetTransferFilter, MAX_ITEMS_IN_ASSETS};
 use xcm_executor::traits::{ConvertLocation, FeeReason, TransactAsset};
 
 benchmarks_instance_pallet! {
@@ -297,6 +297,31 @@ benchmarks_instance_pallet! {
 			// teleport checked account should have received some asset.
 			assert!(!T::TransactAsset::balance(&checked_account).is_zero());
 		}
+	}
+
+	initiate_transfer {
+		let (sender_account, sender_location) = account_and_location::<T>(1);
+		let asset = T::get_asset();
+		let mut holding = T::worst_case_holding(1);
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
+
+		// Add our asset to the holding.
+		holding.push(asset.clone());
+
+		let mut executor = new_executor::<T>(sender_location);
+		executor.set_holding(holding.into());
+		let instruction = Instruction::<XcmCallOf<T>>::InitiateTransfer {
+			destination: T::valid_destination()?,
+			// ReserveDeposit is the most expensive filter.
+			remote_fees: Some(AssetTransferFilter::ReserveDeposit(asset.clone().into())),
+			assets: vec![AssetTransferFilter::ReserveDeposit(asset.into())],
+			remote_xcm: Xcm::new(),
+		};
+		let xcm = Xcm(vec![instruction]);
+	}: {
+		executor.bench_process(xcm)?;
+	} verify {
+		assert!(T::TransactAsset::balance(&sender_account) <= sender_account_balance_before);
 	}
 
 	impl_benchmark_test_suite!(

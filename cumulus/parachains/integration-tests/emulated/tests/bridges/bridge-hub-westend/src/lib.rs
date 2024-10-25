@@ -24,7 +24,7 @@ mod imports {
 	pub use xcm::{
 		latest::ParentThen,
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v4::{self, NetworkId::Rococo as RococoId},
+		v5::{self, NetworkId::Rococo as RococoId},
 	};
 	pub use xcm_executor::traits::TransferType;
 
@@ -56,6 +56,7 @@ mod imports {
 		penpal_emulated_chain::{
 			penpal_runtime::xcm_config::{
 				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
 				UniversalLocation as PenpalUniversalLocation,
 			},
 			PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet,

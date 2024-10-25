@@ -157,7 +157,7 @@ impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P
 						message
 					})
 					.collect();
-				(VersionedLocation::V4(Parachain(para_id.into()).into()), decoded_messages)
+				(VersionedLocation::from(Location::from(Parachain(para_id.into()))), decoded_messages)
 			})
 			.collect()
 	}
