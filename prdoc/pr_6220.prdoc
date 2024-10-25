@@ -1,4 +1,4 @@
-title: Improve `CheckMetadataHash` transaction extension weight and logic
+title: Fix metrics not shutting down if there are open connections
 
 doc:
   - audience: Runtime Dev
