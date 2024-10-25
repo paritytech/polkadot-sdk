@@ -5,9 +5,9 @@ doc:
     description: |
       Deprecates `spend_local` from the treasury pallet and items associated with it.
 
-      # Migration
+      ### Migration
 
-      ## For users who were using only `spend_local` before
+      #### For users who were using only `spend_local` before
 
       To replace `spend_local` functionality configure `Paymaster` pallet configuration to be `PayFromAccount` and configure `AssetKind` to be `()` and use `spend` call instead.
       This way `spend` call will function as deprecated `spend_local`.
@@ -24,7 +24,7 @@ doc:
       }
       ```
 
-      ## For users who were already using `spend` with all other assets, except the native asset
+      #### For users who were already using `spend` with all other assets, except the native asset
 
       Use `NativeOrWithId` type for `AssetKind` and have a `UnionOf` for native and non-native assets, then use that with `PayAssetFromAccount`.
 
