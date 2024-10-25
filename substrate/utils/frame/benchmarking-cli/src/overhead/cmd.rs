@@ -50,6 +50,7 @@ use sc_client_db::{BlocksPruning, DatabaseSettings};
 use sc_executor::WasmExecutor;
 use sc_service::{new_client, new_db_backend, BasePath, ClientConfig, TFullClient, TaskManager};
 use serde::Serialize;
+use serde_json::{json, Value};
 use sp_api::{ApiExt, CallApiAt, Core, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_core::H256;
@@ -59,6 +60,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT},
 	DigestItem, OpaqueExtrinsic,
 };
+use sp_storage::Storage;
 use sp_wasm_interface::HostFunctions;
 use std::{
 	fmt::{Debug, Display, Formatter},
@@ -66,9 +68,7 @@ use std::{
 	path::PathBuf,
 	sync::Arc,
 };
-use serde_json::{json, Value};
 use subxt::{client::RuntimeVersion, ext::futures, Metadata};
-use sp_storage::Storage;
 
 const DEFAULT_PARA_ID: u32 = 100;
 
@@ -161,7 +161,7 @@ pub type ParachainHostFunctions = (
 
 pub type BlockNumber = u32;
 
-/// Typical block header.`.
+/// Typical block header.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 
 /// Typical block type using `OpaqueExtrinsic`.
@@ -259,16 +259,14 @@ impl OverheadCmd {
 			Some(
 				GenesisBuilderPolicy::Spec |
 				GenesisBuilderPolicy::SpecGenesis |
-				GenesisBuilderPolicy::None
-			) | None => GenesisSource::Raw,
+				GenesisBuilderPolicy::None,
+			) |
+			None => GenesisSource::Raw,
 		};
 
 		// First handle chain-spec passed in via API parameter.
 		if let Some(chain_spec) = chain_spec_from_api {
-			log::debug!(
-					"Initializing state handler with chain-spec from API: {:?}",
-					chain_spec
-				);
+			log::debug!("Initializing state handler with chain-spec from API: {:?}", chain_spec);
 
 			let source = genesis_builder_to_source();
 			return Ok((GenesisStateHandler::ChainSpec(chain_spec, source), self.params.para_id))
@@ -277,15 +275,18 @@ impl OverheadCmd {
 		// Handle chain-spec passed in via CLI.
 		if let Some(chain_spec_path) = &self.shared_params.chain {
 			log::debug!(
-					"Initializing state handler with chain-spec from path: {:?}",
-					chain_spec_path
-				);
+				"Initializing state handler with chain-spec from path: {:?}",
+				chain_spec_path
+			);
 			let (chain_spec, para_id_from_chain_spec) =
 				genesis_state::chain_spec_from_path::<HF>(chain_spec_path.to_string().into())?;
 
 			let source = genesis_builder_to_source();
 
-			return Ok((GenesisStateHandler::ChainSpec(chain_spec, source), self.params.para_id.or(para_id_from_chain_spec)))
+			return Ok((
+				GenesisStateHandler::ChainSpec(chain_spec, source),
+				self.params.para_id.or(para_id_from_chain_spec),
+			))
 		};
 
 		// Check for runtimes. In general, we make sure that `--runtime` and `--chain` are
@@ -294,10 +295,13 @@ impl OverheadCmd {
 			log::debug!("Initializing state handler with runtime from path: {:?}", runtime_path);
 
 			let runtime_blob = fs::read(runtime_path)?;
-			return Ok((GenesisStateHandler::Runtime(
-				runtime_blob,
-				self.params.genesis_builder_preset.clone()
-			), self.params.para_id))
+			return Ok((
+				GenesisStateHandler::Runtime(
+					runtime_blob,
+					self.params.genesis_builder_preset.clone(),
+				),
+				self.params.para_id,
+			))
 		};
 
 		Err("Neither a runtime nor a chain-spec were specified".to_string().into())
@@ -315,19 +319,23 @@ impl OverheadCmd {
 		Block: BlockT<Extrinsic = OpaqueExtrinsic, Hash = H256>,
 		ExtraHF: HostFunctions,
 	{
-		let (state_handler, para_id) = self.state_handler_from_cli::<(ParachainHostFunctions, ExtraHF)>(chain_spec)?;
+		let (state_handler, para_id) =
+			self.state_handler_from_cli::<(ParachainHostFunctions, ExtraHF)>(chain_spec)?;
 
 		let executor = WasmExecutor::<(ParachainHostFunctions, ExtraHF)>::builder()
 			.with_allow_missing_host_functions(true)
 			.build();
 
-		let metadata = fetch_latest_metadata_from_code_blob(&executor, state_handler.get_code_bytes()?)?;
+		let metadata =
+			fetch_latest_metadata_from_code_blob(&executor, state_handler.get_code_bytes()?)?;
 
 		// At this point we know what kind of chain we are dealing with.
 		let chain_type = identify_chain(&metadata, para_id);
 
 		let client = self.build_client_components::<Block, (ParachainHostFunctions, ExtraHF)>(
-			state_handler.build_storage::<(ParachainHostFunctions, ExtraHF)>(Some(Box::new(move |value| patch_genesis(value, para_id))))?,
+			state_handler.build_storage::<(ParachainHostFunctions, ExtraHF)>(Some(Box::new(
+				move |value| patch_genesis(value, para_id),
+			)))?,
 			executor,
 			&chain_type,
 		)?;
@@ -347,8 +355,11 @@ impl OverheadCmd {
 				Some(provider) => (provider(metadata, genesis, runtime_version), runtime_name),
 				None => {
 					let genesis = subxt::utils::H256::from(genesis.to_fixed_bytes());
-					(Box::new(SubstrateRemarkBuilder::new(metadata, genesis, runtime_version))
-						as Box<_>, runtime_name)
+					(
+						Box::new(SubstrateRemarkBuilder::new(metadata, genesis, runtime_version))
+							as Box<_>,
+						runtime_name,
+					)
 				},
 			}
 		};
@@ -603,7 +614,8 @@ mod tests {
 		let code_bytes = cumulus_test_runtime::WASM_BINARY
 			.expect("To run this test, build the wasm binary of cumulus-test-runtime")
 			.to_vec();
-		let metadata = super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
+		let metadata =
+			super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
 		assert_eq!(identify_chain(&metadata, Some(100)), ChainType::Parachain(100));
 		assert_eq!(identify_chain(&metadata, None), ChainType::Parachain(DEFAULT_PARA_ID));
 	}
@@ -614,7 +626,8 @@ mod tests {
 		let code_bytes = substrate_test_runtime::WASM_BINARY
 			.expect("To run this test, build the wasm binary of cumulus-test-runtime")
 			.to_vec();
-		let metadata = super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
+		let metadata =
+			super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
 		assert_eq!(identify_chain(&metadata, Some(100)), ChainType::Unknown);
 	}
 }

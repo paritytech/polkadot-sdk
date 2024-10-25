@@ -149,45 +149,37 @@ where
 			builder.push(inherent)?;
 		}
 
-		// Return early if `ext_builder` is `None`.
-		let ext_builder = if let Some(ext_builder) = ext_builder {
-			ext_builder
-		} else {
-			let proof_size = builder.current_proof_size();
-			return Ok((
-				builder.build()?.block,
-				None,
-				proof_size
-					.unwrap_or(0)
-					.try_into()
-					.map_err(|_| "Proof size is too large".to_string())?,
-			))
+		let num_ext = match ext_builder {
+			Some(ext_builder) => {
+				// Put as many extrinsics into the block as possible and count them.
+				info!("Building block, this takes some time...");
+				let mut num_ext = 0;
+				for nonce in 0..self.max_ext_per_block() {
+					let ext = ext_builder.build(nonce)?;
+					match builder.push(ext.clone()) {
+						Ok(()) => {},
+						Err(ApplyExtrinsicFailed(Validity(TransactionValidityError::Invalid(
+							InvalidTransaction::ExhaustsResources,
+						)))) => break, // Block is full
+						Err(e) => return Err(Error::Client(e)),
+					}
+					num_ext += 1;
+				}
+				if num_ext == 0 {
+					return Err("A Block must hold at least one extrinsic".into())
+				}
+				info!("Extrinsics per block: {}", num_ext);
+				Some(num_ext)
+			},
+			None => None,
 		};
 
-		// Put as many extrinsics into the block as possible and count them.
-		info!("Building block, this takes some time...");
-		let mut num_ext = 0;
-		for nonce in 0..self.max_ext_per_block() {
-			let ext = ext_builder.build(nonce)?;
-			match builder.push(ext.clone()) {
-				Ok(()) => {},
-				Err(ApplyExtrinsicFailed(Validity(TransactionValidityError::Invalid(
-					InvalidTransaction::ExhaustsResources,
-				)))) => break, // Block is full
-				Err(e) => return Err(Error::Client(e)),
-			}
-			num_ext += 1;
-		}
-		if num_ext == 0 {
-			return Err("A Block must hold at least one extrinsic".into())
-		}
-		info!("Extrinsics per block: {}", num_ext);
 		let proof_size = builder.current_proof_size();
 		let block = builder.build()?.block;
 
 		Ok((
 			block,
-			Some(num_ext),
+			num_ext,
 			proof_size
 				.unwrap_or(0)
 				.try_into()

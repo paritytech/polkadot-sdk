@@ -3,6 +3,19 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// limitations under the License.
+
 use crate::{overhead::cmd::ParachainExtension};
 use sc_chain_spec::{ChainSpec, GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
 use sc_cli::Result;
@@ -13,21 +26,6 @@ use std::{
 	path::{PathBuf},
 };
 use std::borrow::Cow;
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-/// Build the genesis storage by either the Genesis Builder API, chain spec or nothing.
-///
-/// Behaviour can be controlled by the `genesis_builder` parameter.
 
 /// When the runtime could not build the genesis storage.
 const ERROR_CANNOT_BUILD_GENESIS: &str = "The runtime returned \

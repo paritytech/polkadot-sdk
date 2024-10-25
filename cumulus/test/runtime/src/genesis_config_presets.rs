@@ -22,6 +22,7 @@ use super::{
 use alloc::{vec, vec::Vec};
 
 use cumulus_primitives_core::ParaId;
+use frame_support::build_struct_json_patch;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 
@@ -30,23 +31,14 @@ fn cumulus_test_runtime(
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
 ) -> serde_json::Value {
-	let config = RuntimeGenesisConfig {
-		system: Default::default(),
+	let config = build_struct_json_patch!( RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
 		sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.public().into()) },
-		transaction_payment: Default::default(),
-		test_pallet: Default::default(),
-		parachain_info: ParachainInfoConfig { parachain_id: id, ..Default::default() },
-		// no need to pass anything to aura, in fact it will panic if we do. Session will take care
-		// of this. `aura: Default::default()`
+		parachain_info: ParachainInfoConfig { parachain_id: id },
 		aura: AuraConfig { authorities: invulnerables },
-		aura_ext: Default::default(),
-		parachain_system: Default::default(),
-		glutton: Default::default(),
-	};
-
+	});
 	serde_json::to_value(config).expect("Could not build genesis config.")
 }
 

@@ -59,7 +59,8 @@ impl<C: Config<Hash = subxt::utils::H256>> DynamicRemarkBuilder<C> {
 			return Err("Unable to fetch metadata runtime API version.".to_string().into());
 		};
 
-		if metadata_api_version > 1 {
+		log::debug!("Found metadata API version {}.", metadata_api_version);
+		let opaque_metadata = if metadata_api_version > 1 {
 			let Ok(mut supported_metadata_versions) = api.metadata_versions(genesis) else {
 				return Err("Unable to fetch metadata versions".to_string().into());
 			};
@@ -68,43 +69,23 @@ impl<C: Config<Hash = subxt::utils::H256>> DynamicRemarkBuilder<C> {
 				.pop()
 				.ok_or("No metadata version supported".to_string())?;
 
-			let version =
-				api.version(genesis).map_err(|_| "No runtime version supported".to_string())?;
-
-			let runtime_version = SubxtRuntimeVersion {
-				spec_version: version.spec_version,
-				transaction_version: version.transaction_version,
-			};
-
-			let metadata = api
-				.metadata_at_version(genesis, latest)
+			api.metadata_at_version(genesis, latest)
 				.map_err(|e| format!("Unable to fetch metadata: {:?}", e))?
-				.ok_or("Unable to decode metadata".to_string())?;
+				.ok_or("Unable to decode metadata".to_string())?
+		} else {
+			// Fall back to using the non-versioned metadata API.
+			api.metadata(genesis)
+				.map_err(|e| format!("Unable to fetch metadata: {:?}", e))?
+		};
 
-			let metadata = subxt::Metadata::decode(&mut (*metadata).as_slice())?;
-
-			let genesis = subxt::utils::H256::from(genesis.to_fixed_bytes());
-
-			return Ok(Self {
-				offline_client: OfflineClient::new(genesis, runtime_version, metadata),
-			})
-		}
-
-		log::debug!("Found metadata version {}.", metadata_api_version);
-
-		// Fall back to using the non-versioned metadata API.
-		let metadata = api
-			.metadata(genesis)
-			.map_err(|e| format!("Unable to fetch metadata: {:?}", e))?;
 		let version = api.version(genesis).unwrap();
 		let runtime_version = SubxtRuntimeVersion {
 			spec_version: version.spec_version,
 			transaction_version: version.transaction_version,
 		};
-
-		let metadata = subxt::Metadata::decode(&mut (*metadata).as_slice())?;
-
+		let metadata = subxt::Metadata::decode(&mut (*opaque_metadata).as_slice())?;
 		let genesis = subxt::utils::H256::from(genesis.to_fixed_bytes());
+
 		Ok(Self { offline_client: OfflineClient::new(genesis, runtime_version, metadata) })
 	}
 }
@@ -242,7 +223,8 @@ mod tests {
 		let code_bytes = cumulus_test_runtime::WASM_BINARY
 			.expect("To run this test, build the wasm binary of cumulus-test-runtime")
 			.to_vec();
-		let metadata = super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
+		let metadata =
+			super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
 		assert!(metadata.pallet_by_name("ParachainInfo").is_some());
 	}
 
@@ -256,7 +238,7 @@ mod tests {
 		let runtime_version = runtime_caller
 			.call("Core_version", ())
 			.expect("Should be able to call runtime_version");
-		let runtime_version: RuntimeVersion = Decode::decode(&mut runtime_version.as_slice())
+		let _runtime_version: RuntimeVersion = Decode::decode(&mut runtime_version.as_slice())
 			.expect("Should be able to decode runtime version");
 	}
 }
