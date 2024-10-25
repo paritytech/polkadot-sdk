@@ -1786,7 +1786,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		// Note: this pallet **MUST** only by used in the single-block mode.
-		ensure!(page.is_zero(), ElectionError::<T>::WrongPageIndex);
+		ensure!(page.is_zero(), ElectionError::<T>::MultiPageNotSupported);
 
 		match Self::do_elect() {
 			Ok(bounded_supports) => {
@@ -2487,6 +2487,29 @@ mod tests {
 					},
 				],
 			);
+		})
+	}
+
+	#[test]
+	fn try_elect_multi_page_fails() {
+		ExtBuilder::default().onchain_fallback(false).build_and_execute(|| {
+			roll_to_signed();
+			assert!(Snapshot::<Runtime>::get().is_some());
+
+			// submit solution and assert it is queued and ready for elect to be called.
+			let (solution, _, _) = MultiPhase::mine_solution().unwrap();
+			assert_ok!(MultiPhase::submit(
+				crate::mock::RuntimeOrigin::signed(99),
+				Box::new(solution),
+			));
+			roll_to(30);
+			assert!(QueuedSolution::<Runtime>::get().is_some());
+
+			// single page elect call works as expected.
+			assert_ok!(MultiPhase::elect(SINGLE_PAGE));
+
+			// however, multi page calls will fail.
+			assert!(MultiPhase::elect(10).is_err());
 		})
 	}
 

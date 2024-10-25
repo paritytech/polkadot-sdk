@@ -871,13 +871,23 @@ impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>>
 	TryIntoBoundedSupports<AccountId, BOuter, BInner> for sp_npos_elections::Supports<AccountId>
 {
 	fn try_into_bounded_supports(self) -> Result<BoundedSupports<AccountId, BOuter, BInner>, ()> {
-		let inner_bounded_supports = self
-			.into_iter()
-			.map(|(a, s)| s.try_into().map(|s| (a, s)))
-			.collect::<Result<Vec<_>, _>>()
-			.map_err(|_| ())?;
-		let outer_bounded_supports: BoundedVec<_, BOuter> =
-			inner_bounded_supports.try_into().map_err(|_| ())?;
+		// optimization note: pre-allocate outer bounded vec.
+		let mut outer_bounded_supports = BoundedVec::<
+			(AccountId, BoundedSupport<AccountId, BInner>),
+			BOuter,
+		>::with_bounded_capacity(
+			self.len().min(BOuter::get() as usize)
+		);
+
+		// optimization note: avoid intermediate allocations.
+		self.into_iter()
+			.map(|(account, support)| (account, support.try_into().map_err(|_| ())))
+			.try_for_each(|(account, maybe_bounded_supports)| {
+				outer_bounded_supports
+					.try_push((account, maybe_bounded_supports?))
+					.map_err(|_| ())
+			})?;
+
 		Ok(outer_bounded_supports.into())
 	}
 }
