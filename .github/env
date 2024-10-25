@@ -1,1 +1,2 @@
 IMAGE="docker.io/paritytech/ci-unified:bullseye-1.81.0-2024-09-11-v202409111034"
+RUST_NIGHTLY_VERSION="2024-09-11"

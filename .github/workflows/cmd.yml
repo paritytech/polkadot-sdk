@@ -284,9 +284,24 @@ jobs:
       JOB_NAME: "cmd"
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
     timeout-minutes: 4320 # 72 hours -> 3 days; as it could take a long time to run all the runtimes/pallets
-    container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+    # container: ## Disabling DockerInDocker for now
+    #   image: ${{ needs.set-image.outputs.IMAGE }}
     steps:
+      - name: Install updates and protobuf-compiler
+        run: |
+          sudo apt update && sudo apt install --assume-yes \
+            openssl pkg-config g++ make cmake protobuf-compiler curl libssl-dev libclang-dev libudev-dev git jq
+
+      - name: Set rust version via common env file
+        run: cat .github/env >> $GITHUB_ENV
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          targets: "wasm32-unknown-unknown,x86_64-unknown-linux-musl"
+          components: "rust-src rustfmt clippy"
+          toolchain: "nightly-${{env.RUST_NIGHTLY_VERSION}}"
+
       - name: Get command
         uses: actions-ecosystem/action-regex-match@v2
         id: get-pr-comment
