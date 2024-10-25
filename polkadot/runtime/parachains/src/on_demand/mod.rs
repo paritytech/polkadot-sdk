@@ -35,16 +35,14 @@ use sp_runtime::traits::Zero;
 mod benchmarking;
 pub mod migration;
 mod mock_helpers;
-mod types;
 
 extern crate alloc;
 
 #[cfg(test)]
 mod tests;
 
-use crate::{configuration, paras, scheduler::common::Assignment};
-use alloc::collections::BinaryHeap;
-use core::mem::take;
+use crate::{configuration, paras};
+use alloc::collections::BTreeSet;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -56,7 +54,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::{pallet_prelude::*, Pallet as System};
-use polkadot_primitives::{CoreIndex, Id as ParaId};
+use polkadot_primitives::{Id as ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, SaturatedConversion},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
@@ -67,19 +65,19 @@ const LOG_TARGET: &str = "runtime::parachains::on-demand";
 pub use pallet::*;
 
 pub trait WeightInfo {
-	fn place_order_allow_death(s: u32) -> Weight;
-	fn place_order_keep_alive(s: u32) -> Weight;
+	fn place_order_allow_death() -> Weight;
+	fn place_order_keep_alive() -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
 pub struct TestWeightInfo;
 
 impl WeightInfo for TestWeightInfo {
-	fn place_order_allow_death(_: u32) -> Weight {
+	fn place_order_allow_death() -> Weight {
 		Weight::MAX
 	}
 
-	fn place_order_keep_alive(_: u32) -> Weight {
+	fn place_order_keep_alive() -> Weight {
 		Weight::MAX
 	}
 }
@@ -95,7 +93,7 @@ pub struct OrderStatus {
 	pub traffic: FixedU128,
 
 	/// Enqueued orders.
-	pub queue: BoundedVec<EnqueuedOrder, ON_DEMAND_MAX_QUEUE_MAX_SIZE>,
+	pub queue: BoundedVec<ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE>,
 }
 
 impl Default for OrderStatus {
@@ -104,10 +102,22 @@ impl Default for OrderStatus {
 	}
 }
 
+/// Errors that can happen during spot traffic calculation.
+#[derive(PartialEq, RuntimeDebug)]
+pub enum SpotTrafficCalculationErr {
+	/// The order queue capacity is at 0.
+	QueueCapacityIsZero,
+	/// The queue size is larger than the queue capacity.
+	QueueSizeLargerThanCapacity,
+	/// Arithmetic error during division, either division by 0 or over/underflow.
+	Division,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 
 	use super::*;
+	use polkadot_primitives::{Id as ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -142,8 +152,8 @@ pub mod pallet {
 	}
 
 	#[pallet::type_value]
-	pub(super) fn EntriesOnEmpty<T: Config>() -> BoundedVec<EnqueuedOrder> {
-		BoundedVec::new()
+	pub(super) fn EntriesOnEmpty<T: Config>() -> super::OrderStatus {
+		Default::default()
 	}
 
 	/// Priority queue for all orders which don't yet (or not any more) have any core affinity.
@@ -221,7 +231,7 @@ pub mod pallet {
 		/// Events:
 		/// - `OnDemandOrderPlaced`
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::place_order_allow_death(QueueStatus::<T>::get().size()))]
+		#[pallet::weight(<T as Config>::WeightInfo::place_order_allow_death())]
 		pub fn place_order_allow_death(
 			origin: OriginFor<T>,
 			max_amount: BalanceOf<T>,
@@ -247,7 +257,7 @@ pub mod pallet {
 		/// Events:
 		/// - `OnDemandOrderPlaced`
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::place_order_keep_alive(QueueStatus::<T>::get().size()))]
+		#[pallet::weight(<T as Config>::WeightInfo::place_order_keep_alive())]
 		pub fn place_order_keep_alive(
 			origin: OriginFor<T>,
 			max_amount: BalanceOf<T>,
@@ -266,8 +276,8 @@ where
 {
 	/// Pop assignments for the given number of on-demand cores in a block.
 	pub fn pop_assignment_for_cores(mut num_cores: u32) -> impl Iterator<Item = ParaId> {
-		OrderStatus::mutate(|order_status| {
-			let mut popped = BTreeSet::with_capacity(num_cores);
+		pallet::OrderStatus::mutate(|order_status| {
+			let mut popped = BTreeSet::new();
 			let remaining_orders = Vec::with_capacity(order_status.queue.len());
 			for order in order_status.queue.into_iter() {
 				if num_cores > 0 && popped.insert(order) {
@@ -281,16 +291,16 @@ where
 		})
 	}
 
-	/// Push an assignment back to the back of the queue.
+	/// Push an order back to the back of the queue.
 	///
-	/// The assignment could not be served for some reason, give it another chance.
+	/// The order could not be served for some reason, give it another chance.
 	///
 	/// NOTE: We are not checking queue size here. So due to push backs it is possible that we
 	/// exceed the maximum queue size slightly.
 	///
 	/// Parameters:
 	/// - `para_id`: The para that did not make it.
-	pub fn push_back_assignment(para_id: ParaId) {
+	pub fn push_back_order(para_id: ParaId) {
 		OrderStatus::<T>::mutate(|order_status| {
 			order_status.queue.push(para_id);
 		});
@@ -384,7 +394,7 @@ where
 		config: &configuration::HostConfiguration<BlockNumberFor<T>>,
 		order_status: &mut super::OrderStatus,
 	) {
-		let old_traffic = queue_status.traffic;
+		let old_traffic = order_status.traffic;
 		match Self::calculate_spot_traffic(
 			old_traffic,
 			config.scheduler_params.on_demand_queue_max_size,
