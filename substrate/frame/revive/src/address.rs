@@ -159,18 +159,19 @@ where
 
 impl<T> AddressMapper<T> for H160Mapper<T>
 where
-	T: Config<AccountId = H160>,
+	T: Config,
+	crate::AccountIdOf<T>: AsRef<[u8; 20]> + From<H160>,
 {
-	fn to_address(account_id: &H160) -> H160 {
-		*account_id
+	fn to_address(account_id: &T::AccountId) -> H160 {
+		H160::from_slice(account_id.as_ref())
 	}
 
-	fn to_account_id(address: &H160) -> H160 {
-		*address
+	fn to_account_id(address: &H160) -> T::AccountId {
+		Self::to_fallback_account_id(address)
 	}
 
-	fn to_fallback_account_id(address: &H160) -> H160 {
-		*address
+	fn to_fallback_account_id(address: &H160) -> T::AccountId {
+		address.clone().into()
 	}
 
 	fn map(_account_id: &T::AccountId) -> DispatchResult {
