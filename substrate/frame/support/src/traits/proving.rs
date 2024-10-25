@@ -80,7 +80,7 @@ impl<H: Hasher> ProofToHashes for BinaryMerkleTreeProver<H> {
 }
 
 /// Proof used by [`SixteenPatriciaMerkleTreeProver`] for [`VerifyExistenceProof`].
-#[derive(Encode, Decode, Clone)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, scale_info::TypeInfo)]
 pub struct SixteenPatriciaMerkleTreeExistenceProof {
 	/// The key of the value to prove.
 	pub key: Vec<u8>,

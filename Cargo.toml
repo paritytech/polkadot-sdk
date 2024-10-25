@@ -214,6 +214,7 @@ members = [
 	"polkadot/rpc",
 	"polkadot/runtime/common",
 	"polkadot/runtime/common/slot_range_helper",
+	"polkadot/runtime/dday",
 	"polkadot/runtime/metrics",
 	"polkadot/runtime/parachains",
 	"polkadot/runtime/rococo",
@@ -1070,6 +1071,7 @@ polkadot-parachain-primitives = { path = "polkadot/parachain", default-features 
 polkadot-primitives = { path = "polkadot/primitives", default-features = false }
 polkadot-primitives-test-helpers = { path = "polkadot/primitives/test-helpers" }
 polkadot-rpc = { path = "polkadot/rpc", default-features = false }
+polkadot-runtime-dday = { path = "polkadot/runtime/dday", default-features = false }
 polkadot-runtime-common = { path = "polkadot/runtime/common", default-features = false }
 polkadot-runtime-metrics = { path = "polkadot/runtime/metrics", default-features = false }
 polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false }
