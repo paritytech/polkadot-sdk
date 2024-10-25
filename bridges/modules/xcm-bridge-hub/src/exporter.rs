@@ -367,7 +367,7 @@ mod tests {
 	use frame_support::assert_ok;
 	use pallet_bridge_messages::InboundLaneStorage;
 	use xcm_builder::{NetworkExportTable, UnpaidRemoteExporter};
-	use xcm_executor::traits::{export_xcm, ConvertLocation};
+	use xcm_executor::traits::export_xcm;
 
 	fn universal_source() -> InteriorLocation {
 		SiblingUniversalLocation::get()
@@ -402,11 +402,7 @@ mod tests {
 						locations.bridge_destination_universal_location().clone().into(),
 					),
 					state: BridgeState::Opened,
-					bridge_owner_account: LocationToAccountId::convert_location(
-						locations.bridge_origin_relative_location(),
-					)
-					.expect("valid accountId"),
-					deposit: 0,
+					deposit: None,
 					lane_id,
 				},
 			);
@@ -618,8 +614,7 @@ mod tests {
 							locations.bridge_destination_universal_location().clone().into(),
 						),
 						state: BridgeState::Opened,
-						bridge_owner_account: [0u8; 32].into(),
-						deposit: 0,
+						deposit: None,
 						lane_id: expected_lane_id,
 					},
 				);
