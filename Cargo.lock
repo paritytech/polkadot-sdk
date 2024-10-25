@@ -23491,7 +23491,6 @@ dependencies = [
  "bounded-collections",
  "derivative",
  "environmental",
- "frame-support",
  "hex",
  "hex-literal",
  "impl-trait-for-tuples",
