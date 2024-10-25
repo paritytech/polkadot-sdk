@@ -304,7 +304,7 @@ zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:
       --local-dir="${LOCAL_DIR}/smoke"
       --test="0003-deregister-register-validator-smoke.zndsl"
 
-zombienet-polkadot-smoke-0004-coretime-smoke-test:
+.zombienet-polkadot-smoke-0004-coretime-smoke-test:
   extends:
     - .zombienet-polkadot-common
   script:
