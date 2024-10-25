@@ -83,6 +83,12 @@ jobs:
           homepage = "https://paritytech.github.io/polkadot-sdk/"
 
           [workspace]
+          EOF
+
+          [ ${{ matrix.template }} != "solochain" ] && echo "# Leave out the node compilation from regular template usage." \
+            && echo "\"default-members\" = [\"pallets/template\", \"runtime\"]" >> Cargo.toml
+          [ ${{ matrix.template }} == "solochain" ] && echo "# The node isn't yet replaceable by Omni Node."
+          cat << EOF >> Cargo.toml
           members = [
               "node",
               "pallets/template",

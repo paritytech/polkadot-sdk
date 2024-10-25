@@ -1,0 +1,33 @@
+# Nodes might alternate in block production for a while, based on
+# the manual-seal timer, if rightly set to allow enough time for
+# nodes to produce and propose nodes, and then wait for peers to do
+# the same. The same nodes follow with importing the proposed blocks,
+# increasing the fork height with blocks not produced by them. If nodes
+# overlap for the block production at a certain height, they'll stop
+# being peers and will follow with block production for their own
+# initiated forks.
+
+[relaychain]
+chain = "dev"
+default_command = "minimal-template-node"
+default_args = ["--consensus manual-seal-3000"]
+
+[[relaychain.nodes]]
+name = "alice"
+validator = true
+ws_port = 9944
+
+[[relaychain.nodes]]
+name = "bob"
+validator = true
+ws_port = 9955
+
+[[relaychain.nodes]]
+name = "charlie"
+validator = true
+ws_port = 9966
+
+[[relaychain.nodes]]
+name = "dave"
+validator = true
+ws_port = 9977
