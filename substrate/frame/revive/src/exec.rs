@@ -198,7 +198,12 @@ pub trait Ext: sealing::Sealed {
 	/// Execute code in the current frame.
 	///
 	/// Returns the code size of the called contract.
-	fn delegate_call(&mut self, code: H256, input_data: Vec<u8>) -> Result<(), ExecError>;
+	fn delegate_call(
+		&mut self,
+		gas_limit: Weight,
+		address: H160,
+		input_data: Vec<u8>,
+	) -> Result<(), ExecError>;
 
 	/// Instantiate a contract from the given code.
 	///
@@ -1397,12 +1402,18 @@ where
 		result
 	}
 
-	fn delegate_call(&mut self, code_hash: H256, input_data: Vec<u8>) -> Result<(), ExecError> {
+	fn delegate_call(
+		&mut self,
+		gas_limit: Weight,
+		address: H160,
+		input_data: Vec<u8>,
+	) -> Result<(), ExecError> {
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case for unknown code hashes or creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
-		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
+		let contract_info = ContractInfoOf::<T>::get(&address).ok_or(Error::<T>::CodeNotFound)?;
+		let executable = E::from_storage(contract_info.code_hash, self.gas_meter_mut())?;
 		let top_frame = self.top_frame_mut();
 		let contract_info = top_frame.contract_info().clone();
 		let account_id = top_frame.account_id.clone();
@@ -1414,7 +1425,7 @@ where
 				delegated_call: Some(DelegatedCall { executable, caller: self.caller().clone() }),
 			},
 			value,
-			Weight::zero(),
+			gas_limit,
 			BalanceOf::<T>::zero(),
 			self.is_read_only(),
 		)?;
@@ -1839,7 +1850,7 @@ mod tests {
 		AddressMapper, Error,
 	};
 	use assert_matches::assert_matches;
-	use frame_support::{assert_err, assert_ok, parameter_types};
+	use frame_support::{assert_err, assert_noop, assert_ok, parameter_types};
 	use frame_system::{AccountInfo, EventRecord, Phase};
 	use pallet_revive_uapi::ReturnFlags;
 	use pretty_assertions::assert_eq;
@@ -2062,18 +2073,19 @@ mod tests {
 
 		let delegate_ch = MockLoader::insert(Call, move |ctx, _| {
 			assert_eq!(ctx.ext.value_transferred(), U256::from(value));
-			let _ = ctx.ext.delegate_call(success_ch, Vec::new())?;
+			let _ = ctx.ext.delegate_call(Weight::zero(), CHARLIE_ADDR, Vec::new())?;
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
 			place_contract(&BOB, delegate_ch);
+			place_contract(&CHARLIE, success_ch);
 			set_balance(&ALICE, 100);
 			let balance = get_balance(&BOB_CONTRACT_ID);
 			let origin = Origin::from_account_id(ALICE);
 			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 55).unwrap();
 
-			let _ = MockStack::run_call(
+			assert_ok!(MockStack::run_call(
 				origin,
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
@@ -2081,11 +2093,59 @@ mod tests {
 				value,
 				vec![],
 				None,
-			)
-			.unwrap();
+			));
 
 			assert_eq!(get_balance(&ALICE), 100 - value);
 			assert_eq!(get_balance(&BOB_CONTRACT_ID), balance + value);
+		});
+	}
+
+	#[test]
+	fn delegate_call_missing_contract() {
+		let missing_ch = MockLoader::insert(Call, move |_ctx, _| {
+			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
+		});
+
+		let delegate_ch = MockLoader::insert(Call, move |ctx, _| {
+			let _ = ctx.ext.delegate_call(Weight::zero(), CHARLIE_ADDR, Vec::new())?;
+			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			place_contract(&BOB, delegate_ch);
+			set_balance(&ALICE, 100);
+
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 55).unwrap();
+
+			// contract code missing
+			assert_noop!(
+				MockStack::run_call(
+					origin.clone(),
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![],
+					None,
+				),
+				ExecError {
+					error: Error::<Test>::CodeNotFound.into(),
+					origin: ErrorOrigin::Callee,
+				}
+			);
+
+			// add missing contract code
+			place_contract(&CHARLIE, missing_ch);
+			assert_ok!(MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut storage_meter,
+				0,
+				vec![],
+				None,
+			));
 		});
 	}
 
@@ -4410,7 +4470,7 @@ mod tests {
 			// An unknown code hash to fail the delegate_call on the first condition.
 			*ctx.ext.last_frame_output_mut() = output_revert();
 			assert_eq!(
-				ctx.ext.delegate_call(invalid_code_hash, Default::default()),
+				ctx.ext.delegate_call(Weight::zero(), H160([0xff; 20]), Default::default()),
 				Err(Error::<Test>::CodeNotFound.into())
 			);
 			assert_eq!(ctx.ext.last_frame_output(), &Default::default());
@@ -4529,7 +4589,7 @@ mod tests {
 
 			// In a delegate call, we should witness the caller immutable data
 			assert_eq!(
-				ctx.ext.delegate_call(charlie_ch, Vec::new()).map(|_| ctx
+				ctx.ext.delegate_call(Weight::zero(), CHARLIE_ADDR, Vec::new()).map(|_| ctx
 					.ext
 					.last_frame_output()
 					.data

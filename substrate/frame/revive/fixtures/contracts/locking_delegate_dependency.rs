@@ -30,6 +30,7 @@ const ETH_ALICE: [u8; 20] = [1u8; 20];
 fn load_input(delegate_call: bool) {
 	input!(
 		action: u32,
+		address: &[u8; 20],
 		code_hash: &[u8; 32],
 	);
 
@@ -51,7 +52,7 @@ fn load_input(delegate_call: bool) {
 	}
 
 	if delegate_call {
-		api::delegate_call(uapi::CallFlags::empty(), code_hash, &[], None).unwrap();
+		api::delegate_call(uapi::CallFlags::empty(), address, 0, 0, &[], None).unwrap();
 	}
 }
 

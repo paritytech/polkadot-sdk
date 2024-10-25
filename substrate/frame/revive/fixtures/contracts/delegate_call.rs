@@ -28,7 +28,11 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(code_hash: &[u8; 32],);
+	input!(
+		address: &[u8; 20],
+		ref_time: u64,
+		proof_size: u64,
+	);
 
 	let mut key = [0u8; 32];
 	key[0] = 1u8;
@@ -42,7 +46,7 @@ pub extern "C" fn call() {
 	assert!(value[0] == 2u8);
 
 	let input = [0u8; 0];
-	api::delegate_call(uapi::CallFlags::empty(), code_hash, &input, None).unwrap();
+	api::delegate_call(uapi::CallFlags::empty(), address, ref_time, proof_size, &input, None).unwrap();
 
 	api::get_storage(StorageFlags::empty(), &key, value).unwrap();
 	assert!(value[0] == 1u8);
