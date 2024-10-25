@@ -51,12 +51,7 @@ pub struct PartsOf57600(u16);
 #[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq)]
 pub enum Assignment {
 	/// A pool assignment.
-	Pool {
-		/// The assigned para id.
-		para_id: ParaId,
-		/// The core index the para got assigned to.
-		core_index: CoreIndex,
-	},
+	Pool(ParaId),
 	/// A bulk assignment.
 	Bulk(ParaId),
 }
@@ -300,34 +295,20 @@ impl<T: Config> Pallet<T> {
 	/// `pop_assignment_for_core` was not yet called at this very block, then the first entry in
 	/// the vec returned by `peek` will be the assignment statements should be ready for
 	/// at this block.
-	pub fn peek(core_idx: CoreIndex, num_entries: u8) -> impl Iterator<Item = Assignment> {
+	pub fn peek(num_entries: u8) -> BTreeMap<CoreIndex, VecDequeue<ParaId>> {
 		let now = frame_system::Pallet::<T>::block_number();
-		Self::peek_impl(now, core_idx, num_entries)
+		Self::peek_impl(now, num_entries)
 	}
 
 	/// Pops an [`Assignment`] from the provider for a specified [`CoreIndex`].
 	///
 	/// This is where assignments come into existence.
-	pub fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
+	pub fn pop_assignments() -> Vec<Assignment> {
 		let now = frame_system::Pallet::<T>::block_number();
 
 		CoreDescriptors::<T>::mutate(core_idx, |core_state| {
-			Self::pop_assignment_for_core_impl(now, core_idx, core_state, AccessMode::Pop)
+			Self::pop_assignments_impl(now, core_state, AccessMode::Pop)
 		})
-	}
-
-	/// A previously popped `Assignment` has been fully processed.
-	///
-	/// Report back to the assignment provider that an assignment is done and no longer present in
-	/// the scheduler.
-	///
-	/// This is one way of the life of an assignment coming to an end.
-	pub fn report_processed(assignment: Assignment) {
-		match assignment {
-			Assignment::Pool { para_id, core_index } =>
-				on_demand::Pallet::<T>::report_processed(para_id, core_index),
-			Assignment::Bulk(_) => {},
-		}
 	}
 
 	/// Push back a previously popped assignment.
@@ -341,7 +322,7 @@ impl<T: Config> Pallet<T> {
 	pub fn push_back_assignment(assignment: Assignment) {
 		match assignment {
 			Assignment::Pool { para_id, core_index } =>
-				on_demand::Pallet::<T>::push_back_assignment(para_id, core_index),
+				on_demand::Pallet::<T>::push_back_assignment(para_id),
 			Assignment::Bulk(_) => {
 				// Session changes are rough. We just drop assignments that did not make it on a
 				// session boundary. This seems sensible as bulk is region based. Meaning, even if
@@ -352,6 +333,14 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	pub(crate) fn coretime_cores() -> impl Iterator<Item = CoreIndex> {
+		(0..Self::num_coretime_cores()).map(|i| CoreIndex(i as _))
+	}
+
+	fn num_coretime_cores() -> u32 {
+		configuration::ActiveConfig::get().coretime_cores
+	}
+
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn get_mock_assignment(_: CoreIndex, para_id: polkadot_primitives::Id) -> Assignment {
 		// Given that we are not tracking anything in `Bulk` assignments, it is safe to always
@@ -359,84 +348,66 @@ impl<T: Config> Pallet<T> {
 		Assignment::Bulk(para_id)
 	}
 
-	fn assignment_duplicated(assignment: &Assignment) {
-		match assignment {
-			Assignment::Pool { para_id, core_index } =>
-				on_demand::Pallet::<T>::assignment_duplicated(*para_id, *core_index),
-			Assignment::Bulk(_) => {},
-		}
-	}
-}
-
-struct PeekIterator<N> {
-	core_idx: CoreIndex,
-	core_state: CoreDescriptor<N>,
-	remaining_entries: u8,
-	now: N,
-}
-
-impl<N> Iterator for PeekIterator<N> {
-	type Item = Assignment;
-
-	fn next(&mut self) -> Option<Assignment> {
-		if self.remaining_entries == 0 {
-			return None
-		}
-		let assignment = Self::pop_assignment_for_core_impl(
-			self.now,
-			self.core_idx,
-			&mut self.core_state,
-			AccessMode::Peek,
-		);
-		self.now += One::one();
-		self.remaining_entries.saturating_sub(1);
-		assignment
-	}
-}
-
-impl<T: Config> Pallet<T> {
 	fn peek_impl(
-		now: BlockNumberFor<T>,
-		core_idx: CoreIndex,
+		mut now: BlockNumberFor<T>,
 		num_entries: u8,
-	) -> impl Iterator<Item = Assignment> {
+	) -> BTreeMap<CoreIndex, VecDequeue<ParaId>> {
 		let core_state = CoreDescriptors::<T>::get(core_idx);
-
-		PeekIterator { core_idx, core_state, remaining_entries: num_entries, now }
+		let result = BTreeMap::with_capacity(Self::num_coretime_cores());
+		for _ in 0..num_entries {
+			let assignments = Self::pop_assignments_impl(now, &mut core_state, AccessMode::Peek);
+			for (core_idx, assignment) in assignments {
+				result.entry(core_idx).or_default().push_back(assignment.para_id())
+			}
+			now.saturating_add(One::one());
+		}
+		result
 	}
 
-	fn pop_assignment_for_core_impl(
+	fn pop_assignments_impl(
 		now: BlockNumberFor<T>,
-		core_idx: CoreIndex,
 		core_state: &mut CoreDescriptor<BlockNumberFor<T>>,
 		mode: AccessMode,
-	) -> Option<Assignment> {
-		Self::ensure_workload(now, core_idx, core_state, mode);
+	) -> impl Iterator<Item = (CoreIndex, Assignment)> {
+		let assignments = Vec::with_capacity(Self::num_coretime_cores());
+		let mut num_pool = 0;
+		for core_idx in Self::coretime_cores() {
+			Self::ensure_workload(now, core_idx, core_state, mode);
 
-		let work_state = core_state.current_work.as_mut()?;
+			let work_state = core_state.current_work.as_mut()?;
 
-		// Wrap around:
-		work_state.pos = work_state.pos % work_state.assignments.len() as u16;
-		let (a_type, a_state) = &mut work_state
-			.assignments
-			.get_mut(work_state.pos as usize)
-			.expect("We limited pos to the size of the vec one line above. qed");
+			// Wrap around:
+			work_state.pos = work_state.pos % work_state.assignments.len() as u16;
+			let (a_type, a_state) = &mut work_state
+				.assignments
+				.get_mut(work_state.pos as usize)
+				.expect("We limited pos to the size of the vec one line above. qed");
 
-		// advance for next pop:
-		a_state.remaining = a_state.remaining.saturating_sub(work_state.step);
-		if a_state.remaining < work_state.step {
-			// Assignment exhausted, need to move to the next and credit remaining for
-			// next round.
-			work_state.pos += 1;
-			// Reset to ratio + still remaining "credits":
-			a_state.remaining = a_state.remaining.saturating_add(a_state.ratio);
+			// advance for next pop:
+			a_state.remaining = a_state.remaining.saturating_sub(work_state.step);
+			if a_state.remaining < work_state.step {
+				// Assignment exhausted, need to move to the next and credit remaining for
+				// next round.
+				work_state.pos += 1;
+				// Reset to ratio + still remaining "credits":
+				a_state.remaining = a_state.remaining.saturating_add(a_state.ratio);
+			}
+			if let CoreAssignment::Pool = a_type {
+				num_pool += 1;
+			}
+			assignments.push(*a_type);
 		}
 
-		match a_type {
-			CoreAssignment::Idle => None,
-			CoreAssignment::Pool => on_demand::Pallet::<T>::pop_assignment_for_core(core_idx),
-			CoreAssignment::Task(para_id) => Some(Assignment::Bulk((*para_id).into())),
-		}
+		let pool_assignments = on_demand::Pallet::<T>::pop_assignment_for_cores(num_pool).fuse();
+
+		Self::coretime_cores().zip(assignments).map(|(core_idx, assignment)| {
+			let assignment = match assignment {
+				CoreAssignment::Idle => None,
+				CoreAssignment::Pool => pool_assignments.next().map(Assignment::Pool),
+				CoreAssignment::Task(para_id) => Some(Assignment::Bulk((para_id).into())),
+			};
+			(core_idx, assignment)
+		})
 	}
 
 	/// Ensure given workload for core is up to date.
