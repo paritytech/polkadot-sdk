@@ -1781,6 +1781,13 @@ pub mod migrations {
 			Runtime,
 			MaxAgentsToMigrate,
 		>,
+<<<<<<< HEAD
+=======
+		parachains_shared::migration::MigrateToV1<Runtime>,
+		parachains_scheduler::migration::MigrateV2ToV3<Runtime>,
+		// permanent
+		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+>>>>>>> efd66030 (Fix migrations for pallet-xcm (#6148))
 	);
 }
 
