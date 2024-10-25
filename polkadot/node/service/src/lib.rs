@@ -1044,7 +1044,7 @@ pub fn new_full<
 				is_validator: role.is_authority(),
 				enable_http_requests: false,
 				custom_extensions: move |_| vec![],
-			})
+			})?
 			.run(client.clone(), task_manager.spawn_handle())
 			.boxed(),
 		);
@@ -1436,7 +1436,7 @@ pub fn new_chain_ops(
 	} else if config.chain_spec.is_kusama() {
 		chain_ops!(config, None)
 	} else if config.chain_spec.is_westend() {
-		return chain_ops!(config, None)
+		return chain_ops!(config, None);
 	} else {
 		chain_ops!(config, None)
 	}
@@ -1488,7 +1488,7 @@ pub fn revert_backend(
 	let revertible = blocks.min(best_number - finalized);
 
 	if revertible == 0 {
-		return Ok(())
+		return Ok(());
 	}
 
 	let number = best_number - revertible;
