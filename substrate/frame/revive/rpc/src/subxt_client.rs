@@ -15,12 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! The generated subxt client.
-//! Generated with
-//! subxt metadata  --url ws://localhost:9944 -o rpc/kitchensink.scale
+//! Generated against a substrate chain configured with [`pallet_revive`] using:
+//! subxt metadata  --url ws://localhost:9944 -o rpc/revive_chain.scale
 use subxt::config::{signed_extensions, Config, PolkadotConfig};
 
 #[subxt::subxt(
-	runtime_metadata_path = "kitchensink.scale",
+	runtime_metadata_path = "revive_chain.scale",
 	substitute_type(
 		path = "pallet_revive::primitives::EthContractResult<A>",
 		with = "::subxt::utils::Static<::pallet_revive::EthContractResult<A>>"

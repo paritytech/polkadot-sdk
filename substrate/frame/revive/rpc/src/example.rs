@@ -29,7 +29,7 @@ pub async fn wait_for_receipt(
 	client: &(impl EthRpcClient + Send + Sync),
 	hash: H256,
 ) -> anyhow::Result<ReceiptInfo> {
-	for _ in 0..6 {
+	for _ in 0..30 {
 		tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 		let receipt = client.get_transaction_receipt(hash).await?;
 		if let Some(receipt) = receipt {

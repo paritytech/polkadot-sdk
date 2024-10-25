@@ -32,7 +32,9 @@ async fn main() -> anyhow::Result<()> {
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let input = bytes.into_iter().chain(data.clone()).collect::<Vec<u8>>();
 
-	println!("Account address: {:?}", account.address());
+	println!("Account:");
+	println!("- address: {:?}", account.address());
+	println!("- substrate: {}", account.substrate_account());
 	let client = HttpClientBuilder::default().build("http://localhost:9090")?;
 
 	println!("\n\n=== Deploying contract ===\n\n");
