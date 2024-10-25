@@ -303,6 +303,9 @@ pub trait StakingInterface {
 	/// Returns the fraction of the slash to be rewarded to reporter.
 	fn slash_reward_fraction() -> Perbill;
 
+	/// Immediately withdraw and burn the given amount of bonded fund from `stash`.
+	fn force_withdraw(stash: &Self::AccountId, amount: Self::Balance) -> DispatchResult;
+
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_exposure_page_size() -> Page;
 
