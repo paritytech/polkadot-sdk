@@ -38,6 +38,8 @@ crates:
     bump: minor
   - name: staging-xcm-executor
     bump: minor
+  - name: pallet-xcm-benchmarks
+    bump: minor
   - name: snowbridge-router-primitives
     bump: minor
   - name: asset-hub-rococo-runtime

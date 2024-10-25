@@ -314,6 +314,8 @@ benchmarks_instance_pallet! {
 			destination: T::valid_destination()?,
 			// ReserveDeposit is the most expensive filter.
 			remote_fees: Some(AssetTransferFilter::ReserveDeposit(asset.clone().into())),
+			// It's more expensive if we reanchor the origin.
+			preserve_origin: true,
 			assets: vec![AssetTransferFilter::ReserveDeposit(asset.into())],
 			remote_xcm: Xcm::new(),
 		};
