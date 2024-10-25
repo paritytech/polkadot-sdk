@@ -1280,6 +1280,7 @@ impl<Call> TryFrom<NewXcm<Call>> for Xcm<Call> {
 	}
 }
 
+// We use a big weight here but not `Weight::MAX` as a best effort.
 const DEFAULT_WEIGHT_FOR_TRANSACT_CONVERSION: Weight = Weight::from_parts(10_000_000_000, 1_000_000);
 
 // Convert from a v5 instruction to a v4 instruction.
