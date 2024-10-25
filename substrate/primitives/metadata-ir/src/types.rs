@@ -224,29 +224,6 @@ impl IntoPortable for PalletAssociatedTypeMetadataIR {
 	}
 }
 
-/// Metadata of a pallet's associated type.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
-pub struct PalletAssociatedTypeMetadataIR<T: Form = MetaForm> {
-	/// The name of the associated type.
-	pub name: T::String,
-	/// The type of the associated type.
-	pub ty: T::Type,
-	/// The documentation of the associated type.
-	pub docs: Vec<T::String>,
-}
-
-impl IntoPortable for PalletAssociatedTypeMetadataIR {
-	type Output = PalletAssociatedTypeMetadataIR<PortableForm>;
-
-	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		PalletAssociatedTypeMetadataIR {
-			name: self.name.into_portable(registry),
-			ty: registry.register_type(&self.ty),
-			docs: registry.map_into_portable(self.docs),
-		}
-	}
-}
-
 /// Metadata of an extrinsic's signed extension.
 #[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct TransactionExtensionMetadataIR<T: Form = MetaForm> {
