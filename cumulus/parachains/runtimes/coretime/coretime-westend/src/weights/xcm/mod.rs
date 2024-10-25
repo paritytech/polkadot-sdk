@@ -138,6 +138,7 @@ impl<Call> XcmWeightInfo<Call> for CoretimeWestendXcmWeight<Call> {
 	fn initiate_transfer(
 		_dest: &Location,
 		remote_fees: &Option<AssetTransferFilter>,
+		_preserve_origin: &bool,
 		assets: &Vec<AssetTransferFilter>,
 		_xcm: &Xcm<()>,
 	) -> Weight {
