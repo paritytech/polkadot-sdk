@@ -49,10 +49,6 @@ use polkadot_primitives::{
 };
 use sp_runtime::traits::One;
 
-pub mod common;
-
-use common::{Assignment, AssignmentProvider};
-
 pub use pallet::*;
 
 #[cfg(test)]
@@ -74,9 +70,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + configuration::Config + paras::Config {
-		type AssignmentProvider: AssignmentProvider<BlockNumberFor<Self>>;
-	}
+	pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
 
 	/// All the validator groups. One for each core. Indices are into `ActiveValidators` - not the
 	/// broader set of Polkadot validators, but instead just the subset used for parachains during

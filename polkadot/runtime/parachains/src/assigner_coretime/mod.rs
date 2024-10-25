@@ -27,25 +27,49 @@ mod mock_helpers;
 #[cfg(test)]
 mod tests;
 
-use crate::{
-	configuration, on_demand,
-	paras::AssignCoretime,
-	scheduler::common::{Assignment, AssignmentProvider},
-	ParaId,
-};
+use crate::{configuration, on_demand, paras::AssignCoretime, ParaId};
 
 use alloc::{vec, vec::Vec};
 use frame_support::{defensive, pallet_prelude::*};
 use frame_system::pallet_prelude::*;
 use pallet_broker::CoreAssignment;
 use polkadot_primitives::CoreIndex;
-use sp_runtime::traits::{One, Saturating};
+use scale_info::TypeInfo;
+use sp_runtime::{
+	codec::{Decode, Encode},
+	traits::{One, Saturating},
+	RuntimeDebug,
+};
 
 pub use pallet::*;
 
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
 #[derive(RuntimeDebug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
 pub struct PartsOf57600(u16);
+
+/// Assignment (ParaId -> CoreIndex).
+#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq)]
+pub enum Assignment {
+	/// A pool assignment.
+	Pool {
+		/// The assigned para id.
+		para_id: ParaId,
+		/// The core index the para got assigned to.
+		core_index: CoreIndex,
+	},
+	/// A bulk assignment.
+	Bulk(ParaId),
+}
+
+impl Assignment {
+	/// Returns the [`ParaId`] this assignment is associated to.
+	pub fn para_id(&self) -> ParaId {
+		match self {
+			Self::Pool { para_id, .. } => *para_id,
+			Self::Bulk(para_id) => *para_id,
+		}
+	}
+}
 
 impl PartsOf57600 {
 	pub const ZERO: Self = Self(0);
@@ -258,25 +282,33 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
-	fn peek(core_idx: CoreIndex, num_entries: u8) -> Vec<Assignment> {
+impl<T: Config> Pallet<T> {
+	/// Peek `num_entries` into the future.
+	///
+	/// First element in the returne vec will show you what you would get when you call
+	/// `pop_assignment_for_core` now. The second what you would get in the next block when you
+	/// called `pop_assignment_for_core` again (prediction).
+	///
+	/// The predictions are accurate in the sense that if an assignment `B` was predicted, it will
+	/// never happen that `pop_assignment_for_core` at that block will retrieve an assignment `A`.
+	/// What can happen though is that the prediction is empty (returned vec does not contain that
+	/// element), but `pop_assignment_for_core` at that block will then return something
+	/// regardless.
+	///
+	/// Invariant to maintain: `pop_assignment_for_core` must be called for each core each block
+	/// exactly once for the prediction offered by `peek` to stay accurate. If
+	/// `pop_assignment_for_core` was not yet called at this very block, then the first entry in
+	/// the vec returned by `peek` will be the assignment statements should be ready for
+	/// at this block.
+	pub fn peek(core_idx: CoreIndex, num_entries: u8) -> Vec<Assignment> {
 		let now = frame_system::Pallet::<T>::block_number();
 		Self::peek_impl(now, core_idx, num_entries)
 	}
 
-	fn peek_and_pop_first(core_idx: CoreIndex, num_entries: u8) -> Vec<Assignment> {
-		if num_entries == 0 {
-			return Vec::new()
-		}
-		let first = Self::pop_assignment_for_core(core_idx);
-
-		let now = frame_system::Pallet::<T>::block_number() + One::one();
-		let remaining = Self::peek_impl(now, core_idx, num_entries.saturating_sub(1));
-
-		first.into_iter().chain(remaining.into_iter()).collect()
-	}
-
-	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
+	/// Pops an [`Assignment`] from the provider for a specified [`CoreIndex`].
+	///
+	/// This is where assignments come into existence.
+	pub fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
 		let now = frame_system::Pallet::<T>::block_number();
 
 		CoreDescriptors::<T>::mutate(core_idx, |core_state| {
@@ -284,7 +316,13 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		})
 	}
 
-	fn report_processed(assignment: Assignment) {
+	/// A previously popped `Assignment` has been fully processed.
+	///
+	/// Report back to the assignment provider that an assignment is done and no longer present in
+	/// the scheduler.
+	///
+	/// This is one way of the life of an assignment coming to an end.
+	pub fn report_processed(assignment: Assignment) {
 		match assignment {
 			Assignment::Pool { para_id, core_index } =>
 				on_demand::Pallet::<T>::report_processed(para_id, core_index),
@@ -292,12 +330,15 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		}
 	}
 
-	/// Push an assignment back to the front of the queue.
+	/// Push back a previously popped assignment.
 	///
-	/// The assignment has not been processed yet. Typically used on session boundaries.
-	/// Parameters:
-	/// - `assignment`: The on demand assignment.
-	fn push_back_assignment(assignment: Assignment) {
+	/// If the assignment could not be processed, it can be pushed back
+	/// to the assignment provider in order to be popped again later.
+	///
+	/// Invariants: The order of assignments returned by `peek` is maintained: The pushed back
+	/// assignment will come after the elements returned by `peek` or not at all. The
+	/// implementation is free to drop the pushed back assignment.
+	pub fn push_back_assignment(assignment: Assignment) {
 		match assignment {
 			Assignment::Pool { para_id, core_index } =>
 				on_demand::Pallet::<T>::push_back_assignment(para_id, core_index),
@@ -328,7 +369,11 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
-	fn peek_impl(mut now: BlockNumberFor<T>, core_idx: CoreIndex, num_entries: u8) -> Vec<Assignment> {
+	fn peek_impl(
+		mut now: BlockNumberFor<T>,
+		core_idx: CoreIndex,
+		num_entries: u8,
+	) -> Vec<Assignment> {
 		let mut assignments = Vec::with_capacity(num_entries.into());
 		let mut core_state = CoreDescriptors::<T>::get(core_idx);
 
