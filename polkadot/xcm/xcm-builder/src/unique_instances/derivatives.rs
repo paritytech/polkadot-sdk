@@ -18,7 +18,7 @@ use super::NonFungibleAsset;
 pub trait DerivativesRegistry<Original, Derivative> {
 	fn try_register_derivative(original: &Original, derivative: &Derivative) -> DispatchResult;
 
-	fn try_deregister_derivative(derivative: &Derivative) -> DispatchResult;
+	fn try_deregister_derivative_of(original: &Original) -> DispatchResult;
 
 	fn get_derivative(original: &Original) -> Option<Derivative>;
 
@@ -32,6 +32,13 @@ pub trait IterDerivativesRegistry<Original, Derivative> {
 	fn iter_derivatives() -> impl Iterator<Item = Derivative>;
 
 	fn iter() -> impl Iterator<Item = (Original, Derivative)>;
+}
+
+/// Derivatives extra data.
+pub trait DerivativesExtra<Derivative, Extra> {
+	fn get_derivative_extra(derivative: &Derivative) -> Option<Extra>;
+
+	fn set_derivative_extra(derivative: &Derivative, extra: Option<Extra>) -> DispatchResult;
 }
 
 /// The `MatchDerivativeInstances` is an XCM Matcher
