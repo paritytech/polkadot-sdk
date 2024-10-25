@@ -1,0 +1,22 @@
+title: Bridges - revert-back and improve congestion
+doc:
+- audience: Runtime Dev
+  description: |-
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/5551
+
+    ## Description
+    TBD:
+
+    ## TODO
+    - [ ] backport to the stable-2024-09-3 till 11.Nov
+crates:
+- name: pallet-xcm-bridge-hub-router
+  bump: patch
+- name: pallet-xcm-bridge-hub
+  bump: patch
+- name: bp-xcm-bridge-hub-router
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
