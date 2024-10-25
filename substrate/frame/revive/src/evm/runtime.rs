@@ -356,12 +356,7 @@ pub trait EthExtra {
 				Default::default(),
 			)
 			.into();
-
-		log::debug!(target: LOG_TARGET, "Checking Ethereum transaction fees:
-			dispatch_info: {info:?}
-			encoded_len: {encoded_len:?}
-			fees: {actual_fee:?}
-		");
+		log::debug!(target: LOG_TARGET, "try_into_checked_extrinsic: encoded_len: {encoded_len:?} actual_fee: {actual_fee:?} eth_fee: {eth_fee:?}");
 
 		if eth_fee < actual_fee {
 			log::debug!(target: LOG_TARGET, "fees {eth_fee:?} too low for the extrinsic {actual_fee:?}");
@@ -490,11 +485,30 @@ mod test {
 			}
 		}
 
+		fn estimate_gas(&mut self) {
+			let dry_run = crate::Pallet::<Test>::bare_eth_transact(
+				Account::default().account_id(),
+				self.tx.to,
+				self.tx.value.try_into().unwrap(),
+				self.tx.input.clone().0,
+				Weight::MAX,
+				u64::MAX,
+				|call| {
+					let call = RuntimeCall::Contracts(call);
+					let uxt: Ex = sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
+					uxt.encoded_size() as u32
+				},
+				crate::DebugInfo::Skip,
+				crate::CollectEvents::Skip,
+			);
+			self.tx.gas = ((dry_run.fee + GAS_PRICE as u64) / (GAS_PRICE as u64)).into();
+		}
+
 		/// Create a new builder with a call to the given address.
 		fn call_with(dest: H160) -> Self {
 			let mut builder = Self::new();
 			builder.tx.to = Some(dest);
-			builder.tx.gas = U256::from(516_708u128);
+			builder.estimate_gas();
 			builder
 		}
 
@@ -502,7 +516,7 @@ mod test {
 		fn instantiate_with(code: Vec<u8>, data: Vec<u8>) -> Self {
 			let mut builder = Self::new();
 			builder.tx.input = Bytes(code.into_iter().chain(data.into_iter()).collect());
-			builder.tx.gas = U256::from(1_035_070u128);
+			builder.estimate_gas();
 			builder
 		}
 
