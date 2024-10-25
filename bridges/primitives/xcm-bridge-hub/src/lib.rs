@@ -21,6 +21,7 @@
 
 use bp_messages::LaneIdType;
 use bp_runtime::{AccountIdOf, BalanceOf, Chain};
+pub use bp_xcm_bridge_support::XcmChannelStatusProvider;
 pub use call_info::XcmBridgeHubCall;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -96,15 +97,9 @@ impl core::fmt::Debug for BridgeId {
 }
 
 /// Local XCM channel manager.
-pub trait LocalXcmChannelManager {
+pub trait LocalXcmChannelManager: bp_xcm_bridge_support::XcmChannelStatusProvider {
 	/// Error that may be returned when suspending/resuming the bridge.
 	type Error: sp_std::fmt::Debug;
-
-	/// Returns true if the channel with given location is currently congested.
-	///
-	/// The `with` is guaranteed to be in the same consensus. However, it may point to something
-	/// below the chain level - like the contract or pallet instance, for example.
-	fn is_congested(with: &Location) -> bool;
 
 	/// Suspend the bridge, opened by given origin.
 	///
@@ -121,10 +116,6 @@ pub trait LocalXcmChannelManager {
 
 impl LocalXcmChannelManager for () {
 	type Error = ();
-
-	fn is_congested(_with: &Location) -> bool {
-		false
-	}
 
 	fn suspend_bridge(_local_origin: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
 		Ok(())

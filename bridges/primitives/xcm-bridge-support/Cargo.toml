@@ -1,0 +1,21 @@
+[package]
+name = "bp-xcm-bridge-support"
+description = "Primitives for the xcm-like bridge."
+version = "0.6.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Polkadot Dependencies
+xcm = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"xcm/std",
+]
