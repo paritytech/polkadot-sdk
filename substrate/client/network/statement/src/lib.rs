@@ -54,7 +54,7 @@ use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
 	iter,
 	num::NonZeroUsize,
-	pin::Pin,
+	pin::{pin, Pin},
 	sync::Arc,
 };
 
@@ -162,11 +162,12 @@ impl StatementHandlerPrototype {
 		executor: impl Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
-		let (queue_sender, mut queue_receiver) = async_channel::bounded(100_000);
+		let (queue_sender, queue_receiver) = async_channel::bounded(100_000);
 
 		let store = statement_store.clone();
 		executor(
 			async move {
+				let mut queue_receiver = pin!(queue_receiver);
 				loop {
 					let task: Option<(Statement, oneshot::Sender<SubmitResult>)> =
 						queue_receiver.next().await;

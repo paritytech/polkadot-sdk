@@ -31,7 +31,7 @@ use sc_network::{
 };
 use sp_runtime::traits::Block as BlockT;
 
-use std::{sync::Arc, time::Duration};
+use std::{pin::Pin, sync::Arc, time::Duration};
 
 /// Incoming warp requests bounded queue size.
 const MAX_WARP_REQUEST_QUEUE: usize = 20;
@@ -76,7 +76,7 @@ fn generate_legacy_protocol_name(protocol_id: ProtocolId) -> String {
 /// Handler for incoming grandpa warp sync requests from a remote peer.
 pub struct RequestHandler<TBlock: BlockT> {
 	backend: Arc<dyn WarpSyncProvider<TBlock>>,
-	request_receiver: async_channel::Receiver<IncomingRequest>,
+	request_receiver: Pin<Box<async_channel::Receiver<IncomingRequest>>>,
 }
 
 impl<TBlock: BlockT> RequestHandler<TBlock> {
@@ -96,7 +96,7 @@ impl<TBlock: BlockT> RequestHandler<TBlock> {
 			tx,
 		);
 
-		(Self { backend, request_receiver }, request_response_config)
+		(Self { backend, request_receiver: Box::pin(request_receiver) }, request_response_config)
 	}
 
 	fn handle_request(

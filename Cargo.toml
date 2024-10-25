@@ -616,8 +616,8 @@ asset-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-test
 asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend" }
 asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", default-features = false }
 assets-common = { path = "cumulus/parachains/runtimes/assets/common", default-features = false }
-async-channel = { version = "1.8.0" }
-async-std = { version = "1.9.0" }
+async-channel = { version = "2.3.1" }
+async-std = { version = "1.13.0" }
 async-trait = { version = "0.1.79" }
 asynchronous-codec = { version = "0.6" }
 backoff = { version = "0.4" }
@@ -819,7 +819,7 @@ integer-sqrt = { version = "0.1.2" }
 ip_network = { version = "0.4.1" }
 is-terminal = { version = "0.4.9" }
 is_executable = { version = "1.0.1" }
-isahc = { version = "1.2" }
+isahc = { version = "1.7.2" }
 itertools = { version = "0.11" }
 jemalloc_pprof = { version = "0.4" }
 jobserver = { version = "0.1.26" }

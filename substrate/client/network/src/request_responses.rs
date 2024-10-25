@@ -1156,7 +1156,7 @@ mod tests {
 		swarm::{Config as SwarmConfig, Executor, Swarm, SwarmEvent},
 		Multiaddr,
 	};
-	use std::{iter, time::Duration};
+	use std::{iter, pin::pin, time::Duration};
 
 	struct TokioExecutor(tokio::runtime::Runtime);
 	impl Executor for TokioExecutor {
@@ -1202,11 +1202,13 @@ mod tests {
 		// Build swarms whose behaviour is [`RequestResponsesBehaviour`].
 		let mut swarms = (0..2)
 			.map(|_| {
-				let (tx, mut rx) = async_channel::bounded::<IncomingRequest>(64);
+				let (tx, rx) = async_channel::bounded::<IncomingRequest>(64);
 
 				pool.spawner()
 					.spawn_obj(
 						async move {
+							let mut rx = pin!(rx);
+
 							while let Some(rq) = rx.next().await {
 								let (fb_tx, fb_rx) = oneshot::channel();
 								assert_eq!(rq.payload, b"this is a request");
@@ -1305,11 +1307,13 @@ mod tests {
 		// Build swarms whose behaviour is [`RequestResponsesBehaviour`].
 		let mut swarms = (0..2)
 			.map(|_| {
-				let (tx, mut rx) = async_channel::bounded::<IncomingRequest>(64);
+				let (tx, rx) = async_channel::bounded::<IncomingRequest>(64);
 
 				pool.spawner()
 					.spawn_obj(
 						async move {
+							let mut rx = pin!(rx);
+
 							while let Some(rq) = rx.next().await {
 								assert_eq!(rq.payload, b"this is a request");
 								let _ = rq.pending_response.send(super::OutgoingResponse {
@@ -1439,7 +1443,7 @@ mod tests {
 			build_swarm(protocol_configs.into_iter()).0
 		};
 
-		let (mut swarm_2, mut swarm_2_handler_1, mut swarm_2_handler_2, listen_add_2) = {
+		let (mut swarm_2, swarm_2_handler_1, swarm_2_handler_2, listen_add_2) = {
 			let (tx_1, rx_1) = async_channel::bounded(64);
 			let (tx_2, rx_2) = async_channel::bounded(64);
 
@@ -1496,6 +1500,9 @@ mod tests {
 		pool.spawner()
 			.spawn_obj(
 				async move {
+					let mut swarm_2_handler_1 = pin!(swarm_2_handler_1);
+					let mut swarm_2_handler_2 = pin!(swarm_2_handler_2);
+
 					let protocol_1_request = swarm_2_handler_1.next().await;
 					let protocol_2_request = swarm_2_handler_2.next().await;
 
@@ -1609,8 +1616,8 @@ mod tests {
 		// This swarm only speaks protocol_name_1_fallback and protocol_name_2.
 		// It only responds to requests.
 		let mut older_swarm = {
-			let (tx_1, mut rx_1) = async_channel::bounded::<IncomingRequest>(64);
-			let (tx_2, mut rx_2) = async_channel::bounded::<IncomingRequest>(64);
+			let (tx_1, rx_1) = async_channel::bounded::<IncomingRequest>(64);
+			let (tx_2, rx_2) = async_channel::bounded::<IncomingRequest>(64);
 			let mut protocol_config_1_fallback = protocol_config_1_fallback.clone();
 			protocol_config_1_fallback.inbound_queue = Some(tx_1);
 
@@ -1620,6 +1627,9 @@ mod tests {
 			pool.spawner()
 				.spawn_obj(
 					async move {
+						let mut rx_1 = pin!(rx_1);
+						let mut rx_2 = pin!(rx_2);
+
 						for _ in 0..2 {
 							if let Some(rq) = rx_1.next().await {
 								let (fb_tx, fb_rx) = oneshot::channel();
