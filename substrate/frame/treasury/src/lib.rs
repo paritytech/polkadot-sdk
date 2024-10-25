@@ -563,7 +563,7 @@ pub mod pallet {
 		#[pallet::call_index(4)]
 		#[pallet::weight((T::WeightInfo::remove_approval(), DispatchClass::Operational))]
 		#[deprecated(
-			note = "This call will be removed by May 2025. Configure pallet to use `PayFromAccount` for `Paymaster` type and use `void_spend` instead."
+			note = "The `remove_approval` call will be removed by May 2025. It associated with the deprecated `spend_local` call."
 		)]
 		#[allow(deprecated)]
 		pub fn remove_approval(
