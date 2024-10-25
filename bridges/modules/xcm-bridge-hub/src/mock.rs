@@ -208,7 +208,8 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type BlobDispatcher = TestBlobDispatcher;
 }
 
-/// A router instance simulates a scenario where the router is deployed on a different chain than the `MessageExporter`. This means that the router sends an `ExportMessage`.
+/// A router instance simulates a scenario where the router is deployed on a different chain than
+/// the `MessageExporter`. This means that the router sends an `ExportMessage`.
 impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -219,10 +220,14 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type Bridges = NetworkExportTable<BridgeTable>;
 	type DestinationVersion = AlwaysLatest;
 
-	// We use `SovereignPaidRemoteExporter` here to test and ensure that the `ExportMessage` produced by `pallet_xcm_bridge_hub_router` is compatible with the `ExportXcm` implementation of `pallet_xcm_bridge_hub`.
+	// We use `SovereignPaidRemoteExporter` here to test and ensure that the `ExportMessage`
+	// produced by `pallet_xcm_bridge_hub_router` is compatible with the `ExportXcm` implementation
+	// of `pallet_xcm_bridge_hub`.
 	type ToBridgeHubSender = SovereignPaidRemoteExporter<
 		XcmOverBridgeRouter,
-		// **Note**: The crucial part is that `ExportMessage` is processed by `XcmExecutor`, which calls the `ExportXcm` implementation of `pallet_xcm_bridge_hub` as the `MessageExporter`.
+		// **Note**: The crucial part is that `ExportMessage` is processed by `XcmExecutor`, which
+		// calls the `ExportXcm` implementation of `pallet_xcm_bridge_hub` as the
+		// `MessageExporter`.
 		ExecuteXcmOverSendXcm,
 		Self::UniversalLocation,
 	>;
