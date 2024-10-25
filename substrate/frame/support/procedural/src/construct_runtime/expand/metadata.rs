@@ -101,16 +101,16 @@ pub fn expand_runtime_metadata(
 
 				let ty = #scrate::__private::scale_info::meta_type::<#extrinsic>();
 				let address_ty = #scrate::__private::scale_info::meta_type::<
-						<<#extrinsic as #scrate::sp_runtime::traits::Extrinsic>::SignaturePayload as #scrate::sp_runtime::traits::SignaturePayload>::SignatureAddress
+						<#extrinsic as #scrate::traits::SignedTransactionBuilder>::Address
 					>();
 				let call_ty = #scrate::__private::scale_info::meta_type::<
-					<#extrinsic as #scrate::sp_runtime::traits::Extrinsic>::Call
+						<#extrinsic as #scrate::traits::ExtrinsicCall>::Call
 					>();
 				let signature_ty = #scrate::__private::scale_info::meta_type::<
-						<<#extrinsic as #scrate::sp_runtime::traits::Extrinsic>::SignaturePayload as #scrate::sp_runtime::traits::SignaturePayload>::Signature
+						<#extrinsic as #scrate::traits::SignedTransactionBuilder>::Signature
 					>();
 				let extra_ty = #scrate::__private::scale_info::meta_type::<
-						<<#extrinsic as #scrate::sp_runtime::traits::Extrinsic>::SignaturePayload as #scrate::sp_runtime::traits::SignaturePayload>::SignatureExtra
+						<#extrinsic as #scrate::traits::SignedTransactionBuilder>::Extension
 					>();
 
 				#scrate::__private::metadata_ir::MetadataIR {
@@ -122,16 +122,20 @@ pub fn expand_runtime_metadata(
 						call_ty,
 						signature_ty,
 						extra_ty,
-						signed_extensions: <
+						extensions: <
 								<
 									#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata
-								>::SignedExtensions as #scrate::sp_runtime::traits::SignedExtension
+								>::TransactionExtensions
+								as
+								#scrate::sp_runtime::traits::TransactionExtension::<
+									<#runtime as #system_path::Config>::RuntimeCall
+								>
 							>::metadata()
 								.into_iter()
-								.map(|meta| #scrate::__private::metadata_ir::SignedExtensionMetadataIR {
+								.map(|meta| #scrate::__private::metadata_ir::TransactionExtensionMetadataIR {
 									identifier: meta.identifier,
 									ty: meta.ty,
-									additional_signed: meta.additional_signed,
+									implicit: meta.implicit,
 								})
 								.collect(),
 					},

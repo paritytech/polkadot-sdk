@@ -81,7 +81,7 @@ fn transact_recursion_limit_works() {
 			BuyExecution { fees: (Here, 1).into(), weight_limit: Unlimited },
 			Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: call.get_dispatch_info().weight,
+				require_weight_at_most: call.get_dispatch_info().call_weight,
 				call: call.encode().into(),
 			},
 		])

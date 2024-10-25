@@ -76,6 +76,8 @@ fn local_testnet_genesis() -> Value {
 		],
 		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		Sr25519Keyring::Alice.to_account_id(),
+		// TODO: this is super opaque, how should one know they should configure this? add to
+		// README!
 		1000.into(),
 	)
 }
