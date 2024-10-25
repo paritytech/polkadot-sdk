@@ -19,16 +19,17 @@
 
 - [Getting Started](#getting-started)
 
-- [Starting a Single Node Chain](#starting-a-single-node-chain)
+- [Starting a Minimal Template Node](#starting-a-minimal-template-node)
 
   - [Omni Node](#omni-node)
   - [Minimal Template Node](#minimal-template-node)
   - [Zombienet with Omni Node](#zombienet-with-omni-node)
   - [Zombienet with Minimal Template Node](#zombienet-with-minimal-template-node)
   - [Connect with the Polkadot-JS Apps Front-End](#connect-with-the-polkadot-js-apps-front-end)
-  - [Takeways](#takeways)
+  - [Takeways](#takeaways)
 
 - [Contributing](#contributing)
+
 - [Getting Help](#getting-help)
 
 ## Intro
@@ -70,7 +71,7 @@ cd minimal-template
 
 ## Starting a Minimal Template Chain
 
-### With Omni Node
+### Omni Node
 
 [Omni Node](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html) can
 be used to run the minimal template's runtime. `polkadot-omni-node` binary crate usage is described at a high-level
