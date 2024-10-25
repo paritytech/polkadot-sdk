@@ -148,7 +148,7 @@ impl ExtrinsicBuilder for DynamicRemarkBuilder<SubstrateConfig> {
 }
 
 /// Fetches the latest metadata from the given runtime blob.
-pub fn fetch_latest_metadata_from_blob<HF: HostFunctions>(
+pub fn fetch_latest_metadata_from_code_blob<HF: HostFunctions>(
 	executor: &WasmExecutor<HF>,
 	code_bytes: Cow<[u8]>,
 ) -> sc_cli::Result<subxt::Metadata> {
@@ -242,7 +242,7 @@ mod tests {
 		let code_bytes = cumulus_test_runtime::WASM_BINARY
 			.expect("To run this test, build the wasm binary of cumulus-test-runtime")
 			.to_vec();
-		let metadata = super::fetch_latest_metadata_from_blob(&executor, code_bytes.into()).unwrap();
+		let metadata = super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
 		assert!(metadata.pallet_by_name("ParachainInfo").is_some());
 	}
 

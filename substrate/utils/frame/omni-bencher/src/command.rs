@@ -148,7 +148,7 @@ impl V1SubCommand {
 					overhead_cmd.run_with_extrinsic_builder::<OpaqueBlock, HostFunctions>(None),
 				_ =>
 					return Err(
-						"Only the `v1 benchmark pallet` command is currently supported".into()
+						"Only the `v1 benchmark pallet` and `v1 benchmark overhead` command is currently supported".into()
 					),
 			},
 		}

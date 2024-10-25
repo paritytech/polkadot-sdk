@@ -144,6 +144,7 @@ pub enum GenesisBuilderPolicy {
 	/// state. However, to keep backwards compatibility, this is not the default.
 	None,
 	/// Let the runtime build the genesis state through its `BuildGenesisConfig` runtime API.
+	/// This will use the `development` preset by default.
 	Runtime,
 	/// Use the runtime from the Spec file to build the genesis state.
 	SpecRuntime,

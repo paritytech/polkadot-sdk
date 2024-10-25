@@ -394,7 +394,7 @@ pub fn run() -> Result<()> {
 				BenchmarkCmd::Overhead(cmd) => runner.sync_run(|config| {
 					if cmd.params.runtime.is_some() {
 						return Err(sc_cli::Error::Input(
-							"Polkadot binary does not support `--runtime` flag for `benchmark overhead`. Please provide a chain spec or use the omni-bencher."
+							"Polkadot binary does not support `--runtime` flag for `benchmark overhead`. Please provide a chain spec or use the `frame-omni-bencher`."
 								.into(),
 						)
 						.into())

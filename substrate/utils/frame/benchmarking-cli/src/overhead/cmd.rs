@@ -321,7 +321,7 @@ impl OverheadCmd {
 			.with_allow_missing_host_functions(true)
 			.build();
 
-		let metadata = fetch_latest_metadata_from_blob(&executor, state_handler.get_code_bytes()?)?;
+		let metadata = fetch_latest_metadata_from_code_blob(&executor, state_handler.get_code_bytes()?)?;
 
 		// At this point we know what kind of chain we are dealing with.
 		let chain_type = identify_chain(&metadata, para_id);
@@ -334,26 +334,27 @@ impl OverheadCmd {
 
 		let inherent_data = create_inherent_data(&client, &chain_type);
 
-		let ext_builder = {
+		let (ext_builder, runtime_name) = {
 			let genesis = client.usage_info().chain.best_hash;
 			let version = client.runtime_api().version(genesis).unwrap();
+			let runtime_name = version.spec_name;
 			let runtime_version = RuntimeVersion {
 				spec_version: version.spec_version,
 				transaction_version: version.transaction_version,
 			};
 
 			match ext_builder_provider {
-				Some(provider) => provider(metadata, genesis, runtime_version),
+				Some(provider) => (provider(metadata, genesis, runtime_version), runtime_name),
 				None => {
 					let genesis = subxt::utils::H256::from(genesis.to_fixed_bytes());
-					Box::new(SubstrateRemarkBuilder::new(metadata, genesis, runtime_version))
-						as Box<_>
+					(Box::new(SubstrateRemarkBuilder::new(metadata, genesis, runtime_version))
+						as Box<_>, runtime_name)
 				},
 			}
 		};
 
 		self.run(
-			self.params.runtime_name.clone(),
+			runtime_name.to_string(),
 			client,
 			inherent_data,
 			Default::default(),
@@ -602,7 +603,7 @@ mod tests {
 		let code_bytes = cumulus_test_runtime::WASM_BINARY
 			.expect("To run this test, build the wasm binary of cumulus-test-runtime")
 			.to_vec();
-		let metadata = super::fetch_latest_metadata_from_blob(&executor, code_bytes.into()).unwrap();
+		let metadata = super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
 		assert_eq!(identify_chain(&metadata, Some(100)), ChainType::Parachain(100));
 		assert_eq!(identify_chain(&metadata, None), ChainType::Parachain(DEFAULT_PARA_ID));
 	}
@@ -613,7 +614,7 @@ mod tests {
 		let code_bytes = substrate_test_runtime::WASM_BINARY
 			.expect("To run this test, build the wasm binary of cumulus-test-runtime")
 			.to_vec();
-		let metadata = super::fetch_latest_metadata_from_blob(&executor, code_bytes.into()).unwrap();
+		let metadata = super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
 		assert_eq!(identify_chain(&metadata, Some(100)), ChainType::Unknown);
 	}
 }

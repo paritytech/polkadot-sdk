@@ -82,7 +82,7 @@ pub fn get_chain_spec_with_extra_endowed(
 	.with_name("Local Testnet")
 	.with_id(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 	.with_chain_type(ChainType::Local)
-	.with_genesis_patch(development_preset)
+	.with_genesis_config_patch(development_preset)
 	.build()
 }
 
