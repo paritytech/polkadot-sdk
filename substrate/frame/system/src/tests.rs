@@ -892,3 +892,18 @@ fn test_default_account_nonce() {
 		assert_eq!(System::account_nonce(&1), 5u64.into());
 	});
 }
+
+#[test]
+fn extrinsic_weight_refunded_is_cleaned() {
+	new_test_ext().execute_with(|| {
+		crate::ExtrinsicWeightRefunded::<Test>::put(Weight::from_parts(1, 2));
+		assert_eq!(crate::ExtrinsicWeightRefunded::<Test>::get(), Weight::from_parts(1, 2));
+		System::note_applied_extrinsic(&Ok(().into()), Default::default());
+		assert_eq!(crate::ExtrinsicWeightRefunded::<Test>::get(), Weight::zero());
+
+		crate::ExtrinsicWeightRefunded::<Test>::put(Weight::from_parts(1, 2));
+		assert_eq!(crate::ExtrinsicWeightRefunded::<Test>::get(), Weight::from_parts(1, 2));
+		System::note_applied_extrinsic(&Err(DispatchError::BadOrigin.into()), Default::default());
+		assert_eq!(crate::ExtrinsicWeightRefunded::<Test>::get(), Weight::zero());
+	});
+}

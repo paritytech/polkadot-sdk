@@ -18,6 +18,7 @@
 //! Expose the auto generated weight files.
 
 pub mod block_weights;
+pub mod cumulus_pallet_weight_reclaim;
 pub mod extrinsic_weights;
 pub mod paritydb_weights;
 pub mod rocksdb_weights;

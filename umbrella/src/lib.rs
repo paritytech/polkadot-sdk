@@ -141,6 +141,10 @@ pub use cumulus_pallet_session_benchmarking;
 #[cfg(feature = "cumulus-pallet-solo-to-para")]
 pub use cumulus_pallet_solo_to_para;
 
+/// pallet and transaction extensions for accurate proof size reclaim.
+#[cfg(feature = "cumulus-pallet-weight-reclaim")]
+pub use cumulus_pallet_weight_reclaim;
+
 /// Pallet for stuff specific to parachains' usage of XCM.
 #[cfg(feature = "cumulus-pallet-xcm")]
 pub use cumulus_pallet_xcm;

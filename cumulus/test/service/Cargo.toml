@@ -87,7 +87,7 @@ cumulus-relay-chain-minimal-node = { workspace = true, default-features = true }
 cumulus-client-pov-recovery = { workspace = true, default-features = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 cumulus-pallet-parachain-system = { workspace = true }
-cumulus-primitives-storage-weight-reclaim = { workspace = true, default-features = true }
+cumulus-pallet-weight-reclaim = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 
 [dev-dependencies]
@@ -106,6 +106,7 @@ substrate-test-utils = { workspace = true }
 [features]
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
 	"cumulus-test-client/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
