@@ -20,7 +20,7 @@
 use subxt::config::{signed_extensions, Config, PolkadotConfig};
 
 #[subxt::subxt(
-	runtime_metadata_path = "revive_chain.scale",
+	runtime_metadata_path = "revive_chain.metadata",
 	substitute_type(
 		path = "pallet_revive::primitives::EthContractResult<A>",
 		with = "::subxt::utils::Static<::pallet_revive::EthContractResult<A>>"
