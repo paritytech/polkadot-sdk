@@ -462,7 +462,7 @@ where
 			(2, [GlobalConsensus(Ethereum { chain_id })]) =>
 				Some(Self::from_chain_id(chain_id).into()),
 			(2, [GlobalConsensus(Ethereum { chain_id }), AccountKey20 { network: _, key }]) =>
-				Some(Self::from_chain_id_with_key(chain_id, key.clone()).into()),
+				Some(Self::from_chain_id_with_key(chain_id, *key).into()),
 			_ => None,
 		}
 	}
