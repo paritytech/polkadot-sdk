@@ -16,4 +16,3 @@ coretime-collator: js-script ./0004-configure-broker.js with "" return is 0 with
 
 # Ensure that parachain 100 got onboarded
 alice: parachain 100 block height is at least 5 within 900 seconds
-q
