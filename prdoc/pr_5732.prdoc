@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Expose the unstable metadata v16
+
+doc:
+  - audience: 
+      - Runtime Dev
+      - Runtime User
+    description: |
+      This PR exposes the *unstable* metadata V16. The metadata is exposed under the unstable u32::MAX number.
+      Developers can start experimenting with the new features of the metadata v16. Please note that
+      this metadata is under development and expect breaking changes until stabilization.
+
+crates:
+  - name: sp-metadata-ir
+    bump: patch
