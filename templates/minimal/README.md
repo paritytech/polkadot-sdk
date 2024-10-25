@@ -19,7 +19,7 @@
 
 - [Getting Started](#getting-started)
 
-- [Starting a Minimal Template Node](#starting-a-minimal-template-node)
+- [Starting a Minimal Template Chain](#starting-a-minimal-template-chain)
 
   - [Omni Node](#omni-node)
   - [Minimal Template Node](#minimal-template-node)
