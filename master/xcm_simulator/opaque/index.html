@@ -1,0 +1,164 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `opaque` mod in crate `xcm_simulator`."><title>xcm_simulator::opaque - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="xcm_simulator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../xcm_simulator/index.html">xcm_simulator</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">Module opaque</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In crate xcm_simulator</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">xcm_simulator</a>::<wbr><a class="mod" href="#">opaque</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Ancestor.html" title="struct xcm_simulator::opaque::Ancestor">Ancestor</a></div><div class="desc docblock-short">A unit struct which can be converted into a <code>Location</code> of the inner <code>parents</code> value.</div></li><li><div class="item-name"><a class="struct" href="struct.AncestorThen.html" title="struct xcm_simulator::opaque::AncestorThen">AncestorThen</a></div><div class="desc docblock-short">A unit struct which can be converted into a <code>Location</code> of the inner <code>parents</code> value and the
+inner interior.</div></li><li><div class="item-name"><a class="struct" href="struct.Asset.html" title="struct xcm_simulator::opaque::Asset">Asset</a></div><div class="desc docblock-short">Either an amount of a single fungible asset, or a single well-identified non-fungible asset.</div></li><li><div class="item-name"><a class="struct" href="struct.AssetId.html" title="struct xcm_simulator::opaque::AssetId">AssetId</a></div><div class="desc docblock-short">Location to identify an asset.</div></li><li><div class="item-name"><a class="struct" href="struct.Assets.html" title="struct xcm_simulator::opaque::Assets">Assets</a></div><div class="desc docblock-short">A <code>Vec</code> of <code>Asset</code>s.</div></li><li><div class="item-name"><a class="struct" href="struct.Location.html" title="struct xcm_simulator::opaque::Location">Location</a></div><div class="desc docblock-short">A relative path between state-bearing consensus systems.</div></li><li><div class="item-name"><a class="struct" href="struct.PalletInfo.html" title="struct xcm_simulator::opaque::PalletInfo">PalletInfo</a></div></li><li><div class="item-name"><a class="struct" href="struct.Parent.html" title="struct xcm_simulator::opaque::Parent">Parent</a></div><div class="desc docblock-short">A unit struct which can be converted into a <code>Location</code> of <code>parents</code> value 1.</div></li><li><div class="item-name"><a class="struct" href="struct.ParentThen.html" title="struct xcm_simulator::opaque::ParentThen">ParentThen</a></div><div class="desc docblock-short">A tuple struct which can be converted into a <code>Location</code> of <code>parents</code> value 1 with the inner
+interior.</div></li><li><div class="item-name"><a class="struct" href="struct.QueryResponseInfo.html" title="struct xcm_simulator::opaque::QueryResponseInfo">QueryResponseInfo</a></div><div class="desc docblock-short">Information regarding the composition of a query response.</div></li><li><div class="item-name"><a class="struct" href="struct.Weight.html" title="struct xcm_simulator::opaque::Weight">Weight</a></div></li><li><div class="item-name"><a class="struct" href="struct.XcmContext.html" title="struct xcm_simulator::opaque::XcmContext">XcmContext</a></div><div class="desc docblock-short">Contextual data pertaining to a specific list of XCM instructions.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.AssetFilter.html" title="enum xcm_simulator::opaque::AssetFilter">AssetFilter</a></div><div class="desc docblock-short"><code>Asset</code> collection, defined either by a number of <code>Assets</code> or a single wildcard.</div></li><li><div class="item-name"><a class="enum" href="enum.AssetInstance.html" title="enum xcm_simulator::opaque::AssetInstance">AssetInstance</a></div><div class="desc docblock-short">A general identifier for an instance of a non-fungible asset class.</div></li><li><div class="item-name"><a class="enum" href="enum.BodyId.html" title="enum xcm_simulator::opaque::BodyId">BodyId</a></div><div class="desc docblock-short">An identifier of a pluralistic body.</div></li><li><div class="item-name"><a class="enum" href="enum.BodyPart.html" title="enum xcm_simulator::opaque::BodyPart">BodyPart</a></div><div class="desc docblock-short">A part of a pluralistic body.</div></li><li><div class="item-name"><a class="enum" href="enum.Fungibility.html" title="enum xcm_simulator::opaque::Fungibility">Fungibility</a></div><div class="desc docblock-short">Classification of whether an asset is fungible or not, along with a mandatory amount or
+instance.</div></li><li><div class="item-name"><a class="enum" href="enum.Junction.html" title="enum xcm_simulator::opaque::Junction">Junction</a></div><div class="desc docblock-short">A single item in a path to describe the relative location of a consensus system.</div></li><li><div class="item-name"><a class="enum" href="enum.Junctions.html" title="enum xcm_simulator::opaque::Junctions">Junctions</a></div><div class="desc docblock-short">Non-parent junctions that can be constructed, up to the length of 8. This specific <code>Junctions</code>
+implementation uses a Rust <code>enum</code> in order to make pattern matching easier.</div></li><li><div class="item-name"><a class="enum" href="enum.MaybeErrorCode.html" title="enum xcm_simulator::opaque::MaybeErrorCode">MaybeErrorCode</a></div></li><li><div class="item-name"><a class="enum" href="enum.NetworkId.html" title="enum xcm_simulator::opaque::NetworkId">NetworkId</a></div><div class="desc docblock-short">A global identifier of a data structure existing within consensus.</div></li><li><div class="item-name"><a class="enum" href="enum.OriginKind.html" title="enum xcm_simulator::opaque::OriginKind">OriginKind</a></div><div class="desc docblock-short">Basically just the XCM (more general) version of <code>ParachainDispatchOrigin</code>.</div></li><li><div class="item-name"><a class="enum" href="enum.Outcome.html" title="enum xcm_simulator::opaque::Outcome">Outcome</a></div><div class="desc docblock-short">Outcome of an XCM execution.</div></li><li><div class="item-name"><a class="enum" href="enum.Response.html" title="enum xcm_simulator::opaque::Response">Response</a></div><div class="desc docblock-short">Response data to a query.</div></li><li><div class="item-name"><a class="enum" href="enum.SendError.html" title="enum xcm_simulator::opaque::SendError">SendError</a></div><div class="desc docblock-short">Error result value when attempting to send an XCM message.</div></li><li><div class="item-name"><a class="enum" href="enum.WeightLimit.html" title="enum xcm_simulator::opaque::WeightLimit">WeightLimit</a></div><div class="desc docblock-short">An optional weight limit.</div></li><li><div class="item-name"><a class="enum" href="enum.WildAsset.html" title="enum xcm_simulator::opaque::WildAsset">WildAsset</a></div><div class="desc docblock-short">A wildcard representing a set of assets.</div></li><li><div class="item-name"><a class="enum" href="enum.WildFungibility.html" title="enum xcm_simulator::opaque::WildFungibility">WildFungibility</a></div><div class="desc docblock-short">Classification of whether an asset is fungible or not.</div></li><li><div class="item-name"><a class="enum" href="enum.XcmError.html" title="enum xcm_simulator::opaque::XcmError">XcmError</a></div><div class="desc docblock-short">Error codes used in XCM. The first errors codes have explicit indices and are part of the XCM
+format. Those trailing are merely part of the XCM implementation; there is no expectation that
+they will retain the same index over time.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.XCM_VERSION.html" title="constant xcm_simulator::opaque::XCM_VERSION">XCM_VERSION</a></div><div class="desc docblock-short">This module’s XCM version.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.ExecuteXcm.html" title="trait xcm_simulator::opaque::ExecuteXcm">ExecuteXcm</a></div><div class="desc docblock-short">Type of XCM message executor.</div></li><li><div class="item-name"><a class="trait" href="trait.PreparedMessage.html" title="trait xcm_simulator::opaque::PreparedMessage">PreparedMessage</a></div></li><li><div class="item-name"><a class="trait" href="trait.Reanchorable.html" title="trait xcm_simulator::opaque::Reanchorable">Reanchorable</a></div></li><li><div class="item-name"><a class="trait" href="trait.SendXcm.html" title="trait xcm_simulator::opaque::SendXcm">SendXcm</a></div><div class="desc docblock-short">Utility for sending an XCM message to a given location.</div></li><li><div class="item-name"><a class="trait" href="trait.XcmWeightInfo.html" title="trait xcm_simulator::opaque::XcmWeightInfo">XcmWeightInfo</a></div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.send_xcm.html" title="fn xcm_simulator::opaque::send_xcm">send_xcm</a></div><div class="desc docblock-short">Convenience function for using a <code>SendXcm</code> implementation. Just interprets the <code>dest</code> and wraps
+both in <code>Some</code> before passing them as as mutable references into <code>T::send_xcm</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.validate_send.html" title="fn xcm_simulator::opaque::validate_send">validate_send</a></div><div class="desc docblock-short">Convenience function for using a <code>SendXcm</code> implementation. Just interprets the <code>dest</code> and wraps
+both in <code>Some</code> before passing them as as mutable references into <code>T::send_xcm</code>.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Instruction.html" title="type xcm_simulator::opaque::Instruction">Instruction</a></div><div class="desc docblock-short">The basic concrete type of <code>Instruction</code>, which doesn’t make any assumptions about the
+format of a call other than it is pre-encoded.</div></li><li><div class="item-name"><a class="type" href="type.InteriorLocation.html" title="type xcm_simulator::opaque::InteriorLocation">InteriorLocation</a></div><div class="desc docblock-short">A relative location which is constrained to be an interior location of the context.</div></li><li><div class="item-name"><a class="type" href="type.QueryId.html" title="type xcm_simulator::opaque::QueryId">QueryId</a></div><div class="desc docblock-short">An identifier for a query.</div></li><li><div class="item-name"><a class="type" href="type.SendResult.html" title="type xcm_simulator::opaque::SendResult">SendResult</a></div><div class="desc docblock-short">Result value when attempting to send an XCM message.</div></li><li><div class="item-name"><a class="type" href="type.Xcm.html" title="type xcm_simulator::opaque::Xcm">Xcm</a></div><div class="desc docblock-short">The basic concrete type of <code>Xcm</code>, which doesn’t make any assumptions about the
+format of a call other than it is pre-encoded.</div></li><li><div class="item-name"><a class="type" href="type.XcmHash.html" title="type xcm_simulator::opaque::XcmHash">XcmHash</a></div><div class="desc docblock-short">A hash type for identifying messages.</div></li><li><div class="item-name"><a class="type" href="type.XcmResult.html" title="type xcm_simulator::opaque::XcmResult">XcmResult</a></div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

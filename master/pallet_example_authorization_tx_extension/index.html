@@ -1,0 +1,374 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Authorization Transaction Extension Example Pallet"><title>pallet_example_authorization_tx_extension - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_example_authorization_tx_extension" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_example_authorization_tx_extension/index.html">pallet_example_authorization_tx_extension</a><span class="version">1.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_example_authorization_tx_extension</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_example_authorization_tx_extension/lib.rs.html#18-158">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="authorization-transaction-extension-example-pallet"><a class="doc-anchor" href="#authorization-transaction-extension-example-pallet">§</a>Authorization Transaction Extension Example Pallet</h2>
+<p><strong>This pallet serves as an example and is not meant to be used in production.</strong></p>
+<p>FRAME Transaction Extension reference implementation, origin mutation, origin authorization and
+integration in a <code>TransactionExtension</code> pipeline.</p>
+<p>The <a href="sp_runtime::traits::TransactionExtension">TransactionExtension</a> used in this example is
+<a href="extensions/struct.AuthorizeCoownership.html" title="struct pallet_example_authorization_tx_extension::extensions::AuthorizeCoownership">AuthorizeCoownership</a>. If activated, the extension will
+authorize 2 signers as coowners, with a <a href="pallet_coownership/enum.Origin.html" title="enum pallet_example_authorization_tx_extension::pallet_coownership::Origin">coowner origin</a> specific to
+the <a href="pallet_coownership/index.html" title="mod pallet_example_authorization_tx_extension::pallet_coownership">coownership example pallet</a>, by validating a signature of the rest of
+the transaction from each party. This means any extensions after ours in the pipeline, their
+implicits and the actual call. The extension pipeline used in our example checks the genesis
+hash, transaction version and mortality of the transaction after the <code>AuthorizeCoownership</code> runs
+as we want these transactions to run regardless of what origin passes through them and/or we
+want their implicit data in any signature authorization happening earlier in the pipeline.</p>
+<p>In this example, aside from the <a href="extensions/struct.AuthorizeCoownership.html" title="struct pallet_example_authorization_tx_extension::extensions::AuthorizeCoownership">AuthorizeCoownership</a>
+extension, we use the following pallets:</p>
+<ul>
+<li><a href="pallet_coownership/index.html" title="mod pallet_example_authorization_tx_extension::pallet_coownership">pallet_coownership</a> - provides a coowner origin and the functionality to authorize it.</li>
+<li><a href="pallet_assets/index.html" title="mod pallet_example_authorization_tx_extension::pallet_assets">pallet_assets</a> - a dummy asset pallet that tracks assets, identified by an
+<a href="pallet_assets/type.AssetId.html" title="type pallet_example_authorization_tx_extension::pallet_assets::AssetId">AssetId</a>, and their respective owners, which can be either an
+<a href="pallet_assets/enum.Owner.html#variant.Single" title="variant pallet_example_authorization_tx_extension::pallet_assets::Owner::Single">account</a> or a <a href="pallet_assets/enum.Owner.html#variant.Double" title="variant pallet_example_authorization_tx_extension::pallet_assets::Owner::Double">pair of owners</a>.</li>
+</ul>
+<p>Assets are created in <a href="pallet_assets/index.html" title="mod pallet_example_authorization_tx_extension::pallet_assets">pallet_assets</a> using the
+<a href="pallet_assets/enum.Call.html#variant.create_asset" title="variant pallet_example_authorization_tx_extension::pallet_assets::Call::create_asset">create_asset</a> call, which accepts traditionally signed
+origins (a single account) or coowner origins, authorized through the
+<a href="pallet_assets/trait.Config.html#associatedtype.CoownerOrigin" title="associated type pallet_example_authorization_tx_extension::pallet_assets::Config::CoownerOrigin">CoownerOrigin</a> type.</p>
+<h4 id="example-runtime-setup"><a class="doc-anchor" href="#example-runtime-setup">§</a>Example runtime setup</h4>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>example_runtime {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="doccomment">/// Our `TransactionExtension` fit for general transactions.
+	</span><span class="kw">pub type </span>TxExtension = (
+		<span class="comment">// Validate the signature of regular account transactions (substitutes the old signed
+		// transaction).
+		</span>VerifySignature&lt;Runtime&gt;,
+		<span class="comment">// Nonce check (and increment) for the caller.
+		</span>CheckNonce&lt;Runtime&gt;,
+		<span class="comment">// If activated, will mutate the origin to a `pallet_coownership` origin of 2 accounts that
+		// own something.
+		</span>AuthorizeCoownership&lt;Runtime, MultiSigner, MultiSignature&gt;,
+		<span class="comment">// Some other extensions that we want to run for every possible origin and we want captured
+		// in any and all signature and authorization schemes (such as the traditional account
+		// signature or the double signature in `pallet_coownership`).
+		</span>CheckGenesis&lt;Runtime&gt;,
+		CheckTxVersion&lt;Runtime&gt;,
+		CheckEra&lt;Runtime&gt;,
+	);
+	<span class="doccomment">/// Convenience type to more easily construct the signature to be signed in case
+	/// `AuthorizeCoownership` is activated.
+	</span><span class="kw">pub type </span>InnerTxExtension = (CheckGenesis&lt;Runtime&gt;, CheckTxVersion&lt;Runtime&gt;, CheckEra&lt;Runtime&gt;);
+	<span class="kw">pub type </span>UncheckedExtrinsic =
+		generic::UncheckedExtrinsic&lt;AccountId, RuntimeCall, Signature, TxExtension&gt;;
+	<span class="kw">pub type </span>Header = generic::Header&lt;BlockNumber, BlakeTwo256&gt;;
+	<span class="kw">pub type </span>Block = generic::Block&lt;Header, UncheckedExtrinsic&gt;;
+	<span class="kw">pub type </span>AccountId = &lt;&lt;Signature <span class="kw">as </span>Verify&gt;::Signer <span class="kw">as </span>IdentifyAccount&gt;::AccountId;
+	<span class="kw">pub type </span>Signature = MultiSignature;
+	<span class="kw">pub type </span>BlockNumber = u32;
+
+	<span class="comment">// For testing the pallet, we construct a mock runtime.
+	</span><span class="macro">frame_support::construct_runtime!</span>(
+		<span class="kw">pub enum </span>Runtime
+		{
+			System: frame_system,
+			VerifySignaturePallet: pallet_verify_signature,
+
+			Assets: pallet_assets,
+			Coownership: pallet_coownership,
+		}
+	);
+
+	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>AccountId = AccountId;
+		<span class="kw">type </span>Block = Block;
+		<span class="kw">type </span>Lookup = IdentityLookup&lt;<span class="self">Self</span>::AccountId&gt;;
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+	</span><span class="kw">pub struct </span>BenchmarkHelper;
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+	</span><span class="kw">impl </span>pallet_verify_signature::BenchmarkHelper&lt;MultiSignature, AccountId&gt; <span class="kw">for </span>BenchmarkHelper {
+		<span class="kw">fn </span>create_signature(_entropy: <span class="kw-2">&amp;</span>[u8], msg: <span class="kw-2">&amp;</span>[u8]) -&gt; (MultiSignature, AccountId) {
+			<span class="kw">use </span>sp_io::crypto::{sr25519_generate, sr25519_sign};
+			<span class="kw">use </span>sp_runtime::traits::IdentifyAccount;
+			<span class="kw">let </span>public = sr25519_generate(<span class="number">0</span>.into(), <span class="prelude-val">None</span>);
+			<span class="kw">let </span>who_account: AccountId = MultiSigner::Sr25519(public).into_account().into();
+			<span class="kw">let </span>signature = MultiSignature::Sr25519(sr25519_sign(<span class="number">0</span>.into(), <span class="kw-2">&amp;</span>public, msg).unwrap());
+			(signature, who_account)
+		}
+	}
+
+	<span class="kw">impl </span>pallet_verify_signature::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>Signature = MultiSignature;
+		<span class="kw">type </span>AccountIdentifier = MultiSigner;
+		<span class="kw">type </span>WeightInfo = ();
+		<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+		</span><span class="kw">type </span>BenchmarkHelper = BenchmarkHelper;
+	}
+
+	<span class="doccomment">/// Type that enables any pallet to ask for a coowner origin.
+	</span><span class="kw">pub struct </span>EnsureCoowner;
+	<span class="kw">impl </span>EnsureOrigin&lt;RuntimeOrigin&gt; <span class="kw">for </span>EnsureCoowner {
+		<span class="kw">type </span>Success = (AccountId, AccountId);
+
+		<span class="kw">fn </span>try_origin(o: RuntimeOrigin) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Success, RuntimeOrigin&gt; {
+			<span class="kw">match </span>o.clone().into() {
+				<span class="prelude-val">Ok</span>(pallet_coownership::Origin::&lt;Runtime&gt;::Coowners(first, second)) =&gt;
+					<span class="prelude-val">Ok</span>((first, second)),
+				<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(o),
+			}
+		}
+
+		<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+		</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, ()&gt; {
+			<span class="macro">unimplemented!</span>()
+		}
+	}
+
+	<span class="kw">impl </span>pallet_assets::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>CoownerOrigin = EnsureCoowner;
+	}
+
+	<span class="kw">impl </span>pallet_coownership::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
+		<span class="kw">type </span>PalletsOrigin = OriginCaller;
+	}
+}</code></pre></div>
+<h4 id="example-usage"><a class="doc-anchor" href="#example-usage">§</a>Example usage</h4>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>create_coowned_asset_works() {
+	new_test_ext().execute_with(|| {
+		<span class="kw">let </span>alice_keyring = AccountKeyring::Alice;
+		<span class="kw">let </span>bob_keyring = AccountKeyring::Bob;
+		<span class="kw">let </span>charlie_keyring = AccountKeyring::Charlie;
+		<span class="kw">let </span>alice_account = AccountId::from(alice_keyring.public());
+		<span class="kw">let </span>bob_account = AccountId::from(bob_keyring.public());
+		<span class="kw">let </span>charlie_account = AccountId::from(charlie_keyring.public());
+		<span class="comment">// Simple call to create asset with Id `42`.
+		</span><span class="kw">let </span>create_asset_call =
+			RuntimeCall::Assets(pallet_assets::Call::create_asset { asset_id: <span class="number">42 </span>});
+		<span class="comment">// Create the inner transaction extension, to be signed by our coowners, Alice and Bob.
+		</span><span class="kw">let </span>inner_ext: InnerTxExtension = (
+			frame_system::CheckGenesis::&lt;Runtime&gt;::new(),
+			frame_system::CheckTxVersion::&lt;Runtime&gt;::new(),
+			frame_system::CheckEra::&lt;Runtime&gt;::from(sp_runtime::generic::Era::immortal()),
+		);
+		<span class="comment">// Create the payload Alice and Bob need to sign.
+		</span><span class="kw">let </span>inner_payload = (<span class="kw-2">&amp;</span>create_asset_call, <span class="kw-2">&amp;</span>inner_ext, inner_ext.implicit().unwrap());
+		<span class="comment">// Create Alice's signature.
+		</span><span class="kw">let </span>alice_inner_sig = MultiSignature::Sr25519(
+			inner_payload.using_encoded(|e| alice_keyring.sign(<span class="kw-2">&amp;</span>sp_io::hashing::blake2_256(e))),
+		);
+		<span class="comment">// Create Bob's signature.
+		</span><span class="kw">let </span>bob_inner_sig = MultiSignature::Sr25519(
+			inner_payload.using_encoded(|e| bob_keyring.sign(<span class="kw-2">&amp;</span>sp_io::hashing::blake2_256(e))),
+		);
+		<span class="comment">// Create the transaction extension, to be signed by the submitter of the extrinsic, let's
+		// have it be Charlie.
+		</span><span class="kw">let </span>initial_nonce = <span class="number">23</span>;
+		<span class="kw">let </span>tx_ext = (
+			frame_system::CheckNonce::&lt;Runtime&gt;::from(initial_nonce),
+			AuthorizeCoownership::&lt;Runtime, MultiSigner, MultiSignature&gt;::new(
+				(alice_keyring.into(), alice_inner_sig.clone()),
+				(bob_keyring.into(), bob_inner_sig.clone()),
+			),
+			frame_system::CheckGenesis::&lt;Runtime&gt;::new(),
+			frame_system::CheckTxVersion::&lt;Runtime&gt;::new(),
+			frame_system::CheckEra::&lt;Runtime&gt;::from(sp_runtime::generic::Era::immortal()),
+		);
+		<span class="comment">// Create Charlie's transaction signature, to be used in the top level
+		// `VerifyMultiSignature` extension.
+		</span><span class="kw">let </span>tx_sign = MultiSignature::Sr25519(
+			(<span class="kw-2">&amp;</span>create_asset_call, <span class="kw-2">&amp;</span>tx_ext, tx_ext.implicit().unwrap())
+				.using_encoded(|e| charlie_keyring.sign(<span class="kw-2">&amp;</span>sp_io::hashing::blake2_256(e))),
+		);
+		<span class="comment">// Add the signature to the extension.
+		</span><span class="kw">let </span>tx_ext = (
+			VerifySignature::new_with_signature(tx_sign, charlie_account.clone()),
+			frame_system::CheckNonce::&lt;Runtime&gt;::from(initial_nonce),
+			AuthorizeCoownership::&lt;Runtime, MultiSigner, MultiSignature&gt;::new(
+				(alice_keyring.into(), alice_inner_sig),
+				(bob_keyring.into(), bob_inner_sig),
+			),
+			frame_system::CheckGenesis::&lt;Runtime&gt;::new(),
+			frame_system::CheckTxVersion::&lt;Runtime&gt;::new(),
+			frame_system::CheckEra::&lt;Runtime&gt;::from(sp_runtime::generic::Era::immortal()),
+		);
+		<span class="comment">// Create the transaction and we're ready for dispatch.
+		</span><span class="kw">let </span>uxt = UncheckedExtrinsic::new_transaction(create_asset_call, tx_ext);
+		<span class="comment">// Check Extrinsic validity and apply it.
+		</span><span class="kw">let </span>uxt_info = uxt.get_dispatch_info();
+		<span class="kw">let </span>uxt_len = uxt.using_encoded(|e| e.len());
+		<span class="comment">// Manually pay for Charlie's nonce.
+		</span>frame_system::Account::&lt;Runtime&gt;::mutate(<span class="kw-2">&amp;</span>charlie_account, |info| {
+			info.nonce = initial_nonce;
+			info.providers = <span class="number">1</span>;
+		});
+		<span class="comment">// Check should pass.
+		</span><span class="kw">let </span>xt = &lt;UncheckedExtrinsic <span class="kw">as </span>Checkable&lt;IdentityLookup&lt;AccountId&gt;&gt;&gt;::check(
+			uxt,
+			<span class="kw-2">&amp;</span>Default::default(),
+		)
+		.unwrap();
+		<span class="comment">// Apply the extrinsic.
+		</span><span class="kw">let </span>res = xt.apply::&lt;Runtime&gt;(<span class="kw-2">&amp;</span>uxt_info, uxt_len).unwrap();
+
+		<span class="comment">// Asserting the results.
+		</span><span class="macro">assert!</span>(res.is_ok());
+		<span class="macro">assert_eq!</span>(frame_system::Account::&lt;Runtime&gt;::get(charlie_account).nonce, initial_nonce + <span class="number">1</span>);
+		<span class="macro">assert_eq!</span>(
+			pallet_assets::AssetOwners::&lt;Runtime&gt;::get(<span class="number">42</span>),
+			<span class="prelude-val">Some</span>(pallet_assets::Owner::&lt;AccountId&gt;::Double(alice_account, bob_account))
+		);
+	});
+}</code></pre></div>
+<p>This example does not focus on any pallet logic or syntax, but rather on <code>TransactionExtension</code>
+functionality. The pallets used are just skeletons to provide storage state and custom origin
+choices and requirements, as shown in the examples. Any weight and/or
+transaction fee is out of scope for this example.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="extensions/index.html" title="mod pallet_example_authorization_tx_extension::extensions">extensions</a></div></li><li><div class="item-name"><a class="mod" href="pallet_assets/index.html" title="mod pallet_example_authorization_tx_extension::pallet_assets">pallet_assets</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="pallet_coownership/index.html" title="mod pallet_example_authorization_tx_extension::pallet_coownership">pallet_coownership</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `ConfigRecordOf` type in crate `pallet_broker`."><title>ConfigRecordOf in pallet_broker - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_broker" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_broker/index.html">pallet_broker</a><span class="version">0.6.0</span></h2></div><h2 class="location"><a href="#">ConfigRecordOf</a></h2><div class="sidebar-elems"><section><h3><a href="#aliased-type">Aliased type</a></h3><h3><a href="#fields">Fields</a></h3><ul class="block field"><li><a href="#structfield.advance_notice">advance_notice</a></li><li><a href="#structfield.contribution_timeout">contribution_timeout</a></li><li><a href="#structfield.ideal_bulk_proportion">ideal_bulk_proportion</a></li><li><a href="#structfield.interlude_length">interlude_length</a></li><li><a href="#structfield.leadin_length">leadin_length</a></li><li><a href="#structfield.limit_cores_offered">limit_cores_offered</a></li><li><a href="#structfield.region_length">region_length</a></li><li><a href="#structfield.renewal_bump">renewal_bump</a></li></ul></section><h2><a href="index.html">In crate pallet_broker</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Type Alias <a href="index.html">pallet_broker</a>::<wbr><a class="type" href="#">ConfigRecordOf</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_broker/types.rs.html#299">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub type ConfigRecordOf&lt;T&gt; = <a class="struct" href="struct.ConfigRecord.html" title="struct pallet_broker::ConfigRecord">ConfigRecord</a>&lt;BlockNumberFor&lt;T&gt;, <a class="type" href="type.RelayBlockNumberOf.html" title="type pallet_broker::RelayBlockNumberOf">RelayBlockNumberOf</a>&lt;T&gt;&gt;;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>struct ConfigRecordOf&lt;T&gt; {
+    pub advance_notice: &lt;&lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_broker::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Coretime" title="type pallet_broker::pallet::Config::Coretime">Coretime</a> as <a class="trait" href="trait.CoretimeInterface.html" title="trait pallet_broker::CoretimeInterface">CoretimeInterface</a>&gt;::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.RelayChainBlockNumberProvider" title="type pallet_broker::CoretimeInterface::RelayChainBlockNumberProvider">RelayChainBlockNumberProvider</a> as BlockNumberProvider&gt;::BlockNumber,
+    pub interlude_length: &lt;&lt;&lt;T as Config&gt;::Block as HeaderProvider&gt;::HeaderT as Header&gt;::Number,
+    pub leadin_length: &lt;&lt;&lt;T as Config&gt;::Block as HeaderProvider&gt;::HeaderT as Header&gt;::Number,
+    pub region_length: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    pub ideal_bulk_proportion: Perbill,
+    pub limit_cores_offered: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u16.html">u16</a>&gt;,
+    pub renewal_bump: Perbill,
+    pub contribution_timeout: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+}</code></pre><h2 id="fields" class="fields section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.advance_notice" class="structfield section-header"><a href="#structfield.advance_notice" class="anchor field">§</a><code>advance_notice: &lt;&lt;&lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_broker::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.Coretime" title="type pallet_broker::pallet::Config::Coretime">Coretime</a> as <a class="trait" href="trait.CoretimeInterface.html" title="trait pallet_broker::CoretimeInterface">CoretimeInterface</a>&gt;::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.RelayChainBlockNumberProvider" title="type pallet_broker::CoretimeInterface::RelayChainBlockNumberProvider">RelayChainBlockNumberProvider</a> as BlockNumberProvider&gt;::BlockNumber</code></span><div class="docblock"><p>The number of Relay-chain blocks in advance which scheduling should be fixed and the
+<code>Coretime::assign</code> API used to inform the Relay-chain.</p>
+</div><span id="structfield.interlude_length" class="structfield section-header"><a href="#structfield.interlude_length" class="anchor field">§</a><code>interlude_length: &lt;&lt;&lt;T as Config&gt;::Block as HeaderProvider&gt;::HeaderT as Header&gt;::Number</code></span><div class="docblock"><p>The length in blocks of the Interlude Period for forthcoming sales.</p>
+</div><span id="structfield.leadin_length" class="structfield section-header"><a href="#structfield.leadin_length" class="anchor field">§</a><code>leadin_length: &lt;&lt;&lt;T as Config&gt;::Block as HeaderProvider&gt;::HeaderT as Header&gt;::Number</code></span><div class="docblock"><p>The length in blocks of the Leadin Period for forthcoming sales.</p>
+</div><span id="structfield.region_length" class="structfield section-header"><a href="#structfield.region_length" class="anchor field">§</a><code>region_length: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>The length in timeslices of Regions which are up for sale in forthcoming sales.</p>
+</div><span id="structfield.ideal_bulk_proportion" class="structfield section-header"><a href="#structfield.ideal_bulk_proportion" class="anchor field">§</a><code>ideal_bulk_proportion: Perbill</code></span><div class="docblock"><p>The proportion of cores available for sale which should be sold.</p>
+<p>If more cores are sold than this, then further sales will no longer be considered in
+determining the sellout price. In other words the sellout price will be the last price
+paid, without going over this limit.</p>
+</div><span id="structfield.limit_cores_offered" class="structfield section-header"><a href="#structfield.limit_cores_offered" class="anchor field">§</a><code>limit_cores_offered: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u16.html">u16</a>&gt;</code></span><div class="docblock"><p>An artificial limit to the number of cores which are allowed to be sold. If <code>Some</code> then
+no more cores will be sold than this.</p>
+</div><span id="structfield.renewal_bump" class="structfield section-header"><a href="#structfield.renewal_bump" class="anchor field">§</a><code>renewal_bump: Perbill</code></span><div class="docblock"><p>The amount by which the renewal price increases each sale period.</p>
+</div><span id="structfield.contribution_timeout" class="structfield section-header"><a href="#structfield.contribution_timeout" class="anchor field">§</a><code>contribution_timeout: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>The duration by which rewards for contributions to the InstaPool must be collected.</p>
+</div><script src="../type.impl/pallet_broker/struct.ConfigRecord.js" data-self-path="pallet_broker::types::ConfigRecordOf" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

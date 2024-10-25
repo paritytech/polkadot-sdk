@@ -1,0 +1,183 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A lazy call (module function and argument values) that can be executed via its `dispatch` method."><title>Dispatchable in sp_runtime::traits - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sp_runtime/index.html">sp_runtime</a><span class="version">31.0.1</span></h2></div><h2 class="location"><a href="#">Dispatchable</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Config">Config</a></li><li><a href="#associatedtype.Info">Info</a></li><li><a href="#associatedtype.PostInfo">PostInfo</a></li><li><a href="#associatedtype.RuntimeOrigin">RuntimeOrigin</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.dispatch">dispatch</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-Dispatchable-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In sp_runtime::traits</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">sp_runtime</a>::<wbr><a href="index.html">traits</a>::<wbr><a class="trait" href="#">Dispatchable</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/sp_runtime/traits/mod.rs.html#1505-1529">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Dispatchable {
+    type <a href="#associatedtype.RuntimeOrigin" class="associatedtype">RuntimeOrigin</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a>;
+    type <a href="#associatedtype.Config" class="associatedtype">Config</a>;
+    type <a href="#associatedtype.Info" class="associatedtype">Info</a>;
+    type <a href="#associatedtype.PostInfo" class="associatedtype">PostInfo</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + Encode + Decode + <a class="trait" href="trait.Printable.html" title="trait sp_runtime::traits::Printable">Printable</a> + <a class="trait" href="trait.ExtensionPostDispatchWeightHandler.html" title="trait sp_runtime::traits::ExtensionPostDispatchWeightHandler">ExtensionPostDispatchWeightHandler</a>&lt;Self::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type sp_runtime::traits::Dispatchable::Info">Info</a>&gt;;
+
+    // Required method
+    fn <a href="#tymethod.dispatch" class="fn">dispatch</a>(
+        self,
+        origin: Self::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.RuntimeOrigin" title="type sp_runtime::traits::Dispatchable::RuntimeOrigin">RuntimeOrigin</a>,
+    ) -&gt; <a class="type" href="../type.DispatchResultWithInfo.html" title="type sp_runtime::DispatchResultWithInfo">DispatchResultWithInfo</a>&lt;Self::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.PostInfo" title="type sp_runtime::traits::Dispatchable::PostInfo">PostInfo</a>&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A lazy call (module function and argument values) that can be executed via its <code>dispatch</code>
+method.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.RuntimeOrigin" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1509">source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeOrigin" class="associatedtype">RuntimeOrigin</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a></h4></section></summary><div class="docblock"><p>Every function call from your runtime has an origin, which specifies where the extrinsic was
+generated from. In the case of a signed extrinsic (transaction), the origin contains an
+identifier for the caller. The origin can be empty in the case of an inherent extrinsic.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Config" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1511">source</a><h4 class="code-header">type <a href="#associatedtype.Config" class="associatedtype">Config</a></h4></section></summary><div class="docblock"><p>…</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Info" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1515">source</a><h4 class="code-header">type <a href="#associatedtype.Info" class="associatedtype">Info</a></h4></section></summary><div class="docblock"><p>An opaque set of information attached to the transaction. This could be constructed anywhere
+down the line in a runtime. The current Substrate runtime uses a struct with the same name
+to represent the dispatch class and weight.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PostInfo" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1518-1525">source</a><h4 class="code-header">type <a href="#associatedtype.PostInfo" class="associatedtype">PostInfo</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + Encode + Decode + <a class="trait" href="trait.Printable.html" title="trait sp_runtime::traits::Printable">Printable</a> + <a class="trait" href="trait.ExtensionPostDispatchWeightHandler.html" title="trait sp_runtime::traits::ExtensionPostDispatchWeightHandler">ExtensionPostDispatchWeightHandler</a>&lt;Self::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type sp_runtime::traits::Dispatchable::Info">Info</a>&gt;</h4></section></summary><div class="docblock"><p>Additional information that is returned by <code>dispatch</code>. Can be used to supply the caller
+with information about a <code>Dispatchable</code> that is only known post dispatch.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.dispatch" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1527-1528">source</a><h4 class="code-header">fn <a href="#tymethod.dispatch" class="fn">dispatch</a>(
+    self,
+    origin: Self::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.RuntimeOrigin" title="type sp_runtime::traits::Dispatchable::RuntimeOrigin">RuntimeOrigin</a>,
+) -&gt; <a class="type" href="../type.DispatchResultWithInfo.html" title="type sp_runtime::DispatchResultWithInfo">DispatchResultWithInfo</a>&lt;Self::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.PostInfo" title="type sp_runtime::traits::Dispatchable::PostInfo">PostInfo</a>&gt;</h4></section></summary><div class="docblock"><p>Actually dispatch this call and return the result of it.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-Dispatchable-for-()" class="impl"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1538-1549">source</a><a href="#impl-Dispatchable-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.Dispatchable.html" title="trait sp_runtime::traits::Dispatchable">Dispatchable</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><section id="associatedtype.RuntimeOrigin-1" class="associatedtype trait-impl"><a href="#associatedtype.RuntimeOrigin-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RuntimeOrigin" class="associatedtype">RuntimeOrigin</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="associatedtype.Config-1" class="associatedtype trait-impl"><a href="#associatedtype.Config-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Config" class="associatedtype">Config</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="associatedtype.Info-1" class="associatedtype trait-impl"><a href="#associatedtype.Info-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Info" class="associatedtype">Info</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="associatedtype.PostInfo-1" class="associatedtype trait-impl"><a href="#associatedtype.PostInfo-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.PostInfo" class="associatedtype">PostInfo</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="method.dispatch" class="method trait-impl"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1543-1548">source</a><a href="#method.dispatch" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.dispatch" class="fn">dispatch</a>(
+    self,
+    _origin: Self::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.RuntimeOrigin" title="type sp_runtime::traits::Dispatchable::RuntimeOrigin">RuntimeOrigin</a>,
+) -&gt; <a class="type" href="../type.DispatchResultWithInfo.html" title="type sp_runtime::DispatchResultWithInfo">DispatchResultWithInfo</a>&lt;Self::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.PostInfo" title="type sp_runtime::traits::Dispatchable::PostInfo">PostInfo</a>&gt;</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-Dispatchable-for-MockCallU64" class="impl"><a class="src rightside" href="../../src/sp_runtime/testing.rs.html#266-274">source</a><a href="#impl-Dispatchable-for-MockCallU64" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.Dispatchable.html" title="trait sp_runtime::traits::Dispatchable">Dispatchable</a> for <a class="struct" href="../testing/struct.MockCallU64.html" title="struct sp_runtime::testing::MockCallU64">MockCallU64</a></h3></section></summary><div class="impl-items"><section id="associatedtype.RuntimeOrigin-2" class="associatedtype trait-impl"><a href="#associatedtype.RuntimeOrigin-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RuntimeOrigin" class="associatedtype">RuntimeOrigin</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a></h4></section><section id="associatedtype.Config-2" class="associatedtype trait-impl"><a href="#associatedtype.Config-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Config" class="associatedtype">Config</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="associatedtype.Info-2" class="associatedtype trait-impl"><a href="#associatedtype.Info-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Info" class="associatedtype">Info</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="associatedtype.PostInfo-2" class="associatedtype trait-impl"><a href="#associatedtype.PostInfo-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.PostInfo" class="associatedtype">PostInfo</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Dispatchable-for-FakeDispatchable%3CInner%3E" class="impl"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1571-1582">source</a><a href="#impl-Dispatchable-for-FakeDispatchable%3CInner%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Inner&gt; <a class="trait" href="trait.Dispatchable.html" title="trait sp_runtime::traits::Dispatchable">Dispatchable</a> for <a class="struct" href="struct.FakeDispatchable.html" title="struct sp_runtime::traits::FakeDispatchable">FakeDispatchable</a>&lt;Inner&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.RuntimeOrigin-3" class="associatedtype trait-impl"><a href="#associatedtype.RuntimeOrigin-3" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RuntimeOrigin" class="associatedtype">RuntimeOrigin</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="associatedtype.Config-3" class="associatedtype trait-impl"><a href="#associatedtype.Config-3" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Config" class="associatedtype">Config</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="associatedtype.Info-3" class="associatedtype trait-impl"><a href="#associatedtype.Info-3" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Info" class="associatedtype">Info</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="associatedtype.PostInfo-3" class="associatedtype trait-impl"><a href="#associatedtype.PostInfo-3" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.PostInfo" class="associatedtype">PostInfo</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section></div></details></div><script src="../../trait.impl/sp_runtime/traits/trait.Dispatchable.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

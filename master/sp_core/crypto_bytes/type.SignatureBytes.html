@@ -1,0 +1,161 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Generic encoded signature."><title>SignatureBytes in sp_core::crypto_bytes - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sp_core/index.html">sp_core</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">SignatureBytes</a></h2><div class="sidebar-elems"><section><h3><a href="#aliased-type">Aliased type</a></h3><h3><a href="#fields">Fields</a></h3><ul class="block field"><li><a href="#structfield.0">0</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-Debug-for-CryptoBytes%3CN,+(SignatureTag,+SubTag)%3E">Debug</a></li><li><a href="#impl-Deserialize%3C'de%3E-for-CryptoBytes%3CN,+(SignatureTag,+SubTag)%3E">Deserialize&lt;&#x27;de&gt;</a></li><li><a href="#impl-Serialize-for-CryptoBytes%3CN,+(SignatureTag,+SubTag)%3E">Serialize</a></li><li><a href="#impl-Signature-for-CryptoBytes%3CN,+(SignatureTag,+SubTag)%3E">Signature</a></li></ul></section><h2><a href="index.html">In sp_core::crypto_bytes</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Type Alias <a href="../index.html">sp_core</a>::<wbr><a href="index.html">crypto_bytes</a>::<wbr><a class="type" href="#">SignatureBytes</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/sp_core/crypto_bytes.rs.html#332">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub type SignatureBytes&lt;const N: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>, SubTag&gt; = <a class="struct" href="struct.CryptoBytes.html" title="struct sp_core::crypto_bytes::CryptoBytes">CryptoBytes</a>&lt;N, (<a class="struct" href="struct.SignatureTag.html" title="struct sp_core::crypto_bytes::SignatureTag">SignatureTag</a>, SubTag)&gt;;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Generic encoded signature.</p>
+</div></details><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>struct SignatureBytes&lt;const N: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>, SubTag&gt;(pub [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">N</a>], _);</code></pre><h2 id="fields" class="fields section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.0" class="structfield section-header"><a href="#structfield.0" class="anchor field">§</a><code>0: [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">N</a>]</code></span><h2 id="trait-implementations" class="section-header">Trait Implementations<a href="#trait-implementations" class="anchor">§</a></h2><div id="trait-implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-Debug-for-CryptoBytes%3CN,+(SignatureTag,+SubTag)%3E" class="impl"><a class="src rightside" href="../../src/sp_core/crypto_bytes.rs.html#365-378">source</a><a href="#impl-Debug-for-CryptoBytes%3CN,+(SignatureTag,+SubTag)%3E" class="anchor">§</a><h3 class="code-header">impl&lt;const N: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>, SubTag&gt; <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> for <a class="type" href="type.SignatureBytes.html" title="type sp_core::crypto_bytes::SignatureBytes">SignatureBytes</a>&lt;N, SubTag&gt;<div class="where">where
+    Self: <a class="trait" href="../crypto/trait.CryptoType.html" title="trait sp_core::crypto::CryptoType">CryptoType</a>,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.fmt" class="method trait-impl"><a class="src rightside" href="../../src/sp_core/crypto_bytes.rs.html#370-372">source</a><a href="#method.fmt" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html#tymethod.fmt" class="fn">fmt</a>(&amp;self, f: &amp;mut <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/fmt/struct.Formatter.html" title="struct core::fmt::Formatter">Formatter</a>&lt;'_&gt;) -&gt; <a class="type" href="https://doc.rust-lang.org/1.81.0/core/fmt/type.Result.html" title="type core::fmt::Result">Result</a></h4></section></summary><div class='docblock'>Formats the value using the given formatter. <a href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html#tymethod.fmt">Read more</a></div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Deserialize%3C'de%3E-for-CryptoBytes%3CN,+(SignatureTag,+SubTag)%3E" class="impl"><a class="src rightside" href="../../src/sp_core/crypto_bytes.rs.html#350-363">source</a><a href="#impl-Deserialize%3C'de%3E-for-CryptoBytes%3CN,+(SignatureTag,+SubTag)%3E" class="anchor">§</a><h3 class="code-header">impl&lt;'de, const N: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>, SubTag&gt; <a class="trait" href="https://docs.rs/serde/1.0.210/serde/de/trait.Deserialize.html" title="trait serde::de::Deserialize">Deserialize</a>&lt;'de&gt; for <a class="type" href="type.SignatureBytes.html" title="type sp_core::crypto_bytes::SignatureBytes">SignatureBytes</a>&lt;N, SubTag&gt;<div class="where">where
+    Self: <a class="trait" href="../crypto/trait.CryptoType.html" title="trait sp_core::crypto::CryptoType">CryptoType</a>,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.deserialize" class="method trait-impl"><a class="src rightside" href="../../src/sp_core/crypto_bytes.rs.html#354-362">source</a><a href="#method.deserialize" class="anchor">§</a><h4 class="code-header">fn <a href="https://docs.rs/serde/1.0.210/serde/de/trait.Deserialize.html#tymethod.deserialize" class="fn">deserialize</a>&lt;D&gt;(deserializer: D) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, D::<a class="associatedtype" href="https://docs.rs/serde/1.0.210/serde/de/trait.Deserializer.html#associatedtype.Error" title="type serde::de::Deserializer::Error">Error</a>&gt;<div class="where">where
+    D: <a class="trait" href="https://docs.rs/serde/1.0.210/serde/de/trait.Deserializer.html" title="trait serde::de::Deserializer">Deserializer</a>&lt;'de&gt;,</div></h4></section></summary><div class='docblock'>Deserialize this value from the given Serde deserializer. <a href="https://docs.rs/serde/1.0.210/serde/de/trait.Deserialize.html#tymethod.deserialize">Read more</a></div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Serialize-for-CryptoBytes%3CN,+(SignatureTag,+SubTag)%3E" class="impl"><a class="src rightside" href="../../src/sp_core/crypto_bytes.rs.html#337-347">source</a><a href="#impl-Serialize-for-CryptoBytes%3CN,+(SignatureTag,+SubTag)%3E" class="anchor">§</a><h3 class="code-header">impl&lt;const N: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>, SubTag&gt; <a class="trait" href="https://docs.rs/serde/1.0.210/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a> for <a class="type" href="type.SignatureBytes.html" title="type sp_core::crypto_bytes::SignatureBytes">SignatureBytes</a>&lt;N, SubTag&gt;<div class="where">where
+    Self: <a class="trait" href="../crypto/trait.CryptoType.html" title="trait sp_core::crypto::CryptoType">CryptoType</a>,</div></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.serialize" class="method trait-impl"><a class="src rightside" href="../../src/sp_core/crypto_bytes.rs.html#341-346">source</a><a href="#method.serialize" class="anchor">§</a><h4 class="code-header">fn <a href="https://docs.rs/serde/1.0.210/serde/ser/trait.Serialize.html#tymethod.serialize" class="fn">serialize</a>&lt;S&gt;(&amp;self, serializer: S) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;S::<a class="associatedtype" href="https://docs.rs/serde/1.0.210/serde/ser/trait.Serializer.html#associatedtype.Ok" title="type serde::ser::Serializer::Ok">Ok</a>, S::<a class="associatedtype" href="https://docs.rs/serde/1.0.210/serde/ser/trait.Serializer.html#associatedtype.Error" title="type serde::ser::Serializer::Error">Error</a>&gt;<div class="where">where
+    S: <a class="trait" href="https://docs.rs/serde/1.0.210/serde/ser/trait.Serializer.html" title="trait serde::ser::Serializer">Serializer</a>,</div></h4></section></summary><div class='docblock'>Serialize this value into the given Serde serializer. <a href="https://docs.rs/serde/1.0.210/serde/ser/trait.Serialize.html#tymethod.serialize">Read more</a></div></details></div></details><section id="impl-Signature-for-CryptoBytes%3CN,+(SignatureTag,+SubTag)%3E" class="impl"><a class="src rightside" href="../../src/sp_core/crypto_bytes.rs.html#334">source</a><a href="#impl-Signature-for-CryptoBytes%3CN,+(SignatureTag,+SubTag)%3E" class="anchor">§</a><h3 class="code-header">impl&lt;const N: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>, SubTag&gt; <a class="trait" href="../crypto/trait.Signature.html" title="trait sp_core::crypto::Signature">Signature</a> for <a class="type" href="type.SignatureBytes.html" title="type sp_core::crypto_bytes::SignatureBytes">SignatureBytes</a>&lt;N, SubTag&gt;<div class="where">where
+    Self: <a class="trait" href="../crypto/trait.CryptoType.html" title="trait sp_core::crypto::CryptoType">CryptoType</a>,</div></h3></section></div><script src="../../type.impl/sp_core/crypto_bytes/struct.CryptoBytes.js" data-self-path="sp_core::crypto_bytes::signature_bytes::SignatureBytes" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

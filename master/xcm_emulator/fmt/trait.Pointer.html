@@ -1,0 +1,248 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="`p` formatting."><title>Pointer in xcm_emulator::fmt - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="xcm_emulator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../xcm_emulator/index.html">xcm_emulator</a><span class="version">0.5.0</span></h2></div><h2 class="location"><a href="#">Pointer</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.fmt">fmt</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In xcm_emulator::fmt</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">xcm_emulator</a>::<wbr><a href="index.html">fmt</a>::<wbr><a class="trait" href="#">Pointer</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.81.0/src/core/fmt/mod.rs.html#1024">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Pointer {
+    // Required method
+    fn <a href="#tymethod.fmt" class="fn">fmt</a>(&amp;self, f: &amp;mut <a class="struct" href="struct.Formatter.html" title="struct xcm_emulator::fmt::Formatter">Formatter</a>&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="struct" href="struct.Error.html" title="struct xcm_emulator::fmt::Error">Error</a>&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><code>p</code> formatting.</p>
+<p>The <code>Pointer</code> trait should format its output as a memory location. This is commonly presented
+as hexadecimal.</p>
+<p>For more information on formatters, see <a href="../../std/fmt/index.html">the module-level documentation</a>.</p>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<p>Basic usage with <code>&amp;i32</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>x = <span class="kw-2">&amp;</span><span class="number">42</span>;
+
+<span class="kw">let </span>address = <span class="macro">format!</span>(<span class="string">"{x:p}"</span>); <span class="comment">// this produces something like '0x7f06092ac6d0'</span></code></pre></div>
+<p>Implementing <code>Pointer</code> on a type:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::fmt;
+
+<span class="kw">struct </span>Length(i32);
+
+<span class="kw">impl </span>fmt::Pointer <span class="kw">for </span>Length {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+        <span class="comment">// use `as` to convert to a `*const T`, which implements Pointer, which we can use
+
+        </span><span class="kw">let </span>ptr = <span class="self">self </span><span class="kw">as </span><span class="kw-2">*const </span><span class="self">Self</span>;
+        fmt::Pointer::fmt(<span class="kw-2">&amp;</span>ptr, f)
+    }
+}
+
+<span class="kw">let </span>l = Length(<span class="number">42</span>);
+
+<span class="macro">println!</span>(<span class="string">"l is in memory here: {l:p}"</span>);
+
+<span class="kw">let </span>l_ptr = <span class="macro">format!</span>(<span class="string">"{l:018p}"</span>);
+<span class="macro">assert_eq!</span>(l_ptr.len(), <span class="number">18</span>);
+<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>l_ptr[..<span class="number">2</span>], <span class="string">"0x"</span>);</code></pre></div>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.fmt" class="method"><span class="rightside"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.81.0/src/core/fmt/mod.rs.html#1027">source</a></span><h4 class="code-header">fn <a href="#tymethod.fmt" class="fn">fmt</a>(&amp;self, f: &amp;mut <a class="struct" href="struct.Formatter.html" title="struct xcm_emulator::fmt::Formatter">Formatter</a>&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="struct" href="struct.Error.html" title="struct xcm_emulator::fmt::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Formats the value using the given formatter.</p>
+<h5 id="errors"><a class="doc-anchor" href="#errors">§</a>Errors</h5>
+<p>This function should return <a href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html#variant.Err" title="variant core::result::Result::Err"><code>Err</code></a> if, and only if, the provided <a href="struct.Formatter.html" title="struct xcm_emulator::fmt::Formatter"><code>Formatter</code></a> returns <a href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html#variant.Err" title="variant core::result::Result::Err"><code>Err</code></a>.
+String formatting is considered an infallible operation; this function only
+returns a <a href="type.Result.html" title="type xcm_emulator::fmt::Result"><code>Result</code></a> because writing to the underlying stream might fail and it must
+provide a way to propagate the fact that an error has occurred back up the stack.</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-Pointer-for-ExternRef" class="impl"><a href="#impl-Pointer-for-ExternRef" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for ExternRef</h3></section><section id="impl-Pointer-for-VMExternRef" class="impl"><a href="#impl-Pointer-for-VMExternRef" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for VMExternRef</h3></section><section id="impl-Pointer-for-Format%3C'a,+I%3E" class="impl"><a class="src rightside" href="https://docs.rs/itertools/0.8/src/itertools/format.rs.html#112-113">source</a><a href="#impl-Pointer-for-Format%3C'a,+I%3E" class="anchor">§</a><h3 class="code-header">impl&lt;'a, I&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for itertools::format::<a class="struct" href="https://docs.rs/itertools/0.8/itertools/format/struct.Format.html" title="struct itertools::format::Format">Format</a>&lt;'a, I&gt;<div class="where">where
+    I: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>,
+    &lt;I as <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item" title="type core::iter::traits::iterator::Iterator::Item">Item</a>: <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,</div></h3></section><section id="impl-Pointer-for-Format%3C'a,+I%3E-1" class="impl"><a class="src rightside" href="https://docs.rs/itertools/0.8/src/itertools/format.rs.html#116">source</a><a href="#impl-Pointer-for-Format%3C'a,+I%3E-1" class="anchor">§</a><h3 class="code-header">impl&lt;'a, I&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for itertools::format::<a class="struct" href="https://docs.rs/itertools/0.8/itertools/format/struct.Format.html" title="struct itertools::format::Format">Format</a>&lt;'a, I&gt;<div class="where">where
+    I: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>,
+    &lt;I as <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&gt;::<a class="associatedtype" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item" title="type core::iter::traits::iterator::Iterator::Item">Item</a>: <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,</div></h3></section><section id="impl-Pointer-for-StyledValue%3C'a,+T%3E" class="impl"><a href="#impl-Pointer-for-StyledValue%3C'a,+T%3E" class="anchor">§</a><h3 class="code-header">impl&lt;'a, T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for StyledValue&lt;'a, T&gt;<div class="where">where
+    T: <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,</div></h3></section><section id="impl-Pointer-for-SliceVec%3C's,+T%3E" class="impl"><a href="#impl-Pointer-for-SliceVec%3C's,+T%3E" class="anchor">§</a><h3 class="code-header">impl&lt;'s, T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for SliceVec&lt;'s, T&gt;<div class="where">where
+    T: <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,</div></h3></section><section id="impl-Pointer-for-ArrayVec%3CA%3E" class="impl"><a href="#impl-Pointer-for-ArrayVec%3CA%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for ArrayVec&lt;A&gt;<div class="where">where
+    A: Array,
+    &lt;A as Array&gt;::Item: <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,</div></h3></section><section id="impl-Pointer-for-TinyVec%3CA%3E" class="impl"><a href="#impl-Pointer-for-TinyVec%3CA%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for TinyVec&lt;A&gt;<div class="where">where
+    A: Array,
+    &lt;A as Array&gt;::Item: <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,</div></h3></section><section id="impl-Pointer-for-F" class="impl"><span class="rightside"><span class="since" title="Stable since Rust version 1.4.0">1.4.0</span> · <a class="src" href="https://doc.rust-lang.org/1.81.0/src/core/ptr/mod.rs.html#2123">source</a></span><a href="#impl-Pointer-for-F" class="anchor">§</a><h3 class="code-header">impl&lt;F&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for F<div class="where">where
+    F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.FnPtr.html" title="trait core::marker::FnPtr">FnPtr</a>,</div></h3></section><section id="impl-Pointer-for-Address%3CM,+T%3E" class="impl"><a href="#impl-Pointer-for-Address%3CM,+T%3E" class="anchor">§</a><h3 class="code-header">impl&lt;M, T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for Address&lt;M, T&gt;<div class="where">where
+    M: Mutability,
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section><section id="impl-Pointer-for-BitPtr%3CM,+T,+O%3E" class="impl"><a href="#impl-Pointer-for-BitPtr%3CM,+T,+O%3E" class="anchor">§</a><h3 class="code-header">impl&lt;M, T, O&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for BitPtr&lt;M, T, O&gt;<div class="where">where
+    M: Mutability,
+    T: BitStore,
+    O: BitOrder,</div></h3></section><section id="impl-Pointer-for-BitRef%3C'_,+M,+T,+O%3E" class="impl"><a href="#impl-Pointer-for-BitRef%3C'_,+M,+T,+O%3E" class="anchor">§</a><h3 class="code-header">impl&lt;M, T, O&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for BitRef&lt;'_, M, T, O&gt;<div class="where">where
+    M: Mutability,
+    T: BitStore,
+    O: BitOrder,</div></h3></section><section id="impl-Pointer-for-Pin%3CPtr%3E" class="impl"><span class="rightside"><span class="since" title="Stable since Rust version 1.33.0">1.33.0</span> · <a class="src" href="https://doc.rust-lang.org/1.81.0/src/core/pin.rs.html#1708">source</a></span><a href="#impl-Pointer-for-Pin%3CPtr%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Ptr&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;Ptr&gt;<div class="where">where
+    Ptr: <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,</div></h3></section><section id="impl-Pointer-for-*const+T" class="impl"><span class="rightside"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.81.0/src/core/fmt/mod.rs.html#2493">source</a></span><a href="#impl-Pointer-for-*const+T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.pointer.html">*const T</a><div class="where">where
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section><section id="impl-Pointer-for-*mut+T" class="impl"><span class="rightside"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.81.0/src/core/fmt/mod.rs.html#2532">source</a></span><a href="#impl-Pointer-for-*mut+T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.pointer.html">*mut T</a><div class="where">where
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section><section id="impl-Pointer-for-%26T" class="impl"><span class="rightside"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.81.0/src/core/fmt/mod.rs.html#2539">source</a></span><a href="#impl-Pointer-for-%26T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;T</a><div class="where">where
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section><section id="impl-Pointer-for-%26mut+T" class="impl"><span class="rightside"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.81.0/src/core/fmt/mod.rs.html#2546">source</a></span><a href="#impl-Pointer-for-%26mut+T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;mut T</a><div class="where">where
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section><section id="impl-Pointer-for-NonNull%3CT%3E" class="impl"><span class="rightside"><span class="since" title="Stable since Rust version 1.25.0">1.25.0</span> · <a class="src" href="https://doc.rust-lang.org/1.81.0/src/core/ptr/non_null.rs.html#1738">source</a></span><a href="#impl-Pointer-for-NonNull%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/ptr/non_null/struct.NonNull.html" title="struct core::ptr::non_null::NonNull">NonNull</a>&lt;T&gt;<div class="where">where
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section><section id="impl-Pointer-for-AtomicPtr%3CT%3E" class="impl"><span class="rightside"><span class="since" title="Stable since Rust version 1.24.0">1.24.0</span> · <a class="src" href="https://doc.rust-lang.org/1.81.0/src/core/sync/atomic.rs.html#3766">source</a></span><a href="#impl-Pointer-for-AtomicPtr%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/sync/atomic/struct.AtomicPtr.html" title="struct core::sync::atomic::AtomicPtr">AtomicPtr</a>&lt;T&gt;</h3></section><section id="impl-Pointer-for-Atomic%3CT%3E" class="impl"><a href="#impl-Pointer-for-Atomic%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for Atomic&lt;T&gt;<div class="where">where
+    T: Pointable + ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section><section id="impl-Pointer-for-FmtBinary%3CT%3E" class="impl"><a href="#impl-Pointer-for-FmtBinary%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for FmtBinary&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="trait.Binary.html" title="trait xcm_emulator::fmt::Binary">Binary</a> + <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,</div></h3></section><section id="impl-Pointer-for-FmtDisplay%3CT%3E" class="impl"><a href="#impl-Pointer-for-FmtDisplay%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for FmtDisplay&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="trait.Display.html" title="trait xcm_emulator::fmt::Display">Display</a> + <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,</div></h3></section><section id="impl-Pointer-for-FmtLowerExp%3CT%3E" class="impl"><a href="#impl-Pointer-for-FmtLowerExp%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for FmtLowerExp&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="trait.LowerExp.html" title="trait xcm_emulator::fmt::LowerExp">LowerExp</a> + <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,</div></h3></section><section id="impl-Pointer-for-FmtLowerHex%3CT%3E" class="impl"><a href="#impl-Pointer-for-FmtLowerHex%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for FmtLowerHex&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="trait.LowerHex.html" title="trait xcm_emulator::fmt::LowerHex">LowerHex</a> + <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,</div></h3></section><section id="impl-Pointer-for-FmtOctal%3CT%3E" class="impl"><a href="#impl-Pointer-for-FmtOctal%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for FmtOctal&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="trait.Octal.html" title="trait xcm_emulator::fmt::Octal">Octal</a> + <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,</div></h3></section><section id="impl-Pointer-for-FmtPointer%3CT%3E" class="impl"><a href="#impl-Pointer-for-FmtPointer%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for FmtPointer&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,</div></h3></section><section id="impl-Pointer-for-FmtUpperExp%3CT%3E" class="impl"><a href="#impl-Pointer-for-FmtUpperExp%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for FmtUpperExp&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="trait.UpperExp.html" title="trait xcm_emulator::fmt::UpperExp">UpperExp</a> + <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,</div></h3></section><section id="impl-Pointer-for-FmtUpperHex%3CT%3E" class="impl"><a href="#impl-Pointer-for-FmtUpperHex%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for FmtUpperHex&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="trait.UpperHex.html" title="trait xcm_emulator::fmt::UpperHex">UpperHex</a> + <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,</div></h3></section><section id="impl-Pointer-for-Shared%3C'_,+T%3E" class="impl"><a href="#impl-Pointer-for-Shared%3C'_,+T%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for Shared&lt;'_, T&gt;<div class="where">where
+    T: Pointable + ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section><section id="impl-Pointer-for-Box%3CT,+A%3E" class="impl"><span class="rightside"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.81.0/src/alloc/boxed.rs.html#1969">source</a></span><a href="#impl-Pointer-for-Box%3CT,+A%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, A&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for alloc::boxed::<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;T, A&gt;<div class="where">where
+    A: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/alloc/trait.Allocator.html" title="trait core::alloc::Allocator">Allocator</a>,
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section><section id="impl-Pointer-for-Rc%3CT,+A%3E" class="impl"><span class="rightside"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.81.0/src/alloc/rc.rs.html#2540">source</a></span><a href="#impl-Pointer-for-Rc%3CT,+A%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, A&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/rc/struct.Rc.html" title="struct alloc::rc::Rc">Rc</a>&lt;T, A&gt;<div class="where">where
+    A: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/alloc/trait.Allocator.html" title="trait core::alloc::Allocator">Allocator</a>,
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section><section id="impl-Pointer-for-Arc%3CT,+A%3E" class="impl"><span class="rightside"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.81.0/src/alloc/sync.rs.html#3393">source</a></span><a href="#impl-Pointer-for-Arc%3CT,+A%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, A&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;T, A&gt;<div class="where">where
+    A: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/alloc/trait.Allocator.html" title="trait core::alloc::Allocator">Allocator</a>,
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section><section id="impl-Pointer-for-Box%3CT,+A%3E-1" class="impl"><a href="#impl-Pointer-for-Box%3CT,+A%3E-1" class="anchor">§</a><h3 class="code-header">impl&lt;T, A&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for Box&lt;T, A&gt;<div class="where">where
+    A: Allocator,
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section><section id="impl-Pointer-for-BitBox%3CT,+O%3E" class="impl"><a href="#impl-Pointer-for-BitBox%3CT,+O%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, O&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for BitBox&lt;T, O&gt;<div class="where">where
+    O: BitOrder,
+    T: BitStore,</div></h3></section><section id="impl-Pointer-for-BitSlice%3CT,+O%3E" class="impl"><a href="#impl-Pointer-for-BitSlice%3CT,+O%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, O&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for BitSlice&lt;T, O&gt;<div class="where">where
+    T: BitStore,
+    O: BitOrder,</div></h3></section><section id="impl-Pointer-for-BitVec%3CT,+O%3E" class="impl"><a href="#impl-Pointer-for-BitVec%3CT,+O%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, O&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for BitVec&lt;T, O&gt;<div class="where">where
+    O: BitOrder,
+    T: BitStore,</div></h3></section><section id="impl-Pointer-for-Matrix%3CT,+R,+C,+S%3E" class="impl"><a class="src rightside" href="https://docs.rs/nalgebra/0.25.0/src/nalgebra/base/matrix.rs.html#1966">source</a><a href="#impl-Pointer-for-Matrix%3CT,+R,+C,+S%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, R, C, S&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for <a class="struct" href="https://docs.rs/nalgebra/0.25.0/nalgebra/base/matrix/struct.Matrix.html" title="struct nalgebra::base::matrix::Matrix">Matrix</a>&lt;T, R, C, S&gt;<div class="where">where
+    R: <a class="trait" href="https://docs.rs/nalgebra/0.25.0/nalgebra/base/dimension/trait.Dim.html" title="trait nalgebra::base::dimension::Dim">Dim</a>,
+    C: <a class="trait" href="https://docs.rs/nalgebra/0.25.0/nalgebra/base/dimension/trait.Dim.html" title="trait nalgebra::base::dimension::Dim">Dim</a>,
+    T: <a class="trait" href="https://docs.rs/nalgebra/0.25.0/nalgebra/base/scalar/trait.Scalar.html" title="trait nalgebra::base::scalar::Scalar">Scalar</a> + <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,
+    S: <a class="trait" href="https://docs.rs/nalgebra/0.25.0/nalgebra/base/storage/trait.RawStorage.html" title="trait nalgebra::base::storage::RawStorage">RawStorage</a>&lt;T, R, C&gt;,</div></h3></section></div><script src="../../trait.impl/core/fmt/trait.Pointer.js" data-ignore-extern-crates="itertools,bitvec,tinyvec,std,wyz,allocator_api2,wasmtime_runtime,alloc,core,wasmtime,env_logger,crossbeam_epoch,itertools,nalgebra" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

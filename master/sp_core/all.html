@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_core/index.html">sp_core</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li><li><a href="#derives">Derive Macros</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.Blake2Hasher.html">Blake2Hasher</a></li><li><a href="struct.Bytes.html">Bytes</a></li><li><a href="struct.ConstBool.html">ConstBool</a></li><li><a href="struct.ConstI128.html">ConstI128</a></li><li><a href="struct.ConstI16.html">ConstI16</a></li><li><a href="struct.ConstI32.html">ConstI32</a></li><li><a href="struct.ConstI64.html">ConstI64</a></li><li><a href="struct.ConstI8.html">ConstI8</a></li><li><a href="struct.ConstU128.html">ConstU128</a></li><li><a href="struct.ConstU16.html">ConstU16</a></li><li><a href="struct.ConstU32.html">ConstU32</a></li><li><a href="struct.ConstU64.html">ConstU64</a></li><li><a href="struct.ConstU8.html">ConstU8</a></li><li><a href="struct.GetDefault.html">GetDefault</a></li><li><a href="struct.H160.html">H160</a></li><li><a href="struct.H256.html">H256</a></li><li><a href="struct.H512.html">H512</a></li><li><a href="struct.KeccakHasher.html">KeccakHasher</a></li><li><a href="struct.OpaqueMetadata.html">OpaqueMetadata</a></li><li><a href="struct.OpaquePeerId.html">OpaquePeerId</a></li><li><a href="struct.U256.html">U256</a></li><li><a href="struct.U512.html">U512</a></li><li><a href="bandersnatch/struct.Pair.html">bandersnatch::Pair</a></li><li><a href="bandersnatch/ring_vrf/struct.KZG.html">bandersnatch::ring_vrf::KZG</a></li><li><a href="bandersnatch/ring_vrf/struct.RingContext.html">bandersnatch::ring_vrf::RingContext</a></li><li><a href="bandersnatch/ring_vrf/struct.RingVerifierData.html">bandersnatch::ring_vrf::RingVerifierData</a></li><li><a href="bandersnatch/ring_vrf/struct.RingVrfSignature.html">bandersnatch::ring_vrf::RingVrfSignature</a></li><li><a href="bandersnatch/vrf/struct.VrfInput.html">bandersnatch::vrf::VrfInput</a></li><li><a href="bandersnatch/vrf/struct.VrfPreOutput.html">bandersnatch::vrf::VrfPreOutput</a></li><li><a href="bandersnatch/vrf/struct.VrfSignData.html">bandersnatch::vrf::VrfSignData</a></li><li><a href="bandersnatch/vrf/struct.VrfSignature.html">bandersnatch::vrf::VrfSignature</a></li><li><a href="bls/struct.Pair.html">bls::Pair</a></li><li><a href="bounded_btree_map/struct.BoundedBTreeMap.html">bounded_btree_map::BoundedBTreeMap</a></li><li><a href="bounded_vec/struct.BoundedSlice.html">bounded_vec::BoundedSlice</a></li><li><a href="bounded_vec/struct.BoundedVec.html">bounded_vec::BoundedVec</a></li><li><a href="crypto/struct.AccountId32.html">crypto::AccountId32</a></li><li><a href="crypto/struct.AddressUri.html">crypto::AddressUri</a></li><li><a href="crypto/struct.CryptoTypeId.html">crypto::CryptoTypeId</a></li><li><a href="crypto/struct.KeyTypeId.html">crypto::KeyTypeId</a></li><li><a href="crypto/struct.SecretUri.html">crypto::SecretUri</a></li><li><a href="crypto/struct.Ss58AddressFormat.html">crypto::Ss58AddressFormat</a></li><li><a href="crypto_bytes/struct.CryptoBytes.html">crypto_bytes::CryptoBytes</a></li><li><a href="crypto_bytes/struct.PublicTag.html">crypto_bytes::PublicTag</a></li><li><a href="crypto_bytes/struct.SignatureTag.html">crypto_bytes::SignatureTag</a></li><li><a href="defer/struct.DeferGuard.html">defer::DeferGuard</a></li><li><a href="ecdsa/struct.Pair.html">ecdsa::Pair</a></li><li><a href="ed25519/struct.Pair.html">ed25519::Pair</a></li><li><a href="hash/struct.H160.html">hash::H160</a></li><li><a href="hash/struct.H256.html">hash::H256</a></li><li><a href="hash/struct.H512.html">hash::H512</a></li><li><a href="hexdisplay/struct.HexDisplay.html">hexdisplay::HexDisplay</a></li><li><a href="offchain/struct.Capabilities.html">offchain::Capabilities</a></li><li><a href="offchain/struct.Duration.html">offchain::Duration</a></li><li><a href="offchain/struct.HttpRequestId.html">offchain::HttpRequestId</a></li><li><a href="offchain/struct.LimitedExternalities.html">offchain::LimitedExternalities</a></li><li><a href="offchain/struct.OffchainDbExt.html">offchain::OffchainDbExt</a></li><li><a href="offchain/struct.OffchainWorkerExt.html">offchain::OffchainWorkerExt</a></li><li><a href="offchain/struct.OpaqueMultiaddr.html">offchain::OpaqueMultiaddr</a></li><li><a href="offchain/struct.OpaqueNetworkState.html">offchain::OpaqueNetworkState</a></li><li><a href="offchain/struct.Timestamp.html">offchain::Timestamp</a></li><li><a href="offchain/struct.TransactionPoolExt.html">offchain::TransactionPoolExt</a></li><li><a href="offchain/storage/struct.InMemOffchainStorage.html">offchain::storage::InMemOffchainStorage</a></li><li><a href="offchain/storage/struct.OffchainDb.html">offchain::storage::OffchainDb</a></li><li><a href="offchain/testing/struct.OffchainState.html">offchain::testing::OffchainState</a></li><li><a href="offchain/testing/struct.PendingRequest.html">offchain::testing::PendingRequest</a></li><li><a href="offchain/testing/struct.PoolState.html">offchain::testing::PoolState</a></li><li><a href="offchain/testing/struct.TestOffchainExt.html">offchain::testing::TestOffchainExt</a></li><li><a href="offchain/testing/struct.TestPersistentOffchainDB.html">offchain::testing::TestPersistentOffchainDB</a></li><li><a href="offchain/testing/struct.TestTransactionPoolExt.html">offchain::testing::TestTransactionPoolExt</a></li><li><a href="paired_crypto/struct.Pair.html">paired_crypto::Pair</a></li><li><a href="sr25519/struct.Pair.html">sr25519::Pair</a></li><li><a href="sr25519/vrf/struct.VrfPreOutput.html">sr25519::vrf::VrfPreOutput</a></li><li><a href="sr25519/vrf/struct.VrfProof.html">sr25519::vrf::VrfProof</a></li><li><a href="sr25519/vrf/struct.VrfSignData.html">sr25519::vrf::VrfSignData</a></li><li><a href="sr25519/vrf/struct.VrfSignature.html">sr25519::vrf::VrfSignature</a></li><li><a href="sr25519/vrf/struct.VrfTranscript.html">sr25519::vrf::VrfTranscript</a></li><li><a href="testing/struct.TaskExecutor.html">testing::TaskExecutor</a></li><li><a href="traits/struct.CodeNotFound.html">traits::CodeNotFound</a></li><li><a href="traits/struct.NoneFetchRuntimeCode.html">traits::NoneFetchRuntimeCode</a></li><li><a href="traits/struct.ReadRuntimeVersionExt.html">traits::ReadRuntimeVersionExt</a></li><li><a href="traits/struct.RuntimeCode.html">traits::RuntimeCode</a></li><li><a href="traits/struct.WrappedRuntimeCode.html">traits::WrappedRuntimeCode</a></li><li><a href="uint/struct.U256.html">uint::U256</a></li><li><a href="uint/struct.U512.html">uint::U512</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="enum.LogLevel.html">LogLevel</a></li><li><a href="enum.LogLevelFilter.html">LogLevelFilter</a></li><li><a href="enum.Void.html">Void</a></li><li><a href="crypto/enum.AddressUriError.html">crypto::AddressUriError</a></li><li><a href="crypto/enum.DeriveError.html">crypto::DeriveError</a></li><li><a href="crypto/enum.DeriveJunction.html">crypto::DeriveJunction</a></li><li><a href="crypto/enum.PublicError.html">crypto::PublicError</a></li><li><a href="crypto/enum.SecretStringError.html">crypto::SecretStringError</a></li><li><a href="crypto/enum.Ss58AddressFormatRegistry.html">crypto::Ss58AddressFormatRegistry</a></li><li><a href="offchain/enum.HttpError.html">offchain::HttpError</a></li><li><a href="offchain/enum.HttpRequestStatus.html">offchain::HttpRequestStatus</a></li><li><a href="offchain/enum.OffchainOverlayedChange.html">offchain::OffchainOverlayedChange</a></li><li><a href="offchain/enum.StorageKind.html">offchain::StorageKind</a></li><li><a href="traits/enum.CallContext.html">traits::CallContext</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="trait.Get.html">Get</a></li><li><a href="trait.Hasher.html">Hasher</a></li><li><a href="trait.TryCollect.html">TryCollect</a></li><li><a href="trait.TypeId.html">TypeId</a></li><li><a href="trait.TypedGet.html">TypedGet</a></li><li><a href="bounded_vec/trait.TruncateFrom.html">bounded_vec::TruncateFrom</a></li><li><a href="crypto/trait.ByteArray.html">crypto::ByteArray</a></li><li><a href="crypto/trait.CryptoType.html">crypto::CryptoType</a></li><li><a href="crypto/trait.Derive.html">crypto::Derive</a></li><li><a href="crypto/trait.ExposeSecret.html">crypto::ExposeSecret</a></li><li><a href="crypto/trait.FromEntropy.html">crypto::FromEntropy</a></li><li><a href="crypto/trait.IsWrappedBy.html">crypto::IsWrappedBy</a></li><li><a href="crypto/trait.Pair.html">crypto::Pair</a></li><li><a href="crypto/trait.Public.html">crypto::Public</a></li><li><a href="crypto/trait.Signature.html">crypto::Signature</a></li><li><a href="crypto/trait.Ss58Codec.html">crypto::Ss58Codec</a></li><li><a href="crypto/trait.UncheckedFrom.html">crypto::UncheckedFrom</a></li><li><a href="crypto/trait.UncheckedInto.html">crypto::UncheckedInto</a></li><li><a href="crypto/trait.VrfCrypto.html">crypto::VrfCrypto</a></li><li><a href="crypto/trait.VrfPublic.html">crypto::VrfPublic</a></li><li><a href="crypto/trait.VrfSecret.html">crypto::VrfSecret</a></li><li><a href="crypto/trait.Wraps.html">crypto::Wraps</a></li><li><a href="crypto/trait.Zeroize.html">crypto::Zeroize</a></li><li><a href="hexdisplay/trait.AsBytesRef.html">hexdisplay::AsBytesRef</a></li><li><a href="offchain/trait.DbExternalities.html">offchain::DbExternalities</a></li><li><a href="offchain/trait.Externalities.html">offchain::Externalities</a></li><li><a href="offchain/trait.OffchainStorage.html">offchain::OffchainStorage</a></li><li><a href="offchain/trait.TransactionPool.html">offchain::TransactionPool</a></li><li><a href="traits/trait.CodeExecutor.html">traits::CodeExecutor</a></li><li><a href="traits/trait.Externalities.html">traits::Externalities</a></li><li><a href="traits/trait.ExternalitiesExt.html">traits::ExternalitiesExt</a></li><li><a href="traits/trait.FetchRuntimeCode.html">traits::FetchRuntimeCode</a></li><li><a href="traits/trait.ReadRuntimeVersion.html">traits::ReadRuntimeVersion</a></li><li><a href="traits/trait.SpawnEssentialNamed.html">traits::SpawnEssentialNamed</a></li><li><a href="traits/trait.SpawnNamed.html">traits::SpawnNamed</a></li></ul><h3 id="macros">Macros</h3><ul class="all-items"><li><a href="macro.bounded_btree_map.html">bounded_btree_map</a></li><li><a href="macro.bounded_vec.html">bounded_vec</a></li><li><a href="macro.defer.html">defer</a></li><li><a href="macro.generate_feature_enabled_macro.html">generate_feature_enabled_macro</a></li><li><a href="macro.hex2array.html">hex2array</a></li><li><a href="macro.impl_maybe_marker.html">impl_maybe_marker</a></li><li><a href="macro.impl_maybe_marker_std_or_serde.html">impl_maybe_marker_std_or_serde</a></li><li><a href="macro.map.html">map</a></li><li><a href="macro.parameter_types.html">parameter_types</a></li><li><a href="macro.wasm_export_functions.html">wasm_export_functions</a></li></ul><h3 id="derives">Derive Macros</h3><ul class="all-items"><li><a href="derive.RuntimeDebug.html">RuntimeDebug</a></li><li><a href="crypto/derive.Zeroize.html">crypto::Zeroize</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="fn.blake2_128.html">blake2_128</a></li><li><a href="fn.blake2_256.html">blake2_256</a></li><li><a href="fn.blake2_512.html">blake2_512</a></li><li><a href="fn.blake2_512_into.html">blake2_512_into</a></li><li><a href="fn.blake2_64.html">blake2_64</a></li><li><a href="crypto/fn.default_ss58_version.html">crypto::default_ss58_version</a></li><li><a href="crypto/fn.from_known_address_format.html">crypto::from_known_address_format</a></li><li><a href="crypto/fn.get_public_from_string_or_panic.html">crypto::get_public_from_string_or_panic</a></li><li><a href="crypto/fn.set_default_ss58_version.html">crypto::set_default_ss58_version</a></li><li><a href="crypto/fn.unwrap_or_default_ss58_version.html">crypto::unwrap_or_default_ss58_version</a></li><li><a href="hash/fn.convert_hash.html">hash::convert_hash</a></li><li><a href="hexdisplay/fn.ascii_format.html">hexdisplay::ascii_format</a></li><li><a href="fn.keccak_256.html">keccak_256</a></li><li><a href="fn.keccak_512.html">keccak_512</a></li><li><a href="fn.sha2_256.html">sha2_256</a></li><li><a href="fn.twox_128.html">twox_128</a></li><li><a href="fn.twox_128_into.html">twox_128_into</a></li><li><a href="fn.twox_256.html">twox_256</a></li><li><a href="fn.twox_256_into.html">twox_256_into</a></li><li><a href="fn.twox_64.html">twox_64</a></li><li><a href="fn.twox_64_into.html">twox_64_into</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="bandersnatch/type.Public.html">bandersnatch::Public</a></li><li><a href="bandersnatch/type.Signature.html">bandersnatch::Signature</a></li><li><a href="bandersnatch/ring_vrf/type.RingProof.html">bandersnatch::ring_vrf::RingProof</a></li><li><a href="bandersnatch/ring_vrf/type.RingProver.html">bandersnatch::ring_vrf::RingProver</a></li><li><a href="bandersnatch/ring_vrf/type.RingVerifier.html">bandersnatch::ring_vrf::RingVerifier</a></li><li><a href="bandersnatch/vrf/type.VrfIosVec.html">bandersnatch::vrf::VrfIosVec</a></li><li><a href="bls/type.Public.html">bls::Public</a></li><li><a href="bls/type.Signature.html">bls::Signature</a></li><li><a href="bls/bls377/type.Pair.html">bls::bls377::Pair</a></li><li><a href="bls/bls377/type.Public.html">bls::bls377::Public</a></li><li><a href="bls/bls377/type.Signature.html">bls::bls377::Signature</a></li><li><a href="bls/bls381/type.Pair.html">bls::bls381::Pair</a></li><li><a href="bls/bls381/type.Public.html">bls::bls381::Public</a></li><li><a href="bls/bls381/type.Signature.html">bls::bls381::Signature</a></li><li><a href="crypto/type.Dummy.html">crypto::Dummy</a></li><li><a href="crypto/type.SecretString.html">crypto::SecretString</a></li><li><a href="crypto_bytes/type.PublicBytes.html">crypto_bytes::PublicBytes</a></li><li><a href="crypto_bytes/type.SignatureBytes.html">crypto_bytes::SignatureBytes</a></li><li><a href="ecdsa/type.Public.html">ecdsa::Public</a></li><li><a href="ecdsa/type.Signature.html">ecdsa::Signature</a></li><li><a href="ed25519/type.Public.html">ed25519::Public</a></li><li><a href="ed25519/type.Signature.html">ed25519::Signature</a></li><li><a href="paired_crypto/type.Public.html">paired_crypto::Public</a></li><li><a href="paired_crypto/type.Signature.html">paired_crypto::Signature</a></li><li><a href="paired_crypto/ecdsa_bls377/type.Pair.html">paired_crypto::ecdsa_bls377::Pair</a></li><li><a href="paired_crypto/ecdsa_bls377/type.Public.html">paired_crypto::ecdsa_bls377::Public</a></li><li><a href="paired_crypto/ecdsa_bls377/type.Signature.html">paired_crypto::ecdsa_bls377::Signature</a></li><li><a href="paired_crypto/ecdsa_bls381/type.Pair.html">paired_crypto::ecdsa_bls381::Pair</a></li><li><a href="paired_crypto/ecdsa_bls381/type.Public.html">paired_crypto::ecdsa_bls381::Public</a></li><li><a href="paired_crypto/ecdsa_bls381/type.Signature.html">paired_crypto::ecdsa_bls381::Signature</a></li><li><a href="sr25519/type.Public.html">sr25519::Public</a></li><li><a href="sr25519/type.Signature.html">sr25519::Signature</a></li><li><a href="sr25519/vrf/type.VrfInput.html">sr25519::vrf::VrfInput</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="constant.MAX_POSSIBLE_ALLOCATION.html">MAX_POSSIBLE_ALLOCATION</a></li><li><a href="bandersnatch/constant.CRYPTO_ID.html">bandersnatch::CRYPTO_ID</a></li><li><a href="bandersnatch/constant.PREOUT_SERIALIZED_SIZE.html">bandersnatch::PREOUT_SERIALIZED_SIZE</a></li><li><a href="bandersnatch/constant.PUBLIC_SERIALIZED_SIZE.html">bandersnatch::PUBLIC_SERIALIZED_SIZE</a></li><li><a href="bandersnatch/constant.SEED_SERIALIZED_SIZE.html">bandersnatch::SEED_SERIALIZED_SIZE</a></li><li><a href="bandersnatch/constant.SIGNATURE_SERIALIZED_SIZE.html">bandersnatch::SIGNATURE_SERIALIZED_SIZE</a></li><li><a href="bandersnatch/constant.SIGNING_CTX.html">bandersnatch::SIGNING_CTX</a></li><li><a href="bandersnatch/ring_vrf/constant.RING_DOMAIN_OVERHEAD.html">bandersnatch::ring_vrf::RING_DOMAIN_OVERHEAD</a></li><li><a href="bandersnatch/vrf/constant.MAX_VRF_IOS.html">bandersnatch::vrf::MAX_VRF_IOS</a></li><li><a href="bls/constant.PUBLIC_KEY_SERIALIZED_SIZE.html">bls::PUBLIC_KEY_SERIALIZED_SIZE</a></li><li><a href="bls/constant.SIGNATURE_SERIALIZED_SIZE.html">bls::SIGNATURE_SERIALIZED_SIZE</a></li><li><a href="bls/bls377/constant.CRYPTO_ID.html">bls::bls377::CRYPTO_ID</a></li><li><a href="bls/bls381/constant.CRYPTO_ID.html">bls::bls381::CRYPTO_ID</a></li><li><a href="crypto/constant.DEV_ADDRESS.html">crypto::DEV_ADDRESS</a></li><li><a href="crypto/constant.DEV_PHRASE.html">crypto::DEV_PHRASE</a></li><li><a href="crypto/constant.JUNCTION_ID_LEN.html">crypto::JUNCTION_ID_LEN</a></li><li><a href="crypto/key_types/constant.ACCOUNT.html">crypto::key_types::ACCOUNT</a></li><li><a href="crypto/key_types/constant.AURA.html">crypto::key_types::AURA</a></li><li><a href="crypto/key_types/constant.AUTHORITY_DISCOVERY.html">crypto::key_types::AUTHORITY_DISCOVERY</a></li><li><a href="crypto/key_types/constant.BABE.html">crypto::key_types::BABE</a></li><li><a href="crypto/key_types/constant.BEEFY.html">crypto::key_types::BEEFY</a></li><li><a href="crypto/key_types/constant.DUMMY.html">crypto::key_types::DUMMY</a></li><li><a href="crypto/key_types/constant.GRANDPA.html">crypto::key_types::GRANDPA</a></li><li><a href="crypto/key_types/constant.IM_ONLINE.html">crypto::key_types::IM_ONLINE</a></li><li><a href="crypto/key_types/constant.MIXNET.html">crypto::key_types::MIXNET</a></li><li><a href="crypto/key_types/constant.SASSAFRAS.html">crypto::key_types::SASSAFRAS</a></li><li><a href="crypto/key_types/constant.STAKING.html">crypto::key_types::STAKING</a></li><li><a href="crypto/key_types/constant.STATEMENT.html">crypto::key_types::STATEMENT</a></li><li><a href="ecdsa/constant.CRYPTO_ID.html">ecdsa::CRYPTO_ID</a></li><li><a href="ecdsa/constant.PUBLIC_KEY_SERIALIZED_SIZE.html">ecdsa::PUBLIC_KEY_SERIALIZED_SIZE</a></li><li><a href="ecdsa/constant.SIGNATURE_SERIALIZED_SIZE.html">ecdsa::SIGNATURE_SERIALIZED_SIZE</a></li><li><a href="ed25519/constant.CRYPTO_ID.html">ed25519::CRYPTO_ID</a></li><li><a href="ed25519/constant.PUBLIC_KEY_SERIALIZED_SIZE.html">ed25519::PUBLIC_KEY_SERIALIZED_SIZE</a></li><li><a href="ed25519/constant.SIGNATURE_SERIALIZED_SIZE.html">ed25519::SIGNATURE_SERIALIZED_SIZE</a></li><li><a href="offchain/constant.STORAGE_PREFIX.html">offchain::STORAGE_PREFIX</a></li><li><a href="paired_crypto/ecdsa_bls377/constant.CRYPTO_ID.html">paired_crypto::ecdsa_bls377::CRYPTO_ID</a></li><li><a href="paired_crypto/ecdsa_bls381/constant.CRYPTO_ID.html">paired_crypto::ecdsa_bls381::CRYPTO_ID</a></li><li><a href="sr25519/constant.CRYPTO_ID.html">sr25519::CRYPTO_ID</a></li><li><a href="sr25519/constant.PUBLIC_KEY_SERIALIZED_SIZE.html">sr25519::PUBLIC_KEY_SERIALIZED_SIZE</a></li><li><a href="sr25519/constant.SIGNATURE_SERIALIZED_SIZE.html">sr25519::SIGNATURE_SERIALIZED_SIZE</a></li><li><a href="testing/constant.BANDERSNATCH.html">testing::BANDERSNATCH</a></li><li><a href="testing/constant.BLS377.html">testing::BLS377</a></li><li><a href="testing/constant.BLS381.html">testing::BLS381</a></li><li><a href="testing/constant.ECDSA.html">testing::ECDSA</a></li><li><a href="testing/constant.ECDSA_BLS377.html">testing::ECDSA_BLS377</a></li><li><a href="testing/constant.ECDSA_BLS381.html">testing::ECDSA_BLS381</a></li><li><a href="testing/constant.ED25519.html">testing::ED25519</a></li><li><a href="testing/constant.SR25519.html">testing::SR25519</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

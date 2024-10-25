@@ -1,0 +1,241 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Networking backend."><title>NetworkBackend in sc_network::service::traits - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../sc_network/index.html">sc_network</a><span class="version">0.34.0</span></h2></div><h2 class="location"><a href="#">NetworkBackend</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.BitswapConfig">BitswapConfig</a></li><li><a href="#associatedtype.NetworkService">NetworkService</a></li><li><a href="#associatedtype.NotificationProtocolConfig">NotificationProtocolConfig</a></li><li><a href="#associatedtype.PeerStore">PeerStore</a></li><li><a href="#associatedtype.RequestResponseProtocolConfig">RequestResponseProtocolConfig</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.bitswap_server">bitswap_server</a></li><li><a href="#tymethod.network_service">network_service</a></li><li><a href="#tymethod.new">new</a></li><li><a href="#tymethod.notification_config">notification_config</a></li><li><a href="#tymethod.peer_store">peer_store</a></li><li><a href="#tymethod.register_notification_metrics">register_notification_metrics</a></li><li><a href="#tymethod.request_response_config">request_response_config</a></li><li><a href="#tymethod.run">run</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In sc_network::service::traits</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">sc_network</a>::<wbr><a href="../index.html">service</a>::<wbr><a href="index.html">traits</a>::<wbr><a class="trait" href="#">NetworkBackend</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/sc_network/service/traits.rs.html#110-172">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait NetworkBackend&lt;B: BlockT + 'static, H: <a class="trait" href="../../config/trait.ExHashT.html" title="trait sc_network::config::ExHashT">ExHashT</a>&gt;: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static {
+    type <a href="#associatedtype.NotificationProtocolConfig" class="associatedtype">NotificationProtocolConfig</a>: <a class="trait" href="trait.NotificationConfig.html" title="trait sc_network::service::traits::NotificationConfig">NotificationConfig</a>;
+    type <a href="#associatedtype.RequestResponseProtocolConfig" class="associatedtype">RequestResponseProtocolConfig</a>: <a class="trait" href="trait.RequestResponseConfig.html" title="trait sc_network::service::traits::RequestResponseConfig">RequestResponseConfig</a>;
+    type <a href="#associatedtype.NetworkService" class="associatedtype">NetworkService</a>&lt;Block, Hash&gt;: <a class="trait" href="trait.NetworkService.html" title="trait sc_network::service::traits::NetworkService">NetworkService</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>;
+    type <a href="#associatedtype.PeerStore" class="associatedtype">PeerStore</a>: <a class="trait" href="trait.PeerStore.html" title="trait sc_network::service::traits::PeerStore">PeerStore</a>;
+    type <a href="#associatedtype.BitswapConfig" class="associatedtype">BitswapConfig</a>;
+
+    // Required methods
+    fn <a href="#tymethod.new" class="fn">new</a>(params: <a class="struct" href="../../config/struct.Params.html" title="struct sc_network::config::Params">Params</a>&lt;B, H, Self&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="enum" href="../../error/enum.Error.html" title="enum sc_network::error::Error">Error</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a></span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.network_service" class="fn">network_service</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn <a class="trait" href="trait.NetworkService.html" title="trait sc_network::service::traits::NetworkService">NetworkService</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.peer_store" class="fn">peer_store</a>(
+        bootnodes: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>&gt;,
+        metrics_registry: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Registry&gt;,
+    ) -&gt; Self::<a class="associatedtype" href="trait.NetworkBackend.html#associatedtype.PeerStore" title="type sc_network::service::traits::NetworkBackend::PeerStore">PeerStore</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.register_notification_metrics" class="fn">register_notification_metrics</a>(
+        registry: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Registry&gt;,
+    ) -&gt; <a class="struct" href="../../config/struct.NotificationMetrics.html" title="struct sc_network::config::NotificationMetrics">NotificationMetrics</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.bitswap_server" class="fn">bitswap_server</a>(
+        client: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn BlockBackend&lt;B&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>&gt;,
+    ) -&gt; (<a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;&gt;, Self::<a class="associatedtype" href="trait.NetworkBackend.html#associatedtype.BitswapConfig" title="type sc_network::service::traits::NetworkBackend::BitswapConfig">BitswapConfig</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.notification_config" class="fn">notification_config</a>(
+        protocol_name: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+        fallback_names: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>&gt;,
+        max_notification_size: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>,
+        handshake: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../config/struct.NotificationHandshake.html" title="struct sc_network::config::NotificationHandshake">NotificationHandshake</a>&gt;,
+        set_config: <a class="struct" href="../../config/struct.SetConfig.html" title="struct sc_network::config::SetConfig">SetConfig</a>,
+        metrics: <a class="struct" href="../../config/struct.NotificationMetrics.html" title="struct sc_network::config::NotificationMetrics">NotificationMetrics</a>,
+        peerstore_handle: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn <a class="trait" href="../../peer_store/trait.PeerStoreProvider.html" title="trait sc_network::peer_store::PeerStoreProvider">PeerStoreProvider</a>&gt;,
+    ) -&gt; (Self::<a class="associatedtype" href="trait.NetworkBackend.html#associatedtype.NotificationProtocolConfig" title="type sc_network::service::traits::NetworkBackend::NotificationProtocolConfig">NotificationProtocolConfig</a>, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.NotificationService.html" title="trait sc_network::service::traits::NotificationService">NotificationService</a>&gt;);
+<span class="item-spacer"></span>    fn <a href="#tymethod.request_response_config" class="fn">request_response_config</a>(
+        protocol_name: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+        fallback_names: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>&gt;,
+        max_request_size: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>,
+        max_response_size: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>,
+        request_timeout: <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/time/struct.Duration.html" title="struct core::time::Duration">Duration</a>,
+        inbound_queue: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Sender&lt;<a class="struct" href="../../request_responses/struct.IncomingRequest.html" title="struct sc_network::request_responses::IncomingRequest">IncomingRequest</a>&gt;&gt;,
+    ) -&gt; Self::<a class="associatedtype" href="trait.NetworkBackend.html#associatedtype.RequestResponseProtocolConfig" title="type sc_network::service::traits::NetworkBackend::RequestResponseProtocolConfig">RequestResponseProtocolConfig</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.run" class="fn">run</a>&lt;'async_trait&gt;(
+        self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait</span>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Networking backend.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.NotificationProtocolConfig" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#112">source</a><h4 class="code-header">type <a href="#associatedtype.NotificationProtocolConfig" class="associatedtype">NotificationProtocolConfig</a>: <a class="trait" href="trait.NotificationConfig.html" title="trait sc_network::service::traits::NotificationConfig">NotificationConfig</a></h4></section></summary><div class="docblock"><p>Type representing notification protocol-related configuration.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RequestResponseProtocolConfig" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#115">source</a><h4 class="code-header">type <a href="#associatedtype.RequestResponseProtocolConfig" class="associatedtype">RequestResponseProtocolConfig</a>: <a class="trait" href="trait.RequestResponseConfig.html" title="trait sc_network::service::traits::RequestResponseConfig">RequestResponseConfig</a></h4></section></summary><div class="docblock"><p>Type representing request-response protocol-related configuration.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.NetworkService" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#121">source</a><h4 class="code-header">type <a href="#associatedtype.NetworkService" class="associatedtype">NetworkService</a>&lt;Block, Hash&gt;: <a class="trait" href="trait.NetworkService.html" title="trait sc_network::service::traits::NetworkService">NetworkService</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a></h4></section></summary><div class="docblock"><p>Type implementing <code>NetworkService</code> for the networking backend.</p>
+<p><code>NetworkService</code> allows other subsystems of the blockchain to interact with <code>sc-network</code>
+using <code>NetworkService</code>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PeerStore" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#124">source</a><h4 class="code-header">type <a href="#associatedtype.PeerStore" class="associatedtype">PeerStore</a>: <a class="trait" href="trait.PeerStore.html" title="trait sc_network::service::traits::PeerStore">PeerStore</a></h4></section></summary><div class="docblock"><p>Type implementing <a href="trait.PeerStore.html" title="trait sc_network::service::traits::PeerStore"><code>PeerStore</code></a>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.BitswapConfig" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#127">source</a><h4 class="code-header">type <a href="#associatedtype.BitswapConfig" class="associatedtype">BitswapConfig</a></h4></section></summary><div class="docblock"><p>Bitswap config.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.new" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#130-132">source</a><h4 class="code-header">fn <a href="#tymethod.new" class="fn">new</a>(params: <a class="struct" href="../../config/struct.Params.html" title="struct sc_network::config::Params">Params</a>&lt;B, H, Self&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="enum" href="../../error/enum.Error.html" title="enum sc_network::error::Error">Error</a>&gt;<div class="where">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h4></section></summary><div class="docblock"><p>Create new <code>NetworkBackend</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.network_service" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#135">source</a><h4 class="code-header">fn <a href="#tymethod.network_service" class="fn">network_service</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn <a class="trait" href="trait.NetworkService.html" title="trait sc_network::service::traits::NetworkService">NetworkService</a>&gt;</h4></section></summary><div class="docblock"><p>Get handle to <code>NetworkService</code> of the <code>NetworkBackend</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.peer_store" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#138">source</a><h4 class="code-header">fn <a href="#tymethod.peer_store" class="fn">peer_store</a>(
+    bootnodes: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>&gt;,
+    metrics_registry: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Registry&gt;,
+) -&gt; Self::<a class="associatedtype" href="trait.NetworkBackend.html#associatedtype.PeerStore" title="type sc_network::service::traits::NetworkBackend::PeerStore">PeerStore</a></h4></section></summary><div class="docblock"><p>Create <a href="trait.PeerStore.html" title="trait sc_network::service::traits::PeerStore"><code>PeerStore</code></a>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.register_notification_metrics" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#141">source</a><h4 class="code-header">fn <a href="#tymethod.register_notification_metrics" class="fn">register_notification_metrics</a>(
+    registry: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Registry&gt;,
+) -&gt; <a class="struct" href="../../config/struct.NotificationMetrics.html" title="struct sc_network::config::NotificationMetrics">NotificationMetrics</a></h4></section></summary><div class="docblock"><p>Register metrics that are used by the notification protocols.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.bitswap_server" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#144-146">source</a><h4 class="code-header">fn <a href="#tymethod.bitswap_server" class="fn">bitswap_server</a>(
+    client: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn BlockBackend&lt;B&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>&gt;,
+) -&gt; (<a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;&gt;, Self::<a class="associatedtype" href="trait.NetworkBackend.html#associatedtype.BitswapConfig" title="type sc_network::service::traits::NetworkBackend::BitswapConfig">BitswapConfig</a>)</h4></section></summary><div class="docblock"><p>Create Bitswap server.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.notification_config" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#150-158">source</a><h4 class="code-header">fn <a href="#tymethod.notification_config" class="fn">notification_config</a>(
+    protocol_name: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+    fallback_names: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>&gt;,
+    max_notification_size: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>,
+    handshake: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../config/struct.NotificationHandshake.html" title="struct sc_network::config::NotificationHandshake">NotificationHandshake</a>&gt;,
+    set_config: <a class="struct" href="../../config/struct.SetConfig.html" title="struct sc_network::config::SetConfig">SetConfig</a>,
+    metrics: <a class="struct" href="../../config/struct.NotificationMetrics.html" title="struct sc_network::config::NotificationMetrics">NotificationMetrics</a>,
+    peerstore_handle: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn <a class="trait" href="../../peer_store/trait.PeerStoreProvider.html" title="trait sc_network::peer_store::PeerStoreProvider">PeerStoreProvider</a>&gt;,
+) -&gt; (Self::<a class="associatedtype" href="trait.NetworkBackend.html#associatedtype.NotificationProtocolConfig" title="type sc_network::service::traits::NetworkBackend::NotificationProtocolConfig">NotificationProtocolConfig</a>, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.NotificationService.html" title="trait sc_network::service::traits::NotificationService">NotificationService</a>&gt;)</h4></section></summary><div class="docblock"><p>Create notification protocol configuration and an associated <code>NotificationService</code>
+for the protocol.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.request_response_config" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#161-168">source</a><h4 class="code-header">fn <a href="#tymethod.request_response_config" class="fn">request_response_config</a>(
+    protocol_name: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+    fallback_names: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>&gt;,
+    max_request_size: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>,
+    max_response_size: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>,
+    request_timeout: <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/time/struct.Duration.html" title="struct core::time::Duration">Duration</a>,
+    inbound_queue: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Sender&lt;<a class="struct" href="../../request_responses/struct.IncomingRequest.html" title="struct sc_network::request_responses::IncomingRequest">IncomingRequest</a>&gt;&gt;,
+) -&gt; Self::<a class="associatedtype" href="trait.NetworkBackend.html#associatedtype.RequestResponseProtocolConfig" title="type sc_network::service::traits::NetworkBackend::RequestResponseProtocolConfig">RequestResponseProtocolConfig</a></h4></section></summary><div class="docblock"><p>Create request-response protocol configuration.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.run" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#171">source</a><h4 class="code-header">fn <a href="#tymethod.run" class="fn">run</a>&lt;'async_trait&gt;(
+    self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Start <a href="trait.NetworkBackend.html" title="trait sc_network::service::traits::NetworkBackend"><code>NetworkBackend</code></a> event loop.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-NetworkBackend%3CB,+H%3E-for-NetworkWorker%3CB,+H%3E" class="impl"><a class="src rightside" href="../../../src/sc_network/service.rs.html#165-250">source</a><a href="#impl-NetworkBackend%3CB,+H%3E-for-NetworkWorker%3CB,+H%3E" class="anchor">§</a><h3 class="code-header">impl&lt;B, H&gt; <a class="trait" href="trait.NetworkBackend.html" title="trait sc_network::service::traits::NetworkBackend">NetworkBackend</a>&lt;B, H&gt; for <a class="struct" href="../struct.NetworkWorker.html" title="struct sc_network::service::NetworkWorker">NetworkWorker</a>&lt;B, H&gt;<div class="where">where
+    B: BlockT + 'static,
+    H: <a class="trait" href="../../config/trait.ExHashT.html" title="trait sc_network::config::ExHashT">ExHashT</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.NotificationProtocolConfig-1" class="associatedtype trait-impl"><a href="#associatedtype.NotificationProtocolConfig-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.NotificationProtocolConfig" class="associatedtype">NotificationProtocolConfig</a> = <a class="struct" href="../../config/struct.NonDefaultSetConfig.html" title="struct sc_network::config::NonDefaultSetConfig">NonDefaultSetConfig</a></h4></section><section id="associatedtype.RequestResponseProtocolConfig-1" class="associatedtype trait-impl"><a href="#associatedtype.RequestResponseProtocolConfig-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RequestResponseProtocolConfig" class="associatedtype">RequestResponseProtocolConfig</a> = <a class="struct" href="../../request_responses/struct.ProtocolConfig.html" title="struct sc_network::request_responses::ProtocolConfig">ProtocolConfig</a></h4></section><section id="associatedtype.NetworkService-1" class="associatedtype trait-impl"><a href="#associatedtype.NetworkService-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.NetworkService" class="associatedtype">NetworkService</a>&lt;Block, Hash&gt; = <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="struct" href="../struct.NetworkService.html" title="struct sc_network::service::NetworkService">NetworkService</a>&lt;B, H&gt;&gt;</h4></section><section id="associatedtype.PeerStore-1" class="associatedtype trait-impl"><a href="#associatedtype.PeerStore-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.PeerStore" class="associatedtype">PeerStore</a> = <a class="struct" href="../../peer_store/struct.PeerStore.html" title="struct sc_network::peer_store::PeerStore">PeerStore</a></h4></section><section id="associatedtype.BitswapConfig-1" class="associatedtype trait-impl"><a href="#associatedtype.BitswapConfig-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.BitswapConfig" class="associatedtype">BitswapConfig</a> = <a class="struct" href="../../request_responses/struct.ProtocolConfig.html" title="struct sc_network::request_responses::ProtocolConfig">ProtocolConfig</a></h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-NetworkBackend%3CB,+H%3E-for-Litep2pNetworkBackend" class="impl"><a class="src rightside" href="../../../src/sc_network/litep2p/mod.rs.html#382-1081">source</a><a href="#impl-NetworkBackend%3CB,+H%3E-for-Litep2pNetworkBackend" class="anchor">§</a><h3 class="code-header">impl&lt;B: BlockT + 'static, H: <a class="trait" href="../../config/trait.ExHashT.html" title="trait sc_network::config::ExHashT">ExHashT</a>&gt; <a class="trait" href="trait.NetworkBackend.html" title="trait sc_network::service::traits::NetworkBackend">NetworkBackend</a>&lt;B, H&gt; for <a class="struct" href="../../struct.Litep2pNetworkBackend.html" title="struct sc_network::Litep2pNetworkBackend">Litep2pNetworkBackend</a></h3></section></summary><div class="impl-items"><section id="associatedtype.NotificationProtocolConfig-2" class="associatedtype trait-impl"><a href="#associatedtype.NotificationProtocolConfig-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.NotificationProtocolConfig" class="associatedtype">NotificationProtocolConfig</a> = NotificationProtocolConfig</h4></section><section id="associatedtype.RequestResponseProtocolConfig-2" class="associatedtype trait-impl"><a href="#associatedtype.RequestResponseProtocolConfig-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RequestResponseProtocolConfig" class="associatedtype">RequestResponseProtocolConfig</a> = RequestResponseConfig</h4></section><section id="associatedtype.NetworkService-2" class="associatedtype trait-impl"><a href="#associatedtype.NetworkService-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.NetworkService" class="associatedtype">NetworkService</a>&lt;Block, Hash&gt; = <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Litep2pNetworkService&gt;</h4></section><section id="associatedtype.PeerStore-2" class="associatedtype trait-impl"><a href="#associatedtype.PeerStore-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.PeerStore" class="associatedtype">PeerStore</a> = Peerstore</h4></section><section id="associatedtype.BitswapConfig-2" class="associatedtype trait-impl"><a href="#associatedtype.BitswapConfig-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.BitswapConfig" class="associatedtype">BitswapConfig</a> = Config</h4></section></div></details></div><script src="../../../trait.impl/sc_network/service/traits/trait.NetworkBackend.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

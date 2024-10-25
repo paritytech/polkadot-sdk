@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_service/index.html">sc_service</a><span class="version">0.35.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.BuildNetworkParams.html">BuildNetworkParams</a></li><li><a href="struct.GenericChainSpec.html">GenericChainSpec</a></li><li><a href="struct.GenesisBlockBuilder.html">GenesisBlockBuilder</a></li><li><a href="struct.KeystoreContainer.html">KeystoreContainer</a></li><li><a href="struct.MetricsService.html">MetricsService</a></li><li><a href="struct.NetworkStarter.html">NetworkStarter</a></li><li><a href="struct.PartialComponents.html">PartialComponents</a></li><li><a href="struct.RandomIntegerSubscriptionId.html">RandomIntegerSubscriptionId</a></li><li><a href="struct.RandomStringSubscriptionId.html">RandomStringSubscriptionId</a></li><li><a href="struct.RpcHandlers.html">RpcHandlers</a></li><li><a href="struct.SpawnTaskHandle.html">SpawnTaskHandle</a></li><li><a href="struct.SpawnTasksParams.html">SpawnTasksParams</a></li><li><a href="struct.Task.html">Task</a></li><li><a href="struct.TaskManager.html">TaskManager</a></li><li><a href="struct.TaskRegistry.html">TaskRegistry</a></li><li><a href="struct.TransactionPoolAdapter.html">TransactionPoolAdapter</a></li><li><a href="struct.TransactionPoolOptions.html">TransactionPoolOptions</a></li><li><a href="client/struct.Client.html">client::Client</a></li><li><a href="client/struct.ClientConfig.html">client::ClientConfig</a></li><li><a href="client/struct.LocalCallExecutor.html">client::LocalCallExecutor</a></li><li><a href="config/struct.BasePath.html">config::BasePath</a></li><li><a href="config/struct.Configuration.html">config::Configuration</a></li><li><a href="config/struct.ExecutorConfiguration.html">config::ExecutorConfiguration</a></li><li><a href="config/struct.IncomingRequest.html">config::IncomingRequest</a></li><li><a href="config/struct.Multiaddr.html">config::Multiaddr</a></li><li><a href="config/struct.MultiaddrWithPeerId.html">config::MultiaddrWithPeerId</a></li><li><a href="config/struct.NetworkConfiguration.html">config::NetworkConfiguration</a></li><li><a href="config/struct.NonDefaultSetConfig.html">config::NonDefaultSetConfig</a></li><li><a href="config/struct.OffchainWorkerConfig.html">config::OffchainWorkerConfig</a></li><li><a href="config/struct.OutgoingResponse.html">config::OutgoingResponse</a></li><li><a href="config/struct.PrometheusConfig.html">config::PrometheusConfig</a></li><li><a href="config/struct.ProtocolId.html">config::ProtocolId</a></li><li><a href="config/struct.RequestResponseConfig.html">config::RequestResponseConfig</a></li><li><a href="config/struct.RpcConfiguration.html">config::RpcConfiguration</a></li><li><a href="config/struct.RpcEndpoint.html">config::RpcEndpoint</a></li><li><a href="config/struct.SetConfig.html">config::SetConfig</a></li><li><a href="config/struct.TelemetryEndpoints.html">config::TelemetryEndpoints</a></li><li><a href="config/struct.TransactionPoolOptions.html">config::TransactionPoolOptions</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="enum.BlocksPruning.html">BlocksPruning</a></li><li><a href="enum.ChainType.html">ChainType</a></li><li><a href="enum.DatabaseSource.html">DatabaseSource</a></li><li><a href="enum.PruningMode.html">PruningMode</a></li><li><a href="enum.Role.html">Role</a></li><li><a href="enum.RpcMethods.html">RpcMethods</a></li><li><a href="enum.TracingReceiver.html">TracingReceiver</a></li><li><a href="enum.WarpSyncConfig.html">WarpSyncConfig</a></li><li><a href="config/enum.BlocksPruning.html">config::BlocksPruning</a></li><li><a href="config/enum.DatabaseSource.html">config::DatabaseSource</a></li><li><a href="config/enum.IpNetwork.html">config::IpNetwork</a></li><li><a href="config/enum.KeystoreConfig.html">config::KeystoreConfig</a></li><li><a href="config/enum.NodeKeyConfig.html">config::NodeKeyConfig</a></li><li><a href="config/enum.PruningMode.html">config::PruningMode</a></li><li><a href="config/enum.Role.html">config::Role</a></li><li><a href="config/enum.RpcBatchRequestConfig.html">config::RpcBatchRequestConfig</a></li><li><a href="config/enum.RpcMethods.html">config::RpcMethods</a></li><li><a href="config/enum.SyncMode.html">config::SyncMode</a></li><li><a href="config/enum.TaskType.html">config::TaskType</a></li><li><a href="config/enum.TransportConfig.html">config::TransportConfig</a></li><li><a href="config/enum.WasmExecutionMethod.html">config::WasmExecutionMethod</a></li><li><a href="config/enum.WasmtimeInstantiationStrategy.html">config::WasmtimeInstantiationStrategy</a></li><li><a href="error/enum.Error.html">error::Error</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="trait.BuildGenesisBlock.html">BuildGenesisBlock</a></li><li><a href="trait.ChainSpec.html">ChainSpec</a></li><li><a href="trait.ChainSpecExtension.html">ChainSpecExtension</a></li><li><a href="trait.ImportQueue.html">ImportQueue</a></li><li><a href="trait.InPoolTransaction.html">InPoolTransaction</a></li><li><a href="trait.IntoPoolError.html">IntoPoolError</a></li><li><a href="trait.NativeExecutionDispatch.html">NativeExecutionDispatch</a></li><li><a href="trait.TransactionPool.html">TransactionPool</a></li><li><a href="config/trait.Database.html">config::Database</a></li><li><a href="config/trait.RpcSubscriptionIdProvider.html">config::RpcSubscriptionIdProvider</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="fn.build_network.html">build_network</a></li><li><a href="fn.build_polkadot_syncing_strategy.html">build_polkadot_syncing_strategy</a></li><li><a href="fn.build_system_rpc_future.html">build_system_rpc_future</a></li><li><a href="chain_ops/fn.build_spec.html">chain_ops::build_spec</a></li><li><a href="chain_ops/fn.check_block.html">chain_ops::check_block</a></li><li><a href="chain_ops/fn.export_blocks.html">chain_ops::export_blocks</a></li><li><a href="chain_ops/fn.export_raw_state.html">chain_ops::export_raw_state</a></li><li><a href="chain_ops/fn.import_blocks.html">chain_ops::import_blocks</a></li><li><a href="chain_ops/fn.revert_chain.html">chain_ops::revert_chain</a></li><li><a href="client/fn.new_in_mem.html">client::new_in_mem</a></li><li><a href="client/fn.new_with_backend.html">client::new_with_backend</a></li><li><a href="fn.construct_genesis_block.html">construct_genesis_block</a></li><li><a href="fn.gen_rpc_module.html">gen_rpc_module</a></li><li><a href="fn.init_telemetry.html">init_telemetry</a></li><li><a href="fn.new_client.html">new_client</a></li><li><a href="fn.new_db_backend.html">new_db_backend</a></li><li><a href="fn.new_full_client.html">new_full_client</a></li><li><a href="fn.new_full_parts.html">new_full_parts</a></li><li><a href="fn.new_full_parts_record_import.html">new_full_parts_record_import</a></li><li><a href="fn.new_full_parts_with_genesis_builder.html">new_full_parts_with_genesis_builder</a></li><li><a href="fn.new_native_or_wasm_executor.html">new_native_or_wasm_executor</a></li><li><a href="fn.new_wasm_executor.html">new_wasm_executor</a></li><li><a href="fn.propagate_transaction_notifications.html">propagate_transaction_notifications</a></li><li><a href="fn.resolve_state_version_from_wasm.html">resolve_state_version_from_wasm</a></li><li><a href="fn.spawn_tasks.html">spawn_tasks</a></li><li><a href="fn.start_rpc_servers.html">start_rpc_servers</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.NoExtension.html">NoExtension</a></li><li><a href="type.Properties.html">Properties</a></li><li><a href="type.TFullBackend.html">TFullBackend</a></li><li><a href="type.TFullCallExecutor.html">TFullCallExecutor</a></li><li><a href="type.TFullClient.html">TFullClient</a></li><li><a href="error/type.Result.html">error::Result</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="constant.DEFAULT_GROUP_NAME.html">DEFAULT_GROUP_NAME</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Something which fulfills the abstract idea of a Substrate header. It has types for a `Number`, a `Hash` and a `Hashing`. It provides access to an `extrinsics_root`, `state_root` and `parent_hash`, as well as a `digest` and a block `number`."><title>Header in sp_runtime::traits - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sp_runtime/index.html">sp_runtime</a><span class="version">31.0.1</span></h2></div><h2 class="location"><a href="#">Header</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Hash">Hash</a></li><li><a href="#associatedtype.Hashing">Hashing</a></li><li><a href="#associatedtype.Number">Number</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.digest">digest</a></li><li><a href="#tymethod.digest_mut">digest_mut</a></li><li><a href="#tymethod.extrinsics_root">extrinsics_root</a></li><li><a href="#tymethod.new">new</a></li><li><a href="#tymethod.number">number</a></li><li><a href="#tymethod.parent_hash">parent_hash</a></li><li><a href="#tymethod.set_extrinsics_root">set_extrinsics_root</a></li><li><a href="#tymethod.set_number">set_number</a></li><li><a href="#tymethod.set_parent_hash">set_parent_hash</a></li><li><a href="#tymethod.set_state_root">set_state_root</a></li><li><a href="#tymethod.state_root">state_root</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.hash">hash</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In sp_runtime::traits</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">sp_runtime</a>::<wbr><a href="index.html">traits</a>::<wbr><a class="trait" href="#">Header</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/sp_runtime/traits/mod.rs.html#1209-1257">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Header: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + Codec + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="trait.MaybeSerialize.html" title="trait sp_runtime::traits::MaybeSerialize">MaybeSerialize</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + TypeInfo + 'static {
+    type <a href="#associatedtype.Number" class="associatedtype">Number</a>: <a class="trait" href="trait.BlockNumber.html" title="trait sp_runtime::traits::BlockNumber">BlockNumber</a>;
+    type <a href="#associatedtype.Hash" class="associatedtype">Hash</a>: <a class="trait" href="trait.HashOutput.html" title="trait sp_runtime::traits::HashOutput">HashOutput</a>;
+    type <a href="#associatedtype.Hashing" class="associatedtype">Hashing</a>: <a class="trait" href="trait.Hash.html" title="trait sp_runtime::traits::Hash">Hash</a>&lt;Output = Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>&gt;;
+
+    // Required methods
+    fn <a href="#tymethod.new" class="fn">new</a>(
+        number: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Number" title="type sp_runtime::traits::Header::Number">Number</a>,
+        extrinsics_root: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>,
+        state_root: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>,
+        parent_hash: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>,
+        digest: <a class="struct" href="../generic/struct.Digest.html" title="struct sp_runtime::generic::Digest">Digest</a>,
+    ) -&gt; Self;
+<span class="item-spacer"></span>    fn <a href="#tymethod.number" class="fn">number</a>(&amp;self) -&gt; &amp;Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Number" title="type sp_runtime::traits::Header::Number">Number</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_number" class="fn">set_number</a>(&amp;mut self, number: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Number" title="type sp_runtime::traits::Header::Number">Number</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.extrinsics_root" class="fn">extrinsics_root</a>(&amp;self) -&gt; &amp;Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_extrinsics_root" class="fn">set_extrinsics_root</a>(&amp;mut self, root: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.state_root" class="fn">state_root</a>(&amp;self) -&gt; &amp;Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_state_root" class="fn">set_state_root</a>(&amp;mut self, root: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.parent_hash" class="fn">parent_hash</a>(&amp;self) -&gt; &amp;Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_parent_hash" class="fn">set_parent_hash</a>(&amp;mut self, hash: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.digest" class="fn">digest</a>(&amp;self) -&gt; &amp;<a class="struct" href="../generic/struct.Digest.html" title="struct sp_runtime::generic::Digest">Digest</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.digest_mut" class="fn">digest_mut</a>(&amp;mut self) -&gt; &amp;mut <a class="struct" href="../generic/struct.Digest.html" title="struct sp_runtime::generic::Digest">Digest</a>;
+
+    // Provided method
+    fn <a href="#method.hash" class="fn">hash</a>(&amp;self) -&gt; Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a> { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Something which fulfills the abstract idea of a Substrate header. It has types for a <code>Number</code>,
+a <code>Hash</code> and a <code>Hashing</code>. It provides access to an <code>extrinsics_root</code>, <code>state_root</code> and
+<code>parent_hash</code>, as well as a <code>digest</code> and a block <code>number</code>.</p>
+<p>You can also create a <code>new</code> one from those fields.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Number" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1213">source</a><h4 class="code-header">type <a href="#associatedtype.Number" class="associatedtype">Number</a>: <a class="trait" href="trait.BlockNumber.html" title="trait sp_runtime::traits::BlockNumber">BlockNumber</a></h4></section></summary><div class="docblock"><p>Header number.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Hash" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1215">source</a><h4 class="code-header">type <a href="#associatedtype.Hash" class="associatedtype">Hash</a>: <a class="trait" href="trait.HashOutput.html" title="trait sp_runtime::traits::HashOutput">HashOutput</a></h4></section></summary><div class="docblock"><p>Header hash type</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Hashing" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1217">source</a><h4 class="code-header">type <a href="#associatedtype.Hashing" class="associatedtype">Hashing</a>: <a class="trait" href="trait.Hash.html" title="trait sp_runtime::traits::Hash">Hash</a>&lt;Output = Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>&gt;</h4></section></summary><div class="docblock"><p>Hashing algorithm</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.new" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1220-1226">source</a><h4 class="code-header">fn <a href="#tymethod.new" class="fn">new</a>(
+    number: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Number" title="type sp_runtime::traits::Header::Number">Number</a>,
+    extrinsics_root: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>,
+    state_root: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>,
+    parent_hash: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>,
+    digest: <a class="struct" href="../generic/struct.Digest.html" title="struct sp_runtime::generic::Digest">Digest</a>,
+) -&gt; Self</h4></section></summary><div class="docblock"><p>Creates new header.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.number" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1229">source</a><h4 class="code-header">fn <a href="#tymethod.number" class="fn">number</a>(&amp;self) -&gt; &amp;Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Number" title="type sp_runtime::traits::Header::Number">Number</a></h4></section></summary><div class="docblock"><p>Returns a reference to the header number.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_number" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1231">source</a><h4 class="code-header">fn <a href="#tymethod.set_number" class="fn">set_number</a>(&amp;mut self, number: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Number" title="type sp_runtime::traits::Header::Number">Number</a>)</h4></section></summary><div class="docblock"><p>Sets the header number.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.extrinsics_root" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1234">source</a><h4 class="code-header">fn <a href="#tymethod.extrinsics_root" class="fn">extrinsics_root</a>(&amp;self) -&gt; &amp;Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a></h4></section></summary><div class="docblock"><p>Returns a reference to the extrinsics root.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_extrinsics_root" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1236">source</a><h4 class="code-header">fn <a href="#tymethod.set_extrinsics_root" class="fn">set_extrinsics_root</a>(&amp;mut self, root: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>)</h4></section></summary><div class="docblock"><p>Sets the extrinsic root.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.state_root" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1239">source</a><h4 class="code-header">fn <a href="#tymethod.state_root" class="fn">state_root</a>(&amp;self) -&gt; &amp;Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a></h4></section></summary><div class="docblock"><p>Returns a reference to the state root.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_state_root" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1241">source</a><h4 class="code-header">fn <a href="#tymethod.set_state_root" class="fn">set_state_root</a>(&amp;mut self, root: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>)</h4></section></summary><div class="docblock"><p>Sets the state root.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.parent_hash" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1244">source</a><h4 class="code-header">fn <a href="#tymethod.parent_hash" class="fn">parent_hash</a>(&amp;self) -&gt; &amp;Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a></h4></section></summary><div class="docblock"><p>Returns a reference to the parent hash.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_parent_hash" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1246">source</a><h4 class="code-header">fn <a href="#tymethod.set_parent_hash" class="fn">set_parent_hash</a>(&amp;mut self, hash: Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a>)</h4></section></summary><div class="docblock"><p>Sets the parent hash.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.digest" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1249">source</a><h4 class="code-header">fn <a href="#tymethod.digest" class="fn">digest</a>(&amp;self) -&gt; &amp;<a class="struct" href="../generic/struct.Digest.html" title="struct sp_runtime::generic::Digest">Digest</a></h4></section></summary><div class="docblock"><p>Returns a reference to the digest.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.digest_mut" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1251">source</a><h4 class="code-header">fn <a href="#tymethod.digest_mut" class="fn">digest_mut</a>(&amp;mut self) -&gt; &amp;mut <a class="struct" href="../generic/struct.Digest.html" title="struct sp_runtime::generic::Digest">Digest</a></h4></section></summary><div class="docblock"><p>Get a mutable reference to the digest.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.hash" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1254-1256">source</a><h4 class="code-header">fn <a href="#method.hash" class="fn">hash</a>(&amp;self) -&gt; Self::<a class="associatedtype" href="trait.Header.html#associatedtype.Hash" title="type sp_runtime::traits::Header::Hash">Hash</a></h4></section></summary><div class="docblock"><p>Returns the hash of the header.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-Header-for-Header%3CNumber,+Hash%3E" class="impl"><a class="src rightside" href="../../src/sp_runtime/generic/header.rs.html#75-131">source</a><a href="#impl-Header-for-Header%3CNumber,+Hash%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Number, Hash&gt; <a class="trait" href="trait.Header.html" title="trait sp_runtime::traits::Header">Header</a> for <a class="struct" href="../generic/struct.Header.html" title="struct sp_runtime::generic::Header">Header</a>&lt;Number, Hash&gt;<div class="where">where
+    Number: <a class="trait" href="trait.BlockNumber.html" title="trait sp_runtime::traits::BlockNumber">BlockNumber</a>,
+    Hash: <a class="trait" href="trait.Hash.html" title="trait sp_runtime::traits::Hash">HashT</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Number-1" class="associatedtype trait-impl"><a href="#associatedtype.Number-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Number" class="associatedtype">Number</a> = Number</h4></section><section id="associatedtype.Hash-1" class="associatedtype trait-impl"><a href="#associatedtype.Hash-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Hash" class="associatedtype">Hash</a> = &lt;Hash as <a class="trait" href="trait.Hash.html" title="trait sp_runtime::traits::Hash">Hash</a>&gt;::<a class="associatedtype" href="trait.Hash.html#associatedtype.Output" title="type sp_runtime::traits::Hash::Output">Output</a></h4></section><section id="associatedtype.Hashing-1" class="associatedtype trait-impl"><a href="#associatedtype.Hashing-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Hashing" class="associatedtype">Hashing</a> = Hash</h4></section></div></details></div><script src="../../trait.impl/sp_runtime/traits/trait.Header.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A relative location which is constrained to be an interior location of the context."><title>InteriorMultiLocation in collectives_westend_integration_tests::v3 - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="collectives_westend_integration_tests" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../collectives_westend_integration_tests/index.html">collectives_westend_integration_tests</a><span class="version">1.0.0</span></h2></div><h2 class="location"><a href="#">InteriorMultiLocation</a></h2><div class="sidebar-elems"><section><h3><a href="#aliased-type">Aliased type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.Here">Here</a></li><li><a href="#variant.X1">X1</a></li><li><a href="#variant.X2">X2</a></li><li><a href="#variant.X3">X3</a></li><li><a href="#variant.X4">X4</a></li><li><a href="#variant.X5">X5</a></li><li><a href="#variant.X6">X6</a></li><li><a href="#variant.X7">X7</a></li><li><a href="#variant.X8">X8</a></li></ul></section><h2><a href="index.html">In collectives_westend_integration_tests::v3</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Type Alias <a href="../index.html">collectives_westend_integration_tests</a>::<wbr><a href="index.html">v3</a>::<wbr><a class="type" href="#">InteriorMultiLocation</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/staging_xcm/v3/multilocation.rs.html#88">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub type InteriorMultiLocation = <a class="enum" href="enum.Junctions.html" title="enum collectives_westend_integration_tests::v3::Junctions">Junctions</a>;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A relative location which is constrained to be an interior location of the context.</p>
+<p>See also <code>MultiLocation</code>.</p>
+</div></details><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum InteriorMultiLocation {
+    Here,
+    X1(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>),
+    X2(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>),
+    X3(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>),
+    X4(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>),
+    X5(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>),
+    X6(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>),
+    X7(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>),
+    X8(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>),
+}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.Here" class="variant"><a href="#variant.Here" class="anchor">§</a><h3 class="code-header">Here</h3></section><div class="docblock"><p>The interpreting consensus system.</p>
+</div><section id="variant.X1" class="variant"><a href="#variant.X1" class="anchor">§</a><h3 class="code-header">X1(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>)</h3></section><div class="docblock"><p>A relative path comprising 1 junction.</p>
+</div><section id="variant.X2" class="variant"><a href="#variant.X2" class="anchor">§</a><h3 class="code-header">X2(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>)</h3></section><div class="docblock"><p>A relative path comprising 2 junctions.</p>
+</div><section id="variant.X3" class="variant"><a href="#variant.X3" class="anchor">§</a><h3 class="code-header">X3(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>)</h3></section><div class="docblock"><p>A relative path comprising 3 junctions.</p>
+</div><section id="variant.X4" class="variant"><a href="#variant.X4" class="anchor">§</a><h3 class="code-header">X4(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>)</h3></section><div class="docblock"><p>A relative path comprising 4 junctions.</p>
+</div><section id="variant.X5" class="variant"><a href="#variant.X5" class="anchor">§</a><h3 class="code-header">X5(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>)</h3></section><div class="docblock"><p>A relative path comprising 5 junctions.</p>
+</div><section id="variant.X6" class="variant"><a href="#variant.X6" class="anchor">§</a><h3 class="code-header">X6(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>)</h3></section><div class="docblock"><p>A relative path comprising 6 junctions.</p>
+</div><section id="variant.X7" class="variant"><a href="#variant.X7" class="anchor">§</a><h3 class="code-header">X7(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>)</h3></section><div class="docblock"><p>A relative path comprising 7 junctions.</p>
+</div><section id="variant.X8" class="variant"><a href="#variant.X8" class="anchor">§</a><h3 class="code-header">X8(<a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>, <a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::v3::Junction">Junction</a>)</h3></section><div class="docblock"><p>A relative path comprising 8 junctions.</p>
+</div></div><script src="../../type.impl/collectives_westend_integration_tests/v3/enum.Junctions.js" data-self-path="collectives_westend_integration_tests::v3::InteriorMultiLocation" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

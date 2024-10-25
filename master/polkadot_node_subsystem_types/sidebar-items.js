@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OverseerSignal"],"mod":["errors","messages"],"struct":["ActivatedLeaf","ActiveLeavesUpdate","DefaultSubsystemClient"],"trait":["ChainApiBackend","RuntimeApiSubsystemClient"],"type":["Block","BlockNumber","Hash","UnpinHandle"]};

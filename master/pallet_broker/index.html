@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Pallet Broker"><title>pallet_broker - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_broker" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_broker/index.html">pallet_broker</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_broker</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_broker/lib.rs.html#18-953">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="pallet-broker"><a class="doc-anchor" href="#pallet-broker">§</a>Pallet Broker</h2>
+<p>Brokerage tool for managing Polkadot Core scheduling.</p>
+<p>Properly described in <a href="https://github.com/polkadot-fellows/RFCs/blob/main/text/0001-agile-coretime.md">RFC-0001 Agile Coretime</a>.</p>
+<h3 id="implementation-specifics"><a class="doc-anchor" href="#implementation-specifics">§</a>Implementation Specifics</h3><h4 id="core-mask-bits"><a class="doc-anchor" href="#core-mask-bits">§</a>Core Mask Bits</h4>
+<p>This is 1/80th of a Polkadot Core per timeslice. Assuming timeslices are 80 blocks, then this
+indicates usage of a single core one time over a timeslice.</p>
+<h4 id="the-sale"><a class="doc-anchor" href="#the-sale">§</a>The Sale</h4><div class="example-wrap"><pre class="language-nocompile"><code>					1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2
+0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7
+--------------------------------------------------------
+&lt; interlude  &gt;
+			  &lt;                   sale                 &gt;
+							... of which ...
+			  &lt;  descending-price   &gt;&lt;   fixed-price   &gt;
+														| &lt;-------\
+price fixed, unsold assigned to instapool, system cores reserved -/
+</code></pre></div></div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_broker::weights::WeightInfo">WeightInfo</a>;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_broker::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="migration/index.html" title="mod pallet_broker::migration">migration</a></div></li><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_broker::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="runtime_api/index.html" title="mod pallet_broker::runtime_api">runtime_api</a></div><div class="desc docblock-short">Runtime API definition for the FRAME Broker pallet.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod pallet_broker::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for <code>pallet_broker</code></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AdaptedPrices.html" title="struct pallet_broker::AdaptedPrices">AdaptedPrices</a></div><div class="desc docblock-short">Result of <code>AdaptPrice::adapt_price</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.AutoRenewalRecord.html" title="struct pallet_broker::AutoRenewalRecord">AutoRenewalRecord</a></div><div class="desc docblock-short">A record containing information regarding auto-renewal for a specific core.</div></li><li><div class="item-name"><a class="struct" href="struct.CenterTargetPrice.html" title="struct pallet_broker::CenterTargetPrice">CenterTargetPrice</a></div><div class="desc docblock-short">Simple implementation of <code>AdaptPrice</code> with two linear phases.</div></li><li><div class="item-name"><a class="struct" href="struct.ConfigRecord.html" title="struct pallet_broker::ConfigRecord">ConfigRecord</a></div><div class="desc docblock-short">Configuration of this pallet.</div></li><li><div class="item-name"><a class="struct" href="struct.ContributionRecord.html" title="struct pallet_broker::ContributionRecord">ContributionRecord</a></div><div class="desc docblock-short">The record body of a Region which was contributed to the Instantaneous Coretime Pool. This helps
+with making pro rata payments to contributors.</div></li><li><div class="item-name"><a class="struct" href="struct.CoreMask.html" title="struct pallet_broker::CoreMask">CoreMask</a></div></li><li><div class="item-name"><a class="struct" href="struct.InstaPoolHistoryRecord.html" title="struct pallet_broker::InstaPoolHistoryRecord">InstaPoolHistoryRecord</a></div><div class="desc docblock-short">A per-timeslice bookkeeping record for tracking Instantaneous Coretime Pool activity and
+making proper payments to contributors.</div></li><li><div class="item-name"><a class="struct" href="struct.LeaseRecordItem.html" title="struct pallet_broker::LeaseRecordItem">LeaseRecordItem</a></div><div class="desc docblock-short">Information on a single legacy lease.</div></li><li><div class="item-name"><a class="struct" href="struct.OnDemandRevenueRecord.html" title="struct pallet_broker::OnDemandRevenueRecord">OnDemandRevenueRecord</a></div><div class="desc docblock-short">Record for On demand core sales.</div></li><li><div class="item-name"><a class="struct" href="struct.PoolIoRecord.html" title="struct pallet_broker::PoolIoRecord">PoolIoRecord</a></div><div class="desc docblock-short">A record of flux in the InstaPool.</div></li><li><div class="item-name"><a class="struct" href="struct.PotentialRenewalId.html" title="struct pallet_broker::PotentialRenewalId">PotentialRenewalId</a></div><div class="desc docblock-short">The identity of a possibly renewable Core workload.</div></li><li><div class="item-name"><a class="struct" href="struct.PotentialRenewalRecord.html" title="struct pallet_broker::PotentialRenewalRecord">PotentialRenewalRecord</a></div><div class="desc docblock-short">A record of a potential renewal.</div></li><li><div class="item-name"><a class="struct" href="struct.RegionId.html" title="struct pallet_broker::RegionId">RegionId</a></div><div class="desc docblock-short">Self-describing identity for a Region of Bulk Coretime.</div></li><li><div class="item-name"><a class="struct" href="struct.RegionRecord.html" title="struct pallet_broker::RegionRecord">RegionRecord</a></div><div class="desc docblock-short">The rest of the information describing a Region.</div></li><li><div class="item-name"><a class="struct" href="struct.SaleInfoRecord.html" title="struct pallet_broker::SaleInfoRecord">SaleInfoRecord</a></div><div class="desc docblock-short">The status of a Bulk Coretime Sale.</div></li><li><div class="item-name"><a class="struct" href="struct.SalePerformance.html" title="struct pallet_broker::SalePerformance">SalePerformance</a></div><div class="desc docblock-short">Performance of a past sale.</div></li><li><div class="item-name"><a class="struct" href="struct.ScheduleItem.html" title="struct pallet_broker::ScheduleItem">ScheduleItem</a></div><div class="desc docblock-short">An distinct item which can be scheduled on a Polkadot Core.</div></li><li><div class="item-name"><a class="struct" href="struct.StatusRecord.html" title="struct pallet_broker::StatusRecord">StatusRecord</a></div><div class="desc docblock-short">General status of the system.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.CompletionStatus.html" title="enum pallet_broker::CompletionStatus">CompletionStatus</a></div><div class="desc docblock-short">How much of a core has been assigned or, if completely assigned, the workload itself.</div></li><li><div class="item-name"><a class="enum" href="enum.CoreAssignment.html" title="enum pallet_broker::CoreAssignment">CoreAssignment</a></div><div class="desc docblock-short">An element to which a core can be assigned.</div></li><li><div class="item-name"><a class="enum" href="enum.Finality.html" title="enum pallet_broker::Finality">Finality</a></div><div class="desc docblock-short">Whether a core assignment is revokable or not.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.CORE_MASK_BITS.html" title="constant pallet_broker::CORE_MASK_BITS">CORE_MASK_BITS</a></div><div class="desc docblock-short">The number of bits in the <code>CoreMask</code>.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.AdaptPrice.html" title="trait pallet_broker::AdaptPrice">AdaptPrice</a></div><div class="desc docblock-short">Type for determining how to set price.</div></li><li><div class="item-name"><a class="trait" href="trait.CoretimeInterface.html" title="trait pallet_broker::CoretimeInterface">CoretimeInterface</a></div><div class="desc docblock-short">Type able to accept Coretime scheduling instructions and provide certain usage information.
+Generally implemented by the Relay-chain or some means of communicating with it.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.BalanceOf.html" title="type pallet_broker::BalanceOf">BalanceOf</a></div></li><li><div class="item-name"><a class="type" href="type.ConfigRecordOf.html" title="type pallet_broker::ConfigRecordOf">ConfigRecordOf</a></div></li><li><div class="item-name"><a class="type" href="type.ContributionRecordOf.html" title="type pallet_broker::ContributionRecordOf">ContributionRecordOf</a></div></li><li><div class="item-name"><a class="type" href="type.CoreIndex.html" title="type pallet_broker::CoreIndex">CoreIndex</a></div><div class="desc docblock-short">Index of a Polkadot Core.</div></li><li><div class="item-name"><a class="type" href="type.CoreMaskBitCount.html" title="type pallet_broker::CoreMaskBitCount">CoreMaskBitCount</a></div><div class="desc docblock-short">Counter for the total number of set bits over every core’s <code>CoreMask</code>. <code>u32</code> so we don’t
+ever get an overflow. This is 1/80th of a Polkadot Core per timeslice. Assuming timeslices are
+80 blocks, then this indicates usage of a single core one time over a timeslice.</div></li><li><div class="item-name"><a class="type" href="type.InstaPoolHistoryRecordOf.html" title="type pallet_broker::InstaPoolHistoryRecordOf">InstaPoolHistoryRecordOf</a></div></li><li><div class="item-name"><a class="type" href="type.LeasesRecord.html" title="type pallet_broker::LeasesRecord">LeasesRecord</a></div><div class="desc docblock-short">Record for Polkadot Core legacy leases.</div></li><li><div class="item-name"><a class="type" href="type.LeasesRecordOf.html" title="type pallet_broker::LeasesRecordOf">LeasesRecordOf</a></div></li><li><div class="item-name"><a class="type" href="type.OnDemandRevenueRecordOf.html" title="type pallet_broker::OnDemandRevenueRecordOf">OnDemandRevenueRecordOf</a></div></li><li><div class="item-name"><a class="type" href="type.PartsOf57600.html" title="type pallet_broker::PartsOf57600">PartsOf57600</a></div><div class="desc docblock-short">Fraction expressed as a nominator with an assumed denominator of 57,600.</div></li><li><div class="item-name"><a class="type" href="type.PotentialRenewalRecordOf.html" title="type pallet_broker::PotentialRenewalRecordOf">PotentialRenewalRecordOf</a></div></li><li><div class="item-name"><a class="type" href="type.RCBlockNumberOf.html" title="type pallet_broker::RCBlockNumberOf">RCBlockNumberOf</a></div><div class="desc docblock-short">Relay chain block number of <code>T</code> that implements <a href="trait.CoretimeInterface.html" title="trait pallet_broker::CoretimeInterface"><code>CoretimeInterface</code></a>.</div></li><li><div class="item-name"><a class="type" href="type.RCBlockNumberProviderOf.html" title="type pallet_broker::RCBlockNumberProviderOf">RCBlockNumberProviderOf</a></div><div class="desc docblock-short">Relay chain block number provider of <code>T</code> that implements <a href="trait.CoretimeInterface.html" title="trait pallet_broker::CoretimeInterface"><code>CoretimeInterface</code></a>.</div></li><li><div class="item-name"><a class="type" href="type.RegionRecordOf.html" title="type pallet_broker::RegionRecordOf">RegionRecordOf</a></div></li><li><div class="item-name"><a class="type" href="type.RelayAccountIdOf.html" title="type pallet_broker::RelayAccountIdOf">RelayAccountIdOf</a></div></li><li><div class="item-name"><a class="type" href="type.RelayBalanceOf.html" title="type pallet_broker::RelayBalanceOf">RelayBalanceOf</a></div></li><li><div class="item-name"><a class="type" href="type.RelayBlockNumberOf.html" title="type pallet_broker::RelayBlockNumberOf">RelayBlockNumberOf</a></div></li><li><div class="item-name"><a class="type" href="type.ReservationsRecord.html" title="type pallet_broker::ReservationsRecord">ReservationsRecord</a></div><div class="desc docblock-short">Record for Polkadot Core reservations (generally tasked with the maintenance of System
+Chains).</div></li><li><div class="item-name"><a class="type" href="type.ReservationsRecordOf.html" title="type pallet_broker::ReservationsRecordOf">ReservationsRecordOf</a></div></li><li><div class="item-name"><a class="type" href="type.SaleInfoRecordOf.html" title="type pallet_broker::SaleInfoRecordOf">SaleInfoRecordOf</a></div></li><li><div class="item-name"><a class="type" href="type.Schedule.html" title="type pallet_broker::Schedule">Schedule</a></div></li><li><div class="item-name"><a class="type" href="type.SignedCoreMaskBitCount.html" title="type pallet_broker::SignedCoreMaskBitCount">SignedCoreMaskBitCount</a></div><div class="desc docblock-short">The same as <code>CoreMaskBitCount</code> but signed.</div></li><li><div class="item-name"><a class="type" href="type.TaskId.html" title="type pallet_broker::TaskId">TaskId</a></div><div class="desc docblock-short">A Task Id. In general this is called a ParachainId.</div></li><li><div class="item-name"><a class="type" href="type.Timeslice.html" title="type pallet_broker::Timeslice">Timeslice</a></div><div class="desc docblock-short">Relay-chain block number with a fixed divisor of Config::TimeslicePeriod.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

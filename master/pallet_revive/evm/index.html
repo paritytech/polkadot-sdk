@@ -1,0 +1,168 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Types, and traits to integrate pallet-revive with EVM."><title>pallet_revive::evm - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_revive" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_revive/index.html">pallet_revive</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">Module evm</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In crate pallet_revive</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">pallet_revive</a>::<wbr><a class="mod" href="#">evm</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_revive/evm.rs.html#17-22">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Types, and traits to integrate pallet-revive with EVM.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.rlp"><code>pub use rlp;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="runtime/index.html" title="mod pallet_revive::evm::runtime">runtime</a></div><div class="desc docblock-short">Runtime types for integrating <code>pallet-revive</code> with the EVM.</div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.if_ethbloom.html" title="macro pallet_revive::evm::if_ethbloom">if_ethbloom</a></div><div class="desc docblock-short">Conditional compilation depending on whether ethereum-types is built with ethbloom support.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AccessListEntry.html" title="struct pallet_revive::evm::AccessListEntry">AccessListEntry</a></div><div class="desc docblock-short">Access list entry</div></li><li><div class="item-name"><a class="struct" href="struct.Account.html" title="struct pallet_revive::evm::Account">Account</a></div><div class="desc docblock-short">A simple account that can sign transactions</div></li><li><div class="item-name"><a class="struct" href="struct.Block.html" title="struct pallet_revive::evm::Block">Block</a></div><div class="desc docblock-short">Block object</div></li><li><div class="item-name"><a class="struct" href="struct.Bloom.html" title="struct pallet_revive::evm::Bloom">Bloom</a></div><div class="desc docblock-short">Bloom hash type with 256 bytes (2048 bits) size.</div></li><li><div class="item-name"><a class="struct" href="struct.BloomRef.html" title="struct pallet_revive::evm::BloomRef">BloomRef</a></div></li><li><div class="item-name"><a class="struct" href="struct.Byte.html" title="struct pallet_revive::evm::Byte">Byte</a></div><div class="desc docblock-short"><code>u8</code> wrapper type for encoding and decoding hex strings</div></li><li><div class="item-name"><a class="struct" href="struct.Bytes.html" title="struct pallet_revive::evm::Bytes">Bytes</a></div><div class="desc docblock-short"><code>Vec&lt;u8&gt;</code> wrapper type for encoding and decoding hex strings</div></li><li><div class="item-name"><a class="struct" href="struct.Bytes8.html" title="struct pallet_revive::evm::Bytes8">Bytes8</a></div><div class="desc docblock-short"><code>[u8; 8]</code> wrapper type for encoding and decoding hex strings</div></li><li><div class="item-name"><a class="struct" href="struct.Bytes256.html" title="struct pallet_revive::evm::Bytes256">Bytes256</a></div><div class="desc docblock-short"><code>[u8; 256]</code> wrapper type for encoding and decoding hex strings</div></li><li><div class="item-name"><a class="struct" href="struct.FromStrRadixErr.html" title="struct pallet_revive::evm::FromStrRadixErr">FromStrRadixErr</a></div><div class="desc docblock-short">The error type for parsing numbers from strings.</div></li><li><div class="item-name"><a class="struct" href="struct.GenericTransaction.html" title="struct pallet_revive::evm::GenericTransaction">GenericTransaction</a></div><div class="desc docblock-short">Transaction object generic to all types</div></li><li><div class="item-name"><a class="struct" href="struct.H32.html" title="struct pallet_revive::evm::H32">H32</a></div></li><li><div class="item-name"><a class="struct" href="struct.H64.html" title="struct pallet_revive::evm::H64">H64</a></div></li><li><div class="item-name"><a class="struct" href="struct.H128.html" title="struct pallet_revive::evm::H128">H128</a></div><div class="desc docblock-short">Fixed-size uninterpreted hash type with 16 bytes (128 bits) size.</div></li><li><div class="item-name"><a class="struct" href="struct.H160.html" title="struct pallet_revive::evm::H160">H160</a></div><div class="desc docblock-short">Fixed-size uninterpreted hash type with 20 bytes (160 bits) size.</div></li><li><div class="item-name"><a class="struct" href="struct.H256.html" title="struct pallet_revive::evm::H256">H256</a></div><div class="desc docblock-short">Fixed-size uninterpreted hash type with 32 bytes (256 bits) size.</div></li><li><div class="item-name"><a class="struct" href="struct.H264.html" title="struct pallet_revive::evm::H264">H264</a></div></li><li><div class="item-name"><a class="struct" href="struct.H512.html" title="struct pallet_revive::evm::H512">H512</a></div><div class="desc docblock-short">Fixed-size uninterpreted hash type with 64 bytes (512 bits) size.</div></li><li><div class="item-name"><a class="struct" href="struct.H520.html" title="struct pallet_revive::evm::H520">H520</a></div></li><li><div class="item-name"><a class="struct" href="struct.Log.html" title="struct pallet_revive::evm::Log">Log</a></div><div class="desc docblock-short">log</div></li><li><div class="item-name"><a class="struct" href="struct.ReceiptInfo.html" title="struct pallet_revive::evm::ReceiptInfo">ReceiptInfo</a></div><div class="desc docblock-short">Receipt information</div></li><li><div class="item-name"><a class="struct" href="struct.SyncingProgress.html" title="struct pallet_revive::evm::SyncingProgress">SyncingProgress</a></div><div class="desc docblock-short">Syncing progress</div></li><li><div class="item-name"><a class="struct" href="struct.Transaction1559Signed.html" title="struct pallet_revive::evm::Transaction1559Signed">Transaction1559Signed</a></div><div class="desc docblock-short">Signed 1559 Transaction</div></li><li><div class="item-name"><a class="struct" href="struct.Transaction1559Unsigned.html" title="struct pallet_revive::evm::Transaction1559Unsigned">Transaction1559Unsigned</a></div><div class="desc docblock-short">EIP-1559 transaction.</div></li><li><div class="item-name"><a class="struct" href="struct.Transaction2930Signed.html" title="struct pallet_revive::evm::Transaction2930Signed">Transaction2930Signed</a></div><div class="desc docblock-short">Signed 2930 Transaction</div></li><li><div class="item-name"><a class="struct" href="struct.Transaction2930Unsigned.html" title="struct pallet_revive::evm::Transaction2930Unsigned">Transaction2930Unsigned</a></div><div class="desc docblock-short">EIP-2930 transaction.</div></li><li><div class="item-name"><a class="struct" href="struct.Transaction4844Signed.html" title="struct pallet_revive::evm::Transaction4844Signed">Transaction4844Signed</a></div><div class="desc docblock-short">Signed 4844 Transaction</div></li><li><div class="item-name"><a class="struct" href="struct.Transaction4844Unsigned.html" title="struct pallet_revive::evm::Transaction4844Unsigned">Transaction4844Unsigned</a></div><div class="desc docblock-short">EIP-4844 transaction.</div></li><li><div class="item-name"><a class="struct" href="struct.TransactionInfo.html" title="struct pallet_revive::evm::TransactionInfo">TransactionInfo</a></div><div class="desc docblock-short">Transaction information</div></li><li><div class="item-name"><a class="struct" href="struct.TransactionLegacySigned.html" title="struct pallet_revive::evm::TransactionLegacySigned">TransactionLegacySigned</a></div><div class="desc docblock-short">Signed Legacy Transaction</div></li><li><div class="item-name"><a class="struct" href="struct.TransactionLegacyUnsigned.html" title="struct pallet_revive::evm::TransactionLegacyUnsigned">TransactionLegacyUnsigned</a></div><div class="desc docblock-short">Legacy transaction.</div></li><li><div class="item-name"><a class="struct" href="struct.Type0.html" title="struct pallet_revive::evm::Type0">Type0</a></div><div class="desc docblock-short">Transaction type identifier: 0</div></li><li><div class="item-name"><a class="struct" href="struct.Type1.html" title="struct pallet_revive::evm::Type1">Type1</a></div><div class="desc docblock-short">Transaction type identifier: 1</div></li><li><div class="item-name"><a class="struct" href="struct.Type2.html" title="struct pallet_revive::evm::Type2">Type2</a></div><div class="desc docblock-short">Transaction type identifier: 2</div></li><li><div class="item-name"><a class="struct" href="struct.U64.html" title="struct pallet_revive::evm::U64">U64</a></div><div class="desc docblock-short">Little-endian large integer type
+Unsigned 64-bit integer.</div></li><li><div class="item-name"><a class="struct" href="struct.U128.html" title="struct pallet_revive::evm::U128">U128</a></div><div class="desc docblock-short">Little-endian large integer type
+128-bit unsigned integer.</div></li><li><div class="item-name"><a class="struct" href="struct.U256.html" title="struct pallet_revive::evm::U256">U256</a></div><div class="desc docblock-short">Little-endian large integer type
+256-bit unsigned integer.</div></li><li><div class="item-name"><a class="struct" href="struct.U512.html" title="struct pallet_revive::evm::U512">U512</a></div><div class="desc docblock-short">Little-endian large integer type
+512-bits unsigned integer.</div></li><li><div class="item-name"><a class="struct" href="struct.Withdrawal.html" title="struct pallet_revive::evm::Withdrawal">Withdrawal</a></div><div class="desc docblock-short">Validator withdrawal</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.BlockNumberOrTag.html" title="enum pallet_revive::evm::BlockNumberOrTag">BlockNumberOrTag</a></div><div class="desc docblock-short">Block number or tag</div></li><li><div class="item-name"><a class="enum" href="enum.BlockNumberOrTagOrHash.html" title="enum pallet_revive::evm::BlockNumberOrTagOrHash">BlockNumberOrTagOrHash</a></div><div class="desc docblock-short">Block number, tag, or block hash</div></li><li><div class="item-name"><a class="enum" href="enum.BlockTag.html" title="enum pallet_revive::evm::BlockTag">BlockTag</a></div><div class="desc docblock-short">Block tag
+<code>earliest</code>: The lowest numbered block the client has available; <code>finalized</code>: The most recent
+crypto-economically secure block, cannot be re-orged outside of manual intervention driven by
+community coordination; <code>safe</code>: The most recent block that is safe from re-orgs under honest
+majority and certain synchronicity assumptions; <code>latest</code>: The most recent block in the canonical
+chain observed by the client, this block may be re-orged out of the canonical chain even under
+healthy/normal conditions; <code>pending</code>: A sample next block built by the client on top of <code>latest</code>
+and containing the set of transactions usually taken from local mempool. Before the merge
+transition is finalized, any call querying for <code>finalized</code> or <code>safe</code> block MUST be responded to
+with <code>-39001: Unknown block</code> error</div></li><li><div class="item-name"><a class="enum" href="enum.BloomInput.html" title="enum pallet_revive::evm::BloomInput">BloomInput</a></div></li><li><div class="item-name"><a class="enum" href="enum.FromDecStrErr.html" title="enum pallet_revive::evm::FromDecStrErr">FromDecStrErr</a></div><div class="desc docblock-short">Conversion from decimal string error</div></li><li><div class="item-name"><a class="enum" href="enum.FromStrRadixErrKind.html" title="enum pallet_revive::evm::FromStrRadixErrKind">FromStrRadixErrKind</a></div><div class="desc docblock-short">A list of error categories encountered when parsing numbers.</div></li><li><div class="item-name"><a class="enum" href="enum.H256OrTransactionInfo.html" title="enum pallet_revive::evm::H256OrTransactionInfo">H256OrTransactionInfo</a></div></li><li><div class="item-name"><a class="enum" href="enum.SyncingStatus.html" title="enum pallet_revive::evm::SyncingStatus">SyncingStatus</a></div><div class="desc docblock-short">Syncing status</div></li><li><div class="item-name"><a class="enum" href="enum.TransactionSigned.html" title="enum pallet_revive::evm::TransactionSigned">TransactionSigned</a></div></li><li><div class="item-name"><a class="enum" href="enum.TransactionUnsigned.html" title="enum pallet_revive::evm::TransactionUnsigned">TransactionUnsigned</a></div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.BigEndianHash.html" title="trait pallet_revive::evm::BigEndianHash">BigEndianHash</a></div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.AccessList.html" title="type pallet_revive::evm::AccessList">AccessList</a></div><div class="desc docblock-short">Access list</div></li><li><div class="item-name"><a class="type" href="type.Address.html" title="type pallet_revive::evm::Address">Address</a></div></li><li><div class="item-name"><a class="type" href="type.Public.html" title="type pallet_revive::evm::Public">Public</a></div></li><li><div class="item-name"><a class="type" href="type.Secret.html" title="type pallet_revive::evm::Secret">Secret</a></div></li><li><div class="item-name"><a class="type" href="type.Signature.html" title="type pallet_revive::evm::Signature">Signature</a></div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

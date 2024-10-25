@@ -1,0 +1,161 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The statement table: generic implementation."><title>polkadot_statement_table::generic - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_statement_table" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../polkadot_statement_table/index.html">polkadot_statement_table</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">Module generic</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In crate polkadot_statement_table</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">polkadot_statement_table</a>::<wbr><a class="mod" href="#">generic</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/polkadot_statement_table/generic.rs.html#17-987">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The statement table: generic implementation.</p>
+<p>This stores messages other authorities issue about candidates.</p>
+<p>These messages are used to create a proposal submitted to a BFT consensus process.</p>
+<p>Each parachain is associated with a committee of authorities, who issue statements
+indicating whether the candidate is valid or invalid. Once a threshold of the committee
+has signed validity statements, the candidate may be marked includable.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AttestedCandidate.html" title="struct polkadot_statement_table::generic::AttestedCandidate">AttestedCandidate</a></div><div class="desc docblock-short">An attested-to candidate.</div></li><li><div class="item-name"><a class="struct" href="struct.CandidateData.html" title="struct polkadot_statement_table::generic::CandidateData">CandidateData</a></div><div class="desc docblock-short">Stores votes and data about a candidate.</div></li><li><div class="item-name"><a class="struct" href="struct.Config.html" title="struct polkadot_statement_table::generic::Config">Config</a></div><div class="desc docblock-short">Table configuration.</div></li><li><div class="item-name"><a class="struct" href="struct.DrainMisbehaviors.html" title="struct polkadot_statement_table::generic::DrainMisbehaviors">DrainMisbehaviors</a></div></li><li><div class="item-name"><a class="struct" href="struct.MultipleCandidates.html" title="struct polkadot_statement_table::generic::MultipleCandidates">MultipleCandidates</a></div><div class="desc docblock-short">Misbehavior: declaring multiple candidates.</div></li><li><div class="item-name"><a class="struct" href="struct.SignedStatement.html" title="struct polkadot_statement_table::generic::SignedStatement">SignedStatement</a></div><div class="desc docblock-short">A signed statement.</div></li><li><div class="item-name"><a class="struct" href="struct.Summary.html" title="struct polkadot_statement_table::generic::Summary">Summary</a></div><div class="desc docblock-short">A summary of import of a statement.</div></li><li><div class="item-name"><a class="struct" href="struct.Table.html" title="struct polkadot_statement_table::generic::Table">Table</a></div><div class="desc docblock-short">Stores votes</div></li><li><div class="item-name"><a class="struct" href="struct.UnauthorizedStatement.html" title="struct polkadot_statement_table::generic::UnauthorizedStatement">UnauthorizedStatement</a></div><div class="desc docblock-short">Misbehavior: submitted statement for wrong group.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.DoubleSign.html" title="enum polkadot_statement_table::generic::DoubleSign">DoubleSign</a></div><div class="desc docblock-short">Misbehavior: multiple signatures on same statement.</div></li><li><div class="item-name"><a class="enum" href="enum.Misbehavior.html" title="enum polkadot_statement_table::generic::Misbehavior">Misbehavior</a></div><div class="desc docblock-short">Different kinds of misbehavior. All of these kinds of malicious misbehavior
+are easily provable and extremely disincentivized.</div></li><li><div class="item-name"><a class="enum" href="enum.Statement.html" title="enum polkadot_statement_table::generic::Statement">Statement</a></div><div class="desc docblock-short">Statements circulated among peers.</div></li><li><div class="item-name"><a class="enum" href="enum.ValidityAttestation.html" title="enum polkadot_statement_table::generic::ValidityAttestation">ValidityAttestation</a></div><div class="desc docblock-short">A validity attestation.</div></li><li><div class="item-name"><a class="enum" href="enum.ValidityDoubleVote.html" title="enum polkadot_statement_table::generic::ValidityDoubleVote">ValidityDoubleVote</a></div><div class="desc docblock-short">Misbehavior: voting more than one way on candidate validity.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Context.html" title="trait polkadot_statement_table::generic::Context">Context</a></div><div class="desc docblock-short">Context for the statement table.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.ImportResult.html" title="type polkadot_statement_table::generic::ImportResult">ImportResult</a></div><div class="desc docblock-short">Type alias for the result of a statement import.</div></li><li><div class="item-name"><a class="type" href="type.MisbehaviorFor.html" title="type polkadot_statement_table::generic::MisbehaviorFor">MisbehaviorFor</a></div><div class="desc docblock-short">Type alias for misbehavior corresponding to context type.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

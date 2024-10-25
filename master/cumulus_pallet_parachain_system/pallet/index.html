@@ -1,0 +1,188 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The `pallet` module in each FRAME pallet hosts the most important items needed to construct this pallet."><title>cumulus_pallet_parachain_system::pallet - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_pallet_parachain_system" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../cumulus_pallet_parachain_system/index.html">cumulus_pallet_parachain_system</a><span class="version">0.7.0</span></h2></div><h2 class="location"><a href="#">Module pallet</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In crate cumulus_pallet_parachain_system</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">cumulus_pallet_parachain_system</a>::<wbr><a class="mod" href="#">pallet</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/cumulus_pallet_parachain_system/lib.rs.html#237">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</p>
+<p>The main components of this pallet are:</p>
+<ul>
+<li><a href="struct.Pallet.html" title="struct cumulus_pallet_parachain_system::pallet::Pallet"><code>Pallet</code></a>, which implements all of the dispatchable extrinsics of the pallet, among
+other public functions.
+<ul>
+<li>The subset of the functions that are dispatchable can be identified either in the
+<a href="dispatchables/index.html" title="mod cumulus_pallet_parachain_system::pallet::dispatchables"><code>dispatchables</code></a> module or in the <a href="enum.Call.html" title="enum cumulus_pallet_parachain_system::pallet::Call"><code>Call</code></a> enum.</li>
+</ul>
+</li>
+<li><a href="storage_types/index.html" title="mod cumulus_pallet_parachain_system::pallet::storage_types"><code>storage_types</code></a>, which contains the list of all types that are representing a
+storage item. Otherwise, all storage items are listed among <a href="#types"><em>Type Definitions</em></a>.</li>
+<li><a href="trait.Config.html" title="trait cumulus_pallet_parachain_system::pallet::Config"><code>Config</code></a>, which contains the configuration trait of this pallet.</li>
+<li><a href="enum.Event.html" title="enum cumulus_pallet_parachain_system::pallet::Event"><code>Event</code></a> and <a href="enum.Error.html" title="enum cumulus_pallet_parachain_system::pallet::Error"><code>Error</code></a>, which are listed among the <a href="#enums"><em>Enums</em></a>.</li>
+</ul>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.tt_error_token"><code>pub use __tt_error_token_1 as tt_error_token;</code></div></li><li><div class="item-name" id="reexport.tt_default_parts"><code>pub use __tt_default_parts_7 as tt_default_parts;</code></div></li><li><div class="item-name" id="reexport.tt_extra_parts"><code>pub use __tt_extra_parts_7 as tt_extra_parts;</code></div></li><li><div class="item-name" id="reexport.tt_default_parts_v2"><code>pub use __tt_default_parts_v2_7 as tt_default_parts_v2;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="dispatchables/index.html" title="mod cumulus_pallet_parachain_system::pallet::dispatchables">dispatchables</a></div><div class="desc docblock-short">Auto-generated docs-only module listing all defined dispatchables for this pallet.</div></li><li><div class="item-name"><a class="mod" href="storage_types/index.html" title="mod cumulus_pallet_parachain_system::pallet::storage_types">storage_types</a></div><div class="desc docblock-short">Auto-generated docs-only module listing all (public and private) defined storage types
+for this pallet.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.GenesisConfig.html" title="struct cumulus_pallet_parachain_system::pallet::GenesisConfig">GenesisConfig</a></div><div class="desc docblock-short">Can be used to configure the
+<a href="https://docs.substrate.io/build/genesis-configuration/">genesis state</a>
+of this pallet.</div></li><li><div class="item-name"><a class="struct" href="struct.Pallet.html" title="struct cumulus_pallet_parachain_system::pallet::Pallet">Pallet</a></div><div class="desc docblock-short">The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</div></li><li><div class="item-name"><a class="struct" href="struct.UpwardInitialDeliveryFeeFactor.html" title="struct cumulus_pallet_parachain_system::pallet::UpwardInitialDeliveryFeeFactor">UpwardInitialDeliveryFeeFactor</a></div><div class="desc docblock-short">Initialization value for the delivery fee factor for UMP.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Call.html" title="enum cumulus_pallet_parachain_system::pallet::Call">Call</a></div><div class="desc docblock-short">Contains a variant per dispatchable extrinsic that this pallet has.</div></li><li><div class="item-name"><a class="enum" href="enum.Error.html" title="enum cumulus_pallet_parachain_system::pallet::Error">Error</a></div><div class="desc docblock-short">The <code>Error</code> enum of this pallet.</div></li><li><div class="item-name"><a class="enum" href="enum.Event.html" title="enum cumulus_pallet_parachain_system::pallet::Event">Event</a></div><div class="desc docblock-short">The <code>Event</code> enum of this pallet</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Config.html" title="trait cumulus_pallet_parachain_system::pallet::Config">Config</a></div><div class="desc docblock-short">Configuration trait of this pallet.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.__type_value_for_upward_initial_delivery_fee_factor.html" title="fn cumulus_pallet_parachain_system::pallet::__type_value_for_upward_initial_delivery_fee_factor">__type_value_for_upward_initial_delivery_fee_factor</a></div><div class="desc docblock-short">Initialization value for the delivery fee factor for UMP.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.AggregatedUnincludedSegment.html" title="type cumulus_pallet_parachain_system::pallet::AggregatedUnincludedSegment">AggregatedUnincludedSegment</a></div><div class="desc docblock-short">Storage field that keeps track of bandwidth used by the unincluded segment along with the
+latest HRMP watermark. Used for limiting the acceptance of new blocks with
+respect to relay chain constraints.</div></li><li><div class="item-name"><a class="type" href="type.AnnouncedHrmpMessagesPerCandidate.html" title="type cumulus_pallet_parachain_system::pallet::AnnouncedHrmpMessagesPerCandidate">AnnouncedHrmpMessagesPerCandidate</a></div><div class="desc docblock-short">The number of HRMP messages we observed in <code>on_initialize</code> and thus used that number for
+announcing the weight of <code>on_initialize</code> and <code>on_finalize</code>.</div></li><li><div class="item-name"><a class="type" href="type.CustomValidationHeadData.html" title="type cumulus_pallet_parachain_system::pallet::CustomValidationHeadData">CustomValidationHeadData</a></div><div class="desc docblock-short">A custom head data that should be returned as result of <code>validate_block</code>.</div></li><li><div class="item-name"><a class="type" href="type.DidSetValidationCode.html" title="type cumulus_pallet_parachain_system::pallet::DidSetValidationCode">DidSetValidationCode</a></div><div class="desc docblock-short">Were the validation data set to notify the relay chain?</div></li><li><div class="item-name"><a class="type" href="type.HostConfiguration.html" title="type cumulus_pallet_parachain_system::pallet::HostConfiguration">HostConfiguration</a></div><div class="desc docblock-short">The parachain host configuration that was obtained from the relay parent.</div></li><li><div class="item-name"><a class="type" href="type.HrmpOutboundMessages.html" title="type cumulus_pallet_parachain_system::pallet::HrmpOutboundMessages">HrmpOutboundMessages</a></div><div class="desc docblock-short">HRMP messages that were sent in a block.</div></li><li><div class="item-name"><a class="type" href="type.HrmpWatermark.html" title="type cumulus_pallet_parachain_system::pallet::HrmpWatermark">HrmpWatermark</a></div><div class="desc docblock-short">HRMP watermark that was set in a block.</div></li><li><div class="item-name"><a class="type" href="type.LastDmqMqcHead.html" title="type cumulus_pallet_parachain_system::pallet::LastDmqMqcHead">LastDmqMqcHead</a></div><div class="desc docblock-short">The last downward message queue chain head we have observed.</div></li><li><div class="item-name"><a class="type" href="type.LastHrmpMqcHeads.html" title="type cumulus_pallet_parachain_system::pallet::LastHrmpMqcHeads">LastHrmpMqcHeads</a></div><div class="desc docblock-short">The message queue chain heads we have observed per each channel incoming channel.</div></li><li><div class="item-name"><a class="type" href="type.LastRelayChainBlockNumber.html" title="type cumulus_pallet_parachain_system::pallet::LastRelayChainBlockNumber">LastRelayChainBlockNumber</a></div><div class="desc docblock-short">The relay chain block number associated with the last parachain block.</div></li><li><div class="item-name"><a class="type" href="type.Module.html" title="type cumulus_pallet_parachain_system::pallet::Module">Module</a><span class="stab deprecated" title="">Deprecated</span></div><div class="desc docblock-short">Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</div></li><li><div class="item-name"><a class="type" href="type.NewValidationCode.html" title="type cumulus_pallet_parachain_system::pallet::NewValidationCode">NewValidationCode</a></div><div class="desc docblock-short">Validation code that is set by the parachain and is to be communicated to collator and
+consequently the relay-chain.</div></li><li><div class="item-name"><a class="type" href="type.PendingUpwardMessages.html" title="type cumulus_pallet_parachain_system::pallet::PendingUpwardMessages">PendingUpwardMessages</a></div><div class="desc docblock-short">Upward messages that are still pending and not yet send to the relay chain.</div></li><li><div class="item-name"><a class="type" href="type.PendingValidationCode.html" title="type cumulus_pallet_parachain_system::pallet::PendingValidationCode">PendingValidationCode</a></div><div class="desc docblock-short">In case of a scheduled upgrade, this storage field contains the validation code to be
+applied.</div></li><li><div class="item-name"><a class="type" href="type.ProcessedDownwardMessages.html" title="type cumulus_pallet_parachain_system::pallet::ProcessedDownwardMessages">ProcessedDownwardMessages</a></div><div class="desc docblock-short">Number of downward messages processed in a block.</div></li><li><div class="item-name"><a class="type" href="type.RelayStateProof.html" title="type cumulus_pallet_parachain_system::pallet::RelayStateProof">RelayStateProof</a></div><div class="desc docblock-short">The state proof for the last relay parent block.</div></li><li><div class="item-name"><a class="type" href="type.RelevantMessagingState.html" title="type cumulus_pallet_parachain_system::pallet::RelevantMessagingState">RelevantMessagingState</a></div><div class="desc docblock-short">The snapshot of some state related to messaging relevant to the current parachain as per
+the relay parent.</div></li><li><div class="item-name"><a class="type" href="type.ReservedDmpWeightOverride.html" title="type cumulus_pallet_parachain_system::pallet::ReservedDmpWeightOverride">ReservedDmpWeightOverride</a></div><div class="desc docblock-short">The weight we reserve at the beginning of the block for processing DMP messages. This
+overrides the amount set in the Config trait.</div></li><li><div class="item-name"><a class="type" href="type.ReservedXcmpWeightOverride.html" title="type cumulus_pallet_parachain_system::pallet::ReservedXcmpWeightOverride">ReservedXcmpWeightOverride</a></div><div class="desc docblock-short">The weight we reserve at the beginning of the block for processing XCMP messages. This
+overrides the amount set in the Config trait.</div></li><li><div class="item-name"><a class="type" href="type.UnincludedSegment.html" title="type cumulus_pallet_parachain_system::pallet::UnincludedSegment">UnincludedSegment</a></div><div class="desc docblock-short">Latest included block descendants the runtime accepted. In other words, these are
+ancestors of the currently executing block which have not been included in the observed
+relay-chain state.</div></li><li><div class="item-name"><a class="type" href="type.UpgradeGoAhead.html" title="type cumulus_pallet_parachain_system::pallet::UpgradeGoAhead">UpgradeGoAhead</a></div><div class="desc docblock-short">Optional upgrade go-ahead signal from the relay-chain.</div></li><li><div class="item-name"><a class="type" href="type.UpgradeRestrictionSignal.html" title="type cumulus_pallet_parachain_system::pallet::UpgradeRestrictionSignal">UpgradeRestrictionSignal</a></div><div class="desc docblock-short">An option which indicates if the relay-chain restricts signalling a validation code upgrade.
+In other words, if this is <code>Some</code> and <a href="type.NewValidationCode.html" title="type cumulus_pallet_parachain_system::pallet::NewValidationCode"><code>NewValidationCode</code></a> is <code>Some</code> then the produced
+candidate will be invalid.</div></li><li><div class="item-name"><a class="type" href="type.UpwardDeliveryFeeFactor.html" title="type cumulus_pallet_parachain_system::pallet::UpwardDeliveryFeeFactor">UpwardDeliveryFeeFactor</a></div><div class="desc docblock-short">The factor to multiply the base delivery fee by for UMP.</div></li><li><div class="item-name"><a class="type" href="type.UpwardMessages.html" title="type cumulus_pallet_parachain_system::pallet::UpwardMessages">UpwardMessages</a></div><div class="desc docblock-short">Upward messages that were sent in a block.</div></li><li><div class="item-name"><a class="type" href="type.ValidationData.html" title="type cumulus_pallet_parachain_system::pallet::ValidationData">ValidationData</a></div><div class="desc docblock-short">The [<code>PersistedValidationData</code>] set for this block.
+This value is expected to be set only once per block and it’s never stored
+in the trie.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sc_rpc_spec_v2" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_rpc_spec_v2/index.html">sc_rpc_spec_v2</a><span class="version">0.34.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.MethodResultErr.html">MethodResultErr</a></li><li><a href="struct.MethodResultOk.html">MethodResultOk</a></li><li><a href="archive/archive/struct.Archive.html">archive::archive::Archive</a></li><li><a href="archive/archive/struct.ArchiveConfig.html">archive::archive::ArchiveConfig</a></li><li><a href="chain_head/chain_head/struct.ChainHead.html">chain_head::chain_head::ChainHead</a></li><li><a href="chain_head/chain_head/struct.ChainHeadConfig.html">chain_head::chain_head::ChainHeadConfig</a></li><li><a href="chain_head/event/struct.BestBlockChanged.html">chain_head::event::BestBlockChanged</a></li><li><a href="chain_head/event/struct.ChainHeadRuntimeVersion.html">chain_head::event::ChainHeadRuntimeVersion</a></li><li><a href="chain_head/event/struct.ErrorEvent.html">chain_head::event::ErrorEvent</a></li><li><a href="chain_head/event/struct.Finalized.html">chain_head::event::Finalized</a></li><li><a href="chain_head/event/struct.Initialized.html">chain_head::event::Initialized</a></li><li><a href="chain_head/event/struct.MethodResponseStarted.html">chain_head::event::MethodResponseStarted</a></li><li><a href="chain_head/event/struct.NewBlock.html">chain_head::event::NewBlock</a></li><li><a href="chain_head/event/struct.OperationBodyDone.html">chain_head::event::OperationBodyDone</a></li><li><a href="chain_head/event/struct.OperationCallDone.html">chain_head::event::OperationCallDone</a></li><li><a href="chain_head/event/struct.OperationError.html">chain_head::event::OperationError</a></li><li><a href="chain_head/event/struct.OperationId.html">chain_head::event::OperationId</a></li><li><a href="chain_head/event/struct.OperationStorageItems.html">chain_head::event::OperationStorageItems</a></li><li><a href="chain_head/event/struct.RuntimeVersionEvent.html">chain_head::event::RuntimeVersionEvent</a></li><li><a href="chain_spec/chain_spec/struct.ChainSpec.html">chain_spec::chain_spec::ChainSpec</a></li><li><a href="transaction/event/struct.TransactionBlock.html">transaction::event::TransactionBlock</a></li><li><a href="transaction/event/struct.TransactionDropped.html">transaction::event::TransactionDropped</a></li><li><a href="transaction/event/struct.TransactionError.html">transaction::event::TransactionError</a></li><li><a href="transaction/transaction/struct.Transaction.html">transaction::transaction::Transaction</a></li><li><a href="transaction/transaction_broadcast/struct.TransactionBroadcast.html">transaction::transaction_broadcast::TransactionBroadcast</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="enum.MethodResult.html">MethodResult</a></li><li><a href="archive/error/enum.Error.html">archive::error::Error</a></li><li><a href="chain_head/api/enum.ListOrValue.html">chain_head::api::ListOrValue</a></li><li><a href="chain_head/error/enum.Error.html">chain_head::error::Error</a></li><li><a href="chain_head/event/enum.FollowEvent.html">chain_head::event::FollowEvent</a></li><li><a href="chain_head/event/enum.MethodResponse.html">chain_head::event::MethodResponse</a></li><li><a href="chain_head/event/enum.RuntimeEvent.html">chain_head::event::RuntimeEvent</a></li><li><a href="transaction/error/enum.Error.html">transaction::error::Error</a></li><li><a href="transaction/error/enum.ErrorBroadcast.html">transaction::error::ErrorBroadcast</a></li><li><a href="transaction/event/enum.TransactionEvent.html">transaction::event::TransactionEvent</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="archive/api/trait.ArchiveApiClient.html">archive::api::ArchiveApiClient</a></li><li><a href="archive/api/trait.ArchiveApiServer.html">archive::api::ArchiveApiServer</a></li><li><a href="chain_head/api/trait.ChainHeadApiClient.html">chain_head::api::ChainHeadApiClient</a></li><li><a href="chain_head/api/trait.ChainHeadApiServer.html">chain_head::api::ChainHeadApiServer</a></li><li><a href="chain_spec/api/trait.ChainSpecApiClient.html">chain_spec::api::ChainSpecApiClient</a></li><li><a href="chain_spec/api/trait.ChainSpecApiServer.html">chain_spec::api::ChainSpecApiServer</a></li><li><a href="transaction/api/trait.TransactionApiClient.html">transaction::api::TransactionApiClient</a></li><li><a href="transaction/api/trait.TransactionApiServer.html">transaction::api::TransactionApiServer</a></li><li><a href="transaction/api/trait.TransactionBroadcastApiClient.html">transaction::api::TransactionBroadcastApiClient</a></li><li><a href="transaction/api/trait.TransactionBroadcastApiServer.html">transaction::api::TransactionBroadcastApiServer</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="chain_head/chain_head/fn.read_subscription_id_as_string.html">chain_head::chain_head::read_subscription_id_as_string</a></li><li><a href="fn.hex_string.html">hex_string</a></li><li><a href="transaction/transaction/fn.handle_event.html">transaction::transaction::handle_event</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.SubscriptionTaskExecutor.html">SubscriptionTaskExecutor</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="chain_head/error/json_rpc_spec/constant.INTERNAL_ERROR.html">chain_head::error::json_rpc_spec::INTERNAL_ERROR</a></li><li><a href="chain_head/error/json_rpc_spec/constant.INVALID_PARAM_ERROR.html">chain_head::error::json_rpc_spec::INVALID_PARAM_ERROR</a></li><li><a href="chain_head/error/rpc_spec_v2/constant.INVALID_BLOCK_ERROR.html">chain_head::error::rpc_spec_v2::INVALID_BLOCK_ERROR</a></li><li><a href="chain_head/error/rpc_spec_v2/constant.INVALID_CONTINUE.html">chain_head::error::rpc_spec_v2::INVALID_CONTINUE</a></li><li><a href="chain_head/error/rpc_spec_v2/constant.INVALID_DUPLICATE_HASHES.html">chain_head::error::rpc_spec_v2::INVALID_DUPLICATE_HASHES</a></li><li><a href="chain_head/error/rpc_spec_v2/constant.INVALID_RUNTIME_CALL.html">chain_head::error::rpc_spec_v2::INVALID_RUNTIME_CALL</a></li><li><a href="chain_head/error/rpc_spec_v2/constant.REACHED_LIMITS.html">chain_head::error::rpc_spec_v2::REACHED_LIMITS</a></li><li><a href="transaction/error/json_rpc_spec/constant.INVALID_PARAM_ERROR.html">transaction::error::json_rpc_spec::INVALID_PARAM_ERROR</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,276 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Provides low-level API for manipulating network peers."><title>NetworkPeers in sc_network::service::traits - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../sc_network/index.html">sc_network</a><span class="version">0.34.0</span></h2></div><h2 class="location"><a href="#">NetworkPeers</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.accept_unreserved_peers">accept_unreserved_peers</a></li><li><a href="#tymethod.add_known_address">add_known_address</a></li><li><a href="#tymethod.add_peers_to_reserved_set">add_peers_to_reserved_set</a></li><li><a href="#tymethod.add_reserved_peer">add_reserved_peer</a></li><li><a href="#tymethod.deny_unreserved_peers">deny_unreserved_peers</a></li><li><a href="#tymethod.disconnect_peer">disconnect_peer</a></li><li><a href="#tymethod.peer_reputation">peer_reputation</a></li><li><a href="#tymethod.peer_role">peer_role</a></li><li><a href="#tymethod.remove_peers_from_reserved_set">remove_peers_from_reserved_set</a></li><li><a href="#tymethod.remove_reserved_peer">remove_reserved_peer</a></li><li><a href="#tymethod.report_peer">report_peer</a></li><li><a href="#tymethod.reserved_peers">reserved_peers</a></li><li><a href="#tymethod.set_authorized_only">set_authorized_only</a></li><li><a href="#tymethod.set_authorized_peers">set_authorized_peers</a></li><li><a href="#tymethod.set_reserved_peers">set_reserved_peers</a></li><li><a href="#tymethod.sync_num_connected">sync_num_connected</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-NetworkPeers-for-Arc%3CT%3E">Arc&lt;T&gt;</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In sc_network::service::traits</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">sc_network</a>::<wbr><a href="../index.html">service</a>::<wbr><a href="index.html">traits</a>::<wbr><a class="trait" href="#">NetworkPeers</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/sc_network/service/traits.rs.html#339-444">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait NetworkPeers {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 16 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.set_authorized_peers" class="fn">set_authorized_peers</a>(&amp;self, peers: <a class="struct" href="https://doc.rust-lang.org/1.81.0/std/collections/hash/set/struct.HashSet.html" title="struct std::collections::hash::set::HashSet">HashSet</a>&lt;<a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>&gt;);
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_authorized_only" class="fn">set_authorized_only</a>(&amp;self, reserved_only: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.add_known_address" class="fn">add_known_address</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>, addr: <a class="struct" href="../../struct.Multiaddr.html" title="struct sc_network::Multiaddr">Multiaddr</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.report_peer" class="fn">report_peer</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>, cost_benefit: <a class="struct" href="../../struct.ReputationChange.html" title="struct sc_network::ReputationChange">ReputationChange</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.peer_reputation" class="fn">peer_reputation</a>(&amp;self, peer_id: &amp;<a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.i32.html">i32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.disconnect_peer" class="fn">disconnect_peer</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>, protocol: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.accept_unreserved_peers" class="fn">accept_unreserved_peers</a>(&amp;self);
+<span class="item-spacer"></span>    fn <a href="#tymethod.deny_unreserved_peers" class="fn">deny_unreserved_peers</a>(&amp;self);
+<span class="item-spacer"></span>    fn <a href="#tymethod.add_reserved_peer" class="fn">add_reserved_peer</a>(&amp;self, peer: <a class="struct" href="../../config/struct.MultiaddrWithPeerId.html" title="struct sc_network::config::MultiaddrWithPeerId">MultiaddrWithPeerId</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_reserved_peer" class="fn">remove_reserved_peer</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_reserved_peers" class="fn">set_reserved_peers</a>(
+        &amp;self,
+        protocol: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+        peers: <a class="struct" href="https://doc.rust-lang.org/1.81.0/std/collections/hash/set/struct.HashSet.html" title="struct std::collections::hash::set::HashSet">HashSet</a>&lt;<a class="struct" href="../../struct.Multiaddr.html" title="struct sc_network::Multiaddr">Multiaddr</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.add_peers_to_reserved_set" class="fn">add_peers_to_reserved_set</a>(
+        &amp;self,
+        protocol: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+        peers: <a class="struct" href="https://doc.rust-lang.org/1.81.0/std/collections/hash/set/struct.HashSet.html" title="struct std::collections::hash::set::HashSet">HashSet</a>&lt;<a class="struct" href="../../struct.Multiaddr.html" title="struct sc_network::Multiaddr">Multiaddr</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_peers_from_reserved_set" class="fn">remove_peers_from_reserved_set</a>(
+        &amp;self,
+        protocol: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+        peers: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.sync_num_connected" class="fn">sync_num_connected</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.peer_role" class="fn">peer_role</a>(
+        &amp;self,
+        peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>,
+        handshake: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="../../enum.ObservedRole.html" title="enum sc_network::ObservedRole">ObservedRole</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.reserved_peers" class="fn">reserved_peers</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>&gt;, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Provides low-level API for manipulating network peers.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.set_authorized_peers" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#344">source</a><h4 class="code-header">fn <a href="#tymethod.set_authorized_peers" class="fn">set_authorized_peers</a>(&amp;self, peers: <a class="struct" href="https://doc.rust-lang.org/1.81.0/std/collections/hash/set/struct.HashSet.html" title="struct std::collections::hash::set::HashSet">HashSet</a>&lt;<a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>&gt;)</h4></section></summary><div class="docblock"><p>Set authorized peers.</p>
+<p>Need a better solution to manage authorized peers, but now just use reserved peers for
+prototyping.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_authorized_only" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#350">source</a><h4 class="code-header">fn <a href="#tymethod.set_authorized_only" class="fn">set_authorized_only</a>(&amp;self, reserved_only: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>)</h4></section></summary><div class="docblock"><p>Set authorized_only flag.</p>
+<p>Need a better solution to decide authorized_only, but now just use reserved_only flag for
+prototyping.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.add_known_address" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#353">source</a><h4 class="code-header">fn <a href="#tymethod.add_known_address" class="fn">add_known_address</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>, addr: <a class="struct" href="../../struct.Multiaddr.html" title="struct sc_network::Multiaddr">Multiaddr</a>)</h4></section></summary><div class="docblock"><p>Adds an address known to a node.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.report_peer" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#357">source</a><h4 class="code-header">fn <a href="#tymethod.report_peer" class="fn">report_peer</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>, cost_benefit: <a class="struct" href="../../struct.ReputationChange.html" title="struct sc_network::ReputationChange">ReputationChange</a>)</h4></section></summary><div class="docblock"><p>Report a given peer as either beneficial (+) or costly (-) according to the
+given scalar.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.peer_reputation" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#360">source</a><h4 class="code-header">fn <a href="#tymethod.peer_reputation" class="fn">peer_reputation</a>(&amp;self, peer_id: &amp;<a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.i32.html">i32</a></h4></section></summary><div class="docblock"><p>Get peer reputation.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.disconnect_peer" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#365">source</a><h4 class="code-header">fn <a href="#tymethod.disconnect_peer" class="fn">disconnect_peer</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>, protocol: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>)</h4></section></summary><div class="docblock"><p>Disconnect from a node as soon as possible.</p>
+<p>This triggers the same effects as if the connection had closed itself spontaneously.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.accept_unreserved_peers" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#368">source</a><h4 class="code-header">fn <a href="#tymethod.accept_unreserved_peers" class="fn">accept_unreserved_peers</a>(&amp;self)</h4></section></summary><div class="docblock"><p>Connect to unreserved peers and allow unreserved peers to connect for syncing purposes.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.deny_unreserved_peers" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#372">source</a><h4 class="code-header">fn <a href="#tymethod.deny_unreserved_peers" class="fn">deny_unreserved_peers</a>(&amp;self)</h4></section></summary><div class="docblock"><p>Disconnect from unreserved peers and deny new unreserved peers to connect for syncing
+purposes.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.add_reserved_peer" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#378">source</a><h4 class="code-header">fn <a href="#tymethod.add_reserved_peer" class="fn">add_reserved_peer</a>(&amp;self, peer: <a class="struct" href="../../config/struct.MultiaddrWithPeerId.html" title="struct sc_network::config::MultiaddrWithPeerId">MultiaddrWithPeerId</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;</h4></section></summary><div class="docblock"><p>Adds a <code>PeerId</code> and its <code>Multiaddr</code> as reserved for a sync protocol (default peer set).</p>
+<p>Returns an <code>Err</code> if the given string is not a valid multiaddress
+or contains an invalid peer ID (which includes the local peer ID).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.remove_reserved_peer" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#381">source</a><h4 class="code-header">fn <a href="#tymethod.remove_reserved_peer" class="fn">remove_reserved_peer</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>)</h4></section></summary><div class="docblock"><p>Removes a <code>PeerId</code> from the list of reserved peers for a sync protocol (default peer set).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_reserved_peers" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#400-404">source</a><h4 class="code-header">fn <a href="#tymethod.set_reserved_peers" class="fn">set_reserved_peers</a>(
+    &amp;self,
+    protocol: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+    peers: <a class="struct" href="https://doc.rust-lang.org/1.81.0/std/collections/hash/set/struct.HashSet.html" title="struct std::collections::hash::set::HashSet">HashSet</a>&lt;<a class="struct" href="../../struct.Multiaddr.html" title="struct sc_network::Multiaddr">Multiaddr</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;</h4></section></summary><div class="docblock"><p>Sets the reserved set of a protocol to the given set of peers.</p>
+<p>Each <code>Multiaddr</code> must end with a <code>/p2p/</code> component containing the <code>PeerId</code>. It can also
+consist of only <code>/p2p/&lt;peerid&gt;</code>.</p>
+<p>The node will start establishing/accepting connections and substreams to/from peers in this
+set, if it doesn’t have any substream open with them yet.</p>
+<p>Note however, if a call to this function results in less peers on the reserved set, they
+will not necessarily get disconnected (depending on available free slots in the peer set).
+If you want to also disconnect those removed peers, you will have to call
+<code>remove_from_peers_set</code> on those in addition to updating the reserved set. You can omit
+this step if the peer set is in reserved only mode.</p>
+<p>Returns an <code>Err</code> if one of the given addresses is invalid or contains an
+invalid peer ID (which includes the local peer ID), or if <code>protocol</code> does not
+refer to a known protocol.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.add_peers_to_reserved_set" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#414-418">source</a><h4 class="code-header">fn <a href="#tymethod.add_peers_to_reserved_set" class="fn">add_peers_to_reserved_set</a>(
+    &amp;self,
+    protocol: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+    peers: <a class="struct" href="https://doc.rust-lang.org/1.81.0/std/collections/hash/set/struct.HashSet.html" title="struct std::collections::hash::set::HashSet">HashSet</a>&lt;<a class="struct" href="../../struct.Multiaddr.html" title="struct sc_network::Multiaddr">Multiaddr</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;</h4></section></summary><div class="docblock"><p>Add peers to a peer set.</p>
+<p>Each <code>Multiaddr</code> must end with a <code>/p2p/</code> component containing the <code>PeerId</code>. It can also
+consist of only <code>/p2p/&lt;peerid&gt;</code>.</p>
+<p>Returns an <code>Err</code> if one of the given addresses is invalid or contains an
+invalid peer ID (which includes the local peer ID), or if <code>protocol</code> does not
+refer to a know protocol.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.remove_peers_from_reserved_set" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#423-427">source</a><h4 class="code-header">fn <a href="#tymethod.remove_peers_from_reserved_set" class="fn">remove_peers_from_reserved_set</a>(
+    &amp;self,
+    protocol: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+    peers: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;</h4></section></summary><div class="docblock"><p>Remove peers from a peer set.</p>
+<p>Returns <code>Err</code> if <code>protocol</code> does not refer to a known protocol.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.sync_num_connected" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#430">source</a><h4 class="code-header">fn <a href="#tymethod.sync_num_connected" class="fn">sync_num_connected</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a></h4></section></summary><div class="docblock"><p>Returns the number of peers in the sync peer set we’re connected to.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.peer_role" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#438">source</a><h4 class="code-header">fn <a href="#tymethod.peer_role" class="fn">peer_role</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>, handshake: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="../../enum.ObservedRole.html" title="enum sc_network::ObservedRole">ObservedRole</a>&gt;</h4></section></summary><div class="docblock"><p>Attempt to get peer role.</p>
+<p>Right now the peer role is decoded from the received handshake for all protocols
+(<code>/block-announces/1</code> has other information as well). If the handshake cannot be
+decoded into a role, the role queried from <code>PeerStore</code> and if the role is not stored
+there either, <code>None</code> is returned and the peer should be discarded.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.reserved_peers" class="method"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#443">source</a><h4 class="code-header">fn <a href="#tymethod.reserved_peers" class="fn">reserved_peers</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>&gt;, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the list of reserved peers.</p>
+<p>Returns an error if the <code>NetworkWorker</code> is no longer running.</p>
+</div></details></div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-NetworkPeers-for-Arc%3CT%3E" class="impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#448-534">source</a><a href="#impl-NetworkPeers-for-Arc%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.NetworkPeers.html" title="trait sc_network::service::traits::NetworkPeers">NetworkPeers</a> for <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;T&gt;<div class="where">where
+    T: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="trait.NetworkPeers.html" title="trait sc_network::service::traits::NetworkPeers">NetworkPeers</a>,</div></h3></section></summary><div class="impl-items"><section id="method.set_authorized_peers" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#453-455">source</a><a href="#method.set_authorized_peers" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_authorized_peers" class="fn">set_authorized_peers</a>(&amp;self, peers: <a class="struct" href="https://doc.rust-lang.org/1.81.0/std/collections/hash/set/struct.HashSet.html" title="struct std::collections::hash::set::HashSet">HashSet</a>&lt;<a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>&gt;)</h4></section><section id="method.set_authorized_only" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#457-459">source</a><a href="#method.set_authorized_only" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_authorized_only" class="fn">set_authorized_only</a>(&amp;self, reserved_only: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>)</h4></section><section id="method.add_known_address" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#461-463">source</a><a href="#method.add_known_address" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.add_known_address" class="fn">add_known_address</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>, addr: <a class="struct" href="../../struct.Multiaddr.html" title="struct sc_network::Multiaddr">Multiaddr</a>)</h4></section><section id="method.report_peer" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#465-467">source</a><a href="#method.report_peer" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.report_peer" class="fn">report_peer</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>, cost_benefit: <a class="struct" href="../../struct.ReputationChange.html" title="struct sc_network::ReputationChange">ReputationChange</a>)</h4></section><section id="method.peer_reputation" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#469-471">source</a><a href="#method.peer_reputation" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.peer_reputation" class="fn">peer_reputation</a>(&amp;self, peer_id: &amp;<a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.i32.html">i32</a></h4></section><section id="method.disconnect_peer" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#473-475">source</a><a href="#method.disconnect_peer" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.disconnect_peer" class="fn">disconnect_peer</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>, protocol: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>)</h4></section><section id="method.accept_unreserved_peers" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#477-479">source</a><a href="#method.accept_unreserved_peers" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.accept_unreserved_peers" class="fn">accept_unreserved_peers</a>(&amp;self)</h4></section><section id="method.deny_unreserved_peers" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#481-483">source</a><a href="#method.deny_unreserved_peers" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.deny_unreserved_peers" class="fn">deny_unreserved_peers</a>(&amp;self)</h4></section><section id="method.add_reserved_peer" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#485-487">source</a><a href="#method.add_reserved_peer" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.add_reserved_peer" class="fn">add_reserved_peer</a>(&amp;self, peer: <a class="struct" href="../../config/struct.MultiaddrWithPeerId.html" title="struct sc_network::config::MultiaddrWithPeerId">MultiaddrWithPeerId</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;</h4></section><section id="method.remove_reserved_peer" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#489-491">source</a><a href="#method.remove_reserved_peer" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remove_reserved_peer" class="fn">remove_reserved_peer</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>)</h4></section><section id="method.set_reserved_peers" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#493-499">source</a><a href="#method.set_reserved_peers" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_reserved_peers" class="fn">set_reserved_peers</a>(
+    &amp;self,
+    protocol: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+    peers: <a class="struct" href="https://doc.rust-lang.org/1.81.0/std/collections/hash/set/struct.HashSet.html" title="struct std::collections::hash::set::HashSet">HashSet</a>&lt;<a class="struct" href="../../struct.Multiaddr.html" title="struct sc_network::Multiaddr">Multiaddr</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;</h4></section><section id="method.add_peers_to_reserved_set" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#501-507">source</a><a href="#method.add_peers_to_reserved_set" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.add_peers_to_reserved_set" class="fn">add_peers_to_reserved_set</a>(
+    &amp;self,
+    protocol: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+    peers: <a class="struct" href="https://doc.rust-lang.org/1.81.0/std/collections/hash/set/struct.HashSet.html" title="struct std::collections::hash::set::HashSet">HashSet</a>&lt;<a class="struct" href="../../struct.Multiaddr.html" title="struct sc_network::Multiaddr">Multiaddr</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;</h4></section><section id="method.remove_peers_from_reserved_set" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#509-515">source</a><a href="#method.remove_peers_from_reserved_set" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remove_peers_from_reserved_set" class="fn">remove_peers_from_reserved_set</a>(
+    &amp;self,
+    protocol: <a class="enum" href="../../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+    peers: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;</h4></section><section id="method.sync_num_connected" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#517-519">source</a><a href="#method.sync_num_connected" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.sync_num_connected" class="fn">sync_num_connected</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a></h4></section><section id="method.peer_role" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#521-523">source</a><a href="#method.peer_role" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.peer_role" class="fn">peer_role</a>(&amp;self, peer_id: <a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>, handshake: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="../../enum.ObservedRole.html" title="enum sc_network::ObservedRole">ObservedRole</a>&gt;</h4></section><section id="method.reserved_peers" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network/service/traits.rs.html#525-533">source</a><a href="#method.reserved_peers" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.reserved_peers" class="fn">reserved_peers</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../struct.PeerId.html" title="struct sc_network::PeerId">PeerId</a>&gt;, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-NetworkPeers-for-NetworkService%3CB,+H%3E" class="impl"><a class="src rightside" href="../../../src/sc_network/service.rs.html#1014-1196">source</a><a href="#impl-NetworkPeers-for-NetworkService%3CB,+H%3E" class="anchor">§</a><h3 class="code-header">impl&lt;B, H&gt; <a class="trait" href="trait.NetworkPeers.html" title="trait sc_network::service::traits::NetworkPeers">NetworkPeers</a> for <a class="struct" href="../struct.NetworkService.html" title="struct sc_network::service::NetworkService">NetworkService</a>&lt;B, H&gt;<div class="where">where
+    B: BlockT + 'static,
+    H: <a class="trait" href="../../config/trait.ExHashT.html" title="trait sc_network::config::ExHashT">ExHashT</a>,</div></h3></section></div><script src="../../../trait.impl/sc_network/service/traits/trait.NetworkPeers.js" data-ignore-extern-crates="alloc" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

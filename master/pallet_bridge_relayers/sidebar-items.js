@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"mod":["benchmarking","extension","migration","pallet","weights"],"struct":["DeliveryConfirmationPaymentsAdapter","StakeAndSlashNamed"],"trait":["WeightInfoExt"]};

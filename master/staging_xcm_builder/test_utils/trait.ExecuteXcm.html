@@ -1,0 +1,208 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Type of XCM message executor."><title>ExecuteXcm in staging_xcm_builder::test_utils - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_xcm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../staging_xcm_builder/index.html">staging_xcm_builder</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">ExecuteXcm</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Prepared">Prepared</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.charge_fees">charge_fees</a></li><li><a href="#tymethod.execute">execute</a></li><li><a href="#tymethod.prepare">prepare</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.prepare_and_execute">prepare_and_execute</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-ExecuteXcm%3CC%3E-for-()">()</a></li><li><a href="#impl-ExecuteXcm%3C%3CConfig+as+Config%3E::RuntimeCall%3E-for-XcmExecutor%3CConfig%3E">XcmExecutor&lt;Config&gt;</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In staging_xcm_builder::test_utils</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">staging_xcm_builder</a>::<wbr><a href="index.html">test_utils</a>::<wbr><a class="trait" href="#">ExecuteXcm</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait ExecuteXcm&lt;Call&gt; {
+    type <a href="#associatedtype.Prepared" class="associatedtype">Prepared</a>: <a class="trait" href="trait.PreparedMessage.html" title="trait staging_xcm_builder::test_utils::PreparedMessage">PreparedMessage</a>;
+
+    // Required methods
+    fn <a href="#tymethod.prepare" class="fn">prepare</a>(message: <a class="struct" href="struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;Call&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.ExecuteXcm.html#associatedtype.Prepared" title="type staging_xcm_builder::test_utils::ExecuteXcm::Prepared">Prepared</a>, <a class="struct" href="struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;Call&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.execute" class="fn">execute</a>(
+        origin: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;,
+        pre: Self::<a class="associatedtype" href="trait.ExecuteXcm.html#associatedtype.Prepared" title="type staging_xcm_builder::test_utils::ExecuteXcm::Prepared">Prepared</a>,
+        id: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>],
+        weight_credit: <a class="struct" href="struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>,
+    ) -&gt; <a class="enum" href="enum.Outcome.html" title="enum staging_xcm_builder::test_utils::Outcome">Outcome</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.charge_fees" class="fn">charge_fees</a>(
+        location: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;,
+        fees: <a class="struct" href="struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.XcmError.html" title="enum staging_xcm_builder::test_utils::XcmError">Error</a>&gt;;
+
+    // Provided method
+    fn <a href="#method.prepare_and_execute" class="fn">prepare_and_execute</a>(
+        origin: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;,
+        message: <a class="struct" href="struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;Call&gt;,
+        id: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>],
+        weight_limit: <a class="struct" href="struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>,
+        weight_credit: <a class="struct" href="struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>,
+    ) -&gt; <a class="enum" href="enum.Outcome.html" title="enum staging_xcm_builder::test_utils::Outcome">Outcome</a> { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Type of XCM message executor.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><section id="associatedtype.Prepared" class="method"><h4 class="code-header">type <a href="#associatedtype.Prepared" class="associatedtype">Prepared</a>: <a class="trait" href="trait.PreparedMessage.html" title="trait staging_xcm_builder::test_utils::PreparedMessage">PreparedMessage</a></h4></section></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.prepare" class="method"><h4 class="code-header">fn <a href="#tymethod.prepare" class="fn">prepare</a>(message: <a class="struct" href="struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;Call&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.ExecuteXcm.html#associatedtype.Prepared" title="type staging_xcm_builder::test_utils::ExecuteXcm::Prepared">Prepared</a>, <a class="struct" href="struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;Call&gt;&gt;</h4></section><section id="tymethod.execute" class="method"><h4 class="code-header">fn <a href="#tymethod.execute" class="fn">execute</a>(
+    origin: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;,
+    pre: Self::<a class="associatedtype" href="trait.ExecuteXcm.html#associatedtype.Prepared" title="type staging_xcm_builder::test_utils::ExecuteXcm::Prepared">Prepared</a>,
+    id: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>],
+    weight_credit: <a class="struct" href="struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>,
+) -&gt; <a class="enum" href="enum.Outcome.html" title="enum staging_xcm_builder::test_utils::Outcome">Outcome</a></h4></section><details class="toggle method-toggle" open><summary><section id="tymethod.charge_fees" class="method"><h4 class="code-header">fn <a href="#tymethod.charge_fees" class="fn">charge_fees</a>(location: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;, fees: <a class="struct" href="struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.XcmError.html" title="enum staging_xcm_builder::test_utils::XcmError">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Deduct some <code>fees</code> to the sovereign account of the given <code>location</code> and place them as per
+the convention for fees.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><section id="method.prepare_and_execute" class="method"><h4 class="code-header">fn <a href="#method.prepare_and_execute" class="fn">prepare_and_execute</a>(
+    origin: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;,
+    message: <a class="struct" href="struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;Call&gt;,
+    id: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>],
+    weight_limit: <a class="struct" href="struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>,
+    weight_credit: <a class="struct" href="struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>,
+) -&gt; <a class="enum" href="enum.Outcome.html" title="enum staging_xcm_builder::test_utils::Outcome">Outcome</a></h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-ExecuteXcm%3CC%3E-for-()" class="impl"><a href="#impl-ExecuteXcm%3CC%3E-for-()" class="anchor">§</a><h3 class="code-header">impl&lt;C&gt; <a class="trait" href="trait.ExecuteXcm.html" title="trait staging_xcm_builder::test_utils::ExecuteXcm">ExecuteXcm</a>&lt;C&gt; for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><section id="associatedtype.Prepared-1" class="associatedtype trait-impl"><a href="#associatedtype.Prepared-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Prepared" class="associatedtype">Prepared</a> = Weightless</h4></section><section id="method.prepare" class="method trait-impl"><a href="#method.prepare" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.prepare" class="fn">prepare</a>(message: <a class="struct" href="struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;C&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.ExecuteXcm.html" title="trait staging_xcm_builder::test_utils::ExecuteXcm">ExecuteXcm</a>&lt;C&gt;&gt;::<a class="associatedtype" href="trait.ExecuteXcm.html#associatedtype.Prepared" title="type staging_xcm_builder::test_utils::ExecuteXcm::Prepared">Prepared</a>, <a class="struct" href="struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;C&gt;&gt;</h4></section><section id="method.execute" class="method trait-impl"><a href="#method.execute" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.execute" class="fn">execute</a>(
+    _: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;,
+    _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.ExecuteXcm.html" title="trait staging_xcm_builder::test_utils::ExecuteXcm">ExecuteXcm</a>&lt;C&gt;&gt;::<a class="associatedtype" href="trait.ExecuteXcm.html#associatedtype.Prepared" title="type staging_xcm_builder::test_utils::ExecuteXcm::Prepared">Prepared</a>,
+    _: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>],
+    _: <a class="struct" href="struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>,
+) -&gt; <a class="enum" href="enum.Outcome.html" title="enum staging_xcm_builder::test_utils::Outcome">Outcome</a></h4></section><section id="method.charge_fees" class="method trait-impl"><a href="#method.charge_fees" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.charge_fees" class="fn">charge_fees</a>(
+    _location: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;,
+    _fees: <a class="struct" href="struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.XcmError.html" title="enum staging_xcm_builder::test_utils::XcmError">Error</a>&gt;</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-ExecuteXcm%3C%3CConfig+as+Config%3E::RuntimeCall%3E-for-XcmExecutor%3CConfig%3E" class="impl"><a href="#impl-ExecuteXcm%3C%3CConfig+as+Config%3E::RuntimeCall%3E-for-XcmExecutor%3CConfig%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Config&gt; <a class="trait" href="trait.ExecuteXcm.html" title="trait staging_xcm_builder::test_utils::ExecuteXcm">ExecuteXcm</a>&lt;&lt;Config as <a class="trait" href="trait.Config.html" title="trait staging_xcm_builder::test_utils::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeCall" title="type staging_xcm_builder::test_utils::Config::RuntimeCall">RuntimeCall</a>&gt; for XcmExecutor&lt;Config&gt;<div class="where">where
+    Config: <a class="trait" href="trait.Config.html" title="trait staging_xcm_builder::test_utils::Config">Config</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Prepared-2" class="associatedtype trait-impl"><a href="#associatedtype.Prepared-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Prepared" class="associatedtype">Prepared</a> = WeighedMessage&lt;&lt;Config as <a class="trait" href="trait.Config.html" title="trait staging_xcm_builder::test_utils::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeCall" title="type staging_xcm_builder::test_utils::Config::RuntimeCall">RuntimeCall</a>&gt;</h4></section><section id="method.prepare-1" class="method trait-impl"><a href="#method.prepare-1" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.prepare" class="fn">prepare</a>(
+    message: <a class="struct" href="struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;&lt;Config as <a class="trait" href="trait.Config.html" title="trait staging_xcm_builder::test_utils::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeCall" title="type staging_xcm_builder::test_utils::Config::RuntimeCall">RuntimeCall</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;XcmExecutor&lt;Config&gt; as <a class="trait" href="trait.ExecuteXcm.html" title="trait staging_xcm_builder::test_utils::ExecuteXcm">ExecuteXcm</a>&lt;&lt;Config as <a class="trait" href="trait.Config.html" title="trait staging_xcm_builder::test_utils::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeCall" title="type staging_xcm_builder::test_utils::Config::RuntimeCall">RuntimeCall</a>&gt;&gt;::<a class="associatedtype" href="trait.ExecuteXcm.html#associatedtype.Prepared" title="type staging_xcm_builder::test_utils::ExecuteXcm::Prepared">Prepared</a>, <a class="struct" href="struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;&lt;Config as <a class="trait" href="trait.Config.html" title="trait staging_xcm_builder::test_utils::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeCall" title="type staging_xcm_builder::test_utils::Config::RuntimeCall">RuntimeCall</a>&gt;&gt;</h4></section><section id="method.execute-1" class="method trait-impl"><a href="#method.execute-1" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.execute" class="fn">execute</a>(
+    origin: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;,
+    _: WeighedMessage&lt;&lt;Config as <a class="trait" href="trait.Config.html" title="trait staging_xcm_builder::test_utils::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeCall" title="type staging_xcm_builder::test_utils::Config::RuntimeCall">RuntimeCall</a>&gt;,
+    id: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>],
+    weight_credit: <a class="struct" href="struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>,
+) -&gt; <a class="enum" href="enum.Outcome.html" title="enum staging_xcm_builder::test_utils::Outcome">Outcome</a></h4></section><section id="method.charge_fees-1" class="method trait-impl"><a href="#method.charge_fees-1" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.charge_fees" class="fn">charge_fees</a>(origin: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;, fees: <a class="struct" href="struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.XcmError.html" title="enum staging_xcm_builder::test_utils::XcmError">Error</a>&gt;</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/staging_xcm/v4/traits/trait.ExecuteXcm.js" data-ignore-extern-crates="std,staging_xcm_executor" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

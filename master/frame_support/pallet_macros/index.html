@@ -1,0 +1,170 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Contains macro stubs for all of the `pallet::` macros"><title>frame_support::pallet_macros - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Module pallet_macros</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#attributes">Attribute Macros</a></li></ul></section><h2><a href="../index.html">In crate frame_support</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">frame_support</a>::<wbr><a class="mod" href="#">pallet_macros</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/frame_support/lib.rs.html#1068">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Contains macro stubs for all of the <code>pallet::</code> macros</p>
+</div></details><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="attr" href="attr.call.html" title="attr frame_support::pallet_macros::call">call</a></div><div class="desc docblock-short">Allows a pallet to declare a set of functions as a <em>dispatchable extrinsic</em>.</div></li><li><div class="item-name"><a class="attr" href="attr.call_index.html" title="attr frame_support::pallet_macros::call_index">call_index</a></div><div class="desc docblock-short">Enforce the index of a variant in the generated <code>enum Call</code>.</div></li><li><div class="item-name"><a class="attr" href="attr.compact.html" title="attr frame_support::pallet_macros::compact">compact</a></div><div class="desc docblock-short">Declares the arguments of a <a href="attr.call.html" title="attr frame_support::pallet_macros::call"><code>call</code></a> function to be encoded using
+[<code>codec::Compact</code>].</div></li><li><div class="item-name"><a class="attr" href="attr.composite_enum.html" title="attr frame_support::pallet_macros::composite_enum">composite_enum</a></div><div class="desc docblock-short">Allows defining an enum that gets composed as an aggregate enum by <code>construct_runtime</code>.</div></li><li><div class="item-name"><a class="attr" href="attr.config.html" title="attr frame_support::pallet_macros::config">config</a></div><div class="desc docblock-short">The mandatory attribute allowing definition of configurable types for the pallet.</div></li><li><div class="item-name"><a class="attr" href="attr.constant.html" title="attr frame_support::pallet_macros::constant">constant</a></div><div class="desc docblock-short">Allows adding an associated type trait bounded by
+<a href="../pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get"><code>Get</code></a> from <a href="attr.config.html" title="attr frame_support::pallet_macros::config"><code>pallet::config</code></a>
+into metadata.</div></li><li><div class="item-name"><a class="attr" href="attr.disable_frame_system_supertrait_check.html" title="attr frame_support::pallet_macros::disable_frame_system_supertrait_check">disable_frame_system_supertrait_check</a></div><div class="desc docblock-short">Allows bypassing the <code>frame_system::Config</code> supertrait check.</div></li><li><div class="item-name"><a class="attr" href="attr.disable_try_decode_storage.html" title="attr frame_support::pallet_macros::disable_try_decode_storage">disable_try_decode_storage</a></div><div class="desc docblock-short">Allows whitelisting a storage item from decoding during try-runtime checks.</div></li><li><div class="item-name"><a class="attr" href="attr.error.html" title="attr frame_support::pallet_macros::error">error</a></div><div class="desc docblock-short">Allows defining an error enum that will be returned from the dispatchable when an error
+occurs.</div></li><li><div class="item-name"><a class="attr" href="attr.event.html" title="attr frame_support::pallet_macros::event">event</a></div><div class="desc docblock-short">Allows defining pallet events.</div></li><li><div class="item-name"><a class="attr" href="attr.extra_constants.html" title="attr frame_support::pallet_macros::extra_constants">extra_constants</a></div><div class="desc docblock-short">Defines constants that are added to the constant field of
+<a href="frame_metadata::v15::PalletMetadata"><code>PalletMetadata</code></a> struct for this pallet.</div></li><li><div class="item-name"><a class="attr" href="attr.feeless_if.html" title="attr frame_support::pallet_macros::feeless_if">feeless_if</a></div><div class="desc docblock-short">Allows defining logic to make an extrinsic call feeless.</div></li><li><div class="item-name"><a class="attr" href="attr.generate_deposit.html" title="attr frame_support::pallet_macros::generate_deposit">generate_deposit</a></div><div class="desc docblock-short">Generates a helper function on <code>Pallet</code> that handles deposit events.</div></li><li><div class="item-name"><a class="attr" href="attr.genesis_build.html" title="attr frame_support::pallet_macros::genesis_build">genesis_build</a></div><div class="desc docblock-short">Allows you to define how the state of your pallet at genesis is built. This
+takes as input the <code>GenesisConfig</code> type (as <code>self</code>) and constructs the pallet’s initial
+state.</div></li><li><div class="item-name"><a class="attr" href="attr.genesis_config.html" title="attr frame_support::pallet_macros::genesis_config">genesis_config</a></div><div class="desc docblock-short">Allows you to define the genesis configuration for the pallet.</div></li><li><div class="item-name"><a class="attr" href="attr.getter.html" title="attr frame_support::pallet_macros::getter">getter</a></div><div class="desc docblock-short">Allows defining getter functions on <code>Pallet</code> storage.</div></li><li><div class="item-name"><a class="attr" href="attr.hooks.html" title="attr frame_support::pallet_macros::hooks">hooks</a></div><div class="desc docblock-short">The <code>#[pallet::hooks]</code> attribute allows you to specify a
+<a href="../traits/trait.Hooks.html" title="trait frame_support::traits::Hooks"><code>frame_support::traits::Hooks</code></a> implementation for <code>Pallet</code> that specifies
+pallet-specific logic.</div></li><li><div class="item-name"><a class="attr" href="attr.import_section.html" title="attr frame_support::pallet_macros::import_section">import_section</a></div><div class="desc docblock-short">Splits a pallet declaration into multiple parts.</div></li><li><div class="item-name"><a class="attr" href="attr.include_metadata.html" title="attr frame_support::pallet_macros::include_metadata">include_metadata</a></div><div class="desc docblock-short">Selectively includes associated types in the metadata.</div></li><li><div class="item-name"><a class="attr" href="attr.inherent.html" title="attr frame_support::pallet_macros::inherent">inherent</a></div><div class="desc docblock-short">The <code>#[pallet::inherent]</code> attribute allows the pallet to provide
+<a href="https://docs.substrate.io/fundamentals/transaction-types/#inherent-transactions">inherents</a>.</div></li><li><div class="item-name"><a class="attr" href="attr.no_default.html" title="attr frame_support::pallet_macros::no_default">no_default</a></div><div class="desc docblock-short">Ensures the trait item will not be used as a default with the
+<code>#[derive_impl(..)]</code> attribute macro.</div></li><li><div class="item-name"><a class="attr" href="attr.no_default_bounds.html" title="attr frame_support::pallet_macros::no_default_bounds">no_default_bounds</a></div><div class="desc docblock-short">Ensures the generated <code>DefaultConfig</code> will not have any bounds for
+that trait item.</div></li><li><div class="item-name"><a class="attr" href="attr.origin.html" title="attr frame_support::pallet_macros::origin">origin</a></div><div class="desc docblock-short">Allows a pallet to declare a type as an origin.</div></li><li><div class="item-name"><a class="attr" href="attr.pallet_section.html" title="attr frame_support::pallet_macros::pallet_section">pallet_section</a></div><div class="desc docblock-short">Declares a module as importable into a pallet via
+<a href="attr.import_section.html" title="attr frame_support::pallet_macros::import_section"><code>#[import_section]</code></a>.</div></li><li><div class="item-name"><a class="attr" href="attr.storage.html" title="attr frame_support::pallet_macros::storage">storage</a></div><div class="desc docblock-short">Declares a type alias as a storage item.</div></li><li><div class="item-name"><a class="attr" href="attr.storage_prefix.html" title="attr frame_support::pallet_macros::storage_prefix">storage_prefix</a></div><div class="desc docblock-short">Defines what storage prefix to use for a storage item when building the trie.</div></li><li><div class="item-name"><a class="attr" href="attr.storage_version.html" title="attr frame_support::pallet_macros::storage_version">storage_version</a></div><div class="desc docblock-short">Allows defining a storage version for the pallet.</div></li><li><div class="item-name"><a class="attr" href="attr.task_condition.html" title="attr frame_support::pallet_macros::task_condition">task_condition</a></div><div class="desc docblock-short">Allows defining conditions for a task to run.</div></li><li><div class="item-name"><a class="attr" href="attr.task_index.html" title="attr frame_support::pallet_macros::task_index">task_index</a></div><div class="desc docblock-short">Allows defining an index for a task.</div></li><li><div class="item-name"><a class="attr" href="attr.task_list.html" title="attr frame_support::pallet_macros::task_list">task_list</a></div><div class="desc docblock-short">Allows defining an iterator over available work items for a task.</div></li><li><div class="item-name"><a class="attr" href="attr.task_weight.html" title="attr frame_support::pallet_macros::task_weight">task_weight</a></div><div class="desc docblock-short">Allows defining the weight of a task.</div></li><li><div class="item-name"><a class="attr" href="attr.tasks_experimental.html" title="attr frame_support::pallet_macros::tasks_experimental">tasks_experimental</a></div><div class="desc docblock-short">Allows you to define some service work that can be recognized by a script or an
+off-chain worker.</div></li><li><div class="item-name"><a class="attr" href="attr.type_value.html" title="attr frame_support::pallet_macros::type_value">type_value</a></div><div class="desc docblock-short">Allows defining a struct implementing the <a href="../pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get"><code>Get</code></a> trait to
+ease the use of storage types.</div></li><li><div class="item-name"><a class="attr" href="attr.unbounded.html" title="attr frame_support::pallet_macros::unbounded">unbounded</a></div><div class="desc docblock-short">Declares a storage as unbounded in potential size.</div></li><li><div class="item-name"><a class="attr" href="attr.validate_unsigned.html" title="attr frame_support::pallet_macros::validate_unsigned">validate_unsigned</a></div><div class="desc docblock-short">Allows the pallet to validate unsigned transactions.</div></li><li><div class="item-name"><a class="attr" href="attr.weight.html" title="attr frame_support::pallet_macros::weight">weight</a></div><div class="desc docblock-short">Allows specifying the weight of a call.</div></li><li><div class="item-name"><a class="attr" href="attr.whitelist_storage.html" title="attr frame_support::pallet_macros::whitelist_storage">whitelist_storage</a></div><div class="desc docblock-short">Declare the storage as whitelisted from benchmarking.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

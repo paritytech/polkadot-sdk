@@ -1,0 +1,286 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuration trait of this pallet."><title>Config in pallet_staking - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_staking/index.html">pallet_staking</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Config</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.AdminOrigin">AdminOrigin</a></li><li><a href="#associatedtype.BenchmarkingConfig">BenchmarkingConfig</a></li><li><a href="#associatedtype.BondingDuration">BondingDuration</a></li><li><a href="#associatedtype.Currency">Currency</a></li><li><a href="#associatedtype.CurrencyBalance">CurrencyBalance</a></li><li><a href="#associatedtype.CurrencyToVote">CurrencyToVote</a></li><li><a href="#associatedtype.DisablingStrategy">DisablingStrategy</a></li><li><a href="#associatedtype.ElectionProvider">ElectionProvider</a></li><li><a href="#associatedtype.EraPayout">EraPayout</a></li><li><a href="#associatedtype.EventListeners">EventListeners</a></li><li><a href="#associatedtype.GenesisElectionProvider">GenesisElectionProvider</a></li><li><a href="#associatedtype.HistoryDepth">HistoryDepth</a></li><li><a href="#associatedtype.MaxControllersInDeprecationBatch">MaxControllersInDeprecationBatch</a></li><li><a href="#associatedtype.MaxExposurePageSize">MaxExposurePageSize</a></li><li><a href="#associatedtype.MaxUnlockingChunks">MaxUnlockingChunks</a></li><li><a href="#associatedtype.NextNewSession">NextNewSession</a></li><li><a href="#associatedtype.NominationsQuota">NominationsQuota</a></li><li><a href="#associatedtype.Reward">Reward</a></li><li><a href="#associatedtype.RewardRemainder">RewardRemainder</a></li><li><a href="#associatedtype.RuntimeEvent">RuntimeEvent</a></li><li><a href="#associatedtype.SessionInterface">SessionInterface</a></li><li><a href="#associatedtype.SessionsPerEra">SessionsPerEra</a></li><li><a href="#associatedtype.Slash">Slash</a></li><li><a href="#associatedtype.SlashDeferDuration">SlashDeferDuration</a></li><li><a href="#associatedtype.TargetList">TargetList</a></li><li><a href="#associatedtype.UnixTime">UnixTime</a></li><li><a href="#associatedtype.VoterList">VoterList</a></li><li><a href="#associatedtype.WeightInfo">WeightInfo</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate pallet_staking</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">pallet_staking</a>::<wbr><a class="trait" href="#">Config</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_staking/pallet/mod.rs.html#90-309">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Config: Config {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 28 associated items</span></summary>    type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: LockableCurrency&lt;Self::AccountId, Moment = BlockNumberFor&lt;Self&gt;, Balance = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.CurrencyBalance" title="type pallet_staking::Config::CurrencyBalance">CurrencyBalance</a>&gt; + InspectLockableCurrency&lt;Self::AccountId&gt;;
+    type <a href="#associatedtype.CurrencyBalance" class="associatedtype">CurrencyBalance</a>: AtLeast32BitUnsigned + FullCodec + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + MaybeSerializeDeserialize + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>&gt; + TypeInfo + MaxEncodedLen;
+    type <a href="#associatedtype.UnixTime" class="associatedtype">UnixTime</a>: UnixTime;
+    type <a href="#associatedtype.CurrencyToVote" class="associatedtype">CurrencyToVote</a>: CurrencyToVote&lt;<a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.ElectionProvider" class="associatedtype">ElectionProvider</a>: ElectionProvider&lt;AccountId = Self::AccountId, BlockNumber = BlockNumberFor&lt;Self&gt;, DataProvider = <a class="struct" href="struct.Pallet.html" title="struct pallet_staking::Pallet">Pallet</a>&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.GenesisElectionProvider" class="associatedtype">GenesisElectionProvider</a>: ElectionProvider&lt;AccountId = Self::AccountId, BlockNumber = BlockNumberFor&lt;Self&gt;, DataProvider = <a class="struct" href="struct.Pallet.html" title="struct pallet_staking::Pallet">Pallet</a>&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.NominationsQuota" class="associatedtype">NominationsQuota</a>: <a class="trait" href="trait.NominationsQuota.html" title="trait pallet_staking::NominationsQuota">NominationsQuota</a>&lt;<a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.HistoryDepth" class="associatedtype">HistoryDepth</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.RewardRemainder" class="associatedtype">RewardRemainder</a>: OnUnbalanced&lt;<a class="type" href="type.NegativeImbalanceOf.html" title="type pallet_staking::NegativeImbalanceOf">NegativeImbalanceOf</a>&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_staking::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;;
+    type <a href="#associatedtype.Slash" class="associatedtype">Slash</a>: OnUnbalanced&lt;<a class="type" href="type.NegativeImbalanceOf.html" title="type pallet_staking::NegativeImbalanceOf">NegativeImbalanceOf</a>&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.Reward" class="associatedtype">Reward</a>: OnUnbalanced&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_staking::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_staking::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::PositiveImbalance&gt;;
+    type <a href="#associatedtype.SessionsPerEra" class="associatedtype">SessionsPerEra</a>: Get&lt;SessionIndex&gt;;
+    type <a href="#associatedtype.BondingDuration" class="associatedtype">BondingDuration</a>: Get&lt;EraIndex&gt;;
+    type <a href="#associatedtype.SlashDeferDuration" class="associatedtype">SlashDeferDuration</a>: Get&lt;EraIndex&gt;;
+    type <a href="#associatedtype.AdminOrigin" class="associatedtype">AdminOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;;
+    type <a href="#associatedtype.SessionInterface" class="associatedtype">SessionInterface</a>: <a class="trait" href="trait.SessionInterface.html" title="trait pallet_staking::SessionInterface">SessionInterface</a>&lt;Self::AccountId&gt;;
+    type <a href="#associatedtype.EraPayout" class="associatedtype">EraPayout</a>: <a class="trait" href="trait.EraPayout.html" title="trait pallet_staking::EraPayout">EraPayout</a>&lt;<a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.NextNewSession" class="associatedtype">NextNewSession</a>: EstimateNextNewSession&lt;BlockNumberFor&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.MaxExposurePageSize" class="associatedtype">MaxExposurePageSize</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.VoterList" class="associatedtype">VoterList</a>: SortedListProvider&lt;Self::AccountId, Score = VoteWeight&gt;;
+    type <a href="#associatedtype.TargetList" class="associatedtype">TargetList</a>: SortedListProvider&lt;Self::AccountId, Score = <a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.MaxUnlockingChunks" class="associatedtype">MaxUnlockingChunks</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.MaxControllersInDeprecationBatch" class="associatedtype">MaxControllersInDeprecationBatch</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.EventListeners" class="associatedtype">EventListeners</a>: OnStakingUpdate&lt;Self::AccountId, <a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.DisablingStrategy" class="associatedtype">DisablingStrategy</a>: <a class="trait" href="trait.DisablingStrategy.html" title="trait pallet_staking::DisablingStrategy">DisablingStrategy</a>&lt;Self&gt;;
+    type <a href="#associatedtype.BenchmarkingConfig" class="associatedtype">BenchmarkingConfig</a>: <a class="trait" href="trait.BenchmarkingConfig.html" title="trait pallet_staking::BenchmarkingConfig">BenchmarkingConfig</a>;
+    type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_staking::weights::WeightInfo">WeightInfo</a>;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration trait of this pallet.</p>
+<p>The main purpose of this trait is to act as an interface between this pallet and the runtime in
+which it is embedded in. A type, function, or constant in this trait is essentially left to be
+configured by the runtime that includes this pallet.</p>
+<p>Consequently, a runtime that wants to include this pallet must implement this trait.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Currency" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#93-97">source</a><h4 class="code-header">type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: LockableCurrency&lt;Self::AccountId, Moment = BlockNumberFor&lt;Self&gt;, Balance = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.CurrencyBalance" title="type pallet_staking::Config::CurrencyBalance">CurrencyBalance</a>&gt; + InspectLockableCurrency&lt;Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>The staking balance.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.CurrencyBalance" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#100-108">source</a><h4 class="code-header">type <a href="#associatedtype.CurrencyBalance" class="associatedtype">CurrencyBalance</a>: AtLeast32BitUnsigned + FullCodec + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + MaybeSerializeDeserialize + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>&gt; + TypeInfo + MaxEncodedLen</h4></section></summary><div class="docblock"><p>Just the <code>Currency::Balance</code> type; we have this item to allow us to constrain it to
+<code>From&lt;u64&gt;</code>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.UnixTime" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#114">source</a><h4 class="code-header">type <a href="#associatedtype.UnixTime" class="associatedtype">UnixTime</a>: UnixTime</h4></section></summary><div class="docblock"><p>Time used for computing era duration.</p>
+<p>It is guaranteed to start being called from the first <code>on_finalize</code>. Thus value at
+genesis is not used.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.CurrencyToVote" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#123">source</a><h4 class="code-header">type <a href="#associatedtype.CurrencyToVote" class="associatedtype">CurrencyToVote</a>: CurrencyToVote&lt;<a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Convert a balance into a number used for election calculation. This must fit into a
+<code>u64</code> but is allowed to be sensibly lossy. The <code>u64</code> is used to communicate with the
+[<code>frame_election_provider_support</code>] crate which accepts u64 numbers and does operations
+in 128.
+Consequently, the backward convert is used convert the u128s from sp-elections back to a
+<a href="type.BalanceOf.html" title="type pallet_staking::BalanceOf"><code>BalanceOf</code></a>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.ElectionProvider" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#127-132">source</a><h4 class="code-header">type <a href="#associatedtype.ElectionProvider" class="associatedtype">ElectionProvider</a>: ElectionProvider&lt;AccountId = Self::AccountId, BlockNumber = BlockNumberFor&lt;Self&gt;, DataProvider = <a class="struct" href="struct.Pallet.html" title="struct pallet_staking::Pallet">Pallet</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Something that provides the election functionality.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.GenesisElectionProvider" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#135-139">source</a><h4 class="code-header">type <a href="#associatedtype.GenesisElectionProvider" class="associatedtype">GenesisElectionProvider</a>: ElectionProvider&lt;AccountId = Self::AccountId, BlockNumber = BlockNumberFor&lt;Self&gt;, DataProvider = <a class="struct" href="struct.Pallet.html" title="struct pallet_staking::Pallet">Pallet</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Something that provides the election functionality at genesis.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.NominationsQuota" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#143">source</a><h4 class="code-header">type <a href="#associatedtype.NominationsQuota" class="associatedtype">NominationsQuota</a>: <a class="trait" href="trait.NominationsQuota.html" title="trait pallet_staking::NominationsQuota">NominationsQuota</a>&lt;<a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Something that defines the maximum number of nominations per nominator.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.HistoryDepth" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#166">source</a><h4 class="code-header">type <a href="#associatedtype.HistoryDepth" class="associatedtype">HistoryDepth</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Number of eras to keep in history.</p>
+<p>Following information is kept for eras in <code>[current_era - HistoryDepth, current_era]</code>: <code>ErasStakers</code>, <code>ErasStakersClipped</code>,
+<code>ErasValidatorPrefs</code>, <code>ErasValidatorReward</code>, <code>ErasRewardPoints</code>,
+<code>ErasTotalStake</code>, <code>ErasStartSessionIndex</code>, <code>ClaimedRewards</code>, <code>ErasStakersPaged</code>,
+<code>ErasStakersOverview</code>.</p>
+<p>Must be more than the number of eras delayed by session.
+I.e. active era must always be in history. I.e. <code>active_era &gt; current_era - history_depth</code> must be guaranteed.</p>
+<p>If migrating an existing pallet from storage value to config value,
+this should be set to same value or greater as in storage.</p>
+<p>Note: <code>HistoryDepth</code> is used as the upper bound for the <code>BoundedVec</code>
+item <code>StakingLedger.legacy_claimed_rewards</code>. Setting this value lower than
+the existing value can lead to inconsistencies in the
+<code>StakingLedger</code> and will need to be handled properly in a migration.
+The test <code>reducing_history_depth_abrupt</code> shows this effect.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RewardRemainder" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#171">source</a><h4 class="code-header">type <a href="#associatedtype.RewardRemainder" class="associatedtype">RewardRemainder</a>: OnUnbalanced&lt;<a class="type" href="type.NegativeImbalanceOf.html" title="type pallet_staking::NegativeImbalanceOf">NegativeImbalanceOf</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Tokens have been minted and are unused for validator-reward.
+See <a href="./index.html#era-payout">Era payout</a>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RuntimeEvent" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#175">source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_staking::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;</h4></section></summary><div class="docblock"><p>The overarching event type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Slash" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#179">source</a><h4 class="code-header">type <a href="#associatedtype.Slash" class="associatedtype">Slash</a>: OnUnbalanced&lt;<a class="type" href="type.NegativeImbalanceOf.html" title="type pallet_staking::NegativeImbalanceOf">NegativeImbalanceOf</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Handler for the unbalanced reduction when slashing a staker.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Reward" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#185">source</a><h4 class="code-header">type <a href="#associatedtype.Reward" class="associatedtype">Reward</a>: OnUnbalanced&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_staking::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_staking::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::PositiveImbalance&gt;</h4></section></summary><div class="docblock"><p>Handler for the unbalanced increment when rewarding a staker.
+NOTE: in most cases, the implementation of <code>OnUnbalanced</code> should modify the total
+issuance.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SessionsPerEra" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#189">source</a><h4 class="code-header">type <a href="#associatedtype.SessionsPerEra" class="associatedtype">SessionsPerEra</a>: Get&lt;SessionIndex&gt;</h4></section></summary><div class="docblock"><p>Number of sessions per era.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.BondingDuration" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#193">source</a><h4 class="code-header">type <a href="#associatedtype.BondingDuration" class="associatedtype">BondingDuration</a>: Get&lt;EraIndex&gt;</h4></section></summary><div class="docblock"><p>Number of eras that staked funds must remain bonded for.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SlashDeferDuration" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#200">source</a><h4 class="code-header">type <a href="#associatedtype.SlashDeferDuration" class="associatedtype">SlashDeferDuration</a>: Get&lt;EraIndex&gt;</h4></section></summary><div class="docblock"><p>Number of eras that slashes are deferred by, after computation.</p>
+<p>This should be less than the bonding duration. Set to 0 if slashes
+should be applied immediately, without opportunity for intervention.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AdminOrigin" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#206">source</a><h4 class="code-header">type <a href="#associatedtype.AdminOrigin" class="associatedtype">AdminOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;</h4></section></summary><div class="docblock"><p>The origin which can manage less critical staking parameters that does not require root.</p>
+<p>Supported actions: (1) cancel deferred slash, (2) set minimum commission.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SessionInterface" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#209">source</a><h4 class="code-header">type <a href="#associatedtype.SessionInterface" class="associatedtype">SessionInterface</a>: <a class="trait" href="trait.SessionInterface.html" title="trait pallet_staking::SessionInterface">SessionInterface</a>&lt;Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>Interface for interacting with a session pallet.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.EraPayout" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#214">source</a><h4 class="code-header">type <a href="#associatedtype.EraPayout" class="associatedtype">EraPayout</a>: <a class="trait" href="trait.EraPayout.html" title="trait pallet_staking::EraPayout">EraPayout</a>&lt;<a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>The payout for validators and the system for the current era.
+See <a href="./index.html#era-payout">Era payout</a>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.NextNewSession" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#219">source</a><h4 class="code-header">type <a href="#associatedtype.NextNewSession" class="associatedtype">NextNewSession</a>: EstimateNextNewSession&lt;BlockNumberFor&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Something that can estimate the next session change, accurately or as a best effort
+guess.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxExposurePageSize" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#233">source</a><h4 class="code-header">type <a href="#associatedtype.MaxExposurePageSize" class="associatedtype">MaxExposurePageSize</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The maximum size of each <code>T::ExposurePage</code>.</p>
+<p>An <code>ExposurePage</code> is weakly bounded to a maximum of <code>MaxExposurePageSize</code>
+nominators.</p>
+<p>For older non-paged exposure, a reward payout was restricted to the top
+<code>MaxExposurePageSize</code> nominators. This is to limit the i/o cost for the
+nominator payout.</p>
+<p>Note: <code>MaxExposurePageSize</code> is used to bound <code>ClaimedRewards</code> and is unsafe to reduce
+without handling it in a migration.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.VoterList" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#247">source</a><h4 class="code-header">type <a href="#associatedtype.VoterList" class="associatedtype">VoterList</a>: SortedListProvider&lt;Self::AccountId, Score = VoteWeight&gt;</h4></section></summary><div class="docblock"><p>Something that provides a best-effort sorted list of voters aka electing nominators,
+used for NPoS election.</p>
+<p>The changes to nominators are reported to this. Moreover, each validator’s self-vote is
+also reported as one independent vote.</p>
+<p>To keep the load off the chain as much as possible, changes made to the staked amount
+via rewards and slashes are not reported and thus need to be manually fixed by the
+staker. In case of <code>bags-list</code>, this always means using <code>rebag</code> and <code>putInFrontOf</code>.</p>
+<p>Invariant: what comes out of this list will always be a nominator.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.TargetList" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#270">source</a><h4 class="code-header">type <a href="#associatedtype.TargetList" class="associatedtype">TargetList</a>: SortedListProvider&lt;Self::AccountId, Score = <a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>WIP: This is a noop as of now, the actual business logic that’s described below is going
+to be introduced in a follow-up PR.</p>
+<p>Something that provides a best-effort sorted list of targets aka electable validators,
+used for NPoS election.</p>
+<p>The changes to the approval stake of each validator are reported to this. This means any
+change to:</p>
+<ol>
+<li>The stake of any validator or nominator.</li>
+<li>The targets of any nominator</li>
+<li>The role of any staker (e.g. validator -&gt; chilled, nominator -&gt; validator, etc)</li>
+</ol>
+<p>Unlike <code>VoterList</code>, the values in this list are always kept up to date with reward and
+slash as well, and thus represent the accurate approval stake of all account being
+nominated by nominators.</p>
+<p>Note that while at the time of nomination, all targets are checked to be real
+validators, they can chill at any point, and their approval stakes will still be
+recorded. This implies that what comes out of iterating this list MIGHT NOT BE AN ACTIVE
+VALIDATOR.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxUnlockingChunks" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#283">source</a><h4 class="code-header">type <a href="#associatedtype.MaxUnlockingChunks" class="associatedtype">MaxUnlockingChunks</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The maximum number of <code>unlocking</code> chunks a <a href="struct.StakingLedger.html" title="struct pallet_staking::StakingLedger"><code>StakingLedger</code></a> can
+have. Effectively determines how many unique eras a staker may be
+unbonding in.</p>
+<p>Note: <code>MaxUnlockingChunks</code> is used as the upper bound for the
+<code>BoundedVec</code> item <code>StakingLedger.unlocking</code>. Setting this value
+lower than the existing value can lead to inconsistencies in the
+<code>StakingLedger</code> and will need to be handled properly in a runtime
+migration. The test <code>reducing_max_unlocking_chunks_abrupt</code> shows
+this effect.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxControllersInDeprecationBatch" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#286">source</a><h4 class="code-header">type <a href="#associatedtype.MaxControllersInDeprecationBatch" class="associatedtype">MaxControllersInDeprecationBatch</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The maximum amount of controller accounts that can be deprecated in one call.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.EventListeners" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#293">source</a><h4 class="code-header">type <a href="#associatedtype.EventListeners" class="associatedtype">EventListeners</a>: OnStakingUpdate&lt;Self::AccountId, <a class="type" href="type.BalanceOf.html" title="type pallet_staking::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Something that listens to staking updates and performs actions based on the data it
+receives.</p>
+<p>WARNING: this only reports slashing and withdraw events for the time being.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.DisablingStrategy" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#297">source</a><h4 class="code-header">type <a href="#associatedtype.DisablingStrategy" class="associatedtype">DisablingStrategy</a>: <a class="trait" href="trait.DisablingStrategy.html" title="trait pallet_staking::DisablingStrategy">DisablingStrategy</a>&lt;Self&gt;</h4></section></summary><div class="docblock"><p><code>DisablingStragegy</code> controls how validators are disabled</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.BenchmarkingConfig" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#301">source</a><h4 class="code-header">type <a href="#associatedtype.BenchmarkingConfig" class="associatedtype">BenchmarkingConfig</a>: <a class="trait" href="trait.BenchmarkingConfig.html" title="trait pallet_staking::BenchmarkingConfig">BenchmarkingConfig</a></h4></section></summary><div class="docblock"><p>Some parameters of the benchmarking.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.WeightInfo" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#308">source</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_staking::weights::WeightInfo">WeightInfo</a></h4></section></summary><div class="docblock"><p>Weight information for extrinsics in this pallet.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/pallet_staking/pallet/pallet/trait.Config.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

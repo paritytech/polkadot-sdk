@@ -1,0 +1,161 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Various traits used in configuring the executor."><title>staging_xcm_executor::traits - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_xcm_executor" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../staging_xcm_executor/index.html">staging_xcm_executor</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">Module traits</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li></ul></section><h2><a href="../index.html">In crate staging_xcm_executor</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">staging_xcm_executor</a>::<wbr><a class="mod" href="#">traits</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/staging_xcm_executor/traits/mod.rs.html#17-69">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Various traits used in configuring the executor.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="prelude/index.html" title="mod staging_xcm_executor::traits::prelude">prelude</a></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Identity.html" title="struct staging_xcm_executor::traits::Identity">Identity</a></div><div class="desc docblock-short">A structure that performs identity conversion.</div></li><li><div class="item-name"><a class="struct" href="struct.JustTry.html" title="struct staging_xcm_executor::traits::JustTry">JustTry</a></div><div class="desc docblock-short">A structure that performs standard conversion using the standard Rust conversion traits.</div></li><li><div class="item-name"><a class="struct" href="struct.Properties.html" title="struct staging_xcm_executor::traits::Properties">Properties</a></div><div class="desc docblock-short">Properties of an XCM message and its imminent execution.</div></li><li><div class="item-name"><a class="struct" href="struct.WithOriginFilter.html" title="struct staging_xcm_executor::traits::WithOriginFilter">WithOriginFilter</a></div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.AssetTransferError.html" title="enum staging_xcm_executor::traits::AssetTransferError">AssetTransferError</a></div><div class="desc docblock-short">Errors related to determining asset transfer support.</div></li><li><div class="item-name"><a class="enum" href="enum.Error.html" title="enum staging_xcm_executor::traits::Error">Error</a></div><div class="desc docblock-short">Errors associated with <a href="trait.MatchesFungibles.html" title="trait staging_xcm_executor::traits::MatchesFungibles"><code>MatchesFungibles</code></a> operation.</div></li><li><div class="item-name"><a class="enum" href="enum.FeeReason.html" title="enum staging_xcm_executor::traits::FeeReason">FeeReason</a></div><div class="desc docblock-short">Context under which a fee is paid.</div></li><li><div class="item-name"><a class="enum" href="enum.LockError.html" title="enum staging_xcm_executor::traits::LockError">LockError</a></div></li><li><div class="item-name"><a class="enum" href="enum.QueryResponseStatus.html" title="enum staging_xcm_executor::traits::QueryResponseStatus">QueryResponseStatus</a></div><div class="desc docblock-short">The possible state of an XCM query response.</div></li><li><div class="item-name"><a class="enum" href="enum.TransferType.html" title="enum staging_xcm_executor::traits::TransferType">TransferType</a></div><div class="desc docblock-short">Specify which type of asset transfer is required for a particular <code>(asset, dest)</code> combination.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.AssetExchange.html" title="trait staging_xcm_executor::traits::AssetExchange">AssetExchange</a></div><div class="desc docblock-short">A service for exchanging assets.</div></li><li><div class="item-name"><a class="trait" href="trait.AssetLock.html" title="trait staging_xcm_executor::traits::AssetLock">AssetLock</a></div><div class="desc docblock-short">Define a handler for notification of an asset being locked and for the unlock instruction.</div></li><li><div class="item-name"><a class="trait" href="trait.CallDispatcher.html" title="trait staging_xcm_executor::traits::CallDispatcher">CallDispatcher</a></div><div class="desc docblock-short">Defines how a call is dispatched with given origin.
+Allows to customize call dispatch, such as adapting the origin based on the call
+or modifying the call.</div></li><li><div class="item-name"><a class="trait" href="trait.CheckSuspension.html" title="trait staging_xcm_executor::traits::CheckSuspension">CheckSuspension</a></div><div class="desc docblock-short">Trait to determine whether the execution engine is suspended from executing a given XCM.</div></li><li><div class="item-name"><a class="trait" href="trait.ClaimAssets.html" title="trait staging_xcm_executor::traits::ClaimAssets">ClaimAssets</a></div><div class="desc docblock-short">Define any handlers for the <code>AssetClaim</code> instruction.</div></li><li><div class="item-name"><a class="trait" href="trait.ConvertLocation.html" title="trait staging_xcm_executor::traits::ConvertLocation">ConvertLocation</a></div><div class="desc docblock-short">Means of converting a location into an account identifier.</div></li><li><div class="item-name"><a class="trait" href="trait.ConvertOrigin.html" title="trait staging_xcm_executor::traits::ConvertOrigin">ConvertOrigin</a></div><div class="desc docblock-short">A converter <code>trait</code> for origin types.</div></li><li><div class="item-name"><a class="trait" href="trait.DropAssets.html" title="trait staging_xcm_executor::traits::DropAssets">DropAssets</a></div><div class="desc docblock-short">Define a handler for when some non-empty <code>AssetsInHolding</code> value should be dropped.</div></li><li><div class="item-name"><a class="trait" href="trait.Enact.html" title="trait staging_xcm_executor::traits::Enact">Enact</a></div></li><li><div class="item-name"><a class="trait" href="trait.ExportXcm.html" title="trait staging_xcm_executor::traits::ExportXcm">ExportXcm</a></div><div class="desc docblock-short">Utility for delivering a message to a system under a different (non-local) consensus with a
+spoofed origin. This essentially defines the behaviour of the <code>ExportMessage</code> XCM instruction.</div></li><li><div class="item-name"><a class="trait" href="trait.FeeManager.html" title="trait staging_xcm_executor::traits::FeeManager">FeeManager</a></div><div class="desc docblock-short">Handle stuff to do with taking fees in certain XCM instructions.</div></li><li><div class="item-name"><a class="trait" href="trait.FilterAssetLocation.html" title="trait staging_xcm_executor::traits::FilterAssetLocation">FilterAssetLocation</a><span class="stab deprecated" title="">Deprecated</span></div><div class="desc docblock-short">Filters assets/location pairs.</div></li><li><div class="item-name"><a class="trait" href="trait.HandleHrmpChannelAccepted.html" title="trait staging_xcm_executor::traits::HandleHrmpChannelAccepted">HandleHrmpChannelAccepted</a></div><div class="desc docblock-short">Executes optional logic when a <code>HrmpChannelAccepted</code> XCM notification is received.</div></li><li><div class="item-name"><a class="trait" href="trait.HandleHrmpChannelClosing.html" title="trait staging_xcm_executor::traits::HandleHrmpChannelClosing">HandleHrmpChannelClosing</a></div><div class="desc docblock-short">Executes optional logic when a <code>HrmpChannelClosing</code> XCM notification is received.</div></li><li><div class="item-name"><a class="trait" href="trait.HandleHrmpNewChannelOpenRequest.html" title="trait staging_xcm_executor::traits::HandleHrmpNewChannelOpenRequest">HandleHrmpNewChannelOpenRequest</a></div><div class="desc docblock-short">Executes logic when a <code>HrmpNewChannelOpenRequest</code> XCM notification is received.</div></li><li><div class="item-name"><a class="trait" href="trait.MatchesFungible.html" title="trait staging_xcm_executor::traits::MatchesFungible">MatchesFungible</a></div></li><li><div class="item-name"><a class="trait" href="trait.MatchesFungibles.html" title="trait staging_xcm_executor::traits::MatchesFungibles">MatchesFungibles</a></div></li><li><div class="item-name"><a class="trait" href="trait.MatchesNonFungible.html" title="trait staging_xcm_executor::traits::MatchesNonFungible">MatchesNonFungible</a></div></li><li><div class="item-name"><a class="trait" href="trait.MatchesNonFungibles.html" title="trait staging_xcm_executor::traits::MatchesNonFungibles">MatchesNonFungibles</a></div></li><li><div class="item-name"><a class="trait" href="trait.OnResponse.html" title="trait staging_xcm_executor::traits::OnResponse">OnResponse</a></div><div class="desc docblock-short">Define what needs to be done upon receiving a query response.</div></li><li><div class="item-name"><a class="trait" href="trait.ProcessTransaction.html" title="trait staging_xcm_executor::traits::ProcessTransaction">ProcessTransaction</a></div><div class="desc docblock-short">Provides mechanisms for transactional processing of XCM instructions.</div></li><li><div class="item-name"><a class="trait" href="trait.QueryHandler.html" title="trait staging_xcm_executor::traits::QueryHandler">QueryHandler</a></div><div class="desc docblock-short">Provides methods to expect responses from XCMs and query their status.</div></li><li><div class="item-name"><a class="trait" href="trait.RecordXcm.html" title="trait staging_xcm_executor::traits::RecordXcm">RecordXcm</a></div><div class="desc docblock-short">Trait for recording XCMs.</div></li><li><div class="item-name"><a class="trait" href="trait.ShouldExecute.html" title="trait staging_xcm_executor::traits::ShouldExecute">ShouldExecute</a></div><div class="desc docblock-short">Trait to determine whether the execution engine should actually execute a given XCM.</div></li><li><div class="item-name"><a class="trait" href="trait.TransactAsset.html" title="trait staging_xcm_executor::traits::TransactAsset">TransactAsset</a></div><div class="desc docblock-short">Facility for asset transacting.</div></li><li><div class="item-name"><a class="trait" href="trait.VersionChangeNotifier.html" title="trait staging_xcm_executor::traits::VersionChangeNotifier">VersionChangeNotifier</a></div><div class="desc docblock-short">Trait for a type which handles notifying a destination of XCM version changes.</div></li><li><div class="item-name"><a class="trait" href="trait.WeightBounds.html" title="trait staging_xcm_executor::traits::WeightBounds">WeightBounds</a></div><div class="desc docblock-short">Determine the weight of an XCM message.</div></li><li><div class="item-name"><a class="trait" href="trait.WeightTrader.html" title="trait staging_xcm_executor::traits::WeightTrader">WeightTrader</a></div><div class="desc docblock-short">Charge for weight in order to execute XCM.</div></li><li><div class="item-name"><a class="trait" href="trait.XcmAssetTransfers.html" title="trait staging_xcm_executor::traits::XcmAssetTransfers">XcmAssetTransfers</a></div><div class="desc docblock-short">A trait for identifying asset transfer type based on <code>IsTeleporter</code> and <code>IsReserve</code>
+configurations.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.export_xcm.html" title="fn staging_xcm_executor::traits::export_xcm">export_xcm</a></div><div class="desc docblock-short">Convenience function for using a <code>SendXcm</code> implementation. Just interprets the <code>dest</code> and wraps
+both in <code>Some</code> before passing them as as mutable references into <code>T::send_xcm</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.validate_export.html" title="fn staging_xcm_executor::traits::validate_export">validate_export</a></div><div class="desc docblock-short">Convenience function for using a <code>SendXcm</code> implementation. Just interprets the <code>dest</code> and wraps
+both in <code>Some</code> before passing them as as mutable references into <code>T::send_xcm</code>.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

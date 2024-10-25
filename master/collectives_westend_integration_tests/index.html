@@ -1,0 +1,171 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `collectives_westend_integration_tests` crate."><title>collectives_westend_integration_tests - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="collectives_westend_integration_tests" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../collectives_westend_integration_tests/index.html">collectives_westend_integration_tests</a><span class="version">1.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">collectives_westend_integration_tests</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/collectives_westend_integration_tests/lib.rs.html#16-57">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="collectives_fellowship/index.html" title="mod collectives_westend_integration_tests::collectives_fellowship">collectives_fellowship</a></div><div class="desc docblock-short">The Westend Technical Fellowship.</div></li><li><div class="item-name"><a class="mod" href="opaque/index.html" title="mod collectives_westend_integration_tests::opaque">opaque</a></div></li><li><div class="item-name"><a class="mod" href="v3/index.html" title="mod collectives_westend_integration_tests::v3">v3</a></div><div class="desc docblock-short">Version 3 of the Cross-Consensus Message format data structures.</div></li><li><div class="item-name"><a class="mod" href="westend_governance/index.html" title="mod collectives_westend_integration_tests::westend_governance">westend_governance</a></div><div class="desc docblock-short">New governance configurations for the Kusama runtime.</div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.assert_expected_events.html" title="macro collectives_westend_integration_tests::assert_expected_events">assert_expected_events</a></div></li><li><div class="item-name"><a class="macro" href="macro.bx.html" title="macro collectives_westend_integration_tests::bx">bx</a></div></li><li><div class="item-name"><a class="macro" href="macro.test_parachain_is_trusted_teleporter.html" title="macro collectives_westend_integration_tests::test_parachain_is_trusted_teleporter">test_parachain_is_trusted_teleporter</a></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AlwaysV2.html" title="struct collectives_westend_integration_tests::AlwaysV2">AlwaysV2</a></div><div class="desc docblock-short"><code>WrapVersion</code> implementation which attempts to always convert the XCM to version 2 before
+wrapping it.</div></li><li><div class="item-name"><a class="struct" href="struct.AlwaysV3.html" title="struct collectives_westend_integration_tests::AlwaysV3">AlwaysV3</a></div><div class="desc docblock-short"><code>WrapVersion</code> implementation which attempts to always convert the XCM to version 3 before
+wrapping it.</div></li><li><div class="item-name"><a class="struct" href="struct.AlwaysV4.html" title="struct collectives_westend_integration_tests::AlwaysV4">AlwaysV4</a></div><div class="desc docblock-short"><code>WrapVersion</code> implementation which attempts to always convert the XCM to version 3 before
+wrapping it.</div></li><li><div class="item-name"><a class="struct" href="struct.Ancestor.html" title="struct collectives_westend_integration_tests::Ancestor">Ancestor</a></div><div class="desc docblock-short">A unit struct which can be converted into a <code>Location</code> of the inner <code>parents</code> value.</div></li><li><div class="item-name"><a class="struct" href="struct.AncestorThen.html" title="struct collectives_westend_integration_tests::AncestorThen">AncestorThen</a></div><div class="desc docblock-short">A unit struct which can be converted into a <code>Location</code> of the inner <code>parents</code> value and the
+inner interior.</div></li><li><div class="item-name"><a class="struct" href="struct.Asset.html" title="struct collectives_westend_integration_tests::Asset">Asset</a></div><div class="desc docblock-short">Either an amount of a single fungible asset, or a single well-identified non-fungible asset.</div></li><li><div class="item-name"><a class="struct" href="struct.AssetHubWestendReceiver.html" title="struct collectives_westend_integration_tests::AssetHubWestendReceiver">AssetHubWestendReceiver</a></div></li><li><div class="item-name"><a class="struct" href="struct.AssetHubWestendSender.html" title="struct collectives_westend_integration_tests::AssetHubWestendSender">AssetHubWestendSender</a></div></li><li><div class="item-name"><a class="struct" href="struct.AssetHubWestendXcmConfig.html" title="struct collectives_westend_integration_tests::AssetHubWestendXcmConfig">AssetHubWestendXcmConfig</a></div></li><li><div class="item-name"><a class="struct" href="struct.AssetId.html" title="struct collectives_westend_integration_tests::AssetId">AssetId</a></div><div class="desc docblock-short">Location to identify an asset.</div></li><li><div class="item-name"><a class="struct" href="struct.Assets.html" title="struct collectives_westend_integration_tests::Assets">Assets</a></div><div class="desc docblock-short">A <code>Vec</code> of <code>Asset</code>s.</div></li><li><div class="item-name"><a class="struct" href="struct.CollectivesWestendReceiver.html" title="struct collectives_westend_integration_tests::CollectivesWestendReceiver">CollectivesWestendReceiver</a></div></li><li><div class="item-name"><a class="struct" href="struct.CollectivesWestendSender.html" title="struct collectives_westend_integration_tests::CollectivesWestendSender">CollectivesWestendSender</a></div></li><li><div class="item-name"><a class="struct" href="struct.CollectivesWestendXcmConfig.html" title="struct collectives_westend_integration_tests::CollectivesWestendXcmConfig">CollectivesWestendXcmConfig</a></div></li><li><div class="item-name"><a class="struct" href="struct.Location.html" title="struct collectives_westend_integration_tests::Location">Location</a></div><div class="desc docblock-short">A relative path between state-bearing consensus systems.</div></li><li><div class="item-name"><a class="struct" href="struct.PalletInfo.html" title="struct collectives_westend_integration_tests::PalletInfo">PalletInfo</a></div></li><li><div class="item-name"><a class="struct" href="struct.Parent.html" title="struct collectives_westend_integration_tests::Parent">Parent</a></div><div class="desc docblock-short">A unit struct which can be converted into a <code>Location</code> of <code>parents</code> value 1.</div></li><li><div class="item-name"><a class="struct" href="struct.ParentThen.html" title="struct collectives_westend_integration_tests::ParentThen">ParentThen</a></div><div class="desc docblock-short">A tuple struct which can be converted into a <code>Location</code> of <code>parents</code> value 1 with the inner
+interior.</div></li><li><div class="item-name"><a class="struct" href="struct.QueryResponseInfo.html" title="struct collectives_westend_integration_tests::QueryResponseInfo">QueryResponseInfo</a></div><div class="desc docblock-short">Information regarding the composition of a query response.</div></li><li><div class="item-name"><a class="struct" href="struct.Weight.html" title="struct collectives_westend_integration_tests::Weight">Weight</a></div></li><li><div class="item-name"><a class="struct" href="struct.WestendReceiver.html" title="struct collectives_westend_integration_tests::WestendReceiver">WestendReceiver</a></div></li><li><div class="item-name"><a class="struct" href="struct.WestendSender.html" title="struct collectives_westend_integration_tests::WestendSender">WestendSender</a></div></li><li><div class="item-name"><a class="struct" href="struct.WestendXcmConfig.html" title="struct collectives_westend_integration_tests::WestendXcmConfig">WestendXcmConfig</a></div></li><li><div class="item-name"><a class="struct" href="struct.Xcm.html" title="struct collectives_westend_integration_tests::Xcm">Xcm</a></div></li><li><div class="item-name"><a class="struct" href="struct.XcmContext.html" title="struct collectives_westend_integration_tests::XcmContext">XcmContext</a></div><div class="desc docblock-short">Contextual data pertaining to a specific list of XCM instructions.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.AssetFilter.html" title="enum collectives_westend_integration_tests::AssetFilter">AssetFilter</a></div><div class="desc docblock-short"><code>Asset</code> collection, defined either by a number of <code>Assets</code> or a single wildcard.</div></li><li><div class="item-name"><a class="enum" href="enum.AssetInstance.html" title="enum collectives_westend_integration_tests::AssetInstance">AssetInstance</a></div><div class="desc docblock-short">A general identifier for an instance of a non-fungible asset class.</div></li><li><div class="item-name"><a class="enum" href="enum.BodyId.html" title="enum collectives_westend_integration_tests::BodyId">BodyId</a></div><div class="desc docblock-short">An identifier of a pluralistic body.</div></li><li><div class="item-name"><a class="enum" href="enum.BodyPart.html" title="enum collectives_westend_integration_tests::BodyPart">BodyPart</a></div><div class="desc docblock-short">A part of a pluralistic body.</div></li><li><div class="item-name"><a class="enum" href="enum.Fungibility.html" title="enum collectives_westend_integration_tests::Fungibility">Fungibility</a></div><div class="desc docblock-short">Classification of whether an asset is fungible or not, along with a mandatory amount or
+instance.</div></li><li><div class="item-name"><a class="enum" href="enum.Instruction.html" title="enum collectives_westend_integration_tests::Instruction">Instruction</a></div><div class="desc docblock-short">Cross-Consensus Message: A message from one consensus system to another.</div></li><li><div class="item-name"><a class="enum" href="enum.Junction.html" title="enum collectives_westend_integration_tests::Junction">Junction</a></div><div class="desc docblock-short">A single item in a path to describe the relative location of a consensus system.</div></li><li><div class="item-name"><a class="enum" href="enum.Junctions.html" title="enum collectives_westend_integration_tests::Junctions">Junctions</a></div><div class="desc docblock-short">Non-parent junctions that can be constructed, up to the length of 8. This specific <code>Junctions</code>
+implementation uses a Rust <code>enum</code> in order to make pattern matching easier.</div></li><li><div class="item-name"><a class="enum" href="enum.MaybeErrorCode.html" title="enum collectives_westend_integration_tests::MaybeErrorCode">MaybeErrorCode</a></div></li><li><div class="item-name"><a class="enum" href="enum.NetworkId.html" title="enum collectives_westend_integration_tests::NetworkId">NetworkId</a></div><div class="desc docblock-short">A global identifier of a data structure existing within consensus.</div></li><li><div class="item-name"><a class="enum" href="enum.OriginKind.html" title="enum collectives_westend_integration_tests::OriginKind">OriginKind</a></div><div class="desc docblock-short">Basically just the XCM (more general) version of <code>ParachainDispatchOrigin</code>.</div></li><li><div class="item-name"><a class="enum" href="enum.Outcome.html" title="enum collectives_westend_integration_tests::Outcome">Outcome</a></div><div class="desc docblock-short">Outcome of an XCM execution.</div></li><li><div class="item-name"><a class="enum" href="enum.Response.html" title="enum collectives_westend_integration_tests::Response">Response</a></div><div class="desc docblock-short">Response data to a query.</div></li><li><div class="item-name"><a class="enum" href="enum.SendError.html" title="enum collectives_westend_integration_tests::SendError">SendError</a></div><div class="desc docblock-short">Error result value when attempting to send an XCM message.</div></li><li><div class="item-name"><a class="enum" href="enum.Unsupported.html" title="enum collectives_westend_integration_tests::Unsupported">Unsupported</a></div></li><li><div class="item-name"><a class="enum" href="enum.VersionedAsset.html" title="enum collectives_westend_integration_tests::VersionedAsset">VersionedAsset</a></div><div class="desc docblock-short">A single <code>Asset</code> value, together with its version code.</div></li><li><div class="item-name"><a class="enum" href="enum.VersionedAssetId.html" title="enum collectives_westend_integration_tests::VersionedAssetId">VersionedAssetId</a></div><div class="desc docblock-short">A single version’s <code>AssetId</code> value, together with its version code.</div></li><li><div class="item-name"><a class="enum" href="enum.VersionedAssets.html" title="enum collectives_westend_integration_tests::VersionedAssets">VersionedAssets</a></div><div class="desc docblock-short">A single <code>MultiAssets</code> value, together with its version code.</div></li><li><div class="item-name"><a class="enum" href="enum.VersionedInteriorLocation.html" title="enum collectives_westend_integration_tests::VersionedInteriorLocation">VersionedInteriorLocation</a></div><div class="desc docblock-short">A single <code>InteriorLocation</code> value, together with its version code.</div></li><li><div class="item-name"><a class="enum" href="enum.VersionedLocation.html" title="enum collectives_westend_integration_tests::VersionedLocation">VersionedLocation</a></div><div class="desc docblock-short">A single <code>Location</code> value, together with its version code.</div></li><li><div class="item-name"><a class="enum" href="enum.VersionedResponse.html" title="enum collectives_westend_integration_tests::VersionedResponse">VersionedResponse</a></div><div class="desc docblock-short">A single version’s <code>Response</code> value, together with its version code.</div></li><li><div class="item-name"><a class="enum" href="enum.VersionedXcm.html" title="enum collectives_westend_integration_tests::VersionedXcm">VersionedXcm</a></div><div class="desc docblock-short">A single XCM message, together with its version code.</div></li><li><div class="item-name"><a class="enum" href="enum.WeightLimit.html" title="enum collectives_westend_integration_tests::WeightLimit">WeightLimit</a></div><div class="desc docblock-short">An optional weight limit.</div></li><li><div class="item-name"><a class="enum" href="enum.WestendOriginCaller.html" title="enum collectives_westend_integration_tests::WestendOriginCaller">WestendOriginCaller</a></div></li><li><div class="item-name"><a class="enum" href="enum.WildAsset.html" title="enum collectives_westend_integration_tests::WildAsset">WildAsset</a></div><div class="desc docblock-short">A wildcard representing a set of assets.</div></li><li><div class="item-name"><a class="enum" href="enum.WildFungibility.html" title="enum collectives_westend_integration_tests::WildFungibility">WildFungibility</a></div><div class="desc docblock-short">Classification of whether an asset is fungible or not.</div></li><li><div class="item-name"><a class="enum" href="enum.XcmError.html" title="enum collectives_westend_integration_tests::XcmError">XcmError</a></div><div class="desc docblock-short">Error codes used in XCM. The first errors codes have explicit indices and are part of the XCM
+format. Those trailing are merely part of the XCM implementation; there is no expectation that
+they will retain the same index over time.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.ALICE.html" title="constant collectives_westend_integration_tests::ALICE">ALICE</a></div></li><li><div class="item-name"><a class="constant" href="constant.ASSET_HUB_WESTEND_ED.html" title="constant collectives_westend_integration_tests::ASSET_HUB_WESTEND_ED">ASSET_HUB_WESTEND_ED</a></div></li><li><div class="item-name"><a class="constant" href="constant.COLLECTIVES_WESTEND_ED.html" title="constant collectives_westend_integration_tests::COLLECTIVES_WESTEND_ED">COLLECTIVES_WESTEND_ED</a></div></li><li><div class="item-name"><a class="constant" href="constant.WESTEND_ED.html" title="constant collectives_westend_integration_tests::WESTEND_ED">WESTEND_ED</a></div></li><li><div class="item-name"><a class="constant" href="constant.XCM_VERSION.html" title="constant collectives_westend_integration_tests::XCM_VERSION">XCM_VERSION</a></div><div class="desc docblock-short">This module’s XCM version.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.AssetHubWestendPallet.html" title="trait collectives_westend_integration_tests::AssetHubWestendPallet">AssetHubWestendPallet</a></div></li><li><div class="item-name"><a class="trait" href="trait.Chain.html" title="trait collectives_westend_integration_tests::Chain">Chain</a></div></li><li><div class="item-name"><a class="trait" href="trait.CollectivesWestendPallet.html" title="trait collectives_westend_integration_tests::CollectivesWestendPallet">CollectivesWestendPallet</a></div></li><li><div class="item-name"><a class="trait" href="trait.ExecuteXcm.html" title="trait collectives_westend_integration_tests::ExecuteXcm">ExecuteXcm</a></div><div class="desc docblock-short">Type of XCM message executor.</div></li><li><div class="item-name"><a class="trait" href="trait.GetVersion.html" title="trait collectives_westend_integration_tests::GetVersion">GetVersion</a></div><div class="desc docblock-short">Check and return the <code>Version</code> that should be used for the <code>Xcm</code> datum for the destination
+<code>Location</code>, which will interpret it.</div></li><li><div class="item-name"><a class="trait" href="trait.IdentifyVersion.html" title="trait collectives_westend_integration_tests::IdentifyVersion">IdentifyVersion</a></div><div class="desc docblock-short">Used to get the version out of a versioned type.</div></li><li><div class="item-name"><a class="trait" href="trait.IntoVersion.html" title="trait collectives_westend_integration_tests::IntoVersion">IntoVersion</a></div><div class="desc docblock-short">Attempt to convert <code>self</code> into a particular version of itself.</div></li><li><div class="item-name"><a class="trait" href="trait.Parachain.html" title="trait collectives_westend_integration_tests::Parachain">Parachain</a></div></li><li><div class="item-name"><a class="trait" href="trait.PreparedMessage.html" title="trait collectives_westend_integration_tests::PreparedMessage">PreparedMessage</a></div></li><li><div class="item-name"><a class="trait" href="trait.Reanchorable.html" title="trait collectives_westend_integration_tests::Reanchorable">Reanchorable</a></div></li><li><div class="item-name"><a class="trait" href="trait.Relay.html" title="trait collectives_westend_integration_tests::Relay">Relay</a></div></li><li><div class="item-name"><a class="trait" href="trait.SendXcm.html" title="trait collectives_westend_integration_tests::SendXcm">SendXcm</a></div><div class="desc docblock-short">Utility for sending an XCM message to a given location.</div></li><li><div class="item-name"><a class="trait" href="trait.TestExt.html" title="trait collectives_westend_integration_tests::TestExt">TestExt</a></div></li><li><div class="item-name"><a class="trait" href="trait.WestendPallet.html" title="trait collectives_westend_integration_tests::WestendPallet">WestendPallet</a></div></li><li><div class="item-name"><a class="trait" href="trait.WrapVersion.html" title="trait collectives_westend_integration_tests::WrapVersion">WrapVersion</a></div><div class="desc docblock-short">Convert an <code>Xcm</code> datum into a <code>VersionedXcm</code>, based on a destination <code>Location</code> which will
+interpret it.</div></li><li><div class="item-name"><a class="trait" href="trait.XcmWeightInfo.html" title="trait collectives_westend_integration_tests::XcmWeightInfo">XcmWeightInfo</a></div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.send_xcm.html" title="fn collectives_westend_integration_tests::send_xcm">send_xcm</a></div><div class="desc docblock-short">Convenience function for using a <code>SendXcm</code> implementation. Just interprets the <code>dest</code> and wraps
+both in <code>Some</code> before passing them as as mutable references into <code>T::send_xcm</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.validate_send.html" title="fn collectives_westend_integration_tests::validate_send">validate_send</a></div><div class="desc docblock-short">Convenience function for using a <code>SendXcm</code> implementation. Just interprets the <code>dest</code> and wraps
+both in <code>Some</code> before passing them as as mutable references into <code>T::send_xcm</code>.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.AlwaysLatest.html" title="type collectives_westend_integration_tests::AlwaysLatest">AlwaysLatest</a></div><div class="desc docblock-short"><code>WrapVersion</code> implementation which attempts to always convert the XCM to the latest version
+before wrapping it.</div></li><li><div class="item-name"><a class="type" href="type.AlwaysLts.html" title="type collectives_westend_integration_tests::AlwaysLts">AlwaysLts</a></div><div class="desc docblock-short"><code>WrapVersion</code> implementation which attempts to always convert the XCM to the most recent Long-
+Term-Support version before wrapping it.</div></li><li><div class="item-name"><a class="type" href="type.AssetHubLocationToAccountId.html" title="type collectives_westend_integration_tests::AssetHubLocationToAccountId">AssetHubLocationToAccountId</a></div><div class="desc docblock-short">Type for specifying how a <code>Location</code> can be converted into an <code>AccountId</code>. This is used
+when determining ownership of accounts for asset transacting and when attempting to use XCM
+<code>Transact</code> in order to determine the dispatch Origin.</div></li><li><div class="item-name"><a class="type" href="type.AssetHubWestend.html" title="type collectives_westend_integration_tests::AssetHubWestend">AssetHubWestend</a></div></li><li><div class="item-name"><a class="type" href="type.CollectivesWestend.html" title="type collectives_westend_integration_tests::CollectivesWestend">CollectivesWestend</a></div></li><li><div class="item-name"><a class="type" href="type.InteriorLocation.html" title="type collectives_westend_integration_tests::InteriorLocation">InteriorLocation</a></div><div class="desc docblock-short">A relative location which is constrained to be an interior location of the context.</div></li><li><div class="item-name"><a class="type" href="type.QueryId.html" title="type collectives_westend_integration_tests::QueryId">QueryId</a></div><div class="desc docblock-short">An identifier for a query.</div></li><li><div class="item-name"><a class="type" href="type.SendResult.html" title="type collectives_westend_integration_tests::SendResult">SendResult</a></div><div class="desc docblock-short">Result value when attempting to send an XCM message.</div></li><li><div class="item-name"><a class="type" href="type.Westend.html" title="type collectives_westend_integration_tests::Westend">Westend</a></div></li><li><div class="item-name"><a class="type" href="type.XcmHash.html" title="type collectives_westend_integration_tests::XcmHash">XcmHash</a></div><div class="desc docblock-short">A hash type for identifying messages.</div></li><li><div class="item-name"><a class="type" href="type.XcmResult.html" title="type collectives_westend_integration_tests::XcmResult">XcmResult</a></div></li><li><div class="item-name"><a class="type" href="type.XcmVersion.html" title="type collectives_westend_integration_tests::XcmVersion">XcmVersion</a></div><div class="desc docblock-short">A version of XCM.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

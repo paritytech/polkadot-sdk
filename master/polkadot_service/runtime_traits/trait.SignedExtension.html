@@ -1,0 +1,278 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Means by which a transaction may be extended. This type embodies both the data and the logic that should be additionally associated with the transaction. It should be plain old data."><title>SignedExtension in polkadot_service::runtime_traits - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../polkadot_service/index.html">polkadot_service</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">SignedExtension</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.AccountId">AccountId</a></li><li><a href="#associatedtype.AdditionalSigned">AdditionalSigned</a></li><li><a href="#associatedtype.Call">Call</a></li><li><a href="#associatedtype.Pre">Pre</a></li></ul><h3><a href="#required-associated-consts">Required Associated Constants</a></h3><ul class="block"><li><a href="#associatedconstant.IDENTIFIER">IDENTIFIER</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.additional_signed">additional_signed</a></li><li><a href="#tymethod.pre_dispatch">pre_dispatch</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.metadata">metadata</a></li><li><a href="#method.post_dispatch">post_dispatch</a></li><li><a href="#method.pre_dispatch_unsigned">pre_dispatch_unsigned</a></li><li><a href="#method.validate">validate</a></li><li><a href="#method.validate_unsigned">validate_unsigned</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_service::runtime_traits</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">polkadot_service</a>::<wbr><a href="index.html">runtime_traits</a>::<wbr><a class="trait" href="#">SignedExtension</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/sp_runtime/traits/mod.rs.html#1620-1621">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait SignedExtension: Codec + <a class="trait" href="trait.Debug.html" title="trait polkadot_service::runtime_traits::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + StaticTypeInfo {
+    type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a>;
+    type <a href="#associatedtype.Call" class="associatedtype">Call</a>: <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>;
+    type <a href="#associatedtype.AdditionalSigned" class="associatedtype">AdditionalSigned</a>: Codec + TypeInfo;
+    type <a href="#associatedtype.Pre" class="associatedtype">Pre</a>;
+
+    const <a href="#associatedconstant.IDENTIFIER" class="constant">IDENTIFIER</a>: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>;
+
+    // Required methods
+    fn <a href="#tymethod.additional_signed" class="fn">additional_signed</a>(
+        &amp;self,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.AdditionalSigned" title="type polkadot_service::runtime_traits::SignedExtension::AdditionalSigned">AdditionalSigned</a>, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.pre_dispatch" class="fn">pre_dispatch</a>(
+        self,
+        who: &amp;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.AccountId" title="type polkadot_service::runtime_traits::SignedExtension::AccountId">AccountId</a>,
+        call: &amp;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a>,
+        info: &amp;&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_service::runtime_traits::Dispatchable::Info">Info</a>,
+        len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Pre" title="type polkadot_service::runtime_traits::SignedExtension::Pre">Pre</a>, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;;
+
+    // Provided methods
+    fn <a href="#method.validate" class="fn">validate</a>(
+        &amp;self,
+        _who: &amp;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.AccountId" title="type polkadot_service::runtime_traits::SignedExtension::AccountId">AccountId</a>,
+        _call: &amp;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a>,
+        _info: &amp;&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_service::runtime_traits::Dispatchable::Info">Info</a>,
+        _len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../sp_runtime/transaction_validity/struct.ValidTransaction.html" title="struct sp_runtime::transaction_validity::ValidTransaction">ValidTransaction</a>, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.post_dispatch" class="fn">post_dispatch</a>(
+        _pre: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Pre" title="type polkadot_service::runtime_traits::SignedExtension::Pre">Pre</a>&gt;,
+        _info: &amp;&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_service::runtime_traits::Dispatchable::Info">Info</a>,
+        _post_info: &amp;&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.PostInfo" title="type polkadot_service::runtime_traits::Dispatchable::PostInfo">PostInfo</a>,
+        _len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+        _result: &amp;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="../../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.metadata" class="fn">metadata</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="struct.TransactionExtensionMetadata.html" title="struct polkadot_service::runtime_traits::TransactionExtensionMetadata">TransactionExtensionMetadata</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.validate_unsigned" class="fn">validate_unsigned</a>(
+        _call: &amp;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a>,
+        _info: &amp;&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_service::runtime_traits::Dispatchable::Info">Info</a>,
+        _len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../sp_runtime/transaction_validity/struct.ValidTransaction.html" title="struct sp_runtime::transaction_validity::ValidTransaction">ValidTransaction</a>, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.pre_dispatch_unsigned" class="fn">pre_dispatch_unsigned</a>(
+        call: &amp;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a>,
+        info: &amp;&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_service::runtime_traits::Dispatchable::Info">Info</a>,
+        len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt; { ... }
+}</code></pre><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>TransactionExtension</code> instead.</span></div></span><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Means by which a transaction may be extended. This type embodies both the data and the logic
+that should be additionally associated with the transaction. It should be plain old data.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.AccountId" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1630">source</a><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a></h4></section><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>TransactionExtension</code> instead.</span></div></span></summary><div class="docblock"><p>The type which encodes the sender identity.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Call" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1633">source</a><h4 class="code-header">type <a href="#associatedtype.Call" class="associatedtype">Call</a>: <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a></h4></section><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>TransactionExtension</code> instead.</span></div></span></summary><div class="docblock"><p>The type which encodes the call to be dispatched.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AdditionalSigned" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1637">source</a><h4 class="code-header">type <a href="#associatedtype.AdditionalSigned" class="associatedtype">AdditionalSigned</a>: Codec + TypeInfo</h4></section><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>TransactionExtension</code> instead.</span></div></span></summary><div class="docblock"><p>Any additional data that will go into the signed payload. This may be created dynamically
+from the transaction using the <code>additional_signed</code> function.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Pre" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1640">source</a><h4 class="code-header">type <a href="#associatedtype.Pre" class="associatedtype">Pre</a></h4></section><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>TransactionExtension</code> instead.</span></div></span></summary><div class="docblock"><p>The type that encodes information that can be passed from pre_dispatch to post-dispatch.</p>
+</div></details></div><h2 id="required-associated-consts" class="section-header">Required Associated Constants<a href="#required-associated-consts" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedconstant.IDENTIFIER" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1627">source</a><h4 class="code-header">const <a href="#associatedconstant.IDENTIFIER" class="constant">IDENTIFIER</a>: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a></h4></section><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>TransactionExtension</code> instead.</span></div></span></summary><div class="docblock"><p>Unique identifier of this signed extension.</p>
+<p>This will be exposed in the metadata to identify the signed extension used
+in an extrinsic.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.additional_signed" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1644">source</a><h4 class="code-header">fn <a href="#tymethod.additional_signed" class="fn">additional_signed</a>(
+    &amp;self,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.AdditionalSigned" title="type polkadot_service::runtime_traits::SignedExtension::AdditionalSigned">AdditionalSigned</a>, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;</h4></section><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>TransactionExtension</code> instead.</span></div></span></summary><div class="docblock"><p>Construct any additional data that should be in the signed payload of the transaction. Can
+also perform any pre-signature-verification checks and return an error if needed.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.pre_dispatch" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1668-1674">source</a><h4 class="code-header">fn <a href="#tymethod.pre_dispatch" class="fn">pre_dispatch</a>(
+    self,
+    who: &amp;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.AccountId" title="type polkadot_service::runtime_traits::SignedExtension::AccountId">AccountId</a>,
+    call: &amp;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a>,
+    info: &amp;&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_service::runtime_traits::Dispatchable::Info">Info</a>,
+    len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Pre" title="type polkadot_service::runtime_traits::SignedExtension::Pre">Pre</a>, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;</h4></section><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>TransactionExtension</code> instead.</span></div></span></summary><div class="docblock"><p>Do any pre-flight stuff for a signed transaction.</p>
+<p>Make sure to perform the same checks as in <a href="trait.SignedExtension.html#method.validate" title="method sp_runtime::traits::SignedExtension::validate::validate"><code>Self::validate</code></a>.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.validate" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1655-1661">source</a><h4 class="code-header">fn <a href="#method.validate" class="fn">validate</a>(
+    &amp;self,
+    _who: &amp;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.AccountId" title="type polkadot_service::runtime_traits::SignedExtension::AccountId">AccountId</a>,
+    _call: &amp;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a>,
+    _info: &amp;&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_service::runtime_traits::Dispatchable::Info">Info</a>,
+    _len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../sp_runtime/transaction_validity/struct.ValidTransaction.html" title="struct sp_runtime::transaction_validity::ValidTransaction">ValidTransaction</a>, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;</h4></section><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>TransactionExtension</code> instead.</span></div></span></summary><div class="docblock"><p>Validate a signed transaction for the transaction queue.</p>
+<p>This function can be called frequently by the transaction queue,
+to obtain transaction validity against current state.
+It should perform all checks that determine a valid transaction,
+that can pay for its execution and quickly eliminate ones
+that are stale or incorrect.</p>
+<p>Make sure to perform the same checks in <code>pre_dispatch</code> function.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.post_dispatch" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1692-1698">source</a><h4 class="code-header">fn <a href="#method.post_dispatch" class="fn">post_dispatch</a>(
+    _pre: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Pre" title="type polkadot_service::runtime_traits::SignedExtension::Pre">Pre</a>&gt;,
+    _info: &amp;&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_service::runtime_traits::Dispatchable::Info">Info</a>,
+    _post_info: &amp;&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.PostInfo" title="type polkadot_service::runtime_traits::Dispatchable::PostInfo">PostInfo</a>,
+    _len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+    _result: &amp;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="../../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;</h4></section><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>TransactionExtension</code> instead.</span></div></span></summary><div class="docblock"><p>Do any post-flight stuff for an extrinsic.</p>
+<p>If the transaction is signed, then <code>_pre</code> will contain the output of <code>pre_dispatch</code>,
+and <code>None</code> otherwise.</p>
+<p>This gets given the <code>DispatchResult</code> <code>_result</code> from the extrinsic and can, if desired,
+introduce a <code>TransactionValidityError</code>, causing the block to become invalid for including
+it.</p>
+<p>WARNING: It is dangerous to return an error here. To do so will fundamentally invalidate the
+transaction and any block that it is included in, causing the block author to not be
+compensated for their work in validating the transaction or producing the block so far.</p>
+<p>It can only be used safely when you <em>know</em> that the extrinsic is one that can only be
+introduced by the current block author; generally this implies that it is an inherent and
+will come from either an offchain-worker or via <code>InherentData</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.metadata" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1710">source</a><h4 class="code-header">fn <a href="#method.metadata" class="fn">metadata</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="struct.TransactionExtensionMetadata.html" title="struct polkadot_service::runtime_traits::TransactionExtensionMetadata">TransactionExtensionMetadata</a>&gt;</h4></section><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>TransactionExtension</code> instead.</span></div></span></summary><div class="docblock"><p>Returns the metadata for this signed extension.</p>
+<p>As a <a href="trait.SignedExtension.html" title="trait polkadot_service::runtime_traits::SignedExtension"><code>SignedExtension</code></a> can be a tuple of <a href="trait.SignedExtension.html" title="trait polkadot_service::runtime_traits::SignedExtension"><code>SignedExtension</code></a>s we need to return a <code>Vec</code>
+that holds the metadata of each one. Each individual <code>SignedExtension</code> must return
+<em>exactly</em> one <a href="struct.TransactionExtensionMetadata.html" title="struct polkadot_service::runtime_traits::TransactionExtensionMetadata"><code>TransactionExtensionMetadata</code></a>.</p>
+<p>This method provides a default implementation that returns a vec containing a single
+<a href="struct.TransactionExtensionMetadata.html" title="struct polkadot_service::runtime_traits::TransactionExtensionMetadata"><code>TransactionExtensionMetadata</code></a>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.validate_unsigned" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1724-1728">source</a><h4 class="code-header">fn <a href="#method.validate_unsigned" class="fn">validate_unsigned</a>(
+    _call: &amp;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a>,
+    _info: &amp;&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_service::runtime_traits::Dispatchable::Info">Info</a>,
+    _len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../sp_runtime/transaction_validity/struct.ValidTransaction.html" title="struct sp_runtime::transaction_validity::ValidTransaction">ValidTransaction</a>, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;</h4></section><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>TransactionExtension</code> instead.</span></div></span></summary><div class="docblock"><p>Validate an unsigned transaction for the transaction queue.</p>
+<p>This function can be called frequently by the transaction queue
+to obtain transaction validity against current state.
+It should perform all checks that determine a valid unsigned transaction,
+and quickly eliminate ones that are stale or incorrect.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.pre_dispatch_unsigned" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1740-1744">source</a><h4 class="code-header">fn <a href="#method.pre_dispatch_unsigned" class="fn">pre_dispatch_unsigned</a>(
+    call: &amp;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a>,
+    info: &amp;&lt;Self::<a class="associatedtype" href="trait.SignedExtension.html#associatedtype.Call" title="type polkadot_service::runtime_traits::SignedExtension::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_service::runtime_traits::Dispatchable::Info">Info</a>,
+    len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;</h4></section><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>TransactionExtension</code> instead.</span></div></span></summary><div class="docblock"><p>Do any pre-flight stuff for an unsigned transaction.</p>
+<p>Note this function by default delegates to <code>validate_unsigned</code>, so that
+all checks performed for the transaction queue are also performed during
+the dispatch phase (applying the extrinsic).</p>
+<p>If you ever override this function, you need not perform the same validation as in
+<code>validate_unsigned</code>.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/sp_runtime/traits/trait.SignedExtension.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

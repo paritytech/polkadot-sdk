@@ -1,0 +1,162 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Primitives of the Polkadot-like chains."><title>bp_polkadot_core - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="bp_polkadot_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../bp_polkadot_core/index.html">bp_polkadot_core</a><span class="version">0.7.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">bp_polkadot_core</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/bp_polkadot_core/lib.rs.html#17-389">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Primitives of the Polkadot-like chains.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><code>pub use <a class="mod" href="time_units/index.html" title="mod bp_polkadot_core::time_units">time_units</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="parachains/index.html" title="mod bp_polkadot_core::parachains">parachains</a></div><div class="desc docblock-short">Primitives of polkadot-like chains, that are related to parachains functionality.</div></li><li><div class="item-name"><a class="mod" href="time_units/index.html" title="mod bp_polkadot_core::time_units">time_units</a></div><div class="desc docblock-short">Human readable time units defined in terms of number of blocks.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AccountInfoStorageMapKeyProvider.html" title="struct bp_polkadot_core::AccountInfoStorageMapKeyProvider">AccountInfoStorageMapKeyProvider</a></div><div class="desc docblock-short">Provides a storage key for account data.</div></li><li><div class="item-name"><a class="struct" href="struct.BlockLength.html" title="struct bp_polkadot_core::BlockLength">BlockLength</a></div><div class="desc docblock-short">All Polkadot-like chains have maximal block size set to 5MB.</div></li><li><div class="item-name"><a class="struct" href="struct.BlockWeights.html" title="struct bp_polkadot_core::BlockWeights">BlockWeights</a></div><div class="desc docblock-short">All Polkadot-like chains have the same block weights.</div></li><li><div class="item-name"><a class="struct" href="struct.ExtrinsicBaseWeight.html" title="struct bp_polkadot_core::ExtrinsicBaseWeight">ExtrinsicBaseWeight</a></div><div class="desc docblock-short">Time to execute a NO-OP extrinsic, for example <code>System::remark</code>.
+Calculated by multiplying the <em>Average</em> with <code>1.0</code> and adding <code>0</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.Perbill.html" title="struct bp_polkadot_core::Perbill">Perbill</a></div><div class="desc docblock-short">A fixed point representation of a number in the range [0, 1].</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.AVERAGE_HEADER_SIZE.html" title="constant bp_polkadot_core::AVERAGE_HEADER_SIZE">AVERAGE_HEADER_SIZE</a></div><div class="desc docblock-short">Average header size in <code>votes_ancestries</code> field of justification on Polkadot-like
+chains.</div></li><li><div class="item-name"><a class="constant" href="constant.AVERAGE_ON_INITIALIZE_RATIO.html" title="constant bp_polkadot_core::AVERAGE_ON_INITIALIZE_RATIO">AVERAGE_ON_INITIALIZE_RATIO</a></div><div class="desc docblock-short">All Polkadot-like chains assume that an on-initialize consumes 1 percent of the weight on
+average, hence a single extrinsic will not be allowed to consume more than
+<code>AvailableBlockRatio - 1 percent</code>.</div></li><li><div class="item-name"><a class="constant" href="constant.EXTRA_STORAGE_PROOF_SIZE.html" title="constant bp_polkadot_core::EXTRA_STORAGE_PROOF_SIZE">EXTRA_STORAGE_PROOF_SIZE</a></div><div class="desc docblock-short">Number of extra bytes (excluding size of storage value itself) of storage proof, built at
+Polkadot-like chain. This mostly depends on number of entries in the storage trie.
+Some reserve is reserved to account future chain growth.</div></li><li><div class="item-name"><a class="constant" href="constant.MAXIMUM_BLOCK_WEIGHT.html" title="constant bp_polkadot_core::MAXIMUM_BLOCK_WEIGHT">MAXIMUM_BLOCK_WEIGHT</a></div><div class="desc docblock-short">All Polkadot-like chains allow 2 seconds of compute with a 6-second average block time.</div></li><li><div class="item-name"><a class="constant" href="constant.MAX_AUTHORITIES_COUNT.html" title="constant bp_polkadot_core::MAX_AUTHORITIES_COUNT">MAX_AUTHORITIES_COUNT</a></div><div class="desc docblock-short">Maximal number of GRANDPA authorities at Polkadot-like chains.</div></li><li><div class="item-name"><a class="constant" href="constant.MAX_MANDATORY_HEADER_SIZE.html" title="constant bp_polkadot_core::MAX_MANDATORY_HEADER_SIZE">MAX_MANDATORY_HEADER_SIZE</a></div><div class="desc docblock-short">Approximate maximal header size on Polkadot-like chains.</div></li><li><div class="item-name"><a class="constant" href="constant.MAX_MESSAGES_IN_DELIVERY_TRANSACTION.html" title="constant bp_polkadot_core::MAX_MESSAGES_IN_DELIVERY_TRANSACTION">MAX_MESSAGES_IN_DELIVERY_TRANSACTION</a></div><div class="desc docblock-short">Maximal number of messages in single delivery transaction.</div></li><li><div class="item-name"><a class="constant" href="constant.REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY.html" title="constant bp_polkadot_core::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY">REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY</a></div><div class="desc docblock-short">Reasonable number of headers in the <code>votes_ancestries</code> on Polkadot-like chains.</div></li><li><div class="item-name"><a class="constant" href="constant.TX_EXTRA_BYTES.html" title="constant bp_polkadot_core::TX_EXTRA_BYTES">TX_EXTRA_BYTES</a></div><div class="desc docblock-short">Maximal number of bytes, included in the signed Polkadot-like transaction apart from the encoded
+call itself.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Convert.html" title="trait bp_polkadot_core::Convert">Convert</a></div><div class="desc docblock-short">Infallible conversion trait. Generic over both source and destination types.</div></li><li><div class="item-name"><a class="trait" href="trait.Parameter.html" title="trait bp_polkadot_core::Parameter">Parameter</a></div><div class="desc docblock-short">A type that can be used as a parameter in a dispatchable function.</div></li><li><div class="item-name"><a class="trait" href="trait.SuffixedCommonTransactionExtensionExt.html" title="trait bp_polkadot_core::SuffixedCommonTransactionExtensionExt">SuffixedCommonTransactionExtensionExt</a></div><div class="desc docblock-short">Helper trait to define some extra methods on <code>SuffixedCommonTransactionExtension</code>.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.max_extrinsic_size.html" title="fn bp_polkadot_core::max_extrinsic_size">max_extrinsic_size</a></div><div class="desc docblock-short">Returns maximal extrinsic size on all Polkadot-like chains.</div></li><li><div class="item-name"><a class="fn" href="fn.max_extrinsic_weight.html" title="fn bp_polkadot_core::max_extrinsic_weight">max_extrinsic_weight</a></div><div class="desc docblock-short">Returns maximal extrinsic weight on all Polkadot-like chains.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.AccountAddress.html" title="type bp_polkadot_core::AccountAddress">AccountAddress</a></div><div class="desc docblock-short">Address of account on Polkadot-like chains.</div></li><li><div class="item-name"><a class="type" href="type.AccountId.html" title="type bp_polkadot_core::AccountId">AccountId</a></div><div class="desc docblock-short">Id of account on Polkadot-like chains.</div></li><li><div class="item-name"><a class="type" href="type.AccountPublic.html" title="type bp_polkadot_core::AccountPublic">AccountPublic</a></div><div class="desc docblock-short">Public key of account on Polkadot-like chains.</div></li><li><div class="item-name"><a class="type" href="type.Address.html" title="type bp_polkadot_core::Address">Address</a></div><div class="desc docblock-short">Account address, used by the Polkadot-like chain.</div></li><li><div class="item-name"><a class="type" href="type.Balance.html" title="type bp_polkadot_core::Balance">Balance</a></div><div class="desc docblock-short">The balance of an account on Polkadot-like chain.</div></li><li><div class="item-name"><a class="type" href="type.Block.html" title="type bp_polkadot_core::Block">Block</a></div><div class="desc docblock-short">Block type of Polkadot-like chains.</div></li><li><div class="item-name"><a class="type" href="type.BlockNumber.html" title="type bp_polkadot_core::BlockNumber">BlockNumber</a></div><div class="desc docblock-short">Block number type used in Polkadot-like chains.</div></li><li><div class="item-name"><a class="type" href="type.CommonTransactionExtension.html" title="type bp_polkadot_core::CommonTransactionExtension">CommonTransactionExtension</a></div><div class="desc docblock-short">Signed extension that is used by most chains.</div></li><li><div class="item-name"><a class="type" href="type.CommonTransactionExtra.html" title="type bp_polkadot_core::CommonTransactionExtra">CommonTransactionExtra</a></div><div class="desc docblock-short">Extra signed extension data that is used by most chains.</div></li><li><div class="item-name"><a class="type" href="type.Hash.html" title="type bp_polkadot_core::Hash">Hash</a></div><div class="desc docblock-short">Hash type used in Polkadot-like chains.</div></li><li><div class="item-name"><a class="type" href="type.Hasher.html" title="type bp_polkadot_core::Hasher">Hasher</a></div><div class="desc docblock-short">The type of object that can produce hashes on Polkadot-like chains.</div></li><li><div class="item-name"><a class="type" href="type.Hashing.html" title="type bp_polkadot_core::Hashing">Hashing</a></div><div class="desc docblock-short">Hashing type.</div></li><li><div class="item-name"><a class="type" href="type.Header.html" title="type bp_polkadot_core::Header">Header</a></div><div class="desc docblock-short">The header type used by Polkadot-like chains.</div></li><li><div class="item-name"><a class="type" href="type.Nonce.html" title="type bp_polkadot_core::Nonce">Nonce</a></div><div class="desc docblock-short">Nonce of a transaction on the Polkadot-like chains.</div></li><li><div class="item-name"><a class="type" href="type.Signature.html" title="type bp_polkadot_core::Signature">Signature</a></div><div class="desc docblock-short">Signature type used by Polkadot-like chains.</div></li><li><div class="item-name"><a class="type" href="type.SignedBlock.html" title="type bp_polkadot_core::SignedBlock">SignedBlock</a></div><div class="desc docblock-short">Polkadot-like block signed with a Justification.</div></li><li><div class="item-name"><a class="type" href="type.SuffixedCommonTransactionExtension.html" title="type bp_polkadot_core::SuffixedCommonTransactionExtension">SuffixedCommonTransactionExtension</a></div><div class="desc docblock-short">Extra transaction extension data that starts with <code>CommonTransactionExtra</code>.</div></li><li><div class="item-name"><a class="type" href="type.UncheckedExtrinsic.html" title="type bp_polkadot_core::UncheckedExtrinsic">UncheckedExtrinsic</a></div><div class="desc docblock-short">Unchecked Extrinsic type.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

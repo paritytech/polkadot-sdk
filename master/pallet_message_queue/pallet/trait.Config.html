@@ -1,0 +1,203 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuration trait of this pallet."><title>Config in pallet_message_queue::pallet - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_message_queue" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_message_queue/index.html">pallet_message_queue</a><span class="version">31.0.0</span></h2></div><h2 class="location"><a href="#">Config</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.HeapSize">HeapSize</a></li><li><a href="#associatedtype.IdleMaxServiceWeight">IdleMaxServiceWeight</a></li><li><a href="#associatedtype.MaxStale">MaxStale</a></li><li><a href="#associatedtype.MessageProcessor">MessageProcessor</a></li><li><a href="#associatedtype.QueueChangeHandler">QueueChangeHandler</a></li><li><a href="#associatedtype.QueuePausedQuery">QueuePausedQuery</a></li><li><a href="#associatedtype.RuntimeEvent">RuntimeEvent</a></li><li><a href="#associatedtype.ServiceWeight">ServiceWeight</a></li><li><a href="#associatedtype.Size">Size</a></li><li><a href="#associatedtype.WeightInfo">WeightInfo</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_message_queue::pallet</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_message_queue</a>::<wbr><a href="index.html">pallet</a>::<wbr><a class="trait" href="#">Config</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_message_queue/lib.rs.html#474-546">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Config: Config {
+    type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_message_queue::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;;
+    type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_message_queue::weights::WeightInfo">WeightInfo</a>;
+    type <a href="#associatedtype.MessageProcessor" class="associatedtype">MessageProcessor</a>: ProcessMessage;
+    type <a href="#associatedtype.Size" class="associatedtype">Size</a>: BaseArithmetic + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/sign/trait.Unsigned.html" title="trait num_traits::sign::Unsigned">Unsigned</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt; + Member + Encode + Decode + MaxEncodedLen + TypeInfo + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a>;
+    type <a href="#associatedtype.QueueChangeHandler" class="associatedtype">QueueChangeHandler</a>: <a class="trait" href="../trait.OnQueueChanged.html" title="trait pallet_message_queue::OnQueueChanged">OnQueueChanged</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.MessageProcessor" title="type pallet_message_queue::pallet::Config::MessageProcessor">MessageProcessor</a> as ProcessMessage&gt;::Origin&gt;;
+    type <a href="#associatedtype.QueuePausedQuery" class="associatedtype">QueuePausedQuery</a>: QueuePausedQuery&lt;&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.MessageProcessor" title="type pallet_message_queue::pallet::Config::MessageProcessor">MessageProcessor</a> as ProcessMessage&gt;::Origin&gt;;
+    type <a href="#associatedtype.HeapSize" class="associatedtype">HeapSize</a>: Get&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Size" title="type pallet_message_queue::pallet::Config::Size">Size</a>&gt;;
+    type <a href="#associatedtype.MaxStale" class="associatedtype">MaxStale</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.ServiceWeight" class="associatedtype">ServiceWeight</a>: Get&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Weight&gt;&gt;;
+    type <a href="#associatedtype.IdleMaxServiceWeight" class="associatedtype">IdleMaxServiceWeight</a>: Get&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Weight&gt;&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration trait of this pallet.</p>
+<p>The main purpose of this trait is to act as an interface between this pallet and the runtime in
+which it is embedded in. A type, function, or constant in this trait is essentially left to be
+configured by the runtime that includes this pallet.</p>
+<p>Consequently, a runtime that wants to include this pallet must implement this trait.
+The module configuration trait.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.RuntimeEvent" class="method"><a class="src rightside" href="../../src/pallet_message_queue/lib.rs.html#476">source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_message_queue::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;</h4></section></summary><div class="docblock"><p>The overarching event type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.WeightInfo" class="method"><a class="src rightside" href="../../src/pallet_message_queue/lib.rs.html#479">source</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_message_queue::weights::WeightInfo">WeightInfo</a></h4></section></summary><div class="docblock"><p>Weight information for extrinsics in this pallet.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MessageProcessor" class="method"><a class="src rightside" href="../../src/pallet_message_queue/lib.rs.html#491">source</a><h4 class="code-header">type <a href="#associatedtype.MessageProcessor" class="associatedtype">MessageProcessor</a>: ProcessMessage</h4></section></summary><div class="docblock"><p>Processor for a message.</p>
+<p>Storage changes are not rolled back on error.</p>
+<h5 id="benchmarking"><a class="doc-anchor" href="#benchmarking">§</a>Benchmarking</h5>
+<p>Must be set to <a href="../mock_helpers/struct.NoopMessageProcessor.html" title="struct pallet_message_queue::mock_helpers::NoopMessageProcessor"><code>mock_helpers::NoopMessageProcessor</code></a> for benchmarking.
+Other message processors that consumes exactly (1, 1) weight for any give message will
+work as well. Otherwise the benchmarking will also measure the weight of the message
+processor, which is not desired.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Size" class="method"><a class="src rightside" href="../../src/pallet_message_queue/lib.rs.html#494-503">source</a><h4 class="code-header">type <a href="#associatedtype.Size" class="associatedtype">Size</a>: BaseArithmetic + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/sign/trait.Unsigned.html" title="trait num_traits::sign::Unsigned">Unsigned</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt; + Member + Encode + Decode + MaxEncodedLen + TypeInfo + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a></h4></section></summary><div class="docblock"><p>Page/heap size type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.QueueChangeHandler" class="method"><a class="src rightside" href="../../src/pallet_message_queue/lib.rs.html#507">source</a><h4 class="code-header">type <a href="#associatedtype.QueueChangeHandler" class="associatedtype">QueueChangeHandler</a>: <a class="trait" href="../trait.OnQueueChanged.html" title="trait pallet_message_queue::OnQueueChanged">OnQueueChanged</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.MessageProcessor" title="type pallet_message_queue::pallet::Config::MessageProcessor">MessageProcessor</a> as ProcessMessage&gt;::Origin&gt;</h4></section></summary><div class="docblock"><p>Code to be called when a message queue changes - either with items introduced or
+removed.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.QueuePausedQuery" class="method"><a class="src rightside" href="../../src/pallet_message_queue/lib.rs.html#514">source</a><h4 class="code-header">type <a href="#associatedtype.QueuePausedQuery" class="associatedtype">QueuePausedQuery</a>: QueuePausedQuery&lt;&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.MessageProcessor" title="type pallet_message_queue::pallet::Config::MessageProcessor">MessageProcessor</a> as ProcessMessage&gt;::Origin&gt;</h4></section></summary><div class="docblock"><p>Queried by the pallet to check whether a queue can be serviced.</p>
+<p>This also applies to manual servicing via <code>execute_overweight</code> and <code>service_queues</code>. The
+value of this is only polled once before servicing the queue. This means that changes to
+it that happen <em>within</em> the servicing will not be reflected.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.HeapSize" class="method"><a class="src rightside" href="../../src/pallet_message_queue/lib.rs.html#522">source</a><h4 class="code-header">type <a href="#associatedtype.HeapSize" class="associatedtype">HeapSize</a>: Get&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Size" title="type pallet_message_queue::pallet::Config::Size">Size</a>&gt;</h4></section></summary><div class="docblock"><p>The size of the page; this implies the maximum message size which can be sent.</p>
+<p>A good value depends on the expected message sizes, their weights, the weight that is
+available for processing them and the maximal needed message size. The maximal message
+size is slightly lower than this as defined by <a href="../type.MaxMessageLenOf.html" title="type pallet_message_queue::MaxMessageLenOf"><code>MaxMessageLenOf</code></a>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxStale" class="method"><a class="src rightside" href="../../src/pallet_message_queue/lib.rs.html#528">source</a><h4 class="code-header">type <a href="#associatedtype.MaxStale" class="associatedtype">MaxStale</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The maximum number of stale pages (i.e. of overweight messages) allowed before culling
+can happen. Once there are more stale pages than this, then historical pages may be
+dropped, even if they contain unprocessed overweight messages.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.ServiceWeight" class="method"><a class="src rightside" href="../../src/pallet_message_queue/lib.rs.html#537">source</a><h4 class="code-header">type <a href="#associatedtype.ServiceWeight" class="associatedtype">ServiceWeight</a>: Get&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Weight&gt;&gt;</h4></section></summary><div class="docblock"><p>The amount of weight (if any) which should be provided to the message queue for
+servicing enqueued items <code>on_initialize</code>.</p>
+<p>This may be legitimately <code>None</code> in the case that you will call
+<code>ServiceQueues::service_queues</code> manually or set <a href="trait.Config.html#associatedtype.IdleMaxServiceWeight"><code>Self::IdleMaxServiceWeight</code></a> to have
+it run in <code>on_idle</code>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.IdleMaxServiceWeight" class="method"><a class="src rightside" href="../../src/pallet_message_queue/lib.rs.html#545">source</a><h4 class="code-header">type <a href="#associatedtype.IdleMaxServiceWeight" class="associatedtype">IdleMaxServiceWeight</a>: Get&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Weight&gt;&gt;</h4></section></summary><div class="docblock"><p>The maximum amount of weight (if any) to be used from remaining weight <code>on_idle</code> which
+should be provided to the message queue for servicing enqueued items <code>on_idle</code>.
+Useful for parachains to process messages at the same block they are received.</p>
+<p>If <code>None</code>, it will not call <code>ServiceQueues::service_queues</code> in <code>on_idle</code>.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/pallet_message_queue/pallet/trait.Config.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

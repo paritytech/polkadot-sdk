@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"enum":["RevalidationType","TransactionPoolType"],"fn":["notification_future"],"struct":["BasicPool","Builder","ForkAwareTxPool","FullChainApi","Options","Pool","PoolLimit","TransactionPoolOptions","TransactionPoolWrapper"],"trait":["ChainApi"],"type":["ForkAwareTxPoolTask","TransactionPoolHandle"]};

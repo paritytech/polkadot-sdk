@@ -1,0 +1,207 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Allows you to define some service work that can be recognized by a script or an off-chain worker."><title>tasks_experimental in frame_support_procedural - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../frame_support_procedural/index.html">frame_support_procedural</a><span class="version">23.0.0</span></h2></div><div class="sidebar-elems"></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Attribute Macro <a href="index.html">frame_support_procedural</a>::<wbr><a class="attr" href="#">tasks_experimental</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/frame_support_procedural/lib.rs.html#1142-1144">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>#[tasks_experimental]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Allows you to define some service work that can be recognized by a script or an
+off-chain worker.</p>
+<p>Such a script can then create and submit all such work items at any given time.</p>
+<p>These work items are defined as instances of the <code>Task</code> trait (found at
+<code>frame_support::traits::Task</code>). <a href="attr.tasks_experimental.html" title="attr frame_support_procedural::tasks_experimental"><code>pallet:tasks_experimental</code></a> when
+attached to an <code>impl</code> block inside a pallet, will generate an enum <code>Task&lt;T&gt;</code> whose variants
+are mapped to functions inside this <code>impl</code> block.</p>
+<p>Each such function must have the following set of attributes:</p>
+<ul>
+<li><a href="attr.task_list.html" title="attr frame_support_procedural::task_list"><code>pallet::task_list</code></a></li>
+<li><a href="attr.task_condition.html" title="attr frame_support_procedural::task_condition"><code>pallet::task_condition</code></a></li>
+<li><a href="attr.task_weight.html" title="attr frame_support_procedural::task_weight"><code>pallet::task_weight</code></a></li>
+<li><a href="attr.task_index.html" title="attr frame_support_procedural::task_index"><code>pallet::task_index</code></a></li>
+</ul>
+<p>All of such Tasks are then aggregated into a <code>RuntimeTask</code> by
+<a href="macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime"><code>construct_runtime</code></a>.</p>
+<p>Finally, the <code>RuntimeTask</code> can then used by a script or off-chain worker to create and
+submit such tasks via an extrinsic defined in <code>frame_system</code> called <code>do_task</code>.</p>
+<p>When submitted as unsigned transactions (for example via an off-chain workder), note
+that the tasks will be executed in a random order.</p>
+<h3 id="example"><a class="doc-anchor" href="#example">§</a>Example</h3>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::tasks_experimental]
+</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+	<span class="doccomment">/// Add a pair of numbers into the totals and remove them.
+	</span><span class="attr">#[pallet::task_list(Numbers::&lt;T&gt;::iter_keys())]
+	#[pallet::task_condition(|i| Numbers::&lt;T&gt;::contains_key(i))]
+	#[pallet::task_weight(<span class="number">0</span>.into())]
+	#[pallet::task_index(<span class="number">0</span>)]
+	</span><span class="kw">pub fn </span>add_number_into_total(i: u32) -&gt; DispatchResult {
+		<span class="kw">let </span>v = Numbers::&lt;T&gt;::take(i).ok_or(Error::&lt;T&gt;::NotFound)<span class="question-mark">?</span>;
+		Total::&lt;T&gt;::mutate(|(total_keys, total_values)| {
+			<span class="kw-2">*</span>total_keys += i;
+			<span class="kw-2">*</span>total_values += v;
+		});
+		<span class="prelude-val">Ok</span>(())
+	}
+}</code></pre></div>
+<p>Now, this can be executed as follows:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>tasks_work() {
+	<span class="kw">super</span>::new_test_ext().execute_with(|| {
+		Numbers::&lt;Runtime&gt;::insert(<span class="number">0</span>, <span class="number">1</span>);
+
+		<span class="kw">let </span>task = RuntimeTask::System(<span class="kw">super</span>::frame_system::Task::&lt;Runtime&gt;::AddNumberIntoTotal {
+			i: <span class="number">0u32</span>,
+		});
+
+		<span class="macro">assert_ok!</span>(System::do_task(RuntimeOrigin::signed(<span class="number">1</span>), task.clone(),));
+		<span class="macro">assert_eq!</span>(Numbers::&lt;Runtime&gt;::get(<span class="number">0</span>), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(Total::&lt;Runtime&gt;::get(), (<span class="number">0</span>, <span class="number">1</span>));
+	});
+}</code></pre></div>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

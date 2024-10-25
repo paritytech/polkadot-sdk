@@ -1,0 +1,192 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Additional logic for the Core Fellowship. This determines salary, registers activity/passivity and handles promotion and demotion periods."><title>pallet_core_fellowship - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_core_fellowship" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_core_fellowship/index.html">pallet_core_fellowship</a><span class="version">12.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_core_fellowship</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_core_fellowship/lib.rs.html#18-771">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Additional logic for the Core Fellowship. This determines salary, registers activity/passivity
+and handles promotion and demotion periods.</p>
+<p>This only handles members of non-zero rank.</p>
+<h2 id="process-flow"><a class="doc-anchor" href="#process-flow">§</a>Process Flow</h2>
+<ul>
+<li>Begin with a call to <code>induct</code>, where some privileged origin (perhaps a pre-existing member of
+<code>rank &gt; 1</code>) is able to make a candidate from an account and introduce it to be tracked in this
+pallet in order to allow evidence to be submitted and promotion voted on.</li>
+<li>The candidate then calls <code>submit_evidence</code> to apply for their promotion to rank 1.</li>
+<li>A <code>PromoteOrigin</code> of at least rank 1 calls <code>promote</code> on the candidate to elevate it to rank 1.</li>
+<li>Some time later but before rank 1’s <code>demotion_period</code> elapses, candidate calls
+<code>submit_evidence</code> with evidence of their efforts to apply for approval to stay at rank 1.</li>
+<li>An <code>ApproveOrigin</code> of at least rank 1 calls <code>approve</code> on the candidate to avoid imminent
+demotion and keep it at rank 1.</li>
+<li>These last two steps continue until the candidate is ready to apply for a promotion, at which
+point the previous two steps are repeated with a higher rank.</li>
+<li>If the member fails to get an approval within the <code>demotion_period</code> then anyone may call
+<code>bump</code> to demote the candidate by one rank.</li>
+<li>If a candidate fails to be promoted to a member within the <code>offboard_timeout</code> period, then
+anyone may call <code>bump</code> to remove the account’s candidacy.</li>
+<li>Pre-existing members may call <code>import</code> to have their rank recognised and be inducted into this
+pallet (to gain a salary and allow for eventual promotion).</li>
+<li>If, externally to this pallet, a member or candidate has their rank removed completely, then
+<code>offboard</code> may be called to remove them entirely from this pallet.</li>
+</ul>
+<p>Note there is a difference between having a rank of 0 (whereby the account is a <em>candidate</em>) and
+having no rank at all (whereby we consider it <em>unranked</em>). An account can be demoted from rank
+0 to become unranked. This process is called being offboarded and there is an extrinsic to do
+this explicitly when external factors to this pallet have caused the tracked account to become
+unranked. At rank 0, there is not a “demotion” period after which the account may be bumped to
+become offboarded but rather an “offboard timeout”.</p>
+<p>Candidates may be introduced (i.e. an account to go from unranked to rank of 0) by an origin
+of a different privilege to that for promotion. This allows the possibility for even a single
+existing member to introduce a new candidate without payment.</p>
+<p>Only tracked/ranked accounts may submit evidence for their proof and promotion. Candidates
+cannot be approved - they must proceed only to promotion prior to the offboard timeout elapsing.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_core_fellowship::pallet">pallet</a>::*;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="weights/index.html" title="mod pallet_core_fellowship::weights">weights</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="migration/index.html" title="mod pallet_core_fellowship::migration">migration</a></div><div class="desc docblock-short">Storage migrations for the core-fellowship pallet.</div></li><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_core_fellowship::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod pallet_core_fellowship::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for <code>pallet_core_fellowship</code></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.EnsureInducted.html" title="struct pallet_core_fellowship::EnsureInducted">EnsureInducted</a></div><div class="desc docblock-short">Guard to ensure that the given origin is inducted into this pallet with a given minimum rank.
+The account ID of the member is the <code>Success</code> value.</div></li><li><div class="item-name"><a class="struct" href="struct.MemberStatus.html" title="struct pallet_core_fellowship::MemberStatus">MemberStatus</a></div><div class="desc docblock-short">The status of a single member.</div></li><li><div class="item-name"><a class="struct" href="struct.ParamsType.html" title="struct pallet_core_fellowship::ParamsType">ParamsType</a></div><div class="desc docblock-short">The status of the pallet instance.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Wish.html" title="enum pallet_core_fellowship::Wish">Wish</a></div><div class="desc docblock-short">The desired outcome for which evidence is presented.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Evidence.html" title="type pallet_core_fellowship::Evidence">Evidence</a></div><div class="desc docblock-short">A piece of evidence to underpin a <a href="enum.Wish.html" title="enum pallet_core_fellowship::Wish">Wish</a>.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

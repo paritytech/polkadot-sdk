@@ -1,0 +1,155 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A prelude for importing all types typically used when interacting with XCM messages."><title>staging_xcm::v2::prelude - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="staging_xcm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../staging_xcm/index.html">staging_xcm</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">Module prelude</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li></ul></section><h2><a href="../index.html">In staging_xcm::v2</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">staging_xcm</a>::<wbr><a href="../index.html">v2</a>::<wbr><a class="mod" href="#">prelude</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/staging_xcm/v2/mod.rs.html#374">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: XCMv2 will be removed once XCMv5 is released. Please use XCMv3 or XCMv4 instead.</span></div></span><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A prelude for importing all types typically used when interacting with XCM messages.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.Instruction"><code>pub use super::<a class="enum" href="../enum.Instruction.html" title="enum staging_xcm::v2::Instruction">Instruction</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.Xcm"><code>pub use super::<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm::v2::Xcm">Xcm</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.Ancestor"><code>pub use super::super::<a class="struct" href="../struct.Ancestor.html" title="struct staging_xcm::v2::Ancestor">Ancestor</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.AncestorThen"><code>pub use super::super::<a class="struct" href="../struct.AncestorThen.html" title="struct staging_xcm::v2::AncestorThen">AncestorThen</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.AssetId"><code>pub use super::super::<a class="enum" href="../enum.AssetId.html" title="enum staging_xcm::v2::AssetId">AssetId</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.AssetInstance"><code>pub use super::super::<a class="enum" href="../enum.AssetInstance.html" title="enum staging_xcm::v2::AssetInstance">AssetInstance</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.BodyId"><code>pub use super::super::<a class="enum" href="../enum.BodyId.html" title="enum staging_xcm::v2::BodyId">BodyId</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.BodyPart"><code>pub use super::super::<a class="enum" href="../enum.BodyPart.html" title="enum staging_xcm::v2::BodyPart">BodyPart</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.XcmError"><code>pub use super::super::<a class="enum" href="../enum.Error.html" title="enum staging_xcm::v2::Error">Error</a> as XcmError;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.ExecuteXcm"><code>pub use super::super::<a class="trait" href="../trait.ExecuteXcm.html" title="trait staging_xcm::v2::ExecuteXcm">ExecuteXcm</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.Fungibility"><code>pub use super::super::<a class="enum" href="../enum.Fungibility.html" title="enum staging_xcm::v2::Fungibility">Fungibility</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.InteriorMultiLocation"><code>pub use super::super::<a class="type" href="../type.InteriorMultiLocation.html" title="type staging_xcm::v2::InteriorMultiLocation">InteriorMultiLocation</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.Junction"><code>pub use super::super::<a class="enum" href="../enum.Junction.html" title="enum staging_xcm::v2::Junction">Junction</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.Junctions"><code>pub use super::super::<a class="enum" href="../enum.Junctions.html" title="enum staging_xcm::v2::Junctions">Junctions</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.MultiAsset"><code>pub use super::super::<a class="struct" href="../struct.MultiAsset.html" title="struct staging_xcm::v2::MultiAsset">MultiAsset</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.MultiAssetFilter"><code>pub use super::super::<a class="enum" href="../enum.MultiAssetFilter.html" title="enum staging_xcm::v2::MultiAssetFilter">MultiAssetFilter</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.MultiAssets"><code>pub use super::super::<a class="struct" href="../struct.MultiAssets.html" title="struct staging_xcm::v2::MultiAssets">MultiAssets</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.MultiLocation"><code>pub use super::super::<a class="struct" href="../struct.MultiLocation.html" title="struct staging_xcm::v2::MultiLocation">MultiLocation</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.NetworkId"><code>pub use super::super::<a class="enum" href="../enum.NetworkId.html" title="enum staging_xcm::v2::NetworkId">NetworkId</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.OriginKind"><code>pub use super::super::<a class="enum" href="../enum.OriginKind.html" title="enum staging_xcm::v2::OriginKind">OriginKind</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.Outcome"><code>pub use super::super::<a class="enum" href="../enum.Outcome.html" title="enum staging_xcm::v2::Outcome">Outcome</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.Parent"><code>pub use super::super::<a class="struct" href="../struct.Parent.html" title="struct staging_xcm::v2::Parent">Parent</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.ParentThen"><code>pub use super::super::<a class="struct" href="../struct.ParentThen.html" title="struct staging_xcm::v2::ParentThen">ParentThen</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.QueryId"><code>pub use super::super::<a class="type" href="../type.QueryId.html" title="type staging_xcm::v2::QueryId">QueryId</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.Response"><code>pub use super::super::<a class="enum" href="../enum.Response.html" title="enum staging_xcm::v2::Response">Response</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.XcmResult"><code>pub use super::super::<a class="type" href="../type.Result.html" title="type staging_xcm::v2::Result">Result</a> as XcmResult;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.SendError"><code>pub use super::super::<a class="enum" href="../enum.SendError.html" title="enum staging_xcm::v2::SendError">SendError</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.SendResult"><code>pub use super::super::<a class="type" href="../type.SendResult.html" title="type staging_xcm::v2::SendResult">SendResult</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.SendXcm"><code>pub use super::super::<a class="trait" href="../trait.SendXcm.html" title="trait staging_xcm::v2::SendXcm">SendXcm</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.WeightLimit"><code>pub use super::super::<a class="enum" href="../enum.WeightLimit.html" title="enum staging_xcm::v2::WeightLimit">WeightLimit</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.WildFungibility"><code>pub use super::super::<a class="enum" href="../enum.WildFungibility.html" title="enum staging_xcm::v2::WildFungibility">WildFungibility</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.WildFungible"><code>pub use super::super::WildFungibility::<a class="enum" href="../enum.WildFungibility.html" title="enum staging_xcm::v2::WildFungibility">Fungible</a> as WildFungible;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.WildNonFungible"><code>pub use super::super::WildFungibility::<a class="enum" href="../enum.WildFungibility.html" title="enum staging_xcm::v2::WildFungibility">NonFungible</a> as WildNonFungible;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.WildMultiAsset"><code>pub use super::super::<a class="enum" href="../enum.WildMultiAsset.html" title="enum staging_xcm::v2::WildMultiAsset">WildMultiAsset</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.XcmWeightInfo"><code>pub use super::super::<a class="trait" href="../trait.XcmWeightInfo.html" title="trait staging_xcm::v2::XcmWeightInfo">XcmWeightInfo</a>;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name" id="reexport.XCM_VERSION"><code>pub use super::super::<a class="constant" href="../constant.VERSION.html" title="constant staging_xcm::v2::VERSION">VERSION</a> as XCM_VERSION;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name"><code>pub use super::super::<a class="enum" href="../enum.AssetId.html" title="enum staging_xcm::v2::AssetId">AssetId</a>::*;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name"><code>pub use super::super::<a class="enum" href="../enum.AssetInstance.html" title="enum staging_xcm::v2::AssetInstance">AssetInstance</a>::*;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name"><code>pub use super::super::<a class="enum" href="../enum.Fungibility.html" title="enum staging_xcm::v2::Fungibility">Fungibility</a>::*;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name"><code>pub use super::super::<a class="enum" href="../enum.Instruction.html" title="enum staging_xcm::v2::Instruction">Instruction</a>::*;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name"><code>pub use super::super::<a class="enum" href="../enum.Junction.html" title="enum staging_xcm::v2::Junction">Junction</a>::*;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name"><code>pub use super::super::<a class="enum" href="../enum.Junctions.html" title="enum staging_xcm::v2::Junctions">Junctions</a>::*;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name"><code>pub use super::super::<a class="enum" href="../enum.MultiAssetFilter.html" title="enum staging_xcm::v2::MultiAssetFilter">MultiAssetFilter</a>::*;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name"><code>pub use super::super::<a class="enum" href="../enum.NetworkId.html" title="enum staging_xcm::v2::NetworkId">NetworkId</a>::*;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name"><code>pub use super::super::<a class="enum" href="../enum.WeightLimit.html" title="enum staging_xcm::v2::WeightLimit">WeightLimit</a>::*;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name"><code>pub use super::super::<a class="enum" href="../enum.WildMultiAsset.html" title="enum staging_xcm::v2::WildMultiAsset">WildMultiAsset</a>::*;</code></div><div class="desc docblock-short"><span class="stab deprecated" title="">Deprecated</span></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="opaque/index.html" title="mod staging_xcm::v2::prelude::opaque">opaque</a><span class="stab deprecated" title="">Deprecated</span></div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

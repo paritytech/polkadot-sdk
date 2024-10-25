@@ -1,0 +1,230 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Wasm builder is a utility for building a project as a Wasm binary"><title>substrate_wasm_builder - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="substrate_wasm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../substrate_wasm_builder/index.html">substrate_wasm_builder</a><span class="version">17.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#structs">Structs</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">substrate_wasm_builder</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/substrate_wasm_builder/lib.rs.html#18-456">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="wasm-builder-is-a-utility-for-building-a-project-as-a-wasm-binary"><a class="doc-anchor" href="#wasm-builder-is-a-utility-for-building-a-project-as-a-wasm-binary">§</a>Wasm builder is a utility for building a project as a Wasm binary</h2>
+<p>The Wasm builder is a tool that integrates the process of building the WASM binary of your
+project into the main <code>cargo</code> build process.</p>
+<h3 id="project-setup"><a class="doc-anchor" href="#project-setup">§</a>Project setup</h3>
+<p>A project that should be compiled as a Wasm binary needs to:</p>
+<ol>
+<li>Add a <code>build.rs</code> file.</li>
+<li>Add <code>wasm-builder</code> as dependency into <code>build-dependencies</code>.</li>
+</ol>
+<p>The <code>build.rs</code> file needs to contain the following code:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>substrate_wasm_builder::WasmBuilder;
+
+<span class="kw">fn </span>main() {
+    <span class="comment">// Builds the WASM binary using the recommended defaults.
+    // If you need more control, you can call `new` or `init_with_defaults`.
+    </span>WasmBuilder::build_using_defaults();
+}</code></pre></div>
+<p>As the final step, you need to add the following to your project:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/wasm_binary.rs"</span>));</code></pre></div>
+<p>This will include the generated Wasm binary as two constants <code>WASM_BINARY</code> and
+<code>WASM_BINARY_BLOATY</code>. The former is a compact Wasm binary and the latter is the Wasm binary as
+being generated by the compiler. Both variables have <code>Option&lt;&amp;'static [u8]&gt;</code> as type.</p>
+<h4 id="feature"><a class="doc-anchor" href="#feature">§</a>Feature</h4>
+<p>Wasm builder supports to enable cargo features while building the Wasm binary. By default it
+will enable all features in the wasm build that are enabled for the native build except the
+<code>default</code> and <code>std</code> features. Besides that, wasm builder supports the special <code>runtime-wasm</code>
+feature. This <code>runtime-wasm</code> feature will be enabled by the wasm builder when it compiles the
+Wasm binary. If this feature is not present, it will not be enabled.</p>
+<h3 id="environment-variables"><a class="doc-anchor" href="#environment-variables">§</a>Environment variables</h3>
+<p>By using environment variables, you can configure which Wasm binaries are built and how:</p>
+<ul>
+<li><code>SKIP_WASM_BUILD</code> - Skips building any Wasm binary. This is useful when only native should be
+recompiled. If this is the first run and there doesn’t exist a Wasm binary, this will set both
+variables to <code>None</code>.</li>
+<li><code>WASM_BUILD_TYPE</code> - Sets the build type for building Wasm binaries. Supported values are
+<code>release</code> or <code>debug</code>. By default the build type is equal to the build type used by the main
+build.</li>
+<li><code>FORCE_WASM_BUILD</code> - Can be set to force a Wasm build. On subsequent calls the value of the
+variable needs to change. As wasm-builder instructs <code>cargo</code> to watch for file changes this
+environment variable should only be required in certain circumstances.</li>
+<li><code>WASM_BUILD_RUSTFLAGS</code> - Extend <code>RUSTFLAGS</code> given to <code>cargo build</code> while building the wasm
+binary.</li>
+<li><code>WASM_BUILD_NO_COLOR</code> - Disable color output of the wasm build.</li>
+<li><code>WASM_TARGET_DIRECTORY</code> - Will copy any build Wasm binary to the given directory. The path
+needs to be absolute.</li>
+<li><code>WASM_BUILD_TOOLCHAIN</code> - The toolchain that should be used to build the Wasm binaries. The
+format needs to be the same as used by cargo, e.g. <code>nightly-2020-02-20</code>.</li>
+<li><code>WASM_BUILD_WORKSPACE_HINT</code> - Hint the workspace that is being built. This is normally not
+required as we walk up from the target directory until we find a <code>Cargo.toml</code>. If the target
+directory is changed for the build, this environment variable can be used to point to the
+actual workspace.</li>
+<li><code>WASM_BUILD_STD</code> - Sets whether the Rust’s standard library crates will also be built. This is
+necessary to make sure the standard library crates only use the exact WASM feature set that
+our executor supports. Enabled by default.</li>
+<li><code>WASM_BUILD_CARGO_ARGS</code> - This can take a string as space separated list of <code>cargo</code> arguments.
+It was added specifically for the use case of enabling JSON diagnostic messages during the
+build phase, to be used by IDEs that parse them, but it might be useful for other cases too.</li>
+<li><code>CARGO_NET_OFFLINE</code> - If <code>true</code>, <code>--offline</code> will be passed to all processes launched to
+prevent network access. Useful in offline environments.</li>
+</ul>
+<p>Each project can be skipped individually by using the environment variable
+<code>SKIP_PROJECT_NAME_WASM_BUILD</code>. Where <code>PROJECT_NAME</code> needs to be replaced by the name of the
+cargo project, e.g. <code>kitchensink-runtime</code> will be <code>NODE_RUNTIME</code>.</p>
+<h3 id="prerequisites"><a class="doc-anchor" href="#prerequisites">§</a>Prerequisites:</h3>
+<p>Wasm builder requires the following prerequisites for building the Wasm binary:</p>
+<ul>
+<li>rust nightly + <code>wasm32-unknown-unknown</code> toolchain</li>
+</ul>
+<p>or</p>
+<ul>
+<li>rust stable and version at least 1.68.0 + <code>wasm32-unknown-unknown</code> toolchain</li>
+</ul>
+<p>If a specific rust is installed with <code>rustup</code>, it is important that the wasm target is
+installed as well. For example if installing the rust from 20.02.2020 using <code>rustup install nightly-2020-02-20</code>, the wasm target needs to be installed as well <code>rustup target add wasm32-unknown-unknown --toolchain nightly-2020-02-20</code>.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.WasmBuilder.html" title="struct substrate_wasm_builder::WasmBuilder">WasmBuilder</a></div><div class="desc docblock-short">The builder for building a wasm binary.</div></li><li><div class="item-name"><a class="struct" href="struct.WasmBuilderSelectProject.html" title="struct substrate_wasm_builder::WasmBuilderSelectProject">WasmBuilderSelectProject</a></div><div class="desc docblock-short">First step of the <a href="struct.WasmBuilder.html" title="struct substrate_wasm_builder::WasmBuilder"><code>WasmBuilder</code></a> to select the project to build.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

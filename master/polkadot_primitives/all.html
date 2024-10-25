@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="polkadot_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../polkadot_primitives/index.html">polkadot_primitives</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.BlakeTwo256.html">BlakeTwo256</a></li><li><a href="struct.CandidateHash.html">CandidateHash</a></li><li><a href="struct.HeadData.html">HeadData</a></li><li><a href="struct.HrmpChannelId.html">HrmpChannelId</a></li><li><a href="struct.Id.html">Id</a></li><li><a href="struct.InboundDownwardMessage.html">InboundDownwardMessage</a></li><li><a href="struct.InboundHrmpMessage.html">InboundHrmpMessage</a></li><li><a href="struct.OutboundHrmpMessage.html">OutboundHrmpMessage</a></li><li><a href="struct.Slot.html">Slot</a></li><li><a href="struct.ValidationCode.html">ValidationCode</a></li><li><a href="struct.ValidationCodeHash.html">ValidationCodeHash</a></li><li><a href="v8/struct.AbridgedHostConfiguration.html">v8::AbridgedHostConfiguration</a></li><li><a href="v8/struct.AbridgedHrmpChannel.html">v8::AbridgedHrmpChannel</a></li><li><a href="v8/struct.ApprovalVote.html">v8::ApprovalVote</a></li><li><a href="v8/struct.ApprovalVoteMultipleCandidates.html">v8::ApprovalVoteMultipleCandidates</a></li><li><a href="v8/struct.ApprovalVotingParams.html">v8::ApprovalVotingParams</a></li><li><a href="v8/struct.AvailabilityBitfield.html">v8::AvailabilityBitfield</a></li><li><a href="v8/struct.BackedCandidate.html">v8::BackedCandidate</a></li><li><a href="v8/struct.BlakeTwo256.html">v8::BlakeTwo256</a></li><li><a href="v8/struct.CandidateCommitments.html">v8::CandidateCommitments</a></li><li><a href="v8/struct.CandidateDescriptor.html">v8::CandidateDescriptor</a></li><li><a href="v8/struct.CandidateHash.html">v8::CandidateHash</a></li><li><a href="v8/struct.CandidateReceipt.html">v8::CandidateReceipt</a></li><li><a href="v8/struct.CheckedDisputeStatementSet.html">v8::CheckedDisputeStatementSet</a></li><li><a href="v8/struct.ChunkIndex.html">v8::ChunkIndex</a></li><li><a href="v8/struct.CommittedCandidateReceipt.html">v8::CommittedCandidateReceipt</a></li><li><a href="v8/struct.CoreIndex.html">v8::CoreIndex</a></li><li><a href="v8/struct.DisputeState.html">v8::DisputeState</a></li><li><a href="v8/struct.DisputeStatementSet.html">v8::DisputeStatementSet</a></li><li><a href="v8/struct.ExplicitDisputeStatement.html">v8::ExplicitDisputeStatement</a></li><li><a href="v8/struct.GroupIndex.html">v8::GroupIndex</a></li><li><a href="v8/struct.GroupRotationInfo.html">v8::GroupRotationInfo</a></li><li><a href="v8/struct.HeadData.html">v8::HeadData</a></li><li><a href="v8/struct.HrmpChannelId.html">v8::HrmpChannelId</a></li><li><a href="v8/struct.Id.html">v8::Id</a></li><li><a href="v8/struct.InboundDownwardMessage.html">v8::InboundDownwardMessage</a></li><li><a href="v8/struct.InboundHrmpMessage.html">v8::InboundHrmpMessage</a></li><li><a href="v8/struct.IndexedVec.html">v8::IndexedVec</a></li><li><a href="v8/struct.InherentData.html">v8::InherentData</a></li><li><a href="v8/struct.OccupiedCore.html">v8::OccupiedCore</a></li><li><a href="v8/struct.OutboundHrmpMessage.html">v8::OutboundHrmpMessage</a></li><li><a href="v8/struct.ParathreadClaim.html">v8::ParathreadClaim</a></li><li><a href="v8/struct.ParathreadEntry.html">v8::ParathreadEntry</a></li><li><a href="v8/struct.PersistedValidationData.html">v8::PersistedValidationData</a></li><li><a href="v8/struct.PvfCheckStatement.html">v8::PvfCheckStatement</a></li><li><a href="v8/struct.RuntimeMetricLabel.html">v8::RuntimeMetricLabel</a></li><li><a href="v8/struct.RuntimeMetricLabels.html">v8::RuntimeMetricLabels</a></li><li><a href="v8/struct.RuntimeMetricUpdate.html">v8::RuntimeMetricUpdate</a></li><li><a href="v8/struct.ScheduledCore.html">v8::ScheduledCore</a></li><li><a href="v8/struct.SchedulerParams.html">v8::SchedulerParams</a></li><li><a href="v8/struct.ScrapedOnChainVotes.html">v8::ScrapedOnChainVotes</a></li><li><a href="v8/struct.SessionInfo.html">v8::SessionInfo</a></li><li><a href="v8/struct.Signed.html">v8::Signed</a></li><li><a href="v8/struct.SigningContext.html">v8::SigningContext</a></li><li><a href="v8/struct.Slot.html">v8::Slot</a></li><li><a href="v8/struct.UncheckedExtrinsic.html">v8::UncheckedExtrinsic</a></li><li><a href="v8/struct.UncheckedSigned.html">v8::UncheckedSigned</a></li><li><a href="v8/struct.ValidationCode.html">v8::ValidationCode</a></li><li><a href="v8/struct.ValidationCodeHash.html">v8::ValidationCodeHash</a></li><li><a href="v8/struct.ValidatorIndex.html">v8::ValidatorIndex</a></li><li><a href="v8/struct.WellKnownKey.html">v8::WellKnownKey</a></li><li><a href="v8/async_backing/struct.AsyncBackingParams.html">v8::async_backing::AsyncBackingParams</a></li><li><a href="v8/async_backing/struct.BackingState.html">v8::async_backing::BackingState</a></li><li><a href="v8/async_backing/struct.CandidatePendingAvailability.html">v8::async_backing::CandidatePendingAvailability</a></li><li><a href="v8/async_backing/struct.Constraints.html">v8::async_backing::Constraints</a></li><li><a href="v8/async_backing/struct.InboundHrmpLimitations.html">v8::async_backing::InboundHrmpLimitations</a></li><li><a href="v8/async_backing/struct.OutboundHrmpChannelLimitations.html">v8::async_backing::OutboundHrmpChannelLimitations</a></li><li><a href="v8/executor_params/struct.ExecutorParams.html">v8::executor_params::ExecutorParams</a></li><li><a href="v8/executor_params/struct.ExecutorParamsHash.html">v8::executor_params::ExecutorParamsHash</a></li><li><a href="v8/executor_params/struct.ExecutorParamsPrepHash.html">v8::executor_params::ExecutorParamsPrepHash</a></li><li><a href="v8/metric_definitions/struct.CounterDefinition.html">v8::metric_definitions::CounterDefinition</a></li><li><a href="v8/metric_definitions/struct.CounterVecDefinition.html">v8::metric_definitions::CounterVecDefinition</a></li><li><a href="v8/metric_definitions/struct.HistogramDefinition.html">v8::metric_definitions::HistogramDefinition</a></li><li><a href="v8/slashing/struct.DisputeProof.html">v8::slashing::DisputeProof</a></li><li><a href="v8/slashing/struct.DisputesTimeSlot.html">v8::slashing::DisputesTimeSlot</a></li><li><a href="v8/slashing/struct.OpaqueKeyOwnershipProof.html">v8::slashing::OpaqueKeyOwnershipProof</a></li><li><a href="v8/slashing/struct.PendingSlashes.html">v8::slashing::PendingSlashes</a></li><li><a href="vstaging/struct.BackedCandidate.html">vstaging::BackedCandidate</a></li><li><a href="vstaging/struct.CandidateDescriptorV2.html">vstaging::CandidateDescriptorV2</a></li><li><a href="vstaging/struct.CandidateReceiptV2.html">vstaging::CandidateReceiptV2</a></li><li><a href="vstaging/struct.ClaimQueueOffset.html">vstaging::ClaimQueueOffset</a></li><li><a href="vstaging/struct.CommittedCandidateReceiptV2.html">vstaging::CommittedCandidateReceiptV2</a></li><li><a href="vstaging/struct.CoreSelector.html">vstaging::CoreSelector</a></li><li><a href="vstaging/struct.InherentData.html">vstaging::InherentData</a></li><li><a href="vstaging/struct.InternalVersion.html">vstaging::InternalVersion</a></li><li><a href="vstaging/struct.OccupiedCore.html">vstaging::OccupiedCore</a></li><li><a href="vstaging/struct.ScrapedOnChainVotes.html">vstaging::ScrapedOnChainVotes</a></li><li><a href="vstaging/async_backing/struct.BackingState.html">vstaging::async_backing::BackingState</a></li><li><a href="vstaging/async_backing/struct.CandidatePendingAvailability.html">vstaging::async_backing::CandidatePendingAvailability</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="v8/enum.CandidateEvent.html">v8::CandidateEvent</a></li><li><a href="v8/enum.CompactStatement.html">v8::CompactStatement</a></li><li><a href="v8/enum.ConsensusLog.html">v8::ConsensusLog</a></li><li><a href="v8/enum.CoreState.html">v8::CoreState</a></li><li><a href="v8/enum.DisputeStatement.html">v8::DisputeStatement</a></li><li><a href="v8/enum.InvalidDisputeStatementKind.html">v8::InvalidDisputeStatementKind</a></li><li><a href="v8/enum.OccupiedCoreAssumption.html">v8::OccupiedCoreAssumption</a></li><li><a href="v8/enum.PvfExecKind.html">v8::PvfExecKind</a></li><li><a href="v8/enum.PvfPrepKind.html">v8::PvfPrepKind</a></li><li><a href="v8/enum.RuntimeMetricOp.html">v8::RuntimeMetricOp</a></li><li><a href="v8/enum.UpgradeGoAhead.html">v8::UpgradeGoAhead</a></li><li><a href="v8/enum.UpgradeRestriction.html">v8::UpgradeRestriction</a></li><li><a href="v8/enum.ValidDisputeStatementKind.html">v8::ValidDisputeStatementKind</a></li><li><a href="v8/enum.ValidityAttestation.html">v8::ValidityAttestation</a></li><li><a href="v8/enum.ValidityError.html">v8::ValidityError</a></li><li><a href="v8/executor_params/enum.ExecutorParam.html">v8::executor_params::ExecutorParam</a></li><li><a href="v8/executor_params/enum.ExecutorParamError.html">v8::executor_params::ExecutorParamError</a></li><li><a href="v8/node_features/enum.FeatureIndex.html">v8::node_features::FeatureIndex</a></li><li><a href="v8/slashing/enum.SlashingOffenceKind.html">v8::slashing::SlashingOffenceKind</a></li><li><a href="vstaging/enum.CandidateDescriptorVersion.html">vstaging::CandidateDescriptorVersion</a></li><li><a href="vstaging/enum.CandidateEvent.html">vstaging::CandidateEvent</a></li><li><a href="vstaging/enum.CandidateReceiptError.html">vstaging::CandidateReceiptError</a></li><li><a href="vstaging/enum.CoreState.html">vstaging::CoreState</a></li><li><a href="vstaging/enum.UMPSignal.html">vstaging::UMPSignal</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="trait.HashT.html">HashT</a></li><li><a href="runtime_api/trait.ParachainHost.html">runtime_api::ParachainHost</a></li><li><a href="v8/trait.EncodeAs.html">v8::EncodeAs</a></li><li><a href="v8/trait.HashT.html">v8::HashT</a></li><li><a href="v8/trait.TypeIndex.html">v8::TypeIndex</a></li><li><a href="vstaging/trait.MutateDescriptorV2.html">vstaging::MutateDescriptorV2</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="v8/fn.byzantine_threshold.html">v8::byzantine_threshold</a></li><li><a href="v8/fn.check_candidate_backing.html">v8::check_candidate_backing</a></li><li><a href="v8/fn.collator_signature_payload.html">v8::collator_signature_payload</a></li><li><a href="v8/fn.effective_minimum_backing_votes.html">v8::effective_minimum_backing_votes</a></li><li><a href="v8/fn.supermajority_threshold.html">v8::supermajority_threshold</a></li><li><a href="v8/well_known_keys/fn.dmq_mqc_head.html">v8::well_known_keys::dmq_mqc_head</a></li><li><a href="v8/well_known_keys/fn.hrmp_channels.html">v8::well_known_keys::hrmp_channels</a></li><li><a href="v8/well_known_keys/fn.hrmp_egress_channel_index.html">v8::well_known_keys::hrmp_egress_channel_index</a></li><li><a href="v8/well_known_keys/fn.hrmp_ingress_channel_index.html">v8::well_known_keys::hrmp_ingress_channel_index</a></li><li><a href="v8/well_known_keys/fn.para_head.html">v8::well_known_keys::para_head</a></li><li><a href="v8/well_known_keys/fn.relay_dispatch_queue_remaining_capacity.html">v8::well_known_keys::relay_dispatch_queue_remaining_capacity</a></li><li><a href="v8/well_known_keys/fn.relay_dispatch_queue_size.html">v8::well_known_keys::relay_dispatch_queue_size</a></li><li><a href="v8/well_known_keys/fn.relay_dispatch_queue_size_typed.html">v8::well_known_keys::relay_dispatch_queue_size_typed</a></li><li><a href="v8/well_known_keys/fn.upgrade_go_ahead_signal.html">v8::well_known_keys::upgrade_go_ahead_signal</a></li><li><a href="v8/well_known_keys/fn.upgrade_restriction_signal.html">v8::well_known_keys::upgrade_restriction_signal</a></li><li><a href="vstaging/fn.transpose_claim_queue.html">vstaging::transpose_claim_queue</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.AccountId.html">AccountId</a></li><li><a href="type.AccountIndex.html">AccountIndex</a></li><li><a href="type.AccountPublic.html">AccountPublic</a></li><li><a href="type.AuthorityDiscoveryId.html">AuthorityDiscoveryId</a></li><li><a href="type.Balance.html">Balance</a></li><li><a href="type.Block.html">Block</a></li><li><a href="type.BlockId.html">BlockId</a></li><li><a href="type.BlockNumber.html">BlockNumber</a></li><li><a href="type.DownwardMessage.html">DownwardMessage</a></li><li><a href="type.Hash.html">Hash</a></li><li><a href="type.Header.html">Header</a></li><li><a href="type.HorizontalMessages.html">HorizontalMessages</a></li><li><a href="type.Moment.html">Moment</a></li><li><a href="type.Nonce.html">Nonce</a></li><li><a href="type.SessionIndex.html">SessionIndex</a></li><li><a href="type.Signature.html">Signature</a></li><li><a href="type.UpwardMessage.html">UpwardMessage</a></li><li><a href="v8/type.AccountId.html">v8::AccountId</a></li><li><a href="v8/type.AccountIndex.html">v8::AccountIndex</a></li><li><a href="v8/type.AccountPublic.html">v8::AccountPublic</a></li><li><a href="v8/type.AssignmentId.html">v8::AssignmentId</a></li><li><a href="v8/type.AssignmentPair.html">v8::AssignmentPair</a></li><li><a href="v8/type.AuthorityDiscoveryId.html">v8::AuthorityDiscoveryId</a></li><li><a href="v8/type.Balance.html">v8::Balance</a></li><li><a href="v8/type.Block.html">v8::Block</a></li><li><a href="v8/type.BlockId.html">v8::BlockId</a></li><li><a href="v8/type.BlockNumber.html">v8::BlockNumber</a></li><li><a href="v8/type.CandidateIndex.html">v8::CandidateIndex</a></li><li><a href="v8/type.ChainId.html">v8::ChainId</a></li><li><a href="v8/type.CheckedMultiDisputeStatementSet.html">v8::CheckedMultiDisputeStatementSet</a></li><li><a href="v8/type.CollatorId.html">v8::CollatorId</a></li><li><a href="v8/type.CollatorPair.html">v8::CollatorPair</a></li><li><a href="v8/type.CollatorSignature.html">v8::CollatorSignature</a></li><li><a href="v8/type.DownwardMessage.html">v8::DownwardMessage</a></li><li><a href="v8/type.Hash.html">v8::Hash</a></li><li><a href="v8/type.Header.html">v8::Header</a></li><li><a href="v8/type.HorizontalMessages.html">v8::HorizontalMessages</a></li><li><a href="v8/type.Moment.html">v8::Moment</a></li><li><a href="v8/type.MultiDisputeStatementSet.html">v8::MultiDisputeStatementSet</a></li><li><a href="v8/type.NodeFeatures.html">v8::NodeFeatures</a></li><li><a href="v8/type.Nonce.html">v8::Nonce</a></li><li><a href="v8/type.Remark.html">v8::Remark</a></li><li><a href="v8/type.RuntimeMetricLabelValue.html">v8::RuntimeMetricLabelValue</a></li><li><a href="v8/type.RuntimeMetricLabelValues.html">v8::RuntimeMetricLabelValues</a></li><li><a href="v8/type.SessionIndex.html">v8::SessionIndex</a></li><li><a href="v8/type.Signature.html">v8::Signature</a></li><li><a href="v8/type.SignedAvailabilityBitfield.html">v8::SignedAvailabilityBitfield</a></li><li><a href="v8/type.SignedAvailabilityBitfields.html">v8::SignedAvailabilityBitfields</a></li><li><a href="v8/type.SignedStatement.html">v8::SignedStatement</a></li><li><a href="v8/type.UncheckedSignedAvailabilityBitfield.html">v8::UncheckedSignedAvailabilityBitfield</a></li><li><a href="v8/type.UncheckedSignedAvailabilityBitfields.html">v8::UncheckedSignedAvailabilityBitfields</a></li><li><a href="v8/type.UncheckedSignedStatement.html">v8::UncheckedSignedStatement</a></li><li><a href="v8/type.UpwardMessage.html">v8::UpwardMessage</a></li><li><a href="v8/type.UpwardMessages.html">v8::UpwardMessages</a></li><li><a href="v8/type.ValidatorId.html">v8::ValidatorId</a></li><li><a href="v8/type.ValidatorPair.html">v8::ValidatorPair</a></li><li><a href="v8/type.ValidatorSignature.html">v8::ValidatorSignature</a></li><li><a href="vstaging/type.TransposedClaimQueue.html">vstaging::TransposedClaimQueue</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="constant.LOWEST_PUBLIC_ID.html">LOWEST_PUBLIC_ID</a></li><li><a href="v8/constant.ASSIGNMENT_KEY_TYPE_ID.html">v8::ASSIGNMENT_KEY_TYPE_ID</a></li><li><a href="v8/constant.COLLATOR_KEY_TYPE_ID.html">v8::COLLATOR_KEY_TYPE_ID</a></li><li><a href="v8/constant.LEGACY_MIN_BACKING_VOTES.html">v8::LEGACY_MIN_BACKING_VOTES</a></li><li><a href="v8/constant.LOWEST_PUBLIC_ID.html">v8::LOWEST_PUBLIC_ID</a></li><li><a href="v8/constant.MAX_CODE_SIZE.html">v8::MAX_CODE_SIZE</a></li><li><a href="v8/constant.MAX_HEAD_DATA_SIZE.html">v8::MAX_HEAD_DATA_SIZE</a></li><li><a href="v8/constant.MAX_POV_SIZE.html">v8::MAX_POV_SIZE</a></li><li><a href="v8/constant.MIN_CODE_SIZE.html">v8::MIN_CODE_SIZE</a></li><li><a href="v8/constant.ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE.html">v8::ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE</a></li><li><a href="v8/constant.ON_DEMAND_MAX_QUEUE_MAX_SIZE.html">v8::ON_DEMAND_MAX_QUEUE_MAX_SIZE</a></li><li><a href="v8/constant.PARACHAINS_INHERENT_IDENTIFIER.html">v8::PARACHAINS_INHERENT_IDENTIFIER</a></li><li><a href="v8/constant.PARACHAIN_KEY_TYPE_ID.html">v8::PARACHAIN_KEY_TYPE_ID</a></li><li><a href="v8/constant.POLKADOT_ENGINE_ID.html">v8::POLKADOT_ENGINE_ID</a></li><li><a href="v8/executor_params/constant.DEFAULT_APPROVAL_EXECUTION_TIMEOUT.html">v8::executor_params::DEFAULT_APPROVAL_EXECUTION_TIMEOUT</a></li><li><a href="v8/executor_params/constant.DEFAULT_BACKING_EXECUTION_TIMEOUT.html">v8::executor_params::DEFAULT_BACKING_EXECUTION_TIMEOUT</a></li><li><a href="v8/executor_params/constant.DEFAULT_LENIENT_PREPARATION_TIMEOUT.html">v8::executor_params::DEFAULT_LENIENT_PREPARATION_TIMEOUT</a></li><li><a href="v8/executor_params/constant.DEFAULT_LOGICAL_STACK_MAX.html">v8::executor_params::DEFAULT_LOGICAL_STACK_MAX</a></li><li><a href="v8/executor_params/constant.DEFAULT_NATIVE_STACK_MAX.html">v8::executor_params::DEFAULT_NATIVE_STACK_MAX</a></li><li><a href="v8/executor_params/constant.DEFAULT_PRECHECK_PREPARATION_TIMEOUT.html">v8::executor_params::DEFAULT_PRECHECK_PREPARATION_TIMEOUT</a></li><li><a href="v8/executor_params/constant.LOGICAL_MAX_HI.html">v8::executor_params::LOGICAL_MAX_HI</a></li><li><a href="v8/executor_params/constant.LOGICAL_MAX_LO.html">v8::executor_params::LOGICAL_MAX_LO</a></li><li><a href="v8/executor_params/constant.MEMORY_PAGES_MAX.html">v8::executor_params::MEMORY_PAGES_MAX</a></li><li><a href="v8/executor_params/constant.PRECHECK_MEM_MAX_HI.html">v8::executor_params::PRECHECK_MEM_MAX_HI</a></li><li><a href="v8/executor_params/constant.PRECHECK_MEM_MAX_LO.html">v8::executor_params::PRECHECK_MEM_MAX_LO</a></li><li><a href="v8/metric_definitions/constant.PARACHAIN_CREATE_INHERENT_BITFIELDS_SIGNATURE_CHECKS.html">v8::metric_definitions::PARACHAIN_CREATE_INHERENT_BITFIELDS_SIGNATURE_CHECKS</a></li><li><a href="v8/metric_definitions/constant.PARACHAIN_INHERENT_DATA_BITFIELDS_PROCESSED.html">v8::metric_definitions::PARACHAIN_INHERENT_DATA_BITFIELDS_PROCESSED</a></li><li><a href="v8/metric_definitions/constant.PARACHAIN_INHERENT_DATA_CANDIDATES_PROCESSED.html">v8::metric_definitions::PARACHAIN_INHERENT_DATA_CANDIDATES_PROCESSED</a></li><li><a href="v8/metric_definitions/constant.PARACHAIN_INHERENT_DATA_DISPUTE_SETS_PROCESSED.html">v8::metric_definitions::PARACHAIN_INHERENT_DATA_DISPUTE_SETS_PROCESSED</a></li><li><a href="v8/metric_definitions/constant.PARACHAIN_INHERENT_DATA_WEIGHT.html">v8::metric_definitions::PARACHAIN_INHERENT_DATA_WEIGHT</a></li><li><a href="v8/metric_definitions/constant.PARACHAIN_VERIFY_DISPUTE_SIGNATURE.html">v8::metric_definitions::PARACHAIN_VERIFY_DISPUTE_SIGNATURE</a></li><li><a href="v8/well_known_keys/constant.ACTIVE_CONFIG.html">v8::well_known_keys::ACTIVE_CONFIG</a></li><li><a href="v8/well_known_keys/constant.CURRENT_BLOCK_RANDOMNESS.html">v8::well_known_keys::CURRENT_BLOCK_RANDOMNESS</a></li><li><a href="v8/well_known_keys/constant.CURRENT_SLOT.html">v8::well_known_keys::CURRENT_SLOT</a></li><li><a href="v8/well_known_keys/constant.EPOCH_INDEX.html">v8::well_known_keys::EPOCH_INDEX</a></li><li><a href="v8/well_known_keys/constant.ONE_EPOCH_AGO_RANDOMNESS.html">v8::well_known_keys::ONE_EPOCH_AGO_RANDOMNESS</a></li><li><a href="v8/well_known_keys/constant.TWO_EPOCHS_AGO_RANDOMNESS.html">v8::well_known_keys::TWO_EPOCHS_AGO_RANDOMNESS</a></li><li><a href="vstaging/constant.UMP_SEPARATOR.html">vstaging::UMP_SEPARATOR</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

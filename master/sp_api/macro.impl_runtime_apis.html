@@ -1,0 +1,256 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Tags given trait implementations as runtime apis."><title>impl_runtime_apis in sp_api - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc macro"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_api/index.html">sp_api</a><span class="version">26.0.0</span></h2></div><div class="sidebar-elems"></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Macro <a href="index.html">sp_api</a>::<wbr><a class="macro" href="#">impl_runtime_apis</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sp_api_proc_macro/lib.rs.html#32">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>impl_runtime_apis!() { <span class="comment">/* proc-macro */</span> }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Tags given trait implementations as runtime apis.</p>
+<p>All traits given to this macro, need to be declared with the
+<a href="macro.decl_runtime_apis.html"><code>decl_runtime_apis!</code></a> macro. The implementation of the trait
+should follow the declaration given to the
+<a href="macro.decl_runtime_apis.html"><code>decl_runtime_apis!</code></a> macro, besides the <code>Block</code> type that
+is required as first generic parameter for each runtime api trait. When implementing a
+runtime api trait, it is required that the trait is referenced by a path, e.g. <code>impl my_trait::MyTrait for Runtime</code>. The macro will use this path to access the declaration of
+the trait for the runtime side.</p>
+<p>The macro also generates the api implementations for the client side and provides it
+through the <code>RuntimeApi</code> type. The <code>RuntimeApi</code> is hidden behind a <code>feature</code> called <code>std</code>.</p>
+<p>To expose version information about all implemented api traits, the constant
+<code>RUNTIME_API_VERSIONS</code> is generated. This constant should be used to instantiate the <code>apis</code>
+field of <code>RuntimeVersion</code>.</p>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>sp_version::create_runtime_str;
+
+<span class="doccomment">/// All runtime api implementations need to be done in one call of the macro!
+</span><span class="macro">sp_api::impl_runtime_apis!</span> {
+
+    <span class="kw">impl </span><span class="self">self</span>::Balance&lt;Block&gt; <span class="kw">for </span>Runtime {
+        <span class="kw">fn </span>get_balance() -&gt; u64 {
+            <span class="number">1
+        </span>}
+        <span class="kw">fn </span>set_balance(_bal: u64) {
+            <span class="comment">// Store the balance
+        </span>}
+    }
+
+    <span class="kw">impl </span><span class="self">self</span>::BlockBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
+        <span class="kw">fn </span>build_block() -&gt; Block {
+             <span class="macro">unimplemented!</span>(<span class="string">"Please implement me!"</span>)
+        }
+    }
+}
+
+<span class="doccomment">/// Runtime version. This needs to be declared for each runtime.
+</span><span class="kw">pub const </span>VERSION: sp_version::RuntimeVersion = sp_version::RuntimeVersion {
+    spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">"node"</span>),
+    impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">"test-node"</span>),
+    authoring_version: <span class="number">1</span>,
+    spec_version: <span class="number">1</span>,
+    impl_version: <span class="number">0</span>,
+    <span class="comment">// Here we are exposing the runtime api versions.
+    </span>apis: RUNTIME_API_VERSIONS,
+    transaction_version: <span class="number">1</span>,
+    system_version: <span class="number">1</span>,
+};
+</code></pre></div>
+<h2 id="implementing-specific-api-version"><a class="doc-anchor" href="#implementing-specific-api-version">§</a>Implementing specific api version</h2>
+<p>If <code>decl_runtime_apis!</code> declares multiple versions for an api <code>impl_runtime_apis!</code>
+should specify which version it implements by adding <code>api_version</code> attribute to the
+<code>impl</code> block. If omitted - the base/default version is implemented. Here is an example:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">sp_api::impl_runtime_apis!</span> {
+    <span class="attr">#[api_version(<span class="number">3</span>)]
+    </span><span class="kw">impl </span><span class="self">self</span>::Balance&lt;Block&gt; <span class="kw">for </span>Runtime {
+         <span class="comment">// implementation
+    </span>}
+}</code></pre></div>
+<p>In this case <code>Balance</code> api version 3 is being implemented for <code>Runtime</code>. The <code>impl</code> block
+must contain all methods declared in version 3 and below.</p>
+<h2 id="conditional-version-implementation"><a class="doc-anchor" href="#conditional-version-implementation">§</a>Conditional version implementation</h2>
+<p><code>impl_runtime_apis!</code> supports <code>cfg_attr</code> attribute for conditional compilation. For example
+let’s say you want to implement a staging version of the runtime api and put it behind a
+feature flag. You can do it this way:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub enum </span>Runtime {}
+<span class="macro">sp_api::decl_runtime_apis!</span> {
+    <span class="kw">pub trait </span>ApiWithStagingMethod {
+        <span class="kw">fn </span>stable_one(data: u64);
+
+        <span class="attr">#[api_version(<span class="number">99</span>)]
+        </span><span class="kw">fn </span>staging_one();
+    }
+}
+
+<span class="macro">sp_api::impl_runtime_apis!</span> {
+    <span class="attr">#[cfg_attr(feature = <span class="string">"enable-staging-api"</span>, api_version(<span class="number">99</span>))]
+    </span><span class="kw">impl </span><span class="self">self</span>::ApiWithStagingMethod&lt;Block&gt; <span class="kw">for </span>Runtime {
+        <span class="kw">fn </span>stable_one(<span class="kw">_</span>: u64) {}
+
+        <span class="attr">#[cfg(feature = <span class="string">"enable-staging-api"</span>)]
+        </span><span class="kw">fn </span>staging_one() {}
+    }
+}</code></pre></div>
+<p><a href="macro.decl_runtime_apis.html" title="macro sp_api::decl_runtime_apis"><code>decl_runtime_apis!</code></a> declares two version of the api - 1 (the default one, which is
+considered stable in our example) and 99 (which is considered staging). In
+<code>impl_runtime_apis!</code> a <code>cfg_attr</code> attribute is attached to the <code>ApiWithStagingMethod</code>
+implementation. If the code is compiled with  <code>enable-staging-api</code> feature a version 99 of
+the runtime api will be built which will include <code>staging_one</code>. Note that <code>staging_one</code>
+implementation is feature gated by <code>#[cfg(feature = ... )]</code> attribute.</p>
+<p>If the code is compiled without <code>enable-staging-api</code> version 1 (the default one) will be
+built which doesn’t include <code>staging_one</code>.</p>
+<p><code>cfg_attr</code> can also be used together with <code>api_version</code>. For the next snippet will build
+version 99 if <code>enable-staging-api</code> is enabled and version 2 otherwise because both
+<code>cfg_attr</code> and <code>api_version</code> are attached to the impl block:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[cfg_attr(feature = <span class="string">"enable-staging-api"</span>, api_version(<span class="number">99</span>))]
+#[api_version(<span class="number">2</span>)]
+</span><span class="kw">impl </span><span class="self">self</span>::ApiWithStagingAndVersionedMethods&lt;Block&gt; <span class="kw">for </span>Runtime {
+ <span class="comment">// impl skipped
+</span>}</code></pre></div>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

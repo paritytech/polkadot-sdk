@@ -1,0 +1,326 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Weight functions needed for `pallet_assets`."><title>WeightInfo in pallet_assets::weights - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_assets" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_assets/index.html">pallet_assets</a><span class="version">29.1.0</span></h2></div><h2 class="location"><a href="#">WeightInfo</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.approve_transfer">approve_transfer</a></li><li><a href="#tymethod.block">block</a></li><li><a href="#tymethod.burn">burn</a></li><li><a href="#tymethod.cancel_approval">cancel_approval</a></li><li><a href="#tymethod.clear_metadata">clear_metadata</a></li><li><a href="#tymethod.create">create</a></li><li><a href="#tymethod.destroy_accounts">destroy_accounts</a></li><li><a href="#tymethod.destroy_approvals">destroy_approvals</a></li><li><a href="#tymethod.finish_destroy">finish_destroy</a></li><li><a href="#tymethod.force_asset_status">force_asset_status</a></li><li><a href="#tymethod.force_cancel_approval">force_cancel_approval</a></li><li><a href="#tymethod.force_clear_metadata">force_clear_metadata</a></li><li><a href="#tymethod.force_create">force_create</a></li><li><a href="#tymethod.force_set_metadata">force_set_metadata</a></li><li><a href="#tymethod.force_transfer">force_transfer</a></li><li><a href="#tymethod.freeze">freeze</a></li><li><a href="#tymethod.freeze_asset">freeze_asset</a></li><li><a href="#tymethod.mint">mint</a></li><li><a href="#tymethod.refund">refund</a></li><li><a href="#tymethod.refund_other">refund_other</a></li><li><a href="#tymethod.set_metadata">set_metadata</a></li><li><a href="#tymethod.set_min_balance">set_min_balance</a></li><li><a href="#tymethod.set_team">set_team</a></li><li><a href="#tymethod.start_destroy">start_destroy</a></li><li><a href="#tymethod.thaw">thaw</a></li><li><a href="#tymethod.thaw_asset">thaw_asset</a></li><li><a href="#tymethod.touch">touch</a></li><li><a href="#tymethod.touch_other">touch_other</a></li><li><a href="#tymethod.transfer">transfer</a></li><li><a href="#tymethod.transfer_all">transfer_all</a></li><li><a href="#tymethod.transfer_approved">transfer_approved</a></li><li><a href="#tymethod.transfer_keep_alive">transfer_keep_alive</a></li><li><a href="#tymethod.transfer_ownership">transfer_ownership</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-WeightInfo-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_assets::weights</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_assets</a>::<wbr><a href="index.html">weights</a>::<wbr><a class="trait" href="#">WeightInfo</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_assets/weights.rs.html#53-87">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait WeightInfo {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 33 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.create" class="fn">create</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_create" class="fn">force_create</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.start_destroy" class="fn">start_destroy</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.destroy_accounts" class="fn">destroy_accounts</a>(c: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.destroy_approvals" class="fn">destroy_approvals</a>(a: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.finish_destroy" class="fn">finish_destroy</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.mint" class="fn">mint</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.burn" class="fn">burn</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transfer" class="fn">transfer</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transfer_keep_alive" class="fn">transfer_keep_alive</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_transfer" class="fn">force_transfer</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.freeze" class="fn">freeze</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.thaw" class="fn">thaw</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.freeze_asset" class="fn">freeze_asset</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.thaw_asset" class="fn">thaw_asset</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transfer_ownership" class="fn">transfer_ownership</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_team" class="fn">set_team</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_metadata" class="fn">set_metadata</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_metadata" class="fn">clear_metadata</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_set_metadata" class="fn">force_set_metadata</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_clear_metadata" class="fn">force_clear_metadata</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_asset_status" class="fn">force_asset_status</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.approve_transfer" class="fn">approve_transfer</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transfer_approved" class="fn">transfer_approved</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.cancel_approval" class="fn">cancel_approval</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_cancel_approval" class="fn">force_cancel_approval</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_min_balance" class="fn">set_min_balance</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.touch" class="fn">touch</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.touch_other" class="fn">touch_other</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.refund" class="fn">refund</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.refund_other" class="fn">refund_other</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.block" class="fn">block</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transfer_all" class="fn">transfer_all</a>() -&gt; Weight;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Weight functions needed for <code>pallet_assets</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.create" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#54">source</a><h4 class="code-header">fn <a href="#tymethod.create" class="fn">create</a>() -&gt; Weight</h4></section><section id="tymethod.force_create" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#55">source</a><h4 class="code-header">fn <a href="#tymethod.force_create" class="fn">force_create</a>() -&gt; Weight</h4></section><section id="tymethod.start_destroy" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#56">source</a><h4 class="code-header">fn <a href="#tymethod.start_destroy" class="fn">start_destroy</a>() -&gt; Weight</h4></section><section id="tymethod.destroy_accounts" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#57">source</a><h4 class="code-header">fn <a href="#tymethod.destroy_accounts" class="fn">destroy_accounts</a>(c: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.destroy_approvals" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#58">source</a><h4 class="code-header">fn <a href="#tymethod.destroy_approvals" class="fn">destroy_approvals</a>(a: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.finish_destroy" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#59">source</a><h4 class="code-header">fn <a href="#tymethod.finish_destroy" class="fn">finish_destroy</a>() -&gt; Weight</h4></section><section id="tymethod.mint" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#60">source</a><h4 class="code-header">fn <a href="#tymethod.mint" class="fn">mint</a>() -&gt; Weight</h4></section><section id="tymethod.burn" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#61">source</a><h4 class="code-header">fn <a href="#tymethod.burn" class="fn">burn</a>() -&gt; Weight</h4></section><section id="tymethod.transfer" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#62">source</a><h4 class="code-header">fn <a href="#tymethod.transfer" class="fn">transfer</a>() -&gt; Weight</h4></section><section id="tymethod.transfer_keep_alive" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#63">source</a><h4 class="code-header">fn <a href="#tymethod.transfer_keep_alive" class="fn">transfer_keep_alive</a>() -&gt; Weight</h4></section><section id="tymethod.force_transfer" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#64">source</a><h4 class="code-header">fn <a href="#tymethod.force_transfer" class="fn">force_transfer</a>() -&gt; Weight</h4></section><section id="tymethod.freeze" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#65">source</a><h4 class="code-header">fn <a href="#tymethod.freeze" class="fn">freeze</a>() -&gt; Weight</h4></section><section id="tymethod.thaw" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#66">source</a><h4 class="code-header">fn <a href="#tymethod.thaw" class="fn">thaw</a>() -&gt; Weight</h4></section><section id="tymethod.freeze_asset" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#67">source</a><h4 class="code-header">fn <a href="#tymethod.freeze_asset" class="fn">freeze_asset</a>() -&gt; Weight</h4></section><section id="tymethod.thaw_asset" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#68">source</a><h4 class="code-header">fn <a href="#tymethod.thaw_asset" class="fn">thaw_asset</a>() -&gt; Weight</h4></section><section id="tymethod.transfer_ownership" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#69">source</a><h4 class="code-header">fn <a href="#tymethod.transfer_ownership" class="fn">transfer_ownership</a>() -&gt; Weight</h4></section><section id="tymethod.set_team" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#70">source</a><h4 class="code-header">fn <a href="#tymethod.set_team" class="fn">set_team</a>() -&gt; Weight</h4></section><section id="tymethod.set_metadata" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#71">source</a><h4 class="code-header">fn <a href="#tymethod.set_metadata" class="fn">set_metadata</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.clear_metadata" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#72">source</a><h4 class="code-header">fn <a href="#tymethod.clear_metadata" class="fn">clear_metadata</a>() -&gt; Weight</h4></section><section id="tymethod.force_set_metadata" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#73">source</a><h4 class="code-header">fn <a href="#tymethod.force_set_metadata" class="fn">force_set_metadata</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.force_clear_metadata" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#74">source</a><h4 class="code-header">fn <a href="#tymethod.force_clear_metadata" class="fn">force_clear_metadata</a>() -&gt; Weight</h4></section><section id="tymethod.force_asset_status" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#75">source</a><h4 class="code-header">fn <a href="#tymethod.force_asset_status" class="fn">force_asset_status</a>() -&gt; Weight</h4></section><section id="tymethod.approve_transfer" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#76">source</a><h4 class="code-header">fn <a href="#tymethod.approve_transfer" class="fn">approve_transfer</a>() -&gt; Weight</h4></section><section id="tymethod.transfer_approved" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#77">source</a><h4 class="code-header">fn <a href="#tymethod.transfer_approved" class="fn">transfer_approved</a>() -&gt; Weight</h4></section><section id="tymethod.cancel_approval" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#78">source</a><h4 class="code-header">fn <a href="#tymethod.cancel_approval" class="fn">cancel_approval</a>() -&gt; Weight</h4></section><section id="tymethod.force_cancel_approval" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#79">source</a><h4 class="code-header">fn <a href="#tymethod.force_cancel_approval" class="fn">force_cancel_approval</a>() -&gt; Weight</h4></section><section id="tymethod.set_min_balance" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#80">source</a><h4 class="code-header">fn <a href="#tymethod.set_min_balance" class="fn">set_min_balance</a>() -&gt; Weight</h4></section><section id="tymethod.touch" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#81">source</a><h4 class="code-header">fn <a href="#tymethod.touch" class="fn">touch</a>() -&gt; Weight</h4></section><section id="tymethod.touch_other" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#82">source</a><h4 class="code-header">fn <a href="#tymethod.touch_other" class="fn">touch_other</a>() -&gt; Weight</h4></section><section id="tymethod.refund" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#83">source</a><h4 class="code-header">fn <a href="#tymethod.refund" class="fn">refund</a>() -&gt; Weight</h4></section><section id="tymethod.refund_other" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#84">source</a><h4 class="code-header">fn <a href="#tymethod.refund_other" class="fn">refund_other</a>() -&gt; Weight</h4></section><section id="tymethod.block" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#85">source</a><h4 class="code-header">fn <a href="#tymethod.block" class="fn">block</a>() -&gt; Weight</h4></section><section id="tymethod.transfer_all" class="method"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#86">source</a><h4 class="code-header">fn <a href="#tymethod.transfer_all" class="fn">transfer_all</a>() -&gt; Weight</h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-WeightInfo-for-()" class="impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#547-1000">source</a><a href="#impl-WeightInfo-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.WeightInfo.html" title="trait pallet_assets::weights::WeightInfo">WeightInfo</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.create" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#552-560">source</a><a href="#method.create" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.create" class="fn">create</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.force_create" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#563-571">source</a><a href="#method.force_create" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.force_create" class="fn">force_create</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.start_destroy" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#574-582">source</a><a href="#method.start_destroy" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.start_destroy" class="fn">start_destroy</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.destroy_accounts" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#590-603">source</a><a href="#method.destroy_accounts" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.destroy_accounts" class="fn">destroy_accounts</a>(c: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Account</code> (r:1001 w:1000)
+Proof: <code>Assets::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(134), added: 2609, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1000 w:1000)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+The range of component <code>c</code> is <code>[0, 1000]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.destroy_approvals" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#609-622">source</a><a href="#method.destroy_approvals" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.destroy_approvals" class="fn">destroy_approvals</a>(a: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Approvals</code> (r:1001 w:1000)
+Proof: <code>Assets::Approvals</code> (<code>max_values</code>: None, <code>max_size</code>: Some(148), added: 2623, mode: <code>MaxEncodedLen</code>)
+The range of component <code>a</code> is <code>[0, 1000]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.finish_destroy" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#627-635">source</a><a href="#method.finish_destroy" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.finish_destroy" class="fn">finish_destroy</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Metadata</code> (r:1 w:0)
+Proof: <code>Assets::Metadata</code> (<code>max_values</code>: None, <code>max_size</code>: Some(140), added: 2615, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.mint" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#640-648">source</a><a href="#method.mint" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.mint" class="fn">mint</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Account</code> (r:1 w:1)
+Proof: <code>Assets::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(134), added: 2609, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.burn" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#653-661">source</a><a href="#method.burn" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.burn" class="fn">burn</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Account</code> (r:1 w:1)
+Proof: <code>Assets::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(134), added: 2609, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.transfer" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#668-676">source</a><a href="#method.transfer" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.transfer" class="fn">transfer</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Account</code> (r:2 w:2)
+Proof: <code>Assets::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(134), added: 2609, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.transfer_keep_alive" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#683-691">source</a><a href="#method.transfer_keep_alive" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.transfer_keep_alive" class="fn">transfer_keep_alive</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Account</code> (r:2 w:2)
+Proof: <code>Assets::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(134), added: 2609, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.force_transfer" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#698-706">source</a><a href="#method.force_transfer" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.force_transfer" class="fn">force_transfer</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Account</code> (r:2 w:2)
+Proof: <code>Assets::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(134), added: 2609, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.freeze" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#711-719">source</a><a href="#method.freeze" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.freeze" class="fn">freeze</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:0)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Account</code> (r:1 w:1)
+Proof: <code>Assets::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(134), added: 2609, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.thaw" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#724-732">source</a><a href="#method.thaw" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.thaw" class="fn">thaw</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:0)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Account</code> (r:1 w:1)
+Proof: <code>Assets::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(134), added: 2609, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.freeze_asset" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#735-743">source</a><a href="#method.freeze_asset" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.freeze_asset" class="fn">freeze_asset</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.thaw_asset" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#746-754">source</a><a href="#method.thaw_asset" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.thaw_asset" class="fn">thaw_asset</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.transfer_ownership" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#759-767">source</a><a href="#method.transfer_ownership" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.transfer_ownership" class="fn">transfer_ownership</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Metadata</code> (r:1 w:0)
+Proof: <code>Assets::Metadata</code> (<code>max_values</code>: None, <code>max_size</code>: Some(140), added: 2615, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_team" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#770-778">source</a><a href="#method.set_team" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_team" class="fn">set_team</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_metadata" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#785-797">source</a><a href="#method.set_metadata" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_metadata" class="fn">set_metadata</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:0)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Metadata</code> (r:1 w:1)
+Proof: <code>Assets::Metadata</code> (<code>max_values</code>: None, <code>max_size</code>: Some(140), added: 2615, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[0, 50]</code>.
+The range of component <code>s</code> is <code>[0, 50]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.clear_metadata" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#802-810">source</a><a href="#method.clear_metadata" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.clear_metadata" class="fn">clear_metadata</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:0)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Metadata</code> (r:1 w:1)
+Proof: <code>Assets::Metadata</code> (<code>max_values</code>: None, <code>max_size</code>: Some(140), added: 2615, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.force_set_metadata" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#817-829">source</a><a href="#method.force_set_metadata" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.force_set_metadata" class="fn">force_set_metadata</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:0)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Metadata</code> (r:1 w:1)
+Proof: <code>Assets::Metadata</code> (<code>max_values</code>: None, <code>max_size</code>: Some(140), added: 2615, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[0, 50]</code>.
+The range of component <code>s</code> is <code>[0, 50]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.force_clear_metadata" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#834-842">source</a><a href="#method.force_clear_metadata" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.force_clear_metadata" class="fn">force_clear_metadata</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:0)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Metadata</code> (r:1 w:1)
+Proof: <code>Assets::Metadata</code> (<code>max_values</code>: None, <code>max_size</code>: Some(140), added: 2615, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.force_asset_status" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#845-853">source</a><a href="#method.force_asset_status" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.force_asset_status" class="fn">force_asset_status</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.approve_transfer" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#858-866">source</a><a href="#method.approve_transfer" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.approve_transfer" class="fn">approve_transfer</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Approvals</code> (r:1 w:1)
+Proof: <code>Assets::Approvals</code> (<code>max_values</code>: None, <code>max_size</code>: Some(148), added: 2623, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.transfer_approved" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#875-883">source</a><a href="#method.transfer_approved" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.transfer_approved" class="fn">transfer_approved</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Approvals</code> (r:1 w:1)
+Proof: <code>Assets::Approvals</code> (<code>max_values</code>: None, <code>max_size</code>: Some(148), added: 2623, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Account</code> (r:2 w:2)
+Proof: <code>Assets::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(134), added: 2609, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.cancel_approval" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#888-896">source</a><a href="#method.cancel_approval" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.cancel_approval" class="fn">cancel_approval</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Approvals</code> (r:1 w:1)
+Proof: <code>Assets::Approvals</code> (<code>max_values</code>: None, <code>max_size</code>: Some(148), added: 2623, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.force_cancel_approval" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#901-909">source</a><a href="#method.force_cancel_approval" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.force_cancel_approval" class="fn">force_cancel_approval</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Approvals</code> (r:1 w:1)
+Proof: <code>Assets::Approvals</code> (<code>max_values</code>: None, <code>max_size</code>: Some(148), added: 2623, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_min_balance" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#912-920">source</a><a href="#method.set_min_balance" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_min_balance" class="fn">set_min_balance</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.touch" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#927-935">source</a><a href="#method.touch" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.touch" class="fn">touch</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Account</code> (r:1 w:1)
+Proof: <code>Assets::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(134), added: 2609, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.touch_other" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#940-948">source</a><a href="#method.touch_other" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.touch_other" class="fn">touch_other</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Account</code> (r:1 w:1)
+Proof: <code>Assets::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(134), added: 2609, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.refund" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#955-963">source</a><a href="#method.refund" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.refund" class="fn">refund</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Account</code> (r:1 w:1)
+Proof: <code>Assets::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(134), added: 2609, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.refund_other" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#968-976">source</a><a href="#method.refund_other" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.refund_other" class="fn">refund_other</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Account</code> (r:1 w:1)
+Proof: <code>Assets::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(134), added: 2609, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Asset</code> (r:1 w:1)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.block" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#981-989">source</a><a href="#method.block" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.block" class="fn">block</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Assets::Asset</code> (r:1 w:0)
+Proof: <code>Assets::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(210), added: 2685, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Assets::Account</code> (r:1 w:1)
+Proof: <code>Assets::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(134), added: 2609, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><section id="method.transfer_all" class="method trait-impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#991-999">source</a><a href="#method.transfer_all" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.transfer_all" class="fn">transfer_all</a>() -&gt; Weight</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="impl"><a class="src rightside" href="../../src/pallet_assets/weights.rs.html#91-544">source</a><a href="#impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: Config&gt; <a class="trait" href="trait.WeightInfo.html" title="trait pallet_assets::weights::WeightInfo">WeightInfo</a> for <a class="struct" href="struct.SubstrateWeight.html" title="struct pallet_assets::weights::SubstrateWeight">SubstrateWeight</a>&lt;T&gt;</h3></section></div><script src="../../trait.impl/pallet_assets/weights/trait.WeightInfo.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

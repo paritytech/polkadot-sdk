@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["account_and_location","asset_instance_from","generate_holding_assets","new_executor"],"mod":["fungible","generic"],"trait":["Config"],"type":["AssetTransactorOf","ExecutorOf","RuntimeCallOf","XcmCallOf"]};

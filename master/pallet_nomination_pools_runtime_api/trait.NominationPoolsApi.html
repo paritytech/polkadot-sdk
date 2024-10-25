@@ -1,0 +1,264 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Runtime api for accessing information about nomination pools."><title>NominationPoolsApi in pallet_nomination_pools_runtime_api - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_nomination_pools_runtime_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_nomination_pools_runtime_api/index.html">pallet_nomination_pools_runtime_api</a><span class="version">23.0.0</span></h2></div><h2 class="location"><a href="#">NominationPoolsApi</a></h2><div class="sidebar-elems"><section><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.balance_to_points">balance_to_points</a></li><li><a href="#method.member_needs_delegate_migration">member_needs_delegate_migration</a></li><li><a href="#method.member_pending_slash">member_pending_slash</a></li><li><a href="#method.member_total_balance">member_total_balance</a></li><li><a href="#method.pending_rewards">pending_rewards</a></li><li><a href="#method.points_to_balance">points_to_balance</a></li><li><a href="#method.pool_balance">pool_balance</a></li><li><a href="#method.pool_needs_delegate_migration">pool_needs_delegate_migration</a></li><li><a href="#method.pool_pending_slash">pool_pending_slash</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-RuntimeApiInfo-for-dyn+NominationPoolsApi%3CBlock,+AccountId,+Balance%3E">RuntimeApiInfo</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate pallet_nomination_pools_runtime_api</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">pallet_nomination_pools_runtime_api</a>::<wbr><a class="trait" href="#">NominationPoolsApi</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_nomination_pools_runtime_api/lib.rs.html#28-72">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait NominationPoolsApi&lt;Block: BlockT, AccountId, Balance&gt;: Core&lt;Block&gt;<div class="where">where
+    AccountId: Codec,
+    Balance: Codec,</div>{
+    // Provided methods
+    fn <a href="#method.pending_rewards" class="fn">pending_rewards</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        who: AccountId,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.points_to_balance" class="fn">points_to_balance</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        pool_id: PoolId,
+        points: Balance,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.balance_to_points" class="fn">balance_to_points</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        pool_id: PoolId,
+        new_funds: Balance,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.pool_pending_slash" class="fn">pool_pending_slash</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        pool_id: PoolId,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.member_pending_slash" class="fn">member_pending_slash</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        member: AccountId,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.pool_needs_delegate_migration" class="fn">pool_needs_delegate_migration</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        pool_id: PoolId,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.member_needs_delegate_migration" class="fn">member_needs_delegate_migration</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        member: AccountId,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.member_total_balance" class="fn">member_total_balance</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        who: AccountId,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.pool_balance" class="fn">pool_balance</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        pool_id: PoolId,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ApiError&gt; { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Runtime api for accessing information about nomination pools.</p>
+</div></details><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.pending_rewards" class="method"><a class="src rightside" href="../src/pallet_nomination_pools_runtime_api/lib.rs.html#26-73">source</a><h4 class="code-header">fn <a href="#method.pending_rewards" class="fn">pending_rewards</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    who: AccountId,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns the pending rewards for the member that the AccountId was given for.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.points_to_balance" class="method"><a class="src rightside" href="../src/pallet_nomination_pools_runtime_api/lib.rs.html#26-73">source</a><h4 class="code-header">fn <a href="#method.points_to_balance" class="fn">points_to_balance</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    pool_id: PoolId,
+    points: Balance,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns the equivalent balance of <code>points</code> for a given pool.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.balance_to_points" class="method"><a class="src rightside" href="../src/pallet_nomination_pools_runtime_api/lib.rs.html#26-73">source</a><h4 class="code-header">fn <a href="#method.balance_to_points" class="fn">balance_to_points</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    pool_id: PoolId,
+    new_funds: Balance,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns the equivalent points of <code>new_funds</code> for a given pool.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.pool_pending_slash" class="method"><a class="src rightside" href="../src/pallet_nomination_pools_runtime_api/lib.rs.html#26-73">source</a><h4 class="code-header">fn <a href="#method.pool_pending_slash" class="fn">pool_pending_slash</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    pool_id: PoolId,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns the pending slash for a given pool.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.member_pending_slash" class="method"><a class="src rightside" href="../src/pallet_nomination_pools_runtime_api/lib.rs.html#26-73">source</a><h4 class="code-header">fn <a href="#method.member_pending_slash" class="fn">member_pending_slash</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    member: AccountId,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns the pending slash for a given pool member.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.pool_needs_delegate_migration" class="method"><a class="src rightside" href="../src/pallet_nomination_pools_runtime_api/lib.rs.html#26-73">source</a><h4 class="code-header">fn <a href="#method.pool_needs_delegate_migration" class="fn">pool_needs_delegate_migration</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    pool_id: PoolId,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns true if the pool with <code>pool_id</code> needs migration.</p>
+<p>This can happen when the <code>pallet-nomination-pools</code> has switched to using strategy
+<a href="pallet_nomination_pools::adapter::DelegateStake"><code>DelegateStake</code></a> but the pool
+still has funds that were staked using the older strategy
+<a href="pallet_nomination_pools::adapter::TransferStake">TransferStake</a>. Use
+<a href="pallet_nomination_pools::Call::migrate_pool_to_delegate_stake"><code>migrate_pool_to_delegate_stake</code></a>
+to migrate the pool.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.member_needs_delegate_migration" class="method"><a class="src rightside" href="../src/pallet_nomination_pools_runtime_api/lib.rs.html#26-73">source</a><h4 class="code-header">fn <a href="#method.member_needs_delegate_migration" class="fn">member_needs_delegate_migration</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    member: AccountId,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns true if the delegated funds of the pool <code>member</code> needs migration.</p>
+<p>Once a pool has successfully migrated to the strategy
+<a href="pallet_nomination_pools::adapter::DelegateStake"><code>DelegateStake</code></a>, the funds of the
+member can be migrated from pool account to the member’s account. Use
+<a href="pallet_nomination_pools::Call::migrate_delegation"><code>migrate_delegation</code></a>
+to migrate the funds of the pool member.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.member_total_balance" class="method"><a class="src rightside" href="../src/pallet_nomination_pools_runtime_api/lib.rs.html#26-73">source</a><h4 class="code-header">fn <a href="#method.member_total_balance" class="fn">member_total_balance</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    who: AccountId,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns the total contribution of a pool member including any balance that is unbonding.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.pool_balance" class="method"><a class="src rightside" href="../src/pallet_nomination_pools_runtime_api/lib.rs.html#26-73">source</a><h4 class="code-header">fn <a href="#method.pool_balance" class="fn">pool_balance</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    pool_id: PoolId,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, ApiError&gt;</h4></section></summary><div class="docblock"><p>Total balance contributed to the pool.</p>
+</div></details></div><h2 id="trait-implementations" class="section-header">Trait Implementations<a href="#trait-implementations" class="anchor">§</a></h2><div id="trait-implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-RuntimeApiInfo-for-dyn+NominationPoolsApi%3CBlock,+AccountId,+Balance%3E" class="impl"><a class="src rightside" href="../src/pallet_nomination_pools_runtime_api/lib.rs.html#26-73">source</a><a href="#impl-RuntimeApiInfo-for-dyn+NominationPoolsApi%3CBlock,+AccountId,+Balance%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Block: BlockT, AccountId, Balance&gt; RuntimeApiInfo for dyn <a class="trait" href="trait.NominationPoolsApi.html" title="trait pallet_nomination_pools_runtime_api::NominationPoolsApi">NominationPoolsApi</a>&lt;Block, AccountId, Balance&gt;</h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedconstant.ID" class="associatedconstant trait-impl"><a class="src rightside" href="../src/pallet_nomination_pools_runtime_api/lib.rs.html#26-73">source</a><a href="#associatedconstant.ID" class="anchor">§</a><h4 class="code-header">const <a class="constant">ID</a>: [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">8</a>] = _</h4></section></summary><div class='docblock'>The identifier of the runtime api.</div></details><details class="toggle" open><summary><section id="associatedconstant.VERSION" class="associatedconstant trait-impl"><a class="src rightside" href="../src/pallet_nomination_pools_runtime_api/lib.rs.html#26-73">source</a><a href="#associatedconstant.VERSION" class="anchor">§</a><h4 class="code-header">const <a class="constant">VERSION</a>: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a> = 1u32</h4></section></summary><div class='docblock'>The version of the runtime api.</div></details></div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/pallet_nomination_pools_runtime_api/trait.NominationPoolsApi.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

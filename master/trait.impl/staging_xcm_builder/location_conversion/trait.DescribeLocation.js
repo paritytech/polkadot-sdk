@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"snowbridge_core":[["impl DescribeLocation for <a class=\"struct\" href=\"snowbridge_core/location/struct.DescribeHere.html\" title=\"struct snowbridge_core::location::DescribeHere\">DescribeHere</a>"],["impl DescribeLocation for <a class=\"struct\" href=\"snowbridge_core/location/struct.DescribeTokenTerminal.html\" title=\"struct snowbridge_core::location::DescribeTokenTerminal\">DescribeTokenTerminal</a>"],["impl&lt;Suffix: DescribeLocation&gt; DescribeLocation for <a class=\"struct\" href=\"snowbridge_core/location/struct.DescribeGlobalPrefix.html\" title=\"struct snowbridge_core::location::DescribeGlobalPrefix\">DescribeGlobalPrefix</a>&lt;Suffix&gt;"]],
+"staging_xcm_builder":[]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

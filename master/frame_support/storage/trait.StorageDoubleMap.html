@@ -1,0 +1,400 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="An implementation of a map with a two keys."><title>StorageDoubleMap in frame_support::storage - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">StorageDoubleMap</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Query">Query</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.append">append</a></li><li><a href="#tymethod.clear_prefix">clear_prefix</a></li><li><a href="#tymethod.contains_key">contains_key</a></li><li><a href="#tymethod.contains_prefix">contains_prefix</a></li><li><a href="#tymethod.get">get</a></li><li><a href="#tymethod.hashed_key_for">hashed_key_for</a></li><li><a href="#tymethod.insert">insert</a></li><li><a href="#tymethod.iter_prefix_values">iter_prefix_values</a></li><li><a href="#tymethod.migrate_keys">migrate_keys</a></li><li><a href="#tymethod.mutate">mutate</a></li><li><a href="#tymethod.mutate_exists">mutate_exists</a></li><li><a href="#tymethod.remove">remove</a></li><li><a href="#tymethod.remove_prefix">remove_prefix</a></li><li><a href="#tymethod.set">set</a></li><li><a href="#tymethod.swap">swap</a></li><li><a href="#tymethod.take">take</a></li><li><a href="#tymethod.try_get">try_get</a></li><li><a href="#tymethod.try_mutate">try_mutate</a></li><li><a href="#tymethod.try_mutate_exists">try_mutate_exists</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.decode_len">decode_len</a></li><li><a href="#method.decode_non_dedup_len">decode_non_dedup_len</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In frame_support::storage</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">frame_support</a>::<wbr><a href="index.html">storage</a>::<wbr><a class="trait" href="#">StorageDoubleMap</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/frame_support/storage/mod.rs.html#614-827">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait StorageDoubleMap&lt;K1: FullEncode, K2: FullEncode, V: FullCodec&gt; {
+    type <a href="#associatedtype.Query" class="associatedtype">Query</a>;
+
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 21 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.hashed_key_for" class="fn">hashed_key_for</a>&lt;KArg1, KArg2&gt;(k1: KArg1, k2: KArg2) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt; <a href="#" class="tooltip" data-notable-ty="Vec&lt;u8&gt;">ⓘ</a>
+       <span class="where">where KArg1: EncodeLike&lt;K1&gt;,
+             KArg2: EncodeLike&lt;K2&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.contains_key" class="fn">contains_key</a>&lt;KArg1, KArg2&gt;(k1: KArg1, k2: KArg2) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>
+       <span class="where">where KArg1: EncodeLike&lt;K1&gt;,
+             KArg2: EncodeLike&lt;K2&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.get" class="fn">get</a>&lt;KArg1, KArg2&gt;(k1: KArg1, k2: KArg2) -&gt; Self::<a class="associatedtype" href="trait.StorageDoubleMap.html#associatedtype.Query" title="type frame_support::storage::StorageDoubleMap::Query">Query</a>
+       <span class="where">where KArg1: EncodeLike&lt;K1&gt;,
+             KArg2: EncodeLike&lt;K2&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.try_get" class="fn">try_get</a>&lt;KArg1, KArg2&gt;(k1: KArg1, k2: KArg2) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;V, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;
+       <span class="where">where KArg1: EncodeLike&lt;K1&gt;,
+             KArg2: EncodeLike&lt;K2&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set" class="fn">set</a>&lt;KArg1: EncodeLike&lt;K1&gt;, KArg2: EncodeLike&lt;K2&gt;&gt;(
+        k1: KArg1,
+        k2: KArg2,
+        query: Self::<a class="associatedtype" href="trait.StorageDoubleMap.html#associatedtype.Query" title="type frame_support::storage::StorageDoubleMap::Query">Query</a>,
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.take" class="fn">take</a>&lt;KArg1, KArg2&gt;(k1: KArg1, k2: KArg2) -&gt; Self::<a class="associatedtype" href="trait.StorageDoubleMap.html#associatedtype.Query" title="type frame_support::storage::StorageDoubleMap::Query">Query</a>
+       <span class="where">where KArg1: EncodeLike&lt;K1&gt;,
+             KArg2: EncodeLike&lt;K2&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.swap" class="fn">swap</a>&lt;XKArg1, XKArg2, YKArg1, YKArg2&gt;(
+        x_k1: XKArg1,
+        x_k2: XKArg2,
+        y_k1: YKArg1,
+        y_k2: YKArg2,
+    )
+       <span class="where">where XKArg1: EncodeLike&lt;K1&gt;,
+             XKArg2: EncodeLike&lt;K2&gt;,
+             YKArg1: EncodeLike&lt;K1&gt;,
+             YKArg2: EncodeLike&lt;K2&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.insert" class="fn">insert</a>&lt;KArg1, KArg2, VArg&gt;(k1: KArg1, k2: KArg2, val: VArg)
+       <span class="where">where KArg1: EncodeLike&lt;K1&gt;,
+             KArg2: EncodeLike&lt;K2&gt;,
+             VArg: EncodeLike&lt;V&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove" class="fn">remove</a>&lt;KArg1, KArg2&gt;(k1: KArg1, k2: KArg2)
+       <span class="where">where KArg1: EncodeLike&lt;K1&gt;,
+             KArg2: EncodeLike&lt;K2&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_prefix" class="fn">remove_prefix</a>&lt;KArg1&gt;(k1: KArg1, limit: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;) -&gt; <a class="enum" href="child/enum.KillStorageResult.html" title="enum frame_support::storage::child::KillStorageResult">KillStorageResult</a>
+       <span class="where">where KArg1: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + EncodeLike&lt;K1&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_prefix" class="fn">clear_prefix</a>&lt;KArg1&gt;(
+        k1: KArg1,
+        limit: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+        maybe_cursor: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;,
+    ) -&gt; <a class="struct" href="child/struct.MultiRemovalResults.html" title="struct frame_support::storage::child::MultiRemovalResults">MultiRemovalResults</a>
+       <span class="where">where KArg1: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + EncodeLike&lt;K1&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.contains_prefix" class="fn">contains_prefix</a>&lt;KArg1&gt;(k1: KArg1) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>
+       <span class="where">where KArg1: EncodeLike&lt;K1&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.iter_prefix_values" class="fn">iter_prefix_values</a>&lt;KArg1&gt;(k1: KArg1) -&gt; <a class="struct" href="struct.PrefixIterator.html" title="struct frame_support::storage::PrefixIterator">PrefixIterator</a>&lt;V&gt; <a href="#" class="tooltip" data-notable-ty="PrefixIterator&lt;V&gt;">ⓘ</a>
+       <span class="where">where KArg1: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + EncodeLike&lt;K1&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.mutate" class="fn">mutate</a>&lt;KArg1, KArg2, R, F&gt;(k1: KArg1, k2: KArg2, f: F) -&gt; R
+       <span class="where">where KArg1: EncodeLike&lt;K1&gt;,
+             KArg2: EncodeLike&lt;K2&gt;,
+             F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut Self::<a class="associatedtype" href="trait.StorageDoubleMap.html#associatedtype.Query" title="type frame_support::storage::StorageDoubleMap::Query">Query</a>) -&gt; R</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.try_mutate" class="fn">try_mutate</a>&lt;KArg1, KArg2, R, E, F&gt;(
+        k1: KArg1,
+        k2: KArg2,
+        f: F,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;R, E&gt;
+       <span class="where">where KArg1: EncodeLike&lt;K1&gt;,
+             KArg2: EncodeLike&lt;K2&gt;,
+             F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut Self::<a class="associatedtype" href="trait.StorageDoubleMap.html#associatedtype.Query" title="type frame_support::storage::StorageDoubleMap::Query">Query</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;R, E&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.mutate_exists" class="fn">mutate_exists</a>&lt;KArg1, KArg2, R, F&gt;(k1: KArg1, k2: KArg2, f: F) -&gt; R
+       <span class="where">where KArg1: EncodeLike&lt;K1&gt;,
+             KArg2: EncodeLike&lt;K2&gt;,
+             F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;V&gt;) -&gt; R</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.try_mutate_exists" class="fn">try_mutate_exists</a>&lt;KArg1, KArg2, R, E, F&gt;(
+        k1: KArg1,
+        k2: KArg2,
+        f: F,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;R, E&gt;
+       <span class="where">where KArg1: EncodeLike&lt;K1&gt;,
+             KArg2: EncodeLike&lt;K2&gt;,
+             F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;V&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;R, E&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.append" class="fn">append</a>&lt;Item, EncodeLikeItem, KArg1, KArg2&gt;(
+        k1: KArg1,
+        k2: KArg2,
+        item: EncodeLikeItem,
+    )
+       <span class="where">where KArg1: EncodeLike&lt;K1&gt;,
+             KArg2: EncodeLike&lt;K2&gt;,
+             Item: <a class="trait" href="../pallet_prelude/trait.Encode.html" title="trait frame_support::pallet_prelude::Encode">Encode</a>,
+             EncodeLikeItem: EncodeLike&lt;Item&gt;,
+             V: <a class="trait" href="trait.StorageAppend.html" title="trait frame_support::storage::StorageAppend">StorageAppend</a>&lt;Item&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migrate_keys" class="fn">migrate_keys</a>&lt;OldHasher1: <a class="trait" href="../trait.StorageHasher.html" title="trait frame_support::StorageHasher">StorageHasher</a>, OldHasher2: <a class="trait" href="../trait.StorageHasher.html" title="trait frame_support::StorageHasher">StorageHasher</a>, KeyArg1: EncodeLike&lt;K1&gt;, KeyArg2: EncodeLike&lt;K2&gt;&gt;(
+        key1: KeyArg1,
+        key2: KeyArg2,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;V&gt;;
+
+    // Provided methods
+    fn <a href="#method.decode_len" class="fn">decode_len</a>&lt;KArg1, KArg2&gt;(key1: KArg1, key2: KArg2) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt;
+       <span class="where">where KArg1: EncodeLike&lt;K1&gt;,
+             KArg2: EncodeLike&lt;K2&gt;,
+             V: <a class="trait" href="trait.StorageDecodeLength.html" title="trait frame_support::storage::StorageDecodeLength">StorageDecodeLength</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.decode_non_dedup_len" class="fn">decode_non_dedup_len</a>&lt;KArg1, KArg2&gt;(
+        key1: KArg1,
+        key2: KArg2,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt;
+       <span class="where">where KArg1: EncodeLike&lt;K1&gt;,
+             KArg2: EncodeLike&lt;K2&gt;,
+             V: <a class="trait" href="trait.StorageDecodeNonDedupLength.html" title="trait frame_support::storage::StorageDecodeNonDedupLength">StorageDecodeNonDedupLength</a></span> { ... }
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>An implementation of a map with a two keys.</p>
+<p>Details on implementation can be found at [<code>generator::StorageDoubleMap</code>].</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Query" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#616">source</a><h4 class="code-header">type <a href="#associatedtype.Query" class="associatedtype">Query</a></h4></section></summary><div class="docblock"><p>The type that get/take returns.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.hashed_key_for" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#619-622">source</a><h4 class="code-header">fn <a href="#tymethod.hashed_key_for" class="fn">hashed_key_for</a>&lt;KArg1, KArg2&gt;(k1: KArg1, k2: KArg2) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt; <a href="#" class="tooltip" data-notable-ty="Vec&lt;u8&gt;">ⓘ</a><div class="where">where
+    KArg1: EncodeLike&lt;K1&gt;,
+    KArg2: EncodeLike&lt;K2&gt;,</div></h4></section></summary><div class="docblock"><p>Get the storage key used to fetch a value corresponding to a specific key.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.contains_key" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#625-628">source</a><h4 class="code-header">fn <a href="#tymethod.contains_key" class="fn">contains_key</a>&lt;KArg1, KArg2&gt;(k1: KArg1, k2: KArg2) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a><div class="where">where
+    KArg1: EncodeLike&lt;K1&gt;,
+    KArg2: EncodeLike&lt;K2&gt;,</div></h4></section></summary><div class="docblock"><p>Does the value (explicitly) exist in storage?</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#631-634">source</a><h4 class="code-header">fn <a href="#tymethod.get" class="fn">get</a>&lt;KArg1, KArg2&gt;(k1: KArg1, k2: KArg2) -&gt; Self::<a class="associatedtype" href="trait.StorageDoubleMap.html#associatedtype.Query" title="type frame_support::storage::StorageDoubleMap::Query">Query</a><div class="where">where
+    KArg1: EncodeLike&lt;K1&gt;,
+    KArg2: EncodeLike&lt;K2&gt;,</div></h4></section></summary><div class="docblock"><p>Load the value associated with the given key from the double map.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.try_get" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#639-642">source</a><h4 class="code-header">fn <a href="#tymethod.try_get" class="fn">try_get</a>&lt;KArg1, KArg2&gt;(k1: KArg1, k2: KArg2) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;V, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;<div class="where">where
+    KArg1: EncodeLike&lt;K1&gt;,
+    KArg2: EncodeLike&lt;K2&gt;,</div></h4></section></summary><div class="docblock"><p>Try to get the value for the given key from the double map.</p>
+<p>Returns <code>Ok</code> if it exists, <code>Err</code> if not.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#645">source</a><h4 class="code-header">fn <a href="#tymethod.set" class="fn">set</a>&lt;KArg1: EncodeLike&lt;K1&gt;, KArg2: EncodeLike&lt;K2&gt;&gt;(
+    k1: KArg1,
+    k2: KArg2,
+    query: Self::<a class="associatedtype" href="trait.StorageDoubleMap.html#associatedtype.Query" title="type frame_support::storage::StorageDoubleMap::Query">Query</a>,
+)</h4></section></summary><div class="docblock"><p>Store or remove the value to be associated with <code>key</code> so that <code>get</code> returns the <code>query</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.take" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#648-651">source</a><h4 class="code-header">fn <a href="#tymethod.take" class="fn">take</a>&lt;KArg1, KArg2&gt;(k1: KArg1, k2: KArg2) -&gt; Self::<a class="associatedtype" href="trait.StorageDoubleMap.html#associatedtype.Query" title="type frame_support::storage::StorageDoubleMap::Query">Query</a><div class="where">where
+    KArg1: EncodeLike&lt;K1&gt;,
+    KArg2: EncodeLike&lt;K2&gt;,</div></h4></section></summary><div class="docblock"><p>Take a value from storage, removing it afterwards.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.swap" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#654-659">source</a><h4 class="code-header">fn <a href="#tymethod.swap" class="fn">swap</a>&lt;XKArg1, XKArg2, YKArg1, YKArg2&gt;(
+    x_k1: XKArg1,
+    x_k2: XKArg2,
+    y_k1: YKArg1,
+    y_k2: YKArg2,
+)<div class="where">where
+    XKArg1: EncodeLike&lt;K1&gt;,
+    XKArg2: EncodeLike&lt;K2&gt;,
+    YKArg1: EncodeLike&lt;K1&gt;,
+    YKArg2: EncodeLike&lt;K2&gt;,</div></h4></section></summary><div class="docblock"><p>Swap the values of two key-pairs.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.insert" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#662-666">source</a><h4 class="code-header">fn <a href="#tymethod.insert" class="fn">insert</a>&lt;KArg1, KArg2, VArg&gt;(k1: KArg1, k2: KArg2, val: VArg)<div class="where">where
+    KArg1: EncodeLike&lt;K1&gt;,
+    KArg2: EncodeLike&lt;K2&gt;,
+    VArg: EncodeLike&lt;V&gt;,</div></h4></section></summary><div class="docblock"><p>Store a value to be associated with the given keys from the double map.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.remove" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#669-672">source</a><h4 class="code-header">fn <a href="#tymethod.remove" class="fn">remove</a>&lt;KArg1, KArg2&gt;(k1: KArg1, k2: KArg2)<div class="where">where
+    KArg1: EncodeLike&lt;K1&gt;,
+    KArg2: EncodeLike&lt;K2&gt;,</div></h4></section></summary><div class="docblock"><p>Remove the value under the given keys.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.remove_prefix" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#687-689">source</a><h4 class="code-header">fn <a href="#tymethod.remove_prefix" class="fn">remove_prefix</a>&lt;KArg1&gt;(k1: KArg1, limit: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;) -&gt; <a class="enum" href="child/enum.KillStorageResult.html" title="enum frame_support::storage::child::KillStorageResult">KillStorageResult</a><div class="where">where
+    KArg1: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + EncodeLike&lt;K1&gt;,</div></h4></section><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>clear_prefix</code> instead</span></div></span></summary><div class="docblock"><p>Remove all values under the first key <code>k1</code> in the overlay and up to <code>limit</code> in the
+backend.</p>
+<p>All values in the client overlay will be deleted, if there is some <code>limit</code> then up to
+<code>limit</code> values are deleted from the client backend, if <code>limit</code> is none then all values in
+the client backend are deleted.</p>
+<h5 id="note"><a class="doc-anchor" href="#note">§</a>Note</h5>
+<p>Calling this multiple times per block with a <code>limit</code> set leads always to the same keys being
+removed and the same result being returned. This happens because the keys to delete in the
+overlay are not taken into account when deleting keys in the backend.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.clear_prefix" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#706-712">source</a><h4 class="code-header">fn <a href="#tymethod.clear_prefix" class="fn">clear_prefix</a>&lt;KArg1&gt;(
+    k1: KArg1,
+    limit: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    maybe_cursor: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;,
+) -&gt; <a class="struct" href="child/struct.MultiRemovalResults.html" title="struct frame_support::storage::child::MultiRemovalResults">MultiRemovalResults</a><div class="where">where
+    KArg1: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + EncodeLike&lt;K1&gt;,</div></h4></section></summary><div class="docblock"><p>Remove all values under the first key <code>k1</code> in the overlay and up to <code>maybe_limit</code> in the
+backend.</p>
+<p>All values in the client overlay will be deleted, if <code>maybe_limit</code> is <code>Some</code> then up to
+that number of values are deleted from the client backend, otherwise all values in the
+client backend are deleted.</p>
+<h6 id="cursors"><a class="doc-anchor" href="#cursors">§</a>Cursors</h6>
+<p>The <code>maybe_cursor</code> parameter should be <code>None</code> for the first call to initial removal.
+If the resultant <code>maybe_cursor</code> is <code>Some</code>, then another call is required to complete the
+removal operation. This value must be passed in as the subsequent call’s <code>maybe_cursor</code>
+parameter. If the resultant <code>maybe_cursor</code> is <code>None</code>, then the operation is complete and no
+items remain in storage provided that no items were added between the first calls and the
+final call.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.contains_prefix" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#716-718">source</a><h4 class="code-header">fn <a href="#tymethod.contains_prefix" class="fn">contains_prefix</a>&lt;KArg1&gt;(k1: KArg1) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a><div class="where">where
+    KArg1: EncodeLike&lt;K1&gt;,</div></h4></section></summary><div class="docblock"><p>Does any value under the first key <code>k1</code> (explicitly) exist in storage?
+Might have unexpected behaviour with empty keys, e.g. <code>[]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.iter_prefix_values" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#721-723">source</a><h4 class="code-header">fn <a href="#tymethod.iter_prefix_values" class="fn">iter_prefix_values</a>&lt;KArg1&gt;(k1: KArg1) -&gt; <a class="struct" href="struct.PrefixIterator.html" title="struct frame_support::storage::PrefixIterator">PrefixIterator</a>&lt;V&gt; <a href="#" class="tooltip" data-notable-ty="PrefixIterator&lt;V&gt;">ⓘ</a><div class="where">where
+    KArg1: ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + EncodeLike&lt;K1&gt;,</div></h4></section></summary><div class="docblock"><p>Iterate over values that share the first key.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.mutate" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#726-730">source</a><h4 class="code-header">fn <a href="#tymethod.mutate" class="fn">mutate</a>&lt;KArg1, KArg2, R, F&gt;(k1: KArg1, k2: KArg2, f: F) -&gt; R<div class="where">where
+    KArg1: EncodeLike&lt;K1&gt;,
+    KArg2: EncodeLike&lt;K2&gt;,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut Self::<a class="associatedtype" href="trait.StorageDoubleMap.html#associatedtype.Query" title="type frame_support::storage::StorageDoubleMap::Query">Query</a>) -&gt; R,</div></h4></section></summary><div class="docblock"><p>Mutate the value under the given keys.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.try_mutate" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#733-737">source</a><h4 class="code-header">fn <a href="#tymethod.try_mutate" class="fn">try_mutate</a>&lt;KArg1, KArg2, R, E, F&gt;(k1: KArg1, k2: KArg2, f: F) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;R, E&gt;<div class="where">where
+    KArg1: EncodeLike&lt;K1&gt;,
+    KArg2: EncodeLike&lt;K2&gt;,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut Self::<a class="associatedtype" href="trait.StorageDoubleMap.html#associatedtype.Query" title="type frame_support::storage::StorageDoubleMap::Query">Query</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;R, E&gt;,</div></h4></section></summary><div class="docblock"><p>Mutate the value under the given keys when the closure returns <code>Ok</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.mutate_exists" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#740-744">source</a><h4 class="code-header">fn <a href="#tymethod.mutate_exists" class="fn">mutate_exists</a>&lt;KArg1, KArg2, R, F&gt;(k1: KArg1, k2: KArg2, f: F) -&gt; R<div class="where">where
+    KArg1: EncodeLike&lt;K1&gt;,
+    KArg2: EncodeLike&lt;K2&gt;,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;V&gt;) -&gt; R,</div></h4></section></summary><div class="docblock"><p>Mutate the value under the given keys. Deletes the item if mutated to a <code>None</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.try_mutate_exists" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#749-753">source</a><h4 class="code-header">fn <a href="#tymethod.try_mutate_exists" class="fn">try_mutate_exists</a>&lt;KArg1, KArg2, R, E, F&gt;(
+    k1: KArg1,
+    k2: KArg2,
+    f: F,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;R, E&gt;<div class="where">where
+    KArg1: EncodeLike&lt;K1&gt;,
+    KArg2: EncodeLike&lt;K2&gt;,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;V&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;R, E&gt;,</div></h4></section></summary><div class="docblock"><p>Mutate the item, only if an <code>Ok</code> value is returned. Deletes the item if mutated to a <code>None</code>.
+<code>f</code> will always be called with an option representing if the storage item exists (<code>Some&lt;V&gt;</code>)
+or if the storage item does not exist (<code>None</code>), independent of the <code>QueryType</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.append" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#764-770">source</a><h4 class="code-header">fn <a href="#tymethod.append" class="fn">append</a>&lt;Item, EncodeLikeItem, KArg1, KArg2&gt;(
+    k1: KArg1,
+    k2: KArg2,
+    item: EncodeLikeItem,
+)<div class="where">where
+    KArg1: EncodeLike&lt;K1&gt;,
+    KArg2: EncodeLike&lt;K2&gt;,
+    Item: <a class="trait" href="../pallet_prelude/trait.Encode.html" title="trait frame_support::pallet_prelude::Encode">Encode</a>,
+    EncodeLikeItem: EncodeLike&lt;Item&gt;,
+    V: <a class="trait" href="trait.StorageAppend.html" title="trait frame_support::storage::StorageAppend">StorageAppend</a>&lt;Item&gt;,</div></h4></section></summary><div class="docblock"><p>Append the given item to the value in the storage.</p>
+<p><code>V</code> is required to implement <a href="trait.StorageAppend.html" title="trait frame_support::storage::StorageAppend"><code>StorageAppend</code></a>.</p>
+<h5 id="warning"><a class="doc-anchor" href="#warning">§</a>Warning</h5>
+<p>If the storage item is not encoded properly, the storage will be overwritten
+and set to <code>[item]</code>. Any default value set for the storage item will be ignored
+on overwrite.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.migrate_keys" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#818-826">source</a><h4 class="code-header">fn <a href="#tymethod.migrate_keys" class="fn">migrate_keys</a>&lt;OldHasher1: <a class="trait" href="../trait.StorageHasher.html" title="trait frame_support::StorageHasher">StorageHasher</a>, OldHasher2: <a class="trait" href="../trait.StorageHasher.html" title="trait frame_support::StorageHasher">StorageHasher</a>, KeyArg1: EncodeLike&lt;K1&gt;, KeyArg2: EncodeLike&lt;K2&gt;&gt;(
+    key1: KeyArg1,
+    key2: KeyArg2,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;V&gt;</h4></section></summary><div class="docblock"><p>Migrate an item with the given <code>key1</code> and <code>key2</code> from defunct <code>OldHasher1</code> and
+<code>OldHasher2</code> to the current hashers.</p>
+<p>If the key doesn’t exist, then it’s a no-op. If it does, then it returns its value.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.decode_len" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#784-791">source</a><h4 class="code-header">fn <a href="#method.decode_len" class="fn">decode_len</a>&lt;KArg1, KArg2&gt;(key1: KArg1, key2: KArg2) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt;<div class="where">where
+    KArg1: EncodeLike&lt;K1&gt;,
+    KArg2: EncodeLike&lt;K2&gt;,
+    V: <a class="trait" href="trait.StorageDecodeLength.html" title="trait frame_support::storage::StorageDecodeLength">StorageDecodeLength</a>,</div></h4></section></summary><div class="docblock"><p>Read the length of the storage value without decoding the entire value under the
+given <code>key1</code> and <code>key2</code>.</p>
+<p><code>V</code> is required to implement <a href="trait.StorageDecodeLength.html" title="trait frame_support::storage::StorageDecodeLength"><code>StorageDecodeLength</code></a>.</p>
+<p>If the value does not exists or it fails to decode the length, <code>None</code> is returned.
+Otherwise <code>Some(len)</code> is returned.</p>
+<h5 id="warning-1"><a class="doc-anchor" href="#warning-1">§</a>Warning</h5>
+<p><code>None</code> does not mean that <code>get()</code> does not return a value. The default value is completely
+ignored by this function.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.decode_non_dedup_len" class="method"><a class="src rightside" href="../../src/frame_support/storage/mod.rs.html#805-812">source</a><h4 class="code-header">fn <a href="#method.decode_non_dedup_len" class="fn">decode_non_dedup_len</a>&lt;KArg1, KArg2&gt;(key1: KArg1, key2: KArg2) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt;<div class="where">where
+    KArg1: EncodeLike&lt;K1&gt;,
+    KArg2: EncodeLike&lt;K2&gt;,
+    V: <a class="trait" href="trait.StorageDecodeNonDedupLength.html" title="trait frame_support::storage::StorageDecodeNonDedupLength">StorageDecodeNonDedupLength</a>,</div></h4></section></summary><div class="docblock"><p>Read the length of the storage value without decoding the entire value under the
+given <code>key1</code> and <code>key2</code>.</p>
+<p><code>V</code> is required to implement <a href="trait.StorageDecodeNonDedupLength.html" title="trait frame_support::storage::StorageDecodeNonDedupLength"><code>StorageDecodeNonDedupLength</code></a>.</p>
+<p>If the value does not exists or it fails to decode the length, <code>None</code> is returned.
+Otherwise <code>Some(len)</code> is returned.</p>
+<h5 id="warning-2"><a class="doc-anchor" href="#warning-2">§</a>Warning</h5>
+<p><code>None</code> does not mean that <code>get()</code> does not return a value. The default value is completely
+ignored by this function.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-StorageDoubleMap%3CK1,+K2,+V%3E-for-G" class="impl"><a class="src rightside" href="../../src/frame_support/storage/generator/double_map.rs.html#110-353">source</a><a href="#impl-StorageDoubleMap%3CK1,+K2,+V%3E-for-G" class="anchor">§</a><h3 class="code-header">impl&lt;K1, K2, V, G&gt; <a class="trait" href="trait.StorageDoubleMap.html" title="trait frame_support::storage::StorageDoubleMap">StorageDoubleMap</a>&lt;K1, K2, V&gt; for G<div class="where">where
+    K1: FullEncode,
+    K2: FullEncode,
+    V: FullCodec,
+    G: StorageDoubleMap&lt;K1, K2, V&gt;,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Query-1" class="associatedtype trait-impl"><a href="#associatedtype.Query-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Query" class="associatedtype">Query</a> = &lt;G as StorageDoubleMap&lt;K1, K2, V&gt;&gt;::Query</h4></section></div></details></div><script src="../../trait.impl/frame_support/storage/trait.StorageDoubleMap.js" async></script><script type="text/json" id="notable-traits-data">{"PrefixIterator<V>":"<h3>Notable traits for <code><a class=\"struct\" href=\"struct.PrefixIterator.html\" title=\"struct frame_support::storage::PrefixIterator\">PrefixIterator</a>&lt;T, OnRemoval&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T, OnRemoval: <a class=\"trait\" href=\"trait.PrefixIteratorOnRemoval.html\" title=\"trait frame_support::storage::PrefixIteratorOnRemoval\">PrefixIteratorOnRemoval</a>&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for <a class=\"struct\" href=\"struct.PrefixIterator.html\" title=\"struct frame_support::storage::PrefixIterator\">PrefixIterator</a>&lt;T, OnRemoval&gt;</div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.81.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.81.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.81.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.81.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

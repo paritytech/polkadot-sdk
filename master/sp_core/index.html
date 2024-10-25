@@ -1,0 +1,171 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Shareable Substrate types."><title>sp_core - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_core/index.html">sp_core</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#derives">Derive Macros</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">sp_core</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sp_core/lib.rs.html#18-484">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Shareable Substrate types.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.bls377"><code>pub use bls::<a class="mod" href="bls/bls377/index.html" title="mod sp_core::bls::bls377">bls377</a>;</code></div></li><li><div class="item-name" id="reexport.bls381"><code>pub use bls::<a class="mod" href="bls/bls381/index.html" title="mod sp_core::bls::bls381">bls381</a>;</code></div></li><li><div class="item-name" id="reexport.ecdsa_bls377"><code>pub use paired_crypto::<a class="mod" href="paired_crypto/ecdsa_bls377/index.html" title="mod sp_core::paired_crypto::ecdsa_bls377">ecdsa_bls377</a>;</code></div></li><li><div class="item-name" id="reexport.ecdsa_bls381"><code>pub use paired_crypto::<a class="mod" href="paired_crypto/ecdsa_bls381/index.html" title="mod sp_core::paired_crypto::ecdsa_bls381">ecdsa_bls381</a>;</code></div></li><li><div class="item-name" id="reexport.convert_hash"><code>pub use self::hash::<a class="fn" href="hash/fn.convert_hash.html" title="fn sp_core::hash::convert_hash">convert_hash</a>;</code></div></li><li><div class="item-name" id="reexport.ByteArray"><code>pub use crypto::<a class="trait" href="crypto/trait.ByteArray.html" title="trait sp_core::crypto::ByteArray">ByteArray</a>;</code></div></li><li><div class="item-name" id="reexport.DeriveJunction"><code>pub use crypto::<a class="enum" href="crypto/enum.DeriveJunction.html" title="enum sp_core::crypto::DeriveJunction">DeriveJunction</a>;</code></div></li><li><div class="item-name" id="reexport.Pair"><code>pub use crypto::<a class="trait" href="crypto/trait.Pair.html" title="trait sp_core::crypto::Pair">Pair</a>;</code></div></li><li><div class="item-name" id="reexport.Public"><code>pub use crypto::<a class="trait" href="crypto/trait.Public.html" title="trait sp_core::crypto::Public">Public</a>;</code></div></li><li><div class="item-name" id="reexport.serde"><code>pub use <a class="mod" href="https://docs.rs/serde/1.0.210/serde/index.html" title="mod serde">serde</a>;</code></div></li><li><div class="item-name" id="reexport.hashing"><code>pub use sp_crypto_hashing as hashing;</code></div></li><li><div class="item-name" id="reexport.paste"><code>pub use <a class="mod" href="https://docs.rs/paste/1.0.15/paste/index.html" title="mod paste">paste</a>;</code></div></li><li><div class="item-name" id="reexport.bounded"><code>pub use bounded_collections as bounded;</code></div></li><li><div class="item-name" id="reexport.storage"><code>pub use sp_storage as storage;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="bandersnatch/index.html" title="mod sp_core::bandersnatch">bandersnatch</a></div><div class="desc docblock-short">VRFs backed by <a href="https://neuromancer.sk/std/bls/Bandersnatch">Bandersnatch</a>,
+an elliptic curve built over BLS12-381 scalar field.</div></li><li><div class="item-name"><a class="mod" href="bls/index.html" title="mod sp_core::bls">bls</a></div><div class="desc docblock-short">BLS (Boneh–Lynn–Shacham) Signature along with efficiently verifiable Chaum-Pedersen proof API.
+Signatures are implemented according to
+<a href="https://eprint.iacr.org/2022/1611">Efficient Aggregatable BLS Signatures with Chaum-Pedersen Proofs</a>
+Hash-to-BLS-curve is using Simplified SWU for AB == 0
+<a href="https://datatracker.ietf.org/doc/rfc9380/">RFC 9380</a> Sect 6.6.3.
+Chaum-Pedersen proof uses the same hash-to-field specified in RFC 9380 for the field of the BLS
+curve.</div></li><li><div class="item-name"><a class="mod" href="bounded_btree_map/index.html" title="mod sp_core::bounded_btree_map">bounded_btree_map</a></div><div class="desc docblock-short">Traits, types and structs to support a bounded BTreeMap.</div></li><li><div class="item-name"><a class="mod" href="bounded_vec/index.html" title="mod sp_core::bounded_vec">bounded_vec</a></div><div class="desc docblock-short">Traits, types and structs to support putting a bounded vector into storage, as a raw value, map
+or a double map.</div></li><li><div class="item-name"><a class="mod" href="const_hex2array/index.html" title="mod sp_core::const_hex2array">const_hex2array</a></div><div class="desc docblock-short">Provides a const function for converting a hex string to a <code>u8</code> array at compile time, when used
+in the proper context.</div></li><li><div class="item-name"><a class="mod" href="crypto/index.html" title="mod sp_core::crypto">crypto</a></div><div class="desc docblock-short">Cryptographic utilities.</div></li><li><div class="item-name"><a class="mod" href="crypto_bytes/index.html" title="mod sp_core::crypto_bytes">crypto_bytes</a></div><div class="desc docblock-short">Generic byte array which can be specialized with a marker type.</div></li><li><div class="item-name"><a class="mod" href="defer/index.html" title="mod sp_core::defer">defer</a></div><div class="desc docblock-short">Contains the <a href="macro.defer.html" title="macro sp_core::defer"><code>crate::defer!</code></a> macro for <em>deferring</em> the execution
+of code until the current scope is dropped.
+This helps with <em>always</em> executing cleanup code.</div></li><li><div class="item-name"><a class="mod" href="ecdsa/index.html" title="mod sp_core::ecdsa">ecdsa</a></div><div class="desc docblock-short">Simple ECDSA secp256k1 API.</div></li><li><div class="item-name"><a class="mod" href="ed25519/index.html" title="mod sp_core::ed25519">ed25519</a></div><div class="desc docblock-short">Simple Ed25519 API.</div></li><li><div class="item-name"><a class="mod" href="hash/index.html" title="mod sp_core::hash">hash</a></div><div class="desc docblock-short">A fixed hash type.</div></li><li><div class="item-name"><a class="mod" href="hexdisplay/index.html" title="mod sp_core::hexdisplay">hexdisplay</a></div><div class="desc docblock-short">Wrapper type for byte collections that outputs hex.</div></li><li><div class="item-name"><a class="mod" href="offchain/index.html" title="mod sp_core::offchain">offchain</a></div><div class="desc docblock-short">Offchain workers types</div></li><li><div class="item-name"><a class="mod" href="paired_crypto/index.html" title="mod sp_core::paired_crypto">paired_crypto</a></div><div class="desc docblock-short">API for using a pair of crypto schemes together.</div></li><li><div class="item-name"><a class="mod" href="sr25519/index.html" title="mod sp_core::sr25519">sr25519</a></div><div class="desc docblock-short">Simple sr25519 (Schnorr-Ristretto) API.</div></li><li><div class="item-name"><a class="mod" href="testing/index.html" title="mod sp_core::testing">testing</a></div><div class="desc docblock-short">Types that should only be used for testing!</div></li><li><div class="item-name"><a class="mod" href="traits/index.html" title="mod sp_core::traits">traits</a></div><div class="desc docblock-short">Shareable Substrate traits.</div></li><li><div class="item-name"><a class="mod" href="uint/index.html" title="mod sp_core::uint">uint</a></div><div class="desc docblock-short">An unsigned fixed-size integer.</div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.bounded_btree_map.html" title="macro sp_core::bounded_btree_map">bounded_btree_map</a></div><div class="desc docblock-short">Build a bounded btree-map from the given literals.</div></li><li><div class="item-name"><a class="macro" href="macro.bounded_vec.html" title="macro sp_core::bounded_vec">bounded_vec</a></div><div class="desc docblock-short">Build a bounded vec from the given literals.</div></li><li><div class="item-name"><a class="macro" href="macro.defer.html" title="macro sp_core::defer">defer</a></div><div class="desc docblock-short">Executes the given code when the current scope is dropped.</div></li><li><div class="item-name"><a class="macro" href="macro.generate_feature_enabled_macro.html" title="macro sp_core::generate_feature_enabled_macro">generate_feature_enabled_macro</a></div><div class="desc docblock-short">Generates a macro for checking if a certain feature is enabled.</div></li><li><div class="item-name"><a class="macro" href="macro.hex2array.html" title="macro sp_core::hex2array">hex2array</a></div><div class="desc docblock-short">Provides a const array from given string literal.</div></li><li><div class="item-name"><a class="macro" href="macro.impl_maybe_marker.html" title="macro sp_core::impl_maybe_marker">impl_maybe_marker</a></div><div class="desc docblock-short">Macro for creating <code>Maybe*</code> marker traits.</div></li><li><div class="item-name"><a class="macro" href="macro.impl_maybe_marker_std_or_serde.html" title="macro sp_core::impl_maybe_marker_std_or_serde">impl_maybe_marker_std_or_serde</a></div><div class="desc docblock-short">Macro for creating <code>Maybe*</code> marker traits.</div></li><li><div class="item-name"><a class="macro" href="macro.map.html" title="macro sp_core::map">map</a></div><div class="desc docblock-short">Initialize a key-value collection from array.</div></li><li><div class="item-name"><a class="macro" href="macro.parameter_types.html" title="macro sp_core::parameter_types">parameter_types</a></div><div class="desc docblock-short">Create new implementations of the <a href="trait.Get.html" title="trait sp_core::Get"><code>Get</code></a> trait.</div></li><li><div class="item-name"><a class="macro" href="macro.wasm_export_functions.html" title="macro sp_core::wasm_export_functions">wasm_export_functions</a></div><div class="desc docblock-short">Macro for exporting functions from wasm in with the expected signature for using it with the
+wasm executor. This is useful for tests where you need to call a function in wasm.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Blake2Hasher.html" title="struct sp_core::Blake2Hasher">Blake2Hasher</a></div><div class="desc docblock-short">Concrete implementation of Hasher using Blake2b 256-bit hashes</div></li><li><div class="item-name"><a class="struct" href="struct.Bytes.html" title="struct sp_core::Bytes">Bytes</a></div><div class="desc docblock-short">Hex-serialized shim for <code>Vec&lt;u8&gt;</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstBool.html" title="struct sp_core::ConstBool">ConstBool</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstI8.html" title="struct sp_core::ConstI8">ConstI8</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstI16.html" title="struct sp_core::ConstI16">ConstI16</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstI32.html" title="struct sp_core::ConstI32">ConstI32</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstI64.html" title="struct sp_core::ConstI64">ConstI64</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstI128.html" title="struct sp_core::ConstI128">ConstI128</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstU8.html" title="struct sp_core::ConstU8">ConstU8</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstU16.html" title="struct sp_core::ConstU16">ConstU16</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstU32.html" title="struct sp_core::ConstU32">ConstU32</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstU64.html" title="struct sp_core::ConstU64">ConstU64</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstU128.html" title="struct sp_core::ConstU128">ConstU128</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.GetDefault.html" title="struct sp_core::GetDefault">GetDefault</a></div><div class="desc docblock-short">Implement Get by returning Default for any type that implements Default.</div></li><li><div class="item-name"><a class="struct" href="struct.H160.html" title="struct sp_core::H160">H160</a></div><div class="desc docblock-short">Fixed-size uninterpreted hash type with 20 bytes (160 bits) size.</div></li><li><div class="item-name"><a class="struct" href="struct.H256.html" title="struct sp_core::H256">H256</a></div><div class="desc docblock-short">Fixed-size uninterpreted hash type with 32 bytes (256 bits) size.</div></li><li><div class="item-name"><a class="struct" href="struct.H512.html" title="struct sp_core::H512">H512</a></div><div class="desc docblock-short">Fixed-size uninterpreted hash type with 64 bytes (512 bits) size.</div></li><li><div class="item-name"><a class="struct" href="struct.KeccakHasher.html" title="struct sp_core::KeccakHasher">KeccakHasher</a></div><div class="desc docblock-short">Concrete implementation of Hasher using Keccak 256-bit hashes</div></li><li><div class="item-name"><a class="struct" href="struct.OpaqueMetadata.html" title="struct sp_core::OpaqueMetadata">OpaqueMetadata</a></div><div class="desc docblock-short">Stores the encoded <code>RuntimeMetadata</code> for the native side as opaque type.</div></li><li><div class="item-name"><a class="struct" href="struct.OpaquePeerId.html" title="struct sp_core::OpaquePeerId">OpaquePeerId</a></div><div class="desc docblock-short">Simple blob to hold a <code>PeerId</code> without committing to its format.</div></li><li><div class="item-name"><a class="struct" href="struct.U256.html" title="struct sp_core::U256">U256</a></div><div class="desc docblock-short">Little-endian large integer type
+256-bit unsigned integer.</div></li><li><div class="item-name"><a class="struct" href="struct.U512.html" title="struct sp_core::U512">U512</a></div><div class="desc docblock-short">Little-endian large integer type
+512-bits unsigned integer.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.LogLevel.html" title="enum sp_core::LogLevel">LogLevel</a></div><div class="desc docblock-short">A log level matching the one from <code>log</code> crate.</div></li><li><div class="item-name"><a class="enum" href="enum.LogLevelFilter.html" title="enum sp_core::LogLevelFilter">LogLevelFilter</a></div><div class="desc docblock-short">Log level filter that expresses which log levels should be filtered.</div></li><li><div class="item-name"><a class="enum" href="enum.Void.html" title="enum sp_core::Void">Void</a></div><div class="desc docblock-short">The void type - it cannot exist.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.MAX_POSSIBLE_ALLOCATION.html" title="constant sp_core::MAX_POSSIBLE_ALLOCATION">MAX_POSSIBLE_ALLOCATION</a></div><div class="desc docblock-short">The maximum number of bytes that can be allocated at one time.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Get.html" title="trait sp_core::Get">Get</a></div><div class="desc docblock-short">A trait for querying a single value from a type.</div></li><li><div class="item-name"><a class="trait" href="trait.Hasher.html" title="trait sp_core::Hasher">Hasher</a></div><div class="desc docblock-short">Trait describing an object that can hash a slice of bytes. Used to abstract
+other types over the hashing algorithm. Defines a single <code>hash</code> method and an
+<code>Out</code> associated type with the necessary bounds.</div></li><li><div class="item-name"><a class="trait" href="trait.TryCollect.html" title="trait sp_core::TryCollect">TryCollect</a></div><div class="desc docblock-short">Try and collect into a collection <code>C</code>.</div></li><li><div class="item-name"><a class="trait" href="trait.TypeId.html" title="trait sp_core::TypeId">TypeId</a></div><div class="desc docblock-short">Provide a simple 4 byte identifier for a type.</div></li><li><div class="item-name"><a class="trait" href="trait.TypedGet.html" title="trait sp_core::TypedGet">TypedGet</a></div><div class="desc docblock-short">A trait for querying a single value from a type defined in the trait.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.blake2_64.html" title="fn sp_core::blake2_64">blake2_64</a></div><div class="desc docblock-short">Do a Blake2 64-bit hash and return result.</div></li><li><div class="item-name"><a class="fn" href="fn.blake2_128.html" title="fn sp_core::blake2_128">blake2_128</a></div><div class="desc docblock-short">Do a Blake2 128-bit hash and return result.</div></li><li><div class="item-name"><a class="fn" href="fn.blake2_256.html" title="fn sp_core::blake2_256">blake2_256</a></div><div class="desc docblock-short">Do a Blake2 256-bit hash and return result.</div></li><li><div class="item-name"><a class="fn" href="fn.blake2_512.html" title="fn sp_core::blake2_512">blake2_512</a></div><div class="desc docblock-short">Do a Blake2 512-bit hash and return result.</div></li><li><div class="item-name"><a class="fn" href="fn.blake2_512_into.html" title="fn sp_core::blake2_512_into">blake2_512_into</a></div><div class="desc docblock-short">Do a Blake2 512-bit hash and place result in <code>dest</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.keccak_256.html" title="fn sp_core::keccak_256">keccak_256</a></div><div class="desc docblock-short">Do a keccak 256-bit hash and return result.</div></li><li><div class="item-name"><a class="fn" href="fn.keccak_512.html" title="fn sp_core::keccak_512">keccak_512</a></div><div class="desc docblock-short">Do a keccak 512-bit hash and return result.</div></li><li><div class="item-name"><a class="fn" href="fn.sha2_256.html" title="fn sp_core::sha2_256">sha2_256</a></div><div class="desc docblock-short">Do a sha2 256-bit hash and return result.</div></li><li><div class="item-name"><a class="fn" href="fn.twox_64.html" title="fn sp_core::twox_64">twox_64</a></div><div class="desc docblock-short">Do a XX 64-bit hash and return result.</div></li><li><div class="item-name"><a class="fn" href="fn.twox_64_into.html" title="fn sp_core::twox_64_into">twox_64_into</a></div><div class="desc docblock-short">Do a XX 64-bit hash and place result in <code>dest</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.twox_128.html" title="fn sp_core::twox_128">twox_128</a></div><div class="desc docblock-short">Do a XX 128-bit hash and return result.</div></li><li><div class="item-name"><a class="fn" href="fn.twox_256.html" title="fn sp_core::twox_256">twox_256</a></div><div class="desc docblock-short">Do a XX 256-bit hash and return result.</div></li><li><div class="item-name"><a class="fn" href="fn.twox_128_into.html" title="fn sp_core::twox_128_into">twox_128_into</a></div><div class="desc docblock-short">Do a XX 128-bit hash and place result in <code>dest</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.twox_256_into.html" title="fn sp_core::twox_256_into">twox_256_into</a></div><div class="desc docblock-short">Do a XX 256-bit hash and place result in <code>dest</code>.</div></li></ul><h2 id="derives" class="section-header">Derive Macros<a href="#derives" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="derive" href="derive.RuntimeDebug.html" title="derive sp_core::RuntimeDebug">RuntimeDebug</a></div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

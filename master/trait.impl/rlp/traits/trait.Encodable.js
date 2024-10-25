@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"pallet_revive":[["impl Encodable for <a class=\"struct\" href=\"pallet_revive/evm/struct.TransactionLegacySigned.html\" title=\"struct pallet_revive::evm::TransactionLegacySigned\">TransactionLegacySigned</a>"],["impl Encodable for <a class=\"struct\" href=\"pallet_revive/evm/struct.TransactionLegacyUnsigned.html\" title=\"struct pallet_revive::evm::TransactionLegacyUnsigned\">TransactionLegacyUnsigned</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,710 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The basic concrete type of `Instruction`, which doesn’t make any assumptions about the format of a call other than it is pre-encoded."><title>Instruction in staging_xcm::v4::opaque - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="staging_xcm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../staging_xcm/index.html">staging_xcm</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">Instruction</a></h2><div class="sidebar-elems"><section><h3><a href="#aliased-type">Aliased type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.AliasOrigin">AliasOrigin</a></li><li><a href="#variant.BurnAsset">BurnAsset</a></li><li><a href="#variant.BuyExecution">BuyExecution</a></li><li><a href="#variant.ClaimAsset">ClaimAsset</a></li><li><a href="#variant.ClearError">ClearError</a></li><li><a href="#variant.ClearOrigin">ClearOrigin</a></li><li><a href="#variant.ClearTopic">ClearTopic</a></li><li><a href="#variant.ClearTransactStatus">ClearTransactStatus</a></li><li><a href="#variant.DepositAsset">DepositAsset</a></li><li><a href="#variant.DepositReserveAsset">DepositReserveAsset</a></li><li><a href="#variant.DescendOrigin">DescendOrigin</a></li><li><a href="#variant.ExchangeAsset">ExchangeAsset</a></li><li><a href="#variant.ExpectAsset">ExpectAsset</a></li><li><a href="#variant.ExpectError">ExpectError</a></li><li><a href="#variant.ExpectOrigin">ExpectOrigin</a></li><li><a href="#variant.ExpectPallet">ExpectPallet</a></li><li><a href="#variant.ExpectTransactStatus">ExpectTransactStatus</a></li><li><a href="#variant.ExportMessage">ExportMessage</a></li><li><a href="#variant.HrmpChannelAccepted">HrmpChannelAccepted</a></li><li><a href="#variant.HrmpChannelClosing">HrmpChannelClosing</a></li><li><a href="#variant.HrmpNewChannelOpenRequest">HrmpNewChannelOpenRequest</a></li><li><a href="#variant.InitiateReserveWithdraw">InitiateReserveWithdraw</a></li><li><a href="#variant.InitiateTeleport">InitiateTeleport</a></li><li><a href="#variant.LockAsset">LockAsset</a></li><li><a href="#variant.NoteUnlockable">NoteUnlockable</a></li><li><a href="#variant.QueryPallet">QueryPallet</a></li><li><a href="#variant.QueryResponse">QueryResponse</a></li><li><a href="#variant.ReceiveTeleportedAsset">ReceiveTeleportedAsset</a></li><li><a href="#variant.RefundSurplus">RefundSurplus</a></li><li><a href="#variant.ReportError">ReportError</a></li><li><a href="#variant.ReportHolding">ReportHolding</a></li><li><a href="#variant.ReportTransactStatus">ReportTransactStatus</a></li><li><a href="#variant.RequestUnlock">RequestUnlock</a></li><li><a href="#variant.ReserveAssetDeposited">ReserveAssetDeposited</a></li><li><a href="#variant.SetAppendix">SetAppendix</a></li><li><a href="#variant.SetErrorHandler">SetErrorHandler</a></li><li><a href="#variant.SetFeesMode">SetFeesMode</a></li><li><a href="#variant.SetTopic">SetTopic</a></li><li><a href="#variant.SubscribeVersion">SubscribeVersion</a></li><li><a href="#variant.Transact">Transact</a></li><li><a href="#variant.TransferAsset">TransferAsset</a></li><li><a href="#variant.TransferReserveAsset">TransferReserveAsset</a></li><li><a href="#variant.Trap">Trap</a></li><li><a href="#variant.UniversalOrigin">UniversalOrigin</a></li><li><a href="#variant.UnlockAsset">UnlockAsset</a></li><li><a href="#variant.UnpaidExecution">UnpaidExecution</a></li><li><a href="#variant.UnsubscribeVersion">UnsubscribeVersion</a></li><li><a href="#variant.WithdrawAsset">WithdrawAsset</a></li></ul></section><h2><a href="index.html">In staging_xcm::v4::opaque</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Type Alias <a href="../../index.html">staging_xcm</a>::<wbr><a href="../index.html">v4</a>::<wbr><a href="index.html">opaque</a>::<wbr><a class="type" href="#">Instruction</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/staging_xcm/v4/mod.rs.html#1198">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub type Instruction = <a class="enum" href="../enum.Instruction.html" title="enum staging_xcm::v4::Instruction">Instruction</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The basic concrete type of <code>Instruction</code>, which doesn’t make any assumptions about the
+format of a call other than it is pre-encoded.</p>
+</div></details><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Instruction {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 48 variants</span></summary>    WithdrawAsset(<a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>),
+    ReserveAssetDeposited(<a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>),
+    ReceiveTeleportedAsset(<a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>),
+    QueryResponse {
+        query_id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>,
+        response: <a class="enum" href="../enum.Response.html" title="enum staging_xcm::v4::Response">Response</a>,
+        max_weight: <a class="struct" href="../struct.Weight.html" title="struct staging_xcm::v4::Weight">Weight</a>,
+        querier: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;,
+    },
+    TransferAsset {
+        assets: <a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>,
+        beneficiary: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>,
+    },
+    TransferReserveAsset {
+        assets: <a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>,
+        dest: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>,
+        xcm: <a class="struct" href="../struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+    },
+    Transact {
+        origin_kind: <a class="enum" href="../../v3/enum.OriginKind.html" title="enum staging_xcm::v3::OriginKind">OriginKind</a>,
+        require_weight_at_most: <a class="struct" href="../struct.Weight.html" title="struct staging_xcm::v4::Weight">Weight</a>,
+        call: <a class="struct" href="../../struct.DoubleEncoded.html" title="struct staging_xcm::DoubleEncoded">DoubleEncoded</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+    },
+    HrmpNewChannelOpenRequest {
+        sender: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+        max_message_size: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+        max_capacity: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    },
+    HrmpChannelAccepted {
+        recipient: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    },
+    HrmpChannelClosing {
+        initiator: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+        sender: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+        recipient: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    },
+    ClearOrigin,
+    DescendOrigin(<a class="enum" href="../enum.Junctions.html" title="enum staging_xcm::v4::Junctions">Junctions</a>),
+    ReportError(<a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a>),
+    DepositAsset {
+        assets: <a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>,
+        beneficiary: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>,
+    },
+    DepositReserveAsset {
+        assets: <a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>,
+        dest: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>,
+        xcm: <a class="struct" href="../struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+    },
+    ExchangeAsset {
+        give: <a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>,
+        want: <a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>,
+        maximal: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,
+    },
+    InitiateReserveWithdraw {
+        assets: <a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>,
+        reserve: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>,
+        xcm: <a class="struct" href="../struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+    },
+    InitiateTeleport {
+        assets: <a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>,
+        dest: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>,
+        xcm: <a class="struct" href="../struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+    },
+    ReportHolding {
+        response_info: <a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a>,
+        assets: <a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>,
+    },
+    BuyExecution {
+        fees: <a class="struct" href="../struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>,
+        weight_limit: <a class="enum" href="../../v3/enum.WeightLimit.html" title="enum staging_xcm::v3::WeightLimit">WeightLimit</a>,
+    },
+    RefundSurplus,
+    SetErrorHandler(<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;),
+    SetAppendix(<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;),
+    ClearError,
+    ClaimAsset {
+        assets: <a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>,
+        ticket: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>,
+    },
+    Trap(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>),
+    SubscribeVersion {
+        query_id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>,
+        max_response_weight: <a class="struct" href="../struct.Weight.html" title="struct staging_xcm::v4::Weight">Weight</a>,
+    },
+    UnsubscribeVersion,
+    BurnAsset(<a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>),
+    ExpectAsset(<a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>),
+    ExpectOrigin(<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;),
+    ExpectError(<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="enum" href="../../v3/enum.Error.html" title="enum staging_xcm::v3::Error">Error</a>)&gt;),
+    ExpectTransactStatus(<a class="enum" href="../../v3/enum.MaybeErrorCode.html" title="enum staging_xcm::v3::MaybeErrorCode">MaybeErrorCode</a>),
+    QueryPallet {
+        module_name: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+        response_info: <a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a>,
+    },
+    ExpectPallet {
+        index: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+        name: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+        module_name: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+        crate_major: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+        min_crate_minor: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    },
+    ReportTransactStatus(<a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a>),
+    ClearTransactStatus,
+    UniversalOrigin(<a class="enum" href="../enum.Junction.html" title="enum staging_xcm::v4::Junction">Junction</a>),
+    ExportMessage {
+        network: <a class="enum" href="../enum.NetworkId.html" title="enum staging_xcm::v4::NetworkId">NetworkId</a>,
+        destination: <a class="enum" href="../enum.Junctions.html" title="enum staging_xcm::v4::Junctions">Junctions</a>,
+        xcm: <a class="struct" href="../struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+    },
+    LockAsset {
+        asset: <a class="struct" href="../struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>,
+        unlocker: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>,
+    },
+    UnlockAsset {
+        asset: <a class="struct" href="../struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>,
+        target: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>,
+    },
+    NoteUnlockable {
+        asset: <a class="struct" href="../struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>,
+        owner: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>,
+    },
+    RequestUnlock {
+        asset: <a class="struct" href="../struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>,
+        locker: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>,
+    },
+    SetFeesMode {
+        jit_withdraw: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,
+    },
+    SetTopic([<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>]),
+    ClearTopic,
+    AliasOrigin(<a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>),
+    UnpaidExecution {
+        weight_limit: <a class="enum" href="../../v3/enum.WeightLimit.html" title="enum staging_xcm::v3::WeightLimit">WeightLimit</a>,
+        check_origin: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;,
+    },
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.WithdrawAsset" class="variant"><a href="#variant.WithdrawAsset" class="anchor">§</a><h3 class="code-header">WithdrawAsset(<a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>)</h3></section><div class="docblock"><p>Withdraw asset(s) (<code>assets</code>) from the ownership of <code>origin</code> and place them into the Holding
+Register.</p>
+<ul>
+<li><code>assets</code>: The asset(s) to be withdrawn into holding.</li>
+</ul>
+<p>Kind: <em>Command</em>.</p>
+<p>Errors:</p>
+</div><section id="variant.ReserveAssetDeposited" class="variant"><a href="#variant.ReserveAssetDeposited" class="anchor">§</a><h3 class="code-header">ReserveAssetDeposited(<a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>)</h3></section><div class="docblock"><p>Asset(s) (<code>assets</code>) have been received into the ownership of this system on the <code>origin</code>
+system and equivalent derivatives should be placed into the Holding Register.</p>
+<ul>
+<li><code>assets</code>: The asset(s) that are minted into holding.</li>
+</ul>
+<p>Safety: <code>origin</code> must be trusted to have received and be storing <code>assets</code> such that they
+may later be withdrawn should this system send a corresponding message.</p>
+<p>Kind: <em>Trusted Indication</em>.</p>
+<p>Errors:</p>
+</div><section id="variant.ReceiveTeleportedAsset" class="variant"><a href="#variant.ReceiveTeleportedAsset" class="anchor">§</a><h3 class="code-header">ReceiveTeleportedAsset(<a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>)</h3></section><div class="docblock"><p>Asset(s) (<code>assets</code>) have been destroyed on the <code>origin</code> system and equivalent assets should
+be created and placed into the Holding Register.</p>
+<ul>
+<li><code>assets</code>: The asset(s) that are minted into the Holding Register.</li>
+</ul>
+<p>Safety: <code>origin</code> must be trusted to have irrevocably destroyed the corresponding <code>assets</code>
+prior as a consequence of sending this message.</p>
+<p>Kind: <em>Trusted Indication</em>.</p>
+<p>Errors:</p>
+</div><section id="variant.QueryResponse" class="variant"><a href="#variant.QueryResponse" class="anchor">§</a><h3 class="code-header">QueryResponse</h3></section><div class="docblock"><p>Respond with information that the local system is expecting.</p>
+<ul>
+<li><code>query_id</code>: The identifier of the query that resulted in this message being sent.</li>
+<li><code>response</code>: The message content.</li>
+<li><code>max_weight</code>: The maximum weight that handling this response should take.</li>
+<li><code>querier</code>: The location responsible for the initiation of the response, if there is one.
+In general this will tend to be the same location as the receiver of this message. NOTE:
+As usual, this is interpreted from the perspective of the receiving consensus system.</li>
+</ul>
+<p>Safety: Since this is information only, there are no immediate concerns. However, it should
+be remembered that even if the Origin behaves reasonably, it can always be asked to make
+a response to a third-party chain who may or may not be expecting the response. Therefore
+the <code>querier</code> should be checked to match the expected value.</p>
+<p>Kind: <em>Information</em>.</p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.QueryResponse.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.QueryResponse.field.query_id" class="section-header"><a href="#variant.QueryResponse.field.query_id" class="anchor field">§</a><code>query_id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a></code></span></div><div class="sub-variant-field"><span id="variant.QueryResponse.field.response" class="section-header"><a href="#variant.QueryResponse.field.response" class="anchor field">§</a><code>response: <a class="enum" href="../enum.Response.html" title="enum staging_xcm::v4::Response">Response</a></code></span></div><div class="sub-variant-field"><span id="variant.QueryResponse.field.max_weight" class="section-header"><a href="#variant.QueryResponse.field.max_weight" class="anchor field">§</a><code>max_weight: <a class="struct" href="../struct.Weight.html" title="struct staging_xcm::v4::Weight">Weight</a></code></span></div><div class="sub-variant-field"><span id="variant.QueryResponse.field.querier" class="section-header"><a href="#variant.QueryResponse.field.querier" class="anchor field">§</a><code>querier: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;</code></span></div></div><section id="variant.TransferAsset" class="variant"><a href="#variant.TransferAsset" class="anchor">§</a><h3 class="code-header">TransferAsset</h3></section><div class="docblock"><p>Withdraw asset(s) (<code>assets</code>) from the ownership of <code>origin</code> and place equivalent assets
+under the ownership of <code>beneficiary</code>.</p>
+<ul>
+<li><code>assets</code>: The asset(s) to be withdrawn.</li>
+<li><code>beneficiary</code>: The new owner for the assets.</li>
+</ul>
+<p>Safety: No concerns.</p>
+<p>Kind: <em>Command</em>.</p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.TransferAsset.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.TransferAsset.field.assets" class="section-header"><a href="#variant.TransferAsset.field.assets" class="anchor field">§</a><code>assets: <a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a></code></span></div><div class="sub-variant-field"><span id="variant.TransferAsset.field.beneficiary" class="section-header"><a href="#variant.TransferAsset.field.beneficiary" class="anchor field">§</a><code>beneficiary: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a></code></span></div></div><section id="variant.TransferReserveAsset" class="variant"><a href="#variant.TransferReserveAsset" class="anchor">§</a><h3 class="code-header">TransferReserveAsset</h3></section><div class="docblock"><p>Withdraw asset(s) (<code>assets</code>) from the ownership of <code>origin</code> and place equivalent assets
+under the ownership of <code>dest</code> within this consensus system (i.e. its sovereign account).</p>
+<p>Send an onward XCM message to <code>dest</code> of <code>ReserveAssetDeposited</code> with the given
+<code>xcm</code>.</p>
+<ul>
+<li><code>assets</code>: The asset(s) to be withdrawn.</li>
+<li><code>dest</code>: The location whose sovereign account will own the assets and thus the effective
+beneficiary for the assets and the notification target for the reserve asset deposit
+message.</li>
+<li><code>xcm</code>: The instructions that should follow the <code>ReserveAssetDeposited</code> instruction, which
+is sent onwards to <code>dest</code>.</li>
+</ul>
+<p>Safety: No concerns.</p>
+<p>Kind: <em>Command</em>.</p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.TransferReserveAsset.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.TransferReserveAsset.field.assets" class="section-header"><a href="#variant.TransferReserveAsset.field.assets" class="anchor field">§</a><code>assets: <a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a></code></span></div><div class="sub-variant-field"><span id="variant.TransferReserveAsset.field.dest" class="section-header"><a href="#variant.TransferReserveAsset.field.dest" class="anchor field">§</a><code>dest: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a></code></span></div><div class="sub-variant-field"><span id="variant.TransferReserveAsset.field.xcm" class="section-header"><a href="#variant.TransferReserveAsset.field.xcm" class="anchor field">§</a><code>xcm: <a class="struct" href="../struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</code></span></div></div><section id="variant.Transact" class="variant"><a href="#variant.Transact" class="anchor">§</a><h3 class="code-header">Transact</h3></section><div class="docblock"><p>Apply the encoded transaction <code>call</code>, whose dispatch-origin should be <code>origin</code> as expressed
+by the kind of origin <code>origin_kind</code>.</p>
+<p>The Transact Status Register is set according to the result of dispatching the call.</p>
+<ul>
+<li><code>origin_kind</code>: The means of expressing the message origin as a dispatch origin.</li>
+<li><code>require_weight_at_most</code>: The weight of <code>call</code>; this should be at least the chain’s
+calculated weight and will be used in the weight determination arithmetic.</li>
+<li><code>call</code>: The encoded transaction to be applied.</li>
+</ul>
+<p>Safety: No concerns.</p>
+<p>Kind: <em>Command</em>.</p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.Transact.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Transact.field.origin_kind" class="section-header"><a href="#variant.Transact.field.origin_kind" class="anchor field">§</a><code>origin_kind: <a class="enum" href="../../v3/enum.OriginKind.html" title="enum staging_xcm::v3::OriginKind">OriginKind</a></code></span></div><div class="sub-variant-field"><span id="variant.Transact.field.require_weight_at_most" class="section-header"><a href="#variant.Transact.field.require_weight_at_most" class="anchor field">§</a><code>require_weight_at_most: <a class="struct" href="../struct.Weight.html" title="struct staging_xcm::v4::Weight">Weight</a></code></span></div><div class="sub-variant-field"><span id="variant.Transact.field.call" class="section-header"><a href="#variant.Transact.field.call" class="anchor field">§</a><code>call: <a class="struct" href="../../struct.DoubleEncoded.html" title="struct staging_xcm::DoubleEncoded">DoubleEncoded</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</code></span></div></div><section id="variant.HrmpNewChannelOpenRequest" class="variant"><a href="#variant.HrmpNewChannelOpenRequest" class="anchor">§</a><h3 class="code-header">HrmpNewChannelOpenRequest</h3></section><div class="docblock"><p>A message to notify about a new incoming HRMP channel. This message is meant to be sent by
+the relay-chain to a para.</p>
+<ul>
+<li><code>sender</code>: The sender in the to-be opened channel. Also, the initiator of the channel
+opening.</li>
+<li><code>max_message_size</code>: The maximum size of a message proposed by the sender.</li>
+<li><code>max_capacity</code>: The maximum number of messages that can be queued in the channel.</li>
+</ul>
+<p>Safety: The message should originate directly from the relay-chain.</p>
+<p>Kind: <em>System Notification</em></p>
+</div><div class="sub-variant" id="variant.HrmpNewChannelOpenRequest.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.HrmpNewChannelOpenRequest.field.sender" class="section-header"><a href="#variant.HrmpNewChannelOpenRequest.field.sender" class="anchor field">§</a><code>sender: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.HrmpNewChannelOpenRequest.field.max_message_size" class="section-header"><a href="#variant.HrmpNewChannelOpenRequest.field.max_message_size" class="anchor field">§</a><code>max_message_size: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.HrmpNewChannelOpenRequest.field.max_capacity" class="section-header"><a href="#variant.HrmpNewChannelOpenRequest.field.max_capacity" class="anchor field">§</a><code>max_capacity: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.HrmpChannelAccepted" class="variant"><a href="#variant.HrmpChannelAccepted" class="anchor">§</a><h3 class="code-header">HrmpChannelAccepted</h3></section><div class="docblock"><p>A message to notify about that a previously sent open channel request has been accepted by
+the recipient. That means that the channel will be opened during the next relay-chain
+session change. This message is meant to be sent by the relay-chain to a para.</p>
+<p>Safety: The message should originate directly from the relay-chain.</p>
+<p>Kind: <em>System Notification</em></p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.HrmpChannelAccepted.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.HrmpChannelAccepted.field.recipient" class="section-header"><a href="#variant.HrmpChannelAccepted.field.recipient" class="anchor field">§</a><code>recipient: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.HrmpChannelClosing" class="variant"><a href="#variant.HrmpChannelClosing" class="anchor">§</a><h3 class="code-header">HrmpChannelClosing</h3></section><div class="docblock"><p>A message to notify that the other party in an open channel decided to close it. In
+particular, <code>initiator</code> is going to close the channel opened from <code>sender</code> to the
+<code>recipient</code>. The close will be enacted at the next relay-chain session change. This message
+is meant to be sent by the relay-chain to a para.</p>
+<p>Safety: The message should originate directly from the relay-chain.</p>
+<p>Kind: <em>System Notification</em></p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.HrmpChannelClosing.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.HrmpChannelClosing.field.initiator" class="section-header"><a href="#variant.HrmpChannelClosing.field.initiator" class="anchor field">§</a><code>initiator: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.HrmpChannelClosing.field.sender" class="section-header"><a href="#variant.HrmpChannelClosing.field.sender" class="anchor field">§</a><code>sender: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.HrmpChannelClosing.field.recipient" class="section-header"><a href="#variant.HrmpChannelClosing.field.recipient" class="anchor field">§</a><code>recipient: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.ClearOrigin" class="variant"><a href="#variant.ClearOrigin" class="anchor">§</a><h3 class="code-header">ClearOrigin</h3></section><div class="docblock"><p>Clear the origin.</p>
+<p>This may be used by the XCM author to ensure that later instructions cannot command the
+authority of the origin (e.g. if they are being relayed from an untrusted source, as often
+the case with <code>ReserveAssetDeposited</code>).</p>
+<p>Safety: No concerns.</p>
+<p>Kind: <em>Command</em>.</p>
+<p>Errors:</p>
+</div><section id="variant.DescendOrigin" class="variant"><a href="#variant.DescendOrigin" class="anchor">§</a><h3 class="code-header">DescendOrigin(<a class="enum" href="../enum.Junctions.html" title="enum staging_xcm::v4::Junctions">Junctions</a>)</h3></section><div class="docblock"><p>Mutate the origin to some interior location.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+</div><section id="variant.ReportError" class="variant"><a href="#variant.ReportError" class="anchor">§</a><h3 class="code-header">ReportError(<a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a>)</h3></section><div class="docblock"><p>Immediately report the contents of the Error Register to the given destination via XCM.</p>
+<p>A <code>QueryResponse</code> message of type <code>ExecutionOutcome</code> is sent to the described destination.</p>
+<ul>
+<li><code>response_info</code>: Information for making the response.</li>
+</ul>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+</div><section id="variant.DepositAsset" class="variant"><a href="#variant.DepositAsset" class="anchor">§</a><h3 class="code-header">DepositAsset</h3></section><div class="docblock"><p>Remove the asset(s) (<code>assets</code>) from the Holding Register and place equivalent assets under
+the ownership of <code>beneficiary</code> within this consensus system.</p>
+<ul>
+<li><code>assets</code>: The asset(s) to remove from holding.</li>
+<li><code>beneficiary</code>: The new owner for the assets.</li>
+</ul>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.DepositAsset.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.DepositAsset.field.assets" class="section-header"><a href="#variant.DepositAsset.field.assets" class="anchor field">§</a><code>assets: <a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a></code></span></div><div class="sub-variant-field"><span id="variant.DepositAsset.field.beneficiary" class="section-header"><a href="#variant.DepositAsset.field.beneficiary" class="anchor field">§</a><code>beneficiary: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a></code></span></div></div><section id="variant.DepositReserveAsset" class="variant"><a href="#variant.DepositReserveAsset" class="anchor">§</a><h3 class="code-header">DepositReserveAsset</h3></section><div class="docblock"><p>Remove the asset(s) (<code>assets</code>) from the Holding Register and place equivalent assets under
+the ownership of <code>dest</code> within this consensus system (i.e. deposit them into its sovereign
+account).</p>
+<p>Send an onward XCM message to <code>dest</code> of <code>ReserveAssetDeposited</code> with the given <code>effects</code>.</p>
+<ul>
+<li><code>assets</code>: The asset(s) to remove from holding.</li>
+<li><code>dest</code>: The location whose sovereign account will own the assets and thus the effective
+beneficiary for the assets and the notification target for the reserve asset deposit
+message.</li>
+<li><code>xcm</code>: The orders that should follow the <code>ReserveAssetDeposited</code> instruction which is
+sent onwards to <code>dest</code>.</li>
+</ul>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.DepositReserveAsset.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.DepositReserveAsset.field.assets" class="section-header"><a href="#variant.DepositReserveAsset.field.assets" class="anchor field">§</a><code>assets: <a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a></code></span></div><div class="sub-variant-field"><span id="variant.DepositReserveAsset.field.dest" class="section-header"><a href="#variant.DepositReserveAsset.field.dest" class="anchor field">§</a><code>dest: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a></code></span></div><div class="sub-variant-field"><span id="variant.DepositReserveAsset.field.xcm" class="section-header"><a href="#variant.DepositReserveAsset.field.xcm" class="anchor field">§</a><code>xcm: <a class="struct" href="../struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</code></span></div></div><section id="variant.ExchangeAsset" class="variant"><a href="#variant.ExchangeAsset" class="anchor">§</a><h3 class="code-header">ExchangeAsset</h3></section><div class="docblock"><p>Remove the asset(s) (<code>want</code>) from the Holding Register and replace them with alternative
+assets.</p>
+<p>The minimum amount of assets to be received into the Holding Register for the order not to
+fail may be stated.</p>
+<ul>
+<li><code>give</code>: The maximum amount of assets to remove from holding.</li>
+<li><code>want</code>: The minimum amount of assets which <code>give</code> should be exchanged for.</li>
+<li><code>maximal</code>: If <code>true</code>, then prefer to give as much as possible up to the limit of <code>give</code>
+and receive accordingly more. If <code>false</code>, then prefer to give as little as possible in
+order to receive as little as possible while receiving at least <code>want</code>.</li>
+</ul>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.ExchangeAsset.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ExchangeAsset.field.give" class="section-header"><a href="#variant.ExchangeAsset.field.give" class="anchor field">§</a><code>give: <a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a></code></span></div><div class="sub-variant-field"><span id="variant.ExchangeAsset.field.want" class="section-header"><a href="#variant.ExchangeAsset.field.want" class="anchor field">§</a><code>want: <a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a></code></span></div><div class="sub-variant-field"><span id="variant.ExchangeAsset.field.maximal" class="section-header"><a href="#variant.ExchangeAsset.field.maximal" class="anchor field">§</a><code>maximal: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></code></span></div></div><section id="variant.InitiateReserveWithdraw" class="variant"><a href="#variant.InitiateReserveWithdraw" class="anchor">§</a><h3 class="code-header">InitiateReserveWithdraw</h3></section><div class="docblock"><p>Remove the asset(s) (<code>assets</code>) from holding and send a <code>WithdrawAsset</code> XCM message to a
+reserve location.</p>
+<ul>
+<li><code>assets</code>: The asset(s) to remove from holding.</li>
+<li><code>reserve</code>: A valid location that acts as a reserve for all asset(s) in <code>assets</code>. The
+sovereign account of this consensus system <em>on the reserve location</em> will have
+appropriate assets withdrawn and <code>effects</code> will be executed on them. There will typically
+be only one valid location on any given asset/chain combination.</li>
+<li><code>xcm</code>: The instructions to execute on the assets once withdrawn <em>on the reserve
+location</em>.</li>
+</ul>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.InitiateReserveWithdraw.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.InitiateReserveWithdraw.field.assets" class="section-header"><a href="#variant.InitiateReserveWithdraw.field.assets" class="anchor field">§</a><code>assets: <a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a></code></span></div><div class="sub-variant-field"><span id="variant.InitiateReserveWithdraw.field.reserve" class="section-header"><a href="#variant.InitiateReserveWithdraw.field.reserve" class="anchor field">§</a><code>reserve: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a></code></span></div><div class="sub-variant-field"><span id="variant.InitiateReserveWithdraw.field.xcm" class="section-header"><a href="#variant.InitiateReserveWithdraw.field.xcm" class="anchor field">§</a><code>xcm: <a class="struct" href="../struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</code></span></div></div><section id="variant.InitiateTeleport" class="variant"><a href="#variant.InitiateTeleport" class="anchor">§</a><h3 class="code-header">InitiateTeleport</h3></section><div class="docblock"><p>Remove the asset(s) (<code>assets</code>) from holding and send a <code>ReceiveTeleportedAsset</code> XCM message
+to a <code>dest</code> location.</p>
+<ul>
+<li><code>assets</code>: The asset(s) to remove from holding.</li>
+<li><code>dest</code>: A valid location that respects teleports coming from this location.</li>
+<li><code>xcm</code>: The instructions to execute on the assets once arrived <em>on the destination
+location</em>.</li>
+</ul>
+<p>NOTE: The <code>dest</code> location <em>MUST</em> respect this origin as a valid teleportation origin for
+all <code>assets</code>. If it does not, then the assets may be lost.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.InitiateTeleport.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.InitiateTeleport.field.assets" class="section-header"><a href="#variant.InitiateTeleport.field.assets" class="anchor field">§</a><code>assets: <a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a></code></span></div><div class="sub-variant-field"><span id="variant.InitiateTeleport.field.dest" class="section-header"><a href="#variant.InitiateTeleport.field.dest" class="anchor field">§</a><code>dest: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a></code></span></div><div class="sub-variant-field"><span id="variant.InitiateTeleport.field.xcm" class="section-header"><a href="#variant.InitiateTeleport.field.xcm" class="anchor field">§</a><code>xcm: <a class="struct" href="../struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</code></span></div></div><section id="variant.ReportHolding" class="variant"><a href="#variant.ReportHolding" class="anchor">§</a><h3 class="code-header">ReportHolding</h3></section><div class="docblock"><p>Report to a given destination the contents of the Holding Register.</p>
+<p>A <code>QueryResponse</code> message of type <code>Assets</code> is sent to the described destination.</p>
+<ul>
+<li><code>response_info</code>: Information for making the response.</li>
+<li><code>assets</code>: A filter for the assets that should be reported back. The assets reported back
+will be, asset-wise, <em>the lesser of this value and the holding register</em>. No wildcards
+will be used when reporting assets back.</li>
+</ul>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.ReportHolding.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ReportHolding.field.response_info" class="section-header"><a href="#variant.ReportHolding.field.response_info" class="anchor field">§</a><code>response_info: <a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a></code></span></div><div class="sub-variant-field"><span id="variant.ReportHolding.field.assets" class="section-header"><a href="#variant.ReportHolding.field.assets" class="anchor field">§</a><code>assets: <a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a></code></span></div></div><section id="variant.BuyExecution" class="variant"><a href="#variant.BuyExecution" class="anchor">§</a><h3 class="code-header">BuyExecution</h3></section><div class="docblock"><p>Pay for the execution of some XCM <code>xcm</code> and <code>orders</code> with up to <code>weight</code>
+picoseconds of execution time, paying for this with up to <code>fees</code> from the Holding Register.</p>
+<ul>
+<li><code>fees</code>: The asset(s) to remove from the Holding Register to pay for fees.</li>
+<li><code>weight_limit</code>: The maximum amount of weight to purchase; this must be at least the
+expected maximum weight of the total XCM to be executed for the
+<code>AllowTopLevelPaidExecutionFrom</code> barrier to allow the XCM be executed.</li>
+</ul>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.BuyExecution.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.BuyExecution.field.fees" class="section-header"><a href="#variant.BuyExecution.field.fees" class="anchor field">§</a><code>fees: <a class="struct" href="../struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a></code></span></div><div class="sub-variant-field"><span id="variant.BuyExecution.field.weight_limit" class="section-header"><a href="#variant.BuyExecution.field.weight_limit" class="anchor field">§</a><code>weight_limit: <a class="enum" href="../../v3/enum.WeightLimit.html" title="enum staging_xcm::v3::WeightLimit">WeightLimit</a></code></span></div></div><section id="variant.RefundSurplus" class="variant"><a href="#variant.RefundSurplus" class="anchor">§</a><h3 class="code-header">RefundSurplus</h3></section><div class="docblock"><p>Refund any surplus weight previously bought with <code>BuyExecution</code>.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors: None.</p>
+</div><section id="variant.SetErrorHandler" class="variant"><a href="#variant.SetErrorHandler" class="anchor">§</a><h3 class="code-header">SetErrorHandler(<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;)</h3></section><div class="docblock"><p>Set the Error Handler Register. This is code that should be called in the case of an error
+happening.</p>
+<p>An error occurring within execution of this code will <em>NOT</em> result in the error register
+being set, nor will an error handler be called due to it. The error handler and appendix
+may each still be set.</p>
+<p>The apparent weight of this instruction is inclusive of the inner <code>Xcm</code>; the executing
+weight however includes only the difference between the previous handler and the new
+handler, which can reasonably be negative, which would result in a surplus.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors: None.</p>
+</div><section id="variant.SetAppendix" class="variant"><a href="#variant.SetAppendix" class="anchor">§</a><h3 class="code-header">SetAppendix(<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;)</h3></section><div class="docblock"><p>Set the Appendix Register. This is code that should be called after code execution
+(including the error handler if any) is finished. This will be called regardless of whether
+an error occurred.</p>
+<p>Any error occurring due to execution of this code will result in the error register being
+set, and the error handler (if set) firing.</p>
+<p>The apparent weight of this instruction is inclusive of the inner <code>Xcm</code>; the executing
+weight however includes only the difference between the previous appendix and the new
+appendix, which can reasonably be negative, which would result in a surplus.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors: None.</p>
+</div><section id="variant.ClearError" class="variant"><a href="#variant.ClearError" class="anchor">§</a><h3 class="code-header">ClearError</h3></section><div class="docblock"><p>Clear the Error Register.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors: None.</p>
+</div><section id="variant.ClaimAsset" class="variant"><a href="#variant.ClaimAsset" class="anchor">§</a><h3 class="code-header">ClaimAsset</h3></section><div class="docblock"><p>Create some assets which are being held on behalf of the origin.</p>
+<ul>
+<li><code>assets</code>: The assets which are to be claimed. This must match exactly with the assets
+claimable by the origin of the ticket.</li>
+<li><code>ticket</code>: The ticket of the asset; this is an abstract identifier to help locate the
+asset.</li>
+</ul>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.ClaimAsset.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ClaimAsset.field.assets" class="section-header"><a href="#variant.ClaimAsset.field.assets" class="anchor field">§</a><code>assets: <a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a></code></span></div><div class="sub-variant-field"><span id="variant.ClaimAsset.field.ticket" class="section-header"><a href="#variant.ClaimAsset.field.ticket" class="anchor field">§</a><code>ticket: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a></code></span></div></div><section id="variant.Trap" class="variant"><a href="#variant.Trap" class="anchor">§</a><h3 class="code-header">Trap(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>)</h3></section><div class="docblock"><p>Always throws an error of type <code>Trap</code>.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+<ul>
+<li><code>Trap</code>: All circumstances, whose inner value is the same as this item’s inner value.</li>
+</ul>
+</div><section id="variant.SubscribeVersion" class="variant"><a href="#variant.SubscribeVersion" class="anchor">§</a><h3 class="code-header">SubscribeVersion</h3></section><div class="docblock"><p>Ask the destination system to respond with the most recent version of XCM that they
+support in a <code>QueryResponse</code> instruction. Any changes to this should also elicit similar
+responses when they happen.</p>
+<ul>
+<li><code>query_id</code>: An identifier that will be replicated into the returned XCM message.</li>
+<li><code>max_response_weight</code>: The maximum amount of weight that the <code>QueryResponse</code> item which
+is sent as a reply may take to execute. NOTE: If this is unexpectedly large then the
+response may not execute at all.</li>
+</ul>
+<p>Kind: <em>Command</em></p>
+<p>Errors: <em>Fallible</em></p>
+</div><div class="sub-variant" id="variant.SubscribeVersion.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.SubscribeVersion.field.query_id" class="section-header"><a href="#variant.SubscribeVersion.field.query_id" class="anchor field">§</a><code>query_id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a></code></span></div><div class="sub-variant-field"><span id="variant.SubscribeVersion.field.max_response_weight" class="section-header"><a href="#variant.SubscribeVersion.field.max_response_weight" class="anchor field">§</a><code>max_response_weight: <a class="struct" href="../struct.Weight.html" title="struct staging_xcm::v4::Weight">Weight</a></code></span></div></div><section id="variant.UnsubscribeVersion" class="variant"><a href="#variant.UnsubscribeVersion" class="anchor">§</a><h3 class="code-header">UnsubscribeVersion</h3></section><div class="docblock"><p>Cancel the effect of a previous <code>SubscribeVersion</code> instruction.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors: <em>Fallible</em></p>
+</div><section id="variant.BurnAsset" class="variant"><a href="#variant.BurnAsset" class="anchor">§</a><h3 class="code-header">BurnAsset(<a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>)</h3></section><div class="docblock"><p>Reduce Holding by up to the given assets.</p>
+<p>Holding is reduced by as much as possible up to the assets in the parameter. It is not an
+error if the Holding does not contain the assets (to make this an error, use <code>ExpectAsset</code>
+prior).</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors: <em>Infallible</em></p>
+</div><section id="variant.ExpectAsset" class="variant"><a href="#variant.ExpectAsset" class="anchor">§</a><h3 class="code-header">ExpectAsset(<a class="struct" href="../struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>)</h3></section><div class="docblock"><p>Throw an error if Holding does not contain at least the given assets.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+<ul>
+<li><code>ExpectationFalse</code>: If Holding Register does not contain the assets in the parameter.</li>
+</ul>
+</div><section id="variant.ExpectOrigin" class="variant"><a href="#variant.ExpectOrigin" class="anchor">§</a><h3 class="code-header">ExpectOrigin(<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;)</h3></section><div class="docblock"><p>Ensure that the Origin Register equals some given value and throw an error if not.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+<ul>
+<li><code>ExpectationFalse</code>: If Origin Register is not equal to the parameter.</li>
+</ul>
+</div><section id="variant.ExpectError" class="variant"><a href="#variant.ExpectError" class="anchor">§</a><h3 class="code-header">ExpectError(<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="enum" href="../../v3/enum.Error.html" title="enum staging_xcm::v3::Error">Error</a>)&gt;)</h3></section><div class="docblock"><p>Ensure that the Error Register equals some given value and throw an error if not.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+<ul>
+<li><code>ExpectationFalse</code>: If the value of the Error Register is not equal to the parameter.</li>
+</ul>
+</div><section id="variant.ExpectTransactStatus" class="variant"><a href="#variant.ExpectTransactStatus" class="anchor">§</a><h3 class="code-header">ExpectTransactStatus(<a class="enum" href="../../v3/enum.MaybeErrorCode.html" title="enum staging_xcm::v3::MaybeErrorCode">MaybeErrorCode</a>)</h3></section><div class="docblock"><p>Ensure that the Transact Status Register equals some given value and throw an error if
+not.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+<ul>
+<li><code>ExpectationFalse</code>: If the value of the Transact Status Register is not equal to the
+parameter.</li>
+</ul>
+</div><section id="variant.QueryPallet" class="variant"><a href="#variant.QueryPallet" class="anchor">§</a><h3 class="code-header">QueryPallet</h3></section><div class="docblock"><p>Query the existence of a particular pallet type.</p>
+<ul>
+<li><code>module_name</code>: The module name of the pallet to query.</li>
+<li><code>response_info</code>: Information for making the response.</li>
+</ul>
+<p>Sends a <code>QueryResponse</code> to Origin whose data field <code>PalletsInfo</code> containing the information
+of all pallets on the local chain whose name is equal to <code>name</code>. This is empty in the case
+that the local chain is not based on Substrate Frame.</p>
+<p>Safety: No concerns.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors: <em>Fallible</em>.</p>
+</div><div class="sub-variant" id="variant.QueryPallet.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.QueryPallet.field.module_name" class="section-header"><a href="#variant.QueryPallet.field.module_name" class="anchor field">§</a><code>module_name: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.QueryPallet.field.response_info" class="section-header"><a href="#variant.QueryPallet.field.response_info" class="anchor field">§</a><code>response_info: <a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a></code></span></div></div><section id="variant.ExpectPallet" class="variant"><a href="#variant.ExpectPallet" class="anchor">§</a><h3 class="code-header">ExpectPallet</h3></section><div class="docblock"><p>Ensure that a particular pallet with a particular version exists.</p>
+<ul>
+<li><code>index: Compact</code>: The index which identifies the pallet. An error if no pallet exists at
+this index.</li>
+<li><code>name: Vec&lt;u8&gt;</code>: Name which must be equal to the name of the pallet.</li>
+<li><code>module_name: Vec&lt;u8&gt;</code>: Module name which must be equal to the name of the module in
+which the pallet exists.</li>
+<li><code>crate_major: Compact</code>: Version number which must be equal to the major version of the
+crate which implements the pallet.</li>
+<li><code>min_crate_minor: Compact</code>: Version number which must be at most the minor version of the
+crate which implements the pallet.</li>
+</ul>
+<p>Safety: No concerns.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+<ul>
+<li><code>ExpectationFalse</code>: In case any of the expectations are broken.</li>
+</ul>
+</div><div class="sub-variant" id="variant.ExpectPallet.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ExpectPallet.field.index" class="section-header"><a href="#variant.ExpectPallet.field.index" class="anchor field">§</a><code>index: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.ExpectPallet.field.name" class="section-header"><a href="#variant.ExpectPallet.field.name" class="anchor field">§</a><code>name: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.ExpectPallet.field.module_name" class="section-header"><a href="#variant.ExpectPallet.field.module_name" class="anchor field">§</a><code>module_name: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.ExpectPallet.field.crate_major" class="section-header"><a href="#variant.ExpectPallet.field.crate_major" class="anchor field">§</a><code>crate_major: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.ExpectPallet.field.min_crate_minor" class="section-header"><a href="#variant.ExpectPallet.field.min_crate_minor" class="anchor field">§</a><code>min_crate_minor: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.ReportTransactStatus" class="variant"><a href="#variant.ReportTransactStatus" class="anchor">§</a><h3 class="code-header">ReportTransactStatus(<a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a>)</h3></section><div class="docblock"><p>Send a <code>QueryResponse</code> message containing the value of the Transact Status Register to some
+destination.</p>
+<ul>
+<li><code>query_response_info</code>: The information needed for constructing and sending the
+<code>QueryResponse</code> message.</li>
+</ul>
+<p>Safety: No concerns.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors: <em>Fallible</em>.</p>
+</div><section id="variant.ClearTransactStatus" class="variant"><a href="#variant.ClearTransactStatus" class="anchor">§</a><h3 class="code-header">ClearTransactStatus</h3></section><div class="docblock"><p>Set the Transact Status Register to its default, cleared, value.</p>
+<p>Safety: No concerns.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors: <em>Infallible</em>.</p>
+</div><section id="variant.UniversalOrigin" class="variant"><a href="#variant.UniversalOrigin" class="anchor">§</a><h3 class="code-header">UniversalOrigin(<a class="enum" href="../enum.Junction.html" title="enum staging_xcm::v4::Junction">Junction</a>)</h3></section><div class="docblock"><p>Set the Origin Register to be some child of the Universal Ancestor.</p>
+<p>Safety: Should only be usable if the Origin is trusted to represent the Universal Ancestor
+child in general. In general, no Origin should be able to represent the Universal Ancestor
+child which is the root of the local consensus system since it would by extension
+allow it to act as any location within the local consensus.</p>
+<p>The <code>Junction</code> parameter should generally be a <code>GlobalConsensus</code> variant since it is only
+these which are children of the Universal Ancestor.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors: <em>Fallible</em>.</p>
+</div><section id="variant.ExportMessage" class="variant"><a href="#variant.ExportMessage" class="anchor">§</a><h3 class="code-header">ExportMessage</h3></section><div class="docblock"><p>Send a message on to Non-Local Consensus system.</p>
+<p>This will tend to utilize some extra-consensus mechanism, the obvious one being a bridge.
+A fee may be charged; this may be determined based on the contents of <code>xcm</code>. It will be
+taken from the Holding register.</p>
+<ul>
+<li><code>network</code>: The remote consensus system to which the message should be exported.</li>
+<li><code>destination</code>: The location relative to the remote consensus system to which the message
+should be sent on arrival.</li>
+<li><code>xcm</code>: The message to be exported.</li>
+</ul>
+<p>As an example, to export a message for execution on Statemine (parachain #1000 in the
+Kusama network), you would call with <code>network: NetworkId::Kusama</code> and
+<code>destination: [Parachain(1000)].into()</code>. Alternatively, to export a message for execution
+on Polkadot, you would call with <code>network: NetworkId:: Polkadot</code> and <code>destination: Here</code>.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors: <em>Fallible</em>.</p>
+</div><div class="sub-variant" id="variant.ExportMessage.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ExportMessage.field.network" class="section-header"><a href="#variant.ExportMessage.field.network" class="anchor field">§</a><code>network: <a class="enum" href="../enum.NetworkId.html" title="enum staging_xcm::v4::NetworkId">NetworkId</a></code></span></div><div class="sub-variant-field"><span id="variant.ExportMessage.field.destination" class="section-header"><a href="#variant.ExportMessage.field.destination" class="anchor field">§</a><code>destination: <a class="enum" href="../enum.Junctions.html" title="enum staging_xcm::v4::Junctions">Junctions</a></code></span></div><div class="sub-variant-field"><span id="variant.ExportMessage.field.xcm" class="section-header"><a href="#variant.ExportMessage.field.xcm" class="anchor field">§</a><code>xcm: <a class="struct" href="../struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</code></span></div></div><section id="variant.LockAsset" class="variant"><a href="#variant.LockAsset" class="anchor">§</a><h3 class="code-header">LockAsset</h3></section><div class="docblock"><p>Lock the locally held asset and prevent further transfer or withdrawal.</p>
+<p>This restriction may be removed by the <code>UnlockAsset</code> instruction being called with an
+Origin of <code>unlocker</code> and a <code>target</code> equal to the current <code>Origin</code>.</p>
+<p>If the locking is successful, then a <code>NoteUnlockable</code> instruction is sent to <code>unlocker</code>.</p>
+<ul>
+<li><code>asset</code>: The asset(s) which should be locked.</li>
+<li><code>unlocker</code>: The value which the Origin must be for a corresponding <code>UnlockAsset</code>
+instruction to work.</li>
+</ul>
+<p>Kind: <em>Command</em>.</p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.LockAsset.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.LockAsset.field.asset" class="section-header"><a href="#variant.LockAsset.field.asset" class="anchor field">§</a><code>asset: <a class="struct" href="../struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a></code></span></div><div class="sub-variant-field"><span id="variant.LockAsset.field.unlocker" class="section-header"><a href="#variant.LockAsset.field.unlocker" class="anchor field">§</a><code>unlocker: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a></code></span></div></div><section id="variant.UnlockAsset" class="variant"><a href="#variant.UnlockAsset" class="anchor">§</a><h3 class="code-header">UnlockAsset</h3></section><div class="docblock"><p>Remove the lock over <code>asset</code> on this chain and (if nothing else is preventing it) allow the
+asset to be transferred.</p>
+<ul>
+<li><code>asset</code>: The asset to be unlocked.</li>
+<li><code>target</code>: The owner of the asset on the local chain.</li>
+</ul>
+<p>Safety: No concerns.</p>
+<p>Kind: <em>Command</em>.</p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.UnlockAsset.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.UnlockAsset.field.asset" class="section-header"><a href="#variant.UnlockAsset.field.asset" class="anchor field">§</a><code>asset: <a class="struct" href="../struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a></code></span></div><div class="sub-variant-field"><span id="variant.UnlockAsset.field.target" class="section-header"><a href="#variant.UnlockAsset.field.target" class="anchor field">§</a><code>target: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a></code></span></div></div><section id="variant.NoteUnlockable" class="variant"><a href="#variant.NoteUnlockable" class="anchor">§</a><h3 class="code-header">NoteUnlockable</h3></section><div class="docblock"><p>Asset (<code>asset</code>) has been locked on the <code>origin</code> system and may not be transferred. It may
+only be unlocked with the receipt of the <code>UnlockAsset</code> instruction from this chain.</p>
+<ul>
+<li><code>asset</code>: The asset(s) which are now unlockable from this origin.</li>
+<li><code>owner</code>: The owner of the asset on the chain in which it was locked. This may be a
+location specific to the origin network.</li>
+</ul>
+<p>Safety: <code>origin</code> must be trusted to have locked the corresponding <code>asset</code>
+prior as a consequence of sending this message.</p>
+<p>Kind: <em>Trusted Indication</em>.</p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.NoteUnlockable.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.NoteUnlockable.field.asset" class="section-header"><a href="#variant.NoteUnlockable.field.asset" class="anchor field">§</a><code>asset: <a class="struct" href="../struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a></code></span></div><div class="sub-variant-field"><span id="variant.NoteUnlockable.field.owner" class="section-header"><a href="#variant.NoteUnlockable.field.owner" class="anchor field">§</a><code>owner: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a></code></span></div></div><section id="variant.RequestUnlock" class="variant"><a href="#variant.RequestUnlock" class="anchor">§</a><h3 class="code-header">RequestUnlock</h3></section><div class="docblock"><p>Send an <code>UnlockAsset</code> instruction to the <code>locker</code> for the given <code>asset</code>.</p>
+<p>This may fail if the local system is making use of the fact that the asset is locked or,
+of course, if there is no record that the asset actually is locked.</p>
+<ul>
+<li><code>asset</code>: The asset(s) to be unlocked.</li>
+<li><code>locker</code>: The location from which a previous <code>NoteUnlockable</code> was sent and to which an
+<code>UnlockAsset</code> should be sent.</li>
+</ul>
+<p>Kind: <em>Command</em>.</p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.RequestUnlock.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.RequestUnlock.field.asset" class="section-header"><a href="#variant.RequestUnlock.field.asset" class="anchor field">§</a><code>asset: <a class="struct" href="../struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a></code></span></div><div class="sub-variant-field"><span id="variant.RequestUnlock.field.locker" class="section-header"><a href="#variant.RequestUnlock.field.locker" class="anchor field">§</a><code>locker: <a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a></code></span></div></div><section id="variant.SetFeesMode" class="variant"><a href="#variant.SetFeesMode" class="anchor">§</a><h3 class="code-header">SetFeesMode</h3></section><div class="docblock"><p>Sets the Fees Mode Register.</p>
+<ul>
+<li><code>jit_withdraw</code>: The fees mode item; if set to <code>true</code> then fees for any instructions are
+withdrawn as needed using the same mechanism as <code>WithdrawAssets</code>.</li>
+</ul>
+<p>Kind: <em>Command</em>.</p>
+<p>Errors:</p>
+</div><div class="sub-variant" id="variant.SetFeesMode.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.SetFeesMode.field.jit_withdraw" class="section-header"><a href="#variant.SetFeesMode.field.jit_withdraw" class="anchor field">§</a><code>jit_withdraw: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></code></span></div></div><section id="variant.SetTopic" class="variant"><a href="#variant.SetTopic" class="anchor">§</a><h3 class="code-header">SetTopic([<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>])</h3></section><div class="docblock"><p>Set the Topic Register.</p>
+<p>The 32-byte array identifier in the parameter is not guaranteed to be
+unique; if such a property is desired, it is up to the code author to
+enforce uniqueness.</p>
+<p>Safety: No concerns.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors:</p>
+</div><section id="variant.ClearTopic" class="variant"><a href="#variant.ClearTopic" class="anchor">§</a><h3 class="code-header">ClearTopic</h3></section><div class="docblock"><p>Clear the Topic Register.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors: None.</p>
+</div><section id="variant.AliasOrigin" class="variant"><a href="#variant.AliasOrigin" class="anchor">§</a><h3 class="code-header">AliasOrigin(<a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>)</h3></section><div class="docblock"><p>Alter the current Origin to another given origin.</p>
+<p>Kind: <em>Command</em></p>
+<p>Errors: If the existing state would not allow such a change.</p>
+</div><section id="variant.UnpaidExecution" class="variant"><a href="#variant.UnpaidExecution" class="anchor">§</a><h3 class="code-header">UnpaidExecution</h3></section><div class="docblock"><p>A directive to indicate that the origin expects free execution of the message.</p>
+<p>At execution time, this instruction just does a check on the Origin register.
+However, at the barrier stage messages starting with this instruction can be disregarded if
+the origin is not acceptable for free execution or the <code>weight_limit</code> is <code>Limited</code> and
+insufficient.</p>
+<p>Kind: <em>Indication</em></p>
+<p>Errors: If the given origin is <code>Some</code> and not equal to the current Origin register.</p>
+</div><div class="sub-variant" id="variant.UnpaidExecution.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.UnpaidExecution.field.weight_limit" class="section-header"><a href="#variant.UnpaidExecution.field.weight_limit" class="anchor field">§</a><code>weight_limit: <a class="enum" href="../../v3/enum.WeightLimit.html" title="enum staging_xcm::v3::WeightLimit">WeightLimit</a></code></span></div><div class="sub-variant-field"><span id="variant.UnpaidExecution.field.check_origin" class="section-header"><a href="#variant.UnpaidExecution.field.check_origin" class="anchor field">§</a><code>check_origin: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;</code></span></div></div></div><script src="../../../type.impl/staging_xcm/v4/enum.Instruction.js" data-self-path="staging_xcm::v4::opaque::Instruction" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

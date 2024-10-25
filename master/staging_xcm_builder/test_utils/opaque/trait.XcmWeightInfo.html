@@ -1,0 +1,312 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `XcmWeightInfo` trait in crate `staging_xcm_builder`."><title>XcmWeightInfo in staging_xcm_builder::test_utils::opaque - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="staging_xcm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../staging_xcm_builder/index.html">staging_xcm_builder</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">XcmWeightInfo</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.alias_origin">alias_origin</a></li><li><a href="#tymethod.burn_asset">burn_asset</a></li><li><a href="#tymethod.buy_execution">buy_execution</a></li><li><a href="#tymethod.claim_asset">claim_asset</a></li><li><a href="#tymethod.clear_error">clear_error</a></li><li><a href="#tymethod.clear_origin">clear_origin</a></li><li><a href="#tymethod.clear_topic">clear_topic</a></li><li><a href="#tymethod.clear_transact_status">clear_transact_status</a></li><li><a href="#tymethod.deposit_asset">deposit_asset</a></li><li><a href="#tymethod.deposit_reserve_asset">deposit_reserve_asset</a></li><li><a href="#tymethod.descend_origin">descend_origin</a></li><li><a href="#tymethod.exchange_asset">exchange_asset</a></li><li><a href="#tymethod.expect_asset">expect_asset</a></li><li><a href="#tymethod.expect_error">expect_error</a></li><li><a href="#tymethod.expect_origin">expect_origin</a></li><li><a href="#tymethod.expect_pallet">expect_pallet</a></li><li><a href="#tymethod.expect_transact_status">expect_transact_status</a></li><li><a href="#tymethod.export_message">export_message</a></li><li><a href="#tymethod.hrmp_channel_accepted">hrmp_channel_accepted</a></li><li><a href="#tymethod.hrmp_channel_closing">hrmp_channel_closing</a></li><li><a href="#tymethod.hrmp_new_channel_open_request">hrmp_new_channel_open_request</a></li><li><a href="#tymethod.initiate_reserve_withdraw">initiate_reserve_withdraw</a></li><li><a href="#tymethod.initiate_teleport">initiate_teleport</a></li><li><a href="#tymethod.lock_asset">lock_asset</a></li><li><a href="#tymethod.note_unlockable">note_unlockable</a></li><li><a href="#tymethod.query_pallet">query_pallet</a></li><li><a href="#tymethod.query_response">query_response</a></li><li><a href="#tymethod.receive_teleported_asset">receive_teleported_asset</a></li><li><a href="#tymethod.refund_surplus">refund_surplus</a></li><li><a href="#tymethod.report_error">report_error</a></li><li><a href="#tymethod.report_holding">report_holding</a></li><li><a href="#tymethod.report_transact_status">report_transact_status</a></li><li><a href="#tymethod.request_unlock">request_unlock</a></li><li><a href="#tymethod.reserve_asset_deposited">reserve_asset_deposited</a></li><li><a href="#tymethod.set_appendix">set_appendix</a></li><li><a href="#tymethod.set_error_handler">set_error_handler</a></li><li><a href="#tymethod.set_fees_mode">set_fees_mode</a></li><li><a href="#tymethod.set_topic">set_topic</a></li><li><a href="#tymethod.subscribe_version">subscribe_version</a></li><li><a href="#tymethod.transact">transact</a></li><li><a href="#tymethod.transfer_asset">transfer_asset</a></li><li><a href="#tymethod.transfer_reserve_asset">transfer_reserve_asset</a></li><li><a href="#tymethod.trap">trap</a></li><li><a href="#tymethod.universal_origin">universal_origin</a></li><li><a href="#tymethod.unlock_asset">unlock_asset</a></li><li><a href="#tymethod.unpaid_execution">unpaid_execution</a></li><li><a href="#tymethod.unsubscribe_version">unsubscribe_version</a></li><li><a href="#tymethod.withdraw_asset">withdraw_asset</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In staging_xcm_builder::test_utils::opaque</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">staging_xcm_builder</a>::<wbr><a href="../index.html">test_utils</a>::<wbr><a href="index.html">opaque</a>::<wbr><a class="trait" href="#">XcmWeightInfo</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait XcmWeightInfo&lt;Call&gt; {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 48 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.withdraw_asset" class="fn">withdraw_asset</a>(_0: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.reserve_asset_deposited" class="fn">reserve_asset_deposited</a>(_0: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.receive_teleported_asset" class="fn">receive_teleported_asset</a>(_0: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.query_response" class="fn">query_response</a>(
+        query_id: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>,
+        response: &amp;<a class="enum" href="../enum.Response.html" title="enum staging_xcm_builder::test_utils::Response">Response</a>,
+        max_weight: &amp;<a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>,
+        querier: &amp;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;,
+    ) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transfer_asset" class="fn">transfer_asset</a>(assets: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>, beneficiary: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transfer_reserve_asset" class="fn">transfer_reserve_asset</a>(
+        assets: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>,
+        dest: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>,
+        xcm: &amp;<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+    ) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transact" class="fn">transact</a>(
+        origin_kind: &amp;<a class="enum" href="../enum.OriginKind.html" title="enum staging_xcm_builder::test_utils::OriginKind">OriginKind</a>,
+        require_weight_at_most: &amp;<a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>,
+        call: &amp;DoubleEncoded&lt;Call&gt;,
+    ) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.hrmp_new_channel_open_request" class="fn">hrmp_new_channel_open_request</a>(
+        sender: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+        max_message_size: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+        max_capacity: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    ) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.hrmp_channel_accepted" class="fn">hrmp_channel_accepted</a>(recipient: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.hrmp_channel_closing" class="fn">hrmp_channel_closing</a>(
+        initiator: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+        sender: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+        recipient: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    ) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_origin" class="fn">clear_origin</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.descend_origin" class="fn">descend_origin</a>(_0: &amp;<a class="enum" href="../enum.Junctions.html" title="enum staging_xcm_builder::test_utils::Junctions">Junctions</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.report_error" class="fn">report_error</a>(_0: &amp;<a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm_builder::test_utils::QueryResponseInfo">QueryResponseInfo</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.deposit_asset" class="fn">deposit_asset</a>(assets: &amp;<a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm_builder::test_utils::AssetFilter">AssetFilter</a>, beneficiary: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.deposit_reserve_asset" class="fn">deposit_reserve_asset</a>(
+        assets: &amp;<a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm_builder::test_utils::AssetFilter">AssetFilter</a>,
+        dest: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>,
+        xcm: &amp;<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+    ) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.exchange_asset" class="fn">exchange_asset</a>(
+        give: &amp;<a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm_builder::test_utils::AssetFilter">AssetFilter</a>,
+        want: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>,
+        maximal: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,
+    ) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.initiate_reserve_withdraw" class="fn">initiate_reserve_withdraw</a>(
+        assets: &amp;<a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm_builder::test_utils::AssetFilter">AssetFilter</a>,
+        reserve: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>,
+        xcm: &amp;<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+    ) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.initiate_teleport" class="fn">initiate_teleport</a>(
+        assets: &amp;<a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm_builder::test_utils::AssetFilter">AssetFilter</a>,
+        dest: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>,
+        xcm: &amp;<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+    ) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.report_holding" class="fn">report_holding</a>(
+        response_info: &amp;<a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm_builder::test_utils::QueryResponseInfo">QueryResponseInfo</a>,
+        assets: &amp;<a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm_builder::test_utils::AssetFilter">AssetFilter</a>,
+    ) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.buy_execution" class="fn">buy_execution</a>(fees: &amp;<a class="struct" href="../struct.Asset.html" title="struct staging_xcm_builder::test_utils::Asset">Asset</a>, weight_limit: &amp;<a class="enum" href="../enum.WeightLimit.html" title="enum staging_xcm_builder::test_utils::WeightLimit">WeightLimit</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.refund_surplus" class="fn">refund_surplus</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_error_handler" class="fn">set_error_handler</a>(_0: &amp;<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;Call&gt;) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_appendix" class="fn">set_appendix</a>(_0: &amp;<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;Call&gt;) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_error" class="fn">clear_error</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.claim_asset" class="fn">claim_asset</a>(assets: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>, ticket: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.trap" class="fn">trap</a>(_0: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.subscribe_version" class="fn">subscribe_version</a>(query_id: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>, max_response_weight: &amp;<a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.unsubscribe_version" class="fn">unsubscribe_version</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.burn_asset" class="fn">burn_asset</a>(_0: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.expect_asset" class="fn">expect_asset</a>(_0: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.expect_origin" class="fn">expect_origin</a>(_0: &amp;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.expect_error" class="fn">expect_error</a>(_0: &amp;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="enum" href="../enum.XcmError.html" title="enum staging_xcm_builder::test_utils::XcmError">Error</a>)&gt;) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.expect_transact_status" class="fn">expect_transact_status</a>(_0: &amp;<a class="enum" href="../enum.MaybeErrorCode.html" title="enum staging_xcm_builder::test_utils::MaybeErrorCode">MaybeErrorCode</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.query_pallet" class="fn">query_pallet</a>(
+        module_name: &amp;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+        response_info: &amp;<a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm_builder::test_utils::QueryResponseInfo">QueryResponseInfo</a>,
+    ) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.expect_pallet" class="fn">expect_pallet</a>(
+        index: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+        name: &amp;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+        module_name: &amp;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+        crate_major: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+        min_crate_minor: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    ) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.report_transact_status" class="fn">report_transact_status</a>(_0: &amp;<a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm_builder::test_utils::QueryResponseInfo">QueryResponseInfo</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_transact_status" class="fn">clear_transact_status</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.universal_origin" class="fn">universal_origin</a>(_0: &amp;<a class="enum" href="../enum.Junction.html" title="enum staging_xcm_builder::test_utils::Junction">Junction</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.export_message" class="fn">export_message</a>(
+        network: &amp;<a class="enum" href="../enum.NetworkId.html" title="enum staging_xcm_builder::test_utils::NetworkId">NetworkId</a>,
+        destination: &amp;<a class="enum" href="../enum.Junctions.html" title="enum staging_xcm_builder::test_utils::Junctions">Junctions</a>,
+        xcm: &amp;<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+    ) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.lock_asset" class="fn">lock_asset</a>(asset: &amp;<a class="struct" href="../struct.Asset.html" title="struct staging_xcm_builder::test_utils::Asset">Asset</a>, unlocker: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.unlock_asset" class="fn">unlock_asset</a>(asset: &amp;<a class="struct" href="../struct.Asset.html" title="struct staging_xcm_builder::test_utils::Asset">Asset</a>, target: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.note_unlockable" class="fn">note_unlockable</a>(asset: &amp;<a class="struct" href="../struct.Asset.html" title="struct staging_xcm_builder::test_utils::Asset">Asset</a>, owner: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.request_unlock" class="fn">request_unlock</a>(asset: &amp;<a class="struct" href="../struct.Asset.html" title="struct staging_xcm_builder::test_utils::Asset">Asset</a>, locker: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_fees_mode" class="fn">set_fees_mode</a>(jit_withdraw: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_topic" class="fn">set_topic</a>(_0: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>]) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_topic" class="fn">clear_topic</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.alias_origin" class="fn">alias_origin</a>(_0: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.unpaid_execution" class="fn">unpaid_execution</a>(
+        weight_limit: &amp;<a class="enum" href="../enum.WeightLimit.html" title="enum staging_xcm_builder::test_utils::WeightLimit">WeightLimit</a>,
+        check_origin: &amp;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;,
+    ) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>;
+</details>}</code></pre><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.withdraw_asset" class="method"><h4 class="code-header">fn <a href="#tymethod.withdraw_asset" class="fn">withdraw_asset</a>(_0: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.reserve_asset_deposited" class="method"><h4 class="code-header">fn <a href="#tymethod.reserve_asset_deposited" class="fn">reserve_asset_deposited</a>(_0: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.receive_teleported_asset" class="method"><h4 class="code-header">fn <a href="#tymethod.receive_teleported_asset" class="fn">receive_teleported_asset</a>(_0: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.query_response" class="method"><h4 class="code-header">fn <a href="#tymethod.query_response" class="fn">query_response</a>(
+    query_id: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>,
+    response: &amp;<a class="enum" href="../enum.Response.html" title="enum staging_xcm_builder::test_utils::Response">Response</a>,
+    max_weight: &amp;<a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>,
+    querier: &amp;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;,
+) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.transfer_asset" class="method"><h4 class="code-header">fn <a href="#tymethod.transfer_asset" class="fn">transfer_asset</a>(assets: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>, beneficiary: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.transfer_reserve_asset" class="method"><h4 class="code-header">fn <a href="#tymethod.transfer_reserve_asset" class="fn">transfer_reserve_asset</a>(
+    assets: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>,
+    dest: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>,
+    xcm: &amp;<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.transact" class="method"><h4 class="code-header">fn <a href="#tymethod.transact" class="fn">transact</a>(
+    origin_kind: &amp;<a class="enum" href="../enum.OriginKind.html" title="enum staging_xcm_builder::test_utils::OriginKind">OriginKind</a>,
+    require_weight_at_most: &amp;<a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>,
+    call: &amp;DoubleEncoded&lt;Call&gt;,
+) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.hrmp_new_channel_open_request" class="method"><h4 class="code-header">fn <a href="#tymethod.hrmp_new_channel_open_request" class="fn">hrmp_new_channel_open_request</a>(
+    sender: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    max_message_size: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    max_capacity: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.hrmp_channel_accepted" class="method"><h4 class="code-header">fn <a href="#tymethod.hrmp_channel_accepted" class="fn">hrmp_channel_accepted</a>(recipient: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.hrmp_channel_closing" class="method"><h4 class="code-header">fn <a href="#tymethod.hrmp_channel_closing" class="fn">hrmp_channel_closing</a>(
+    initiator: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    sender: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    recipient: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.clear_origin" class="method"><h4 class="code-header">fn <a href="#tymethod.clear_origin" class="fn">clear_origin</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.descend_origin" class="method"><h4 class="code-header">fn <a href="#tymethod.descend_origin" class="fn">descend_origin</a>(_0: &amp;<a class="enum" href="../enum.Junctions.html" title="enum staging_xcm_builder::test_utils::Junctions">Junctions</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.report_error" class="method"><h4 class="code-header">fn <a href="#tymethod.report_error" class="fn">report_error</a>(_0: &amp;<a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm_builder::test_utils::QueryResponseInfo">QueryResponseInfo</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.deposit_asset" class="method"><h4 class="code-header">fn <a href="#tymethod.deposit_asset" class="fn">deposit_asset</a>(assets: &amp;<a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm_builder::test_utils::AssetFilter">AssetFilter</a>, beneficiary: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.deposit_reserve_asset" class="method"><h4 class="code-header">fn <a href="#tymethod.deposit_reserve_asset" class="fn">deposit_reserve_asset</a>(
+    assets: &amp;<a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm_builder::test_utils::AssetFilter">AssetFilter</a>,
+    dest: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>,
+    xcm: &amp;<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.exchange_asset" class="method"><h4 class="code-header">fn <a href="#tymethod.exchange_asset" class="fn">exchange_asset</a>(give: &amp;<a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm_builder::test_utils::AssetFilter">AssetFilter</a>, want: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>, maximal: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.initiate_reserve_withdraw" class="method"><h4 class="code-header">fn <a href="#tymethod.initiate_reserve_withdraw" class="fn">initiate_reserve_withdraw</a>(
+    assets: &amp;<a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm_builder::test_utils::AssetFilter">AssetFilter</a>,
+    reserve: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>,
+    xcm: &amp;<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.initiate_teleport" class="method"><h4 class="code-header">fn <a href="#tymethod.initiate_teleport" class="fn">initiate_teleport</a>(
+    assets: &amp;<a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm_builder::test_utils::AssetFilter">AssetFilter</a>,
+    dest: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>,
+    xcm: &amp;<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.report_holding" class="method"><h4 class="code-header">fn <a href="#tymethod.report_holding" class="fn">report_holding</a>(
+    response_info: &amp;<a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm_builder::test_utils::QueryResponseInfo">QueryResponseInfo</a>,
+    assets: &amp;<a class="enum" href="../enum.AssetFilter.html" title="enum staging_xcm_builder::test_utils::AssetFilter">AssetFilter</a>,
+) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.buy_execution" class="method"><h4 class="code-header">fn <a href="#tymethod.buy_execution" class="fn">buy_execution</a>(fees: &amp;<a class="struct" href="../struct.Asset.html" title="struct staging_xcm_builder::test_utils::Asset">Asset</a>, weight_limit: &amp;<a class="enum" href="../enum.WeightLimit.html" title="enum staging_xcm_builder::test_utils::WeightLimit">WeightLimit</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.refund_surplus" class="method"><h4 class="code-header">fn <a href="#tymethod.refund_surplus" class="fn">refund_surplus</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.set_error_handler" class="method"><h4 class="code-header">fn <a href="#tymethod.set_error_handler" class="fn">set_error_handler</a>(_0: &amp;<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;Call&gt;) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.set_appendix" class="method"><h4 class="code-header">fn <a href="#tymethod.set_appendix" class="fn">set_appendix</a>(_0: &amp;<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;Call&gt;) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.clear_error" class="method"><h4 class="code-header">fn <a href="#tymethod.clear_error" class="fn">clear_error</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.claim_asset" class="method"><h4 class="code-header">fn <a href="#tymethod.claim_asset" class="fn">claim_asset</a>(assets: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>, ticket: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.trap" class="method"><h4 class="code-header">fn <a href="#tymethod.trap" class="fn">trap</a>(_0: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.subscribe_version" class="method"><h4 class="code-header">fn <a href="#tymethod.subscribe_version" class="fn">subscribe_version</a>(query_id: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>, max_response_weight: &amp;<a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.unsubscribe_version" class="method"><h4 class="code-header">fn <a href="#tymethod.unsubscribe_version" class="fn">unsubscribe_version</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.burn_asset" class="method"><h4 class="code-header">fn <a href="#tymethod.burn_asset" class="fn">burn_asset</a>(_0: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.expect_asset" class="method"><h4 class="code-header">fn <a href="#tymethod.expect_asset" class="fn">expect_asset</a>(_0: &amp;<a class="struct" href="../struct.Assets.html" title="struct staging_xcm_builder::test_utils::Assets">Assets</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.expect_origin" class="method"><h4 class="code-header">fn <a href="#tymethod.expect_origin" class="fn">expect_origin</a>(_0: &amp;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.expect_error" class="method"><h4 class="code-header">fn <a href="#tymethod.expect_error" class="fn">expect_error</a>(_0: &amp;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="enum" href="../enum.XcmError.html" title="enum staging_xcm_builder::test_utils::XcmError">Error</a>)&gt;) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.expect_transact_status" class="method"><h4 class="code-header">fn <a href="#tymethod.expect_transact_status" class="fn">expect_transact_status</a>(_0: &amp;<a class="enum" href="../enum.MaybeErrorCode.html" title="enum staging_xcm_builder::test_utils::MaybeErrorCode">MaybeErrorCode</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.query_pallet" class="method"><h4 class="code-header">fn <a href="#tymethod.query_pallet" class="fn">query_pallet</a>(
+    module_name: &amp;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+    response_info: &amp;<a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm_builder::test_utils::QueryResponseInfo">QueryResponseInfo</a>,
+) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.expect_pallet" class="method"><h4 class="code-header">fn <a href="#tymethod.expect_pallet" class="fn">expect_pallet</a>(
+    index: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    name: &amp;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+    module_name: &amp;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+    crate_major: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    min_crate_minor: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.report_transact_status" class="method"><h4 class="code-header">fn <a href="#tymethod.report_transact_status" class="fn">report_transact_status</a>(_0: &amp;<a class="struct" href="../struct.QueryResponseInfo.html" title="struct staging_xcm_builder::test_utils::QueryResponseInfo">QueryResponseInfo</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.clear_transact_status" class="method"><h4 class="code-header">fn <a href="#tymethod.clear_transact_status" class="fn">clear_transact_status</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.universal_origin" class="method"><h4 class="code-header">fn <a href="#tymethod.universal_origin" class="fn">universal_origin</a>(_0: &amp;<a class="enum" href="../enum.Junction.html" title="enum staging_xcm_builder::test_utils::Junction">Junction</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.export_message" class="method"><h4 class="code-header">fn <a href="#tymethod.export_message" class="fn">export_message</a>(
+    network: &amp;<a class="enum" href="../enum.NetworkId.html" title="enum staging_xcm_builder::test_utils::NetworkId">NetworkId</a>,
+    destination: &amp;<a class="enum" href="../enum.Junctions.html" title="enum staging_xcm_builder::test_utils::Junctions">Junctions</a>,
+    xcm: &amp;<a class="struct" href="../struct.Xcm.html" title="struct staging_xcm_builder::test_utils::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;,
+) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.lock_asset" class="method"><h4 class="code-header">fn <a href="#tymethod.lock_asset" class="fn">lock_asset</a>(asset: &amp;<a class="struct" href="../struct.Asset.html" title="struct staging_xcm_builder::test_utils::Asset">Asset</a>, unlocker: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.unlock_asset" class="method"><h4 class="code-header">fn <a href="#tymethod.unlock_asset" class="fn">unlock_asset</a>(asset: &amp;<a class="struct" href="../struct.Asset.html" title="struct staging_xcm_builder::test_utils::Asset">Asset</a>, target: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.note_unlockable" class="method"><h4 class="code-header">fn <a href="#tymethod.note_unlockable" class="fn">note_unlockable</a>(asset: &amp;<a class="struct" href="../struct.Asset.html" title="struct staging_xcm_builder::test_utils::Asset">Asset</a>, owner: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.request_unlock" class="method"><h4 class="code-header">fn <a href="#tymethod.request_unlock" class="fn">request_unlock</a>(asset: &amp;<a class="struct" href="../struct.Asset.html" title="struct staging_xcm_builder::test_utils::Asset">Asset</a>, locker: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.set_fees_mode" class="method"><h4 class="code-header">fn <a href="#tymethod.set_fees_mode" class="fn">set_fees_mode</a>(jit_withdraw: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.set_topic" class="method"><h4 class="code-header">fn <a href="#tymethod.set_topic" class="fn">set_topic</a>(_0: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>]) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.clear_topic" class="method"><h4 class="code-header">fn <a href="#tymethod.clear_topic" class="fn">clear_topic</a>() -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.alias_origin" class="method"><h4 class="code-header">fn <a href="#tymethod.alias_origin" class="fn">alias_origin</a>(_0: &amp;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section><section id="tymethod.unpaid_execution" class="method"><h4 class="code-header">fn <a href="#tymethod.unpaid_execution" class="fn">unpaid_execution</a>(
+    weight_limit: &amp;<a class="enum" href="../enum.WeightLimit.html" title="enum staging_xcm_builder::test_utils::WeightLimit">WeightLimit</a>,
+    check_origin: &amp;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;,
+) -&gt; <a class="struct" href="../struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a></h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../../trait.impl/staging_xcm/v4/trait.XcmWeightInfo.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

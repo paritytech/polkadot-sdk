@@ -1,0 +1,241 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Session Pallet"><title>pallet_session - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_session" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_session/index.html">pallet_session</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_session</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_session/lib.rs.html#18-961">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="session-pallet"><a class="doc-anchor" href="#session-pallet">§</a>Session Pallet</h2>
+<p>The Session pallet allows validators to manage their session keys, provides a function for
+changing the session length, and handles session rotation.</p>
+<ul>
+<li><a href="pallet/trait.Config.html" title="trait pallet_session::pallet::Config"><code>Config</code></a></li>
+<li><a href="pallet/enum.Call.html" title="enum pallet_session::pallet::Call"><code>Call</code></a></li>
+<li><a href="pallet/struct.Pallet.html" title="struct pallet_session::pallet::Pallet"><code>Pallet</code></a></li>
+</ul>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3><h4 id="terminology"><a class="doc-anchor" href="#terminology">§</a>Terminology</h4><!-- Original author of paragraph: @gavofyork -->
+<ul>
+<li>
+<p><strong>Session:</strong> A session is a period of time that has a constant set of validators. Validators
+can only join or exit the validator set at a session change. It is measured in block numbers.
+The block where a session is ended is determined by the <code>ShouldEndSession</code> trait. When the
+session is ending, a new validator set can be chosen by <code>OnSessionEnding</code> implementations.</p>
+</li>
+<li>
+<p><strong>Session key:</strong> A session key is actually several keys kept together that provide the various
+signing functions required by network authorities/validators in pursuit of their duties.</p>
+</li>
+<li>
+<p><strong>Validator ID:</strong> Every account has an associated validator ID. For some simple staking
+systems, this may just be the same as the account ID. For staking systems using a
+stash/controller model, the validator ID would be the stash account ID of the controller.</p>
+</li>
+<li>
+<p><strong>Session key configuration process:</strong> Session keys are set using <code>set_keys</code> for use not in
+the next session, but the session after next. They are stored in <code>NextKeys</code>, a mapping between
+the caller’s <code>ValidatorId</code> and the session keys provided. <code>set_keys</code> allows users to set their
+session key prior to being selected as validator. It is a public call since it uses
+<code>ensure_signed</code>, which checks that the origin is a signed account. As such, the account ID of
+the origin stored in <code>NextKeys</code> may not necessarily be associated with a block author or a
+validator. The session keys of accounts are removed once their account balance is zero.</p>
+</li>
+<li>
+<p><strong>Session length:</strong> This pallet does not assume anything about the length of each session.
+Rather, it relies on an implementation of <code>ShouldEndSession</code> to dictate a new session’s start.
+This pallet provides the <code>PeriodicSessions</code> struct for simple periodic sessions.</p>
+</li>
+<li>
+<p><strong>Session rotation configuration:</strong> Configure as either a ‘normal’ (rewardable session where
+rewards are applied) or ‘exceptional’ (slashable) session rotation.</p>
+</li>
+<li>
+<p><strong>Session rotation process:</strong> At the beginning of each block, the <code>on_initialize</code> function
+queries the provided implementation of <code>ShouldEndSession</code>. If the session is to end the newly
+activated validator IDs and session keys are taken from storage and passed to the
+<code>SessionHandler</code>. The validator set supplied by <code>SessionManager::new_session</code> and the
+corresponding session keys, which may have been registered via <code>set_keys</code> during the previous
+session, are written to storage where they will wait one session before being passed to the
+<code>SessionHandler</code> themselves.</p>
+</li>
+</ul>
+<h4 id="goals"><a class="doc-anchor" href="#goals">§</a>Goals</h4>
+<p>The Session pallet is designed to make the following possible:</p>
+<ul>
+<li>Set session keys of the validator set for upcoming sessions.</li>
+<li>Control the length of sessions.</li>
+<li>Configure and switch between either normal or exceptional session rotations.</li>
+</ul>
+<h3 id="interface"><a class="doc-anchor" href="#interface">§</a>Interface</h3><h4 id="dispatchable-functions"><a class="doc-anchor" href="#dispatchable-functions">§</a>Dispatchable Functions</h4>
+<ul>
+<li><code>set_keys</code> - Set a validator’s session keys for upcoming sessions.</li>
+</ul>
+<h4 id="public-functions"><a class="doc-anchor" href="#public-functions">§</a>Public Functions</h4>
+<ul>
+<li><code>rotate_session</code> - Change to the next session. Register the new authority set. Queue changes
+for next session rotation.</li>
+<li><code>disable_index</code> - Disable a validator by index.</li>
+<li><code>disable</code> - Disable a validator by Validator ID</li>
+</ul>
+<h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3><h4 id="example-from-the-frame"><a class="doc-anchor" href="#example-from-the-frame">§</a>Example from the FRAME</h4>
+<p>The <a href="../pallet_staking/index.html">Staking pallet</a> uses the Session pallet to get the validator
+set.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>pallet_session <span class="kw">as </span>session;
+
+<span class="kw">fn </span>validators&lt;T: pallet_session::Config&gt;() -&gt; Vec&lt;&lt;T <span class="kw">as </span>pallet_session::Config&gt;::ValidatorId&gt; {
+	pallet_session::Validators::&lt;T&gt;::get()
+}</code></pre></div>
+<h3 id="related-pallets"><a class="doc-anchor" href="#related-pallets">§</a>Related Pallets</h3>
+<ul>
+<li><a href="../pallet_staking/index.html">Staking</a></li>
+</ul>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_session::weights::WeightInfo">WeightInfo</a>;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_session::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="historical/index.html" title="mod pallet_session::historical">historical</a></div><div class="desc docblock-short">An opt-in utility for tracking historical sessions in FRAME-session.</div></li><li><div class="item-name"><a class="mod" href="migrations/index.html" title="mod pallet_session::migrations">migrations</a></div></li><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_session::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod pallet_session::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for <code>pallet_session</code></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.FindAccountFromAuthorIndex.html" title="struct pallet_session::FindAccountFromAuthorIndex">FindAccountFromAuthorIndex</a></div><div class="desc docblock-short">Wraps the author-scraping logic for consensus engines that can recover
+the canonical index of an author. This then transforms it into the
+registering account-ID of that session key index.</div></li><li><div class="item-name"><a class="struct" href="struct.PeriodicSessions.html" title="struct pallet_session::PeriodicSessions">PeriodicSessions</a></div><div class="desc docblock-short">Ends the session after a fixed period of blocks.</div></li><li><div class="item-name"><a class="struct" href="struct.TestSessionHandler.html" title="struct pallet_session::TestSessionHandler">TestSessionHandler</a></div><div class="desc docblock-short"><code>SessionHandler</code> for tests that use <code>UintAuthorityId</code> as <code>Keys</code>.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.SessionHandler.html" title="trait pallet_session::SessionHandler">SessionHandler</a></div><div class="desc docblock-short">Handler for session life cycle events.</div></li><li><div class="item-name"><a class="trait" href="trait.SessionManager.html" title="trait pallet_session::SessionManager">SessionManager</a></div><div class="desc docblock-short">A trait for managing creation of new validator set.</div></li><li><div class="item-name"><a class="trait" href="trait.ShouldEndSession.html" title="trait pallet_session::ShouldEndSession">ShouldEndSession</a></div><div class="desc docblock-short">Decides whether the session should be ended.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

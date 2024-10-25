@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_network/index.html">sc_network</a><span class="version">0.34.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.Config.html">Config</a></li><li><a href="struct.DecodingError.html">DecodingError</a></li><li><a href="struct.KademliaKey.html">KademliaKey</a></li><li><a href="struct.Keypair.html">Keypair</a></li><li><a href="struct.Litep2pNetworkBackend.html">Litep2pNetworkBackend</a></li><li><a href="struct.Multiaddr.html">Multiaddr</a></li><li><a href="struct.NotificationMetrics.html">NotificationMetrics</a></li><li><a href="struct.PeerId.html">PeerId</a></li><li><a href="struct.PublicKey.html">PublicKey</a></li><li><a href="struct.ReputationChange.html">ReputationChange</a></li><li><a href="struct.Roles.html">Roles</a></li><li><a href="config/struct.FullNetworkConfiguration.html">config::FullNetworkConfiguration</a></li><li><a href="config/struct.MultiaddrWithPeerId.html">config::MultiaddrWithPeerId</a></li><li><a href="config/struct.NetworkConfiguration.html">config::NetworkConfiguration</a></li><li><a href="config/struct.NonDefaultSetConfig.html">config::NonDefaultSetConfig</a></li><li><a href="config/struct.NotificationHandshake.html">config::NotificationHandshake</a></li><li><a href="config/struct.NotificationMetrics.html">config::NotificationMetrics</a></li><li><a href="config/struct.NotificationsSink.html">config::NotificationsSink</a></li><li><a href="config/struct.Params.html">config::Params</a></li><li><a href="config/struct.ProtocolHandlePair.html">config::ProtocolHandlePair</a></li><li><a href="config/struct.ProtocolId.html">config::ProtocolId</a></li><li><a href="config/struct.Roles.html">config::Roles</a></li><li><a href="config/struct.SetConfig.html">config::SetConfig</a></li><li><a href="config/ed25519/struct.Keypair.html">config::ed25519::Keypair</a></li><li><a href="config/ed25519/struct.PublicKey.html">config::ed25519::PublicKey</a></li><li><a href="config/ed25519/struct.SecretKey.html">config::ed25519::SecretKey</a></li><li><a href="discovery/struct.DiscoveryBehaviour.html">discovery::DiscoveryBehaviour</a></li><li><a href="discovery/struct.DiscoveryConfig.html">discovery::DiscoveryConfig</a></li><li><a href="multiaddr/struct.Iter.html">multiaddr::Iter</a></li><li><a href="multiaddr/struct.Multiaddr.html">multiaddr::Multiaddr</a></li><li><a href="network_state/struct.NetworkState.html">network_state::NetworkState</a></li><li><a href="network_state/struct.NotConnectedPeer.html">network_state::NotConnectedPeer</a></li><li><a href="network_state/struct.Peer.html">network_state::Peer</a></li><li><a href="peer_info/struct.ExternalAddresses.html">peer_info::ExternalAddresses</a></li><li><a href="peer_info/struct.Node.html">peer_info::Node</a></li><li><a href="peer_info/struct.PeerInfoBehaviour.html">peer_info::PeerInfoBehaviour</a></li><li><a href="peer_store/struct.PeerStore.html">peer_store::PeerStore</a></li><li><a href="peer_store/struct.PeerStoreHandle.html">peer_store::PeerStoreHandle</a></li><li><a href="protocol_controller/struct.IncomingIndex.html">protocol_controller::IncomingIndex</a></li><li><a href="protocol_controller/struct.ProtoSetConfig.html">protocol_controller::ProtoSetConfig</a></li><li><a href="protocol_controller/struct.ProtocolController.html">protocol_controller::ProtocolController</a></li><li><a href="protocol_controller/struct.ProtocolHandle.html">protocol_controller::ProtocolHandle</a></li><li><a href="protocol_controller/struct.SetId.html">protocol_controller::SetId</a></li><li><a href="request_responses/struct.Config.html">request_responses::Config</a></li><li><a href="request_responses/struct.IncomingRequest.html">request_responses::IncomingRequest</a></li><li><a href="request_responses/struct.OutgoingResponse.html">request_responses::OutgoingResponse</a></li><li><a href="request_responses/struct.ProtocolConfig.html">request_responses::ProtocolConfig</a></li><li><a href="request_responses/struct.RequestId.html">request_responses::RequestId</a></li><li><a href="request_responses/struct.RequestResponsesBehaviour.html">request_responses::RequestResponsesBehaviour</a></li><li><a href="service/struct.DecodingError.html">service::DecodingError</a></li><li><a href="service/struct.Keypair.html">service::Keypair</a></li><li><a href="service/struct.NetworkService.html">service::NetworkService</a></li><li><a href="service/struct.NetworkWorker.html">service::NetworkWorker</a></li><li><a href="service/struct.NotificationMetrics.html">service::NotificationMetrics</a></li><li><a href="service/struct.NotificationSender.html">service::NotificationSender</a></li><li><a href="service/struct.NotificationSenderReady.html">service::NotificationSenderReady</a></li><li><a href="service/struct.NotificationsSink.html">service::NotificationsSink</a></li><li><a href="service/struct.PublicKey.html">service::PublicKey</a></li><li><a href="service/signature/struct.Signature.html">service::signature::Signature</a></li><li><a href="service/signature/struct.SigningError.html">service::signature::SigningError</a></li><li><a href="service/traits/struct.KademliaKey.html">service::traits::KademliaKey</a></li><li><a href="service/traits/struct.NetworkStatus.html">service::traits::NetworkStatus</a></li><li><a href="service/traits/struct.SigningError.html">service::traits::SigningError</a></li><li><a href="transport/struct.BandwidthSinks.html">transport::BandwidthSinks</a></li><li><a href="types/struct.Multiaddr.html">types::Multiaddr</a></li><li><a href="types/struct.PeerId.html">types::PeerId</a></li><li><a href="utils/struct.LruHashSet.html">utils::LruHashSet</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="enum.IfDisconnected.html">IfDisconnected</a></li><li><a href="enum.ObservedRole.html">ObservedRole</a></li><li><a href="enum.RequestFailure.html">RequestFailure</a></li><li><a href="config/enum.NetworkBackendType.html">config::NetworkBackendType</a></li><li><a href="config/enum.NodeKeyConfig.html">config::NodeKeyConfig</a></li><li><a href="config/enum.NonReservedPeerMode.html">config::NonReservedPeerMode</a></li><li><a href="config/enum.ParseErr.html">config::ParseErr</a></li><li><a href="config/enum.Role.html">config::Role</a></li><li><a href="config/enum.Secret.html">config::Secret</a></li><li><a href="config/enum.SyncMode.html">config::SyncMode</a></li><li><a href="config/enum.TransportConfig.html">config::TransportConfig</a></li><li><a href="config/ed25519/enum.DecodingError.html">config::ed25519::DecodingError</a></li><li><a href="discovery/enum.DiscoveryOut.html">discovery::DiscoveryOut</a></li><li><a href="error/enum.Error.html">error::Error</a></li><li><a href="event/enum.DhtEvent.html">event::DhtEvent</a></li><li><a href="event/enum.Event.html">event::Event</a></li><li><a href="multiaddr/enum.ParseError.html">multiaddr::ParseError</a></li><li><a href="multiaddr/enum.Protocol.html">multiaddr::Protocol</a></li><li><a href="network_state/enum.Endpoint.html">network_state::Endpoint</a></li><li><a href="network_state/enum.PeerEndpoint.html">network_state::PeerEndpoint</a></li><li><a href="peer_info/enum.PeerInfoEvent.html">peer_info::PeerInfoEvent</a></li><li><a href="protocol_controller/enum.Message.html">protocol_controller::Message</a></li><li><a href="request_responses/enum.Event.html">request_responses::Event</a></li><li><a href="request_responses/enum.IfDisconnected.html">request_responses::IfDisconnected</a></li><li><a href="request_responses/enum.InboundFailure.html">request_responses::InboundFailure</a></li><li><a href="request_responses/enum.OutboundFailure.html">request_responses::OutboundFailure</a></li><li><a href="request_responses/enum.RegisterError.html">request_responses::RegisterError</a></li><li><a href="request_responses/enum.RequestFailure.html">request_responses::RequestFailure</a></li><li><a href="request_responses/enum.ResponseFailure.html">request_responses::ResponseFailure</a></li><li><a href="service/signature/enum.Keypair.html">service::signature::Keypair</a></li><li><a href="service/signature/enum.PublicKey.html">service::signature::PublicKey</a></li><li><a href="service/traits/enum.Direction.html">service::traits::Direction</a></li><li><a href="service/traits/enum.NotificationEvent.html">service::traits::NotificationEvent</a></li><li><a href="service/traits/enum.NotificationSenderError.html">service::traits::NotificationSenderError</a></li><li><a href="service/traits/enum.ValidationResult.html">service::traits::ValidationResult</a></li><li><a href="types/enum.ProtocolName.html">types::ProtocolName</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="config/trait.ExHashT.html">config::ExHashT</a></li><li><a href="peer_store/trait.PeerStoreProvider.html">peer_store::PeerStoreProvider</a></li><li><a href="peer_store/trait.ProtocolHandle.html">peer_store::ProtocolHandle</a></li><li><a href="service/traits/trait.BandwidthSink.html">service::traits::BandwidthSink</a></li><li><a href="service/traits/trait.MessageSink.html">service::traits::MessageSink</a></li><li><a href="service/traits/trait.NetworkBackend.html">service::traits::NetworkBackend</a></li><li><a href="service/traits/trait.NetworkBlock.html">service::traits::NetworkBlock</a></li><li><a href="service/traits/trait.NetworkDHTProvider.html">service::traits::NetworkDHTProvider</a></li><li><a href="service/traits/trait.NetworkEventStream.html">service::traits::NetworkEventStream</a></li><li><a href="service/traits/trait.NetworkPeers.html">service::traits::NetworkPeers</a></li><li><a href="service/traits/trait.NetworkRequest.html">service::traits::NetworkRequest</a></li><li><a href="service/traits/trait.NetworkService.html">service::traits::NetworkService</a></li><li><a href="service/traits/trait.NetworkSigner.html">service::traits::NetworkSigner</a></li><li><a href="service/traits/trait.NetworkStateInfo.html">service::traits::NetworkStateInfo</a></li><li><a href="service/traits/trait.NetworkStatusProvider.html">service::traits::NetworkStatusProvider</a></li><li><a href="service/traits/trait.NetworkSyncForkRequest.html">service::traits::NetworkSyncForkRequest</a></li><li><a href="service/traits/trait.NotificationConfig.html">service::traits::NotificationConfig</a></li><li><a href="service/traits/trait.NotificationSender.html">service::traits::NotificationSender</a></li><li><a href="service/traits/trait.NotificationSenderReady.html">service::traits::NotificationSenderReady</a></li><li><a href="service/traits/trait.NotificationService.html">service::traits::NotificationService</a></li><li><a href="service/traits/trait.PeerStore.html">service::traits::PeerStore</a></li><li><a href="service/traits/trait.RequestResponseConfig.html">service::traits::RequestResponseConfig</a></li></ul><h3 id="macros">Macros</h3><ul class="all-items"><li><a href="config/macro.build_multiaddr.html">config::build_multiaddr</a></li><li><a href="multiaddr/macro.multiaddr.html">multiaddr::multiaddr</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="config/fn.notification_service.html">config::notification_service</a></li><li><a href="config/fn.parse_addr.html">config::parse_addr</a></li><li><a href="config/fn.parse_str_addr.html">config::parse_str_addr</a></li><li><a href="transport/fn.build_transport.html">transport::build_transport</a></li><li><a href="utils/fn.interval.html">utils::interval</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="config/type.Ed25519Secret.html">config::Ed25519Secret</a></li><li><a href="error/type.Result.html">error::Result</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="constant.MAX_RESPONSE_SIZE.html">MAX_RESPONSE_SIZE</a></li><li><a href="discovery/constant.DEFAULT_KADEMLIA_REPLICATION_FACTOR.html">discovery::DEFAULT_KADEMLIA_REPLICATION_FACTOR</a></li><li><a href="peer_store/constant.BANNED_THRESHOLD.html">peer_store::BANNED_THRESHOLD</a></li><li><a href="peer_store/constant.LOG_TARGET.html">peer_store::LOG_TARGET</a></li><li><a href="protocol_controller/constant.LOG_TARGET.html">protocol_controller::LOG_TARGET</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

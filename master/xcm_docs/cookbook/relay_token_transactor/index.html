@@ -1,0 +1,322 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuring a parachain that only uses the Relay Chain native token. In the case of Polkadot, this recipe will show you how to launch a parachain with no native token – dealing only on DOT."><title>xcm_docs::cookbook::relay_token_transactor - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="xcm_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../xcm_docs/index.html">xcm_docs</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">Module relay_token_transactor</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section><h2><a href="../index.html">In xcm_docs::cookbook</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">xcm_docs</a>::<wbr><a href="../index.html">cookbook</a>::<wbr><a class="mod" href="#">relay_token_transactor</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/xcm_docs/cookbook/relay_token_transactor/mod.rs.html#17-51">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuring a parachain that only uses the Relay Chain native token.
+In the case of Polkadot, this recipe will show you how to launch a parachain with no native
+token – dealing only on DOT.</p>
+<h2 id="relay-asset-transactor"><a class="doc-anchor" href="#relay-asset-transactor">§</a>Relay Asset Transactor</h2>
+<p>This example shows how to configure a parachain to only deal with the Relay Chain token.</p>
+<p>The first step is using the [<code>xcm_builder::FungibleAdapter</code>] to create an <code>AssetTransactor</code> that
+can handle the relay chain token.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>asset_transactor {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="macro">parameter_types!</span> {
+		<span class="kw">pub </span>ParentRelayLocation: Location = Location::parent();
+	}
+
+	<span class="doccomment">/// AssetTransactor for handling the relay chain token
+	</span><span class="kw">pub type </span>FungibleTransactor = FungibleAdapter&lt;
+		<span class="comment">// Use this implementation of the `fungible::*` traits.
+		// `Balances` is the name given to the balances pallet in this particular recipe.
+		// Any implementation of the traits would suffice.
+		</span>Balances,
+		<span class="comment">// This transactor deals with the native token of the Relay Chain.
+		// This token is referenced by the Location of the Relay Chain relative to this chain
+		// -- Location::parent().
+		</span>IsConcrete&lt;ParentRelayLocation&gt;,
+		<span class="comment">// How to convert an XCM Location into a local account id.
+		// This is also something that's configured in the XCM executor.
+		</span>LocationToAccountId,
+		<span class="comment">// The type for account ids, only needed because `fungible` is generic over it.
+		</span>AccountId,
+		<span class="comment">// Not tracking teleports.
+		// This recipe only uses reserve asset transfers to handle the Relay Chain token.
+		</span>(),
+	&gt;;
+
+	<span class="doccomment">/// Actual configuration item that'll be set in the XCM config.
+	/// A tuple could be used here to have multiple transactors, each (potentially) handling
+	/// different assets.
+	/// In this recipe, we only have one.
+	</span><span class="kw">pub type </span>AssetTransactor = FungibleTransactor;
+}</code></pre></div>
+<p>The second step is to configure <code>IsReserve</code> to recognize the relay chain as a reserve for its
+own asset.
+With this, you’ll be able to easily mint a derivative asset, backed one-to-one from the Relay
+Chain, by using the xcm pallet’s <code>transfer_assets</code> extrinsic.</p>
+<p>The <code>IsReserve</code> type takes a type that implements <code>ContainsPair&lt;MultiAsset, MultiLocation&gt;</code>.
+In this case, we want a type that contains the pair <code>(relay_chain_native_token, relay_chain)</code>.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>is_reserve {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="macro">parameter_types!</span> {
+		<span class="doccomment">/// Reserves are specified using a pair `(AssetFilter, Location)`.
+		/// Each pair means that the specified Location is a reserve for all the assets in AssetsFilter.
+		/// Here, we are specifying that the Relay Chain is the reserve location for its native token.
+		</span><span class="kw">pub </span>RelayTokenForRelay: (AssetFilter, Location) =
+		  (Wild(AllOf { id: AssetId(Parent.into()), fun: WildFungible }), Parent.into());
+	}
+
+	<span class="doccomment">/// The wrapper type xcm_builder::Case is needed in order to use this in the configuration.
+	</span><span class="kw">pub type </span>IsReserve = xcm_builder::Case&lt;RelayTokenForRelay&gt;;
+}</code></pre></div>
+<p>With this setup, we are able to do a reserve asset transfer to and from the parachain and relay
+chain.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>reserve_asset_transfers_work() {
+	<span class="comment">// Scenario:
+	// ALICE on the relay chain holds some of Relay Chain's native tokens.
+	// She transfers them to BOB's account on the parachain using a reserve transfer.
+	// BOB receives Relay Chain native token derivatives on the parachain,
+	// which are backed one-to-one with the real tokens on the Relay Chain.
+	//
+	// NOTE: We could've used ALICE on both chains because it's a different account,
+	// but using ALICE and BOB makes it clearer.
+
+	// We restart the mock network.
+	</span>MockNet::reset();
+
+	<span class="comment">// ALICE starts with INITIAL_BALANCE on the relay chain
+	</span>Relay::execute_with(|| {
+		<span class="macro">assert_eq!</span>(relay_chain::Balances::free_balance(<span class="kw-2">&amp;</span>ALICE), INITIAL_BALANCE);
+	});
+
+	<span class="comment">// BOB starts with 0 on the parachain
+	</span>ParaA::execute_with(|| {
+		<span class="macro">assert_eq!</span>(parachain::Balances::free_balance(<span class="kw-2">&amp;</span>BOB), <span class="number">0</span>);
+	});
+
+	<span class="comment">// ALICE on the Relay Chain sends some Relay Chain native tokens to BOB on the parachain.
+	// The transfer is done with the `transfer_assets` extrinsic in the XCM pallet.
+	// The extrinsic figures out it should do a reserve asset transfer
+	// with the local chain as reserve.
+	</span>Relay::execute_with(|| {
+		<span class="comment">// The parachain id is specified in the network.rs file in this recipe.
+		</span><span class="kw">let </span>destination: Location = Parachain(<span class="number">2222</span>).into();
+		<span class="kw">let </span>beneficiary: Location =
+			AccountId32 { id: BOB.clone().into(), network: <span class="prelude-val">Some</span>(NetworkId::Polkadot) }.into();
+		<span class="comment">// We need to use `u128` here for the conversion to work properly.
+		// If we don't specify anything, it will be a `u64`, which the conversion
+		// will turn into a non-fungible token instead of a fungible one.
+		</span><span class="kw">let </span>assets: Assets = (Here, <span class="number">50u128 </span>* CENTS <span class="kw">as </span>u128).into();
+		<span class="macro">assert_ok!</span>(relay_chain::XcmPallet::transfer_assets(
+			relay_chain::RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedLocation::V4(destination.clone())),
+			Box::new(VersionedLocation::V4(beneficiary)),
+			Box::new(VersionedAssets::V4(assets)),
+			<span class="number">0</span>,
+			WeightLimit::Unlimited,
+		));
+
+		<span class="comment">// ALICE now has less Relay Chain tokens.
+		</span><span class="macro">assert_eq!</span>(relay_chain::Balances::free_balance(<span class="kw-2">&amp;</span>ALICE), INITIAL_BALANCE - <span class="number">50 </span>* CENTS);
+
+		<span class="comment">// The funds of the sovereign account of the parachain increase by 50 cents,
+		// the ones transferred over to BOB.
+		// The funds in this sovereign account represent how many Relay Chain tokens
+		// have been sent to this parachain.
+		// If the parachain wants to send those assets somewhere else they have to go
+		// via the reserve, and this balance is updated accordingly.
+		// This is why the derivatives are backed one-to-one.
+		</span><span class="kw">let </span>parachains_sovereign_account =
+			relay_chain::LocationToAccountId::convert_location(<span class="kw-2">&amp;</span>destination).unwrap();
+		<span class="macro">assert_eq!</span>(relay_chain::Balances::free_balance(parachains_sovereign_account), <span class="number">50 </span>* CENTS);
+	});
+
+	ParaA::execute_with(|| {
+		<span class="comment">// On the parachain, BOB has received the derivative tokens
+		</span><span class="macro">assert_eq!</span>(parachain::Balances::free_balance(<span class="kw-2">&amp;</span>BOB), <span class="number">50 </span>* CENTS);
+
+		<span class="comment">// BOB gives back half to ALICE in the relay chain
+		</span><span class="kw">let </span>destination: Location = Parent.into();
+		<span class="kw">let </span>beneficiary: Location =
+			AccountId32 { id: ALICE.clone().into(), network: <span class="prelude-val">Some</span>(NetworkId::Polkadot) }.into();
+		<span class="comment">// We specify `Parent` because we are referencing the Relay Chain token.
+		// This chain doesn't have a token of its own, so we always refer to this token,
+		// and we do so by the Location of the Relay Chain.
+		</span><span class="kw">let </span>assets: Assets = (Parent, <span class="number">25u128 </span>* CENTS <span class="kw">as </span>u128).into();
+		<span class="macro">assert_ok!</span>(parachain::XcmPallet::transfer_assets(
+			parachain::RuntimeOrigin::signed(BOB),
+			Box::new(VersionedLocation::V4(destination)),
+			Box::new(VersionedLocation::V4(beneficiary)),
+			Box::new(VersionedAssets::V4(assets)),
+			<span class="number">0</span>,
+			WeightLimit::Unlimited,
+		));
+
+		<span class="comment">// BOB's balance decreased
+		</span><span class="macro">assert_eq!</span>(parachain::Balances::free_balance(<span class="kw-2">&amp;</span>BOB), <span class="number">25 </span>* CENTS);
+	});
+
+	Relay::execute_with(|| {
+		<span class="comment">// ALICE's balance increases
+		</span><span class="macro">assert_eq!</span>(
+			relay_chain::Balances::free_balance(<span class="kw-2">&amp;</span>ALICE),
+			INITIAL_BALANCE - <span class="number">50 </span>* CENTS + <span class="number">25 </span>* CENTS
+		);
+
+		<span class="comment">// The funds in the parachain's sovereign account decrease.
+		</span><span class="kw">let </span>parachain: Location = Parachain(<span class="number">2222</span>).into();
+		<span class="kw">let </span>parachains_sovereign_account =
+			relay_chain::LocationToAccountId::convert_location(<span class="kw-2">&amp;</span>parachain).unwrap();
+		<span class="macro">assert_eq!</span>(relay_chain::Balances::free_balance(parachains_sovereign_account), <span class="number">25 </span>* CENTS);
+	});
+}</code></pre></div>
+<p>For the rest of the code, be sure to check the contents of this module.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="network/index.html" title="mod xcm_docs::cookbook::relay_token_transactor::network">network</a></div><div class="desc docblock-short">The network for this example.
+Mock network</div></li><li><div class="item-name"><a class="mod" href="parachain/index.html" title="mod xcm_docs::cookbook::relay_token_transactor::parachain">parachain</a></div><div class="desc docblock-short">The parachain runtime for this example</div></li><li><div class="item-name"><a class="mod" href="relay_chain/index.html" title="mod xcm_docs::cookbook::relay_token_transactor::relay_chain">relay_chain</a></div><div class="desc docblock-short">The relay chain runtime for this example.
+Relay chain runtime mock.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

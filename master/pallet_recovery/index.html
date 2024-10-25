@@ -1,0 +1,276 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Recovery Pallet"><title>pallet_recovery - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_recovery" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_recovery/index.html">pallet_recovery</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_recovery</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_recovery/lib.rs.html#18-720">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="recovery-pallet"><a class="doc-anchor" href="#recovery-pallet">§</a>Recovery Pallet</h2>
+<ul>
+<li><a href="pallet/trait.Config.html" title="trait pallet_recovery::pallet::Config"><code>Config</code></a></li>
+<li><a href="pallet/enum.Call.html" title="enum pallet_recovery::pallet::Call"><code>Call</code></a></li>
+</ul>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>The Recovery pallet is an M-of-N social recovery tool for users to gain
+access to their accounts if the private key or other authentication mechanism
+is lost. Through this pallet, a user is able to make calls on-behalf-of another
+account which they have recovered. The recovery process is protected by trusted
+“friends” whom the original account owner chooses. A threshold (M) out of N
+friends are needed to give another account access to the recoverable account.</p>
+<h4 id="recovery-configuration"><a class="doc-anchor" href="#recovery-configuration">§</a>Recovery Configuration</h4>
+<p>The recovery process for each recoverable account can be configured by the account owner.
+They are able to choose:</p>
+<ul>
+<li><code>friends</code> - The list of friends that the account owner trusts to protect the recovery process
+for their account.</li>
+<li><code>threshold</code> - The number of friends that need to approve a recovery process for the account to
+be successfully recovered.</li>
+<li><code>delay_period</code> - The minimum number of blocks after the beginning of the recovery process that
+need to pass before the account can be successfully recovered.</li>
+</ul>
+<p>There is a configurable deposit that all users need to pay to create a recovery
+configuration. This deposit is composed of a base deposit plus a multiplier for
+the number of friends chosen. This deposit is returned in full when the account
+owner removes their recovery configuration.</p>
+<h4 id="recovery-life-cycle"><a class="doc-anchor" href="#recovery-life-cycle">§</a>Recovery Life Cycle</h4>
+<p>The intended life cycle of a successful recovery takes the following steps:</p>
+<ol>
+<li>The account owner calls <code>create_recovery</code> to set up a recovery configuration for their
+account.</li>
+<li>At some later time, the account owner loses access to their account and wants to recover it.
+Likely, they will need to create a new account and fund it with enough balance to support the
+transaction fees and the deposit for the recovery process.</li>
+<li>Using this new account, they call <code>initiate_recovery</code>.</li>
+<li>Then the account owner would contact their configured friends to vouch for the recovery
+attempt. The account owner would provide their old account id and the new account id, and
+friends would call <code>vouch_recovery</code> with those parameters.</li>
+<li>Once a threshold number of friends have vouched for the recovery attempt, the account owner
+needs to wait until the delay period has passed, starting when they initiated the recovery
+process.</li>
+<li>Now the account owner is able to call <code>claim_recovery</code>, which subsequently allows them to
+call <code>as_recovered</code> and directly make calls on-behalf-of the lost account.</li>
+<li>Using the now recovered account, the account owner can call <code>close_recovery</code> on the recovery
+process they opened, reclaiming the recovery deposit they placed.</li>
+<li>Then the account owner should then call <code>remove_recovery</code> to remove the recovery
+configuration on the recovered account and reclaim the recovery configuration deposit they
+placed.</li>
+<li>Using <code>as_recovered</code>, the account owner is able to call any other pallets to clean up their
+state and reclaim any reserved or locked funds. They can then transfer all funds from the
+recovered account to the new account.</li>
+<li>When the recovered account becomes reaped (i.e. its free and reserved balance drops to
+zero), the final recovery link is removed.</li>
+</ol>
+<h4 id="malicious-recovery-attempts"><a class="doc-anchor" href="#malicious-recovery-attempts">§</a>Malicious Recovery Attempts</h4>
+<p>Initializing a the recovery process for a recoverable account is open and
+permissionless. However, the recovery deposit is an economic deterrent that
+should disincentivize would-be attackers from trying to maliciously recover
+accounts.</p>
+<p>The recovery deposit can always be claimed by the account which is trying to
+to be recovered. In the case of a malicious recovery attempt, the account
+owner who still has access to their account can claim the deposit and
+essentially punish the malicious user.</p>
+<p>Furthermore, the malicious recovery attempt can only be successful if the
+attacker is also able to get enough friends to vouch for the recovery attempt.
+In the case where the account owner prevents a malicious recovery process,
+this pallet makes it near-zero cost to re-configure the recovery settings and
+remove/replace friends who are acting inappropriately.</p>
+<h4 id="safety-considerations"><a class="doc-anchor" href="#safety-considerations">§</a>Safety Considerations</h4>
+<p>It is important to note that this is a powerful pallet that can compromise the
+security of an account if used incorrectly. Some recommended practices for users
+of this pallet are:</p>
+<ul>
+<li>Configure a significant <code>delay_period</code> for your recovery process: As long as you have access
+to your recoverable account, you need only check the blockchain once every <code>delay_period</code>
+blocks to ensure that no recovery attempt is successful against your account. Using off-chain
+notification systems can help with this, but ultimately, setting a large <code>delay_period</code> means
+that even the most skilled attacker will need to wait this long before they can access your
+account.</li>
+<li>Use a high threshold of approvals: Setting a value of 1 for the threshold means that any of
+your friends would be able to recover your account. They would simply need to start a recovery
+process and approve their own process. Similarly, a threshold of 2 would mean that any 2
+friends could work together to gain access to your account. The only way to prevent against
+these kinds of attacks is to choose a high threshold of approvals and select from a diverse
+friend group that would not be able to reasonably coordinate with one another.</li>
+<li>Reset your configuration over time: Since the entire deposit of creating a recovery
+configuration is returned to the user, the only cost of updating your recovery configuration
+is the transaction fees for the calls. Thus, it is strongly encouraged to regularly update
+your recovery configuration as your life changes and your relationship with new and existing
+friends change as well.</li>
+</ul>
+<h3 id="interface"><a class="doc-anchor" href="#interface">§</a>Interface</h3><h4 id="dispatchable-functions"><a class="doc-anchor" href="#dispatchable-functions">§</a>Dispatchable Functions</h4><h5 id="for-general-users"><a class="doc-anchor" href="#for-general-users">§</a>For General Users</h5>
+<ul>
+<li><code>create_recovery</code> - Create a recovery configuration for your account and make it recoverable.</li>
+<li><code>initiate_recovery</code> - Start the recovery process for a recoverable account.</li>
+</ul>
+<h5 id="for-friends-of-a-recoverable-account"><a class="doc-anchor" href="#for-friends-of-a-recoverable-account">§</a>For Friends of a Recoverable Account</h5>
+<ul>
+<li><code>vouch_recovery</code> - As a <code>friend</code> of a recoverable account, vouch for a recovery attempt on the
+account.</li>
+</ul>
+<h5 id="for-a-user-who-successfully-recovered-an-account"><a class="doc-anchor" href="#for-a-user-who-successfully-recovered-an-account">§</a>For a User Who Successfully Recovered an Account</h5>
+<ul>
+<li><code>claim_recovery</code> - Claim access to the account that you have successfully completed the
+recovery process for.</li>
+<li><code>as_recovered</code> - Send a transaction as an account that you have recovered. See other functions
+below.</li>
+</ul>
+<h5 id="for-the-recoverable-account"><a class="doc-anchor" href="#for-the-recoverable-account">§</a>For the Recoverable Account</h5>
+<ul>
+<li><code>close_recovery</code> - Close an active recovery process for your account and reclaim the recovery
+deposit.</li>
+<li><code>remove_recovery</code> - Remove the recovery configuration from the account, making it
+un-recoverable.</li>
+</ul>
+<h5 id="for-super-users"><a class="doc-anchor" href="#for-super-users">§</a>For Super Users</h5>
+<ul>
+<li><code>set_recovered</code> - The ROOT origin is able to skip the recovery process and directly allow one
+account to access another.</li>
+</ul>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_recovery::weights::WeightInfo">WeightInfo</a>;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_recovery::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_recovery::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod pallet_recovery::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for <code>pallet_recovery</code></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.ActiveRecovery.html" title="struct pallet_recovery::ActiveRecovery">ActiveRecovery</a></div><div class="desc docblock-short">An active recovery process.</div></li><li><div class="item-name"><a class="struct" href="struct.RecoveryConfig.html" title="struct pallet_recovery::RecoveryConfig">RecoveryConfig</a></div><div class="desc docblock-short">Configuration for recovering an account.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

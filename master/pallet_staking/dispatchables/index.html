@@ -1,0 +1,175 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Auto-generated docs-only module listing all defined dispatchables for this pallet."><title>pallet_staking::dispatchables - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_staking/index.html">pallet_staking</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Module dispatchables</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#functions">Functions</a></li></ul></section><h2><a href="../index.html">In crate pallet_staking</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">pallet_staking</a>::<wbr><a class="mod" href="#">dispatchables</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_staking/pallet/mod.rs.html#63">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Auto-generated docs-only module listing all defined dispatchables for this pallet.</p>
+<h2 id="warning-doc-only"><a class="doc-anchor" href="#warning-doc-only">§</a>Warning: Doc-Only</h2>
+<p>Members of this module cannot be used directly and are only provided for documentation
+purposes. To see the real version of each dispatchable, look for them in <a href="../struct.Pallet.html" title="struct pallet_staking::Pallet"><code>Pallet</code></a> or
+<a href="../enum.Call.html" title="enum pallet_staking::Call"><code>Call</code></a>.</p>
+</div></details><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.bond.html" title="fn pallet_staking::dispatchables::bond">bond</a></div><div class="desc docblock-short">Take the origin account as a stash and lock up <code>value</code> of its balance. <code>controller</code> will
+be the account that controls it.</div></li><li><div class="item-name"><a class="fn" href="fn.bond_extra.html" title="fn pallet_staking::dispatchables::bond_extra">bond_extra</a></div><div class="desc docblock-short">Add some extra amount that have appeared in the stash <code>free_balance</code> into the balance up
+for staking.</div></li><li><div class="item-name"><a class="fn" href="fn.cancel_deferred_slash.html" title="fn pallet_staking::dispatchables::cancel_deferred_slash">cancel_deferred_slash</a></div><div class="desc docblock-short">Cancel enactment of a deferred slash.</div></li><li><div class="item-name"><a class="fn" href="fn.chill.html" title="fn pallet_staking::dispatchables::chill">chill</a></div><div class="desc docblock-short">Declare no desire to either validate or nominate.</div></li><li><div class="item-name"><a class="fn" href="fn.chill_other.html" title="fn pallet_staking::dispatchables::chill_other">chill_other</a></div><div class="desc docblock-short">Declare a <code>controller</code> to stop participating as either a validator or nominator.</div></li><li><div class="item-name"><a class="fn" href="fn.deprecate_controller_batch.html" title="fn pallet_staking::dispatchables::deprecate_controller_batch">deprecate_controller_batch</a></div><div class="desc docblock-short">Updates a batch of controller accounts to their corresponding stash account if they are
+not the same. Ignores any controller accounts that do not exist, and does not operate if
+the stash and controller are already the same.</div></li><li><div class="item-name"><a class="fn" href="fn.force_apply_min_commission.html" title="fn pallet_staking::dispatchables::force_apply_min_commission">force_apply_min_commission</a></div><div class="desc docblock-short">Force a validator to have at least the minimum commission. This will not affect a
+validator who already has a commission greater than or equal to the minimum. Any account
+can call this.</div></li><li><div class="item-name"><a class="fn" href="fn.force_new_era.html" title="fn pallet_staking::dispatchables::force_new_era">force_new_era</a></div><div class="desc docblock-short">Force there to be a new era at the end of the next session. After this, it will be
+reset to normal (non-forced) behaviour.</div></li><li><div class="item-name"><a class="fn" href="fn.force_new_era_always.html" title="fn pallet_staking::dispatchables::force_new_era_always">force_new_era_always</a></div><div class="desc docblock-short">Force there to be a new era at the end of sessions indefinitely.</div></li><li><div class="item-name"><a class="fn" href="fn.force_no_eras.html" title="fn pallet_staking::dispatchables::force_no_eras">force_no_eras</a></div><div class="desc docblock-short">Force there to be no new eras indefinitely.</div></li><li><div class="item-name"><a class="fn" href="fn.force_unstake.html" title="fn pallet_staking::dispatchables::force_unstake">force_unstake</a></div><div class="desc docblock-short">Force a current staker to become completely unstaked, immediately.</div></li><li><div class="item-name"><a class="fn" href="fn.increase_validator_count.html" title="fn pallet_staking::dispatchables::increase_validator_count">increase_validator_count</a></div><div class="desc docblock-short">Increments the ideal number of validators up to maximum of
+<code>ElectionProviderBase::MaxWinners</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.kick.html" title="fn pallet_staking::dispatchables::kick">kick</a></div><div class="desc docblock-short">Remove the given nominations from the calling validator.</div></li><li><div class="item-name"><a class="fn" href="fn.nominate.html" title="fn pallet_staking::dispatchables::nominate">nominate</a></div><div class="desc docblock-short">Declare the desire to nominate <code>targets</code> for the origin controller.</div></li><li><div class="item-name"><a class="fn" href="fn.payout_stakers.html" title="fn pallet_staking::dispatchables::payout_stakers">payout_stakers</a></div><div class="desc docblock-short">Pay out next page of the stakers behind a validator for the given era.</div></li><li><div class="item-name"><a class="fn" href="fn.payout_stakers_by_page.html" title="fn pallet_staking::dispatchables::payout_stakers_by_page">payout_stakers_by_page</a></div><div class="desc docblock-short">Pay out a page of the stakers behind a validator for the given era and page.</div></li><li><div class="item-name"><a class="fn" href="fn.reap_stash.html" title="fn pallet_staking::dispatchables::reap_stash">reap_stash</a></div><div class="desc docblock-short">Remove all data structures concerning a staker/stash once it is at a state where it can
+be considered <code>dust</code> in the staking system. The requirements are:</div></li><li><div class="item-name"><a class="fn" href="fn.rebond.html" title="fn pallet_staking::dispatchables::rebond">rebond</a></div><div class="desc docblock-short">Rebond a portion of the stash scheduled to be unlocked.</div></li><li><div class="item-name"><a class="fn" href="fn.restore_ledger.html" title="fn pallet_staking::dispatchables::restore_ledger">restore_ledger</a></div><div class="desc docblock-short">Restores the state of a ledger which is in an inconsistent state.</div></li><li><div class="item-name"><a class="fn" href="fn.scale_validator_count.html" title="fn pallet_staking::dispatchables::scale_validator_count">scale_validator_count</a></div><div class="desc docblock-short">Scale up the ideal number of validators by a factor up to maximum of
+<code>ElectionProviderBase::MaxWinners</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.set_controller.html" title="fn pallet_staking::dispatchables::set_controller">set_controller</a></div><div class="desc docblock-short">(Re-)sets the controller of a stash to the stash itself. This function previously
+accepted a <code>controller</code> argument to set the controller to an account other than the
+stash itself. This functionality has now been removed, now only setting the controller
+to the stash, if it is not already.</div></li><li><div class="item-name"><a class="fn" href="fn.set_invulnerables.html" title="fn pallet_staking::dispatchables::set_invulnerables">set_invulnerables</a></div><div class="desc docblock-short">Set the validators who cannot be slashed (if any).</div></li><li><div class="item-name"><a class="fn" href="fn.set_min_commission.html" title="fn pallet_staking::dispatchables::set_min_commission">set_min_commission</a></div><div class="desc docblock-short">Sets the minimum amount of commission that each validators must maintain.</div></li><li><div class="item-name"><a class="fn" href="fn.set_payee.html" title="fn pallet_staking::dispatchables::set_payee">set_payee</a></div><div class="desc docblock-short">(Re-)set the payment target for a controller.</div></li><li><div class="item-name"><a class="fn" href="fn.set_staking_configs.html" title="fn pallet_staking::dispatchables::set_staking_configs">set_staking_configs</a></div><div class="desc docblock-short">Update the various staking configurations .</div></li><li><div class="item-name"><a class="fn" href="fn.set_validator_count.html" title="fn pallet_staking::dispatchables::set_validator_count">set_validator_count</a></div><div class="desc docblock-short">Sets the ideal number of validators.</div></li><li><div class="item-name"><a class="fn" href="fn.unbond.html" title="fn pallet_staking::dispatchables::unbond">unbond</a></div><div class="desc docblock-short">Schedule a portion of the stash to be unlocked ready for transfer out after the bond
+period ends. If this leaves an amount actively bonded less than
+<a href="../asset/fn.existential_deposit.html" title="fn pallet_staking::asset::existential_deposit"><code>asset::existential_deposit</code></a>, then it is increased to the full amount.</div></li><li><div class="item-name"><a class="fn" href="fn.update_payee.html" title="fn pallet_staking::dispatchables::update_payee">update_payee</a></div><div class="desc docblock-short">Migrates an account’s <code>RewardDestination::Controller</code> to
+<code>RewardDestination::Account(controller)</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.validate.html" title="fn pallet_staking::dispatchables::validate">validate</a></div><div class="desc docblock-short">Declare the desire to validate for the origin controller.</div></li><li><div class="item-name"><a class="fn" href="fn.withdraw_unbonded.html" title="fn pallet_staking::dispatchables::withdraw_unbonded">withdraw_unbonded</a></div><div class="desc docblock-short">Remove any unlocked chunks from the <code>unlocking</code> queue from our management.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

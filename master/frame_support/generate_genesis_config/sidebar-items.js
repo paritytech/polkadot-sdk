@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["InitializedField"],"fn":["retain_initialized_fields"]};

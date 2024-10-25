@@ -1,0 +1,171 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `polkadot_node_subsystem` crate."><title>polkadot_node_subsystem::metrics::metrics::prometheus - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_node_subsystem" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../crates.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../polkadot_node_subsystem/index.html">polkadot_node_subsystem</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In polkadot_node_subsystem::metrics::metrics</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a href="../../../index.html">polkadot_node_subsystem</a>::<wbr><a href="../../index.html">metrics</a>::<wbr><a href="../index.html">metrics</a>::<wbr><a class="mod" href="#">prometheus</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../../src/substrate_prometheus_endpoint/lib.rs.html#18-171">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="prometheus/index.html" title="mod polkadot_node_subsystem::metrics::metrics::prometheus::prometheus">prometheus</a></div><div class="desc docblock-short">The Rust client library for <a href="https://prometheus.io/">Prometheus</a>.</div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.histogram_opts.html" title="macro polkadot_node_subsystem::metrics::metrics::prometheus::histogram_opts">histogram_opts</a></div><div class="desc docblock-short">Create a <a href="struct.HistogramOpts.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::HistogramOpts"><code>HistogramOpts</code></a>.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Counter.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::Counter">Counter</a></div><div class="desc docblock-short">The underlying implementation for <a href="prometheus/type.Counter.html" title="type polkadot_node_subsystem::metrics::metrics::prometheus::prometheus::Counter"><code>Counter</code></a> and <a href="prometheus/type.IntCounter.html" title="type polkadot_node_subsystem::metrics::metrics::prometheus::prometheus::IntCounter"><code>IntCounter</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.F64.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::F64">F64</a></div><div class="desc docblock-short">A atomic float.</div></li><li><div class="item-name"><a class="struct" href="struct.Gauge.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::Gauge">Gauge</a></div><div class="desc docblock-short">The underlying implementation for <a href="prometheus/type.Gauge.html" title="type polkadot_node_subsystem::metrics::metrics::prometheus::prometheus::Gauge"><code>Gauge</code></a> and <a href="prometheus/type.IntGauge.html" title="type polkadot_node_subsystem::metrics::metrics::prometheus::prometheus::IntGauge"><code>IntGauge</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.Histogram.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::Histogram">Histogram</a></div><div class="desc docblock-short">A <a href="prometheus/core/trait.Metric.html" title="trait polkadot_node_subsystem::metrics::metrics::prometheus::prometheus::core::Metric"><code>Metric</code></a> counts individual observations from an event or sample stream
+in configurable buckets. Similar to a <a href="prometheus/proto/struct.Summary.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::prometheus::proto::Summary"><code>Summary</code></a>,
+it also provides a sum of observations and an observation count.</div></li><li><div class="item-name"><a class="struct" href="struct.HistogramOpts.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::HistogramOpts">HistogramOpts</a></div><div class="desc docblock-short">A struct that bundles the options for creating a <a href="struct.Histogram.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::Histogram"><code>Histogram</code></a> metric. It is
+mandatory to set Name and Help to a non-empty string. All other fields are
+optional and can safely be left at their zero value.</div></li><li><div class="item-name"><a class="struct" href="struct.I64.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::I64">I64</a></div><div class="desc docblock-short">A atomic signed integer.</div></li><li><div class="item-name"><a class="struct" href="struct.Opts.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::Opts">Opts</a></div><div class="desc docblock-short">A struct that bundles the options for creating most <a href="prometheus/core/trait.Metric.html" title="trait polkadot_node_subsystem::metrics::metrics::prometheus::prometheus::core::Metric"><code>Metric</code></a> types.</div></li><li><div class="item-name"><a class="struct" href="struct.Registry.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::Registry">Registry</a></div><div class="desc docblock-short">A struct for registering Prometheus collectors, collecting their metrics, and gathering
+them into <code>MetricFamilies</code> for exposition.</div></li><li><div class="item-name"><a class="struct" href="struct.SourcedMetric.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::SourcedMetric">SourcedMetric</a></div><div class="desc docblock-short">A metric whose values are obtained from an existing source,
+instead of being independently recorded.</div></li><li><div class="item-name"><a class="struct" href="struct.U64.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::U64">U64</a></div><div class="desc docblock-short">A atomic unsigned integer.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Error.html" title="enum polkadot_node_subsystem::metrics::metrics::prometheus::Error">Error</a></div></li><li><div class="item-name"><a class="enum" href="enum.PrometheusError.html" title="enum polkadot_node_subsystem::metrics::metrics::prometheus::PrometheusError">PrometheusError</a></div><div class="desc docblock-short">The error types for prometheus.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.MetricSource.html" title="trait polkadot_node_subsystem::metrics::metrics::prometheus::MetricSource">MetricSource</a></div><div class="desc docblock-short">A source of values for a <a href="struct.SourcedMetric.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::SourcedMetric"><code>SourcedMetric</code></a>.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.exponential_buckets.html" title="fn polkadot_node_subsystem::metrics::metrics::prometheus::exponential_buckets">exponential_buckets</a></div><div class="desc docblock-short">Create <code>count</code> buckets, where the lowest bucket has an
+upper bound of <code>start</code> and each following bucket’s upper bound is <code>factor</code>
+times the previous bucket’s upper bound. The final +Inf bucket is not counted
+and not included in the returned slice. The returned slice is meant to be
+used for the Buckets field of <a href="struct.HistogramOpts.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::HistogramOpts"><code>HistogramOpts</code></a>.</div></li><li><div class="item-name"><a class="fn" href="fn.init_prometheus.html" title="fn polkadot_node_subsystem::metrics::metrics::prometheus::init_prometheus">init_prometheus</a></div><div class="desc docblock-short">Initializes the metrics context, and starts an HTTP server
+to serve metrics.</div></li><li><div class="item-name"><a class="fn" href="fn.linear_buckets.html" title="fn polkadot_node_subsystem::metrics::metrics::prometheus::linear_buckets">linear_buckets</a></div><div class="desc docblock-short">Create <code>count</code> buckets, each <code>width</code> wide, where the lowest
+bucket has an upper bound of <code>start</code>. The final +Inf bucket is not counted
+and not included in the returned slice. The returned slice is meant to be
+used for the Buckets field of <a href="struct.HistogramOpts.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::HistogramOpts"><code>HistogramOpts</code></a>.</div></li><li><div class="item-name"><a class="fn" href="fn.register.html" title="fn polkadot_node_subsystem::metrics::metrics::prometheus::register">register</a></div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.CounterVec.html" title="type polkadot_node_subsystem::metrics::metrics::prometheus::CounterVec">CounterVec</a></div><div class="desc docblock-short">The underlying implementation for <a href="prometheus/type.CounterVec.html" title="type polkadot_node_subsystem::metrics::metrics::prometheus::prometheus::CounterVec"><code>CounterVec</code></a> and <a href="prometheus/type.IntCounterVec.html" title="type polkadot_node_subsystem::metrics::metrics::prometheus::prometheus::IntCounterVec"><code>IntCounterVec</code></a>.</div></li><li><div class="item-name"><a class="type" href="type.GaugeVec.html" title="type polkadot_node_subsystem::metrics::metrics::prometheus::GaugeVec">GaugeVec</a></div><div class="desc docblock-short">The underlying implementation for <a href="prometheus/type.GaugeVec.html" title="type polkadot_node_subsystem::metrics::metrics::prometheus::prometheus::GaugeVec"><code>GaugeVec</code></a> and <a href="prometheus/type.IntGaugeVec.html" title="type polkadot_node_subsystem::metrics::metrics::prometheus::prometheus::IntGaugeVec"><code>IntGaugeVec</code></a>.</div></li><li><div class="item-name"><a class="type" href="type.HistogramVec.html" title="type polkadot_node_subsystem::metrics::metrics::prometheus::HistogramVec">HistogramVec</a></div><div class="desc docblock-short">A <a href="prometheus/core/trait.Collector.html" title="trait polkadot_node_subsystem::metrics::metrics::prometheus::prometheus::core::Collector"><code>Collector</code></a> that bundles a set of Histograms that all share the
+same <a href="prometheus/core/struct.Desc.html" title="struct polkadot_node_subsystem::metrics::metrics::prometheus::prometheus::core::Desc"><code>Desc</code></a>, but have different values for their variable labels. This is used
+if you want to count the same thing partitioned by various dimensions
+(e.g. HTTP request latencies, partitioned by status code and method).</div></li><li><div class="item-name"><a class="type" href="type.SourcedCounter.html" title="type polkadot_node_subsystem::metrics::metrics::prometheus::SourcedCounter">SourcedCounter</a></div><div class="desc docblock-short">A counter whose values are obtained from an existing source.</div></li><li><div class="item-name"><a class="type" href="type.SourcedGauge.html" title="type polkadot_node_subsystem::metrics::metrics::prometheus::SourcedGauge">SourcedGauge</a></div><div class="desc docblock-short">A gauge whose values are obtained from an existing source.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

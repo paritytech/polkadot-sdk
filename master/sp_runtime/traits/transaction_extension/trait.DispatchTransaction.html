@@ -1,0 +1,233 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Single-function utility trait with a blanket impl over `TransactionExtension` in order to provide transaction dispatching functionality. We avoid implementing this directly on the trait since we never want it to be overriden by the trait implementation."><title>DispatchTransaction in sp_runtime::traits::transaction_extension - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../sp_runtime/index.html">sp_runtime</a><span class="version">31.0.1</span></h2></div><h2 class="location"><a href="#">DispatchTransaction</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Info">Info</a></li><li><a href="#associatedtype.Origin">Origin</a></li><li><a href="#associatedtype.Pre">Pre</a></li><li><a href="#associatedtype.Result">Result</a></li><li><a href="#associatedtype.Val">Val</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.dispatch_transaction">dispatch_transaction</a></li><li><a href="#tymethod.test_run">test_run</a></li><li><a href="#tymethod.validate_and_prepare">validate_and_prepare</a></li><li><a href="#tymethod.validate_only">validate_only</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In sp_runtime::traits::transaction_extension</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">sp_runtime</a>::<wbr><a href="../index.html">traits</a>::<wbr><a href="index.html">transaction_extension</a>::<wbr><a class="trait" href="#">DispatchTransaction</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/sp_runtime/traits/transaction_extension/dispatch_transaction.rs.html#27-78">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait DispatchTransaction&lt;Call: <a class="trait" href="../trait.Dispatchable.html" title="trait sp_runtime::traits::Dispatchable">Dispatchable</a>&gt; {
+    type <a href="#associatedtype.Origin" class="associatedtype">Origin</a>;
+    type <a href="#associatedtype.Info" class="associatedtype">Info</a>;
+    type <a href="#associatedtype.Result" class="associatedtype">Result</a>;
+    type <a href="#associatedtype.Val" class="associatedtype">Val</a>;
+    type <a href="#associatedtype.Pre" class="associatedtype">Pre</a>;
+
+    // Required methods
+    fn <a href="#tymethod.validate_only" class="fn">validate_only</a>(
+        &amp;self,
+        origin: Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Origin" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Origin">Origin</a>,
+        call: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;Call</a>,
+        info: &amp;Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Info" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Info">Info</a>,
+        len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="struct" href="../../transaction_validity/struct.ValidTransaction.html" title="struct sp_runtime::transaction_validity::ValidTransaction">ValidTransaction</a>, Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Val" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Val">Val</a>, Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Origin" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Origin">Origin</a>), <a class="enum" href="../../transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.validate_and_prepare" class="fn">validate_and_prepare</a>(
+        self,
+        origin: Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Origin" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Origin">Origin</a>,
+        call: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;Call</a>,
+        info: &amp;Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Info" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Info">Info</a>,
+        len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Pre" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Pre">Pre</a>, Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Origin" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Origin">Origin</a>), <a class="enum" href="../../transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.dispatch_transaction" class="fn">dispatch_transaction</a>(
+        self,
+        origin: Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Origin" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Origin">Origin</a>,
+        call: Call,
+        info: &amp;Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Info" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Info">Info</a>,
+        len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+    ) -&gt; Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Result" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Result">Result</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.test_run" class="fn">test_run</a>(
+        self,
+        origin: Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Origin" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Origin">Origin</a>,
+        call: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;Call</a>,
+        info: &amp;Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Info" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Info">Info</a>,
+        len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+        substitute: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Origin" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Origin">Origin</a>) -&gt; <a class="type" href="../../type.DispatchResultWithInfo.html" title="type sp_runtime::DispatchResultWithInfo">DispatchResultWithInfo</a>&lt;&lt;Call as <a class="trait" href="../trait.Dispatchable.html" title="trait sp_runtime::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="../trait.Dispatchable.html#associatedtype.PostInfo" title="type sp_runtime::traits::Dispatchable::PostInfo">PostInfo</a>&gt;,
+    ) -&gt; Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Result" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Result">Result</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Single-function utility trait with a blanket impl over <a href="trait.TransactionExtension.html" title="trait sp_runtime::traits::transaction_extension::TransactionExtension"><code>TransactionExtension</code></a> in order to
+provide transaction dispatching functionality. We avoid implementing this directly on the trait
+since we never want it to be overriden by the trait implementation.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Origin" class="method"><a class="src rightside" href="../../../src/sp_runtime/traits/transaction_extension/dispatch_transaction.rs.html#29">source</a><h4 class="code-header">type <a href="#associatedtype.Origin" class="associatedtype">Origin</a></h4></section></summary><div class="docblock"><p>The origin type of the transaction.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Info" class="method"><a class="src rightside" href="../../../src/sp_runtime/traits/transaction_extension/dispatch_transaction.rs.html#31">source</a><h4 class="code-header">type <a href="#associatedtype.Info" class="associatedtype">Info</a></h4></section></summary><div class="docblock"><p>The info type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Result" class="method"><a class="src rightside" href="../../../src/sp_runtime/traits/transaction_extension/dispatch_transaction.rs.html#33">source</a><h4 class="code-header">type <a href="#associatedtype.Result" class="associatedtype">Result</a></h4></section></summary><div class="docblock"><p>The resultant type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Val" class="method"><a class="src rightside" href="../../../src/sp_runtime/traits/transaction_extension/dispatch_transaction.rs.html#35">source</a><h4 class="code-header">type <a href="#associatedtype.Val" class="associatedtype">Val</a></h4></section></summary><div class="docblock"><p>The <code>Val</code> of the extension.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Pre" class="method"><a class="src rightside" href="../../../src/sp_runtime/traits/transaction_extension/dispatch_transaction.rs.html#37">source</a><h4 class="code-header">type <a href="#associatedtype.Pre" class="associatedtype">Pre</a></h4></section></summary><div class="docblock"><p>The <code>Pre</code> of the extension.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.validate_only" class="method"><a class="src rightside" href="../../../src/sp_runtime/traits/transaction_extension/dispatch_transaction.rs.html#42-48">source</a><h4 class="code-header">fn <a href="#tymethod.validate_only" class="fn">validate_only</a>(
+    &amp;self,
+    origin: Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Origin" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Origin">Origin</a>,
+    call: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;Call</a>,
+    info: &amp;Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Info" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Info">Info</a>,
+    len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="struct" href="../../transaction_validity/struct.ValidTransaction.html" title="struct sp_runtime::transaction_validity::ValidTransaction">ValidTransaction</a>, Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Val" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Val">Val</a>, Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Origin" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Origin">Origin</a>), <a class="enum" href="../../transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;</h4></section></summary><div class="docblock"><p>Just validate a transaction.</p>
+<p>The is basically the same as <a href="trait.TransactionExtension.html#tymethod.validate" title="method sp_runtime::traits::transaction_extension::TransactionExtension::validate">validate</a>, except that there
+is no need to supply the bond data.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.validate_and_prepare" class="method"><a class="src rightside" href="../../../src/sp_runtime/traits/transaction_extension/dispatch_transaction.rs.html#50-56">source</a><h4 class="code-header">fn <a href="#tymethod.validate_and_prepare" class="fn">validate_and_prepare</a>(
+    self,
+    origin: Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Origin" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Origin">Origin</a>,
+    call: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;Call</a>,
+    info: &amp;Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Info" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Info">Info</a>,
+    len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Pre" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Pre">Pre</a>, Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Origin" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Origin">Origin</a>), <a class="enum" href="../../transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;</h4></section></summary><div class="docblock"><p>Validate and prepare a transaction, ready for dispatch.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.dispatch_transaction" class="method"><a class="src rightside" href="../../../src/sp_runtime/traits/transaction_extension/dispatch_transaction.rs.html#58-64">source</a><h4 class="code-header">fn <a href="#tymethod.dispatch_transaction" class="fn">dispatch_transaction</a>(
+    self,
+    origin: Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Origin" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Origin">Origin</a>,
+    call: Call,
+    info: &amp;Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Info" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Info">Info</a>,
+    len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+) -&gt; Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Result" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Result">Result</a></h4></section></summary><div class="docblock"><p>Dispatch a transaction with the given base origin and call.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.test_run" class="method"><a class="src rightside" href="../../../src/sp_runtime/traits/transaction_extension/dispatch_transaction.rs.html#68-77">source</a><h4 class="code-header">fn <a href="#tymethod.test_run" class="fn">test_run</a>(
+    self,
+    origin: Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Origin" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Origin">Origin</a>,
+    call: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;Call</a>,
+    info: &amp;Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Info" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Info">Info</a>,
+    len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+    substitute: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Origin" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Origin">Origin</a>) -&gt; <a class="type" href="../../type.DispatchResultWithInfo.html" title="type sp_runtime::DispatchResultWithInfo">DispatchResultWithInfo</a>&lt;&lt;Call as <a class="trait" href="../trait.Dispatchable.html" title="trait sp_runtime::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="../trait.Dispatchable.html#associatedtype.PostInfo" title="type sp_runtime::traits::Dispatchable::PostInfo">PostInfo</a>&gt;,
+) -&gt; Self::<a class="associatedtype" href="trait.DispatchTransaction.html#associatedtype.Result" title="type sp_runtime::traits::transaction_extension::DispatchTransaction::Result">Result</a></h4></section></summary><div class="docblock"><p>Do everything which would be done in a <a href="trait.DispatchTransaction.html#tymethod.dispatch_transaction">dispatch_transaction</a>,
+but instead of executing the call, execute <code>substitute</code> instead. Since this doesn’t actually
+dispatch the call, it doesn’t need to consume it and so <code>call</code> can be passed as a reference.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-DispatchTransaction%3CCall%3E-for-T" class="impl"><a class="src rightside" href="../../../src/sp_runtime/traits/transaction_extension/dispatch_transaction.rs.html#80-154">source</a><a href="#impl-DispatchTransaction%3CCall%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.TransactionExtension.html" title="trait sp_runtime::traits::transaction_extension::TransactionExtension">TransactionExtension</a>&lt;Call&gt;, Call: <a class="trait" href="../trait.Dispatchable.html" title="trait sp_runtime::traits::Dispatchable">Dispatchable</a> + Encode&gt; <a class="trait" href="trait.DispatchTransaction.html" title="trait sp_runtime::traits::transaction_extension::DispatchTransaction">DispatchTransaction</a>&lt;Call&gt; for T<div class="where">where
+    &lt;Call as <a class="trait" href="../trait.Dispatchable.html" title="trait sp_runtime::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="../trait.Dispatchable.html#associatedtype.RuntimeOrigin" title="type sp_runtime::traits::Dispatchable::RuntimeOrigin">RuntimeOrigin</a>: <a class="trait" href="../trait.AsTransactionAuthorizedOrigin.html" title="trait sp_runtime::traits::AsTransactionAuthorizedOrigin">AsTransactionAuthorizedOrigin</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Origin-1" class="associatedtype trait-impl"><a href="#associatedtype.Origin-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Origin" class="associatedtype">Origin</a> = &lt;Call as <a class="trait" href="../trait.Dispatchable.html" title="trait sp_runtime::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="../trait.Dispatchable.html#associatedtype.RuntimeOrigin" title="type sp_runtime::traits::Dispatchable::RuntimeOrigin">RuntimeOrigin</a></h4></section><section id="associatedtype.Info-1" class="associatedtype trait-impl"><a href="#associatedtype.Info-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Info" class="associatedtype">Info</a> = &lt;Call as <a class="trait" href="../trait.Dispatchable.html" title="trait sp_runtime::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="../trait.Dispatchable.html#associatedtype.Info" title="type sp_runtime::traits::Dispatchable::Info">Info</a></h4></section><section id="associatedtype.Result-1" class="associatedtype trait-impl"><a href="#associatedtype.Result-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Result" class="associatedtype">Result</a> = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;Call as <a class="trait" href="../trait.Dispatchable.html" title="trait sp_runtime::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="../trait.Dispatchable.html#associatedtype.PostInfo" title="type sp_runtime::traits::Dispatchable::PostInfo">PostInfo</a>, <a class="struct" href="../../struct.DispatchErrorWithPostInfo.html" title="struct sp_runtime::DispatchErrorWithPostInfo">DispatchErrorWithPostInfo</a>&lt;&lt;Call as <a class="trait" href="../trait.Dispatchable.html" title="trait sp_runtime::traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="../trait.Dispatchable.html#associatedtype.PostInfo" title="type sp_runtime::traits::Dispatchable::PostInfo">PostInfo</a>&gt;&gt;, <a class="enum" href="../../transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;</h4></section><section id="associatedtype.Val-1" class="associatedtype trait-impl"><a href="#associatedtype.Val-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Val" class="associatedtype">Val</a> = &lt;T as <a class="trait" href="trait.TransactionExtension.html" title="trait sp_runtime::traits::transaction_extension::TransactionExtension">TransactionExtension</a>&lt;Call&gt;&gt;::<a class="associatedtype" href="trait.TransactionExtension.html#associatedtype.Val" title="type sp_runtime::traits::transaction_extension::TransactionExtension::Val">Val</a></h4></section><section id="associatedtype.Pre-1" class="associatedtype trait-impl"><a href="#associatedtype.Pre-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Pre" class="associatedtype">Pre</a> = &lt;T as <a class="trait" href="trait.TransactionExtension.html" title="trait sp_runtime::traits::transaction_extension::TransactionExtension">TransactionExtension</a>&lt;Call&gt;&gt;::<a class="associatedtype" href="trait.TransactionExtension.html#associatedtype.Pre" title="type sp_runtime::traits::transaction_extension::TransactionExtension::Pre">Pre</a></h4></section></div></details></div><script src="../../../trait.impl/sp_runtime/traits/transaction_extension/dispatch_transaction/trait.DispatchTransaction.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

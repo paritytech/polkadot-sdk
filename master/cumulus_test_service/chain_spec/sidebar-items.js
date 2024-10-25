@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_chain_spec","get_chain_spec_with_extra_endowed","get_elastic_scaling_chain_spec","testnet_genesis","testnet_genesis_with_default_endowed"],"struct":["Extensions","ExtensionsFork"],"type":["ChainSpec"]};

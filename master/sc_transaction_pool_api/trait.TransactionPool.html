@@ -1,0 +1,259 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Transaction pool interface."><title>TransactionPool in sc_transaction_pool_api - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sc_transaction_pool_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_transaction_pool_api/index.html">sc_transaction_pool_api</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">TransactionPool</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Block">Block</a></li><li><a href="#associatedtype.Error">Error</a></li><li><a href="#associatedtype.Hash">Hash</a></li><li><a href="#associatedtype.InPoolTransaction">InPoolTransaction</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.futures">futures</a></li><li><a href="#tymethod.hash_of">hash_of</a></li><li><a href="#tymethod.import_notification_stream">import_notification_stream</a></li><li><a href="#tymethod.on_broadcasted">on_broadcasted</a></li><li><a href="#tymethod.ready">ready</a></li><li><a href="#tymethod.ready_at">ready_at</a></li><li><a href="#tymethod.ready_at_with_timeout">ready_at_with_timeout</a></li><li><a href="#tymethod.ready_transaction">ready_transaction</a></li><li><a href="#tymethod.remove_invalid">remove_invalid</a></li><li><a href="#tymethod.status">status</a></li><li><a href="#tymethod.submit_and_watch">submit_and_watch</a></li><li><a href="#tymethod.submit_at">submit_at</a></li><li><a href="#tymethod.submit_one">submit_one</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate sc_transaction_pool_api</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">sc_transaction_pool_api</a>::<wbr><a class="trait" href="#">TransactionPool</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sc_transaction_pool_api/lib.rs.html#241-341">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait TransactionPool: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> {
+    type <a href="#associatedtype.Block" class="associatedtype">Block</a>: BlockT;
+    type <a href="#associatedtype.Hash" class="associatedtype">Hash</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/hash/trait.Hash.html" title="trait core::hash::Hash">Hash</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + Member + <a class="trait" href="https://docs.rs/serde/1.0.210/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a> + <a class="trait" href="https://docs.rs/serde/1.0.210/serde/de/trait.DeserializeOwned.html" title="trait serde::de::DeserializeOwned">DeserializeOwned</a> + Codec;
+    type <a href="#associatedtype.InPoolTransaction" class="associatedtype">InPoolTransaction</a>: <a class="trait" href="trait.InPoolTransaction.html" title="trait sc_transaction_pool_api::InPoolTransaction">InPoolTransaction</a>&lt;Transaction = <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="type" href="type.TransactionFor.html" title="type sc_transaction_pool_api::TransactionFor">TransactionFor</a>&lt;Self&gt;&gt;, Hash = <a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.Error" class="associatedtype">Error</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="error/enum.Error.html" title="enum sc_transaction_pool_api::error::Error">Error</a>&gt; + <a class="trait" href="error/trait.IntoPoolError.html" title="trait sc_transaction_pool_api::error::IntoPoolError">IntoPoolError</a>;
+
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 13 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.submit_at" class="fn">submit_at</a>(
+        &amp;self,
+        at: &lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Block" title="type sc_transaction_pool_api::TransactionPool::Block">Block</a> as BlockT&gt;::Hash,
+        source: <a class="enum" href="enum.TransactionSource.html" title="enum sc_transaction_pool_api::TransactionSource">TransactionSource</a>,
+        xts: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="type" href="type.TransactionFor.html" title="type sc_transaction_pool_api::TransactionFor">TransactionFor</a>&lt;Self&gt;&gt;,
+    ) -&gt; <a class="type" href="type.PoolFuture.html" title="type sc_transaction_pool_api::PoolFuture">PoolFuture</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;, Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Error" title="type sc_transaction_pool_api::TransactionPool::Error">Error</a>&gt;&gt;, Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Error" title="type sc_transaction_pool_api::TransactionPool::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.submit_one" class="fn">submit_one</a>(
+        &amp;self,
+        at: &lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Block" title="type sc_transaction_pool_api::TransactionPool::Block">Block</a> as BlockT&gt;::Hash,
+        source: <a class="enum" href="enum.TransactionSource.html" title="enum sc_transaction_pool_api::TransactionSource">TransactionSource</a>,
+        xt: <a class="type" href="type.TransactionFor.html" title="type sc_transaction_pool_api::TransactionFor">TransactionFor</a>&lt;Self&gt;,
+    ) -&gt; <a class="type" href="type.PoolFuture.html" title="type sc_transaction_pool_api::PoolFuture">PoolFuture</a>&lt;<a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;, Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Error" title="type sc_transaction_pool_api::TransactionPool::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.submit_and_watch" class="fn">submit_and_watch</a>(
+        &amp;self,
+        at: &lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Block" title="type sc_transaction_pool_api::TransactionPool::Block">Block</a> as BlockT&gt;::Hash,
+        source: <a class="enum" href="enum.TransactionSource.html" title="enum sc_transaction_pool_api::TransactionSource">TransactionSource</a>,
+        xt: <a class="type" href="type.TransactionFor.html" title="type sc_transaction_pool_api::TransactionFor">TransactionFor</a>&lt;Self&gt;,
+    ) -&gt; <a class="type" href="type.PoolFuture.html" title="type sc_transaction_pool_api::PoolFuture">PoolFuture</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;<a class="type" href="type.TransactionStatusStreamFor.html" title="type sc_transaction_pool_api::TransactionStatusStreamFor">TransactionStatusStreamFor</a>&lt;Self&gt;&gt;&gt;, Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Error" title="type sc_transaction_pool_api::TransactionPool::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.ready_at" class="fn">ready_at</a>(
+        &amp;self,
+        at: &lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Block" title="type sc_transaction_pool_api::TransactionPool::Block">Block</a> as BlockT&gt;::Hash,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.ReadyTransactions.html" title="trait sc_transaction_pool_api::ReadyTransactions">ReadyTransactions</a>&lt;Item = <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.InPoolTransaction" title="type sc_transaction_pool_api::TransactionPool::InPoolTransaction">InPoolTransaction</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.ready" class="fn">ready</a>(
+        &amp;self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.ReadyTransactions.html" title="trait sc_transaction_pool_api::ReadyTransactions">ReadyTransactions</a>&lt;Item = <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.InPoolTransaction" title="type sc_transaction_pool_api::TransactionPool::InPoolTransaction">InPoolTransaction</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_invalid" class="fn">remove_invalid</a>(
+        &amp;self,
+        hashes: &amp;[<a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;],
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.InPoolTransaction" title="type sc_transaction_pool_api::TransactionPool::InPoolTransaction">InPoolTransaction</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.futures" class="fn">futures</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.InPoolTransaction" title="type sc_transaction_pool_api::TransactionPool::InPoolTransaction">InPoolTransaction</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.status" class="fn">status</a>(&amp;self) -&gt; <a class="struct" href="struct.PoolStatus.html" title="struct sc_transaction_pool_api::PoolStatus">PoolStatus</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.import_notification_stream" class="fn">import_notification_stream</a>(
+        &amp;self,
+    ) -&gt; <a class="type" href="type.ImportNotificationStream.html" title="type sc_transaction_pool_api::ImportNotificationStream">ImportNotificationStream</a>&lt;<a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_broadcasted" class="fn">on_broadcasted</a>(&amp;self, propagations: <a class="struct" href="https://doc.rust-lang.org/1.81.0/std/collections/hash/map/struct.HashMap.html" title="struct std::collections::hash::map::HashMap">HashMap</a>&lt;<a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;&gt;);
+<span class="item-spacer"></span>    fn <a href="#tymethod.hash_of" class="fn">hash_of</a>(&amp;self, xt: &amp;<a class="type" href="type.TransactionFor.html" title="type sc_transaction_pool_api::TransactionFor">TransactionFor</a>&lt;Self&gt;) -&gt; <a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.ready_transaction" class="fn">ready_transaction</a>(
+        &amp;self,
+        hash: &amp;<a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.InPoolTransaction" title="type sc_transaction_pool_api::TransactionPool::InPoolTransaction">InPoolTransaction</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.ready_at_with_timeout" class="fn">ready_at_with_timeout</a>(
+        &amp;self,
+        at: &lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Block" title="type sc_transaction_pool_api::TransactionPool::Block">Block</a> as BlockT&gt;::Hash,
+        timeout: <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/time/struct.Duration.html" title="struct core::time::Duration">Duration</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.ReadyTransactions.html" title="trait sc_transaction_pool_api::ReadyTransactions">ReadyTransactions</a>&lt;Item = <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.InPoolTransaction" title="type sc_transaction_pool_api::TransactionPool::InPoolTransaction">InPoolTransaction</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + '_&gt;&gt;;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Transaction pool interface.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Block" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#243">source</a><h4 class="code-header">type <a href="#associatedtype.Block" class="associatedtype">Block</a>: BlockT</h4></section></summary><div class="docblock"><p>Block type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Hash" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#245">source</a><h4 class="code-header">type <a href="#associatedtype.Hash" class="associatedtype">Hash</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/hash/trait.Hash.html" title="trait core::hash::Hash">Hash</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + Member + <a class="trait" href="https://docs.rs/serde/1.0.210/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a> + <a class="trait" href="https://docs.rs/serde/1.0.210/serde/de/trait.DeserializeOwned.html" title="trait serde::de::DeserializeOwned">DeserializeOwned</a> + Codec</h4></section></summary><div class="docblock"><p>Transaction hash type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.InPoolTransaction" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#247-250">source</a><h4 class="code-header">type <a href="#associatedtype.InPoolTransaction" class="associatedtype">InPoolTransaction</a>: <a class="trait" href="trait.InPoolTransaction.html" title="trait sc_transaction_pool_api::InPoolTransaction">InPoolTransaction</a>&lt;Transaction = <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="type" href="type.TransactionFor.html" title="type sc_transaction_pool_api::TransactionFor">TransactionFor</a>&lt;Self&gt;&gt;, Hash = <a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>In-pool transaction type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Error" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#252">source</a><h4 class="code-header">type <a href="#associatedtype.Error" class="associatedtype">Error</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="error/enum.Error.html" title="enum sc_transaction_pool_api::error::Error">Error</a>&gt; + <a class="trait" href="error/trait.IntoPoolError.html" title="trait sc_transaction_pool_api::error::IntoPoolError">IntoPoolError</a></h4></section></summary><div class="docblock"><p>Error type.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.submit_at" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#257-262">source</a><h4 class="code-header">fn <a href="#tymethod.submit_at" class="fn">submit_at</a>(
+    &amp;self,
+    at: &lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Block" title="type sc_transaction_pool_api::TransactionPool::Block">Block</a> as BlockT&gt;::Hash,
+    source: <a class="enum" href="enum.TransactionSource.html" title="enum sc_transaction_pool_api::TransactionSource">TransactionSource</a>,
+    xts: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="type" href="type.TransactionFor.html" title="type sc_transaction_pool_api::TransactionFor">TransactionFor</a>&lt;Self&gt;&gt;,
+) -&gt; <a class="type" href="type.PoolFuture.html" title="type sc_transaction_pool_api::PoolFuture">PoolFuture</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;, Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Error" title="type sc_transaction_pool_api::TransactionPool::Error">Error</a>&gt;&gt;, Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Error" title="type sc_transaction_pool_api::TransactionPool::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Returns a future that imports a bunch of unverified transactions to the pool.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.submit_one" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#265-270">source</a><h4 class="code-header">fn <a href="#tymethod.submit_one" class="fn">submit_one</a>(
+    &amp;self,
+    at: &lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Block" title="type sc_transaction_pool_api::TransactionPool::Block">Block</a> as BlockT&gt;::Hash,
+    source: <a class="enum" href="enum.TransactionSource.html" title="enum sc_transaction_pool_api::TransactionSource">TransactionSource</a>,
+    xt: <a class="type" href="type.TransactionFor.html" title="type sc_transaction_pool_api::TransactionFor">TransactionFor</a>&lt;Self&gt;,
+) -&gt; <a class="type" href="type.PoolFuture.html" title="type sc_transaction_pool_api::PoolFuture">PoolFuture</a>&lt;<a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;, Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Error" title="type sc_transaction_pool_api::TransactionPool::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Returns a future that imports one unverified transaction to the pool.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.submit_and_watch" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#274-279">source</a><h4 class="code-header">fn <a href="#tymethod.submit_and_watch" class="fn">submit_and_watch</a>(
+    &amp;self,
+    at: &lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Block" title="type sc_transaction_pool_api::TransactionPool::Block">Block</a> as BlockT&gt;::Hash,
+    source: <a class="enum" href="enum.TransactionSource.html" title="enum sc_transaction_pool_api::TransactionSource">TransactionSource</a>,
+    xt: <a class="type" href="type.TransactionFor.html" title="type sc_transaction_pool_api::TransactionFor">TransactionFor</a>&lt;Self&gt;,
+) -&gt; <a class="type" href="type.PoolFuture.html" title="type sc_transaction_pool_api::PoolFuture">PoolFuture</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;<a class="type" href="type.TransactionStatusStreamFor.html" title="type sc_transaction_pool_api::TransactionStatusStreamFor">TransactionStatusStreamFor</a>&lt;Self&gt;&gt;&gt;, Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Error" title="type sc_transaction_pool_api::TransactionPool::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Returns a future that imports a single transaction and starts to watch their progress in the
+pool.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.ready_at" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#286-295">source</a><h4 class="code-header">fn <a href="#tymethod.ready_at" class="fn">ready_at</a>(
+    &amp;self,
+    at: &lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Block" title="type sc_transaction_pool_api::TransactionPool::Block">Block</a> as BlockT&gt;::Hash,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.ReadyTransactions.html" title="trait sc_transaction_pool_api::ReadyTransactions">ReadyTransactions</a>&lt;Item = <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.InPoolTransaction" title="type sc_transaction_pool_api::TransactionPool::InPoolTransaction">InPoolTransaction</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Get an iterator for ready transactions ordered by priority.</p>
+<p>Guarantees to return only when transaction pool got updated at <code>at</code> block.
+Guarantees to return immediately when <code>None</code> is passed.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.ready" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#298">source</a><h4 class="code-header">fn <a href="#tymethod.ready" class="fn">ready</a>(
+    &amp;self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.ReadyTransactions.html" title="trait sc_transaction_pool_api::ReadyTransactions">ReadyTransactions</a>&lt;Item = <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.InPoolTransaction" title="type sc_transaction_pool_api::TransactionPool::InPoolTransaction">InPoolTransaction</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;</h4></section></summary><div class="docblock"><p>Get an iterator for ready transactions ordered by priority.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.remove_invalid" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#302">source</a><h4 class="code-header">fn <a href="#tymethod.remove_invalid" class="fn">remove_invalid</a>(
+    &amp;self,
+    hashes: &amp;[<a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;],
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.InPoolTransaction" title="type sc_transaction_pool_api::TransactionPool::InPoolTransaction">InPoolTransaction</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Remove transactions identified by given hashes (and dependent transactions) from the pool.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.futures" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#306">source</a><h4 class="code-header">fn <a href="#tymethod.futures" class="fn">futures</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.InPoolTransaction" title="type sc_transaction_pool_api::TransactionPool::InPoolTransaction">InPoolTransaction</a>&gt;</h4></section></summary><div class="docblock"><p>Get futures transaction list.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.status" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#309">source</a><h4 class="code-header">fn <a href="#tymethod.status" class="fn">status</a>(&amp;self) -&gt; <a class="struct" href="struct.PoolStatus.html" title="struct sc_transaction_pool_api::PoolStatus">PoolStatus</a></h4></section></summary><div class="docblock"><p>Returns pool status.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.import_notification_stream" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#313">source</a><h4 class="code-header">fn <a href="#tymethod.import_notification_stream" class="fn">import_notification_stream</a>(&amp;self) -&gt; <a class="type" href="type.ImportNotificationStream.html" title="type sc_transaction_pool_api::ImportNotificationStream">ImportNotificationStream</a>&lt;<a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Return an event stream of transactions imported to the pool.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.on_broadcasted" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#317">source</a><h4 class="code-header">fn <a href="#tymethod.on_broadcasted" class="fn">on_broadcasted</a>(&amp;self, propagations: <a class="struct" href="https://doc.rust-lang.org/1.81.0/std/collections/hash/map/struct.HashMap.html" title="struct std::collections::hash::map::HashMap">HashMap</a>&lt;<a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;&gt;)</h4></section></summary><div class="docblock"><p>Notify the pool about transactions broadcast.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.hash_of" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#320">source</a><h4 class="code-header">fn <a href="#tymethod.hash_of" class="fn">hash_of</a>(&amp;self, xt: &amp;<a class="type" href="type.TransactionFor.html" title="type sc_transaction_pool_api::TransactionFor">TransactionFor</a>&lt;Self&gt;) -&gt; <a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;</h4></section></summary><div class="docblock"><p>Returns transaction hash</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.ready_transaction" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#323">source</a><h4 class="code-header">fn <a href="#tymethod.ready_transaction" class="fn">ready_transaction</a>(
+    &amp;self,
+    hash: &amp;<a class="type" href="type.TxHash.html" title="type sc_transaction_pool_api::TxHash">TxHash</a>&lt;Self&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.InPoolTransaction" title="type sc_transaction_pool_api::TransactionPool::InPoolTransaction">InPoolTransaction</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Return specific ready transaction by hash, if there is one.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.ready_at_with_timeout" class="method"><a class="src rightside" href="../src/sc_transaction_pool_api/lib.rs.html#329-340">source</a><h4 class="code-header">fn <a href="#tymethod.ready_at_with_timeout" class="fn">ready_at_with_timeout</a>(
+    &amp;self,
+    at: &lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.Block" title="type sc_transaction_pool_api::TransactionPool::Block">Block</a> as BlockT&gt;::Hash,
+    timeout: <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/time/struct.Duration.html" title="struct core::time::Duration">Duration</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.ReadyTransactions.html" title="trait sc_transaction_pool_api::ReadyTransactions">ReadyTransactions</a>&lt;Item = <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Self::<a class="associatedtype" href="trait.TransactionPool.html#associatedtype.InPoolTransaction" title="type sc_transaction_pool_api::TransactionPool::InPoolTransaction">InPoolTransaction</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + '_&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns set of ready transaction at given block within given timeout.</p>
+<p>If the timeout is hit during method execution then the best effort set of ready transactions
+for given block, without executing full maintain process is returned.</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/sc_transaction_pool_api/trait.TransactionPool.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,155 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="All pallets included in the runtime as a nested tuple of types."><title>AllPalletsWithSystem in asset_hub_westend_runtime - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="asset_hub_westend_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../asset_hub_westend_runtime/index.html">asset_hub_westend_runtime</a><span class="version">0.15.0</span></h2></div><h2 class="location"><a href="#">AllPalletsWithSystem</a></h2><div class="sidebar-elems"><h2><a href="index.html">In crate asset_hub_westend_runtime</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Type Alias <a href="index.html">asset_hub_westend_runtime</a>::<wbr><a class="type" href="#">AllPalletsWithSystem</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/asset_hub_westend_runtime/lib.rs.html#985-1040">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub type AllPalletsWithSystem = (<a class="type" href="type.System.html" title="type asset_hub_westend_runtime::System">System</a>, <a class="type" href="type.ParachainSystem.html" title="type asset_hub_westend_runtime::ParachainSystem">ParachainSystem</a>, <a class="type" href="type.Timestamp.html" title="type asset_hub_westend_runtime::Timestamp">Timestamp</a>, <a class="type" href="type.ParachainInfo.html" title="type asset_hub_westend_runtime::ParachainInfo">ParachainInfo</a>, <a class="type" href="type.Balances.html" title="type asset_hub_westend_runtime::Balances">Balances</a>, <a class="type" href="type.TransactionPayment.html" title="type asset_hub_westend_runtime::TransactionPayment">TransactionPayment</a>, <a class="type" href="type.AssetTxPayment.html" title="type asset_hub_westend_runtime::AssetTxPayment">AssetTxPayment</a>, <a class="type" href="type.Authorship.html" title="type asset_hub_westend_runtime::Authorship">Authorship</a>, <a class="type" href="type.CollatorSelection.html" title="type asset_hub_westend_runtime::CollatorSelection">CollatorSelection</a>, <a class="type" href="type.Session.html" title="type asset_hub_westend_runtime::Session">Session</a>, <a class="type" href="type.Aura.html" title="type asset_hub_westend_runtime::Aura">Aura</a>, <a class="type" href="type.AuraExt.html" title="type asset_hub_westend_runtime::AuraExt">AuraExt</a>, <a class="type" href="type.XcmpQueue.html" title="type asset_hub_westend_runtime::XcmpQueue">XcmpQueue</a>, <a class="type" href="type.PolkadotXcm.html" title="type asset_hub_westend_runtime::PolkadotXcm">PolkadotXcm</a>, <a class="type" href="type.CumulusXcm.html" title="type asset_hub_westend_runtime::CumulusXcm">CumulusXcm</a>, <a class="type" href="type.ToRococoXcmRouter.html" title="type asset_hub_westend_runtime::ToRococoXcmRouter">ToRococoXcmRouter</a>, <a class="type" href="type.MessageQueue.html" title="type asset_hub_westend_runtime::MessageQueue">MessageQueue</a>, <a class="type" href="type.Utility.html" title="type asset_hub_westend_runtime::Utility">Utility</a>, <a class="type" href="type.Multisig.html" title="type asset_hub_westend_runtime::Multisig">Multisig</a>, <a class="type" href="type.Proxy.html" title="type asset_hub_westend_runtime::Proxy">Proxy</a>, <a class="type" href="type.Assets.html" title="type asset_hub_westend_runtime::Assets">Assets</a>, <a class="type" href="type.Uniques.html" title="type asset_hub_westend_runtime::Uniques">Uniques</a>, <a class="type" href="type.Nfts.html" title="type asset_hub_westend_runtime::Nfts">Nfts</a>, <a class="type" href="type.ForeignAssets.html" title="type asset_hub_westend_runtime::ForeignAssets">ForeignAssets</a>, <a class="type" href="type.NftFractionalization.html" title="type asset_hub_westend_runtime::NftFractionalization">NftFractionalization</a>, <a class="type" href="type.PoolAssets.html" title="type asset_hub_westend_runtime::PoolAssets">PoolAssets</a>, <a class="type" href="type.AssetConversion.html" title="type asset_hub_westend_runtime::AssetConversion">AssetConversion</a>, <a class="type" href="type.AssetsFreezer.html" title="type asset_hub_westend_runtime::AssetsFreezer">AssetsFreezer</a>, <a class="type" href="type.ForeignAssetsFreezer.html" title="type asset_hub_westend_runtime::ForeignAssetsFreezer">ForeignAssetsFreezer</a>, <a class="type" href="type.PoolAssetsFreezer.html" title="type asset_hub_westend_runtime::PoolAssetsFreezer">PoolAssetsFreezer</a>, <a class="type" href="type.Revive.html" title="type asset_hub_westend_runtime::Revive">Revive</a>, <a class="type" href="type.StateTrieMigration.html" title="type asset_hub_westend_runtime::StateTrieMigration">StateTrieMigration</a>, <a class="type" href="type.AssetConversionMigration.html" title="type asset_hub_westend_runtime::AssetConversionMigration">AssetConversionMigration</a>);</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>All pallets included in the runtime as a nested tuple of types.</p>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

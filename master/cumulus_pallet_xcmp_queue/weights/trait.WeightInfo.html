@@ -1,0 +1,196 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Weight functions needed for `cumulus_pallet_xcmp_queue`."><title>WeightInfo in cumulus_pallet_xcmp_queue::weights - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_pallet_xcmp_queue" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../cumulus_pallet_xcmp_queue/index.html">cumulus_pallet_xcmp_queue</a><span class="version">0.7.0</span></h2></div><h2 class="location"><a href="#">WeightInfo</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.enqueue_xcmp_message">enqueue_xcmp_message</a></li><li><a href="#tymethod.on_idle_good_msg">on_idle_good_msg</a></li><li><a href="#tymethod.on_idle_large_msg">on_idle_large_msg</a></li><li><a href="#tymethod.resume_channel">resume_channel</a></li><li><a href="#tymethod.set_config_with_u32">set_config_with_u32</a></li><li><a href="#tymethod.suspend_channel">suspend_channel</a></li><li><a href="#tymethod.take_first_concatenated_xcm">take_first_concatenated_xcm</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-WeightInfo-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In cumulus_pallet_xcmp_queue::weights</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">cumulus_pallet_xcmp_queue</a>::<wbr><a href="index.html">weights</a>::<wbr><a class="trait" href="#">WeightInfo</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#48-56">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait WeightInfo {
+    // Required methods
+    fn <a href="#tymethod.set_config_with_u32" class="fn">set_config_with_u32</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.enqueue_xcmp_message" class="fn">enqueue_xcmp_message</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.suspend_channel" class="fn">suspend_channel</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.resume_channel" class="fn">resume_channel</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.take_first_concatenated_xcm" class="fn">take_first_concatenated_xcm</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_idle_good_msg" class="fn">on_idle_good_msg</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_idle_large_msg" class="fn">on_idle_large_msg</a>() -&gt; Weight;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Weight functions needed for <code>cumulus_pallet_xcmp_queue</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.set_config_with_u32" class="method"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#49">source</a><h4 class="code-header">fn <a href="#tymethod.set_config_with_u32" class="fn">set_config_with_u32</a>() -&gt; Weight</h4></section><section id="tymethod.enqueue_xcmp_message" class="method"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#50">source</a><h4 class="code-header">fn <a href="#tymethod.enqueue_xcmp_message" class="fn">enqueue_xcmp_message</a>() -&gt; Weight</h4></section><section id="tymethod.suspend_channel" class="method"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#51">source</a><h4 class="code-header">fn <a href="#tymethod.suspend_channel" class="fn">suspend_channel</a>() -&gt; Weight</h4></section><section id="tymethod.resume_channel" class="method"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#52">source</a><h4 class="code-header">fn <a href="#tymethod.resume_channel" class="fn">resume_channel</a>() -&gt; Weight</h4></section><section id="tymethod.take_first_concatenated_xcm" class="method"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#53">source</a><h4 class="code-header">fn <a href="#tymethod.take_first_concatenated_xcm" class="fn">take_first_concatenated_xcm</a>() -&gt; Weight</h4></section><section id="tymethod.on_idle_good_msg" class="method"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#54">source</a><h4 class="code-header">fn <a href="#tymethod.on_idle_good_msg" class="fn">on_idle_good_msg</a>() -&gt; Weight</h4></section><section id="tymethod.on_idle_large_msg" class="method"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#55">source</a><h4 class="code-header">fn <a href="#tymethod.on_idle_large_msg" class="fn">on_idle_large_msg</a>() -&gt; Weight</h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-WeightInfo-for-()" class="impl"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#157-251">source</a><a href="#impl-WeightInfo-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.WeightInfo.html" title="trait cumulus_pallet_xcmp_queue::weights::WeightInfo">WeightInfo</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.set_config_with_u32" class="method trait-impl"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#160-168">source</a><a href="#method.set_config_with_u32" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_config_with_u32" class="fn">set_config_with_u32</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>XcmpQueue::QueueConfig</code> (r:1 w:1)
+Proof: <code>XcmpQueue::QueueConfig</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.enqueue_xcmp_message" class="method trait-impl"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#179-187">source</a><a href="#method.enqueue_xcmp_message" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.enqueue_xcmp_message" class="fn">enqueue_xcmp_message</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>XcmpQueue::QueueConfig</code> (r:1 w:0)
+Proof: <code>XcmpQueue::QueueConfig</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>MessageQueue::BookStateFor</code> (r:1 w:1)
+Proof: <code>MessageQueue::BookStateFor</code> (<code>max_values</code>: None, <code>max_size</code>: Some(52), added: 2527, mode: <code>MaxEncodedLen</code>)
+Storage: <code>MessageQueue::ServiceHead</code> (r:1 w:1)
+Proof: <code>MessageQueue::ServiceHead</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(5), added: 500, mode: <code>MaxEncodedLen</code>)
+Storage: <code>XcmpQueue::InboundXcmpSuspended</code> (r:1 w:0)
+Proof: <code>XcmpQueue::InboundXcmpSuspended</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>MessageQueue::Pages</code> (r:0 w:1)
+Proof: <code>MessageQueue::Pages</code> (<code>max_values</code>: None, <code>max_size</code>: Some(65585), added: 68060, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.suspend_channel" class="method trait-impl"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#190-198">source</a><a href="#method.suspend_channel" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.suspend_channel" class="fn">suspend_channel</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>XcmpQueue::OutboundXcmpStatus</code> (r:1 w:1)
+Proof: <code>XcmpQueue::OutboundXcmpStatus</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.resume_channel" class="method trait-impl"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#201-209">source</a><a href="#method.resume_channel" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.resume_channel" class="fn">resume_channel</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>XcmpQueue::OutboundXcmpStatus</code> (r:1 w:1)
+Proof: <code>XcmpQueue::OutboundXcmpStatus</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.on_idle_good_msg" class="method trait-impl"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#231-239">source</a><a href="#method.on_idle_good_msg" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.on_idle_good_msg" class="fn">on_idle_good_msg</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: UNKNOWN KEY <code>0x7b3237373ffdfeb1cab4222e3b520d6b345d8e88afa015075c945637c07e8f20</code> (r:1 w:1)
+Proof: UNKNOWN KEY <code>0x7b3237373ffdfeb1cab4222e3b520d6b345d8e88afa015075c945637c07e8f20</code> (r:1 w:1)
+Storage: <code>XcmpQueue::InboundXcmpMessages</code> (r:1 w:1)
+Proof: <code>XcmpQueue::InboundXcmpMessages</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>MessageQueue::BookStateFor</code> (r:1 w:1)
+Proof: <code>MessageQueue::BookStateFor</code> (<code>max_values</code>: None, <code>max_size</code>: Some(52), added: 2527, mode: <code>MaxEncodedLen</code>)
+Storage: <code>MessageQueue::ServiceHead</code> (r:1 w:1)
+Proof: <code>MessageQueue::ServiceHead</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(5), added: 500, mode: <code>MaxEncodedLen</code>)
+Storage: <code>XcmpQueue::QueueConfig</code> (r:1 w:0)
+Proof: <code>XcmpQueue::QueueConfig</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>XcmpQueue::InboundXcmpSuspended</code> (r:1 w:0)
+Proof: <code>XcmpQueue::InboundXcmpSuspended</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>MessageQueue::Pages</code> (r:0 w:1)
+Proof: <code>MessageQueue::Pages</code> (<code>max_values</code>: None, <code>max_size</code>: Some(65585), added: 68060, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.on_idle_large_msg" class="method trait-impl"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#242-250">source</a><a href="#method.on_idle_large_msg" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.on_idle_large_msg" class="fn">on_idle_large_msg</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: UNKNOWN KEY <code>0x7b3237373ffdfeb1cab4222e3b520d6b345d8e88afa015075c945637c07e8f20</code> (r:1 w:1)
+Proof: UNKNOWN KEY <code>0x7b3237373ffdfeb1cab4222e3b520d6b345d8e88afa015075c945637c07e8f20</code> (r:1 w:1)</p>
+</div></details><section id="method.take_first_concatenated_xcm" class="method trait-impl"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#210-216">source</a><a href="#method.take_first_concatenated_xcm" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.take_first_concatenated_xcm" class="fn">take_first_concatenated_xcm</a>() -&gt; Weight</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="impl"><a class="src rightside" href="../../src/cumulus_pallet_xcmp_queue/weights.rs.html#60-154">source</a><a href="#impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: Config&gt; <a class="trait" href="trait.WeightInfo.html" title="trait cumulus_pallet_xcmp_queue::weights::WeightInfo">WeightInfo</a> for <a class="struct" href="struct.SubstrateWeight.html" title="struct cumulus_pallet_xcmp_queue::weights::SubstrateWeight">SubstrateWeight</a>&lt;T&gt;</h3></section></div><script src="../../trait.impl/cumulus_pallet_xcmp_queue/weights/trait.WeightInfo.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

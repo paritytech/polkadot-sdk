@@ -1,0 +1,363 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Weight functions needed for `pallet_democracy`."><title>WeightInfo in pallet_democracy::weights - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_democracy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_democracy/index.html">pallet_democracy</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">WeightInfo</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.blacklist">blacklist</a></li><li><a href="#tymethod.cancel_proposal">cancel_proposal</a></li><li><a href="#tymethod.cancel_referendum">cancel_referendum</a></li><li><a href="#tymethod.clear_external_metadata">clear_external_metadata</a></li><li><a href="#tymethod.clear_proposal_metadata">clear_proposal_metadata</a></li><li><a href="#tymethod.clear_public_proposals">clear_public_proposals</a></li><li><a href="#tymethod.clear_referendum_metadata">clear_referendum_metadata</a></li><li><a href="#tymethod.delegate">delegate</a></li><li><a href="#tymethod.emergency_cancel">emergency_cancel</a></li><li><a href="#tymethod.external_propose">external_propose</a></li><li><a href="#tymethod.external_propose_default">external_propose_default</a></li><li><a href="#tymethod.external_propose_majority">external_propose_majority</a></li><li><a href="#tymethod.fast_track">fast_track</a></li><li><a href="#tymethod.on_initialize_base">on_initialize_base</a></li><li><a href="#tymethod.on_initialize_base_with_launch_period">on_initialize_base_with_launch_period</a></li><li><a href="#tymethod.propose">propose</a></li><li><a href="#tymethod.remove_other_vote">remove_other_vote</a></li><li><a href="#tymethod.remove_vote">remove_vote</a></li><li><a href="#tymethod.second">second</a></li><li><a href="#tymethod.set_external_metadata">set_external_metadata</a></li><li><a href="#tymethod.set_proposal_metadata">set_proposal_metadata</a></li><li><a href="#tymethod.set_referendum_metadata">set_referendum_metadata</a></li><li><a href="#tymethod.undelegate">undelegate</a></li><li><a href="#tymethod.unlock_remove">unlock_remove</a></li><li><a href="#tymethod.unlock_set">unlock_set</a></li><li><a href="#tymethod.veto_external">veto_external</a></li><li><a href="#tymethod.vote_existing">vote_existing</a></li><li><a href="#tymethod.vote_new">vote_new</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-WeightInfo-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_democracy::weights</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_democracy</a>::<wbr><a href="index.html">weights</a>::<wbr><a class="trait" href="#">WeightInfo</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_democracy/weights.rs.html#53-82">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait WeightInfo {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 28 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.propose" class="fn">propose</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.second" class="fn">second</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.vote_new" class="fn">vote_new</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.vote_existing" class="fn">vote_existing</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.emergency_cancel" class="fn">emergency_cancel</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.blacklist" class="fn">blacklist</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.external_propose" class="fn">external_propose</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.external_propose_majority" class="fn">external_propose_majority</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.external_propose_default" class="fn">external_propose_default</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.fast_track" class="fn">fast_track</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.veto_external" class="fn">veto_external</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.cancel_proposal" class="fn">cancel_proposal</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.cancel_referendum" class="fn">cancel_referendum</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_initialize_base" class="fn">on_initialize_base</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_initialize_base_with_launch_period" class="fn">on_initialize_base_with_launch_period</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.delegate" class="fn">delegate</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.undelegate" class="fn">undelegate</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_public_proposals" class="fn">clear_public_proposals</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.unlock_remove" class="fn">unlock_remove</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.unlock_set" class="fn">unlock_set</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_vote" class="fn">remove_vote</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_other_vote" class="fn">remove_other_vote</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_external_metadata" class="fn">set_external_metadata</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_external_metadata" class="fn">clear_external_metadata</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_proposal_metadata" class="fn">set_proposal_metadata</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_proposal_metadata" class="fn">clear_proposal_metadata</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_referendum_metadata" class="fn">set_referendum_metadata</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_referendum_metadata" class="fn">clear_referendum_metadata</a>() -&gt; Weight;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Weight functions needed for <code>pallet_democracy</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.propose" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#54">source</a><h4 class="code-header">fn <a href="#tymethod.propose" class="fn">propose</a>() -&gt; Weight</h4></section><section id="tymethod.second" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#55">source</a><h4 class="code-header">fn <a href="#tymethod.second" class="fn">second</a>() -&gt; Weight</h4></section><section id="tymethod.vote_new" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#56">source</a><h4 class="code-header">fn <a href="#tymethod.vote_new" class="fn">vote_new</a>() -&gt; Weight</h4></section><section id="tymethod.vote_existing" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#57">source</a><h4 class="code-header">fn <a href="#tymethod.vote_existing" class="fn">vote_existing</a>() -&gt; Weight</h4></section><section id="tymethod.emergency_cancel" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#58">source</a><h4 class="code-header">fn <a href="#tymethod.emergency_cancel" class="fn">emergency_cancel</a>() -&gt; Weight</h4></section><section id="tymethod.blacklist" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#59">source</a><h4 class="code-header">fn <a href="#tymethod.blacklist" class="fn">blacklist</a>() -&gt; Weight</h4></section><section id="tymethod.external_propose" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#60">source</a><h4 class="code-header">fn <a href="#tymethod.external_propose" class="fn">external_propose</a>() -&gt; Weight</h4></section><section id="tymethod.external_propose_majority" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#61">source</a><h4 class="code-header">fn <a href="#tymethod.external_propose_majority" class="fn">external_propose_majority</a>() -&gt; Weight</h4></section><section id="tymethod.external_propose_default" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#62">source</a><h4 class="code-header">fn <a href="#tymethod.external_propose_default" class="fn">external_propose_default</a>() -&gt; Weight</h4></section><section id="tymethod.fast_track" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#63">source</a><h4 class="code-header">fn <a href="#tymethod.fast_track" class="fn">fast_track</a>() -&gt; Weight</h4></section><section id="tymethod.veto_external" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#64">source</a><h4 class="code-header">fn <a href="#tymethod.veto_external" class="fn">veto_external</a>() -&gt; Weight</h4></section><section id="tymethod.cancel_proposal" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#65">source</a><h4 class="code-header">fn <a href="#tymethod.cancel_proposal" class="fn">cancel_proposal</a>() -&gt; Weight</h4></section><section id="tymethod.cancel_referendum" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#66">source</a><h4 class="code-header">fn <a href="#tymethod.cancel_referendum" class="fn">cancel_referendum</a>() -&gt; Weight</h4></section><section id="tymethod.on_initialize_base" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#67">source</a><h4 class="code-header">fn <a href="#tymethod.on_initialize_base" class="fn">on_initialize_base</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.on_initialize_base_with_launch_period" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#68">source</a><h4 class="code-header">fn <a href="#tymethod.on_initialize_base_with_launch_period" class="fn">on_initialize_base_with_launch_period</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.delegate" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#69">source</a><h4 class="code-header">fn <a href="#tymethod.delegate" class="fn">delegate</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.undelegate" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#70">source</a><h4 class="code-header">fn <a href="#tymethod.undelegate" class="fn">undelegate</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.clear_public_proposals" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#71">source</a><h4 class="code-header">fn <a href="#tymethod.clear_public_proposals" class="fn">clear_public_proposals</a>() -&gt; Weight</h4></section><section id="tymethod.unlock_remove" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#72">source</a><h4 class="code-header">fn <a href="#tymethod.unlock_remove" class="fn">unlock_remove</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.unlock_set" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#73">source</a><h4 class="code-header">fn <a href="#tymethod.unlock_set" class="fn">unlock_set</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.remove_vote" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#74">source</a><h4 class="code-header">fn <a href="#tymethod.remove_vote" class="fn">remove_vote</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.remove_other_vote" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#75">source</a><h4 class="code-header">fn <a href="#tymethod.remove_other_vote" class="fn">remove_other_vote</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.set_external_metadata" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#76">source</a><h4 class="code-header">fn <a href="#tymethod.set_external_metadata" class="fn">set_external_metadata</a>() -&gt; Weight</h4></section><section id="tymethod.clear_external_metadata" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#77">source</a><h4 class="code-header">fn <a href="#tymethod.clear_external_metadata" class="fn">clear_external_metadata</a>() -&gt; Weight</h4></section><section id="tymethod.set_proposal_metadata" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#78">source</a><h4 class="code-header">fn <a href="#tymethod.set_proposal_metadata" class="fn">set_proposal_metadata</a>() -&gt; Weight</h4></section><section id="tymethod.clear_proposal_metadata" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#79">source</a><h4 class="code-header">fn <a href="#tymethod.clear_proposal_metadata" class="fn">clear_proposal_metadata</a>() -&gt; Weight</h4></section><section id="tymethod.set_referendum_metadata" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#80">source</a><h4 class="code-header">fn <a href="#tymethod.set_referendum_metadata" class="fn">set_referendum_metadata</a>() -&gt; Weight</h4></section><section id="tymethod.clear_referendum_metadata" class="method"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#81">source</a><h4 class="code-header">fn <a href="#tymethod.clear_referendum_metadata" class="fn">clear_referendum_metadata</a>() -&gt; Weight</h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-WeightInfo-for-()" class="impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#543-997">source</a><a href="#impl-WeightInfo-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.WeightInfo.html" title="trait pallet_democracy::weights::WeightInfo">WeightInfo</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.propose" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#552-560">source</a><a href="#method.propose" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.propose" class="fn">propose</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::PublicPropCount</code> (r:1 w:1)
+Proof: <code>Democracy::PublicPropCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::PublicProps</code> (r:1 w:1)
+Proof: <code>Democracy::PublicProps</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16702), added: 17197, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::Blacklist</code> (r:1 w:0)
+Proof: <code>Democracy::Blacklist</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3238), added: 5713, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::DepositOf</code> (r:0 w:1)
+Proof: <code>Democracy::DepositOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3230), added: 5705, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.second" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#563-571">source</a><a href="#method.second" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.second" class="fn">second</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::DepositOf</code> (r:1 w:1)
+Proof: <code>Democracy::DepositOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3230), added: 5705, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.vote_new" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#580-588">source</a><a href="#method.vote_new" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.vote_new" class="fn">vote_new</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::ReferendumInfoOf</code> (r:1 w:1)
+Proof: <code>Democracy::ReferendumInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(201), added: 2676, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::VotingOf</code> (r:1 w:1)
+Proof: <code>Democracy::VotingOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3795), added: 6270, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.vote_existing" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#597-605">source</a><a href="#method.vote_existing" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.vote_existing" class="fn">vote_existing</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::ReferendumInfoOf</code> (r:1 w:1)
+Proof: <code>Democracy::ReferendumInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(201), added: 2676, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::VotingOf</code> (r:1 w:1)
+Proof: <code>Democracy::VotingOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3795), added: 6270, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.emergency_cancel" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#612-620">source</a><a href="#method.emergency_cancel" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.emergency_cancel" class="fn">emergency_cancel</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::ReferendumInfoOf</code> (r:1 w:1)
+Proof: <code>Democracy::ReferendumInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(201), added: 2676, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::Cancellations</code> (r:1 w:1)
+Proof: <code>Democracy::Cancellations</code> (<code>max_values</code>: None, <code>max_size</code>: Some(33), added: 2508, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::MetadataOf</code> (r:1 w:1)
+Proof: <code>Democracy::MetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(53), added: 2528, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.blacklist" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#635-643">source</a><a href="#method.blacklist" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.blacklist" class="fn">blacklist</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::PublicProps</code> (r:1 w:1)
+Proof: <code>Democracy::PublicProps</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16702), added: 17197, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::DepositOf</code> (r:1 w:1)
+Proof: <code>Democracy::DepositOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3230), added: 5705, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::MetadataOf</code> (r:3 w:1)
+Proof: <code>Democracy::MetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(53), added: 2528, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::NextExternal</code> (r:1 w:1)
+Proof: <code>Democracy::NextExternal</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(132), added: 627, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::ReferendumInfoOf</code> (r:1 w:1)
+Proof: <code>Democracy::ReferendumInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(201), added: 2676, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::Blacklist</code> (r:0 w:1)
+Proof: <code>Democracy::Blacklist</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3238), added: 5713, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.external_propose" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#648-656">source</a><a href="#method.external_propose" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.external_propose" class="fn">external_propose</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::NextExternal</code> (r:1 w:1)
+Proof: <code>Democracy::NextExternal</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(132), added: 627, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::Blacklist</code> (r:1 w:0)
+Proof: <code>Democracy::Blacklist</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3238), added: 5713, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.external_propose_majority" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#659-666">source</a><a href="#method.external_propose_majority" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.external_propose_majority" class="fn">external_propose_majority</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::NextExternal</code> (r:0 w:1)
+Proof: <code>Democracy::NextExternal</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(132), added: 627, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.external_propose_default" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#669-676">source</a><a href="#method.external_propose_default" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.external_propose_default" class="fn">external_propose_default</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::NextExternal</code> (r:0 w:1)
+Proof: <code>Democracy::NextExternal</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(132), added: 627, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.fast_track" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#685-693">source</a><a href="#method.fast_track" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.fast_track" class="fn">fast_track</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::NextExternal</code> (r:1 w:1)
+Proof: <code>Democracy::NextExternal</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(132), added: 627, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::ReferendumCount</code> (r:1 w:1)
+Proof: <code>Democracy::ReferendumCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::MetadataOf</code> (r:1 w:2)
+Proof: <code>Democracy::MetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(53), added: 2528, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::ReferendumInfoOf</code> (r:0 w:1)
+Proof: <code>Democracy::ReferendumInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(201), added: 2676, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.veto_external" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#700-708">source</a><a href="#method.veto_external" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.veto_external" class="fn">veto_external</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::NextExternal</code> (r:1 w:1)
+Proof: <code>Democracy::NextExternal</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(132), added: 627, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::Blacklist</code> (r:1 w:1)
+Proof: <code>Democracy::Blacklist</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3238), added: 5713, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::MetadataOf</code> (r:1 w:1)
+Proof: <code>Democracy::MetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(53), added: 2528, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.cancel_proposal" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#717-725">source</a><a href="#method.cancel_proposal" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.cancel_proposal" class="fn">cancel_proposal</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::PublicProps</code> (r:1 w:1)
+Proof: <code>Democracy::PublicProps</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16702), added: 17197, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::DepositOf</code> (r:1 w:1)
+Proof: <code>Democracy::DepositOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3230), added: 5705, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::MetadataOf</code> (r:1 w:1)
+Proof: <code>Democracy::MetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(53), added: 2528, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.cancel_referendum" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#730-738">source</a><a href="#method.cancel_referendum" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.cancel_referendum" class="fn">cancel_referendum</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::MetadataOf</code> (r:1 w:1)
+Proof: <code>Democracy::MetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(53), added: 2528, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::ReferendumInfoOf</code> (r:0 w:1)
+Proof: <code>Democracy::ReferendumInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(201), added: 2676, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.on_initialize_base" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#746-758">source</a><a href="#method.on_initialize_base" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.on_initialize_base" class="fn">on_initialize_base</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::LowestUnbaked</code> (r:1 w:1)
+Proof: <code>Democracy::LowestUnbaked</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::ReferendumCount</code> (r:1 w:0)
+Proof: <code>Democracy::ReferendumCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::ReferendumInfoOf</code> (r:99 w:0)
+Proof: <code>Democracy::ReferendumInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(201), added: 2676, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[0, 99]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.on_initialize_base_with_launch_period" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#772-784">source</a><a href="#method.on_initialize_base_with_launch_period" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.on_initialize_base_with_launch_period" class="fn">on_initialize_base_with_launch_period</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::LowestUnbaked</code> (r:1 w:1)
+Proof: <code>Democracy::LowestUnbaked</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::ReferendumCount</code> (r:1 w:0)
+Proof: <code>Democracy::ReferendumCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::LastTabledWasExternal</code> (r:1 w:0)
+Proof: <code>Democracy::LastTabledWasExternal</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1), added: 496, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::NextExternal</code> (r:1 w:0)
+Proof: <code>Democracy::NextExternal</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(132), added: 627, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::PublicProps</code> (r:1 w:0)
+Proof: <code>Democracy::PublicProps</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16702), added: 17197, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::ReferendumInfoOf</code> (r:99 w:0)
+Proof: <code>Democracy::ReferendumInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(201), added: 2676, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[0, 99]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.delegate" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#794-807">source</a><a href="#method.delegate" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.delegate" class="fn">delegate</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::VotingOf</code> (r:3 w:3)
+Proof: <code>Democracy::VotingOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3795), added: 6270, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::ReferendumInfoOf</code> (r:99 w:99)
+Proof: <code>Democracy::ReferendumInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(201), added: 2676, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[0, 99]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.undelegate" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#813-826">source</a><a href="#method.undelegate" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.undelegate" class="fn">undelegate</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::VotingOf</code> (r:2 w:2)
+Proof: <code>Democracy::VotingOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3795), added: 6270, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::ReferendumInfoOf</code> (r:99 w:99)
+Proof: <code>Democracy::ReferendumInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(201), added: 2676, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[0, 99]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.clear_public_proposals" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#829-836">source</a><a href="#method.clear_public_proposals" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.clear_public_proposals" class="fn">clear_public_proposals</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::PublicProps</code> (r:0 w:1)
+Proof: <code>Democracy::PublicProps</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16702), added: 17197, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.unlock_remove" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#846-856">source</a><a href="#method.unlock_remove" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.unlock_remove" class="fn">unlock_remove</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::VotingOf</code> (r:1 w:1)
+Proof: <code>Democracy::VotingOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3795), added: 6270, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[0, 99]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.unlock_set" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#866-876">source</a><a href="#method.unlock_set" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.unlock_set" class="fn">unlock_set</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::VotingOf</code> (r:1 w:1)
+Proof: <code>Democracy::VotingOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3795), added: 6270, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[0, 99]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_vote" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#882-892">source</a><a href="#method.remove_vote" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remove_vote" class="fn">remove_vote</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::ReferendumInfoOf</code> (r:1 w:1)
+Proof: <code>Democracy::ReferendumInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(201), added: 2676, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::VotingOf</code> (r:1 w:1)
+Proof: <code>Democracy::VotingOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3795), added: 6270, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[1, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_other_vote" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#898-908">source</a><a href="#method.remove_other_vote" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remove_other_vote" class="fn">remove_other_vote</a>(r: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::ReferendumInfoOf</code> (r:1 w:1)
+Proof: <code>Democracy::ReferendumInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(201), added: 2676, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::VotingOf</code> (r:1 w:1)
+Proof: <code>Democracy::VotingOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3795), added: 6270, mode: <code>MaxEncodedLen</code>)
+The range of component <code>r</code> is <code>[1, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_external_metadata" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#917-925">source</a><a href="#method.set_external_metadata" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_external_metadata" class="fn">set_external_metadata</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::NextExternal</code> (r:1 w:0)
+Proof: <code>Democracy::NextExternal</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(132), added: 627, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Preimage::StatusFor</code> (r:1 w:0)
+Proof: <code>Preimage::StatusFor</code> (<code>max_values</code>: None, <code>max_size</code>: Some(91), added: 2566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Preimage::RequestStatusFor</code> (r:1 w:0)
+Proof: <code>Preimage::RequestStatusFor</code> (<code>max_values</code>: None, <code>max_size</code>: Some(91), added: 2566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::MetadataOf</code> (r:0 w:1)
+Proof: <code>Democracy::MetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(53), added: 2528, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.clear_external_metadata" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#930-938">source</a><a href="#method.clear_external_metadata" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.clear_external_metadata" class="fn">clear_external_metadata</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::NextExternal</code> (r:1 w:0)
+Proof: <code>Democracy::NextExternal</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(132), added: 627, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::MetadataOf</code> (r:1 w:1)
+Proof: <code>Democracy::MetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(53), added: 2528, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_proposal_metadata" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#947-955">source</a><a href="#method.set_proposal_metadata" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_proposal_metadata" class="fn">set_proposal_metadata</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::PublicProps</code> (r:1 w:0)
+Proof: <code>Democracy::PublicProps</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16702), added: 17197, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Preimage::StatusFor</code> (r:1 w:0)
+Proof: <code>Preimage::StatusFor</code> (<code>max_values</code>: None, <code>max_size</code>: Some(91), added: 2566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Preimage::RequestStatusFor</code> (r:1 w:0)
+Proof: <code>Preimage::RequestStatusFor</code> (<code>max_values</code>: None, <code>max_size</code>: Some(91), added: 2566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::MetadataOf</code> (r:0 w:1)
+Proof: <code>Democracy::MetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(53), added: 2528, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.clear_proposal_metadata" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#960-968">source</a><a href="#method.clear_proposal_metadata" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.clear_proposal_metadata" class="fn">clear_proposal_metadata</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::PublicProps</code> (r:1 w:0)
+Proof: <code>Democracy::PublicProps</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16702), added: 17197, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::MetadataOf</code> (r:1 w:1)
+Proof: <code>Democracy::MetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(53), added: 2528, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_referendum_metadata" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#975-983">source</a><a href="#method.set_referendum_metadata" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_referendum_metadata" class="fn">set_referendum_metadata</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Preimage::StatusFor</code> (r:1 w:0)
+Proof: <code>Preimage::StatusFor</code> (<code>max_values</code>: None, <code>max_size</code>: Some(91), added: 2566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Preimage::RequestStatusFor</code> (r:1 w:0)
+Proof: <code>Preimage::RequestStatusFor</code> (<code>max_values</code>: None, <code>max_size</code>: Some(91), added: 2566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::MetadataOf</code> (r:0 w:1)
+Proof: <code>Democracy::MetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(53), added: 2528, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.clear_referendum_metadata" class="method trait-impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#988-996">source</a><a href="#method.clear_referendum_metadata" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.clear_referendum_metadata" class="fn">clear_referendum_metadata</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Democracy::ReferendumInfoOf</code> (r:1 w:0)
+Proof: <code>Democracy::ReferendumInfoOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(201), added: 2676, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Democracy::MetadataOf</code> (r:1 w:1)
+Proof: <code>Democracy::MetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(53), added: 2528, mode: <code>MaxEncodedLen</code>)</p>
+</div></details></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="impl"><a class="src rightside" href="../../src/pallet_democracy/weights.rs.html#86-540">source</a><a href="#impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: Config&gt; <a class="trait" href="trait.WeightInfo.html" title="trait pallet_democracy::weights::WeightInfo">WeightInfo</a> for <a class="struct" href="struct.SubstrateWeight.html" title="struct pallet_democracy::weights::SubstrateWeight">SubstrateWeight</a>&lt;T&gt;</h3></section></div><script src="../../trait.impl/pallet_democracy/weights/trait.WeightInfo.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

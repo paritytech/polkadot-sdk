@@ -1,0 +1,207 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="An “executable” piece of information, used by the standard Substrate Executive in order to enact a piece of extrinsic information by marshalling and dispatching to a named function call."><title>Applyable in polkadot_service::runtime_traits - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../polkadot_service/index.html">polkadot_service</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">Applyable</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Call">Call</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.apply">apply</a></li><li><a href="#tymethod.validate">validate</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_service::runtime_traits</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">polkadot_service</a>::<wbr><a href="index.html">runtime_traits</a>::<wbr><a class="trait" href="#">Applyable</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/sp_runtime/traits/mod.rs.html#1764">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Applyable: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> {
+    type <a href="#associatedtype.Call" class="associatedtype">Call</a>: <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>;
+
+    // Required methods
+    fn <a href="#tymethod.validate" class="fn">validate</a>&lt;V&gt;(
+        &amp;self,
+        source: <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionSource.html" title="enum sp_runtime::transaction_validity::TransactionSource">TransactionSource</a>,
+        info: &amp;&lt;Self::<a class="associatedtype" href="trait.Applyable.html#associatedtype.Call" title="type polkadot_service::runtime_traits::Applyable::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_service::runtime_traits::Dispatchable::Info">Info</a>,
+        len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../sp_runtime/transaction_validity/struct.ValidTransaction.html" title="struct sp_runtime::transaction_validity::ValidTransaction">ValidTransaction</a>, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;
+       <span class="where">where V: <a class="trait" href="trait.ValidateUnsigned.html" title="trait polkadot_service::runtime_traits::ValidateUnsigned">ValidateUnsigned</a>&lt;Call = Self::<a class="associatedtype" href="trait.Applyable.html#associatedtype.Call" title="type polkadot_service::runtime_traits::Applyable::Call">Call</a>&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.apply" class="fn">apply</a>&lt;V&gt;(
+        self,
+        info: &amp;&lt;Self::<a class="associatedtype" href="trait.Applyable.html#associatedtype.Call" title="type polkadot_service::runtime_traits::Applyable::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_service::runtime_traits::Dispatchable::Info">Info</a>,
+        len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Applyable.html#associatedtype.Call" title="type polkadot_service::runtime_traits::Applyable::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.PostInfo" title="type polkadot_service::runtime_traits::Dispatchable::PostInfo">PostInfo</a>, <a class="struct" href="../../sp_runtime/struct.DispatchErrorWithPostInfo.html" title="struct sp_runtime::DispatchErrorWithPostInfo">DispatchErrorWithPostInfo</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Applyable.html#associatedtype.Call" title="type polkadot_service::runtime_traits::Applyable::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.PostInfo" title="type polkadot_service::runtime_traits::Dispatchable::PostInfo">PostInfo</a>&gt;&gt;, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;
+       <span class="where">where V: <a class="trait" href="trait.ValidateUnsigned.html" title="trait polkadot_service::runtime_traits::ValidateUnsigned">ValidateUnsigned</a>&lt;Call = Self::<a class="associatedtype" href="trait.Applyable.html#associatedtype.Call" title="type polkadot_service::runtime_traits::Applyable::Call">Call</a>&gt;</span>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>An “executable” piece of information, used by the standard Substrate Executive in order to
+enact a piece of extrinsic information by marshalling and dispatching to a named function
+call.</p>
+<p>Also provides information on to whom this information is attributable and an index that allows
+each piece of attributable information to be disambiguated.</p>
+<p>IMPORTANT: After validation, in both <a href="trait.Applyable.html#tymethod.validate" title="method polkadot_service::runtime_traits::Applyable::validate">validate</a> and
+<a href="trait.Applyable.html#tymethod.apply" title="method polkadot_service::runtime_traits::Applyable::apply">apply</a>, all transactions should have <em>some</em> authorized origin, except for
+inherents. This is necessary in order to protect the chain against spam. If no extension in the
+transaction extension pipeline authorized the transaction with an origin, either a system signed
+origin or a custom origin, then the transaction must be rejected, as the extensions provided in
+substrate which protect the chain, such as <code>CheckNonce</code>, <code>ChargeTransactionPayment</code> etc., rely
+on the assumption that the system handles system signed transactions, and the pallets handle the
+custom origin that they authorized.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Call" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1766">source</a><h4 class="code-header">type <a href="#associatedtype.Call" class="associatedtype">Call</a>: <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a></h4></section></summary><div class="docblock"><p>Type by which we can dispatch. Restricts the <code>UnsignedValidator</code> type.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.validate" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1772-1777">source</a><h4 class="code-header">fn <a href="#tymethod.validate" class="fn">validate</a>&lt;V&gt;(
+    &amp;self,
+    source: <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionSource.html" title="enum sp_runtime::transaction_validity::TransactionSource">TransactionSource</a>,
+    info: &amp;&lt;Self::<a class="associatedtype" href="trait.Applyable.html#associatedtype.Call" title="type polkadot_service::runtime_traits::Applyable::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_service::runtime_traits::Dispatchable::Info">Info</a>,
+    len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../sp_runtime/transaction_validity/struct.ValidTransaction.html" title="struct sp_runtime::transaction_validity::ValidTransaction">ValidTransaction</a>, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;<div class="where">where
+    V: <a class="trait" href="trait.ValidateUnsigned.html" title="trait polkadot_service::runtime_traits::ValidateUnsigned">ValidateUnsigned</a>&lt;Call = Self::<a class="associatedtype" href="trait.Applyable.html#associatedtype.Call" title="type polkadot_service::runtime_traits::Applyable::Call">Call</a>&gt;,</div></h4></section></summary><div class="docblock"><p>Checks to see if this is a valid <em>transaction</em>. It returns information on it if so.</p>
+<p>IMPORTANT: Ensure that <em>some</em> origin has been authorized after validating the transaction.
+If no origin was authorized, the transaction must be rejected.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.apply" class="method"><a class="src rightside" href="../../src/sp_runtime/traits/mod.rs.html#1784-1788">source</a><h4 class="code-header">fn <a href="#tymethod.apply" class="fn">apply</a>&lt;V&gt;(
+    self,
+    info: &amp;&lt;Self::<a class="associatedtype" href="trait.Applyable.html#associatedtype.Call" title="type polkadot_service::runtime_traits::Applyable::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.Info" title="type polkadot_service::runtime_traits::Dispatchable::Info">Info</a>,
+    len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Applyable.html#associatedtype.Call" title="type polkadot_service::runtime_traits::Applyable::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.PostInfo" title="type polkadot_service::runtime_traits::Dispatchable::PostInfo">PostInfo</a>, <a class="struct" href="../../sp_runtime/struct.DispatchErrorWithPostInfo.html" title="struct sp_runtime::DispatchErrorWithPostInfo">DispatchErrorWithPostInfo</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Applyable.html#associatedtype.Call" title="type polkadot_service::runtime_traits::Applyable::Call">Call</a> as <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&gt;::<a class="associatedtype" href="trait.Dispatchable.html#associatedtype.PostInfo" title="type polkadot_service::runtime_traits::Dispatchable::PostInfo">PostInfo</a>&gt;&gt;, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;<div class="where">where
+    V: <a class="trait" href="trait.ValidateUnsigned.html" title="trait polkadot_service::runtime_traits::ValidateUnsigned">ValidateUnsigned</a>&lt;Call = Self::<a class="associatedtype" href="trait.Applyable.html#associatedtype.Call" title="type polkadot_service::runtime_traits::Applyable::Call">Call</a>&gt;,</div></h4></section></summary><div class="docblock"><p>Executes all necessary logic needed prior to dispatch and deconstructs into function call,
+index and sender.</p>
+<p>IMPORTANT: Ensure that <em>some</em> origin has been authorized after validating the
+transaction. If no origin was authorized, the transaction must be rejected.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-Applyable-for-CheckedExtrinsic%3CAccountId,+Call,+Extension%3E" class="impl"><a class="src rightside" href="../../src/sp_runtime/generic/checked_extrinsic.rs.html#63-69">source</a><a href="#impl-Applyable-for-CheckedExtrinsic%3CAccountId,+Call,+Extension%3E" class="anchor">§</a><h3 class="code-header">impl&lt;AccountId, Call, Extension, RuntimeOrigin&gt; <a class="trait" href="trait.Applyable.html" title="trait polkadot_service::runtime_traits::Applyable">Applyable</a> for <a class="struct" href="../generic/struct.CheckedExtrinsic.html" title="struct polkadot_service::generic::CheckedExtrinsic">CheckedExtrinsic</a>&lt;AccountId, Call, Extension&gt;<div class="where">where
+    AccountId: <a class="trait" href="trait.Member.html" title="trait polkadot_service::runtime_traits::Member">Member</a> + <a class="trait" href="trait.MaybeDisplay.html" title="trait polkadot_service::runtime_traits::MaybeDisplay">MaybeDisplay</a>,
+    Call: <a class="trait" href="trait.Member.html" title="trait polkadot_service::runtime_traits::Member">Member</a> + <a class="trait" href="trait.Dispatchable.html" title="trait polkadot_service::runtime_traits::Dispatchable">Dispatchable</a>&lt;RuntimeOrigin = RuntimeOrigin&gt; + Encode,
+    Extension: <a class="trait" href="trait.TransactionExtension.html" title="trait polkadot_service::runtime_traits::TransactionExtension">TransactionExtension</a>&lt;Call&gt;,
+    RuntimeOrigin: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;AccountId&gt;&gt; + <a class="trait" href="trait.AsTransactionAuthorizedOrigin.html" title="trait polkadot_service::runtime_traits::AsTransactionAuthorizedOrigin">AsTransactionAuthorizedOrigin</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Call-1" class="associatedtype trait-impl"><a href="#associatedtype.Call-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Call" class="associatedtype">Call</a> = Call</h4></section></div></details></div><script src="../../trait.impl/sp_runtime/traits/trait.Applyable.js" data-ignore-extern-crates="sp_runtime" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

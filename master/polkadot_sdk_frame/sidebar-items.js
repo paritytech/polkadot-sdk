@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["arithmetic","deps","derive","pallet_macros","prelude","primitives","runtime","testing_prelude","traits"]};

@@ -1,0 +1,180 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Glutton Westend Runtime"><title>glutton_westend_runtime - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="glutton_westend_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../glutton_westend_runtime/index.html">glutton_westend_runtime</a><span class="version">3.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li><li><a href="#attributes">Attribute Macros</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">glutton_westend_runtime</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/glutton_westend_runtime/lib.rs.html#16-508">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="glutton-westend-runtime"><a class="doc-anchor" href="#glutton-westend-runtime">§</a>Glutton Westend Runtime</h2>
+<p>The purpose of the Glutton parachain is to do stress testing on the Kusama
+network. This runtime targets the Westend runtime to allow development
+separate to the Kusama runtime.</p>
+<p>There may be multiple instances of the Glutton parachain deployed and
+connected to its parent relay chain.</p>
+<p>These parachains are not holding any real value. Their purpose is to stress
+test the network.</p>
+<h4 id="governance"><a class="doc-anchor" href="#governance">§</a>Governance</h4>
+<p>Glutton defers its governance (namely, its <code>Root</code> origin), to its Relay
+Chain parent, Kusama (or Westend for development purposes).</p>
+<h4 id="xcm"><a class="doc-anchor" href="#xcm">§</a>XCM</h4>
+<p>Since the main goal of Glutton is solely stress testing, the parachain will
+only be able receive XCM messages from the Relay Chain via DMP. This way the
+Glutton parachains will be able to listen for upgrades that are coming from
+the Relay chain.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="api/index.html" title="mod glutton_westend_runtime::api">api</a></div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod glutton_westend_runtime::weights">weights</a></div></li><li><div class="item-name"><a class="mod" href="xcm_config/index.html" title="mod glutton_westend_runtime::xcm_config">xcm_config</a></div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.add_benchmarks.html" title="macro glutton_westend_runtime::add_benchmarks">add_benchmarks</a></div><div class="desc docblock-short">Calls <code>add_benchmark</code> with all configs from <code>define_benchmarks</code>
+and passes the first two parameters on.</div></li><li><div class="item-name"><a class="macro" href="macro.construct_runtime.html" title="macro glutton_westend_runtime::construct_runtime">construct_runtime</a></div><div class="desc docblock-short">Construct a runtime, with the given name and the given pallets.</div></li><li><div class="item-name"><a class="macro" href="macro.list_benchmarks.html" title="macro glutton_westend_runtime::list_benchmarks">list_benchmarks</a></div><div class="desc docblock-short">Calls <code>list_benchmark</code> with all configs from <code>define_benchmarks</code>
+and passes the first two parameters on.</div></li><li><div class="item-name"><a class="macro" href="macro.parameter_types.html" title="macro glutton_westend_runtime::parameter_types">parameter_types</a></div><div class="desc docblock-short">Create new implementations of the <a href="crate::traits::Get"><code>Get</code></a> trait.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.BlockExecutionWeight.html" title="struct glutton_westend_runtime::BlockExecutionWeight">BlockExecutionWeight</a></div><div class="desc docblock-short">Time to execute an empty block.
+Calculated by multiplying the <em>Average</em> with <code>1.0</code> and adding <code>0</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.BlockHashCount.html" title="struct glutton_westend_runtime::BlockHashCount">BlockHashCount</a></div></li><li><div class="item-name"><a class="struct" href="struct.ConstBool.html" title="struct glutton_westend_runtime::ConstBool">ConstBool</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstU8.html" title="struct glutton_westend_runtime::ConstU8">ConstU8</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstU32.html" title="struct glutton_westend_runtime::ConstU32">ConstU32</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.ConstU64.html" title="struct glutton_westend_runtime::ConstU64">ConstU64</a></div><div class="desc docblock-short">Const getter for a basic type.</div></li><li><div class="item-name"><a class="struct" href="struct.EitherOfDiverse.html" title="struct glutton_westend_runtime::EitherOfDiverse">EitherOfDiverse</a></div><div class="desc docblock-short">“OR gate” implementation of <code>EnsureOrigin</code> allowing for different <code>Success</code> types for <code>L</code>
+and <code>R</code>, with them combined using an <code>Either</code> type.</div></li><li><div class="item-name"><a class="struct" href="struct.ExtrinsicBaseWeight.html" title="struct glutton_westend_runtime::ExtrinsicBaseWeight">ExtrinsicBaseWeight</a></div><div class="desc docblock-short">Time to execute a NO-OP extrinsic, for example <code>System::remark</code>.
+Calculated by multiplying the <em>Average</em> with <code>1.0</code> and adding <code>0</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.IdentityFee.html" title="struct glutton_westend_runtime::IdentityFee">IdentityFee</a></div><div class="desc docblock-short">Implementor of <code>WeightToFee</code> that maps one unit of weight to one unit of fee.</div></li><li><div class="item-name"><a class="struct" href="struct.IsInVec.html" title="struct glutton_westend_runtime::IsInVec">IsInVec</a></div><div class="desc docblock-short">Trivial utility for implementing <code>Contains</code>/<code>OrderedMembership</code> with a <code>Vec</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.MessageQueueServiceWeight.html" title="struct glutton_westend_runtime::MessageQueueServiceWeight">MessageQueueServiceWeight</a></div></li><li><div class="item-name"><a class="struct" href="struct.PalletId.html" title="struct glutton_westend_runtime::PalletId">PalletId</a></div><div class="desc docblock-short">A pallet identifier. These are per pallet and should be stored in a registry somewhere.</div></li><li><div class="item-name"><a class="struct" href="struct.PalletInfo.html" title="struct glutton_westend_runtime::PalletInfo">PalletInfo</a></div><div class="desc docblock-short">Provides an implementation of <code>PalletInfo</code> to provide information
+about the pallet setup in the runtime.</div></li><li><div class="item-name"><a class="struct" href="struct.Perbill.html" title="struct glutton_westend_runtime::Perbill">Perbill</a></div><div class="desc docblock-short">A fixed point representation of a number in the range [0, 1].</div></li><li><div class="item-name"><a class="struct" href="struct.Permill.html" title="struct glutton_westend_runtime::Permill">Permill</a></div><div class="desc docblock-short">A fixed point representation of a number in the range [0, 1].</div></li><li><div class="item-name"><a class="struct" href="struct.RelayOrigin.html" title="struct glutton_westend_runtime::RelayOrigin">RelayOrigin</a></div></li><li><div class="item-name"><a class="struct" href="struct.ReservedDmpWeight.html" title="struct glutton_westend_runtime::ReservedDmpWeight">ReservedDmpWeight</a></div></li><li><div class="item-name"><a class="struct" href="struct.RocksDbWeight.html" title="struct glutton_westend_runtime::RocksDbWeight">RocksDbWeight</a></div><div class="desc docblock-short">By default, Substrate uses RocksDB, so this will be the weight used throughout
+the runtime.</div></li><li><div class="item-name"><a class="struct" href="struct.Runtime.html" title="struct glutton_westend_runtime::Runtime">Runtime</a></div></li><li><div class="item-name"><a class="struct" href="struct.RuntimeApi.html" title="struct glutton_westend_runtime::RuntimeApi">RuntimeApi</a></div></li><li><div class="item-name"><a class="struct" href="struct.RuntimeApiImpl.html" title="struct glutton_westend_runtime::RuntimeApiImpl">RuntimeApiImpl</a></div><div class="desc docblock-short">Implements all runtime apis for the client side.</div></li><li><div class="item-name"><a class="struct" href="struct.RuntimeBlockLength.html" title="struct glutton_westend_runtime::RuntimeBlockLength">RuntimeBlockLength</a></div></li><li><div class="item-name"><a class="struct" href="struct.RuntimeBlockWeights.html" title="struct glutton_westend_runtime::RuntimeBlockWeights">RuntimeBlockWeights</a></div></li><li><div class="item-name"><a class="struct" href="struct.RuntimeGenesisConfig.html" title="struct glutton_westend_runtime::RuntimeGenesisConfig">RuntimeGenesisConfig</a></div></li><li><div class="item-name"><a class="struct" href="struct.RuntimeOrigin.html" title="struct glutton_westend_runtime::RuntimeOrigin">RuntimeOrigin</a></div><div class="desc docblock-short">The runtime origin type representing the origin of a call.</div></li><li><div class="item-name"><a class="struct" href="struct.SS58Prefix.html" title="struct glutton_westend_runtime::SS58Prefix">SS58Prefix</a></div></li><li><div class="item-name"><a class="struct" href="struct.SessionKeys.html" title="struct glutton_westend_runtime::SessionKeys">SessionKeys</a></div></li><li><div class="item-name"><a class="struct" href="struct.Version.html" title="struct glutton_westend_runtime::Version">Version</a></div></li><li><div class="item-name"><a class="struct" href="struct.Weight.html" title="struct glutton_westend_runtime::Weight">Weight</a></div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.DispatchClass.html" title="enum glutton_westend_runtime::DispatchClass">DispatchClass</a></div><div class="desc docblock-short">A generalized group of dispatch types.</div></li><li><div class="item-name"><a class="enum" href="enum.Everything.html" title="enum glutton_westend_runtime::Everything">Everything</a></div><div class="desc docblock-short">A <a href="../frame_support/traits/members/trait.Contains.html" title="trait frame_support::traits::members::Contains"><code>Contains</code></a> implementation that contains every value.</div></li><li><div class="item-name"><a class="enum" href="enum.OriginCaller.html" title="enum glutton_westend_runtime::OriginCaller">OriginCaller</a></div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeCall.html" title="enum glutton_westend_runtime::RuntimeCall">RuntimeCall</a></div><div class="desc docblock-short">The aggregated runtime call type.</div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeError.html" title="enum glutton_westend_runtime::RuntimeError">RuntimeError</a></div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeEvent.html" title="enum glutton_westend_runtime::RuntimeEvent">RuntimeEvent</a></div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeFreezeReason.html" title="enum glutton_westend_runtime::RuntimeFreezeReason">RuntimeFreezeReason</a></div><div class="desc docblock-short">A reason for placing a freeze on funds.</div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeHoldReason.html" title="enum glutton_westend_runtime::RuntimeHoldReason">RuntimeHoldReason</a></div><div class="desc docblock-short">A reason for placing a hold on funds.</div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeLockId.html" title="enum glutton_westend_runtime::RuntimeLockId">RuntimeLockId</a></div><div class="desc docblock-short">An identifier for each lock placed on funds.</div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeSlashReason.html" title="enum glutton_westend_runtime::RuntimeSlashReason">RuntimeSlashReason</a></div><div class="desc docblock-short">A reason for slashing funds.</div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeTask.html" title="enum glutton_westend_runtime::RuntimeTask">RuntimeTask</a></div><div class="desc docblock-short">An aggregation of all <code>Task</code> enums across all pallets included in the current runtime.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.RUNTIME_API_VERSIONS.html" title="constant glutton_westend_runtime::RUNTIME_API_VERSIONS">RUNTIME_API_VERSIONS</a></div></li><li><div class="item-name"><a class="constant" href="constant.VERSION.html" title="constant glutton_westend_runtime::VERSION">VERSION</a></div></li><li><div class="item-name"><a class="constant" href="constant.WASM_BINARY.html" title="constant glutton_westend_runtime::WASM_BINARY">WASM_BINARY</a></div></li><li><div class="item-name"><a class="constant" href="constant.WASM_BINARY_BLOATY.html" title="constant glutton_westend_runtime::WASM_BINARY_BLOATY">WASM_BINARY_BLOATY</a></div></li><li><div class="item-name"><a class="constant" href="constant.WEIGHT_REF_TIME_PER_SECOND.html" title="constant glutton_westend_runtime::WEIGHT_REF_TIME_PER_SECOND">WEIGHT_REF_TIME_PER_SECOND</a></div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.BuildStorage.html" title="trait glutton_westend_runtime::BuildStorage">BuildStorage</a></div><div class="desc docblock-short">Complex storage builder stuff.</div></li><li><div class="item-name"><a class="trait" href="trait.Randomness.html" title="trait glutton_westend_runtime::Randomness">Randomness</a></div><div class="desc docblock-short">A trait that is able to provide randomness.</div></li><li><div class="item-name"><a class="trait" href="trait.StorageValue.html" title="trait glutton_westend_runtime::StorageValue">StorageValue</a></div><div class="desc docblock-short">A trait for working with macro-generated storage values under the substrate storage API.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.build_state.html" title="fn glutton_westend_runtime::build_state">build_state</a></div><div class="desc docblock-short">Build <code>GenesisConfig</code> from a JSON blob not using any defaults and store it in the storage. For
+more info refer to <a href="../sp_genesis_builder/trait.GenesisBuilder.html#method.build_state" title="method sp_genesis_builder::GenesisBuilder::build_state"><code>sp_genesis_builder::GenesisBuilder::build_state</code></a>.</div></li><li><div class="item-name"><a class="fn" href="fn.get_preset.html" title="fn glutton_westend_runtime::get_preset">get_preset</a></div><div class="desc docblock-short">Get the default <code>GenesisConfig</code> as a JSON blob if <code>name</code> is None.</div></li><li><div class="item-name"><a class="fn" href="fn.native_version.html" title="fn glutton_westend_runtime::native_version">native_version</a></div><div class="desc docblock-short">The version information used to identify this runtime when compiled natively.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Address.html" title="type glutton_westend_runtime::Address">Address</a></div><div class="desc docblock-short">The address format for describing accounts.</div></li><li><div class="item-name"><a class="type" href="type.AllPalletsWithSystem.html" title="type glutton_westend_runtime::AllPalletsWithSystem">AllPalletsWithSystem</a></div><div class="desc docblock-short">All pallets included in the runtime as a nested tuple of types.</div></li><li><div class="item-name"><a class="type" href="type.AllPalletsWithoutSystem.html" title="type glutton_westend_runtime::AllPalletsWithoutSystem">AllPalletsWithoutSystem</a></div><div class="desc docblock-short">All pallets included in the runtime as a nested tuple of types.
+Excludes the System pallet.</div></li><li><div class="item-name"><a class="type" href="type.Aura.html" title="type glutton_westend_runtime::Aura">Aura</a></div></li><li><div class="item-name"><a class="type" href="type.AuraConfig.html" title="type glutton_westend_runtime::AuraConfig">AuraConfig</a></div></li><li><div class="item-name"><a class="type" href="type.AuraExt.html" title="type glutton_westend_runtime::AuraExt">AuraExt</a></div></li><li><div class="item-name"><a class="type" href="type.AuraExtConfig.html" title="type glutton_westend_runtime::AuraExtConfig">AuraExtConfig</a></div></li><li><div class="item-name"><a class="type" href="type.AuraId.html" title="type glutton_westend_runtime::AuraId">AuraId</a></div><div class="desc docblock-short">An Aura authority identifier using S/R 25519 as its crypto.</div></li><li><div class="item-name"><a class="type" href="type.Block.html" title="type glutton_westend_runtime::Block">Block</a></div><div class="desc docblock-short">Block type as expected by this runtime.</div></li><li><div class="item-name"><a class="type" href="type.BlockId.html" title="type glutton_westend_runtime::BlockId">BlockId</a></div><div class="desc docblock-short">BlockId type as expected by this runtime.</div></li><li><div class="item-name"><a class="type" href="type.BlockNumber.html" title="type glutton_westend_runtime::BlockNumber">BlockNumber</a></div><div class="desc docblock-short">An index to a block.</div></li><li><div class="item-name"><a class="type" href="type.CumulusXcm.html" title="type glutton_westend_runtime::CumulusXcm">CumulusXcm</a></div></li><li><div class="item-name"><a class="type" href="type.Executive.html" title="type glutton_westend_runtime::Executive">Executive</a></div><div class="desc docblock-short">Executive: handles dispatch to the various modules.</div></li><li><div class="item-name"><a class="type" href="type.Glutton.html" title="type glutton_westend_runtime::Glutton">Glutton</a></div></li><li><div class="item-name"><a class="type" href="type.GluttonConfig.html" title="type glutton_westend_runtime::GluttonConfig">GluttonConfig</a></div></li><li><div class="item-name"><a class="type" href="type.Hash.html" title="type glutton_westend_runtime::Hash">Hash</a></div><div class="desc docblock-short">A hash of some data used by the chain.</div></li><li><div class="item-name"><a class="type" href="type.Header.html" title="type glutton_westend_runtime::Header">Header</a></div><div class="desc docblock-short">Block header type as expected by this runtime.</div></li><li><div class="item-name"><a class="type" href="type.MessageQueue.html" title="type glutton_westend_runtime::MessageQueue">MessageQueue</a></div></li><li><div class="item-name"><a class="type" href="type.Nonce.html" title="type glutton_westend_runtime::Nonce">Nonce</a></div><div class="desc docblock-short">Index of a transaction in the chain.</div></li><li><div class="item-name"><a class="type" href="type.ParachainInfo.html" title="type glutton_westend_runtime::ParachainInfo">ParachainInfo</a></div></li><li><div class="item-name"><a class="type" href="type.ParachainInfoConfig.html" title="type glutton_westend_runtime::ParachainInfoConfig">ParachainInfoConfig</a></div></li><li><div class="item-name"><a class="type" href="type.ParachainSystem.html" title="type glutton_westend_runtime::ParachainSystem">ParachainSystem</a></div></li><li><div class="item-name"><a class="type" href="type.ParachainSystemConfig.html" title="type glutton_westend_runtime::ParachainSystemConfig">ParachainSystemConfig</a></div></li><li><div class="item-name"><a class="type" href="type.SignedBlock.html" title="type glutton_westend_runtime::SignedBlock">SignedBlock</a></div><div class="desc docblock-short">A Block signed with a Justification</div></li><li><div class="item-name"><a class="type" href="type.Sudo.html" title="type glutton_westend_runtime::Sudo">Sudo</a></div></li><li><div class="item-name"><a class="type" href="type.SudoConfig.html" title="type glutton_westend_runtime::SudoConfig">SudoConfig</a></div></li><li><div class="item-name"><a class="type" href="type.System.html" title="type glutton_westend_runtime::System">System</a></div></li><li><div class="item-name"><a class="type" href="type.SystemConfig.html" title="type glutton_westend_runtime::SystemConfig">SystemConfig</a></div></li><li><div class="item-name"><a class="type" href="type.Timestamp.html" title="type glutton_westend_runtime::Timestamp">Timestamp</a></div></li><li><div class="item-name"><a class="type" href="type.TxExtension.html" title="type glutton_westend_runtime::TxExtension">TxExtension</a></div><div class="desc docblock-short">The extension to the basic transaction logic.</div></li><li><div class="item-name"><a class="type" href="type.UncheckedExtrinsic.html" title="type glutton_westend_runtime::UncheckedExtrinsic">UncheckedExtrinsic</a></div><div class="desc docblock-short">Unchecked extrinsic type as expected by this runtime.</div></li></ul><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="attr" href="attr.derive_impl.html" title="attr glutton_westend_runtime::derive_impl">derive_impl</a></div><div class="desc docblock-short">This attribute can be used to derive a full implementation of a trait based on a local partial
+impl and an external impl containing defaults that can be overridden in the local impl.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

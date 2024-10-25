@@ -1,0 +1,390 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Write your first real runtime, compiling it to WASM."><title>polkadot_sdk_docs::guides::your_first_runtime - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module your_first_runtime</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::guides</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">guides</a>::<wbr><a class="mod" href="#">your_first_runtime</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/guides/your_first_runtime.rs.html#1-170">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Write your first real <a href="../../reference_docs/wasm_meta_protocol/index.html" title="mod polkadot_sdk_docs::reference_docs::wasm_meta_protocol">runtime</a>,
+compiling it to <a href="../../polkadot_sdk/substrate/index.html#wasm-build" title="mod polkadot_sdk_docs::polkadot_sdk::substrate">WASM</a>.</p>
+<h2 id="your-first-runtime"><a class="doc-anchor" href="#your-first-runtime">§</a>Your first Runtime</h2>
+<p>This guide will walk you through the steps to add your pallet to a runtime.</p>
+<p>The good news is, in <a href="../your_first_pallet/index.html" title="mod polkadot_sdk_docs::guides::your_first_pallet"><code>crate::guides::your_first_pallet</code></a>, we have already created a <em>test</em>
+runtime that was used for testing, and a real runtime is not that much different!</p>
+<h3 id="setup"><a class="doc-anchor" href="#setup">§</a>Setup</h3>
+<p>A runtime shares a few similar setup requirements as with a pallet:</p>
+<ul>
+<li>importing <a href="../../../polkadot_sdk_frame/index.html" title="mod polkadot_sdk_frame"><code>frame</code></a>, [<code>codec</code>], and [<code>scale_info</code>] crates.</li>
+<li>following the <a href="../../polkadot_sdk/substrate/index.html#wasm-build" title="mod polkadot_sdk_docs::polkadot_sdk::substrate"><code>std</code> feature-gating</a> pattern.</li>
+</ul>
+<p>But, more specifically, it also contains:</p>
+<ul>
+<li>a <code>build.rs</code> that uses <a href="../../../substrate_wasm_builder/index.html" title="mod substrate_wasm_builder"><code>substrate_wasm_builder</code></a>. This entails declaring
+<code>[build-dependencies]</code> in the Cargo manifest file:</li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>[build-dependencies]
+substrate-wasm-builder = { ... }</code></pre></div>
+<blockquote>
+<p>Note that a runtime must always be one-runtime-per-crate. You cannot define multiple runtimes
+per rust crate.</p>
+</blockquote>
+<p>You can find the full code of this guide in <a href="../../../polkadot_sdk_docs_first_runtime/index.html" title="mod polkadot_sdk_docs_first_runtime"><code>first_runtime</code></a>.</p>
+<h3 id="your-first-runtime-1"><a class="doc-anchor" href="#your-first-runtime-1">§</a>Your First Runtime</h3>
+<p>The first new property of a real runtime that it must define its
+<a href="../../../sp_version/struct.RuntimeVersion.html" title="struct sp_version::RuntimeVersion"><code>frame::runtime::prelude::RuntimeVersion</code></a>:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[runtime_version]
+</span><span class="kw">pub const </span>VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">"first-runtime"</span>),
+	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">"first-runtime"</span>),
+	authoring_version: <span class="number">1</span>,
+	spec_version: <span class="number">0</span>,
+	impl_version: <span class="number">1</span>,
+	apis: RUNTIME_API_VERSIONS,
+	transaction_version: <span class="number">1</span>,
+	system_version: <span class="number">1</span>,
+};</code></pre></div>
+<p>The version contains a number of very important fields, such as <code>spec_version</code> and <code>spec_name</code>
+that play an important role in identifying your runtime and its version, more importantly in
+runtime upgrades. More about runtime upgrades in
+<a href="../../reference_docs/frame_runtime_upgrades_and_migrations/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_upgrades_and_migrations"><code>crate::reference_docs::frame_runtime_upgrades_and_migrations</code></a>.</p>
+<p>Then, a real runtime also contains the <code>impl</code> of all individual pallets’ <code>trait Config</code> for
+<code>struct Runtime</code>, and a <a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime"><code>frame::runtime::prelude::construct_runtime</code></a> macro that amalgamates
+them all.</p>
+<p>In the case of our example:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>our_first_pallet::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+}</code></pre></div>
+<p>In this example, we bring in a number of other pallets from <a href="../../../polkadot_sdk_frame/index.html" title="mod polkadot_sdk_frame"><code>frame</code></a> into the runtime, each of
+their <code>Config</code> need to be implemented for <code>struct Runtime</code>:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+<span class="macro">parameter_types!</span> {
+	<span class="kw">pub const </span>Version: RuntimeVersion = VERSION;
+}
+
+<span class="attr">#[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
+</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>Block = Block;
+	<span class="kw">type </span>Version = Version;
+	<span class="kw">type </span>AccountData =
+		pallet_balances::AccountData&lt;&lt;Runtime <span class="kw">as </span>pallet_balances::Config&gt;::Balance&gt;;
+}
+
+<span class="attr">#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+</span><span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>AccountStore = System;
+}
+
+<span class="attr">#[derive_impl(pallet_sudo::config_preludes::TestDefaultConfig)]
+</span><span class="kw">impl </span>pallet_sudo::Config <span class="kw">for </span>Runtime {}
+
+<span class="attr">#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
+</span><span class="kw">impl </span>pallet_timestamp::Config <span class="kw">for </span>Runtime {}
+
+<span class="attr">#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
+</span><span class="kw">impl </span>pallet_transaction_payment::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>OnChargeTransaction = pallet_transaction_payment::FungibleAdapter&lt;Balances, ()&gt;;
+	<span class="comment">// We specify a fixed length to fee here, which essentially means all transactions charge
+	// exactly 1 unit of fee.
+	</span><span class="kw">type </span>LengthToFee = FixedFee&lt;<span class="number">1</span>, &lt;<span class="self">Self </span><span class="kw">as </span>pallet_balances::Config&gt;::Balance&gt;;
+	<span class="kw">type </span>WeightToFee = NoFee&lt;&lt;<span class="self">Self </span><span class="kw">as </span>pallet_balances::Config&gt;::Balance&gt;;
+}</code></pre></div>
+<p>Notice how we use <a href="../../../frame_support_procedural/attr.derive_impl.html" title="attr frame_support_procedural::derive_impl"><code>frame::pallet_macros::derive_impl</code></a> to provide “default” configuration items
+for each pallet. Feel free to dive into the definition of each default prelude (eg.
+<a href="../../../frame_system/pallet/config_preludes/index.html" title="mod frame_system::pallet::config_preludes"><code>frame::prelude::frame_system::pallet::config_preludes</code></a>) to learn more which types are exactly
+used.</p>
+<p>Recall that in test runtime in <a href="../your_first_pallet/index.html" title="mod polkadot_sdk_docs::guides::your_first_pallet"><code>crate::guides::your_first_pallet</code></a>, we provided <code>type AccountId = u64</code> to <code>frame_system</code>, while in this case we rely on whatever is provided by
+<a href="../../../frame_system/pallet/config_preludes/struct.SolochainDefaultConfig.html" title="struct frame_system::pallet::config_preludes::SolochainDefaultConfig"><code>SolochainDefaultConfig</code></a>, which is indeed a “real” 32 byte account id.</p>
+<p>Then, a familiar instance of <code>construct_runtime</code> amalgamates all of the pallets:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">construct_runtime!</span>(
+	<span class="kw">pub struct </span>Runtime {
+		<span class="comment">// Mandatory for all runtimes
+		</span>System: frame_system,
+
+		<span class="comment">// A number of other pallets from FRAME.
+		</span>Timestamp: pallet_timestamp,
+		Balances: pallet_balances,
+		Sudo: pallet_sudo,
+		TransactionPayment: pallet_transaction_payment,
+
+		<span class="comment">// Our local pallet
+		</span>FirstPallet: our_first_pallet,
+	}
+);</code></pre></div>
+<p>Recall from <a href="../../reference_docs/wasm_meta_protocol/index.html" title="mod polkadot_sdk_docs::reference_docs::wasm_meta_protocol"><code>crate::reference_docs::wasm_meta_protocol</code></a> that every (real) runtime needs to
+implement a set of runtime APIs that will then let the node to communicate with it. The final
+steps of crafting a runtime are related to achieving exactly this.</p>
+<p>First, we define a number of types that eventually lead to the creation of an instance of
+<a href="../../../frame_executive/struct.Executive.html" title="struct frame_executive::Executive"><code>frame::runtime::prelude::Executive</code></a>. The executive is a handy FRAME utility that, through
+amalgamating all pallets and further types, implements some of the very very core pieces of the
+runtime logic, such as how blocks are executed and other runtime-api implementations.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>SignedExtra = (
+	<span class="comment">// `frame` already provides all the signed extensions from `frame-system`. We just add the
+	// one related to tx-payment here.
+	</span>frame::runtime::types_common::SystemTransactionExtensionsOf&lt;Runtime&gt;,
+	pallet_transaction_payment::ChargeTransactionPayment&lt;Runtime&gt;,
+);
+
+<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Block = frame::runtime::types_common::BlockOf&lt;Runtime, SignedExtra&gt;;
+<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Header = HeaderFor&lt;Runtime&gt;;
+
+<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>RuntimeExecutive = Executive&lt;
+	Runtime,
+	Block,
+	frame_system::ChainContext&lt;Runtime&gt;,
+	Runtime,
+	AllPalletsWithSystem,
+&gt;;</code></pre></div>
+<p>Finally, we use <a href="../../../sp_api_proc_macro/macro.impl_runtime_apis.html" title="macro sp_api_proc_macro::impl_runtime_apis"><code>frame::runtime::prelude::impl_runtime_apis</code></a> to implement all of the runtime
+APIs that the runtime wishes to expose. As you will see in the code, most of these runtime API
+implementations are merely forwarding calls to <code>RuntimeExecutive</code> which handles the actual
+logic. Given that the implementation block is somewhat large, we won’t repeat it here. You can
+look for <code>impl_runtime_apis!</code> in <a href="../../../polkadot_sdk_docs_first_runtime/index.html" title="mod polkadot_sdk_docs_first_runtime"><code>first_runtime</code></a>.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">impl_runtime_apis!</span> {
+	<span class="kw">impl </span>apis::Core&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>version() -&gt; RuntimeVersion {
+			VERSION
+		}
+
+		<span class="kw">fn </span>execute_block(block: Block) {
+			RuntimeExecutive::execute_block(block)
+		}
+
+		<span class="kw">fn </span>initialize_block(header: <span class="kw-2">&amp;</span>Header) -&gt; ExtrinsicInclusionMode {
+			RuntimeExecutive::initialize_block(header)
+		}
+	}
+
+	<span class="comment">// many more trait impls...
+</span>}</code></pre></div>
+<p>And that more or less covers the details of how you would write a real runtime!</p>
+<p>Once you compile a crate that contains a runtime as above, simply running <code>cargo build</code> will
+generate the wasm blobs and place them under <code>./target/release/wbuild</code>, as explained
+<a href="../../polkadot_sdk/substrate/index.html#wasm-build" title="mod polkadot_sdk_docs::polkadot_sdk::substrate">here</a>.</p>
+<h3 id="genesis-configuration"><a class="doc-anchor" href="#genesis-configuration">§</a>Genesis Configuration</h3>
+<p>Every runtime specifies a number of runtime APIs that help the outer world (most notably, a
+<code>node</code>) know what is the genesis state of this runtime. These APIs are then used to generate
+what is known as a  <strong>Chain Specification, or chain spec for short</strong>. A chain spec is the
+primary way to run a new chain.</p>
+<p>These APIs are defined in <a href="../../../sp_genesis_builder/index.html" title="mod sp_genesis_builder"><code>sp_genesis_builder</code></a>, and are re-exposed as a part of
+<a href="../../../polkadot_sdk_frame/runtime/apis/index.html" title="mod polkadot_sdk_frame::runtime::apis"><code>frame::runtime::apis</code></a>. Therefore, the implementation blocks can be found inside of
+<code>impl_runtime_apis!</code> similar to:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">impl_runtime_apis!</span> {
+ 	<span class="kw">impl </span>apis::GenesisBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
+			<span class="kw">fn </span>build_state(config: Vec&lt;u8&gt;) -&gt; GenesisBuilderResult {
+				build_state::&lt;RuntimeGenesisConfig&gt;(config)
+			}
+
+			<span class="kw">fn </span>get_preset(id: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;PresetId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+				get_preset::&lt;RuntimeGenesisConfig&gt;(id, <span class="self">self</span>::genesis_config_presets::get_preset)
+			}
+
+			<span class="kw">fn </span>preset_names() -&gt; Vec&lt;PresetId&gt; {
+				<span class="kw">crate</span>::genesis_config_presets::preset_names()
+			}
+		}
+
+}</code></pre></div>
+<p>The implementation of these function can naturally vary from one runtime to the other, but the
+overall pattern is common. For the case of this runtime, we do the following:</p>
+<ol>
+<li>Expose one non-default preset, namely <a href="../../../sp_genesis_builder/constant.DEV_RUNTIME_PRESET.html" title="constant sp_genesis_builder::DEV_RUNTIME_PRESET"><code>sp_genesis_builder::DEV_RUNTIME_PRESET</code></a>. This means
+our runtime has two “presets” of genesis state in total: <code>DEV_RUNTIME_PRESET</code> and <code>None</code>.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub fn </span>preset_names() -&gt; Vec&lt;PresetId&gt; {
+	<span class="macro">vec!</span>[PresetId::from(DEV_RUNTIME_PRESET)]
+}</code></pre></div>
+<p>For <code>build_state</code> and <code>get_preset</code>, we use the helper functions provide by frame:</p>
+<ul>
+<li><a href="../../../frame_support/genesis_builder_helper/fn.build_state.html" title="fn frame_support::genesis_builder_helper::build_state"><code>frame::runtime::prelude::build_state</code></a> and <a href="../../../frame_support/genesis_builder_helper/fn.get_preset.html" title="fn frame_support::genesis_builder_helper::get_preset"><code>frame::runtime::prelude::get_preset</code></a>.</li>
+</ul>
+<p>Indeed, our runtime needs to specify what its <code>DEV_RUNTIME_PRESET</code> genesis state should be like:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub fn </span>development_config_genesis() -&gt; Value {
+	<span class="kw">let </span>endowment = &lt;MinimumBalance <span class="kw">as </span>Get&lt;Balance&gt;&gt;::get().max(<span class="number">1</span>) * <span class="number">1000</span>;
+	<span class="kw">let </span>config = RuntimeGenesisConfig {
+		balances: BalancesConfig {
+			balances: AccountKeyring::iter()
+				.map(|a| (a.to_account_id(), endowment))
+				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+		},
+		sudo: SudoConfig { key: <span class="prelude-val">Some</span>(AccountKeyring::Alice.to_account_id()) },
+		..Default::default()
+	};
+
+	serde_json::to_value(config).expect(<span class="string">"Could not build genesis config."</span>)
+}</code></pre></div>
+<p>For more in-depth information about <code>GenesisConfig</code>, <code>ChainSpec</code>, the <code>GenesisBuilder</code> API and
+<code>chain-spec-builder</code>, see <a href="../../reference_docs/chain_spec_genesis/index.html" title="mod polkadot_sdk_docs::reference_docs::chain_spec_genesis"><code>crate::reference_docs::chain_spec_genesis</code></a>.</p>
+<h3 id="next-step"><a class="doc-anchor" href="#next-step">§</a>Next Step</h3>
+<p>See <a href="../your_first_node/index.html" title="mod polkadot_sdk_docs::guides::your_first_node"><code>crate::guides::your_first_node</code></a>.</p>
+<h3 id="further-reading"><a class="doc-anchor" href="#further-reading">§</a>Further Reading</h3>
+<ol>
+<li>To learn more about signed extensions, see <a href="../../reference_docs/signed_extensions/index.html" title="mod polkadot_sdk_docs::reference_docs::signed_extensions"><code>crate::reference_docs::signed_extensions</code></a>.</li>
+<li><code>AllPalletsWithSystem</code> is also generated by <code>construct_runtime</code>, as explained in
+<a href="../../reference_docs/frame_runtime_types/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types"><code>crate::reference_docs::frame_runtime_types</code></a>.</li>
+<li><code>Executive</code> supports more generics, most notably allowing the runtime to configure more
+runtime migrations, as explained in
+<a href="../../reference_docs/frame_runtime_upgrades_and_migrations/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_upgrades_and_migrations"><code>crate::reference_docs::frame_runtime_upgrades_and_migrations</code></a>.</li>
+<li>Learn more about adding and implementing runtime apis in
+<a href="../../reference_docs/custom_runtime_api_rpc/index.html" title="mod polkadot_sdk_docs::reference_docs::custom_runtime_api_rpc"><code>crate::reference_docs::custom_runtime_api_rpc</code></a>.</li>
+<li>To see a complete example of a runtime+pallet that is similar to this guide, please see
+<a href="../../polkadot_sdk/templates/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::templates"><code>crate::polkadot_sdk::templates</code></a>.</li>
+</ol>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

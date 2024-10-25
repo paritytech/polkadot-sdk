@@ -1,0 +1,205 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Substrate’s chain spec builder utility."><title>staging_chain_spec_builder - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="staging_chain_spec_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../staging_chain_spec_builder/index.html">staging_chain_spec_builder</a><span class="version">1.6.1</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#functions">Functions</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">staging_chain_spec_builder</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/staging_chain_spec_builder/lib.rs.html#19-535">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Substrate’s chain spec builder utility.</p>
+<p>A chain-spec is short for <code>chain-configuration</code>. See the <a href="../sc_chain_spec/index.html"><code>sc-chain-spec</code></a> for more information.</p>
+<p>Note that this binary is analogous to the <code>build-spec</code> subcommand, contained in typical
+substrate-based nodes. This particular binary is capable of interacting with
+<a href="../sp_genesis_builder/index.html"><code>sp-genesis-builder</code></a> implementation of any provided runtime allowing to build chain-spec JSON
+files.</p>
+<p>See <a href="enum.ChainSpecBuilderCmd.html" title="enum staging_chain_spec_builder::ChainSpecBuilderCmd"><code>ChainSpecBuilderCmd</code></a> for a list of available commands.</p>
+<h3 id="typical-use-cases"><a class="doc-anchor" href="#typical-use-cases">§</a>Typical use-cases.</h3><h6 id="generate-chains-spec-using-default-config-from-runtime"><a class="doc-anchor" href="#generate-chains-spec-using-default-config-from-runtime">§</a>Generate chains-spec using default config from runtime.</h6>
+<p>Query the default genesis config from the provided <code>runtime.wasm</code> and use it in the chain
+spec.</p>
+<div class="example-wrap"><pre class="language-bash"><code>chain-spec-builder create -r runtime.wasm default
+</code></pre></div>
+<p><em>Note:</em> <a href="../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset"><code>GenesisBuilder::get_preset</code></a> runtime function is
+called.</p>
+<h6 id="display-the-runtimes-default-genesisconfig"><a class="doc-anchor" href="#display-the-runtimes-default-genesisconfig">§</a>Display the runtime’s default <code>GenesisConfig</code></h6>
+<p>Displays the content of the runtime’s default <code>GenesisConfig</code></p>
+<div class="example-wrap"><pre class="language-bash"><code>chain-spec-builder display-preset -r runtime.wasm
+</code></pre></div>
+<p><em>Note:</em> <a href="../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset"><code>GenesisBuilder::get_preset</code></a> runtime function is called.</p>
+<h6 id="display-the-genesisconfig-preset-with-given-name"><a class="doc-anchor" href="#display-the-genesisconfig-preset-with-given-name">§</a>Display the <code>GenesisConfig</code> preset with given name</h6>
+<p>Displays the content of the <code>GenesisConfig</code> preset for given name</p>
+<div class="example-wrap"><pre class="language-bash"><code>chain-spec-builder display-preset -r runtime.wasm -p &quot;staging&quot;
+</code></pre></div>
+<p><em>Note:</em> <a href="../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset"><code>GenesisBuilder::get_preset</code></a> runtime function is called.</p>
+<h6 id="list-the-names-of-genesisconfig-presets-provided-by-runtime"><a class="doc-anchor" href="#list-the-names-of-genesisconfig-presets-provided-by-runtime">§</a>List the names of <code>GenesisConfig</code> presets provided by runtime.</h6>
+<p>Displays the names of the presets of <code>GenesisConfigs</code> provided by runtime.</p>
+<div class="example-wrap"><pre class="language-bash"><code>chain-spec-builder list-presets -r runtime.wasm
+</code></pre></div>
+<p><em>Note:</em> <a href="../sp_genesis_builder/trait.GenesisBuilder.html#method.preset_names"><code>GenesisBuilder::preset_names</code></a> runtime function is called.</p>
+<h6 id="generate-chain-spec-using-runtime-provided-genesis-config-preset"><a class="doc-anchor" href="#generate-chain-spec-using-runtime-provided-genesis-config-preset">§</a>Generate chain spec using runtime provided genesis config preset.</h6>
+<p>Patch the runtime’s default genesis config with the named preset provided by the runtime and generate the plain
+version of chain spec:</p>
+<div class="example-wrap"><pre class="language-bash"><code>chain-spec-builder create -r runtime.wasm named-preset &quot;staging&quot;
+</code></pre></div>
+<p><em>Note:</em> <a href="../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset"><code>GenesisBuilder::get_preset</code></a> and <a href="../sp_genesis_builder/trait.GenesisBuilder.html#method.build_state"><code>GenesisBuilder::build_state</code></a> runtime functions are called.</p>
+<h6 id="generate-raw-storage-chain-spec-using-genesis-config-patch"><a class="doc-anchor" href="#generate-raw-storage-chain-spec-using-genesis-config-patch">§</a>Generate raw storage chain spec using genesis config patch.</h6>
+<p>Patch the runtime’s default genesis config with provided <code>patch.json</code> and generate raw
+storage (<code>-s</code>) version of chain spec:</p>
+<div class="example-wrap"><pre class="language-bash"><code>chain-spec-builder create -s -r runtime.wasm patch patch.json
+</code></pre></div>
+<p><em>Note:</em> <a href="../sp_genesis_builder/trait.GenesisBuilder.html#method.build_state"><code>GenesisBuilder::build_state</code></a> runtime function is called.</p>
+<h6 id="generate-raw-storage-chain-spec-using-full-genesis-config"><a class="doc-anchor" href="#generate-raw-storage-chain-spec-using-full-genesis-config">§</a>Generate raw storage chain spec using full genesis config.</h6>
+<p>Build the chain spec using provided full genesis config json file. No defaults will be used:</p>
+<div class="example-wrap"><pre class="language-bash"><code>chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
+</code></pre></div>
+<p><em>Note</em>: <a href="../sp_genesis_builder/trait.GenesisBuilder.html#method.build_state"><code>GenesisBuilder::build_state</code></a> runtime function is called.</p>
+<h6 id="generate-human-readable-chain-spec-using-provided-genesis-config-patch"><a class="doc-anchor" href="#generate-human-readable-chain-spec-using-provided-genesis-config-patch">§</a>Generate human readable chain spec using provided genesis config patch.</h6><div class="example-wrap"><pre class="language-bash"><code>chain-spec-builder create -r runtime.wasm patch patch.json
+</code></pre></div><h6 id="generate-human-readable-chain-spec-using-provided-full-genesis-config"><a class="doc-anchor" href="#generate-human-readable-chain-spec-using-provided-full-genesis-config">§</a>Generate human readable chain spec using provided full genesis config.</h6><div class="example-wrap"><pre class="language-bash"><code>chain-spec-builder create -r runtime.wasm full full-genesis-config.json
+</code></pre></div><h6 id="extra-tools"><a class="doc-anchor" href="#extra-tools">§</a>Extra tools.</h6>
+<p>The <code>chain-spec-builder</code> provides also some extra utilities: <a href="struct.VerifyCmd.html" title="struct staging_chain_spec_builder::VerifyCmd"><code>VerifyCmd</code></a>, <a href="struct.ConvertToRawCmd.html" title="struct staging_chain_spec_builder::ConvertToRawCmd"><code>ConvertToRawCmd</code></a>,
+<a href="struct.UpdateCodeCmd.html" title="struct staging_chain_spec_builder::UpdateCodeCmd"><code>UpdateCodeCmd</code></a>.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AddCodeSubstituteCmd.html" title="struct staging_chain_spec_builder::AddCodeSubstituteCmd">AddCodeSubstituteCmd</a></div><div class="desc docblock-short">Add a code substitute in the chain spec.</div></li><li><div class="item-name"><a class="struct" href="struct.ChainSpecBuilder.html" title="struct staging_chain_spec_builder::ChainSpecBuilder">ChainSpecBuilder</a></div><div class="desc docblock-short">A utility to easily create a chain spec definition.</div></li><li><div class="item-name"><a class="struct" href="struct.ConvertToRawCmd.html" title="struct staging_chain_spec_builder::ConvertToRawCmd">ConvertToRawCmd</a></div><div class="desc docblock-short">Converts the given chain spec into the raw format.</div></li><li><div class="item-name"><a class="struct" href="struct.CreateCmd.html" title="struct staging_chain_spec_builder::CreateCmd">CreateCmd</a></div><div class="desc docblock-short">Create a new chain spec by interacting with the provided runtime wasm blob.</div></li><li><div class="item-name"><a class="struct" href="struct.DisplayPresetCmd.html" title="struct staging_chain_spec_builder::DisplayPresetCmd">DisplayPresetCmd</a></div><div class="desc docblock-short">Displays given preset</div></li><li><div class="item-name"><a class="struct" href="struct.ListPresetsCmd.html" title="struct staging_chain_spec_builder::ListPresetsCmd">ListPresetsCmd</a></div><div class="desc docblock-short">Lists available presets</div></li><li><div class="item-name"><a class="struct" href="struct.ParachainExtension.html" title="struct staging_chain_spec_builder::ParachainExtension">ParachainExtension</a></div></li><li><div class="item-name"><a class="struct" href="struct.UpdateCodeCmd.html" title="struct staging_chain_spec_builder::UpdateCodeCmd">UpdateCodeCmd</a></div><div class="desc docblock-short">Updates the code in the provided input chain spec.</div></li><li><div class="item-name"><a class="struct" href="struct.VerifyCmd.html" title="struct staging_chain_spec_builder::VerifyCmd">VerifyCmd</a></div><div class="desc docblock-short">Verifies the provided input chain spec.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.ChainSpecBuilderCmd.html" title="enum staging_chain_spec_builder::ChainSpecBuilderCmd">ChainSpecBuilderCmd</a></div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.generate_chain_spec_for_runtime.html" title="fn staging_chain_spec_builder::generate_chain_spec_for_runtime">generate_chain_spec_for_runtime</a></div><div class="desc docblock-short">Processes <code>CreateCmd</code> and returns string represenataion of JSON version of <code>ChainSpec</code>.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

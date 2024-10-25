@@ -1,0 +1,292 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Syncing strategy for syncing engine to use"><title>SyncingStrategy in sc_network_sync::strategy - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_sync" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sc_network_sync/index.html">sc_network_sync</a><span class="version">0.33.0</span></h2></div><h2 class="location"><a href="#">SyncingStrategy</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.actions">actions</a></li><li><a href="#tymethod.add_peer">add_peer</a></li><li><a href="#tymethod.clear_justification_requests">clear_justification_requests</a></li><li><a href="#tymethod.is_major_syncing">is_major_syncing</a></li><li><a href="#tymethod.num_downloaded_blocks">num_downloaded_blocks</a></li><li><a href="#tymethod.num_peers">num_peers</a></li><li><a href="#tymethod.num_sync_requests">num_sync_requests</a></li><li><a href="#tymethod.on_block_finalized">on_block_finalized</a></li><li><a href="#tymethod.on_block_response">on_block_response</a></li><li><a href="#tymethod.on_blocks_processed">on_blocks_processed</a></li><li><a href="#tymethod.on_justification_import">on_justification_import</a></li><li><a href="#tymethod.on_state_response">on_state_response</a></li><li><a href="#tymethod.on_validated_block_announce">on_validated_block_announce</a></li><li><a href="#tymethod.on_warp_proof_response">on_warp_proof_response</a></li><li><a href="#tymethod.remove_peer">remove_peer</a></li><li><a href="#tymethod.request_justification">request_justification</a></li><li><a href="#tymethod.set_sync_fork_request">set_sync_fork_request</a></li><li><a href="#tymethod.status">status</a></li><li><a href="#tymethod.update_chain_info">update_chain_info</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In sc_network_sync::strategy</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">sc_network_sync</a>::<wbr><a href="index.html">strategy</a>::<wbr><a class="trait" href="#">SyncingStrategy</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/sc_network_sync/strategy.rs.html#65-164">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait SyncingStrategy&lt;B&gt;: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a><div class="where">where
+    B: BlockT,</div>{
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 19 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.add_peer" class="fn">add_peer</a>(
+        &amp;mut self,
+        peer_id: <a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
+        best_hash: B::Hash,
+        best_number: NumberFor&lt;B&gt;,
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_peer" class="fn">remove_peer</a>(&amp;mut self, peer_id: &amp;<a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_validated_block_announce" class="fn">on_validated_block_announce</a>(
+        &amp;mut self,
+        is_best: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,
+        peer_id: <a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
+        announce: &amp;<a class="struct" href="../../sc_network_common/sync/message/generic/struct.BlockAnnounce.html" title="struct sc_network_common::sync::message::generic::BlockAnnounce">BlockAnnounce</a>&lt;B::Header&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(B::Hash, NumberFor&lt;B&gt;)&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_sync_fork_request" class="fn">set_sync_fork_request</a>(
+        &amp;mut self,
+        peers: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>&gt;,
+        hash: &amp;B::Hash,
+        number: NumberFor&lt;B&gt;,
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.request_justification" class="fn">request_justification</a>(&amp;mut self, hash: &amp;B::Hash, number: NumberFor&lt;B&gt;);
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_justification_requests" class="fn">clear_justification_requests</a>(&amp;mut self);
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_justification_import" class="fn">on_justification_import</a>(
+        &amp;mut self,
+        hash: B::Hash,
+        number: NumberFor&lt;B&gt;,
+        success: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_block_response" class="fn">on_block_response</a>(
+        &amp;mut self,
+        peer_id: <a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
+        key: <a class="enum" href="enum.StrategyKey.html" title="enum sc_network_sync::strategy::StrategyKey">StrategyKey</a>,
+        request: <a class="type" href="../../sc_network_common/sync/message/type.BlockRequest.html" title="type sc_network_common::sync::message::BlockRequest">BlockRequest</a>&lt;B&gt;,
+        blocks: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="type" href="../../sc_network_common/sync/message/type.BlockData.html" title="type sc_network_common::sync::message::BlockData">BlockData</a>&lt;B&gt;&gt;,
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_state_response" class="fn">on_state_response</a>(
+        &amp;mut self,
+        peer_id: <a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
+        key: <a class="enum" href="enum.StrategyKey.html" title="enum sc_network_sync::strategy::StrategyKey">StrategyKey</a>,
+        response: <a class="struct" href="../types/struct.OpaqueStateResponse.html" title="struct sc_network_sync::types::OpaqueStateResponse">OpaqueStateResponse</a>,
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_warp_proof_response" class="fn">on_warp_proof_response</a>(
+        &amp;mut self,
+        peer_id: &amp;<a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
+        key: <a class="enum" href="enum.StrategyKey.html" title="enum sc_network_sync::strategy::StrategyKey">StrategyKey</a>,
+        response: <a class="struct" href="warp/struct.EncodedProof.html" title="struct sc_network_sync::strategy::warp::EncodedProof">EncodedProof</a>,
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_blocks_processed" class="fn">on_blocks_processed</a>(
+        &amp;mut self,
+        imported: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+        count: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+        results: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;BlockImportStatus&lt;NumberFor&lt;B&gt;&gt;, BlockImportError&gt;, B::Hash)&gt;,
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_block_finalized" class="fn">on_block_finalized</a>(&amp;mut self, hash: &amp;B::Hash, number: NumberFor&lt;B&gt;);
+<span class="item-spacer"></span>    fn <a href="#tymethod.update_chain_info" class="fn">update_chain_info</a>(
+        &amp;mut self,
+        best_hash: &amp;B::Hash,
+        best_number: NumberFor&lt;B&gt;,
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.is_major_syncing" class="fn">is_major_syncing</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.num_peers" class="fn">num_peers</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.status" class="fn">status</a>(&amp;self) -&gt; <a class="struct" href="../types/struct.SyncStatus.html" title="struct sc_network_sync::types::SyncStatus">SyncStatus</a>&lt;B&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.num_downloaded_blocks" class="fn">num_downloaded_blocks</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.num_sync_requests" class="fn">num_sync_requests</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.actions" class="fn">actions</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="enum.SyncingAction.html" title="enum sc_network_sync::strategy::SyncingAction">SyncingAction</a>&lt;B&gt;&gt;, ClientError&gt;;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Syncing strategy for syncing engine to use</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.add_peer" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#70">source</a><h4 class="code-header">fn <a href="#tymethod.add_peer" class="fn">add_peer</a>(
+    &amp;mut self,
+    peer_id: <a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
+    best_hash: B::Hash,
+    best_number: NumberFor&lt;B&gt;,
+)</h4></section></summary><div class="docblock"><p>Notify syncing state machine that a new sync peer has connected.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.remove_peer" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#73">source</a><h4 class="code-header">fn <a href="#tymethod.remove_peer" class="fn">remove_peer</a>(&amp;mut self, peer_id: &amp;<a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>)</h4></section></summary><div class="docblock"><p>Notify that a sync peer has disconnected.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.on_validated_block_announce" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#79-84">source</a><h4 class="code-header">fn <a href="#tymethod.on_validated_block_announce" class="fn">on_validated_block_announce</a>(
+    &amp;mut self,
+    is_best: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,
+    peer_id: <a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
+    announce: &amp;<a class="struct" href="../../sc_network_common/sync/message/generic/struct.BlockAnnounce.html" title="struct sc_network_common::sync::message::generic::BlockAnnounce">BlockAnnounce</a>&lt;B::Header&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(B::Hash, NumberFor&lt;B&gt;)&gt;</h4></section></summary><div class="docblock"><p>Submit a validated block announcement.</p>
+<p>Returns new best hash &amp; best number of the peer if they are updated.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_sync_fork_request" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#93">source</a><h4 class="code-header">fn <a href="#tymethod.set_sync_fork_request" class="fn">set_sync_fork_request</a>(
+    &amp;mut self,
+    peers: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>&gt;,
+    hash: &amp;B::Hash,
+    number: NumberFor&lt;B&gt;,
+)</h4></section></summary><div class="docblock"><p>Configure an explicit fork sync request in case external code has detected that there is a
+stale fork missing.</p>
+<p>Note that this function should not be used for recent blocks.
+Sync should be able to download all the recent forks normally.</p>
+<p>Passing empty <code>peers</code> set effectively removes the sync request.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.request_justification" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#96">source</a><h4 class="code-header">fn <a href="#tymethod.request_justification" class="fn">request_justification</a>(&amp;mut self, hash: &amp;B::Hash, number: NumberFor&lt;B&gt;)</h4></section></summary><div class="docblock"><p>Request extra justification.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.clear_justification_requests" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#99">source</a><h4 class="code-header">fn <a href="#tymethod.clear_justification_requests" class="fn">clear_justification_requests</a>(&amp;mut self)</h4></section></summary><div class="docblock"><p>Clear extra justification requests.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.on_justification_import" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#102">source</a><h4 class="code-header">fn <a href="#tymethod.on_justification_import" class="fn">on_justification_import</a>(
+    &amp;mut self,
+    hash: B::Hash,
+    number: NumberFor&lt;B&gt;,
+    success: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,
+)</h4></section></summary><div class="docblock"><p>Report a justification import (successful or not).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.on_block_response" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#105-111">source</a><h4 class="code-header">fn <a href="#tymethod.on_block_response" class="fn">on_block_response</a>(
+    &amp;mut self,
+    peer_id: <a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
+    key: <a class="enum" href="enum.StrategyKey.html" title="enum sc_network_sync::strategy::StrategyKey">StrategyKey</a>,
+    request: <a class="type" href="../../sc_network_common/sync/message/type.BlockRequest.html" title="type sc_network_common::sync::message::BlockRequest">BlockRequest</a>&lt;B&gt;,
+    blocks: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="type" href="../../sc_network_common/sync/message/type.BlockData.html" title="type sc_network_common::sync::message::BlockData">BlockData</a>&lt;B&gt;&gt;,
+)</h4></section></summary><div class="docblock"><p>Process block response.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.on_state_response" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#114-119">source</a><h4 class="code-header">fn <a href="#tymethod.on_state_response" class="fn">on_state_response</a>(
+    &amp;mut self,
+    peer_id: <a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
+    key: <a class="enum" href="enum.StrategyKey.html" title="enum sc_network_sync::strategy::StrategyKey">StrategyKey</a>,
+    response: <a class="struct" href="../types/struct.OpaqueStateResponse.html" title="struct sc_network_sync::types::OpaqueStateResponse">OpaqueStateResponse</a>,
+)</h4></section></summary><div class="docblock"><p>Process state response.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.on_warp_proof_response" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#122-127">source</a><h4 class="code-header">fn <a href="#tymethod.on_warp_proof_response" class="fn">on_warp_proof_response</a>(
+    &amp;mut self,
+    peer_id: &amp;<a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
+    key: <a class="enum" href="enum.StrategyKey.html" title="enum sc_network_sync::strategy::StrategyKey">StrategyKey</a>,
+    response: <a class="struct" href="warp/struct.EncodedProof.html" title="struct sc_network_sync::strategy::warp::EncodedProof">EncodedProof</a>,
+)</h4></section></summary><div class="docblock"><p>Process warp proof response.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.on_blocks_processed" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#133-138">source</a><h4 class="code-header">fn <a href="#tymethod.on_blocks_processed" class="fn">on_blocks_processed</a>(
+    &amp;mut self,
+    imported: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+    count: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>,
+    results: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;BlockImportStatus&lt;NumberFor&lt;B&gt;&gt;, BlockImportError&gt;, B::Hash)&gt;,
+)</h4></section></summary><div class="docblock"><p>A batch of blocks that have been processed, with or without errors.</p>
+<p>Call this when a batch of blocks that have been processed by the import queue, with or
+without errors.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.on_block_finalized" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#141">source</a><h4 class="code-header">fn <a href="#tymethod.on_block_finalized" class="fn">on_block_finalized</a>(&amp;mut self, hash: &amp;B::Hash, number: NumberFor&lt;B&gt;)</h4></section></summary><div class="docblock"><p>Notify a syncing strategy that a block has been finalized.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.update_chain_info" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#144">source</a><h4 class="code-header">fn <a href="#tymethod.update_chain_info" class="fn">update_chain_info</a>(&amp;mut self, best_hash: &amp;B::Hash, best_number: NumberFor&lt;B&gt;)</h4></section></summary><div class="docblock"><p>Inform sync about a new best imported block.</p>
+</div></details><section id="tymethod.is_major_syncing" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#147">source</a><h4 class="code-header">fn <a href="#tymethod.is_major_syncing" class="fn">is_major_syncing</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section><details class="toggle method-toggle" open><summary><section id="tymethod.num_peers" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#150">source</a><h4 class="code-header">fn <a href="#tymethod.num_peers" class="fn">num_peers</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a></h4></section></summary><div class="docblock"><p>Get the number of peers known to the syncing strategy.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.status" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#153">source</a><h4 class="code-header">fn <a href="#tymethod.status" class="fn">status</a>(&amp;self) -&gt; <a class="struct" href="../types/struct.SyncStatus.html" title="struct sc_network_sync::types::SyncStatus">SyncStatus</a>&lt;B&gt;</h4></section></summary><div class="docblock"><p>Returns the current sync status.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.num_downloaded_blocks" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#156">source</a><h4 class="code-header">fn <a href="#tymethod.num_downloaded_blocks" class="fn">num_downloaded_blocks</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a></h4></section></summary><div class="docblock"><p>Get the total number of downloaded blocks.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.num_sync_requests" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#159">source</a><h4 class="code-header">fn <a href="#tymethod.num_sync_requests" class="fn">num_sync_requests</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a></h4></section></summary><div class="docblock"><p>Get an estimate of the number of parallel sync requests.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.actions" class="method"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#163">source</a><h4 class="code-header">fn <a href="#tymethod.actions" class="fn">actions</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="enum.SyncingAction.html" title="enum sc_network_sync::strategy::SyncingAction">SyncingAction</a>&lt;B&gt;&gt;, ClientError&gt;</h4></section></summary><div class="docblock"><p>Get actions that should be performed by the owner on the strategy’s behalf</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-SyncingStrategy%3CB%3E-for-ChainSync%3CB,+Client%3E" class="impl"><a class="src rightside" href="../../src/sc_network_sync/strategy/chain_sync.rs.html#338-896">source</a><a href="#impl-SyncingStrategy%3CB%3E-for-ChainSync%3CB,+Client%3E" class="anchor">§</a><h3 class="code-header">impl&lt;B, Client&gt; <a class="trait" href="trait.SyncingStrategy.html" title="trait sc_network_sync::strategy::SyncingStrategy">SyncingStrategy</a>&lt;B&gt; for <a class="struct" href="chain_sync/struct.ChainSync.html" title="struct sc_network_sync::strategy::chain_sync::ChainSync">ChainSync</a>&lt;B, Client&gt;<div class="where">where
+    B: BlockT,
+    Client: HeaderBackend&lt;B&gt; + BlockBackend&lt;B&gt; + HeaderMetadata&lt;B, Error = Error&gt; + ProofProvider&lt;B&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,</div></h3></section><section id="impl-SyncingStrategy%3CB%3E-for-PolkadotSyncingStrategy%3CB,+Client%3E" class="impl"><a class="src rightside" href="../../src/sc_network_sync/strategy.rs.html#286-521">source</a><a href="#impl-SyncingStrategy%3CB%3E-for-PolkadotSyncingStrategy%3CB,+Client%3E" class="anchor">§</a><h3 class="code-header">impl&lt;B, Client&gt; <a class="trait" href="trait.SyncingStrategy.html" title="trait sc_network_sync::strategy::SyncingStrategy">SyncingStrategy</a>&lt;B&gt; for <a class="struct" href="struct.PolkadotSyncingStrategy.html" title="struct sc_network_sync::strategy::PolkadotSyncingStrategy">PolkadotSyncingStrategy</a>&lt;B, Client&gt;<div class="where">where
+    B: BlockT,
+    Client: HeaderBackend&lt;B&gt; + BlockBackend&lt;B&gt; + HeaderMetadata&lt;B, Error = Error&gt; + ProofProvider&lt;B&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,</div></h3></section></div><script src="../../trait.impl/sc_network_sync/strategy/trait.SyncingStrategy.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

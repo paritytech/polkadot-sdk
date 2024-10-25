@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"pallet_treasury":[],
+"polkadot_runtime_common":[["impl&lt;Parents: Get&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.81.0/std/primitive.u8.html\">u8</a>&gt;, ParaId: Get&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.81.0/std/primitive.u32.html\">u32</a>&gt;&gt; ArgumentsFactory&lt;<a class=\"enum\" href=\"polkadot_runtime_common/impls/enum.VersionedLocatableAsset.html\" title=\"enum polkadot_runtime_common::impls::VersionedLocatableAsset\">VersionedLocatableAsset</a>, VersionedLocation&gt; for <a class=\"struct\" href=\"polkadot_runtime_common/impls/benchmarks/struct.TreasuryArguments.html\" title=\"struct polkadot_runtime_common::impls::benchmarks::TreasuryArguments\">TreasuryArguments</a>&lt;Parents, ParaId&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

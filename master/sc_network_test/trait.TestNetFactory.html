@@ -1,0 +1,251 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `TestNetFactory` trait in crate `sc_network_test`."><title>TestNetFactory in sc_network_test - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sc_network_test" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_network_test/index.html">sc_network_test</a><span class="version">0.8.0</span></h2></div><h2 class="location"><a href="#">TestNetFactory</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.BlockImport">BlockImport</a></li><li><a href="#associatedtype.PeerData">PeerData</a></li><li><a href="#associatedtype.Verifier">Verifier</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.make_block_import">make_block_import</a></li><li><a href="#tymethod.make_verifier">make_verifier</a></li><li><a href="#tymethod.mut_peers">mut_peers</a></li><li><a href="#tymethod.peer">peer</a></li><li><a href="#tymethod.peers">peers</a></li><li><a href="#tymethod.peers_mut">peers_mut</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.add_full_peer">add_full_peer</a></li><li><a href="#method.add_full_peer_with_config">add_full_peer_with_config</a></li><li><a href="#method.is_idle">is_idle</a></li><li><a href="#method.is_in_sync">is_in_sync</a></li><li><a href="#method.new">new</a></li><li><a href="#method.poll">poll</a></li><li><a href="#method.run_until_connected">run_until_connected</a></li><li><a href="#method.run_until_idle">run_until_idle</a></li><li><a href="#method.run_until_sync">run_until_sync</a></li><li><a href="#method.spawn_task">spawn_task</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate sc_network_test</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">sc_network_test</a>::<wbr><a class="trait" href="#">TestNetFactory</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sc_network_test/lib.rs.html#713-1165">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait TestNetFactory: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> {
+    type <a href="#associatedtype.Verifier" class="associatedtype">Verifier</a>: 'static + <a class="trait" href="../sc_consensus/import_queue/trait.Verifier.html" title="trait sc_consensus::import_queue::Verifier">Verifier</a>&lt;<a class="type" href="type.Block.html" title="type sc_network_test::Block">Block</a>&gt;;
+    type <a href="#associatedtype.BlockImport" class="associatedtype">BlockImport</a>: <a class="trait" href="../sc_consensus/block_import/trait.BlockImport.html" title="trait sc_consensus::block_import::BlockImport">BlockImport</a>&lt;<a class="type" href="type.Block.html" title="type sc_network_test::Block">Block</a>, Error = <a class="enum" href="../sp_consensus/error/enum.Error.html" title="enum sp_consensus::error::Error">ConsensusError</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static;
+    type <a href="#associatedtype.PeerData" class="associatedtype">PeerData</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>;
+
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 16 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.make_verifier" class="fn">make_verifier</a>(
+        &amp;self,
+        client: <a class="struct" href="struct.PeersClient.html" title="struct sc_network_test::PeersClient">PeersClient</a>,
+        peer_data: &amp;Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.PeerData" title="type sc_network_test::TestNetFactory::PeerData">PeerData</a>,
+    ) -&gt; Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.Verifier" title="type sc_network_test::TestNetFactory::Verifier">Verifier</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.peer" class="fn">peer</a>(&amp;mut self, i: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>) -&gt; &amp;mut <a class="struct" href="struct.Peer.html" title="struct sc_network_test::Peer">Peer</a>&lt;Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.PeerData" title="type sc_network_test::TestNetFactory::PeerData">PeerData</a>, Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.BlockImport" title="type sc_network_test::TestNetFactory::BlockImport">BlockImport</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.peers" class="fn">peers</a>(&amp;self) -&gt; &amp;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="struct.Peer.html" title="struct sc_network_test::Peer">Peer</a>&lt;Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.PeerData" title="type sc_network_test::TestNetFactory::PeerData">PeerData</a>, Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.BlockImport" title="type sc_network_test::TestNetFactory::BlockImport">BlockImport</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.peers_mut" class="fn">peers_mut</a>(&amp;mut self) -&gt; &amp;mut <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="struct.Peer.html" title="struct sc_network_test::Peer">Peer</a>&lt;Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.PeerData" title="type sc_network_test::TestNetFactory::PeerData">PeerData</a>, Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.BlockImport" title="type sc_network_test::TestNetFactory::BlockImport">BlockImport</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.mut_peers" class="fn">mut_peers</a>&lt;F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="struct.Peer.html" title="struct sc_network_test::Peer">Peer</a>&lt;Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.PeerData" title="type sc_network_test::TestNetFactory::PeerData">PeerData</a>, Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.BlockImport" title="type sc_network_test::TestNetFactory::BlockImport">BlockImport</a>&gt;&gt;)&gt;(
+        &amp;mut self,
+        closure: F,
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.make_block_import" class="fn">make_block_import</a>(
+        &amp;self,
+        client: <a class="struct" href="struct.PeersClient.html" title="struct sc_network_test::PeersClient">PeersClient</a>,
+    ) -&gt; (<a class="struct" href="struct.BlockImportAdapter.html" title="struct sc_network_test::BlockImportAdapter">BlockImportAdapter</a>&lt;Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.BlockImport" title="type sc_network_test::TestNetFactory::BlockImport">BlockImport</a>&gt;, <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="type" href="../sc_consensus/import_queue/type.BoxJustificationImport.html" title="type sc_consensus::import_queue::BoxJustificationImport">BoxJustificationImport</a>&lt;<a class="type" href="type.Block.html" title="type sc_network_test::Block">Block</a>&gt;&gt;, Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.PeerData" title="type sc_network_test::TestNetFactory::PeerData">PeerData</a>);
+
+    // Provided methods
+    fn <a href="#method.new" class="fn">new</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>) -&gt; Self { ... }
+<span class="item-spacer"></span>    fn <a href="#method.add_full_peer" class="fn">add_full_peer</a>(&amp;mut self) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.add_full_peer_with_config" class="fn">add_full_peer_with_config</a>(&amp;mut self, config: <a class="struct" href="struct.FullPeerConfig.html" title="struct sc_network_test::FullPeerConfig">FullPeerConfig</a>) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.spawn_task" class="fn">spawn_task</a>(&amp;self, f: BoxFuture&lt;'static, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.is_in_sync" class="fn">is_in_sync</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 mut self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.is_idle" class="fn">is_idle</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 mut self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.run_until_sync" class="fn">run_until_sync</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 mut self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.run_until_idle" class="fn">run_until_idle</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 mut self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.run_until_connected" class="fn">run_until_connected</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 mut self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.poll" class="fn">poll</a>(&amp;mut self, cx: &amp;mut <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/task/wake/struct.Context.html" title="struct core::task::wake::Context">FutureContext</a>&lt;'_&gt;) { ... }
+</details>}</code></pre><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><section id="associatedtype.Verifier" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#714">source</a><h4 class="code-header">type <a href="#associatedtype.Verifier" class="associatedtype">Verifier</a>: 'static + <a class="trait" href="../sc_consensus/import_queue/trait.Verifier.html" title="trait sc_consensus::import_queue::Verifier">Verifier</a>&lt;<a class="type" href="type.Block.html" title="type sc_network_test::Block">Block</a>&gt;</h4></section><section id="associatedtype.BlockImport" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#715">source</a><h4 class="code-header">type <a href="#associatedtype.BlockImport" class="associatedtype">BlockImport</a>: <a class="trait" href="../sc_consensus/block_import/trait.BlockImport.html" title="trait sc_consensus::block_import::BlockImport">BlockImport</a>&lt;<a class="type" href="type.Block.html" title="type sc_network_test::Block">Block</a>, Error = <a class="enum" href="../sp_consensus/error/enum.Error.html" title="enum sp_consensus::error::Error">ConsensusError</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static</h4></section><section id="associatedtype.PeerData" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#716">source</a><h4 class="code-header">type <a href="#associatedtype.PeerData" class="associatedtype">PeerData</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a></h4></section></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.make_verifier" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#719">source</a><h4 class="code-header">fn <a href="#tymethod.make_verifier" class="fn">make_verifier</a>(
+    &amp;self,
+    client: <a class="struct" href="struct.PeersClient.html" title="struct sc_network_test::PeersClient">PeersClient</a>,
+    peer_data: &amp;Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.PeerData" title="type sc_network_test::TestNetFactory::PeerData">PeerData</a>,
+) -&gt; Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.Verifier" title="type sc_network_test::TestNetFactory::Verifier">Verifier</a></h4></section></summary><div class="docblock"><p>This one needs to be implemented!</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.peer" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#722">source</a><h4 class="code-header">fn <a href="#tymethod.peer" class="fn">peer</a>(&amp;mut self, i: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>) -&gt; &amp;mut <a class="struct" href="struct.Peer.html" title="struct sc_network_test::Peer">Peer</a>&lt;Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.PeerData" title="type sc_network_test::TestNetFactory::PeerData">PeerData</a>, Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.BlockImport" title="type sc_network_test::TestNetFactory::BlockImport">BlockImport</a>&gt;</h4></section></summary><div class="docblock"><p>Get reference to peer.</p>
+</div></details><section id="tymethod.peers" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#723">source</a><h4 class="code-header">fn <a href="#tymethod.peers" class="fn">peers</a>(&amp;self) -&gt; &amp;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="struct.Peer.html" title="struct sc_network_test::Peer">Peer</a>&lt;Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.PeerData" title="type sc_network_test::TestNetFactory::PeerData">PeerData</a>, Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.BlockImport" title="type sc_network_test::TestNetFactory::BlockImport">BlockImport</a>&gt;&gt;</h4></section><section id="tymethod.peers_mut" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#724">source</a><h4 class="code-header">fn <a href="#tymethod.peers_mut" class="fn">peers_mut</a>(&amp;mut self) -&gt; &amp;mut <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="struct.Peer.html" title="struct sc_network_test::Peer">Peer</a>&lt;Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.PeerData" title="type sc_network_test::TestNetFactory::PeerData">PeerData</a>, Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.BlockImport" title="type sc_network_test::TestNetFactory::BlockImport">BlockImport</a>&gt;&gt;</h4></section><section id="tymethod.mut_peers" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#725-728">source</a><h4 class="code-header">fn <a href="#tymethod.mut_peers" class="fn">mut_peers</a>&lt;F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="struct.Peer.html" title="struct sc_network_test::Peer">Peer</a>&lt;Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.PeerData" title="type sc_network_test::TestNetFactory::PeerData">PeerData</a>, Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.BlockImport" title="type sc_network_test::TestNetFactory::BlockImport">BlockImport</a>&gt;&gt;)&gt;(
+    &amp;mut self,
+    closure: F,
+)</h4></section><details class="toggle method-toggle" open><summary><section id="tymethod.make_block_import" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#731-738">source</a><h4 class="code-header">fn <a href="#tymethod.make_block_import" class="fn">make_block_import</a>(
+    &amp;self,
+    client: <a class="struct" href="struct.PeersClient.html" title="struct sc_network_test::PeersClient">PeersClient</a>,
+) -&gt; (<a class="struct" href="struct.BlockImportAdapter.html" title="struct sc_network_test::BlockImportAdapter">BlockImportAdapter</a>&lt;Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.BlockImport" title="type sc_network_test::TestNetFactory::BlockImport">BlockImport</a>&gt;, <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="type" href="../sc_consensus/import_queue/type.BoxJustificationImport.html" title="type sc_consensus::import_queue::BoxJustificationImport">BoxJustificationImport</a>&lt;<a class="type" href="type.Block.html" title="type sc_network_test::Block">Block</a>&gt;&gt;, Self::<a class="associatedtype" href="trait.TestNetFactory.html#associatedtype.PeerData" title="type sc_network_test::TestNetFactory::PeerData">PeerData</a>)</h4></section></summary><div class="docblock"><p>Get custom block import handle for fresh client, along with peer data.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.new" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#741-750">source</a><h4 class="code-header">fn <a href="#method.new" class="fn">new</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Create new test network with this many peers.</p>
+</div></details><section id="method.add_full_peer" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#752-754">source</a><h4 class="code-header">fn <a href="#method.add_full_peer" class="fn">add_full_peer</a>(&amp;mut self)</h4></section><details class="toggle method-toggle" open><summary><section id="method.add_full_peer_with_config" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#757-1025">source</a><h4 class="code-header">fn <a href="#method.add_full_peer_with_config" class="fn">add_full_peer_with_config</a>(&amp;mut self, config: <a class="struct" href="struct.FullPeerConfig.html" title="struct sc_network_test::FullPeerConfig">FullPeerConfig</a>)</h4></section></summary><div class="docblock"><p>Add a full peer.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.spawn_task" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#1028-1030">source</a><h4 class="code-header">fn <a href="#method.spawn_task" class="fn">spawn_task</a>(&amp;self, f: BoxFuture&lt;'static, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;)</h4></section></summary><div class="docblock"><p>Used to spawn background tasks, e.g. the block request protocol handler.</p>
+</div></details><section id="method.is_in_sync" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#1032-1053">source</a><h4 class="code-header">fn <a href="#method.is_in_sync" class="fn">is_in_sync</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 mut self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section><section id="method.is_idle" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#1055-1067">source</a><h4 class="code-header">fn <a href="#method.is_idle" class="fn">is_idle</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 mut self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section><details class="toggle method-toggle" open><summary><section id="method.run_until_sync" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#1073-1089">source</a><h4 class="code-header">fn <a href="#method.run_until_sync" class="fn">run_until_sync</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 mut self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Blocks the current thread until we are sync’ed.
+Wait until we are sync’ed.</p>
+<p>(If we’ve not synced within 10 mins then panic rather than hang.)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.run_until_idle" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#1094-1106">source</a><h4 class="code-header">fn <a href="#method.run_until_idle" class="fn">run_until_idle</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 mut self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Run the network until there are no pending packets.</p>
+<p>Calls <code>poll_until_idle</code> repeatedly with the runtime passed as parameter.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.run_until_connected" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#1109-1128">source</a><h4 class="code-header">fn <a href="#method.run_until_connected" class="fn">run_until_connected</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 mut self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Run the network until all peers are connected to each other.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.poll" class="method"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#1131-1164">source</a><h4 class="code-header">fn <a href="#method.poll" class="fn">poll</a>(&amp;mut self, cx: &amp;mut <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/task/wake/struct.Context.html" title="struct core::task::wake::Context">FutureContext</a>&lt;'_&gt;)</h4></section></summary><div class="docblock"><p>Polls the testnet. Processes all the pending actions.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-TestNetFactory-for-JustificationTestNet" class="impl"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#1234-1272">source</a><a href="#impl-TestNetFactory-for-JustificationTestNet" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.TestNetFactory.html" title="trait sc_network_test::TestNetFactory">TestNetFactory</a> for <a class="struct" href="struct.JustificationTestNet.html" title="struct sc_network_test::JustificationTestNet">JustificationTestNet</a></h3></section></summary><div class="impl-items"><section id="associatedtype.Verifier-1" class="associatedtype trait-impl"><a href="#associatedtype.Verifier-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Verifier" class="associatedtype">Verifier</a> = <a class="struct" href="struct.PassThroughVerifier.html" title="struct sc_network_test::PassThroughVerifier">PassThroughVerifier</a></h4></section><section id="associatedtype.PeerData-1" class="associatedtype trait-impl"><a href="#associatedtype.PeerData-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.PeerData" class="associatedtype">PeerData</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="associatedtype.BlockImport-1" class="associatedtype trait-impl"><a href="#associatedtype.BlockImport-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.BlockImport" class="associatedtype">BlockImport</a> = <a class="struct" href="struct.PeersClient.html" title="struct sc_network_test::PeersClient">PeersClient</a></h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-TestNetFactory-for-TestNet" class="impl"><a class="src rightside" href="../src/sc_network_test/lib.rs.html#1172-1207">source</a><a href="#impl-TestNetFactory-for-TestNet" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.TestNetFactory.html" title="trait sc_network_test::TestNetFactory">TestNetFactory</a> for <a class="struct" href="struct.TestNet.html" title="struct sc_network_test::TestNet">TestNet</a></h3></section></summary><div class="impl-items"><section id="associatedtype.Verifier-2" class="associatedtype trait-impl"><a href="#associatedtype.Verifier-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Verifier" class="associatedtype">Verifier</a> = <a class="struct" href="struct.PassThroughVerifier.html" title="struct sc_network_test::PassThroughVerifier">PassThroughVerifier</a></h4></section><section id="associatedtype.PeerData-2" class="associatedtype trait-impl"><a href="#associatedtype.PeerData-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.PeerData" class="associatedtype">PeerData</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="associatedtype.BlockImport-2" class="associatedtype trait-impl"><a href="#associatedtype.BlockImport-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.BlockImport" class="associatedtype">BlockImport</a> = <a class="struct" href="struct.PeersClient.html" title="struct sc_network_test::PeersClient">PeersClient</a></h4></section></div></details></div><script src="../trait.impl/sc_network_test/trait.TestNetFactory.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

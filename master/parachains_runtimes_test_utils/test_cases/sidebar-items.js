@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["change_storage_constant_by_governance_works","set_storage_keys_by_governance_works"]};

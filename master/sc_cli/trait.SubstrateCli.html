@@ -1,0 +1,274 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Substrate client CLI"><title>SubstrateCli in sc_cli - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_cli/index.html">sc_cli</a><span class="version">0.36.0</span></h2></div><h2 class="location"><a href="#">SubstrateCli</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.author">author</a></li><li><a href="#tymethod.copyright_start_year">copyright_start_year</a></li><li><a href="#tymethod.description">description</a></li><li><a href="#tymethod.impl_name">impl_name</a></li><li><a href="#tymethod.impl_version">impl_version</a></li><li><a href="#tymethod.load_spec">load_spec</a></li><li><a href="#tymethod.support_url">support_url</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.client_id">client_id</a></li><li><a href="#method.create_configuration">create_configuration</a></li><li><a href="#method.create_runner">create_runner</a></li><li><a href="#method.create_runner_with_logger_hook">create_runner_with_logger_hook</a></li><li><a href="#method.executable_name">executable_name</a></li><li><a href="#method.from_args">from_args</a></li><li><a href="#method.from_iter">from_iter</a></li><li><a href="#method.try_from_iter">try_from_iter</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate sc_cli</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">sc_cli</a>::<wbr><a class="trait" href="#">SubstrateCli</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sc_cli/lib.rs.html#56-252">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait SubstrateCli: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 15 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.impl_name" class="fn">impl_name</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.impl_version" class="fn">impl_version</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.description" class="fn">description</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.author" class="fn">author</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.support_url" class="fn">support_url</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.copyright_start_year" class="fn">copyright_start_year</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.i32.html">i32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.load_spec" class="fn">load_spec</a>(&amp;self, id: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.ChainSpec.html" title="trait sc_cli::ChainSpec">ChainSpec</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;;
+
+    // Provided methods
+    fn <a href="#method.executable_name" class="fn">executable_name</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.from_args" class="fn">from_args</a>() -&gt; Self
+       <span class="where">where Self: Parser + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.from_iter" class="fn">from_iter</a>&lt;I&gt;(iter: I) -&gt; Self
+       <span class="where">where Self: Parser + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+             I: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/collect/trait.IntoIterator.html" title="trait core::iter::traits::collect::IntoIterator">IntoIterator</a>,
+             I::<a class="associatedtype" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/collect/trait.IntoIterator.html#associatedtype.Item" title="type core::iter::traits::collect::IntoIterator::Item">Item</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/std/ffi/os_str/struct.OsString.html" title="struct std::ffi::os_str::OsString">OsString</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.try_from_iter" class="fn">try_from_iter</a>&lt;I&gt;(iter: I) -&gt; Result&lt;Self&gt;
+       <span class="where">where Self: Parser + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+             I: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/collect/trait.IntoIterator.html" title="trait core::iter::traits::collect::IntoIterator">IntoIterator</a>,
+             I::<a class="associatedtype" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/collect/trait.IntoIterator.html#associatedtype.Item" title="type core::iter::traits::collect::IntoIterator::Item">Item</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/std/ffi/os_str/struct.OsString.html" title="struct std::ffi::os_str::OsString">OsString</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.client_id" class="fn">client_id</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.create_configuration" class="fn">create_configuration</a>&lt;T: <a class="trait" href="trait.CliConfiguration.html" title="trait sc_cli::CliConfiguration">CliConfiguration</a>&lt;DVC&gt;, DVC: <a class="trait" href="trait.DefaultConfigurationValues.html" title="trait sc_cli::DefaultConfigurationValues">DefaultConfigurationValues</a>&gt;(
+        &amp;self,
+        command: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;T</a>,
+        tokio_handle: Handle,
+    ) -&gt; <a class="type" href="type.Result.html" title="type sc_cli::Result">Result</a>&lt;Configuration&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.create_runner" class="fn">create_runner</a>&lt;T: <a class="trait" href="trait.CliConfiguration.html" title="trait sc_cli::CliConfiguration">CliConfiguration</a>&lt;DVC&gt;, DVC: <a class="trait" href="trait.DefaultConfigurationValues.html" title="trait sc_cli::DefaultConfigurationValues">DefaultConfigurationValues</a>&gt;(
+        &amp;self,
+        command: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;T</a>,
+    ) -&gt; <a class="type" href="type.Result.html" title="type sc_cli::Result">Result</a>&lt;<a class="struct" href="struct.Runner.html" title="struct sc_cli::Runner">Runner</a>&lt;Self&gt;&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.create_runner_with_logger_hook" class="fn">create_runner_with_logger_hook</a>&lt;T: <a class="trait" href="trait.CliConfiguration.html" title="trait sc_cli::CliConfiguration">CliConfiguration</a>&lt;DVC&gt;, DVC: <a class="trait" href="trait.DefaultConfigurationValues.html" title="trait sc_cli::DefaultConfigurationValues">DefaultConfigurationValues</a>, F&gt;(
+        &amp;self,
+        command: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;T</a>,
+        logger_hook: F,
+    ) -&gt; <a class="type" href="type.Result.html" title="type sc_cli::Result">Result</a>&lt;<a class="struct" href="struct.Runner.html" title="struct sc_cli::Runner">Runner</a>&lt;Self&gt;&gt;
+       <span class="where">where F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="struct" href="struct.LoggerBuilder.html" title="struct sc_cli::LoggerBuilder">LoggerBuilder</a>, &amp;Configuration)</span> { ... }
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Substrate client CLI</p>
+<p>This trait needs to be implemented on the root CLI struct of the application. It will provide
+the implementation <code>name</code>, <code>version</code>, <code>executable name</code>, <code>description</code>, <code>author</code>, <code>support_url</code>,
+<code>copyright start year</code> and most importantly: how to load the chain spec.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.impl_name" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#58">source</a><h4 class="code-header">fn <a href="#tymethod.impl_name" class="fn">impl_name</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a></h4></section></summary><div class="docblock"><p>Implementation name.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.impl_version" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#67">source</a><h4 class="code-header">fn <a href="#tymethod.impl_version" class="fn">impl_version</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a></h4></section></summary><div class="docblock"><p>Implementation version.</p>
+<p>By default, it will look like this:</p>
+<p><code>2.0.0-b950f731c</code></p>
+<p>Where the hash is the short hash of the commit in the Git repository.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.description" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#82">source</a><h4 class="code-header">fn <a href="#tymethod.description" class="fn">description</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a></h4></section></summary><div class="docblock"><p>Executable file description.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.author" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#85">source</a><h4 class="code-header">fn <a href="#tymethod.author" class="fn">author</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a></h4></section></summary><div class="docblock"><p>Executable file author.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.support_url" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#88">source</a><h4 class="code-header">fn <a href="#tymethod.support_url" class="fn">support_url</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a></h4></section></summary><div class="docblock"><p>Support URL.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.copyright_start_year" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#91">source</a><h4 class="code-header">fn <a href="#tymethod.copyright_start_year" class="fn">copyright_start_year</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.i32.html">i32</a></h4></section></summary><div class="docblock"><p>Copyright starting year (x-current year)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.load_spec" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#94">source</a><h4 class="code-header">fn <a href="#tymethod.load_spec" class="fn">load_spec</a>(&amp;self, id: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.ChainSpec.html" title="trait sc_cli::ChainSpec">ChainSpec</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;</h4></section></summary><div class="docblock"><p>Chain spec factory</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.executable_name" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#73-79">source</a><h4 class="code-header">fn <a href="#method.executable_name" class="fn">executable_name</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a></h4></section></summary><div class="docblock"><p>Executable file name.</p>
+<p>Extracts the file name from <code>std::env::current_exe()</code>.
+Resorts to the env var <code>CARGO_PKG_NAME</code> in case of Error.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.from_args" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#105-110">source</a><h4 class="code-header">fn <a href="#method.from_args" class="fn">from_args</a>() -&gt; Self<div class="where">where
+    Self: Parser + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h4></section></summary><div class="docblock"><p>Helper function used to parse the command line arguments. This is the equivalent of
+[<code>clap::Parser::parse()</code>].</p>
+<p>To allow running the node without subcommand, it also sets a few more settings:
+[<code>clap::Command::propagate_version</code>], [<code>clap::Command::args_conflicts_with_subcommands</code>],
+[<code>clap::Command::subcommand_negates_reqs</code>].</p>
+<p>Creates <code>Self</code> from the command line arguments. Print the
+error message and quit the program in case of failure.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.from_iter" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#121-147">source</a><h4 class="code-header">fn <a href="#method.from_iter" class="fn">from_iter</a>&lt;I&gt;(iter: I) -&gt; Self<div class="where">where
+    Self: Parser + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    I: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/collect/trait.IntoIterator.html" title="trait core::iter::traits::collect::IntoIterator">IntoIterator</a>,
+    I::<a class="associatedtype" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/collect/trait.IntoIterator.html#associatedtype.Item" title="type core::iter::traits::collect::IntoIterator::Item">Item</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/std/ffi/os_str/struct.OsString.html" title="struct std::ffi::os_str::OsString">OsString</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,</div></h4></section></summary><div class="docblock"><p>Helper function used to parse the command line arguments. This is the equivalent of
+[<code>clap::Parser::parse_from</code>].</p>
+<p>To allow running the node without subcommand, it also sets a few more settings:
+[<code>clap::Command::propagate_version</code>], [<code>clap::Command::args_conflicts_with_subcommands</code>],
+[<code>clap::Command::subcommand_negates_reqs</code>].</p>
+<p>Creates <code>Self</code> from any iterator over arguments.
+Print the error message and quit the program in case of failure.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.try_from_iter" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#163-182">source</a><h4 class="code-header">fn <a href="#method.try_from_iter" class="fn">try_from_iter</a>&lt;I&gt;(iter: I) -&gt; Result&lt;Self&gt;<div class="where">where
+    Self: Parser + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    I: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/collect/trait.IntoIterator.html" title="trait core::iter::traits::collect::IntoIterator">IntoIterator</a>,
+    I::<a class="associatedtype" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/collect/trait.IntoIterator.html#associatedtype.Item" title="type core::iter::traits::collect::IntoIterator::Item">Item</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/std/ffi/os_str/struct.OsString.html" title="struct std::ffi::os_str::OsString">OsString</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,</div></h4></section></summary><div class="docblock"><p>Helper function used to parse the command line arguments. This is the equivalent of
+[<code>clap::Parser::try_parse_from</code>]</p>
+<p>To allow running the node without subcommand, it also sets a few more settings:
+[<code>clap::Command::propagate_version</code>], [<code>clap::Command::args_conflicts_with_subcommands</code>],
+[<code>clap::Command::subcommand_negates_reqs</code>].</p>
+<p>Creates <code>Self</code> from any iterator over arguments.
+Print the error message and quit the program in case of failure.</p>
+<p><strong>NOTE:</strong> This method WILL NOT exit when <code>--help</code> or <code>--version</code> (or short versions) are
+used. It will return a [<code>clap::Error</code>], where the [<code>clap::Error::kind</code>] is a
+[<code>clap::error::ErrorKind::DisplayHelp</code>] or [<code>clap::error::ErrorKind::DisplayVersion</code>]
+respectively. You must call [<code>clap::Error::exit</code>] or perform a <a href="https://doc.rust-lang.org/1.81.0/std/process/fn.exit.html" title="fn std::process::exit"><code>std::process::exit</code></a>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.client_id" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#185-187">source</a><h4 class="code-header">fn <a href="#method.client_id" class="fn">client_id</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a></h4></section></summary><div class="docblock"><p>Returns the client ID: <code>{impl_name}/v{impl_version}</code></p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.create_configuration" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#190-196">source</a><h4 class="code-header">fn <a href="#method.create_configuration" class="fn">create_configuration</a>&lt;T: <a class="trait" href="trait.CliConfiguration.html" title="trait sc_cli::CliConfiguration">CliConfiguration</a>&lt;DVC&gt;, DVC: <a class="trait" href="trait.DefaultConfigurationValues.html" title="trait sc_cli::DefaultConfigurationValues">DefaultConfigurationValues</a>&gt;(
+    &amp;self,
+    command: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;T</a>,
+    tokio_handle: Handle,
+) -&gt; <a class="type" href="type.Result.html" title="type sc_cli::Result">Result</a>&lt;Configuration&gt;</h4></section></summary><div class="docblock"><p>Only create a Configuration for the command provided in argument</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.create_runner" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#200-205">source</a><h4 class="code-header">fn <a href="#method.create_runner" class="fn">create_runner</a>&lt;T: <a class="trait" href="trait.CliConfiguration.html" title="trait sc_cli::CliConfiguration">CliConfiguration</a>&lt;DVC&gt;, DVC: <a class="trait" href="trait.DefaultConfigurationValues.html" title="trait sc_cli::DefaultConfigurationValues">DefaultConfigurationValues</a>&gt;(
+    &amp;self,
+    command: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;T</a>,
+) -&gt; <a class="type" href="type.Result.html" title="type sc_cli::Result">Result</a>&lt;<a class="struct" href="struct.Runner.html" title="struct sc_cli::Runner">Runner</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Create a runner for the command provided in argument. This will create a Configuration and
+a tokio runtime</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.create_runner_with_logger_hook" class="method"><a class="src rightside" href="../src/sc_cli/lib.rs.html#226-251">source</a><h4 class="code-header">fn <a href="#method.create_runner_with_logger_hook" class="fn">create_runner_with_logger_hook</a>&lt;T: <a class="trait" href="trait.CliConfiguration.html" title="trait sc_cli::CliConfiguration">CliConfiguration</a>&lt;DVC&gt;, DVC: <a class="trait" href="trait.DefaultConfigurationValues.html" title="trait sc_cli::DefaultConfigurationValues">DefaultConfigurationValues</a>, F&gt;(
+    &amp;self,
+    command: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;T</a>,
+    logger_hook: F,
+) -&gt; <a class="type" href="type.Result.html" title="type sc_cli::Result">Result</a>&lt;<a class="struct" href="struct.Runner.html" title="struct sc_cli::Runner">Runner</a>&lt;Self&gt;&gt;<div class="where">where
+    F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(&amp;mut <a class="struct" href="struct.LoggerBuilder.html" title="struct sc_cli::LoggerBuilder">LoggerBuilder</a>, &amp;Configuration),</div></h4></section></summary><div class="docblock"><p>Create a runner for the command provided in argument. The <code>logger_hook</code> can be used to setup
+a custom profiler or update the logger configuration before it is initialized.</p>
+<p>Example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>sc_tracing::{SpanDatum, TraceEvent};
+<span class="kw">struct </span>TestProfiler;
+
+<span class="kw">impl </span>sc_tracing::TraceHandler <span class="kw">for </span>TestProfiler {
+ 	<span class="kw">fn </span>handle_span(<span class="kw-2">&amp;</span><span class="self">self</span>, sd: <span class="kw-2">&amp;</span>SpanDatum) {}
+		<span class="kw">fn </span>handle_event(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: <span class="kw-2">&amp;</span>TraceEvent) {}
+};
+
+<span class="kw">fn </span>logger_hook() -&gt; <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;mut </span>sc_cli::LoggerBuilder, <span class="kw-2">&amp;</span>sc_service::Configuration) -&gt; () {
+	|logger_builder, config| {
+			logger_builder.with_custom_profiling(Box::new(TestProfiler{}));
+	}
+}</code></pre></div>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/sc_cli/trait.SubstrateCli.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

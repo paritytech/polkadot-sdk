@@ -1,0 +1,383 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The Substrate externalities."><title>Externalities in sp_externalities - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_externalities" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_externalities/index.html">sp_externalities</a><span class="version">0.25.0</span></h2></div><h2 class="location"><a href="#">Externalities</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.child_storage">child_storage</a></li><li><a href="#tymethod.child_storage_hash">child_storage_hash</a></li><li><a href="#tymethod.child_storage_root">child_storage_root</a></li><li><a href="#tymethod.clear_child_prefix">clear_child_prefix</a></li><li><a href="#tymethod.clear_prefix">clear_prefix</a></li><li><a href="#tymethod.commit">commit</a></li><li><a href="#tymethod.get_read_and_written_keys">get_read_and_written_keys</a></li><li><a href="#tymethod.get_whitelist">get_whitelist</a></li><li><a href="#tymethod.kill_child_storage">kill_child_storage</a></li><li><a href="#tymethod.next_child_storage_key">next_child_storage_key</a></li><li><a href="#tymethod.next_storage_key">next_storage_key</a></li><li><a href="#tymethod.place_child_storage">place_child_storage</a></li><li><a href="#tymethod.place_storage">place_storage</a></li><li><a href="#tymethod.read_write_count">read_write_count</a></li><li><a href="#tymethod.reset_read_write_count">reset_read_write_count</a></li><li><a href="#tymethod.set_offchain_storage">set_offchain_storage</a></li><li><a href="#tymethod.set_whitelist">set_whitelist</a></li><li><a href="#tymethod.storage">storage</a></li><li><a href="#tymethod.storage_append">storage_append</a></li><li><a href="#tymethod.storage_commit_transaction">storage_commit_transaction</a></li><li><a href="#tymethod.storage_hash">storage_hash</a></li><li><a href="#tymethod.storage_rollback_transaction">storage_rollback_transaction</a></li><li><a href="#tymethod.storage_root">storage_root</a></li><li><a href="#tymethod.storage_start_transaction">storage_start_transaction</a></li><li><a href="#tymethod.wipe">wipe</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.clear_child_storage">clear_child_storage</a></li><li><a href="#method.clear_storage">clear_storage</a></li><li><a href="#method.exists_child_storage">exists_child_storage</a></li><li><a href="#method.exists_storage">exists_storage</a></li><li><a href="#method.proof_size">proof_size</a></li><li><a href="#method.set_child_storage">set_child_storage</a></li><li><a href="#method.set_storage">set_storage</a></li><li><a href="#method.storage_index_transaction">storage_index_transaction</a></li><li><a href="#method.storage_renew_transaction_index">storage_renew_transaction_index</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-ExternalitiesExt-for-%26mut+dyn+Externalities">ExternalitiesExt</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate sp_externalities</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">sp_externalities</a>::<wbr><a class="trait" href="#">Externalities</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sp_externalities/lib.rs.html#81-311">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Externalities: <a class="trait" href="trait.ExtensionStore.html" title="trait sp_externalities::ExtensionStore">ExtensionStore</a> {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 34 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.set_offchain_storage" class="fn">set_offchain_storage</a>(&amp;mut self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>], value: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;);
+<span class="item-spacer"></span>    fn <a href="#tymethod.storage" class="fn">storage</a>(&amp;mut self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.storage_hash" class="fn">storage_hash</a>(&amp;mut self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.child_storage_hash" class="fn">child_storage_hash</a>(
+        &amp;mut self,
+        child_info: &amp;ChildInfo,
+        key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.child_storage" class="fn">child_storage</a>(
+        &amp;mut self,
+        child_info: &amp;ChildInfo,
+        key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.next_storage_key" class="fn">next_storage_key</a>(&amp;mut self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.next_child_storage_key" class="fn">next_child_storage_key</a>(
+        &amp;mut self,
+        child_info: &amp;ChildInfo,
+        key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.kill_child_storage" class="fn">kill_child_storage</a>(
+        &amp;mut self,
+        child_info: &amp;ChildInfo,
+        maybe_limit: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;,
+        maybe_cursor: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;,
+    ) -&gt; <a class="struct" href="struct.MultiRemovalResults.html" title="struct sp_externalities::MultiRemovalResults">MultiRemovalResults</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_prefix" class="fn">clear_prefix</a>(
+        &amp;mut self,
+        prefix: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+        maybe_limit: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;,
+        maybe_cursor: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;,
+    ) -&gt; <a class="struct" href="struct.MultiRemovalResults.html" title="struct sp_externalities::MultiRemovalResults">MultiRemovalResults</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_child_prefix" class="fn">clear_child_prefix</a>(
+        &amp;mut self,
+        child_info: &amp;ChildInfo,
+        prefix: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+        maybe_limit: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;,
+        maybe_cursor: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;,
+    ) -&gt; <a class="struct" href="struct.MultiRemovalResults.html" title="struct sp_externalities::MultiRemovalResults">MultiRemovalResults</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.place_storage" class="fn">place_storage</a>(&amp;mut self, key: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, value: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;);
+<span class="item-spacer"></span>    fn <a href="#tymethod.place_child_storage" class="fn">place_child_storage</a>(
+        &amp;mut self,
+        child_info: &amp;ChildInfo,
+        key: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+        value: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;,
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.storage_root" class="fn">storage_root</a>(&amp;mut self, state_version: StateVersion) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt; <a href="#" class="tooltip" data-notable-ty="Vec&lt;u8&gt;">ⓘ</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.child_storage_root" class="fn">child_storage_root</a>(
+        &amp;mut self,
+        child_info: &amp;ChildInfo,
+        state_version: StateVersion,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt; <a href="#" class="tooltip" data-notable-ty="Vec&lt;u8&gt;">ⓘ</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.storage_append" class="fn">storage_append</a>(&amp;mut self, key: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, value: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;);
+<span class="item-spacer"></span>    fn <a href="#tymethod.storage_start_transaction" class="fn">storage_start_transaction</a>(&amp;mut self);
+<span class="item-spacer"></span>    fn <a href="#tymethod.storage_rollback_transaction" class="fn">storage_rollback_transaction</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.storage_commit_transaction" class="fn">storage_commit_transaction</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.wipe" class="fn">wipe</a>(&amp;mut self);
+<span class="item-spacer"></span>    fn <a href="#tymethod.commit" class="fn">commit</a>(&amp;mut self);
+<span class="item-spacer"></span>    fn <a href="#tymethod.read_write_count" class="fn">read_write_count</a>(&amp;self) -&gt; (<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.reset_read_write_count" class="fn">reset_read_write_count</a>(&amp;mut self);
+<span class="item-spacer"></span>    fn <a href="#tymethod.get_whitelist" class="fn">get_whitelist</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;TrackedStorageKey&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_whitelist" class="fn">set_whitelist</a>(&amp;mut self, new: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;TrackedStorageKey&gt;);
+<span class="item-spacer"></span>    fn <a href="#tymethod.get_read_and_written_keys" class="fn">get_read_and_written_keys</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>)&gt;;
+
+    // Provided methods
+    fn <a href="#method.set_storage" class="fn">set_storage</a>(&amp;mut self, key: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, value: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.set_child_storage" class="fn">set_child_storage</a>(
+        &amp;mut self,
+        child_info: &amp;ChildInfo,
+        key: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+        value: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+    ) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.clear_storage" class="fn">clear_storage</a>(&amp;mut self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.clear_child_storage" class="fn">clear_child_storage</a>(&amp;mut self, child_info: &amp;ChildInfo, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.exists_storage" class="fn">exists_storage</a>(&amp;mut self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.exists_child_storage" class="fn">exists_child_storage</a>(
+        &amp;mut self,
+        child_info: &amp;ChildInfo,
+        key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.storage_index_transaction" class="fn">storage_index_transaction</a>(
+        &amp;mut self,
+        _index: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+        _hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+        _size: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>,
+    ) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.storage_renew_transaction_index" class="fn">storage_renew_transaction_index</a>(&amp;mut self, _index: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, _hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.proof_size" class="fn">proof_size</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt; { ... }
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The Substrate externalities.</p>
+<p>Provides access to the storage and to other registered extensions.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.set_offchain_storage" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#83">source</a><h4 class="code-header">fn <a href="#tymethod.set_offchain_storage" class="fn">set_offchain_storage</a>(&amp;mut self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>], value: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;)</h4></section></summary><div class="docblock"><p>Write a key value pair to the offchain storage database.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#86">source</a><h4 class="code-header">fn <a href="#tymethod.storage" class="fn">storage</a>(&amp;mut self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Read runtime storage.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage_hash" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#91">source</a><h4 class="code-header">fn <a href="#tymethod.storage_hash" class="fn">storage_hash</a>(&amp;mut self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Get storage value hash.</p>
+<p>This may be optimized for large values.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.child_storage_hash" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#98">source</a><h4 class="code-header">fn <a href="#tymethod.child_storage_hash" class="fn">child_storage_hash</a>(
+    &amp;mut self,
+    child_info: &amp;ChildInfo,
+    key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Get child storage value hash.</p>
+<p>This may be optimized for large values.</p>
+<p>Returns an <code>Option</code> that holds the SCALE encoded hash.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.child_storage" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#103">source</a><h4 class="code-header">fn <a href="#tymethod.child_storage" class="fn">child_storage</a>(
+    &amp;mut self,
+    child_info: &amp;ChildInfo,
+    key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Read child runtime storage.</p>
+<p>Returns an <code>Option</code> that holds the SCALE encoded hash.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.next_storage_key" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#137">source</a><h4 class="code-header">fn <a href="#tymethod.next_storage_key" class="fn">next_storage_key</a>(&amp;mut self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns the key immediately following the given key, if it exists.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.next_child_storage_key" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#140">source</a><h4 class="code-header">fn <a href="#tymethod.next_child_storage_key" class="fn">next_child_storage_key</a>(
+    &amp;mut self,
+    child_info: &amp;ChildInfo,
+    key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns the key immediately following the given key, if it exists, in child storage.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.kill_child_storage" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#158-163">source</a><h4 class="code-header">fn <a href="#tymethod.kill_child_storage" class="fn">kill_child_storage</a>(
+    &amp;mut self,
+    child_info: &amp;ChildInfo,
+    maybe_limit: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;,
+    maybe_cursor: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;,
+) -&gt; <a class="struct" href="struct.MultiRemovalResults.html" title="struct sp_externalities::MultiRemovalResults">MultiRemovalResults</a></h4></section></summary><div class="docblock"><p>Clear an entire child storage.</p>
+<p>Deletes all keys from the overlay and up to <code>maybe_limit</code> keys from the backend. No
+limit is applied if <code>maybe_limit</code> is <code>None</code>. Returns the cursor for the next call as <code>Some</code>
+if the child trie deletion operation is incomplete. In this case, it should be passed into
+the next call to avoid unaccounted iterations on the backend. Returns also the the number
+of keys that were removed from the backend, the number of unique keys removed in total
+(including from the overlay) and the number of backend iterations done.</p>
+<p>As long as <code>maybe_cursor</code> is passed from the result of the previous call, then the number of
+iterations done will only ever be one more than the number of keys removed.</p>
+<h5 id="note"><a class="doc-anchor" href="#note">§</a>Note</h5>
+<p>An implementation is free to delete more keys than the specified limit as long as
+it is able to do that in constant time.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.clear_prefix" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#168-173">source</a><h4 class="code-header">fn <a href="#tymethod.clear_prefix" class="fn">clear_prefix</a>(
+    &amp;mut self,
+    prefix: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    maybe_limit: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;,
+    maybe_cursor: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;,
+) -&gt; <a class="struct" href="struct.MultiRemovalResults.html" title="struct sp_externalities::MultiRemovalResults">MultiRemovalResults</a></h4></section></summary><div class="docblock"><p>Clear storage entries which keys are start with the given prefix.</p>
+<p><code>maybe_limit</code>, <code>maybe_cursor</code> and result works as for <code>kill_child_storage</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.clear_child_prefix" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#178-184">source</a><h4 class="code-header">fn <a href="#tymethod.clear_child_prefix" class="fn">clear_child_prefix</a>(
+    &amp;mut self,
+    child_info: &amp;ChildInfo,
+    prefix: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    maybe_limit: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;,
+    maybe_cursor: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;,
+) -&gt; <a class="struct" href="struct.MultiRemovalResults.html" title="struct sp_externalities::MultiRemovalResults">MultiRemovalResults</a></h4></section></summary><div class="docblock"><p>Clear child storage entries which keys are start with the given prefix.</p>
+<p><code>maybe_limit</code>, <code>maybe_cursor</code> and result works as for <code>kill_child_storage</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.place_storage" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#188">source</a><h4 class="code-header">fn <a href="#tymethod.place_storage" class="fn">place_storage</a>(&amp;mut self, key: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, value: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;)</h4></section></summary><div class="docblock"><p>Set or clear a storage entry (<code>key</code>) of current contract being called (effective
+immediately).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.place_child_storage" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#191">source</a><h4 class="code-header">fn <a href="#tymethod.place_child_storage" class="fn">place_child_storage</a>(
+    &amp;mut self,
+    child_info: &amp;ChildInfo,
+    key: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+    value: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;,
+)</h4></section></summary><div class="docblock"><p>Set or clear a child storage entry.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage_root" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#198">source</a><h4 class="code-header">fn <a href="#tymethod.storage_root" class="fn">storage_root</a>(&amp;mut self, state_version: StateVersion) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt; <a href="#" class="tooltip" data-notable-ty="Vec&lt;u8&gt;">ⓘ</a></h4></section></summary><div class="docblock"><p>Get the trie root of the current storage map.</p>
+<p>This will also update all child storage keys in the top-level storage map.</p>
+<p>The returned hash is defined by the <code>Block</code> and is SCALE encoded.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.child_storage_root" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#206-210">source</a><h4 class="code-header">fn <a href="#tymethod.child_storage_root" class="fn">child_storage_root</a>(
+    &amp;mut self,
+    child_info: &amp;ChildInfo,
+    state_version: StateVersion,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt; <a href="#" class="tooltip" data-notable-ty="Vec&lt;u8&gt;">ⓘ</a></h4></section></summary><div class="docblock"><p>Get the trie root of a child storage map.</p>
+<p>This will also update the value of the child storage keys in the top-level storage map.</p>
+<p>If the storage root equals the default hash as defined by the trie, the key in the top-level
+storage map will be removed.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage_append" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#216">source</a><h4 class="code-header">fn <a href="#tymethod.storage_append" class="fn">storage_append</a>(&amp;mut self, key: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, value: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;)</h4></section></summary><div class="docblock"><p>Append storage item.</p>
+<p>This assumes specific format of the storage item. Also there is no way to undo this
+operation.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage_start_transaction" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#227">source</a><h4 class="code-header">fn <a href="#tymethod.storage_start_transaction" class="fn">storage_start_transaction</a>(&amp;mut self)</h4></section></summary><div class="docblock"><p>Start a new nested transaction.</p>
+<p>This allows to either commit or roll back all changes made after this call to the
+top changes or the default child changes. For every transaction there cam be a
+matching call to either <code>storage_rollback_transaction</code> or <code>storage_commit_transaction</code>.
+Any transactions that are still open after returning from runtime are committed
+automatically.</p>
+<p>Changes made without any open transaction are committed immediately.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage_rollback_transaction" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#233">source</a><h4 class="code-header">fn <a href="#tymethod.storage_rollback_transaction" class="fn">storage_rollback_transaction</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Rollback the last transaction started by <code>storage_start_transaction</code>.</p>
+<p>Any changes made during that storage transaction are discarded. Returns an error when
+no transaction is open that can be closed.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage_commit_transaction" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#239">source</a><h4 class="code-header">fn <a href="#tymethod.storage_commit_transaction" class="fn">storage_commit_transaction</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Commit the last transaction started by <code>storage_start_transaction</code>.</p>
+<p>Any changes made during that storage transaction are committed. Returns an error when
+no transaction is open that can be closed.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.wipe" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#258">source</a><h4 class="code-header">fn <a href="#tymethod.wipe" class="fn">wipe</a>(&amp;mut self)</h4></section></summary><div class="docblock"><p>!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Benchmarking related functionality and shouldn’t be used anywhere else!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!</p>
+<p>Wipes all changes from caches and the database.</p>
+<p>The state will be reset to genesis.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.commit" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#265">source</a><h4 class="code-header">fn <a href="#tymethod.commit" class="fn">commit</a>(&amp;mut self)</h4></section></summary><div class="docblock"><p>!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Benchmarking related functionality and shouldn’t be used anywhere else!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!</p>
+<p>Commits all changes to the database and clears all caches.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.read_write_count" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#272">source</a><h4 class="code-header">fn <a href="#tymethod.read_write_count" class="fn">read_write_count</a>(&amp;self) -&gt; (<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Benchmarking related functionality and shouldn’t be used anywhere else!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!</p>
+<p>Gets the current read/write count for the benchmarking process.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.reset_read_write_count" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#279">source</a><h4 class="code-header">fn <a href="#tymethod.reset_read_write_count" class="fn">reset_read_write_count</a>(&amp;mut self)</h4></section></summary><div class="docblock"><p>!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Benchmarking related functionality and shouldn’t be used anywhere else!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!</p>
+<p>Resets read/write count for the benchmarking process.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_whitelist" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#286">source</a><h4 class="code-header">fn <a href="#tymethod.get_whitelist" class="fn">get_whitelist</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;TrackedStorageKey&gt;</h4></section></summary><div class="docblock"><p>!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Benchmarking related functionality and shouldn’t be used anywhere else!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!</p>
+<p>Gets the current DB tracking whitelist.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_whitelist" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#293">source</a><h4 class="code-header">fn <a href="#tymethod.set_whitelist" class="fn">set_whitelist</a>(&amp;mut self, new: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;TrackedStorageKey&gt;)</h4></section></summary><div class="docblock"><p>!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Benchmarking related functionality and shouldn’t be used anywhere else!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!</p>
+<p>Adds new storage keys to the DB tracking whitelist.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_read_and_written_keys" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#310">source</a><h4 class="code-header">fn <a href="#tymethod.get_read_and_written_keys" class="fn">get_read_and_written_keys</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>)&gt;</h4></section></summary><div class="docblock"><p>!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Benchmarking related functionality and shouldn’t be used anywhere else!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!</p>
+<p>Get all the keys that have been read or written to during the benchmark.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.set_storage" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#106-108">source</a><h4 class="code-header">fn <a href="#method.set_storage" class="fn">set_storage</a>(&amp;mut self, key: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, value: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;)</h4></section></summary><div class="docblock"><p>Set storage entry <code>key</code> of current contract being called (effective immediately).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_child_storage" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#111-113">source</a><h4 class="code-header">fn <a href="#method.set_child_storage" class="fn">set_child_storage</a>(
+    &amp;mut self,
+    child_info: &amp;ChildInfo,
+    key: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+    value: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;,
+)</h4></section></summary><div class="docblock"><p>Set child storage entry <code>key</code> of current contract being called (effective immediately).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.clear_storage" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#116-118">source</a><h4 class="code-header">fn <a href="#method.clear_storage" class="fn">clear_storage</a>(&amp;mut self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Clear a storage entry (<code>key</code>) of current contract being called (effective immediately).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.clear_child_storage" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#122-124">source</a><h4 class="code-header">fn <a href="#method.clear_child_storage" class="fn">clear_child_storage</a>(&amp;mut self, child_info: &amp;ChildInfo, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Clear a child storage entry (<code>key</code>) of current contract being called (effective
+immediately).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.exists_storage" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#127-129">source</a><h4 class="code-header">fn <a href="#method.exists_storage" class="fn">exists_storage</a>(&amp;mut self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Whether a storage entry exists.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.exists_child_storage" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#132-134">source</a><h4 class="code-header">fn <a href="#method.exists_child_storage" class="fn">exists_child_storage</a>(&amp;mut self, child_info: &amp;ChildInfo, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Whether a child storage entry exists.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.storage_index_transaction" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#242-244">source</a><h4 class="code-header">fn <a href="#method.storage_index_transaction" class="fn">storage_index_transaction</a>(&amp;mut self, _index: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, _hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>], _size: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Index specified transaction slice and store it.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.storage_renew_transaction_index" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#247-249">source</a><h4 class="code-header">fn <a href="#method.storage_renew_transaction_index" class="fn">storage_renew_transaction_index</a>(&amp;mut self, _index: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, _hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Renew existing piece of transaction storage.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.proof_size" class="method"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#301-303">source</a><h4 class="code-header">fn <a href="#method.proof_size" class="fn">proof_size</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Benchmarking related functionality and shouldn’t be used anywhere else!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!</p>
+<p>Returns estimated proof size for the state queries so far.
+Proof is reset on commit and wipe.</p>
+</div></details></div><h2 id="trait-implementations" class="section-header">Trait Implementations<a href="#trait-implementations" class="anchor">§</a></h2><div id="trait-implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-ExternalitiesExt-for-%26mut+dyn+Externalities" class="impl"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#330-342">source</a><a href="#impl-ExternalitiesExt-for-%26mut+dyn+Externalities" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.ExternalitiesExt.html" title="trait sp_externalities::ExternalitiesExt">ExternalitiesExt</a> for &amp;mut dyn <a class="trait" href="trait.Externalities.html" title="trait sp_externalities::Externalities">Externalities</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.extension" class="method trait-impl"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#331-333">source</a><a href="#method.extension" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ExternalitiesExt.html#tymethod.extension" class="fn">extension</a>&lt;T: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + <a class="trait" href="trait.Extension.html" title="trait sp_externalities::Extension">Extension</a>&gt;(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;mut T</a>&gt;</h4></section></summary><div class='docblock'>Tries to find a registered extension and returns a mutable reference.</div></details><details class="toggle method-toggle" open><summary><section id="method.register_extension" class="method trait-impl"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#335-337">source</a><a href="#method.register_extension" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ExternalitiesExt.html#tymethod.register_extension" class="fn">register_extension</a>&lt;T: <a class="trait" href="trait.Extension.html" title="trait sp_externalities::Extension">Extension</a>&gt;(&amp;mut self, ext: T) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.Error.html" title="enum sp_externalities::Error">Error</a>&gt;</h4></section></summary><div class='docblock'>Register extension <code>ext</code>. <a href="trait.ExternalitiesExt.html#tymethod.register_extension">Read more</a></div></details><details class="toggle method-toggle" open><summary><section id="method.deregister_extension" class="method trait-impl"><a class="src rightside" href="../src/sp_externalities/lib.rs.html#339-341">source</a><a href="#method.deregister_extension" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ExternalitiesExt.html#tymethod.deregister_extension" class="fn">deregister_extension</a>&lt;T: <a class="trait" href="trait.Extension.html" title="trait sp_externalities::Extension">Extension</a>&gt;(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.Error.html" title="enum sp_externalities::Error">Error</a>&gt;</h4></section></summary><div class='docblock'>Deregister and drop extension of <code>T</code> type. <a href="trait.ExternalitiesExt.html#tymethod.deregister_extension">Read more</a></div></details></div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/sp_externalities/trait.Externalities.js" async></script><script type="text/json" id="notable-traits-data">{"Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.81.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.81.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.81.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.81.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

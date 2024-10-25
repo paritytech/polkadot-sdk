@@ -1,0 +1,256 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuration trait of this pallet."><title>SysConfig in pallet_contracts::chain_extension - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_contracts/index.html">pallet_contracts</a><span class="version">27.0.0</span></h2></div><h2 class="location"><a href="#">SysConfig</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.AccountData">AccountData</a></li><li><a href="#associatedtype.AccountId">AccountId</a></li><li><a href="#associatedtype.BaseCallFilter">BaseCallFilter</a></li><li><a href="#associatedtype.Block">Block</a></li><li><a href="#associatedtype.BlockHashCount">BlockHashCount</a></li><li><a href="#associatedtype.BlockLength">BlockLength</a></li><li><a href="#associatedtype.BlockWeights">BlockWeights</a></li><li><a href="#associatedtype.DbWeight">DbWeight</a></li><li><a href="#associatedtype.ExtensionsWeightInfo">ExtensionsWeightInfo</a></li><li><a href="#associatedtype.Hash">Hash</a></li><li><a href="#associatedtype.Hashing">Hashing</a></li><li><a href="#associatedtype.Lookup">Lookup</a></li><li><a href="#associatedtype.MaxConsumers">MaxConsumers</a></li><li><a href="#associatedtype.MultiBlockMigrator">MultiBlockMigrator</a></li><li><a href="#associatedtype.Nonce">Nonce</a></li><li><a href="#associatedtype.OnKilledAccount">OnKilledAccount</a></li><li><a href="#associatedtype.OnNewAccount">OnNewAccount</a></li><li><a href="#associatedtype.OnSetCode">OnSetCode</a></li><li><a href="#associatedtype.PalletInfo">PalletInfo</a></li><li><a href="#associatedtype.PostInherents">PostInherents</a></li><li><a href="#associatedtype.PostTransactions">PostTransactions</a></li><li><a href="#associatedtype.PreInherents">PreInherents</a></li><li><a href="#associatedtype.RuntimeCall">RuntimeCall</a></li><li><a href="#associatedtype.RuntimeEvent">RuntimeEvent</a></li><li><a href="#associatedtype.RuntimeOrigin">RuntimeOrigin</a></li><li><a href="#associatedtype.RuntimeTask">RuntimeTask</a></li><li><a href="#associatedtype.SS58Prefix">SS58Prefix</a></li><li><a href="#associatedtype.SingleBlockMigrations">SingleBlockMigrations</a></li><li><a href="#associatedtype.SystemWeightInfo">SystemWeightInfo</a></li><li><a href="#associatedtype.Version">Version</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_contracts::chain_extension</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_contracts</a>::<wbr><a href="index.html">chain_extension</a>::<wbr><a class="trait" href="#">SysConfig</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait SysConfig: 'static + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 30 associated items</span></summary>    type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: Parameter + Member + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Event&lt;Self&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + IsType&lt;Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.RuntimeEvent" title="type pallet_contracts::chain_extension::SysConfig::RuntimeEvent">RuntimeEvent</a>&gt;;
+    type <a href="#associatedtype.BaseCallFilter" class="associatedtype">BaseCallFilter</a>: Contains&lt;Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.RuntimeCall" title="type pallet_contracts::chain_extension::SysConfig::RuntimeCall">RuntimeCall</a>&gt;;
+    type <a href="#associatedtype.BlockWeights" class="associatedtype">BlockWeights</a>: Get&lt;BlockWeights&gt;;
+    type <a href="#associatedtype.BlockLength" class="associatedtype">BlockLength</a>: Get&lt;BlockLength&gt;;
+    type <a href="#associatedtype.RuntimeOrigin" class="associatedtype">RuntimeOrigin</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;RawOrigin&lt;Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.AccountId" title="type pallet_contracts::chain_extension::SysConfig::AccountId">AccountId</a>&gt;, Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.RuntimeOrigin" title="type pallet_contracts::chain_extension::SysConfig::RuntimeOrigin">RuntimeOrigin</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;RawOrigin&lt;Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.AccountId" title="type pallet_contracts::chain_extension::SysConfig::AccountId">AccountId</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + OriginTrait&lt;Call = Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.RuntimeCall" title="type pallet_contracts::chain_extension::SysConfig::RuntimeCall">RuntimeCall</a>, AccountId = Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.AccountId" title="type pallet_contracts::chain_extension::SysConfig::AccountId">AccountId</a>&gt;;
+    type <a href="#associatedtype.RuntimeCall" class="associatedtype">RuntimeCall</a>: Parameter + Dispatchable&lt;RuntimeOrigin = Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.RuntimeOrigin" title="type pallet_contracts::chain_extension::SysConfig::RuntimeOrigin">RuntimeOrigin</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Call&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.RuntimeTask" class="associatedtype">RuntimeTask</a>: Task;
+    type <a href="#associatedtype.Nonce" class="associatedtype">Nonce</a>: Parameter + Member + MaybeSerializeDeserialize + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + MaybeDisplay + AtLeast32Bit + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + MaxEncodedLen;
+    type <a href="#associatedtype.Hash" class="associatedtype">Hash</a>: Parameter + Member + MaybeSerializeDeserialize + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + MaybeDisplay + SimpleBitOps + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + CheckEqual + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/hash/trait.Hash.html" title="trait core::hash::Hash">Hash</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.AsMut.html" title="trait core::convert::AsMut">AsMut</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt; + MaxEncodedLen;
+    type <a href="#associatedtype.Hashing" class="associatedtype">Hashing</a>: Hash&lt;Output = Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.Hash" title="type pallet_contracts::chain_extension::SysConfig::Hash">Hash</a>&gt; + TypeInfo;
+    type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a>: Parameter + Member + MaybeSerializeDeserialize + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + MaybeDisplay + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a> + MaxEncodedLen;
+    type <a href="#associatedtype.Lookup" class="associatedtype">Lookup</a>: StaticLookup&lt;Target = Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.AccountId" title="type pallet_contracts::chain_extension::SysConfig::AccountId">AccountId</a>&gt;;
+    type <a href="#associatedtype.Block" class="associatedtype">Block</a>: Parameter + Member + Block&lt;Hash = Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.Hash" title="type pallet_contracts::chain_extension::SysConfig::Hash">Hash</a>&gt;;
+    type <a href="#associatedtype.BlockHashCount" class="associatedtype">BlockHashCount</a>: Get&lt;&lt;&lt;Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.Block" title="type pallet_contracts::chain_extension::SysConfig::Block">Block</a> as HeaderProvider&gt;::HeaderT as Header&gt;::Number&gt;;
+    type <a href="#associatedtype.DbWeight" class="associatedtype">DbWeight</a>: Get&lt;RuntimeDbWeight&gt;;
+    type <a href="#associatedtype.Version" class="associatedtype">Version</a>: Get&lt;RuntimeVersion&gt;;
+    type <a href="#associatedtype.PalletInfo" class="associatedtype">PalletInfo</a>: PalletInfo;
+    type <a href="#associatedtype.AccountData" class="associatedtype">AccountData</a>: Member + FullCodec + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + TypeInfo + MaxEncodedLen;
+    type <a href="#associatedtype.OnNewAccount" class="associatedtype">OnNewAccount</a>: OnNewAccount&lt;Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.AccountId" title="type pallet_contracts::chain_extension::SysConfig::AccountId">AccountId</a>&gt;;
+    type <a href="#associatedtype.OnKilledAccount" class="associatedtype">OnKilledAccount</a>: OnKilledAccount&lt;Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.AccountId" title="type pallet_contracts::chain_extension::SysConfig::AccountId">AccountId</a>&gt;;
+    type <a href="#associatedtype.SystemWeightInfo" class="associatedtype">SystemWeightInfo</a>: WeightInfo;
+    type <a href="#associatedtype.ExtensionsWeightInfo" class="associatedtype">ExtensionsWeightInfo</a>: WeightInfo;
+    type <a href="#associatedtype.SS58Prefix" class="associatedtype">SS58Prefix</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u16.html">u16</a>&gt;;
+    type <a href="#associatedtype.OnSetCode" class="associatedtype">OnSetCode</a>: SetCode&lt;Self&gt;;
+    type <a href="#associatedtype.MaxConsumers" class="associatedtype">MaxConsumers</a>: ConsumerLimits;
+    type <a href="#associatedtype.SingleBlockMigrations" class="associatedtype">SingleBlockMigrations</a>: OnRuntimeUpgrade;
+    type <a href="#associatedtype.MultiBlockMigrator" class="associatedtype">MultiBlockMigrator</a>: MultiStepMigrator;
+    type <a href="#associatedtype.PreInherents" class="associatedtype">PreInherents</a>: PreInherents;
+    type <a href="#associatedtype.PostInherents" class="associatedtype">PostInherents</a>: PostInherents;
+    type <a href="#associatedtype.PostTransactions" class="associatedtype">PostTransactions</a>: PostTransactions;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration trait of this pallet.</p>
+<p>The main purpose of this trait is to act as an interface between this pallet and the runtime in
+which it is embedded in. A type, function, or constant in this trait is essentially left to be
+configured by the runtime that includes this pallet.</p>
+<p>Consequently, a runtime that wants to include this pallet must implement this trait.
+System configuration trait. Implemented by runtime.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.RuntimeEvent" class="method"><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: Parameter + Member + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Event&lt;Self&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + IsType&lt;Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.RuntimeEvent" title="type pallet_contracts::chain_extension::SysConfig::RuntimeEvent">RuntimeEvent</a>&gt;</h4></section></summary><div class="docblock"><p>The aggregated event type of the runtime.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.BaseCallFilter" class="method"><h4 class="code-header">type <a href="#associatedtype.BaseCallFilter" class="associatedtype">BaseCallFilter</a>: Contains&lt;Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.RuntimeCall" title="type pallet_contracts::chain_extension::SysConfig::RuntimeCall">RuntimeCall</a>&gt;</h4></section></summary><div class="docblock"><p>The basic call filter to use in Origin. All origins are built with this filter as base,
+except Root.</p>
+<p>This works as a filter for each incoming call. The call needs to pass this filter in
+order to dispatch. Otherwise it will be rejected with <code>CallFiltered</code>. This can be
+bypassed via <code>dispatch_bypass_filter</code> which should only be accessible by root. The
+filter can be composed of sub-filters by nesting for example
+[<code>frame_support::traits::InsideBoth</code>], [<code>frame_support::traits::TheseExcept</code>] or
+[<code>frame_support::traits::EverythingBut</code>] et al. The default would be
+[<code>frame_support::traits::Everything</code>].</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.BlockWeights" class="method"><h4 class="code-header">type <a href="#associatedtype.BlockWeights" class="associatedtype">BlockWeights</a>: Get&lt;BlockWeights&gt;</h4></section></summary><div class="docblock"><p>Block &amp; extrinsics weights: base values and limits.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.BlockLength" class="method"><h4 class="code-header">type <a href="#associatedtype.BlockLength" class="associatedtype">BlockLength</a>: Get&lt;BlockLength&gt;</h4></section></summary><div class="docblock"><p>The maximum length of a block (in bytes).</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RuntimeOrigin" class="method"><h4 class="code-header">type <a href="#associatedtype.RuntimeOrigin" class="associatedtype">RuntimeOrigin</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;RawOrigin&lt;Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.AccountId" title="type pallet_contracts::chain_extension::SysConfig::AccountId">AccountId</a>&gt;, Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.RuntimeOrigin" title="type pallet_contracts::chain_extension::SysConfig::RuntimeOrigin">RuntimeOrigin</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;RawOrigin&lt;Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.AccountId" title="type pallet_contracts::chain_extension::SysConfig::AccountId">AccountId</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + OriginTrait&lt;Call = Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.RuntimeCall" title="type pallet_contracts::chain_extension::SysConfig::RuntimeCall">RuntimeCall</a>, AccountId = Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.AccountId" title="type pallet_contracts::chain_extension::SysConfig::AccountId">AccountId</a>&gt;</h4></section></summary><div class="docblock"><p>The <code>RuntimeOrigin</code> type used by dispatchable calls.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RuntimeCall" class="method"><h4 class="code-header">type <a href="#associatedtype.RuntimeCall" class="associatedtype">RuntimeCall</a>: Parameter + Dispatchable&lt;RuntimeOrigin = Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.RuntimeOrigin" title="type pallet_contracts::chain_extension::SysConfig::RuntimeOrigin">RuntimeOrigin</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Call&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>The aggregated <code>RuntimeCall</code> type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RuntimeTask" class="method"><h4 class="code-header">type <a href="#associatedtype.RuntimeTask" class="associatedtype">RuntimeTask</a>: Task</h4></section></summary><div class="docblock"><p>The aggregated <code>RuntimeTask</code> type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Nonce" class="method"><h4 class="code-header">type <a href="#associatedtype.Nonce" class="associatedtype">Nonce</a>: Parameter + Member + MaybeSerializeDeserialize + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + MaybeDisplay + AtLeast32Bit + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + MaxEncodedLen</h4></section></summary><div class="docblock"><p>This stores the number of previous transactions associated with a sender account.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Hash" class="method"><h4 class="code-header">type <a href="#associatedtype.Hash" class="associatedtype">Hash</a>: Parameter + Member + MaybeSerializeDeserialize + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + MaybeDisplay + SimpleBitOps + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + CheckEqual + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/hash/trait.Hash.html" title="trait core::hash::Hash">Hash</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.AsMut.html" title="trait core::convert::AsMut">AsMut</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt; + MaxEncodedLen</h4></section></summary><div class="docblock"><p>The output of the <code>Hashing</code> function.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Hashing" class="method"><h4 class="code-header">type <a href="#associatedtype.Hashing" class="associatedtype">Hashing</a>: Hash&lt;Output = Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.Hash" title="type pallet_contracts::chain_extension::SysConfig::Hash">Hash</a>&gt; + TypeInfo</h4></section></summary><div class="docblock"><p>The hashing system (algorithm) being used in the runtime (e.g. Blake2).</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AccountId" class="method"><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a>: Parameter + Member + MaybeSerializeDeserialize + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + MaybeDisplay + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a> + MaxEncodedLen</h4></section></summary><div class="docblock"><p>The user account identifier type for the runtime.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Lookup" class="method"><h4 class="code-header">type <a href="#associatedtype.Lookup" class="associatedtype">Lookup</a>: StaticLookup&lt;Target = Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.AccountId" title="type pallet_contracts::chain_extension::SysConfig::AccountId">AccountId</a>&gt;</h4></section></summary><div class="docblock"><p>Converting trait to take a source type and convert to <code>AccountId</code>.</p>
+<p>Used to define the type and conversion mechanism for referencing accounts in
+transactions. It’s perfectly reasonable for this to be an identity conversion (with the
+source type being <code>AccountId</code>), but other pallets (e.g. Indices pallet) may provide more
+functional/efficient alternatives.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Block" class="method"><h4 class="code-header">type <a href="#associatedtype.Block" class="associatedtype">Block</a>: Parameter + Member + Block&lt;Hash = Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.Hash" title="type pallet_contracts::chain_extension::SysConfig::Hash">Hash</a>&gt;</h4></section></summary><div class="docblock"><p>The Block type used by the runtime. This is used by <code>construct_runtime</code> to retrieve the
+extrinsics or other block specific data as needed.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.BlockHashCount" class="method"><h4 class="code-header">type <a href="#associatedtype.BlockHashCount" class="associatedtype">BlockHashCount</a>: Get&lt;&lt;&lt;Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.Block" title="type pallet_contracts::chain_extension::SysConfig::Block">Block</a> as HeaderProvider&gt;::HeaderT as Header&gt;::Number&gt;</h4></section></summary><div class="docblock"><p>Maximum number of block number to block hash mappings to keep (oldest pruned first).</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.DbWeight" class="method"><h4 class="code-header">type <a href="#associatedtype.DbWeight" class="associatedtype">DbWeight</a>: Get&lt;RuntimeDbWeight&gt;</h4></section></summary><div class="docblock"><p>The weight of runtime database operations the runtime can invoke.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Version" class="method"><h4 class="code-header">type <a href="#associatedtype.Version" class="associatedtype">Version</a>: Get&lt;RuntimeVersion&gt;</h4></section></summary><div class="docblock"><p>Get the chain’s in-code version.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PalletInfo" class="method"><h4 class="code-header">type <a href="#associatedtype.PalletInfo" class="associatedtype">PalletInfo</a>: PalletInfo</h4></section></summary><div class="docblock"><p>Provides information about the pallet setup in the runtime.</p>
+<p>Expects the <code>PalletInfo</code> type that is being generated by <code>construct_runtime!</code> in the
+runtime.</p>
+<p>For tests it is okay to use <code>()</code> as type, however it will provide “useless” data.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AccountData" class="method"><h4 class="code-header">type <a href="#associatedtype.AccountData" class="associatedtype">AccountData</a>: Member + FullCodec + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + TypeInfo + MaxEncodedLen</h4></section></summary><div class="docblock"><p>Data to be associated with an account (other than nonce/transaction counter, which this
+pallet does regardless).</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.OnNewAccount" class="method"><h4 class="code-header">type <a href="#associatedtype.OnNewAccount" class="associatedtype">OnNewAccount</a>: OnNewAccount&lt;Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.AccountId" title="type pallet_contracts::chain_extension::SysConfig::AccountId">AccountId</a>&gt;</h4></section></summary><div class="docblock"><p>Handler for when a new account has just been created.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.OnKilledAccount" class="method"><h4 class="code-header">type <a href="#associatedtype.OnKilledAccount" class="associatedtype">OnKilledAccount</a>: OnKilledAccount&lt;Self::<a class="associatedtype" href="trait.SysConfig.html#associatedtype.AccountId" title="type pallet_contracts::chain_extension::SysConfig::AccountId">AccountId</a>&gt;</h4></section></summary><div class="docblock"><p>A function that is invoked when an account has been determined to be dead.</p>
+<p>All resources should be cleaned up associated with the given account.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SystemWeightInfo" class="method"><h4 class="code-header">type <a href="#associatedtype.SystemWeightInfo" class="associatedtype">SystemWeightInfo</a>: WeightInfo</h4></section></summary><div class="docblock"><p>Weight information for the extrinsics of this pallet.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.ExtensionsWeightInfo" class="method"><h4 class="code-header">type <a href="#associatedtype.ExtensionsWeightInfo" class="associatedtype">ExtensionsWeightInfo</a>: WeightInfo</h4></section></summary><div class="docblock"><p>Weight information for the transaction extensions of this pallet.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SS58Prefix" class="method"><h4 class="code-header">type <a href="#associatedtype.SS58Prefix" class="associatedtype">SS58Prefix</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u16.html">u16</a>&gt;</h4></section></summary><div class="docblock"><p>The designated SS58 prefix of this chain.</p>
+<p>This replaces the “ss58Format” property declared in the chain spec. Reason is
+that the runtime should know about the prefix in order to make use of it as
+an identifier of the chain.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.OnSetCode" class="method"><h4 class="code-header">type <a href="#associatedtype.OnSetCode" class="associatedtype">OnSetCode</a>: SetCode&lt;Self&gt;</h4></section></summary><div class="docblock"><p>What to do if the runtime wants to change the code to something new.</p>
+<p>The default (<code>()</code>) implementation is responsible for setting the correct storage
+entry and emitting corresponding event and log item. (see
+[<code>Pallet::update_code_in_storage</code>]).
+It’s unlikely that this needs to be customized, unless you are writing a parachain using
+<code>Cumulus</code>, where the actual code change is deferred.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxConsumers" class="method"><h4 class="code-header">type <a href="#associatedtype.MaxConsumers" class="associatedtype">MaxConsumers</a>: ConsumerLimits</h4></section></summary><div class="docblock"><p>The maximum number of consumers allowed on a single account.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SingleBlockMigrations" class="method"><h4 class="code-header">type <a href="#associatedtype.SingleBlockMigrations" class="associatedtype">SingleBlockMigrations</a>: OnRuntimeUpgrade</h4></section></summary><div class="docblock"><p>All migrations that should run in the next runtime upgrade.</p>
+<p>These used to be formerly configured in <code>Executive</code>. Parachains need to ensure that
+running all these migrations in one block will not overflow the weight limit of a block.
+The migrations are run <em>before</em> the pallet <code>on_runtime_upgrade</code> hooks, just like the
+<code>OnRuntimeUpgrade</code> migrations.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MultiBlockMigrator" class="method"><h4 class="code-header">type <a href="#associatedtype.MultiBlockMigrator" class="associatedtype">MultiBlockMigrator</a>: MultiStepMigrator</h4></section></summary><div class="docblock"><p>The migrator that is used to run Multi-Block-Migrations.</p>
+<p>Can be set to [<code>pallet-migrations</code>] or an alternative implementation of the interface.
+The diagram in <code>frame_executive::block_flowchart</code> explains when it runs.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PreInherents" class="method"><h4 class="code-header">type <a href="#associatedtype.PreInherents" class="associatedtype">PreInherents</a>: PreInherents</h4></section></summary><div class="docblock"><p>A callback that executes in <em>every block</em> directly before all inherents were applied.</p>
+<p>See <code>frame_executive::block_flowchart</code> for a in-depth explanation when it runs.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PostInherents" class="method"><h4 class="code-header">type <a href="#associatedtype.PostInherents" class="associatedtype">PostInherents</a>: PostInherents</h4></section></summary><div class="docblock"><p>A callback that executes in <em>every block</em> directly after all inherents were applied.</p>
+<p>See <code>frame_executive::block_flowchart</code> for a in-depth explanation when it runs.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PostTransactions" class="method"><h4 class="code-header">type <a href="#associatedtype.PostTransactions" class="associatedtype">PostTransactions</a>: PostTransactions</h4></section></summary><div class="docblock"><p>A callback that executes in <em>every block</em> directly after all transactions were applied.</p>
+<p>See <code>frame_executive::block_flowchart</code> for a in-depth explanation when it runs.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/frame_system/pallet/trait.Config.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

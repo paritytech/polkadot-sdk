@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `WeightInfo` trait in crate `pallet_xcm`."><title>WeightInfo in pallet_xcm - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_xcm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_xcm/index.html">pallet_xcm</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">WeightInfo</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.already_notified_target">already_notified_target</a></li><li><a href="#tymethod.claim_assets">claim_assets</a></li><li><a href="#tymethod.execute">execute</a></li><li><a href="#tymethod.force_default_xcm_version">force_default_xcm_version</a></li><li><a href="#tymethod.force_subscribe_version_notify">force_subscribe_version_notify</a></li><li><a href="#tymethod.force_suspension">force_suspension</a></li><li><a href="#tymethod.force_unsubscribe_version_notify">force_unsubscribe_version_notify</a></li><li><a href="#tymethod.force_xcm_version">force_xcm_version</a></li><li><a href="#tymethod.migrate_and_notify_old_targets">migrate_and_notify_old_targets</a></li><li><a href="#tymethod.migrate_supported_version">migrate_supported_version</a></li><li><a href="#tymethod.migrate_version_notifiers">migrate_version_notifiers</a></li><li><a href="#tymethod.migrate_version_notify_targets">migrate_version_notify_targets</a></li><li><a href="#tymethod.new_query">new_query</a></li><li><a href="#tymethod.notify_current_targets">notify_current_targets</a></li><li><a href="#tymethod.notify_target_migration_fail">notify_target_migration_fail</a></li><li><a href="#tymethod.reserve_transfer_assets">reserve_transfer_assets</a></li><li><a href="#tymethod.send">send</a></li><li><a href="#tymethod.take_response">take_response</a></li><li><a href="#tymethod.teleport_assets">teleport_assets</a></li><li><a href="#tymethod.transfer_assets">transfer_assets</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate pallet_xcm</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">pallet_xcm</a>::<wbr><a class="trait" href="#">WeightInfo</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_xcm/lib.rs.html#79-100">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait WeightInfo {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 20 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.send" class="fn">send</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.teleport_assets" class="fn">teleport_assets</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.reserve_transfer_assets" class="fn">reserve_transfer_assets</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transfer_assets" class="fn">transfer_assets</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.execute" class="fn">execute</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_xcm_version" class="fn">force_xcm_version</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_default_xcm_version" class="fn">force_default_xcm_version</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_subscribe_version_notify" class="fn">force_subscribe_version_notify</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_unsubscribe_version_notify" class="fn">force_unsubscribe_version_notify</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_suspension" class="fn">force_suspension</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migrate_supported_version" class="fn">migrate_supported_version</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migrate_version_notifiers" class="fn">migrate_version_notifiers</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.already_notified_target" class="fn">already_notified_target</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.notify_current_targets" class="fn">notify_current_targets</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.notify_target_migration_fail" class="fn">notify_target_migration_fail</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migrate_version_notify_targets" class="fn">migrate_version_notify_targets</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migrate_and_notify_old_targets" class="fn">migrate_and_notify_old_targets</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.new_query" class="fn">new_query</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.take_response" class="fn">take_response</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.claim_assets" class="fn">claim_assets</a>() -&gt; Weight;
+</details>}</code></pre><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.send" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#80">source</a><h4 class="code-header">fn <a href="#tymethod.send" class="fn">send</a>() -&gt; Weight</h4></section><section id="tymethod.teleport_assets" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#81">source</a><h4 class="code-header">fn <a href="#tymethod.teleport_assets" class="fn">teleport_assets</a>() -&gt; Weight</h4></section><section id="tymethod.reserve_transfer_assets" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#82">source</a><h4 class="code-header">fn <a href="#tymethod.reserve_transfer_assets" class="fn">reserve_transfer_assets</a>() -&gt; Weight</h4></section><section id="tymethod.transfer_assets" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#83">source</a><h4 class="code-header">fn <a href="#tymethod.transfer_assets" class="fn">transfer_assets</a>() -&gt; Weight</h4></section><section id="tymethod.execute" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#84">source</a><h4 class="code-header">fn <a href="#tymethod.execute" class="fn">execute</a>() -&gt; Weight</h4></section><section id="tymethod.force_xcm_version" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#85">source</a><h4 class="code-header">fn <a href="#tymethod.force_xcm_version" class="fn">force_xcm_version</a>() -&gt; Weight</h4></section><section id="tymethod.force_default_xcm_version" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#86">source</a><h4 class="code-header">fn <a href="#tymethod.force_default_xcm_version" class="fn">force_default_xcm_version</a>() -&gt; Weight</h4></section><section id="tymethod.force_subscribe_version_notify" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#87">source</a><h4 class="code-header">fn <a href="#tymethod.force_subscribe_version_notify" class="fn">force_subscribe_version_notify</a>() -&gt; Weight</h4></section><section id="tymethod.force_unsubscribe_version_notify" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#88">source</a><h4 class="code-header">fn <a href="#tymethod.force_unsubscribe_version_notify" class="fn">force_unsubscribe_version_notify</a>() -&gt; Weight</h4></section><section id="tymethod.force_suspension" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#89">source</a><h4 class="code-header">fn <a href="#tymethod.force_suspension" class="fn">force_suspension</a>() -&gt; Weight</h4></section><section id="tymethod.migrate_supported_version" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#90">source</a><h4 class="code-header">fn <a href="#tymethod.migrate_supported_version" class="fn">migrate_supported_version</a>() -&gt; Weight</h4></section><section id="tymethod.migrate_version_notifiers" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#91">source</a><h4 class="code-header">fn <a href="#tymethod.migrate_version_notifiers" class="fn">migrate_version_notifiers</a>() -&gt; Weight</h4></section><section id="tymethod.already_notified_target" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#92">source</a><h4 class="code-header">fn <a href="#tymethod.already_notified_target" class="fn">already_notified_target</a>() -&gt; Weight</h4></section><section id="tymethod.notify_current_targets" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#93">source</a><h4 class="code-header">fn <a href="#tymethod.notify_current_targets" class="fn">notify_current_targets</a>() -&gt; Weight</h4></section><section id="tymethod.notify_target_migration_fail" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#94">source</a><h4 class="code-header">fn <a href="#tymethod.notify_target_migration_fail" class="fn">notify_target_migration_fail</a>() -&gt; Weight</h4></section><section id="tymethod.migrate_version_notify_targets" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#95">source</a><h4 class="code-header">fn <a href="#tymethod.migrate_version_notify_targets" class="fn">migrate_version_notify_targets</a>() -&gt; Weight</h4></section><section id="tymethod.migrate_and_notify_old_targets" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#96">source</a><h4 class="code-header">fn <a href="#tymethod.migrate_and_notify_old_targets" class="fn">migrate_and_notify_old_targets</a>() -&gt; Weight</h4></section><section id="tymethod.new_query" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#97">source</a><h4 class="code-header">fn <a href="#tymethod.new_query" class="fn">new_query</a>() -&gt; Weight</h4></section><section id="tymethod.take_response" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#98">source</a><h4 class="code-header">fn <a href="#tymethod.take_response" class="fn">take_response</a>() -&gt; Weight</h4></section><section id="tymethod.claim_assets" class="method"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#99">source</a><h4 class="code-header">fn <a href="#tymethod.claim_assets" class="fn">claim_assets</a>() -&gt; Weight</h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WeightInfo-for-TestWeightInfo" class="impl"><a class="src rightside" href="../src/pallet_xcm/lib.rs.html#104-184">source</a><a href="#impl-WeightInfo-for-TestWeightInfo" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.WeightInfo.html" title="trait pallet_xcm::WeightInfo">WeightInfo</a> for <a class="struct" href="struct.TestWeightInfo.html" title="struct pallet_xcm::TestWeightInfo">TestWeightInfo</a></h3></section></div><script src="../trait.impl/pallet_xcm/trait.WeightInfo.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

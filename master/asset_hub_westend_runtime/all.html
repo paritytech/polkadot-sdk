@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="asset_hub_westend_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../asset_hub_westend_runtime/index.html">asset_hub_westend_runtime</a><span class="version">0.15.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.AnnouncementDepositBase.html">AnnouncementDepositBase</a></li><li><a href="struct.AnnouncementDepositFactor.html">AnnouncementDepositFactor</a></li><li><a href="struct.ApprovalDeposit.html">ApprovalDeposit</a></li><li><a href="struct.AssetAccountDeposit.html">AssetAccountDeposit</a></li><li><a href="struct.AssetConversionOrigin.html">AssetConversionOrigin</a></li><li><a href="struct.AssetConversionPalletId.html">AssetConversionPalletId</a></li><li><a href="struct.AssetConversionTxHelper.html">AssetConversionTxHelper</a></li><li><a href="struct.AssetDeposit.html">AssetDeposit</a></li><li><a href="struct.AssetsStringLimit.html">AssetsStringLimit</a></li><li><a href="struct.BaseDeliveryFee.html">BaseDeliveryFee</a></li><li><a href="struct.CodeHashLockupDepositPercent.html">CodeHashLockupDepositPercent</a></li><li><a href="struct.DeleteUndecodableStorage.html">DeleteUndecodableStorage</a></li><li><a href="struct.DepositBase.html">DepositBase</a></li><li><a href="struct.DepositFactor.html">DepositFactor</a></li><li><a href="struct.DepositPerByte.html">DepositPerByte</a></li><li><a href="struct.DepositPerItem.html">DepositPerItem</a></li><li><a href="struct.EthExtraImpl.html">EthExtraImpl</a></li><li><a href="struct.ExistentialDeposit.html">ExistentialDeposit</a></li><li><a href="struct.FeeAssetId.html">FeeAssetId</a></li><li><a href="struct.ForeignAssetsApprovalDeposit.html">ForeignAssetsApprovalDeposit</a></li><li><a href="struct.ForeignAssetsAssetAccountDeposit.html">ForeignAssetsAssetAccountDeposit</a></li><li><a href="struct.ForeignAssetsAssetDeposit.html">ForeignAssetsAssetDeposit</a></li><li><a href="struct.ForeignAssetsAssetsStringLimit.html">ForeignAssetsAssetsStringLimit</a></li><li><a href="struct.ForeignAssetsMetadataDepositBase.html">ForeignAssetsMetadataDepositBase</a></li><li><a href="struct.ForeignAssetsMetadataDepositPerByte.html">ForeignAssetsMetadataDepositPerByte</a></li><li><a href="struct.InitStorageVersions.html">InitStorageVersions</a></li><li><a href="struct.LiquidityWithdrawalFee.html">LiquidityWithdrawalFee</a></li><li><a href="struct.MaxPending.html">MaxPending</a></li><li><a href="struct.MaxProxies.html">MaxProxies</a></li><li><a href="struct.MaxSignatories.html">MaxSignatories</a></li><li><a href="struct.MessageQueueServiceWeight.html">MessageQueueServiceWeight</a></li><li><a href="struct.MetadataDepositBase.html">MetadataDepositBase</a></li><li><a href="struct.MetadataDepositPerByte.html">MetadataDepositPerByte</a></li><li><a href="struct.MigController.html">MigController</a></li><li><a href="struct.MigrationMaxKeyLen.html">MigrationMaxKeyLen</a></li><li><a href="struct.MigrationSignedDepositBase.html">MigrationSignedDepositBase</a></li><li><a href="struct.MigrationSignedDepositPerItem.html">MigrationSignedDepositPerItem</a></li><li><a href="struct.NewAssetName.html">NewAssetName</a></li><li><a href="struct.NewAssetSymbol.html">NewAssetSymbol</a></li><li><a href="struct.NftFractionalizationPalletId.html">NftFractionalizationPalletId</a></li><li><a href="struct.NftsAttributeDepositBase.html">NftsAttributeDepositBase</a></li><li><a href="struct.NftsCollectionDeposit.html">NftsCollectionDeposit</a></li><li><a href="struct.NftsDepositPerByte.html">NftsDepositPerByte</a></li><li><a href="struct.NftsItemDeposit.html">NftsItemDeposit</a></li><li><a href="struct.NftsMaxDeadlineDuration.html">NftsMaxDeadlineDuration</a></li><li><a href="struct.NftsMetadataDepositBase.html">NftsMetadataDepositBase</a></li><li><a href="struct.NftsPalletFeatures.html">NftsPalletFeatures</a></li><li><a href="struct.Offset.html">Offset</a></li><li><a href="struct.PalletInfo.html">PalletInfo</a></li><li><a href="struct.Period.html">Period</a></li><li><a href="struct.PotId.html">PotId</a></li><li><a href="struct.ProxyDepositBase.html">ProxyDepositBase</a></li><li><a href="struct.ProxyDepositFactor.html">ProxyDepositFactor</a></li><li><a href="struct.RelayOrigin.html">RelayOrigin</a></li><li><a href="struct.ReservedDmpWeight.html">ReservedDmpWeight</a></li><li><a href="struct.ReservedXcmpWeight.html">ReservedXcmpWeight</a></li><li><a href="struct.RootMigController.html">RootMigController</a></li><li><a href="struct.Runtime.html">Runtime</a></li><li><a href="struct.RuntimeApi.html">RuntimeApi</a></li><li><a href="struct.RuntimeApiImpl.html">RuntimeApiImpl</a></li><li><a href="struct.RuntimeBlockLength.html">RuntimeBlockLength</a></li><li><a href="struct.RuntimeBlockWeights.html">RuntimeBlockWeights</a></li><li><a href="struct.RuntimeGenesisConfig.html">RuntimeGenesisConfig</a></li><li><a href="struct.RuntimeOrigin.html">RuntimeOrigin</a></li><li><a href="struct.SS58Prefix.html">SS58Prefix</a></li><li><a href="struct.SessionKeys.html">SessionKeys</a></li><li><a href="struct.SessionLength.html">SessionLength</a></li><li><a href="struct.StakingPot.html">StakingPot</a></li><li><a href="struct.TransactionByteFee.html">TransactionByteFee</a></li><li><a href="struct.UniquesAttributeDepositBase.html">UniquesAttributeDepositBase</a></li><li><a href="struct.UniquesCollectionDeposit.html">UniquesCollectionDeposit</a></li><li><a href="struct.UniquesDepositPerByte.html">UniquesDepositPerByte</a></li><li><a href="struct.UniquesItemDeposit.html">UniquesItemDeposit</a></li><li><a href="struct.UniquesMetadataDepositBase.html">UniquesMetadataDepositBase</a></li><li><a href="struct.Version.html">Version</a></li><li><a href="xcm_config/struct.AmbassadorEntities.html">xcm_config::AmbassadorEntities</a></li><li><a href="xcm_config/struct.CheckingAccount.html">xcm_config::CheckingAccount</a></li><li><a href="xcm_config/struct.FellowshipEntities.html">xcm_config::FellowshipEntities</a></li><li><a href="xcm_config/struct.ForeignAssetsPalletLocation.html">xcm_config::ForeignAssetsPalletLocation</a></li><li><a href="xcm_config/struct.MaxAssetsIntoHolding.html">xcm_config::MaxAssetsIntoHolding</a></li><li><a href="xcm_config/struct.MaxInstructions.html">xcm_config::MaxInstructions</a></li><li><a href="xcm_config/struct.ParentOrParentsPlurality.html">xcm_config::ParentOrParentsPlurality</a></li><li><a href="xcm_config/struct.PoolAssetsPalletLocation.html">xcm_config::PoolAssetsPalletLocation</a></li><li><a href="xcm_config/struct.RelayChainOrigin.html">xcm_config::RelayChainOrigin</a></li><li><a href="xcm_config/struct.RelayNetwork.html">xcm_config::RelayNetwork</a></li><li><a href="xcm_config/struct.RelayTreasuryLocation.html">xcm_config::RelayTreasuryLocation</a></li><li><a href="xcm_config/struct.StakingPot.html">xcm_config::StakingPot</a></li><li><a href="xcm_config/struct.TreasuryAccount.html">xcm_config::TreasuryAccount</a></li><li><a href="xcm_config/struct.TrustBackedAssetsPalletIndex.html">xcm_config::TrustBackedAssetsPalletIndex</a></li><li><a href="xcm_config/struct.TrustBackedAssetsPalletLocation.html">xcm_config::TrustBackedAssetsPalletLocation</a></li><li><a href="xcm_config/struct.UniquesPalletLocation.html">xcm_config::UniquesPalletLocation</a></li><li><a href="xcm_config/struct.UniversalLocation.html">xcm_config::UniversalLocation</a></li><li><a href="xcm_config/struct.UniversalLocationNetworkId.html">xcm_config::UniversalLocationNetworkId</a></li><li><a href="xcm_config/struct.WestendLocation.html">xcm_config::WestendLocation</a></li><li><a href="xcm_config/struct.XcmAssetFeesReceiver.html">xcm_config::XcmAssetFeesReceiver</a></li><li><a href="xcm_config/struct.XcmBenchmarkHelper.html">xcm_config::XcmBenchmarkHelper</a></li><li><a href="xcm_config/struct.XcmConfig.html">xcm_config::XcmConfig</a></li><li><a href="xcm_config/bridging/struct.BridgeTable.html">xcm_config::bridging::BridgeTable</a></li><li><a href="xcm_config/bridging/struct.BridgingBenchmarksHelper.html">xcm_config::bridging::BridgingBenchmarksHelper</a></li><li><a href="xcm_config/bridging/struct.SiblingBridgeHub.html">xcm_config::bridging::SiblingBridgeHub</a></li><li><a href="xcm_config/bridging/struct.SiblingBridgeHubParaId.html">xcm_config::bridging::SiblingBridgeHubParaId</a></li><li><a href="xcm_config/bridging/struct.XcmBridgeHubRouterBaseFee.html">xcm_config::bridging::XcmBridgeHubRouterBaseFee</a></li><li><a href="xcm_config/bridging/struct.XcmBridgeHubRouterByteFee.html">xcm_config::bridging::XcmBridgeHubRouterByteFee</a></li><li><a href="xcm_config/bridging/struct.XcmBridgeHubRouterFeeAssetId.html">xcm_config::bridging::XcmBridgeHubRouterFeeAssetId</a></li><li><a href="xcm_config/bridging/to_ethereum/struct.BridgeHubEthereumBaseFee.html">xcm_config::bridging::to_ethereum::BridgeHubEthereumBaseFee</a></li><li><a href="xcm_config/bridging/to_ethereum/struct.BridgeTable.html">xcm_config::bridging::to_ethereum::BridgeTable</a></li><li><a href="xcm_config/bridging/to_ethereum/struct.DefaultBridgeHubEthereumBaseFee.html">xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee</a></li><li><a href="xcm_config/bridging/to_ethereum/struct.EthereumBridgeTable.html">xcm_config::bridging::to_ethereum::EthereumBridgeTable</a></li><li><a href="xcm_config/bridging/to_ethereum/struct.SiblingBridgeHubWithEthereumInboundQueueInstance.html">xcm_config::bridging::to_ethereum::SiblingBridgeHubWithEthereumInboundQueueInstance</a></li><li><a href="xcm_config/bridging/to_ethereum/struct.UniversalAliases.html">xcm_config::bridging::to_ethereum::UniversalAliases</a></li><li><a href="xcm_config/bridging/to_rococo/struct.AssetHubRococo.html">xcm_config::bridging::to_rococo::AssetHubRococo</a></li><li><a href="xcm_config/bridging/to_rococo/struct.BridgeTable.html">xcm_config::bridging::to_rococo::BridgeTable</a></li><li><a href="xcm_config/bridging/to_rococo/struct.RocLocation.html">xcm_config::bridging::to_rococo::RocLocation</a></li><li><a href="xcm_config/bridging/to_rococo/struct.RococoEcosystem.html">xcm_config::bridging::to_rococo::RococoEcosystem</a></li><li><a href="xcm_config/bridging/to_rococo/struct.RococoNetwork.html">xcm_config::bridging::to_rococo::RococoNetwork</a></li><li><a href="xcm_config/bridging/to_rococo/struct.SiblingBridgeHubWithBridgeHubRococoInstance.html">xcm_config::bridging::to_rococo::SiblingBridgeHubWithBridgeHubRococoInstance</a></li><li><a href="xcm_config/bridging/to_rococo/struct.UniversalAliases.html">xcm_config::bridging::to_rococo::UniversalAliases</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="enum.OriginCaller.html">OriginCaller</a></li><li><a href="enum.ProxyType.html">ProxyType</a></li><li><a href="enum.RuntimeCall.html">RuntimeCall</a></li><li><a href="enum.RuntimeError.html">RuntimeError</a></li><li><a href="enum.RuntimeEvent.html">RuntimeEvent</a></li><li><a href="enum.RuntimeFreezeReason.html">RuntimeFreezeReason</a></li><li><a href="enum.RuntimeHoldReason.html">RuntimeHoldReason</a></li><li><a href="enum.RuntimeLockId.html">RuntimeLockId</a></li><li><a href="enum.RuntimeSlashReason.html">RuntimeSlashReason</a></li><li><a href="enum.RuntimeTask.html">RuntimeTask</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="trait.BuildStorage.html">BuildStorage</a></li></ul><h3 id="macros">Macros</h3><ul class="all-items"><li><a href="macro.add_benchmarks.html">add_benchmarks</a></li><li><a href="macro.list_benchmarks.html">list_benchmarks</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="api/fn.dispatch.html">api::dispatch</a></li><li><a href="fn.native_version.html">native_version</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.Address.html">Address</a></li><li><a href="type.AllPalletsWithSystem.html">AllPalletsWithSystem</a></li><li><a href="type.AllPalletsWithoutSystem.html">AllPalletsWithoutSystem</a></li><li><a href="type.AssetConversion.html">AssetConversion</a></li><li><a href="type.AssetConversionMigration.html">AssetConversionMigration</a></li><li><a href="type.AssetTxPayment.html">AssetTxPayment</a></li><li><a href="type.Assets.html">Assets</a></li><li><a href="type.AssetsConfig.html">AssetsConfig</a></li><li><a href="type.AssetsForceOrigin.html">AssetsForceOrigin</a></li><li><a href="type.AssetsFreezer.html">AssetsFreezer</a></li><li><a href="type.AssetsFreezerInstance.html">AssetsFreezerInstance</a></li><li><a href="type.Aura.html">Aura</a></li><li><a href="type.AuraConfig.html">AuraConfig</a></li><li><a href="type.AuraExt.html">AuraExt</a></li><li><a href="type.AuraExtConfig.html">AuraExtConfig</a></li><li><a href="type.Authorship.html">Authorship</a></li><li><a href="type.Balances.html">Balances</a></li><li><a href="type.BalancesConfig.html">BalancesConfig</a></li><li><a href="type.Block.html">Block</a></li><li><a href="type.BlockId.html">BlockId</a></li><li><a href="type.CollatorSelection.html">CollatorSelection</a></li><li><a href="type.CollatorSelectionConfig.html">CollatorSelectionConfig</a></li><li><a href="type.CollatorSelectionUpdateOrigin.html">CollatorSelectionUpdateOrigin</a></li><li><a href="type.CumulusXcm.html">CumulusXcm</a></li><li><a href="type.Executive.html">Executive</a></li><li><a href="type.ForeignAssets.html">ForeignAssets</a></li><li><a href="type.ForeignAssetsConfig.html">ForeignAssetsConfig</a></li><li><a href="type.ForeignAssetsFreezer.html">ForeignAssetsFreezer</a></li><li><a href="type.ForeignAssetsFreezerInstance.html">ForeignAssetsFreezerInstance</a></li><li><a href="type.ForeignAssetsInstance.html">ForeignAssetsInstance</a></li><li><a href="type.LocalAndForeignAssets.html">LocalAndForeignAssets</a></li><li><a href="type.MessageQueue.html">MessageQueue</a></li><li><a href="type.Migrations.html">Migrations</a></li><li><a href="type.Multisig.html">Multisig</a></li><li><a href="type.NativeAndAssets.html">NativeAndAssets</a></li><li><a href="type.NftFractionalization.html">NftFractionalization</a></li><li><a href="type.Nfts.html">Nfts</a></li><li><a href="type.ParachainInfo.html">ParachainInfo</a></li><li><a href="type.ParachainInfoConfig.html">ParachainInfoConfig</a></li><li><a href="type.ParachainSystem.html">ParachainSystem</a></li><li><a href="type.ParachainSystemConfig.html">ParachainSystemConfig</a></li><li><a href="type.PolkadotXcm.html">PolkadotXcm</a></li><li><a href="type.PolkadotXcmConfig.html">PolkadotXcmConfig</a></li><li><a href="type.PoolAssets.html">PoolAssets</a></li><li><a href="type.PoolAssetsConfig.html">PoolAssetsConfig</a></li><li><a href="type.PoolAssetsFreezer.html">PoolAssetsFreezer</a></li><li><a href="type.PoolAssetsFreezerInstance.html">PoolAssetsFreezerInstance</a></li><li><a href="type.PoolAssetsInstance.html">PoolAssetsInstance</a></li><li><a href="type.PoolIdToAccountId.html">PoolIdToAccountId</a></li><li><a href="type.PriceForSiblingParachainDelivery.html">PriceForSiblingParachainDelivery</a></li><li><a href="type.Proxy.html">Proxy</a></li><li><a href="type.Revive.html">Revive</a></li><li><a href="type.Session.html">Session</a></li><li><a href="type.SessionConfig.html">SessionConfig</a></li><li><a href="type.SignedBlock.html">SignedBlock</a></li><li><a href="type.StateTrieMigration.html">StateTrieMigration</a></li><li><a href="type.System.html">System</a></li><li><a href="type.SystemConfig.html">SystemConfig</a></li><li><a href="type.Timestamp.html">Timestamp</a></li><li><a href="type.ToRococoXcmRouter.html">ToRococoXcmRouter</a></li><li><a href="type.ToRococoXcmRouterInstance.html">ToRococoXcmRouterInstance</a></li><li><a href="type.TransactionPayment.html">TransactionPayment</a></li><li><a href="type.TransactionPaymentConfig.html">TransactionPaymentConfig</a></li><li><a href="type.TrustBackedAssetsInstance.html">TrustBackedAssetsInstance</a></li><li><a href="type.TxExtension.html">TxExtension</a></li><li><a href="type.UncheckedExtrinsic.html">UncheckedExtrinsic</a></li><li><a href="type.Uniques.html">Uniques</a></li><li><a href="type.Utility.html">Utility</a></li><li><a href="type.XcmpQueue.html">XcmpQueue</a></li><li><a href="xcm_config/type.AssetFeeAsExistentialDepositMultiplierFeeCharger.html">xcm_config::AssetFeeAsExistentialDepositMultiplierFeeCharger</a></li><li><a href="xcm_config/type.AssetTransactors.html">xcm_config::AssetTransactors</a></li><li><a href="xcm_config/type.Barrier.html">xcm_config::Barrier</a></li><li><a href="xcm_config/type.ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger.html">xcm_config::ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger</a></li><li><a href="xcm_config/type.ForeignAssetsConvertedConcreteId.html">xcm_config::ForeignAssetsConvertedConcreteId</a></li><li><a href="xcm_config/type.ForeignFungiblesTransactor.html">xcm_config::ForeignFungiblesTransactor</a></li><li><a href="xcm_config/type.FungibleTransactor.html">xcm_config::FungibleTransactor</a></li><li><a href="xcm_config/type.FungiblesTransactor.html">xcm_config::FungiblesTransactor</a></li><li><a href="xcm_config/type.LocalOriginToLocation.html">xcm_config::LocalOriginToLocation</a></li><li><a href="xcm_config/type.LocationToAccountId.html">xcm_config::LocationToAccountId</a></li><li><a href="xcm_config/type.PoolAssetsConvertedConcreteId.html">xcm_config::PoolAssetsConvertedConcreteId</a></li><li><a href="xcm_config/type.PoolAssetsExchanger.html">xcm_config::PoolAssetsExchanger</a></li><li><a href="xcm_config/type.PoolFungiblesTransactor.html">xcm_config::PoolFungiblesTransactor</a></li><li><a href="xcm_config/type.PriceForParentDelivery.html">xcm_config::PriceForParentDelivery</a></li><li><a href="xcm_config/type.TrustBackedAssetsConvertedConcreteId.html">xcm_config::TrustBackedAssetsConvertedConcreteId</a></li><li><a href="xcm_config/type.TrustedTeleporters.html">xcm_config::TrustedTeleporters</a></li><li><a href="xcm_config/type.UniquesConvertedConcreteId.html">xcm_config::UniquesConvertedConcreteId</a></li><li><a href="xcm_config/type.UniquesTransactor.html">xcm_config::UniquesTransactor</a></li><li><a href="xcm_config/type.WaivedLocations.html">xcm_config::WaivedLocations</a></li><li><a href="xcm_config/type.XcmOriginToTransactDispatchOrigin.html">xcm_config::XcmOriginToTransactDispatchOrigin</a></li><li><a href="xcm_config/type.XcmRouter.html">xcm_config::XcmRouter</a></li><li><a href="xcm_config/bridging/type.NetworkExportTable.html">xcm_config::bridging::NetworkExportTable</a></li><li><a href="xcm_config/bridging/to_ethereum/type.EthereumAssetFromEthereum.html">xcm_config::bridging::to_ethereum::EthereumAssetFromEthereum</a></li><li><a href="xcm_config/bridging/to_ethereum/type.EthereumNetworkExportTable.html">xcm_config::bridging::to_ethereum::EthereumNetworkExportTable</a></li><li><a href="xcm_config/bridging/to_rococo/type.RococoAssetFromAssetHubRococo.html">xcm_config::bridging::to_rococo::RococoAssetFromAssetHubRococo</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="constant.RUNTIME_API_VERSIONS.html">RUNTIME_API_VERSIONS</a></li><li><a href="constant.VERSION.html">VERSION</a></li><li><a href="constant.WASM_BINARY.html">WASM_BINARY</a></li><li><a href="constant.WASM_BINARY_BLOATY.html">WASM_BINARY_BLOATY</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

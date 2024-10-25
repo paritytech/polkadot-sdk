@@ -1,0 +1,175 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A small set of wrapping types to cover most of our adversary test cases."><title>malus::interceptor - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="malus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../malus/index.html">malus</a><span class="version">1.0.0</span></h2></div><h2 class="location"><a href="#">Module interceptor</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In crate malus</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">malus</a>::<wbr><a class="mod" href="#">interceptor</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/malus/interceptor.rs.html#17-333">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A small set of wrapping types to cover most of our adversary test cases.</p>
+<p>This allows types with internal mutability to synchronize across
+multiple subsystems and intercept or replace incoming and outgoing
+messages on the overseer level.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.overseer"><code>pub use polkadot_node_subsystem::<a class="mod" href="../../polkadot_overseer/index.html" title="mod polkadot_overseer">overseer</a>;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="network_bridge_event/index.html" title="mod malus::interceptor::network_bridge_event">network_bridge_event</a></div><div class="desc docblock-short">Network events as transmitted to other subsystems, wrapped in their message types.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.BlockDescription.html" title="struct malus::interceptor::BlockDescription">BlockDescription</a></div><div class="desc docblock-short">Describes a relay-chain block by the para-chain candidates
+it includes.</div></li><li><div class="item-name"><a class="struct" href="struct.CanSecondRequest.html" title="struct malus::interceptor::CanSecondRequest">CanSecondRequest</a></div><div class="desc docblock-short">A request to the candidate backing subsystem to check whether
+we can second this candidate.</div></li><li><div class="item-name"><a class="struct" href="struct.CheckedIndirectAssignment.html" title="struct malus::interceptor::CheckedIndirectAssignment">CheckedIndirectAssignment</a></div><div class="desc docblock-short">A checked indirect assignment, the crypto for the cert has been validated
+and the <code>candidate_bitfield</code> is correctly claimed at <code>delay_tranche</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.CheckedIndirectSignedApprovalVote.html" title="struct malus::interceptor::CheckedIndirectSignedApprovalVote">CheckedIndirectSignedApprovalVote</a></div><div class="desc docblock-short">A checked indirect signed approval vote.</div></li><li><div class="item-name"><a class="struct" href="struct.HighestApprovedAncestorBlock.html" title="struct malus::interceptor::HighestApprovedAncestorBlock">HighestApprovedAncestorBlock</a></div><div class="desc docblock-short">Response type to <code>ApprovalVotingMessage::ApprovedAncestor</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.HypotheticalMembershipRequest.html" title="struct malus::interceptor::HypotheticalMembershipRequest">HypotheticalMembershipRequest</a></div><div class="desc docblock-short">Request specifying which candidates are either already included
+or might become included in fragment chain under a given active leaf (or any active leaf if
+<code>fragment_chain_relay_parent</code> is <code>None</code>).</div></li><li><div class="item-name"><a class="struct" href="struct.InterceptedContext.html" title="struct malus::interceptor::InterceptedContext">InterceptedContext</a></div><div class="desc docblock-short">A subsystem context, that filters the outgoing messages.</div></li><li><div class="item-name"><a class="struct" href="struct.InterceptedSender.html" title="struct malus::interceptor::InterceptedSender">InterceptedSender</a></div><div class="desc docblock-short">A sender with the outgoing messages filtered.</div></li><li><div class="item-name"><a class="struct" href="struct.InterceptedSubsystem.html" title="struct malus::interceptor::InterceptedSubsystem">InterceptedSubsystem</a></div><div class="desc docblock-short">A subsystem to which incoming and outgoing filters are applied.</div></li><li><div class="item-name"><a class="struct" href="struct.IntroduceSecondedCandidateRequest.html" title="struct malus::interceptor::IntroduceSecondedCandidateRequest">IntroduceSecondedCandidateRequest</a></div><div class="desc docblock-short">Request introduction of a seconded candidate into the prospective parachains subsystem.</div></li><li><div class="item-name"><a class="struct" href="struct.ProspectiveValidationDataRequest.html" title="struct malus::interceptor::ProspectiveValidationDataRequest">ProspectiveValidationDataRequest</a></div><div class="desc docblock-short">A request for the persisted validation data stored in the prospective
+parachains subsystem.</div></li><li><div class="item-name"><a class="struct" href="struct.ProvisionerInherentData.html" title="struct malus::interceptor::ProvisionerInherentData">ProvisionerInherentData</a></div><div class="desc docblock-short">Inherent data returned by the provisioner</div></li><li><div class="item-name"><a class="struct" href="struct.PvfExecKindIter.html" title="struct malus::interceptor::PvfExecKindIter">PvfExecKindIter</a></div><div class="desc docblock-short">An iterator over the variants of <a href="enum.PvfExecKind.html" title="enum malus::interceptor::PvfExecKind">PvfExecKind</a></div></li><li><div class="item-name"><a class="struct" href="struct.ValidationFailed.html" title="struct malus::interceptor::ValidationFailed">ValidationFailed</a></div><div class="desc docblock-short">Blanket error for validation failing for internal reasons.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.AllMessages.html" title="enum malus::interceptor::AllMessages">AllMessages</a></div><div class="desc docblock-short">Generated message type wrapper over all possible messages
+used by any subsystem.</div></li><li><div class="item-name"><a class="enum" href="enum.ApprovalCheckError.html" title="enum malus::interceptor::ApprovalCheckError">ApprovalCheckError</a></div><div class="desc docblock-short">The error result type of <a href="enum.ApprovalVotingMessage.html#variant.ImportApproval" title="variant malus::interceptor::ApprovalVotingMessage::ImportApproval"><code>ApprovalVotingMessage::ImportApproval</code></a> request.</div></li><li><div class="item-name"><a class="enum" href="enum.ApprovalCheckResult.html" title="enum malus::interceptor::ApprovalCheckResult">ApprovalCheckResult</a></div><div class="desc docblock-short">The result type of <a href="enum.ApprovalVotingMessage.html#variant.ImportApproval" title="variant malus::interceptor::ApprovalVotingMessage::ImportApproval"><code>ApprovalVotingMessage::ImportApproval</code></a> request.</div></li><li><div class="item-name"><a class="enum" href="enum.ApprovalDistributionMessage.html" title="enum malus::interceptor::ApprovalDistributionMessage">ApprovalDistributionMessage</a></div><div class="desc docblock-short">Message to the Approval Distribution subsystem.</div></li><li><div class="item-name"><a class="enum" href="enum.ApprovalVotingMessage.html" title="enum malus::interceptor::ApprovalVotingMessage">ApprovalVotingMessage</a></div><div class="desc docblock-short">Message to the Approval Voting subsystem.</div></li><li><div class="item-name"><a class="enum" href="enum.ApprovalVotingParallelMessage.html" title="enum malus::interceptor::ApprovalVotingParallelMessage">ApprovalVotingParallelMessage</a></div><div class="desc docblock-short">Message to the approval voting parallel subsystem running both approval-distribution and
+approval-voting logic in parallel. This is a combination of all the messages ApprovalVoting and
+ApprovalDistribution subsystems can receive.</div></li><li><div class="item-name"><a class="enum" href="enum.AssignmentCheckError.html" title="enum malus::interceptor::AssignmentCheckError">AssignmentCheckError</a></div><div class="desc docblock-short">The error result type of <a href="enum.ApprovalVotingMessage.html#variant.ImportAssignment" title="variant malus::interceptor::ApprovalVotingMessage::ImportAssignment"><code>ApprovalVotingMessage::ImportAssignment</code></a> request.</div></li><li><div class="item-name"><a class="enum" href="enum.AssignmentCheckResult.html" title="enum malus::interceptor::AssignmentCheckResult">AssignmentCheckResult</a></div><div class="desc docblock-short">The result type of <a href="enum.ApprovalVotingMessage.html#variant.ImportAssignment" title="variant malus::interceptor::ApprovalVotingMessage::ImportAssignment"><code>ApprovalVotingMessage::ImportAssignment</code></a> request.</div></li><li><div class="item-name"><a class="enum" href="enum.AvailabilityDistributionMessage.html" title="enum malus::interceptor::AvailabilityDistributionMessage">AvailabilityDistributionMessage</a></div><div class="desc docblock-short">Availability Distribution Message.</div></li><li><div class="item-name"><a class="enum" href="enum.AvailabilityRecoveryMessage.html" title="enum malus::interceptor::AvailabilityRecoveryMessage">AvailabilityRecoveryMessage</a></div><div class="desc docblock-short">Availability Recovery Message.</div></li><li><div class="item-name"><a class="enum" href="enum.AvailabilityStoreMessage.html" title="enum malus::interceptor::AvailabilityStoreMessage">AvailabilityStoreMessage</a></div><div class="desc docblock-short">Availability store subsystem message.</div></li><li><div class="item-name"><a class="enum" href="enum.BitfieldDistributionMessage.html" title="enum malus::interceptor::BitfieldDistributionMessage">BitfieldDistributionMessage</a></div><div class="desc docblock-short">Bitfield distribution message.</div></li><li><div class="item-name"><a class="enum" href="enum.BitfieldSigningMessage.html" title="enum malus::interceptor::BitfieldSigningMessage">BitfieldSigningMessage</a></div><div class="desc docblock-short">A dummy implementation to satisfy the current internal structure
+and cannot be constructed delibarately, since it’s not meant to be sent or used at all</div></li><li><div class="item-name"><a class="enum" href="enum.CandidateBackingMessage.html" title="enum malus::interceptor::CandidateBackingMessage">CandidateBackingMessage</a></div><div class="desc docblock-short">Messages received by the Candidate Backing subsystem.</div></li><li><div class="item-name"><a class="enum" href="enum.CandidateValidationMessage.html" title="enum malus::interceptor::CandidateValidationMessage">CandidateValidationMessage</a></div><div class="desc docblock-short">Messages received by the Validation subsystem.</div></li><li><div class="item-name"><a class="enum" href="enum.ChainApiMessage.html" title="enum malus::interceptor::ChainApiMessage">ChainApiMessage</a></div><div class="desc docblock-short">Chain API request subsystem message.</div></li><li><div class="item-name"><a class="enum" href="enum.ChainSelectionMessage.html" title="enum malus::interceptor::ChainSelectionMessage">ChainSelectionMessage</a></div><div class="desc docblock-short">Chain selection subsystem messages</div></li><li><div class="item-name"><a class="enum" href="enum.CollationGenerationMessage.html" title="enum malus::interceptor::CollationGenerationMessage">CollationGenerationMessage</a></div><div class="desc docblock-short">Message to the Collation Generation subsystem.</div></li><li><div class="item-name"><a class="enum" href="enum.CollatorProtocolMessage.html" title="enum malus::interceptor::CollatorProtocolMessage">CollatorProtocolMessage</a></div><div class="desc docblock-short">Messages received by the Collator Protocol subsystem.</div></li><li><div class="item-name"><a class="enum" href="enum.DisputeCoordinatorMessage.html" title="enum malus::interceptor::DisputeCoordinatorMessage">DisputeCoordinatorMessage</a></div><div class="desc docblock-short">Messages received by the dispute coordinator subsystem.</div></li><li><div class="item-name"><a class="enum" href="enum.DisputeDistributionMessage.html" title="enum malus::interceptor::DisputeDistributionMessage">DisputeDistributionMessage</a></div><div class="desc docblock-short">Messages going to the dispute distribution subsystem.</div></li><li><div class="item-name"><a class="enum" href="enum.GossipSupportMessage.html" title="enum malus::interceptor::GossipSupportMessage">GossipSupportMessage</a></div><div class="desc docblock-short">Message to the Gossip Support subsystem.</div></li><li><div class="item-name"><a class="enum" href="enum.HypotheticalCandidate.html" title="enum malus::interceptor::HypotheticalCandidate">HypotheticalCandidate</a></div><div class="desc docblock-short">A hypothetical candidate to be evaluated for potential/actual membership
+in the prospective parachains subsystem.</div></li><li><div class="item-name"><a class="enum" href="enum.IfDisconnected.html" title="enum malus::interceptor::IfDisconnected">IfDisconnected</a></div><div class="desc docblock-short">When sending a request, what to do on a disconnected recipient.</div></li><li><div class="item-name"><a class="enum" href="enum.ImportStatementsResult.html" title="enum malus::interceptor::ImportStatementsResult">ImportStatementsResult</a></div><div class="desc docblock-short">The result of <code>DisputeCoordinatorMessage::ImportStatements</code>.</div></li><li><div class="item-name"><a class="enum" href="enum.NetworkBridgeEvent.html" title="enum malus::interceptor::NetworkBridgeEvent">NetworkBridgeEvent</a></div><div class="desc docblock-short">Events from network.</div></li><li><div class="item-name"><a class="enum" href="enum.NetworkBridgeRxMessage.html" title="enum malus::interceptor::NetworkBridgeRxMessage">NetworkBridgeRxMessage</a></div><div class="desc docblock-short">Messages received from other subsystems.</div></li><li><div class="item-name"><a class="enum" href="enum.NetworkBridgeTxMessage.html" title="enum malus::interceptor::NetworkBridgeTxMessage">NetworkBridgeTxMessage</a></div><div class="desc docblock-short">Messages received from other subsystems by the network bridge subsystem.</div></li><li><div class="item-name"><a class="enum" href="enum.ParentHeadData.html" title="enum malus::interceptor::ParentHeadData">ParentHeadData</a></div><div class="desc docblock-short">The parent head-data hash with optional data itself.</div></li><li><div class="item-name"><a class="enum" href="enum.PreCheckOutcome.html" title="enum malus::interceptor::PreCheckOutcome">PreCheckOutcome</a></div><div class="desc docblock-short">The outcome of the candidate-validation’s PVF pre-check request.</div></li><li><div class="item-name"><a class="enum" href="enum.ProspectiveParachainsMessage.html" title="enum malus::interceptor::ProspectiveParachainsMessage">ProspectiveParachainsMessage</a></div><div class="desc docblock-short">Messages sent to the Prospective Parachains subsystem.</div></li><li><div class="item-name"><a class="enum" href="enum.ProvisionableData.html" title="enum malus::interceptor::ProvisionableData">ProvisionableData</a></div><div class="desc docblock-short">This data becomes intrinsics or extrinsics which should be included in a future relay chain
+block.</div></li><li><div class="item-name"><a class="enum" href="enum.ProvisionerMessage.html" title="enum malus::interceptor::ProvisionerMessage">ProvisionerMessage</a></div><div class="desc docblock-short">Message to the Provisioner.</div></li><li><div class="item-name"><a class="enum" href="enum.PvfCheckerMessage.html" title="enum malus::interceptor::PvfCheckerMessage">PvfCheckerMessage</a></div><div class="desc docblock-short">A dummy implementation to satisfy the current internal structure
+and cannot be constructed delibarately, since it’s not meant to be sent or used at all</div></li><li><div class="item-name"><a class="enum" href="enum.PvfExecKind.html" title="enum malus::interceptor::PvfExecKind">PvfExecKind</a></div><div class="desc docblock-short">Extends primitives::PvfExecKind, which is a runtime parameter we don’t want to change,
+to separate and prioritize execution jobs by request type.
+The order is important, because we iterate through the values and assume it is going from higher
+to lowest priority.</div></li><li><div class="item-name"><a class="enum" href="enum.ReportPeerMessage.html" title="enum malus::interceptor::ReportPeerMessage">ReportPeerMessage</a></div><div class="desc docblock-short">Type of peer reporting</div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeApiMessage.html" title="enum malus::interceptor::RuntimeApiMessage">RuntimeApiMessage</a></div><div class="desc docblock-short">A message to the Runtime API subsystem.</div></li><li><div class="item-name"><a class="enum" href="enum.RuntimeApiRequest.html" title="enum malus::interceptor::RuntimeApiRequest">RuntimeApiRequest</a></div><div class="desc docblock-short">A request to the Runtime API subsystem.</div></li><li><div class="item-name"><a class="enum" href="enum.StatementDistributionMessage.html" title="enum malus::interceptor::StatementDistributionMessage">StatementDistributionMessage</a></div><div class="desc docblock-short">Statement distribution message.</div></li><li><div class="item-name"><a class="enum" href="enum.StoreAvailableDataError.html" title="enum malus::interceptor::StoreAvailableDataError">StoreAvailableDataError</a></div><div class="desc docblock-short">The error result type of a <a href="enum.AvailabilityStoreMessage.html#variant.StoreAvailableData" title="variant malus::interceptor::AvailabilityStoreMessage::StoreAvailableData"><code>AvailabilityStoreMessage::StoreAvailableData</code></a> request.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.MessageInterceptor.html" title="trait malus::interceptor::MessageInterceptor">MessageInterceptor</a></div><div class="desc docblock-short">Filter incoming and outgoing messages.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Ancestors.html" title="type malus::interceptor::Ancestors">Ancestors</a></div><div class="desc docblock-short">A collection of ancestor candidates of a parachain.</div></li><li><div class="item-name"><a class="type" href="type.ChainApiResponseChannel.html" title="type malus::interceptor::ChainApiResponseChannel">ChainApiResponseChannel</a></div><div class="desc docblock-short">A response channel for the result of a chain API request.</div></li><li><div class="item-name"><a class="type" href="type.FromOrchestra.html" title="type malus::interceptor::FromOrchestra">FromOrchestra</a></div><div class="desc docblock-short">Specialized message type originating from the overseer.</div></li><li><div class="item-name"><a class="type" href="type.HypotheticalMembership.html" title="type malus::interceptor::HypotheticalMembership">HypotheticalMembership</a></div><div class="desc docblock-short">Indicates the relay-parents whose fragment chain a candidate
+is present in or can be added in (right now or in the future).</div></li><li><div class="item-name"><a class="type" href="type.RuntimeApiSender.html" title="type malus::interceptor::RuntimeApiSender">RuntimeApiSender</a></div><div class="desc docblock-short">A sender for the result of a runtime API request.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

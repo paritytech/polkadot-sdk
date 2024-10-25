@@ -1,0 +1,754 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Write your first simple pallet, learning the most most basic features of FRAME along the way."><title>polkadot_sdk_docs::guides::your_first_pallet - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module your_first_pallet</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section><h2><a href="../index.html">In polkadot_sdk_docs::guides</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">guides</a>::<wbr><a class="mod" href="#">your_first_pallet</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/guides/your_first_pallet/mod.rs.html#1-788">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Write your first simple pallet, learning the most most basic features of FRAME along the way.</p>
+<h2 id="currency-pallet"><a class="doc-anchor" href="#currency-pallet">§</a>Currency Pallet</h2>
+<p>By the end of this guide, you will have written a small FRAME pallet (see
+<a href="../../polkadot_sdk/frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>crate::polkadot_sdk::frame_runtime</code></a>) that is capable of handling a simple crypto-currency.
+This pallet will:</p>
+<ol>
+<li>Allow anyone to mint new tokens into accounts (which is obviously not a great idea for a real
+system).</li>
+<li>Allow any user that owns tokens to transfer them to others.</li>
+<li>Track the total issuance of all tokens at all times.</li>
+</ol>
+<blockquote>
+<p>This guide will build a currency pallet from scratch using only the lowest primitives of
+FRAME, and is mainly intended for education, not <em>applicability</em>. For example, almost all
+FRAME-based runtimes use various techniques to re-use a currency pallet instead of writing
+one. Further advanced FRAME related topics are discussed in <a href="../../reference_docs/index.html" title="mod polkadot_sdk_docs::reference_docs"><code>crate::reference_docs</code></a>.</p>
+</blockquote>
+<h3 id="writing-your-first-pallet"><a class="doc-anchor" href="#writing-your-first-pallet">§</a>Writing Your First Pallet</h3>
+<p>To get started, clone one of the templates mentioned in <a href="../../polkadot_sdk/templates/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::templates"><code>crate::polkadot_sdk::templates</code></a>. We
+recommend using the <code>polkadot-sdk-minimal-template</code>. You might need to change small parts of
+this guide, namely the crate/package names, based on which template you use.</p>
+<blockquote>
+<p>Be aware that you can read the entire source code backing this tutorial by clicking on the
+<code>source</code> button at the top right of the page.</p>
+</blockquote>
+<p>You should have studied the following modules as a prelude to this guide:</p>
+<ul>
+<li><a href="../../reference_docs/blockchain_state_machines/index.html" title="mod polkadot_sdk_docs::reference_docs::blockchain_state_machines"><code>crate::reference_docs::blockchain_state_machines</code></a></li>
+<li><a href="../../reference_docs/trait_based_programming/index.html" title="mod polkadot_sdk_docs::reference_docs::trait_based_programming"><code>crate::reference_docs::trait_based_programming</code></a></li>
+<li><a href="../../polkadot_sdk/frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>crate::polkadot_sdk::frame_runtime</code></a></li>
+</ul>
+<h3 id="topics-covered"><a class="doc-anchor" href="#topics-covered">§</a>Topics Covered</h3>
+<p>The following FRAME topics are covered in this guide:</p>
+<ul>
+<li><a href="../../../frame_support_procedural/attr.storage.html" title="attr frame_support_procedural::storage"><code>pallet::storage</code></a></li>
+<li><a href="../../../frame_support_procedural/attr.call.html" title="attr frame_support_procedural::call"><code>pallet::call</code></a></li>
+<li><a href="../../../frame_support_procedural/attr.event.html" title="attr frame_support_procedural::event"><code>pallet::event</code></a></li>
+<li><a href="../../../frame_support_procedural/attr.error.html" title="attr frame_support_procedural::error"><code>pallet::error</code></a></li>
+<li>Basics of testing a pallet</li>
+<li><a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime">Constructing a runtime</a></li>
+</ul>
+<h4 id="shell-pallet"><a class="doc-anchor" href="#shell-pallet">§</a>Shell Pallet</h4>
+<p>Consider the following as a “shell pallet”. We continue building the rest of this pallet based
+on this template.</p>
+<p><a href="../../../frame_support_procedural/attr.config.html" title="attr frame_support_procedural::config"><code>pallet::config</code></a> and <a href="../../../frame_support_procedural/attr.pallet.html" title="attr frame_support_procedural::pallet"><code>pallet::pallet</code></a> are both mandatory parts of any
+pallet. Refer to the documentation of each to get an overview of what they do.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[frame::pallet(dev_mode)]
+</span><span class="kw">pub mod </span>shell_pallet {
+	<span class="kw">use </span>frame::prelude::<span class="kw-2">*</span>;
+
+	<span class="attr">#[pallet::config]
+	</span><span class="kw">pub trait </span>Config: frame_system::Config {}
+
+	<span class="attr">#[pallet::pallet]
+	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
+}</code></pre></div>
+<p>All of the code that follows in this guide should live inside of the <code>mod pallet</code>.</p>
+<h4 id="storage"><a class="doc-anchor" href="#storage">§</a>Storage</h4>
+<p>First, we will need to create two onchain storage declarations.</p>
+<p>One should be a mapping from account-ids to a balance type, and one value that is the total
+issuance.</p>
+<blockquote>
+<p>For the rest of this guide, we will opt for a balance type of <code>u128</code>. For the sake of
+simplicity, we are hardcoding this type. In a real pallet is best practice to define it as a
+generic bounded type in the <code>Config</code> trait, and then specify it in the implementation.</p>
+</blockquote>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub type </span>Balance = u128;</code></pre></div>
+<p>The definition of these two storage items, based on <a href="../../../frame_support_procedural/attr.storage.html" title="attr frame_support_procedural::storage"><code>pallet::storage</code></a> details, is as follows:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::storage]
+</span><span class="kw">pub type </span>TotalIssuance&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Balance&gt;;</code></pre></div>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::storage]
+</span><span class="kw">pub type </span>Balances&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, <span class="kw">_</span>, T::AccountId, Balance&gt;;</code></pre></div>
+<h4 id="dispatchables"><a class="doc-anchor" href="#dispatchables">§</a>Dispatchables</h4>
+<p>Next, we will define the dispatchable functions. As per <a href="../../../frame_support_procedural/attr.call.html" title="attr frame_support_procedural::call"><code>pallet::call</code></a>, these will be defined
+as normal <code>fn</code>s attached to <code>struct Pallet</code>.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::call]
+</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+	<span class="doccomment">/// An unsafe mint that can be called by anyone. Not a great idea.
+	</span><span class="kw">pub fn </span>mint_unsafe(
+		origin: T::RuntimeOrigin,
+		dest: T::AccountId,
+		amount: Balance,
+	) -&gt; DispatchResult {
+		<span class="comment">// ensure that this is a signed account, but we don't really check `_anyone`.
+		</span><span class="kw">let </span>_anyone = ensure_signed(origin)<span class="question-mark">?</span>;
+
+		<span class="comment">// update the balances map. Notice how all `&lt;T: Config&gt;` remains as `&lt;T&gt;`.
+		</span>Balances::&lt;T&gt;::mutate(dest, |b| <span class="kw-2">*</span>b = <span class="prelude-val">Some</span>(b.unwrap_or(<span class="number">0</span>) + amount));
+		<span class="comment">// update total issuance.
+		</span>TotalIssuance::&lt;T&gt;::mutate(|t| <span class="kw-2">*</span>t = <span class="prelude-val">Some</span>(t.unwrap_or(<span class="number">0</span>) + amount));
+
+		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="doccomment">/// Transfer `amount` from `origin` to `dest`.
+	</span><span class="kw">pub fn </span>transfer(
+		origin: T::RuntimeOrigin,
+		dest: T::AccountId,
+		amount: Balance,
+	) -&gt; DispatchResult {
+		<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
+
+		<span class="comment">// ensure sender has enough balance, and if so, calculate what is left after `amount`.
+		</span><span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">"NonExistentAccount"</span>)<span class="question-mark">?</span>;
+		<span class="kw">if </span>sender_balance &lt; amount {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"InsufficientBalance"</span>.into())
+		}
+		<span class="kw">let </span>remainder = sender_balance - amount;
+
+		<span class="comment">// update sender and dest balances.
+		</span>Balances::&lt;T&gt;::mutate(dest, |b| <span class="kw-2">*</span>b = <span class="prelude-val">Some</span>(b.unwrap_or(<span class="number">0</span>) + amount));
+		Balances::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>sender, remainder);
+
+		<span class="prelude-val">Ok</span>(())
+	}
+}</code></pre></div>
+<p>The logic of these functions is self-explanatory. Instead, we will focus on the FRAME-related
+details:</p>
+<ul>
+<li>Where do <code>T::AccountId</code> and <code>T::RuntimeOrigin</code> come from? These are both defined in
+<a href="../../../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config"><code>frame::prelude::frame_system::Config</code></a>, therefore we can access them in <code>T</code>.</li>
+<li>What is <code>ensure_signed</code>, and what does it do with the aforementioned <code>T::RuntimeOrigin</code>? This
+is outside the scope of this guide, and you can learn more about it in the origin reference
+document (<a href="../../reference_docs/frame_origin/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_origin"><code>crate::reference_docs::frame_origin</code></a>). For now, you should only know the
+signature of the function: it takes a generic <code>T::RuntimeOrigin</code> and returns a
+<code>Result&lt;T::AccountId, _&gt;</code>. So by the end of this function call, we know that this dispatchable
+was signed by <code>sender</code>.</li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub fn </span>ensure_signed&lt;OuterOrigin, AccountId&gt;(o: OuterOrigin) -&gt; <span class="prelude-ty">Result</span>&lt;AccountId, BadOrigin&gt;
+<span class="kw">where
+	</span>OuterOrigin: Into&lt;<span class="prelude-ty">Result</span>&lt;RawOrigin&lt;AccountId&gt;, OuterOrigin&gt;&gt;,
+{
+	<span class="kw">match </span>o.into() {
+		<span class="prelude-val">Ok</span>(RawOrigin::Signed(t)) =&gt; <span class="prelude-val">Ok</span>(t),
+		<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(BadOrigin),
+	}
+}</code></pre></div>
+<ul>
+<li>
+<p>Where does <code>mutate</code>, <code>get</code> and <code>insert</code> and other storage APIs come from? All of them are
+explained in the corresponding <code>type</code>, for example, for <code>Balances::&lt;T&gt;::insert</code>, you can look
+into <a href="../../../frame_support/storage/types/map/struct.StorageMap.html#method.insert" title="associated function frame_support::storage::types::map::StorageMap::insert"><code>frame::prelude::StorageMap::insert</code></a>.</p>
+</li>
+<li>
+<p>The return type of all dispatchable functions is <a href="../../../frame_support/dispatch/type.DispatchResult.html" title="type frame_support::dispatch::DispatchResult"><code>frame::prelude::DispatchResult</code></a>:</p>
+</li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub type </span>DispatchResult = <span class="prelude-ty">Result</span>&lt;(), sp_runtime::DispatchError&gt;;</code></pre></div>
+<p>Which is more or less a normal Rust <code>Result</code>, with a custom <a href="../../../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError"><code>frame::prelude::DispatchError</code></a> as
+the <code>Err</code> variant. We won’t cover this error in detail here, but importantly you should know
+that there is an <code>impl From&lt;&amp;'static string&gt; for DispatchError</code> provided (see
+<a href="../../../sp_runtime/enum.DispatchError.html#impl-From%3C%26str%3E-for-DispatchError" title="enum sp_runtime::DispatchError">here</a>). Therefore,
+we can use basic string literals as our error type and <code>.into()</code> them into <code>DispatchError</code>.</p>
+<ul>
+<li>Why are all <code>get</code> and <code>mutate</code> functions returning an <code>Option</code>? This is the default behavior
+of FRAME storage APIs. You can learn more about how to override this by looking into
+<a href="../../../frame_support_procedural/attr.storage.html" title="attr frame_support_procedural::storage"><code>pallet::storage</code></a>, and <a href="../../../frame_support/storage/types/struct.ValueQuery.html" title="struct frame_support::storage::types::ValueQuery"><code>frame::prelude::ValueQuery</code></a>/<a href="../../../frame_support/storage/types/struct.OptionQuery.html" title="struct frame_support::storage::types::OptionQuery"><code>frame::prelude::OptionQuery</code></a></li>
+</ul>
+<h4 id="improving-errors"><a class="doc-anchor" href="#improving-errors">§</a>Improving Errors</h4>
+<p>How we handle error in the above snippets is fairly rudimentary. Let’s look at how this can be
+improved. First, we can use <a href="../../../frame_support/macro.ensure.html" title="macro frame_support::ensure"><code>frame::prelude::ensure</code></a> to express the error slightly better.
+This macro will call <code>.into()</code> under the hood.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub fn </span>transfer_better(
+	origin: T::RuntimeOrigin,
+	dest: T::AccountId,
+	amount: Balance,
+) -&gt; DispatchResult {
+	<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
+
+	<span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">"NonExistentAccount"</span>)<span class="question-mark">?</span>;
+	<span class="macro">ensure!</span>(sender_balance &gt;= amount, <span class="string">"InsufficientBalance"</span>);
+	<span class="kw">let </span>remainder = sender_balance - amount;
+
+	<span class="comment">// .. snip
+	</span><span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<p>Moreover, you will learn in the <a href="../../reference_docs/defensive_programming/index.html" title="mod polkadot_sdk_docs::reference_docs::defensive_programming">Defensive Programming
+section</a> that it is always recommended to use
+safe arithmetic operations in your runtime. By using <a href="https://docs.rs/num-traits/0.2/num_traits/ops/checked/trait.CheckedSub.html" title="trait num_traits::ops::checked::CheckedSub"><code>frame::traits::CheckedSub</code></a>, we can not
+only take a step in that direction, but also improve the error handing and make it slightly more
+ergonomic.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub fn </span>transfer_better_checked(
+	origin: T::RuntimeOrigin,
+	dest: T::AccountId,
+	amount: Balance,
+) -&gt; DispatchResult {
+	<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
+
+	<span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">"NonExistentAccount"</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>remainder = sender_balance.checked_sub(amount).ok_or(<span class="string">"InsufficientBalance"</span>)<span class="question-mark">?</span>;
+
+	<span class="comment">// .. snip
+	</span><span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<p>This is more or less all the logic that there is in this basic currency pallet!</p>
+<h4 id="your-first-test-runtime"><a class="doc-anchor" href="#your-first-test-runtime">§</a>Your First (Test) Runtime</h4>
+<p>The typical testing code of a pallet lives in a module that imports some preludes useful for
+testing, similar to:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">pub mod </span>pallet {
+	<span class="comment">// snip -- actually pallet code.
+</span>}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+	<span class="comment">// bring in the testing prelude of frame
+	</span><span class="kw">use </span>frame::testing_prelude::<span class="kw-2">*</span>;
+	<span class="comment">// bring in all pallet items
+	</span><span class="kw">use </span><span class="kw">super</span>::pallet::<span class="kw-2">*</span>;
+
+	<span class="comment">// snip -- rest of the testing code.
+</span>}</code></pre></div>
+<p>Next, we create a “test runtime” in order to test our pallet. Recall from
+<a href="../../polkadot_sdk/frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>crate::polkadot_sdk::frame_runtime</code></a> that a runtime is a collection of pallets, expressed
+through <a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime"><code>frame::runtime::prelude::construct_runtime</code></a>. All runtimes also have to include
+<a href="../../../frame_system/index.html" title="mod frame_system"><code>frame::prelude::frame_system</code></a>. So we expect to see a runtime with two pallet, <code>frame_system</code>
+and the one we just wrote.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>runtime {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="comment">// we need to reference our `mod pallet` as an identifier to pass to
+	// `construct_runtime`.
+	// YOU HAVE TO CHANGE THIS LINE BASED ON YOUR TEMPLATE
+	</span><span class="kw">use </span><span class="kw">crate</span>::pallet <span class="kw">as </span>pallet_currency;
+
+	<span class="macro">construct_runtime!</span>(
+		<span class="kw">pub enum </span>Runtime {
+			<span class="comment">// ---^^^^^^ This is where `enum Runtime` is defined.
+			</span>System: frame_system,
+			Currency: pallet_currency,
+		}
+	);
+
+	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>Block = MockBlock&lt;Runtime&gt;;
+		<span class="comment">// within pallet we just said `&lt;T as frame_system::Config&gt;::AccountId`, now we
+		// finally specified it.
+		</span><span class="kw">type </span>AccountId = u64;
+	}
+
+	<span class="comment">// our simple pallet has nothing to be configured.
+	</span><span class="kw">impl </span>pallet_currency::Config <span class="kw">for </span>Runtime {}
+}</code></pre></div>
+<blockquote>
+<p><a href="../../../frame_support_procedural/attr.derive_impl.html" title="attr frame_support_procedural::derive_impl"><code>frame::pallet_macros::derive_impl</code></a> is a FRAME feature that enables developers to have
+defaults for associated types.</p>
+</blockquote>
+<p>Recall that within our pallet, (almost) all blocks of code are generic over <code>&lt;T: Config&gt;</code>. And,
+because <code>trait Config: frame_system::Config</code>, we can get access to all items in <code>Config</code> (or
+<code>frame_system::Config</code>) using <code>T::NameOfItem</code>. This is all within the boundaries of how
+Rust traits and generics work. If unfamiliar with this pattern, read
+<a href="../../reference_docs/trait_based_programming/index.html" title="mod polkadot_sdk_docs::reference_docs::trait_based_programming"><code>crate::reference_docs::trait_based_programming</code></a> before going further.</p>
+<p>Crucially, a typical FRAME runtime contains a <code>struct Runtime</code>. The main role of this <code>struct</code>
+is to implement the <code>trait Config</code> of all pallets. That is, anywhere within your pallet code
+where you see <code>&lt;T: Config&gt;</code> (read: <em>“some type <code>T</code> that implements <code>Config</code>”</em>), in the runtime,
+it can be replaced with <code>&lt;Runtime&gt;</code>, because <code>Runtime</code> implements <code>Config</code> of all pallets, as we
+see above.</p>
+<p>Another way to think about this is that within a pallet, a lot of types are “unknown” and, we
+only know that they will be provided at some later point. For example, when you write
+<code>T::AccountId</code> (which is short for <code>&lt;T as frame_system::Config&gt;::AccountId</code>) in your pallet,
+you are in fact saying “<em>Some type <code>AccountId</code> that will be known later</em>”. That “later” is in
+fact when you specify these types when you implement all <code>Config</code> traits for <code>Runtime</code>.</p>
+<p>As you see above, <code>frame_system::Config</code> is setting the <code>AccountId</code> to <code>u64</code>. Of course, a real
+runtime will not use this type, and instead reside to a proper type like a 32-byte standard
+public key. This is a HUGE benefit that FRAME developers can tap into: through the framework
+being so generic, different types can always be customized to simple things when needed.</p>
+<blockquote>
+<p>Imagine how hard it would have been if all tests had to use a real 32-byte account id, as
+opposed to just a u64 number 🙈.</p>
+</blockquote>
+<h4 id="your-first-test"><a class="doc-anchor" href="#your-first-test">§</a>Your First Test</h4>
+<p>The above is all you need to execute the dispatchables of your pallet. The last thing you need
+to learn is that all of your pallet testing code should be wrapped in
+<a href="../../../sp_io/type.TestExternalities.html" title="type sp_io::TestExternalities"><code>frame::testing_prelude::TestState</code></a>. This is a type that provides access to an in-memory state
+to be used in our tests.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>first_test() {
+	TestState::new_empty().execute_with(|| {
+		<span class="comment">// We expect Alice's account to have no funds.
+		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">None</span>);
+
+		<span class="comment">// mint some funds into Alice's account.
+		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(
+			RuntimeOrigin::signed(ALICE),
+			ALICE,
+			<span class="number">100
+		</span>));
+
+		<span class="comment">// re-check the above
+		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+	})
+}</code></pre></div>
+<p>In the first test, we simply assert that there is no total issuance, and no balance associated
+with Alice’s account. Then, we mint some balance into Alice’s, and re-check.</p>
+<p>As noted above, the <code>T::AccountId</code> is now <code>u64</code>. Moreover, <code>Runtime</code> is replacing <code>&lt;T: Config&gt;</code>.
+This is why for example you see <code>Balances::&lt;Runtime&gt;::get(..)</code>. Finally, notice that the
+dispatchables are simply functions that can be called on top of the <code>Pallet</code> struct.</p>
+<p>Congratulations! You have written your first pallet and tested it! Next, we learn a few optional
+steps to improve our pallet.</p>
+<h3 id="improving-the-currency-pallet"><a class="doc-anchor" href="#improving-the-currency-pallet">§</a>Improving the Currency Pallet</h3><h4 id="better-test-setup"><a class="doc-anchor" href="#better-test-setup">§</a>Better Test Setup</h4>
+<p>Idiomatic FRAME pallets often use Builder pattern to define their initial state.</p>
+<blockquote>
+<p>The Polkadot Blockchain Academy’s Rust entrance exam has a
+<a href="https://github.com/Polkadot-Blockchain-Academy/pba-qualifier-exam/blob/main/src/m_builder.rs">section</a>
+on this that you can use to learn the Builder Pattern.</p>
+</blockquote>
+<p>Let’s see how we can implement a better test setup using this pattern. First, we define a
+<code>struct StateBuilder</code>.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>StateBuilder {
+	balances: Vec&lt;(&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId, Balance)&gt;,
+}</code></pre></div>
+<p>This struct is meant to contain the same list of accounts and balances that we want to have at
+the beginning of each block. We hardcoded this to <code>let accounts = vec![(ALICE, 100), (2, 100)];</code>
+so far. Then, if desired, we attach a default value for this struct.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>Default <span class="kw">for </span>StateBuilder {
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ balances: <span class="macro">vec!</span>[(ALICE, <span class="number">100</span>), (BOB, <span class="number">100</span>)] }
+	}
+}</code></pre></div>
+<p>Like any other builder pattern, we attach functions to the type to mutate its internal
+properties.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>StateBuilder {
+	<span class="kw">fn </span>add_balance(
+		<span class="kw-2">mut </span><span class="self">self</span>,
+		who: &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId,
+		amount: Balance,
+	) -&gt; <span class="self">Self </span>{
+		<span class="self">self</span>.balances.push((who, amount));
+		<span class="self">self
+	</span>}
+}</code></pre></div>
+<p>Finally –the useful part– we write our own custom <code>build_and_execute</code> function on
+this type. This function will do multiple things:</p>
+<ol>
+<li>It would consume <code>self</code> to produce our <code>TestState</code> based on the properties that we attached
+to <code>self</code>.</li>
+<li>It would execute any test function that we pass in as closure.</li>
+<li>A nifty trick, this allows our test setup to have some code that is executed both before and
+after each test. For example, in this test, we do some additional checking about the
+correctness of the <code>TotalIssuance</code>. We leave it up to you as an exercise to learn why the
+assertion should always hold, and how it is checked.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>StateBuilder {
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_and_execute(<span class="self">self</span>, test: <span class="kw">impl </span>FnOnce() -&gt; ()) {
+		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestState::new_empty();
+		ext.execute_with(|| {
+			<span class="kw">for </span>(who, amount) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.balances {
+				Balances::&lt;Runtime&gt;::insert(who, amount);
+				TotalIssuance::&lt;Runtime&gt;::mutate(|b| <span class="kw-2">*</span>b = <span class="prelude-val">Some</span>(b.unwrap_or(<span class="number">0</span>) + amount));
+			}
+		});
+
+		ext.execute_with(test);
+
+		<span class="comment">// assertions that must always hold
+		</span>ext.execute_with(|| {
+			<span class="macro">assert_eq!</span>(
+				Balances::&lt;Runtime&gt;::iter().map(|(<span class="kw">_</span>, x)| x).sum::&lt;u128&gt;(),
+				TotalIssuance::&lt;Runtime&gt;::get().unwrap_or_default()
+			);
+		})
+	}
+}</code></pre></div>
+<p>We can write tests that specifically check the initial state, and making sure our <code>StateBuilder</code>
+is working exactly as intended.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>state_builder_works() {
+	StateBuilder::default().build_and_execute(|| {
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>CHARLIE), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">200</span>));
+	});
+}</code></pre></div>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>state_builder_add_balance() {
+	StateBuilder::default().add_balance(CHARLIE, <span class="number">42</span>).build_and_execute(|| {
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>CHARLIE), <span class="prelude-val">Some</span>(<span class="number">42</span>));
+		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">242</span>));
+	})
+}</code></pre></div>
+<h4 id="more-tests"><a class="doc-anchor" href="#more-tests">§</a>More Tests</h4>
+<p>Now that we have a more ergonomic test setup, let’s see how a well written test for transfer and
+mint would look like.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>transfer_works() {
+	StateBuilder::default().build_and_execute(|| {
+		<span class="comment">// given the initial state, when:
+		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(ALICE), BOB, <span class="number">50</span>));
+
+		<span class="comment">// then:
+		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">50</span>));
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">150</span>));
+		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">200</span>));
+
+		<span class="comment">// when:
+		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(BOB), ALICE, <span class="number">50</span>));
+
+		<span class="comment">// then:
+		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">200</span>));
+	});
+}</code></pre></div>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>mint_works() {
+	StateBuilder::default().build_and_execute(|| {
+		<span class="comment">// given the initial state, when:
+		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(RuntimeOrigin::signed(ALICE), BOB, <span class="number">100</span>));
+
+		<span class="comment">// then:
+		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">200</span>));
+		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">300</span>));
+
+		<span class="comment">// given:
+		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(
+			RuntimeOrigin::signed(ALICE),
+			CHARLIE,
+			<span class="number">100
+		</span>));
+
+		<span class="comment">// then:
+		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>CHARLIE), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">400</span>));
+	});
+}</code></pre></div>
+<p>It is always a good idea to build a mental model where you write <em>at least</em> one test for each
+“success path” of a dispatchable, and one test for each “failure path”, such as:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>transfer_from_non_existent_fails() {
+	StateBuilder::default().build_and_execute(|| {
+		<span class="comment">// given the initial state, when:
+		</span><span class="macro">assert_err!</span>(
+			Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(CHARLIE), ALICE, <span class="number">10</span>),
+			<span class="string">"NonExistentAccount"
+		</span>);
+
+		<span class="comment">// then nothing has changed.
+		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>CHARLIE), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">200</span>));
+	});
+}</code></pre></div>
+<p>We leave it up to you to write a test that triggers the <code>InsufficientBalance</code> error.</p>
+<h4 id="event-and-error"><a class="doc-anchor" href="#event-and-error">§</a>Event and Error</h4>
+<p>Our pallet is mainly missing two parts that are common in most FRAME pallets: Events, and
+Errors. First, let’s understand what each is.</p>
+<ul>
+<li>
+<p><strong>Error</strong>: The static string-based error scheme we used so far is good for readability, but it
+has a few drawbacks. The biggest problem with strings are that they are not type safe, e.g. a
+match statement cannot be exhaustive. These string literals will bloat the final wasm blob,
+and are relatively heavy to transmit and encode/decode. Moreover, it is easy to mistype them
+by one character. FRAME errors are exactly a solution to maintain readability, whilst fixing
+the drawbacks mentioned. In short, we use an enum to represent different variants of our
+error. These variants are then mapped in an efficient way (using only <code>u8</code> indices) to
+<a href="../../../sp_runtime/enum.DispatchError.html#variant.Module" title="variant sp_runtime::DispatchError::Module"><code>sp_runtime::DispatchError::Module</code></a>. Read more about this in <a href="../../../frame_support_procedural/attr.error.html" title="attr frame_support_procedural::error"><code>pallet::error</code></a>.</p>
+</li>
+<li>
+<p><strong>Event</strong>: Events are akin to the return type of dispatchables. They are mostly data blobs
+emitted by the runtime to let outside world know what is happening inside the pallet. Since
+otherwise, the outside world does not have an easy access to the state changes. They should
+represent what happened at the end of a dispatch operation. Therefore, the convention is to
+use passive tense for event names (eg. <code>SomethingHappened</code>). This allows other sub-systems or
+external parties (eg. a light-node, a DApp) to listen to particular events happening, without
+needing to re-execute the whole state transition function.</p>
+</li>
+</ul>
+<p>With the explanation out of the way, let’s see how these components can be added. Both follow a
+fairly familiar syntax: normal Rust enums, with extra <a href="../../../frame_support_procedural/attr.event.html" title="attr frame_support_procedural::event"><code>pallet::event</code></a> and <a href="../../../frame_support_procedural/attr.error.html" title="attr frame_support_procedural::error"><code>pallet::error</code></a>
+attributes attached.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::event]
+#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
+</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
+	<span class="doccomment">/// A transfer succeeded.
+	</span>Transferred { from: T::AccountId, to: T::AccountId, amount: Balance },
+}</code></pre></div>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::error]
+</span><span class="kw">pub enum </span>Error&lt;T&gt; {
+	<span class="doccomment">/// Account does not exist.
+	</span>NonExistentAccount,
+	<span class="doccomment">/// Account does not have enough balance.
+	</span>InsufficientBalance,
+}</code></pre></div>
+<p>One slightly custom part of this is the <a href="../../../frame_support_procedural/attr.generate_deposit.html" title="attr frame_support_procedural::generate_deposit"><code>pallet::generate_deposit</code></a> part. Without going into
+too much detail, in order for a pallet to emit events to the rest of the system, it needs to do
+two things:</p>
+<ol>
+<li>
+<p>Declare a type in its <code>Config</code> that refers to the overarching event type of the runtime. In
+short, by doing this, the pallet is expressing an important bound: <code>type RuntimeEvent: From&lt;Event&lt;Self&gt;&gt;</code>. Read: a <code>RuntimeEvent</code> exists, and it can be created from the local <code>enum Event</code> of this pallet. This enables the pallet to convert its <code>Event</code> into <code>RuntimeEvent</code>, and
+store it where needed.</p>
+</li>
+<li>
+<p>But, doing this conversion and storing is too much to expect each pallet to define. FRAME
+provides a default way of storing events, and this is what <a href="../../../frame_support_procedural/attr.generate_deposit.html" title="attr frame_support_procedural::generate_deposit"><code>pallet::generate_deposit</code></a> is
+doing.</p>
+</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::config]
+</span><span class="kw">pub trait </span>Config: frame_system::Config {
+	<span class="doccomment">/// The overarching event type of the runtime.
+	</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt;
+		+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;
+		+ TryInto&lt;Event&lt;<span class="self">Self</span>&gt;&gt;;
+}</code></pre></div>
+<blockquote>
+<p>These <code>Runtime*</code> types are better explained in
+<a href="../../reference_docs/frame_runtime_types/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types"><code>crate::reference_docs::frame_runtime_types</code></a>.</p>
+</blockquote>
+<p>Then, we can rewrite the <code>transfer</code> dispatchable as such:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub fn </span>transfer(
+	origin: T::RuntimeOrigin,
+	dest: T::AccountId,
+	amount: Balance,
+) -&gt; DispatchResult {
+	<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
+
+	<span class="comment">// ensure sender has enough balance, and if so, calculate what is left after `amount`.
+	</span><span class="kw">let </span>sender_balance =
+		Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(Error::&lt;T&gt;::NonExistentAccount)<span class="question-mark">?</span>;
+	<span class="kw">let </span>remainder =
+		sender_balance.checked_sub(amount).ok_or(Error::&lt;T&gt;::InsufficientBalance)<span class="question-mark">?</span>;
+
+	Balances::&lt;T&gt;::mutate(<span class="kw-2">&amp;</span>dest, |b| <span class="kw-2">*</span>b = <span class="prelude-val">Some</span>(b.unwrap_or(<span class="number">0</span>) + amount));
+	Balances::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>sender, remainder);
+
+	<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Transferred { from: sender, to: dest, amount });
+
+	<span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<p>Then, notice how now we would need to provide this <code>type RuntimeEvent</code> in our test runtime
+setup.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub mod </span>runtime_v2 {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span><span class="kw">crate</span>::pallet_v2 <span class="kw">as </span>pallet_currency;
+
+	<span class="macro">construct_runtime!</span>(
+		<span class="kw">pub enum </span>Runtime {
+			System: frame_system,
+			Currency: pallet_currency,
+		}
+	);
+
+	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>Block = MockBlock&lt;Runtime&gt;;
+		<span class="kw">type </span>AccountId = u64;
+	}
+
+	<span class="kw">impl </span>pallet_currency::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	}
+}</code></pre></div>
+<p>In this snippet, the actual <code>RuntimeEvent</code> type (right hand side of <code>type RuntimeEvent = RuntimeEvent</code>) is generated by
+<a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime"><code>construct_runtime</code></a>. An interesting way to inspect
+this type is to see its definition in rust-docs:
+<a href="pallet_v2/tests/runtime_v2/enum.RuntimeEvent.html" title="enum polkadot_sdk_docs::guides::your_first_pallet::pallet_v2::tests::runtime_v2::RuntimeEvent"><code>crate::guides::your_first_pallet::pallet_v2::tests::runtime_v2::RuntimeEvent</code></a>.</p>
+<h3 id="what-next"><a class="doc-anchor" href="#what-next">§</a>What Next?</h3>
+<p>The following topics where used in this guide, but not covered in depth. It is suggested to
+study them subsequently:</p>
+<ul>
+<li><a href="../../reference_docs/defensive_programming/index.html" title="mod polkadot_sdk_docs::reference_docs::defensive_programming"><code>crate::reference_docs::defensive_programming</code></a>.</li>
+<li><a href="../../reference_docs/frame_origin/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_origin"><code>crate::reference_docs::frame_origin</code></a>.</li>
+<li><a href="../../reference_docs/frame_runtime_types/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types"><code>crate::reference_docs::frame_runtime_types</code></a>.</li>
+<li>The pallet we wrote in this guide was using <code>dev_mode</code>, learn more in <a href="../../../frame_support_procedural/attr.config.html" title="attr frame_support_procedural::config"><code>pallet::config</code></a>.</li>
+<li>Learn more about the individual pallet items/macros, such as event and errors and call, in
+<a href="../../../polkadot_sdk_frame/pallet_macros/index.html" title="mod polkadot_sdk_frame::pallet_macros"><code>frame::pallet_macros</code></a>.</li>
+</ul>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod polkadot_sdk_docs::guides::your_first_pallet::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="pallet_v2/index.html" title="mod polkadot_sdk_docs::guides::your_first_pallet::pallet_v2">pallet_v2</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="shell_pallet/index.html" title="mod polkadot_sdk_docs::guides::your_first_pallet::shell_pallet">shell_pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

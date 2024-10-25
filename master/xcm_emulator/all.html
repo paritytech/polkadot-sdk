@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="xcm_emulator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../xcm_emulator/index.html">xcm_emulator</a><span class="version">0.5.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li><li><a href="#derives">Derive Macros</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.AbridgedHrmpChannel.html">AbridgedHrmpChannel</a></li><li><a href="struct.AccountData.html">AccountData</a></li><li><a href="struct.Ancestor.html">Ancestor</a></li><li><a href="struct.Assets.html">Assets</a></li><li><a href="struct.BoundedSlice.html">BoundedSlice</a></li><li><a href="struct.BridgeMessage.html">BridgeMessage</a></li><li><a href="struct.BridgeMessageDispatchError.html">BridgeMessageDispatchError</a></li><li><a href="struct.DefaultParaMessageProcessor.html">DefaultParaMessageProcessor</a></li><li><a href="struct.DefaultRelayMessageProcessor.html">DefaultRelayMessageProcessor</a></li><li><a href="struct.HashMap.html">HashMap</a></li><li><a href="struct.HeadData.html">HeadData</a></li><li><a href="struct.HrmpChannelId.html">HrmpChannelId</a></li><li><a href="struct.LazyLock.html">LazyLock</a></li><li><a href="struct.Location.html">Location</a></li><li><a href="struct.MessageQueuePallet.html">MessageQueuePallet</a></li><li><a href="struct.Mutex.html">Mutex</a></li><li><a href="struct.ParaId.html">ParaId</a></li><li><a href="struct.ParachainInherentData.html">ParachainInherentData</a></li><li><a href="struct.ParachainSystemPallet.html">ParachainSystemPallet</a></li><li><a href="struct.Parent.html">Parent</a></li><li><a href="struct.PersistedValidationData.html">PersistedValidationData</a></li><li><a href="struct.PhantomData.html">PhantomData</a></li><li><a href="struct.RefCell.html">RefCell</a></li><li><a href="struct.RelayStateSproofBuilder.html">RelayStateSproofBuilder</a></li><li><a href="struct.Storage.html">Storage</a></li><li><a href="struct.SystemPallet.html">SystemPallet</a></li><li><a href="struct.Test.html">Test</a></li><li><a href="struct.TestAccount.html">TestAccount</a></li><li><a href="struct.TestArgs.html">TestArgs</a></li><li><a href="struct.TestContext.html">TestContext</a></li><li><a href="struct.VecDeque.html">VecDeque</a></li><li><a href="struct.Weight.html">Weight</a></li><li><a href="struct.WeightMeter.html">WeightMeter</a></li><li><a href="fmt/struct.Arguments.html">fmt::Arguments</a></li><li><a href="fmt/struct.DebugList.html">fmt::DebugList</a></li><li><a href="fmt/struct.DebugMap.html">fmt::DebugMap</a></li><li><a href="fmt/struct.DebugSet.html">fmt::DebugSet</a></li><li><a href="fmt/struct.DebugStruct.html">fmt::DebugStruct</a></li><li><a href="fmt/struct.DebugTuple.html">fmt::DebugTuple</a></li><li><a href="fmt/struct.Error.html">fmt::Error</a></li><li><a href="fmt/struct.Formatter.html">fmt::Formatter</a></li><li><a href="fmt/struct.FormatterFn.html">fmt::FormatterFn</a></li><li><a href="sr25519/struct.Pair.html">sr25519::Pair</a></li><li><a href="sr25519/vrf/struct.VrfPreOutput.html">sr25519::vrf::VrfPreOutput</a></li><li><a href="sr25519/vrf/struct.VrfProof.html">sr25519::vrf::VrfProof</a></li><li><a href="sr25519/vrf/struct.VrfSignData.html">sr25519::vrf::VrfSignData</a></li><li><a href="sr25519/vrf/struct.VrfSignature.html">sr25519::vrf::VrfSignature</a></li><li><a href="sr25519/vrf/struct.VrfTranscript.html">sr25519::vrf::VrfTranscript</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="enum.AggregateMessageOrigin.html">AggregateMessageOrigin</a></li><li><a href="enum.CumulusAggregateMessageOrigin.html">CumulusAggregateMessageOrigin</a></li><li><a href="enum.ExecuteOverweightError.html">ExecuteOverweightError</a></li><li><a href="enum.ProcessMessageError.html">ProcessMessageError</a></li><li><a href="enum.UmpQueueId.html">UmpQueueId</a></li><li><a href="enum.WeightLimit.html">WeightLimit</a></li><li><a href="fmt/enum.Alignment.html">fmt::Alignment</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="trait.Bounded.html">Bounded</a></li><li><a href="trait.Bridge.html">Bridge</a></li><li><a href="trait.BridgeMessageHandler.html">BridgeMessageHandler</a></li><li><a href="trait.Chain.html">Chain</a></li><li><a href="trait.CheckAssertion.html">CheckAssertion</a></li><li><a href="trait.ConvertLocation.html">ConvertLocation</a></li><li><a href="trait.Debug.html">Debug</a></li><li><a href="trait.Decode.html">Decode</a></li><li><a href="trait.Deref.html">Deref</a></li><li><a href="trait.DmpMessageHandler.html">DmpMessageHandler</a></li><li><a href="trait.Encode.html">Encode</a></li><li><a href="trait.EncodeLike.html">EncodeLike</a></li><li><a href="trait.EnqueueMessage.html">EnqueueMessage</a></li><li><a href="trait.Error.html">Error</a></li><li><a href="trait.Get.html">Get</a></li><li><a href="trait.HeaderT.html">HeaderT</a></li><li><a href="trait.Hooks.html">Hooks</a></li><li><a href="trait.MaxEncodedLen.html">MaxEncodedLen</a></li><li><a href="trait.MessageQueueConfig.html">MessageQueueConfig</a></li><li><a href="trait.Network.html">Network</a></li><li><a href="trait.OnInitialize.html">OnInitialize</a></li><li><a href="trait.OriginTrait.html">OriginTrait</a></li><li><a href="trait.Pair.html">Pair</a></li><li><a href="trait.Parachain.html">Parachain</a></li><li><a href="trait.ProcessMessage.html">ProcessMessage</a></li><li><a href="trait.RelayChain.html">RelayChain</a></li><li><a href="trait.ServiceQueues.html">ServiceQueues</a></li><li><a href="trait.SystemConfig.html">SystemConfig</a></li><li><a href="trait.TestExt.html">TestExt</a></li><li><a href="trait.XcmpMessageHandler.html">XcmpMessageHandler</a></li><li><a href="fmt/trait.Binary.html">fmt::Binary</a></li><li><a href="fmt/trait.Debug.html">fmt::Debug</a></li><li><a href="fmt/trait.Display.html">fmt::Display</a></li><li><a href="fmt/trait.LowerExp.html">fmt::LowerExp</a></li><li><a href="fmt/trait.LowerHex.html">fmt::LowerHex</a></li><li><a href="fmt/trait.Octal.html">fmt::Octal</a></li><li><a href="fmt/trait.Pointer.html">fmt::Pointer</a></li><li><a href="fmt/trait.UpperExp.html">fmt::UpperExp</a></li><li><a href="fmt/trait.UpperHex.html">fmt::UpperHex</a></li><li><a href="fmt/trait.Write.html">fmt::Write</a></li></ul><h3 id="macros">Macros</h3><ul class="all-items"><li><a href="macro.__impl_check_assertion.html">__impl_check_assertion</a></li><li><a href="macro.__impl_test_ext_for_parachain.html">__impl_test_ext_for_parachain</a></li><li><a href="macro.__impl_test_ext_for_relay_chain.html">__impl_test_ext_for_relay_chain</a></li><li><a href="macro.assert_expected_events.html">assert_expected_events</a></li><li><a href="macro.assert_ok.html">assert_ok</a></li><li><a href="macro.bx.html">bx</a></li><li><a href="macro.decl_test_bridges.html">decl_test_bridges</a></li><li><a href="macro.decl_test_networks.html">decl_test_networks</a></li><li><a href="macro.decl_test_parachains.html">decl_test_parachains</a></li><li><a href="macro.decl_test_relay_chains.html">decl_test_relay_chains</a></li><li><a href="macro.decl_test_sender_receiver_accounts_parameter_types.html">decl_test_sender_receiver_accounts_parameter_types</a></li><li><a href="macro.parameter_types.html">parameter_types</a></li></ul><h3 id="derives">Derive Macros</h3><ul class="all-items"><li><a href="derive.Debug.html">Debug</a></li><li><a href="derive.Decode.html">Decode</a></li><li><a href="derive.Encode.html">Encode</a></li><li><a href="derive.MaxEncodedLen.html">MaxEncodedLen</a></li><li><a href="fmt/derive.Debug.html">fmt::Debug</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="fn.blake2_256.html">blake2_256</a></li><li><a href="fmt/fn.format.html">fmt::format</a></li><li><a href="fmt/fn.write.html">fmt::write</a></li><li><a href="fn.get_public_from_string_or_panic.html">get_public_from_string_or_panic</a></li><li><a href="helpers/fn.weight_within_threshold.html">helpers::weight_within_threshold</a></li><li><a href="helpers/fn.within_threshold.html">helpers::within_threshold</a></li><li><a href="fn.type_name.html">type_name</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.AccountId.html">AccountId</a></li><li><a href="type.AccountIdOf.html">AccountIdOf</a></li><li><a href="type.Balance.html">Balance</a></li><li><a href="type.BlockNumberFor.html">BlockNumberFor</a></li><li><a href="type.BridgeLaneId.html">BridgeLaneId</a></li><li><a href="type.DispatchResult.html">DispatchResult</a></li><li><a href="type.RelayBlockNumber.html">RelayBlockNumber</a></li><li><a href="type.RelayChainBlockNumber.html">RelayChainBlockNumber</a></li><li><a href="type.TestExternalities.html">TestExternalities</a></li><li><a href="type.XcmHash.html">XcmHash</a></li><li><a href="fmt/type.Result.html">fmt::Result</a></li><li><a href="sr25519/type.Public.html">sr25519::Public</a></li><li><a href="sr25519/type.Signature.html">sr25519::Signature</a></li><li><a href="sr25519/vrf/type.VrfInput.html">sr25519::vrf::VrfInput</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="constant.BRIDGED_MESSAGES.html">BRIDGED_MESSAGES</a></li><li><a href="constant.DMP_DONE.html">DMP_DONE</a></li><li><a href="constant.DOWNWARD_MESSAGES.html">DOWNWARD_MESSAGES</a></li><li><a href="constant.HORIZONTAL_MESSAGES.html">HORIZONTAL_MESSAGES</a></li><li><a href="constant.INITIALIZED.html">INITIALIZED</a></li><li><a href="constant.LAST_HEAD.html">LAST_HEAD</a></li><li><a href="constant.PARA_IDS.html">PARA_IDS</a></li><li><a href="constant.UPWARD_MESSAGES.html">UPWARD_MESSAGES</a></li><li><a href="sr25519/constant.CRYPTO_ID.html">sr25519::CRYPTO_ID</a></li><li><a href="sr25519/constant.PUBLIC_KEY_SERIALIZED_SIZE.html">sr25519::PUBLIC_KEY_SERIALIZED_SIZE</a></li><li><a href="sr25519/constant.SIGNATURE_SERIALIZED_SIZE.html">sr25519::SIGNATURE_SERIALIZED_SIZE</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

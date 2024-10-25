@@ -1,0 +1,301 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Trait for providing a basic fungible asset."><title>Mutate in polkadot_sdk_frame::traits::tokens::fungibles - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../polkadot_sdk_frame/index.html">polkadot_sdk_frame</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">Mutate</a></h2><div class="sidebar-elems"><section><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.burn_from">burn_from</a></li><li><a href="#method.done_burn_from">done_burn_from</a></li><li><a href="#method.done_mint_into">done_mint_into</a></li><li><a href="#method.done_restore">done_restore</a></li><li><a href="#method.done_shelve">done_shelve</a></li><li><a href="#method.done_transfer">done_transfer</a></li><li><a href="#method.mint_into">mint_into</a></li><li><a href="#method.restore">restore</a></li><li><a href="#method.set_balance">set_balance</a></li><li><a href="#method.shelve">shelve</a></li><li><a href="#method.transfer">transfer</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-Mutate%3CAccountId%3E-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_sdk_frame::traits::tokens::fungibles</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../../index.html">polkadot_sdk_frame</a>::<wbr><a href="../../index.html">traits</a>::<wbr><a href="../index.html">tokens</a>::<wbr><a href="index.html">fungibles</a>::<wbr><a class="trait" href="#">Mutate</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Mutate&lt;AccountId&gt;: <a class="trait" href="trait.Inspect.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::Inspect">Inspect</a>&lt;AccountId&gt; + <a class="trait" href="trait.Unbalanced.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::Unbalanced">Unbalanced</a>&lt;AccountId&gt;<div class="where">where
+    AccountId: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a>,</div>{
+    // Provided methods
+    fn <a href="#method.mint_into" class="fn">mint_into</a>(
+        asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>, DispatchError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.burn_from" class="fn">burn_from</a>(
+        asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+        preservation: <a class="enum" href="../enum.Preservation.html" title="enum polkadot_sdk_frame::traits::tokens::Preservation">Preservation</a>,
+        precision: <a class="enum" href="../enum.Precision.html" title="enum polkadot_sdk_frame::traits::tokens::Precision">Precision</a>,
+        force: <a class="enum" href="../enum.Fortitude.html" title="enum polkadot_sdk_frame::traits::tokens::Fortitude">Fortitude</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>, DispatchError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.shelve" class="fn">shelve</a>(
+        asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>, DispatchError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.restore" class="fn">restore</a>(
+        asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>, DispatchError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.transfer" class="fn">transfer</a>(
+        asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+        source: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        dest: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+        preservation: <a class="enum" href="../enum.Preservation.html" title="enum polkadot_sdk_frame::traits::tokens::Preservation">Preservation</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>, DispatchError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.set_balance" class="fn">set_balance</a>(
+        asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+    ) -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.done_mint_into" class="fn">done_mint_into</a>(
+        _asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+        _who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        _amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+    ) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.done_burn_from" class="fn">done_burn_from</a>(
+        _asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+        _who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        _amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+    ) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.done_shelve" class="fn">done_shelve</a>(
+        _asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+        _who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        _amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+    ) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.done_restore" class="fn">done_restore</a>(
+        _asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+        _who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        _amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+    ) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.done_transfer" class="fn">done_transfer</a>(
+        _asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+        _source: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        _dest: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        _amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+    ) { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trait for providing a basic fungible asset.</p>
+</div></details><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.mint_into" class="method"><h4 class="code-header">fn <a href="#method.mint_into" class="fn">mint_into</a>(
+    asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Increase the balance of <code>who</code> by exactly <code>amount</code>, minting new tokens. If that isn’t
+possible then an <code>Err</code> is returned and nothing is changed.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.burn_from" class="method"><h4 class="code-header">fn <a href="#method.burn_from" class="fn">burn_from</a>(
+    asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+    preservation: <a class="enum" href="../enum.Preservation.html" title="enum polkadot_sdk_frame::traits::tokens::Preservation">Preservation</a>,
+    precision: <a class="enum" href="../enum.Precision.html" title="enum polkadot_sdk_frame::traits::tokens::Precision">Precision</a>,
+    force: <a class="enum" href="../enum.Fortitude.html" title="enum polkadot_sdk_frame::traits::tokens::Fortitude">Fortitude</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Decrease the balance of <code>who</code> by at least <code>amount</code>, possibly slightly more in the case of
+minimum-balance requirements, burning the tokens. If that isn’t possible then an <code>Err</code> is
+returned and nothing is changed. If successful, the amount of tokens reduced is returned.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.shelve" class="method"><h4 class="code-header">fn <a href="#method.shelve" class="fn">shelve</a>(
+    asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Attempt to decrease the <code>asset</code> balance of <code>who</code> by <code>amount</code>.</p>
+<p>Equivalent to <code>burn_from</code>, except with an expectation that within the bounds of some
+universal issuance, the total assets <code>suspend</code>ed and <code>resume</code>d will be equivalent. The
+implementation may be configured such that the total assets suspended may never be less than
+the total assets resumed (which is the invariant for an issuing system), or the reverse
+(which the invariant in a non-issuing system).</p>
+<p>Because of this expectation, any metadata associated with the asset is expected to survive
+the suspect-resume cycle.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.restore" class="method"><h4 class="code-header">fn <a href="#method.restore" class="fn">restore</a>(
+    asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Attempt to increase the <code>asset</code> balance of <code>who</code> by <code>amount</code>.</p>
+<p>Equivalent to <code>mint_into</code>, except with an expectation that within the bounds of some
+universal issuance, the total assets <code>suspend</code>ed and <code>resume</code>d will be equivalent. The
+implementation may be configured such that the total assets suspended may never be less than
+the total assets resumed (which is the invariant for an issuing system), or the reverse
+(which the invariant in a non-issuing system).</p>
+<p>Because of this expectation, any metadata associated with the asset is expected to survive
+the suspect-resume cycle.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.transfer" class="method"><h4 class="code-header">fn <a href="#method.transfer" class="fn">transfer</a>(
+    asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+    source: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    dest: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+    preservation: <a class="enum" href="../enum.Preservation.html" title="enum polkadot_sdk_frame::traits::tokens::Preservation">Preservation</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Transfer funds from one account into another.</p>
+<p>A transfer where the source and destination account are identical is treated as No-OP after
+checking the preconditions.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_balance" class="method"><h4 class="code-header">fn <a href="#method.set_balance" class="fn">set_balance</a>(
+    asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+) -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a></h4></section></summary><div class="docblock"><p>Simple infallible function to force an account to have a particular balance, good for use
+in tests and benchmarks but not recommended for production code owing to the lack of
+error reporting.</p>
+<p>Returns the new balance.</p>
+</div></details><section id="method.done_mint_into" class="method"><h4 class="code-header">fn <a href="#method.done_mint_into" class="fn">done_mint_into</a>(
+    _asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+    _who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+)</h4></section><section id="method.done_burn_from" class="method"><h4 class="code-header">fn <a href="#method.done_burn_from" class="fn">done_burn_from</a>(
+    _asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+    _who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+)</h4></section><section id="method.done_shelve" class="method"><h4 class="code-header">fn <a href="#method.done_shelve" class="fn">done_shelve</a>(_asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>, _who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, _amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>)</h4></section><section id="method.done_restore" class="method"><h4 class="code-header">fn <a href="#method.done_restore" class="fn">done_restore</a>(_asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>, _who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, _amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>)</h4></section><section id="method.done_transfer" class="method"><h4 class="code-header">fn <a href="#method.done_transfer" class="fn">done_transfer</a>(
+    _asset: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>,
+    _source: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _dest: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>,
+)</h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><section id="impl-Mutate%3CAccountId%3E-for-()" class="impl"><a href="#impl-Mutate%3CAccountId%3E-for-()" class="anchor">§</a><h3 class="code-header">impl&lt;AccountId&gt; <a class="trait" href="trait.Mutate.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::Mutate">Mutate</a>&lt;AccountId&gt; for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a><div class="where">where
+    AccountId: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a>,</div></h3></section><div class="docblock"><p>Dummy implementation of <a href="trait.Mutate.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::Mutate"><code>Mutate</code></a></p>
+</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-Mutate%3CAccountId%3E-for-UnionOf%3CLeft,+Right,+Criterion,+AssetKind,+AccountId%3E" class="impl"><a href="#impl-Mutate%3CAccountId%3E-for-UnionOf%3CLeft,+Right,+Criterion,+AssetKind,+AccountId%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Left, Right, Criterion, AssetKind, AccountId&gt; <a class="trait" href="trait.Mutate.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::Mutate">Mutate</a>&lt;AccountId&gt; for polkadot_sdk_frame::traits::tokens::fungible::<a class="struct" href="../fungible/struct.UnionOf.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::UnionOf">UnionOf</a>&lt;Left, Right, Criterion, AssetKind, AccountId&gt;<div class="where">where
+    Left: <a class="trait" href="../fungible/trait.Mutate.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::Mutate">Mutate</a>&lt;AccountId&gt;,
+    Right: <a class="trait" href="trait.Mutate.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::Mutate">Mutate</a>&lt;AccountId, Balance = &lt;Left as <a class="trait" href="../fungible/trait.Inspect.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::Inspect">Inspect</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="../fungible/trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungible::Inspect::Balance">Balance</a>&gt;,
+    Criterion: <a class="trait" href="../../trait.Convert.html" title="trait polkadot_sdk_frame::traits::Convert">Convert</a>&lt;AssetKind, <a class="enum" href="https://docs.rs/either/1/either/enum.Either.html" title="enum either::Either">Either</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, &lt;Right as <a class="trait" href="trait.Inspect.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::Inspect">Inspect</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>&gt;&gt;,
+    AssetKind: <a class="trait" href="../trait.AssetId.html" title="trait polkadot_sdk_frame::traits::tokens::AssetId">AssetId</a>,
+    AccountId: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a>,</div></h3></section><section id="impl-Mutate%3CAccountId%3E-for-UnionOf%3CLeft,+Right,+Criterion,+AssetKind,+AccountId%3E-1" class="impl"><a href="#impl-Mutate%3CAccountId%3E-for-UnionOf%3CLeft,+Right,+Criterion,+AssetKind,+AccountId%3E-1" class="anchor">§</a><h3 class="code-header">impl&lt;Left, Right, Criterion, AssetKind, AccountId&gt; <a class="trait" href="trait.Mutate.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::Mutate">Mutate</a>&lt;AccountId&gt; for polkadot_sdk_frame::traits::tokens::fungibles::<a class="struct" href="struct.UnionOf.html" title="struct polkadot_sdk_frame::traits::tokens::fungibles::UnionOf">UnionOf</a>&lt;Left, Right, Criterion, AssetKind, AccountId&gt;<div class="where">where
+    Left: <a class="trait" href="trait.Mutate.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::Mutate">Mutate</a>&lt;AccountId&gt;,
+    Right: <a class="trait" href="trait.Mutate.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::Mutate">Mutate</a>&lt;AccountId, Balance = &lt;Left as <a class="trait" href="trait.Inspect.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::Inspect">Inspect</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::Balance">Balance</a>&gt;,
+    Criterion: <a class="trait" href="../../trait.Convert.html" title="trait polkadot_sdk_frame::traits::Convert">Convert</a>&lt;AssetKind, <a class="enum" href="https://docs.rs/either/1/either/enum.Either.html" title="enum either::Either">Either</a>&lt;&lt;Left as <a class="trait" href="trait.Inspect.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::Inspect">Inspect</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>, &lt;Right as <a class="trait" href="trait.Inspect.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::Inspect">Inspect</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Inspect.html#associatedtype.AssetId" title="type polkadot_sdk_frame::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>&gt;&gt;,
+    AssetKind: <a class="trait" href="../trait.AssetId.html" title="trait polkadot_sdk_frame::traits::tokens::AssetId">AssetId</a>,
+    AccountId: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a>,</div></h3></section></div><script src="../../../../trait.impl/frame_support/traits/tokens/fungibles/regular/trait.Mutate.js" data-ignore-extern-crates="frame_support,std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,906 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/src/fork_aware_txpool/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_transaction_pool" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<a href="#2" id="2">2</a>
+<a href="#3" id="3">3</a>
+<a href="#4" id="4">4</a>
+<a href="#5" id="5">5</a>
+<a href="#6" id="6">6</a>
+<a href="#7" id="7">7</a>
+<a href="#8" id="8">8</a>
+<a href="#9" id="9">9</a>
+<a href="#10" id="10">10</a>
+<a href="#11" id="11">11</a>
+<a href="#12" id="12">12</a>
+<a href="#13" id="13">13</a>
+<a href="#14" id="14">14</a>
+<a href="#15" id="15">15</a>
+<a href="#16" id="16">16</a>
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
+<a href="#42" id="42">42</a>
+<a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
+<a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
+<a href="#48" id="48">48</a>
+<a href="#49" id="49">49</a>
+<a href="#50" id="50">50</a>
+<a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+</pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
+
+</span><span class="doccomment">//! Substrate fork aware transaction pool implementation.
+//!
+//! # Top level overview.
+//! This documentation provides high level overview of the main structures and the main flows within
+//! the fork-aware transaction pool.
+//!
+//! ## Structures.
+//! ### View.
+//! #### Purpose.
+//! The main responsibility of the [`View`] is to provide the valid set of ready transactions at
+//! the given block. [`ForkAwareTxPool`] keeps the number of recent views for all the blocks
+//! notified since recently finalized block.
+//!
+//! The views associated with blocks at the tips of the forks are actively updated with all newly
+//! incoming transactions, while intermediate views are not updated (they still provide transactions
+//! ready to be included at that block) due to performance reasons, since every transaction
+//! submitted to the view needs to be [validated][runtime_api::validate].
+//! Building upon the older blocks happens relatively rare so this does not affect blocks filling.
+//!
+//! The view is wrapper around [`Pool`] and exposes its functionality, including the ability
+//! of [tracking][`Watcher`] the progress of every transaction.
+//!
+//! #### Views: active, inactive.
+//! All the views are stored in [`ViewStore`] structure. In this documentation the views at the tips
+//! of the forks are referred as [`active_views`], while the intermediate views as
+//! [`inactive_views`].
+//!
+//!
+//! #### The life cycle of the [`View`].
+//! Views are created when the new [`ChainEvent`] is notified to the pool. The view that is
+//! [closest][find_best_view] to the newly notified block is chosen to clone from. Once built and
+//! updated the newly created view is placed in [`active_views`]. Detailed description of view
+//! creation is described in [the material to follow](#handling-the-new-best-block). When the view
+//! is no longer at the tip of the forks, it is moved to the [`inactive_views`]. When the block
+//! number of the view is lower then the finalized block, the view is permanently removed.
+//!
+//!
+//! *Example*:
+//! The following chain:
+//! ```text
+//!    C2 - C3 - C4
+//!   /
+//! B1
+//!   \
+//!    B2 - B3 - B4
+//! ```
+//! and the following set of events:
+//! ```text
+//! New best block: B1, C3, C4, B4
+//! ```
+//! will result in the following set of views within the [`ViewStore`]:
+//! ```text
+//!   active: C4, B4
+//! inactive: B1, C3
+//! ```
+//! Please note that views are only created for the notified blocks.
+//!
+//!
+//! ### View store.
+//! [`ViewStore`] is the helper structure that provides means to perform some actions like
+//! [`submit`] or [`submit_and_watch`] on every view. It keeps track of both active and inactive
+//! views.
+//!
+//! It also keeps tracks of the `most_recent_view` which is used to implement some methods of
+//! [TransactionPool API], see [API considerations](#api-considerations) section.
+//!
+//! ### Multi-view listeners
+//! There is a number of event streams that are provided by individual views:
+//! - [transaction status][`Watcher`],
+//! - [ready notification][`vp::import_notification_stream`] (see [networking
+//!   section](#networking)),
+//! - [dropped notification][`create_dropped_by_limits_stream`].
+//!
+//! These streams need to be merged into a single stream exposed by transaction pool (or used
+//! internally). Those aggregators are often referred as multi-view listeners and they implement
+//! stream-specific or event-specific logic.
+//!
+//! The most important is [`MultiViewListener`] which is owned by view store.
+//! More information about it is provided in [transaction
+//! route](#transaction-route-submit_and_watch) section.
+//!
+//!
+//! ### Intermediate transactions buffer: [`TxMemPool`]
+//! The main purpose of an internal [`TxMemPool`] (referred to as *mempool*) is to prevent a
+//! transaction from being lost, e.g. due to race condition when the new transaction submission
+//! occurs just before the new view is created. This could also happen when a transaction is invalid
+//! on one fork and could be valid on another which is not yet fully processed by the maintain
+//! procedure. Additionally, it allows the pool to accept transactions when no blocks have been
+//! reported yet.
+//!
+//! Since watched and non-watched transactions require a different treatment, the *mempool* keeps a
+//! track on how the transaction was submitted. The [transaction source][`TransactionSource`] used
+//! to submit transactions also needs to be kept in the *mempool*. The *mempool* transaction is a
+//! simple [wrapper][`TxInMemPool`] around the [`Arc`] reference to the actual extrinsic body.
+//!
+//! Once the view is created, all transactions from *mempool* are submitted to and validated at this
+//! view.
+//!
+//! The *mempool* removes its transactions when they get finalized. The transactions in *mempool*
+//! are also periodically verified at every finalized block and removed from the *mempool* if no
+//! longer valid. This is process is called [*mempool* revalidation](#mempool-pruningrevalidation).
+//!
+//! ## Flows
+//!
+//! The transaction pool internally is executing numerous tasks. This includes handling submitted
+//! transactions and tracking their progress, listening to [`ChainEvent`]s and executing the
+//! maintain process, which aims to provide the set of ready transactions. On the other side
+//! transaction pool provides a [`ready_at`] future that resolves to the iterator of ready
+//! transactions. On top of that pool performs background revalidation jobs.
+//!
+//! This section provides a top level overview of all flows within the fork aware transaction pool.
+//!
+//! ### Transaction route: [`submit`][`api_submit`]
+//! This flow is simple. Transaction is added to the mempool and if it is not rejected by it (due to
+//! size limits), it is also [submitted][`submit`] into every view in [`active_views`].
+//!
+//! When the newly created view does not contain this transaction yet, it is
+//! [re-submitted][ForkAwareTxPool::update_view_with_mempool] from [`TxMemPool`] into this view.
+//!
+//! ### Transaction route: [`submit_and_watch`][`api_submit_and_watch`]
+//!
+//! The [`submit_and_watch`] function allows to submit the transaction and track its
+//! [status][`TransactionStatus`] within the pool. Every view is providing an independent
+//! [stream][`View::submit_and_watch`] of events, which needs to be merged into the single stream
+//! exposed to the [external listener][`TransactionStatusStreamFor`]. For majority of events simple
+//! forwarding of events would not work (e.g. we could get multiple [`Ready`] events, or [`Ready`] /
+//! [`Future`] mix). Some additional stateful logic is required to filter and process the views'
+//! events. It is also easier to trigger some events (e.g. [`Finalized`], [`Invalid`], and
+//! [`Broadcast`]) using some side-channel and simply ignoring these events from the view. All the
+//! before mentioned functionality is provided by the [`MultiViewListener`].
+//!
+//! When watched transaction is submitted to the pool it is added the *mempool* with watched
+//! flag. The external stream for the transaction is created in a [`MultiViewListener`]. Then
+//! transaction is submitted to every active [`View`] (using
+//! [`submit_and_watch`][`View::submit_and_watch`]) and the resulting
+//! views' stream is connected to the [`MultiViewListener`].
+//!
+//! ### Maintain
+//! The transaction pool exposes the [task][`notification_future`] that listens to the
+//! finalized and best block streams and executes the [`maintain`] procedure.
+//!
+//! The [`maintain`] is the main procedure of the transaction pool. It handles incoming
+//! [`ChainEvent`]s, as described in the following two sub-sections.
+//!
+//! #### Handling the new (best) block
+//! If the new block actually needs to be handled, the following steps are
+//! executed:
+//! - [find][find_best_view] the best view and clone it to [create a new
+//! view][crate::ForkAwareTxPool::build_new_view],
+//! - [update the view][ForkAwareTxPool::update_view_with_mempool] with the transactions from the
+//!   *mempool*
+//! 	- all transactions from the *mempool* (with some obvious filtering applied) are submitted to
+//!    the view,
+//! 	- for all watched transactions from the *mempool* the watcher is registered in the new view,
+//! 	and it is connected to the multi-view-listener,
+//! - [update the view][ForkAwareTxPool::update_view_with_fork] with the transactions from the [tree
+//!   route][`TreeRoute`] (which is computed from the recent best block to newly notified one by
+//!   [enactment state][`EnactmentState`] helper):
+//! 	- resubmit the transactions from the retracted blocks,
+//! 	- prune extrinsic from the enacted blocks, and trigger [`InBlock`] events,
+//! - insert the newly created and updated view into the view store.
+//!
+//!
+//! #### Handling the finalized block
+//! The following actions are taken on every finalized block:
+//! - send [`Finalized`] events for every transactions on the finalized [tree route][`TreeRoute`],
+//! - remove all the views (both active and inactive) that are lower then finalized block from the
+//! view store,
+//! - removal of finalized transaction from the *mempool*,
+//! - trigger [*mempool* background revalidation](#mempool-pruningrevalidation).
+//! - clean up of multi-view listeners which is required to avoid ever-growing structures,
+//!
+//! ### Light maintain
+//! The [maintain](#maintain) procedure can sometimes be quite heavy, and it may not be accomplished
+//! within the time window expected by the block builder. On top of that block builder may want to
+//! build few blocks in the raw, not giving the pool enough time to accomplish possible ongoing
+//! maintain process.
+//!
+//! To address this, there is a [light version][`ready_at_light`] of the maintain procedure. It
+//! [finds the best view][find_best_view], clones it and prunes all the transactions that were
+//! included in enacted part of [tree route][`TreeRoute`] from the base view to the block at which a
+//! ready iterator was requested. No new [transaction validations][runtime_api::validate] are
+//! required to accomplish it.
+//!
+//! ### Providing ready transactions: `ready_at`
+//! The [`ready_at`] function returns a [future][`crate::PolledIterator`] that resolves to the
+//! [ready transactions iterator][`ReadyTransactions`]. The block builder shall wait either for the
+//! future to be resolved or for timeout to be hit. To avoid building empty blocks in case of
+//! timeout, the waiting for timeout functionality was moved into the transaction pool, and new API
+//! function was added: [`ready_at_with_timeout`]. This function also provides a fall back ready
+//! iterator which is result of [light maintain](#light-maintain).
+//!
+//! New function internally waits either for [maintain](#maintain) process triggered for requested
+//! block to be accomplished or for the timeout. If timeout hits then the result of [light
+//! maintain](#light-maintain) is returned. Light maintain is always executed at the beginning of
+//! [`ready_at_with_timeout`] to make sure that it is available w/ o additional delay.
+//!
+//! If the maintain process for the requested block was accomplished before the `ready_at` functions
+//! are called both of them immediately provide the ready transactions iterator (which is simply
+//! requested on the appropriate instance of the [`View`]).
+//!
+//! The little [`ReadyPoll`] helper contained within [`ForkAwareTxPool`] as ([`ready_poll`])
+//! implements the futures management.
+//!
+//! ### Background tasks
+//! The [maintain](#maintain) procedure shall be as quick as possible, so heavy revalidation job is
+//! delegated to the background worker. These includes view and *mempool* revalidation which are
+//! both handled by the [`RevalidationQueue`] which simply sends revalidation requests to the
+//! background thread.
+//!
+//! ####  View revalidation
+//! View revalidation is performed in the background thread. Revalidation is executed for every
+//! view. All the transaction from the view are [revalidated][`view::revalidate`].
+//!
+//! The fork-aware pool utilizes two threads to execute maintain and revalidation process
+//! exclusively, ensuring maintain performance without overlapping with revalidation.
+//!
+//! The view revalidation process is [triggered][`start_background_revalidation`] at the very end of
+//! the [maintain][`maintain`] process, and [stopped][`finish_background_revalidations`] at the
+//! very beginning of the next maintenance execution (upon the next [`ChainEvent`] reception). The
+//! results from the revalidation are immediately applied once the revalidation is
+//! [terminated][crate::fork_aware_txpool::view::View::finish_revalidation].
+//! ```text
+//!                time: ----------------------&gt;
+//!  maintenance thread: M----M------M--M-M---
+//! revalidation thread: -RRRR-RR-----RR-R-RRR
+//! ```
+//!
+//! ####  Mempool pruning/revalidation
+//! Transactions within *mempool* are constantly revalidated in the background. The
+//! [revalidation][`mp::revalidate`] is performed in [batches][`batch_size`], and transactions that
+//! were validated as latest, are revalidated first in the next iteration. The revalidation is
+//! triggered on every finalized block. If a transaction is found to be invalid, the [`Invalid`]
+//! event is sent and transaction is removed from the *mempool*.
+//!
+//! NOTE: There is one exception: if transaction is referenced by any view as ready, then it is
+//! removed from the *mempool*, but not removed from the view. The [`Invalid`] event is not sent.
+//! This case is not likely to happen, however it may need some extra attention.
+//!
+//! ### Networking
+//! The pool is exposing [`ImportNotificationStream`][`import_notification_stream`], the dedicated
+//! channel over which all ready transactions are notified. Internally this channel needs to merge
+//! all ready events from every view. This functionality is implemented by
+//! [`MultiViewImportNotificationSink`].
+//!
+//! The networking module is utilizing this channel to receive info about new ready transactions
+//! which later will be propagated over the network. On the other side, when a transaction is
+//! received networking submits transaction to the pool using [`submit`][`api_submit`].
+//!
+//! ### Handling invalid transactions
+//! Refer to *mempool* revalidation [section](#mempool-pruningrevalidation).
+//!
+//! ## Pool limits
+//! Every [`View`] has the [limits][`Options`] for the number or size of transactions it can hold.
+//! Obviously the number of transactions in every view is not distributed equally, so some views
+//! might be fully filled while others not.
+//!
+//! On the other hand the size of internal *mempool* shall also be capped, but transactions that are
+//! still referenced by views should not be removed.
+//!
+//! When the [`View`] is at its limits, it can either reject the transaction during
+//! submission process, or it can accept the transaction and drop different transaction which is
+//! already in the pool during the [`enforce_limits`][`vp::enforce_limits`] process.
+//!
+//! The [`StreamOfDropped`] stream aggregating [per-view][`create_dropped_by_limits_stream`] streams
+//! allows to monitor the transactions that were dropped by all the views (or dropped by some views
+//! while not referenced by the others), what means that transaction can also be
+//! [removed][`dropped_monitor_task`] from the *mempool*.
+//!
+//!
+//! ## API Considerations
+//! Refer to github issue: &lt;https://github.com/paritytech/polkadot-sdk/issues/5491&gt;
+//!
+//! [`View`]: crate::fork_aware_txpool::view::View
+//! [`view::revalidate`]: crate::fork_aware_txpool::view::View::revalidate
+//! [`start_background_revalidation`]: crate::fork_aware_txpool::view::View::start_background_revalidation
+//! [`View::submit_and_watch`]: crate::fork_aware_txpool::view::View::submit_and_watch
+//! [`ViewStore`]: crate::fork_aware_txpool::view_store::ViewStore
+//! [`finish_background_revalidations`]: crate::fork_aware_txpool::view_store::ViewStore::finish_background_revalidations
+//! [find_best_view]: crate::fork_aware_txpool::view_store::ViewStore::find_best_view
+//! [`active_views`]: crate::fork_aware_txpool::view_store::ViewStore::active_views
+//! [`inactive_views`]: crate::fork_aware_txpool::view_store::ViewStore::inactive_views
+//! [`TxMemPool`]: crate::fork_aware_txpool::tx_mem_pool::TxMemPool
+//! [`mp::revalidate`]: crate::fork_aware_txpool::tx_mem_pool::TxMemPool::revalidate
+//! [`batch_size`]: crate::fork_aware_txpool::tx_mem_pool::TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE
+//! [`TxInMemPool`]: crate::fork_aware_txpool::tx_mem_pool::TxInMemPool
+//! [`MultiViewListener`]: crate::fork_aware_txpool::multi_view_listener::MultiViewListener
+//! [`Pool`]: crate::graph::Pool
+//! [`Watcher`]: crate::graph::watcher::Watcher
+//! [`Options`]: crate::graph::Options
+//! [`vp::import_notification_stream`]: ../graph/validated_pool/struct.ValidatedPool.html#method.import_notification_stream
+//! [`vp::enforce_limits`]: ../graph/validated_pool/struct.ValidatedPool.html#method.enforce_limits
+//! [`create_dropped_by_limits_stream`]: ../graph/validated_pool/struct.ValidatedPool.html#method.create_dropped_by_limits_stream
+//! [`ChainEvent`]: sc_transaction_pool_api::ChainEvent
+//! [`TransactionStatusStreamFor`]: sc_transaction_pool_api::TransactionStatusStreamFor
+//! [`api_submit`]: sc_transaction_pool_api::TransactionPool::submit_at
+//! [`api_submit_and_watch`]: sc_transaction_pool_api::TransactionPool::submit_and_watch
+//! [`ready_at_with_timeout`]: sc_transaction_pool_api::TransactionPool::ready_at_with_timeout
+//! [`TransactionSource`]: sc_transaction_pool_api::TransactionSource
+//! [TransactionPool API]: sc_transaction_pool_api::TransactionPool
+//! [`TransactionStatus`]:sc_transaction_pool_api::TransactionStatus
+//! [`Ready`]:sc_transaction_pool_api::TransactionStatus::Ready
+//! [`Future`]:sc_transaction_pool_api::TransactionStatus::Future
+//! [`Broadcast`]:sc_transaction_pool_api::TransactionStatus::Broadcast
+//! [`Invalid`]:sc_transaction_pool_api::TransactionStatus::Invalid
+//! [`InBlock`]:sc_transaction_pool_api::TransactionStatus::InBlock
+//! [`Finalized`]:sc_transaction_pool_api::TransactionStatus::Finalized
+//! [`ReadyTransactions`]:sc_transaction_pool_api::ReadyTransactions
+//! [`dropped_monitor_task`]: ForkAwareTxPool::dropped_monitor_task
+//! [`ready_poll`]: ForkAwareTxPool::ready_poll
+//! [`ready_at_light`]: ForkAwareTxPool::ready_at_light
+//! [`ready_at`]: ../struct.ForkAwareTxPool.html#method.ready_at
+//! [`import_notification_stream`]: ../struct.ForkAwareTxPool.html#method.import_notification_stream
+//! [`maintain`]: ../struct.ForkAwareTxPool.html#method.maintain
+//! [`submit`]: ../struct.ForkAwareTxPool.html#method.submit_at
+//! [`submit_and_watch`]: ../struct.ForkAwareTxPool.html#method.submit_and_watch
+//! [`ReadyPoll`]: ../fork_aware_txpool/fork_aware_txpool/struct.ReadyPoll.html
+//! [`TreeRoute`]: sp_blockchain::TreeRoute
+//! [runtime_api::validate]: sp_transaction_pool::runtime_api::TaggedTransactionQueue::validate_transaction
+//! [`notification_future`]: crate::common::notification_future
+//! [`EnactmentState`]: crate::common::enactment_state::EnactmentState
+//! [`MultiViewImportNotificationSink`]: crate::fork_aware_txpool::import_notification_sink::MultiViewImportNotificationSink
+//! [`RevalidationQueue`]: crate::fork_aware_txpool::revalidation_worker::RevalidationQueue
+//! [`StreamOfDropped`]: crate::fork_aware_txpool::dropped_watcher::StreamOfDropped
+//! [`Arc`]: std::sync::Arc
+
+</span><span class="kw">mod </span>dropped_watcher;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>fork_aware_txpool;
+<span class="kw">mod </span>import_notification_sink;
+<span class="kw">mod </span>metrics;
+<span class="kw">mod </span>multi_view_listener;
+<span class="kw">mod </span>revalidation_worker;
+<span class="kw">mod </span>tx_mem_pool;
+<span class="kw">mod </span>view;
+<span class="kw">mod </span>view_store;
+
+<span class="kw">pub use </span>fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
+
+<span class="kw">mod </span>stream_map_util {
+	<span class="kw">use </span>futures::Stream;
+	<span class="kw">use </span>std::marker::Unpin;
+	<span class="kw">use </span>tokio_stream::StreamMap;
+
+	<span class="kw">pub async fn </span>next_event&lt;K, V&gt;(
+		stream_map: <span class="kw-2">&amp;mut </span>StreamMap&lt;K, V&gt;,
+	) -&gt; <span class="prelude-ty">Option</span>&lt;(K, &lt;V <span class="kw">as </span>Stream&gt;::Item)&gt;
+	<span class="kw">where
+		</span>K: Clone + Unpin,
+		V: Stream + Unpin,
+	{
+		<span class="kw">if </span>stream_map.is_empty() {
+			<span class="comment">// yield pending to prevent busy-loop on an empty map
+			</span><span class="macro">futures::pending!</span>()
+		}
+
+		futures::StreamExt::next(stream_map).<span class="kw">await
+	</span>}
+}
+</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Auto-generated docs-only module listing all (public and private) defined storage types for this pallet."><title>pallet_staking::storage_types - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_staking/index.html">pallet_staking</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Module storage_types</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li></ul></section><h2><a href="../index.html">In crate pallet_staking</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">pallet_staking</a>::<wbr><a class="mod" href="#">storage_types</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_staking/pallet/mod.rs.html#63">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Auto-generated docs-only module listing all (public and private) defined storage types
+for this pallet.</p>
+<h2 id="warning-doc-only"><a class="doc-anchor" href="#warning-doc-only">§</a>Warning: Doc-Only</h2>
+<p>Members of this module cannot be used directly and are only provided for documentation
+purposes.</p>
+<p>To see the actual storage type, find a struct with the same name at the root of the
+pallet, in the list of <a href="../index.html#types"><em>Type Definitions</em></a>.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.ActiveEra.html" title="struct pallet_staking::storage_types::ActiveEra">ActiveEra</a></div><div class="desc docblock-short">The active era information, it holds index and start.</div></li><li><div class="item-name"><a class="struct" href="struct.Bonded.html" title="struct pallet_staking::storage_types::Bonded">Bonded</a></div><div class="desc docblock-short">Map from all locked “stash” accounts to the controller account.</div></li><li><div class="item-name"><a class="struct" href="struct.BondedEras.html" title="struct pallet_staking::storage_types::BondedEras">BondedEras</a></div><div class="desc docblock-short">A mapping from still-bonded eras to the first session index of that era.</div></li><li><div class="item-name"><a class="struct" href="struct.CanceledSlashPayout.html" title="struct pallet_staking::storage_types::CanceledSlashPayout">CanceledSlashPayout</a></div><div class="desc docblock-short">The amount of currency given to reporters of a slash event which was
+canceled by extraordinary circumstances (e.g. governance).</div></li><li><div class="item-name"><a class="struct" href="struct.ChillThreshold.html" title="struct pallet_staking::storage_types::ChillThreshold">ChillThreshold</a></div><div class="desc docblock-short">The threshold for when users can start calling <code>chill_other</code> for other validators /
+nominators. The threshold is compared to the actual number of validators / nominators
+(<code>CountFor*</code>) in the system compared to the configured max (<code>Max*Count</code>).</div></li><li><div class="item-name"><a class="struct" href="struct.ClaimedRewards.html" title="struct pallet_staking::storage_types::ClaimedRewards">ClaimedRewards</a></div><div class="desc docblock-short">History of claimed paged rewards by era and validator.</div></li><li><div class="item-name"><a class="struct" href="struct.CurrentEra.html" title="struct pallet_staking::storage_types::CurrentEra">CurrentEra</a></div><div class="desc docblock-short">The current era index.</div></li><li><div class="item-name"><a class="struct" href="struct.CurrentPlannedSession.html" title="struct pallet_staking::storage_types::CurrentPlannedSession">CurrentPlannedSession</a></div><div class="desc docblock-short">The last planned session scheduled by the session pallet.</div></li><li><div class="item-name"><a class="struct" href="struct.DisabledValidators.html" title="struct pallet_staking::storage_types::DisabledValidators">DisabledValidators</a></div><div class="desc docblock-short">Indices of validators that have offended in the active era. The offenders are disabled for a
+whole era. For this reason they are kept here - only staking pallet knows about eras. The
+implementor of <a href="../trait.DisablingStrategy.html" title="trait pallet_staking::DisablingStrategy"><code>DisablingStrategy</code></a> defines if a validator should be disabled which
+implicitly means that the implementor also controls the max number of disabled validators.</div></li><li><div class="item-name"><a class="struct" href="struct.ErasRewardPoints.html" title="struct pallet_staking::storage_types::ErasRewardPoints">ErasRewardPoints</a></div><div class="desc docblock-short">Rewards for the last <a href="../trait.Config.html#associatedtype.HistoryDepth" title="associated type pallet_staking::Config::HistoryDepth"><code>Config::HistoryDepth</code></a> eras.
+If reward hasn’t been set or has been removed then 0 reward is returned.</div></li><li><div class="item-name"><a class="struct" href="struct.ErasStakers.html" title="struct pallet_staking::storage_types::ErasStakers">ErasStakers</a></div><div class="desc docblock-short">Exposure of validator at era.</div></li><li><div class="item-name"><a class="struct" href="struct.ErasStakersClipped.html" title="struct pallet_staking::storage_types::ErasStakersClipped">ErasStakersClipped</a></div><div class="desc docblock-short">Clipped Exposure of validator at era.</div></li><li><div class="item-name"><a class="struct" href="struct.ErasStakersOverview.html" title="struct pallet_staking::storage_types::ErasStakersOverview">ErasStakersOverview</a></div><div class="desc docblock-short">Summary of validator exposure at a given era.</div></li><li><div class="item-name"><a class="struct" href="struct.ErasStakersPaged.html" title="struct pallet_staking::storage_types::ErasStakersPaged">ErasStakersPaged</a></div><div class="desc docblock-short">Paginated exposure of a validator at given era.</div></li><li><div class="item-name"><a class="struct" href="struct.ErasStartSessionIndex.html" title="struct pallet_staking::storage_types::ErasStartSessionIndex">ErasStartSessionIndex</a></div><div class="desc docblock-short">The session index at which the era start for the last <a href="../trait.Config.html#associatedtype.HistoryDepth" title="associated type pallet_staking::Config::HistoryDepth"><code>Config::HistoryDepth</code></a> eras.</div></li><li><div class="item-name"><a class="struct" href="struct.ErasTotalStake.html" title="struct pallet_staking::storage_types::ErasTotalStake">ErasTotalStake</a></div><div class="desc docblock-short">The total amount staked for the last <a href="../trait.Config.html#associatedtype.HistoryDepth" title="associated type pallet_staking::Config::HistoryDepth"><code>Config::HistoryDepth</code></a> eras.
+If total hasn’t been set or has been removed then 0 stake is returned.</div></li><li><div class="item-name"><a class="struct" href="struct.ErasValidatorPrefs.html" title="struct pallet_staking::storage_types::ErasValidatorPrefs">ErasValidatorPrefs</a></div><div class="desc docblock-short">Similar to <code>ErasStakers</code>, this holds the preferences of validators.</div></li><li><div class="item-name"><a class="struct" href="struct.ErasValidatorReward.html" title="struct pallet_staking::storage_types::ErasValidatorReward">ErasValidatorReward</a></div><div class="desc docblock-short">The total validator era payout for the last <a href="../trait.Config.html#associatedtype.HistoryDepth" title="associated type pallet_staking::Config::HistoryDepth"><code>Config::HistoryDepth</code></a> eras.</div></li><li><div class="item-name"><a class="struct" href="struct.ForceEra.html" title="struct pallet_staking::storage_types::ForceEra">ForceEra</a></div><div class="desc docblock-short">Mode of era forcing.</div></li><li><div class="item-name"><a class="struct" href="struct.Invulnerables.html" title="struct pallet_staking::storage_types::Invulnerables">Invulnerables</a></div><div class="desc docblock-short">Any validators that may never be slashed or forcibly kicked. It’s a Vec since they’re
+easy to initialize and the performance hit is minimal (we expect no more than four
+invulnerables) and restricted to testnets.</div></li><li><div class="item-name"><a class="struct" href="struct.Ledger.html" title="struct pallet_staking::storage_types::Ledger">Ledger</a></div><div class="desc docblock-short">Map from all (unlocked) “controller” accounts to the info regarding the staking.</div></li><li><div class="item-name"><a class="struct" href="struct.MaxNominatorsCount.html" title="struct pallet_staking::storage_types::MaxNominatorsCount">MaxNominatorsCount</a></div><div class="desc docblock-short">The maximum nominator count before we stop allowing new validators to join.</div></li><li><div class="item-name"><a class="struct" href="struct.MaxStakedRewards.html" title="struct pallet_staking::storage_types::MaxStakedRewards">MaxStakedRewards</a></div><div class="desc docblock-short">Maximum staked rewards, i.e. the percentage of the era inflation that
+is used for stake rewards.
+See <a href="./index.html#era-payout">Era payout</a>.</div></li><li><div class="item-name"><a class="struct" href="struct.MaxValidatorsCount.html" title="struct pallet_staking::storage_types::MaxValidatorsCount">MaxValidatorsCount</a></div><div class="desc docblock-short">The maximum validator count before we stop allowing new validators to join.</div></li><li><div class="item-name"><a class="struct" href="struct.MinCommission.html" title="struct pallet_staking::storage_types::MinCommission">MinCommission</a></div><div class="desc docblock-short">The minimum amount of commission that validators can set.</div></li><li><div class="item-name"><a class="struct" href="struct.MinNominatorBond.html" title="struct pallet_staking::storage_types::MinNominatorBond">MinNominatorBond</a></div><div class="desc docblock-short">The minimum active bond to become and maintain the role of a nominator.</div></li><li><div class="item-name"><a class="struct" href="struct.MinValidatorBond.html" title="struct pallet_staking::storage_types::MinValidatorBond">MinValidatorBond</a></div><div class="desc docblock-short">The minimum active bond to become and maintain the role of a validator.</div></li><li><div class="item-name"><a class="struct" href="struct.MinimumActiveStake.html" title="struct pallet_staking::storage_types::MinimumActiveStake">MinimumActiveStake</a></div><div class="desc docblock-short">The minimum active nominator stake of the last successful election.</div></li><li><div class="item-name"><a class="struct" href="struct.MinimumValidatorCount.html" title="struct pallet_staking::storage_types::MinimumValidatorCount">MinimumValidatorCount</a></div><div class="desc docblock-short">Minimum number of staking participants before emergency conditions are imposed.</div></li><li><div class="item-name"><a class="struct" href="struct.NominatorSlashInEra.html" title="struct pallet_staking::storage_types::NominatorSlashInEra">NominatorSlashInEra</a></div><div class="desc docblock-short">All slashing events on nominators, mapped by era to the highest slash value of the era.</div></li><li><div class="item-name"><a class="struct" href="struct.Nominators.html" title="struct pallet_staking::storage_types::Nominators">Nominators</a></div><div class="desc docblock-short">The map from nominator stash key to their nomination preferences, namely the validators that
+they wish to support.</div></li><li><div class="item-name"><a class="struct" href="struct.Payee.html" title="struct pallet_staking::storage_types::Payee">Payee</a></div><div class="desc docblock-short">Where the reward payment should be made. Keyed by stash.</div></li><li><div class="item-name"><a class="struct" href="struct.SlashRewardFraction.html" title="struct pallet_staking::storage_types::SlashRewardFraction">SlashRewardFraction</a></div><div class="desc docblock-short">The percentage of the slash that is distributed to reporters.</div></li><li><div class="item-name"><a class="struct" href="struct.SlashingSpans.html" title="struct pallet_staking::storage_types::SlashingSpans">SlashingSpans</a></div><div class="desc docblock-short">Slashing spans for stash accounts.</div></li><li><div class="item-name"><a class="struct" href="struct.SpanSlash.html" title="struct pallet_staking::storage_types::SpanSlash">SpanSlash</a></div><div class="desc docblock-short">Records information about the maximum slash of a stash within a slashing span,
+as well as how much reward has been paid out.</div></li><li><div class="item-name"><a class="struct" href="struct.UnappliedSlashes.html" title="struct pallet_staking::storage_types::UnappliedSlashes">UnappliedSlashes</a></div><div class="desc docblock-short">All unapplied slashes that are queued for later.</div></li><li><div class="item-name"><a class="struct" href="struct.ValidatorCount.html" title="struct pallet_staking::storage_types::ValidatorCount">ValidatorCount</a></div><div class="desc docblock-short">The ideal number of active validators.</div></li><li><div class="item-name"><a class="struct" href="struct.ValidatorSlashInEra.html" title="struct pallet_staking::storage_types::ValidatorSlashInEra">ValidatorSlashInEra</a></div><div class="desc docblock-short">All slashing events on validators, mapped by era to the highest slash proportion
+and slash value of the era.</div></li><li><div class="item-name"><a class="struct" href="struct.Validators.html" title="struct pallet_staking::storage_types::Validators">Validators</a></div><div class="desc docblock-short">The map from (wannabe) validator stash key to the preferences of that validator.</div></li><li><div class="item-name"><a class="struct" href="struct.VirtualStakers.html" title="struct pallet_staking::storage_types::VirtualStakers">VirtualStakers</a></div><div class="desc docblock-short">Stakers whose funds are managed by other pallets.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

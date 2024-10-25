@@ -1,0 +1,224 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Handle withdrawing, refunding and depositing of transaction fees."><title>OnChargeTransaction in pallet_transaction_payment - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_transaction_payment" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_transaction_payment/index.html">pallet_transaction_payment</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">OnChargeTransaction</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Balance">Balance</a></li><li><a href="#associatedtype.LiquidityInfo">LiquidityInfo</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.can_withdraw_fee">can_withdraw_fee</a></li><li><a href="#tymethod.correct_and_deposit_fee">correct_and_deposit_fee</a></li><li><a href="#tymethod.endow_account">endow_account</a></li><li><a href="#tymethod.minimum_balance">minimum_balance</a></li><li><a href="#tymethod.withdraw_fee">withdraw_fee</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate pallet_transaction_payment</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">pallet_transaction_payment</a>::<wbr><a class="trait" href="#">OnChargeTransaction</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_transaction_payment/payment.rs.html#40-88">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait OnChargeTransaction&lt;T: <a class="trait" href="pallet/trait.Config.html" title="trait pallet_transaction_payment::pallet::Config">Config</a>&gt; {
+    type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: Balance;
+    type <a href="#associatedtype.LiquidityInfo" class="associatedtype">LiquidityInfo</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a>;
+
+    // Required methods
+    fn <a href="#tymethod.withdraw_fee" class="fn">withdraw_fee</a>(
+        who: &amp;T::AccountId,
+        call: &amp;T::RuntimeCall,
+        dispatch_info: &amp;DispatchInfoOf&lt;T::RuntimeCall&gt;,
+        fee: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a>,
+        tip: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.LiquidityInfo" title="type pallet_transaction_payment::OnChargeTransaction::LiquidityInfo">LiquidityInfo</a>, TransactionValidityError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.can_withdraw_fee" class="fn">can_withdraw_fee</a>(
+        who: &amp;T::AccountId,
+        call: &amp;T::RuntimeCall,
+        dispatch_info: &amp;DispatchInfoOf&lt;T::RuntimeCall&gt;,
+        fee: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a>,
+        tip: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, TransactionValidityError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.correct_and_deposit_fee" class="fn">correct_and_deposit_fee</a>(
+        who: &amp;T::AccountId,
+        dispatch_info: &amp;DispatchInfoOf&lt;T::RuntimeCall&gt;,
+        post_info: &amp;PostDispatchInfoOf&lt;T::RuntimeCall&gt;,
+        corrected_fee: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a>,
+        tip: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a>,
+        already_withdrawn: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.LiquidityInfo" title="type pallet_transaction_payment::OnChargeTransaction::LiquidityInfo">LiquidityInfo</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, TransactionValidityError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.endow_account" class="fn">endow_account</a>(who: &amp;T::AccountId, amount: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.minimum_balance" class="fn">minimum_balance</a>() -&gt; Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Handle withdrawing, refunding and depositing of transaction fees.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Balance" class="method"><a class="src rightside" href="../src/pallet_transaction_payment/payment.rs.html#42">source</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: Balance</h4></section></summary><div class="docblock"><p>The underlying integer type in which fees are calculated.</p>
+</div></details><section id="associatedtype.LiquidityInfo" class="method"><a class="src rightside" href="../src/pallet_transaction_payment/payment.rs.html#44">source</a><h4 class="code-header">type <a href="#associatedtype.LiquidityInfo" class="associatedtype">LiquidityInfo</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a></h4></section></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.withdraw_fee" class="method"><a class="src rightside" href="../src/pallet_transaction_payment/payment.rs.html#50-56">source</a><h4 class="code-header">fn <a href="#tymethod.withdraw_fee" class="fn">withdraw_fee</a>(
+    who: &amp;T::AccountId,
+    call: &amp;T::RuntimeCall,
+    dispatch_info: &amp;DispatchInfoOf&lt;T::RuntimeCall&gt;,
+    fee: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a>,
+    tip: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.LiquidityInfo" title="type pallet_transaction_payment::OnChargeTransaction::LiquidityInfo">LiquidityInfo</a>, TransactionValidityError&gt;</h4></section></summary><div class="docblock"><p>Before the transaction is executed the payment of the transaction fees
+need to be secured.</p>
+<p>Note: The <code>fee</code> already includes the <code>tip</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.can_withdraw_fee" class="method"><a class="src rightside" href="../src/pallet_transaction_payment/payment.rs.html#61-67">source</a><h4 class="code-header">fn <a href="#tymethod.can_withdraw_fee" class="fn">can_withdraw_fee</a>(
+    who: &amp;T::AccountId,
+    call: &amp;T::RuntimeCall,
+    dispatch_info: &amp;DispatchInfoOf&lt;T::RuntimeCall&gt;,
+    fee: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a>,
+    tip: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, TransactionValidityError&gt;</h4></section></summary><div class="docblock"><p>Check if the predicted fee from the transaction origin can be withdrawn.</p>
+<p>Note: The <code>fee</code> already includes the <code>tip</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.correct_and_deposit_fee" class="method"><a class="src rightside" href="../src/pallet_transaction_payment/payment.rs.html#74-81">source</a><h4 class="code-header">fn <a href="#tymethod.correct_and_deposit_fee" class="fn">correct_and_deposit_fee</a>(
+    who: &amp;T::AccountId,
+    dispatch_info: &amp;DispatchInfoOf&lt;T::RuntimeCall&gt;,
+    post_info: &amp;PostDispatchInfoOf&lt;T::RuntimeCall&gt;,
+    corrected_fee: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a>,
+    tip: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a>,
+    already_withdrawn: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.LiquidityInfo" title="type pallet_transaction_payment::OnChargeTransaction::LiquidityInfo">LiquidityInfo</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, TransactionValidityError&gt;</h4></section></summary><div class="docblock"><p>After the transaction was executed the actual fee can be calculated.
+This function should refund any overpaid fees and optionally deposit
+the corrected amount.</p>
+<p>Note: The <code>fee</code> already includes the <code>tip</code>.</p>
+</div></details><section id="tymethod.endow_account" class="method"><a class="src rightside" href="../src/pallet_transaction_payment/payment.rs.html#84">source</a><h4 class="code-header">fn <a href="#tymethod.endow_account" class="fn">endow_account</a>(who: &amp;T::AccountId, amount: Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a>)</h4></section><section id="tymethod.minimum_balance" class="method"><a class="src rightside" href="../src/pallet_transaction_payment/payment.rs.html#87">source</a><h4 class="code-header">fn <a href="#tymethod.minimum_balance" class="fn">minimum_balance</a>() -&gt; Self::<a class="associatedtype" href="trait.OnChargeTransaction.html#associatedtype.Balance" title="type pallet_transaction_payment::OnChargeTransaction::Balance">Balance</a></h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-OnChargeTransaction%3CT%3E-for-CurrencyAdapter%3CC,+OU%3E" class="impl"><a class="src rightside" href="../src/pallet_transaction_payment/payment.rs.html#206-318">source</a><a href="#impl-OnChargeTransaction%3CT%3E-for-CurrencyAdapter%3CC,+OU%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, C, OU&gt; <a class="trait" href="trait.OnChargeTransaction.html" title="trait pallet_transaction_payment::OnChargeTransaction">OnChargeTransaction</a>&lt;T&gt; for <a class="struct" href="struct.CurrencyAdapter.html" title="struct pallet_transaction_payment::CurrencyAdapter">CurrencyAdapter</a>&lt;C, OU&gt;<div class="where">where
+    T: <a class="trait" href="pallet/trait.Config.html" title="trait pallet_transaction_payment::pallet::Config">Config</a>,
+    C: Currency&lt;&lt;T as Config&gt;::AccountId&gt;,
+    C::PositiveImbalance: Imbalance&lt;&lt;C as Currency&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::Balance, Opposite = C::NegativeImbalance&gt;,
+    C::NegativeImbalance: Imbalance&lt;&lt;C as Currency&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::Balance, Opposite = C::PositiveImbalance&gt;,
+    OU: OnUnbalanced&lt;&lt;C as Currency&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::NegativeImbalance&gt;,</div></h3></section></summary><div class="docblock"><p>Default implementation for a Currency and an OnUnbalanced handler.</p>
+<p>The unbalance handler is given 2 unbalanceds in [<code>OnUnbalanced::on_unbalanceds</code>]: <code>fee</code> and
+then <code>tip</code>.</p>
+</div><div class="impl-items"><section id="associatedtype.LiquidityInfo-1" class="associatedtype trait-impl"><a href="#associatedtype.LiquidityInfo-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.LiquidityInfo" class="associatedtype">LiquidityInfo</a> = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;C as Currency&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::NegativeImbalance&gt;</h4></section><section id="associatedtype.Balance-1" class="associatedtype trait-impl"><a href="#associatedtype.Balance-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a> = &lt;C as Currency&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::Balance</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-OnChargeTransaction%3CT%3E-for-FungibleAdapter%3CF,+OU%3E" class="impl"><a class="src rightside" href="../src/pallet_transaction_payment/payment.rs.html#98-188">source</a><a href="#impl-OnChargeTransaction%3CT%3E-for-FungibleAdapter%3CF,+OU%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, F, OU&gt; <a class="trait" href="trait.OnChargeTransaction.html" title="trait pallet_transaction_payment::OnChargeTransaction">OnChargeTransaction</a>&lt;T&gt; for <a class="struct" href="struct.FungibleAdapter.html" title="struct pallet_transaction_payment::FungibleAdapter">FungibleAdapter</a>&lt;F, OU&gt;<div class="where">where
+    T: <a class="trait" href="pallet/trait.Config.html" title="trait pallet_transaction_payment::pallet::Config">Config</a>,
+    F: Balanced&lt;T::AccountId&gt;,
+    OU: OnUnbalanced&lt;Credit&lt;T::AccountId, F&gt;&gt;,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.LiquidityInfo-2" class="associatedtype trait-impl"><a href="#associatedtype.LiquidityInfo-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.LiquidityInfo" class="associatedtype">LiquidityInfo</a> = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Imbalance&lt;&lt;F as Inspect&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::Balance, &lt;F as Balanced&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::OnDropCredit, &lt;F as Balanced&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::OnDropDebt&gt;&gt;</h4></section><section id="associatedtype.Balance-2" class="associatedtype trait-impl"><a href="#associatedtype.Balance-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a> = &lt;F as Inspect&lt;&lt;T as Config&gt;::AccountId&gt;&gt;::Balance</h4></section></div></details></div><script src="../trait.impl/pallet_transaction_payment/payment/trait.OnChargeTransaction.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

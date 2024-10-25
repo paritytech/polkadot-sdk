@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="staging_xcm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../staging_xcm_builder/index.html">staging_xcm_builder</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.Account32Hash.html">Account32Hash</a></li><li><a href="struct.AccountId32Aliases.html">AccountId32Aliases</a></li><li><a href="struct.AccountKey20Aliases.html">AccountKey20Aliases</a></li><li><a href="struct.AliasForeignAccountId32.html">AliasForeignAccountId32</a></li><li><a href="struct.AliasesIntoAccountId32.html">AliasesIntoAccountId32</a></li><li><a href="struct.AllAssets.html">AllAssets</a></li><li><a href="struct.AllowExplicitUnpaidExecutionFrom.html">AllowExplicitUnpaidExecutionFrom</a></li><li><a href="struct.AllowHrmpNotificationsFromRelayChain.html">AllowHrmpNotificationsFromRelayChain</a></li><li><a href="struct.AllowKnownQueryResponses.html">AllowKnownQueryResponses</a></li><li><a href="struct.AllowSubscriptionsFrom.html">AllowSubscriptionsFrom</a></li><li><a href="struct.AllowTopLevelPaidExecutionFrom.html">AllowTopLevelPaidExecutionFrom</a></li><li><a href="struct.AllowUnpaidExecutionFrom.html">AllowUnpaidExecutionFrom</a></li><li><a href="struct.AsPrefixedGeneralIndex.html">AsPrefixedGeneralIndex</a></li><li><a href="struct.BackingToPlurality.html">BackingToPlurality</a></li><li><a href="struct.BridgeBlobDispatcher.html">BridgeBlobDispatcher</a></li><li><a href="struct.BridgeMessage.html">BridgeMessage</a></li><li><a href="struct.Case.html">Case</a></li><li><a href="struct.ChildParachainAsNative.html">ChildParachainAsNative</a></li><li><a href="struct.ChildParachainConvertsVia.html">ChildParachainConvertsVia</a></li><li><a href="struct.ChildSystemParachainAsSuperuser.html">ChildSystemParachainAsSuperuser</a></li><li><a href="struct.ConvertedConcreteId.html">ConvertedConcreteId</a></li><li><a href="struct.CurrencyAdapter.html">CurrencyAdapter</a></li><li><a href="struct.DenyReserveTransferToRelayChain.html">DenyReserveTransferToRelayChain</a></li><li><a href="struct.DenyThenTry.html">DenyThenTry</a></li><li><a href="struct.DescribeAccountId32Terminal.html">DescribeAccountId32Terminal</a></li><li><a href="struct.DescribeAccountKey20Terminal.html">DescribeAccountKey20Terminal</a></li><li><a href="struct.DescribeBodyTerminal.html">DescribeBodyTerminal</a></li><li><a href="struct.DescribeFamily.html">DescribeFamily</a></li><li><a href="struct.DescribePalletTerminal.html">DescribePalletTerminal</a></li><li><a href="struct.DescribeTerminus.html">DescribeTerminus</a></li><li><a href="struct.DescribeTreasuryVoiceTerminal.html">DescribeTreasuryVoiceTerminal</a></li><li><a href="struct.DualMint.html">DualMint</a></li><li><a href="struct.EnsureDecodableXcm.html">EnsureDecodableXcm</a></li><li><a href="struct.EnsureXcmOrigin.html">EnsureXcmOrigin</a></li><li><a href="struct.FixedLocation.html">FixedLocation</a></li><li><a href="struct.FixedRateOfFungible.html">FixedRateOfFungible</a></li><li><a href="struct.FixedWeightBounds.html">FixedWeightBounds</a></li><li><a href="struct.FrameTransactionalProcessor.html">FrameTransactionalProcessor</a></li><li><a href="struct.FungibleAdapter.html">FungibleAdapter</a></li><li><a href="struct.FungibleMutateAdapter.html">FungibleMutateAdapter</a></li><li><a href="struct.FungibleTransferAdapter.html">FungibleTransferAdapter</a></li><li><a href="struct.FungiblesAdapter.html">FungiblesAdapter</a></li><li><a href="struct.FungiblesMutateAdapter.html">FungiblesMutateAdapter</a></li><li><a href="struct.FungiblesTransferAdapter.html">FungiblesTransferAdapter</a></li><li><a href="struct.GlobalConsensusConvertsFor.html">GlobalConsensusConvertsFor</a></li><li><a href="struct.GlobalConsensusParachainConvertsFor.html">GlobalConsensusParachainConvertsFor</a></li><li><a href="struct.HashedDescription.html">HashedDescription</a></li><li><a href="struct.HaulBlobExporter.html">HaulBlobExporter</a></li><li><a href="struct.IsChildSystemParachain.html">IsChildSystemParachain</a></li><li><a href="struct.IsConcrete.html">IsConcrete</a></li><li><a href="struct.IsParentsOnly.html">IsParentsOnly</a></li><li><a href="struct.IsSiblingSystemParachain.html">IsSiblingSystemParachain</a></li><li><a href="struct.LocalMint.html">LocalMint</a></li><li><a href="struct.LocalTreasuryVoiceConvertsVia.html">LocalTreasuryVoiceConvertsVia</a></li><li><a href="struct.LocatableAssetId.html">LocatableAssetId</a></li><li><a href="struct.LocationWithAssetFilters.html">LocationWithAssetFilters</a></li><li><a href="struct.MatchedConvertedConcreteId.html">MatchedConvertedConcreteId</a></li><li><a href="struct.Matcher.html">Matcher</a></li><li><a href="struct.NativeAsset.html">NativeAsset</a></li><li><a href="struct.NetworkExportTable.html">NetworkExportTable</a></li><li><a href="struct.NetworkExportTableItem.html">NetworkExportTableItem</a></li><li><a href="struct.NoChecking.html">NoChecking</a></li><li><a href="struct.NonFungibleAdapter.html">NonFungibleAdapter</a></li><li><a href="struct.NonFungibleMutateAdapter.html">NonFungibleMutateAdapter</a></li><li><a href="struct.NonFungibleTransferAdapter.html">NonFungibleTransferAdapter</a></li><li><a href="struct.NonFungiblesAdapter.html">NonFungiblesAdapter</a></li><li><a href="struct.NonFungiblesMutateAdapter.html">NonFungiblesMutateAdapter</a></li><li><a href="struct.NonFungiblesTransferAdapter.html">NonFungiblesTransferAdapter</a></li><li><a href="struct.NonLocalMint.html">NonLocalMint</a></li><li><a href="struct.OriginToPluralityVoice.html">OriginToPluralityVoice</a></li><li><a href="struct.ParentAsSuperuser.html">ParentAsSuperuser</a></li><li><a href="struct.ParentIsPreset.html">ParentIsPreset</a></li><li><a href="struct.PayOverXcm.html">PayOverXcm</a></li><li><a href="struct.ProcessXcmMessage.html">ProcessXcmMessage</a></li><li><a href="struct.RelayChainAsNative.html">RelayChainAsNative</a></li><li><a href="struct.RespectSuspension.html">RespectSuspension</a></li><li><a href="struct.SendXcmFeeToAccount.html">SendXcmFeeToAccount</a></li><li><a href="struct.SiblingParachainAsNative.html">SiblingParachainAsNative</a></li><li><a href="struct.SiblingParachainConvertsVia.html">SiblingParachainConvertsVia</a></li><li><a href="struct.SiblingSystemParachainAsSuperuser.html">SiblingSystemParachainAsSuperuser</a></li><li><a href="struct.SignedAccountId32AsNative.html">SignedAccountId32AsNative</a></li><li><a href="struct.SignedAccountKey20AsNative.html">SignedAccountKey20AsNative</a></li><li><a href="struct.SignedToAccountId32.html">SignedToAccountId32</a></li><li><a href="struct.SingleAssetExchangeAdapter.html">SingleAssetExchangeAdapter</a></li><li><a href="struct.SovereignPaidRemoteExporter.html">SovereignPaidRemoteExporter</a></li><li><a href="struct.SovereignSignedViaLocation.html">SovereignSignedViaLocation</a></li><li><a href="struct.StartsWith.html">StartsWith</a></li><li><a href="struct.StartsWithExplicitGlobalConsensus.html">StartsWithExplicitGlobalConsensus</a></li><li><a href="struct.TakeWeightCredit.html">TakeWeightCredit</a></li><li><a href="struct.TrailingSetTopicAsId.html">TrailingSetTopicAsId</a></li><li><a href="struct.UnpaidLocalExporter.html">UnpaidLocalExporter</a></li><li><a href="struct.UnpaidRemoteExporter.html">UnpaidRemoteExporter</a></li><li><a href="struct.UsingComponents.html">UsingComponents</a></li><li><a href="struct.WeightInfoBounds.html">WeightInfoBounds</a></li><li><a href="struct.WithComputedOrigin.html">WithComputedOrigin</a></li><li><a href="struct.WithLatestLocationConverter.html">WithLatestLocationConverter</a></li><li><a href="struct.WithTopicSource.html">WithTopicSource</a></li><li><a href="struct.WithUniqueTopic.html">WithUniqueTopic</a></li><li><a href="struct.XcmFeeManagerFromComponents.html">XcmFeeManagerFromComponents</a></li><li><a href="test_utils/struct.Ancestor.html">test_utils::Ancestor</a></li><li><a href="test_utils/struct.AncestorThen.html">test_utils::AncestorThen</a></li><li><a href="test_utils/struct.Asset.html">test_utils::Asset</a></li><li><a href="test_utils/struct.AssetId.html">test_utils::AssetId</a></li><li><a href="test_utils/struct.Assets.html">test_utils::Assets</a></li><li><a href="test_utils/struct.AssetsInHolding.html">test_utils::AssetsInHolding</a></li><li><a href="test_utils/struct.Location.html">test_utils::Location</a></li><li><a href="test_utils/struct.LockedAssets.html">test_utils::LockedAssets</a></li><li><a href="test_utils/struct.MaxAssetsIntoHolding.html">test_utils::MaxAssetsIntoHolding</a></li><li><a href="test_utils/struct.PalletInfo.html">test_utils::PalletInfo</a></li><li><a href="test_utils/struct.Parent.html">test_utils::Parent</a></li><li><a href="test_utils/struct.ParentThen.html">test_utils::ParentThen</a></li><li><a href="test_utils/struct.QueryResponseInfo.html">test_utils::QueryResponseInfo</a></li><li><a href="test_utils/struct.SubscriptionRequests.html">test_utils::SubscriptionRequests</a></li><li><a href="test_utils/struct.TestAssetExchanger.html">test_utils::TestAssetExchanger</a></li><li><a href="test_utils/struct.TestAssetLocker.html">test_utils::TestAssetLocker</a></li><li><a href="test_utils/struct.TestAssetTrap.html">test_utils::TestAssetTrap</a></li><li><a href="test_utils/struct.TestLockTicket.html">test_utils::TestLockTicket</a></li><li><a href="test_utils/struct.TestPalletsInfo.html">test_utils::TestPalletsInfo</a></li><li><a href="test_utils/struct.TestReduceTicket.html">test_utils::TestReduceTicket</a></li><li><a href="test_utils/struct.TestSubscriptionService.html">test_utils::TestSubscriptionService</a></li><li><a href="test_utils/struct.TestUniversalAliases.html">test_utils::TestUniversalAliases</a></li><li><a href="test_utils/struct.TestUnlockTicket.html">test_utils::TestUnlockTicket</a></li><li><a href="test_utils/struct.TrappedAssets.html">test_utils::TrappedAssets</a></li><li><a href="test_utils/struct.Weight.html">test_utils::Weight</a></li><li><a href="test_utils/struct.Xcm.html">test_utils::Xcm</a></li><li><a href="test_utils/struct.XcmContext.html">test_utils::XcmContext</a></li><li><a href="test_utils/opaque/struct.Ancestor.html">test_utils::opaque::Ancestor</a></li><li><a href="test_utils/opaque/struct.AncestorThen.html">test_utils::opaque::AncestorThen</a></li><li><a href="test_utils/opaque/struct.Asset.html">test_utils::opaque::Asset</a></li><li><a href="test_utils/opaque/struct.AssetId.html">test_utils::opaque::AssetId</a></li><li><a href="test_utils/opaque/struct.Assets.html">test_utils::opaque::Assets</a></li><li><a href="test_utils/opaque/struct.Location.html">test_utils::opaque::Location</a></li><li><a href="test_utils/opaque/struct.PalletInfo.html">test_utils::opaque::PalletInfo</a></li><li><a href="test_utils/opaque/struct.Parent.html">test_utils::opaque::Parent</a></li><li><a href="test_utils/opaque/struct.ParentThen.html">test_utils::opaque::ParentThen</a></li><li><a href="test_utils/opaque/struct.QueryResponseInfo.html">test_utils::opaque::QueryResponseInfo</a></li><li><a href="test_utils/opaque/struct.Weight.html">test_utils::opaque::Weight</a></li><li><a href="test_utils/opaque/struct.XcmContext.html">test_utils::opaque::XcmContext</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="enum.DispatchBlobError.html">DispatchBlobError</a></li><li><a href="enum.HaulBlobError.html">HaulBlobError</a></li><li><a href="enum.MintLocation.html">MintLocation</a></li><li><a href="test_utils/enum.AssetFilter.html">test_utils::AssetFilter</a></li><li><a href="test_utils/enum.AssetInstance.html">test_utils::AssetInstance</a></li><li><a href="test_utils/enum.BodyId.html">test_utils::BodyId</a></li><li><a href="test_utils/enum.BodyPart.html">test_utils::BodyPart</a></li><li><a href="test_utils/enum.Fungibility.html">test_utils::Fungibility</a></li><li><a href="test_utils/enum.Instruction.html">test_utils::Instruction</a></li><li><a href="test_utils/enum.Junction.html">test_utils::Junction</a></li><li><a href="test_utils/enum.Junctions.html">test_utils::Junctions</a></li><li><a href="test_utils/enum.LockError.html">test_utils::LockError</a></li><li><a href="test_utils/enum.MaybeErrorCode.html">test_utils::MaybeErrorCode</a></li><li><a href="test_utils/enum.NetworkId.html">test_utils::NetworkId</a></li><li><a href="test_utils/enum.OriginKind.html">test_utils::OriginKind</a></li><li><a href="test_utils/enum.Outcome.html">test_utils::Outcome</a></li><li><a href="test_utils/enum.Response.html">test_utils::Response</a></li><li><a href="test_utils/enum.SendError.html">test_utils::SendError</a></li><li><a href="test_utils/enum.WeightLimit.html">test_utils::WeightLimit</a></li><li><a href="test_utils/enum.WildAsset.html">test_utils::WildAsset</a></li><li><a href="test_utils/enum.WildFungibility.html">test_utils::WildFungibility</a></li><li><a href="test_utils/enum.XcmError.html">test_utils::XcmError</a></li><li><a href="test_utils/opaque/enum.AssetFilter.html">test_utils::opaque::AssetFilter</a></li><li><a href="test_utils/opaque/enum.AssetInstance.html">test_utils::opaque::AssetInstance</a></li><li><a href="test_utils/opaque/enum.BodyId.html">test_utils::opaque::BodyId</a></li><li><a href="test_utils/opaque/enum.BodyPart.html">test_utils::opaque::BodyPart</a></li><li><a href="test_utils/opaque/enum.Fungibility.html">test_utils::opaque::Fungibility</a></li><li><a href="test_utils/opaque/enum.Junction.html">test_utils::opaque::Junction</a></li><li><a href="test_utils/opaque/enum.Junctions.html">test_utils::opaque::Junctions</a></li><li><a href="test_utils/opaque/enum.MaybeErrorCode.html">test_utils::opaque::MaybeErrorCode</a></li><li><a href="test_utils/opaque/enum.NetworkId.html">test_utils::opaque::NetworkId</a></li><li><a href="test_utils/opaque/enum.OriginKind.html">test_utils::opaque::OriginKind</a></li><li><a href="test_utils/opaque/enum.Outcome.html">test_utils::opaque::Outcome</a></li><li><a href="test_utils/opaque/enum.Response.html">test_utils::opaque::Response</a></li><li><a href="test_utils/opaque/enum.SendError.html">test_utils::opaque::SendError</a></li><li><a href="test_utils/opaque/enum.WeightLimit.html">test_utils::opaque::WeightLimit</a></li><li><a href="test_utils/opaque/enum.WildAsset.html">test_utils::opaque::WildAsset</a></li><li><a href="test_utils/opaque/enum.WildFungibility.html">test_utils::opaque::WildFungibility</a></li><li><a href="test_utils/opaque/enum.XcmError.html">test_utils::opaque::XcmError</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="trait.AssetChecking.html">AssetChecking</a></li><li><a href="trait.Controller.html">Controller</a></li><li><a href="trait.CreateMatcher.html">CreateMatcher</a></li><li><a href="trait.DescribeLocation.html">DescribeLocation</a></li><li><a href="trait.DispatchBlob.html">DispatchBlob</a></li><li><a href="trait.EnsureDelivery.html">EnsureDelivery</a></li><li><a href="trait.ExecuteController.html">ExecuteController</a></li><li><a href="trait.ExecuteControllerWeightInfo.html">ExecuteControllerWeightInfo</a></li><li><a href="trait.ExporterFor.html">ExporterFor</a></li><li><a href="trait.HandleFee.html">HandleFee</a></li><li><a href="trait.HaulBlob.html">HaulBlob</a></li><li><a href="trait.InspectMessageQueues.html">InspectMessageQueues</a></li><li><a href="trait.MatchXcm.html">MatchXcm</a></li><li><a href="trait.QueryController.html">QueryController</a></li><li><a href="trait.QueryControllerWeightInfo.html">QueryControllerWeightInfo</a></li><li><a href="trait.QueryHandler.html">QueryHandler</a></li><li><a href="trait.SendController.html">SendController</a></li><li><a href="trait.SendControllerWeightInfo.html">SendControllerWeightInfo</a></li><li><a href="trait.TakeRevenue.html">TakeRevenue</a></li><li><a href="test_utils/trait.AssetExchange.html">test_utils::AssetExchange</a></li><li><a href="test_utils/trait.AssetLock.html">test_utils::AssetLock</a></li><li><a href="test_utils/trait.Config.html">test_utils::Config</a></li><li><a href="test_utils/trait.ConvertOrigin.html">test_utils::ConvertOrigin</a></li><li><a href="test_utils/trait.Enact.html">test_utils::Enact</a></li><li><a href="test_utils/trait.ExecuteXcm.html">test_utils::ExecuteXcm</a></li><li><a href="test_utils/trait.OnResponse.html">test_utils::OnResponse</a></li><li><a href="test_utils/trait.PreparedMessage.html">test_utils::PreparedMessage</a></li><li><a href="test_utils/trait.Reanchorable.html">test_utils::Reanchorable</a></li><li><a href="test_utils/trait.SendXcm.html">test_utils::SendXcm</a></li><li><a href="test_utils/trait.TransactAsset.html">test_utils::TransactAsset</a></li><li><a href="test_utils/trait.XcmWeightInfo.html">test_utils::XcmWeightInfo</a></li><li><a href="test_utils/opaque/trait.ExecuteXcm.html">test_utils::opaque::ExecuteXcm</a></li><li><a href="test_utils/opaque/trait.PreparedMessage.html">test_utils::opaque::PreparedMessage</a></li><li><a href="test_utils/opaque/trait.Reanchorable.html">test_utils::opaque::Reanchorable</a></li><li><a href="test_utils/opaque/trait.SendXcm.html">test_utils::opaque::SendXcm</a></li><li><a href="test_utils/opaque/trait.XcmWeightInfo.html">test_utils::opaque::XcmWeightInfo</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="fn.deposit_or_burn_fee.html">deposit_or_burn_fee</a></li><li><a href="fn.ensure_is_remote.html">ensure_is_remote</a></li><li><a href="test_utils/opaque/fn.send_xcm.html">test_utils::opaque::send_xcm</a></li><li><a href="test_utils/opaque/fn.validate_send.html">test_utils::opaque::validate_send</a></li><li><a href="test_utils/fn.send_xcm.html">test_utils::send_xcm</a></li><li><a href="test_utils/fn.validate_send.html">test_utils::validate_send</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.ConvertedConcreteAssetId.html">ConvertedConcreteAssetId</a></li><li><a href="type.DescribeAccountIdTerminal.html">DescribeAccountIdTerminal</a></li><li><a href="type.DescribeAllTerminal.html">DescribeAllTerminal</a></li><li><a href="type.ForeignChainAliasAccount.html">ForeignChainAliasAccount</a></li><li><a href="type.PayAccountId32OnChainOverXcm.html">PayAccountId32OnChainOverXcm</a></li><li><a href="test_utils/type.InteriorLocation.html">test_utils::InteriorLocation</a></li><li><a href="test_utils/type.QueryId.html">test_utils::QueryId</a></li><li><a href="test_utils/type.SendResult.html">test_utils::SendResult</a></li><li><a href="test_utils/type.XcmHash.html">test_utils::XcmHash</a></li><li><a href="test_utils/type.XcmResult.html">test_utils::XcmResult</a></li><li><a href="test_utils/opaque/type.Instruction.html">test_utils::opaque::Instruction</a></li><li><a href="test_utils/opaque/type.InteriorLocation.html">test_utils::opaque::InteriorLocation</a></li><li><a href="test_utils/opaque/type.QueryId.html">test_utils::opaque::QueryId</a></li><li><a href="test_utils/opaque/type.SendResult.html">test_utils::opaque::SendResult</a></li><li><a href="test_utils/opaque/type.Xcm.html">test_utils::opaque::Xcm</a></li><li><a href="test_utils/opaque/type.XcmHash.html">test_utils::opaque::XcmHash</a></li><li><a href="test_utils/opaque/type.XcmResult.html">test_utils::opaque::XcmResult</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="test_utils/constant.LOCKED_ASSETS.html">test_utils::LOCKED_ASSETS</a></li><li><a href="test_utils/constant.MAX_ASSETS_INTO_HOLDING.html">test_utils::MAX_ASSETS_INTO_HOLDING</a></li><li><a href="test_utils/constant.SUBSCRIPTION_REQUESTS.html">test_utils::SUBSCRIPTION_REQUESTS</a></li><li><a href="test_utils/constant.TRAPPED_ASSETS.html">test_utils::TRAPPED_ASSETS</a></li><li><a href="test_utils/constant.XCM_VERSION.html">test_utils::XCM_VERSION</a></li><li><a href="test_utils/opaque/constant.XCM_VERSION.html">test_utils::opaque::XCM_VERSION</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>
