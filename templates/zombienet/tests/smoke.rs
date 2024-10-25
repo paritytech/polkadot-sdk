@@ -17,7 +17,7 @@
 //!     <path_to_template_wasm_file> named-preset development`
 //!
 //! Once the files are generated, you must export an environment variable called
-//! `RELAY_CHAIN_SPECS_DIR` which should point to the absolute path of the directory
+//! `CHAIN_SPECS_DIR` which should point to the absolute path of the directory
 //! that holds the generated chain specs. The chain specs file names should be
 //! `minimal_chain_spec.json` for minimal and `parachain_chain_spec.json` for parachain
 //! templates.
@@ -32,12 +32,12 @@ mod smoke {
 	use anyhow::anyhow;
 	use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder, NetworkConfigExt};
 
-	const RELAY_CHAIN_SPECS_DIR_PATH: &str = "RELAY_CHAIN_SPECS_DIR";
+	const CHAIN_SPECS_DIR_PATH: &str = "CHAIN_SPECS_DIR";
 	const PARACHAIN_ID: u32 = 1000;
 
 	#[inline]
 	fn expect_env_var(var_name: &str) -> String {
-		std::env::var(var_name).expect("to have an environment variable set")
+		std::env::var(var_name).unwrap_or_else(|_| panic!("{CHAIN_SPECS_DIR_PATH} environment variable is set. qed."))
 	}
 
 	#[derive(Default)]
@@ -162,7 +162,7 @@ mod smoke {
 		);
 
 		let chain_spec_path =
-			expect_env_var(RELAY_CHAIN_SPECS_DIR_PATH) + "/minimal_chain_spec.json";
+			expect_env_var(CHAIN_SPECS_DIR_PATH) + "/minimal_chain_spec.json";
 		let config = get_config(NetworkSpec {
 			relaychain_cmd: "polkadot-omni-node",
 			relaychain_cmd_args: Some(vec![("--dev-block-time", "1000")]),
@@ -188,7 +188,7 @@ mod smoke {
 		);
 
 		let chain_spec_path =
-			expect_env_var(RELAY_CHAIN_SPECS_DIR_PATH) + "/parachain_chain_spec.json";
+			expect_env_var(CHAIN_SPECS_DIR_PATH) + "/parachain_chain_spec.json";
 
 		let config = get_config(NetworkSpec {
 			relaychain_cmd: "polkadot",
