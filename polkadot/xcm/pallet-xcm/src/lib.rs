@@ -2692,6 +2692,44 @@ impl<T: Config> Pallet<T> {
 	/// set.
 	#[cfg(any(feature = "try-runtime", test))]
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
+		use migration::data::NeedsMigration;
+
+		// Take the minimum version between `SafeXcmVersion` and `latest - 1` and ensure that the
+		// operational data is stored at least at that version, for example, to prevent issues when
+		// removing older XCM versions.
+		let minimal_allowed_xcm_version = if let Some(safe_xcm_version) = SafeXcmVersion::<T>::get()
+		{
+			XCM_VERSION.saturating_sub(1).min(safe_xcm_version)
+		} else {
+			XCM_VERSION.saturating_sub(1)
+		};
+
+		// check `Queries`
+		ensure!(
+			!Queries::<T>::iter_values()
+				.any(|data| data.needs_migration(minimal_allowed_xcm_version)),
+			TryRuntimeError::Other("`Queries` data should be migrated to the higher xcm version!")
+		);
+
+		// check `LockedFungibles`
+		ensure!(
+			!LockedFungibles::<T>::iter_values()
+				.any(|data| data.needs_migration(minimal_allowed_xcm_version)),
+			TryRuntimeError::Other(
+				"`LockedFungibles` data should be migrated to the higher xcm version!"
+			)
+		);
+
+		// check `RemoteLockedFungibles`
+		ensure!(
+			!RemoteLockedFungibles::<T>::iter()
+				.any(|(key, data)| key.needs_migration(minimal_allowed_xcm_version) ||
+					data.needs_migration(minimal_allowed_xcm_version)),
+			TryRuntimeError::Other(
+				"`RemoteLockedFungibles` data should be migrated to the higher xcm version!"
+			)
+		);
+
 		// if migration has been already scheduled, everything is ok and data will be eventually
 		// migrated
 		if CurrentMigration::<T>::exists() {
@@ -2772,7 +2810,7 @@ impl<T: Config> xcm_executor::traits::Enact for UnlockTicket<T> {
 		let mut maybe_remove_index = None;
 		let mut locked = BalanceOf::<T>::zero();
 		let mut found = false;
-		// We could just as well do with with an into_iter, filter_map and collect, however this way
+		// We could just as well do with an into_iter, filter_map and collect, however this way
 		// avoids making an allocation.
 		for (i, x) in locks.iter_mut().enumerate() {
 			if x.1.try_as::<_>().defensive() == Ok(&self.unlocker) {
@@ -3154,7 +3192,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 					});
 					return Weight::zero()
 				}
-				return match maybe_notify {
+				match maybe_notify {
 					Some((pallet_index, call_index)) => {
 						// This is a bit horrible, but we happen to know that the `Call` will
 						// be built by `(pallet_index: u8, call_index: u8, QueryId, Response)`.
