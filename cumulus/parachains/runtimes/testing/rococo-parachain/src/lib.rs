@@ -227,7 +227,7 @@ impl frame_system::Config for Runtime {
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
-	type WeightInfo = (); // TODO TODO: run CI weights generation
+	type WeightInfo = ();
 }
 
 impl pallet_timestamp::Config for Runtime {

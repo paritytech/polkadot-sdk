@@ -46,10 +46,7 @@ mod bench {
 			pays_fee: Pays::No,
 		};
 
-		let post_info = PostDispatchInfo {
-			actual_weight: None,
-			pays_fee: Pays::No,
-		};
+		let post_info = PostDispatchInfo { actual_weight: None, pays_fee: Pays::No };
 
 		let mut block_weight = frame_system::ConsumedWeight::default();
 		block_weight.accrue(Weight::from_parts(0, overestimate), info.class);
