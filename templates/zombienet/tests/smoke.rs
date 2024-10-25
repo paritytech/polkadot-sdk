@@ -37,7 +37,8 @@ mod smoke {
 
 	#[inline]
 	fn expect_env_var(var_name: &str) -> String {
-		std::env::var(var_name).unwrap_or_else(|_| panic!("{CHAIN_SPECS_DIR_PATH} environment variable is set. qed."))
+		std::env::var(var_name)
+			.unwrap_or_else(|_| panic!("{CHAIN_SPECS_DIR_PATH} environment variable is set. qed."))
 	}
 
 	#[derive(Default)]
@@ -161,8 +162,7 @@ mod smoke {
 			env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 		);
 
-		let chain_spec_path =
-			expect_env_var(CHAIN_SPECS_DIR_PATH) + "/minimal_chain_spec.json";
+		let chain_spec_path = expect_env_var(CHAIN_SPECS_DIR_PATH) + "/minimal_chain_spec.json";
 		let config = get_config(NetworkSpec {
 			relaychain_cmd: "polkadot-omni-node",
 			relaychain_cmd_args: Some(vec![("--dev-block-time", "1000")]),
@@ -187,8 +187,7 @@ mod smoke {
 			env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 		);
 
-		let chain_spec_path =
-			expect_env_var(CHAIN_SPECS_DIR_PATH) + "/parachain_chain_spec.json";
+		let chain_spec_path = expect_env_var(CHAIN_SPECS_DIR_PATH) + "/parachain_chain_spec.json";
 
 		let config = get_config(NetworkSpec {
 			relaychain_cmd: "polkadot",
