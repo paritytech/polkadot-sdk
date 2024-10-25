@@ -418,7 +418,7 @@ impl Client {
 	async fn subscribe_blocks(inner: Arc<ClientInner>, tx: Sender<()>) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET, "Subscribing to new blocks");
 		let mut block_stream =
-			inner.as_ref().api.blocks().subscribe_finalized().await.inspect_err(|err| {
+			inner.as_ref().api.blocks().subscribe_best().await.inspect_err(|err| {
 				log::error!("Failed to subscribe to blocks: {err:?}");
 			})?;
 
