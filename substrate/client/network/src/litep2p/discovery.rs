@@ -19,7 +19,7 @@
 //! libp2p-related discovery code for litep2p backend.
 
 use crate::{
-	config::{NetworkConfiguration, ProtocolId},
+	config::NetworkConfiguration,
 	peer_store::PeerStoreProvider,
 };
 
@@ -207,11 +207,6 @@ pub struct Discovery {
 	duration_to_next_find_query: Duration,
 }
 
-/// Legacy (fallback) Kademlia protocol name based on `protocol_id`.
-fn legacy_kademlia_protocol_name(id: &ProtocolId) -> ProtocolName {
-	ProtocolName::from(format!("/{}/kad", id.as_ref()))
-}
-
 /// Kademlia protocol name based on `genesis_hash` and `fork_id`.
 fn kademlia_protocol_name<Hash: AsRef<[u8]>>(
 	genesis_hash: Hash,
@@ -236,7 +231,6 @@ impl Discovery {
 		config: &NetworkConfiguration,
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
-		protocol_id: &ProtocolId,
 		known_peers: HashMap<PeerId, Vec<Multiaddr>>,
 		listen_addresses: Arc<RwLock<HashSet<Multiaddr>>>,
 		_peerstore_handle: Arc<dyn PeerStoreProvider>,
@@ -261,7 +255,6 @@ impl Discovery {
 		let (kademlia_config, kademlia_handle) = {
 			let protocol_names = vec![
 				kademlia_protocol_name(genesis_hash.clone(), fork_id),
-				legacy_kademlia_protocol_name(protocol_id),
 			];
 
 			KademliaConfigBuilder::new()
