@@ -3,12 +3,10 @@ doc:
 - audience:
   - Node Dev
   description: |-
-    Part of https://github.com/paritytech/polkadot-sdk/issues/5047
-    On top of https://github.com/paritytech/polkadot-sdk/pull/5679
+    Introduces checks for the new candidate descriptor fields: `core_index` and `session_index`.
 crates:
 - name: polkadot-statement-distribution
   bump: minor
 - name: polkadot-primitives
-  bump: minor
-- name: polkadot-runtime-parachains
-  bump: minor
+  bump: major
+s
