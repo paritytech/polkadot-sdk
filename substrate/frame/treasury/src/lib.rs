@@ -487,7 +487,7 @@ pub mod pallet {
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::spend_local())]
 		#[deprecated(
-			note = "This call will be removed by May 2025. Configure pallet to use `PayFromAccount` for `Paymaster` type and use `spend` instead"
+			note = "The `spend_local` call will be removed by May 2025. Migrate to the new flow and use the `spend` call."
 		)]
 		#[allow(deprecated)]
 		pub fn spend_local(
