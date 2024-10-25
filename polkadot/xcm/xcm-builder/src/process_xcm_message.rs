@@ -32,7 +32,7 @@ pub struct ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>(
 impl<
 		MessageOrigin: Into<Location> + FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug,
 		XcmExecutor: ExecuteXcm<Call>,
-		Call: Decode + GetDispatchInfo,
+		Call,
 	> ProcessMessage for ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>
 {
 	type Origin = MessageOrigin;
