@@ -825,14 +825,14 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 
 	fn nth_id(n: u32) -> Option<Vec<u8>> {
 		n.is_zero()
-			.then_some(T::id().encode())
+			.then(|| T::id().encode())
 			.defensive_proof("nth_id should only be called with n==0")
 	}
 
 	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
 		// It should be generally fine to call with n>0, but the code should not attempt to.
 		n.is_zero()
-			.then_some(T::max_steps())
+			.then(|| T::max_steps())
 			.defensive_proof("nth_max_steps should only be called with n==0")
 	}
 

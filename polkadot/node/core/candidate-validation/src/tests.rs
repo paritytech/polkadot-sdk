@@ -494,7 +494,6 @@ fn session_index_checked_only_in_backing() {
 		head_data.hash(),
 		dummy_hash(),
 	);
-
 	let check = perform_basic_checks(
 		&descriptor,
 		validation_data.max_pov_size,

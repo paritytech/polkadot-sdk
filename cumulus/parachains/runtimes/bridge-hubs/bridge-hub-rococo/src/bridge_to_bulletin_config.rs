@@ -38,7 +38,7 @@ use frame_support::{
 use frame_system::{EnsureNever, EnsureRoot};
 use pallet_bridge_messages::LaneIdOf;
 use pallet_bridge_relayers::extension::{
-	BridgeRelayersSignedExtension, WithMessagesExtensionConfig,
+	BridgeRelayersTransactionExtension, WithMessagesExtensionConfig,
 };
 use pallet_xcm_bridge_hub::XcmAsPlainPayload;
 use polkadot_parachain_primitives::primitives::Sibling;
@@ -92,9 +92,9 @@ type FromRococoBulletinMessageBlobDispatcher = BridgeBlobDispatcher<
 	BridgeRococoToRococoBulletinMessagesPalletInstance,
 >;
 
-/// Signed extension that refunds relayers that are delivering messages from the Rococo Bulletin
-/// chain.
-pub type OnBridgeHubRococoRefundRococoBulletinMessages = BridgeRelayersSignedExtension<
+/// Transaction extension that refunds relayers that are delivering messages from the Rococo
+/// Bulletin chain.
+pub type OnBridgeHubRococoRefundRococoBulletinMessages = BridgeRelayersTransactionExtension<
 	Runtime,
 	WithMessagesExtensionConfig<
 		StrOnBridgeHubRococoRefundRococoBulletinMessages,
