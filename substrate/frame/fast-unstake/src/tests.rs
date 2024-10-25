@@ -146,7 +146,7 @@ fn deregister_works() {
 
 		// Controller then changes mind and deregisters.
 		assert_ok!(FastUnstake::deregister(RuntimeOrigin::signed(1)));
-		assert_eq!(<T as Config>::Currency::reserved_balance(&1) - pre_reserved, 0);
+		assert_eq!(<T as Config>::Currency::reserved_balance(&1), pre_reserved);
 
 		// Ensure stash no longer exists in the queue.
 		assert_eq!(Queue::<T>::get(1), None);
@@ -297,7 +297,7 @@ mod on_idle {
 			);
 			assert_eq!(Queue::<T>::count(), 3);
 
-			assert_eq!(<T as Config>::Currency::reserved_balance(&1) - pre_reserved, 0);
+			assert_eq!(<T as Config>::Currency::reserved_balance(&1), pre_reserved);
 
 			assert_eq!(
 				fast_unstake_events_since_last_call(),

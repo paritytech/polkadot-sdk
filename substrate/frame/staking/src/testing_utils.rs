@@ -238,3 +238,21 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 pub fn current_era<T: Config>() -> EraIndex {
 	<Pallet<T>>::current_era().unwrap_or(0)
 }
+
+pub fn migrate_to_old_currency<T: Config>(who: T::AccountId) {
+	use frame_support::traits::LockableCurrency;
+	let staked = asset::staked::<T>(&who);
+
+	// apply locks (this also adds a consumer).
+	T::OldCurrency::set_lock(
+		STAKING_ID,
+		&who,
+		staked,
+		frame_support::traits::WithdrawReasons::all(),
+	);
+	// remove holds.
+	asset::kill_stake::<T>(&who).expect("remove hold failed");
+
+	// replicate old behaviour of explicitly increment consumer.
+	frame_system::Pallet::<T>::inc_consumers(&who).expect("increment consumer failed");
+}

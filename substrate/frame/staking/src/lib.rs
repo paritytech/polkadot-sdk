@@ -312,16 +312,18 @@ use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{
-		ConstU32, Currency, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
+		tokens::fungible::{Credit, Debt},
+		ConstU32, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
 	},
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
+use frame_system::RawOrigin;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	traits::{AtLeast32BitUnsigned, Convert, StaticLookup, Zero},
-	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
+	DispatchResult, Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
 };
 use sp_staking::{
 	offence::{Offence, OffenceError, ReportOffence},
@@ -361,12 +363,9 @@ pub type RewardPoint = u32;
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
-type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::PositiveImbalance;
-pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+type PositiveImbalanceOf<T> = Debt<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
+pub type NegativeImbalanceOf<T> =
+	Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
@@ -853,6 +852,8 @@ pub trait SessionInterface<AccountId> {
 	fn validators() -> Vec<AccountId>;
 	/// Prune historical session tries up to but not including the given index.
 	fn prune_historical_up_to(up_to: SessionIndex);
+	/// Purge session key of the validator.
+	fn purge_keys(stash: AccountId) -> DispatchResult;
 }
 
 impl<T: Config> SessionInterface<<T as frame_system::Config>::AccountId> for T
@@ -880,6 +881,10 @@ where
 	fn prune_historical_up_to(up_to: SessionIndex) {
 		<pallet_session::historical::Pallet<T>>::prune_up_to(up_to);
 	}
+
+	fn purge_keys(stash: <T as frame_system::Config>::AccountId) -> DispatchResult {
+		<pallet_session::Pallet<T>>::purge_keys(RawOrigin::Signed(stash.clone()).into())
+	}
 }
 
 impl<AccountId> SessionInterface<AccountId> for () {
@@ -891,6 +896,9 @@ impl<AccountId> SessionInterface<AccountId> for () {
 	}
 	fn prune_historical_up_to(_: SessionIndex) {
 		()
+	}
+	fn purge_keys(_stash: AccountId) -> DispatchResult {
+		Ok(())
 	}
 }
 

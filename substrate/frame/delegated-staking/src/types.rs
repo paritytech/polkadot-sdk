@@ -131,10 +131,6 @@ impl<T: Config> AgentLedger<T> {
 	///
 	/// Increments provider count if this is a new agent.
 	pub(crate) fn update(self, key: &T::AccountId) {
-		if !<Agents<T>>::contains_key(key) {
-			// This is a new agent. Provide for this account.
-			frame_system::Pallet::<T>::inc_providers(key);
-		}
 		<Agents<T>>::insert(key, self)
 	}
 
@@ -142,8 +138,6 @@ impl<T: Config> AgentLedger<T> {
 	pub(crate) fn remove(key: &T::AccountId) {
 		debug_assert!(<Agents<T>>::contains_key(key), "Agent should exist in storage");
 		<Agents<T>>::remove(key);
-		// Remove provider reference.
-		let _ = frame_system::Pallet::<T>::dec_providers(key).defensive();
 	}
 
 	/// Effective total balance of the `Agent`.

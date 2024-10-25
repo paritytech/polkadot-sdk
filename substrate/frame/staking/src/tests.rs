@@ -26,8 +26,9 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
+	hypothetically, hypothetically_ok,
 	pallet_prelude::*,
-	traits::{Currency, Get, ReservableCurrency},
+	traits::{Currency, Get, InspectLockableCurrency, ReservableCurrency},
 };
 
 use mock::*;
@@ -108,7 +109,7 @@ fn force_unstake_works() {
 		// Cant transfer
 		assert_noop!(
 			Balances::transfer_allow_death(RuntimeOrigin::signed(11), 1, 10),
-			TokenError::Frozen,
+			TokenError::FundsUnavailable,
 		);
 		// Force unstake requires root.
 		assert_noop!(Staking::force_unstake(RuntimeOrigin::signed(11), 11, 2), BadOrigin);
@@ -360,7 +361,15 @@ fn rewards_should_work() {
 				remainder: maximum_payout - total_payout_0
 			}
 		);
+
+		// make note of total issuance before rewards.
+		let total_issuance_0 = asset::total_issuance::<Test>();
+
 		mock::make_all_reward_payment(0);
+
+		// total issuance should have increased
+		let total_issuance_1 = asset::total_issuance::<Test>();
+		assert_eq!(total_issuance_1, total_issuance_0 + total_payout_0);
 
 		assert_eq_error_rate!(
 			asset::total_balance::<Test>(&11),
@@ -401,6 +410,7 @@ fn rewards_should_work() {
 		);
 		mock::make_all_reward_payment(1);
 
+		assert_eq!(asset::total_issuance::<Test>(), total_issuance_1 + total_payout_1);
 		assert_eq_error_rate!(
 			asset::total_balance::<Test>(&11),
 			init_balance_11 + part_for_11 * (total_payout_0 * 2 / 3 + total_payout_1),
@@ -490,7 +500,7 @@ fn staking_should_work() {
 			}
 		);
 		// e.g. it cannot reserve more than 500 that it has free from the total 2000
-		assert_noop!(Balances::reserve(&3, 501), BalancesError::<Test, _>::LiquidityRestrictions);
+		assert_noop!(Balances::reserve(&3, 501), BalancesError::<Test, _>::InsufficientBalance);
 		assert_ok!(Balances::reserve(&3, 409));
 	});
 }
@@ -999,7 +1009,7 @@ fn cannot_transfer_staked_balance() {
 		// Confirm account 11 cannot transfer as a result
 		assert_noop!(
 			Balances::transfer_allow_death(RuntimeOrigin::signed(11), 21, 1),
-			TokenError::Frozen,
+			TokenError::FundsUnavailable,
 		);
 
 		// Give account 11 extra free balance
@@ -1021,11 +1031,12 @@ fn cannot_transfer_staked_balance_2() {
 		assert_eq!(asset::stakeable_balance::<Test>(&21), 2000);
 		// Confirm account 21 (via controller) is totally staked
 		assert_eq!(Staking::eras_stakers(active_era(), &21).total, 1000);
-		// Confirm account 21 can transfer at most 1000
+		// Confirm account 21 cannot transfer more than 1000
 		assert_noop!(
 			Balances::transfer_allow_death(RuntimeOrigin::signed(21), 21, 1001),
-			TokenError::Frozen,
+			TokenError::FundsUnavailable,
 		);
+		// Confirm account 21 needs to leave at least ED in free balance to be able to transfer
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(21), 21, 1000));
 	});
 }
@@ -1041,7 +1052,7 @@ fn cannot_reserve_staked_balance() {
 		// Confirm account 11 (via controller 10) is totally staked
 		assert_eq!(Staking::eras_stakers(active_era(), &11).own, 1000);
 		// Confirm account 11 cannot reserve as a result
-		assert_noop!(Balances::reserve(&11, 1), BalancesError::<Test, _>::LiquidityRestrictions);
+		assert_noop!(Balances::reserve(&11, 1), BalancesError::<Test, _>::InsufficientBalance);
 
 		// Give account 11 extra free balance
 		let _ = asset::set_stakeable_balance::<Test>(&11, 10000);
@@ -1939,6 +1950,42 @@ fn reap_stash_works() {
 }
 
 #[test]
+fn reap_stash_fails_if_extra_consumer() {
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.balance_factor(10)
+		.build_and_execute(|| {
+			// given
+			assert_eq!(asset::staked::<Test>(&11), 10 * 1000);
+			assert_eq!(Staking::bonded(&11), Some(11));
+
+			// When ledger goes below ED
+			let mut ledger = Staking::ledger(11.into()).unwrap();
+			ledger.slash(ledger.total, 10, 1);
+			assert_ok!(ledger.update());
+			// make stake balance as zero.
+			asset::set_stakeable_balance::<Test>(&11, 0);
+			assert_eq!(asset::staked::<Test>(&11), 0);
+
+			// reap stash would work without the extra consumer.
+			hypothetically_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
+
+			// mock stash has an extra consumer from another pallet in the runtime.
+			System::inc_consumers(&11).expect("stash has a provider so this should not fail");
+
+			// This would prevent the pallet to decrement provider from reaping the stash.
+			assert_noop!(
+				Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
+				DispatchError::ConsumerRemaining
+			);
+
+			// Once the extra consumer is removed, the pallet can reap the stash.
+			System::dec_consumers(&11);
+			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
+		});
+}
+
+#[test]
 fn reap_stash_works_with_existential_deposit_zero() {
 	ExtBuilder::default()
 		.existential_deposit(0)
@@ -2077,7 +2124,7 @@ fn bond_with_no_staked_value() {
 			);
 			// bonded with absolute minimum value possible.
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 5, RewardDestination::Account(1)));
-			assert_eq!(pallet_balances::Locks::<Test>::get(&1)[0].amount, 5);
+			assert_eq!(pallet_balances::Holds::<Test>::get(&1)[0].amount, 5);
 
 			// unbonding even 1 will cause all to be unbonded.
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(1), 1));
@@ -2098,14 +2145,14 @@ fn bond_with_no_staked_value() {
 			// not yet removed.
 			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(1), 0));
 			assert!(Staking::ledger(1.into()).is_ok());
-			assert_eq!(pallet_balances::Locks::<Test>::get(&1)[0].amount, 5);
+			assert_eq!(pallet_balances::Holds::<Test>::get(&1)[0].amount, 5);
 
 			mock::start_active_era(3);
 
 			// poof. Account 1 is removed from the staking system.
 			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(1), 0));
 			assert!(Staking::ledger(1.into()).is_err());
-			assert_eq!(pallet_balances::Locks::<Test>::get(&1).len(), 0);
+			assert_eq!(pallet_balances::Holds::<Test>::get(&1).len(), 0);
 		});
 }
 
@@ -2340,7 +2387,18 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 0));
 		assert_eq!(asset::total_balance::<Test>(&11), stake * 2);
 
-		// Set staker
+		// ensure ledger has `stake` and no more.
+		Ledger::<Test>::insert(
+			11,
+			StakingLedgerInspect {
+				stash: 11,
+				total: stake,
+				active: stake,
+				unlocking: Default::default(),
+				legacy_claimed_rewards: bounded_vec![1],
+			},
+		);
+		// Set staker (unsafe, can reduce balance below actual stake)
 		let _ = asset::set_stakeable_balance::<Test>(&11, stake);
 		let _ = asset::set_stakeable_balance::<Test>(&2, stake);
 
@@ -2812,8 +2870,8 @@ fn garbage_collection_after_slashing() {
 			// validator and nominator slash in era are garbage-collected by era change,
 			// so we don't test those here.
 
-			assert_eq!(asset::stakeable_balance::<Test>(&11), 2);
-			assert_eq!(asset::total_balance::<Test>(&11), 2);
+			assert_eq!(asset::stakeable_balance::<Test>(&11), 0);
+			assert_eq!(asset::total_balance::<Test>(&11), 0);
 
 			let slashing_spans = SlashingSpans::<Test>::get(&11).unwrap();
 			assert_eq!(slashing_spans.iter().count(), 2);
@@ -7241,7 +7299,7 @@ mod staking_unchecked {
 			assert_eq!(asset::staked::<Test>(&200), 1000);
 
 			// migrate them to virtual staker
-			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&200);
+			assert_ok!(<Staking as StakingUnchecked>::migrate_to_virtual_staker(&200));
 			// payee needs to be updated to a non-stash account.
 			assert_ok!(<Staking as StakingInterface>::set_payee(&200, &201));
 
@@ -7268,7 +7326,7 @@ mod staking_unchecked {
 				// 101 is a nominator for 11
 				assert_eq!(initial_exposure.others.first().unwrap().who, 101);
 				// make 101 a virtual nominator
-				<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
+				assert_ok!(<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101));
 				// set payee different to self.
 				assert_ok!(<Staking as StakingInterface>::set_payee(&101, &102));
 
@@ -7343,7 +7401,7 @@ mod staking_unchecked {
 				// 101 is a nominator for 11
 				assert_eq!(initial_exposure.others.first().unwrap().who, 101);
 				// make 101 a virtual nominator
-				<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101);
+				assert_ok!(<Staking as StakingUnchecked>::migrate_to_virtual_staker(&101));
 				// set payee different to self.
 				assert_ok!(<Staking as StakingInterface>::set_payee(&101, &102));
 
@@ -7399,7 +7457,7 @@ mod staking_unchecked {
 			// 333 is corrupted
 			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
 			// migrate to virtual staker.
-			<Staking as StakingUnchecked>::migrate_to_virtual_staker(&333);
+			assert_ok!(<Staking as StakingUnchecked>::migrate_to_virtual_staker(&333));
 
 			// recover the ledger won't work for virtual staker
 			assert_noop!(
@@ -8332,6 +8390,217 @@ mod byzantine_threshold_disabling_strategy {
 				);
 
 			assert_eq!(disable_offender, Some(OFFENDER_VALIDATOR_IDX));
+		});
+	}
+}
+
+mod hold_migration {
+	use super::*;
+	use sp_staking::{Stake, StakingInterface};
+
+	#[test]
+	fn ledger_update_creates_hold() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			// GIVEN alice who is a nominator with old currency
+			let alice = 300;
+			bond_nominator(alice, 1000, vec![11]);
+			assert_eq!(asset::staked::<Test>(&alice), 1000);
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 0);
+			// migrate alice currency to legacy locks
+			testing_utils::migrate_to_old_currency::<Test>(alice);
+			// no more holds
+			assert_eq!(asset::staked::<Test>(&alice), 0);
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 1000);
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				Ok(Stake { total: 1000, active: 1000 })
+			);
+
+			// any ledger mutation should create a hold
+			hypothetically!({
+				// give some extra balance to alice.
+				let _ = asset::mint_into_existing::<Test>(&alice, 100);
+
+				// WHEN new fund is bonded to ledger.
+				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(alice), 100));
+
+				// THEN new hold is created
+				assert_eq!(asset::staked::<Test>(&alice), 1000 + 100);
+				assert_eq!(
+					<Staking as StakingInterface>::stake(&alice),
+					Ok(Stake { total: 1100, active: 1100 })
+				);
+
+				// old locked balance is untouched
+				assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 1000);
+			});
+
+			hypothetically!({
+				// WHEN new fund is unbonded from ledger.
+				assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 100));
+
+				// THEN hold is updated.
+				assert_eq!(asset::staked::<Test>(&alice), 1000);
+				assert_eq!(
+					<Staking as StakingInterface>::stake(&alice),
+					Ok(Stake { total: 1000, active: 900 })
+				);
+
+				// old locked balance is untouched
+				assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 1000);
+			});
+
+			// WHEN alice currency is migrated.
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), alice));
+
+			// THEN hold is updated.
+			assert_eq!(asset::staked::<Test>(&alice), 1000);
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				Ok(Stake { total: 1000, active: 1000 })
+			);
+
+			// locked balance is removed
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 0);
+		});
+	}
+
+	#[test]
+	fn migrate_removes_old_lock() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			// GIVEN alice who is a nominator with old currency
+			let alice = 300;
+			bond_nominator(alice, 1000, vec![11]);
+			testing_utils::migrate_to_old_currency::<Test>(alice);
+			assert_eq!(asset::staked::<Test>(&alice), 0);
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 1000);
+			let pre_migrate_consumer = System::consumers(&alice);
+			System::reset_events();
+
+			// WHEN alice currency is migrated.
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), alice));
+
+			// THEN
+			// ensure consumer count stays same.
+			assert_eq!(System::consumers(&alice), pre_migrate_consumer);
+			// ensure no lock
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 0);
+			// ensure stake and hold are same.
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				Ok(Stake { total: 1000, active: 1000 })
+			);
+			assert_eq!(asset::staked::<Test>(&alice), 1000);
+			// ensure events are emitted.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::CurrencyMigrated { stash: alice, force_withdraw: 0 }]
+			);
+		});
+	}
+	#[test]
+	fn cannot_hold_all_stake() {
+		// When there is not enough funds to hold all stake, part of the stake if force withdrawn.
+		// At end of the migration, the stake and hold should be same.
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			// GIVEN alice who is a nominator with old currency.
+			let alice = 300;
+			let stake = 1000;
+			bond_nominator(alice, stake, vec![11]);
+			testing_utils::migrate_to_old_currency::<Test>(alice);
+			assert_eq!(asset::staked::<Test>(&alice), 0);
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), stake);
+			// ledger has 1000 staked.
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				Ok(Stake { total: stake, active: stake })
+			);
+
+			// She has extra reserved amount which would prevent us from holding all stake.
+			let expected_force_withdraw = 200;
+			assert_ok!(Balances::reserve(&alice, expected_force_withdraw));
+
+			// ledger mutation would fail in this case before migration because of failing hold.
+			assert_noop!(
+				Staking::unbond(RuntimeOrigin::signed(alice), 100),
+				Error::<Test>::NotEnoughFunds
+			);
+
+			// clear events
+			System::reset_events();
+
+			// WHEN alice currency is migrated.
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), alice));
+
+			// THEN
+			let expected_hold = stake - expected_force_withdraw;
+			// ensure no lock
+			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 0);
+			// ensure stake and hold are same.
+			assert_eq!(
+				<Staking as StakingInterface>::stake(&alice),
+				Ok(Stake { total: expected_hold, active: expected_hold })
+			);
+			assert_eq!(asset::staked::<Test>(&alice), expected_hold);
+			// ensure events are emitted.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::CurrencyMigrated {
+					stash: alice,
+					force_withdraw: expected_force_withdraw
+				}]
+			);
+
+			// unbond works after migration.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 100));
+		});
+	}
+
+	#[test]
+	fn virtual_staker_consumer_provider_dec() {
+		// Ensure virtual stakers consumer and provider count is decremented.
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			// 200 virtual bonds
+			bond_virtual_nominator(200, 201, 500, vec![11, 21]);
+
+			// previously the virtual nominator had a provider inc by the delegation system as
+			// well as a consumer by this pallet.
+			System::inc_providers(&200);
+			System::inc_consumers(&200).expect("has provider, can consume");
+
+			hypothetically!({
+				// migrate 200
+				assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), 200));
+
+				// ensure account does not exist in system anymore.
+				assert_eq!(System::consumers(&200), 0);
+				assert_eq!(System::providers(&200), 0);
+				assert!(!System::account_exists(&200));
+			});
+
+			hypothetically!({
+				// 200 has an erroneously extra provider
+				System::inc_providers(&200);
+
+				// causes migration to fail.
+				assert_noop!(
+					Staking::migrate_currency(RuntimeOrigin::signed(1), 200),
+					Error::<Test>::BadState
+				);
+			});
+
+			// 200 is funded for more than ED by a random account.
+			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(999), 200, 10));
+
+			// it has an extra provider now.
+			assert_eq!(System::providers(&200), 2);
+
+			// migrate 200
+			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), 200));
+
+			// 1 provider is left, consumers is 0.
+			assert_eq!(System::providers(&200), 1);
+			assert_eq!(System::consumers(&200), 0);
 		});
 	}
 }
