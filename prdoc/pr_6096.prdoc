@@ -1,0 +1,15 @@
+title: 'pallet-revive: Add stateful address mapping'
+doc:
+- audience:
+  - Runtime Dev
+  description: |-
+    Fixes #5576
+
+    This allows contracts to be used with an AccountId32 through normal extrinsics and not only through the eth compat layer. It works by adding a new extrinsic `map_account` that lets people register their AccountId32.
+crates:
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive-mock-network
+  bump: patch
+- name: pallet-revive
+  bump: major
