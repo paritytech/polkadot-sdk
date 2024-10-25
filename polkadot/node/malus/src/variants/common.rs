@@ -24,8 +24,10 @@ use crate::{
 use polkadot_node_primitives::{InvalidCandidate, ValidationResult};
 
 use polkadot_primitives::{
-	CandidateCommitments, CandidateDescriptor, CandidateReceipt, PersistedValidationData,
-	PvfExecKind,
+	vstaging::{
+		CandidateDescriptorV2 as CandidateDescriptor, CandidateReceiptV2 as CandidateReceipt,
+	},
+	CandidateCommitments, PersistedValidationData, PvfExecKind,
 };
 
 use futures::channel::oneshot;
@@ -203,7 +205,7 @@ fn create_validation_response(
 
 	gum::debug!(
 		target: MALUS,
-		para_id = ?candidate_receipt.descriptor.para_id,
+		para_id = ?candidate_receipt.descriptor.para_id(),
 		candidate_hash = ?candidate_receipt.hash(),
 		"ValidationResult: {:?}",
 		&result
@@ -308,7 +310,7 @@ where
 								gum::info!(
 									target: MALUS,
 									?behave_maliciously,
-									para_id = ?candidate_receipt.descriptor.para_id,
+									para_id = ?candidate_receipt.descriptor.para_id(),
 									"😈 Maliciously sending invalid validation result: {:?}.",
 									&validation_result,
 								);
