@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729872027492,
+  "lastUpdate": 1729874429846,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -17287,6 +17287,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03533013900800001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "54316454+sandreim@users.noreply.github.com",
+            "name": "Andrei Sandu",
+            "username": "sandreim"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4c618a83d33281fe96f0e2b68a111ed227af22c0",
+          "message": "Switch node side to v2 candidate receipts (#5679)\n\non top of https://github.com/paritytech/polkadot-sdk/pull/5423\n\nThis PR implements the plumbing work required for\nhttps://github.com/paritytech/polkadot-sdk/issues/5047 . I also added\nadditional helper methods gated by feature \"test\" in primitives.\n\nTODO:\n- [x] PRDoc\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: GitHub Action <action@github.com>",
+          "timestamp": "2024-10-25T15:21:29Z",
+          "tree_id": "c077de95acd640b836e17b1be06dfb88e7d1eb21",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4c618a83d33281fe96f0e2b68a111ed227af22c0"
+        },
+        "date": 1729874412178,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.94399999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03547861599400001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04490139444599998,
             "unit": "seconds"
           }
         ]
