@@ -167,7 +167,7 @@ impl From<TransactionExtensionMetadataIR> for TransactionExtensionMetadata {
 impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 	fn from(ir: ExtrinsicMetadataIR) -> Self {
 		ExtrinsicMetadata {
-			versions: alloc::vec![ir.version],
+			versions: ir.versions.into_iter().map(Into::into).collect(),
 			address_ty: ir.address_ty,
 			call_ty: ir.call_ty,
 			signature_ty: ir.signature_ty,
