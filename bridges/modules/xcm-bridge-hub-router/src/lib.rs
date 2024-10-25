@@ -23,8 +23,9 @@
 //! queues are congested, it will eventually lead to increased queuing on this chain.
 //!
 //! **Note on Terminology**: When we refer to the bridge hub here, we mean the chain that
-//! has the `pallet-bridge-messages` with an `ExportXcm` implementation deployed, e.g., provided by `pallet-xcm-bridge-hub`.
-//! Depending on the deployment setup, `T::ToBridgeHubSender` can be configured accordingly - see `T::ToBridgeHubSender` for more documentation.
+//! has the `pallet-bridge-messages` with an `ExportXcm` implementation deployed, e.g., provided by
+//! `pallet-xcm-bridge-hub`. Depending on the deployment setup, `T::ToBridgeHubSender` can be
+//! configured accordingly - see `T::ToBridgeHubSender` for more documentation.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -97,8 +98,12 @@ pub mod pallet {
 		type DestinationVersion: GetVersion;
 
 		/// The bridge hub may be:
-		/// - A system (sibling) bridge hub parachain (or another chain), in which case we need an implementation for `T::ToBridgeHubSender` that sends `ExportMessage`, e.g., `SovereignPaidRemoteExporter`.
-		/// - The local chain, in which case we need an implementation for `T::ToBridgeHubSender` that does not use `ExportMessage` but instead directly calls the `ExportXcm` implementation.
+		/// - A system (sibling) bridge hub parachain (or another chain), in which case we need an
+		///   implementation for `T::ToBridgeHubSender` that sends `ExportMessage`, e.g.,
+		///   `SovereignPaidRemoteExporter`.
+		/// - The local chain, in which case we need an implementation for `T::ToBridgeHubSender`
+		///   that does not use `ExportMessage` but instead directly calls the `ExportXcm`
+		///   implementation.
 		type ToBridgeHubSender: SendXcm;
 		/// Local XCM channel manager.
 		type LocalXcmChannelManager: XcmChannelStatusProvider;
@@ -228,7 +233,6 @@ pub mod pallet {
 		},
 	}
 }
-
 
 // This pallet acts as the `ExporterFor` for the `SovereignPaidRemoteExporter` to compute
 // message fee using fee factor.

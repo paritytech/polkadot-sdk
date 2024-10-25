@@ -928,12 +928,10 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 	type Bridges = xcm_config::bridging::NetworkExportTable;
 	type DestinationVersion = PolkadotXcm;
 
-	// Let's use `SovereignPaidRemoteExporter`, which sends `ExportMessage` over HRMP to the sibling BridgeHub.
-	type ToBridgeHubSender = SovereignPaidRemoteExporter<
-		ToRococoXcmRouter,
-		XcmpQueue,
-		Self::UniversalLocation,
-	>;
+	// Let's use `SovereignPaidRemoteExporter`, which sends `ExportMessage` over HRMP to the sibling
+	// BridgeHub.
+	type ToBridgeHubSender =
+		SovereignPaidRemoteExporter<ToRococoXcmRouter, XcmpQueue, Self::UniversalLocation>;
 	type LocalXcmChannelManager =
 		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<Runtime>;
 
