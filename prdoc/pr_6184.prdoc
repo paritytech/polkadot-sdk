@@ -6,5 +6,27 @@ doc:
       It also adds tests to verify that retrieval of affected entities works as expected so via storage::getter.
 
 crates:
+  - name: pallet-babe
+    bump: patch
+  - name: pallet-beefy
+    bump: patch
+  - name: pallet-election-provider-multi-phase
+    bump: patch
+  - name: grandpa
+    bump: patch
+  - name: nomination-pools
+    bump: patch
+  - name: root-offences
+    bump: patch
+  - name: westend-runtime
+    bump: patch
   - name: pallet-staking
     bump: patch
+
+    
+    
+    
+    
+
+
+    
