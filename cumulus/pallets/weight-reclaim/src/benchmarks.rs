@@ -38,24 +38,21 @@ mod bench {
 		let origin = RawOrigin::Root.into();
 		let call = T::RuntimeCall::from(frame_system::Call::remark { remark: alloc::vec![] });
 
+		let overestimate = 10_000;
 		let info = DispatchInfo {
-			call_weight: Weight::zero().add_proof_size(1000),
+			call_weight: Weight::zero().add_proof_size(overestimate),
 			extension_weight: Weight::zero(),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::No,
 		};
 
-		let post_info_overestimate = 15;
-
 		let post_info = PostDispatchInfo {
-			actual_weight: Some(Weight::zero().add_proof_size(post_info_overestimate)),
+			actual_weight: None,
 			pays_fee: Pays::No,
 		};
 
-		let initial_block_proof_size = 1_000_000;
-
 		let mut block_weight = frame_system::ConsumedWeight::default();
-		block_weight.accrue(Weight::from_parts(0, initial_block_proof_size), info.class);
+		block_weight.accrue(Weight::from_parts(0, overestimate), info.class);
 
 		frame_system::BlockWeight::<T>::put(block_weight);
 
@@ -67,7 +64,10 @@ mod bench {
 		let final_block_proof_size =
 			frame_system::BlockWeight::<T>::get().get(info.class).proof_size();
 
-		assert_eq!(final_block_proof_size, initial_block_proof_size - post_info_overestimate);
+		assert!(
+			final_block_proof_size < overestimate,
+			"The proof size measured should be less than {overestimate}"
+		);
 
 		Ok(())
 	}
