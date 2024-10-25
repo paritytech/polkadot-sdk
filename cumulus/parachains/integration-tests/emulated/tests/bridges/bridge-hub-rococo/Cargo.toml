@@ -14,6 +14,7 @@ workspace = true
 codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
+
 sp-core.workspace = true
 frame-support.workspace = true
 pallet-assets.workspace = true
@@ -25,7 +26,9 @@ sp-runtime.workspace = true
 xcm.workspace = true
 pallet-xcm.workspace = true
 xcm-executor.workspace = true
+xcm-runtime-apis.workspace = true
 pallet-bridge-messages.workspace = true
+pallet-xcm-bridge-hub.workspace = true
 cumulus-pallet-xcmp-queue.workspace = true
 emulated-integration-tests-common.workspace = true
 parachains-common.workspace = true
