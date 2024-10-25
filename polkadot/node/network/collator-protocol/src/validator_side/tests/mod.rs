@@ -28,22 +28,22 @@ use std::{
 	time::Duration,
 };
 
+use self::prospective_parachains::update_view;
 use polkadot_node_network_protocol::{
-	our_view,
 	peer_set::CollationVersion,
 	request_response::{Requests, ResponseSender},
 	ObservedRole,
 };
 use polkadot_node_primitives::{BlockData, PoV};
-use polkadot_node_subsystem::{
-	errors::RuntimeApiError,
-	messages::{AllMessages, ReportPeerMessage, RuntimeApiMessage, RuntimeApiRequest},
+use polkadot_node_subsystem::messages::{
+	AllMessages, ReportPeerMessage, RuntimeApiMessage, RuntimeApiRequest,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	CandidateReceipt, CollatorPair, CoreIndex, CoreState, GroupIndex, GroupRotationInfo, HeadData,
-	OccupiedCore, PersistedValidationData, ScheduledCore, ValidatorId, ValidatorIndex,
+	AsyncBackingParams, CandidateReceipt, CollatorPair, CoreIndex, CoreState, GroupIndex,
+	GroupRotationInfo, HeadData, OccupiedCore, PersistedValidationData, ScheduledCore, ValidatorId,
+	ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_descriptor, dummy_candidate_receipt_bad_sig, dummy_hash,
@@ -54,9 +54,6 @@ mod prospective_parachains;
 const ACTIVITY_TIMEOUT: Duration = Duration::from_millis(500);
 const DECLARE_TIMEOUT: Duration = Duration::from_millis(25);
 const REPUTATION_CHANGE_TEST_INTERVAL: Duration = Duration::from_millis(10);
-
-const ASYNC_BACKING_DISABLED_ERROR: RuntimeApiError =
-	RuntimeApiError::NotSupported { runtime_api_name: "test-runtime" };
 
 fn dummy_pvd() -> PersistedValidationData {
 	PersistedValidationData {
@@ -76,15 +73,12 @@ struct TestState {
 	validator_groups: Vec<Vec<ValidatorIndex>>,
 	group_rotation_info: GroupRotationInfo,
 	cores: Vec<CoreState>,
-	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	claim_queue: Option<BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+	async_backing_params: AsyncBackingParams,
 }
 
 impl Default for TestState {
 	fn default() -> Self {
-		let chain_a = ParaId::from(1);
-		let chain_b = ParaId::from(2);
-
-		let chain_ids = vec![chain_a, chain_b];
 		let relay_parent = Hash::repeat_byte(0x05);
 		let collators = iter::repeat(()).map(|_| CollatorPair::generate().0).take(5).collect();
 
@@ -107,10 +101,16 @@ impl Default for TestState {
 			GroupRotationInfo { session_start_block: 0, group_rotation_frequency: 1, now: 0 };
 
 		let cores = vec![
-			CoreState::Scheduled(ScheduledCore { para_id: chain_ids[0], collator: None }),
+			CoreState::Scheduled(ScheduledCore {
+				para_id: ParaId::from(Self::CHAIN_IDS[0]),
+				collator: None,
+			}),
 			CoreState::Free,
 			CoreState::Occupied(OccupiedCore {
-				next_up_on_available: Some(ScheduledCore { para_id: chain_ids[1], collator: None }),
+				next_up_on_available: Some(ScheduledCore {
+					para_id: ParaId::from(Self::CHAIN_IDS[1]),
+					collator: None,
+				}),
 				occupied_since: 0,
 				time_out_at: 1,
 				next_up_on_time_out: None,
@@ -119,7 +119,7 @@ impl Default for TestState {
 				candidate_hash: Default::default(),
 				candidate_descriptor: {
 					let mut d = dummy_candidate_descriptor(dummy_hash());
-					d.para_id = chain_ids[1];
+					d.para_id = ParaId::from(Self::CHAIN_IDS[1]);
 
 					d
 				},
@@ -127,20 +127,121 @@ impl Default for TestState {
 		];
 
 		let mut claim_queue = BTreeMap::new();
-		claim_queue.insert(CoreIndex(0), [chain_ids[0]].into_iter().collect());
+		claim_queue.insert(
+			CoreIndex(0),
+			iter::repeat(ParaId::from(Self::CHAIN_IDS[0]))
+				.take(Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize)
+				.collect(),
+		);
 		claim_queue.insert(CoreIndex(1), VecDeque::new());
-		claim_queue.insert(CoreIndex(2), [chain_ids[1]].into_iter().collect());
+		claim_queue.insert(
+			CoreIndex(2),
+			iter::repeat(ParaId::from(Self::CHAIN_IDS[1]))
+				.take(Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize)
+				.collect(),
+		);
 
 		Self {
-			chain_ids,
+			chain_ids: Self::CHAIN_IDS.map(|id| ParaId::from(id)).to_vec(),
 			relay_parent,
 			collators,
 			validator_public,
 			validator_groups,
 			group_rotation_info,
 			cores,
-			claim_queue,
+			claim_queue: Some(claim_queue),
+			async_backing_params: Self::ASYNC_BACKING_PARAMS,
 		}
+	}
+}
+
+impl TestState {
+	const CHAIN_IDS: [u32; 2] = [1, 2];
+	const ASYNC_BACKING_PARAMS: AsyncBackingParams =
+		AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
+
+	fn with_shared_core() -> Self {
+		let mut state = Self::default();
+
+		let cores = vec![
+			CoreState::Scheduled(ScheduledCore {
+				para_id: ParaId::from(Self::CHAIN_IDS[0]),
+				collator: None,
+			}),
+			CoreState::Free,
+		];
+
+		let mut claim_queue = BTreeMap::new();
+		claim_queue.insert(
+			CoreIndex(0),
+			VecDeque::from_iter(
+				[
+					ParaId::from(Self::CHAIN_IDS[1]),
+					ParaId::from(Self::CHAIN_IDS[0]),
+					ParaId::from(Self::CHAIN_IDS[0]),
+				]
+				.into_iter(),
+			),
+		);
+
+		assert!(
+			claim_queue.get(&CoreIndex(0)).unwrap().len() ==
+				Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize
+		);
+
+		state.cores = cores;
+		state.claim_queue = Some(claim_queue);
+
+		state
+	}
+
+	fn without_claim_queue() -> Self {
+		let mut state = Self::default();
+		state.claim_queue = None;
+		state.cores = vec![
+			CoreState::Scheduled(ScheduledCore {
+				para_id: ParaId::from(Self::CHAIN_IDS[0]),
+				collator: None,
+			}),
+			CoreState::Free,
+		];
+
+		state
+	}
+
+	fn with_one_scheduled_para() -> Self {
+		let mut state = Self::default();
+
+		let cores = vec![CoreState::Scheduled(ScheduledCore {
+			para_id: ParaId::from(Self::CHAIN_IDS[0]),
+			collator: None,
+		})];
+
+		let validator_groups = vec![vec![ValidatorIndex(0), ValidatorIndex(1)]];
+
+		let mut claim_queue = BTreeMap::new();
+		claim_queue.insert(
+			CoreIndex(0),
+			VecDeque::from_iter(
+				[
+					ParaId::from(Self::CHAIN_IDS[0]),
+					ParaId::from(Self::CHAIN_IDS[0]),
+					ParaId::from(Self::CHAIN_IDS[0]),
+				]
+				.into_iter(),
+			),
+		);
+
+		assert!(
+			claim_queue.get(&CoreIndex(0)).unwrap().len() ==
+				Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize
+		);
+
+		state.cores = cores;
+		state.validator_groups = validator_groups;
+		state.claim_queue = Some(claim_queue);
+
+		state
 	}
 }
 
@@ -234,64 +335,6 @@ async fn overseer_signal(overseer: &mut VirtualOverseer, signal: OverseerSignal)
 		.timeout(TIMEOUT)
 		.await
 		.expect(&format!("{:?} is more than enough for sending signals.", TIMEOUT));
-}
-
-async fn respond_to_core_info_queries(
-	virtual_overseer: &mut VirtualOverseer,
-	test_state: &TestState,
-) {
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			_,
-			RuntimeApiRequest::Validators(tx),
-		)) => {
-			let _ = tx.send(Ok(test_state.validator_public.clone()));
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			_,
-			RuntimeApiRequest::ValidatorGroups(tx),
-		)) => {
-			let _ = tx.send(Ok((
-				test_state.validator_groups.clone(),
-				test_state.group_rotation_info.clone(),
-			)));
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			_,
-			RuntimeApiRequest::AvailabilityCores(tx),
-		)) => {
-			let _ = tx.send(Ok(test_state.cores.clone()));
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			_,
-			RuntimeApiRequest::Version(tx),
-		)) => {
-			let _ = tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT));
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			_,
-			RuntimeApiRequest::ClaimQueue(tx),
-		)) => {
-			let _ = tx.send(Ok(test_state.claim_queue.clone()));
-		}
-	);
 }
 
 /// Assert that the next message is a `CandidateBacking(Second())`.
@@ -469,148 +512,6 @@ async fn advertise_collation(
 	.await;
 }
 
-async fn assert_async_backing_params_request(virtual_overseer: &mut VirtualOverseer, hash: Hash) {
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			relay_parent,
-			RuntimeApiRequest::AsyncBackingParams(tx)
-		)) => {
-			assert_eq!(relay_parent, hash);
-			tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
-		}
-	);
-}
-
-// As we receive a relevant advertisement act on it and issue a collation request.
-#[test]
-fn act_on_advertisement() {
-	let test_state = TestState::default();
-
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
-		let TestHarness { mut virtual_overseer, .. } = test_harness;
-
-		let pair = CollatorPair::generate().0;
-		gum::trace!("activating");
-
-		overseer_send(
-			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view![test_state.relay_parent],
-			)),
-		)
-		.await;
-
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
-
-		let peer_b = PeerId::random();
-
-		connect_and_declare_collator(
-			&mut virtual_overseer,
-			peer_b,
-			pair.clone(),
-			test_state.chain_ids[0],
-			CollationVersion::V1,
-		)
-		.await;
-
-		advertise_collation(&mut virtual_overseer, peer_b, test_state.relay_parent, None).await;
-
-		assert_fetch_collation_request(
-			&mut virtual_overseer,
-			test_state.relay_parent,
-			test_state.chain_ids[0],
-			None,
-		)
-		.await;
-
-		virtual_overseer
-	});
-}
-
-/// Tests that validator side works with v2 network protocol
-/// before async backing is enabled.
-#[test]
-fn act_on_advertisement_v2() {
-	let test_state = TestState::default();
-
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
-		let TestHarness { mut virtual_overseer, .. } = test_harness;
-
-		let pair = CollatorPair::generate().0;
-		gum::trace!("activating");
-
-		overseer_send(
-			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view![test_state.relay_parent],
-			)),
-		)
-		.await;
-
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
-
-		let peer_b = PeerId::random();
-
-		connect_and_declare_collator(
-			&mut virtual_overseer,
-			peer_b,
-			pair.clone(),
-			test_state.chain_ids[0],
-			CollationVersion::V2,
-		)
-		.await;
-
-		let pov = PoV { block_data: BlockData(vec![]) };
-		let mut candidate_a =
-			dummy_candidate_receipt_bad_sig(dummy_hash(), Some(Default::default()));
-		candidate_a.descriptor.para_id = test_state.chain_ids[0];
-		candidate_a.descriptor.relay_parent = test_state.relay_parent;
-		candidate_a.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
-
-		let candidate_hash = candidate_a.hash();
-		let parent_head_data_hash = Hash::zero();
-		// v2 advertisement.
-		advertise_collation(
-			&mut virtual_overseer,
-			peer_b,
-			test_state.relay_parent,
-			Some((candidate_hash, parent_head_data_hash)),
-		)
-		.await;
-
-		let response_channel = assert_fetch_collation_request(
-			&mut virtual_overseer,
-			test_state.relay_parent,
-			test_state.chain_ids[0],
-			Some(candidate_hash),
-		)
-		.await;
-
-		response_channel
-			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
-					.encode(),
-				ProtocolName::from(""),
-			)))
-			.expect("Sending response should succeed");
-
-		assert_candidate_backing_second(
-			&mut virtual_overseer,
-			test_state.relay_parent,
-			test_state.chain_ids[0],
-			&pov,
-			// Async backing isn't enabled and thus it should do it the old way.
-			CollationVersion::V1,
-		)
-		.await;
-
-		virtual_overseer
-	});
-}
-
 // Test that other subsystems may modify collators' reputations.
 #[test]
 fn collator_reporting_works() {
@@ -619,17 +520,10 @@ fn collator_reporting_works() {
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
-		overseer_send(
-			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view![test_state.relay_parent],
-			)),
-		)
-		.await;
+		let head = Hash::from_low_u64_be(128);
+		let head_num: u32 = 0;
 
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(head, head_num)], 1).await;
 
 		let peer_b = PeerId::random();
 		let peer_c = PeerId::random();
@@ -732,21 +626,13 @@ fn fetch_one_collation_at_a_time() {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 		let second = Hash::random();
 
-		let our_view = our_view![test_state.relay_parent, second];
-
-		overseer_send(
+		update_view(
 			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view.clone(),
-			)),
+			&test_state,
+			vec![(test_state.relay_parent, 0), (second, 1)],
+			2,
 		)
 		.await;
-
-		// Iter over view since the order may change due to sorted invariant.
-		for hash in our_view.iter() {
-			assert_async_backing_params_request(&mut virtual_overseer, *hash).await;
-			respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
-		}
 
 		let peer_b = PeerId::random();
 		let peer_c = PeerId::random();
@@ -822,27 +708,20 @@ fn fetch_one_collation_at_a_time() {
 /// timeout and in case of an error.
 #[test]
 fn fetches_next_collation() {
-	let test_state = TestState::default();
+	let test_state = TestState::with_one_scheduled_para();
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let second = Hash::random();
 
-		let our_view = our_view![test_state.relay_parent, second];
-
-		overseer_send(
+		update_view(
 			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view.clone(),
-			)),
+			&test_state,
+			vec![(test_state.relay_parent, 0), (second, 1)],
+			2,
 		)
 		.await;
-
-		for hash in our_view.iter() {
-			assert_async_backing_params_request(&mut virtual_overseer, *hash).await;
-			respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
-		}
 
 		let peer_b = PeerId::random();
 		let peer_c = PeerId::random();
@@ -951,16 +830,8 @@ fn reject_connection_to_next_group() {
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
-		overseer_send(
-			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view![test_state.relay_parent],
-			)),
-		)
-		.await;
-
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)], 1)
+			.await;
 
 		let peer_b = PeerId::random();
 
@@ -1000,20 +871,13 @@ fn fetch_next_collation_on_invalid_collation() {
 
 		let second = Hash::random();
 
-		let our_view = our_view![test_state.relay_parent, second];
-
-		overseer_send(
+		update_view(
 			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view.clone(),
-			)),
+			&test_state,
+			vec![(test_state.relay_parent, 0), (second, 1)],
+			2,
 		)
 		.await;
-
-		for hash in our_view.iter() {
-			assert_async_backing_params_request(&mut virtual_overseer, *hash).await;
-			respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
-		}
 
 		let peer_b = PeerId::random();
 		let peer_c = PeerId::random();
@@ -1109,18 +973,8 @@ fn inactive_disconnected() {
 
 		let pair = CollatorPair::generate().0;
 
-		let hash_a = test_state.relay_parent;
-
-		overseer_send(
-			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view![hash_a],
-			)),
-		)
-		.await;
-
-		assert_async_backing_params_request(&mut virtual_overseer, hash_a).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)], 1)
+			.await;
 
 		let peer_b = PeerId::random();
 
@@ -1151,7 +1005,7 @@ fn inactive_disconnected() {
 
 #[test]
 fn activity_extends_life() {
-	let test_state = TestState::default();
+	let test_state = TestState::with_one_scheduled_para();
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
@@ -1162,20 +1016,13 @@ fn activity_extends_life() {
 		let hash_b = Hash::repeat_byte(1);
 		let hash_c = Hash::repeat_byte(2);
 
-		let our_view = our_view![hash_a, hash_b, hash_c];
-
-		overseer_send(
+		update_view(
 			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view.clone(),
-			)),
+			&test_state,
+			vec![(hash_a, 0), (hash_b, 1), (hash_c, 1)],
+			3,
 		)
 		.await;
-
-		for hash in our_view.iter() {
-			assert_async_backing_params_request(&mut virtual_overseer, *hash).await;
-			respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
-		}
 
 		let peer_b = PeerId::random();
 
@@ -1239,16 +1086,8 @@ fn disconnect_if_no_declare() {
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
-		overseer_send(
-			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view![test_state.relay_parent],
-			)),
-		)
-		.await;
-
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)], 1)
+			.await;
 
 		let peer_b = PeerId::random();
 
@@ -1275,21 +1114,11 @@ fn disconnect_if_wrong_declare() {
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
-
 		let pair = CollatorPair::generate().0;
-
-		overseer_send(
-			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view![test_state.relay_parent],
-			)),
-		)
-		.await;
-
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
-
 		let peer_b = PeerId::random();
+
+		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)], 1)
+			.await;
 
 		overseer_send(
 			&mut virtual_overseer,
@@ -1337,21 +1166,11 @@ fn delay_reputation_change() {
 
 	test_harness(ReputationAggregator::new(|_| false), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
-
 		let pair = CollatorPair::generate().0;
-
-		overseer_send(
-			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view![test_state.relay_parent],
-			)),
-		)
-		.await;
-
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
-
 		let peer_b = PeerId::random();
+
+		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)], 1)
+			.await;
 
 		overseer_send(
 			&mut virtual_overseer,
@@ -1426,43 +1245,25 @@ fn view_change_clears_old_collators() {
 
 		let pair = CollatorPair::generate().0;
 
-		overseer_send(
-			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view![test_state.relay_parent],
-			)),
-		)
-		.await;
+		let peer = PeerId::random();
 
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
-
-		let peer_b = PeerId::random();
+		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)], 1)
+			.await;
 
 		connect_and_declare_collator(
 			&mut virtual_overseer,
-			peer_b,
+			peer,
 			pair.clone(),
 			test_state.chain_ids[0],
 			CollationVersion::V1,
 		)
 		.await;
 
-		let hash_b = Hash::repeat_byte(69);
-
-		overseer_send(
-			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view![hash_b],
-			)),
-		)
-		.await;
-
 		test_state.group_rotation_info = test_state.group_rotation_info.bump_rotation();
-		assert_async_backing_params_request(&mut virtual_overseer, hash_b).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
 
-		assert_collator_disconnect(&mut virtual_overseer, peer_b).await;
+		update_view(&mut virtual_overseer, &test_state, vec![], 0).await;
+
+		assert_collator_disconnect(&mut virtual_overseer, peer).await;
 
 		virtual_overseer
 	})
