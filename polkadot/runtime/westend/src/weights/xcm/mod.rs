@@ -116,7 +116,6 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 	}
 	fn transact(
 		_origin_kind: &OriginKind,
-		_require_weight_at_most: &Weight,
 		_call: &DoubleEncoded<RuntimeCall>,
 	) -> Weight {
 		XcmGeneric::<Runtime>::transact()

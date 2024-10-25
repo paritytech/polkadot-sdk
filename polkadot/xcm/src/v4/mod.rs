@@ -1280,6 +1280,9 @@ impl<Call> TryFrom<NewXcm<Call>> for Xcm<Call> {
 	}
 }
 
+// We use a big weight here but not `Weight::MAX` as a best effort.
+const DEFAULT_WEIGHT_FOR_TRANSACT_CONVERSION: Weight = Weight::from_parts(10_000_000_000, 1_000_000);
+
 // Convert from a v5 instruction to a v4 instruction.
 impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 	type Error = ();
@@ -1317,8 +1320,11 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, require_weight_at_most, call } =>
-				Self::Transact { origin_kind, require_weight_at_most, call: call.into() },
+			Transact { origin_kind, call } => Self::Transact {
+				origin_kind,
+				require_weight_at_most: DEFAULT_WEIGHT_FOR_TRANSACT_CONVERSION,
+				call: call.into(),
+			},
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
 				query_id: response_info.query_id,
 				destination: response_info.destination.try_into().map_err(|_| ())?,

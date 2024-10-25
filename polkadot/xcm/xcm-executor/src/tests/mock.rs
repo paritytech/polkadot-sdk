@@ -86,7 +86,7 @@ impl<C> WeightBounds<C> for TestWeigher {
 		Ok(Weight::from_parts(2, 2))
 	}
 
-	fn instr_weight(_instruction: &Instruction<C>) -> Result<Weight, ()> {
+	fn instr_weight(_instruction: &mut Instruction<C>) -> Result<Weight, ()> {
 		Ok(Weight::from_parts(2, 2))
 	}
 }

@@ -144,7 +144,6 @@ where
 				.into();
 
 		let poke = PeopleRuntimePallets::<AccountId>::IdentityMigrator(PokeDeposit(who.clone()));
-		let remote_weight_limit = MigratorWeights::<Runtime>::poke_deposit().saturating_mul(2);
 
 		// Actual program to execute on People Chain.
 		let program: Xcm<()> = Xcm(vec![
@@ -163,7 +162,6 @@ where
 			// Poke the deposit to reserve the appropriate amount on the parachain.
 			Transact {
 				origin_kind: OriginKind::Superuser,
-				require_weight_at_most: remote_weight_limit,
 				call: poke.encode().into(),
 			},
 		]);
