@@ -78,6 +78,11 @@ pub struct ExtrinsicParams {
 	/// This should only be used for performance analysis and not for final results.
 	#[arg(long)]
 	pub enable_trie_cache: bool,
+
+	/// Benchmark using a bare extrinsic.
+	#[arg(long)]
+	pub use_bare: bool,
+
 }
 
 impl ExtrinsicCmd {
@@ -119,7 +124,7 @@ impl ExtrinsicCmd {
 		};
 
 		let bench = Benchmark::new(client, self.params.bench.clone(), inherent_data, digest_items);
-		let stats = bench.bench_extrinsic(ext_builder)?;
+		let stats = bench.bench_extrinsic(ext_builder, self.params.use_bare)?;
 		info!(
 			"Executing a {}::{} extrinsic takes[ns]:\n{:?}",
 			ext_builder.pallet(),

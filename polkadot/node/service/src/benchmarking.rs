@@ -31,6 +31,7 @@ macro_rules! identify_chain {
 		$period:ident,
 		$genesis:ident,
 		$signer:ident,
+		$bare:ident,
 		$generic_code:expr $(,)*
 	) => {
 		match $chain {
@@ -43,7 +44,7 @@ macro_rules! identify_chain {
 
 					let call = $generic_code;
 
-					Ok(rococo_sign_call(call, $nonce, $current_block, $period, $genesis, $signer))
+					Ok(rococo_sign_call(call, $nonce, $current_block, $period, $genesis, $signer, $bare))
 				}
 
 				#[cfg(not(feature = "rococo-native"))]
@@ -58,7 +59,7 @@ macro_rules! identify_chain {
 
 					let call = $generic_code;
 
-					Ok(westend_sign_call(call, $nonce, $current_block, $period, $genesis, $signer))
+					Ok(westend_sign_call(call, $nonce, $current_block, $period, $genesis, $signer, $bare))
 				}
 
 				#[cfg(not(feature = "westend-native"))]
@@ -72,6 +73,7 @@ macro_rules! identify_chain {
 				let _ = $period;
 				let _ = $genesis;
 				let _ = $signer;
+				let _ = $bare;
 
 				Err("Unknown chain")
 			},
@@ -103,7 +105,7 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
 		"remark"
 	}
 
-	fn build(&self, nonce: u32) -> std::result::Result<OpaqueExtrinsic, &'static str> {
+	fn build(&self, nonce: u32, bare: bool) -> std::result::Result<OpaqueExtrinsic, &'static str> {
 		// We apply the extrinsic directly, so let's take some random period.
 		let period = 128;
 		let genesis = self.client.usage_info().chain.best_hash;
@@ -117,6 +119,7 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
 			period,
 			genesis,
 			signer,
+			bare,
 			{
 				runtime::RuntimeCall::System(
 					runtime::SystemCall::remark { remark: vec![] }
@@ -151,7 +154,7 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
 		"transfer_keep_alive"
 	}
 
-	fn build(&self, nonce: u32) -> std::result::Result<OpaqueExtrinsic, &'static str> {
+	fn build(&self, nonce: u32, bare: bool) -> std::result::Result<OpaqueExtrinsic, &'static str> {
 		let signer = Sr25519Keyring::Bob.pair();
 		// We apply the extrinsic directly, so let's take some random period.
 		let period = 128;
@@ -166,6 +169,7 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
 			period,
 			genesis,
 			signer,
+			bare,
 			{
 				runtime::RuntimeCall::Balances(runtime::BalancesCall::transfer_keep_alive {
 					dest: _dest.into(),
@@ -184,10 +188,15 @@ fn westend_sign_call(
 	period: u64,
 	genesis: sp_core::H256,
 	acc: sp_core::sr25519::Pair,
+	bare: bool,
 ) -> OpaqueExtrinsic {
 	use codec::Encode;
 	use sp_core::Pair;
 	use westend_runtime as runtime;
+
+	if bare {
+		return westend_runtime::UncheckedExtrinsic::new_bare(call).into();
+	}
 
 	let tx_ext: runtime::TxExtension = (
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
@@ -239,10 +248,15 @@ fn rococo_sign_call(
 	period: u64,
 	genesis: sp_core::H256,
 	acc: sp_core::sr25519::Pair,
+	bare: bool,
 ) -> OpaqueExtrinsic {
 	use codec::Encode;
 	use rococo_runtime as runtime;
 	use sp_core::Pair;
+
+	if bare {
+		return rococo_runtime::UncheckedExtrinsic::new_bare(call).into();
+	}
 
 	let tx_ext: runtime::TxExtension = (
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),

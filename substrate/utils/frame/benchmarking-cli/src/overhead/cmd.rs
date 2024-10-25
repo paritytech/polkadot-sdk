@@ -127,7 +127,7 @@ impl OverheadCmd {
 		}
 		// per-extrinsic execution overhead
 		{
-			let stats = bench.bench_extrinsic(ext_builder)?;
+			let stats = bench.bench_extrinsic(ext_builder, true)?;
 			info!("Per-extrinsic execution overhead [ns]:\n{:?}", stats);
 			let template = TemplateData::new(BenchmarkType::Extrinsic, &cfg, &self.params, &stats)?;
 			template.write(&self.params.weight.weight_path)?;

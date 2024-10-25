@@ -38,17 +38,23 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
 		"remark"
 	}
 
-	fn build(&self, nonce: u32) -> std::result::Result<OpaqueExtrinsic, &'static str> {
-		let acc = Sr25519Keyring::Bob.pair();
-		let extrinsic: OpaqueExtrinsic = create_benchmark_extrinsic(
-			self.client.as_ref(),
-			acc,
-			SystemCall::remark { remark: vec![] }.into(),
-			nonce,
-		)
-		.into();
+	fn build(&self, nonce: u32, bare: bool) -> std::result::Result<OpaqueExtrinsic, &'static str> {
+		let call = SystemCall::remark { remark: vec![] }.into();
 
-		Ok(extrinsic)
+		if bare {
+			Ok(runtime::UncheckedExtrinsic::new_bare(call).into())
+		} else {
+			let acc = Sr25519Keyring::Bob.pair();
+			let extrinsic: OpaqueExtrinsic = create_benchmark_extrinsic(
+				self.client.as_ref(),
+				acc,
+				call,
+				nonce,
+			)
+			.into();
+
+			Ok(extrinsic)
+		}
 	}
 }
 
@@ -77,18 +83,23 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
 		"transfer_keep_alive"
 	}
 
-	fn build(&self, nonce: u32) -> std::result::Result<OpaqueExtrinsic, &'static str> {
-		let acc = Sr25519Keyring::Bob.pair();
-		let extrinsic: OpaqueExtrinsic = create_benchmark_extrinsic(
-			self.client.as_ref(),
-			acc,
-			BalancesCall::transfer_keep_alive { dest: self.dest.clone().into(), value: self.value }
-				.into(),
-			nonce,
-		)
-		.into();
+	fn build(&self, nonce: u32, bare: bool) -> std::result::Result<OpaqueExtrinsic, &'static str> {
+		let call = BalancesCall::transfer_keep_alive { dest: self.dest.clone().into(), value: self.value }.into();
 
-		Ok(extrinsic)
+		if bare {
+			Ok(runtime::UncheckedExtrinsic::new_bare(call).into())
+		} else {
+			let acc = Sr25519Keyring::Bob.pair();
+			let extrinsic: OpaqueExtrinsic = create_benchmark_extrinsic(
+				self.client.as_ref(),
+				acc,
+				call,
+				nonce,
+			)
+			.into();
+
+			Ok(extrinsic)
+		}
 	}
 }
 

@@ -30,6 +30,7 @@ use sc_cli::Result;
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::OpaqueExtrinsic;
+use polkadot_sdk::frame_support::traits::InherentBuilder;
 
 use std::{sync::Arc, time::Duration};
 
@@ -56,17 +57,23 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
 		"remark"
 	}
 
-	fn build(&self, nonce: u32) -> std::result::Result<OpaqueExtrinsic, &'static str> {
-		let acc = Sr25519Keyring::Bob.pair();
-		let extrinsic: OpaqueExtrinsic = create_extrinsic(
-			self.client.as_ref(),
-			acc,
-			SystemCall::remark { remark: vec![] },
-			Some(nonce),
-		)
-		.into();
+	fn build(&self, nonce: u32, bare: bool) -> std::result::Result<OpaqueExtrinsic, &'static str> {
+		let call = SystemCall::remark { remark: vec![] };
 
-		Ok(extrinsic)
+		if bare {
+			Ok(kitchensink_runtime::UncheckedExtrinsic::new_inherent(call.into()).into())
+		} else {
+			let acc = Sr25519Keyring::Bob.pair();
+			let extrinsic: OpaqueExtrinsic = create_extrinsic(
+				self.client.as_ref(),
+				acc,
+				call,
+				Some(nonce),
+			)
+			.into();
+
+			Ok(extrinsic)
+		}
 	}
 }
 
@@ -95,20 +102,26 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
 		"transfer_keep_alive"
 	}
 
-	fn build(&self, nonce: u32) -> std::result::Result<OpaqueExtrinsic, &'static str> {
-		let acc = Sr25519Keyring::Bob.pair();
-		let extrinsic: OpaqueExtrinsic = create_extrinsic(
-			self.client.as_ref(),
-			acc,
-			BalancesCall::transfer_keep_alive {
-				dest: self.dest.clone().into(),
-				value: self.value.into(),
-			},
-			Some(nonce),
-		)
-		.into();
+	fn build(&self, nonce: u32, bare: bool) -> std::result::Result<OpaqueExtrinsic, &'static str> {
+		let call = BalancesCall::transfer_keep_alive {
+			dest: self.dest.clone().into(),
+			value: self.value.into(),
+		};
 
-		Ok(extrinsic)
+		if bare {
+			Ok(kitchensink_runtime::UncheckedExtrinsic::new_inherent(call.into()).into())
+		} else {
+			let acc = Sr25519Keyring::Bob.pair();
+			let extrinsic: OpaqueExtrinsic = create_extrinsic(
+				self.client.as_ref(),
+				acc,
+				call,
+				Some(nonce),
+			)
+			.into();
+
+			Ok(extrinsic)
+		}
 	}
 }
 

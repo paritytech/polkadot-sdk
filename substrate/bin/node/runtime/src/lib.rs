@@ -32,6 +32,7 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, BalancingConfig, ElectionDataProvider, SequentialPhragmen, VoteWeight,
 };
+use polkadot_sdk::frame_support::traits::InherentBuilder;
 use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
@@ -3578,7 +3579,19 @@ impl_runtime_apis! {
 			impl pallet_session_benchmarking::Config for Runtime {}
 			impl pallet_offences_benchmarking::Config for Runtime {}
 			impl pallet_election_provider_support_benchmarking::Config for Runtime {}
-			impl frame_system_benchmarking::Config for Runtime {}
+			impl frame_system_benchmarking::Config for Runtime {
+				fn benchmark_apply_extrinsic() {
+					let ext = UncheckedExtrinsic::new_inherent(
+							RuntimeCall::System(frame_system::Call::remark {
+								remark: Default::default()
+							})
+					);
+					let ext = ext.encode();
+					for _ in 0..1000 {
+						let _ = Executive::apply_extrinsic(Decode::decode(&mut &ext[..]).unwrap());
+					}
+				}
+			}
 			impl baseline::Config for Runtime {}
 			impl pallet_nomination_pools_benchmarking::Config for Runtime {}
 

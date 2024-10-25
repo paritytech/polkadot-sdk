@@ -1060,6 +1060,11 @@ pub mod pallet {
 	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			// TODO TODO: feature gate for runtime benchmark
+			if let Call::remark { .. } = call {
+				return Ok(Default::default());
+			}
+
 			if let Call::apply_authorized_upgrade { ref code } = call {
 				if let Ok(hash) = Self::validate_authorized_upgrade(&code[..]) {
 					return Ok(ValidTransaction {

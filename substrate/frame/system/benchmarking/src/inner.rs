@@ -45,6 +45,9 @@ pub trait Config: frame_system::Config {
 	fn verify_set_code() {
 		System::<Self>::assert_last_event(frame_system::Event::<Self>::CodeUpdated.into());
 	}
+
+	// TODO TODO: doc
+	fn benchmark_apply_extrinsic() {}
 }
 
 #[benchmarks]
@@ -223,6 +226,21 @@ mod benchmarks {
 		// Can't check for `CodeUpdated` in parachain upgrades. Just check that the authorization is
 		// gone.
 		assert!(System::<T>::authorized_upgrade().is_none());
+		Ok(())
+	}
+
+	// Some result: this is 18 microsecond, or if executed by batch of 1000 then 8 microsecond
+	// on the other hand the overhead is measured as 15 microsecond
+
+	// TODO TODO:
+	#[benchmark]
+	fn apply_extrinsic() -> Result<(), BenchmarkError> {
+
+		#[block]
+		{
+			T::benchmark_apply_extrinsic();
+		}
+
 		Ok(())
 	}
 

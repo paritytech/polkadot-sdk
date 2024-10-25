@@ -101,12 +101,12 @@ where
 	/// Then benchmarks a full block built with the given `ext_builder` and subtracts the baseline
 	/// from the result.
 	/// This is necessary to account for the time the inherents use.
-	pub fn bench_extrinsic(&self, ext_builder: &dyn ExtrinsicBuilder) -> Result<Stats> {
+	pub fn bench_extrinsic(&self, ext_builder: &dyn ExtrinsicBuilder, use_bare: bool) -> Result<Stats> {
 		let (block, _) = self.build_block(None)?;
 		let base = self.measure_block(&block)?;
 		let base_time = Stats::new(&base)?.select(StatSelect::Average);
 
-		let (block, num_ext) = self.build_block(Some(ext_builder))?;
+		let (block, num_ext) = self.build_block(Some((ext_builder, use_bare)))?;
 		let num_ext = num_ext.ok_or_else(|| Error::Input("Block was empty".into()))?;
 		let mut records = self.measure_block(&block)?;
 
@@ -127,7 +127,7 @@ where
 	/// Returns a block with only inherents if `ext_builder` is `None`.
 	fn build_block(
 		&self,
-		ext_builder: Option<&dyn ExtrinsicBuilder>,
+		ext_builder: Option<(&dyn ExtrinsicBuilder, bool)>,
 	) -> Result<(Block, Option<u64>)> {
 		let chain = self.client.usage_info().chain;
 		let mut builder = BlockBuilderBuilder::new(&*self.client)
@@ -143,9 +143,7 @@ where
 		}
 
 		// Return early if `ext_builder` is `None`.
-		let ext_builder = if let Some(ext_builder) = ext_builder {
-			ext_builder
-		} else {
+		let Some((ext_builder, use_bare)) = ext_builder else {
 			return Ok((builder.build()?.block, None))
 		};
 
@@ -153,7 +151,7 @@ where
 		info!("Building block, this takes some time...");
 		let mut num_ext = 0;
 		for nonce in 0..self.max_ext_per_block() {
-			let ext = ext_builder.build(nonce)?;
+			let ext = ext_builder.build(nonce, use_bare)?;
 			match builder.push(ext.clone()) {
 				Ok(()) => {},
 				Err(ApplyExtrinsicFailed(Validity(TransactionValidityError::Invalid(

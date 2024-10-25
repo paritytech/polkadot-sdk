@@ -56,10 +56,14 @@ pub trait ExtrinsicBuilder {
 	/// Should be all lowercase.
 	fn extrinsic(&self) -> &str;
 
+	// TODO TODO: instead of a new arg better to have a new method: `fn is_bare` or something and
+	// then only create a new implementation with a good bare extrinsic.
 	/// Builds an extrinsic.
 	///
+	/// Either signed with the given nonce or bare if bare is specified.
+	///
 	/// Will be called multiple times with increasing nonces.
-	fn build(&self, nonce: u32) -> std::result::Result<OpaqueExtrinsic, &'static str>;
+	fn build(&self, nonce: u32, bare: bool) -> std::result::Result<OpaqueExtrinsic, &'static str>;
 }
 
 impl dyn ExtrinsicBuilder + '_ {
