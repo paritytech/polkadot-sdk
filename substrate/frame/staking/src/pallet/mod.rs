@@ -296,6 +296,9 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type DisablingStrategy: DisablingStrategy<Self>;
 
+		#[pallet::constant]
+		type MaxInvulnerables: Get<u32>;
+
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -343,6 +346,7 @@ pub mod pallet {
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
+			type MaxInvulnerables = ConstU32<4>;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -365,7 +369,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn invulnerables)]
 	#[pallet::unbounded]
-	pub type Invulnerables<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+	pub type Invulnerables<T: Config> = StorageValue<_, BoundedVec<T::AccountId, T::MaxInvulnerables>, ValueQuery>;
 
 	/// Map from all locked "stash" accounts to the controller account.
 	///
@@ -757,7 +761,7 @@ pub mod pallet {
 		fn build(&self) {
 			ValidatorCount::<T>::put(self.validator_count);
 			MinimumValidatorCount::<T>::put(self.minimum_validator_count);
-			Invulnerables::<T>::put(&self.invulnerables);
+			Invulnerables::<T>::put(BoundedVec::truncate_from(self.invulnerables.clone()));
 			ForceEra::<T>::put(self.force_era);
 			CanceledSlashPayout::<T>::put(self.canceled_payout);
 			SlashRewardFraction::<T>::put(self.slash_reward_fraction);
@@ -1536,7 +1540,8 @@ pub mod pallet {
 			invulnerables: Vec<T::AccountId>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			<Invulnerables<T>>::put(invulnerables);
+			ensure!(invulnerables.len() <= T::MaxInvulnerables::get() as usize, Error::<T>::BoundNotMet);
+			<Invulnerables<T>>::put(BoundedVec::truncate_from(invulnerables));
 			Ok(())
 		}
 
