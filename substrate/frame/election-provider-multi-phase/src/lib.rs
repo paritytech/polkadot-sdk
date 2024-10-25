@@ -191,10 +191,15 @@
 //!
 //!	## Multi-page election support
 //!
-//!	Even though the [`frame_election_provider_support::ElectionDataProvider`] and
-//!	[`frame_election_provider_support::ElectionProvider`] traits support multi-paged election, this
-//!	pallet only supports a single page election flow. Thus, [`Config::Pages`] must be always set to
-//!	one, which is asserted by the [`frame_support::traits::Hooks::integrity_test`].
+//! The [`frame_election_provider_support::ElectionDataProvider`] and
+//! [`frame_election_provider_support::ElectionProvider`] traits used by this pallet support a
+//! multi page election.
+//!
+//! However, this pallet is meant to be used only in the context of a single-page election and data
+//! provider and all the relevant trait implementation ad configurations reflect that assumption.
+//!
+//! If external callers request the election of a page index higher than 0, the election will fail
+//! with [`ElectionError::MultiPageNotSupported`].
 //!
 //! ## Future Plans
 //!
@@ -246,7 +251,6 @@ use frame_election_provider_support::{
 	InstantElectionProvider, NposSolution, PageIndex, TryIntoBoundedSupports,
 };
 use frame_support::{
-	defensive_assert,
 	dispatch::DispatchClass,
 	ensure,
 	traits::{Currency, Get, OnUnbalanced, ReservableCurrency},
@@ -442,18 +446,18 @@ impl<C: Default> Default for RawSolution<C> {
 	DefaultNoBound,
 	scale_info::TypeInfo,
 )]
-#[scale_info(skip_type_params(AccountId, MaxWinnersPerPage, MaxBackersPerWinner))]
-pub struct ReadySolution<AccountId, MaxWinnersPerPage, MaxBackersPerWinner>
+#[scale_info(skip_type_params(AccountId, MaxWinners, MaxBackersPerWinner))]
+pub struct ReadySolution<AccountId, MaxWinners, MaxBackersPerWinner>
 where
 	AccountId: IdentifierT,
-	MaxWinnersPerPage: Get<u32>,
+	MaxWinners: Get<u32>,
 	MaxBackersPerWinner: Get<u32>,
 {
 	/// The final supports of the solution.
 	///
 	/// This is target-major vector, storing each winners, total backing, and each individual
 	/// backer.
-	pub supports: BoundedSupports<AccountId, MaxWinnersPerPage, MaxBackersPerWinner>,
+	pub supports: BoundedSupports<AccountId, MaxWinners, MaxBackersPerWinner>,
 	/// The score of the solution.
 	///
 	/// This is needed to potentially challenge the solution.
@@ -504,6 +508,9 @@ pub enum ElectionError<T: Config> {
 	DataProvider(&'static str),
 	/// An error nested in the fallback.
 	Fallback(FallbackErrorOf<T>),
+	/// An error occurred when requesting an election result. The caller expects a mulit-paged
+	/// election, which this pallet does not support.
+	MultiPageNotSupported,
 	/// No solution has been queued.
 	NothingQueued,
 }
@@ -624,7 +631,7 @@ pub mod pallet {
 		type MinerConfig: crate::unsigned::MinerConfig<
 			AccountId = Self::AccountId,
 			MaxVotesPerVoter = <Self::DataProvider as ElectionDataProvider>::MaxVotesPerVoter,
-			MaxWinnersPerPage = Self::MaxWinnersPerPage,
+			MaxWinners = Self::MaxWinners,
 			MaxBackersPerWinner = Self::MaxBackersPerWinner,
 		>;
 
@@ -662,28 +669,22 @@ pub mod pallet {
 		#[pallet::constant]
 		type SignedDepositWeight: Get<BalanceOf<Self>>;
 
-		/// Maximum number of winners that a page supports.
+		/// Maximum number of winners that an electio supports.
 		///
 		/// Note: This must always be greater or equal to `T::DataProvider::desired_targets()`.
-		type MaxWinnersPerPage: Get<u32>;
+		type MaxWinners: Get<u32>;
 
-		/// Maximum number of voters that can support a single target, across ALL the solution
-		/// pages. Thus, this can only be verified when processing the last solution page.
+		/// Maximum number of voters that can support a winner target in an election solution.
 		///
 		/// This limit must be set so that the memory limits of the rest of the system are
 		/// respected.
 		type MaxBackersPerWinner: Get<u32>;
-
-		/// Number of pages.
-		type Pages: Get<PageIndex>;
 
 		/// Something that calculates the signed deposit base based on the signed submissions queue
 		/// size.
 		type SignedDepositBase: Convert<usize, BalanceOf<Self>>;
 
 		/// The maximum number of electing voters and electable targets to put in the snapshot.
-		/// At the moment, snapshots are only over a single block, but once multi-block elections
-		/// are introduced they will take place over multiple blocks.
 		type ElectionBounds: Get<ElectionBounds>;
 
 		/// Handler for the slashed deposits.
@@ -704,7 +705,7 @@ pub mod pallet {
 			BlockNumber = BlockNumberFor<Self>,
 			DataProvider = Self::DataProvider,
 			MaxBackersPerWinner = Self::MaxBackersPerWinner,
-			MaxWinnersPerPage = Self::MaxWinnersPerPage,
+			MaxWinnersPerPage = Self::MaxWinners,
 		>;
 
 		/// Configuration of the governance-only fallback.
@@ -715,7 +716,7 @@ pub mod pallet {
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 			DataProvider = Self::DataProvider,
-			MaxWinnersPerPage = Self::MaxWinnersPerPage,
+			MaxWinnersPerPage = Self::MaxWinners,
 			MaxBackersPerWinner = Self::MaxBackersPerWinner,
 		>;
 
@@ -753,7 +754,7 @@ pub mod pallet {
 
 		#[pallet::constant_name(MinerMaxWinners)]
 		fn max_winners() -> u32 {
-			<T::MinerConfig as MinerConfig>::MaxWinnersPerPage::get()
+			<T::MinerConfig as MinerConfig>::MaxWinners::get()
 		}
 	}
 
@@ -895,9 +896,6 @@ pub mod pallet {
 			// `SignedMaxSubmissions` is a red flag that the developer does not understand how to
 			// configure this pallet.
 			assert!(T::SignedMaxSubmissions::get() >= T::SignedMaxRefunds::get());
-
-			// This pallet only supports single-page elections.
-			assert!(T::Pages::get() == 1u32);
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -1001,7 +999,7 @@ pub mod pallet {
 			T::ForceOrigin::ensure_origin(origin)?;
 			ensure!(CurrentPhase::<T>::get().is_emergency(), Error::<T>::CallNotAllowed);
 
-			// bound supports with T::MaxWinnersPerPage.
+			// bound supports with T::MaxWinners.
 			let supports: BoundedSupports<_, _, _> =
 				supports.try_into_bounded_supports().map_err(|_| Error::<T>::TooManyWinners)?;
 
@@ -1283,7 +1281,7 @@ pub mod pallet {
 	/// Always sorted by score.
 	#[pallet::storage]
 	pub type QueuedSolution<T: Config> =
-		StorageValue<_, ReadySolution<T::AccountId, T::MaxWinnersPerPage, T::MaxBackersPerWinner>>;
+		StorageValue<_, ReadySolution<T::AccountId, T::MaxWinners, T::MaxBackersPerWinner>>;
 
 	/// Snapshot data of the round.
 	///
@@ -1416,7 +1414,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Always sorted by score.
 	pub fn queued_solution(
-	) -> Option<ReadySolution<T::AccountId, T::MaxWinnersPerPage, T::MaxBackersPerWinner>> {
+	) -> Option<ReadySolution<T::AccountId, T::MaxWinners, T::MaxBackersPerWinner>> {
 		QueuedSolution::<T>::get()
 	}
 
@@ -1602,10 +1600,8 @@ impl<T: Config> Pallet<T> {
 	pub fn feasibility_check(
 		raw_solution: RawSolution<SolutionOf<T::MinerConfig>>,
 		compute: ElectionCompute,
-	) -> Result<
-		ReadySolution<T::AccountId, T::MaxWinnersPerPage, T::MaxBackersPerWinner>,
-		FeasibilityError,
-	> {
+	) -> Result<ReadySolution<T::AccountId, T::MaxWinners, T::MaxBackersPerWinner>, FeasibilityError>
+	{
 		let desired_targets =
 			DesiredTargets::<T>::get().ok_or(FeasibilityError::SnapshotUnavailable)?;
 
@@ -1686,7 +1682,7 @@ impl<T: Config> Pallet<T> {
 
 	/// record the weight of the given `supports`.
 	fn weigh_supports(
-		supports: &BoundedSupports<T::AccountId, T::MaxWinnersPerPage, T::MaxBackersPerWinner>,
+		supports: &BoundedSupports<T::AccountId, T::MaxWinners, T::MaxBackersPerWinner>,
 	) {
 		let active_voters = supports
 			.iter()
@@ -1783,14 +1779,14 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	type AccountId = T::AccountId;
 	type BlockNumber = BlockNumberFor<T>;
 	type Error = ElectionError<T>;
-	type MaxWinnersPerPage = T::MaxWinnersPerPage;
+	type MaxWinnersPerPage = T::MaxWinners;
 	type MaxBackersPerWinner = T::MaxBackersPerWinner;
-	type Pages = T::Pages;
+	type Pages = sp_core::ConstU32<1>;
 	type DataProvider = T::DataProvider;
 
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		// this pallet **MUST** only by used in the single-block mode.
-		defensive_assert!(page.is_zero());
+		// Note: this pallet **MUST** only by used in the single-block mode.
+		ensure!(page.is_zero(), ElectionError::<T>::WrongPageIndex);
 
 		match Self::do_elect() {
 			Ok(bounded_supports) => {

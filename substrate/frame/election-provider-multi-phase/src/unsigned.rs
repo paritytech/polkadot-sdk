@@ -430,7 +430,7 @@ pub trait MinerConfig {
 	/// The weight is computed using `solution_weight`.
 	type MaxWeight: Get<Weight>;
 	/// The maximum number of winners that can be elected per page (and  overall).
-	type MaxWinnersPerPage: Get<u32>;
+	type MaxWinners: Get<u32>;
 	/// The maximum number of backers (edges) per winner in the last solution.
 	type MaxBackersPerWinner: Get<u32>;
 	/// Something that can compute the weight of a solution.
@@ -751,10 +751,8 @@ impl<T: MinerConfig> Miner<T> {
 		snapshot: RoundSnapshot<T::AccountId, MinerVoterOf<T>>,
 		current_round: u32,
 		minimum_untrusted_score: Option<ElectionScore>,
-	) -> Result<
-		ReadySolution<T::AccountId, T::MaxWinnersPerPage, T::MaxBackersPerWinner>,
-		FeasibilityError,
-	> {
+	) -> Result<ReadySolution<T::AccountId, T::MaxWinners, T::MaxBackersPerWinner>, FeasibilityError>
+	{
 		let RawSolution { solution, score, round } = raw_solution;
 		let RoundSnapshot { voters: snapshot_voters, targets: snapshot_targets } = snapshot;
 
@@ -766,10 +764,7 @@ impl<T: MinerConfig> Miner<T> {
 
 		ensure!(winners.len() as u32 == desired_targets, FeasibilityError::WrongWinnerCount);
 		// Fail early if targets requested by data provider exceed maximum winners supported.
-		ensure!(
-			desired_targets <= T::MaxWinnersPerPage::get(),
-			FeasibilityError::TooManyDesiredTargets
-		);
+		ensure!(desired_targets <= T::MaxWinners::get(), FeasibilityError::TooManyDesiredTargets);
 
 		// Ensure that the solution's score can pass absolute min-score.
 		let submitted_score = raw_solution.score;
@@ -826,7 +821,7 @@ impl<T: MinerConfig> Miner<T> {
 		let known_score = supports.evaluate();
 		ensure!(known_score == score, FeasibilityError::InvalidScore);
 
-		// Size of winners in miner solution is equal to `desired_targets` <= `MaxWinnersPerPage`.
+		// Size of winners in miner solution is equal to `desired_targets` <= `MaxWinners`.
 		let supports = supports
 			.try_into_bounded_supports()
 			.defensive_map_err(|_| FeasibilityError::BoundedConversionFailed)?;

@@ -234,7 +234,6 @@ pub mod pallet {
 
 		/// The absolute maximum of next winner validators this pallet should return.
 		#[pallet::constant]
-		#[pallet::no_default]
 		type MaxValidatorSet: Get<u32>;
 
 		/// Something that provides a best-effort sorted list of voters aka electing nominators,
@@ -345,6 +344,7 @@ pub mod pallet {
 			type NextNewSession = ();
 			type MaxExposurePageSize = ConstU32<64>;
 			type MaxUnlockingChunks = ConstU32<32>;
+			type MaxValidatorSet = ConstU32<100>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;

@@ -58,14 +58,13 @@
 //! does not receive election data as an input. All value and type parameter must be provided by the
 //! [`ElectionDataProvider`] trait, even if the election happens immediately.
 //!
-//! ## Multi-page election
+//! ## Multi-page election support
 //!
 //! Both [`ElectionDataProvider`] and [`ElectionProvider`] traits are parameterized by page,
 //! supporting an election to be performed over multiple pages. This enables the
 //! [`ElectionDataProvider`] implementor to provide all the election data over multiple pages.
 //! Similarly [`ElectionProvider::elect`] is parameterized by page index.
-//!
-//! ## [`LockableElectionDataProvider`] for multi-page election
+////! ## [`LockableElectionDataProvider`] for multi-page election
 //!
 //! The [`LockableElectionDataProvider`] trait exposes a way for election data providers to lock
 //! and unlock election data mutations. This is an useful trait to ensure that the results of
@@ -330,7 +329,6 @@ pub trait ElectionDataProvider {
 	/// Returns the possible targets for the election associated with page `page`, i.e. the targets
 	/// that could become elected, thus "electable".
 	///
-	/// TODO(gpestana): remove self-weighing and return the weight.
 	/// This should be implemented as a self-weighing function. The implementor should register its
 	/// appropriate weight at the end of execution with the system pallet directly.
 	fn electable_targets(
