@@ -96,9 +96,9 @@ pub mod pallet {
 		/// Checks the XCM version for the destination.
 		type DestinationVersion: GetVersion;
 
-		//! The bridge hub may be:
-		//! - A system (sibling) bridge hub parachain (or another chain), in which case we need an implementation for `T::ToBridgeHubSender` that sends `ExportMessage`, e.g., `SovereignPaidRemoteExporter`.
-		//! - The local chain, in which case we need an implementation for `T::ToBridgeHubSender` that does not use `ExportMessage` but instead directly calls the `ExportXcm` implementation.
+		/// The bridge hub may be:
+		/// - A system (sibling) bridge hub parachain (or another chain), in which case we need an implementation for `T::ToBridgeHubSender` that sends `ExportMessage`, e.g., `SovereignPaidRemoteExporter`.
+		/// - The local chain, in which case we need an implementation for `T::ToBridgeHubSender` that does not use `ExportMessage` but instead directly calls the `ExportXcm` implementation.
 		type ToBridgeHubSender: SendXcm;
 		/// Local XCM channel manager.
 		type LocalXcmChannelManager: XcmChannelStatusProvider;
