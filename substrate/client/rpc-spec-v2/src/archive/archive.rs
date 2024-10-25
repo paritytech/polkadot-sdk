@@ -19,8 +19,15 @@
 //! API implementation for `archive`.
 
 use crate::{
-	archive::{error::Error as ArchiveError, ArchiveApiServer},
-	common::events::{ArchiveStorageResult, PaginatedStorageQuery},
+	archive::{
+		archive_storage::{ArchiveStorage, ArchiveStorageDiff},
+		error::Error as ArchiveError,
+		ArchiveApiServer,
+	},
+	common::events::{
+		ArchiveStorageDiffItem, ArchiveStorageDiffMethodResult, ArchiveStorageResult,
+		PaginatedStorageQuery,
+	},
 	hex_string, MethodResult,
 };
 
@@ -40,8 +47,6 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
-
-use super::archive_storage::ArchiveStorage;
 
 /// The configuration of [`Archive`].
 pub struct ArchiveConfig {
@@ -277,5 +282,43 @@ where
 		);
 
 		Ok(storage_client.handle_query(hash, items, child_trie))
+	}
+
+	fn archive_unstable_storage_diff(
+		&self,
+		hash: Block::Hash,
+		previous_hash: Option<Block::Hash>,
+		items: Vec<ArchiveStorageDiffItem<String>>,
+	) -> RpcResult<ArchiveStorageDiffMethodResult> {
+		let storage_client = ArchiveStorageDiff::new(self.client.clone());
+
+		// Deduplicate the items.
+		let trie_items = storage_client.deduplicate_items(items)?;
+
+		let previous_hash = if let Some(previous_hash) = previous_hash {
+			previous_hash
+		} else {
+			let Ok(Some(current_header)) = self.client.header(hash) else {
+				return Err(ArchiveError::InvalidParam(format!(
+					"Block header is not present: {}",
+					hash
+				))
+				.into());
+			};
+			*current_header.parent_hash()
+		};
+
+		if trie_items.is_empty() {
+			let result = storage_client.handle_trie_queries(hash, previous_hash, Vec::new())?;
+			return Ok(ArchiveStorageDiffMethodResult { result })
+		}
+
+		let mut storage_results = Vec::new();
+		for trie_queries in trie_items {
+			let result = storage_client.handle_trie_queries(hash, previous_hash, trie_queries)?;
+			storage_results.extend(result);
+		}
+
+		Ok(ArchiveStorageDiffMethodResult { result: storage_results })
 	}
 }
