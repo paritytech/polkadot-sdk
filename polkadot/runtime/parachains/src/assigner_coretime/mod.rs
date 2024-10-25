@@ -27,25 +27,48 @@ mod mock_helpers;
 #[cfg(test)]
 mod tests;
 
-use crate::{
-	configuration, on_demand,
-	paras::AssignCoretime,
-	scheduler::common::{Assignment, AssignmentProvider},
-	ParaId,
-};
+use crate::{configuration, on_demand, paras::AssignCoretime, ParaId};
 
-use alloc::{vec, vec::Vec};
+use alloc::{
+	collections::{BTreeMap, VecDeque},
+	vec,
+	vec::Vec,
+};
 use frame_support::{defensive, pallet_prelude::*};
 use frame_system::pallet_prelude::*;
 use pallet_broker::CoreAssignment;
 use polkadot_primitives::CoreIndex;
-use sp_runtime::traits::{One, Saturating};
+use scale_info::TypeInfo;
+use sp_runtime::{
+	codec::{Decode, Encode},
+	traits::{One, Saturating},
+	RuntimeDebug,
+};
 
 pub use pallet::*;
 
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
 #[derive(RuntimeDebug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
 pub struct PartsOf57600(u16);
+
+/// Assignment (ParaId -> CoreIndex).
+#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq)]
+pub enum Assignment {
+	/// A pool assignment.
+	Pool(ParaId),
+	/// A bulk assignment.
+	Bulk(ParaId),
+}
+
+impl Assignment {
+	/// Returns the [`ParaId`] this assignment is associated to.
+	pub fn para_id(&self) -> ParaId {
+		match self {
+			Self::Pool(para_id) => *para_id,
+			Self::Bulk(para_id) => *para_id,
+		}
+	}
+}
 
 impl PartsOf57600 {
 	pub const ZERO: Self = Self(0);
@@ -172,6 +195,15 @@ struct AssignmentState {
 	remaining: PartsOf57600,
 }
 
+/// How storage is accessed.
+#[derive(Copy, Clone)]
+enum AccessMode {
+	/// We only want to peek (no side effects).
+	Peek,
+	/// We need to update state.
+	Pop,
+}
+
 impl<N> From<Schedule<N>> for WorkState<N> {
 	fn from(schedule: Schedule<N>) -> Self {
 		let Schedule { assignments, end_hint, next_schedule: _ } = schedule;
@@ -220,12 +252,11 @@ pub mod pallet {
 	///
 	/// They will be picked from `PendingAssignments` once we reach the scheduled block number in
 	/// `PendingAssignments`.
+	/// TODO: Migration
 	#[pallet::storage]
-	pub(super) type CoreDescriptors<T: Config> = StorageMap<
+	pub(super) type CoreDescriptors<T: Config> = StorageValue<
 		_,
-		Twox256,
-		CoreIndex,
-		CoreDescriptor<BlockNumberFor<T>>,
+		BTreeMap<CoreIndex, CoreDescriptor<BlockNumberFor<T>>>,
 		ValueQuery,
 		GetDefault,
 	>;
@@ -250,14 +281,103 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
-	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
+impl<T: Config> Pallet<T> {
+	/// Peek `num_entries` into the future.
+	///
+	/// First element in the returne vec will show you what you would get when you call
+	/// `pop_assignment_for_core` now. The second what you would get in the next block when you
+	/// called `pop_assignment_for_core` again (prediction).
+	///
+	/// The predictions are accurate in the sense that if an assignment `B` was predicted, it will
+	/// never happen that `pop_assignment_for_core` at that block will retrieve an assignment `A`.
+	/// What can happen though is that the prediction is empty (returned vec does not contain that
+	/// element), but `pop_assignment_for_core` at that block will then return something
+	/// regardless.
+	///
+	/// Invariant to maintain: `pop_assignment_for_core` must be called for each core each block
+	/// exactly once for the prediction offered by `peek` to stay accurate. If
+	/// `pop_assignment_for_core` was not yet called at this very block, then the first entry in
+	/// the vec returned by `peek` will be the assignment statements should be ready for
+	/// at this block.
+	pub fn peek(num_entries: u8) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+		let now = frame_system::Pallet::<T>::block_number();
+		Self::peek_impl(now, num_entries)
+	}
+
+	/// Pops an [`Assignment`] from the provider for a specified [`CoreIndex`].
+	///
+	/// This is where assignments come into existence.
+	pub fn pop_assignments() -> impl Iterator<Item = (CoreIndex, Assignment)> {
 		let now = frame_system::Pallet::<T>::block_number();
 
-		CoreDescriptors::<T>::mutate(core_idx, |core_state| {
-			Self::ensure_workload(now, core_idx, core_state);
+		CoreDescriptors::<T>::mutate(|core_states| {
+			Self::pop_assignments_impl(now, core_states, AccessMode::Pop)
+		})
+	}
 
-			let work_state = core_state.current_work.as_mut()?;
+	/// Push back a previously popped assignment.
+	///
+	/// If the assignment could not be processed, it can be pushed back
+	/// to the assignment provider in order to be popped again later.
+	///
+	/// Invariants: The order of assignments returned by `peek` is maintained: The pushed back
+	/// assignment will come after the elements returned by `peek` as of before that call or not at
+	/// all. The implementation is free to drop the pushed back assignment.
+	pub fn push_back_assignment(assignment: Assignment) {
+		match assignment {
+			Assignment::Pool(para_id) => on_demand::Pallet::<T>::push_back_order(para_id),
+			Assignment::Bulk(_) => {
+				// Pushing back assignments is not a thing for bulk.
+			},
+		}
+	}
+
+	pub(crate) fn coretime_cores() -> impl Iterator<Item = CoreIndex> {
+		(0..Self::num_coretime_cores()).map(|i| CoreIndex(i as _))
+	}
+
+	fn num_coretime_cores() -> u32 {
+		configuration::ActiveConfig::get().coretime_cores
+	}
+
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	fn get_mock_assignment(_: CoreIndex, para_id: polkadot_primitives::Id) -> Assignment {
+		// Given that we are not tracking anything in `Bulk` assignments, it is safe to always
+		// return a bulk assignment.
+		Assignment::Bulk(para_id)
+	}
+
+	fn peek_impl(
+		mut now: BlockNumberFor<T>,
+		num_entries: u8,
+	) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+		let mut core_states = CoreDescriptors::<T>::get();
+		let mut result = BTreeMap::with_capacity(Self::num_coretime_cores());
+		for i in 0..num_entries {
+			let assignments = Self::pop_assignments_impl(now, &mut core_states, AccessMode::Peek);
+			for (core_idx, assignment) in assignments {
+				let assignments = result.entry(core_idx).or_default();
+				// Stop filling on holes, otherwise we get assignments at the wrong positions.
+				if assignments.len() == i {
+					assignments.push_back(assignment.para_id())
+				}
+			}
+			now.saturating_add(One::one());
+		}
+		result
+	}
+
+	fn pop_assignments_impl(
+		now: BlockNumberFor<T>,
+		core_states: &mut BTreeMap<CoreIndex, CoreDescriptor<BlockNumberFor<T>>>,
+		mode: AccessMode,
+	) -> impl Iterator<Item = (CoreIndex, Assignment)> {
+		let mut bulk_assignments = Vec::with_capacity(Self::num_coretime_cores() as _);
+		let mut pool_cores = Vec::with_capacity(Self::num_coretime_cores() as _);
+		for (core_idx, core_state) in core_states.iter_mut() {
+			Self::ensure_workload(now, *core_idx, core_state, mode);
+
+			let Some(work_state) = core_state.current_work.as_mut() else { continue };
 
 			// Wrap around:
 			work_state.pos = work_state.pos % work_state.assignments.len() as u16;
@@ -275,64 +395,27 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 				// Reset to ratio + still remaining "credits":
 				a_state.remaining = a_state.remaining.saturating_add(a_state.ratio);
 			}
-
-			match a_type {
-				CoreAssignment::Idle => None,
-				CoreAssignment::Pool => on_demand::Pallet::<T>::pop_assignment_for_core(core_idx),
-				CoreAssignment::Task(para_id) => Some(Assignment::Bulk((*para_id).into())),
+			match *a_type {
+				CoreAssignment::Pool => pool_cores.push(*core_idx),
+				CoreAssignment::Task(para_id) =>
+					bulk_assignments.push((*core_idx, Assignment::Bulk(para_id.into()))),
+				CoreAssignment::Idle => {},
 			}
-		})
-	}
-
-	fn report_processed(assignment: Assignment) {
-		match assignment {
-			Assignment::Pool { para_id, core_index } =>
-				on_demand::Pallet::<T>::report_processed(para_id, core_index),
-			Assignment::Bulk(_) => {},
 		}
+
+		let pool_assignments =
+			on_demand::Pallet::<T>::pop_assignment_for_cores(pool_cores.len() as _)
+				.map(Assignment::Pool);
+
+		bulk_assignments.into_iter().chain(pool_cores.into_iter().zip(pool_assignments))
 	}
 
-	/// Push an assignment back to the front of the queue.
-	///
-	/// The assignment has not been processed yet. Typically used on session boundaries.
-	/// Parameters:
-	/// - `assignment`: The on demand assignment.
-	fn push_back_assignment(assignment: Assignment) {
-		match assignment {
-			Assignment::Pool { para_id, core_index } =>
-				on_demand::Pallet::<T>::push_back_assignment(para_id, core_index),
-			Assignment::Bulk(_) => {
-				// Session changes are rough. We just drop assignments that did not make it on a
-				// session boundary. This seems sensible as bulk is region based. Meaning, even if
-				// we made the effort catching up on those dropped assignments, this would very
-				// likely lead to other assignments not getting served at the "end" (when our
-				// assignment set gets replaced).
-			},
-		}
-	}
-
-	#[cfg(any(feature = "runtime-benchmarks", test))]
-	fn get_mock_assignment(_: CoreIndex, para_id: polkadot_primitives::Id) -> Assignment {
-		// Given that we are not tracking anything in `Bulk` assignments, it is safe to always
-		// return a bulk assignment.
-		Assignment::Bulk(para_id)
-	}
-
-	fn assignment_duplicated(assignment: &Assignment) {
-		match assignment {
-			Assignment::Pool { para_id, core_index } =>
-				on_demand::Pallet::<T>::assignment_duplicated(*para_id, *core_index),
-			Assignment::Bulk(_) => {},
-		}
-	}
-}
-
-impl<T: Config> Pallet<T> {
 	/// Ensure given workload for core is up to date.
 	fn ensure_workload(
 		now: BlockNumberFor<T>,
 		core_idx: CoreIndex,
 		descriptor: &mut CoreDescriptor<BlockNumberFor<T>>,
+		mode: AccessMode,
 	) {
 		// Workload expired?
 		if descriptor
@@ -358,9 +441,13 @@ impl<T: Config> Pallet<T> {
 
 		// Update is needed:
 		let update = loop {
-			let Some(update) = CoreSchedules::<T>::take((next_scheduled, core_idx)) else {
+			let Some(update) = (match mode {
+				AccessMode::Peek => CoreSchedules::<T>::get((next_scheduled, core_idx)),
+				AccessMode::Pop => CoreSchedules::<T>::take((next_scheduled, core_idx)),
+			}) else {
 				break None
 			};
+
 			// Still good?
 			if update.end_hint.map_or(true, |e| e > now) {
 				break Some(update)
@@ -425,7 +512,8 @@ impl<T: Config> Pallet<T> {
 			})?;
 		ensure!(parts_sum.is_full(), Error::<T>::UnderScheduled);
 
-		CoreDescriptors::<T>::mutate(core_idx, |core_descriptor| {
+		CoreDescriptors::<T>::mutate(|core_descriptors| {
+			let core_descriptor = core_descriptors.entry(core_idx).or_default();
 			let new_queue = match core_descriptor.queue {
 				Some(queue) => {
 					ensure!(begin > queue.last, Error::<T>::DisallowedInsert);
