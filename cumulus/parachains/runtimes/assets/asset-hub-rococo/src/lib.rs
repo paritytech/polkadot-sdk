@@ -111,6 +111,7 @@ use xcm_runtime_apis::{
 };
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
+use xcm_builder::SovereignPaidRemoteExporter;
 
 impl_opaque_keys! {
 	pub struct SessionKeys {
@@ -933,7 +934,12 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 	type Bridges = xcm_config::bridging::NetworkExportTable;
 	type DestinationVersion = PolkadotXcm;
 
-	type ToBridgeHubSender = XcmpQueue;
+	// Let's use `SovereignPaidRemoteExporter`, which sends `ExportMessage` over HRMP to the sibling BridgeHub.
+	type ToBridgeHubSender = SovereignPaidRemoteExporter<
+		ToWestendXcmRouter,
+		XcmpQueue,
+		Self::UniversalLocation,
+	>;
 	type LocalXcmChannelManager =
 		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<Runtime>;
 

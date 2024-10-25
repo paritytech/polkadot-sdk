@@ -27,7 +27,7 @@ use frame_support::{
 use sp_runtime::{traits::ConstU128, BuildStorage};
 use sp_std::cell::RefCell;
 use xcm::prelude::*;
-use xcm_builder::{InspectMessageQueues, NetworkExportTable, NetworkExportTableItem};
+use xcm_builder::{InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, SovereignPaidRemoteExporter};
 
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
@@ -80,7 +80,12 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type DestinationVersion =
 		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionForRoutableLocation>>;
 
-	type ToBridgeHubSender = TestToBridgeHubSender;
+	type ToBridgeHubSender = SovereignPaidRemoteExporter<
+		// use pallet itself as `ExportFor` provider.
+		XcmBridgeHubRouter,
+		TestToBridgeHubSender,
+		Self::UniversalLocation,
+	>;
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
 	type ByteFee = ConstU128<BYTE_FEE>;
