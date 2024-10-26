@@ -1225,7 +1225,10 @@ impl<T: Config> Pallet<T> {
 		);
 
 		if (NextExternal::<T>::get().is_some()) {
-			ensure!(PublicProps::<T>::get().len() == 0, "`NextExternal` should exists if PublicProps is empty");
+			ensure!(
+				PublicProps::<T>::get().len() == 0,
+				"`NextExternal` should exists if PublicProps is empty"
+			);
 		}
 
 		Self::try_state_voting_of__storage_invariants();
@@ -1245,7 +1248,6 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn try_state_voting_of__storage_invariants() -> Result<(), sp_runtime::TryRuntimeError> {
-
 		for (_, voting) in VotingOf::<T>::iter() {
 			match voting {
 				Voting::Direct { votes, .. } => {
@@ -1254,8 +1256,8 @@ impl<T: Config> Pallet<T> {
 
 					ensure!(votes.len() <= <PublicPropCount<T>>::get() as usize,
 						"`VotingOf for a particular account should not be greater than PublicPropCount in storage");
-				}
-				Voting::Delegating { .. } => {}
+				},
+				Voting::Delegating { .. } => {},
 			}
 		}
 
