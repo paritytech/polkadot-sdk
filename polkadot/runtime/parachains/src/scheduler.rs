@@ -36,12 +36,7 @@
 //! number of groups as availability cores. Validator groups will be assigned to different
 //! availability cores over time.
 
-use crate::{
-	assigner_coretime,
-	configuration,
-	initializer::SessionChangeNotification,
-	paras,
-};
+use crate::{assigner_coretime, configuration, initializer::SessionChangeNotification, paras};
 use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	vec::Vec,
@@ -49,9 +44,7 @@ use alloc::{
 use frame_support::{pallet_prelude::*, traits::Defensive};
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use polkadot_core_primitives::v2::BlockNumber;
-use polkadot_primitives::{
-	CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ValidatorIndex,
-};
+use polkadot_primitives::{CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ValidatorIndex};
 use sp_runtime::traits::One;
 
 pub use pallet::*;
@@ -76,7 +69,10 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
+	pub trait Config:
+		frame_system::Config + configuration::Config + assigner_coretime::Config
+	{
+	}
 
 	/// All the validator groups. One for each core. Indices are into `ActiveValidators` - not the
 	/// broader set of Polkadot validators, but instead just the subset used for parachains during
@@ -125,7 +121,7 @@ impl<T: Config> Pallet<T> {
 		is_blocked: F,
 	) -> BTreeMap<CoreIndex, ParaId> {
 		let mut assignments = assigner_coretime::Pallet::<T>::advance_assignments(is_blocked);
-		assignments.split_off(&CoreIndex(Self::num_availability_cores()));
+		assignments.split_off(&CoreIndex(Self::num_availability_cores() as _));
 		assignments
 	}
 
@@ -134,9 +130,9 @@ impl<T: Config> Pallet<T> {
 	/// To be called from runtime APIs.
 	pub(crate) fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
 		let config = configuration::ActiveConfig::get();
-		let lookahead = config.scheduler_params.n_lookahead;
+		let lookahead = config.scheduler_params.lookahead;
 		let mut queue = assigner_coretime::Pallet::<T>::peek_next_block(lookahead);
-		queue.split_off(&CoreIndex(Self::num_availability_cores()));
+		queue.split_off(&CoreIndex(Self::num_availability_cores() as _));
 		queue
 	}
 
@@ -205,10 +201,6 @@ impl<T: Config> Pallet<T> {
 
 			ValidatorGroups::<T>::set(groups);
 		}
-
-		// Resize and populate claim queue.
-		Self::maybe_resize_claim_queue(prev_config.scheduler_params.num_cores, assigner_cores);
-		Self::populate_claim_queue_after_session_change();
 
 		let now = frame_system::Pallet::<T>::block_number() + One::one();
 		SessionStartBlock::<T>::set(now);
