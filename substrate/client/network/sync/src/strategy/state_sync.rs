@@ -140,21 +140,19 @@ where
 
 	fn process_state_verified(&mut self, values: KeyValueStates) {
 		for values in values.0 {
+			let is_top = values.state_root.is_empty();
+
 			let (child_key_values, top_key_values): (Vec<_>, Vec<_>) =
-				if values.state_root.is_empty() {
-					// Read child trie roots.
-					values.key_values.into_iter().partition(|key_value| {
-						well_known_keys::is_child_storage_key(key_value.0.as_slice())
-					})
-				} else {
-					(vec![], values.key_values)
-				};
+				values.key_values.into_iter().partition(|key_value| {
+					is_top && well_known_keys::is_child_storage_key(key_value.0.as_slice())
+				});
 
 			for key_value in child_key_values {
 				self.insert_child_trie_roots(key_value);
 			}
 
 			let entry = self.state.entry(values.state_root).or_default();
+
 			if entry.0.len() > 0 && entry.1.len() > 1 {
 				// Already imported child_trie with same root.
 				// Warning this will not work with parallel download.
@@ -199,17 +197,19 @@ where
 				}
 				complete = false;
 			}
+
 			let is_top = state.state_root.is_empty();
+
 			let entry = self.state.entry(state.state_root).or_default();
+
 			if entry.0.len() > 0 && entry.1.len() > 1 {
 				// Already imported child trie with same root.
 			} else {
-				let (child_roots, top_key_values): (Vec<_>, Vec<_>) = state
+				let (child_key_values, top_key_values): (Vec<_>, Vec<_>) = state
 					.entries
 					.into_iter()
 					.map(|StateEntry { key, value }| (key, value))
 					.partition(|key_value| {
-						// Skip all child key root (will be recalculated on import).
 						is_top && well_known_keys::is_child_storage_key(key_value.0.as_slice())
 					});
 
@@ -219,7 +219,7 @@ where
 
 				entry.0.extend(top_key_values);
 
-				for key_value in child_roots {
+				for key_value in child_key_values {
 					self.insert_child_trie_roots(key_value);
 				}
 			}
