@@ -25,7 +25,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
+		Defensive, EnsureOrigin, EstimateNextNewSession, Get,
 		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
