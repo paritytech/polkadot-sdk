@@ -33,7 +33,8 @@
 
 use sp_runtime::traits::Zero;
 mod benchmarking;
-pub mod migration;
+// TODO: Add back & fix.
+// pub mod migration;
 mod mock_helpers;
 
 extern crate alloc;
@@ -96,8 +97,8 @@ pub struct OrderStatus<N> {
 	pub queue: BoundedVec<EnqueuedOrder<N>, ON_DEMAND_MAX_QUEUE_MAX_SIZE>,
 }
 
-impl Default for OrderStatus {
-	fn default() -> OrderStatus {
+impl<N> Default for OrderStatus<N> {
+	fn default() -> OrderStatus<N> {
 		OrderStatus { traffic: FixedU128::default(), queue: BoundedVec::new() }
 	}
 }
@@ -161,7 +162,7 @@ pub mod pallet {
 
 	/// Priority queue for all orders which don't yet (or not any more) have any core affinity.
 	#[pallet::storage]
-	pub(super) type OrderStatus<T: Config> = StorageValue<_, super::OrderStatus, ValueQuery>;
+	pub(super) type OrderStatus<T: Config> = StorageValue<_, super::OrderStatus<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Keeps track of accumulated revenue from on demand order sales.
 	#[pallet::storage]
@@ -312,7 +313,8 @@ where
 	/// - `para_id`: The para that did not make it.
 	pub fn push_back_order(para_id: ParaId) {
 		OrderStatus::<T>::mutate(|order_status| {
-			order_status.queue.push(para_id);
+			let now = <frame_system::Pallet<T>>::block_number();
+			order_status.queue.push(EnqueuedOrder { para_id, ordered_at: now });
 		});
 	}
 
@@ -387,7 +389,8 @@ where
 				}
 			});
 
-			order_status.queue.push(para_id);
+			let now = <frame_system::Pallet<T>>::block_number();
+			order_status.queue.push(EnqueuedOrder { para_id, ordered_at: now });
 
 			Pallet::<T>::deposit_event(Event::<T>::OnDemandOrderPlaced {
 				para_id,
@@ -402,7 +405,7 @@ where
 	/// Calculate and update spot traffic.
 	fn update_spot_traffic(
 		config: &configuration::HostConfiguration<BlockNumberFor<T>>,
-		order_status: &mut super::OrderStatus,
+		order_status: &mut OrderStatus<BlockNumberFor<T>>,
 	) {
 		let old_traffic = order_status.traffic;
 		match Self::calculate_spot_traffic(
