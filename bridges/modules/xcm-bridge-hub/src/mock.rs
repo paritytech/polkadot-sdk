@@ -27,11 +27,9 @@ use bp_xcm_bridge_hub::{BridgeId, BridgeLocations, LocalXcmChannelManager};
 use codec::Encode;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
-	traits::{EnsureOrigin, Equals, Everything, OriginTrait},
+	traits::{fungible::Mutate, EitherOf, EnsureOrigin, Equals, Everything, OriginTrait},
 	weights::RuntimeDbWeight,
 };
-use frame_support::traits::EitherOf;
-use frame_support::traits::fungible::Mutate;
 use frame_system::EnsureRootWithSuccess;
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_core::H256;
@@ -42,9 +40,12 @@ use sp_runtime::{
 };
 use sp_std::cell::RefCell;
 use xcm::prelude::*;
-use xcm_builder::{AllowUnpaidExecutionFrom, DispatchBlob, DispatchBlobError, FixedWeightBounds, InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, ParentIsPreset, SiblingParachainConvertsVia, SovereignPaidRemoteExporter, UnpaidLocalExporter};
-use xcm_executor::traits::ConvertLocation;
-use xcm_executor::XcmExecutor;
+use xcm_builder::{
+	AllowUnpaidExecutionFrom, DispatchBlob, DispatchBlobError, FixedWeightBounds,
+	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, ParentIsPreset,
+	SiblingParachainConvertsVia, SovereignPaidRemoteExporter, UnpaidLocalExporter,
+};
+use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 pub type AccountId = AccountId32;
 pub type Balance = u64;
@@ -207,10 +208,7 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type BridgeDeposit = BridgeDeposit;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type AllowWithoutBridgeDeposit = (
-		Equals<ParentRelayChainLocation>,
-		Equals<HereLocation>
-	);
+	type AllowWithoutBridgeDeposit = (Equals<ParentRelayChainLocation>, Equals<HereLocation>);
 
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
@@ -246,7 +244,8 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type FeeAsset = BridgeFeeAsset;
 }
 
-/// A router instance simulates a scenario where the router is deployed on the same chain than the `MessageExporter`. This means that the router triggers `ExportXcm` trait directly.
+/// A router instance simulates a scenario where the router is deployed on the same chain than the
+/// `MessageExporter`. This means that the router triggers `ExportXcm` trait directly.
 impl pallet_xcm_bridge_hub_router::Config<pallet_xcm_bridge_hub_router::Instance2> for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -257,11 +256,9 @@ impl pallet_xcm_bridge_hub_router::Config<pallet_xcm_bridge_hub_router::Instance
 	type Bridges = NetworkExportTable<BridgeTable>;
 	type DestinationVersion = AlwaysLatest;
 
-	// We use `UnpaidLocalExporter` here to test and ensure that `pallet_xcm_bridge_hub_router` can trigger directly `pallet_xcm_bridge_hub` as exporter.
-	type ToBridgeHubSender = UnpaidLocalExporter<
-		XcmOverBridge,
-		Self::UniversalLocation,
-	>;
+	// We use `UnpaidLocalExporter` here to test and ensure that `pallet_xcm_bridge_hub_router` can
+	// trigger directly `pallet_xcm_bridge_hub` as exporter.
+	type ToBridgeHubSender = UnpaidLocalExporter<XcmOverBridge, Self::UniversalLocation>;
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
 	type ByteFee = ConstU128<0>;
@@ -429,12 +426,15 @@ impl EnsureOrigin<RuntimeOrigin> for OpenBridgeOrigin {
 	}
 }
 
-pub(crate) type OpenBridgeOriginOf<T, I> = <T as pallet_xcm_bridge_hub::Config<I>>::OpenBridgeOrigin;
+pub(crate) type OpenBridgeOriginOf<T, I> =
+	<T as pallet_xcm_bridge_hub::Config<I>>::OpenBridgeOrigin;
 
-pub(crate) fn fund_origin_sovereign_account(locations: &BridgeLocations, balance: Balance) -> AccountId {
+pub(crate) fn fund_origin_sovereign_account(
+	locations: &BridgeLocations,
+	balance: Balance,
+) -> AccountId {
 	let bridge_owner_account =
-		LocationToAccountId::convert_location(locations.bridge_origin_relative_location())
-			.unwrap();
+		LocationToAccountId::convert_location(locations.bridge_origin_relative_location()).unwrap();
 	assert_ok!(Balances::mint_into(&bridge_owner_account, balance));
 	bridge_owner_account
 }

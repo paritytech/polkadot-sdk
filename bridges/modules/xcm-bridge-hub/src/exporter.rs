@@ -365,8 +365,10 @@ mod tests {
 
 	use bp_runtime::RangeInclusiveExt;
 	use bp_xcm_bridge_hub::{Bridge, BridgeLocations, BridgeState};
-	use frame_support::assert_ok;
-	use frame_support::traits::{Contains, EnsureOrigin};
+	use frame_support::{
+		assert_ok,
+		traits::{Contains, EnsureOrigin},
+	};
 	use xcm_builder::{NetworkExportTable, UnpaidRemoteExporter};
 	use xcm_executor::traits::export_xcm;
 
@@ -386,15 +388,19 @@ mod tests {
 		// open expected outbound lane
 		let with = bridged_asset_hub_universal_location();
 		let locations =
-			XcmOverBridge::bridge_locations_from_origin(origin.clone(), Box::new(with.into())).unwrap();
+			XcmOverBridge::bridge_locations_from_origin(origin.clone(), Box::new(with.into()))
+				.unwrap();
 		let lane_id = locations.calculate_lane_id(xcm::latest::VERSION).unwrap();
 
 		if !Bridges::<TestRuntime, ()>::contains_key(locations.bridge_id()) {
 			// fund origin (if needed)
 			if !<TestRuntime as Config<()>>::AllowWithoutBridgeDeposit::contains(
-				locations.bridge_origin_relative_location()
+				locations.bridge_origin_relative_location(),
 			) {
-				fund_origin_sovereign_account(&locations, BridgeDeposit::get() + ExistentialDeposit::get());
+				fund_origin_sovereign_account(
+					&locations,
+					BridgeDeposit::get() + ExistentialDeposit::get(),
+				);
 			}
 
 			// open bridge
@@ -405,7 +411,9 @@ mod tests {
 		(*locations, lane_id)
 	}
 
-	fn open_lane_and_send_regular_message(source_origin: RuntimeOrigin) -> (BridgeId, TestLaneIdType) {
+	fn open_lane_and_send_regular_message(
+		source_origin: RuntimeOrigin,
+	) -> (BridgeId, TestLaneIdType) {
 		let (locations, lane_id) = open_lane(source_origin);
 
 		// now let's try to enqueue message using our `ExportXcm` implementation
@@ -424,7 +432,8 @@ mod tests {
 	#[test]
 	fn exporter_works() {
 		run_test(|| {
-			let (_, lane_id) = open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
+			let (_, lane_id) =
+				open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
 
 			// double check that the message has been pushed to the expected lane
 			// (it should already been checked during `send_message` call)
@@ -439,7 +448,8 @@ mod tests {
 	#[test]
 	fn exporter_does_not_suspend_the_bridge_if_outbound_bridge_queue_is_not_congested() {
 		run_test(|| {
-			let (bridge_id, _) = open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
+			let (bridge_id, _) =
+				open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
 			assert!(!TestLocalXcmChannelManager::is_bridge_suspened());
 			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Opened);
 		});
@@ -448,7 +458,8 @@ mod tests {
 	#[test]
 	fn exporter_does_not_suspend_the_bridge_if_it_is_already_suspended() {
 		run_test(|| {
-			let (bridge_id, _) = open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
+			let (bridge_id, _) =
+				open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
 			Bridges::<TestRuntime, ()>::mutate_extant(bridge_id, |bridge| {
 				bridge.state = BridgeState::Suspended;
 			});
@@ -464,7 +475,8 @@ mod tests {
 	#[test]
 	fn exporter_suspends_the_bridge_if_outbound_bridge_queue_is_congested() {
 		run_test(|| {
-			let (bridge_id, _) = open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
+			let (bridge_id, _) =
+				open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
 			for _ in 1..OUTBOUND_LANE_CONGESTED_THRESHOLD {
 				open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
 			}
@@ -481,7 +493,8 @@ mod tests {
 	#[test]
 	fn bridge_is_not_resumed_if_outbound_bridge_queue_is_still_congested() {
 		run_test(|| {
-			let (bridge_id, lane_id) = open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
+			let (bridge_id, lane_id) =
+				open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
 			Bridges::<TestRuntime, ()>::mutate_extant(bridge_id, |bridge| {
 				bridge.state = BridgeState::Suspended;
 			});
@@ -498,7 +511,8 @@ mod tests {
 	#[test]
 	fn bridge_is_not_resumed_if_it_was_not_suspended_before() {
 		run_test(|| {
-			let (bridge_id, lane_id) = open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
+			let (bridge_id, lane_id) =
+				open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
 			XcmOverBridge::on_bridge_messages_delivered(
 				lane_id,
 				OUTBOUND_LANE_UNCONGESTED_THRESHOLD,
@@ -512,7 +526,8 @@ mod tests {
 	#[test]
 	fn bridge_is_resumed_when_enough_messages_are_delivered() {
 		run_test(|| {
-			let (bridge_id, lane_id) = open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
+			let (bridge_id, lane_id) =
+				open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
 			Bridges::<TestRuntime, ()>::mutate_extant(bridge_id, |bridge| {
 				bridge.state = BridgeState::Suspended;
 			});
@@ -615,7 +630,8 @@ mod tests {
 
 			// open bridge
 			let origin = OpenBridgeOrigin::sibling_parachain_origin();
-			let origin_as_location = OpenBridgeOriginOf::<TestRuntime, ()>::try_origin(origin.clone()).unwrap();
+			let origin_as_location =
+				OpenBridgeOriginOf::<TestRuntime, ()>::try_origin(origin.clone()).unwrap();
 			let (_, expected_lane_id) = open_lane(origin);
 
 			// check before - no messages
@@ -641,7 +657,10 @@ mod tests {
 
 			// send `ExportMessage(message)` by `pallet_xcm_bridge_hub_router`.
 			ExecuteXcmOverSendXcm::set_origin_for_execute(origin_as_location);
-			assert_ok!(send_xcm::<XcmOverBridgeWrappedWithExportMessageRouter>(dest, Xcm::<()>::default()));
+			assert_ok!(send_xcm::<XcmOverBridgeWrappedWithExportMessageRouter>(
+				dest,
+				Xcm::<()>::default()
+			));
 
 			// check after - a message ready to be relayed
 			assert_eq!(
@@ -662,7 +681,8 @@ mod tests {
 			// valid routable destination
 			let dest = Location::new(2, BridgedUniversalDestination::get());
 
-			// open bridge as a root on the local chain, which should be converted as `Location::here()`
+			// open bridge as a root on the local chain, which should be converted as
+			// `Location::here()`
 			let (_, expected_lane_id) = open_lane(RuntimeOrigin::root());
 
 			// check before - no messages

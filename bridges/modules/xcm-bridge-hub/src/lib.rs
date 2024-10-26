@@ -146,7 +146,9 @@
 use bp_messages::{LaneState, MessageNonce};
 use bp_runtime::{AccountIdOf, BalanceOf, RangeInclusiveExt};
 pub use bp_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
-use bp_xcm_bridge_hub::{BridgeLocations, BridgeLocationsError, LocalXcmChannelManager, DepositOf, Deposit};
+use bp_xcm_bridge_hub::{
+	BridgeLocations, BridgeLocationsError, Deposit, DepositOf, LocalXcmChannelManager,
+};
 use frame_support::{traits::fungible::MutateHold, DefaultNoBound};
 use frame_system::Config as SystemConfig;
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, LanesManagerError};
@@ -468,7 +470,8 @@ pub mod pallet {
 				// get origin's sovereign account
 				let bridge_owner_account = T::BridgeOriginAccountIdConverter::convert_location(
 					locations.bridge_origin_relative_location(),
-				).ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
+				)
+				.ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
 
 				let deposit = T::BridgeDeposit::get();
 				T::Currency::hold(
@@ -843,8 +846,7 @@ mod tests {
 
 	use frame_support::{assert_err, assert_noop, assert_ok, BoundedVec};
 	use frame_system::{EventRecord, Phase};
-	use sp_runtime::traits::Zero;
-	use sp_runtime::TryRuntimeError;
+	use sp_runtime::{traits::Zero, TryRuntimeError};
 
 	fn mock_open_bridge_from_with(
 		origin: RuntimeOrigin,
@@ -858,7 +860,8 @@ mod tests {
 		let deposit = deposit.map(|deposit| {
 			let bridge_owner_account =
 				fund_origin_sovereign_account(&locations, deposit + ExistentialDeposit::get());
-			Balances::hold(&HoldReason::BridgeDeposit.into(), &bridge_owner_account, deposit).unwrap();
+			Balances::hold(&HoldReason::BridgeDeposit.into(), &bridge_owner_account, deposit)
+				.unwrap();
 			Deposit::new(bridge_owner_account, deposit)
 		});
 
@@ -1178,8 +1181,14 @@ mod tests {
 					Some(*locations.bridge_id())
 				);
 				if let Some(expected_deposit) = expected_deposit.as_ref() {
-					assert_eq!(Balances::free_balance(&expected_deposit.account), existential_deposit);
-					assert_eq!(Balances::reserved_balance(&expected_deposit.account), expected_deposit.amount);
+					assert_eq!(
+						Balances::free_balance(&expected_deposit.account),
+						existential_deposit
+					);
+					assert_eq!(
+						Balances::reserved_balance(&expected_deposit.account),
+						expected_deposit.amount
+					);
 				}
 
 				// ensure that the proper event is deposited

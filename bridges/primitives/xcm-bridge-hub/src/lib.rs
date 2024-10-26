@@ -182,9 +182,7 @@ pub struct Bridge<ThisChain: Chain, LaneId: LaneIdType> {
 pub type DepositOf<ThisChain> = Deposit<AccountIdOf<ThisChain>, BalanceOf<ThisChain>>;
 
 /// A structure containing information about from whom the deposit is reserved.
-#[derive(
-	Clone, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen, RuntimeDebug,
-)]
+#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen, RuntimeDebug)]
 pub struct Deposit<AccountId, Balance> {
 	/// Account with the reserved funds.
 	pub account: AccountId,
@@ -195,10 +193,7 @@ pub struct Deposit<AccountId, Balance> {
 impl<AccountId, Balance> Deposit<AccountId, Balance> {
 	/// Create new deposit.
 	pub fn new(account: AccountId, amount: Balance) -> Self {
-		Self {
-			account,
-			amount,
-		}
+		Self { account, amount }
 	}
 }
 

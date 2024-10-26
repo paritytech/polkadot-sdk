@@ -689,9 +689,8 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 		) {
 			None
 		} else {
-			let bridge_owner_account = LocationToAccountId::convert_location(&source)
-				.expect("valid location")
-				.into();
+			let bridge_owner_account =
+				LocationToAccountId::convert_location(&source).expect("valid location").into();
 			let deposit = <Runtime as pallet_xcm_bridge_hub::Config<
 				XcmOverBridgePalletInstance,
 			>>::BridgeDeposit::get();

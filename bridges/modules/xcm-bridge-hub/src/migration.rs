@@ -185,8 +185,7 @@ pub mod v0 {
 pub mod v1 {
 	use super::*;
 	use crate::{BalanceOf, Bridge, BridgeOf, Bridges, Deposit, ThisChainOf};
-	use frame_support::pallet_prelude::Zero;
-	use frame_support::traits::UncheckedOnRuntimeUpgrade;
+	use frame_support::{pallet_prelude::Zero, traits::UncheckedOnRuntimeUpgrade};
 	use sp_std::marker::PhantomData;
 
 	/// Migrates the pallet storage to v1.
