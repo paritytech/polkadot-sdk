@@ -37,7 +37,9 @@ pub use sp_trie::MerkleValue;
 
 use crate::{blockchain::Backend as BlockchainBackend, UsageInfo};
 
-pub use sp_state_machine::{Backend as StateBackend, BackendTransaction, KeyValueStates};
+pub use sp_state_machine::{
+	Backend as StateBackend, BackendTransaction, KeyValueStates, KeyValueStorageLevel,
+};
 
 /// Extracts the state backend type for the given backend.
 pub type StateBackendFor<B, Block> = <B as Backend<Block>>::State;
