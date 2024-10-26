@@ -17,7 +17,6 @@
 #![cfg(test)]
 
 use crate as pallet_xcm_bridge_hub;
-use std::marker::PhantomData;
 
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
@@ -33,7 +32,7 @@ use frame_support::{
 };
 use frame_support::traits::EitherOf;
 use frame_support::traits::fungible::Mutate;
-use frame_system::{EnsureRoot, EnsureRootWithSuccess};
+use frame_system::EnsureRootWithSuccess;
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_core::H256;
 use sp_runtime::{
@@ -48,7 +47,7 @@ use xcm_builder::{
 	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, ParentIsPreset,
 	SiblingParachainConvertsVia, SovereignPaidRemoteExporter, UnpaidLocalExporter
 };
-use xcm_executor::traits::{ConvertLocation, ConvertOrigin};
+use xcm_executor::traits::ConvertLocation;
 use xcm_executor::XcmExecutor;
 
 pub type AccountId = AccountId32;

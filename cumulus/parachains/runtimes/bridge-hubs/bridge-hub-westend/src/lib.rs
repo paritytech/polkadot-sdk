@@ -161,6 +161,10 @@ pub type Migrations = (
 		RocksDbWeight,
 	>,
 	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
+	pallet_xcm_bridge_hub::migration::v1::MigrationToV1<
+		Runtime,
+		bridge_to_rococo_config::XcmOverBridgeHubRococoInstance,
+	>,
 	snowbridge_pallet_system::migration::v0::InitializeOnUpgrade<
 		Runtime,
 		ConstU32<BRIDGE_HUB_ID>,
