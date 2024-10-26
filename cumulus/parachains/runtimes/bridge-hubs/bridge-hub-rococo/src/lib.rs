@@ -178,6 +178,10 @@ pub type Migrations = (
 		RocksDbWeight,
 	>,
 	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
+	pallet_xcm_bridge_hub::migration::v1::MigrationToV1<
+		Runtime,
+		bridge_to_westend_config::XcmOverBridgeHubWestendInstance,
+	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );

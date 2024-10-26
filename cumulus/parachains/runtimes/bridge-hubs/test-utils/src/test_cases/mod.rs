@@ -687,11 +687,16 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 		>>::AllowWithoutBridgeDeposit::contains(
 			locations.bridge_origin_relative_location()
 		) {
-			Zero::zero()
+			None
 		} else {
-			<Runtime as pallet_xcm_bridge_hub::Config<
+			let bridge_owner_account = LocationToAccountId::convert_location(&source)
+				.expect("valid location")
+				.into();
+			let deposit = <Runtime as pallet_xcm_bridge_hub::Config<
 				XcmOverBridgePalletInstance,
-			>>::BridgeDeposit::get()
+			>>::BridgeDeposit::get();
+
+			Some(bp_xcm_bridge_hub::Deposit::new(bridge_owner_account, deposit))
 		};
 
 		// check bridge/lane DOES not exist
@@ -741,9 +746,6 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 					locations.bridge_destination_universal_location().clone().into()
 				),
 				state: BridgeState::Opened,
-				bridge_owner_account: LocationToAccountId::convert_location(&source)
-					.expect("valid location")
-					.into(),
 				deposit: expected_deposit,
 				lane_id: expected_lane_id
 			})
