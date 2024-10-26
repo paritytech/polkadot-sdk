@@ -19,7 +19,7 @@
 //! State sync support.
 
 use crate::{
-	schema::v1::{StateEntry, StateRequest, StateResponse},
+	schema::v1::{KeyValueStateEntry, StateEntry, StateRequest, StateResponse},
 	LOG_TARGET,
 };
 use codec::{Decode, Encode};
@@ -202,31 +202,11 @@ where
 				complete = false;
 			}
 
-			let is_top = state.state_root.is_empty();
-
-			let entry = self.state.entry(state.state_root).or_default();
-
-			if entry.0.len() > 0 && entry.1.len() > 1 {
-				// Already imported child trie with same root.
-			} else {
-				let (child_key_values, top_key_values): (Vec<_>, Vec<_>) = state
-					.entries
-					.into_iter()
-					.map(|StateEntry { key, value }| (key, value))
-					.partition(|key_value| {
-						is_top && well_known_keys::is_child_storage_key(key_value.0.as_slice())
-					});
-
-				for (key, _value) in &top_key_values {
-					self.imported_bytes += key.len() as u64;
-				}
-
-				entry.0.extend(top_key_values);
-
-				for key_value in child_key_values {
-					self.insert_child_trie_roots(key_value);
-				}
-			}
+			let KeyValueStateEntry { state_root, entries, complete: _ } = state;
+			self.process_state_key_values(
+				state_root,
+				entries.into_iter().map(|StateEntry { key, value }| (key, value)),
+			);
 		}
 		complete
 	}
