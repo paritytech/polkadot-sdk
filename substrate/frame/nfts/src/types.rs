@@ -31,49 +31,48 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
 
 /// A type alias for handling balance deposits.
-pub(super) type DepositBalanceOf<T, I = ()> =
+pub type DepositBalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 /// A type alias representing the details of a collection.
-pub(super) type CollectionDetailsFor<T, I> =
+pub type CollectionDetailsFor<T, I> =
 	CollectionDetails<<T as SystemConfig>::AccountId, DepositBalanceOf<T, I>>;
 /// A type alias for keeping track of approvals used by a single item.
-pub(super) type ApprovalsOf<T, I = ()> = BoundedBTreeMap<
+pub type ApprovalsOf<T, I = ()> = BoundedBTreeMap<
 	<T as SystemConfig>::AccountId,
 	Option<BlockNumberFor<T>>,
 	<T as Config<I>>::ApprovalsLimit,
 >;
 /// A type alias for keeping track of approvals for an item's attributes.
-pub(super) type ItemAttributesApprovals<T, I = ()> =
+pub type ItemAttributesApprovals<T, I = ()> =
 	BoundedBTreeSet<<T as SystemConfig>::AccountId, <T as Config<I>>::ItemAttributesApprovalsLimit>;
 /// A type that holds the deposit for a single item.
-pub(super) type ItemDepositOf<T, I> =
-	ItemDeposit<DepositBalanceOf<T, I>, <T as SystemConfig>::AccountId>;
+pub type ItemDepositOf<T, I> = ItemDeposit<DepositBalanceOf<T, I>, <T as SystemConfig>::AccountId>;
 /// A type that holds the deposit amount for an item's attribute.
-pub(super) type AttributeDepositOf<T, I> =
+pub type AttributeDepositOf<T, I> =
 	AttributeDeposit<DepositBalanceOf<T, I>, <T as SystemConfig>::AccountId>;
 /// A type that holds the deposit amount for an item's metadata.
-pub(super) type ItemMetadataDepositOf<T, I> =
+pub type ItemMetadataDepositOf<T, I> =
 	ItemMetadataDeposit<DepositBalanceOf<T, I>, <T as SystemConfig>::AccountId>;
 /// A type that holds the details of a single item.
-pub(super) type ItemDetailsFor<T, I> =
+pub type ItemDetailsFor<T, I> =
 	ItemDetails<<T as SystemConfig>::AccountId, ItemDepositOf<T, I>, ApprovalsOf<T, I>>;
 /// A type alias for an accounts balance.
-pub(super) type BalanceOf<T, I = ()> =
+pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 /// A type alias to represent the price of an item.
-pub(super) type ItemPrice<T, I = ()> = BalanceOf<T, I>;
+pub type ItemPrice<T, I = ()> = BalanceOf<T, I>;
 /// A type alias for the tips held by a single item.
-pub(super) type ItemTipOf<T, I = ()> = ItemTip<
+pub type ItemTipOf<T, I = ()> = ItemTip<
 	<T as Config<I>>::CollectionId,
 	<T as Config<I>>::ItemId,
 	<T as SystemConfig>::AccountId,
 	BalanceOf<T, I>,
 >;
 /// A type alias for the settings configuration of a collection.
-pub(super) type CollectionConfigFor<T, I = ()> =
+pub type CollectionConfigFor<T, I = ()> =
 	CollectionConfig<BalanceOf<T, I>, BlockNumberFor<T>, <T as Config<I>>::CollectionId>;
 /// A type alias for the pre-signed minting configuration for a specified collection.
-pub(super) type PreSignedMintOf<T, I = ()> = PreSignedMint<
+pub type PreSignedMintOf<T, I = ()> = PreSignedMint<
 	<T as Config<I>>::CollectionId,
 	<T as Config<I>>::ItemId,
 	<T as SystemConfig>::AccountId,
@@ -81,7 +80,7 @@ pub(super) type PreSignedMintOf<T, I = ()> = PreSignedMint<
 	BalanceOf<T, I>,
 >;
 /// A type alias for the pre-signed minting configuration on the attribute level of an item.
-pub(super) type PreSignedAttributesOf<T, I = ()> = PreSignedAttributes<
+pub type PreSignedAttributesOf<T, I = ()> = PreSignedAttributes<
 	<T as Config<I>>::CollectionId,
 	<T as Config<I>>::ItemId,
 	<T as SystemConfig>::AccountId,
@@ -92,18 +91,18 @@ pub(super) type PreSignedAttributesOf<T, I = ()> = PreSignedAttributes<
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct CollectionDetails<AccountId, DepositBalance> {
 	/// Collection's owner.
-	pub(super) owner: AccountId,
+	pub owner: AccountId,
 	/// The total balance deposited by the owner for all the storage data associated with this
 	/// collection. Used by `destroy`.
-	pub(super) owner_deposit: DepositBalance,
+	pub owner_deposit: DepositBalance,
 	/// The total number of outstanding items of this collection.
-	pub(super) items: u32,
+	pub items: u32,
 	/// The total number of outstanding item metadata of this collection.
-	pub(super) item_metadatas: u32,
+	pub item_metadatas: u32,
 	/// The total number of outstanding item configs of this collection.
-	pub(super) item_configs: u32,
+	pub item_configs: u32,
 	/// The total number of attributes for this collection.
-	pub(super) attributes: u32,
+	pub attributes: u32,
 }
 
 /// Witness data for the destroy transactions.
@@ -143,21 +142,21 @@ pub struct MintWitness<ItemId, Balance> {
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
 pub struct ItemDetails<AccountId, Deposit, Approvals> {
 	/// The owner of this item.
-	pub(super) owner: AccountId,
+	pub owner: AccountId,
 	/// The approved transferrer of this item, if one is set.
-	pub(super) approvals: Approvals,
+	pub approvals: Approvals,
 	/// The amount held in the pallet's default account for this item. Free-hold items will have
 	/// this as zero.
-	pub(super) deposit: Deposit,
+	pub deposit: Deposit,
 }
 
 /// Information about the reserved item deposit.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ItemDeposit<DepositBalance, AccountId> {
 	/// A depositor account.
-	pub(super) account: AccountId,
+	pub account: AccountId,
 	/// An amount that gets reserved.
-	pub(super) amount: DepositBalance,
+	pub amount: DepositBalance,
 }
 
 /// Information about the collection's metadata.
@@ -168,11 +167,11 @@ pub struct CollectionMetadata<Deposit, StringLimit: Get<u32>> {
 	/// The balance deposited for this metadata.
 	///
 	/// This pays for the data stored in this struct.
-	pub(super) deposit: Deposit,
+	pub deposit: Deposit,
 	/// General information concerning this collection. Limited in length by `StringLimit`. This
 	/// will generally be either a JSON dump or the hash of some JSON which can be found on a
 	/// hash-addressable global publication system such as IPFS.
-	pub(super) data: BoundedVec<u8, StringLimit>,
+	pub data: BoundedVec<u8, StringLimit>,
 }
 
 /// Information about the item's metadata.
@@ -182,11 +181,11 @@ pub struct ItemMetadata<Deposit, StringLimit: Get<u32>> {
 	/// The balance deposited for this metadata.
 	///
 	/// This pays for the data stored in this struct.
-	pub(super) deposit: Deposit,
+	pub deposit: Deposit,
 	/// General information concerning this item. Limited in length by `StringLimit`. This will
-	/// generally be either a JSON dump or the hash of some JSON which can be found on a
+	/// generally be either a JSON dump or the hash of some JSON which can be found on
 	/// hash-addressable global publication system such as IPFS.
-	pub(super) data: BoundedVec<u8, StringLimit>,
+	pub data: BoundedVec<u8, StringLimit>,
 }
 
 /// Information about the tip.
@@ -206,31 +205,31 @@ pub struct ItemTip<CollectionId, ItemId, AccountId, Amount> {
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
 pub struct PendingSwap<CollectionId, ItemId, ItemPriceWithDirection, Deadline> {
 	/// The collection that contains the item that the user wants to receive.
-	pub(super) desired_collection: CollectionId,
+	pub desired_collection: CollectionId,
 	/// The item the user wants to receive.
-	pub(super) desired_item: Option<ItemId>,
+	pub desired_item: Option<ItemId>,
 	/// A price for the desired `item` with the direction.
-	pub(super) price: Option<ItemPriceWithDirection>,
+	pub price: Option<ItemPriceWithDirection>,
 	/// A deadline for the swap.
-	pub(super) deadline: Deadline,
+	pub deadline: Deadline,
 }
 
 /// Information about the reserved attribute deposit.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct AttributeDeposit<DepositBalance, AccountId> {
 	/// A depositor account.
-	pub(super) account: Option<AccountId>,
+	pub account: Option<AccountId>,
 	/// An amount that gets reserved.
-	pub(super) amount: DepositBalance,
+	pub amount: DepositBalance,
 }
 
 /// Information about the reserved item's metadata deposit.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ItemMetadataDeposit<DepositBalance, AccountId> {
 	/// A depositor account, None means the deposit is collection's owner.
-	pub(super) account: Option<AccountId>,
+	pub account: Option<AccountId>,
 	/// An amount that gets reserved.
-	pub(super) amount: DepositBalance,
+	pub amount: DepositBalance,
 }
 
 /// Specifies whether the tokens will be sent or received.

@@ -17,7 +17,7 @@
 use super::*;
 use crate::{inclusion, ParaId};
 use alloc::collections::btree_map::BTreeMap;
-use core::cmp::min;
+use core::cmp::{max, min};
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 
@@ -43,7 +43,8 @@ benchmarks! {
 	// Variant over `v`, the number of dispute statements in a dispute statement set. This gives the
 	// weight of a single dispute statement set.
 	enter_variable_disputes {
-		let v in 10..BenchBuilder::<T>::fallback_max_validators();
+		// The number of statements needs to be at least a third of the validator set size.
+		let v in 400..BenchBuilder::<T>::fallback_max_validators();
 
 		let scenario = BenchBuilder::<T>::new()
 			.set_dispute_sessions(&[2])
@@ -107,7 +108,7 @@ benchmarks! {
 	// of a single backed candidate.
 	enter_backed_candidates_variable {
 		let v in (BenchBuilder::<T>::fallback_min_backing_votes())
-			..(BenchBuilder::<T>::fallback_max_validators_per_core());
+			.. max(BenchBuilder::<T>::fallback_min_backing_votes() + 1, BenchBuilder::<T>::fallback_max_validators_per_core());
 
 		let cores_with_backed: BTreeMap<_, _>
 			= vec![(0, v)] // The backed candidate will have `v` validity votes.

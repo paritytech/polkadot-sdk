@@ -22,7 +22,7 @@ Prerequisites for running the tests locally:
 - copy the `substrate-relay` binary, built in the previous step, to `~/local_bridge_testing/bin/substrate-relay`;
 
 After that, any test can be run using the `run-test.sh` command.
-Example: `./run-new-test.sh 0001-asset-transfer`
+Example: `./run-test.sh 0001-asset-transfer`
 
 Hopefully, it'll show the
 "All tests have completed successfully" message in the end. Otherwise, it'll print paths to zombienet

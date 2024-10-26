@@ -245,7 +245,7 @@ use frame_support::{
 	weights::Weight,
 	DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
-use frame_system::{ensure_none, offchain::SendTransactionTypes, pallet_prelude::BlockNumberFor};
+use frame_system::{ensure_none, offchain::CreateInherent, pallet_prelude::BlockNumberFor};
 use scale_info::TypeInfo;
 use sp_arithmetic::{
 	traits::{CheckedAdd, Zero},
@@ -576,7 +576,7 @@ pub mod pallet {
 	use sp_runtime::traits::Convert;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
+	pub trait Config: frame_system::Config + CreateInherent<Call<Self>> {
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
 			+ TryInto<Event<Self>>;
@@ -1208,9 +1208,8 @@ pub mod pallet {
 				}
 
 				let _ = Self::unsigned_pre_dispatch_checks(raw_solution)
-					.map_err(|err| {
+					.inspect_err(|err| {
 						log!(debug, "unsigned transaction validation failed due to {:?}", err);
-						err
 					})
 					.map_err(dispatch_error_to_invalid)?;
 

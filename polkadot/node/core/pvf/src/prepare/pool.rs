@@ -343,14 +343,13 @@ fn handle_mux(
 				),
 				// Return `Concluded`, but do not kill the worker since the error was on the host
 				// side.
-				Outcome::RenameTmpFile { worker: idle, result: _, err, src, dest } =>
-					handle_concluded_no_rip(
-						from_pool,
-						spawned,
-						worker,
-						idle,
-						Err(PrepareError::RenameTmpFile { err, src, dest }),
-					),
+				Outcome::RenameTmpFile { worker: idle, err, src, dest } => handle_concluded_no_rip(
+					from_pool,
+					spawned,
+					worker,
+					idle,
+					Err(PrepareError::RenameTmpFile { err, src, dest }),
+				),
 				// Could not clear worker cache. Kill the worker so other jobs can't see the data.
 				Outcome::ClearWorkerDir { err } => {
 					if attempt_retire(metrics, spawned, worker) {

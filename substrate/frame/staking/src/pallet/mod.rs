@@ -25,8 +25,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
+		Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
+		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -48,11 +48,11 @@ mod impls;
 pub use impls::*;
 
 use crate::{
-	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, DisablingStrategy,
-	EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState,
-	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
+	DisablingStrategy, EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
+	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
+	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnappliedSlash,
+	UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -779,7 +779,7 @@ pub mod pallet {
 					status
 				);
 				assert!(
-					T::Currency::free_balance(stash) >= balance,
+					asset::stakeable_balance::<T>(stash) >= balance,
 					"Stash does not have enough balance to bond."
 				);
 				frame_support::assert_ok!(<Pallet<T>>::bond(
@@ -1023,14 +1023,14 @@ pub mod pallet {
 			}
 
 			// Reject a bond which is considered to be _dust_.
-			if value < T::Currency::minimum_balance() {
+			if value < asset::existential_deposit::<T>() {
 				return Err(Error::<T>::InsufficientBond.into())
 			}
 
 			// Would fail if account has no provider.
 			frame_system::Pallet::<T>::inc_consumers(&stash)?;
 
-			let stash_balance = T::Currency::free_balance(&stash);
+			let stash_balance = asset::stakeable_balance::<T>(&stash);
 			let value = value.min(stash_balance);
 			Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
 			let ledger = StakingLedger::<T>::new(stash.clone(), value);
@@ -1068,7 +1068,7 @@ pub mod pallet {
 
 		/// Schedule a portion of the stash to be unlocked ready for transfer out after the bond
 		/// period ends. If this leaves an amount actively bonded less than
-		/// T::Currency::minimum_balance(), then it is increased to the full amount.
+		/// [`asset::existential_deposit`], then it is increased to the full amount.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
 		///
@@ -1124,7 +1124,7 @@ pub mod pallet {
 				ledger.active -= value;
 
 				// Avoid there being a dust balance left in the staking system.
-				if ledger.active < T::Currency::minimum_balance() {
+				if ledger.active < asset::existential_deposit::<T>() {
 					value += ledger.active;
 					ledger.active = Zero::zero();
 				}
@@ -1654,7 +1654,10 @@ pub mod pallet {
 			let initial_unlocking = ledger.unlocking.len() as u32;
 			let (ledger, rebonded_value) = ledger.rebond(value);
 			// Last check: the new active amount of ledger must be more than ED.
-			ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
+			ensure!(
+				ledger.active >= asset::existential_deposit::<T>(),
+				Error::<T>::InsufficientBond
+			);
 
 			Self::deposit_event(Event::<T>::Bonded {
 				stash: ledger.stash.clone(),
@@ -1706,8 +1709,8 @@ pub mod pallet {
 			// virtual stakers should not be allowed to be reaped.
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
-			let ed = T::Currency::minimum_balance();
-			let origin_balance = T::Currency::total_balance(&stash);
+			let ed = asset::existential_deposit::<T>();
+			let origin_balance = asset::total_balance::<T>(&stash);
 			let ledger_total =
 				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
 			let reapable = origin_balance < ed ||
@@ -2074,8 +2077,8 @@ pub mod pallet {
 			// cannot restore ledger for virtual stakers.
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
-			let current_lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
-			let stash_balance = T::Currency::free_balance(&stash);
+			let current_lock = asset::staked::<T>(&stash);
+			let stash_balance = asset::stakeable_balance::<T>(&stash);
 
 			let (new_controller, new_total) = match Self::inspect_bond_state(&stash) {
 				Ok(LedgerIntegrityState::Corrupted) => {
@@ -2084,12 +2087,7 @@ pub mod pallet {
 					let new_total = if let Some(total) = maybe_total {
 						let new_total = total.min(stash_balance);
 						// enforce lock == ledger.amount.
-						T::Currency::set_lock(
-							crate::STAKING_ID,
-							&stash,
-							new_total,
-							WithdrawReasons::all(),
-						);
+						asset::update_stake::<T>(&stash, new_total);
 						new_total
 					} else {
 						current_lock
@@ -2116,18 +2114,13 @@ pub mod pallet {
 					// to enforce a new ledger.total and staking lock for this stash.
 					let new_total =
 						maybe_total.ok_or(Error::<T>::CannotRestoreLedger)?.min(stash_balance);
-					T::Currency::set_lock(
-						crate::STAKING_ID,
-						&stash,
-						new_total,
-						WithdrawReasons::all(),
-					);
+					asset::update_stake::<T>(&stash, new_total);
 
 					Ok((stash.clone(), new_total))
 				},
 				Err(Error::<T>::BadState) => {
 					// the stash and ledger do not exist but lock is lingering.
-					T::Currency::remove_lock(crate::STAKING_ID, &stash);
+					asset::kill_stake::<T>(&stash);
 					ensure!(
 						Self::inspect_bond_state(&stash) == Err(Error::<T>::NotStash),
 						Error::<T>::BadState

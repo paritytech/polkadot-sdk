@@ -185,3 +185,8 @@ pub mod snowbridge {
 		pub EthereumLocation: Location = Location::new(2, EthereumNetwork::get());
 	}
 }
+
+pub mod xcm_version {
+	/// The default XCM version to set in genesis config.
+	pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
+}

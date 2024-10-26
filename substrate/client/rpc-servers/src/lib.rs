@@ -32,7 +32,6 @@ use jsonrpsee::{
 	},
 	Methods, RpcModule,
 };
-use middleware::NodeHealthProxyLayer;
 use tower::Service;
 use utils::{
 	build_rpc_api, deny_unsafe, format_listen_addrs, get_proxy_ip, ListenAddrError, RpcSettings,
@@ -43,7 +42,7 @@ pub use jsonrpsee::{
 	core::id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 	server::{middleware::rpc::RpcServiceBuilder, BatchRequestConfig},
 };
-pub use middleware::{Metrics, MiddlewareLayer, RpcMetrics};
+pub use middleware::{Metrics, MiddlewareLayer, NodeHealthProxyLayer, RpcMetrics};
 pub use utils::{RpcEndpoint, RpcMethods};
 
 const MEGABYTE: u32 = 1024 * 1024;
@@ -256,8 +255,9 @@ where
 							),
 						};
 
-						let rpc_middleware =
-							RpcServiceBuilder::new().option_layer(middleware_layer.clone());
+						let rpc_middleware = RpcServiceBuilder::new()
+							.rpc_logger(1024)
+							.option_layer(middleware_layer.clone());
 						let mut svc = service_builder
 							.set_rpc_middleware(rpc_middleware)
 							.build(methods, stop_handle);

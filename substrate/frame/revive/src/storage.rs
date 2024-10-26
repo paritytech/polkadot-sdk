@@ -26,7 +26,7 @@ use crate::{
 	storage::meter::Diff,
 	weights::WeightInfo,
 	BalanceOf, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter, Error,
-	TrieId, SENTINEL,
+	StorageDeposit, TrieId, SENTINEL,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -36,6 +36,7 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 	CloneNoBound, DefaultNoBound,
 };
+use meter::DepositOf;
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, Get, H160};
 use sp_io::KillStorageResult;
@@ -75,6 +76,8 @@ pub struct ContractInfo<T: Config> {
 	/// to the map can not be removed from the chain state and can be safely used for delegate
 	/// calls.
 	delegate_dependencies: DelegateDependencyMap<T>,
+	/// The size of the immutable data of this contract.
+	immutable_data_len: u32,
 }
 
 impl<T: Config> ContractInfo<T> {
@@ -88,7 +91,7 @@ impl<T: Config> ContractInfo<T> {
 		code_hash: sp_core::H256,
 	) -> Result<Self, DispatchError> {
 		if <ContractInfoOf<T>>::contains_key(address) {
-			return Err(Error::<T>::DuplicateContract.into())
+			return Err(Error::<T>::DuplicateContract.into());
 		}
 
 		let trie_id = {
@@ -108,6 +111,7 @@ impl<T: Config> ContractInfo<T> {
 			storage_item_deposit: Zero::zero(),
 			storage_base_deposit: Zero::zero(),
 			delegate_dependencies: Default::default(),
+			immutable_data_len: 0,
 		};
 
 		Ok(contract)
@@ -355,6 +359,35 @@ impl<T: Config> ContractInfo<T> {
 	/// Returns the code hash of the contract specified by `account` ID.
 	pub fn load_code_hash(account: &AccountIdOf<T>) -> Option<sp_core::H256> {
 		<ContractInfoOf<T>>::get(&T::AddressMapper::to_address(account)).map(|i| i.code_hash)
+	}
+
+	/// Returns the amount of immutable bytes of this contract.
+	pub fn immutable_data_len(&self) -> u32 {
+		self.immutable_data_len
+	}
+
+	/// Set the number of immutable bytes of this contract.
+	///
+	/// On success, returns the storage deposit to be charged.
+	///
+	/// Returns `Err(InvalidImmutableAccess)` if:
+	/// - The immutable bytes of this contract are not 0. This indicates that the immutable data
+	///   have already been set; it is only valid to set the immutable data exactly once.
+	/// - The provided `immutable_data_len` value was 0; it is invalid to set empty immutable data.
+	pub fn set_immutable_data_len(
+		&mut self,
+		immutable_data_len: u32,
+	) -> Result<DepositOf<T>, DispatchError> {
+		if self.immutable_data_len != 0 || immutable_data_len == 0 {
+			return Err(Error::<T>::InvalidImmutableAccess.into());
+		}
+
+		self.immutable_data_len = immutable_data_len;
+
+		let amount = T::DepositPerByte::get()
+			.saturating_mul(immutable_data_len.into())
+			.saturating_add(T::DepositPerItem::get());
+		Ok(StorageDeposit::Charge(amount))
 	}
 }
 
