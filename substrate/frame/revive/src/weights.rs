@@ -74,6 +74,7 @@ pub trait WeightInfo {
 	fn seal_value_transferred() -> Weight;
 	fn seal_minimum_balance() -> Weight;
 	fn seal_block_number() -> Weight;
+	fn seal_block_hash() -> Weight;
 	fn seal_now() -> Weight;
 	fn seal_weight_to_fee() -> Weight;
 	fn seal_input(n: u32, ) -> Weight;
@@ -412,6 +413,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(291_000, 0)
 	}
 	fn seal_block_number() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 252_000 picoseconds.
+		Weight::from_parts(291_000, 0)
+	}
+	fn seal_block_hash() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1171,6 +1179,13 @@ impl WeightInfo for () {
 		Weight::from_parts(291_000, 0)
 	}
 	fn seal_block_number() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 252_000 picoseconds.
+		Weight::from_parts(291_000, 0)
+	}
+	fn seal_block_hash() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

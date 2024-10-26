@@ -315,6 +315,8 @@ pub enum RuntimeCosts {
 	MinimumBalance,
 	/// Weight of calling `seal_block_number`.
 	BlockNumber,
+	/// Weight of calling `seal_block_hash`.
+	BlockHash,
 	/// Weight of calling `seal_now`.
 	Now,
 	/// Weight of calling `seal_weight_to_fee`.
@@ -460,6 +462,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			ValueTransferred => T::WeightInfo::seal_value_transferred(),
 			MinimumBalance => T::WeightInfo::seal_minimum_balance(),
 			BlockNumber => T::WeightInfo::seal_block_number(),
+			BlockHash => T::WeightInfo::seal_block_hash(),
 			Now => T::WeightInfo::seal_now(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
 			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
@@ -1671,6 +1674,27 @@ pub mod env {
 			memory,
 			out_ptr,
 			&self.ext.block_number().to_little_endian(),
+			false,
+			already_charged,
+		)?)
+	}
+
+	/// Stores the block hash at given block height into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::block_hash`].
+	#[api_version(0)]
+	fn block_hash(
+		&mut self,
+		memory: &mut M,
+		block_number_ptr: u32,
+		out_ptr: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::BlockHash)?;
+		let block_number = memory.read_u256(block_number_ptr)?;
+		let block_hash = self.ext.block_hash(block_number).unwrap_or(H256::zero());
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&block_hash.as_bytes(),
 			false,
 			already_charged,
 		)?)
