@@ -326,6 +326,7 @@ pub mod pallet {
 
 	/// Bounty indices that have been approved but not yet funded.
 	#[pallet::storage]
+	#[allow(deprecated)]
 	pub type BountyApprovals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<BountyIndex, T::MaxApprovals>, ValueQuery>;
 
